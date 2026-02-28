@@ -8,7 +8,6 @@ metadata:
     component: database
     job-type: backup
 spec:
-  # Daily at 03:00 UTC
   schedule: "0 3 * * *"
   successfulJobsHistoryLimit: 7
   failedJobsHistoryLimit: 5
@@ -17,7 +16,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
-      activeDeadlineSeconds: 1800  # 30 min max
+      activeDeadlineSeconds: 1800
       template:
         metadata:
           labels:
@@ -30,65 +29,40 @@ spec:
             runAsNonRoot: true
             runAsUser: 1001
             fsGroup: 1001
-
+          volumes:
+            - name: backup-data
+              emptyDir: {}
           containers:
-            - name: backup
-              image: postgres:15-alpine
+            - name: backup-export
+              image: postgres@sha256:79e73c0029e3a99b462253bba85352c6e748b93b9ffc5818ac0326cdbed62e76
               command:
                 - /bin/sh
                 - -c
                 - |
-                  set -e
-                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-                  BACKUP_FILE="/tmp/valueos_backup_${TIMESTAMP}.sql.gz"
+                  set -euo pipefail
+                  TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+                  mkdir -p /backup
+                  BACKUP_FILE="/backup/valueos_backup_${TIMESTAMP}.sql.gz"
 
-                  echo "Starting database backup at ${TIMESTAMP}"
+                  echo "Starting database export at ${TIMESTAMP}"
                   pg_dump "${DATABASE_URL}" --no-owner --no-acl | gzip > "${BACKUP_FILE}"
 
-                  echo "Uploading to S3..."
-                  # aws cli is not in postgres image; use a sidecar or init container
-                  # with aws-cli for real deployments. This uses a pre-installed binary.
-                  if command -v aws >/dev/null 2>&1; then
-                    aws s3 cp "${BACKUP_FILE}" \
-                      "s3://${S3_BACKUP_BUCKET}/database-backups/${TIMESTAMP}.sql.gz" \
-                      --sse AES256
-                    echo "Backup uploaded successfully"
-
-                    # Prune backups older than retention period
-                    aws s3 ls "s3://${S3_BACKUP_BUCKET}/database-backups/" \
-                      | awk '{print $4}' \
-                      | sort \
-                      | head -n -${BACKUP_RETENTION_COUNT:-90} \
-                      | xargs -I{} aws s3 rm "s3://${S3_BACKUP_BUCKET}/database-backups/{}"
-                    echo "Old backups pruned"
-                  else
-                    echo "WARNING: aws CLI not available; backup saved locally only"
-                    ls -lh "${BACKUP_FILE}"
-                  fi
-
-                  # Verify backup is non-empty
-                  BACKUP_SIZE=$(stat -c%s "${BACKUP_FILE}" 2>/dev/null || stat -f%z "${BACKUP_FILE}")
+                  BACKUP_SIZE=$(wc -c < "${BACKUP_FILE}")
                   if [ "${BACKUP_SIZE}" -lt 1024 ]; then
                     echo "ERROR: Backup file suspiciously small (${BACKUP_SIZE} bytes)"
                     exit 1
                   fi
 
-                  echo "Backup completed: ${BACKUP_SIZE} bytes"
-                  rm -f "${BACKUP_FILE}"
-
+                  echo "Database export ready: ${BACKUP_FILE} (${BACKUP_SIZE} bytes)"
               env:
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:
                       name: valynt-secrets
                       key: database-url
-                - name: S3_BACKUP_BUCKET
-                  value: "valueos-production-backups"
-                - name: BACKUP_RETENTION_COUNT
-                  value: "90"
-                - name: AWS_DEFAULT_REGION
-                  value: "us-east-1"
-
+              volumeMounts:
+                - name: backup-data
+                  mountPath: /backup
               resources:
                 requests:
                   cpu: 100m
@@ -96,10 +70,86 @@ spec:
                 limits:
                   cpu: 500m
                   memory: 512Mi
-
               securityContext:
                 allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: false  # needs /tmp for backup file
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1001
+                capabilities:
+                  drop:
+                    - ALL
+            - name: backup-upload
+              image: public.ecr.aws/aws-cli/aws-cli@sha256:54ff646707d814dc07474bd897a96a685d14067aaafe4d2ecc113f90666a1fb9
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+
+                  if [ -z "${S3_BACKUP_BUCKET:-}" ] || [ -z "${AWS_DEFAULT_REGION:-}" ]; then
+                    echo "ERROR: S3_BACKUP_BUCKET and AWS_DEFAULT_REGION are required"
+                    exit 1
+                  fi
+
+                  if ! printf '%s' "${BACKUP_RETENTION_DAYS}" | grep -Eq '^[0-9]+$'; then
+                    echo "ERROR: BACKUP_RETENTION_DAYS must be numeric"
+                    exit 1
+                  fi
+
+                  for i in $(seq 1 120); do
+                    BACKUP_FILE=$(find /backup -maxdepth 1 -name 'valueos_backup_*.sql.gz' | head -n 1 || true)
+                    if [ -n "${BACKUP_FILE}" ]; then
+                      break
+                    fi
+                    sleep 2
+                  done
+
+                  if [ -z "${BACKUP_FILE:-}" ]; then
+                    echo "ERROR: Timed out waiting for backup export"
+                    exit 1
+                  fi
+
+                  OBJECT_KEY="database-backups/$(basename "${BACKUP_FILE}")"
+
+                  aws s3api put-object \
+                    --bucket "${S3_BACKUP_BUCKET}" \
+                    --key "${OBJECT_KEY}" \
+                    --body "${BACKUP_FILE}" \
+                    --server-side-encryption "${S3_SSE_ALGORITHM}" \
+                    --metadata "retention-days=${BACKUP_RETENTION_DAYS}" \
+                    --region "${AWS_DEFAULT_REGION}"
+
+                  aws s3api head-object \
+                    --bucket "${S3_BACKUP_BUCKET}" \
+                    --key "${OBJECT_KEY}" \
+                    --region "${AWS_DEFAULT_REGION}" \
+                    --query 'ServerSideEncryption' \
+                    --output text | grep -Fx "${S3_SSE_ALGORITHM}"
+
+                  echo "Backup uploaded with SSE=${S3_SSE_ALGORITHM}."
+                  echo "Retention is enforced via S3 bucket lifecycle policy (days=${BACKUP_RETENTION_DAYS})."
+              env:
+                - name: S3_BACKUP_BUCKET
+                  value: "valueos-production-backups"
+                - name: BACKUP_RETENTION_DAYS
+                  value: "90"
+                - name: S3_SSE_ALGORITHM
+                  value: "AES256"
+                - name: AWS_DEFAULT_REGION
+                  value: "us-east-1"
+              volumeMounts:
+                - name: backup-data
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
                 runAsNonRoot: true
                 runAsUser: 1001
                 capabilities:

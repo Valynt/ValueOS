@@ -6,12 +6,12 @@
  */
 
 import { BaseAgent } from "../BaseAgent";
-import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 import {
-  validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
+  validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
 
 export interface ValueRealization {

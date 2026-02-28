@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { GuestValueCalculator } from './GuestValueCalculator';
 import { getGuestAccessService, GuestPermissions } from '@/GuestAccessService';

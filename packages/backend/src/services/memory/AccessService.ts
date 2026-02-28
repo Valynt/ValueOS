@@ -1,10 +1,10 @@
 import { createHash, randomBytes } from "crypto";
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  UUID,
   AccessGrant,
   AccessGrantTier,
   GrantCreationParams,
+  UUID,
   ValidationResult,
 } from "./types";
 

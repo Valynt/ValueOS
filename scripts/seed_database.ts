@@ -24,7 +24,7 @@ console.log(`Running seed script in ${NODE_ENV} environment`);
 
 // --- Configuration ---
 const supabaseUrl =
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "http://localhost:54321";
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://your-project.supabase.co";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseServiceKey || supabaseServiceKey === "your-service-key") {

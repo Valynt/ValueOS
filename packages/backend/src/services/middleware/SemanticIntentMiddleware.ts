@@ -12,11 +12,11 @@ import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../
 import type { AgentType } from '../agent-types.js';
 import type { IntentCategory } from '../../types/intent.js';
 import type {
+  ClarificationPayload,
+  HistoricalIntentMatch,
   IntentGraph,
   IntentNode,
   IntentParameter,
-  ClarificationPayload,
-  HistoricalIntentMatch,
 } from './types.js';
 import type { EmbeddingService } from './EmbeddingService.js';
 import type { VectorSearchService } from '../VectorSearchService.js';
@@ -146,7 +146,8 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
       }
 
       // 4. Classify via LLM
-      const intentGraph = await this.classifyIntent(context.query, embedding, historicalResults);
+      const organizationId = context.envelope.organizationId;
+      const intentGraph = await this.classifyIntent(context.query, embedding, historicalResults, organizationId);
 
       // 5. Check ambiguity
       if (
@@ -206,7 +207,8 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
   private async classifyIntent(
     query: string,
     _embedding: number[],
-    historicalResults: Array<{ memory: any; similarity: number }>
+    historicalResults: Array<{ memory: any; similarity: number }>,
+    organizationId: string
   ): Promise<IntentGraph> {
     const historicalContext = historicalResults
       .slice(0, 3)
@@ -242,7 +244,7 @@ Respond with valid JSON only, no markdown fences:
         ],
         temperature: 0.1,
         max_tokens: 512,
-        metadata: { tenantId: 'system', agentType: 'semantic_intent' } as any,
+        metadata: { tenantId: organizationId, agentType: 'semantic_intent' } as any,
       });
 
       const parsed = JSON.parse(llmResponse.content);
@@ -314,14 +316,17 @@ Respond with valid JSON only, no markdown fences:
     wasSuccessful: boolean
   ): Promise<void> {
     try {
+      const organizationId = context.envelope.organizationId;
       await supabase.from('semantic_memory').insert({
         type: 'intent_classification',
         content: context.query,
         embedding,
+        organization_id: organizationId,
         metadata: {
           agentType,
           wasSuccessful,
           userId: context.userId,
+          tenant_id: organizationId,
           timestamp: new Date().toISOString(),
           tags: ['intent_classification'],
         },

@@ -32,7 +32,7 @@ export const ACTIONS = {
 
 export type Action = (typeof ACTIONS)[keyof typeof ACTIONS];
 
-export type Permission = `${Resource}:${Action}` | `${string}:${string}`;
+export type Permission = `${Resource}:${Action}` | `${string}:${string}` | `${string}.${string}`;
 
 export const PERMISSIONS = {
   DASHBOARD_VIEW: "dashboard:view" as Permission,

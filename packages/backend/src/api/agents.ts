@@ -6,15 +6,61 @@ import { logger } from "@shared/lib/logger";
 import { requirePermission } from "../middleware/rbac.js"
 import { getEventProducer } from "../services/EventProducer.js"
 import { getEventSourcingService } from "../services/EventSourcingService.js"
-import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/events";
+import { AgentRequestEvent, createBaseEvent, EVENT_TOPICS } from "@shared/types/events";
 import { v4 as uuidv4 } from "uuid";
 import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
 import { z } from "zod";
 import { agentCache } from "../services/CacheService.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
 import { sanitizeAgentInput } from "../utils/security.js"
+import { isKafkaEnabled } from "../services/kafkaConfig.js"
 
 const router = Router();
+
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    const parsed = JSON.parse(decoded);
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveExternalSub(req: Request): string | undefined {
+  const anyReq = req as any;
+  const user = anyReq.user as Record<string, any> | undefined;
+
+  const direct = user?.sub || user?.oidc_sub || user?.user_metadata?.sub || user?.app_metadata?.sub;
+  if (typeof direct === 'string' && direct.length > 0) return direct;
+
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    const claims = decodeJwtPayload(authHeader.slice(7));
+    const claimSub = claims?.sub;
+    if (typeof claimSub === 'string' && claimSub.length > 0) {
+      return claimSub;
+    }
+  }
+
+  return undefined;
+}
+
+function kafkaUnavailableResponse(res: Response): Response {
+  return res.status(503).json({
+    success: false,
+    error: {
+      code: "KAFKA_DISABLED",
+      message: "Kafka-backed agent execution is disabled in this deployment profile.",
+    },
+  });
+}
+
 router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
@@ -30,7 +76,7 @@ router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) =
     });
   }
 
-  res.setHeader("x-model-card-version", modelCard.schemaVersion);
+  return res.setHeader("x-model-card-version", modelCard.schemaVersion);
 
   return res.json({
     success: true,
@@ -137,10 +183,15 @@ router.post(
       logger.warn("Cache check failed", cacheError instanceof Error ? cacheError : undefined);
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const externalSub = resolveExternalSub(req);
 
       // Create agent request event
       const agentRequestEvent: AgentRequestEvent = {
@@ -148,6 +199,7 @@ router.post(
         payload: {
           agentId,
           userId,
+          externalSub,
           sessionId,
           tenantId,
           query: sanitizedQuery,
@@ -170,7 +222,7 @@ router.post(
       });
 
       // Return job ID for tracking
-      res.json({
+      return res.json({
         success: true,
         data: {
           jobId: correlationId,
@@ -192,7 +244,7 @@ router.post(
         }
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Agent request failed",
         message: error instanceof Error ? error.message : "Unknown error",
@@ -230,14 +282,20 @@ router.post(
       return res.status(403).json({ success: false, error: { code: "tenant_required", message: "Tenant context is required" } });
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const externalSub = resolveExternalSub(req);
 
       const payload = {
         agentId,
         userId,
+        externalSub,
         sessionId,
         tenantId,
         query: type,
@@ -254,10 +312,10 @@ router.post(
 
       await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
 
-      res.json({ success: true, data: { jobId: correlationId, status: "queued" } });
+      return res.json({ success: true, data: { jobId: correlationId, status: "queued" } });
     } catch (error) {
       logger.error("Failed to publish typed agent execute", error as Error);
-      res.status(500).json({ success: false, error: { code: "PUBLISH_FAILED", message: "Failed to enqueue request" } });
+      return res.status(500).json({ success: false, error: { code: "PUBLISH_FAILED", message: "Failed to enqueue request" } });
     }
   }
 );
@@ -296,10 +354,15 @@ router.post(
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const externalSub = resolveExternalSub(req);
 
       const normalizedAction = action
       ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
@@ -310,6 +373,7 @@ router.post(
       payload: {
         agentId,
         userId,
+        externalSub,
         sessionId,
         tenantId,
         query: normalizedAction || "execute",
@@ -335,6 +399,10 @@ router.post(
  */
 router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Response) => {
   const { jobId } = req.params;
+
+  if (!isKafkaEnabled()) {
+    return kafkaUnavailableResponse(res);
+  }
 
   try {
     const eventSourcing = getEventSourcingService();
@@ -374,7 +442,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
         }
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           jobId,
@@ -388,12 +456,12 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
     } else {
       // Job still processing or queued
       const requestEvent = events.find((e: any) => e.eventType === "agent.request");
-      res.json({
+      return res.json({
         success: true,
         data: {
           jobId,
           status: "processing",
-          agentId: requestEvent?.payload?.agentId,
+          agentId: requestEvent?.payload?.agentId ?? 'unknown',
           queuedAt: requestEvent?.timestamp,
           estimatedDuration: "30s",
           message: "Agent request is being processed",
@@ -405,11 +473,12 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
       jobId,
     });
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Job status check failed",
       message: error instanceof Error ? error.message : "Unknown error",
     });
+    return;
   }
 });
 
@@ -419,10 +488,14 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
 router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: Response) => {
   const { jobId } = req.params;
 
+  if (!isKafkaEnabled()) {
+    return kafkaUnavailableResponse(res);
+  }
+
   // Set SSE headers
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  return res.setHeader("Content-Type", "text/event-stream");
+  return res.setHeader("Cache-Control", "no-cache");
+  return res.setHeader("Connection", "keep-alive");
   if (res.flushHeaders) res.flushHeaders();
 
   const sendEvent = (data: any) => {
@@ -445,8 +518,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
 
     if (Date.now() - startTime > timeout) {
       sendEvent({ status: "error", error: "Timeout waiting for job completion" });
-      res.end();
-      return;
+      return res.end();
     }
 
     try {
@@ -484,14 +556,13 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
             latency: responseEvent.payload.latency,
             completedAt: responseEvent.timestamp,
           });
-          res.end();
-          return;
+          return res.end();
         } else {
           // Send processing update
           const requestEvent = events.find((e: any) => e.eventType === "agent.request");
           sendEvent({
             status: "processing",
-            agentId: requestEvent?.payload?.agentId,
+            agentId: requestEvent?.payload?.agentId ?? 'unknown',
             queuedAt: requestEvent?.timestamp,
           });
         }
@@ -501,7 +572,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
     } catch (error) {
       logger.error("SSE Polling error", error instanceof Error ? error : undefined);
       sendEvent({ status: "error", message: "Internal polling error" });
-      res.end();
+      return res.end();
     }
   };
 
@@ -534,10 +605,15 @@ router.post(
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const externalSub = resolveExternalSub(req);
 
       // Publish a typed agent request to handle veto resolution
       const agentRequestEvent: AgentRequestEvent = {
@@ -545,6 +621,7 @@ router.post(
         payload: {
           agentId: agentId || 'IntegrityAgent',
           userId,
+          externalSub,
           sessionId,
           tenantId,
           query: 'resolve_issue',
@@ -562,8 +639,9 @@ router.post(
         const auditService = require("../services/security/AuditTrailService.js").getAuditTrailService();
         await auditService.logImmediate({
           eventType: 'integrity_veto',
-          actorId: userId || 'system',
-          actorType: userId ? 'user' : 'system',
+          actorId: userId || externalSub || 'system',
+          externalSub: externalSub || 'system',
+          actorType: externalSub ? 'user' : 'system',
           resourceId: issueId,
           resourceType: 'integrity_issue',
           action: `veto_${resolution}`,

@@ -1,18 +1,19 @@
 /**
  * Value Cases Repository
- * 
+ *
  * Data access layer for value cases with Supabase/Postgres.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { 
-  ValueCase, 
-  CreateValueCaseRequest, 
-  UpdateValueCaseRequest,
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+import {
+  CasePhase,
+  CaseStatus,
+  CreateValueCaseRequest,
   ListValueCasesQuery,
   PaginatedResponse,
-  CaseStatus,
-  CasePhase,
+  UpdateValueCaseRequest,
+  ValueCase,
 } from './types';
 import { logger } from '../../lib/logger.js'
 
@@ -58,14 +59,7 @@ export class ValueCasesRepository {
   private tableName = 'value_cases';
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase configuration');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createServerSupabaseClient();
   }
 
   /**
@@ -77,7 +71,7 @@ export class ValueCasesRepository {
     data: CreateValueCaseRequest
   ): Promise<ValueCase> {
     const correlationId = `vc-create-${Date.now()}`;
-    
+
     try {
       const now = new Date().toISOString();
       const caseData = {
@@ -88,6 +82,9 @@ export class ValueCasesRepository {
         description: data.description || null,
         status: 'draft' as CaseStatus,
         phase: 'discovery' as CasePhase,
+        domain_pack_id: data.domainPackId || null,
+        domain_pack_version: data.domainPackVersion || null,
+        domain_pack_snapshot: null, // Snapshot is set by the service layer at attachment time
         stakeholders: data.stakeholders || [],
         metrics: [],
         value_drivers: data.valueDrivers || [],
@@ -127,7 +124,7 @@ export class ValueCasesRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error creating value case', {
         correlationId,
         tenantId,
@@ -167,7 +164,7 @@ export class ValueCasesRepository {
       return this.mapToEntity(data);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error getting value case', {
         correlationId,
         tenantId,
@@ -200,6 +197,8 @@ export class ValueCasesRepository {
       if (data.description !== undefined) updateData.description = data.description;
       if (data.status !== undefined) updateData.status = data.status;
       if (data.phase !== undefined) updateData.phase = data.phase;
+      if (data.domainPackId !== undefined) updateData.domain_pack_id = data.domainPackId;
+      if (data.domainPackVersion !== undefined) updateData.domain_pack_version = data.domainPackVersion;
       if (data.stakeholders !== undefined) updateData.stakeholders = data.stakeholders;
       if (data.metrics !== undefined) updateData.metrics = data.metrics;
       if (data.valueDrivers !== undefined) updateData.value_drivers = data.valueDrivers;
@@ -236,7 +235,7 @@ export class ValueCasesRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error updating value case', {
         correlationId,
         tenantId,
@@ -280,7 +279,7 @@ export class ValueCasesRepository {
       });
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error deleting value case', {
         correlationId,
         tenantId,
@@ -352,7 +351,7 @@ export class ValueCasesRepository {
       };
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error listing value cases', {
         correlationId,
         tenantId,
@@ -375,6 +374,9 @@ export class ValueCasesRepository {
       description: row.description as string | undefined,
       status: row.status as CaseStatus,
       phase: row.phase as CasePhase,
+      domainPackId: (row.domain_pack_id as string) ?? null,
+      domainPackVersion: (row.domain_pack_version as string) ?? null,
+      domainPackSnapshot: (row.domain_pack_snapshot as Record<string, unknown>) ?? null,
       stakeholders: (row.stakeholders as unknown[]) || [],
       metrics: (row.metrics as unknown[]) || [],
       valueDrivers: (row.value_drivers as unknown[]) || [],

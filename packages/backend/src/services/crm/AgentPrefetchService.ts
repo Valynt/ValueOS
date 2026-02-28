@@ -10,7 +10,7 @@ import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
 import { crmConnectionService } from './CrmConnectionService.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
-import type { CrmProvider, CanonicalAccount } from './types.js';
+import type { CanonicalAccount, CrmProvider } from './types.js';
 
 const logger = createLogger({ component: 'AgentPrefetchService' });
 
@@ -262,6 +262,8 @@ export class AgentPrefetchService {
         tenant_id: tenantId,
         source_type: 'crm',
         source_provider: provider,
+        source_provenance: 'crm',
+        evidence_tier: 'gold',
         external_object_type: objectType,
         external_object_id: externalId,
         internal_table: 'value_cases',

@@ -1,6 +1,6 @@
 // /workspaces/ValueOS/src/data/store.ts
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { User, Deal, Stakeholder, ValueDriver, Benchmark, Hypothesis, ROIModel, Artifact, ValueRealization, AuditEvent } from './types';
+import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { Artifact, AuditEvent, Benchmark, Deal, Hypothesis, ROIModel, Stakeholder, User, ValueDriver, ValueRealization } from './types';
 import * as fixtures from './fixtures';
 
 interface State {

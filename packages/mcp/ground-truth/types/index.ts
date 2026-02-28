@@ -33,7 +33,8 @@ export interface ProvenanceInfo {
     | "market-api"
     | "private-data"
     | "benchmark"
-    | "narrative";
+    | "narrative"
+    | "api";
   source_url?: string;
   filing_type?: string;
   accession_number?: string;

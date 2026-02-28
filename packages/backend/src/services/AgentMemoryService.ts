@@ -64,7 +64,8 @@ export interface AgentMemoryMetadata {
 
 export interface MemoryQuery {
   caseId?: string;
-  tenantId?: string;
+  /** Required for tenant isolation. All memory queries must be scoped to a tenant. */
+  tenantId: string;
   agentType?: string;
   memoryType?: MemoryType;
   tags?: string[];
@@ -249,17 +250,20 @@ export class AgentMemoryService {
    * Query memories
    */
   async queryMemories(query: MemoryQuery): Promise<MemoryQueryResult> {
+    if (!query.tenantId) {
+      throw new Error("tenantId is required for memory queries to enforce tenant isolation");
+    }
+
     const startTime = Date.now();
 
     try {
       let dbQuery = this.supabase.from('agent_memory').select('*');
 
-      // Apply filters
+      // CRITICAL: Apply tenant filter first
+      dbQuery = dbQuery.eq('tenant_id', query.tenantId);
+
       if (query.caseId) {
         dbQuery = dbQuery.eq('case_id', query.caseId);
-      }
-      if (query.tenantId) {
-        dbQuery = dbQuery.eq('tenant_id', query.tenantId);
       }
       if (query.agentType) {
         dbQuery = dbQuery.eq('agent_type', query.agentType);

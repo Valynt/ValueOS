@@ -1,4 +1,4 @@
-import { Optimization, CodeAnalysis, BotConfig } from '../types/index.js';
+import { BotConfig, CodeAnalysis, Optimization } from '../types/index.js';
 import { queryAI } from '../services/aiService.js';
 import { logger } from '../utils/logger.js';
 
@@ -191,9 +191,9 @@ function parseAIResponse(response: string, filePath: string, content: string): O
     const jsonMatch = response.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
 
-    const optimizations = JSON.parse(jsonMatch[0]);
+    const optimizations = JSON.parse(jsonMatch[0]) as Array<Record<string, unknown>>;
 
-    return optimizations.map((opt: any, index: number) => ({
+    return optimizations.map((opt: Record<string, unknown>, index: number) => ({
       id: `${filePath}-${Date.now()}-${index}`,
       file: filePath,
       type: opt.type || 'performance',

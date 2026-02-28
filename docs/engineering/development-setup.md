@@ -61,7 +61,7 @@ Health signals
 
 Primary config
 - `Dockerfile.dev`
-- `compose.devcontainer.override.yml`
+- `ops/compose/profiles/devcontainer.yml`
 - `.devcontainer/devcontainer.json`
 
 ---
@@ -119,6 +119,7 @@ Invariants
 - Migrations are the only way schema changes occur.
 - Reset/seed flows are idempotent (safe to run repeatedly).
 - Local DB credentials are sourced from env files, not hard-coded.
+- **Secret-default prohibition:** never commit concrete secret defaults (passwords, API keys, tokens, `REPLACE_ME_ON_FIRST_DEPLOY`) in non-example files. Use Terraform variables from secure backend state, AWS Secrets Manager data sources, or Vault references instead.
 
 Health signals
 - DB container is healthy and accepts connections.
@@ -245,7 +246,7 @@ Commands
 
 ### Step 2: Bring up services
 - `pnpm dx:up`
-- or `COMPOSE_PROFILES=devcontainer docker compose -f compose.yml -f compose.devcontainer.override.yml up -d`
+- or `COMPOSE_PROFILES=devcontainer docker compose -f compose.yml -f ops/compose/profiles/devcontainer.yml up -d`
 
 ### Step 3: Apply migrations
 - `pnpm dx db:migrate` (or equivalent)
@@ -446,7 +447,7 @@ This split caused:
 | File                                            | Responsibility                  |
 | ----------------------------------------------- | ------------------------------- |
 | `.devcontainer/devcontainer.json`               | Entry point, VS Code attachment |
-| `.devcontainer/docker-compose.devcontainer.yml` | Entire local stack              |
+| `ops/compose/compose.yml + ops/compose/profiles/devcontainer.yml` | Entire local stack              |
 | `.devcontainer/Dockerfile.optimized`            | App tooling image               |
 | `.deps_installed`                               | Install marker (generated)      |
 

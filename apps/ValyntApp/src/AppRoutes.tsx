@@ -3,7 +3,7 @@
  * Centralized routing configuration with lazy loading and error boundaries
  */
 
-import { type ReactElement, lazy, Suspense } from "react";
+import { lazy, type ReactElement, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { CommandPaletteProvider } from "./components/CommandPalette";
@@ -15,6 +15,7 @@ import { DrawerProvider } from "./contexts/DrawerContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
+import { TenantGate } from "./app/routes/TenantGate";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
@@ -60,7 +61,9 @@ const AgentDetail = lazy(() => import("./views/AgentDetail"));
 const Integrations = lazy(() => import("./views/Integrations"));
 const SettingsPage = lazy(() => import("./views/SettingsPage"));
 const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
+const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
 const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
+const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 
 export function AppRoutes() {
   const publicRouteElements: Record<string, ReactElement> = {
@@ -105,11 +108,16 @@ export function AppRoutes() {
 
                         {/* Protected routes */}
                         <Route element={<ProtectedRoute />}>
-                          {/* Onboarding — own layout, no gate */}
-                          <Route path="/onboarding" element={<CompanyOnboarding />} />
+                          {/* Org creation — shown when user has no tenants */}
+                          <Route path="/create-org" element={<CreateOrganization />} />
 
-                          {/* Main app — gated by onboarding completion */}
-                          <Route element={<OnboardingGate />}>
+                          {/* Tenant gate: redirects to /create-org if no tenants */}
+                          <Route element={<TenantGate />}>
+                            {/* Onboarding — own layout, no gate */}
+                            <Route path="/onboarding" element={<CompanyOnboarding />} />
+
+                            {/* Main app — gated by onboarding completion */}
+                            <Route element={<OnboardingGate />}>
                             <Route element={<MainLayout />}>
                               <Route path="/dashboard" element={<Dashboard />} />
                               <Route path="/opportunities" element={<Opportunities />} />
@@ -121,8 +129,10 @@ export function AppRoutes() {
                               <Route path="/agents/:id" element={<AgentDetail />} />
                               <Route path="/integrations" element={<Integrations />} />
                               <Route path="/settings" element={<SettingsPage />} />
+                              <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
                               <Route path="/company" element={<CompanyKnowledge />} />
                             </Route>
+                          </Route>
                           </Route>
                         </Route>
 

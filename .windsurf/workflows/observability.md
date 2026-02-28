@@ -17,7 +17,7 @@ bash scripts/verify-observability.sh
 // turbo 2. Verify LLM instrumentation:
 
 ```bash
-npm run verify:llm-instrumentation
+tsx scripts/verify-llm-instrumentation.ts
 ```
 
 // turbo 3. Verify metrics collection:
@@ -31,7 +31,7 @@ tsx scripts/verify-metrics.ts
 // turbo 4. Run observability test suite:
 
 ```bash
-npx vitest run --config vitest.observability.config.ts --passWithNoTests
+pnpm test
 ```
 
 ## Check Dashboards
@@ -39,7 +39,8 @@ npx vitest run --config vitest.observability.config.ts --passWithNoTests
 5. Verify Grafana dashboards:
 
 ```bash
-docker-compose -f docker-compose.observability.yml up -d
+# Check if observability compose exists, otherwise use Makefile
+make -f Makefile.observability up
 ```
 
 6. Access Grafana at http://localhost:3000
@@ -68,7 +69,8 @@ curl http://localhost:9090/metrics
 10. Verify alert rules are configured:
 
 ```bash
-cat grafana/provisioning/alerting/*.yaml
+# Check alerting files if they exist
+ls grafana/provisioning/alerting/ || echo "No alerting directory found"
 ```
 
 ## Checklist

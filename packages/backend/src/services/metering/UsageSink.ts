@@ -4,18 +4,10 @@
  */
 
 import UsageMeteringService from '../billing/UsageMeteringService.js'
-import { createClient } from '@supabase/supabase-js';
 import { createLogger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'UsageSink' });
-
-// Server-only Supabase client
-const supabase = (typeof window === 'undefined')
-  ? createClient(
-      import.meta.env?.VITE_SUPABASE_URL || '',
-      import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
-    )
-  : (null as any);
 
 class UsageSink {
   /**
@@ -26,7 +18,7 @@ class UsageSink {
 
     try {
       const submitted = await UsageMeteringService.submitPendingAggregates();
-      
+
       if (submitted > 0) {
         logger.info(`Submitted ${submitted} aggregates to Stripe`);
       }

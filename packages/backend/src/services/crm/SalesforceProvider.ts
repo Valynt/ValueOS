@@ -69,22 +69,21 @@ function validateInstanceUrl(url: string): boolean {
 export class SalesforceProvider implements CrmProviderInterface {
   readonly provider = 'salesforce' as const;
 
-  getAuthUrl(tenantId: string, redirectUri: string): OAuthStartResult {
+  getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();
-    const state = randomBytes(32).toString('hex');
 
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: config.clientId,
       redirect_uri: redirectUri,
       scope: 'api refresh_token',
-      state: `${state}:${tenantId}`,
+      state: nonce,
       prompt: 'consent',
     });
 
     return {
       authUrl: `${SF_AUTH_URL}?${params.toString()}`,
-      state,
+      state: nonce,
     };
   }
 

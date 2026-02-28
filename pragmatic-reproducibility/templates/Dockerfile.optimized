@@ -1,0 +1,74 @@
+# syntax=docker/dockerfile:1.7
+
+ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/base:ubuntu-22.04
+ARG NODE_VERSION=20.19.0
+ARG PNPM_VERSION=9.15.0
+ARG KUBECTL_VERSION=1.32.2
+ARG TERRAFORM_VERSION=1.11.2
+ARG NODE_DOWNLOAD_SHA256=b4e336584d62abefad31baecff7af167268be9bb7dd11f1297112e6eed3ca0d5
+
+FROM ${BASE_IMAGE}
+
+ARG NODE_VERSION
+ARG PNPM_VERSION
+ARG KUBECTL_VERSION
+ARG TERRAFORM_VERSION
+ARG NODE_DOWNLOAD_SHA256
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=${USER_UID}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NODE_DISTRO=node-v${NODE_VERSION}-linux-x64
+ENV NODE_DOWNLOAD_URL=https://nodejs.org/dist/v${NODE_VERSION}/${NODE_DISTRO}.tar.xz
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      fdupes \
+      git \
+      less \
+      lsb-release \
+      nano \
+      openssh-client \
+      python3-pip \
+      sudo \
+      unzip \
+      wget \
+      xz-utils; \
+    rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    curl -fsSLo /tmp/node.tar.xz "${NODE_DOWNLOAD_URL}"; \
+    echo "${NODE_DOWNLOAD_SHA256}  /tmp/node.tar.xz" | sha256sum -c -; \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -f /tmp/node.tar.xz; \
+    npm install -g "pnpm@${PNPM_VERSION}"; \
+    node --version; \
+    npm --version; \
+    pnpm --version
+
+RUN set -eux; \
+    curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl"; \
+    chmod +x /usr/local/bin/kubectl; \
+    kubectl version --client=true --output=yaml >/dev/null; \
+    curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"; \
+    unzip -q /tmp/terraform.zip -d /usr/local/bin; \
+    rm -f /tmp/terraform.zip; \
+    terraform version | head -n 1
+
+COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
+
+RUN set -eux; \
+    if ! getent group "${USERNAME}" >/dev/null 2>&1; then groupadd --gid "${USER_GID}" "${USERNAME}"; fi; \
+    if ! id -u "${USERNAME}" >/dev/null 2>&1; then useradd --uid "${USER_UID}" --gid "${USER_GID}" -m "${USERNAME}"; fi; \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
+    chmod 0440 "/etc/sudoers.d/${USERNAME}"; \
+    rm -rf /tmp/* /var/tmp/*
+
+USER ${USERNAME}
+WORKDIR /workspaces/ValueOS

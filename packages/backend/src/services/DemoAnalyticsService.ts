@@ -44,16 +44,20 @@ export class DemoAnalyticsService {
   /**
    * Track demo event
    */
-  async trackDemoEvent(event: Omit<DemoEvent, 'id' | 'created_at'>): Promise<void> {
+  async trackDemoEvent(organizationId: string, event: Omit<DemoEvent, 'id' | 'created_at'>): Promise<void> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped demo tracking");
+    }
+
     try {
       const { error } = await supabase.from('demo_events').insert({
         ...event,
+        organization_id: organizationId,
         created_at: new Date().toISOString(),
       });
 
       if (error) throw error;
 
-      // Also track in analytics client for real-time dashboards
       analyticsClient.trackWorkflowEvent(event.event_type, 'demo_analytics', {
         demo_type: event.demo_type,
         step_id: event.step_id,
@@ -63,18 +67,22 @@ export class DemoAnalyticsService {
       });
     } catch (error) {
       console.error('Failed to track demo event:', error);
-      // Don't throw - analytics failures shouldn't break user flow
     }
   }
 
   /**
    * Get analytics for specific demo type
    */
-  async getDemoAnalytics(demoType: string, timeframe?: { start: Date; end: Date }): Promise<DemoAnalytics> {
+  async getDemoAnalytics(organizationId: string, demoType: string, timeframe?: { start: Date; end: Date }): Promise<DemoAnalytics> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped demo analytics");
+    }
+
     try {
       let query = supabase
         .from('demo_events')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('demo_type', demoType);
 
       if (timeframe) {
@@ -209,8 +217,8 @@ export class DemoAnalyticsService {
   /**
    * Get drop-off funnel data for visualization
    */
-  async getDropOffFunnel(demoType: string): Promise<Array<{ step: string; users: number; dropOffRate: number }>> {
-    const analytics = await this.getDemoAnalytics(demoType);
+  async getDropOffFunnel(organizationId: string, demoType: string): Promise<Array<{ step: string; users: number; dropOffRate: number }>> {
+    const analytics = await this.getDemoAnalytics(organizationId, demoType);
     
     const funnel: Array<{ step: string; users: number; dropOffRate: number }> = [
       {
@@ -242,8 +250,8 @@ export class DemoAnalyticsService {
   /**
    * Get recommended improvements based on analytics
    */
-  async getImprovementRecommendations(demoType: string): Promise<string[]> {
-    const analytics = await this.getDemoAnalytics(demoType);
+  async getImprovementRecommendations(organizationId: string, demoType: string): Promise<string[]> {
+    const analytics = await this.getDemoAnalytics(organizationId, demoType);
     const recommendations: string[] = [];
 
     // Low completion rate

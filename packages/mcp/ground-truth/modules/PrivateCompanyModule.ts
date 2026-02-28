@@ -83,7 +83,7 @@ export class PrivateCompanyModule extends BaseModule {
     default: 200000,
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
 
     const privateConfig = config as PrivateCompanyConfig;

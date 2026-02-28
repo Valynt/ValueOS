@@ -8,9 +8,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../lib/logger";
 import {
-  validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
+  validateGroundTruthMetadata,
 } from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
 
 export interface ConfidenceMetrics {

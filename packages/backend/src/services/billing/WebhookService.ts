@@ -4,33 +4,19 @@
  * Emits billing domain events for downstream consumers.
  */
 
-import { createClient } from "@supabase/supabase-js";
 import StripeService from "./StripeService.js"
 import InvoiceService from "./InvoiceService.js"
 import { STRIPE_CONFIG } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
-import { getSupabaseConfig } from "@shared/lib/env";
 import {
   recordBillingJobFailure,
   recordInvoiceEvent,
   recordStripeWebhook,
 } from "../../metrics/billingMetrics";
 import type { BillingEvent } from "@shared/types/billing-events";
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "WebhookService" });
-
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
-  getSupabaseConfig();
-
-let supabase: any = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn(
-    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
-  );
-}
 
 class WebhookService {
   private stripe: any;

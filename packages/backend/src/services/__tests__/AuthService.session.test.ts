@@ -7,11 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthService } from "../AuthService.js"
 import { AuthenticationError } from "../errors.js"
 import {
+  createAuthErrorResponse,
   createMockSession,
   createMockUser,
-  createAuthErrorResponse,
 } from "../../test-utils/auth.fixtures";
-import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
+import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();
@@ -184,6 +184,20 @@ describe("AuthService - Session Management", () => {
       mocks.mockSupabaseAuth.refreshSession.mockResolvedValue({
         data: { user: null, session: null },
         error: { message: "Refresh token expired", status: 401, name: "AuthApiError" },
+      });
+
+      // Act & Assert
+      await expect(service.refreshSession()).rejects.toThrow(AuthenticationError);
+    });
+    it("should throw AuthenticationError when refresh token is stale/reused", async () => {
+      // Arrange
+      mocks.mockSupabaseAuth.refreshSession.mockResolvedValue({
+        data: { user: null, session: null },
+        error: {
+          message: "Invalid Refresh Token: Already Used",
+          status: 401,
+          name: "AuthApiError",
+        },
       });
 
       // Act & Assert

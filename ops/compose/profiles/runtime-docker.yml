@@ -1,0 +1,65 @@
+# Runtime Docker profile extensions for the canonical ops/compose/compose.yml stack.
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    profiles: ["runtime-docker"]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports: ["2181:2181"]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    profiles: ["runtime-docker"]
+    depends_on: [zookeeper]
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    profiles: ["runtime-docker"]
+    depends_on: [kafka]
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  backend:
+    profiles: ["runtime-docker"]
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      kafka:
+        condition: service_started
+      schema-registry:
+        condition: service_started
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+    profiles: ["runtime-docker"]
+    command: ["pnpm", "--filter", "@valueos/backend", "run", "worker:dev"]
+    environment:
+      APP_ENV: ${APP_ENV:-cloud-dev}
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    depends_on: [redis]
+
+  frontend:
+    profiles: ["runtime-docker"]
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      VITE_SUPABASE_URL: ${SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      VITE_USE_POLLING: ${VITE_USE_POLLING:-true}

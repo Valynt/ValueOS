@@ -1,8 +1,8 @@
 import {
   AppError,
   InternalError,
-  ServiceUnavailableError,
   isAppError,
+  ServiceUnavailableError,
 } from './errors';
 
 type ErrorClassification = 'operational' | 'programmer';

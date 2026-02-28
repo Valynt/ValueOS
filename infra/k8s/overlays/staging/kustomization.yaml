@@ -5,39 +5,44 @@ namespace: valynt-staging
 
 resources:
   - ../../base
-  # Staging parity: include messaging infrastructure (Redis Streams)
-  - ../../messaging/redis-streams.yaml
+  # Staging-only resources
+  - rate-limiting-patch.yaml
 
 nameSuffix: -staging
 
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      environment: staging
 
 patches:
   - path: deployment-patch.yaml
-  - path: external-secrets-aws-patch.yaml
-  # Staging parity: rate limiting matches production
-  - path: rate-limiting-patch.yaml
+  - path: ingress-patch.yaml
+  # Override ConfigMap values for staging
+  - target:
+      kind: ConfigMap
+      name: valynt-config
+    patch: |-
+      - op: replace
+        path: /data/node-env
+        value: staging
+      - op: replace
+        path: /data/log-level
+        value: debug
+
+# Excluded patches (applied separately):
+# - external-secrets-aws-patch.yaml: ExternalSecret/ClusterSecretStore span
+#   multiple namespaces; apply via: kubectl apply -f ../../base/external-secrets.yaml
+# - remove-placeholder-secrets.yaml: base secrets.yaml is a non-deployable
+#   template (SecretTemplate), not a real Secret resource
 
 replicas:
   - name: backend
     count: 2
-  - name: frontend
+  - name: frontend-blue
     count: 1
 
 images:
-  - name: REGISTRY_URL/valynt-backend
+  - name: ghcr.io/valynt/valueos-backend
     newTag: develop
-  - name: REGISTRY_URL/valynt-frontend
+  - name: ghcr.io/valynt/valueos-frontend
     newTag: develop
-
-configMapGenerator:
-  - name: valynt-config
-    behavior: merge
-    literals:
-      - node-env=staging
-      - log-level=debug
-      # Staging parity: same feature flags as production
-      - enable-circuit-breaker=true
-      - enable-rate-limiting=true
-      - enable-audit-logging=true

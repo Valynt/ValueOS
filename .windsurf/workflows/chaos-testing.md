@@ -6,21 +6,11 @@ description: Run chaos and resilience testing
 
 ## Enable Chaos Mode
 
-1. Start dev server with chaos enabled:
-
-```bash
-npm run chaos:enable
-```
+1. Start dev server with chaos enabled (if available)
 
 ## Run Chaos Tests
 
 // turbo 2. Run chaos test suite:
-
-```bash
-npm run test:chaos
-```
-
-3. Run chaos pipeline (comprehensive):
 
 ```bash
 bash scripts/run-chaos-pipeline.sh
@@ -31,16 +21,12 @@ bash scripts/run-chaos-pipeline.sh
 4. Run load tests:
 
 ```bash
-npm run test:load
+bash scripts/load-test.sh
 ```
 
 ## Resilience Verification
 
-// turbo 5. Run resilience tests:
-
-```bash
-npx vitest run --config vitest.config.resilience.ts --passWithNoTests
-```
+// turbo 5. Run resilience tests (if available)
 
 ## What Chaos Tests Cover
 

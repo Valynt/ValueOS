@@ -13,7 +13,7 @@
 
 import { supabase } from "../lib/supabase";
 import { logger } from "@shared/lib/logger";
-// TODO: Create llm config or import from shared
+// TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Create llm config or import from shared
 const semanticMemoryConfig = { cosine_threshold: 0.7, max_results: 10 };
 const getSemanticThreshold = (_type?: string) => 0.7;
 
@@ -236,21 +236,29 @@ export class VectorSearchService {
   }
 
   /**
-   * Get memory statistics
+   * Get memory statistics scoped to a tenant
    */
-  async getStats(): Promise<{
+  async getStats(organizationId: string): Promise<{
     total: number;
     byType: Record<string, number>;
     recentCount: number;
   }> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped memory stats");
+    }
+
     try {
       // Total count
       const { count: total } = await supabase
         .from("semantic_memory")
-        .select("id", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId);
 
       // Count by type
-      const { data: typeData } = await supabase.from("semantic_memory").select("type");
+      const { data: typeData } = await supabase
+        .from("semantic_memory")
+        .select("type")
+        .eq("organization_id", organizationId);
 
       const byType: Record<string, number> = {};
       typeData?.forEach((row: any) => {
@@ -261,6 +269,7 @@ export class VectorSearchService {
       const { count: recentCount } = await supabase
         .from("semantic_memory")
         .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
       return {
@@ -362,6 +371,29 @@ export class VectorSearchService {
   // Private Helpers
   // ============================================================================
 
+  /**
+   * Escape a string for use as a SQL literal to prevent SQL injection.
+   * Doubles single quotes per SQL standard.
+   */
+  private escapeSqlLiteral(value: string): string {
+    return value.replace(/'/g, "''");
+  }
+
+  /**
+   * Validate that a key name is a safe SQL identifier (alphanumeric + underscores).
+   */
+  private isSafeIdentifier(key: string): boolean {
+    return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
+  }
+
+  private static readonly VALID_TYPES: ReadonlySet<string> = new Set([
+    "value_proposition",
+    "target_definition",
+    "opportunity",
+    "integrity_check",
+    "workflow_result",
+  ]);
+
   private buildFilterClause(
     type?: SemanticMemory["type"],
     filters: Record<string, any> = {},
@@ -378,9 +410,12 @@ export class VectorSearchService {
       "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'",
     ];
 
-    // Type filter
+    // Type filter — validate against known enum and escape for defense-in-depth
     if (type) {
-      conditions.push(`type = '${type}'`);
+      if (!VectorSearchService.VALID_TYPES.has(type)) {
+        throw new Error(`Invalid memory type: ${type}`);
+      }
+      conditions.push(`type = '${this.escapeSqlLiteral(type)}'`);
     }
 
     if (requireLineage) {
@@ -390,25 +425,34 @@ export class VectorSearchService {
       conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
     }
 
-    // Organization / tenant filter - treat specially
+    // Organization / tenant filter — escape value
     if ((filters as any).organization_id) {
-      conditions.push(`organization_id = '${(filters as any).organization_id}'`);
+      const orgId = String((filters as any).organization_id);
+      conditions.push(`organization_id = '${this.escapeSqlLiteral(orgId)}'`);
       delete (filters as any).organization_id;
     }
 
-    // Metadata filters
+    // Metadata filters — escape all interpolated values
     Object.entries(filters).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
 
+      // Reject keys that aren't safe identifiers to prevent injection via key names
+      if (!this.isSafeIdentifier(key)) {
+        logger.warn("Skipping unsafe metadata filter key", { key });
+        return;
+      }
+
       if (typeof value === "string") {
-        conditions.push(`metadata->>'${key}' = '${value}'`);
+        conditions.push(`metadata->>'${key}' = '${this.escapeSqlLiteral(value)}'`);
       } else if (typeof value === "number") {
+        if (!Number.isFinite(value)) return;
         conditions.push(`(metadata->>'${key}')::float = ${value}`);
       } else if (typeof value === "boolean") {
         conditions.push(`(metadata->>'${key}')::boolean = ${value}`);
       } else if (Array.isArray(value)) {
-        // Array contains check
-        conditions.push(`metadata->'${key}' @> '${JSON.stringify(value)}'::jsonb`);
+        // Serialize via JSON.stringify (safe for jsonb cast) then escape the wrapper
+        const jsonStr = JSON.stringify(value);
+        conditions.push(`metadata->'${key}' @> '${this.escapeSqlLiteral(jsonStr)}'::jsonb`);
       }
     });
 

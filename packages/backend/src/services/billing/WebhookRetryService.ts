@@ -3,16 +3,11 @@
  * Handles retrying failed webhook events with exponential backoff
  */
 
-import { createClient } from '@supabase/supabase-js';
 import WebhookService from './WebhookService.js'
 import { createLogger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'WebhookRetryService' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 const MAX_RETRIES = 5;
 const INITIAL_BACKOFF_MS = 1000; // 1 second

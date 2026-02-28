@@ -86,7 +86,7 @@ const readEnv = (key: string, fallback?: string) => {
 };
 
 const resolvedEnv = {
-  VITE_SUPABASE_URL: readEnv("VITE_SUPABASE_URL") || readEnv("SUPABASE_URL"),
+  VITE_SUPABASE_URL: readEnv("VITE_SUPABASE_URL") || readEnv("SUPABASE_PUBLIC_URL") || readEnv("SUPABASE_URL") || readEnv("SUPABASE_INTERNAL_URL"),
   VITE_SUPABASE_ANON_KEY:
     readEnv("VITE_SUPABASE_ANON_KEY") || readEnv("SUPABASE_ANON_KEY"),
   VITE_APP_URL: readEnv("VITE_APP_URL"),
@@ -117,6 +117,25 @@ try {
   }
   throw error;
 }
+
+
+export const validateRedisUrlForProduction = (nodeEnv: string, redisUrl?: string) => {
+  if (nodeEnv !== "production" || !redisUrl) {
+    return;
+  }
+
+  const parsed = new URL(redisUrl);
+  const isRedisProtocol = parsed.protocol === "redis:" || parsed.protocol === "rediss:";
+
+  if (isRedisProtocol && !parsed.password) {
+    throw new Error(
+      "Invalid REDIS_URL for production: Redis password is required in the URL (redis://:password@host:port)."
+    );
+  }
+};
+
+
+validateRedisUrlForProduction(parsedSettings.NODE_ENV, parsedSettings.REDIS_URL);
 
 const defaultCorsOrigins = [
   "http://localhost:8080",

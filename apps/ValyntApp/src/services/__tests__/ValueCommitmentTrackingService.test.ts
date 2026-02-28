@@ -1,6 +1,6 @@
 
 import { ValueCommitmentTrackingService } from '../ValueCommitmentTrackingService';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../lib/logger', () => ({
   logger: {

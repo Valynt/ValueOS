@@ -8,7 +8,7 @@
  */
 
 import { AgentType } from "../../agent-types";
-import { IAgent, AgentRequest, AgentResponse } from "../core/IAgent";
+import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent";
 import { logger } from "../../../utils/logger";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService";
 import { getRedisClient } from "../../../lib/redisClient";

@@ -5,7 +5,7 @@
  * error handling, and retry logic. Replaces scattered async state management.
  */
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ============================================================================
 // Types

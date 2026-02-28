@@ -13,7 +13,7 @@
  *   POST /api/crm/:provider/sync/now
  */
 
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import express from 'express';
 import { z } from 'zod';
 import { createLogger } from '../lib/logger.js';
@@ -24,6 +24,7 @@ import { createRateLimiter } from '../middleware/rateLimiter.js';
 import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
 import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
 import { crmHealthService } from '../services/crm/CrmHealthService.js';
+import { consumeOAuthState } from '../services/crm/OAuthStateStore.js';
 import { getCrmSyncQueue, getCrmWebhookQueue } from '../workers/crmWorker.js';
 import { auditLogService } from '../services/AuditLogService.js';
 import { CrmProviderSchema } from '../services/crm/types.js';
@@ -134,22 +135,37 @@ router.get(
         return res.status(400).json({ error: 'Missing code or state parameter' });
       }
 
-      // Extract tenantId from state (format: randomHex:tenantId)
-      const stateParts = state.split(':');
-      if (stateParts.length < 2) {
-        return res.status(400).json({ error: 'Invalid state parameter' });
-      }
-      const tenantId = stateParts.slice(1).join(':');
-
+      // The state is an opaque nonce. completeOAuth validates it server-side
+      // via consumeOAuthState and resolves the tenantId from the state store.
+      // We pass the state-store tenantId to completeOAuth for validation.
       const redirectUri = getRedirectUri(req, provider);
 
-      const connection = await crmConnectionService.completeOAuth(
+      // Peek at the state store to get the tenantId, then let completeOAuth
+      // do the full validation. We consume the state here and pass the
+      // verified tenantId to completeOAuth.
+      const stateMeta = await consumeOAuthState(state, provider);
+      if (!stateMeta) {
+        logger.warn('OAuth callback rejected: invalid or expired state', { provider });
+        const appOrigin = JSON.stringify(process.env.APP_URL || '*');
+        return res.status(400).send(`
+          <html><body>
+            <script>
+              window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Invalid or expired state' }, ${appOrigin});
+              window.close();
+            </script>
+            <p>Connection failed. Invalid or expired state. Please try again.</p>
+          </body></html>
+        `);
+      }
+
+      const tenantId = stateMeta.tenantId;
+
+      const connection = await crmConnectionService.completeOAuthAfterStateValidation(
         tenantId,
         provider,
         code,
-        state,
         redirectUri,
-        'oauth-callback', // connected_by — we don't have auth context in callback
+        'oauth-callback',
       );
 
       // Audit log
@@ -174,11 +190,15 @@ router.get(
         backoff: { type: 'exponential', delay: 5000 },
       });
 
-      // Return HTML that closes the popup
+      // Return HTML that closes the popup.
+      // Provider is already validated by CrmProviderSchema.parse() above,
+      // but we use JSON.stringify to guarantee safe embedding in script context.
+      const safeProvider = JSON.stringify(provider);
+      const appOrigin = JSON.stringify(process.env.APP_URL || '*');
       return res.send(`
         <html><body>
           <script>
-            window.opener?.postMessage({ type: 'crm-oauth-complete', provider: '${provider}' }, '*');
+            window.opener?.postMessage({ type: 'crm-oauth-complete', provider: ${safeProvider} }, ${appOrigin});
             window.close();
           </script>
           <p>Connected successfully. You can close this window.</p>
@@ -186,10 +206,11 @@ router.get(
       `);
     } catch (error) {
       logger.error('OAuth callback failed', error instanceof Error ? error : undefined);
+      const appOrigin = JSON.stringify(process.env.APP_URL || '*');
       return res.status(500).send(`
         <html><body>
           <script>
-            window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Connection failed' }, '*');
+            window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Connection failed' }, ${appOrigin});
             window.close();
           </script>
           <p>Connection failed. Please try again.</p>

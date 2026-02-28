@@ -3,7 +3,7 @@
  * Provides endpoints for the security dashboard to retrieve security metrics and events
  */
 
-import { Router, Request, Response } from "express";
+import { Request, Response, Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { SecurityMetricsCollector } from "../security/enhancedSecurityLogger.js";
@@ -92,7 +92,7 @@ router.get("/alerts", async (_req: Request, res: Response) => {
     const events = metricsCollector.getRecentEvents(100);
 
     // Generate alerts based on event patterns
-    const alerts = [];
+    const alerts: unknown[] = [];
 
     // High-severity events in the last hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);

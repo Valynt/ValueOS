@@ -243,6 +243,9 @@ function maskUserId(userId) {
  * Security error for tenant violations
  */
 export class TenantSecurityError extends Error {
+    userId;
+    requestedTenantId;
+    userTenantId;
     constructor(message, userId, requestedTenantId, userTenantId) {
         super(message);
         this.userId = userId;

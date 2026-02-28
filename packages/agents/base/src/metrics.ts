@@ -3,7 +3,7 @@
  * Uses Prometheus client for metrics collection
  */
 
-import { register, collectDefaultMetrics, Gauge, Counter, Histogram } from "prom-client";
+import { collectDefaultMetrics, Counter, Gauge, Histogram, register } from "prom-client";
 
 // Enable default metrics (CPU, memory, etc.)
 collectDefaultMetrics();

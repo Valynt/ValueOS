@@ -1,202 +1,145 @@
-version: "3.9"
+# Production compose for ValueOS — fully self-contained.
+# Usage: docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# All services are defined here with production-appropriate defaults.
+# This file does NOT depend on the dev compose (ops/compose/compose.yml).
+
+x-prod-common: &prod-common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "25m"
+      max-file: "5"
 
 services:
+  # ── Caddy reverse proxy (automatic HTTPS) ─────────────────────────────────
   caddy:
+    <<: *prod-common
     image: caddy:2-alpine
-    container_name: valueos-caddy-prod
-    restart: unless-stopped
+    container_name: valueos-caddy
+    depends_on:
+      - backend
+      - frontend
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:-app.example.com}
-      ACME_EMAIL: ${ACME_EMAIL:-security@example.com}
-      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
-      TLS_MODE: ${TLS_MODE:-}
-      API_UPSTREAM: ${API_UPSTREAM:-http://backend:${API_PORT:-3001}}
-      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:8080}
-      CADDY_LOG_DIR: /var/log/caddy
-      CADDY_STORAGE: /data
-      CADDY_LOG_LEVEL: ${CADDY_LOG_LEVEL:-INFO}
     volumes:
-      - ../infra/caddy:/etc/caddy:ro
-      - caddy-data:/data
-      - caddy-config:/config
-      - caddy-logs:/var/log/caddy
-    command:
-      [
-        "caddy",
-        "run",
-        "--config",
-        "/etc/caddy/Caddyfile.prod",
-        "--adapter",
-        "caddyfile",
-      ]
-    networks:
-      - valueos-network
-    depends_on:
-      frontend:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
+      - ../caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile.base:ro
+      - ../caddy/snippets:/etc/caddy/snippets:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      TLS_MODE: ${TLS_MODE:-}
+      API_UPSTREAM: http://backend:${BACKEND_PORT:-8000}
+      FRONTEND_UPSTREAM: http://frontend:${FRONTEND_PORT:-8080}
 
+  # ── Backend (production build) ─────────────────────────────────────────────
+  backend:
+    <<: *prod-common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+      target: runtime
+    container_name: valueos-backend-prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT:-8000}
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${APP_DOMAIN}}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in .env.production}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in .env.production}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env.production}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env.production}
+      REDIS_TLS_REJECT_UNAUTHORIZED: ${REDIS_TLS_REJECT_UNAUTHORIZED:-true}
+      REDIS_TLS_CA_CERT_PATH: ${REDIS_TLS_CA_CERT_PATH:-}
+      REDIS_TLS_SERVERNAME: ${REDIS_TLS_SERVERNAME:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENABLE_TELEMETRY: ${ENABLE_TELEMETRY:-true}
+    ports:
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
+
+  # ── Frontend (production nginx) ────────────────────────────────────────────
   frontend:
+    <<: *prod-common
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.frontend
+      target: runtime
       args:
-        NODE_VERSION: "20.19.0"
-        PNPM_VERSION: "9.15.0"
-        VITE_API_BASE_URL: /api
-        VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in .env.production}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in .env.production}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: valueos-frontend-prod
-    environment:
-      NODE_ENV: production
-      VITE_API_BASE_URL: /api
-      VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
-    networks:
-      - valueos-network
-    expose:
-      - "8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
-
-  backend:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.backend
-    container_name: valueos-backend-prod
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      API_PORT: ${API_PORT:-3001}
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      REDIS_URL: redis://redis:6379
-      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-app.example.com}
-      SUPABASE_SERVICE_KEY_FILE: /run/secrets/supabase_service_key
-      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
-      KAFKA_BROKERS: kafka:9092
-    secrets:
-      - supabase_service_key
-      - openai_api_key
-    expose:
-      - "${API_PORT:-3001}"
-    networks:
-      - valueos-network
     depends_on:
-      redis:
-        condition: service_healthy
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+
+  # ── Postgres (production) ────────────────────────────────────────────────
+  postgres:
+    <<: *prod-common
+    image: postgres:15-alpine
+    container_name: valueos-postgres-prod
+    environment:
+      POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in .env.production}
+      POSTGRES_USER: ${PGUSER:?Set PGUSER in .env.production}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env.production}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "${PGPORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://localhost:${API_PORT:-3001}/health/ready', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
-        ]
-      interval: 30s
+      test: ["CMD-SHELL", "pg_isready -U $${PGUSER:-postgres}"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
       start_period: 30s
 
+  # ── Redis (production) ──────────────────────────────────────────────────
   redis:
+    <<: *prod-common
     image: redis:7-alpine
     container_name: valueos-redis-prod
-    restart: unless-stopped
-    command:
-      - redis-server
-      - --requirepass
-      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-      - --appendonly
-      - yes
-      - --maxmemory
-      - 256mb
-      - --maxmemory-policy
-      - allkeys-lru
+    command: >-
+      redis-server
+      --appendonly yes
+      --maxmemory ${REDIS_MAXMEMORY:-2gb}
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - redis-data:/data
-    networks:
-      - valueos-network
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    container_name: valueos-zookeeper-prod
-    restart: unless-stopped
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-logs:/var/lib/zookeeper/log
-    networks:
-      - valueos-network
-    healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  kafka:
-    image: confluentinc/cp-kafka:7.4.0
-    container_name: valueos-kafka-prod
-    restart: unless-stopped
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-      KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
-    volumes:
-      - kafka-data:/var/lib/kafka/data
-    networks:
-      - valueos-network
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "kafka-broker-api-versions",
-          "--bootstrap-server",
-          "localhost:9092",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-networks:
-  valueos-network:
-    driver: bridge
+      start_period: 10s
 
 volumes:
-  caddy-data:
-  caddy-config:
-  caddy-logs:
-  redis-data:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
-secrets:
-  supabase_service_key:
-    file: ../secrets/supabase_service_key.txt
-  openai_api_key:
-    file: ../secrets/openai_api_key.txt
+networks:
+  default:
+    name: ${VALUEOS_NETWORK:-valueos-network}

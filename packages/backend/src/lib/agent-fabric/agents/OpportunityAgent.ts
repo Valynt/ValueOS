@@ -21,6 +21,9 @@ import type {
 } from '../../../types/agent.js';
 import { mcpGroundTruthService } from '../../../services/MCPGroundTruthService.js';
 import type { FinancialDataResult } from '../../../services/MCPGroundTruthService.js';
+import { featureFlags } from '../../../config/featureFlags.js';
+import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
+import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -89,8 +92,11 @@ export class OpportunityAgent extends BaseAgent {
     const entityId = this.extractEntityId(context);
     const financialData = await this.fetchGroundTruth(entityId);
 
+    // Step 1b: Load domain pack context (behind feature flag)
+    const domainContext = await this.loadDomainPackContext(context);
+
     // Step 2: Generate hypotheses via LLM
-    const analysis = await this.generateHypotheses(context, query, financialData);
+    const analysis = await this.generateHypotheses(context, query, financialData, domainContext);
     if (!analysis) {
       return this.buildOutput(
         { error: 'LLM hypothesis generation failed. Retry or provide more context.' },
@@ -131,6 +137,40 @@ export class OpportunityAgent extends BaseAgent {
         (financialData ? ` with financial grounding from ${financialData.sources.join(', ')}` : ''),
       suggested_next_actions: analysis.recommended_next_steps,
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Domain Pack Context
+  // -------------------------------------------------------------------------
+
+  /**
+   * Load domain pack KPIs and assumptions for the current value case.
+   * Returns empty context when the feature flag is off or no pack is attached.
+   */
+  private async loadDomainPackContext(context: LifecycleContext): Promise<DomainContext> {
+    const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
+
+    if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) {
+      return empty;
+    }
+
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (!valueCaseId || !context.organization_id) {
+      return empty;
+    }
+
+    try {
+      // Pass supabase client from context if available (set by orchestrator)
+      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
+        import('@supabase/supabase-js').SupabaseClient | undefined;
+      return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
+    } catch (err) {
+      logger.warn('Failed to load domain pack context, proceeding without it', {
+        value_case_id: valueCaseId,
+        error: (err as Error).message,
+      });
+      return empty;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -229,8 +269,15 @@ Respond with valid JSON matching the schema. Do not include markdown fences or c
     context: LifecycleContext,
     query: string,
     financialData: FinancialDataResult | null,
+    domainContext?: DomainContext,
   ): Promise<OpportunityAnalysis | null> {
-    const systemPrompt = this.buildSystemPrompt(financialData);
+    let systemPrompt = this.buildSystemPrompt(financialData);
+
+    // Append domain pack context if available
+    const domainFragment = domainContext ? formatDomainContextForPrompt(domainContext) : '';
+    if (domainFragment) {
+      systemPrompt += `\n\n${domainFragment}\n\nUse the domain pack KPIs and assumptions to ground your hypotheses. Reference specific KPI keys in kpi_targets fields.`;
+    }
 
     const userPrompt = `Analyze this opportunity and generate value hypotheses:
 

@@ -13,7 +13,7 @@ export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity
 
 export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion";
 
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back";
 
 // ============================================================================
 // Retry Configuration
@@ -61,12 +61,14 @@ export interface WorkflowDAG {
   version?: string | number;
   stages: WorkflowStage[];
   transitions: WorkflowTransition[];
-  entry_stage: string;
+  entry_stage?: string;
   // Aliases for backward compatibility
   initial_stage?: string;
   final_stages?: string[];
-  exit_stages: string[];
-  metadata?: Record<string, any>;
+  exit_stages?: string[];
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ============================================================================
@@ -167,5 +169,7 @@ export interface WorkflowProgress {
   completed_stages: string[];
   total_stages: number;
   progress_percentage: number;
+  percentComplete?: number;
+  status?: string;
   estimated_completion?: string;
 }

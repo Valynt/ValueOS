@@ -3,7 +3,7 @@
  * Tests for security vulnerabilities and proper implementation
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { authRateLimiter } from "../../lib/rateLimiter";
 import { secureTokenStorage } from "../../lib/secureStorage";
 import { csrfProtection } from "../../lib/csrfProtection";

@@ -14,13 +14,13 @@
 
 import { logger } from '../lib/logger.js'
 import {
+  Intent,
   IntentCondition,
   IntentRegistryConfig,
   IntentRegistryEntry,
   IntentResolution,
+  IntentType,
   PropTransform,
-  UIIntent,
-  UIIntentType,
 } from '../types/intent';
 
 /**
@@ -233,7 +233,7 @@ const DEFAULT_CONFIG: IntentRegistryConfig = {
 export class IntentRegistry {
   private static instance: IntentRegistry;
   private config: IntentRegistryConfig;
-  private runtimeEntries: Map<UIIntentType, IntentRegistryEntry[]> = new Map();
+  private runtimeEntries: Map<IntentType, IntentRegistryEntry[]> = new Map();
   
   private constructor() {
     this.config = DEFAULT_CONFIG;
@@ -281,7 +281,7 @@ export class IntentRegistry {
   /**
    * Unregister a runtime intent mapping
    */
-  unregisterIntent(intentType: UIIntentType, component?: string): void {
+  unregisterIntent(intentType: IntentType, component?: string): void {
     if (component) {
       const entries = this.runtimeEntries.get(intentType) || [];
       this.runtimeEntries.set(
@@ -296,7 +296,7 @@ export class IntentRegistry {
   /**
    * Resolve an intent to a component
    */
-  resolve(intent: UIIntent, tenantId?: string): IntentResolution {
+  resolve(intent: Intent, tenantId?: string): IntentResolution {
     try {
       // Find matching entries (runtime entries take precedence)
       const entries = this.findMatchingEntries(intent, tenantId);
@@ -350,7 +350,7 @@ export class IntentRegistry {
   /**
    * Find all matching registry entries for an intent
    */
-  private findMatchingEntries(intent: UIIntent, tenantId?: string): IntentRegistryEntry[] {
+  private findMatchingEntries(intent: Intent, tenantId?: string): IntentRegistryEntry[] {
     const entries: IntentRegistryEntry[] = [];
     
     // Check runtime entries first
@@ -385,7 +385,7 @@ export class IntentRegistry {
   /**
    * Check if an entry's conditions are met
    */
-  private matchesConditions(entry: IntentRegistryEntry, intent: UIIntent): boolean {
+  private matchesConditions(entry: IntentRegistryEntry, intent: Intent): boolean {
     if (!entry.conditions || entry.conditions.length === 0) {
       return true;
     }
@@ -396,7 +396,7 @@ export class IntentRegistry {
   /**
    * Evaluate a single condition
    */
-  private evaluateCondition(condition: IntentCondition, intent: UIIntent): boolean {
+  private evaluateCondition(condition: IntentCondition, intent: Intent): boolean {
     const value = this.getNestedValue(intent, condition.field);
     
     switch (condition.operator) {
@@ -422,7 +422,7 @@ export class IntentRegistry {
   /**
    * Map intent data to component props
    */
-  private mapProps(intent: UIIntent, entry: IntentRegistryEntry): Record<string, unknown> {
+  private mapProps(intent: Intent, entry: IntentRegistryEntry): Record<string, unknown> {
     if (!entry.propMappings) {
       return { ...intent.data, ...intent.context };
     }
@@ -521,8 +521,8 @@ export class IntentRegistry {
   /**
    * Get all registered intent types
    */
-  getRegisteredIntentTypes(): UIIntentType[] {
-    const types = new Set<UIIntentType>();
+  getRegisteredIntentTypes(): IntentType[] {
+    const types = new Set<IntentType>();
     
     this.config.intents.forEach(e => types.add(e.intentType));
     this.runtimeEntries.forEach((_, key) => types.add(key));
@@ -533,7 +533,7 @@ export class IntentRegistry {
   /**
    * Get entries for a specific intent type
    */
-  getEntriesForIntent(intentType: UIIntentType): IntentRegistryEntry[] {
+  getEntriesForIntent(intentType: IntentType): IntentRegistryEntry[] {
     return [
       ...(this.runtimeEntries.get(intentType) || []),
       ...this.config.intents.filter(e => e.intentType === intentType),

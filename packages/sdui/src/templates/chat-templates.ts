@@ -8,7 +8,7 @@
  */
 
 import type { SDUIPageDefinition } from '../schema';
-import type { WorkflowState, LifecycleStage } from '@valueos/sdui-types';
+import type { LifecycleStage, WorkflowState } from '@valueos/sdui-types';
 
 import { generateOpportunityPage } from './chat-opportunity-template';
 import { generateTargetPage } from './chat-target-template';

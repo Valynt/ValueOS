@@ -6,23 +6,23 @@
 
 import React, { useCallback, useEffect, useMemo } from 'react';
 import {
-  ReactFlow,
   Background,
+  Connection,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
-  Connection,
   Node,
-  ReactFlowProvider,
   Panel,
+  ReactFlow,
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Undo, Redo, Library, Settings } from 'lucide-react';
+import { Library, Redo, Settings, Undo } from 'lucide-react';
 
 import { nodeTypes } from './ValueCanvasNodes';
 import { ValueDriverLibrary } from './ValueDriverLibrary';
@@ -87,6 +87,7 @@ const ValueCanvasContent: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 
   // Load session data
   useEffect(() => {
+    if (!organizationId) return;
     const loadSession = async () => {
       try {
         const session = await sessionService.loadSession(sessionId, organizationId);
@@ -115,6 +116,7 @@ const ValueCanvasContent: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 
   // Auto-save with debouncing
   useEffect(() => {
+    if (!organizationId) return;
     const autoSave = async () => {
       if (!nodes.length && !edges.length) return; // Don't save empty canvas
 

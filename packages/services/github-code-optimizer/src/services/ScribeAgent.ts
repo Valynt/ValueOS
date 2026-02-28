@@ -1,14 +1,14 @@
 import { BaseAgent } from "./BaseAgent";
 import { Octokit } from "@octokit/rest";
-import OpenAI from "./openai";
+import { LLMGateway } from "./openai";
 
 export class ScribeAgent extends BaseAgent {
-  private openai: OpenAI;
+  private llmGateway: LLMGateway;
   private octokit: Octokit;
 
-  constructor(openaiApiKey: string, githubToken: string) {
+  constructor(_openaiApiKey: string, githubToken: string) {
     super();
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.llmGateway = new LLMGateway({ provider: "openai", model: "gpt-4o" });
     this.octokit = new Octokit({ auth: githubToken });
   }
 
@@ -18,7 +18,7 @@ export class ScribeAgent extends BaseAgent {
     baseBranch: string
   ) {
     // 1. Summarize changes
-    const summary = await this.openai.chat.completions.create({
+    const summary = await this.llmGateway.complete({
       model: "gpt-4o",
       messages: [
         {
@@ -28,8 +28,12 @@ export class ScribeAgent extends BaseAgent {
         },
         { role: "user", content: `Changed files: ${changedFiles.join(", ")}` },
       ],
+      metadata: {
+        tenantId: "github-code-optimizer",
+        userId: "scribe-agent",
+      },
     });
-    const docSummary = summary.choices[0]?.message?.content || "No summary.";
+    const docSummary = summary.content || "No summary.";
 
     // 2. (Stub) Propose doc/rule changes (real implementation would diff and edit files)
     // For now, just create a PR with a summary file

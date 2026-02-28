@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Check, X, Pencil, ExternalLink, Sparkles } from "lucide-react";
+import { Check, ExternalLink, Pencil, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ResearchSuggestion } from "@/hooks/company-context/types";
 
@@ -32,35 +32,29 @@ function ConfidenceBadge({ score }: { score: number }) {
   );
 }
 
-function SourceCount({ urls }: { urls: string[] }) {
-  const [expanded, setExpanded] = useState(false);
+function getSourceName(url: string): string {
+  if (url.startsWith("sec://edgar")) {
+    const parts = url.split("/");
+    const section = parts[parts.length - 1];
+    return `SEC 10-K (${section.replace(/_/g, " ")})`;
+  }
+  if (url.includes("sec.gov")) return "SEC Filing";
+  try {
+    const u = new URL(url);
+    return u.hostname.replace("www.", "");
+  } catch {
+    return "Website";
+  }
+}
 
+function SourceBadge({ urls }: { urls: string[] }) {
   if (urls.length === 0) return null;
+  const firstName = getSourceName(urls[0]);
 
   return (
-    <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-zinc-600 transition-colors"
-      >
-        <ExternalLink className="w-3 h-3" />
-        {urls.length} source{urls.length !== 1 ? "s" : ""}
-      </button>
-      {expanded && (
-        <div className="mt-1 space-y-0.5">
-          {urls.map((url, i) => (
-            <a
-              key={i}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-[10px] text-blue-500 hover:text-blue-700 truncate max-w-[200px]"
-            >
-              {url}
-            </a>
-          ))}
-        </div>
-      )}
+    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 text-[9px] font-medium">
+      <ExternalLink className="w-2.5 h-2.5" />
+      {urls.length === 1 ? firstName : `${firstName} +${urls.length - 1}`}
     </div>
   );
 }
@@ -86,7 +80,7 @@ export function SuggestionCard({
   };
 
   return (
-    <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/30 space-y-3">
+    <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/30 space-y-3 shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-2">
         <Sparkles className="w-3.5 h-3.5 text-blue-500" />
@@ -95,7 +89,7 @@ export function SuggestionCard({
         </span>
         <ConfidenceBadge score={suggestion.confidence_score} />
         <div className="ml-auto">
-          <SourceCount urls={suggestion.source_urls} />
+          <SourceBadge urls={suggestion.source_urls} />
         </div>
       </div>
 

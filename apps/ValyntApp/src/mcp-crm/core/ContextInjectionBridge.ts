@@ -8,12 +8,12 @@
  */
 
 import { logger } from "../../lib/logger";
-import { MCPCRMServer, getMCPCRMServer } from "./MCPCRMServer";
+import { getMCPCRMServer, MCPCRMServer } from "./MCPCRMServer";
 import type {
-  TemplateDataSource,
+  FinancialData,
   MetricData,
   OutcomeData,
-  FinancialData,
+  TemplateDataSource,
 } from "../../components/templates";
 import { UnifiedAgentOrchestrator } from "../../services/UnifiedAgentOrchestrator";
 

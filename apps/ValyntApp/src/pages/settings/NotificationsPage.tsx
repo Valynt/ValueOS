@@ -4,8 +4,8 @@
 
 import { useState } from "react";
 import {
-  SettingsToggleRow,
   SettingsSection,
+  SettingsToggleRow,
 } from "@/components/settings";
 
 interface NotificationPrefs {

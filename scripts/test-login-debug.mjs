@@ -3,6 +3,8 @@
  */
 
 import { chromium } from "playwright";
+import path from "path";
+import fs from "fs";
 
 async function testLogin() {
   console.log("🎭 Starting Playwright login test with network debugging...\n");
@@ -14,6 +16,9 @@ async function testLogin() {
 
   const context = await browser.newContext();
   const page = await context.newPage();
+
+  const OUT_DIR = process.env.WORKSPACE_FOLDER ? path.join(process.env.WORKSPACE_FOLDER, "test-results") : path.join(process.cwd(), "test-results");
+  await fs.promises.mkdir(OUT_DIR, { recursive: true });
 
   // Capture console messages
   const consoleMessages = [];
@@ -116,7 +121,7 @@ async function testLogin() {
     console.log(`\n📍 Final URL: ${currentUrl}`);
 
     // Take final screenshot
-    await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-debug.png" });
+    await page.screenshot({ path: path.join(OUT_DIR, "login-debug.png") });
     console.log("📸 Screenshot saved: login-debug.png");
 
     if (!currentUrl.includes("/login")) {
@@ -137,7 +142,7 @@ async function testLogin() {
     }
   } catch (error) {
     console.error("❌ Test failed with error:", error.message);
-    await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-error.png" });
+    await page.screenshot({ path: path.join(OUT_DIR, "login-error.png") });
   } finally {
     await browser.close();
   }

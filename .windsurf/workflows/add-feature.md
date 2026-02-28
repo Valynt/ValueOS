@@ -31,7 +31,7 @@ git checkout -b feature/<feature-name>
 7. Add unit tests:
 
 ```bash
-npm run test:unit -- --watch
+pnpm test:watch
 ```
 
 ## Quality Checks
@@ -39,36 +39,32 @@ npm run test:unit -- --watch
 // turbo 8. Run linting:
 
 ```bash
-npm run lint:all
+pnpm lint
 ```
 
 // turbo 9. Run type check:
 
 ```bash
-npx tsc --noEmit
+pnpm typecheck
 ```
 
 10. Run full test suite:
 
 ```bash
-npm run test:all
+pnpm test
 ```
 
 11. Run accessibility tests (for UI features):
 
 ```bash
-npm run test:a11y
+npx playwright test tests/accessibility/axe-a11y.spec.ts
 ```
 
 ## Documentation
 
 12. Update relevant documentation in `docs/`
 
-13. Update OpenAPI spec if API changes:
-
-```bash
-npm run lint:openapi
-```
+13. Update OpenAPI spec if API changes
 
 ## Review Checklist
 

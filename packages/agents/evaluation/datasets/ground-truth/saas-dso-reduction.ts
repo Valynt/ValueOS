@@ -6,10 +6,10 @@
  * Based on realistic financial data patterns from public SaaS companies.
  */
 
-import type { EvidenceItem, EvidenceBundle, ClassifiedEvidence, Citation } from '../../../core/EvidenceTiering.js';
-import type { ConfidenceScore, ClaimConfidence } from '../../../core/ConfidenceScorer.js';
+import type { Citation, ClassifiedEvidence, EvidenceBundle, EvidenceItem } from '../../../core/EvidenceTiering.js';
+import type { ClaimConfidence, ConfidenceScore } from '../../../core/ConfidenceScorer.js';
 import type { ProvenanceRecord } from '../../../../memory/provenance/index.js';
-import type { ValueTree, ValueTreeNode, NarrativeBlock, ValueHypothesis } from '../../../orchestration/HypothesisLoop.js';
+import type { NarrativeBlock, ValueHypothesis, ValueTree, ValueTreeNode } from '../../../orchestration/HypothesisLoop.js';
 import type { Objection } from '../../../orchestration/agents/RedTeamAgent.js';
 import type { SagaStateType } from '../../../core/ValueCaseSaga.js';
 
@@ -179,7 +179,10 @@ export const valueTree: ValueTree = {
       value: 4_942_500,
       formula: 'node_wc + node_fte + node_bd',
       confidenceScore: 0.76,
+      assumptions: ['All child node assumptions hold'],
+      dependencies: [],
       citations: ['ev_001', 'ev_002', 'ev_003', 'ev_004', 'ev_005'],
+      drivers: [],
       children: [
         {
           id: 'node_wc',
@@ -187,7 +190,10 @@ export const valueTree: ValueTree = {
           value: 3_950_000,
           formula: '(currentDSO - targetDSO) / 365 * annualRevenue = (62 - 45) / 365 * 85000000',
           confidenceScore: 0.82,
+          assumptions: ['DSO reduction from 62 to 45 days is achievable', 'Annual revenue of $85M'],
+          dependencies: [],
           citations: ['ev_001', 'ev_002', 'ev_003'],
+          drivers: [{ metric: 'dso_reduction', value: 17, unit: 'days' }],
         },
         {
           id: 'node_fte',
@@ -195,7 +201,10 @@ export const valueTree: ValueTree = {
           value: 312_500,
           formula: '2.5 FTE * $125,000 avg loaded cost',
           confidenceScore: 0.75,
+          assumptions: ['2.5 FTE reduction through automation', 'Average loaded cost of $125,000'],
+          dependencies: [],
           citations: ['ev_004'],
+          drivers: [{ metric: 'fte_reduction', value: 2.5, unit: 'headcount' }],
         },
         {
           id: 'node_bd',
@@ -203,7 +212,10 @@ export const valueTree: ValueTree = {
           value: 680_000,
           formula: '$1,700,000 * 0.40 reduction rate',
           confidenceScore: 0.68,
+          assumptions: ['40% bad debt reduction achievable'],
+          dependencies: ['node_wc'],
           citations: ['ev_004', 'ev_005'],
+          drivers: [{ metric: 'bad_debt_reduction_rate', value: 40, unit: 'percent' }],
         },
       ],
     },

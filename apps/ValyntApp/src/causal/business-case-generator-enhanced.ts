@@ -9,12 +9,12 @@
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
-import { StructuralTruth, FormulaInput } from '../structural/structural-truth';
+import { FormulaInput, StructuralTruth } from '../structural/structural-truth';
 import CausalTruth from './causal-truth-enhanced';
 import { BusinessAction } from './causal-truth';
 import { 
-  StructuralPersona, 
-  StructuralIndustry,
+  StructuralIndustry, 
+  StructuralPersona,
 } from '../types/structural-truth';
 
 // ============================================================================

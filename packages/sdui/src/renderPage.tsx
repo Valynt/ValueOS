@@ -6,11 +6,12 @@ import { SectionErrorFallback, UnknownComponentFallback } from "../components/SD
 import {
   SDUIComponentSection,
   SDUIPageDefinition,
+  SDUISection,
   SDUIValidationError,
   validateSDUISchema,
 } from "./schema";
-import { resolveComponentLazy, preloadCriticalComponents } from "./LazyComponentRegistry";
-import { resolveComponent } from "./registry";
+import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
+import { resolveComponentFromLegacyRegistry as resolveComponent } from "./registry";
 import { useDataHydration } from "./hooks/useDataHydration";
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
 import { LoadingFallback } from "./components/LoadingFallback";
@@ -202,10 +203,15 @@ const DebugOverlay: React.FC<{
  * Component that handles rendering a single section with hydration support
  */
 const SectionRenderer: React.FC<{
-  section: SDUIComponentSection;
+  section: SDUISection;
   index: number;
   options: RenderPageOptions;
-}> = ({ section, index, options }) => {
+}> = ({ section: rawSection, index, options }) => {
+  // Only render component sections; layout directives are handled by the main renderer
+  if (rawSection.type !== "component") {
+    return null;
+  }
+  const section = rawSection as SDUIComponentSection;
   const {
     debug = false,
     onRenderError,
@@ -442,7 +448,7 @@ export function renderPage(
 
     // Log errors in development
     if (process.env.NODE_ENV === "development") {
-      logger.error("SDUI Schema Validation Failed:", errors);
+      logger.error("SDUI Schema Validation Failed", { errors });
     }
 
     // Throw validation error for caller to handle
@@ -458,7 +464,7 @@ export function renderPage(
 
   // Step 4: Calculate metadata
   const hydratedComponentCount = page.sections.filter(
-    (section) => section.hydrateWith && section.hydrateWith.length > 0
+    (section) => section.type === "component" && section.hydrateWith && section.hydrateWith.length > 0
   ).length;
 
   const metadata = {
@@ -469,13 +475,8 @@ export function renderPage(
 
   // Step 5: Preload critical components if lazy loading is enabled
   if (options.enableLazyLoading !== false) {
-    // Extract component names from page sections
-    const componentNames = page.sections.map((section: SDUIComponentSection) => section.component);
-
     // Preload critical components asynchronously (don't block rendering)
-    preloadCriticalComponents().catch((error: any) => {
-      logger.warn("Failed to preload critical components", { error });
-    });
+    preloadCriticalComponents();
   }
 
   // Step 6: Enable debug mode from page metadata if not explicitly set

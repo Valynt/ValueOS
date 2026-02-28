@@ -367,12 +367,17 @@ class GuestAccessService {
   /**
    * Get guest user by ID
    */
-  public async getGuestUser(guestUserId: string): Promise<GuestUser | null> {
+  public async getGuestUser(guestUserId: string, organizationId: string): Promise<GuestUser | null> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped guest user lookup");
+    }
+
     try {
       const { data, error } = await supabase
         .from("guest_users")
         .select()
         .eq("id", guestUserId)
+        .eq("organization_id", organizationId)
         .single();
 
       if (error) {
@@ -391,13 +396,19 @@ class GuestAccessService {
    * Get guest tokens for a value case
    */
   public async getTokensForValueCase(
-    valueCaseId: string
+    valueCaseId: string,
+    organizationId: string
   ): Promise<GuestAccessToken[]> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped token lookup");
+    }
+
     try {
       const { data, error } = await supabase
         .from("guest_access_tokens")
-        .select()
+        .select("*, guest_users!inner(organization_id)")
         .eq("value_case_id", valueCaseId)
+        .eq("guest_users.organization_id", organizationId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -417,16 +428,23 @@ class GuestAccessService {
     tokenId: string,
     valueCaseId: string,
     activityType: GuestActivityType,
+    organizationId: string,
     activityData?: Record<string, unknown>,
     ipAddress?: string,
     userAgent?: string
   ): Promise<void> {
+    if (!organizationId) {
+      logger.error("organizationId is required for tenant-scoped activity logging");
+      return;
+    }
+
     try {
       const { error } = await supabase.from("guest_activity_log").insert({
         guest_user_id: guestUserId,
         guest_access_token_id: tokenId,
         value_case_id: valueCaseId,
         activity_type: activityType,
+        organization_id: organizationId,
         activity_data: activityData,
         ip_address: ipAddress,
         user_agent: userAgent,
@@ -449,13 +467,19 @@ class GuestAccessService {
    */
   public async getActivityForValueCase(
     valueCaseId: string,
+    organizationId: string,
     limit: number = 100
   ): Promise<GuestActivity[]> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped activity lookup");
+    }
+
     try {
       const { data, error } = await supabase
         .from("guest_activity_log")
         .select()
         .eq("value_case_id", valueCaseId)
+        .eq("organization_id", organizationId)
         .order("created_at", { ascending: false })
         .limit(limit);
 

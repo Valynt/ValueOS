@@ -5,8 +5,9 @@
  * and runtime performance. Components are loaded on-demand when first used.
  */
 
-import React, { lazy, Suspense, ComponentType } from "react";
-import { RegistryEntry, SDUIComponentSection } from "./registry";
+import React, { ComponentType, lazy, Suspense } from "react";
+import { RegistryEntry } from "./registry";
+import { SDUIComponentSection } from "./schema";
 import { logger } from "@shared/lib/logger";
 import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";
 
@@ -90,17 +91,17 @@ const lazyComponents = {
 
   // Workflow components
   WorkflowStatusBar: lazy(() =>
-    import("../components/Workflow/WorkflowStatusBar").then((mod) => ({
+    import("./components/Workflow/WorkflowStatusBar").then((mod) => ({
       default: mod.WorkflowStatusBar,
     }))
   ),
   HumanCheckpoint: lazy(() =>
-    import("../components/Workflow/HumanCheckpoint").then((mod) => ({
+    import("./components/Workflow/HumanCheckpoint").then((mod) => ({
       default: mod.HumanCheckpoint,
     }))
   ),
   ConfidenceDisplay: lazy(() =>
-    import("../components/Agent/ConfidenceDisplay").then((mod) => ({
+    import("./components/Agent/ConfidenceDisplay").then((mod) => ({
       default: mod.ConfidenceDisplay,
     }))
   ),
@@ -123,14 +124,14 @@ const lazyComponents = {
     import("./components/SDUI").then((mod) => ({ default: mod.IntegrityReviewPanel }))
   ),
   IntegrityVetoPanel: lazy(() =>
-    import("../components/Agent/IntegrityVetoPanel").then((mod) => ({
+    import("./components/Agent/IntegrityVetoPanel").then((mod) => ({
       default: mod.IntegrityVetoPanel,
     }))
   ),
 
   // Development tools
   ComponentPreview: lazy(() =>
-    import("./components/SDUI/ComponentPreview").then((mod) => ({ default: mod.ComponentPreview }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ComponentPreview }))
   ),
 
   // Fallback components (loaded immediately as they're essential)
@@ -525,11 +526,11 @@ export class LazyComponentRegistry {
         }
       });
 
-    await Promise.allSettled(preloadPromises);
+    const results = await Promise.allSettled(preloadPromises);
 
     logger.info(`Preloaded ${componentNames.length} components`, {
       requested: componentNames.length,
-      successful: preloadPromises.filter((p) => p.status === "fulfilled").length,
+      successful: results.filter((r) => r.status === "fulfilled").length,
     });
   }
 

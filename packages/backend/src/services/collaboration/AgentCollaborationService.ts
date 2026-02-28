@@ -8,7 +8,7 @@
 import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
-import { getAgentMessageBroker, AgentMessageBroker } from "../AgentMessageBroker.js"
+import { AgentMessageBroker, getAgentMessageBroker } from "../AgentMessageBroker.js"
 import {
   getAgentPerformanceMonitor,
 } from "../monitoring/AgentPerformanceMonitor";
@@ -605,7 +605,7 @@ export class AgentCollaborationService extends EventEmitter {
     team: AgentTeam,
     task: CollaborationTask
   ): Promise<any> {
-    const results = [];
+    const results: unknown[] = [];
 
     for (const agentId of task.assignedTo) {
       const subtask = {

@@ -2,15 +2,14 @@
  * Example Express middleware demonstrating observability integration
  */
 
-import express, { Request, Response, NextFunction } from "express";
-import {
+import express, { NextFunction, Request, Response } from "express";
 import { logger } from "../lib/logger";
-  initializeTelemetry,
-  getTracer,
-  Metrics,
-  logger,
-  withSpan,
+import {
   getTraceContext,
+  getTracer,
+  initializeTelemetry,
+  Metrics,
+  withSpan,
 } from "./instrumentation";
 
 // Initialize telemetry on app startup

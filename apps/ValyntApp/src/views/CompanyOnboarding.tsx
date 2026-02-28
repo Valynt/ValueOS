@@ -4,12 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/lib/supabase";
+import { clearOnboardingBypass, markOnboardingBypassed } from "@/lib/onboarding-bypass";
 import {
-  useCreateCompanyContext,
+  useAddClaimGovernance,
   useAddCompetitors,
   useAddPersonas,
-  useAddClaimGovernance,
   useCompleteOnboarding,
+  useCreateCompanyContext,
 } from "@/hooks/company-context";
 import {
   useCreateResearchJob,
@@ -66,7 +67,7 @@ export default function CompanyOnboarding() {
   const { data: researchJob } = useResearchJobStatus(researchJobId);
   const { data: researchSuggestions } = useResearchSuggestions(researchJobId);
 
-  const handleStartResearch = async (website: string, industry: string, companySize: string | null, salesMotion: string | null) => {
+  const handleStartResearch = async (website: string, industry: string, companySize: string | null, salesMotion: string | null, ticker?: string) => {
     if (!contextId) {
       // Create context first if not yet created
       try {
@@ -80,13 +81,14 @@ export default function CompanyOnboarding() {
         });
         setContextId(ctx.id);
 
-        const jobInput: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string } = {
+        const jobInput: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string; ticker?: string } = {
           contextId: ctx.id,
           website,
         };
         if (industry) jobInput.industry = industry;
         if (companySize) jobInput.companySize = companySize;
         if (salesMotion) jobInput.salesMotion = salesMotion;
+        if (ticker) jobInput.ticker = ticker;
         const job = await createResearchJob.mutateAsync(jobInput);
         setResearchJobId(job.id);
       } catch {
@@ -94,13 +96,14 @@ export default function CompanyOnboarding() {
       }
     } else {
       try {
-        const jobInput2: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string } = {
+        const jobInput2: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string; ticker?: string } = {
           contextId,
           website,
         };
         if (industry) jobInput2.industry = industry;
         if (companySize) jobInput2.companySize = companySize;
         if (salesMotion) jobInput2.salesMotion = salesMotion;
+        if (ticker) jobInput2.ticker = ticker;
         const job = await createResearchJob.mutateAsync(jobInput2);
         setResearchJobId(job.id);
       } catch {
@@ -111,6 +114,8 @@ export default function CompanyOnboarding() {
 
   const handleSkip = async () => {
     try {
+      markOnboardingBypassed(tenantId);
+
       if (supabase) {
         // Check if a context already exists for this tenant
         const { data: existing } = await supabase
@@ -148,9 +153,10 @@ export default function CompanyOnboarding() {
     navigate("/dashboard");
   };
 
-  const handlePhase1 = async (data: OnboardingPhase1Input, jobId?: string) => {
+  const handlePhase1 = async (data: OnboardingPhase1Input, jobId?: string, options?: { fastTrack: boolean }) => {
     setPhase1Data(data);
     if (jobId) setResearchJobId(jobId);
+    const shouldFastTrack = options?.fastTrack && !!jobId && researchJob?.status === "completed";
     try {
       if (contextId) {
         // Context already created during research — update it
@@ -179,14 +185,14 @@ export default function CompanyOnboarding() {
             );
           }
         }
-        setPhase(2);
+        setPhase(shouldFastTrack ? 5 : 2);
       } else {
         const ctx = await createContext.mutateAsync(data);
         setContextId(ctx.id);
-        setPhase(2);
+        setPhase(shouldFastTrack ? 5 : 2);
       }
     } catch {
-      setPhase(2);
+      setPhase(shouldFastTrack ? 5 : 2);
     }
   };
 
@@ -220,6 +226,7 @@ export default function CompanyOnboarding() {
       if (contextId) {
         await completeOnboarding.mutateAsync();
       }
+      clearOnboardingBypass(tenantId);
       navigate("/dashboard");
     } catch {
       // Demo fallback — navigate anyway

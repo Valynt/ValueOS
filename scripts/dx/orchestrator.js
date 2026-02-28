@@ -16,10 +16,10 @@
  * 8. Start frontend
  *
  * Usage:
- *   node scripts/dx/orchestrator.js --mode local
- *   node scripts/dx/orchestrator.js --mode docker
- *   node scripts/dx/orchestrator.js --down
- *   node scripts/dx/orchestrator.js --reset
+ * node scripts/dx/orchestrator.js --mode local
+ * node scripts/dx/orchestrator.js --mode docker
+ * node scripts/dx/orchestrator.js --down
+ * node scripts/dx/orchestrator.js --reset
  */
 
 import { execSync, spawn } from "child_process";
@@ -37,6 +37,7 @@ import { CheckpointManager } from "./checkpoint-manager.ts";
 import { TraceLogger } from "./trace-logger.ts";
 import { formatError } from "./error-codes.ts";
 import logger from "./logger.js";
+import { ALL_COMPOSE_PROFILES, composeCommand, parseComposeProfiles } from "./lib/compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,6 +79,18 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY = 2000;
 const dockerHostGateway = resolveDockerHostGateway();
 const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
+const networkHosts = ["supabase"];
+
+const COMPOSE_BASE_FILE = "ops/compose/compose.yml";
+const COMPOSE_DOCKER_RUNTIME_FILES = [
+  COMPOSE_BASE_FILE,
+  "ops/compose/profiles/runtime-docker.yml",
+];
+const COMPOSE_CADDY_FILES = [COMPOSE_BASE_FILE, "ops/compose/profiles/caddy.yml"];
+
+function composeArgs(files) {
+  return files.map((file) => `-f ${file}`).join(" ");
+}
 
 /**
  * Retry a function with exponential backoff
@@ -570,23 +583,33 @@ function stopSupabase() {
 /**
  * Start Docker dependencies
  */
-async function startDockerDeps(mode) {
+async function startDockerDeps(mode, profiles = []) {
   const stepStart = traceLogger.stepStart("start_docker_deps", { mode });
   const checkpoint = checkpointManager.save("docker_deps", { mode });
 
   log.info("Starting Docker dependencies...");
 
-  const composeFile =
-    mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
-
-  // In full docker mode, we want images current and builds reproducible.
-  // For deps-only mode, do not force builds.
-  const upFlags = mode === "docker" ? " --build --pull=missing" : "";
+  const { command: composePullCmd, profiles: activeProfiles } = composeCommand("pull", {
+    mode,
+    profiles,
+    extraArgs: ["--ignore-pull-failures"],
+  });
+  const { command: composeBuildCmd } = composeCommand("build", {
+    mode,
+    profiles,
+    extraArgs: ["--pull"],
+  });
+  const { command: composeUpCmd } = composeCommand("up", {
+    mode,
+    profiles,
+    extraArgs: ["-d", "--build", "--pull=missing"],
+  });
+  const composeFile = `ops/compose (${activeProfiles.length ? `profiles: ${activeProfiles.join(",")}` : "core"})`;
 
   try {
     await runWithRetries("Docker pull", async () => {
       runCommand(
-        `docker compose --env-file ops/env/.env.ports -f ${composeFile} pull --ignore-pull-failures`,
+        composePullCmd,
         { silent: false }
       );
     });
@@ -594,7 +617,7 @@ async function startDockerDeps(mode) {
     if (mode === "docker") {
       await runWithRetries("Docker build", async () => {
         try {
-          runCommand(`docker compose --env-file ops/env/.env.ports -f ${composeFile} build --pull`, {
+          runCommand(composeBuildCmd, {
             silent: false,
           });
         } catch (error) {
@@ -615,7 +638,7 @@ async function startDockerDeps(mode) {
     }
 
     await runWithRetries("Docker up", async () => {
-      runCommand(`docker compose --env-file ops/env/.env.ports -f ${composeFile} up -d${upFlags}`, {
+      runCommand(composeUpCmd, {
         silent: false,
       });
     });
@@ -625,7 +648,7 @@ async function startDockerDeps(mode) {
     traceLogger.stepSuccess("start_docker_deps", stepStart);
   } catch (error) {
     traceLogger.stepError("start_docker_deps", error);
-    log.error(formatError("ERR_008", { composeFile, error: error.message }));
+    log.error(formatError("ERR_008", { composeFiles: composeFile, error: error.message }));
     console.error(String(error?.message || error));
     process.exit(1);
   }
@@ -634,23 +657,18 @@ async function startDockerDeps(mode) {
 /**
  * Stop Docker dependencies
  */
-function stopDockerDeps() {
+function stopDockerDeps(profiles = []) {
   log.info("Stopping Docker dependencies...");
 
-  const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-    "infra/docker/docker-compose.caddy.yml",
-  ];
-
-  for (const file of composeFiles) {
-    try {
-      runCommand(`docker compose --env-file ops/env/.env.ports -f ${file} down --remove-orphans`, {
-        silent: true,
-      });
-    } catch {
-      // Ignore errors
-    }
+  try {
+    const { command } = composeCommand("down", {
+      mode: "local",
+      profiles,
+      extraArgs: ["--remove-orphans"],
+    });
+    runCommand(command, { silent: true });
+  } catch {
+    // Ignore errors
   }
 
   log.success("Docker dependencies stopped");
@@ -659,24 +677,19 @@ function stopDockerDeps() {
 /**
  * Reset Docker dependencies (remove volumes)
  */
-function resetDockerDeps(level = "soft") {
+function resetDockerDeps(level = "soft", profiles = []) {
   log.info(`Resetting Docker dependencies (${level})...`);
 
-  const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-    "infra/docker/docker-compose.caddy.yml",
-  ];
-
-  for (const file of composeFiles) {
-    try {
-      const downArgs = level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
-      runCommand(`docker compose --env-file ops/env/.env.ports -f ${file} ${downArgs}`, {
-        silent: true,
-      });
-    } catch {
-      // Ignore errors
-    }
+  try {
+    const downArgs = ["-v", "--remove-orphans"];
+    const { command } = composeCommand("down", {
+      mode: "local",
+      profiles,
+      extraArgs: downArgs,
+    });
+    runCommand(command, { silent: true });
+  } catch {
+    // Ignore errors
   }
 
   if (level === "hard") {
@@ -874,65 +887,15 @@ async function startCaddy() {
     return null;
   }
 
-  log.info("Starting Caddy reverse proxy...");
-
-  const stepStart = traceLogger.stepStart("start_caddy");
-
-  try {
-    // Validate Caddyfile first
-    try {
-      runCommand(
-        'docker run --rm -v "$PWD/infra/caddy:/etc/caddy" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile.dev --adapter caddyfile',
-        { silent: true }
-      );
-      log.success("Caddyfile validated");
-    } catch (error) {
-      log.warn("Caddyfile validation failed (continuing anyway)");
-    }
-
-    // Start Caddy via Docker Compose
-    runCommand(
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.caddy.yml up -d",
-      { silent: false }
-    );
-
-    // Wait for Caddy to be healthy
-    const caddyAdminPort = resolvePort(process.env.CADDY_ADMIN_PORT, ports.edge.adminPort);
-    const caddyAdminUrl = `http://127.0.0.1:${caddyAdminPort}/config/`;
-
-    const healthy = await waitForHealth(caddyAdminUrl, 15000);
-    if (!healthy) {
-      log.warn("Caddy health check timed out (may still be starting)");
-    } else {
-      log.success("Caddy is healthy");
-    }
-
-    traceLogger.stepSuccess("start_caddy", stepStart);
-
-    return {
-      httpPort: resolvePort(process.env.CADDY_HTTP_PORT, ports.edge.httpPort),
-      httpsPort: resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort),
-    };
-  } catch (error) {
-    traceLogger.stepError("start_caddy", error);
-    log.warn("Failed to start Caddy (continuing without HTTPS proxy)");
-    console.error(error.message);
-    return null;
-  }
+  log.warn("Caddy compose stack is retired in DX; skipping Caddy startup.");
+  return null;
 }
 
 /**
  * Stop Caddy
  */
 function stopCaddy() {
-  try {
-    runCommand(
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.caddy.yml down",
-      { silent: true }
-    );
-  } catch {
-    // Ignore
-  }
+  // Caddy compose stack retired; no-op for backward compatibility.
 }
 
 /**
@@ -1090,6 +1053,7 @@ function setupShutdownHandler(services) {
  */
 async function main() {
   const args = process.argv.slice(2);
+  const composeProfiles = parseComposeProfiles(args);
 
   // Handle --down
   if (args.includes("--down")) {
@@ -1098,7 +1062,7 @@ async function main() {
       log.error("Docker is required to stop services.");
       process.exit(1);
     }
-    stopDockerDeps();
+    stopDockerDeps(composeProfiles.length > 0 ? composeProfiles : ALL_COMPOSE_PROFILES);
     stopSupabase();
     clearDxState();
     log.success("Development environment stopped");
@@ -1114,7 +1078,7 @@ async function main() {
       process.exit(1);
     }
     const level = args[resetIndex + 1] === "hard" ? "hard" : "soft";
-    resetDockerDeps(level);
+    resetDockerDeps(level, composeProfiles.length > 0 ? composeProfiles : ALL_COMPOSE_PROFILES);
     stopSupabase();
     clearDxState();
     log.success("Development environment reset");
@@ -1132,8 +1096,8 @@ async function main() {
 
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
-║                    ValueOS Development                         ║
-║                      Mode: ${mode.padEnd(10)}                          ║
+║                     ValueOS Development                        ║
+║                       Mode: ${mode.padEnd(10)}                           ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
 
@@ -1156,7 +1120,7 @@ async function main() {
   writeEnvFiles(mode, { force: true });
   reloadEnv();
 
-  const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts });
+  const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts, networkHosts });
 
   // Step 1b: Preflight checks (now that env exists)
   runPreflightChecks(supabaseMode);
@@ -1172,7 +1136,7 @@ async function main() {
 
   // Step 3: Start Docker dependencies
   log.step(3, "Starting Docker dependencies");
-  await startDockerDeps(mode);
+  await startDockerDeps(mode, composeProfiles);
 
   // Step 4: Start Supabase (local mode only)
   if (mode === "local") {
@@ -1232,13 +1196,13 @@ async function main() {
 ╔════════════════════════════════════════════════════════════════╗
 ║                    Services Running                            ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Frontend:        http://localhost:${frontendPort}                      ║
-║  Backend:         http://localhost:${backendPort}                       ║
-║  Supabase API:    http://localhost:${supabaseApiPort}                     ║
-║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║
+║  Frontend:        http://localhost:${frontendPort}                   ║
+║  Backend:         http://localhost:${backendPort}                        ║
+║  Supabase API:    http://localhost:${supabaseApiPort}                      ║
+║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                      ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Stop:  pnpm run dx:down                                        ║
-║  Logs:  pnpm run dx:logs                                        ║
+║  Stop:  pnpm run dx:down                                       ║
+║  Logs:  pnpm run dx:logs                                       ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
     return;
@@ -1311,14 +1275,14 @@ async function main() {
 ╔════════════════════════════════════════════════════════════════╗
 ║                    All Services Ready                          ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Frontend:        http://localhost:${frontendPort}                      ║
-║  Backend:         http://localhost:${backendPort}                       ║
-║  Supabase API:    http://localhost:${supabaseApiPort}                     ║
-║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║`;
+║  Frontend:        http://localhost:${frontendPort}                   ║
+║  Backend:         http://localhost:${backendPort}                        ║
+║  Supabase API:    http://localhost:${supabaseApiPort}                      ║
+║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                      ║`;
 
   if (caddyInfo) {
     servicesOutput += `
-║  Caddy HTTPS:     https://localhost:${caddyInfo.httpsPort}                      ║`;
+║  Caddy HTTPS:     https://localhost:${caddyInfo.httpsPort}                       ║`;
   }
 
   servicesOutput += `

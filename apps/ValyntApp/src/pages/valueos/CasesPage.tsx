@@ -1,30 +1,36 @@
 /**
  * CasesPage - Cases list view
- * 
+ *
  * List all cases with filtering, sorting, and search.
+ * Fetches real data from Supabase via useCasesList hook.
  */
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus,
+  AlertCircle,
+  ArrowUpDown,
   Grid,
   List,
-  TrendingUp,
   MoreHorizontal,
-  ArrowUpDown,
+  Plus,
+  RefreshCw,
+  TrendingUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useCasesList, usePortfolioValue } from "@/hooks/useCases";
+import type { ValueCaseWithRelations } from "@/services/supabase/types";
 
-type CaseStatus = "draft" | "in-progress" | "committed" | "closed";
+type CaseStatus = "draft" | "in-progress" | "committed" | "closed" | "review" | "published";
 type ViewMode = "grid" | "list";
 
-interface Case {
+interface CaseView {
   id: string;
   name: string;
   company: string;
@@ -36,74 +42,84 @@ interface Case {
   createdAt: string;
 }
 
-const MOCK_CASES: Case[] = [
-  {
-    id: "1",
-    name: "Enterprise Expansion",
-    company: "Acme Corp",
-    initials: "AC",
-    value: "$2.4M",
-    status: "committed",
-    owner: "Sarah K.",
-    updatedAt: "2 hours ago",
-    createdAt: "Jan 5, 2026",
-  },
-  {
-    id: "2",
-    name: "Cloud Migration ROI",
-    company: "Beta Inc",
-    initials: "BI",
-    value: "$1.8M",
-    status: "in-progress",
-    owner: "John D.",
-    updatedAt: "1 day ago",
-    createdAt: "Jan 8, 2026",
-  },
-  {
-    id: "3",
-    name: "Cost Reduction Analysis",
-    company: "Gamma Ltd",
-    initials: "GL",
-    value: "$890K",
-    status: "in-progress",
-    owner: "Sarah K.",
-    updatedAt: "2 days ago",
-    createdAt: "Jan 10, 2026",
-  },
-  {
-    id: "4",
-    name: "Digital Transformation",
-    company: "Delta Corp",
-    initials: "DC",
-    value: null,
-    status: "draft",
-    owner: "Alex M.",
-    updatedAt: "3 days ago",
-    createdAt: "Jan 12, 2026",
-  },
-  {
-    id: "5",
-    name: "Security Compliance",
-    company: "Epsilon Inc",
-    initials: "EI",
-    value: "$3.2M",
-    status: "closed",
-    owner: "Sarah K.",
-    updatedAt: "1 week ago",
-    createdAt: "Dec 15, 2025",
-  },
-  {
-    id: "6",
-    name: "Productivity Suite",
-    company: "Zeta Systems",
-    initials: "ZS",
-    value: "$1.1M",
-    status: "committed",
-    owner: "John D.",
-    updatedAt: "1 week ago",
-    createdAt: "Dec 20, 2025",
-  },
-];
+/** Map a DB row to the UI shape. */
+function toCaseView(row: ValueCaseWithRelations): CaseView {
+  const company = row.company_profiles?.company_name ?? "Unknown";
+  const initials = company
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const projectedValue = row.metadata?.projected_value as number | undefined;
+  let value: string | null = null;
+  if (projectedValue != null) {
+    if (projectedValue >= 1_000_000) {
+      value = `$${(projectedValue / 1_000_000).toFixed(1)}M`;
+    } else if (projectedValue >= 1_000) {
+      value = `$${(projectedValue / 1_000).toFixed(0)}K`;
+    } else {
+      value = `$${projectedValue.toFixed(0)}`;
+    }
+  }
+
+  const statusMap: Record<string, CaseStatus> = {
+    draft: "draft",
+    review: "in-progress",
+    published: "committed",
+  };
+  const status: CaseStatus = statusMap[row.status] ?? "draft";
+
+  const updatedAt = row.updated_at
+    ? formatRelativeTime(new Date(row.updated_at))
+    : "Unknown";
+  const createdAt = row.created_at
+    ? new Date(row.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Unknown";
+
+  return {
+    id: row.id,
+    name: row.name,
+    company,
+    initials,
+    value,
+    status,
+    owner: (row.metadata?.owner_name as string) ?? "—",
+    updatedAt,
+    createdAt,
+  };
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? "s" : ""} ago`;
+}
+
+function parseValue(value: string | null): number {
+  if (!value) return 0;
+  const num = parseFloat(value.replace(/[$MK,]/g, ""));
+  const multiplier = value.includes("M")
+    ? 1_000_000
+    : value.includes("K")
+      ? 1_000
+      : 1;
+  return num * multiplier;
+}
 
 const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = {
   draft: {
@@ -122,6 +138,14 @@ const STATUS_CONFIG: Record<CaseStatus, { label: string; className: string }> = 
     label: "Closed",
     className: "bg-purple-100 text-purple-700 border-purple-200",
   },
+  review: {
+    label: "In Review",
+    className: "bg-amber-100 text-amber-700 border-amber-200",
+  },
+  published: {
+    label: "Published",
+    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  },
 };
 
 const STATUS_OPTIONS = [
@@ -139,6 +163,42 @@ const SORT_OPTIONS = [
   { value: "value", label: "Value" },
 ];
 
+function CaseListSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Card key={i} className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="h-5 w-16" />
+          </div>
+          <Skeleton className="h-5 w-3/4 mb-1" />
+          <Skeleton className="h-4 w-1/2 mb-3" />
+          <Skeleton className="h-4 w-1/3 mb-3" />
+          <div className="flex justify-between">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
+  return (
+    <div className="text-center py-12">
+      <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+      <h3 className="text-lg font-medium text-slate-900 mb-1">Failed to load cases</h3>
+      <p className="text-sm text-slate-500 mb-4 max-w-md mx-auto">{error.message}</p>
+      <Button variant="outline" onClick={onRetry}>
+        <RefreshCw className="h-4 w-4 mr-2" />
+        Retry
+      </Button>
+    </div>
+  );
+}
+
 export function CasesPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -146,7 +206,12 @@ export function CasesPage() {
   const [sortBy, setSortBy] = useState("updated");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
-  const filteredCases = MOCK_CASES.filter((c) => {
+  const { data: rawCases, isLoading, error, refetch } = useCasesList();
+  const { data: portfolio } = usePortfolioValue();
+
+  const cases = (rawCases ?? []).map(toCaseView);
+
+  const filteredCases = cases.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.company.toLowerCase().includes(searchQuery.toLowerCase());
@@ -154,17 +219,22 @@ export function CasesPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Summary stats
+  const sortedCases = [...filteredCases].sort((a, b) => {
+    switch (sortBy) {
+      case "name":
+        return a.name.localeCompare(b.name);
+      case "value":
+        return parseValue(b.value) - parseValue(a.value);
+      default:
+        return 0;
+    }
+  });
+
   const stats = {
-    total: MOCK_CASES.length,
-    inProgress: MOCK_CASES.filter((c) => c.status === "in-progress").length,
-    committed: MOCK_CASES.filter((c) => c.status === "committed").length,
-    totalValue: MOCK_CASES.reduce((sum, c) => {
-      if (!c.value) return sum;
-      const num = parseFloat(c.value.replace(/[$MK,]/g, ""));
-      const multiplier = c.value.includes("M") ? 1000000 : c.value.includes("K") ? 1000 : 1;
-      return sum + num * multiplier;
-    }, 0),
+    total: cases.length,
+    inProgress: cases.filter((c) => c.status === "in-progress" || c.status === "review").length,
+    committed: cases.filter((c) => c.status === "committed" || c.status === "published").length,
+    totalValue: portfolio?.totalValue ?? 0,
   };
 
   return (
@@ -174,8 +244,9 @@ export function CasesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Cases</h1>
           <p className="text-slate-500 mt-1">
-            {stats.total} cases • {stats.inProgress} in progress • $
-            {(stats.totalValue / 1000000).toFixed(1)}M total value
+            {stats.total} cases • {stats.inProgress} in progress
+            {stats.totalValue > 0 &&
+              ` • $${(stats.totalValue / 1_000_000).toFixed(1)}M total value`}
           </p>
         </div>
         <Button onClick={() => navigate("/app/cases/new")}>
@@ -246,68 +317,80 @@ export function CasesPage() {
         </div>
       </Card>
 
-      {/* Cases Grid/List */}
-      {viewMode === "grid" ? (
-        <div className="grid grid-cols-3 gap-4">
-          {filteredCases.map((caseItem) => (
-            <CaseCard
-              key={caseItem.id}
-              caseData={caseItem}
-              onClick={() => navigate(`/app/cases/${caseItem.id}`)}
-            />
-          ))}
-        </div>
-      ) : (
-        <Card className="overflow-hidden">
-          {/* Table Header */}
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            <div className="col-span-4">Case</div>
-            <div className="col-span-2">Value</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-2">Owner</div>
-            <div className="col-span-2">Updated</div>
-          </div>
+      {/* Loading State */}
+      {isLoading && <CaseListSkeleton />}
 
-          {/* Table Body */}
-          <div className="divide-y">
-            {filteredCases.map((caseItem) => (
-              <CaseRow
-                key={caseItem.id}
-                caseData={caseItem}
-                onClick={() => navigate(`/app/cases/${caseItem.id}`)}
-              />
-            ))}
-          </div>
-        </Card>
+      {/* Error State */}
+      {error && !isLoading && (
+        <ErrorState error={error as Error} onRetry={() => refetch()} />
       )}
 
-      {/* Empty State */}
-      {filteredCases.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No cases found</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => {
-              setSearchQuery("");
-              setStatusFilter("all");
-            }}
-          >
-            Clear filters
-          </Button>
-        </div>
+      {/* Cases Grid/List */}
+      {!isLoading && !error && (
+        <>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-3 gap-4">
+              {sortedCases.map((caseItem) => (
+                <CaseCard
+                  key={caseItem.id}
+                  caseData={caseItem}
+                  onClick={() => navigate(`/app/cases/${caseItem.id}`)}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card className="overflow-hidden">
+              {/* Table Header */}
+              <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="col-span-4">Case</div>
+                <div className="col-span-2">Value</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-2">Owner</div>
+                <div className="col-span-2">Updated</div>
+              </div>
+
+              {/* Table Body */}
+              <div className="divide-y">
+                {sortedCases.map((caseItem) => (
+                  <CaseRow
+                    key={caseItem.id}
+                    caseData={caseItem}
+                    onClick={() => navigate(`/app/cases/${caseItem.id}`)}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {sortedCases.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No cases found</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
 interface CaseCardProps {
-  caseData: Case;
+  caseData: CaseView;
   onClick: () => void;
 }
 
 function CaseCard({ caseData, onClick }: CaseCardProps) {
-  const statusConfig = STATUS_CONFIG[caseData.status];
+  const statusConfig = STATUS_CONFIG[caseData.status] ?? STATUS_CONFIG.draft;
 
   return (
     <Card
@@ -340,12 +423,12 @@ function CaseCard({ caseData, onClick }: CaseCardProps) {
 }
 
 interface CaseRowProps {
-  caseData: Case;
+  caseData: CaseView;
   onClick: () => void;
 }
 
 function CaseRow({ caseData, onClick }: CaseRowProps) {
-  const statusConfig = STATUS_CONFIG[caseData.status];
+  const statusConfig = STATUS_CONFIG[caseData.status] ?? STATUS_CONFIG.draft;
 
   return (
     <div

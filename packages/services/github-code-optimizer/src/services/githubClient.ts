@@ -1,7 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
-import { Repository, PullRequestData } from '../types/index.js';
+import { PullRequestData, Repository } from '../types/index.js';
 
 export class GitHubClient {
   private octokit: Octokit;
@@ -46,7 +46,7 @@ export class GitHubClient {
 
       throw new Error('File content not available or not base64 encoded');
     } catch (error) {
-      if ((error as any).status === 404) {
+      if ((error as { status?: number }).status === 404) {
         return null; // File doesn't exist
       }
       logger.error('Failed to get file content', { owner, repo, path, error });
@@ -54,9 +54,9 @@ export class GitHubClient {
     }
   }
 
-  async listRepositoryFiles(owner: string, repo: string, ref?: string): Promise<any[]> {
+  async listRepositoryFiles(owner: string, repo: string, ref?: string): Promise<Array<{ path: string; size: number; type: string; sha: string }>> {
     try {
-      const files: any[] = [];
+      const files: Array<{ path: string; size: number; type: string; sha: string }> = [];
 
       const getContents = async (path = '') => {
         const { data } = await this.octokit.repos.getContent({

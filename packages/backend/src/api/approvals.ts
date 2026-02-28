@@ -1,23 +1,20 @@
 /**
  * Phase 2: Approval API Endpoints
- * 
+ *
  * Handles approval workflow for agent actions requiring human oversight.
  */
 
-import { Request, Response, Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
+import { Request, Response } from 'express';
+import { createSecureRouter } from '../middleware/secureRouter.js'
+import { requireAuth } from '../middleware/auth.js'
+import { tenantContextMiddleware } from '../middleware/tenantContext.js'
+import { requirePermission } from '../middleware/rbac.js'
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 import { logger } from '../utils/logger.js'
 import { auditBulkDelete } from '../middleware/auditHooks.js'
 
-const router = Router();
-router.use(requestAuditMiddleware());
-
-// Initialize Supabase client (server-side)
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-);
+const router = createSecureRouter("strict");
+router.use(requireAuth, tenantContextMiddleware());
 
 const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId,
@@ -47,6 +44,8 @@ router.post('/request', async (req: Request, res: Response) => {
       });
     }
 
+    const supabase = getRequestSupabaseClient(req);
+
     // Create approval request via database function
     const { data, error } = await supabase.rpc('create_approval_request', {
       p_agent_name: agentName,
@@ -60,7 +59,7 @@ router.post('/request', async (req: Request, res: Response) => {
 
     if (error) {
       logger.error('Error creating approval request', error, withRequestContext(req));
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: 'Failed to create approval request' });
     }
 
     return res.status(202).json({
@@ -78,16 +77,25 @@ router.post('/request', async (req: Request, res: Response) => {
  * GET /api/approvals/pending
  * Get all pending approval requests (for approvers)
  */
-router.get('/pending', async (req: Request, res: Response) => {
+router.get('/pending', requirePermission('approvals:manage'), async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const supabase = getRequestSupabaseClient(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      logger.error('Error fetching pending approvals', error, withRequestContext(req));
+      return res.status(500).json({ error: 'Failed to fetch pending approvals' });
     }
 
     return res.json({ requests: data || [] });
@@ -103,21 +111,29 @@ router.get('/pending', async (req: Request, res: Response) => {
  */
 router.get('/my-requests', async (req: Request, res: Response) => {
   try {
-    // In a real app, get user ID from authenticated session
     const userId = (req as any).user?.id;
+    const tenantId = (req as any).tenantId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const supabase = getRequestSupabaseClient(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*, approvals(*)')
+      .eq('tenant_id', tenantId)
       .eq('requester_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      logger.error('Error fetching user requests', error, withRequestContext(req));
+      return res.status(500).json({ error: 'Failed to fetch requests' });
     }
 
     return res.json({ requests: data || [] });
@@ -131,10 +147,12 @@ router.get('/my-requests', async (req: Request, res: Response) => {
  * POST /api/approvals/:requestId/approve
  * Approve an approval request
  */
-router.post('/:requestId/approve', async (req: Request, res: Response) => {
+router.post('/:requestId/approve', requirePermission('approvals:manage'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const { secondApproverEmail, notes } = req.body;
+
+    const supabase = getRequestSupabaseClient(req);
 
     // Approve via database function
     const { data, error } = await supabase.rpc('approve_request', {
@@ -144,7 +162,7 @@ router.post('/:requestId/approve', async (req: Request, res: Response) => {
     });
 
     if (error) {
-      // Check for specific error messages
+      // Map known DB error patterns to user-facing messages without leaking internals
       if (error.message.includes('dual control')) {
         return res.status(400).json({
           error: 'Dual control required',
@@ -166,7 +184,8 @@ router.post('/:requestId/approve', async (req: Request, res: Response) => {
         });
       }
 
-      return res.status(500).json({ error: error.message });
+      logger.error('Error approving request', error, withRequestContext(req));
+      return res.status(500).json({ error: 'Failed to approve request' });
     }
 
     return res.json({
@@ -183,10 +202,12 @@ router.post('/:requestId/approve', async (req: Request, res: Response) => {
  * POST /api/approvals/:requestId/reject
  * Reject an approval request
  */
-router.post('/:requestId/reject', async (req: Request, res: Response) => {
+router.post('/:requestId/reject', requirePermission('approvals:manage'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const { notes } = req.body;
+
+    const supabase = getRequestSupabaseClient(req);
 
     // Reject via database function
     const { data, error } = await supabase.rpc('reject_request', {
@@ -195,7 +216,8 @@ router.post('/:requestId/reject', async (req: Request, res: Response) => {
     });
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      logger.error('Error rejecting request', error, withRequestContext(req));
+      return res.status(500).json({ error: 'Failed to reject request' });
     }
 
     return res.json({
@@ -215,18 +237,27 @@ router.post('/:requestId/reject', async (req: Request, res: Response) => {
 router.get('/:requestId', async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
+    const tenantId = (req as any).tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const supabase = getRequestSupabaseClient(req);
 
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*, approvals(*)')
       .eq('id', requestId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
         return res.status(404).json({ error: 'Request not found' });
       }
-      return res.status(500).json({ error: error.message });
+      logger.error('Error fetching request', error, withRequestContext(req));
+      return res.status(500).json({ error: 'Failed to fetch request' });
     }
 
     return res.json({ request: data });
@@ -243,16 +274,25 @@ router.get('/:requestId', async (req: Request, res: Response) => {
 router.delete('/:requestId', auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
+    const tenantId = (req as any).tenantId;
 
-    // Only allow cancellation of pending requests
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const supabase = getRequestSupabaseClient(req);
+
+    // Only allow cancellation of pending requests within the tenant
     const { error } = await supabase
       .from('approval_requests')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', requestId)
+      .eq('tenant_id', tenantId)
       .eq('status', 'pending');
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      logger.error('Error cancelling request', error, withRequestContext(req));
+      return res.status(500).json({ error: 'Failed to cancel request' });
     }
 
     return res.json({ message: 'Request cancelled' });

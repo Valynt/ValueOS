@@ -40,3 +40,11 @@ Notes & troubleshooting:
 - If CI time becomes a concern, run the full apply+rollback job only on PRs that add migrations and schedule nightly full runs.
 
 Contact: Mention this README in migration PRs or ping the infra team for questions.
+
+
+- `validate-secret-key-contract.mjs` — validates canonical secret key names across Kubernetes ExternalSecrets and environment/compose definitions; fails on deprecated aliases.
+
+
+- `check-openapi-breaking-changes.mjs` — compares `scripts/openapi.yaml` in the current branch with the base branch and fails on removed operations or removed response codes (breaking contract signals for PRs).
+- `check-infra-manifest-registry.mjs` — validates the active/deprecated manifest registry in `infra/README.md` and blocks references to deprecated paths.
+- `check-k8s-architecture-conformance.mjs` — lints `infra/k8s/**` manifests for required platform labels, probes, security context, and autoscaling policy declarations.

@@ -17,5 +17,9 @@ RUN useradd -ms /bin/bash vscode
 
 WORKDIR /workspaces/ValueOS
 
+# Copy devcontainer scripts to a location available before workspace mount
+COPY .devcontainer/scripts /opt/devcontainer-scripts
+RUN chmod +x /opt/devcontainer-scripts/*.sh
+
 # Keep container alive for VS Code
 CMD ["sleep", "infinity"]

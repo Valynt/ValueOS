@@ -7,9 +7,9 @@
 
 import React from "react";
 import { ComponentErrorBoundary } from "@sdui/components/ComponentErrorBoundary";
-import { migrationRunner, migrateSchema } from "@sdui/migrations";
+import { migrateSchema, migrationRunner } from "@sdui/migrations";
 import { resolveComponent, versionedRegistry } from "@sdui/registry";
-import { globalCache, cached } from "@sdui/cache";
+import { cached, globalCache } from "@sdui/cache";
 import { renderPage } from "@sdui/renderPage";
 
 // Example 1: Enhanced Error Boundary with Circuit Breaker

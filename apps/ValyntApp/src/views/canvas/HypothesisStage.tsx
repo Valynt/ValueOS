@@ -1,19 +1,26 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
-  Lightbulb,
-  FileSearch,
-  Edit3,
-  Check,
-  X,
   AlertTriangle,
+  ArrowRight,
+  Check,
+  Edit3,
+  FileSearch,
+  Layers,
+  Lightbulb,
+  Minus,
+  Package,
   Plus,
   Sparkles,
-  Package,
-  Users,
   Swords,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
+import { type MergedKPI, useHardenAllKPIs, useHardenKPI, useMergedContext } from "@/hooks/useDomainPacks";
 
 // Inline-editable text field
 function EditableField({
@@ -78,6 +85,193 @@ function ConfidenceBadge({ value, source }: { value: number; source: string }) {
       <span className="text-[10px] font-medium text-zinc-500">{value}%</span>
       <span className="text-[10px] text-zinc-300">·</span>
       <span className="text-[10px] text-zinc-400">{source}</span>
+    </div>
+  );
+}
+
+// Direction icon for KPI
+function DirectionIcon({ direction }: { direction: "up" | "down" | "neutral" }) {
+  if (direction === "up") return <TrendingUp className="w-3 h-3 text-emerald-500" />;
+  if (direction === "down") return <TrendingDown className="w-3 h-3 text-blue-500" />;
+  return <Minus className="w-3 h-3 text-zinc-400" />;
+}
+
+// Ghost KPI card — suggested by domain pack, not yet in the case
+function GhostKPICard({
+  kpi,
+  onAccept,
+  isAccepting,
+}: {
+  kpi: MergedKPI;
+  onAccept: () => void;
+  isAccepting: boolean;
+}) {
+  return (
+    <div className={cn(
+      "bg-white border rounded-xl p-4 transition-all",
+      kpi.hardened
+        ? "border-zinc-200"
+        : "border-dashed border-zinc-300 bg-zinc-50/50 hover:border-zinc-400"
+    )}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <DirectionIcon direction={kpi.direction} />
+          <span className="text-[13px] font-semibold text-zinc-900">{kpi.name}</span>
+          {kpi.unit && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-500">{kpi.unit}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {kpi.category && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-medium">
+              {kpi.category}
+            </span>
+          )}
+          {kpi.hardened ? (
+            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+              <Check className="w-2.5 h-2.5" />
+              Added
+            </span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">
+              Suggested
+            </span>
+          )}
+        </div>
+      </div>
+
+      {kpi.description && (
+        <p className="text-[12px] text-zinc-500 mb-2">{kpi.description}</p>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {kpi.baseline_hint && (
+            <span className="text-[11px] text-zinc-400 italic">{kpi.baseline_hint}</span>
+          )}
+          {kpi.target_hint && !kpi.baseline_hint && (
+            <span className="text-[11px] text-zinc-400 italic">{kpi.target_hint}</span>
+          )}
+        </div>
+
+        {!kpi.hardened && (
+          <button
+            onClick={onAccept}
+            disabled={isAccepting}
+            className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-100 transition-colors disabled:opacity-50"
+          >
+            <Plus className="w-3 h-3" />
+            Accept
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Domain Pack KPIs section
+function DomainPackKPIs() {
+  const { caseId } = useParams();
+  const { data: merged, isLoading } = useMergedContext(caseId);
+  const hardenKPI = useHardenKPI();
+  const hardenAll = useHardenAllKPIs();
+
+  if (!caseId || isLoading || !merged?.pack) return null;
+  if (merged.kpis.length === 0) return null;
+
+  const ghostCount = merged.kpis.filter(k => !k.hardened).length;
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-violet-600" />
+          <h4 className="text-[13px] font-semibold text-zinc-900">
+            {merged.pack.name} KPIs
+          </h4>
+          <span className="text-[11px] text-zinc-400">
+            {merged.kpis.length} metrics · {ghostCount} suggested
+          </span>
+        </div>
+        {ghostCount > 0 && (
+          <button
+            onClick={() => hardenAll.mutate({ caseId })}
+            disabled={hardenAll.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-white rounded-lg text-[11px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+          >
+            <ArrowRight className="w-3 h-3" />
+            {hardenAll.isPending ? "Adding..." : `Add all ${ghostCount} KPIs`}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {merged.kpis.map((kpi) => (
+          <GhostKPICard
+            key={kpi.kpi_key}
+            kpi={kpi}
+            onAccept={() => hardenKPI.mutate({ caseId, kpiKey: kpi.kpi_key })}
+            isAccepting={hardenKPI.isPending}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Domain Pack Assumptions section — shows financial defaults with origin labels
+function DomainPackAssumptions() {
+  const { caseId } = useParams();
+  const { data: merged, isLoading } = useMergedContext(caseId);
+
+  if (!caseId || isLoading || !merged?.pack) return null;
+  if (merged.assumptions.length === 0) return null;
+
+  const originLabel = (origin: string) => {
+    if (origin === "domain_pack") return { text: "Domain Default", color: "bg-violet-50 text-violet-700" };
+    if (origin === "manual") return { text: "User Override", color: "bg-emerald-50 text-emerald-700" };
+    return { text: "System Default", color: "bg-zinc-100 text-zinc-500" };
+  };
+
+  const formatValue = (a: typeof merged.assumptions[0]) => {
+    if (a.value_type === "bool") return a.value ? "Yes" : "No";
+    if (a.value_type === "number" && a.unit) return `${a.value}${a.unit}`;
+    return String(a.value ?? "—");
+  };
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Layers className="w-4 h-4 text-amber-600" />
+        <h4 className="text-[13px] font-semibold text-zinc-900">Financial Assumptions</h4>
+        <span className="text-[11px] text-zinc-400">{merged.assumptions.length} parameters</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {merged.assumptions.map((a) => {
+          const origin = originLabel(a.origin);
+          return (
+            <div
+              key={a.assumption_key}
+              className={cn(
+                "p-3 rounded-xl border transition-colors",
+                a.hardened ? "bg-white border-zinc-200" : "bg-zinc-50/50 border-dashed border-zinc-300"
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-zinc-400">{a.display_name}</span>
+                <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full font-semibold", origin.color)}>
+                  {origin.text}
+                </span>
+              </div>
+              <p className="text-lg font-black text-zinc-950 tracking-tight">{formatValue(a)}</p>
+              {a.description && (
+                <p className="text-[10px] text-zinc-400 mt-0.5">{a.description}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -174,6 +368,12 @@ export function HypothesisStage() {
           );
         })}
       </div>
+
+      {/* Domain Pack KPIs — ghost suggestions from the selected pack */}
+      <DomainPackKPIs />
+
+      {/* Domain Pack Assumptions — financial defaults from the selected pack */}
+      <DomainPackAssumptions />
 
       {/* Company intelligence — from CompanyValueContext when available */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-5">

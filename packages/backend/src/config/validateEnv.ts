@@ -13,6 +13,8 @@ export interface ValidationResult {
   warnings: string[];
 }
 
+// Database env precedence: prefer DATABASE_URL everywhere.
+// Legacy DB_* atomics are deprecated and should only be used in explicit fallback paths.
 const REQUIRED_VARS = [
   { name: "DATABASE_URL", fix: "Run: pnpm run dx:env --mode local --force" },
   { name: "SUPABASE_URL", fix: "Run: pnpm run dx:env --mode local --force" },
@@ -24,9 +26,80 @@ const RECOMMENDED_VARS = [
   { name: "REDIS_URL", fix: "Run: pnpm run dx to start Redis" },
 ];
 
+const SECURE_NODE_ENVS = new Set(["staging", "production"]);
+const STRICT_POSTGRES_SSL_MODES = new Set(["require", "verify-ca", "verify-full"]);
+
+const DEPRECATED_ALIASES = [
+  { deprecated: "SUPABASE_SERVICE_KEY", canonical: "SUPABASE_SERVICE_ROLE_KEY" },
+];
+
+
+function parseUrl(raw: string): URL | null {
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}
+
+function validateSecureTransportRules(errors: string[]): void {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) {
+    return;
+  }
+
+  const dbUrlRaw = process.env.DATABASE_URL;
+  if (dbUrlRaw) {
+    const dbUrl = parseUrl(dbUrlRaw);
+    if (!dbUrl) {
+      errors.push("Invalid DATABASE_URL format. Must be a valid postgres URL.");
+    } else {
+      const sslMode = (dbUrl.searchParams.get("sslmode") ?? "").toLowerCase();
+      if (!STRICT_POSTGRES_SSL_MODES.has(sslMode)) {
+        errors.push(
+          `In ${nodeEnv}, DATABASE_URL must enable TLS with sslmode=require, verify-ca, or verify-full.`
+        );
+      }
+    }
+  }
+
+  const redisUrlRaw = process.env.REDIS_URL;
+  if (redisUrlRaw) {
+    const redisUrl = parseUrl(redisUrlRaw);
+    if (!redisUrl) {
+      errors.push("Invalid REDIS_URL format. Must be a valid redis URL.");
+    } else if (redisUrl.protocol !== "rediss:") {
+      errors.push(`In ${nodeEnv}, REDIS_URL must use TLS (rediss://...).`);
+    }
+  }
+
+  const rejectUnauthorized = (process.env.REDIS_TLS_REJECT_UNAUTHORIZED ?? "true").toLowerCase();
+  if (rejectUnauthorized !== "true") {
+    errors.push(
+      `In ${nodeEnv}, REDIS_TLS_REJECT_UNAUTHORIZED must be true to enforce certificate validation.`
+    );
+  }
+
+  if (!process.env.REDIS_TLS_CA_CERT_PATH && !process.env.REDIS_TLS_CA_CERT) {
+    errors.push(
+      `In ${nodeEnv}, set REDIS_TLS_CA_CERT_PATH (preferred) or REDIS_TLS_CA_CERT to validate Redis certificates.`
+    );
+  }
+
+  if (!process.env.REDIS_TLS_SERVERNAME) {
+    errors.push(`In ${nodeEnv}, REDIS_TLS_SERVERNAME is required for Redis certificate hostname validation.`);
+  }
+}
+
 export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+
+  for (const { deprecated, canonical } of DEPRECATED_ALIASES) {
+    if (process.env[deprecated]) {
+      errors.push(`Deprecated ${deprecated} is set. Use ${canonical} instead.`);
+    }
+  }
 
   // Check required variables
   for (const { name, fix } of REQUIRED_VARS) {
@@ -40,6 +113,12 @@ export function validateEnv(): ValidationResult {
     if (!process.env[name]) {
       warnings.push(`Missing ${name}. ${fix}`);
     }
+  }
+
+  // Production: require Together API key to prevent misconfiguration
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  if (nodeEnv === "production" && !process.env.TOGETHER_API_KEY) {
+    errors.push("TOGETHER_API_KEY is required in production");
   }
 
   // Validate DATABASE_URL format if present
@@ -57,6 +136,8 @@ export function validateEnv(): ValidationResult {
       errors.push(`Invalid SUPABASE_URL format. Must start with http:// or https://`);
     }
   }
+
+  validateSecureTransportRules(errors);
 
   return {
     valid: errors.length === 0,
@@ -86,7 +167,7 @@ export function validateLLMConfig(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   if (!process.env.LLM_API_KEY && !process.env.OPENAI_API_KEY) {
-    warnings.push('No LLM API key configured');
+    warnings.push("No LLM API key configured");
   }
   return { valid: errors.length === 0, errors, warnings };
 }

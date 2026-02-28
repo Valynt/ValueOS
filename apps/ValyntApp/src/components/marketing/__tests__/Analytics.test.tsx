@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { Analytics } from '../Analytics';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Analytics Component', () => {
   beforeEach(() => {

@@ -211,7 +211,7 @@ export interface AgentRequestEvent {
     payload: {
         agentId: string;
         userId: string;
-        sessionId: string;
+        sessionId?: string;
         tenantId: string;
         query: string;
         context?: Record<string, unknown>;
@@ -220,6 +220,7 @@ export interface AgentRequestEvent {
         timeout: number;
     };
     meta: EventMeta;
+    [key: string]: any;
 }
 /**
  * Helper to create base events

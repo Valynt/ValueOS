@@ -560,7 +560,7 @@ export class MLAnomalyDetectionService extends TenantAwareService {
   private calculateBurstScore(requests: any[]): number {
     if (requests.length < 2) return 0;
 
-    const intervals = [];
+    const intervals: unknown[] = [];
     for (let i = 1; i < requests.length; i++) {
       intervals.push(requests[i].timestamp - requests[i-1].timestamp);
     }

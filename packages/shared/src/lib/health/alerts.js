@@ -14,9 +14,9 @@ export var AlertState;
     AlertState["RESOLVED"] = "resolved";
 })(AlertState || (AlertState = {}));
 class AlertManager {
+    alerts = new Map();
+    rules = [];
     constructor() {
-        this.alerts = new Map();
-        this.rules = [];
         this.initializeDefaultRules();
     }
     initializeDefaultRules() {

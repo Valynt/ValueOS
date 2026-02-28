@@ -5,7 +5,7 @@
  * Ensures all data access is properly scoped to the tenant context.
  */
 
-import { enhancedAuditLogger, AuditActor } from '../lib/audit/index';
+import { AuditActor, enhancedAuditLogger } from '../lib/audit/index';
 import { DataBinding, DataSourceContext, ResolvedBinding } from './DataBindingSchema';
 import { hasPermission, TenantContext, TenantContextError } from './TenantContext';
 
@@ -251,7 +251,7 @@ export function logDataAccess(
       ...log.metadata,
       ...(result.error ? { error: result.error } : {})
     }
-  ).catch(err => {
+  ).catch((err: unknown) => {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[AUDIT LOGGER ERROR]', err);
     }

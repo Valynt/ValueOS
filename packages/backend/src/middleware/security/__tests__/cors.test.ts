@@ -4,18 +4,18 @@
  * Tests for: allowed origin, denied origin, preflight handling
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import express, { Express } from 'express';
 import request from 'supertest';
 import {
   createCorsMiddleware,
-  validateOrigin,
   isOriginAllowed,
+  validateOrigin,
 } from '../cors';
 import {
   resetSecurityConfig,
-  setSecurityConfig,
   SecurityConfig,
+  setSecurityConfig,
 } from '../config';
 
 describe('CORS Middleware', () => {

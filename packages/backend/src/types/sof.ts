@@ -21,3 +21,11 @@ export interface ExecutionStep {
   inputs: Record<string, any>;
   outputs: string[];
 }
+
+export interface OutcomeHypothesis {
+  id: string;
+  description: string;
+  probability: number;
+  impact: number;
+  evidence?: string[];
+}

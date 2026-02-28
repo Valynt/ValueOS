@@ -16,13 +16,7 @@ description: Add and validate accessibility in UI components
 // turbo 2. Run accessibility tests:
 
 ```bash
-npm run test:a11y
-```
-
-3. Run Playwright accessibility specs:
-
-```bash
-npx playwright test tests/playwright/accessibility.spec.ts
+npx playwright test tests/accessibility/axe-a11y.spec.ts
 ```
 
 ## Manual Verification

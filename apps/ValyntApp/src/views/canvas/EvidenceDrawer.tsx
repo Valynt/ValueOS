@@ -1,7 +1,7 @@
 import {
+  ExternalLink,
   Shield,
   X,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

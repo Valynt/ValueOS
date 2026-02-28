@@ -122,7 +122,7 @@ See [docs/architecture/](docs/architecture/) for detailed design documents.
 - **Secrets**: Vault / AWS Secrets Manager via External Secrets Operator. No secrets in code or config.
 - **RLS**: All tenant-scoped tables enforce row-level security. Dedicated CI check validates policies.
 
-See [docs/security-compliance/](docs/security-compliance/) for the full security overview and compliance guide.
+See [docs/security-compliance/](docs/security-compliance/) for the full security overview and compliance guide, and review [SECURITY.md](SECURITY.md) for coordinated vulnerability disclosure.
 
 ## Documentation
 
@@ -144,6 +144,11 @@ See [docs/security-compliance/](docs/security-compliance/) for the full security
 See [DEPLOY.md](DEPLOY.md) for production deployment instructions using Docker Compose with Caddy, or the Kubernetes manifests in `infra/k8s/`.
 
 ## Contributing
+
+### Supported contributor workflow
+
+1. Open this repository in the Dev Container.
+2. Run `pnpm run dx:up --mode local` to start the local development stack.
 
 1. Create a feature branch from `main`.
 2. Make changes following the patterns in [docs/engineering/code-standards.md](docs/engineering/code-standards.md).

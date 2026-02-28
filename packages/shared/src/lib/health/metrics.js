@@ -3,12 +3,10 @@
  * Tracks latency and failure rates for health checks
  */
 class HealthMetricsCollector {
-    constructor() {
-        this.metrics = [];
-        this.healthHistory = [];
-        this.maxMetrics = 1000; // Keep last 1000 metrics
-        this.maxHistory = 100; // Keep last 100 health snapshots
-    }
+    metrics = [];
+    healthHistory = [];
+    maxMetrics = 1000; // Keep last 1000 metrics
+    maxHistory = 100; // Keep last 100 health snapshots
     recordMetric(service, latency, success, error) {
         const metric = {
             service,

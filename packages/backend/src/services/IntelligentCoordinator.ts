@@ -640,7 +640,7 @@ export class IntelligentCoordinator {
    * Get compliance checks for an agent
    */
   private getComplianceChecks(agent: AgentType, analysis: RequestAnalysis): string[] {
-    const checks = [];
+    const checks: unknown[] = [];
 
     // Base compliance checks
     if (["financial-modeling", "target"].includes(agent)) {
@@ -866,7 +866,7 @@ export class IntelligentCoordinator {
         agent: execution.agent,
       });
 
-      // TODO: Integrate with MessageBus to emit AGENT_RESET event
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with MessageBus to emit AGENT_RESET event
       // await messageBus.emit('AGENT_RESET', { traceId, agent: execution.agent });
 
       // For now, just log the event

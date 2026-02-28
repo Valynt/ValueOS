@@ -50,6 +50,7 @@ import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
 import crmRouter from "./api/crm.js";
 import onboardingRouter from "./api/onboarding.js";
+import domainPacksRouter from "./api/domainPacks.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
@@ -60,13 +61,15 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
 import {
-  validateSecretsOnStartup,
   secretHealthMiddleware,
+  validateSecretsOnStartup,
 } from "./config/secrets/SecretValidator.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { registerDevRoutes } from "./routes/devRoutes.js";
+import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
+import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -88,32 +91,35 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
     metricsMiddleware = metricsModule.metricsMiddleware;
     getMetricsRegistry = metricsModule.getMetricsRegistry;
   } catch (error) {
-    console.warn("Telemetry modules not available, running without observability");
+    logger.warn("Telemetry modules not available, running without observability");
   }
 }
 
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
 import { createRateLimiter } from "./middleware/rateLimiter.js";
 import {
-  requestIdMiddleware,
   accessLogMiddleware,
   globalErrorHandler,
   notFoundHandler,
+  requestIdMiddleware,
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler";
 import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js";
-import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js";
+import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
-import { settings, initSecrets } from "./config/settings.js";
+import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
+
+getAgentPolicyService();
+logger.info('[Instrumentation] Agent policy validation passed');
 
 const app = express();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
@@ -147,16 +153,9 @@ function parseBearerToken(header?: string | string[]): string | null {
 }
 
 function getWebSocketToken(req: IncomingMessage): string | null {
-  const bearerToken = parseBearerToken(req.headers.authorization);
-  if (bearerToken) {
-    return bearerToken;
-  }
-
-  const url = new URL(req.url ?? "", "http://localhost");
-  if (process.env.NODE_ENV !== "production") {
-    return url.searchParams.get("access_token") ?? url.searchParams.get("token");
-  }
-  return null;
+  // Only accept tokens via Authorization header to prevent token leakage
+  // in server logs, proxy logs, and browser history.
+  return parseBearerToken(req.headers.authorization);
 }
 
 function getRequestedTenantId(req: IncomingMessage): string | null {
@@ -365,7 +364,7 @@ app.get("/health/secrets", secretHealthMiddleware());
 
 // Mount routes
 apiRouter.use("/billing", billingRouter);
-apiRouter.use("/projects", projectsRouter);
+apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
 apiRouter.use(
   "/initiatives",
   requireAuth,
@@ -412,12 +411,18 @@ app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingRouter);
+app.use("/api/v1/domain-packs", domainPacksRouter);
 
 // Mount checkpoint HITL endpoints
 const orchestrator = getUnifiedOrchestrator();
 const checkpointMiddleware = orchestrator.getCheckpointMiddleware();
 if (checkpointMiddleware) {
-  app.use("/api/checkpoints", createCheckpointRouter(checkpointMiddleware));
+  app.use(
+    "/api/checkpoints",
+    requireAuth,
+    tenantContextMiddleware(),
+    createCheckpointRouter(checkpointMiddleware),
+  );
 }
 
 await registerDevRoutes(app);
@@ -484,6 +489,11 @@ async function startServer(): Promise<void> {
     });
   }
 
+  // 3.5. Initialise Redis-backed WebSocket broadcast adapter so that
+  // broadcasts reach clients on every backend pod, not just the local one.
+  const broadcastAdapter = initBroadcastAdapter(wss);
+  await broadcastAdapter.init();
+
   // 4. Workers run as a separate process (see workers/workerMain.ts).
   // In development, optionally start them in-process for convenience.
   if (settings.NODE_ENV === "development") {
@@ -540,14 +550,17 @@ function registerGracefulShutdown(): void {
     // 2. Stop audit DLQ retry loop
     securityAuditService.stopRetryLoop();
 
-    // 3. Close WebSocket connections
+    // 3. Tear down Redis pub/sub for WebSocket broadcasts
+    getBroadcastAdapter().shutdown().catch(() => {});
+
+    // 4. Close WebSocket connections
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.close(1001, "Server shutting down");
       }
     });
 
-    // 3. Stop accepting new HTTP connections and drain existing ones
+    // 5. Stop accepting new HTTP connections and drain existing ones
     server.close(() => {
       logger.info("All connections drained, exiting");
       process.exit(0);
@@ -578,8 +591,8 @@ if (isMainModule || settings.NODE_ENV === "development") {
 
 /**
  * Broadcast a reasoning chain update to all authenticated WebSocket clients
- * in the specified tenant. Matches the event format expected by
- * AgentReasoningViewer: { type: 'agent.event', payload: { eventType, data } }
+ * in the specified tenant across all pods. Uses Redis pub/sub when available,
+ * falls back to local-only delivery.
  */
 function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
   const message = JSON.stringify({
@@ -590,12 +603,17 @@ function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
     },
   });
 
-  wss.clients.forEach((client) => {
-    const authed = client as AuthenticatedWebSocket;
-    if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  try {
+    getBroadcastAdapter().broadcast(tenantId, message);
+  } catch {
+    // Adapter not yet initialised (e.g. during tests) — fall back to local.
+    wss.clients.forEach((client) => {
+      const authed = client as AuthenticatedWebSocket;
+      if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
 }
 
 export { app, server, wss, broadcastReasoningUpdate };

@@ -9,11 +9,11 @@
 
 import { BusinessCaseResult } from '@valueos/business-case';
 import {
-  TemplateDataSource,
+  AuditEvidence,
+  CausalChain,
   FinancialMetrics,
   KPIImpact,
-  CausalChain,
-  AuditEvidence
+  TemplateDataSource
 } from '@valueos/templates';
 
 /**

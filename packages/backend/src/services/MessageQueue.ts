@@ -57,7 +57,7 @@ export class LLMQueueService {
   private queue: Queue<LLMJobData, LLMJobResult>;
   private worker: Worker<LLMJobData, LLMJobResult>;
   private events: QueueEvents;
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: any;
   private metricsRegistry: Registry;
   private queueDepthGauge: Gauge;
   private queueDepth: number = 0;

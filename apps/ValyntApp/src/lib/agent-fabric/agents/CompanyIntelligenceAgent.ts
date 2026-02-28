@@ -4,15 +4,15 @@
  * Analyzes company profile, stakeholders, strategic priorities, and decision patterns.
  */
 
-import { BaseAgent, AgentConfig } from "../BaseAgent";
-import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
+import { AgentConfig, BaseAgent } from "../BaseAgent";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { AgentType } from "../../../types/agents";
 import { z } from "zod";
 
 import {
-  validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
+  validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
 
 type ConfidenceLevel = "high" | "medium" | "low";

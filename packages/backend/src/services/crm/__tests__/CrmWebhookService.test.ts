@@ -4,7 +4,7 @@
  * Tests idempotent webhook ingestion, duplicate detection, and event storage.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Supabase
 const mockSupabase = {

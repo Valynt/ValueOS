@@ -11,19 +11,19 @@
  * - Visual Hierarchy: left border color codes type at a glance
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  Lightbulb,
-  ArrowUpRight,
   AlertTriangle,
-  FileText,
+  ArrowUpRight,
+  Check,
   ChevronDown,
   ChevronRight,
-  ExternalLink,
-  User,
   Clock,
   Copy,
-  Check,
+  ExternalLink,
+  FileText,
+  Lightbulb,
+  User,
 } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 import { cn } from "@/lib/utils";

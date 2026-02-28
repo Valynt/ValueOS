@@ -8,7 +8,7 @@
 import { logger } from "../../lib/logger";
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
-import { getAgentMessageBroker, AgentMessageBroker } from "../AgentMessageBroker";
+import { AgentMessageBroker, getAgentMessageBroker } from "../AgentMessageBroker";
 import {
   getAgentPerformanceMonitor,
 } from "../monitoring/AgentPerformanceMonitor";

@@ -11,6 +11,7 @@ import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest } from "../middleware/inputValidation.js"
+import { createRateLimiter } from "../middleware/rateLimiter.js"
 import { referralService } from "./services/ReferralService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
@@ -18,6 +19,12 @@ import { auditLogService } from "../services/AuditLogService.js"
 
 const logger = createLogger({ component: "ReferralAPI" });
 const router = createSecureRouter("standard");
+
+// Strict per-IP rate limiter for unauthenticated referral endpoints
+// to prevent code enumeration and claim spam
+const referralPublicLimiter = createRateLimiter("strict", {
+  message: "Too many referral requests. Please try again later.",
+});
 
 /**
  * POST /api/referrals/generate
@@ -56,7 +63,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
       status: "success",
     });
 
-    res.json({
+    return res.json({
       success: true,
       referral_code: result.referral_code,
     });
@@ -65,7 +72,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -75,6 +82,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
  */
 router.post(
   "/claim",
+  referralPublicLimiter,
   validateRequest({
     referral_code: { type: "string", required: true, minLength: 8, maxLength: 8 },
     referee_email: { type: "email", required: true },
@@ -109,7 +117,7 @@ router.post(
       // Note: We don't audit log here since user might not be authenticated yet
       // Audit logging will happen when they complete signup
 
-      res.json({
+      return res.json({
         success: true,
         referral_id: result.referral_id,
         reward: result.reward,
@@ -121,7 +129,7 @@ router.post(
         referee_email: sanitizeForLogging(req.body.referee_email),
       });
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -156,7 +164,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
       total_referrals: dashboard.stats.total_referrals,
     });
 
-    res.json({
+    return res.json({
       success: true,
       dashboard,
     });
@@ -165,7 +173,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -192,7 +200,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
       completed_referrals: stats.completed_referrals,
     });
 
-    res.json({
+    return res.json({
       success: true,
       stats,
     });
@@ -201,7 +209,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -225,7 +233,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
       rewards_count: rewards.length,
     });
 
-    res.json({
+    return res.json({
       success: true,
       rewards,
       count: rewards.length,
@@ -235,7 +243,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -259,7 +267,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
       referrals_count: referrals.length,
     });
 
-    res.json({
+    return res.json({
       success: true,
       referrals,
       count: referrals.length,
@@ -269,7 +277,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -279,6 +287,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
  */
 router.post(
   "/validate",
+  referralPublicLimiter,
   validateRequest({
     code: { type: "string", required: true, minLength: 8, maxLength: 8 },
   }),
@@ -294,7 +303,7 @@ router.post(
         ipAddress: req.ip,
       });
 
-      res.json({
+      return res.json({
         success: true,
         valid: isValid,
         message: isValid ? "Referral code is valid" : "Invalid or inactive referral code",
@@ -304,7 +313,7 @@ router.post(
         code: sanitizeForLogging(req.body.code),
       });
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -356,7 +365,7 @@ router.post(
         status: "success",
       });
 
-      res.json({
+      return res.json({
         success: true,
         message: "Referral completed successfully! Rewards have been issued.",
       });
@@ -366,7 +375,7 @@ router.post(
         user_id: sanitizeForLogging((req as any).user?.id),
       });
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -406,7 +415,7 @@ router.delete("/deactivate", requireAuth, async (req: Request, res: Response) =>
       status: "success",
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: "Referral code deactivated successfully",
     });
@@ -415,7 +424,7 @@ router.delete("/deactivate", requireAuth, async (req: Request, res: Response) =>
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

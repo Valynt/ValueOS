@@ -125,16 +125,16 @@ spec:
       - key: node-role.kubernetes.io/master
         operator: Exists
         effect: NoSchedule
-      
+
       containers:
       - name: fluent-bit
-        image: fluent/fluent-bit:2.2.0
-        
+        image: fluent/fluent-bit@sha256:4bc37ef2c16f6547428c82a1b0eff2d80e45193bf94fc25d8509b628a0c010d1
+
         ports:
         - name: http
           containerPort: 2020
           protocol: TCP
-        
+
         resources:
           requests:
             cpu: 100m
@@ -142,7 +142,7 @@ spec:
           limits:
             cpu: 500m
             memory: 256Mi
-        
+
         volumeMounts:
         - name: varlog
           mountPath: /var/log
@@ -151,7 +151,7 @@ spec:
           readOnly: true
         - name: config
           mountPath: /fluent-bit/etc/
-      
+
       volumes:
       - name: varlog
         hostPath:

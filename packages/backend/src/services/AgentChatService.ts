@@ -795,9 +795,9 @@ ${stagePrompt}`;
       });
 
       // Mark current stage as completed
-      if (!currentState.completedStages?.includes(currentState.currentStage)) {
-        nextState.completedStages = [
-          ...(currentState.completedStages || []),
+      if (!currentState.completed_steps?.includes(currentState.currentStage)) {
+        nextState.completed_steps = [
+          ...(currentState.completed_steps || []),
           currentState.currentStage,
         ];
       }

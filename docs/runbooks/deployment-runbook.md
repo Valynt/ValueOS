@@ -1,3 +1,16 @@
+---
+title: Deployment Runbook
+owner: team-platform
+canonical: ../../DEPLOY.md
+note: "See also ops/STAGING_DEPLOY_CHECKLIST.md for the v1 deploy checklist."
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: deprecated
+---
+
+> [!WARNING]
+> **DEPRECATED**: Use [`docs/operations/runbooks/deployment-runbook.md`](../operations/runbooks/deployment-runbook.md) as the authoritative deployment runbook.
+
 # Deployment Runbook
 
 **Last Updated**: 2026-02-08
@@ -25,11 +38,17 @@
 4. Ensure backup completed within last 24h (see `docs/backup-and-dr-playbook.md`).
 5. Validate secrets and runtime config: `./scripts/verify-env.sh production`.
 
+## Runtime Source of Truth
+- Production backend runtime is **only** `packages/backend`.
+- Release artifact must be built from `infra/docker/Dockerfile.backend` with build arg `APP=@valueos/backend`.
+- `apps/ValyntApp/src/services/**` is a frozen duplicate tree and is excluded from runtime ownership except `[migration-sync]` mirror commits.
+
 ## Deployment Steps
 1. **Tag and build**
    - Create release tag: `git tag -a v<version> -m "Release v<version>" && git push origin v<version>`
    - Trigger deploy workflow (GitHub Actions "Deploy"): https://github.com/ValueCanvas/ValueCanvas/actions/workflows/deploy.yml
 2. **Database migrations (ordered)**
+   - If migration requires duplicate-tree synchronization, use a dedicated commit containing `[migration-sync]` and mirrored path changes under both backend service trees before tagging release.
    - Apply backward-compatible migrations first:
      ```bash
      supabase db push --file supabase/migrations/2024*-add-columns.sql
@@ -43,14 +62,15 @@
      select version, inserted_at from schema_migrations order by inserted_at desc limit 5;
      ```
 3. **Application rollout**
-   - Deploy via Helm/Kustomize: `kubectl apply -k infra/infra/k8s/overlays/production`
+   - Confirm deploy workflow built backend artifact from `infra/docker/Dockerfile.backend` (`APP=@valueos/backend`).
+   - Deploy via Helm/Kustomize: `kubectl apply -k infra/k8s/overlays/production`
    - Watch rollout status:
      ```bash
      kubectl rollout status deploy/api --timeout=5m
      kubectl rollout status deploy/web --timeout=5m
      kubectl rollout status deploy/worker --timeout=5m
      ```
-   - Confirm image digest matches the release tag.
+   - Confirm backend image digest in Kubernetes matches the workflow-produced backend image digest for the release tag.
 4. **Smoke tests**
    - API: `npm run test:smoke -- --env production`
    - UI: hit `https://app.valuecanvas.com/health` and confirm `200` + build hash.

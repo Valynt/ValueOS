@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../lib/logger";
+import { normalizeAgentOutput } from "../lib/agentNameNormalizer";
 import { SDUIUpdate } from "../types/sdui-integration";
 import { AgentOutput } from "../types/agent-output";
 import { AtomicUIAction, createAddAction } from "../sdui/AtomicUIActions";
@@ -43,21 +44,22 @@ export class AgentSDUIAdapter {
     workspaceId: string,
     tenantId?: string
   ): Promise<SDUIUpdate> {
+    // Normalize snake_case agent_type ↔ camelCase agentType
+    const normalized = normalizeAgentOutput(output as AgentOutput & Record<string, unknown>);
+
     logger.info("Processing agent output with intents", {
       agentId,
-      agentType: output.agentType,
+      agentType: normalized.agentType,
       workspaceId,
     });
 
     try {
       // Step 1: Convert agent output to intents
-      const intents = agentIntentConverter.convert(
-        output as AgentOutput & Record<string, unknown>
-      );
+      const intents = agentIntentConverter.convert(normalized);
 
       if (intents.length === 0) {
         logger.warn("No intents generated from agent output", {
-          agentType: output.agentType,
+          agentType: normalized.agentType,
         });
         return {
           type: "partial_update",

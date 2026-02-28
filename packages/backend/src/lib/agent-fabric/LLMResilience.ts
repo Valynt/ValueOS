@@ -6,12 +6,12 @@
  */
 
 import {
-  executeWithResilience,
+  getCircuitBreakerState as _getCircuitBreakerState,
+  _test_resetResilienceState,
   CircuitOpenError,
   DependencyTimeoutError,
   DependencyUnavailableError,
-  _test_resetResilienceState,
-  getCircuitBreakerState as _getCircuitBreakerState,
+  executeWithResilience,
 } from '../resilience.js';
 import type { LLMResponse } from './LLMGateway.js';
 

@@ -155,7 +155,7 @@ Looking ahead to fiscal 2024, we're guiding to 12-15% revenue growth, supported 
             </label>
             <select
               value={documentType}
-              onChange={(e) => setDocumentType(e.target.value as any)}
+              onChange={(e) => setDocumentType(e.target.value as typeof documentType)}
               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             >
               <option value="earnings_call">Earnings Call Transcript</option>

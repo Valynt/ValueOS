@@ -1,3 +1,11 @@
+---
+title: Ci Cd Pipeline
+owner: team-platform
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Ci Cd Pipeline
 
 **Last Updated**: 2026-02-13
@@ -28,6 +36,21 @@ Suggested ownership:
 - Security/Compliance: control mapping review and attestation package assembly.
 - Operations: incident drill records and disaster recovery evidence.
 
+### Compliance Evidence Retention Policy
+
+The `Compliance Evidence Export` workflow produces the canonical evidence bundle artifact for governance checkpoints.
+
+- **Artifact name**: `compliance-evidence-bundle-<run_id>`
+- **Workflow location**: `.github/workflows/compliance-evidence-export.yml`
+- **Bundle contents**:
+  - `evidence/security-scans/` (security scan outputs, including Semgrep and dependency audit output)
+  - `evidence/privacy/` (DSR/privacy compliance test results)
+  - `evidence/rls/` (RLS validation test results)
+  - `evidence/metadata/` (immutable run metadata: commit SHA, run ID/attempt, ref, UTC export timestamp, and manifest)
+- **Retention window**: 365 days in GitHub Actions artifact storage.
+- **System of record**: GitHub Actions run artifacts for the workflow run, linked in quarterly compliance packets.
+- **Quarterly archival requirement**: At quarter close, download the latest quarterly bundle and copy it to the compliance repository/archive controlled by Security & Compliance for long-term governance storage.
+
 ## CI Runbook: Test Execution & Best Practices
 
 *Source: `operations/ci/ci-runbook.md`*
@@ -54,9 +77,9 @@ Architecture & operational notes:
 - Runs-on: `ubuntu-latest`
 - Integration runner uses GitHub Actions services: Postgres 15 & Redis 7
 - Use `$GITHUB_ENV` to set `DATABASE_URL` and `REDIS_URL`
-- RLS tests run against a local, ephemeral Supabase stack started via `pnpm supabase start`
-- No production keys are required; the CLI supplies local anon/service keys
-- CI sets `SUPABASE_DB_PASSWORD=postgres` to align with the default local stack credentials
+- Cloud migration/deploy jobs must target linked hosted Supabase projects and must not require `infra/supabase/config.toml` or local stack state.
+- Local Supabase stack usage in CI is optional and allowed only for explicitly scoped checks (for example RLS simulation jobs), with `LOCAL_SUPABASE_ONLY=1` set in that job.
+- No production keys are required for local simulation jobs; the CLI can supply local anon/service keys when those optional jobs are enabled.
 - Upload artifacts from integration & E2E runs into `test-results/` and `playwright-report/`
 - Retention: 14–30 days based on artifact size and workflow cost
 

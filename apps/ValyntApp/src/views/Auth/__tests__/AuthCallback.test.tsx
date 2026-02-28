@@ -3,7 +3,7 @@
  * Tests OAuth callback handling and redirection logic
  */
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import AuthCallback from "../AuthCallback";

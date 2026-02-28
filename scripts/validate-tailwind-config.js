@@ -1,7 +1,7 @@
 (async () => {
   try {
     // dynamic import to support ESM/CJS interop
-    await import("../tailwind.config.js");
+    await import("../tailwind.config.cjs");
     console.log("tailwind config OK");
     process.exit(0);
   } catch (err) {

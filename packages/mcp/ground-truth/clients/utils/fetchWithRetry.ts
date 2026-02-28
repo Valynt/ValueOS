@@ -3,7 +3,7 @@
  * Exports a single function used across multiple API clients to provide
  * exponential-backoff retry semantics and structured logging.
  */
-import { logger } from "../lib/logger";
+import { logger } from "../../../lib/logger";
 
 export async function fetchWithRetry(
   url: string,

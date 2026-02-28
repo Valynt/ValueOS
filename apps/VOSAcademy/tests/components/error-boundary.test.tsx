@@ -1,14 +1,14 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  ErrorFallback,
-  useAsyncOperation,
-  LoadingSpinner,
   ErrorBoundary,
+  ErrorFallback,
+  LoadingSpinner,
   SkeletonCard,
-  SkeletonText
+  SkeletonText,
+  useAsyncOperation
 } from '../../src/components/ErrorBoundary'
 
 // Mock React Error Boundary

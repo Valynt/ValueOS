@@ -1,0 +1,193 @@
+{
+  "pack": {
+    "name": "SaaS / HiTech",
+    "slug": "saas",
+    "industry": "SaaS",
+    "description": "KPI overlay and financial assumptions for SaaS and high-tech software companies. Focuses on ARR dynamics, CAC efficiency, and churn sensitivity.",
+    "version": "1.0.0",
+    "status": "active",
+    "glossary": {
+      "revenue_uplift": "ARR Expansion",
+      "cost_reduction": "OpEx Optimization",
+      "risk_exposure": "Churn Sensitivity",
+      "payback_period": "CAC Payback Period",
+      "customer_value": "LTV",
+      "efficiency_gain": "NDR Improvement"
+    },
+    "compliance_rules": []
+  },
+  "kpis": [
+    {
+      "kpi_key": "arr_expansion",
+      "default_name": "ARR Expansion",
+      "description": "Net new annual recurring revenue from upsell, cross-sell, and price increases",
+      "unit": "USD",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "Current ARR: typically $5M–$50M",
+      "target_hint": "Target: 120–140% net revenue retention",
+      "sort_order": 1
+    },
+    {
+      "kpi_key": "cac_payback",
+      "default_name": "CAC Payback Period",
+      "description": "Months to recover fully-loaded customer acquisition cost",
+      "unit": "months",
+      "direction": "down",
+      "category": "Efficiency",
+      "baseline_hint": "Typical: 12–18 months",
+      "target_hint": "Top quartile: <12 months",
+      "sort_order": 2
+    },
+    {
+      "kpi_key": "gross_churn_rate",
+      "default_name": "Gross Churn Rate",
+      "description": "Annual percentage of ARR lost to cancellations and downgrades",
+      "unit": "%",
+      "direction": "down",
+      "category": "Risk",
+      "baseline_hint": "Typical: 8–15% annually",
+      "target_hint": "Best-in-class: <5%",
+      "sort_order": 3
+    },
+    {
+      "kpi_key": "ndr",
+      "default_name": "Net Dollar Retention",
+      "description": "Revenue retained from existing customers including expansion, net of churn",
+      "unit": "%",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "Typical: 100–110%",
+      "target_hint": "Top quartile: >120%",
+      "sort_order": 4
+    },
+    {
+      "kpi_key": "ltv_cac_ratio",
+      "default_name": "LTV:CAC Ratio",
+      "description": "Lifetime value divided by customer acquisition cost",
+      "unit": "ratio",
+      "direction": "up",
+      "category": "Efficiency",
+      "baseline_hint": "Typical: 3:1",
+      "target_hint": "Target: >5:1",
+      "sort_order": 5
+    },
+    {
+      "kpi_key": "gross_margin",
+      "default_name": "Gross Margin",
+      "description": "Revenue minus cost of goods sold as percentage of revenue",
+      "unit": "%",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "Typical: 65–75%",
+      "target_hint": "Best-in-class: >80%",
+      "sort_order": 6
+    },
+    {
+      "kpi_key": "magic_number",
+      "default_name": "Magic Number",
+      "description": "Net new ARR divided by prior quarter S&M spend — measures sales efficiency",
+      "unit": "ratio",
+      "direction": "up",
+      "category": "Efficiency",
+      "baseline_hint": "Typical: 0.5–0.8",
+      "target_hint": "Efficient: >1.0",
+      "sort_order": 7
+    },
+    {
+      "kpi_key": "time_to_value",
+      "default_name": "Time to Value",
+      "description": "Days from contract signing to first measurable customer outcome",
+      "unit": "days",
+      "direction": "down",
+      "category": "Efficiency",
+      "baseline_hint": "Typical: 30–90 days",
+      "target_hint": "Target: <30 days",
+      "sort_order": 8
+    },
+    {
+      "kpi_key": "expansion_revenue_pct",
+      "default_name": "Expansion Revenue %",
+      "description": "Percentage of total new bookings from existing customers",
+      "unit": "%",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "Typical: 20–30%",
+      "target_hint": "Mature: >40%",
+      "sort_order": 9
+    },
+    {
+      "kpi_key": "rule_of_40",
+      "default_name": "Rule of 40 Score",
+      "description": "Revenue growth rate + profit margin — measures balanced growth",
+      "unit": "%",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "Typical: 20–35%",
+      "target_hint": "Elite: >40%",
+      "sort_order": 10
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption_key": "discount_rate",
+      "display_name": "Discount Rate",
+      "description": "Weighted average cost of capital for NPV calculations",
+      "value_type": "number",
+      "value_number": 9,
+      "unit": "%",
+      "category": "Financial",
+      "sort_order": 1
+    },
+    {
+      "assumption_key": "risk_premium",
+      "display_name": "Risk Premium",
+      "description": "Additional risk adjustment for SaaS revenue volatility",
+      "value_type": "number",
+      "value_number": 2,
+      "unit": "%",
+      "category": "Risk",
+      "sort_order": 2
+    },
+    {
+      "assumption_key": "payback_tolerance_months",
+      "display_name": "Payback Tolerance",
+      "description": "Maximum acceptable payback period for investment approval",
+      "value_type": "number",
+      "value_number": 15,
+      "unit": "months",
+      "category": "Financial",
+      "sort_order": 3
+    },
+    {
+      "assumption_key": "compliance_cost_multiplier",
+      "display_name": "Compliance Cost Multiplier",
+      "description": "Multiplier applied to base costs for regulatory compliance overhead",
+      "value_type": "number",
+      "value_number": 1.05,
+      "unit": "x",
+      "category": "Compliance",
+      "sort_order": 4
+    },
+    {
+      "assumption_key": "avg_contract_length_months",
+      "display_name": "Average Contract Length",
+      "description": "Typical contract duration for LTV and payback calculations",
+      "value_type": "number",
+      "value_number": 24,
+      "unit": "months",
+      "category": "Financial",
+      "sort_order": 5
+    },
+    {
+      "assumption_key": "expansion_rate",
+      "display_name": "Annual Expansion Rate",
+      "description": "Expected annual upsell/cross-sell rate on existing accounts",
+      "value_type": "number",
+      "value_number": 15,
+      "unit": "%",
+      "category": "Financial",
+      "sort_order": 6
+    }
+  ]
+}

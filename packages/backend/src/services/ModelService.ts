@@ -26,7 +26,7 @@ export class ModelService {
   private valueCommitRepo: ValueCommitRepository;
 
   constructor(context: LifecycleContext) {
-    const tenantId = context.tenantId || context.organizationId;
+    const tenantId = context.tenantId || context.organization_id;
     if (!tenantId) {
       throw new Error("Tenant ID is required to initialize ModelService");
     }
@@ -49,7 +49,7 @@ export class ModelService {
     userEmail: string;
   }> {
     const { userId } = this.context;
-    const tenantId = this.context.tenantId || this.context.organizationId;
+    const tenantId = this.context.tenantId || this.context.organization_id;
 
     try {
       if (!tenantId) throw new Error("No tenant ID in context");
@@ -155,11 +155,11 @@ export class ModelService {
       }
       for (const link of output.businessCase.links) {
         // No casting needed with TargetAgentLink type
-        const { data: parentNode } = await this.valueTreeNodeRepo.findByNodeId(
+        const { data: parentNode } = await this.valueTreeNodeRepo.findById(
           valueTreeId,
           link.parent_node_id
         );
-        const { data: childNode } = await this.valueTreeNodeRepo.findByNodeId(
+        const { data: childNode } = await this.valueTreeNodeRepo.findById(
           valueTreeId,
           link.child_node_id
         );

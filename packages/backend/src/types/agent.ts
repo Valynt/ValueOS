@@ -22,14 +22,9 @@ export interface AgentConfig {
   metadata?: Record<string, any>;
 }
 
-export type AgentType =
-  | 'opportunity'
-  | 'target'
-  | 'realization'
-  | 'expansion'
-  | 'integrity'
-  | 'orchestrator'
-  | 'specialist';
+// Canonical AgentType is defined in services/agent-types.ts.
+// This re-export keeps backward compatibility for consumers of types/agent.ts.
+export type { AgentType } from '../services/agent-types.js';
 
 export type LifecycleStage =
   | 'opportunity'
@@ -198,11 +193,23 @@ export interface HealthIssue {
 
 export interface AgentRegistration {
   agent_id: string;
+  id?: string;
+  name?: string;
   config: AgentConfig;
   status: 'active' | 'inactive' | 'deprecated';
   version: string;
   registered_at: string;
   last_updated: string;
+  lifecycleStage?: string;
+  capabilities?: string[];
+  region?: string;
+  endpoint?: string;
+  priority?: number;
+}
+
+export interface AgentRecord extends AgentRegistration {
+  health?: AgentHealthStatus;
+  metrics?: Record<string, unknown>;
 }
 
 // ============================================================================

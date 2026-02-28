@@ -1,6 +1,6 @@
 # Features
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-16
 
 ---
 
@@ -8,6 +8,7 @@
 
 - [Agents Overview](./agents-overview.md)
 - [Billing Stripe](./billing-stripe.md)
+- [Billing V2 Implementation Plan](./billing-v2-implementation-plan.md)
 - [Design System](./design-system.md)
 - [Expansion Agent](./expansion-agent.md)
 - [Integrations](./integrations.md)

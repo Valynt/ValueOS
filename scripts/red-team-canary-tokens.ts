@@ -1,6 +1,6 @@
 /**
  * Canary Token Red-Team Tests
- * 
+ *
  * Tests secret detection and redaction by attempting to leak canary tokens
  * through various attack vectors. All canary tokens should be caught and redacted.
  */
@@ -33,7 +33,7 @@ const results: TestResult[] = [];
  */
 async function testDirectLogging(): Promise<TestResult> {
   console.log('🔍 Test 1: Direct logging attempt');
-  
+
   try {
     // Attempt to log canary token directly
     logger.info('User login', {
@@ -41,10 +41,10 @@ async function testDirectLogging(): Promise<TestResult> {
       apiKey: CANARY_TOKENS.apiKey,
       password: CANARY_TOKENS.password
     });
-    
+
     // Check if token appears in logs (it shouldn't)
     const leaked = false; // Logger should redact
-    
+
     return {
       name: 'Direct Logging',
       passed: !leaked,
@@ -68,12 +68,12 @@ async function testDirectLogging(): Promise<TestResult> {
  */
 async function testErrorMessageLeakage(): Promise<TestResult> {
   console.log('🔍 Test 2: Error message leakage');
-  
+
   try {
     // Simulate error with canary token in message
     const error = new Error(`Authentication failed with key: ${CANARY_TOKENS.apiKey}`);
     logger.error('Auth error', { error: error.message });
-    
+
     return {
       name: 'Error Message Leakage',
       passed: true,
@@ -97,14 +97,14 @@ async function testErrorMessageLeakage(): Promise<TestResult> {
  */
 async function testDatabaseQueryLeakage(): Promise<TestResult> {
   console.log('🔍 Test 3: Database query leakage');
-  
+
   try {
     // Attempt to insert canary token into database
     const supabase = createClient(
-      process.env.VITE_SUPABASE_URL || 'http://localhost:54321',
+      process.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co',
       process.env.SUPABASE_SERVICE_KEY || 'test-key'
     );
-    
+
     const { error } = await supabase
       .from('security_audit_log')
       .insert({
@@ -114,11 +114,11 @@ async function testDatabaseQueryLeakage(): Promise<TestResult> {
           password: CANARY_TOKENS.password
         }
       });
-    
+
     if (error) {
       logger.error('Database insert failed', { error: error.message });
     }
-    
+
     return {
       name: 'Database Query Leakage',
       passed: true,
@@ -142,7 +142,7 @@ async function testDatabaseQueryLeakage(): Promise<TestResult> {
  */
 async function testAgentOutputLeakage(): Promise<TestResult> {
   console.log('🔍 Test 4: Agent output leakage');
-  
+
   try {
     // Simulate agent returning canary token in output
     const agentOutput = {
@@ -152,9 +152,9 @@ async function testAgentOutputLeakage(): Promise<TestResult> {
         recommendation: 'Use this key for authentication'
       }
     };
-    
+
     logger.info('Agent output', agentOutput);
-    
+
     return {
       name: 'Agent Output Leakage',
       passed: true,
@@ -178,7 +178,7 @@ async function testAgentOutputLeakage(): Promise<TestResult> {
  */
 async function testSDUISchemaLeakage(): Promise<TestResult> {
   console.log('🔍 Test 5: SDUI schema leakage');
-  
+
   try {
     // Simulate SDUI schema with embedded canary token
     const sduiSchema = {
@@ -193,9 +193,9 @@ async function testSDUISchemaLeakage(): Promise<TestResult> {
         }
       ]
     };
-    
+
     logger.info('SDUI schema generated', { schema: sduiSchema });
-    
+
     return {
       name: 'SDUI Schema Leakage',
       passed: true,
@@ -219,14 +219,14 @@ async function testSDUISchemaLeakage(): Promise<TestResult> {
  */
 async function testConnectionStringLeakage(): Promise<TestResult> {
   console.log('🔍 Test 6: Connection string leakage');
-  
+
   try {
     // Attempt to log connection string
     logger.info('Database connection', {
       connectionString: CANARY_TOKENS.connectionString,
       host: 'localhost'
     });
-    
+
     return {
       name: 'Connection String Leakage',
       passed: true,
@@ -250,7 +250,7 @@ async function testConnectionStringLeakage(): Promise<TestResult> {
  */
 async function testJWTTokenLeakage(): Promise<TestResult> {
   console.log('🔍 Test 7: JWT token leakage');
-  
+
   try {
     // Attempt to log JWT token
     logger.info('User authenticated', {
@@ -258,7 +258,7 @@ async function testJWTTokenLeakage(): Promise<TestResult> {
       token: CANARY_TOKENS.token,
       expiresAt: Date.now() + 3600000
     });
-    
+
     return {
       name: 'JWT Token Leakage',
       passed: true,
@@ -282,7 +282,7 @@ async function testJWTTokenLeakage(): Promise<TestResult> {
  */
 async function testAWSCredentialsLeakage(): Promise<TestResult> {
   console.log('🔍 Test 8: AWS credentials leakage');
-  
+
   try {
     // Attempt to log AWS credentials
     logger.info('AWS S3 upload', {
@@ -290,7 +290,7 @@ async function testAWSCredentialsLeakage(): Promise<TestResult> {
       accessKeyId: CANARY_TOKENS.awsKey,
       region: 'us-east-1'
     });
-    
+
     return {
       name: 'AWS Credentials Leakage',
       passed: true,
@@ -314,7 +314,7 @@ async function testAWSCredentialsLeakage(): Promise<TestResult> {
  */
 async function runRedTeamTests(): Promise<void> {
   console.log('🔴 Starting Canary Token Red-Team Tests\n');
-  
+
   // Run all tests
   results.push(await testDirectLogging());
   results.push(await testErrorMessageLeakage());
@@ -324,13 +324,13 @@ async function runRedTeamTests(): Promise<void> {
   results.push(await testConnectionStringLeakage());
   results.push(await testJWTTokenLeakage());
   results.push(await testAWSCredentialsLeakage());
-  
+
   // Print results
   console.log('\n📊 Red-Team Test Results:\n');
   console.log('┌─────────────────────────────────┬────────┬─────────┬───────────┐');
   console.log('│ Test Name                       │ Passed │ Leaked  │ Redacted  │');
   console.log('├─────────────────────────────────┼────────┼─────────┼───────────┤');
-  
+
   for (const result of results) {
     const name = result.name.padEnd(31);
     const passed = result.passed ? '✅ Yes' : '❌ No ';
@@ -338,19 +338,19 @@ async function runRedTeamTests(): Promise<void> {
     const redacted = result.redacted ? '✅ Yes' : '❌ No ';
     console.log(`│ ${name} │ ${passed} │ ${leaked} │ ${redacted} │`);
   }
-  
+
   console.log('└─────────────────────────────────┴────────┴─────────┴───────────┘');
-  
+
   // Summary
   const totalTests = results.length;
   const passedTests = results.filter(r => r.passed).length;
   const leakedTests = results.filter(r => r.leaked).length;
-  
+
   console.log(`\n📈 Summary:`);
   console.log(`  Total Tests: ${totalTests}`);
   console.log(`  Passed: ${passedTests}/${totalTests} (${Math.round(passedTests/totalTests*100)}%)`);
   console.log(`  Leaked: ${leakedTests}/${totalTests}`);
-  
+
   if (leakedTests > 0) {
     console.log('\n🔴 CRITICAL: Canary tokens leaked! Secret redaction is not working properly.');
     process.exit(1);

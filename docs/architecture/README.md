@@ -1,6 +1,6 @@
 # Architecture
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-16
 
 ---
 
@@ -13,8 +13,10 @@
 - [Frontend Architecture](./frontend-architecture.md)
 - [Infrastructure Architecture](./infrastructure-architecture.md)
 - [Memory First Architecture](./memory-first-architecture.md)
+- [Module Ownership and Boundaries](./module-ownership-boundaries.md)
 - [Security Architecture](./security-architecture.md)
+- [Component Interaction Diagrams](./component-interaction-diagram.md) — Visual maps of system flows (Mermaid)
 
 ---
 
-**Total Documents**: 8
+**Total Documents**: 10

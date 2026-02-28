@@ -15,8 +15,35 @@
 5. [Compliance checklists](#compliance-checklists)
 6. [ValueCanvas Compliance & Security Audit](#valuecanvas-compliance-&-security-audit)
 7. [HIPAA Applicability and Control Mapping](#hipaa-applicability-and-control-mapping)
+8. [Third-Party Penetration Test Program](#third-party-penetration-test-program)
 
 ---
+
+## Third-Party Penetration Test Program
+
+ValueOS requires an **independent third-party penetration test at least annually** for in-scope production systems, APIs, and tenant isolation controls.
+
+### Program Requirements
+
+- Testing must be performed by a qualified external assessor independent of implementation teams.
+- Scope must include external attack surface, authentication/authorization paths, tenant isolation, and high-risk integrations.
+- Retesting is required for any unresolved Critical/High finding before attestation closeout.
+- Findings must be entered into the risk register with owner, severity, and mitigation due date alignment.
+
+### Evidence Artifact Checklist
+
+For each annual test cycle, retain the following evidence artifacts in the compliance evidence repository:
+
+- Signed statement of work or engagement letter (scope, dates, assessor).
+- Final penetration test report with methodology and finding severity ratings.
+- Executive summary suitable for customer trust review.
+- Raw finding tracker mapped to internal Risk IDs.
+- Remediation plan with assigned owners and committed due dates.
+- Retest or validation evidence for Critical/High findings.
+- Management attestation confirming closure status and residual risk acceptance.
+
+Evidence retention should follow the policy baseline used for audit artifacts and remain accessible for customer and auditor review.
+
 
 ## HIPAA Applicability and Control Mapping
 
@@ -74,6 +101,20 @@ Reference architecture and environment controls:
 - **Monthly**: Access review and audit-log sampling for PHI-enabled tenants.
 - **Quarterly**: HIPAA safeguard control review (administrative/technical/physical), incident-response tabletop, and vendor/BAA status validation.
 - **Annually**: Full policy review, risk assessment refresh, and training attestation.
+
+
+### Quarterly Compliance Evidence Bundle Checklist
+
+Use this checklist at the end of each quarter to assemble and attest the evidence bundle:
+
+- [ ] Confirm the latest successful `Compliance Evidence Export` workflow run for the quarter.
+- [ ] Verify bundle contains all required directories: `security-scans/`, `privacy/`, `rls/`, and `metadata/`.
+- [ ] Validate immutable metadata fields: commit SHA, run ID, run attempt, ref, and UTC export timestamp.
+- [ ] Confirm DSR/privacy and RLS outputs are from the expected test suites and include pass/fail status.
+- [ ] Review security scan outputs for unresolved critical findings and document approved exceptions.
+- [ ] Attach the artifact link and manifest to quarterly governance review records.
+- [ ] Download and archive the `.tar.gz` bundle to the long-term compliance archive location defined in CI/CD policy.
+- [ ] Record reviewer name, review date, and sign-off outcome in the compliance tracker.
 
 Evidence checkpoints are tracked in CI/governance workflows:
 
@@ -1478,10 +1519,18 @@ npm run security-scan
 
 ### Low Priority
 
-9. **Explore bug bounty program**
+9. **Expand bug bounty scope coverage to additional integrations**
 10. **Add automated compliance monitoring dashboard**
 11. **Implement data lineage tracking**
 12. **Add security awareness training** for team
+
+---
+
+
+### Vulnerability Disclosure Program Status
+
+- Bug bounty and CVD are implemented with documented intake, SLA, severity taxonomy, and governance requirements.
+- See [Bug Bounty and Coordinated Vulnerability Disclosure (CVD) Program](./bug-bounty-cvd-program.md) for active process details.
 
 ---
 

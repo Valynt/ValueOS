@@ -1,0 +1,2 @@
+-- Initial release seed migration.
+-- Intentionally empty: no mandatory reference rows are required for schema bootstrapping.

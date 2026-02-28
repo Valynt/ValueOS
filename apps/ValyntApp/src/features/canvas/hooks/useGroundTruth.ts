@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { GroundTruthService, type GroundTruthMetric } from "../services/GroundTruthService";
+import { useCallback, useState } from "react";
+import { type GroundTruthMetric, GroundTruthService } from "../services/GroundTruthService";
 import type { ESOIndustry } from "../../../types/eso";
 
 export function useGroundTruth() {

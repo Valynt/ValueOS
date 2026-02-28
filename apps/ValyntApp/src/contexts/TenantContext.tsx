@@ -10,16 +10,16 @@
 
 import {
   createContext,
+  ReactNode,
+  useCallback,
   useContext,
   useEffect,
-  useState,
-  useCallback,
   useMemo,
-  ReactNode,
+  useState,
 } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import { fetchUserTenants, TenantInfo, isTenantApiEnabled } from "../api/tenant";
+import { fetchUserTenants, isTenantApiEnabled, TenantInfo } from "../api/tenant";
 import { createLogger } from "../lib/logger";
 import { analyticsClient } from "../lib/analyticsClient";
 

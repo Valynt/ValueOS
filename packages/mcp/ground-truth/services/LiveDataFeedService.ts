@@ -5,15 +5,15 @@
  * Provides caching, rate limiting, error handling, and data quality validation.
  */
 
-import { logger } from "../lib/logger.js";
-import { SECEdgarClient, SECFiling, SECCompanyInfo, SECXBRLData } from "./clients/SECEdgarClient.js";
-import { BLSClient, BLSWageData, BLSEmploymentData, BLSIndustryData } from "./clients/BLSClient";
+import { logger } from "../../lib/logger.js";
+import { SECCompanyInfo, SECEdgarClient, SECFiling, SECXBRLData } from "../clients/SECEdgarClient.js";
+import { BLSClient, BLSEmploymentData, BLSIndustryData, BLSWageData } from "../clients/BLSClient.js";
 import {
-  CensusClient,
   CensusBusinessData,
+  CensusClient,
   CensusDemographicData,
   CensusEconomicData,
-} from "./clients/CensusClient";
+} from "../clients/CensusClient.js";
 
 export interface DataFeedConfig {
   secApiKey?: string;

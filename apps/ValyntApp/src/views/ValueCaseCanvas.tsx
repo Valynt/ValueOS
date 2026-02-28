@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Play,
-  Shield,
   Clock,
+  Layers,
+  Play,
   RotateCcw,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMergedContext } from "@/hooks/useDomainPacks";
 
 import { HypothesisStage } from "./canvas/HypothesisStage";
 import { ModelStage } from "./canvas/ModelStage";
@@ -30,6 +32,7 @@ export default function ValueCaseCanvas() {
   const { oppId, caseId } = useParams();
   const [activeStage, setActiveStage] = useState("hypothesis");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const { data: merged } = useMergedContext(caseId);
 
   const stageContent: Record<string, React.ReactNode> = {
     hypothesis: <HypothesisStage />,
@@ -57,6 +60,12 @@ export default function ValueCaseCanvas() {
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 flex-shrink-0">
               Running
             </span>
+            {merged?.pack && (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 flex-shrink-0">
+                <Layers className="w-2.5 h-2.5" />
+                {merged.pack.name}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-zinc-400">{caseId || "VC-1024"}</p>
         </div>

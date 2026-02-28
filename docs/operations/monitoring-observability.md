@@ -1,3 +1,11 @@
+---
+title: Monitoring Observability
+owner: team-operations
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Monitoring Observability
 
 **Last Updated**: 2026-02-08
@@ -538,3 +546,21 @@ For issues or questions:
 - **On-call**: PagerDuty escalation for critical issues
 
 ---
+
+## Service-Level Objectives (SLOs) and Error Budgets
+
+The platform SLOs below are used for alerting, release gates, and weekly reliability reporting. SLO windows are evaluated over rolling 30-day periods unless otherwise noted.
+
+| Service Area | SLI Definition | SLO Target | Error Budget | Burn-Rate Alert Trigger |
+| --- | --- | --- | --- | --- |
+| API latency | Percentage of API requests completing in `<=300ms` at P95 (`http_server_request_duration_seconds_bucket`) | `95.0%` good events | `5.0%` | `>14.4x` burn in 5m + 1h |
+| API availability | Non-5xx responses over total API requests (`http_requests_total`) | `99.9%` | `0.1%` | `>14.4x` burn in 5m + 1h |
+| Authentication success | Successful auth attempts over total auth attempts (`auth_attempts_total`) | `99.5%` | `0.5%` | `>14.4x` burn in 5m + 1h |
+| Queue health | Time queue depth <100 and oldest age <120s (`queue_depth`, `queue_oldest_message_age_seconds`) | `99.0%` | `1.0%` | `>14.4x` burn in 5m + 1h |
+
+### SLO policy and operational usage
+
+- **Release policy**: production promotion is blocked when any `*SLOBurnRateTooHigh` alert is active in pre-production.
+- **Incident policy**: a sustained burn-rate alert (`for: 5m`) opens a reliability incident and consumes the service's monthly error budget.
+- **Reporting cadence**: weekly reports summarize current SLO attainment, active burn-rate alerts, and 7-day incident trend deltas.
+- **Ownership**: API platform owns API latency/availability SLOs, Identity owns authentication SLO, and Platform Runtime owns queue health.

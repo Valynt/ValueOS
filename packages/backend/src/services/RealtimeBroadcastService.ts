@@ -1,21 +1,28 @@
 import { wss } from "../server";
 import { logger } from "../lib/logger.js";
+import { getBroadcastAdapter } from "./WebSocketBroadcastAdapter.js";
+import { WebSocket } from "ws";
+
+interface AuthenticatedWebSocket extends WebSocket {
+  tenantId: string;
+}
 
 export class RealtimeBroadcastService {
-  broadcastToTenant(tenantId: string, messageType: string, payload: any): void {
+  broadcastToTenant(tenantId: string, messageType: string, payload: unknown): void {
     try {
       const message = JSON.stringify({ type: messageType, payload, timestamp: new Date().toISOString() });
 
-      (wss as any).clients.forEach((client: any) => {
-        try {
-          // Only send to authenticated sockets with matching tenant
-          if (client.readyState === 1 && client.tenantId === tenantId) {
+      try {
+        getBroadcastAdapter().broadcast(tenantId, message);
+      } catch {
+        // Adapter not initialised — fall back to local-only delivery.
+        (wss as unknown as { clients: Set<WebSocket> }).clients.forEach((client) => {
+          const authed = client as AuthenticatedWebSocket;
+          if (client.readyState === WebSocket.OPEN && authed.tenantId === tenantId) {
             client.send(message);
           }
-        } catch (err) {
-          logger.warn("Failed to send realtime message to a client", err instanceof Error ? err.message : String(err));
-        }
-      });
+        });
+      }
 
       logger.debug("Broadcasted realtime message", { tenantId, messageType });
     } catch (error) {

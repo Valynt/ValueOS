@@ -7,11 +7,11 @@
 
 import React from 'react';
 import {
+  Briefcase,
+  Check,
   DollarSign,
   Settings,
   Users,
-  Briefcase,
-  Check,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';

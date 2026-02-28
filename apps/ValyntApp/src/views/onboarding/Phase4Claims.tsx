@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Shield, Plus, X } from "lucide-react";
+import { Plus, Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { OnboardingPhase4Input, CompanyClaimGovernance } from "@/hooks/company-context/types";
-import { useResearchSuggestions, useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
+import type { CompanyClaimGovernance, OnboardingPhase4Input } from "@/hooks/company-context/types";
+import { useAcceptSuggestion, useRejectSuggestion, useResearchSuggestions } from "@/hooks/company-context/useResearchJob";
 import { SuggestionSection } from "@/components/onboarding/SuggestionCard";
 import { useTenant } from "@/contexts/TenantContext";
 

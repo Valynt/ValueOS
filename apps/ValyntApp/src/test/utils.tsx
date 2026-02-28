@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
 import { render, RenderOptions } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import { AuthProvider } from "@/app/providers/AuthProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 interface WrapperProps {
   children: React.ReactNode;

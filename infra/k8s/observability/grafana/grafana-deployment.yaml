@@ -19,16 +19,16 @@ spec:
         runAsNonRoot: true
         runAsUser: 472
         fsGroup: 472
-      
+
       containers:
       - name: grafana
-        image: grafana/grafana:10.2.2
-        
+        image: grafana/grafana@sha256:14bdea0920487c9b11b77cf48c90a7cd8868311d51f88ad54f4517cebe39f8a8
+
         ports:
         - name: web
           containerPort: 3000
           protocol: TCP
-        
+
         env:
         - name: GF_SECURITY_ADMIN_USER
           valueFrom:
@@ -48,7 +48,7 @@ spec:
           value: "false"
         - name: GF_USERS_ALLOW_SIGN_UP
           value: "false"
-        
+
         resources:
           requests:
             cpu: 100m
@@ -56,7 +56,7 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
-        
+
         livenessProbe:
           httpGet:
             path: /api/health
@@ -64,7 +64,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
-        
+
         readinessProbe:
           httpGet:
             path: /api/health
@@ -72,7 +72,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
-        
+
         volumeMounts:
         - name: storage
           mountPath: /var/lib/grafana
@@ -82,7 +82,7 @@ spec:
           mountPath: /etc/grafana/provisioning/dashboards
         - name: dashboards
           mountPath: /var/lib/grafana/dashboards
-      
+
       volumes:
       - name: storage
         persistentVolumeClaim:

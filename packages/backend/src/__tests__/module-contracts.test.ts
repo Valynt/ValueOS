@@ -3,7 +3,7 @@
  * Verifies that all lib modules expose their expected interfaces
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("Module Contracts", () => {
   describe("observability module", () => {

@@ -15,7 +15,7 @@ npx supabase start
 2. Start the frontend dev server:
 
 ```bash
-npm run dev
+pnpm --filter valynt-app run dev
 ```
 
 3. The application should be available at http://localhost:5173

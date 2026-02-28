@@ -1,12 +1,12 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import { z, ZodError } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import type { PoolClient } from "pg";
 import {
-  CreateInitiativeSchema,
-  UpdateInitiativeSchema,
-  ListInitiativesQuerySchema,
   ApiErrorResponse,
+  CreateInitiativeSchema,
+  ListInitiativesQuerySchema,
+  UpdateInitiativeSchema,
 } from "./types";
 import { InitiativesService } from "./service.js"
 import {

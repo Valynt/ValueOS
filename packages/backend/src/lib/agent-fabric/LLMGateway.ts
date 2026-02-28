@@ -9,15 +9,22 @@ import { logger } from '../logger.js';
 import { LLMCostTracker } from '../../services/LLMCostTracker.js';
 import { CostAwareRouter } from '../../services/CostAwareRouter.js';
 import {
-  LLMResilienceWrapper,
-  type LLMResilienceConfig,
   type CircuitBreakerStateInfo,
+  type LLMResilienceConfig,
+  LLMResilienceWrapper,
 } from './LLMResilience.js';
 import { getTracer } from '../../config/telemetry.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { getEnvVar } from '@shared/lib/env';
+import {
+  enforceBudgetPolicy,
+  enforceModelPolicy,
+  recordPolicyAuditEvent,
+} from '../../services/policy/PolicyEnforcement.js';
+import { assertModelAllowed } from '../../config/models.js';
 
 export interface LLMGatewayConfig {
-  provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
+  provider: 'openai' | 'anthropic' | 'gemini' | 'custom' | 'together';
   model: string;
   temperature?: number;
   max_tokens?: number;
@@ -93,6 +100,13 @@ export class LLMGateway {
   private costAwareRouter: CostAwareRouter;
   private resilienceWrapper: LLMResilienceWrapper;
 
+  // Together-specific fallback settings (populated in constructor when provider==='together')
+  private togetherPrimaryModel?: string;
+  private togetherSecondaryModel?: string;
+  private llmFallbackEnabled: boolean = true;
+  private llmFallbackMaxAttempts: number = 1;
+  private llmRetryBackoffMs: number = 200;
+
   constructor(
     config: LLMGatewayConfig | string,
     costTracker?: LLMCostTracker,
@@ -115,6 +129,21 @@ export class LLMGateway {
       providerKey: `llm:${this.config.provider}`,
       ...resilienceConfig,
     });
+
+    // Load Together.ai-specific model + fallback settings when configured
+    if (this.config.provider === 'together') {
+      this.togetherPrimaryModel =
+        (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || this.config.model;
+      const secondary = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
+      this.togetherSecondaryModel = secondary ? String(secondary) : undefined;
+      this.llmFallbackEnabled =
+        (getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) as string) !==
+        'false';
+      this.llmFallbackMaxAttempts = Number(
+        getEnvVar('LLM_FALLBACK_MAX_ATTEMPTS') || '1'
+      );
+      this.llmRetryBackoffMs = Number(getEnvVar('LLM_RETRY_BACKOFF_MS') || '200');
+    }
   }
 
 
@@ -122,6 +151,10 @@ export class LLMGateway {
     request: LLMRequest,
     startTime: number
   ): Promise<LLMResponse> {
+    if (this.config.provider === 'together') {
+      return this.executeTogetherCompletion(request, startTime);
+    }
+
     return {
       id: `llm_${Date.now()}`,
       model: request.model || this.config.model,
@@ -139,6 +172,138 @@ export class LLMGateway {
     };
   }
 
+  protected async executeTogetherCompletion(
+    request: LLMRequest,
+    startTime: number
+  ): Promise<LLMResponse> {
+    const model = request.model || this.config.model;
+    assertModelAllowed('together_ai', model);
+
+    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
+    if (!togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+
+    const response = await fetch('https://api.together.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: request.messages,
+        max_tokens: request.max_tokens || this.config.max_tokens || 1000,
+        temperature: request.temperature || this.config.temperature || 0.7,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout_ms || 25000),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.id || `llm_${Date.now()}`,
+      model,
+      content: data.choices?.[0]?.message?.content || '',
+      finish_reason: data.choices?.[0]?.finish_reason || 'stop',
+      usage: {
+        prompt_tokens: data.usage?.prompt_tokens || 0,
+        completion_tokens: data.usage?.completion_tokens || 0,
+        total_tokens: data.usage?.total_tokens || 0,
+      },
+      metadata: {
+        ...(request.metadata || {}),
+        duration_ms: Date.now() - startTime,
+      },
+    };
+  }
+
+  async *completeRawStream(
+    request: LLMRequest
+  ): AsyncGenerator<{ content: string; done: boolean; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+    if (this.config.provider !== 'together') {
+      throw new Error('Raw streaming is only implemented for the Together provider.');
+    }
+
+    const model = request.model || this.config.model;
+    assertModelAllowed('together_ai', model);
+
+    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
+    if (!togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+
+    const response = await fetch('https://api.together.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: request.messages,
+        max_tokens: request.max_tokens || this.config.max_tokens || 1000,
+        temperature: request.temperature || this.config.temperature || 0.7,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          const dataStr = trimmed.slice(6);
+          if (dataStr === '[DONE]') continue;
+
+          const data = JSON.parse(dataStr);
+          if (data.usage) {
+            usage = {
+              prompt_tokens: data.usage.prompt_tokens || 0,
+              completion_tokens: data.usage.completion_tokens || 0,
+              total_tokens: data.usage.total_tokens || 0,
+            };
+          }
+
+          const content = data.choices?.[0]?.delta?.content || '';
+          if (content) {
+            yield { content, done: false };
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    yield { content: '', done: true, usage };
+  }
+
   async complete(request: LLMRequest): Promise<LLMResponse> {
     const startTime = Date.now();
     const model = request.model || this.config.model;
@@ -150,6 +315,7 @@ export class LLMGateway {
       metadata.organizationId ??
       metadata.organization_id;
     const sessionId = metadata.sessionId ?? metadata.session_id;
+    const agentType = String((metadata as any).agentType || 'default');
 
     if (!tenantId) {
       const error = new Error(
@@ -163,12 +329,25 @@ export class LLMGateway {
     }
 
     try {
+      const modelPolicy = enforceModelPolicy(agentType, model);
+      const estimatedPromptTokens = this.estimateTokens(request.messages);
+      const estimatedCompletionTokens = request.max_tokens ?? this.config.max_tokens ?? 0;
+      const estimatedCostUsd = this.estimateCostUsd(
+        estimatedPromptTokens,
+        estimatedCompletionTokens,
+        model
+      );
+      const budgetPolicy = enforceBudgetPolicy(agentType, {
+        totalTokens: estimatedPromptTokens + estimatedCompletionTokens,
+        estimatedCostUsd,
+      });
+
       // Get routing decision
       const routingDecision = await this.costAwareRouter.routeRequest({
         tenantId,
-        agentType: (metadata as any).agentType || 'unknown',
+        agentType,
         priority: (metadata as any).priority || 'medium',
-        tokenEstimate: this.estimateTokens(request.messages),
+        tokenEstimate: estimatedPromptTokens,
         sessionId,
       });
 
@@ -185,7 +364,11 @@ export class LLMGateway {
           content: fallbackResponse,
           finish_reason: 'stop',
           usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-          metadata: { ...metadata, fallback: true },
+          metadata: {
+            ...metadata,
+            fallback: true,
+            policyVersion: modelPolicy.policyVersion,
+          },
         };
       }
 
@@ -207,29 +390,115 @@ export class LLMGateway {
         },
         async (span: any) => {
           try {
-            const result = await this.resilienceWrapper.execute(
-              () => this.executeCompletion(request, startTime)
-            );
+            // MODEL SELECTION + RETRY/FALLBACK (Together-specific behavior)
+            const requestedModel = request.model ?? this.config.model;
+            let modelUsed = requestedModel;
+            let retryAttempts = 0;
+            let fallbackTriggered = false;
+            let fallbackReason: string | null = null;
 
-            const latencyMs = Date.now() - startTime;
-            const costUsd = this.estimateCostUsd(
-              result.usage?.prompt_tokens || 0,
-              result.usage?.completion_tokens || 0,
-              model
-            );
+            // If provider is Together and caller didn't specify a model, prefer the configured primary
+            if (this.config.provider === 'together' && !request.model) {
+              request.model = this.togetherPrimaryModel || this.config.model;
+            }
 
-            span.setAttributes({
-              'llm.prompt_tokens': result.usage?.prompt_tokens || 0,
-              'llm.completion_tokens': result.usage?.completion_tokens || 0,
-              'llm.total_tokens': result.usage?.total_tokens || 0,
-              'llm.cost_usd': costUsd,
-              'llm.latency_ms': latencyMs,
-              'llm.cached': false,
-            });
-            span.setStatus({ code: SpanStatusCode.OK });
-            span.end();
+            const isTransientError = (err: any) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              return /timeout|ETIMEDOUT|429|5\d{2}|rate limit/i.test(msg);
+            };
 
-            return result;
+            const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+            const tryPrimaryWithRetries = async () => {
+              const maxRetries = Math.max(0, this.llmFallbackMaxAttempts || 0);
+              for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                  retryAttempts = attempt;
+                  const res = await this.resilienceWrapper.execute(
+                    () => this.executeCompletion(request, startTime)
+                  );
+                  modelUsed = request.model || modelUsed;
+                  // annotate metadata for caller
+                  res.metadata = { ...(res.metadata || {}), retry_attempts: retryAttempts };
+                  return res;
+                } catch (err) {
+                  // If not transient or we've exhausted retries -> rethrow
+                  if (!isTransientError(err) || attempt === maxRetries) throw err;
+                  // backoff with small jitter
+                  const base = this.llmRetryBackoffMs || 200;
+                  const jitter = Math.floor(Math.random() * base);
+                  await sleep(base + jitter);
+                  continue;
+                }
+              }
+              throw new Error('Primary model retries exhausted');
+            };
+
+            try {
+              // Try primary (with configured retries)
+              const primaryResult = await tryPrimaryWithRetries();
+              // normal success
+              const latencyMs = Date.now() - startTime;
+              const costUsd = this.estimateCostUsd(
+                primaryResult.usage?.prompt_tokens || 0,
+                primaryResult.usage?.completion_tokens || 0,
+                request.model || modelUsed
+              );
+
+              enforceBudgetPolicy(agentType, {
+                totalTokens: primaryResult.usage?.total_tokens || 0,
+                estimatedCostUsd: costUsd,
+              });
+
+              span.setAttributes({
+                'llm.prompt_tokens': primaryResult.usage?.prompt_tokens || 0,
+                'llm.completion_tokens': primaryResult.usage?.completion_tokens || 0,
+                'llm.total_tokens': primaryResult.usage?.total_tokens || 0,
+                'llm.cost_usd': costUsd,
+                'llm.latency_ms': latencyMs,
+                'llm.cached': false,
+              });
+              span.setStatus({ code: SpanStatusCode.OK });
+              span.end();
+
+              return primaryResult;
+            } catch (primaryErr) {
+              // If fallback is disabled or no secondary configured, rethrow
+              if (!this.llmFallbackEnabled || !this.togetherSecondaryModel) {
+                throw primaryErr;
+              }
+
+              // Attempt secondary model
+              fallbackTriggered = true;
+              fallbackReason = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
+              logger.warn('Primary Together model failed; attempting secondary', {
+                primary: request.model,
+                secondary: this.togetherSecondaryModel,
+                retry_attempts: retryAttempts,
+                fallback_reason: fallbackReason,
+              });
+
+              // Use secondary model for the retry
+              const secondaryRequest: LLMRequest = { ...request, model: this.togetherSecondaryModel };
+              const secondaryResult = await this.resilienceWrapper.execute(
+                () => this.executeCompletion(secondaryRequest, startTime)
+              );
+
+              // Annotate fallback metadata
+              secondaryResult.metadata = {
+                ...(secondaryResult.metadata || {}),
+                fallback_triggered: true,
+                fallback_reason: fallbackReason,
+                retry_attempts: retryAttempts,
+                policyVersion: budgetPolicy.policyVersion,
+              };
+
+              span.setAttributes({ 'llm.latency_ms': Date.now() - startTime });
+              span.setStatus({ code: SpanStatusCode.OK });
+              span.end();
+
+              return secondaryResult;
+            }
           } catch (err) {
             const latencyMs = Date.now() - startTime;
             span.setAttributes({ 'llm.latency_ms': latencyMs });
@@ -245,6 +514,16 @@ export class LLMGateway {
       );
 
       const latencyMs = Date.now() - startTime;
+      const policyVersion = modelPolicy.policyVersion;
+      response.metadata = { ...(response.metadata || {}), policyVersion };
+
+      recordPolicyAuditEvent({
+        eventType: 'llm_call',
+        agentType,
+        policyVersion,
+        metadata: { model, tenantId, totalTokens: response.usage?.total_tokens || 0 },
+      });
+
       void this.costTracker.trackUsage({
         userId,
         tenantId,

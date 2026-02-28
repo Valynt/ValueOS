@@ -28,5 +28,10 @@ src/components/ @team/frontend
 .github/workflows/ @team/devops
 scripts/ @team/devops
 
+# Compliance & governance docs — require security + devops review
+docs/processes/critical-claims-checklist.md @team/security @team/devops
+docs/processes/localization-roadmap.md @team/frontend @team/devops
+docs/security-compliance/ @team/security
+
 # Default fallback
 * @team/owners

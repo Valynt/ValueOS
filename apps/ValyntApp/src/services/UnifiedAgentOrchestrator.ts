@@ -25,10 +25,10 @@ import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
-  GroundtruthRequestPayload,
   GroundtruthRequestOptions,
+  GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
-import { getAgentMessageBroker, AgentMessageBroker } from "./AgentMessageBroker";
+import { AgentMessageBroker, getAgentMessageBroker } from "./AgentMessageBroker";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
@@ -45,22 +45,22 @@ import { llmConfig } from "../config/llm";
 import { z } from "zod";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager";
 import { ESOModule } from "../mcp-ground-truth/modules/StructuralTruthModule";
-import { getEnhancedParallelExecutor, EnhancedParallelExecutor } from "./EnhancedParallelExecutor"; // NEW: Import for parallel execution
+import { EnhancedParallelExecutor, getEnhancedParallelExecutor } from "./EnhancedParallelExecutor"; // NEW: Import for parallel execution
 import {
-  validateGroundTruthMetadata,
   assertProvenance,
+  validateGroundTruthMetadata,
 } from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
 import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import {
-  AgentRequest,
-  AgentResponse as RetryAgentResponse,
-  IAgent,
-  ValidationResult,
   AgentCapability,
-  AgentMetadata,
   AgentConfiguration,
+  AgentMetadata,
   AgentPerformanceMetrics,
+  AgentRequest,
+  IAgent,
   AgentHealthStatus as RetryAgentHealthStatus,
+  AgentResponse as RetryAgentResponse,
+  ValidationResult,
 } from "./agents/core/IAgent";
 
 // ============================================================================

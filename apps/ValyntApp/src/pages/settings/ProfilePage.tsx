@@ -1,6 +1,6 @@
 /**
  * ProfilePage - Edit-in-place profile settings
- * 
+ *
  * Row-based list pattern with read-only display and Edit actions.
  */
 
@@ -8,11 +8,11 @@ import { useState } from "react";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/avatar";
-import {
 import { logger } from "../../lib/logger";
+import {
+  SettingsAlert,
   SettingsRow,
   SettingsSection,
-  SettingsAlert,
 } from "@/components/settings";
 
 interface ProfileData {

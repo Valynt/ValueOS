@@ -12,6 +12,7 @@
 import { BaseService } from "./BaseService.js"
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"
 import { Session, User } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
 import { securityLogger } from "./SecurityLogger.js"
 import { getConfig } from "../config/environment.js"
@@ -29,9 +30,9 @@ import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
 import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
 import { SessionClaimsSchema } from "../types/auth.js";
-import { getSessionStore, RedisSessionStore, DeviceFingerprint } from "../security/RedisSessionStore.js";
+import { DeviceFingerprint, getSessionStore, RedisSessionStore } from "../security/RedisSessionStore.js";
 import { getTokenRotationService } from "./TokenRotationService.js";
-import { getDeviceFingerprintService, DeviceFingerprintService } from "./DeviceFingerprintService.js";
+import { DeviceFingerprintService, getDeviceFingerprintService } from "./DeviceFingerprintService.js";
 import { getRedisClient } from "@shared/lib/redisClient";
 
 export interface LoginCredentials {
@@ -74,19 +75,38 @@ export class AuthService extends BaseService {
   private deviceFingerprintService: DeviceFingerprintService;
   private redisInitialized = false;
 
+  /**
+   * TCT secret startup policy:
+   * - `TCT_SECRET` is required for all environments.
+   * - For sanctioned local test mode only, callers may set
+   *   `TCT_ALLOW_EPHEMERAL_SECRET=true` and run with NODE_ENV=test
+   *   (or `LOCAL_TEST_MODE=true`) to generate an in-memory secret.
+   * - Outside that mode, service startup fails fast if `TCT_SECRET` is missing.
+   */
+  private resolveTctSecret(): string {
+    if (process.env.TCT_SECRET) {
+      return process.env.TCT_SECRET;
+    }
+
+    const isLocalTestMode = process.env.NODE_ENV === "test" || process.env.LOCAL_TEST_MODE === "true";
+    const allowEphemeralSecret = process.env.TCT_ALLOW_EPHEMERAL_SECRET === "true";
+
+    if (isLocalTestMode && allowEphemeralSecret) {
+      const ephemeralSecret = randomBytes(64).toString("hex");
+      this.log("warn", "TCT_SECRET missing; generated ephemeral secret for sanctioned local test mode", {
+        nodeEnv: process.env.NODE_ENV,
+      });
+      return ephemeralSecret;
+    }
+
+    throw new Error(
+      "TCT_SECRET must be set. For local test mode only, set TCT_ALLOW_EPHEMERAL_SECRET=true and run with NODE_ENV=test or LOCAL_TEST_MODE=true."
+    );
+  }
+
   constructor() {
     super("AuthService");
-    if (!process.env.TCT_SECRET) {
-      if (process.env.NODE_ENV === "production") {
-        throw new Error("TCT_SECRET must be set in production");
-      }
-      // In development, we can log a warning but still need a value to function
-      // Ideally this should come from .env.local
-      console.warn("WARN: TCT_SECRET not set, using insecure default for development only.");
-      this.tctSecret = "default-tct-secret-change-me";
-    } else {
-      this.tctSecret = process.env.TCT_SECRET;
-    }
+    this.tctSecret = this.resolveTctSecret();
 
     // Initialize hardened services
     this.sessionStore = getSessionStore();

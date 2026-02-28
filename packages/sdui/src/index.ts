@@ -8,13 +8,14 @@ export * from "./templates";
 export { useSchemaStore } from "./SchemaStore";
 export { SchemaPatcher } from "./SchemaPatcher";
 
-// New SDUI Runtime Engine exports
-export * from "./renderPage";
+// SDUI Runtime Engine exports
+export { renderPage, RenderPageComponent, useRenderPageOptions } from "./renderPage";
+export type { RenderPageOptions, RenderPageResult } from "./renderPage";
 export * from "./types";
 export * from "./hooks/useDataHydration";
-export * from "./components/ComponentErrorBoundary";
-export * from "./components/FallbackComponentRegistry";
-export * from "./components/LoadingFallback";
+export { ComponentErrorBoundary, EnhancedComponentErrorBoundary, withEnhancedComponentErrorBoundary } from "./components/ComponentErrorBoundary";
+export { fallbackRegistry, withFallback } from "./components/FallbackComponentRegistry";
+export { LoadingFallback } from "./components/LoadingFallback";
 export * from "./utils/renderUtils";
 
 // Schema migration system

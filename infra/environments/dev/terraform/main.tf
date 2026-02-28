@@ -41,6 +41,18 @@ provider "aws" {
   }
 }
 
+variable "aws_region" {
+  description = "AWS region for development environment resources"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "db_master_password" {
+  description = "Development RDS master password loaded from secure Terraform backend/TF_VAR_db_master_password"
+  type        = string
+  sensitive   = true
+}
+
 # Data Sources
 data "aws_availability_zones" "available" {
   state = "available"
@@ -264,7 +276,7 @@ resource "aws_db_instance" "dev" {
 
   db_name  = "valuecanvas_dev"
   username = "dev_user"
-  password = "dev_password_123"  # Weak password for dev
+  password = var.db_master_password
 
   vpc_security_group_ids = [aws_security_group.dev_db.id]
   db_subnet_group_name   = aws_db_subnet_group.dev.name

@@ -3,8 +3,8 @@
  * Determines what content, recommendations, and experiences to show based on user context
  */
 
-import { getCurriculumForRole, getRecommendedModules, CurriculumModule } from '../data/curriculum';
-import { getModuleStatus, getProgressStats, canAccessPillar } from './progress-logic';
+import { CurriculumModule, getCurriculumForRole, getRecommendedModules } from '../data/curriculum';
+import { canAccessPillar, getModuleStatus, getProgressStats } from './progress-logic';
 
 export interface UserContext {
   role: string;

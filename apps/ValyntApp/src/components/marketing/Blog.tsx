@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, Tag, ArrowRight, TrendingUp, BookOpen, FileText, Award, Search } from 'lucide-react';
+import { ArrowRight, Award, BookOpen, Calendar, Clock, FileText, Search, Tag, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { SEO } from './SEO';
 

@@ -1,11 +1,17 @@
 import PQueue from 'p-queue';
-import { Repository, Optimization, AnalysisJob, BotConfig } from '../types/index.js';
+import { AnalysisJob, BotConfig, Optimization, Repository } from '../types/index.js';
 import { githubClient } from './githubClient.js';
-import { logger, logAnalysisEvent } from '../utils/logger.js';
+import { logAnalysisEvent, logger } from '../utils/logger.js';
 import { analyzeCode } from '../analysis/staticAnalyzer.js';
 import { generateOptimizations } from '../analysis/optimizationEngine.js';
 import { createPullRequest } from '../services/prService.js';
 import { config } from '../config/index.js';
+
+interface RepoFile {
+  path: string;
+  size: number;
+  type: string;
+}
 
 const analysisQueue = new PQueue({ concurrency: config.analysis.maxConcurrency });
 
@@ -138,7 +144,7 @@ export async function analyzeRepository(
 
 async function analyzeFile(
   repository: Repository,
-  file: any,
+  file: RepoFile,
   botConfig: BotConfig
 ): Promise<Optimization[]> {
   try {
@@ -197,7 +203,7 @@ async function analyzeFile(
   }
 }
 
-function filterRelevantFiles(files: any[], botConfig: BotConfig): any[] {
+function filterRelevantFiles(files: RepoFile[], botConfig: BotConfig): RepoFile[] {
   return files.filter(file => {
     // Must be a file
     if (file.type !== 'file') return false;

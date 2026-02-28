@@ -42,7 +42,7 @@ export interface FeatureFlagEvaluation {
 }
 
 export class FeatureFlagsService {
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: any;
   private cache: Map<string, FeatureFlag> = new Map();
   private readonly CACHE_TTL = 60 * 1000; // 1 minute
 

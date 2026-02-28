@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger.js";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type RedisClientType } from "redis";
 import { promisify } from "util";
 import { resolve } from "dns";
 import * as ipaddr from "ipaddr.js";
@@ -16,27 +16,234 @@ export interface WebScraperResult {
   relevance_score: number;
 }
 
+/** Tracks hits, misses, and evictions across all internal maps. */
+export interface CacheMetrics {
+  cacheHits: number;
+  cacheMisses: number;
+  cacheEvictions: number;
+  requestTimesEvictions: number;
+  dnsCacheHits: number;
+  dnsCacheMisses: number;
+  dnsCacheEvictions: number;
+}
+
+/**
+ * Bounded LRU map with TTL support.
+ * Entries are evicted when the map exceeds maxSize (oldest-accessed first)
+ * or when their TTL expires.
+ */
+class BoundedLRUMap<V> {
+  private map = new Map<string, { value: V; timestamp: number; lastAccess: number }>();
+  private readonly maxSize: number;
+  private readonly ttlMs: number;
+  evictions = 0;
+
+  constructor(maxSize: number, ttlMs: number) {
+    this.maxSize = maxSize;
+    this.ttlMs = ttlMs;
+  }
+
+  get(key: string): V | undefined {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+
+    if (Date.now() - entry.timestamp >= this.ttlMs) {
+      this.map.delete(key);
+      this.evictions++;
+      return undefined;
+    }
+
+    // Touch for LRU: delete and re-insert to move to end of iteration order
+    this.map.delete(key);
+    entry.lastAccess = Date.now();
+    this.map.set(key, entry);
+    return entry.value;
+  }
+
+  set(key: string, value: V): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    }
+
+    while (this.map.size >= this.maxSize) {
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) {
+        this.map.delete(oldest);
+        this.evictions++;
+      }
+    }
+
+    this.map.set(key, { value, timestamp: Date.now(), lastAccess: Date.now() });
+  }
+
+  has(key: string): boolean {
+    const entry = this.map.get(key);
+    if (!entry) return false;
+    if (Date.now() - entry.timestamp >= this.ttlMs) {
+      this.map.delete(key);
+      this.evictions++;
+      return false;
+    }
+    return true;
+  }
+
+  delete(key: string): boolean {
+    return this.map.delete(key);
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  clear(): void {
+    this.map.clear();
+  }
+
+  /** Remove all entries whose TTL has expired. Returns count of purged entries. */
+  purgeExpired(): number {
+    const now = Date.now();
+    let purged = 0;
+    for (const [key, entry] of this.map) {
+      if (now - entry.timestamp >= this.ttlMs) {
+        this.map.delete(key);
+        this.evictions++;
+        purged++;
+      }
+    }
+    return purged;
+  }
+}
+
+/**
+ * Bounded map for rate-limit timestamps per hostname.
+ * Evicts the least-recently-used hostname when over capacity.
+ */
+class BoundedRateLimitMap {
+  private map = new Map<string, { times: number[]; lastAccess: number }>();
+  private readonly maxSize: number;
+  evictions = 0;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: string): number[] | undefined {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+
+    this.map.delete(key);
+    entry.lastAccess = Date.now();
+    this.map.set(key, entry);
+    return entry.times;
+  }
+
+  set(key: string, times: number[]): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    }
+
+    while (this.map.size >= this.maxSize) {
+      const oldest = this.map.keys().next().value;
+      if (oldest !== undefined) {
+        this.map.delete(oldest);
+        this.evictions++;
+      }
+    }
+
+    this.map.set(key, { times, lastAccess: Date.now() });
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  clear(): void {
+    this.map.clear();
+  }
+
+  /** Purge hostnames with no requests in the last windowMs. */
+  purgeStale(windowMs: number): number {
+    const cutoff = Date.now() - windowMs;
+    let purged = 0;
+    for (const [key, entry] of this.map) {
+      const validTimes = entry.times.filter((t) => t >= cutoff);
+      if (validTimes.length === 0) {
+        this.map.delete(key);
+        this.evictions++;
+        purged++;
+      } else {
+        entry.times = validTimes;
+      }
+    }
+    return purged;
+  }
+}
+
+// Default capacity limits
+const DEFAULT_CACHE_MAX_ENTRIES = 500;
+const DEFAULT_REQUEST_TIMES_MAX_ENTRIES = 1000;
+const DEFAULT_DNS_CACHE_MAX_ENTRIES = 1000;
+const CLEANUP_INTERVAL_MS = 60_000;
+
 export class WebScraperService {
   private userAgent: string;
-  private requestTimes: Map<string, number[]> = new Map();
-  private maxRequestsPerMinute = 10; // Conservative limit per domain
-  private cache: Map<string, { result: WebScraperResult; timestamp: number }> = new Map();
-  private cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
-  private redis: any | null = null;
+  private requestTimes: BoundedRateLimitMap;
+  private maxRequestsPerMinute = 10;
+  private cache: BoundedLRUMap<{ result: WebScraperResult; timestamp: number }>;
+  private cacheTtlMs = 30 * 60 * 1000; // 30 minutes
+  private redis: RedisClientType | null = null;
+  private redisConnectionPromise: Promise<void> | null = null;
   private encryptionKey: string;
-  private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
-  private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
+  private dnsCache: BoundedLRUMap<{ ips: string[]; timestamp: number }>;
+  private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes
 
-  constructor(userAgent = "ValueCanvasBot/1.0 (+http://valuecanvas.com)", redisUrl?: string) {
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  private _metrics: CacheMetrics = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheEvictions: 0,
+    requestTimesEvictions: 0,
+    dnsCacheHits: 0,
+    dnsCacheMisses: 0,
+    dnsCacheEvictions: 0,
+  };
+
+  constructor(
+    userAgent = "ValueCanvasBot/1.0 (+http://valuecanvas.com)",
+    redisUrl?: string,
+    options?: {
+      cacheMaxEntries?: number;
+      requestTimesMaxEntries?: number;
+      dnsCacheMaxEntries?: number;
+      cleanupIntervalMs?: number;
+    }
+  ) {
     this.userAgent = userAgent;
     this.encryptionKey =
       process.env.WEB_SCRAPER_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
+
+    const cacheMax = options?.cacheMaxEntries ?? DEFAULT_CACHE_MAX_ENTRIES;
+    const requestTimesMax = options?.requestTimesMaxEntries ?? DEFAULT_REQUEST_TIMES_MAX_ENTRIES;
+    const dnsCacheMax = options?.dnsCacheMaxEntries ?? DEFAULT_DNS_CACHE_MAX_ENTRIES;
+    const cleanupInterval = options?.cleanupIntervalMs ?? CLEANUP_INTERVAL_MS;
+
+    this.cache = new BoundedLRUMap(cacheMax, this.cacheTtlMs);
+    this.requestTimes = new BoundedRateLimitMap(requestTimesMax);
+    this.dnsCache = new BoundedLRUMap(dnsCacheMax, this.dnsCacheTtlMs);
+
+    // Periodic cleanup of stale entries
+    this.cleanupTimer = setInterval(() => this.runCleanup(), cleanupInterval);
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
 
     // Initialize Redis for distributed rate limiting
     if (redisUrl) {
       try {
         this.redis = createClient({ url: redisUrl });
-        this.redis.on("error", (err: any) => logger.error("Redis connection error", { err }));
+        this.redis.on("error", (err) => logger.error("Redis connection error", err));
+        this.redisConnectionPromise = this.redis.connect();
       } catch (error) {
         logger.warn("Failed to initialize Redis, falling back to in-memory rate limiting", {
           error,
@@ -52,9 +259,11 @@ export class WebScraperService {
     // Check cache first
     const cached = this.cache.get(url);
     if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
+      this._metrics.cacheHits++;
       logger.debug("Web scraper cache hit", { url });
       return cached.result;
     }
+    this._metrics.cacheMisses++;
 
     let currentUrl = url;
     let redirectCount = 0;
@@ -174,6 +383,7 @@ export class WebScraperService {
     // Check Redis first if available
     if (this.redis) {
       try {
+        await this.ensureRedisConnected();
         const key = `rate_limit:${hostname}`;
         const count = await this.redis.incr(key);
         if (count === 1) {
@@ -184,6 +394,12 @@ export class WebScraperService {
         logger.warn("Redis rate limit check failed, falling back to memory", { error });
       }
     }
+
+    logger.warn("Web scraper in-memory rate limiting active", {
+      metric: "web_scraper_rate_limit_fallback_active",
+      hostname,
+      fallback: "in_memory",
+    });
 
     // Fallback to in-memory rate limiting
     const requests = this.requestTimes.get(hostname) || [];
@@ -196,6 +412,18 @@ export class WebScraperService {
     validRequests.push(now);
     this.requestTimes.set(hostname, validRequests);
     return true;
+  }
+
+  private async ensureRedisConnected(): Promise<void> {
+    if (!this.redis || this.redis.isOpen) {
+      return;
+    }
+
+    if (!this.redisConnectionPromise) {
+      this.redisConnectionPromise = this.redis.connect();
+    }
+
+    await this.redisConnectionPromise;
   }
 
   /**
@@ -361,8 +589,10 @@ export class WebScraperService {
       // Check DNS cache first
       const cached = this.dnsCache.get(hostname);
       if (cached && Date.now() - cached.timestamp < this.dnsCacheTtlMs) {
+        this._metrics.dnsCacheHits++;
         return cached.ips;
       }
+      this._metrics.dnsCacheMisses++;
 
       const ips = await resolveAsync(hostname);
 
@@ -392,8 +622,28 @@ export class WebScraperService {
     }
   }
 
+  /** Run periodic cleanup: purge expired entries and enforce caps. */
+  private runCleanup(): void {
+    const cachePurged = this.cache.purgeExpired();
+    const dnsPurged = this.dnsCache.purgeExpired();
+    const ratePurged = this.requestTimes.purgeStale(60_000);
+
+    this._metrics.cacheEvictions = this.cache.evictions;
+    this._metrics.requestTimesEvictions = this.requestTimes.evictions;
+    this._metrics.dnsCacheEvictions = this.dnsCache.evictions;
+
+    if (cachePurged + dnsPurged + ratePurged > 0) {
+      logger.info("WebScraperService cleanup completed", {
+        cachePurged,
+        dnsPurged,
+        ratePurged,
+        ...this.getMetrics(),
+      });
+    }
+  }
+
   /**
-   * Clear cache (useful for testing)
+   * Clear all caches (useful for testing)
    */
   clearCache(): void {
     this.cache.clear();
@@ -402,7 +652,7 @@ export class WebScraperService {
   }
 
   /**
-   * Get cache statistics
+   * Get cache size statistics
    */
   getCacheStats(): {
     cacheSize: number;
@@ -414,6 +664,26 @@ export class WebScraperService {
       rateLimitEntries: this.requestTimes.size,
       dnsCacheEntries: this.dnsCache.size,
     };
+  }
+
+  /**
+   * Get detailed cache metrics including hits, misses, and evictions.
+   */
+  getMetrics(): CacheMetrics {
+    this._metrics.cacheEvictions = this.cache.evictions;
+    this._metrics.requestTimesEvictions = this.requestTimes.evictions;
+    this._metrics.dnsCacheEvictions = this.dnsCache.evictions;
+    return { ...this._metrics };
+  }
+
+  /**
+   * Stop the periodic cleanup timer. Call on shutdown.
+   */
+  destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
   }
 }
 

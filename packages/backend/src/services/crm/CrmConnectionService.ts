@@ -7,8 +7,9 @@
 
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
-import { encryptToken, decryptToken, tokenFingerprint, needsReEncryption } from './tokenEncryption.js';
+import { decryptToken, encryptToken, needsReEncryption, tokenFingerprint } from './tokenEncryption.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
+import { consumeOAuthState, createOAuthState } from './OAuthStateStore.js';
 import type {
   CrmConnectionRow,
   CrmProvider,
@@ -29,22 +30,38 @@ export class CrmConnectionService {
   private supabase = createServerSupabaseClient();
 
   /**
-   * Start OAuth flow — returns the auth URL for the provider.
+   * Start OAuth flow — generates an opaque nonce, persists the mapping
+   * in Redis/memory, and returns the auth URL with only the nonce as state.
    */
   async startOAuth(
     tenantId: string,
     provider: CrmProvider,
     redirectUri: string,
   ): Promise<{ authUrl: string; state: string }> {
-    const impl = getCrmProvider(provider);
-    const result = impl.getAuthUrl(tenantId, redirectUri);
+    // Generate opaque nonce — tenant ID is NOT embedded in the state parameter
+    const nonce = await createOAuthState({
+      tenantId,
+      provider,
+      redirectUri,
+      createdAt: Date.now(),
+    });
 
-    logger.info('OAuth flow started', { tenantId, provider });
-    return result;
+    const impl = getCrmProvider(provider);
+    const result = impl.getAuthUrl(nonce, redirectUri);
+
+    logger.info('OAuth flow started', {
+      tenantId,
+      provider,
+      audit_event: 'oauth.flow.started',
+    });
+    return { authUrl: result.authUrl, state: nonce };
   }
 
   /**
-   * Complete OAuth flow — exchange code for tokens and persist.
+   * Complete OAuth flow — validate and consume the nonce, exchange code
+   * for tokens, and persist the connection.
+   *
+   * Rejects replayed, expired, or provider-mismatched states.
    */
   async completeOAuth(
     tenantId: string,
@@ -54,8 +71,31 @@ export class CrmConnectionService {
     redirectUri: string,
     connectedBy: string,
   ): Promise<CrmConnectionRow> {
-    const impl = getCrmProvider(provider);
+    // Consume the nonce — one-time use, validates provider match
+    const stateMeta = await consumeOAuthState(state, provider);
+    if (!stateMeta) {
+      logger.warn('OAuth callback rejected: invalid, expired, or replayed state', {
+        tenantId,
+        provider,
+        audit_event: 'oauth.callback.rejected',
+        reason: 'invalid_state',
+      });
+      throw new Error('Invalid or expired OAuth state. Please restart the connection flow.');
+    }
 
+    // Verify the tenant matches the one that initiated the flow
+    if (stateMeta.tenantId !== tenantId) {
+      logger.warn('OAuth callback rejected: tenant mismatch', {
+        expectedTenant: stateMeta.tenantId,
+        actualTenant: tenantId,
+        provider,
+        audit_event: 'oauth.callback.rejected',
+        reason: 'tenant_mismatch',
+      });
+      throw new Error('OAuth state does not match the requesting tenant.');
+    }
+
+    const impl = getCrmProvider(provider);
     const tokens = await impl.exchangeCodeForTokens({ code, state }, redirectUri);
 
     // Validate minimum required scopes
@@ -68,7 +108,6 @@ export class CrmConnectionService {
         missing,
         granted: tokens.scopes,
       });
-      // Allow connection but log — some providers return scopes differently
     }
 
     const row = await this.upsertConnection(tenantId, provider, tokens, connectedBy);
@@ -78,6 +117,48 @@ export class CrmConnectionService {
       provider,
       connectionId: row.id,
       fingerprint: tokenFingerprint(tokens.accessToken),
+      audit_event: 'oauth.callback.success',
+    });
+    return row;
+  }
+
+  /**
+   * Complete OAuth flow after the state nonce has already been consumed
+   * and validated by the caller. Exchanges the authorization code for
+   * tokens and persists the connection.
+   */
+  async completeOAuthAfterStateValidation(
+    tenantId: string,
+    provider: CrmProvider,
+    code: string,
+    redirectUri: string,
+    connectedBy: string,
+  ): Promise<CrmConnectionRow> {
+    const impl = getCrmProvider(provider);
+    // State is not needed for token exchange with most providers,
+    // but pass empty string for interface compatibility.
+    const tokens = await impl.exchangeCodeForTokens({ code, state: '' }, redirectUri);
+
+    // Validate minimum required scopes
+    const required = REQUIRED_SCOPES[provider] || [];
+    const missing = required.filter((s) => !tokens.scopes.includes(s));
+    if (missing.length > 0) {
+      logger.warn('CRM connection missing required scopes', {
+        tenantId,
+        provider,
+        missing,
+        granted: tokens.scopes,
+      });
+    }
+
+    const row = await this.upsertConnection(tenantId, provider, tokens, connectedBy);
+
+    logger.info('CRM connected', {
+      tenantId,
+      provider,
+      connectionId: row.id,
+      fingerprint: tokenFingerprint(tokens.accessToken),
+      audit_event: 'oauth.callback.success',
     });
     return row;
   }

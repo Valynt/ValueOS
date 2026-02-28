@@ -5,8 +5,8 @@
  * setup, and teardown utilities.
  */
 
-import { TEST_USERS, TEST_TENANTS, TEST_TOKENS, TEST_SESSIONS } from './auth.fixtures.js';
-import { assertTenantMember, assertCapability, deny } from "../services/AuthPolicy.js";
+import { TEST_SESSIONS, TEST_TENANTS, TEST_TOKENS, TEST_USERS } from './auth.fixtures.js';
+import { assertCapability, assertTenantMember, deny } from "../services/AuthPolicy.js";
 import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
 
 export interface MockAuthContext {

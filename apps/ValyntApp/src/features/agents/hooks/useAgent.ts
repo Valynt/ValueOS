@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import type { AgentMessage, AgentStatus, AgentSession } from "../types";
+import { useCallback, useState } from "react";
+import type { AgentMessage, AgentSession, AgentStatus } from "../types";
 
 export function useAgent(agentId: string) {
   const [status, setStatus] = useState<AgentStatus>("idle");

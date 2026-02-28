@@ -116,6 +116,8 @@ export class ValueCaseScaffolder {
         tenant_id: tenantId,
         source_type: 'crm',
         source_provider: provider,
+        source_provenance: 'crm',
+        evidence_tier: 'gold',
         external_object_type: 'opportunity',
         external_object_id: opp.externalId,
         internal_table: 'value_cases',

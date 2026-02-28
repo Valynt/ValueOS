@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: redis@sha256:4bfd9eca23339865dc14fe75f6d9ae643f714924623978dd2798f1a673b08f43
           imagePullPolicy: Always
           ports:
             - containerPort: 6379
@@ -81,7 +81,7 @@ spec:
               subPath: redis.conf
               readOnly: true
         - name: redis-exporter
-          image: oliver006/redis_exporter:latest
+          image: oliver006/redis_exporter@sha256:76f91369addbce455461de23aab0338f513a919dcb50c16e7049721d700e1a6f
           imagePullPolicy: Always
           ports:
             - containerPort: 9121

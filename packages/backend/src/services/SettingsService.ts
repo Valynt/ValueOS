@@ -113,24 +113,20 @@ export class SettingsService extends TenantAwareService {
    * @param options - Query options
    * @returns Array of settings
    */
-  async getSettings(options: SettingsQueryOptions = {}, userId?: string): Promise<Setting[]> {
+  async getSettings(options: SettingsQueryOptions & { scope: Setting['scope']; scopeId: string }, userId?: string): Promise<Setting[]> {
     this.log('info', 'Getting settings', options);
 
-    if (options.scope && options.scopeId) {
-      await this.ensureTenantAccess(options.scope, options.scopeId, userId);
+    if (!options.scope || !options.scopeId) {
+      throw new Error("scope and scopeId are required for settings queries to enforce tenant isolation");
     }
+
+    await this.ensureTenantAccess(options.scope, options.scopeId, userId);
 
     return this.executeRequest(
       async () => {
-        let query = this.supabase.from('settings').select('*');
-
-        if (options.scope) {
-          query = query.eq('scope', options.scope);
-        }
-
-        if (options.scopeId) {
-          query = query.eq('scope_id', options.scopeId);
-        }
+        let query = this.supabase.from('settings').select('*')
+          .eq('scope', options.scope)
+          .eq('scope_id', options.scopeId);
 
         if (options.keys && options.keys.length > 0) {
           query = query.in('key', options.keys);

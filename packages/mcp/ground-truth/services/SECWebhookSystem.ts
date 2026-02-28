@@ -12,7 +12,7 @@
  * - Integration with WebSocket server for live alerts
  */
 
-import { WebSocketServer, WebhookNotification } from "./WebSocketServer";
+import { WebhookNotification, WebSocketServer } from "./WebSocketServer";
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 

@@ -8,8 +8,8 @@
 import { describe, expect, it } from "vitest";
 import type {
   BillingEvent,
-  BillingEventType,
   BillingEventPayload,
+  BillingEventType,
   MeterKey,
 } from "@shared/types/billing-events";
 

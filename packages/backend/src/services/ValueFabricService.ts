@@ -56,21 +56,24 @@ export class ValueFabricService {
   // CAPABILITY MANAGEMENT
   // =====================================================
 
-  async getCapabilities(filters?: {
+  async getCapabilities(organizationId: string, filters?: {
     category?: string;
     tags?: string[];
     search?: string;
     page?: number;
     pageSize?: number;
   }): Promise<Capability[]> {
+    this.requireOrganizationId(organizationId);
     const page = filters?.page ?? 1;
     const pageSize = filters?.pageSize ?? 50;
-    const cacheKey = JSON.stringify({ ...filters, page, pageSize });
+    const cacheKey = JSON.stringify({ organizationId, ...filters, page, pageSize });
 
     const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
     if (cached) return cached;
 
-    let query = this.supabase.from("capabilities").select("*").eq("is_active", true);
+    let query = this.supabase.from("capabilities").select("*")
+      .eq("organization_id", organizationId)
+      .eq("is_active", true);
 
     if (filters?.category) {
       query = query.eq("category", filters.category);
@@ -95,10 +98,12 @@ export class ValueFabricService {
     return capabilities;
   }
 
-  async getCapabilityById(id: string): Promise<Capability | null> {
+  async getCapabilityById(organizationId: string, id: string): Promise<Capability | null> {
+    this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase
       .from("capabilities")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("id", id)
       .maybeSingle();
 
@@ -107,11 +112,13 @@ export class ValueFabricService {
   }
 
   async createCapability(
+    organizationId: string,
     capability: Omit<Capability, "id" | "created_at" | "updated_at">
   ): Promise<Capability> {
+    this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase
       .from("capabilities")
-      .insert(capability)
+      .insert({ ...capability, organization_id: organizationId })
       .select()
       .single();
 
@@ -120,10 +127,13 @@ export class ValueFabricService {
     return data;
   }
 
-  async updateCapability(id: string, updates: Partial<Capability>): Promise<Capability> {
+  async updateCapability(organizationId: string, id: string, updates: Partial<Capability>): Promise<Capability> {
+    this.requireOrganizationId(organizationId);
+    const { organization_id: _discard, ...safeUpdates } = updates as Record<string, unknown>;
     const { data, error } = await this.supabase
       .from("capabilities")
-      .update(updates)
+      .update(safeUpdates)
+      .eq("organization_id", organizationId)
       .eq("id", id)
       .select()
       .single();
@@ -137,21 +147,23 @@ export class ValueFabricService {
   // USE CASE MANAGEMENT
   // =====================================================
 
-  async getUseCases(filters?: {
+  async getUseCases(organizationId: string, filters?: {
     persona?: string;
     industry?: string;
     is_template?: boolean;
     page?: number;
     pageSize?: number;
   }): Promise<UseCase[]> {
+    this.requireOrganizationId(organizationId);
     const page = filters?.page ?? 1;
     const pageSize = filters?.pageSize ?? 50;
-    const cacheKey = JSON.stringify({ ...filters, page, pageSize });
+    const cacheKey = JSON.stringify({ organizationId, ...filters, page, pageSize });
 
     const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
     if (cached) return cached;
 
-    let query = this.supabase.from("use_cases").select("*");
+    let query = this.supabase.from("use_cases").select("*")
+      .eq("organization_id", organizationId);
 
     if (filters?.persona) {
       query = query.eq("persona", filters.persona);
@@ -176,10 +188,12 @@ export class ValueFabricService {
     return useCases;
   }
 
-  async getUseCaseById(id: string): Promise<UseCase | null> {
+  async getUseCaseById(organizationId: string, id: string): Promise<UseCase | null> {
+    this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase
       .from("use_cases")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("id", id)
       .maybeSingle();
 
@@ -187,13 +201,15 @@ export class ValueFabricService {
     return data;
   }
 
-  async getUseCaseWithCapabilities(useCaseId: string): Promise<{
+  async getUseCaseWithCapabilities(organizationId: string, useCaseId: string): Promise<{
     useCase: UseCase;
     capabilities: Capability[];
   }> {
+    this.requireOrganizationId(organizationId);
     const { data: useCase, error: useCaseError } = await this.supabase
       .from("use_cases")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("id", useCaseId)
       .single();
 
@@ -215,6 +231,7 @@ export class ValueFabricService {
     const { data: capabilities, error: capError } = await this.supabase
       .from("capabilities")
       .select("*")
+      .eq("organization_id", organizationId)
       .in("id", capabilityIds);
 
     if (capError) throw capError;
@@ -223,11 +240,14 @@ export class ValueFabricService {
   }
 
   async linkCapabilityToUseCase(
+    organizationId: string,
     useCaseId: string,
     capabilityId: string,
     relevanceScore: number = 1.0
   ): Promise<void> {
+    this.requireOrganizationId(organizationId);
     const { error } = await this.supabase.from("use_case_capabilities").insert({
+      organization_id: organizationId,
       use_case_id: useCaseId,
       capability_id: capabilityId,
       relevance_score: relevanceScore,
@@ -242,13 +262,15 @@ export class ValueFabricService {
   // BENCHMARK DATA
   // =====================================================
 
-  async getBenchmarks(filters: {
+  async getBenchmarks(organizationId: string, filters: {
     kpi_name?: string;
     industry?: string;
     vertical?: string;
     company_size?: string;
   }): Promise<Benchmark[]> {
-    let query = this.supabase.from("benchmarks").select("*");
+    this.requireOrganizationId(organizationId);
+    let query = this.supabase.from("benchmarks").select("*")
+      .eq("organization_id", organizationId);
 
     if (filters.kpi_name) {
       query = query.eq("kpi_name", filters.kpi_name);
@@ -275,12 +297,15 @@ export class ValueFabricService {
   }
 
   async getBenchmarkPercentiles(
+    organizationId: string,
     kpiName: string,
     industry: string
   ): Promise<{ p25: number; p50: number; p75: number; p90: number } | null> {
+    this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase
       .from("benchmarks")
       .select("value, percentile")
+      .eq("organization_id", organizationId)
       .eq("kpi_name", kpiName)
       .eq("industry", industry)
       .in("percentile", [25, 50, 75, 90]);
@@ -303,46 +328,48 @@ export class ValueFabricService {
   }
 
   async createBenchmark(
+    organizationId: string,
     benchmark: Omit<Benchmark, "id" | "created_at">,
     vmrtTrace?: VMRTTrace,
-    tenantId?: string,
     userId?: string
   ): Promise<Benchmark> {
+    this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase
       .from("benchmarks")
-      .insert(benchmark)
+      .insert({ ...benchmark, organization_id: organizationId })
       .select()
       .single();
 
     if (error) throw error;
 
-    // Log VMRT trace for metric change
     if (vmrtTrace) {
-      await this.logVMRTMetricChange("benchmark", data.id, vmrtTrace, tenantId, userId);
+      await this.logVMRTMetricChange("benchmark", data.id, vmrtTrace, organizationId, userId);
     }
 
     return data;
   }
 
   async updateBenchmark(
+    organizationId: string,
     id: string,
     updates: Partial<Benchmark>,
     vmrtTrace?: VMRTTrace,
-    tenantId?: string,
     userId?: string
   ): Promise<Benchmark> {
+    this.requireOrganizationId(organizationId);
+    const { organization_id: _discard, ...safeUpdates } = updates as Record<string, unknown>;
     const { data, error } = await this.supabase
       .from("benchmarks")
-      .update(updates)
+      .update(safeUpdates)
+      .eq("organization_id", organizationId)
       .eq("id", id)
       .select()
       .single();
 
     if (error) throw error;
 
-    // Log VMRT trace for metric change
     if (vmrtTrace) {
-      await this.logVMRTMetricChange("benchmark", id, vmrtTrace, tenantId, userId);
+      await this.logVMRTMetricChange("benchmark", id, vmrtTrace, organizationId, userId);
     }
 
     return data;
@@ -353,21 +380,22 @@ export class ValueFabricService {
   // =====================================================
 
   async semanticSearchCapabilities(
+    organizationId: string,
     queryText: string,
-    limit: number = 10,
-    organizationId?: string
+    limit: number = 10
   ): Promise<SemanticSearchResult<Capability>[]> {
+    this.requireOrganizationId(organizationId);
     const embedding = await this.generateEmbedding(queryText);
 
     const { data, error } = await this.supabase.rpc("search_capabilities_by_embedding", {
       query_embedding: embedding,
       match_count: limit,
-      p_organization_id: organizationId || null,
+      p_organization_id: organizationId,
     });
 
     if (error) {
       logger.warn("Semantic search failed, falling back to text search:", { error });
-      return this.fallbackTextSearch(queryText, limit);
+      return this.fallbackTextSearch(organizationId, queryText, limit);
     }
 
     const semanticResults = (data || []) as SemanticSearchResult<Capability>[];
@@ -377,7 +405,7 @@ export class ValueFabricService {
     }
 
     const existingIds = new Set(semanticResults.map((result) => result.item.id));
-    const fallbackResults = await this.fallbackTextSearch(queryText, limit);
+    const fallbackResults = await this.fallbackTextSearch(organizationId, queryText, limit);
 
     for (const result of fallbackResults) {
       if (existingIds.has(result.item.id)) continue;
@@ -392,10 +420,11 @@ export class ValueFabricService {
   }
 
   private async fallbackTextSearch(
+    organizationId: string,
     queryText: string,
     limit: number
   ): Promise<SemanticSearchResult<Capability>[]> {
-    const capabilities = await this.getCapabilities({ search: queryText });
+    const capabilities = await this.getCapabilities(organizationId, { search: queryText });
 
     return capabilities.slice(0, limit).map((cap) => ({
       item: cap,
@@ -414,7 +443,8 @@ export class ValueFabricService {
   // VALUE FABRIC SNAPSHOTS
   // =====================================================
 
-  async getValueFabricSnapshot(valueCaseId: string): Promise<ValueFabricSnapshot> {
+  async getValueFabricSnapshot(organizationId: string, valueCaseId: string): Promise<ValueFabricSnapshot> {
+    this.requireOrganizationId(organizationId);
     const [
       businessObjectives,
       valueTrees,
@@ -424,17 +454,17 @@ export class ValueFabricService {
       realizationReports,
       expansionModels,
     ] = await Promise.all([
-      this.getBusinessObjectives(valueCaseId),
-      this.getValueTrees(valueCaseId),
-      this.getROIModels(valueCaseId),
-      this.getValueCommits(valueCaseId),
-      this.getTelemetryCount(valueCaseId),
-      this.getRealizationReports(valueCaseId),
-      this.getExpansionModels(valueCaseId),
+      this.getBusinessObjectives(organizationId, valueCaseId),
+      this.getValueTrees(organizationId, valueCaseId),
+      this.getROIModels(organizationId, valueCaseId),
+      this.getValueCommits(organizationId, valueCaseId),
+      this.getTelemetryCount(organizationId, valueCaseId),
+      this.getRealizationReports(organizationId, valueCaseId),
+      this.getExpansionModels(organizationId, valueCaseId),
     ]);
 
-    const capabilities = await this.getCapabilities();
-    const useCases = await this.getUseCases({ is_template: true });
+    const capabilities = await this.getCapabilities(organizationId);
+    const useCases = await this.getUseCases(organizationId, { is_template: true });
 
     const lifecycleStage = this.determineLifecycleStage({
       businessObjectives,
@@ -464,52 +494,59 @@ export class ValueFabricService {
     };
   }
 
-  private async getBusinessObjectives(valueCaseId: string) {
+  private async getBusinessObjectives(organizationId: string, valueCaseId: string) {
     const { data } = await this.supabase
       .from("business_objectives")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
-  private async getValueTrees(valueCaseId: string) {
+  private async getValueTrees(organizationId: string, valueCaseId: string) {
     const { data } = await this.supabase
       .from("value_trees")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
-  async getValueTreeHierarchy(valueTreeId: string, maxDepth: number = 5) {
+  async getValueTreeHierarchy(organizationId: string, valueTreeId: string, maxDepth: number = 5) {
+    this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase.rpc("get_value_tree_hierarchy", {
       value_tree_uuid: valueTreeId,
       max_depth: maxDepth,
+      p_organization_id: organizationId,
     });
 
     if (error) throw error;
     return data || [];
   }
 
-  private async getROIModels(valueCaseId: string) {
+  private async getROIModels(organizationId: string, valueCaseId: string) {
     const { data } = await this.supabase
       .from("roi_models")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("value_tree_id", valueCaseId);
     return data || [];
   }
 
-  private async getValueCommits(valueCaseId: string) {
+  private async getValueCommits(organizationId: string, valueCaseId: string) {
     const { data } = await this.supabase
       .from("value_commits")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
-  private async getTelemetryCount(valueCaseId: string) {
+  private async getTelemetryCount(organizationId: string, valueCaseId: string) {
     const { data, count } = await this.supabase
       .from("telemetry_events")
       .select("kpi_hypothesis_id, event_timestamp", { count: "exact" })
+      .eq("organization_id", organizationId)
       .eq("value_case_id", valueCaseId);
 
     const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || []).size;
@@ -523,18 +560,20 @@ export class ValueFabricService {
     };
   }
 
-  private async getRealizationReports(valueCaseId: string) {
+  private async getRealizationReports(organizationId: string, valueCaseId: string) {
     const { data } = await this.supabase
       .from("realization_reports")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
 
-  private async getExpansionModels(valueCaseId: string) {
+  private async getExpansionModels(organizationId: string, valueCaseId: string) {
     const { data } = await this.supabase
       .from("expansion_models")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
@@ -556,11 +595,12 @@ export class ValueFabricService {
   // ONTOLOGY STATISTICS
   // =====================================================
 
-  async getOntologyStats(): Promise<OntologyStats> {
+  async getOntologyStats(organizationId: string): Promise<OntologyStats> {
+    this.requireOrganizationId(organizationId);
     const [capabilities, useCases, industries] = await Promise.all([
-      this.supabase.from("capabilities").select("id", { count: "exact" }),
-      this.supabase.from("use_cases").select("id", { count: "exact" }),
-      this.supabase.from("use_cases").select("industry"),
+      this.supabase.from("capabilities").select("id", { count: "exact" }).eq("organization_id", organizationId),
+      this.supabase.from("use_cases").select("id", { count: "exact" }).eq("organization_id", organizationId),
+      this.supabase.from("use_cases").select("industry").eq("organization_id", organizationId),
     ]);
 
     const uniqueIndustries = [...new Set(industries.data?.map((u) => u.industry).filter(Boolean))];
@@ -579,10 +619,12 @@ export class ValueFabricService {
   // =====================================================
 
   async instantiateUseCaseTemplate(
+    organizationId: string,
     templateId: string,
     valueCaseId: string
   ): Promise<{ useCase: UseCase; capabilities: Capability[] }> {
-    const template = await this.getUseCaseWithCapabilities(templateId);
+    this.requireOrganizationId(organizationId);
+    const template = await this.getUseCaseWithCapabilities(organizationId, templateId);
 
     if (!template.useCase.is_template) {
       throw new Error("Not a template use case");
@@ -591,6 +633,7 @@ export class ValueFabricService {
     const { data: newUseCase, error } = await this.supabase
       .from("use_cases")
       .insert({
+        organization_id: organizationId,
         name: template.useCase.name,
         description: template.useCase.description,
         persona: template.useCase.persona,
@@ -605,7 +648,7 @@ export class ValueFabricService {
     ValueFabricService.invalidateUseCaseCache();
 
     for (const capability of template.capabilities) {
-      await this.linkCapabilityToUseCase(newUseCase.id, capability.id);
+      await this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id);
     }
 
     return {
@@ -653,11 +696,11 @@ export class ValueFabricService {
     resourceType: string,
     resourceId: string,
     vmrtTrace: VMRTTrace,
-    tenantId?: string,
+    tenantId: string,
     userId?: string
   ): Promise<void> {
     const { error } = await this.supabase.from("audit_log").insert({
-      tenant_id: tenantId || null,
+      tenant_id: tenantId,
       user_id: userId || null,
       action: "metric_change",
       resource_type: resourceType,
@@ -668,7 +711,12 @@ export class ValueFabricService {
 
     if (error) {
       logger.error("Failed to log VMRT metric change:", error);
-      // Don't throw, as logging failure shouldn't break the main operation
+    }
+  }
+
+  private requireOrganizationId(organizationId: string): void {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped operations");
     }
   }
 }

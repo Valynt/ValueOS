@@ -34,9 +34,9 @@ function parseNumber(value) {
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 class ServerConfigLoader {
-    constructor() {
-        this.config = null;
-    }
+    static instance;
+    config = null;
+    constructor() { }
     static getInstance() {
         if (!ServerConfigLoader.instance) {
             ServerConfigLoader.instance = new ServerConfigLoader();

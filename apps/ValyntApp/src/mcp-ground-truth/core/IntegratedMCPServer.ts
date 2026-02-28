@@ -16,7 +16,7 @@ import { StructuralTruth } from "../../structural/structural-truth";
 import CausalTruth from "../../causal/causal-truth-enhanced";
 import { EnhancedBusinessCaseGenerator } from "../../causal/business-case-generator-enhanced";
 import { ReasoningEngine } from "../../reasoning/reasoning-engine";
-import { AuditTrailManager, ComplianceMonitor } from "../../audit/audit-trail";
+import { AuditTrailManager, ComplianceMonitor } from "../../app/routes/audit/audit-trail";
 import { logger } from "../../lib/logger";
 
 interface IntegratedMCPServerConfig {

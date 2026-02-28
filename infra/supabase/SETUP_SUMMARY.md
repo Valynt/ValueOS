@@ -40,7 +40,7 @@ Run this command:
 
 ```bash
 export SUPABASE_ACCESS_TOKEN="your-token"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 printf "Y\n" | supabase db push --include-all
 ```
 
@@ -94,5 +94,5 @@ Before creating new migrations:
 
 ---
 
-**Created**: 2025-12-26  
+**Created**: 2025-12-26
 **Status**: In Progress (2/11 migrations applied)

@@ -215,8 +215,10 @@ function runValidation() {
   validatePort(portConfig.REDIS_PORT || 6379, "Redis cache");
 
   // Docker configuration validation
-  validateDockerCompose("infra/docker/docker-compose.yml");
-  validateDockerCompose("infra/docker/docker-compose.dev.yml");
+  validateDockerCompose("ops/compose/compose.yml");
+  validateDockerCompose("ops/compose/profiles/supabase.yml");
+  validateDockerCompose("ops/compose/profiles/observability.yml");
+  validateDockerCompose("ops/compose/profiles/tools.yml");
 
   // Node.js version check
   try {

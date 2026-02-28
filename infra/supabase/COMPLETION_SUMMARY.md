@@ -132,7 +132,7 @@ Due to migration history synchronization issues, these migrations are pending:
 
 ```bash
 export SUPABASE_ACCESS_TOKEN="sbp_4d0537d35652d74db73f08ea849883070e8e9a21"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 
 # Repair migration history
 supabase migration repair --status applied 20251213
@@ -286,10 +286,10 @@ END $$;
 
 ---
 
-**Status**: READY FOR PRODUCTION  
-**Last Updated**: 2025-12-26  
-**Completion**: 87.5% (35/40 migrations)  
-**Security**: HARDENED  
+**Status**: READY FOR PRODUCTION
+**Last Updated**: 2025-12-26
+**Completion**: 87.5% (35/40 migrations)
+**Security**: HARDENED
 **Documentation**: COMPLETE
 
 🎉 **Congratulations! Your Supabase setup is production-ready with enterprise-grade security!**

@@ -24,22 +24,22 @@ import { atomicActionExecutor } from "./AtomicActionExecutor.js";
 import { canvasSchemaService } from "./CanvasSchemaService.js";
 import { EnforcementResult, enforceRules } from "../lib/rules";
 import { workspaceStateService } from "./WorkspaceStateService.js";
-import { ValueTreeService, LifecycleContext } from "./ValueTreeService.js";
+import { LifecycleContext, ValueTreeService } from "./ValueTreeService.js";
 import { getSupabaseClient } from "../lib/supabase.js";
 import { SDUIPageDefinition } from "@sdui/schema";
 import { assumptionService } from "./AssumptionService.js";
 import {
+  downloadBlob,
+  exportToCSV,
+  exportToExcel,
   exportToPDF,
   exportToPNG,
-  exportToExcel,
-  exportToCSV,
-  downloadBlob,
   generateFilename,
 } from "../utils/export";
 import {
-  validateCanonicalAction,
-  validateActionContext,
   ActionValidationError,
+  validateActionContext,
+  validateCanonicalAction,
 } from "../schemas/actions.schema.js";
 import { randomUUID } from "crypto";
 
@@ -106,10 +106,12 @@ export class ActionRouter {
       traceId,
     });
 
+    let validatedAction: CanonicalAction = action;
+    let validatedContext: ActionContext = enhancedContext;
     try {
       // Schema-first validation using Zod
-      const validatedAction = validateCanonicalAction(action);
-      const validatedContext = validateActionContext(enhancedContext);
+      validatedAction = validateCanonicalAction(action) as unknown as CanonicalAction;
+      validatedContext = validateActionContext(enhancedContext) as unknown as ActionContext;
 
       // CRITICAL: Check Governance Rules (GR/LR) first - Policy-as-Code enforcement
       const governanceCheck = await this.checkGovernanceRules(validatedAction, validatedContext);
@@ -577,7 +579,7 @@ export class ActionRouter {
     });
 
     // updateAssumption handler
-    this.registerHandler("updateAssumption", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("updateAssumption", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "updateAssumption") {
         return { success: false, error: "Invalid action type" };
       }
@@ -585,7 +587,14 @@ export class ActionRouter {
       try {
         const result = await assumptionService.updateAssumption(
           action.assumptionId,
-          action.updates
+          action.updates,
+          {
+            userId: context.userId,
+            auth0Sub: typeof context.metadata?.auth0_sub === "string" ? context.metadata.auth0_sub : undefined,
+            sessionId: context.sessionId,
+            valueCaseId: context.workspaceId,
+            organizationId: context.organizationId,
+          }
         );
 
         return {

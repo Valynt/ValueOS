@@ -155,7 +155,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     },
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
 
     const benchmarkConfig = config as BenchmarkConfig;

@@ -66,6 +66,30 @@ export interface FeatureFlags {
    * Sprint 0: Disabled in production until breaker integration complete
    */
   ENABLE_CLIENT_LLM_STREAMING: boolean;
+
+  /**
+   * Enable usage-based metering and Stripe submission.
+   * Billing deployment: gradual rollout via percentage.
+   */
+  ENABLE_BILLING_USAGE_METERING: boolean;
+
+  /**
+   * Enable automatic overage billing beyond plan quotas.
+   * Billing deployment: enable after metering is stable.
+   */
+  ENABLE_BILLING_OVERAGE_CHARGING: boolean;
+
+  /**
+   * Enable approval workflows for plan changes and overages.
+   * Billing deployment: can be rolled out independently.
+   */
+  ENABLE_BILLING_APPROVAL_WORKFLOWS: boolean;
+
+  /**
+   * Enable automated invoice generation from rated ledger.
+   * Billing deployment: final stage, enable after all upstream flags are stable.
+   */
+  ENABLE_BILLING_INVOICE_GENERATION: boolean;
 }
 
 /**
@@ -128,6 +152,23 @@ function loadFeatureFlags(): FeatureFlags {
       import.meta.env.VITE_ENABLE_CLIENT_LLM_STREAMING,
       import.meta.env.MODE !== "production" // Default: disabled in prod
     ),
+    // Billing deployment flags — all default OFF for gradual rollout
+    ENABLE_BILLING_USAGE_METERING: parseBoolean(
+      import.meta.env.VITE_ENABLE_BILLING_USAGE_METERING,
+      false
+    ),
+    ENABLE_BILLING_OVERAGE_CHARGING: parseBoolean(
+      import.meta.env.VITE_ENABLE_BILLING_OVERAGE_CHARGING,
+      false
+    ),
+    ENABLE_BILLING_APPROVAL_WORKFLOWS: parseBoolean(
+      import.meta.env.VITE_ENABLE_BILLING_APPROVAL_WORKFLOWS,
+      false
+    ),
+    ENABLE_BILLING_INVOICE_GENERATION: parseBoolean(
+      import.meta.env.VITE_ENABLE_BILLING_INVOICE_GENERATION,
+      false
+    ),
   };
 
   // Log feature flag status on startup
@@ -143,6 +184,10 @@ function loadFeatureFlags(): FeatureFlags {
     valueCommitmentService: flags.ENABLE_VALUE_COMMITMENT_SERVICE,
     agentPlaceholderMode: flags.ENABLE_AGENT_PLACEHOLDER_MODE,
     clientLlmStreaming: flags.ENABLE_CLIENT_LLM_STREAMING,
+    billingUsageMetering: flags.ENABLE_BILLING_USAGE_METERING,
+    billingOverageCharging: flags.ENABLE_BILLING_OVERAGE_CHARGING,
+    billingApprovalWorkflows: flags.ENABLE_BILLING_APPROVAL_WORKFLOWS,
+    billingInvoiceGeneration: flags.ENABLE_BILLING_INVOICE_GENERATION,
   });
 
   return flags;

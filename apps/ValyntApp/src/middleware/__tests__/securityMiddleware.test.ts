@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   csrfProtectionMiddleware,
+  csrfTokenMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../securityMiddleware';
@@ -56,6 +57,30 @@ describe('securityMiddlewares', () => {
     const next2 = vi.fn();
     csrfProtectionMiddleware(reqValid, res2 as any, next2);
     expect(next2).toHaveBeenCalled();
+  });
+
+  it('issues CSRF token cookie for safe routes', () => {
+    const req = {
+      method: 'GET',
+      headers: {},
+    } as any;
+    const res = {
+      cookie: vi.fn(),
+    } as any;
+    const next = vi.fn();
+
+    csrfTokenMiddleware(req, res, next);
+
+    expect(res.cookie).toHaveBeenCalledTimes(1);
+    expect(res.cookie).toHaveBeenCalledWith(
+      'csrf_token',
+      expect.any(String),
+      expect.objectContaining({
+        httpOnly: false,
+        sameSite: 'lax',
+      })
+    );
+    expect(next).toHaveBeenCalled();
   });
 
   it('enforces session idle and absolute timeouts', () => {

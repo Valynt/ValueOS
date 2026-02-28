@@ -5,15 +5,16 @@
  * retries, and monitoring.
  */
 
-import { Kafka, Producer, Message, CompressionTypes, logLevel } from "kafkajs";
+import { CompressionTypes, Kafka, logLevel, Message, Producer } from "kafkajs";
 import { logger } from "../lib/logger.js"
 import { BaseEvent } from "@shared/types/events";
 import {
+  kafkaProducerErrors,
   kafkaProducerEventsTotal,
   kafkaProducerLatency,
-  kafkaProducerErrors,
 } from "../lib/monitoring/metrics";
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
+import { buildKafkaClientConfig, isKafkaEnabled } from "./kafkaConfig.js"
 
 export interface ProducerConfig {
   clientId: string;
@@ -42,8 +43,10 @@ export class EventProducer {
     };
 
     this.kafka = new Kafka({
-      clientId: this.config.clientId,
-      brokers: this.config.brokers,
+      ...buildKafkaClientConfig({
+        clientId: this.config.clientId,
+        brokers: this.config.brokers,
+      }),
       logLevel: logLevel.WARN,
       retry: {
         retries: this.config.retries,
@@ -269,8 +272,12 @@ export class EventProducer {
 let eventProducer: EventProducer | null = null;
 
 export function getEventProducer(): EventProducer {
+  if (!isKafkaEnabled()) {
+    throw new Error("Kafka integration is disabled. Set KAFKA_ENABLED=true to enable Kafka-dependent paths.");
+  }
+
   if (!eventProducer) {
-    const brokers = process.env.KAFKA_BROKERS?.split(",") || ["localhost:9092"];
+    const brokers = process.env.KAFKA_BROKERS?.split(",") || ["localhost:9093"];
     const clientId = process.env.KAFKA_CLIENT_ID || "valueos-event-producer";
 
     eventProducer = new EventProducer({

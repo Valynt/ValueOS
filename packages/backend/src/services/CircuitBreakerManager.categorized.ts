@@ -67,6 +67,26 @@ export class CategorizedCircuitBreakerManager {
     }
   }
 
+  async executeWithCategory<T>(
+    name: string,
+    fn: () => Promise<T>,
+    category?: CircuitBreakerCategory,
+  ): Promise<T> {
+    return this.execute(name, fn, category);
+  }
+
+  getAllCategoryStats(): Record<string, { total: number; open: number; closed: number }> {
+    const stats: Record<string, { total: number; open: number; closed: number }> = {};
+    for (const [name, breaker] of this.breakers) {
+      const cat = name.split(':')[0] ?? 'default';
+      if (!stats[cat]) stats[cat] = { total: 0, open: 0, closed: 0 };
+      stats[cat].total++;
+      if (breaker.state === 'open') stats[cat].open++;
+      else stats[cat].closed++;
+    }
+    return stats;
+  }
+
   reset(): void {
     this.breakers.clear();
   }

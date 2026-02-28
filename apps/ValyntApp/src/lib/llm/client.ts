@@ -1,4 +1,4 @@
-import type { LLMConfig, LLMRequest, LLMResponse, LLMMessage } from "./types";
+import type { LLMConfig, LLMMessage, LLMRequest, LLMResponse } from "./types";
 
 const defaultConfig: LLMConfig = {
   provider: "openai",
@@ -20,23 +20,63 @@ class LLMClient {
 
   async complete(request: LLMRequest): Promise<LLMResponse> {
     const config = { ...this.config, ...request.config };
+    const messages = request.messages;
+    const lastMessage = messages[messages.length - 1];
+    const prompt = lastMessage?.content || "";
 
-    // TODO: Implement actual LLM API calls
-    // This is a placeholder that should be replaced with actual provider implementations
+    const response = await fetch("/api/llm/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        prompt,
+        messages,
+        model: config.model,
+        maxTokens: config.maxTokens,
+        temperature: config.temperature,
+      }),
+    });
 
-    const response: LLMResponse = {
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          success?: boolean;
+          error?: string;
+          message?: string;
+          data?: {
+            content?: string;
+            model?: string;
+            usage?: {
+              promptTokens?: number;
+              completionTokens?: number;
+              totalTokens?: number;
+            };
+          };
+        }
+      | null;
+
+    if (!response.ok || payload?.success === false) {
+      const message = payload?.message || payload?.error || `LLM request failed: ${response.status}`;
+      throw new Error(message);
+    }
+
+    const content = payload?.data?.content ?? "";
+    if (isReleaseBuild() && content.trim().length === 0) {
+      throw new Error("Empty LLM completion content is not allowed in release builds.");
+    }
+
+    return {
       id: `resp_${Date.now()}`,
-      content: "This is a placeholder response. Implement actual LLM integration.",
-      model: config.model,
+      content,
+      model: payload?.data?.model || config.model,
       usage: {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
+        promptTokens: payload?.data?.usage?.promptTokens ?? 0,
+        completionTokens: payload?.data?.usage?.completionTokens ?? 0,
+        totalTokens: payload?.data?.usage?.totalTokens ?? 0,
       },
       finishReason: "stop",
     };
-
-    return response;
   }
 
   async chat(messages: LLMMessage[], config?: Partial<LLMConfig>): Promise<string> {
@@ -106,6 +146,14 @@ class LLMClient {
       reader.releaseLock();
     }
   }
+}
+
+function isReleaseBuild(): boolean {
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "production") {
+    return true;
+  }
+
+  return typeof import.meta !== "undefined" && Boolean(import.meta.env?.PROD);
 }
 
 export const llmClient = new LLMClient();

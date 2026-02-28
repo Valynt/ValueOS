@@ -6,9 +6,10 @@
  * and their aggregation semantics.
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import type { MeterKey } from "@shared/types/billing-events";
+import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "BillingMetersCatalog" });
 
@@ -21,14 +22,7 @@ export interface BillingMeter {
   created_at: string;
 }
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-}
+const supabase: SupabaseClient | null = supabaseClient ?? null;
 
 /**
  * In-memory cache of meters. Loaded once on first access.

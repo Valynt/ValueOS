@@ -13,14 +13,30 @@ tasks:
     triggeredBy:
       - postDevcontainerStart
 
+  applyMigrations:
+    name: Apply database migrations
+    description: Run database migrations if a local Supabase instance is available.
+    command: |
+      if command -v supabase &> /dev/null && supabase status &> /dev/null; then
+        pnpm run db:apply-migrations || echo "WARNING: database migrations failed" >&2
+      else
+        echo "Supabase not running, skipping migrations"
+      fi
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - installDeps
+
   setupTools:
     name: Setup dev tools
     description: Install tsx and other global dev tools.
     command: |
-      export PNPM_HOME="${PNPM_HOME:-/home/node/.local/share/pnpm}"
+      if [ -z "$PNPM_HOME" ]; then
+        echo "WARNING: PNPM_HOME not set by container env, defaulting to /home/vscode/.local/share/pnpm" >&2
+        export PNPM_HOME="/home/vscode/.local/share/pnpm"
+      fi
       mkdir -p "$PNPM_HOME"
       export PATH="$PNPM_HOME:$PATH"
-      pnpm config set global-bin-dir "$PNPM_HOME"
       if ! command -v tsx &> /dev/null; then
         pnpm add -g tsx
       fi

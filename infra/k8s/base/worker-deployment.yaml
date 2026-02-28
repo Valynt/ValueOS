@@ -35,9 +35,9 @@ spec:
 
       containers:
         - name: worker
-          image: REGISTRY_URL/valynt-backend:latest
+          image: ghcr.io/valynt/valueos-backend:latest
           imagePullPolicy: Always
-          command: ["node", "--import", "tsx", "src/workers/workerMain.ts"]
+          command: ["node", "dist/workers/workerMain.js"]
 
           ports:
             - name: health

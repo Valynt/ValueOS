@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger.js'
+import { executeInWorkerSandbox } from './WorkerSandbox.js'
 
 /**
  * Sandbox configuration
@@ -64,24 +65,29 @@ export class CodeSandbox {
    */
   async execute(
     code: string,
-    context: Record<string, any> = {}
+    context: Record<string, unknown> = {}
   ): Promise<SandboxResult> {
-    void context;
     const startTime = Date.now();
-    const consoleOutput: string[] = [];
 
     try {
       // Validate code before execution
       this.validateCode(code);
 
-      const executionTime = Date.now() - startTime;
+      // Execute in isolated worker thread
+      const workerResult = await executeInWorkerSandbox(code, {
+        timeoutMs: this.config.timeout,
+        maxHeapMB: this.config.maxMemory,
+        context,
+      });
 
       return {
-        success: false,
-        error:
-          'Dynamic code execution is disabled. Use an isolated worker/service with explicit capabilities.',
-        executionTime,
-        consoleOutput: this.config.captureConsole ? consoleOutput : undefined,
+        success: workerResult.success,
+        result: workerResult.result,
+        error: workerResult.error,
+        executionTime: workerResult.executionTimeMs,
+        consoleOutput: this.config.captureConsole
+          ? workerResult.consoleOutput
+          : undefined,
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
@@ -96,7 +102,7 @@ export class CodeSandbox {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         executionTime,
-        consoleOutput: this.config.captureConsole ? consoleOutput : undefined,
+        consoleOutput: undefined,
       };
     }
   }
@@ -250,8 +256,13 @@ export const codeSandbox = new CodeSandbox();
 
 /**
  * SECURITY NOTE:
- * 
- * Dynamic code execution is disabled.
- * For production use, isolate execution out-of-process with strict capability allowlists,
- * timeouts, and memory limits.
+ *
+ * Code execution is sandboxed via worker_threads with:
+ * - Separate V8 isolate per execution
+ * - Stripped dangerous globals (process, require, fs, net, etc.)
+ * - Timeout enforcement (worker killed on expiry)
+ * - Memory limits via resourceLimits
+ * - Static code validation before execution
+ *
+ * For Python/R execution, use SandboxedExecutor (E2B).
  */

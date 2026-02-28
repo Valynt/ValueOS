@@ -1,4 +1,4 @@
-import { pgTable, serial, uuid, text, timestamp, jsonb, integer, boolean } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // ============================================================================
 // User Management

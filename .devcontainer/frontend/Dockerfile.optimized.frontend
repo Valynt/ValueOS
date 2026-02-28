@@ -4,7 +4,11 @@
 # =============================================================================
 # Stage 1: Dependencies
 # =============================================================================
-FROM node:20.19.0-alpine AS deps
+ARG NODE_VERSION=20.19.0
+ARG PNPM_VERSION=9.15.0
+
+FROM node:${NODE_VERSION}-alpine AS deps
+ARG PNPM_VERSION
 WORKDIR /app
 
 # Install dependencies only when needed
@@ -16,17 +20,23 @@ COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
 
 # Install dependencies using pnpm
 RUN corepack enable && \
-    corepack prepare pnpm@latest --activate && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate && \
     pnpm install --frozen-lockfile --prod=false
 
 # =============================================================================
 # Stage 2: Builder
 # =============================================================================
-FROM node:20.19.0-alpine AS builder
+FROM node:${NODE_VERSION}-alpine AS builder
+ARG PNPM_VERSION
 WORKDIR /app
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
+
+# Install vite as dev dependency
+RUN corepack enable && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate && \
+    pnpm add -D vite
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -43,7 +53,7 @@ COPY ../../packages/config-v2/tsconfig.base.json /packages/config-v2/tsconfig.ba
 WORKDIR /app/apps/ValyntApp
 # Build the application
 RUN corepack enable && \
-    corepack prepare pnpm@latest --activate && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate && \
     pnpm run build
 
 # =============================================================================

@@ -77,6 +77,21 @@ export class CircuitBreaker {
     };
   }
 
+  /** Returns true if the breaker is closed or half-open (i.e. requests are allowed). */
+  canExecute(): boolean {
+    if (this.state === "open") {
+      if (Date.now() - this.lastFailure > this.config.resetTimeout) {
+        return true; // will transition to half_open
+      }
+      return false;
+    }
+    return true;
+  }
+
+  getState(): CircuitState {
+    return this.state;
+  }
+
   reset(): void {
     this.state = "closed";
     this.failures = 0;
@@ -109,6 +124,20 @@ export class CircuitBreakerManager {
       this.breakers.set(name, new CircuitBreaker(config));
     }
     return this.breakers.get(name)!;
+  }
+
+  /** Convenience: get-or-create a breaker by name and execute through it. */
+  async execute<T>(
+    name: string,
+    fn: () => Promise<T>,
+    _options?: { timeoutMs?: number },
+  ): Promise<T> {
+    return this.getBreaker(name).execute(fn);
+  }
+
+  /** Get the state of a named breaker. */
+  getState(name: string): CircuitState | undefined {
+    return this.breakers.get(name)?.getState();
   }
 
   resetAll(): void {

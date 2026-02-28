@@ -4,13 +4,13 @@ import { Input } from "../../../components/ui/input";
 import { Badge } from "../../../components/ui/badge";
 import { ScrollArea } from "../../../components/ui/scroll-area";
 import {
-  Send,
+  ArrowLeft,
   Bot,
-  User,
-  Sparkles,
-  Lightbulb,
   Brain,
-  ArrowLeft
+  Lightbulb,
+  Send,
+  Sparkles,
+  User
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";

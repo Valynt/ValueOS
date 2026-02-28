@@ -11,10 +11,10 @@ import { cn } from '@/lib/utils';
 import type {
   Artifact,
   ArtifactContent,
-  MarkdownContent,
+  ChartContent,
   JsonContent,
-  TableContent,
-  ChartContent
+  MarkdownContent,
+  TableContent
 } from '../agent/types';
 
 interface ArtifactRendererProps {

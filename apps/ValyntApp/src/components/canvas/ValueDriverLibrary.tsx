@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from "react";
-import { X, Plus, Calculator, DollarSign, Percent, Hash } from "lucide-react";
+import { Calculator, DollarSign, Hash, Percent, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

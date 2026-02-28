@@ -417,100 +417,13 @@ export const EXPANDED_INDUSTRY_BENCHMARKS: Record<string, IndustryBenchmarkData>
         value: [8, 15],
         unit: "patients",
         percentile: 50,
+        source: "Dental Operations",
       },
       regulatory_approval_time: {
         value: [12, 24],
         unit: "months",
         percentile: 50,
         source: "FDA Metrics",
-      },
-    },
-  },
-
-  "623110": {
-    naics_code: "623110",
-    industry_name: "Nursing Care Facilities",
-    year: 2024,
-    source: "Healthcare Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 85000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [5, 15],
-        unit: "percent",
-        percentile: 50,
-        source: "Healthcare Benchmarks",
-      },
-      occupancy_rate: {
-        value: [85, 95],
-        unit: "percent",
-        percentile: 50,
-        source: "Healthcare Operations",
-      },
-    },
-  },
-
-  "621410": {
-    naics_code: "621410",
-    industry_name: "Family Planning Centers",
-    year: 2024,
-    source: "Outpatient Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 140000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [12, 25],
-        unit: "percent",
-        percentile: 50,
-        source: "Outpatient Benchmarks",
-      },
-      patient_visits_per_provider: {
-        value: [3000, 4500],
-        unit: "visits",
-        percentile: 50,
-        source: "Medical Practice Metrics",
-      },
-    },
-  },
-
-  "621511": {
-    naics_code: "621511",
-    industry_name: "Medical Laboratories",
-    year: 2024,
-    source: "Lab Services Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 130000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [35, 55],
-        unit: "percent",
-        percentile: 50,
-        source: "Lab Services Benchmarks",
-      },
-      test_accuracy_rate: {
-        value: [98, 99.5],
-        unit: "percent",
-        percentile: 50,
-        source: "Lab Quality Metrics",
-      },
-    },
-  },
-
-  "621210": {
-    naics_code: "621210",
-    industry_name: "Offices of Dentists",
-    year: 2024,
-    source: "Dental Practice Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 165000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [20, 35],
-        unit: "percent",
-        percentile: 50,
-        source: "Dental Practice Benchmarks",
-      },
-      patients_per_day: {
-        value: [8, 15],
-        unit: "patients",
-        percentile: 50,
-        source: "Dental Operations",
       },
     },
   },
@@ -731,100 +644,13 @@ export const EXPANDED_INDUSTRY_BENCHMARKS: Record<string, IndustryBenchmarkData>
         value: [85, 95],
         unit: "percent",
         percentile: 50,
+        source: "Manufacturing Quality",
       },
       project_completion_time: {
         value: [6, 12],
         unit: "months",
         percentile: 50,
         source: "Construction Metrics",
-      },
-    },
-  },
-
-  "211120": {
-    naics_code: "211120",
-    industry_name: "Crude Petroleum Extraction",
-    year: 2024,
-    source: "Oil & Gas Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 450000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [25, 45],
-        unit: "percent",
-        percentile: 50,
-        source: "Oil & Gas Benchmarks",
-      },
-      reserve_replacement_ratio: {
-        value: [80, 120],
-        unit: "percent",
-        percentile: 50,
-        source: "Energy Metrics",
-      },
-    },
-  },
-
-  "221112": {
-    naics_code: "221112",
-    industry_name: "Fossil Fuel Electric Power Generation",
-    year: 2024,
-    source: "Utility Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 280000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [15, 30],
-        unit: "percent",
-        percentile: 50,
-        source: "Utility Benchmarks",
-      },
-      capacity_factor: {
-        value: [40, 65],
-        unit: "percent",
-        percentile: 50,
-        source: "Energy Operations",
-      },
-    },
-  },
-
-  "333131": {
-    naics_code: "333131",
-    industry_name: "Mining Machinery and Equipment Manufacturing",
-    year: 2024,
-    source: "Industrial Equipment Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 160000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [22, 38],
-        unit: "percent",
-        percentile: 50,
-        source: "Industrial Equipment Benchmarks",
-      },
-      order_backlog: {
-        value: [6, 18],
-        unit: "months",
-        percentile: 50,
-        source: "Manufacturing Metrics",
-      },
-    },
-  },
-
-  "332111": {
-    naics_code: "332111",
-    industry_name: "Iron and Steel Forging",
-    year: 2024,
-    source: "Metal Fabrication Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 130000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [15, 28],
-        unit: "percent",
-        percentile: 50,
-        source: "Metal Fabrication Benchmarks",
-      },
-      on_time_delivery: {
-        value: [85, 95],
-        unit: "percent",
-        percentile: 50,
-        source: "Manufacturing Quality",
       },
     },
   },
@@ -1045,100 +871,13 @@ export const EXPANDED_INDUSTRY_BENCHMARKS: Record<string, IndustryBenchmarkData>
         value: [55, 75],
         unit: "percent",
         percentile: 50,
+        source: "Bank Operations",
       },
       client_retention_rate: {
         value: [75, 90],
         unit: "percent",
         percentile: 50,
         source: "Marketing Services",
-      },
-    },
-  },
-
-  "541310": {
-    naics_code: "541310",
-    industry_name: "Architectural Services",
-    year: 2024,
-    source: "Architecture Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 125000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [15, 35],
-        unit: "percent",
-        percentile: 50,
-        source: "Architecture Benchmarks",
-      },
-      project_completion_rate: {
-        value: [80, 95],
-        unit: "percent",
-        percentile: 50,
-        source: "Architecture Metrics",
-      },
-    },
-  },
-
-  "531210": {
-    naics_code: "531210",
-    industry_name: "Offices of Real Estate Agents and Brokers",
-    year: 2024,
-    source: "Real Estate Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 145000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [25, 45],
-        unit: "percent",
-        percentile: 50,
-        source: "Real Estate Benchmarks",
-      },
-      transaction_closure_rate: {
-        value: [60, 80],
-        unit: "percent",
-        percentile: 50,
-        source: "Real Estate Sales",
-      },
-    },
-  },
-
-  "524113": {
-    naics_code: "524113",
-    industry_name: "Direct Life Insurance Carriers",
-    year: 2024,
-    source: "Insurance Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 320000, unit: "USD", source: "BLS Economic Census" },
-      combined_ratio: {
-        value: [95, 105],
-        unit: "percent",
-        percentile: 50,
-        source: "Insurance Benchmarks",
-      },
-      loss_ratio: {
-        value: [65, 85],
-        unit: "percent",
-        percentile: 50,
-        source: "Insurance Underwriting",
-      },
-    },
-  },
-
-  "522110": {
-    naics_code: "522110",
-    industry_name: "Commercial Banking",
-    year: 2024,
-    source: "Banking Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 190000, unit: "USD", source: "BLS Economic Census" },
-      net_interest_margin: {
-        value: [2.5, 4.5],
-        unit: "percent",
-        percentile: 50,
-        source: "Banking Benchmarks",
-      },
-      efficiency_ratio: {
-        value: [55, 75],
-        unit: "percent",
-        percentile: 50,
-        source: "Bank Operations",
       },
     },
   },

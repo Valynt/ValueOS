@@ -6,14 +6,14 @@
 import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { createLogger } from '@shared/lib/logger';
 import {
-  ReferralCode,
-  Referral,
-  ReferralReward,
-  ReferralStats,
-  GenerateReferralCodeResponse,
   ClaimReferralRequest,
   ClaimReferralResponse,
-  ReferralDashboard
+  GenerateReferralCodeResponse,
+  Referral,
+  ReferralCode,
+  ReferralDashboard,
+  ReferralReward,
+  ReferralStats
 } from '@shared/types/referral';
 
 const logger = createLogger({ component: 'ReferralService' });

@@ -6,15 +6,15 @@
 
 import { useState } from "react";
 import {
-  X,
-  Plus,
-  Trash2,
-  Eye,
-  Sparkles,
   Calculator,
-  Users,
-  Target,
+  Eye,
   MessageSquare,
+  Plus,
+  Sparkles,
+  Target,
+  Trash2,
+  Users,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -24,14 +24,14 @@ import { SimpleSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { evaluateFormula } from "@/utils/formulas";
 import {
+  FormulaVariable,
+  PERSONA_TAG_LABELS,
+  PersonaTag,
+  SALES_MOTION_LABELS,
+  SalesMotionTag,
+  VALUE_DRIVER_TYPE_LABELS,
   ValueDriver,
   ValueDriverType,
-  PersonaTag,
-  SalesMotionTag,
-  FormulaVariable,
-  VALUE_DRIVER_TYPE_LABELS,
-  PERSONA_TAG_LABELS,
-  SALES_MOTION_LABELS,
 } from "@/types/valueDriver";
 
 interface ValueDriverEditorProps {

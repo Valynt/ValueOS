@@ -1,18 +1,18 @@
 /**
  * SecurityPage - Edit-in-place security settings
- * 
+ *
  * Row-based list pattern for password, 2FA, and sessions.
  */
 
 import { useState } from "react";
-import { Shield, Monitor, Smartphone, Key } from "lucide-react";
+import { Key, Monitor, Shield, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
 import { logger } from "../../lib/logger";
+import {
+  SettingsAlert,
   SettingsRow,
   SettingsSection,
-  SettingsAlert,
 } from "@/components/settings";
 
 interface Session {

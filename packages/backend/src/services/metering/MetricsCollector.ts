@@ -3,23 +3,12 @@
  * Collects usage metrics from various sources for reporting
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { BillingMetric } from '../../config/billing.js'
 import { UsageSummary } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'MetricsCollector' });
-
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = import.meta.env?.SUPABASE_SERVICE_ROLE_KEY;
-
-// Only initialize server-side
-let supabase: any = null;
-if (typeof window === 'undefined' && supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else if (typeof window === 'undefined') {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
 
 class MetricsCollector {
   /**
@@ -83,6 +72,36 @@ class MetricsCollector {
   /**
    * Get metric usage
    */
+  /**
+   * Get current usage for a single metric in the current billing period
+   */
+  async getCurrentUsage(tenantId: string, metric: BillingMetric): Promise<number> {
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return this.getMetricUsage(tenantId, metric, periodStart, periodEnd);
+  }
+
+  /**
+   * Get usage data for a date range, suitable for CSV/JSON export
+   */
+  async getUsageForExport(
+    tenantId: string,
+    range: { startDate: Date; endDate: Date }
+  ): Promise<Array<{ metric: string; usage: number; quota: number; period: string }>> {
+    const metrics: BillingMetric[] = ['llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats'];
+    const period = `${range.startDate.toISOString().slice(0, 10)} - ${range.endDate.toISOString().slice(0, 10)}`;
+
+    const rows = await Promise.all(
+      metrics.map(async (metric) => {
+        const usage = await this.getMetricUsage(tenantId, metric, range.startDate, range.endDate);
+        const quota = await this.getMetricQuota(tenantId, metric);
+        return { metric, usage, quota, period };
+      })
+    );
+    return rows;
+  }
+
   private async getMetricUsage(
     tenantId: string,
     metric: BillingMetric,

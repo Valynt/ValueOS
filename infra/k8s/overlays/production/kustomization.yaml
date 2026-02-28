@@ -8,13 +8,31 @@ resources:
 
 nameSuffix: -production
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      environment: production
 
 patches:
   - path: deployment-patch.yaml
-  - path: external-secrets-vault-patch.yaml
-  - path: remove-placeholder-secrets.yaml
+  - path: ingress-patch.yaml
+  # Override ConfigMap values for production
+  - target:
+      kind: ConfigMap
+      name: valynt-config
+    patch: |-
+      - op: replace
+        path: /data/node-env
+        value: production
+      - op: replace
+        path: /data/log-level
+        value: info
+
+# Excluded patches (applied separately):
+# - external-secrets-vault-patch.yaml: ExternalSecret resources span multiple
+#   namespaces; apply via: kubectl apply -f ../../base/external-secrets.yaml
+#   then apply the vault patch: kubectl apply -f external-secrets-vault-patch.yaml
+# - remove-placeholder-secrets.yaml: base secrets.yaml is a non-deployable
+#   template (SecretTemplate), not a real Secret resource
 
 replicas:
   - name: backend-blue
@@ -23,14 +41,7 @@ replicas:
     count: 2
 
 images:
-  - name: REGISTRY_URL/valynt-backend
+  - name: ghcr.io/valynt/valueos-backend
     newTag: latest
-  - name: REGISTRY_URL/valynt-frontend
+  - name: ghcr.io/valynt/valueos-frontend
     newTag: latest
-
-configMapGenerator:
-  - name: valynt-config
-    behavior: merge
-    literals:
-      - node-env=production
-      - log-level=info

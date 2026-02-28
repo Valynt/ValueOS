@@ -7,7 +7,7 @@
  */
 
 import { SDUIPageDefinition, SDUISection } from "./schema";
-import { SchemaPatcher, SchemaDelta } from "./SchemaPatcher";
+import { SchemaDelta, SchemaPatcher } from "./SchemaPatcher";
 import { AtomicUIAction } from "./AtomicUIActions";
 
 export interface ActionExecutionResult {

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { onCLS, onFID, onFCP, onLCP, onTTFB } from "web-vitals";
+import { onCLS, onFCP, onFID, onLCP, onTTFB } from "web-vitals";
 import { logger } from "../lib/logger";
 
 /**

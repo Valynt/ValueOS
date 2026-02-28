@@ -1,13 +1,5 @@
-services:
-  valyntapp-dev:
-    volumes:
-      # source code (bind mount)
-      - .:/workspaces/ValueOS
+# DEPRECATED — devcontainer overlay now lives at ops/compose/devcontainer.yml.
+# This file exists only for backward compatibility.
 
-
-      # pnpm store (recommended, avoids ~/.cache perms issues)
-      - valueos-pnpm-store:/home/vscode/.pnpm-store
-
-volumes:
-  valueos-node-modules:
-  valueos-pnpm-store:
+include:
+  - ops/compose/devcontainer.yml

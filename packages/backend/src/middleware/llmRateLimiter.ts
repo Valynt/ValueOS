@@ -8,14 +8,10 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { getRedisClient } from '@shared/lib/redisClient';
-import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { RateLimitKeyService } from '../services/RateLimitKeyService';
 import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
 import { logger } from '@shared/lib/logger';
-import { SupabaseClient, createClient } from '@supabase/supabase-js';
-
-// Singleton Supabase client for rate limit logging
-let supabaseClient: SupabaseClient | null = null;
 
 // Extended Request interface for rate limiting
 interface RateLimitRequest extends Request {
@@ -107,56 +103,30 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
     timestamp: new Date().toISOString()
   });
 
-  // Track in database for analytics
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    const message = 'Missing SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_URL for LLM rate limit logging';
-    if (process.env.NODE_ENV === 'production') {
-      logger.error(message, undefined, {
-        hasSupabaseUrl: Boolean(supabaseUrl),
-        hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
-      });
-      res.status(500).json({
-        error: 'Rate limit logging misconfigured',
-        message,
-      });
-      return;
-    }
-    logger.warn(message);
-  } else {
+  // Track in database for analytics using request-scoped client (RLS-safe)
+  const authHeader = req.headers?.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      // Initialize Supabase client if needed
-      if (!supabaseClient) {
-        try {
-          supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
-        } catch (initError) {
-          logger.error(
-            'Failed to initialize Supabase client for rate limiting:',
-            initError instanceof Error ? initError : new Error(String(initError))
-          );
-          // Don't throw here, just log the error and skip insertion
-        }
-      }
+      const { createRequestSupabaseClient } = await import('@shared/lib/supabase');
+      const supabase = createRequestSupabaseClient({ headers: { authorization: authHeader } });
 
-      if (supabaseClient) {
-        await supabaseClient.from('rate_limit_violations').insert({
-          user_id: req.user?.id || null,
-          ip_address: req.ip,
-          endpoint: req.path,
-          tier,
-          limit: limit.max,
-          window_ms: limit.windowMs,
-          violated_at: new Date().toISOString()
-        });
-      }
+      await supabase.from('rate_limit_violations').insert({
+        user_id: req.user?.id || null,
+        ip_address: req.ip,
+        endpoint: req.path,
+        tier,
+        limit: limit.max,
+        window_ms: limit.windowMs,
+        violated_at: new Date().toISOString()
+      });
     } catch (error) {
       logger.error(
-        'Failed to log rate limit violation:',
+        'Failed to log rate limit violation to database',
         error instanceof Error ? error : new Error(String(error))
       );
     }
+  } else {
+    logger.warn('Rate limit violation not persisted: no auth token available for request-scoped client');
   }
 
   res.status(429).json({

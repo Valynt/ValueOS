@@ -11,6 +11,8 @@ import { llmCache } from "./LLMCache.js"
 import { llmCostTracker } from "./LLMCostTracker.js"
 import { costGovernance } from "./CostGovernanceService.js"
 import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker.js"
+import { assertModelAllowed } from '../config/models.js'
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js'
 
 export interface LLMRequest {
   prompt: string;
@@ -53,6 +55,7 @@ type LLMFallbackStats = {
 
 export class LLMFallbackService {
   private readonly circuitBreaker: ExternalCircuitBreaker;
+  private readonly gateway: LLMGateway;
   private readonly togetherChatBreakerKey = "external:together_ai:chat";
   private readonly togetherStreamBreakerKey = "external:together_ai:stream";
   private readonly breakerConfig = {
@@ -64,64 +67,53 @@ export class LLMFallbackService {
     halfOpenMaxProbes: 1,
   };
   private stats = {
-    togetherAI: { calls: 0, failures: 0 },
+    togetherAI: { calls: 0, failures: 0, fallbacks: 0 },
     cache: { hits: 0, misses: 0 },
   };
 
   constructor() {
     this.circuitBreaker = new ExternalCircuitBreaker("together_ai");
+    this.gateway = new LLMGateway({
+      provider: 'together',
+      model: (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || 'gpt-4o-mini',
+      timeout_ms: 25000,
+    });
   }
 
   /**
-   * Call Together.ai API
+   * Call Together.ai API through the centralized LLM gateway.
    */
   private async callTogetherAI(request: LLMRequest): Promise<LLMResponse> {
     const startTime = Date.now();
     this.stats.togetherAI.calls++;
 
     try {
-      const togetherApiKey = getEnvVar("TOGETHER_API_KEY");
-      if (!togetherApiKey)
-        throw new Error("Together.ai API key not configured");
+      const response = await this.gateway.completeRaw({
+        model: request.model,
+        messages: [{ role: 'user', content: request.prompt }],
+        temperature: request.temperature,
+        max_tokens: request.maxTokens,
+        metadata: {
+          tenantId: request.tenantId ?? 'unknown',
+          userId: request.userId,
+          sessionId: request.sessionId,
+          dealId: request.dealId,
+        },
+      });
 
-      const response = await fetch(
-        "https://api.together.ai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${togetherApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: request.model,
-            messages: [{ role: "user", content: request.prompt }],
-            max_tokens: request.maxTokens || 1000,
-            temperature: request.temperature || 0.7,
-          }),
-          signal: AbortSignal.timeout(25000), // 25 second timeout
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Together.ai API error: ${response.status} - ${error}`);
-      }
-
-      const data = await response.json();
       const latency = Date.now() - startTime;
+      const promptTokens = response.usage?.prompt_tokens || 0;
+      const completionTokens = response.usage?.completion_tokens || 0;
+      const totalTokens = response.usage?.total_tokens || promptTokens + completionTokens;
 
       const result: LLMResponse = {
-        content: data.choices[0].message.content,
-        provider: "together_ai",
-        model: request.model,
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-        cost: llmCostTracker.calculateCost(
-          request.model,
-          data.usage.prompt_tokens,
-          data.usage.completion_tokens
-        ),
+        content: response.content,
+        provider: 'together_ai',
+        model: response.model,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        cost: llmCostTracker.calculateCost(response.model, promptTokens, completionTokens),
         latency,
         cached: false,
       };
@@ -132,34 +124,32 @@ export class LLMFallbackService {
         tokens: result.totalTokens,
         cost: result.cost,
         userId: request.userId,
-        model: request.model,
+        model: result.model,
       });
 
-      // Track usage
       await llmCostTracker.trackUsage({
         tenantId: request.tenantId,
         userId: request.userId,
         sessionId: request.sessionId,
-        provider: "together_ai",
-        model: request.model,
+        provider: 'together_ai',
+        model: result.model,
         promptTokens: result.promptTokens,
         completionTokens: result.completionTokens,
-        caller: "LLMFallback.callTogetherAI",
-        endpoint: "/api/llm/chat",
+        caller: 'LLMFallback.callTogetherAI',
+        endpoint: '/api/llm/chat',
         success: true,
         latencyMs: latency,
       });
 
-      // Cache response
-      await llmCache.set(request.prompt, request.model, result.content, {
+      await llmCache.set(request.prompt, result.model, result.content, {
         promptTokens: result.promptTokens,
         completionTokens: result.completionTokens,
         cost: result.cost,
       });
 
-      logger.llm("Together.ai call succeeded", {
-        provider: "together_ai",
-        model: request.model,
+      logger.llm('Together.ai call succeeded', {
+        provider: 'together_ai',
+        model: result.model,
         promptTokens: result.promptTokens,
         completionTokens: result.completionTokens,
         cost: result.cost,
@@ -171,11 +161,11 @@ export class LLMFallbackService {
     } catch (error) {
       this.stats.togetherAI.failures++;
 
-      logger.llm("Together.ai call failed", {
-        provider: "together_ai",
+      logger.llm('Together.ai call failed', {
+        provider: 'together_ai',
         model: request.model,
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : 'Unknown error',
         latency: Date.now() - startTime,
       });
 
@@ -187,6 +177,13 @@ export class LLMFallbackService {
    * Process LLM request with circuit breaker
    */
   async processRequest(request: LLMRequest): Promise<LLMResponse> {
+    // Default model to configured Together primary if caller omitted it
+    if (!request.model) {
+      request.model = (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || request.model || 'gpt-4o-mini';
+    }
+
+    assertModelAllowed('together_ai', request.model);
+
     // Check cache first
     const cached = await llmCache.get(request.prompt, request.model);
     if (cached) {
@@ -230,18 +227,70 @@ export class LLMFallbackService {
       model: request.model,
     });
 
-    // Call Together.ai with circuit breaker
-    try {
-      const response = await this.circuitBreaker.execute(
-        this.togetherChatBreakerKey,
-        () => this.callTogetherAI(request),
-        { config: this.breakerConfig }
-      );
-      return response;
-    } catch (error) {
-      logger.error("Together.ai request failed", error as Error);
-      throw new Error("LLM provider unavailable. Please try again later.");
+    // Primary retry + optional secondary fallback
+    const primaryModel = request.model;
+    const primaryMaxRetries = Number(getEnvVar('LLM_FALLBACK_MAX_ATTEMPTS') || '1');
+    const retryBackoffMs = Number(getEnvVar('LLM_RETRY_BACKOFF_MS') || '200');
+    const fallbackEnabled = getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) !== 'false';
+    const secondaryModel = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
+
+    let lastError: unknown = null;
+
+    const isTransient = (err: unknown): boolean => {
+      const msg = err instanceof Error ? err.message : String(err);
+      return /timeout|ETIMEDOUT|429|5\d{2}|rate limit/i.test(msg);
+    };
+
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    // Try primary with retries
+    for (let attempt = 0; attempt <= primaryMaxRetries; attempt++) {
+      try {
+        const resp = await this.circuitBreaker.execute(
+          this.togetherChatBreakerKey,
+          () => this.callTogetherAI(request),
+          { config: this.breakerConfig }
+        );
+
+        return resp;
+      } catch (err) {
+        lastError = err;
+        // if non-transient or we've exhausted attempts, break to fallback logic
+        if (!isTransient(err) || attempt === primaryMaxRetries) break;
+        const jitter = Math.floor(Math.random() * retryBackoffMs);
+        await sleep(retryBackoffMs + jitter);
+      }
     }
+
+    // Primary exhausted — attempt secondary if enabled/configured
+    if (fallbackEnabled && secondaryModel) {
+      try {
+        assertModelAllowed('together_ai', String(secondaryModel));
+        const secondaryReq = { ...request, model: String(secondaryModel) };
+        const secResp = await this.circuitBreaker.execute(
+          this.togetherChatBreakerKey,
+          () => this.callTogetherAI(secondaryReq),
+          { config: this.breakerConfig }
+        );
+
+        // Track fallback usage
+        this.stats.togetherAI.fallbacks = (this.stats.togetherAI.fallbacks || 0) + 1;
+
+        logger.warn('LLMFallback used secondary model after primary failures', {
+          primary: primaryModel,
+          secondary: secondaryReq.model,
+          fallback_reason: lastError instanceof Error ? lastError.message : String(lastError),
+        });
+
+        return secResp;
+      } catch (secErr) {
+        logger.error('Together.ai secondary fallback failed', secErr as Error);
+        throw new Error('LLM provider unavailable. Please try again later.');
+      }
+    }
+
+    logger.error('Together.ai request failed (primary exhausted, no fallback available)', lastError as Error);
+    throw new Error('LLM provider unavailable. Please try again later.');
   }
 
   /**
@@ -250,6 +299,8 @@ export class LLMFallbackService {
   async *streamRequest(
     request: LLMRequest
   ): AsyncGenerator<{ content: string; done: boolean }> {
+    assertModelAllowed('together_ai', request.model);
+
     // Check cache first
     const cached = await llmCache.get(request.prompt, request.model);
     if (cached) {
@@ -283,6 +334,9 @@ export class LLMFallbackService {
       model: request.model,
     });
 
+    const fallbackEnabled = getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) !== 'false';
+    const secondaryModel = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
+
     try {
       const chunks = await this.circuitBreaker.execute(
         this.togetherStreamBreakerKey,
@@ -299,14 +353,49 @@ export class LLMFallbackService {
       for (const chunk of chunks) {
         yield chunk;
       }
-    } catch (error) {
-      logger.error("Together.ai stream failed", error as Error);
+    } catch (primaryError) {
+      // Attempt secondary model fallback for streaming (mirrors processRequest behavior)
+      if (fallbackEnabled && secondaryModel) {
+        try {
+          assertModelAllowed('together_ai', String(secondaryModel));
+          const secondaryReq = { ...request, model: String(secondaryModel) };
+
+          logger.warn('LLMFallback stream using secondary model after primary failure', {
+            primary: request.model,
+            secondary: secondaryReq.model,
+            fallback_reason: primaryError instanceof Error ? primaryError.message : String(primaryError),
+          });
+
+          const chunks = await this.circuitBreaker.execute(
+            this.togetherStreamBreakerKey,
+            async () => {
+              const streamed: { content: string; done: boolean }[] = [];
+              for await (const chunk of this.callTogetherAIStream(secondaryReq)) {
+                streamed.push(chunk);
+              }
+              return streamed;
+            },
+            { config: this.breakerConfig }
+          );
+
+          this.stats.togetherAI.fallbacks = (this.stats.togetherAI.fallbacks || 0) + 1;
+
+          for (const chunk of chunks) {
+            yield chunk;
+          }
+          return;
+        } catch (secErr) {
+          logger.error('Together.ai stream secondary fallback failed', secErr as Error);
+        }
+      }
+
+      logger.error("Together.ai stream failed (no fallback available)", primaryError as Error);
       throw new Error("LLM provider unavailable. Please try again later.");
     }
   }
 
   /**
-   * Call Together.ai API with streaming
+   * Call Together.ai API with streaming through the centralized LLM gateway.
    */
   private async *callTogetherAIStream(
     request: LLMRequest
@@ -315,87 +404,33 @@ export class LLMFallbackService {
     this.stats.togetherAI.calls++;
 
     try {
-      const togetherApiKey = getEnvVar("TOGETHER_API_KEY");
-      if (!togetherApiKey)
-        throw new Error("Together.ai API key not configured");
+      let accumulatedContent = '';
+      let usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
 
-      const response = await fetch(
-        "https://api.together.ai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${togetherApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: request.model,
-            messages: [{ role: "user", content: request.prompt }],
-            max_tokens: request.maxTokens || 1000,
-            temperature: request.temperature || 0.7,
-            stream: true,
-          }),
+      for await (const chunk of this.gateway.completeRawStream({
+        model: request.model,
+        messages: [{ role: 'user', content: request.prompt }],
+        temperature: request.temperature,
+        max_tokens: request.maxTokens,
+        metadata: {
+          tenantId: request.tenantId ?? 'unknown',
+          userId: request.userId,
+          sessionId: request.sessionId,
+          dealId: request.dealId,
+        },
+      })) {
+        if (chunk.done) {
+          usage = chunk.usage;
+          continue;
         }
-      );
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+        accumulatedContent += chunk.content;
+        yield { content: chunk.content, done: false };
       }
 
-      if (!response.body) {
-        throw new Error("No response body");
-      }
+      yield { content: '', done: true };
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedContent = "";
-      let buffer = "";
-      let usage: any = null;
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep the last incomplete line in buffer
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
-            const dataStr = trimmed.substring(6); // Remove 'data: '
-            if (dataStr === "[DONE]") continue;
-
-            try {
-              const data = JSON.parse(dataStr);
-
-              // Together AI sends usage in the last chunk or separate chunk
-              if (data.usage) {
-                usage = data.usage;
-              }
-
-              const content = data.choices?.[0]?.delta?.content || "";
-              if (content) {
-                accumulatedContent += content;
-                yield { content, done: false };
-              }
-            } catch (e) {
-              // Ignore parse errors for partial lines
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-
-      // Final yield to signal done
-      yield { content: "", done: true };
-
-      // Calculate stats and cache
       const latency = Date.now() - startTime;
-
       const promptTokens = usage?.prompt_tokens || 0;
       const completionTokens = usage?.completion_tokens || 0;
 
@@ -414,30 +449,28 @@ export class LLMFallbackService {
         model: request.model,
       });
 
-      // Track usage
       await llmCostTracker.trackUsage({
         tenantId: request.tenantId,
         userId: request.userId,
         sessionId: request.sessionId,
-        provider: "together_ai",
+        provider: 'together_ai',
         model: request.model,
         promptTokens,
         completionTokens,
-        caller: "LLMFallback.streamTogetherAI",
-        endpoint: "/api/llm/chat",
+        caller: 'LLMFallback.streamTogetherAI',
+        endpoint: '/api/llm/chat',
         success: true,
         latencyMs: latency,
       });
 
-      // Cache response
       await llmCache.set(request.prompt, request.model, accumulatedContent, {
         promptTokens,
         completionTokens,
         cost,
       });
 
-      logger.llm("Together.ai stream succeeded", {
-        provider: "together_ai",
+      logger.llm('Together.ai stream succeeded', {
+        provider: 'together_ai',
         model: request.model,
         latency,
         success: true,
@@ -467,7 +500,7 @@ export class LLMFallbackService {
             : chatMetrics.state,
         failures: chatMetrics.failedRequests,
         successes: chatMetrics.successfulRequests,
-        fallbacks: 0,
+        fallbacks: this.stats.togetherAI.fallbacks || 0,
         rejects: 0,
         fires: chatMetrics.totalRequests,
         calls: this.stats.togetherAI.calls,

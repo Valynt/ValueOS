@@ -30,9 +30,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useExport } from "@/utils/export";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export function DealsView() {

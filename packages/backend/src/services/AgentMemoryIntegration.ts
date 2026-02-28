@@ -7,9 +7,11 @@
 
 import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI.js'
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
+import { SupabaseMemoryBackend } from '../lib/agent-fabric/SupabaseMemoryBackend';
 import { logger } from '../lib/logger.js'
 import { supabase } from '../lib/supabase.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { semanticMemory } from './SemanticMemory.js';
 
 export interface MemoryEnhancedRequest extends AgentRequest {
   /** Session ID for memory persistence */
@@ -44,7 +46,10 @@ export class AgentMemoryIntegration {
   constructor() {
     this.agentAPI = new AgentAPI();
     this.llmGateway = new LLMGateway(supabase as any);
-    this.memorySystem = new MemorySystem(supabase as any, this.llmGateway);
+    this.memorySystem = new MemorySystem(
+      { max_memories: 1000, enable_persistence: true },
+      new SupabaseMemoryBackend(semanticMemory),
+    );
   }
 
   /**

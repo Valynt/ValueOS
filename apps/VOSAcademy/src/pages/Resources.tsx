@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { APP_LOGO, APP_TITLE } from "@/const";
-import { Download, Search, FileText, FileSpreadsheet, Presentation, BookOpen } from "lucide-react";
+import { BookOpen, Download, FileSpreadsheet, FileText, Presentation, Search } from "lucide-react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";

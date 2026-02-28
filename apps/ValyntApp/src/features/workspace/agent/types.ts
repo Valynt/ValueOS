@@ -5,14 +5,15 @@
  * These types drive the conversation UI state machine.
  */
 
-// Agent conversation phases (from UX spec)
+// Agent conversation phases — 7-state machine (see state-machine.ts for transitions)
 export type AgentPhase = 
   | 'idle'      // Ready for input
   | 'clarify'   // Asking clarifying question
-  | 'plan'      // Showing execution plan
-  | 'execute'   // Running workflow
-  | 'review'    // Presenting artifacts for approval
-  | 'finalize'  // Confirming and persisting
+  | 'plan'      // Showing execution plan for approval
+  | 'execute'   // Running workflow steps
+  | 'review'    // Presenting artifacts for approval (diff view)
+  | 'finalize'  // Confirming and persisting results
+  | 'error'     // Recoverable error state
   | 'resume';   // Restoring previous session
 
 // Event types from agent stream

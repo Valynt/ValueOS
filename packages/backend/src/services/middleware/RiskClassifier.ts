@@ -7,9 +7,9 @@
 
 import { AgentMiddlewareContext } from '../UnifiedAgentOrchestrator.js';
 import {
-  RiskClassification,
   CheckpointConfig,
   DEFAULT_CHECKPOINT_CONFIG,
+  RiskClassification,
 } from './types.js';
 
 export class RiskClassifier {

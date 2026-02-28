@@ -13,18 +13,18 @@ import { getLoginUrl } from "@/data/const";
 import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
 import { getPillarStatus } from "@/lib/progress-logic";
 import {
-  BookOpen,
-  TrendingUp,
   Award,
+  BookOpen,
   Brain,
-  Target,
-  Users,
+  CheckCircle,
+  Crown,
   Lightbulb,
+  Lock,
   RefreshCw,
   Rocket,
-  Crown,
-  Lock,
-  CheckCircle
+  Target,
+  TrendingUp,
+  Users
 } from "lucide-react";
 import { Link } from "wouter";
 

@@ -5,7 +5,7 @@
  * Provides alerting, metrics collection, and automated remediation.
  */
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 import { LiveDataFeedService } from "./LiveDataFeedService.js";
 
 export interface DataFeedHealthStatus {

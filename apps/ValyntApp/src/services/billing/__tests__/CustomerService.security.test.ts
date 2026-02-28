@@ -1,4 +1,4 @@
-import { describe, it, vi, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CustomerService from '../CustomerService';
 import SecurityEnforcementService from '../../SecurityEnforcementService';
 

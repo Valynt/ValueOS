@@ -3,11 +3,11 @@
  * Redis-backed cache for real-time usage quota checks
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { BILLING_METRICS, USAGE_CACHE_TTL } from "../../config/billing.js"
 import type { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
-import { getEnvVar, getSupabaseConfig } from "@shared/lib/env";
+import { getEnvVar } from "@shared/lib/env";
 import Redis, { type RedisClientType } from "redis";
 
 // Constants
@@ -15,19 +15,6 @@ const PERCENTAGE_MULTIPLIER = 100;
 const MILLISECONDS_MULTIPLIER = 1000;
 
 const logger = createLogger({ component: "UsageCache" });
-
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } =
-  getSupabaseConfig();
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn(
-    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
-  );
-}
 
 // Redis client (optional - will use in-memory fallback if not available)
 let redisClient: RedisClientType | null = null;
@@ -74,6 +61,12 @@ interface CacheEntry {
 const memoryCache = new Map<string, CacheEntry>();
 
 class UsageCache {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
+
   /**
    * Get current usage from cache
    */
@@ -288,13 +281,10 @@ class UsageCache {
     tenantId: string,
     metric: BillingMetric
   ): Promise<number> {
-    if (!supabase) {
-      throw new Error("Billing service not configured");
-    }
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const { data, error } = await supabase.rpc("get_current_usage", {
+    const { data, error } = await this.supabase.rpc("get_current_usage", {
       p_tenant_id: tenantId,
       p_metric: metric,
       p_period_start: periodStart.toISOString(),
@@ -316,10 +306,7 @@ class UsageCache {
     tenantId: string,
     metric: BillingMetric
   ): Promise<number> {
-    if (!supabase) {
-      throw new Error("Billing service not configured");
-    }
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from("usage_quotas")
       .select("quota_amount")
       .eq("tenant_id", tenantId)
@@ -356,4 +343,4 @@ class UsageCache {
   }
 }
 
-export default new UsageCache();
+export default UsageCache;

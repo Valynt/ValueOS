@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ModelRunEngine, DefaultBenchmarkProvider } from '../ModelRunEngine.js'
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DefaultBenchmarkProvider, ModelRunEngine } from '../ModelRunEngine.js'
 
 describe('ModelRunEngine Benchmark Hydration Performance', () => {
   let mockSupabase: any;

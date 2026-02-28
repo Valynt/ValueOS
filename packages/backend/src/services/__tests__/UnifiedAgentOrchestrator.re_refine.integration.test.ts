@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator.js'
 
 // Integration-style test: simulate agent returning low-confidence outputs and ensure RE-REFINE loop is attempted

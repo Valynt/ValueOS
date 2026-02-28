@@ -10,8 +10,8 @@
  * - Visual Hierarchy: indentation + status badges for quick scanning
  */
 
-import React, { useState, useCallback, useRef } from "react";
-import { ChevronRight, ChevronDown, Circle, ChevronsUpDown } from "lucide-react";
+import React, { useCallback, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, ChevronsUpDown, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ValueNode {

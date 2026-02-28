@@ -37,7 +37,7 @@ spec:
           serviceAccountName: db-watcher
           containers:
             - name: db-watcher
-              image: valynt/db-watcher:latest
+              image: ghcr.io/valynt/valueos-backend:latest
               imagePullPolicy: IfNotPresent
               command: ["bash", "/scripts/self_healing_db_watcher.sh"]
               volumeMounts:

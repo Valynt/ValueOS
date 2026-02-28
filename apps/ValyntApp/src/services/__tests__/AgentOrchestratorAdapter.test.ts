@@ -123,7 +123,7 @@ vi.mock("../../config/featureFlags", () => ({
 }));
 
 // Import after mocks
-import { AgentOrchestratorAdapter, agentOrchestrator } from "../AgentOrchestratorAdapter";
+import { agentOrchestrator, AgentOrchestratorAdapter } from "../AgentOrchestratorAdapter";
 import * as agentService from "../agentService";
 
 // Mock the agent service

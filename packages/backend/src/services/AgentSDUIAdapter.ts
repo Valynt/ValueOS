@@ -45,7 +45,7 @@ export class AgentSDUIAdapter {
   ): Promise<SDUIUpdate> {
     logger.info("Processing agent output with intents", {
       agentId,
-      agentType: output.agentType,
+      agentType: output.agent_type,
       workspaceId,
     });
 
@@ -57,7 +57,7 @@ export class AgentSDUIAdapter {
 
       if (intents.length === 0) {
         logger.warn("No intents generated from agent output", {
-          agentType: output.agentType,
+          agentType: output.agent_type,
         });
         return {
           type: "partial_update",

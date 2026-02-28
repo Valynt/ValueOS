@@ -2,7 +2,7 @@
 
 # RBAC Quick Test Script
 # This script demonstrates assigning roles and testing them locally
-# 
+#
 # Usage: ./test-rbac.sh
 
 set -e
@@ -61,7 +61,7 @@ echo ""
 echo "The following test scripts are available:"
 echo ""
 echo "  📄 SQL Test Script:"
-echo "     /workspaces/ValueOS/supabase/tests/rbac_local_test.sql"
+echo "     ${WORKSPACE_FOLDER:-/workspaces/ValueOS}/supabase/tests/rbac_local_test.sql"
 echo ""
 echo "  Copy and paste this entire file into the SQL Editor"
 echo "  then click 'Run' to execute all tests"
@@ -88,7 +88,7 @@ if [ -f "package.json" ]; then
     if [ -f "src/test/rbac.local.test.ts" ]; then
         echo "Running: pnpm test -- rbac.local.test.ts"
         echo ""
-        
+
         # Try to run the test
         if pnpm test -- rbac.local.test.ts 2>&1; then
             echo ""

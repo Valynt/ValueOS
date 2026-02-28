@@ -457,6 +457,7 @@ export class SecurityEnforcementService extends TenantAwareService {
     await this.supabase.from('security_action_log').insert({
       id: crypto.randomUUID(),
       action_type: actionType,
+      tenant_id: details.tenantId || details.tenant_id || 'system',
       details,
       timestamp: new Date(),
       created_by: 'system'
@@ -577,7 +578,8 @@ export class SecurityEnforcementService extends TenantAwareService {
   }
 
   /**
-   * Cleanup expired blocks and quarantines
+   * Cleanup expired blocks and quarantines.
+   * NOTE: Intentionally cross-tenant — this is a cron job (service_role allowed per AGENTS.md).
    */
   async cleanupExpiredActions(): Promise<void> {
     try {

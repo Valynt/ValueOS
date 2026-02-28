@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 
 // Mock Supabase client for unit tests
@@ -24,7 +24,7 @@ describe("Supabase Client Unit Tests", () => {
 
     mockCreateClient.mockReturnValue(mockClient as any);
 
-    const supabaseUrl = "http://localhost:54321";
+    const supabaseUrl = "https://your-project.supabase.co";
     const supabaseKey = "test-anon-key";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -49,7 +49,7 @@ describe("Supabase Client Unit Tests", () => {
 
     mockCreateClient.mockReturnValue(mockClient as any);
 
-    const supabase = createClient("http://localhost:54321", "test-key");
+    const supabase = createClient("https://your-project.supabase.co", "test-key");
     const result = await supabase.from("users").select("*").limit(1);
 
     expect(result).toEqual(mockResponse);
@@ -73,7 +73,7 @@ describe("Supabase Client Unit Tests", () => {
 
     mockCreateClient.mockReturnValue(mockClient as any);
 
-    const supabase = createClient("http://localhost:54321", "test-key");
+    const supabase = createClient("https://your-project.supabase.co", "test-key");
     const result = await supabase.from("users").select("*").limit(1);
 
     expect(result.status).toBe(404);

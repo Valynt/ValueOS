@@ -5,16 +5,16 @@
  * Creates a customer access token and provides a shareable URL.
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Share2,
-  Copy,
-  Check,
-  ExternalLink,
-  Mail,
-  Loader2,
   AlertCircle,
+  Check,
   Clock,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Mail,
+  Share2,
   Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

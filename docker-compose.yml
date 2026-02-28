@@ -1,11 +1,6 @@
+# LEGACY WRAPPER — canonical compose lives in ops/compose/.
+# Thin passthrough wrapper for backward compatibility only.
+# Optional stacks are available under ops/compose/profiles/*.yml.
 
-version: '3.8'
-services:
-  valyntapp-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    image: valueos-dev:latest
-    container_name: valyntapp-dev
-    # The rest of the config is in compose.devcontainer.override.yml
-
+include:
+  - ops/compose/compose.yml

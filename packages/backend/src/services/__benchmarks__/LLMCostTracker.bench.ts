@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-import { describe, it, vi, expect } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // Mock logger
 vi.mock('../../lib/logger', () => ({

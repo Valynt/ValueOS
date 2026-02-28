@@ -16,7 +16,7 @@ type LifecycleStage = "opportunity" | "target" | "realization" | "expansion" | "
 
 import { Request, Response, Router } from "express";
 import logger from "../../../shared/src/lib/logger.js";
-import { validateSDUISchema, SDUI_VERSION, SDUIPageDefinition } from "../../../sdui/src/schema.js";
+import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from "../../../sdui/src/schema.js";
 import { migrateSchema, migrationRunner } from "../../../sdui/src/migrations.js";
 import { canvasSchemaService } from "../services/CanvasSchemaService.js";
 
@@ -226,10 +226,10 @@ router.get("/api/sdui/schema/:workspaceId", async (req: Request, res: Response) 
       );
     }
 
-    res.json(schema);
+    return res.json(schema);
   } catch (error) {
     logger.error("SDUI schema request failed", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "internal_error",
       message: "Failed to retrieve SDUI schema",
     });
@@ -279,10 +279,10 @@ router.get("/api/sdui/agent/:agentId/schema", async (req: Request, res: Response
     res.setHeader("Cache-Control", "private, max-age=60"); // 1 minute (agent state changes frequently)
     res.setHeader("Vary", "Accept-Version");
 
-    res.json(schema);
+    return res.json(schema);
   } catch (error) {
     logger.error("Agent SDUI schema request failed", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "internal_error",
       message: "Failed to retrieve agent SDUI schema",
     });
@@ -295,7 +295,7 @@ router.get("/api/sdui/agent/:agentId/schema", async (req: Request, res: Response
  * Returns list of supported schema versions and their features
  */
 router.get("/api/sdui/versions", (_req: Request, res: Response) => {
-  res.json({
+  return res.json({
     current: SDUI_VERSION,
     supported: [1, 2],
     deprecated: [],
@@ -340,19 +340,19 @@ router.post("/api/sdui/validate", (req: Request, res: Response) => {
     const validation = validateSDUISchema(schema);
 
     if (validation.success) {
-      res.json({
+      return res.json({
         valid: true,
         warnings: validation.warnings || [],
       });
     } else {
-      res.status(400).json({
+      return res.status(400).json({
         valid: false,
         errors: validation.errors,
       });
     }
   } catch (error) {
     logger.error("Schema validation failed", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "validation_error",
       message: "Failed to validate schema",
     });
@@ -372,7 +372,7 @@ router.get("/api/sdui/migrations/checkpoints", (_req: Request, res: Response) =>
       count: checkpoints.length,
     });
 
-    res.json({
+    return res.json({
       checkpoints: checkpoints.map((cp) => ({
         id: cp.id,
         timestamp: cp.timestamp,
@@ -385,7 +385,7 @@ router.get("/api/sdui/migrations/checkpoints", (_req: Request, res: Response) =>
     });
   } catch (error) {
     logger.error("Failed to get migration checkpoints", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "internal_error",
       message: "Failed to retrieve migration checkpoints",
     });
@@ -406,7 +406,7 @@ router.post("/api/sdui/migrations/rollback/:checkpointId", async (req: Request, 
     const result = await migrationRunner.rollback(checkpointId);
 
     if (result.success) {
-      res.json({
+      return res.json({
         success: true,
         fromVersion: result.fromVersion,
         toVersion: result.toVersion,
@@ -415,7 +415,7 @@ router.post("/api/sdui/migrations/rollback/:checkpointId", async (req: Request, 
         warnings: result.warnings,
       });
     } else {
-      res.status(500).json({
+      return res.status(500).json({
         error: "rollback_failed",
         message: "Rollback operation failed",
         errors: result.errors,
@@ -423,7 +423,7 @@ router.post("/api/sdui/migrations/rollback/:checkpointId", async (req: Request, 
     }
   } catch (error) {
     logger.error("Migration rollback failed", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "internal_error",
       message: "Failed to perform rollback",
     });
@@ -455,10 +455,10 @@ router.post("/api/sdui/migrations/diff", (req: Request, res: Response) => {
       breaking: diff.breaking,
     });
 
-    res.json(diff);
+    return res.json(diff);
   } catch (error) {
     logger.error("Schema diff generation failed", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "internal_error",
       message: "Failed to generate schema diff",
     });
@@ -475,7 +475,7 @@ router.get("/api/sdui/migrations/available", (_req: Request, res: Response) => {
     // Placeholder implementation - method doesn't exist yet
     const availableMigrations: any[] = [];
 
-    res.json({
+    return res.json({
       migrations: availableMigrations.map((migration: any) => ({
         fromVersion: migration.fromVersion,
         toVersion: migration.toVersion,
@@ -487,7 +487,7 @@ router.get("/api/sdui/migrations/available", (_req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to get available migrations", { error });
-    res.status(500).json({
+    return res.status(500).json({
       error: "internal_error",
       message: "Failed to retrieve available migrations",
     });

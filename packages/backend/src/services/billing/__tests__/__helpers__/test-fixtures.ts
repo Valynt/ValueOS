@@ -39,7 +39,7 @@ export function setupTestEnv(overrides?: Record<string, string>) {
     STRIPE_SECRET_KEY: "sk_test_mock_key",
     VITE_STRIPE_PUBLISHABLE_KEY: "pk_test_mock_key",
     STRIPE_WEBHOOK_SECRET: "whsec_test_mock_secret",
-    VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "http://localhost:54321",
+    VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "https://your-project.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key",
     ...overrides,
   };

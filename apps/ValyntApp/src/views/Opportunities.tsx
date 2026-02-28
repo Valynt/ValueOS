@@ -1,23 +1,25 @@
 import { useState } from "react";
 import {
-  Search,
-  Play,
-  Pause,
   AlertTriangle,
-  CheckCircle2,
-  Shield,
-  ChevronRight,
-  Zap,
-  Target,
-  Sparkles,
   Building2,
+  CheckCircle2,
+  ChevronRight,
+  FileText,
+  Layers,
   LayoutGrid,
   List,
+  Pause,
+  Play,
+  Search,
+  Shield,
+  Sparkles,
+  Target,
   TrendingUp,
-  FileText,
+  Zap,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useDomainPacks } from "@/hooks/useDomainPacks";
 
 // -- Types --
 type CaseStatus = "running" | "needs-input" | "paused" | "review" | "complete";
@@ -59,12 +61,17 @@ const statusConfig: Record<CaseStatus, { icon: React.ElementType; color: string;
 // -- Quick-start inline --
 function InlineQuickStart() {
   const [company, setCompany] = useState("");
+  const [selectedPackId, setSelectedPackId] = useState<string>("");
   const navigate = useNavigate();
+  const { data: packs, isLoading: packsLoading } = useDomainPacks();
 
   const handleStart = () => {
     if (!company.trim()) return;
-    // In production this would create the case via API, then navigate
-    navigate(`/opportunities/new/cases/new`);
+    // In production this would create the case via API with the selected pack, then navigate
+    const params = new URLSearchParams();
+    if (selectedPackId) params.set("packId", selectedPackId);
+    const qs = params.toString();
+    navigate(`/opportunities/new/cases/new${qs ? `?${qs}` : ""}`);
   };
 
   return (
@@ -87,6 +94,22 @@ function InlineQuickStart() {
           placeholder="e.g. Acme Corp, Snowflake, Stripe..."
           className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-zinc-50 placeholder:text-zinc-400 placeholder:italic outline-none focus:border-zinc-400 focus:bg-white transition-colors"
         />
+        <div className="relative">
+          <Layers className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+          <select
+            value={selectedPackId}
+            onChange={(e) => setSelectedPackId(e.target.value)}
+            className="appearance-none pl-8 pr-6 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-zinc-50 text-zinc-700 outline-none focus:border-zinc-400 focus:bg-white transition-colors cursor-pointer"
+          >
+            <option value="">No Domain Pack</option>
+            {packsLoading && <option disabled>Loading...</option>}
+            {packs?.map((pack) => (
+              <option key={pack.id} value={pack.id}>
+                {pack.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           onClick={handleStart}
           className="px-4 py-2.5 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors flex items-center gap-2"

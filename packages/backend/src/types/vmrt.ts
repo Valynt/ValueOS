@@ -90,3 +90,11 @@ export interface VMRT {
     [key: string]: any;
   };
 }
+
+export interface VMRTAssumption {
+  id: string;
+  description: string;
+  confidence: number;
+  source?: string;
+  validated?: boolean;
+}

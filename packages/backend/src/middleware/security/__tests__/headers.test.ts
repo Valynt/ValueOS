@@ -2,22 +2,22 @@
  * Security Headers Middleware Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import express, { Express } from 'express';
 import request from 'supertest';
 import {
-  createSecurityHeadersMiddleware,
-  buildHstsHeader,
   buildCspHeader,
+  buildHstsHeader,
   buildPermissionsPolicy,
+  createSecurityHeadersMiddleware,
   getApiSafeCspConfig,
 } from '../headers';
 import {
-  resetSecurityConfig,
-  setSecurityConfig,
-  SecurityConfig,
-  HstsConfig,
   CspConfig,
+  HstsConfig,
+  resetSecurityConfig,
+  SecurityConfig,
+  setSecurityConfig,
 } from '../config';
 
 describe('Security Headers Middleware', () => {

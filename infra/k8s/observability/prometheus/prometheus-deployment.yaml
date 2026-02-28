@@ -20,10 +20,10 @@ spec:
         runAsNonRoot: true
         runAsUser: 65534
         fsGroup: 65534
-      
+
       containers:
       - name: prometheus
-        image: prom/prometheus:v2.48.0
+        image: prom/prometheus@sha256:13f40c0279df792517b456ae6427dd6344685e9b1478fb9de8e4dc418727668f
         args:
           - '--config.file=/etc/prometheus/prometheus.yml'
           - '--storage.tsdb.path=/prometheus'
@@ -33,12 +33,12 @@ spec:
           - '--web.console.templates=/usr/share/prometheus/consoles'
           - '--web.enable-lifecycle'
           - '--web.enable-admin-api'
-        
+
         ports:
         - name: web
           containerPort: 9090
           protocol: TCP
-        
+
         resources:
           requests:
             cpu: 500m
@@ -46,7 +46,7 @@ spec:
           limits:
             cpu: 2000m
             memory: 4Gi
-        
+
         livenessProbe:
           httpGet:
             path: /-/healthy
@@ -54,7 +54,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
-        
+
         readinessProbe:
           httpGet:
             path: /-/ready
@@ -62,7 +62,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
-        
+
         volumeMounts:
         - name: config
           mountPath: /etc/prometheus
@@ -70,7 +70,7 @@ spec:
           mountPath: /etc/prometheus/rules
         - name: storage
           mountPath: /prometheus
-      
+
       volumes:
       - name: config
         configMap:

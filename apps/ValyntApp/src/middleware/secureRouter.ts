@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   csrfProtectionMiddleware,
+  csrfTokenMiddleware,
   securityHeadersMiddleware,
 } from './securityMiddleware';
 import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';
@@ -19,6 +20,7 @@ export function createSecureRouter(tier: RateLimitTier = 'standard'): ReturnType
   router.use(securityHeadersMiddleware);
   router.use(serviceIdentityMiddleware);
   router.use(requestSanitizationMiddleware());
+  router.use(csrfTokenMiddleware);
   router.use(csrfProtectionMiddleware);
   router.use(sessionTimeoutMiddleware);
   router.use(rateLimiters[tier]);

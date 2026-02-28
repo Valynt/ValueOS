@@ -1,3 +1,11 @@
+---
+title: Supabase Migration Automation Guide
+owner: team-operations
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Supabase Migration Automation Guide
 
 Complete guide for automated database migration management in the ValueOS development environment.
@@ -5,6 +13,22 @@ Complete guide for automated database migration management in the ValueOS develo
 ---
 
 ## 📦 Available Scripts
+
+## Environment Provisioning Templates
+
+Before running migration scripts for managed environments, create an environment file from the templates in `ops/env/` and then populate real secret values:
+
+```bash
+# Staging
+cp ops/env/.env.staging.template .env.staging
+
+# Production
+cp ops/env/.env.production.template .env.production
+```
+
+At minimum, set `DATABASE_URL`. If your migration or validation flow uses Supabase runtime/API operations, also set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+
+---
 
 ### 1. **supabase-migrate-all.sh** - Master Migration Script
 

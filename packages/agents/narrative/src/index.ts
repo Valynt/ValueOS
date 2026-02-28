@@ -1,4 +1,9 @@
 /**
+ * @deprecated This standalone microservice agent is deprecated.
+ * Production agent implementations live in packages/backend/src/lib/agent-fabric/agents/.
+ * This file will be removed in a future release. Do not add new code here.
+ */
+/**
  * Narrative Agent
  *
  * Translates financial models and evidence into executive-ready business narratives.
@@ -87,6 +92,31 @@ You MUST respond with valid JSON matching this schema:
 
 Focus on clarity, evidence-backed claims, and executive-level communication.`;
 
+/**
+ * Build a domain-aware system prompt by appending glossary and compliance context.
+ */
+function buildDomainAwarePrompt(
+  basePrompt: string,
+  domainContext?: { glossary?: Record<string, string>; complianceRules?: string[] },
+): string {
+  if (!domainContext) return basePrompt;
+
+  let suffix = '';
+  if (domainContext.glossary && Object.keys(domainContext.glossary).length > 0) {
+    suffix += '\n\nUse these domain-specific terms in your narratives:\n';
+    for (const [neutral, domain] of Object.entries(domainContext.glossary)) {
+      suffix += `- "${neutral}" → "${domain}"\n`;
+    }
+  }
+  if (domainContext.complianceRules && domainContext.complianceRules.length > 0) {
+    suffix += '\n\nEnsure narratives acknowledge these compliance requirements:\n';
+    for (const rule of domainContext.complianceRules) {
+      suffix += `- ${rule}\n`;
+    }
+  }
+  return basePrompt + suffix;
+}
+
 // ============================================================================
 // NarrativeAnalyzer
 // ============================================================================
@@ -112,9 +142,13 @@ export class NarrativeAnalyzer {
       return this.fallbackResponse(query);
     }
 
+    // Build domain-aware prompt if context includes domain pack data
+    const domainContext = context?.metadata as { glossary?: Record<string, string>; complianceRules?: string[] } | undefined;
+    const systemPrompt = buildDomainAwarePrompt(NARRATIVE_SYSTEM_PROMPT, domainContext);
+
     const response = await this.llmGateway.complete({
       messages: [
-        { role: 'system', content: NARRATIVE_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: `Construct a business narrative for: ${query}` },
       ],
       metadata: {

@@ -1,7 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { RedisStreamBroker } from "../../../app/src/services/messaging/RedisStreamBroker";
-import { useAuth } from "../../../app/src/app/providers/AuthProvider";
+import React, { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+
+// TODO: RedisStreamBroker and useAuth were imported via broken cross-package
+// paths (../../../app/src/...).  These should be injected via props or context
+// rather than imported directly from the app layer.  Stubbed here so the
+// backend production build (esbuild) can compile the sdui package.
+interface StreamEvent {
+  name: string;
+  payload: Record<string, any>;
+}
+interface RedisStreamBroker {
+  initialize(): Promise<void>;
+  startConsumer(handler: (event: StreamEvent) => Promise<void>): void;
+  publish(stream: string, data: Record<string, any>): Promise<void>;
+}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const RedisStreamBroker = class implements RedisStreamBroker {
+  constructor(_opts: { streamName: string; consumerName: string }) { }
+  async initialize() { }
+  startConsumer(_handler: (event: StreamEvent) => Promise<void>) { }
+  async publish(_stream: string, _data: Record<string, any>) {
+    console.warn('[HumanCheckpoint] RedisStreamBroker is stubbed — publish is a no-op. Wire a real broker via props/context.');
+  }
+};
+function useAuth(): { user: { id: string } | null } {
+  console.warn('[HumanCheckpoint] useAuth is stubbed — always returns null user. Wire a real auth provider via context.');
+  return { user: null };
+}
 
 interface HumanCheckpointProps {
   sessionId: string;

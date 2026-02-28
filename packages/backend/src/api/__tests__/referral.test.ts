@@ -3,7 +3,7 @@
  * Comprehensive test suite for referral functionality
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { referralService } from '../services/ReferralService';
 import { referralAnalyticsService } from '../services/ReferralAnalyticsService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';

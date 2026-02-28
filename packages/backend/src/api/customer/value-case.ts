@@ -5,7 +5,7 @@
 
 import { Request, Response } from "express";
 import { customerAccessService } from "../../services/CustomerAccessService";
-import { createClient } from "@supabase/supabase-js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { logger } from "@shared/lib/logger";
 import { z } from "zod";
 import { ValueTreeService } from "../../services/value/ValueTreeService";
@@ -79,10 +79,7 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     }
     const valueCaseId = validation.value_case_id;
     // tenant_id is not returned by token validation, so fetch value case row for tenant_id and details
-    const supabaseClient = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabaseClient = createServerSupabaseClient();
     const valueTreeService = new ValueTreeService(supabaseClient);
     const roiModelService = new RoiModelService(supabaseClient);
     const kpiTargetService = new KpiTargetService(supabaseClient);
@@ -140,7 +137,7 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
           name: n.label,
           category: n.driverType,
           baseline_value: n.value ?? 0,
-          target_value: target?.target_value ?? 0,
+          target_value: target?.targetValue ?? 0,
           unit: target?.unit ?? "",
         };
       }),

@@ -9,15 +9,15 @@
  * - Auto-fill amount from Case Value Model
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Building2,
-  DollarSign,
-  Calendar,
-  Loader2,
   AlertCircle,
+  Building2,
+  Calendar,
   CheckCircle2,
+  DollarSign,
   ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,

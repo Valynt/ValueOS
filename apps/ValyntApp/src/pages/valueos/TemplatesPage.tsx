@@ -4,27 +4,27 @@
  * Manage value case templates - view, create, edit, delete.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plus,
-  Search,
-  Filter,
-  MoreVertical,
-  Copy,
-  Edit2,
-  Trash2,
-  Star,
-  TrendingUp,
-  Shield,
-  Zap,
-  DollarSign,
   BarChart3,
   Check,
+  Copy,
+  DollarSign,
+  Edit2,
+  Filter,
+  MoreVertical,
+  Plus,
+  Search,
+  Shield,
+  Star,
+  Trash2,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_TEMPLATES } from '@/features/templates/defaultTemplates';
-import type { ValueCaseTemplate, TemplateCategory } from '@/features/templates/types';
+import type { TemplateCategory, ValueCaseTemplate } from '@/features/templates/types';
 
 const CATEGORY_CONFIG: Record<TemplateCategory, { label: string; icon: React.ComponentType<any>; color: string }> = {
   general: { label: 'General', icon: BarChart3, color: 'bg-slate-100 text-slate-600' },

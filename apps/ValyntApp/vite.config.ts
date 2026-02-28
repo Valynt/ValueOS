@@ -63,6 +63,7 @@ const performanceBudgetPlugin = (): Plugin => ({
 });
 
 export default defineConfig({
+  envDir: __dirname,
   plugins: [react(), performanceBudgetPlugin()],
   resolve: {
     alias: {

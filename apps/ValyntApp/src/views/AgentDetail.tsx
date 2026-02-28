@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Bot, CheckCircle2, XCircle, Clock, DollarSign, Search, Brain, Wrench } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, Bot, Brain, CheckCircle2, Clock, DollarSign, Search, Wrench, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const agent = {

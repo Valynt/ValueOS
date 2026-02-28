@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServerSupabaseClient } from './supabase';
 
 // Mock env vars to allow client creation
@@ -9,7 +9,7 @@ vi.mock('./env', () => ({
     return '';
   },
   getSupabaseConfig: () => ({
-    url: 'http://localhost:54321',
+    url: 'https://your-project.supabase.co',
     anonKey: 'anon-key',
     serviceRoleKey: 'service-key',
   }),

@@ -1,11 +1,11 @@
 /**
  * Documentation API Backend
- * 
+ *
  * Provides API endpoints for mapping documentation to codebase sections.
  * Enables agent-driven documentation updates based on code changes.
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
@@ -199,11 +199,11 @@ const initializeDocMappings = () => {
         lastSync: new Date().toISOString(),
         changeDetected: false
       };
-      
+
       if (!existing.docSections.includes(section.id)) {
         existing.docSections.push(section.id);
       }
-      
+
       codeMappings.set(mapping.path, existing);
     });
   });
@@ -222,22 +222,22 @@ initializeDocMappings();
  */
 router.get('/sections', (req: Request, res: Response) => {
   const { category, search } = req.query;
-  
+
   let sections = Array.from(docSections.values());
-  
+
   if (category) {
     sections = sections.filter(s => s.category === category);
   }
-  
+
   if (search) {
     const searchLower = String(search).toLowerCase();
-    sections = sections.filter(s => 
+    sections = sections.filter(s =>
       s.title.toLowerCase().includes(searchLower) ||
       s.path.toLowerCase().includes(searchLower)
     );
   }
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: sections,
     meta: {
@@ -253,7 +253,7 @@ router.get('/sections', (req: Request, res: Response) => {
  */
 router.get('/sections/:id', (req: Request, res: Response) => {
   const section = docSections.get(req.params.id);
-  
+
   if (!section) {
     return res.status(404).json({
       success: false,
@@ -263,8 +263,8 @@ router.get('/sections/:id', (req: Request, res: Response) => {
       }
     });
   }
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: section
   });
@@ -276,18 +276,18 @@ router.get('/sections/:id', (req: Request, res: Response) => {
  */
 router.get('/mappings', (req: Request, res: Response) => {
   const { path, changesOnly } = req.query;
-  
+
   let mappings = Array.from(codeMappings.values());
-  
+
   if (path) {
     mappings = mappings.filter(m => m.filePath.includes(String(path)));
   }
-  
+
   if (changesOnly === 'true') {
     mappings = mappings.filter(m => m.changeDetected);
   }
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: mappings,
     meta: {
@@ -304,7 +304,7 @@ router.get('/mappings', (req: Request, res: Response) => {
 router.get('/mappings/*', (req: Request, res: Response) => {
   const filePath = '/' + req.params[0];
   const mapping = codeMappings.get(filePath);
-  
+
   if (!mapping) {
     return res.status(404).json({
       success: false,
@@ -314,13 +314,13 @@ router.get('/mappings/*', (req: Request, res: Response) => {
       }
     });
   }
-  
+
   // Get full section details
   const sections = mapping.docSections
     .map(id => docSections.get(id))
     .filter(Boolean);
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: {
       ...mapping,
@@ -335,7 +335,7 @@ router.get('/mappings/*', (req: Request, res: Response) => {
  */
 router.post('/detect-changes', async (req: Request, res: Response) => {
   const { files } = req.body;
-  
+
   if (!Array.isArray(files)) {
     return res.status(400).json({
       success: false,
@@ -345,28 +345,28 @@ router.post('/detect-changes', async (req: Request, res: Response) => {
       }
     });
   }
-  
+
   const affectedDocs: Set<string> = new Set();
   const changedMappings: CodeMapping[] = [];
-  
+
   files.forEach((file: string) => {
     const mapping = codeMappings.get(file);
     if (mapping) {
       mapping.changeDetected = true;
       mapping.lastSync = new Date().toISOString();
       changedMappings.push(mapping);
-      
+
       mapping.docSections.forEach(sectionId => {
         affectedDocs.add(sectionId);
       });
     }
   });
-  
+
   const affectedSections = Array.from(affectedDocs)
     .map(id => docSections.get(id))
     .filter(Boolean);
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: {
       changedFiles: files.length,
@@ -383,7 +383,7 @@ router.post('/detect-changes', async (req: Request, res: Response) => {
  */
 router.post('/sync', (req: Request, res: Response) => {
   const { sectionId, filePath } = req.body;
-  
+
   if (sectionId) {
     const section = docSections.get(sectionId);
     if (section) {
@@ -397,7 +397,7 @@ router.post('/sync', (req: Request, res: Response) => {
       });
     }
   }
-  
+
   if (filePath) {
     const mapping = codeMappings.get(filePath);
     if (mapping) {
@@ -405,8 +405,8 @@ router.post('/sync', (req: Request, res: Response) => {
       mapping.lastSync = new Date().toISOString();
     }
   }
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: {
       synced: true,
@@ -424,16 +424,16 @@ router.get('/health', (_req: Request, res: Response) => {
   const totalMappings = codeMappings.size;
   const outdatedMappings = Array.from(codeMappings.values())
     .filter(m => m.changeDetected).length;
-  
-  res.json({
+
+  return res.json({
     success: true,
     data: {
       status: 'healthy',
       sections: totalSections,
       mappings: totalMappings,
       outdated: outdatedMappings,
-      coverage: totalMappings > 0 ? 
-        ((totalMappings - outdatedMappings) / totalMappings * 100).toFixed(2) + '%' : 
+      coverage: totalMappings > 0 ?
+        ((totalMappings - outdatedMappings) / totalMappings * 100).toFixed(2) + '%' :
         '0%'
     }
   });
@@ -446,13 +446,13 @@ router.get('/health', (_req: Request, res: Response) => {
 router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const sanitizedError = sanitizeForLogging(err);
   logger.error('Documentation API Error', err, { context: sanitizedError as any });
-  
+
   const message =
     settings.NODE_ENV === "development"
       ? err.message
       : undefined;
 
-  res.status(500).json({
+  return res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
@@ -466,4 +466,5 @@ router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // ============================================================================
 
 export default router;
-export { DocSection, CodeMapping, docSections, codeMappings };
+export type { DocSection, CodeMapping };
+export { docSections, codeMappings };

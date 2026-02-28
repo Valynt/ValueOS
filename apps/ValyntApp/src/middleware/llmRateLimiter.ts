@@ -102,28 +102,13 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
     timestamp: new Date().toISOString()
   });
 
-  // Track in database for analytics
-  const supabaseUrl = settings.VITE_SUPABASE_URL;
-  const supabaseServiceRoleKey = settings.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    const message = 'Missing SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_URL for LLM rate limit logging';
-    if (process.env.NODE_ENV === 'production') {
-      logger.error(message, {
-        hasSupabaseUrl: Boolean(supabaseUrl),
-        hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
-      });
-      res.status(500).json({
-        error: 'Rate limit logging misconfigured',
-        message,
-      });
-      return;
-    }
-    logger.warn(message);
-  } else {
+  // Track in database for analytics using request-scoped client (RLS-safe)
+  const authHeader = req.headers?.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+      const { createRequestSupabaseClient } = await import('../lib/supabase');
+      const token = authHeader.slice(7).trim();
+      const supabase = createRequestSupabaseClient(token);
 
       await supabase.from('rate_limit_violations').insert({
         user_id: req.user?.id || null,
@@ -135,12 +120,13 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
         violated_at: new Date().toISOString()
       });
     } catch (error) {
-      logger.error('Failed to log rate limit violation:', error);
       logger.error(
         'Failed to log rate limit violation to database',
         error instanceof Error ? error : new Error(String(error))
       );
     }
+  } else {
+    logger.warn('Rate limit violation not persisted: no auth token available for request-scoped client');
   }
 
   res.status(429).json({

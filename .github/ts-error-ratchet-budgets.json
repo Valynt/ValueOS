@@ -1,0 +1,27 @@
+{
+  "generatedFrom": ".github/ts-debt-baseline.json",
+  "policy": {
+    "failOnRegression": true,
+    "ratchetCadence": "weekly",
+    "notes": "Per-package budgets block regressions while nextTarget values drive incremental baseline reduction."
+  },
+  "packageBudgets": {
+    "apps/mcp-dashboard": { "budget": 56, "nextTarget": 50 },
+    "apps/ValyntApp": { "budget": 4725, "nextTarget": 4680 },
+    "packages/infra": { "budget": 6, "nextTarget": 5 },
+    "packages/services": { "budget": 28, "nextTarget": 24 },
+    "packages/backend": { "budget": 3602, "nextTarget": 3500 },
+    "packages/mcp": { "budget": 468, "nextTarget": 450 },
+    "packages/sdui": { "budget": 313, "nextTarget": 300 },
+    "packages/shared": { "budget": 6, "nextTarget": 4 },
+    "packages/agents": { "budget": 164, "nextTarget": 150 }
+  },
+  "criticalPathModules": [
+    "packages/backend/src/middleware/auth.ts",
+    "packages/backend/src/middleware/tenantContext.ts",
+    "packages/backend/src/api/billing",
+    "packages/backend/src/services/billing",
+    "packages/backend/src/api/workflow.ts",
+    "packages/backend/src/services/workflows"
+  ]
+}

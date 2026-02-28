@@ -19,7 +19,7 @@ export interface ActualOutcome {
 
 export interface FeedbackContext {
   userId: string;
-  organizationId?: string;
+  organizationId: string;
   sessionId?: string;
 }
 
@@ -81,8 +81,8 @@ export class RealizationFeedbackLoop {
     this.compensations.set(loopId, []);
 
     try {
-      // Step 1: Validate value commit exists
-      const valueCommit = await this.getValueCommit(valueCommitId);
+      // Step 1: Validate value commit exists and belongs to this tenant
+      const valueCommit = await this.getValueCommit(valueCommitId, context.organizationId);
       this.compensations.get(loopId)!.push(() => this.revertValueCommit(valueCommitId));
 
       // Step 2: Calculate variance
@@ -96,6 +96,7 @@ export class RealizationFeedbackLoop {
         .from("feedback_loops")
         .insert({
           value_commit_id: valueCommitId,
+          organization_id: context.organizationId,
           predicted_value: valueCommit.predicted_value,
           actual_value: actualOutcome.actual_value,
           variance_percentage: variance.percentage,
@@ -115,8 +116,8 @@ export class RealizationFeedbackLoop {
       await this.updateAgentAccuracy(valueCommit.agent_type, variance, context);
 
       // Step 5: Trigger retraining if accuracy drops
-      if (await this.shouldRetrain(valueCommit.agent_type)) {
-        await this.scheduleAgentRetraining(valueCommit.agent_type);
+      if (await this.shouldRetrain(valueCommit.agent_type, context.organizationId)) {
+        await this.scheduleAgentRetraining(valueCommit.agent_type, context.organizationId);
       }
 
       // Step 6: Update value tree with actuals
@@ -153,10 +154,11 @@ export class RealizationFeedbackLoop {
     }
   }
 
-  private async getValueCommit(valueCommitId: string): Promise<ValueCommit> {
+  private async getValueCommit(valueCommitId: string, organizationId: string): Promise<ValueCommit> {
     const { data, error } = await this.supabase
       .from("value_commits")
       .select("*")
+      .eq("organization_id", organizationId)
       .eq("id", valueCommitId)
       .single();
 
@@ -212,13 +214,13 @@ export class RealizationFeedbackLoop {
     });
   }
 
-  private async shouldRetrain(agentType: LifecycleStage): Promise<boolean> {
-    // Get recent accuracy for this agent
+  private async shouldRetrain(agentType: LifecycleStage, organizationId: string): Promise<boolean> {
     const { data: recentFeedback } = await (this.supabase as any)
       .from("feedback_loops")
       .select("variance_percentage")
+      .eq("organization_id", organizationId)
       .eq("agent_type", agentType)
-      .gte("recorded_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
+      .gte("recorded_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .order("recorded_at", { ascending: false })
       .limit(20);
 
@@ -235,13 +237,15 @@ export class RealizationFeedbackLoop {
     return avgVariance > 25;
   }
 
-  private async scheduleAgentRetraining(agentType: LifecycleStage): Promise<void> {
+  private async scheduleAgentRetraining(agentType: LifecycleStage, organizationId: string): Promise<void> {
     logger.warn("Scheduling agent retraining due to accuracy degradation", {
       agentType,
+      organizationId,
     });
 
     await (this.supabase as any).from("agent_retraining_queue").insert({
       agent_type: agentType,
+      organization_id: organizationId,
       scheduled_at: new Date().toISOString(),
       status: "pending",
       reason: "accuracy_degradation",

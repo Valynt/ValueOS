@@ -2,14 +2,14 @@
  * Security Configuration Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  ENV_VARS,
+  getDefaultCspConfig,
   parseCorsConfig,
   parseHstsConfig,
-  getDefaultCspConfig,
   parseSecurityConfig,
   resetSecurityConfig,
-  ENV_VARS,
 } from '../config';
 
 describe('Security Configuration', () => {

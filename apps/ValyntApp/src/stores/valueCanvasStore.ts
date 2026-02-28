@@ -7,7 +7,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { Node, Edge, addEdge, Connection } from "@xyflow/react";
+import { addEdge, Connection, Edge, Node } from "@xyflow/react";
 import { zundo } from "zundo";
 
 // Types for the store

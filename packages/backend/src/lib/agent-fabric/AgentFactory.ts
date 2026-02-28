@@ -11,40 +11,48 @@ import { logger } from "../logger.js";
 import { LLMGateway } from "./LLMGateway.js";
 import { MemorySystem } from "./MemorySystem.js";
 import { CircuitBreaker } from "./CircuitBreaker.js";
+import { KnowledgeFabricValidator } from "./KnowledgeFabricValidator.js";
 import { BaseAgent } from "./agents/BaseAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { TargetAgent } from "./agents/TargetAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
+import type { GroundTruthIntegrationService } from "../../services/GroundTruthIntegrationService.js";
 
 // Maps agent type strings to lifecycle stages for config construction
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   opportunity: "opportunity",
   target: "target",
+  "financial-modeling": "target", // financial modeling is part of the DRAFTING/target phase
   expansion: "expansion",
   integrity: "integrity",
   realization: "realization",
+  "financial-modeling": "target",
 };
 
 // Maps agent types to their fabric agent classes.
-// Only lifecycle agents have fabric implementations; support agents
-// (research, narrative, etc.) are not yet implemented as fabric agents.
 const FABRIC_AGENT_CLASSES: Partial<
   Record<string, new (config: AgentConfig, organizationId: string, memorySystem: MemorySystem, llmGateway: LLMGateway, circuitBreaker: CircuitBreaker) => BaseAgent>
 > = {
   opportunity: OpportunityAgent,
   target: TargetAgent,
+  "financial-modeling": FinancialModelingAgent,
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
   realization: RealizationAgent,
+  "financial-modeling": FinancialModelingAgent,
 };
 
 export interface AgentFactoryDeps {
   llmGateway: LLMGateway;
   memorySystem: MemorySystem;
   circuitBreaker: CircuitBreaker;
+  /** Optional — when provided, agents get Knowledge Fabric hallucination detection */
+  groundTruthService?: GroundTruthIntegrationService;
 }
 
 /**
@@ -58,11 +66,16 @@ export class AgentFactory {
   private llmGateway: LLMGateway;
   private memorySystem: MemorySystem;
   private circuitBreaker: CircuitBreaker;
+  private knowledgeFabricValidator: KnowledgeFabricValidator | null;
 
   constructor(deps: AgentFactoryDeps) {
     this.llmGateway = deps.llmGateway;
     this.memorySystem = deps.memorySystem;
     this.circuitBreaker = deps.circuitBreaker;
+    this.knowledgeFabricValidator = new KnowledgeFabricValidator(
+      deps.memorySystem,
+      deps.groundTruthService ?? null,
+    );
   }
 
   /**
@@ -133,13 +146,19 @@ export class AgentFactory {
       organization_id: organizationId,
     });
 
-    return new AgentClass(
+    const agent = new AgentClass(
       config,
       organizationId,
       this.memorySystem,
       this.llmGateway,
       this.circuitBreaker,
     );
+
+    if (this.knowledgeFabricValidator) {
+      agent.setKnowledgeFabricValidator(this.knowledgeFabricValidator);
+    }
+
+    return agent;
   }
 
   /**

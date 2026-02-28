@@ -2,7 +2,7 @@
  * Guest Access Service Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getGuestAccessService } from '../../GuestAccessService';
 
 // Mock Supabase

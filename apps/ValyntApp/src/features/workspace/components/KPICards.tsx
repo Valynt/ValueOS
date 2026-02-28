@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { TrendingUp, Clock, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Clock, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface KPIData {

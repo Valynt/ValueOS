@@ -2,7 +2,11 @@
  * Idempotency Guard
  *
  * Prevents duplicate agent execution by checking/storing results
- * keyed by a UUIDv4 idempotency key in Redis.
+ * keyed by a deterministic idempotency key in Redis.
+ *
+ * Keys should be derived from the semantic identity of the operation
+ * (e.g., "case-123:model:0") so that retries of the same logical step
+ * hit the cache — even across process restarts.
  *
  * - Before execution: check Redis for `idempotency:{key}` — if exists, return cached result
  * - After execution: store result with 24-hour TTL
@@ -30,12 +34,14 @@ export interface IdempotencyResult<T = unknown> {
 
 const IDEMPOTENCY_PREFIX = 'idempotency:';
 const DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+const MAX_KEY_LENGTH = 512;
 
 // ============================================================================
 // Zod Schema for idempotency key validation
 // ============================================================================
 
-export const IdempotencyKeySchema = z.string().uuid();
+/** Accepts UUIDs or any non-empty string up to 512 chars (for deterministic step keys). */
+export const IdempotencyKeySchema = z.string().min(1).max(MAX_KEY_LENGTH);
 
 // ============================================================================
 // IdempotencyGuard
@@ -51,14 +57,15 @@ export class IdempotencyGuard {
   }
 
   /**
-   * Generate a new idempotency key (UUIDv4)
+   * Generate a new random idempotency key (UUIDv4).
+   * Prefer deterministic keys derived from step identity when possible.
    */
   static generateKey(): string {
     return crypto.randomUUID();
   }
 
   /**
-   * Validate that a key is a valid UUIDv4
+   * Validate that a key is acceptable (non-empty, bounded length).
    */
   static validateKey(key: string): boolean {
     return IdempotencyKeySchema.safeParse(key).success;
@@ -74,7 +81,9 @@ export class IdempotencyGuard {
     fn: () => Promise<T>
   ): Promise<IdempotencyResult<T>> {
     if (!IdempotencyGuard.validateKey(idempotencyKey)) {
-      throw new Error(`Invalid idempotency key: ${idempotencyKey}. Must be a valid UUIDv4.`);
+      throw new Error(
+        `Invalid idempotency key: "${idempotencyKey}". Must be a non-empty string (max ${MAX_KEY_LENGTH} chars).`
+      );
     }
 
     const cacheKey = `${IDEMPOTENCY_PREFIX}${idempotencyKey}`;

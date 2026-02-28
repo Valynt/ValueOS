@@ -6,7 +6,7 @@
  * SSRF protection, and HubSpot ID validation.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HubSpotProvider } from '../HubSpotProvider.js';
 
 describe('HubSpotProvider', () => {

@@ -6,8 +6,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  SubscriptionStateMachine,
   InvalidTransitionError,
+  SubscriptionStateMachine,
 } from "../SubscriptionStateMachine";
 import type { SubscriptionEvent } from "../SubscriptionStateMachine";
 import type { SubscriptionStatus } from "@shared/types/billing-events";

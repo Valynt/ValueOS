@@ -8,8 +8,8 @@ import { BaseService } from "./BaseService";
 import {
   AuthenticationError,
   RateLimitError,
-  SessionTimeoutAuthenticationError,
   ServiceError,
+  SessionTimeoutAuthenticationError,
   TokenAuthenticationError,
   ValidationError,
 } from "./errors";

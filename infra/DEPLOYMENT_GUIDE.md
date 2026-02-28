@@ -1,5 +1,9 @@
 # ValueCanvas Infrastructure Deployment Guide
 
+> **Note:** The canonical deployment guide is [`DEPLOY.md`](../DEPLOY.md) at the repo root.
+> This file describes aspirational AWS/Terraform infrastructure not yet validated for v1.
+> See also: [`ops/STAGING_DEPLOY_CHECKLIST.md`](../ops/STAGING_DEPLOY_CHECKLIST.md)
+
 Complete guide for deploying ValueCanvas infrastructure to AWS using Terraform and GitHub Actions.
 
 ## 📋 Table of Contents
@@ -345,6 +349,11 @@ Add these secrets:
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_KEY`
 - `TOGETHER_API_KEY`
+- `TOGETHER_PRIMARY_MODEL_NAME` (optional - backend default used if unset)
+- `TOGETHER_SECONDARY_MODEL_NAME` (optional)
+- `LLM_FALLBACK_ENABLED` (true|false)
+- `LLM_FALLBACK_MAX_ATTEMPTS` (integer)
+- `LLM_RETRY_BACKOFF_MS` (milliseconds)
 - `OPENAI_API_KEY`
 - `JWT_SECRET`
 - `ACM_CERTIFICATE_ARN`
@@ -357,6 +366,11 @@ Add these secrets:
 - `PROD_SUPABASE_ANON_KEY`
 - `PROD_SUPABASE_SERVICE_KEY`
 - `PROD_TOGETHER_API_KEY`
+- `PROD_TOGETHER_PRIMARY_MODEL_NAME` (recommended)
+- `PROD_TOGETHER_SECONDARY_MODEL_NAME` (optional)
+- `PROD_LLM_FALLBACK_ENABLED` (true|false)
+- `PROD_LLM_FALLBACK_MAX_ATTEMPTS` (integer)
+- `PROD_LLM_RETRY_BACKOFF_MS` (milliseconds)
 - `PROD_OPENAI_API_KEY`
 - `PROD_JWT_SECRET`
 - `PROD_ACM_CERTIFICATE_ARN`

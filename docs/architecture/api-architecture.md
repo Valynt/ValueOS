@@ -428,6 +428,32 @@ Use this template to document releases, highlight breaking changes, and track de
 
 *Source: `engineering/api/API_VERSIONING_POLICY.md`*
 
+## Scope and API classes
+
+- **Public APIs**: externally consumed APIs, SDK-facing routes, and any endpoint documented for customers or partners.
+- **Internal APIs**: service-to-service and platform-internal endpoints not exposed as customer contracts.
+
+## SemVer policy by API class
+
+### Public APIs
+
+- **MAJOR**: breaking contract changes (removed endpoint, removed/renamed required field, stricter validation, removed status code).
+- **MINOR**: additive non-breaking changes (new endpoint, optional request fields, additive response fields).
+- **PATCH**: implementation fixes with no contract changes.
+- Breaking changes require a new API version (for example, `v2`), a migration guide, and at least 90 days of overlap support unless a security exception is approved.
+
+### Internal APIs
+
+- Internal APIs may evolve faster but must still use backward-compatible changes within a release train.
+- Planned breaking changes require owner approval and release notes in platform changelog entries.
+- Internal consumers must pin to explicit versions and validate in pre-production before rollout.
+
+## Compatibility and deprecation requirements
+
+- OpenAPI contract checks in CI gate pull requests against `scripts/openapi.yaml`.
+- Deprecations must include replacement guidance, announced removal date, and impact notes for client teams.
+- Deprecated versions expose deprecation metadata headers until removal deadline.
+
 ## Supported Strategies
 
 - **URL versioning (preferred):** Prefix routes with `/api/v1/...`.

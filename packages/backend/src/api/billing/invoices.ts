@@ -20,14 +20,15 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  * GET /api/billing/invoices
  * List invoices for tenant
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = parseInt(req.query.offset as string) || 0;
     
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const invoices = await InvoiceService.getInvoices(tenantId, limit, offset);
@@ -43,12 +44,13 @@ router.get('/', async (req: Request, res: Response) => {
  * GET /api/billing/invoices/upcoming
  * Get upcoming invoice preview
  */
-router.get('/upcoming', async (req: Request, res: Response) => {
+router.get('/upcoming', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const upcomingInvoice = await InvoiceService.getUpcomingInvoice(tenantId);
@@ -64,14 +66,15 @@ router.get('/upcoming', async (req: Request, res: Response) => {
  * GET /api/billing/invoices/:id
  * Get invoice by ID
  */
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const invoiceId = req.params.id;
+    const invoiceId = req.params.id ?? '';
     
     const invoice = await InvoiceService.getInvoiceById(invoiceId);
     
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
     }
 
     res.json(invoice);
@@ -89,7 +92,7 @@ router.get('/:id/pdf', auditDataExport('invoice_pdf'), async (req: Request, res:
   try {
     const invoiceId = req.params.id;
     
-    const pdfUrl = await InvoiceService.downloadInvoicePDF(invoiceId);
+    const pdfUrl = await InvoiceService.downloadInvoicePDF(invoiceId ?? '');
     
     res.json({ pdfUrl });
   } catch (error) {

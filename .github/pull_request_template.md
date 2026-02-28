@@ -95,6 +95,7 @@ Closes #
 <!-- Ensure all items are completed before requesting review -->
 
 ### Code Quality
+- [ ] Strict-zone TODO/FIXME comments (if any) include metadata: `TODO(ticket:<id> owner:<team|user> date:YYYY-MM-DD)`
 - [ ] Code follows project coding standards
 - [ ] Self-review completed
 - [ ] Comments added for complex logic
@@ -108,6 +109,7 @@ Closes #
 - [ ] API documentation updated (if needed)
 - [ ] Code comments added where necessary
 - [ ] CHANGELOG updated (if applicable)
+- [ ] Observability contract updated for telemetry/config changes (`infra/observability/README.md`)
 
 ### Dependencies
 - [ ] No unnecessary dependencies added

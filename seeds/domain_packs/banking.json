@@ -1,0 +1,197 @@
+{
+  "pack": {
+    "name": "Banking & Financial Services",
+    "slug": "banking",
+    "industry": "Banking",
+    "description": "KPI overlay and financial assumptions for regulated financial institutions. Covers Basel capital efficiency, regulatory reporting costs, fraud exposure, and audit automation.",
+    "version": "1.0.0",
+    "status": "active",
+    "glossary": {
+      "revenue_uplift": "Net Interest Margin Expansion",
+      "cost_reduction": "Core System Modernization Savings",
+      "risk_exposure": "Regulatory Fine Probability",
+      "payback_period": "Capital Efficiency Payback",
+      "customer_value": "Customer Lifetime Revenue",
+      "efficiency_gain": "Straight-Through Processing Rate"
+    },
+    "compliance_rules": [
+      "Basel III capital adequacy requirements apply to all risk-weighted projections",
+      "SOX compliance costs must be included in any IT modernization business case",
+      "PCI-DSS scope changes must be reflected in security cost projections"
+    ]
+  },
+  "kpis": [
+    {
+      "kpi_key": "core_modernization_savings",
+      "default_name": "Core System Modernization Savings",
+      "description": "Annual cost reduction from replacing legacy core banking systems",
+      "unit": "USD",
+      "direction": "up",
+      "category": "Cost",
+      "baseline_hint": "Typical legacy maintenance: $15M–$50M/year",
+      "target_hint": "Target: 30–50% reduction in first 3 years",
+      "sort_order": 1
+    },
+    {
+      "kpi_key": "regulatory_reporting_cost",
+      "default_name": "Regulatory Reporting Cost Impact",
+      "description": "Change in cost of producing regulatory reports (Basel, CCAR, DFAST)",
+      "unit": "USD",
+      "direction": "down",
+      "category": "Compliance",
+      "baseline_hint": "Typical: $5M–$20M annually",
+      "target_hint": "Automation target: 40–60% reduction",
+      "sort_order": 2
+    },
+    {
+      "kpi_key": "basel_capital_efficiency",
+      "default_name": "Basel III Capital Efficiency Delta",
+      "description": "Improvement in risk-weighted asset calculations reducing capital reserve requirements",
+      "unit": "bps",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "Current RWA ratio: typically 10–14%",
+      "target_hint": "Target: 20–50 bps improvement",
+      "sort_order": 3
+    },
+    {
+      "kpi_key": "fraud_exposure_reduction",
+      "default_name": "Fraud Exposure Reduction",
+      "description": "Reduction in annual fraud losses through improved detection and prevention",
+      "unit": "USD",
+      "direction": "up",
+      "category": "Risk",
+      "baseline_hint": "Typical fraud losses: 0.1–0.3% of transaction volume",
+      "target_hint": "Target: 30–50% reduction in false negatives",
+      "sort_order": 4
+    },
+    {
+      "kpi_key": "audit_automation_savings",
+      "default_name": "Audit Automation Savings",
+      "description": "Cost reduction from automating internal and external audit preparation",
+      "unit": "USD",
+      "direction": "up",
+      "category": "Efficiency",
+      "baseline_hint": "Typical audit prep: 2,000–5,000 person-hours/year",
+      "target_hint": "Automation target: 50–70% reduction",
+      "sort_order": 5
+    },
+    {
+      "kpi_key": "stp_rate",
+      "default_name": "Straight-Through Processing Rate",
+      "description": "Percentage of transactions processed without manual intervention",
+      "unit": "%",
+      "direction": "up",
+      "category": "Efficiency",
+      "baseline_hint": "Typical: 70–85%",
+      "target_hint": "Best-in-class: >95%",
+      "sort_order": 6
+    },
+    {
+      "kpi_key": "kyc_aml_cost",
+      "default_name": "KYC/AML Compliance Cost",
+      "description": "Annual cost of Know Your Customer and Anti-Money Laundering operations",
+      "unit": "USD",
+      "direction": "down",
+      "category": "Compliance",
+      "baseline_hint": "Typical: $50M–$500M for large banks",
+      "target_hint": "Target: 20–40% reduction via automation",
+      "sort_order": 7
+    },
+    {
+      "kpi_key": "operational_risk_capital",
+      "default_name": "Operational Risk Capital Impact",
+      "description": "Change in operational risk capital charge under Basel framework",
+      "unit": "USD",
+      "direction": "down",
+      "category": "Risk",
+      "baseline_hint": "Typically 12–15% of minimum capital requirement",
+      "target_hint": "Target: reduce by improving loss event frequency",
+      "sort_order": 8
+    },
+    {
+      "kpi_key": "cyber_breach_liability",
+      "default_name": "Cyber Breach Liability Reduction",
+      "description": "Reduction in expected annual loss from cybersecurity incidents",
+      "unit": "USD",
+      "direction": "up",
+      "category": "Risk",
+      "baseline_hint": "Average breach cost: $5M–$10M per incident",
+      "target_hint": "Target: reduce incident probability by 40–60%",
+      "sort_order": 9
+    },
+    {
+      "kpi_key": "nii_expansion",
+      "default_name": "Net Interest Income Expansion",
+      "description": "Incremental net interest income from improved asset-liability management",
+      "unit": "USD",
+      "direction": "up",
+      "category": "Revenue",
+      "baseline_hint": "NIM typically 2.5–3.5%",
+      "target_hint": "Target: 5–15 bps improvement",
+      "sort_order": 10
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption_key": "discount_rate",
+      "display_name": "Discount Rate",
+      "description": "Weighted average cost of capital — higher for regulated financial institutions",
+      "value_type": "number",
+      "value_number": 12,
+      "unit": "%",
+      "category": "Financial",
+      "sort_order": 1
+    },
+    {
+      "assumption_key": "risk_premium",
+      "display_name": "Risk Premium",
+      "description": "Additional risk adjustment for regulatory and operational risk",
+      "value_type": "number",
+      "value_number": 4,
+      "unit": "%",
+      "category": "Risk",
+      "sort_order": 2
+    },
+    {
+      "assumption_key": "payback_tolerance_months",
+      "display_name": "Payback Tolerance",
+      "description": "Maximum acceptable payback period — longer for banking due to regulatory cycles",
+      "value_type": "number",
+      "value_number": 21,
+      "unit": "months",
+      "category": "Financial",
+      "sort_order": 3
+    },
+    {
+      "assumption_key": "compliance_cost_multiplier",
+      "display_name": "Compliance Cost Multiplier",
+      "description": "Multiplier for regulatory compliance overhead (SOX, Basel, PCI-DSS)",
+      "value_type": "number",
+      "value_number": 1.35,
+      "unit": "x",
+      "category": "Compliance",
+      "sort_order": 4
+    },
+    {
+      "assumption_key": "regulatory_fine_probability",
+      "display_name": "Regulatory Fine Probability",
+      "description": "Annual probability of material regulatory fine or enforcement action",
+      "value_type": "number",
+      "value_number": 8,
+      "unit": "%",
+      "category": "Risk",
+      "sort_order": 5
+    },
+    {
+      "assumption_key": "avg_implementation_months",
+      "display_name": "Average Implementation Timeline",
+      "description": "Typical project duration for core banking modernization",
+      "value_type": "number",
+      "value_number": 18,
+      "unit": "months",
+      "category": "Financial",
+      "sort_order": 6
+    }
+  ]
+}

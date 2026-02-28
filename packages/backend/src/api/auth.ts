@@ -22,6 +22,8 @@ import { auditLogService } from "../services/AuditLogService.js"
 import { createServerSupabaseClient } from "@shared/lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security.js"
 import { getConfig } from "../config/environment.js"
+import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
+import { authRateLimiter, recordAuthFailure } from "../middleware/authRateLimiter.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
@@ -34,7 +36,13 @@ function getServerSupabase() {
   return serverSupabase;
 }
 
-function resolveActor(user?: any) {
+type AuthActor = {
+  id?: string;
+  email?: string;
+  user_metadata?: { full_name?: string; name?: string };
+};
+
+function resolveActor(user?: AuthActor) {
   return {
     id: user?.id,
     email: user?.email,
@@ -45,6 +53,7 @@ function resolveActor(user?: any) {
 
 router.post(
   "/login",
+  authRateLimiter("login"),
   validateRequest(ValidationSchemas.login),
   async (req: Request, res: Response) => {
     try {
@@ -57,6 +66,8 @@ router.post(
       }
 
       const result = await authService.login({ email, password, otpCode });
+
+      await userProfileDirectoryService.syncProfile(result.user.id);
 
       logger.info("User login successful", {
         userId: String(sanitizeForLogging(result.user.id)),
@@ -82,7 +93,7 @@ router.post(
       });
 
       // Return session info (client will handle token storage)
-      res.json({
+      return res.json({
         user: {
           id: result.user.id,
           email: result.user.email,
@@ -102,19 +113,21 @@ router.post(
       });
 
       if (error instanceof AuthenticationError) {
+        recordAuthFailure(req, "login");
         return res.status(401).json({ error: error.message });
       }
       if (error instanceof ValidationError) {
         return res.status(400).json({ error: error.message });
       }
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
 router.post(
   "/signup",
+  authRateLimiter("signup"),
   validateRequest(ValidationSchemas.signup),
   async (req: Request, res: Response) => {
     try {
@@ -127,6 +140,8 @@ router.post(
       }
 
       const result = await authService.signup({ email, password, fullName });
+
+      await userProfileDirectoryService.syncProfile(result.user.id);
 
       logger.info("User signup successful", {
         userId: String(sanitizeForLogging(result.user.id)),
@@ -163,7 +178,7 @@ router.post(
         });
       }
 
-      res.status(201).json({
+      return res.status(201).json({
         user: {
           id: result.user.id,
           email: result.user.email,
@@ -187,13 +202,14 @@ router.post(
         return res.status(409).json({ error: error.message });
       }
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
 router.post(
   "/password/reset",
+  authRateLimiter("passwordReset"),
   validateRequest({
     email: { type: "email" as const, required: true },
   }),
@@ -239,7 +255,7 @@ router.post(
       }
 
       // Always return success to prevent email enumeration
-      res.json({
+      return res.json({
         message: "If an account with that email exists, a password reset link has been sent.",
       });
     } catch (error) {
@@ -247,13 +263,14 @@ router.post(
         errorMsg: String(error),
       });
       // Don't expose internal errors for security
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
 router.post(
   "/verify/resend",
+  authRateLimiter("verifyResend"),
   validateRequest({
     email: { type: "email" as const, required: true },
   }),
@@ -303,12 +320,12 @@ router.post(
         logger.warn("Verification audit lookup failed", { errorMsg: String(auditError) });
       }
 
-      res.json({ message: "Verification email resent" });
+      return res.json({ message: "Verification email resent" });
     } catch (error) {
       logger.error("Verification resend failed", error instanceof Error ? error : undefined, {
         errorMsg: String(error),
       });
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -350,7 +367,7 @@ router.post(
       });
     }
 
-    res.json({
+    return res.json({
       message: "Password updated successfully",
     });
   } catch (error) {
@@ -365,7 +382,7 @@ router.post(
       return res.status(401).json({ error: error.message });
     }
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -391,7 +408,7 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       message: "Logged out successfully",
     });
   } catch (error) {
@@ -399,11 +416,11 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
       errorMsg: String(error),
     });
     // Logout should always succeed on client side
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.get("/session", async (_req: Request, res: Response) => {
+router.get("/session", async (req: Request, res: Response) => {
   try {
     const session = await authService.getSession();
 
@@ -411,7 +428,7 @@ router.get("/session", async (_req: Request, res: Response) => {
       return res.status(401).json({ error: "No active session" });
     }
 
-    res.json({
+    return res.json({
       user: {
         id: session.user.id,
         email: session.user.email,
@@ -427,11 +444,13 @@ router.get("/session", async (_req: Request, res: Response) => {
     logger.error("Session retrieval failed", error instanceof Error ? error : undefined, {
       errorMsg: String(error),
     });
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.post("/refresh", async (_req: Request, res: Response) => {
+// No requireAuth — clients call /refresh with an expired access token
+// and a valid refresh token. The auth middleware would reject expired tokens.
+router.post("/refresh", async (req: Request, res: Response) => {
   try {
     const result = await authService.refreshSession();
 
@@ -439,7 +458,7 @@ router.post("/refresh", async (_req: Request, res: Response) => {
       userId: String(sanitizeForLogging(result.user.id)),
     });
 
-    res.json({
+    return res.json({
       user: {
         id: result.user.id,
         email: result.user.email,
@@ -462,7 +481,7 @@ router.post("/refresh", async (_req: Request, res: Response) => {
       return res.status(401).json({ error: error.message });
     }
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

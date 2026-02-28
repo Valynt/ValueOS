@@ -1,60 +1,76 @@
 # syntax=docker/dockerfile:1.7
 
-# Production build for ValyntApp frontend
-# 2-stage: install + build → nginx runtime
-
 ARG NODE_VERSION=20.19.0
 ARG PNPM_VERSION=9.15.0
 ARG NGINX_IMAGE=nginx:1.27-alpine
 
-# Stage 1: Build
-FROM node:${NODE_VERSION}-alpine AS build
+# Stage 1: base tooling
+FROM node:${NODE_VERSION}-alpine AS base
 ARG PNPM_VERSION
-ARG VITE_SUPABASE_URL=http://localhost:54321
-ARG VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-ARG VITE_API_BASE_URL=/api
-ARG VITE_APP_URL=http://localhost:5173
-
 ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
+ENV PNPM_STORE_PATH=/pnpm/store
+ENV PATH=${PNPM_HOME}:${PATH}
+WORKDIR /workspace
+
+RUN apk add --no-cache libc6-compat \
+    && corepack enable \
+    && corepack prepare pnpm@${PNPM_VERSION} --activate \
+    && pnpm config set store-dir ${PNPM_STORE_PATH}
+
+# Stage 2: prune workspace for frontend only
+FROM base AS prune
+WORKDIR /workspace
+COPY . .
+RUN pnpm dlx turbo prune --docker --scope=valynt-app
+
+# Stage 3: install deps from pruned workspace with cache-friendly fetch
+FROM base AS deps
+WORKDIR /workspace
+COPY --from=prune /workspace/out/json/ ./
+COPY --from=prune /workspace/.npmrc ./
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm fetch --frozen-lockfile
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    NODE_ENV=development pnpm install --frozen-lockfile --offline
+
+# Stage 4: build frontend
+FROM deps AS build
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_API_BASE_URL=/api
+ARG VITE_APP_URL
 ENV NODE_ENV=production
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 ENV VITE_APP_URL=${VITE_APP_URL}
+WORKDIR /workspace
 
-WORKDIR /app
+COPY --from=prune /workspace/out/full/ ./
+RUN pnpm --filter valynt-app build \
+    && test -f apps/ValyntApp/dist/index.html
 
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Stage 5: development
+FROM deps AS development
+WORKDIR /workspace
+COPY --from=prune /workspace/out/full/ ./
+CMD ["pnpm", "--filter", "@valueos/frontend", "dev", "--host", "0.0.0.0", "--port", "5173"]
 
-# Copy full workspace (pnpm needs all package.json files to resolve)
-COPY . .
-
-# Install all deps (dev included — needed for vite)
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    NODE_ENV=development pnpm install --frozen-lockfile
-
-# Build
-RUN cd apps/ValyntApp && pnpm exec vite build
-
-# Verify
-RUN test -f apps/ValyntApp/dist/index.html
-
-# Stage 2: Runtime
+# Stage 6: runtime
 FROM ${NGINX_IMAGE} AS runtime
-
-RUN addgroup -g 1001 -S nginx-app && \
-    adduser -u 1001 -S nginx-app -G nginx-app
+RUN addgroup -g 1001 -S nginx-app \
+    && adduser -u 1001 -S nginx-app -G nginx-app
 
 COPY infra/docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY --from=build --chown=nginx-app:nginx-app /app/apps/ValyntApp/dist /usr/share/nginx/html
+COPY --from=build --chown=nginx-app:nginx-app /workspace/apps/ValyntApp/dist /usr/share/nginx/html
 
-RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
-    chown -R nginx-app:nginx-app /var/cache/nginx /var/run /var/log/nginx /etc/nginx/conf.d
-
-# Remove source maps from production
-RUN find /usr/share/nginx/html -type f -name '*.map' -delete
+RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx \
+    && chown -R nginx-app:nginx-app /var/cache/nginx /var/run /var/log/nginx /etc/nginx/conf.d \
+    && find /usr/share/nginx/html -type f -name '*.map' -delete \
+    && rm -rf /tmp/* /var/tmp/*
 
 USER nginx-app
 

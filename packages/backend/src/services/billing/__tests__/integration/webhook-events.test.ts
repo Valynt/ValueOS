@@ -5,12 +5,12 @@
  * These tests validate end-to-end processing of each Stripe webhook event.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  getTestSupabaseClient,
-  cleanupBillingTables,
-  seedTestData,
   assertRecordExists,
+  cleanupBillingTables,
+  getTestSupabaseClient,
+  seedTestData,
   waitForCondition,
 } from "../__helpers__/db-helpers";
 import {

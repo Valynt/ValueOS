@@ -494,7 +494,8 @@ export class ROIFormulaInterpreter {
   }
 
   /**
-   * Create default formula context from KPI hypotheses
+   * Create default formula context from KPI hypotheses,
+   * enriched with domain pack assumptions as fallbacks.
    */
   async createContextFromKPIs(valueCaseId: string): Promise<FormulaContext> {
     const { data, error } = await this.supabase
@@ -525,10 +526,53 @@ export class ROIFormulaInterpreter {
       }
     }
 
+    // Enrich with domain pack assumptions as fallbacks
+    await this.enrichWithPackDefaults(valueCaseId, variables);
+
     return {
       variables,
       functions: {},
     };
+  }
+
+  /**
+   * Pull domain pack assumptions for the case and inject any missing variables.
+   * Case-level values always take precedence (already in the map).
+   */
+  private async enrichWithPackDefaults(
+    valueCaseId: string,
+    variables: Record<string, FormulaVariable>
+  ): Promise<void> {
+    // Get the case's domain_pack_id
+    const { data: caseData } = await this.supabase
+      .from('value_cases')
+      .select('domain_pack_id')
+      .eq('id', valueCaseId)
+      .single();
+
+    const packId = caseData?.domain_pack_id;
+    if (!packId) return;
+
+    // Load pack assumptions
+    const { data: packAssumptions } = await this.supabase
+      .from('domain_pack_assumptions')
+      .select('*')
+      .eq('pack_id', packId);
+
+    if (!packAssumptions) return;
+
+    for (const assumption of packAssumptions) {
+      const varName = this.sanitizeVariableName(assumption.assumption_key);
+      // Only inject if not already present from case-level data
+      if (!variables[varName] && assumption.value_number != null) {
+        variables[varName] = {
+          name: varName,
+          value: assumption.value_number,
+          unit: assumption.unit ?? undefined,
+          source: `domain_pack:${packId}`,
+        };
+      }
+    }
   }
 
   /**

@@ -1,16 +1,17 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  UUID,
-  Narrative,
-  NarrativeStatus,
   Fact,
   FactStatus,
   ModelRun,
-  PersonaType,
+  Narrative,
   NarrativeRequest,
+  NarrativeStatus,
+  PersonaType,
+  UUID,
 } from "./types";
 import { MemoryService } from "./MemoryService.js"
 import { ModelRunEngine } from "./ModelRunEngine.js"
+import { DomainPackService } from "../domain-packs/DomainPackService.js";
 
 export class NarrativeEngine {
   constructor(
@@ -33,6 +34,9 @@ export class NarrativeEngine {
     });
 
     body = this.injectCitations(body, facts, modelRun);
+
+    // Apply domain pack glossary if a pack is attached to the case
+    body = await this.applyGlossary(body, request.valueCaseId);
 
     const narrative: Narrative = {
       id: crypto.randomUUID() as UUID,
@@ -136,6 +140,47 @@ export class NarrativeEngine {
     const footer = `\n\n---\n**Data Provenance**\n- Calculation Hash: ${runHash.substring(0, 8)}\n${citationList}`;
 
     return citedBody + footer;
+  }
+
+  /**
+   * Replace neutral terms with domain-specific terminology from the pack glossary.
+   * E.g., "revenue_uplift" → "Net Interest Margin Expansion" for Banking.
+   */
+  private async applyGlossary(body: string, valueCaseId: UUID): Promise<string> {
+    try {
+      const { data: vc } = await this.supabase
+        .from("value_cases")
+        .select("domain_pack_id, domain_pack_snapshot")
+        .eq("id", valueCaseId)
+        .single();
+
+      if (!vc) return body;
+
+      // Prefer snapshot glossary for reproducibility
+      let glossary: Record<string, string> = {};
+      const snapshot = vc.domain_pack_snapshot as Record<string, unknown> | null;
+      if (snapshot?.glossary) {
+        glossary = snapshot.glossary as Record<string, string>;
+      } else if (vc.domain_pack_id) {
+        const service = new DomainPackService(this.supabase);
+        const packData = await service.getPackWithLayers(vc.domain_pack_id);
+        const pack = packData.pack as Record<string, unknown>;
+        glossary = (pack.glossary as Record<string, string>) ?? {};
+      }
+
+      if (Object.keys(glossary).length === 0) return body;
+
+      let result = body;
+      for (const [neutral, domain] of Object.entries(glossary)) {
+        // Case-insensitive replacement of neutral terms with domain-specific ones
+        const pattern = new RegExp(`\\b${neutral.replace(/_/g, '[_ ]')}\\b`, 'gi');
+        result = result.replace(pattern, domain);
+      }
+      return result;
+    } catch {
+      // Non-fatal: return body unchanged if glossary lookup fails
+      return body;
+    }
   }
 
   private getTemplate(persona: PersonaType): string {

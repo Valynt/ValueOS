@@ -3,8 +3,8 @@
  * Implements XSS prevention, input validation, and CSRF protection
  */
 
-import React, { useState, useCallback } from 'react';
-import { sanitizeTemplateInput, validateROIInputs, logSecurityEvent, withSecurity } from '../../utils/templateSecurity';
+import React, { useCallback, useState } from 'react';
+import { logSecurityEvent, sanitizeTemplateInput, validateROIInputs, withSecurity } from '../../utils/templateSecurity';
 import ROICalculator from './ROICalculator';
 
 // Types with validation

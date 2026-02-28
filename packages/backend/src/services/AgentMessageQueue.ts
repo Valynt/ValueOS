@@ -1,4 +1,4 @@
-import { Queue, Worker, Job } from "bullmq";
+import { Job, Queue, Worker } from "bullmq";
 import { logger } from "../lib/logger.js"
 import { getAgentAPI } from "./AgentAPI.js"
 import { AgentType } from "./agent-types.js"

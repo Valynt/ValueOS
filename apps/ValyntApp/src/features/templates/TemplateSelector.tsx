@@ -6,18 +6,18 @@
 
 import React, { useState } from 'react';
 import {
-  ChevronDown,
-  Check,
   BarChart3,
-  Zap,
-  Shield,
-  TrendingUp,
+  Check,
+  ChevronDown,
   DollarSign,
+  Shield,
   Star,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_TEMPLATES } from './defaultTemplates';
-import type { ValueCaseTemplate, TemplateCategory } from './types';
+import type { TemplateCategory, ValueCaseTemplate } from './types';
 
 const CATEGORY_ICONS: Record<TemplateCategory, React.ComponentType<any>> = {
   general: BarChart3,

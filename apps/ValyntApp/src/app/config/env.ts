@@ -12,12 +12,6 @@ export interface AppConfig {
     url: string;
     anonKey: string;
   };
-  oidc: {
-    domain: string;
-    clientId: string;
-    audience: string;
-    redirectUri: string;
-  };
   features: {
     billing: boolean;
   };
@@ -56,12 +50,6 @@ export function loadConfig(): AppConfig {
     supabase: {
       url: getEnv("VITE_SUPABASE_URL", ""),
       anonKey: getEnv("VITE_SUPABASE_ANON_KEY", ""),
-    },
-    oidc: {
-      domain: getEnv("VITE_AUTH0_DOMAIN", ""),
-      clientId: getEnv("VITE_AUTH0_CLIENT_ID", ""),
-      audience: getEnv("VITE_AUTH0_AUDIENCE", ""),
-      redirectUri: getEnv("VITE_AUTH0_REDIRECT_URI", window.location.origin),
     },
     features: {
       billing: getBoolEnv("VITE_BILLING_ENABLED", false),

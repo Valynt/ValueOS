@@ -1,50 +1,38 @@
 {
-  "name": "ValueOS Development Environment",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "name": "ValueOS",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker": {
-      "moby": false
+    "ghcr.io/devcontainers/features/node": {
+      "version": "20.19.0"
     },
-    "ghcr.io/devcontainers/features/github-cli": {}
+    "ghcr.io/devcontainers/features/docker-in-docker": {}
   },
-  "forwardPorts": [
-    3001,
-    5173,
-    8000,
-    8001,
-    54323,
-    54324
-  ],
+  "forwardPorts": [5173, 8000, 5432, 6379],
   "portsAttributes": {
-    "3001": {
-      "label": "Frontend (Vite)",
-      "onAutoForward": "notify"
-    },
     "5173": {
       "label": "Vite Dev Server",
       "onAutoForward": "notify"
     },
     "8000": {
-      "label": "Kong Gateway",
-      "onAutoForward": "silent"
+      "label": "Backend API",
+      "onAutoForward": "notify"
     },
-    "8001": {
-      "label": "Kong Admin",
-      "onAutoForward": "silent"
-    },
-    "54323": {
+    "5432": {
       "label": "PostgreSQL",
       "onAutoForward": "silent"
     },
-    "54324": {
-      "label": "Supabase Studio",
+    "6379": {
+      "label": "Redis",
       "onAutoForward": "silent"
     }
   },
   "containerEnv": {
     "NODE_ENV": "development",
-    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-    "NPM_CONFIG_FUND": "false",
-    "PNPM_HOME": "/home/node/.local/share/pnpm"
-  }
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm"
+  },
+  "remoteEnv": {
+    "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"
+  },
+  "remoteUser": "vscode"
 }

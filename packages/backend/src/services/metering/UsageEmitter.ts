@@ -3,20 +3,11 @@
  * Emits usage events from services to database queue
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
 
 const logger = createLogger({ component: "UsageEmitter" });
-
-// Server-only Supabase client
-const supabase =
-  typeof window === "undefined"
-    ? createClient(
-        import.meta.env?.VITE_SUPABASE_URL || "",
-        import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ""
-      )
-    : (null as any);
 
 // In-memory buffer for failed events (dead-letter queue)
 interface FailedUsageEvent {
@@ -34,6 +25,12 @@ const MAX_RETRY_COUNT = 3;
 const failedEventsBuffer: FailedUsageEvent[] = [];
 
 class UsageEmitter {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
+
   /**
    * Emit usage event (non-blocking)
    */
@@ -46,7 +43,7 @@ class UsageEmitter {
   ): Promise<void> {
     try {
       // Non-blocking insert
-      const { error } = await supabase.from("usage_events").insert({
+      const { error } = await this.supabase.from("usage_events").insert({
         tenant_id: tenantId,
         metric,
         amount,
@@ -145,7 +142,7 @@ class UsageEmitter {
       }
 
       try {
-        const { error } = await supabase.from("usage_events").insert({
+        const { error } = await this.supabase.from("usage_events").insert({
           tenant_id: event.tenantId,
           metric: event.metric,
           amount: event.amount,
@@ -185,7 +182,7 @@ class UsageEmitter {
     event: FailedUsageEvent
   ): Promise<void> {
     try {
-      await supabase.from("dead_letter_events").insert({
+      await this.supabase.from("dead_letter_events").insert({
         event_type: "usage_event",
         tenant_id: event.tenantId,
         payload: {
@@ -274,4 +271,4 @@ class UsageEmitter {
   }
 }
 
-export default new UsageEmitter();
+export default UsageEmitter;

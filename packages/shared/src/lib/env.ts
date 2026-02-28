@@ -111,13 +111,30 @@ export function getSupabaseConfig(): {
   const serviceRoleKey =
     getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY");
   const config: { url: string; anonKey: string; serviceRoleKey?: string } = {
-    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_PUBLIC_URL") || getEnvVar("SUPABASE_URL") || getEnvVar("SUPABASE_INTERNAL_URL") || "",
     anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
   };
   if (serviceRoleKey) {
     config.serviceRoleKey = serviceRoleKey;
   }
   return config;
+}
+
+/**
+ * Server-only Supabase config. Returns service_role key from process.env.
+ * Never call from browser code.
+ */
+export function getSupabaseServerConfig(): {
+  url: string;
+  serviceRoleKey: string;
+} {
+  if (_isBrowser) {
+    throw new Error("getSupabaseServerConfig must not be called in browser context");
+  }
+  return {
+    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_PUBLIC_URL") || getEnvVar("SUPABASE_URL") || getEnvVar("SUPABASE_INTERNAL_URL") || "",
+    serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY") || "",
+  };
 }
 
 export function getGroundtruthConfig(): {
@@ -145,7 +162,7 @@ export function getLLMCostTrackerConfig(): {
   tableName: string;
 } {
   return {
-    supabaseUrl: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    supabaseUrl: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_PUBLIC_URL") || getEnvVar("SUPABASE_URL") || getEnvVar("SUPABASE_INTERNAL_URL") || "",
     supabaseKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
     tableName: getEnvVar("LLM_COST_TABLE_NAME") || "llm_costs",
   };

@@ -2,8 +2,8 @@
  * Redaction utility tests
  */
 
-import { describe, it, expect } from 'vitest';
-import { redactSensitiveData, redactHeaders } from '../redaction.js'
+import { describe, expect, it } from 'vitest';
+import { redactHeaders, redactSensitiveData } from '../redaction.js'
 
 describe('redaction utilities', () => {
   it('redacts sensitive header values', () => {

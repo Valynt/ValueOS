@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from "react";
-import { ConfirmDialog, AlertDialog } from "@/components/ui";
+import { AlertDialog, ConfirmDialog } from "@/components/ui";
 import { startRegistration } from "@simplewebauthn/browser";
 import { webAuthnService } from "../../services/WebAuthnService";
 import { logger } from "../../lib/logger";

@@ -39,7 +39,7 @@ spec:
 
       containers:
         - name: frontend
-          image: REGISTRY_URL/valynt-frontend:latest
+          image: ghcr.io/valynt/valueos-frontend:latest
           imagePullPolicy: Always
 
           env:

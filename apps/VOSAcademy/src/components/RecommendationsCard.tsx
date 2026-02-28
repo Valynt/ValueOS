@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, TrendingUp, BookOpen, Target, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, BookOpen, Lightbulb, Loader2, Target, TrendingUp } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 

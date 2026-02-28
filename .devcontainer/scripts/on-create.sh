@@ -1,139 +1,60 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# on-create.sh
-# Runs once when the DevContainer is created
-# Performs initial setup and configuration
+log()  { printf '[on-create] %s\n' "$*" >&2; }
+warn() { printf '[on-create][WARN] %s\n' "$*" >&2; }
 
-echo "🔧 Running on-create setup..."
+# Minimal, safe container-level init + mount diagnostics.
+# IMPORTANT: do NOT rely on workspace mounts or workspace files here —
+# that logic belongs in post-create (runs after workspace is mounted).
 
-# =============================================================================
-# ENVIRONMENT SETUP
-# =============================================================================
+WS="${WORKSPACE_FOLDER:-/workspaces/ValueOS}"
 
-# Load environment variables
-if [ -f .devcontainer/.env ]; then
-    echo "📋 Loading environment variables..."
-    export $(grep -v '^#' .devcontainer/.env | xargs)
-elif [ -f .devcontainer/.env.template ] && [ ! -f .devcontainer/.env ]; then
-    cp .devcontainer/.env.template .devcontainer/.env
-    echo "✅ Created .env from template"
-elif [ ! -f .devcontainer/.env ]; then
-    echo "⚠️  No .env or .env.template found, skipping .env creation"
+log "WORKSPACE_FOLDER=${WS}"
+
+# Minimal mount diagnostics (safe)
+if [ -d /workspaces ]; then
+  log "/workspaces exists"
 else
-    echo "Skipping .env creation"
+  warn "/workspaces does NOT exist (workspace mount may not be ready yet)"
 fi
 
-# =============================================================================
-# DEPENDENCY INSTALLATION
-# =============================================================================
-
-echo "📦 Installing dependencies..."
-
-# Enable pnpm
-corepack enable
-corepack prepare pnpm@latest --activate
-
-# Install workspace dependencies
-if [ -f pnpm-lock.yaml ]; then
-    echo "📥 Installing pnpm dependencies..."
-    pnpm install --frozen-lockfile || echo "⚠️ pnpm install failed (will retry manually)"
+if [ -d "${WS}" ]; then
+  log "Workspace dir exists: ${WS}"
 else
-    echo "📥 Installing pnpm dependencies (no lockfile)..."
-    pnpm install
+  warn "Workspace dir missing: ${WS}"
 fi
 
-# =============================================================================
-# DATABASE INITIALIZATION
-# =============================================================================
-
-echo "🗄️  Waiting for database to be ready..."
-
-# Wait for PostgreSQL to be ready
-max_attempts=30
-attempt=0
-until PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-54323}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT 1" > /dev/null 2>&1; do
-    attempt=$((attempt + 1))
-    if [ $attempt -ge $max_attempts ]; then
-        echo "❌ Database failed to start after $max_attempts attempts"
-        exit 1
-    fi
-    echo "⏳ Waiting for database... (attempt $attempt/$max_attempts)"
-    sleep 2
-done
-
-echo "✅ Database is ready"
-
-# =============================================================================
-# MIGRATION APPLICATION
-# =============================================================================
-
-echo "🚀 Applying database migrations..."
-
-if [ -f infra/scripts/apply_migrations.sh ]; then
-    bash infra/scripts/apply_migrations.sh
-    echo "✅ Migrations applied successfully"
+if [ -d "${WS}/.devcontainer/scripts" ]; then
+  log ".devcontainer/scripts visible under workspace (listing):"
+  ls -la "${WS}/.devcontainer/scripts" || true
 else
-    echo "⚠️  Migration script not found, skipping"
+  warn ".devcontainer/scripts not present under workspace"
 fi
 
-# =============================================================================
-# AGENT FABRIC SETUP
-# =============================================================================
+# Print mount status (best-effort)
+mount | grep -E "/workspaces" || true
 
-if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
-    echo "🤖 Setting up agent fabric..."
+# Container-internal setup (safe to run before mount)
+log "Running container-level package/tool bootstrap (non-fatal)"
 
-    # Wait for NATS to be ready
-    max_attempts=30
-    attempt=0
-    until curl -f http://localhost:8222/healthz > /dev/null 2>&1; do
-        attempt=$((attempt + 1))
-        if [ $attempt -ge $max_attempts ]; then
-            echo "⚠️  NATS failed to start, continuing anyway"
-            break
-        fi
-        echo "⏳ Waiting for NATS... (attempt $attempt/$max_attempts)"
-        sleep 2
-    done
-
-    echo "✅ Agent fabric ready"
-fi
-
-# =============================================================================
-# DEVELOPMENT TOOLS
-# =============================================================================
-
-echo "🛠️  Setting up development tools..."
-
-# Ensure build-essential is available in the dev environment. It is intentionally
-# installed at create time so the Dockerfile can keep final stage minimal.
+# Ensure build-essential available for native builds
 if ! dpkg -s build-essential >/dev/null 2>&1; then
-    echo "🔧 Installing build-essential for dev environment..."
-    sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential
+  log "Installing build-essential..."
+  sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends build-essential || warn "apt-get install failed"
+else
+  log "build-essential already present"
 fi
 
-# Install global tools if needed
-if ! command -v tsx &> /dev/null; then
-    pnpm add -g tsx
+# Enable corepack (safe, minimal)
+if command -v corepack >/dev/null 2>&1; then
+  corepack enable || warn "corepack enable failed"
+else
+  warn "corepack not available in image"
 fi
 
-# Setup git hooks if using husky
-if [ -d .husky ]; then
-    echo "🪝 Setting up git hooks..."
-    pnpm exec husky install
-fi
+# Marker so other scripts can detect onCreate ran
+mkdir -p /home/vscode/.devcontainer
+touch /home/vscode/.devcontainer/.onCreateCommandMarker
 
-# =============================================================================
-# COMPLETION
-# =============================================================================
-
-echo ""
-echo "✅ on-create setup completed successfully!"
-echo ""
-echo "📚 Next steps:"
-echo "  1. Review .devcontainer/.env and update as needed"
-echo "  2. Run 'pnpm dev' to start the development server"
-echo "  3. Open http://localhost:3001 for the frontend"
-echo "  4. Open http://localhost:54324 for Supabase Studio"
-echo ""
+log "on-create (container-level) completed — heavy repo setup moved to post-create.sh"

@@ -7,11 +7,11 @@
  * (superseded_at IS NULL).
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import PriceVersionService from "./PriceVersionService.js";
-import type { PriceVersionDefinition, MeterPricing } from "./PriceVersionService.js";
-import type { MeterKey, EnforcementMode } from "@shared/types/billing-events";
+import type { MeterPricing, PriceVersionDefinition } from "./PriceVersionService.js";
+import type { EnforcementMode, MeterKey } from "@shared/types/billing-events";
 
 const logger = createLogger({ component: "EntitlementSnapshotService" });
 
@@ -41,16 +41,12 @@ export interface EntitlementSnapshot {
 // Service
 // ============================================================================
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-}
-
 class EntitlementSnapshotService {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
   /**
    * Create a new entitlement snapshot from a price version.
    * Supersedes any existing current snapshot for the tenant.
@@ -61,8 +57,6 @@ class EntitlementSnapshotService {
     priceVersionId: string,
     effectiveAt?: Date
   ): Promise<EntitlementSnapshot> {
-    this.requireSupabase();
-
     const priceVersion = await PriceVersionService.getById(priceVersionId);
     if (!priceVersion) {
       throw new Error(`Price version ${priceVersionId} not found`);
@@ -74,7 +68,7 @@ class EntitlementSnapshotService {
     // Supersede current snapshot
     await this.supersedeCurrentSnapshot(tenantId);
 
-    const { data, error } = await supabase!
+    const { data, error } = await this.supabase
       .from("entitlement_snapshots")
       .insert({
         tenant_id: tenantId,
@@ -101,9 +95,7 @@ class EntitlementSnapshotService {
    * Get the current (non-superseded) snapshot for a tenant.
    */
   async getCurrentSnapshot(tenantId: string): Promise<EntitlementSnapshot | null> {
-    this.requireSupabase();
-
-    const { data, error } = await supabase!
+    const { data, error } = await this.supabase
       .from("entitlement_snapshots")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -132,9 +124,7 @@ class EntitlementSnapshotService {
    * Get snapshot history for a tenant, ordered by effective_at descending.
    */
   async getHistory(tenantId: string, limit = 10): Promise<EntitlementSnapshot[]> {
-    this.requireSupabase();
-
-    const { data, error } = await supabase!
+    const { data, error } = await this.supabase
       .from("entitlement_snapshots")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -149,9 +139,7 @@ class EntitlementSnapshotService {
    * Get a snapshot by ID.
    */
   async getById(snapshotId: string): Promise<EntitlementSnapshot | null> {
-    this.requireSupabase();
-
-    const { data, error } = await supabase!
+    const { data, error } = await this.supabase
       .from("entitlement_snapshots")
       .select("*")
       .eq("id", snapshotId)
@@ -165,7 +153,7 @@ class EntitlementSnapshotService {
    * Supersede the current snapshot for a tenant (set superseded_at = now).
    */
   private async supersedeCurrentSnapshot(tenantId: string): Promise<void> {
-    const { error } = await supabase!
+    const { error } = await this.supabase
       .from("entitlement_snapshots")
       .update({ superseded_at: new Date().toISOString() })
       .eq("tenant_id", tenantId)
@@ -194,11 +182,6 @@ class EntitlementSnapshotService {
     return entitlements;
   }
 
-  private requireSupabase(): void {
-    if (!supabase) {
-      throw new Error("Supabase not configured for EntitlementSnapshotService");
-    }
-  }
 }
 
-export default new EntitlementSnapshotService();
+export default EntitlementSnapshotService;

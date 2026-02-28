@@ -28,15 +28,15 @@ import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 import {
-  StructuralTruthModuleSchema,
   STRUCTURAL_TRUTH_SCHEMA_FIELDS,
+  StructuralTruthModuleSchema,
 } from "@mcp/ground-truth/modules/StructuralTruthModule";
-import { validateGroundTruthMetadata, assertProvenance } from "@mcp/ground-truth/validators/GroundTruthValidator";
+import { assertProvenance, validateGroundTruthMetadata } from "@mcp/ground-truth/validators/GroundTruthValidator";
 import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
-  GroundtruthRequestPayload,
   GroundtruthRequestOptions,
+  GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
 import { AgentMessageBroker } from "./AgentMessageBroker";
 import { AgentMessageQueue } from "./AgentMessageQueue.js";
@@ -46,7 +46,9 @@ import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { semanticMemory } from "./SemanticMemory.js";
 
 // ============================================================================
 // Local Types
@@ -62,8 +64,22 @@ interface StageLifecycleRecord {
 }
 
 // Stub for missing imports
-declare function getAutonomyConfig(): { maxAutonomousActions: number; requireApproval: boolean };
-declare const securityLogger: { warn: (msg: string, meta?: Record<string, unknown>) => void };
+interface AutonomyConfig {
+  maxAutonomousActions: number;
+  requireApproval: boolean;
+  killSwitchEnabled?: boolean;
+  maxDurationMs?: number;
+  maxCostUsd?: number;
+  requireApprovalForDestructive?: boolean;
+  agentAutonomyLevels?: Record<string, string>;
+  agentKillSwitches?: Record<string, boolean>;
+  agentMaxIterations?: Record<string, number>;
+}
+declare function getAutonomyConfig(): AutonomyConfig;
+declare const securityLogger: {
+  warn: (msg: string | Record<string, unknown>, meta?: Record<string, unknown>) => void;
+  log: (msg: string | Record<string, unknown>, meta?: Record<string, unknown>) => void;
+};
 
 // ============================================================================
 // Middleware Types
@@ -150,15 +166,15 @@ import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExe
 import { supabase } from "../lib/supabase.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
 import {
-  AgentRequest,
-  AgentResponse as RetryAgentResponse,
-  IAgent,
-  ValidationResult,
   AgentCapability,
-  AgentMetadata,
   AgentConfiguration,
+  AgentMetadata,
   AgentPerformanceMetrics,
+  AgentRequest,
+  IAgent,
   AgentHealthStatus as RetryAgentHealthStatus,
+  AgentResponse as RetryAgentResponse,
+  ValidationResult,
 } from "./agents/core/IAgent.js";
 
 // ============================================================================
@@ -183,7 +199,7 @@ export interface IntegrityVetoMetadata {
 }
 
 export interface StreamingUpdate {
-  stage: "thinking" | "executing" | "completed";
+  stage: "thinking" | "executing" | "completed" | "analyzing" | "processing" | "complete";
   message: string;
   progress?: number;
 }
@@ -267,6 +283,10 @@ export interface OrchestratorConfig {
   defaultTimeoutMs: number;
   /** Maximum retry attempts */
   maxRetryAttempts: number;
+  /** Maximum concurrent agent executions */
+  maxConcurrent?: number;
+  /** Timeout for individual operations (ms) */
+  timeout?: number;
 }
 
 const DEFAULT_CONFIG: OrchestratorConfig = {
@@ -389,7 +409,10 @@ export class UnifiedAgentOrchestrator {
       this.registry = new AgentRegistry();
       this.routingLayer = new AgentRoutingLayer();
       this.circuitBreakers = new CircuitBreakerManager();
-      this.memorySystem = new MemorySystem({ max_memories: 1000, enable_persistence: false });
+      this.memorySystem = new MemorySystem(
+        { max_memories: 1000, enable_persistence: true },
+        new SupabaseMemoryBackend(semanticMemory),
+      );
       this.llmGateway = new LLMGateway({ provider: "openai", model: "gpt-4o-mini" });
       this.messageBroker = new AgentMessageBroker();
       this.agentMessageQueue = new AgentMessageQueue();
@@ -420,6 +443,30 @@ export class UnifiedAgentOrchestrator {
     }
     await this.groundTruthService.initialize();
     this.groundTruthInitialized = true;
+  }
+
+  private async executeGroundTruthToolCall<T>(params: {
+    toolName: string;
+    payload: Record<string, unknown>;
+    traceId: string;
+    context?: Record<string, unknown> | AgentContext;
+  }): Promise<T> {
+    await this.ensureGroundTruthInitialized();
+    if (params.toolName === "eso_get_metric_value") {
+      const result = await this.groundTruthService.getBenchmark(
+        params.payload.metricId as string,
+        params.payload.percentile as "p25" | "p50" | "p75" | undefined,
+      );
+      return result as T;
+    }
+    if (params.toolName === "eso_validate_claim") {
+      const result = await this.groundTruthService.validateClaim(
+        params.payload.metricId as string,
+        params.payload.claimedValue as number,
+      );
+      return result as T;
+    }
+    throw new Error(`Unknown ground truth tool: ${params.toolName}`);
   }
 
   private normalizeNumericValue(value: unknown): number | null {
@@ -503,7 +550,7 @@ export class UnifiedAgentOrchestrator {
     return claims;
   }
 
-  private async evaluateIntegrityVeto(
+  public async evaluateIntegrityVeto(
     payload: unknown,
     options: {
       traceId: string;
@@ -847,7 +894,7 @@ export class UnifiedAgentOrchestrator {
     return { success: false, attempts: maxAttempts };
   }
 
-  private normalizeExecutionRequest(intent: string, execution: ExecutionRequest) {
+  private normalizeExecutionRequest(intent: string, execution: Partial<ExecutionRequest> & Record<string, unknown>) {
     return { ...execution, intent };
   }
 
@@ -869,6 +916,13 @@ export class UnifiedAgentOrchestrator {
       context.fiscal_quarter || context.quarter || this.deriveFiscalQuarter(new Date());
 
     return {
+      id: uuidv4(),
+      workflow_id: workflowDefinitionId,
+      workspace_id: context.workspace_id || "",
+      organization_id: context.organization_id || "",
+      status: "pending",
+      started_at: new Date().toISOString(),
+      context,
       workflowDefinitionId,
       workflowVersion,
       persona,
@@ -955,7 +1009,7 @@ export class UnifiedAgentOrchestrator {
 
     if (
       currentState.context?.organizationId &&
-      currentState.context.organizationId !== envelope.organizationId
+      currentState.context?.organizationId !== envelope.organizationId
     ) {
       throw new Error("Execution envelope organization does not match workflow state");
     }
@@ -988,7 +1042,7 @@ export class UnifiedAgentOrchestrator {
       sessionId,
       organizationId: envelope.organizationId,
       metadata: {
-        companyProfile: currentState.context.companyProfile,
+        companyProfile: currentState.context?.companyProfile,
         currentStage: currentState.currentStage,
       },
     };
@@ -1106,9 +1160,9 @@ export class UnifiedAgentOrchestrator {
       });
 
       const agentContext: AgentContext = {
-        userId: currentState.context?.requestedBy || currentState.context?.requester || "system",
-        sessionId: currentState.context?.sessionId || "",
-        organizationId: currentState.context?.organizationId || "",
+        userId: String(currentState.context?.requestedBy || currentState.context?.requester || "system"),
+        sessionId: String(currentState.context?.sessionId || ""),
+        organizationId: String(currentState.context?.organizationId || ""),
         metadata: { currentStage: currentState.currentStage },
       };
 
@@ -1165,14 +1219,14 @@ export class UnifiedAgentOrchestrator {
     // Create immutable copy of state
     const nextState: WorkflowState = {
       ...currentState,
-      context: { ...currentState.context },
-      completedStages: [...currentState.completedStages],
+      context: { ...(currentState.context ?? {}) },
+      completed_steps: [...currentState.completed_steps],
     };
 
     // Update state based on response
     if (result.data) {
-      nextState.context.conversationHistory = [
-        ...(nextState.context.conversationHistory || []),
+      nextState.context!.conversationHistory = [
+        ...(Array.isArray(nextState.context!.conversationHistory) ? nextState.context!.conversationHistory : []),
         {
           role: "user",
           content: "Async query", // We don't have the original query here
@@ -1222,6 +1276,7 @@ export class UnifiedAgentOrchestrator {
     traceId: string = uuidv4()
   ): Promise<ProcessQueryResult> {
     // Check if async execution is enabled
+    const { featureFlags } = await import("../config/featureFlags.js");
     if (featureFlags.ENABLE_ASYNC_AGENT_EXECUTION) {
       logger.info("Using async agent execution", { traceId, sessionId });
 
@@ -1308,14 +1363,14 @@ export class UnifiedAgentOrchestrator {
       // Convert async result to sync result format
       const nextState: WorkflowState = {
         ...currentState,
-        context: { ...currentState.context },
-        completedStages: [...currentState.completedStages],
+        context: { ...(currentState.context ?? {}) },
+        completed_steps: [...currentState.completed_steps],
       };
 
       // Update state based on async result
       if (result.data) {
-        nextState.context.conversationHistory = [
-          ...(nextState.context.conversationHistory || []),
+        nextState.context!.conversationHistory = [
+          ...(Array.isArray(nextState.context!.conversationHistory) ? nextState.context!.conversationHistory : []),
           {
             role: "user",
             content: query,
@@ -1372,11 +1427,13 @@ export class UnifiedAgentOrchestrator {
       // Create immutable copy of state
       const nextState: WorkflowState = {
         ...currentState,
-        context: { ...currentState.context },
-        completedStages: [...currentState.completedStages],
+        context: { ...(currentState.context ?? {}) },
+        completed_steps: [...currentState.completed_steps],
       };
 
-      // Determine which agent to use based on query and current stage
+      // Determine which agent to use based on query and current stage.
+      // startActiveSpan executes the callback synchronously, so agentType
+      // is assigned before the code below runs.
       let agentType: AgentType;
       tracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
         agentType = this.selectAgent(query, currentState);
@@ -1387,6 +1444,7 @@ export class UnifiedAgentOrchestrator {
         selectSpan.setStatus({ code: SpanStatusCode.OK });
         selectSpan.end();
       });
+      agentType ??= "discovery" as AgentType;
 
       // Check inter-agent rate limit
       if (!this.checkAgentRateLimit(agentType)) {
@@ -1405,7 +1463,7 @@ export class UnifiedAgentOrchestrator {
         sessionId,
         organizationId: envelope.organizationId,
         metadata: {
-          companyProfile: currentState.context.companyProfile,
+          companyProfile: currentState.context?.companyProfile,
           currentStage: currentState.currentStage,
         },
       };
@@ -1511,8 +1569,8 @@ export class UnifiedAgentOrchestrator {
 
       // Update state based on response
       if (agentResponse.success && agentResponse.data) {
-        nextState.context.conversationHistory = [
-          ...(nextState.context.conversationHistory || []),
+        nextState.context!.conversationHistory = [
+          ...(Array.isArray(nextState.context!.conversationHistory) ? nextState.context!.conversationHistory : []),
           {
             role: "user",
             content: query,
@@ -1620,30 +1678,32 @@ export class UnifiedAgentOrchestrator {
    */
   createInitialState(
     initialStage: string,
-    execution: ExecutionRequest = {
+    execution: Partial<ExecutionRequest> & Record<string, unknown> = {
       intent: "FullValueAnalysis",
       environment: "production",
     }
   ): WorkflowState {
-    const normalizedExecution = normalizeExecutionRequest("agent-query", execution);
+    const normalizedExecution = this.normalizeExecutionRequest("agent-query", execution);
+    const now = new Date().toISOString();
 
     return {
+      id: uuidv4(),
+      workflow_id: "",
+      execution_id: uuidv4(),
+      workspace_id: "",
+      organization_id: "",
+      lifecycle_stage: initialStage,
+      current_step: initialStage,
       currentStage: initialStage,
       status: "initiated",
-      completedStages: [],
+      completed_steps: [],
+      state_data: {},
       context: {
-        ...normalizedExecution.parameters,
-        intent: normalizedExecution.intent,
-        environment: normalizedExecution.environment,
-        metadata: normalizedExecution.metadata,
+        ...(normalizedExecution as Record<string, unknown>),
         conversationHistory: [],
       },
-      metadata: {
-        startedAt: new Date().toISOString(),
-        lastUpdatedAt: new Date().toISOString(),
-        errorCount: 0,
-        retryCount: 0,
-      },
+      created_at: now,
+      updated_at: now,
     };
   }
 
@@ -1655,11 +1715,11 @@ export class UnifiedAgentOrchestrator {
       ...currentState,
       currentStage: stage,
       status,
-      completedStages: [...currentState.completedStages],
+      completed_steps: [...currentState.completed_steps],
     };
 
-    if (status === "completed" && !nextState.completedStages.includes(currentState.currentStage)) {
-      nextState.completedStages.push(currentState.currentStage);
+    if (status === "completed" && currentState.currentStage && !nextState.completed_steps.includes(currentState.currentStage)) {
+      nextState.completed_steps.push(currentState.currentStage);
     }
 
     return nextState;
@@ -1741,7 +1801,7 @@ export class UnifiedAgentOrchestrator {
         throw new Error("Failed to create workflow execution");
       }
 
-      await this.recordWorkflowEvent(executionId, "workflow_initiated", dag.initial_stage, {
+      await this.recordWorkflowEvent(executionId, "workflow_initiated", dag.initial_stage ?? "", {
         envelope,
         stageExecutionId: initialStageExecutionId,
       });
@@ -1759,7 +1819,7 @@ export class UnifiedAgentOrchestrator {
       return {
         executionId: execution.id,
         status: "initiated",
-        currentStage: dag.initial_stage,
+        currentStage: dag.initial_stage ?? null,
         completedStages: [],
       };
     } catch (error) {
@@ -1815,7 +1875,11 @@ export class UnifiedAgentOrchestrator {
 
     // Retrieve similar past episodes for prediction
     const orgId = (context as any)?.organizationId || (context as any)?.tenantId;
-    const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(context, 5, orgId);
+    const similarEpisodes = await this.memorySystem.retrieve({
+      agent_id: "orchestrator",
+      organization_id: orgId || "",
+      limit: 5,
+    });
 
     // Simulate each stage
     const stepsSimulated: any[] = [];
@@ -1861,9 +1925,9 @@ export class UnifiedAgentOrchestrator {
         return true;
       });
 
-      currentStageId = transition?.to_stage || null;
+      currentStageId = transition?.to_stage ?? undefined;
 
-      if (dag.final_stages.includes(currentStageId || "")) {
+      if (dag.final_stages?.includes(currentStageId || "")) {
         break;
       }
     }
@@ -1927,9 +1991,15 @@ Provide a JSON response with:
 - estimatedDuration: seconds`;
 
     try {
-      const response = await this.llmGateway.chat([{ role: "user", content: prompt }], {
-        maxTokens: 500,
+      const organizationId = context.organizationId || context.organization_id;
+      const response = await this.llmGateway.complete({
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 500,
         temperature: 0.3,
+        metadata: {
+          tenantId: organizationId,
+          agentType: "workflow_predictor",
+        },
       });
 
       const parsed = JSON.parse(response.content);
@@ -1951,15 +2021,26 @@ Provide a JSON response with:
   private async executeDAGAsync(
     executionId: string,
     dag: WorkflowDAG,
-    initialContext: Record<string, any>,
+    initialContext: Record<string, unknown>,
     traceId: string,
-    executionRecord: WorkflowExecutionRecord
+    executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
     let executionContext = { ...initialContext };
+    const defaultRecord: WorkflowExecutionRecord = executionRecord ?? {
+      id: executionId,
+      workflow_id: dag.id ?? "",
+      workspace_id: "",
+      organization_id: "",
+      status: "running",
+      started_at: new Date().toISOString(),
+      context: initialContext,
+      lifecycle: [],
+      outputs: [],
+    };
     let recordSnapshot: WorkflowExecutionRecord = {
-      ...executionRecord,
-      lifecycle: [...executionRecord.lifecycle],
-      outputs: [...executionRecord.outputs],
+      ...defaultRecord,
+      lifecycle: Array.isArray(defaultRecord.lifecycle) ? [...defaultRecord.lifecycle] : [],
+      outputs: Array.isArray(defaultRecord.outputs) ? [...defaultRecord.outputs] : [],
     };
     const dependencies = new Map<string, Set<string>>();
     const inProgressStages = new Set<string>();
@@ -1974,11 +2055,13 @@ Provide a JSON response with:
     }
 
     for (const transition of dag.transitions) {
-      const deps = dependencies.get(transition.to_stage);
+      const toStage = transition.to_stage ?? transition.to ?? "";
+      const fromStage = transition.from_stage ?? transition.from ?? "";
+      const deps = dependencies.get(toStage);
       if (deps) {
-        deps.add(transition.from_stage);
+        deps.add(fromStage);
       } else {
-        dependencies.set(transition.to_stage, new Set([transition.from_stage]));
+        dependencies.set(toStage, new Set([fromStage]));
       }
     }
 
@@ -2087,9 +2170,9 @@ Provide a JSON response with:
 
             recordSnapshot = {
               ...recordSnapshot,
-              lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+              lifecycle: [...(Array.isArray(recordSnapshot.lifecycle) ? recordSnapshot.lifecycle : []), lifecycleRecord],
               outputs: [
-                ...recordSnapshot.outputs,
+                ...(Array.isArray(recordSnapshot.outputs) ? recordSnapshot.outputs : []),
                 {
                   stageId: stage.id,
                   payload: {
@@ -2100,9 +2183,9 @@ Provide a JSON response with:
                 },
               ],
               io: {
-                ...recordSnapshot.io,
+                ...(recordSnapshot.io && typeof recordSnapshot.io === "object" ? recordSnapshot.io as Record<string, unknown> : {}),
                 outputs: {
-                  ...recordSnapshot.io.outputs,
+                  ...(recordSnapshot.io && typeof recordSnapshot.io === "object" && "outputs" in recordSnapshot.io ? (recordSnapshot.io as Record<string, unknown>).outputs as Record<string, unknown> : {}),
                   [stage.id]: {
                     error: vetoMessage,
                     metadata: structuralCheck.metadata,
@@ -2145,9 +2228,9 @@ Provide a JSON response with:
 
             recordSnapshot = {
               ...recordSnapshot,
-              lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+              lifecycle: [...(Array.isArray(recordSnapshot.lifecycle) ? recordSnapshot.lifecycle : []), lifecycleRecord],
               outputs: [
-                ...recordSnapshot.outputs,
+                ...(Array.isArray(recordSnapshot.outputs) ? recordSnapshot.outputs : []),
                 {
                   stageId: stage.id,
                   payload: {
@@ -2158,9 +2241,9 @@ Provide a JSON response with:
                 },
               ],
               io: {
-                ...recordSnapshot.io,
+                ...(recordSnapshot.io && typeof recordSnapshot.io === "object" ? recordSnapshot.io as Record<string, unknown> : {}),
                 outputs: {
-                  ...recordSnapshot.io.outputs,
+                  ...(recordSnapshot.io && typeof recordSnapshot.io === "object" && "outputs" in recordSnapshot.io ? (recordSnapshot.io as Record<string, unknown>).outputs as Record<string, unknown> : {}),
                   [stage.id]: {
                     error: vetoMessage,
                     metadata: integrityCheck.metadata,
@@ -2195,9 +2278,9 @@ Provide a JSON response with:
 
           recordSnapshot = {
             ...recordSnapshot,
-            lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+            lifecycle: [...(Array.isArray(recordSnapshot.lifecycle) ? recordSnapshot.lifecycle : []), lifecycleRecord],
             outputs: [
-              ...recordSnapshot.outputs,
+              ...(Array.isArray(recordSnapshot.outputs) ? recordSnapshot.outputs : []),
               {
                 stageId: stage.id,
                 payload: stageOutput,
@@ -2205,9 +2288,9 @@ Provide a JSON response with:
               },
             ],
             io: {
-              ...recordSnapshot.io,
+              ...(recordSnapshot.io && typeof recordSnapshot.io === "object" ? recordSnapshot.io as Record<string, unknown> : {}),
               outputs: {
-                ...recordSnapshot.io.outputs,
+                ...(recordSnapshot.io && typeof recordSnapshot.io === "object" && "outputs" in recordSnapshot.io ? (recordSnapshot.io as Record<string, unknown>).outputs as Record<string, unknown> : {}),
                 [stage.id]: stageOutput,
               },
             },
@@ -2240,9 +2323,9 @@ Provide a JSON response with:
 
           recordSnapshot = {
             ...recordSnapshot,
-            lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+            lifecycle: [...(Array.isArray(recordSnapshot.lifecycle) ? recordSnapshot.lifecycle : []), lifecycleRecord],
             outputs: [
-              ...recordSnapshot.outputs,
+              ...(Array.isArray(recordSnapshot.outputs) ? recordSnapshot.outputs : []),
               {
                 stageId: stage.id,
                 payload: { error: errorMessage },
@@ -2250,9 +2333,9 @@ Provide a JSON response with:
               },
             ],
             io: {
-              ...recordSnapshot.io,
+              ...(recordSnapshot.io && typeof recordSnapshot.io === "object" ? recordSnapshot.io as Record<string, unknown> : {}),
               outputs: {
-                ...recordSnapshot.io.outputs,
+                ...(recordSnapshot.io && typeof recordSnapshot.io === "object" && "outputs" in recordSnapshot.io ? (recordSnapshot.io as Record<string, unknown>).outputs as Record<string, unknown> : {}),
                 [stage.id]: { error: errorMessage },
               },
             },
@@ -2352,8 +2435,9 @@ Provide a JSON response with:
       },
     };
 
-    const stageExecutionAgent: IAgent = {
-      execute: async (): Promise<RetryAgentResponse<Record<string, any>>> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stageExecutionAgent: any = {
+      execute: async (_request?: unknown): Promise<RetryAgentResponse<Record<string, unknown>>> => {
         const agentType = stage.agent_type as AgentType;
         if (!this.checkAgentRateLimit(agentType)) {
           throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -2363,8 +2447,7 @@ Provide a JSON response with:
           circuitBreakerKey,
           () => this.executeStage(stage, context, route),
           {
-            latencyThresholdMs: Math.floor(stage.timeout_seconds * 1000 * 0.8),
-            timeoutMs: stage.timeout_seconds * 1000,
+            timeoutMs: (stage.timeout_seconds ?? 30) * 1000,
           }
         );
 
@@ -2475,11 +2558,38 @@ Provide a JSON response with:
       async (execSpan: any) => {
         const execStart = Date.now();
         const agentType = stage.agent_type as AgentType;
+        const sessionId = context.sessionId || `session_${Date.now()}`;
+        const orgId = context.organizationId || context.tenantId || "";
         const agentContext: AgentContext = {
           userId: context.userId,
-          sessionId: context.sessionId,
-          currentStage: stage.id,
+          sessionId,
+          metadata: { currentStage: stage.id },
         };
+
+        // Retrieve relevant memory before execution
+        let memoryContext: Record<string, unknown> = {};
+        try {
+          const memories = await this.memorySystem.retrieve({
+            agent_id: agentType,
+            organization_id: orgId,
+            workspace_id: sessionId,
+            limit: 5,
+          });
+          if (memories.length > 0) {
+            memoryContext = {
+              pastMemories: memories.map((m) => ({
+                content: m.content,
+                type: m.memory_type,
+                importance: m.importance,
+              })),
+            };
+          }
+        } catch (memErr) {
+          logger.warn("Failed to retrieve memory for stage execution", {
+            stage_id: stage.id,
+            error: memErr instanceof Error ? memErr.message : String(memErr),
+          });
+        }
 
         try {
           // Use SecureMessageBus for inter-agent communication
@@ -2489,7 +2599,7 @@ Provide a JSON response with:
             {
               action: "execute",
               description: stage.description || `Execute ${stage.id}`,
-              context: agentContext,
+              context: { ...agentContext, ...memoryContext },
             },
             {
               priority: "normal",
@@ -2501,7 +2611,38 @@ Provide a JSON response with:
             throw new Error(`Agent communication failed: ${messageResult.error}`);
           }
 
-          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          const durationMs = Date.now() - execStart;
+
+          // Store execution episode in memory
+          try {
+            await this.memorySystem.storeEpisode({
+              sessionId,
+              agentId: agentType,
+              episodeType: "stage_execution",
+              taskIntent: stage.description || stage.id,
+              context: { organizationId: orgId, stageId: stage.id },
+              initialState: context,
+              finalState: messageResult.data as Record<string, unknown> ?? {},
+              success: true,
+              rewardScore: 0.8,
+              durationSeconds: durationMs / 1000,
+            });
+
+            await this.memorySystem.storeEpisodicMemory(
+              sessionId,
+              agentType,
+              `Executed stage ${stage.id}: ${stage.description || stage.agent_type}`,
+              { success: true, durationMs },
+              orgId
+            );
+          } catch (memErr) {
+            logger.warn("Failed to store execution memory", {
+              stage_id: stage.id,
+              error: memErr instanceof Error ? memErr.message : String(memErr),
+            });
+          }
+
+          execSpan.setAttributes({ 'agent.latency_ms': durationMs });
           execSpan.setStatus({ code: SpanStatusCode.OK });
           execSpan.end();
 
@@ -2512,7 +2653,27 @@ Provide a JSON response with:
             output: messageResult.data,
           };
         } catch (err) {
-          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          const durationMs = Date.now() - execStart;
+
+          // Store failure episode
+          try {
+            await this.memorySystem.storeEpisode({
+              sessionId,
+              agentId: agentType,
+              episodeType: "stage_execution",
+              taskIntent: stage.description || stage.id,
+              context: { organizationId: orgId, stageId: stage.id },
+              initialState: context,
+              finalState: { error: err instanceof Error ? err.message : String(err) },
+              success: false,
+              rewardScore: 0.1,
+              durationSeconds: durationMs / 1000,
+            });
+          } catch {
+            // Don't let memory failures mask the original error
+          }
+
+          execSpan.setAttributes({ 'agent.latency_ms': durationMs });
           execSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),
@@ -2707,7 +2868,7 @@ Provide a JSON response with:
       ],
     };
 
-    const pattern = subgoalPatterns[intentType] || subgoalPatterns.value_assessment;
+    const pattern = subgoalPatterns[intentType] ?? subgoalPatterns.value_assessment ?? [];
     const subgoalIdMap = new Map<string, string>();
 
     return pattern.map((step, index) => {
@@ -2998,7 +3159,7 @@ Provide a JSON response with:
 
     // Check duration limit
     const elapsed = Date.now() - startTime;
-    if (elapsed > autonomy.maxDurationMs) {
+    if (autonomy.maxDurationMs && elapsed > autonomy.maxDurationMs) {
       await this.handleWorkflowFailure(executionId, "Autonomy guard: max duration exceeded");
       securityLogger.log({
         category: "autonomy",
@@ -3016,7 +3177,7 @@ Provide a JSON response with:
 
     // Check cost limit
     const cost = context.cost_accumulated_usd || 0;
-    if (cost > autonomy.maxCostUsd) {
+    if (autonomy.maxCostUsd && cost > autonomy.maxCostUsd) {
       await this.handleWorkflowFailure(executionId, "Autonomy guard: max cost exceeded");
       securityLogger.log({
         category: "autonomy",
@@ -3153,8 +3314,8 @@ Provide a JSON response with:
       stage_name: stage.name || stage.id,
       lifecycle_stage: stage.agent_type,
       status: "completed",
-      inputs: executionRecord.io.inputs,
-      assumptions: executionRecord.io.assumptions,
+      inputs: (executionRecord.io as Record<string, unknown> | undefined)?.inputs,
+      assumptions: (executionRecord.io as Record<string, unknown> | undefined)?.assumptions,
       outputs: output || {},
       economic_deltas: output?.economic_deltas || executionRecord.economicDeltas,
       persona: executionRecord.persona,
@@ -3247,7 +3408,7 @@ Provide a JSON response with:
   }
 
   getProgress(state: WorkflowState, totalStages: number = 5): number {
-    return Math.round((state.completedStages.length / totalStages) * 100);
+    return Math.round((state.completed_steps.length / totalStages) * 100);
   }
 }
 

@@ -19,7 +19,7 @@ npx supabase migration new <migration_name>
 3. Lint the migration for issues:
 
 ```bash
-npm run lint:migrations
+bash scripts/lint-migrations.sh
 ```
 
 ## Testing the Migration
@@ -33,7 +33,7 @@ npx supabase db reset
 5. Run RLS validation after migration:
 
 ```bash
-npm run test:rls
+bash scripts/check-rls-enforcement.sh
 ```
 
 6. Verify critical fixes:

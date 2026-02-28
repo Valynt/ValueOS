@@ -1,20 +1,21 @@
 /**
  * Conversations Repository
- * 
+ *
  * Data access layer for conversation messages with Supabase/Postgres.
  * Uses the existing messages table with tenant isolation.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { 
-import { logger } from "../../lib/logger.js";
-  Message, 
-  CreateMessageRequest, 
-  ListMessagesQuery,
-  MessageRole,
-  MessageMetadata,
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+import {
   ConversationSession,
+  CreateMessageRequest,
+  ListMessagesQuery,
+  Message,
+  MessageMetadata,
+  MessageRole,
 } from './types';
+import { logger } from "../../lib/logger.js";
 
 // Simple logger
 const logger = {
@@ -74,14 +75,7 @@ export class ConversationsRepository {
   private tableName = 'messages';
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase configuration');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createServerSupabaseClient();
   }
 
   /**
@@ -93,7 +87,7 @@ export class ConversationsRepository {
     data: CreateMessageRequest
   ): Promise<Message> {
     const correlationId = `msg-create-${Date.now()}`;
-    
+
     try {
       const messageData = {
         tenant_id: tenantId,
@@ -133,7 +127,7 @@ export class ConversationsRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error creating message', {
         correlationId,
         tenantId,
@@ -159,7 +153,7 @@ export class ConversationsRepository {
     }>
   ): Promise<Message[]> {
     const correlationId = `msg-batch-${Date.now()}`;
-    
+
     try {
       const messageRows = messages.map((msg, index) => ({
         tenant_id: tenantId,
@@ -173,7 +167,7 @@ export class ConversationsRepository {
           originalTimestamp: msg.timestamp,
           batchIndex: index,
         },
-        created_at: msg.timestamp 
+        created_at: msg.timestamp
           ? new Date(msg.timestamp).toISOString()
           : new Date().toISOString(),
       }));
@@ -204,7 +198,7 @@ export class ConversationsRepository {
       return (results || []).map(this.mapToEntity);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error creating messages batch', {
         correlationId,
         tenantId,
@@ -264,7 +258,7 @@ export class ConversationsRepository {
       return (data || []).map(this.mapToEntity);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error getting messages', {
         correlationId,
         tenantId,
@@ -323,7 +317,7 @@ export class ConversationsRepository {
       };
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error loading session', {
         correlationId,
         tenantId,
@@ -369,7 +363,7 @@ export class ConversationsRepository {
       return count;
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error deleting messages', {
         correlationId,
         tenantId,

@@ -1,0 +1,60 @@
+// Economic Kernel — pure financial math
+export {
+  type CashFlowSeries,
+  type DCFResult,
+  type IRRResult,
+  type PaybackResult,
+  type SensitivityPoint,
+  type SensitivityResult,
+  type EVFComponents,
+  type EVFResult,
+  discountCashFlows,
+  calculateNPV,
+  calculateIRR,
+  calculatePayback,
+  calculateDiscountedPayback,
+  sensitivityAnalysis,
+  multiSensitivityAnalysis,
+  calculateEVF,
+  calculateROI,
+  toDecimalArray,
+  roundTo,
+} from './economic_kernel.js';
+
+// KPI Registry — canonical metric definitions
+export {
+  type MetricCategory,
+  type MetricUnit,
+  type DriverCategory,
+  type AggregationMethod,
+  type MetricDefinition,
+  MetricDefinitionSchema,
+  METRIC_IDS,
+  CANONICAL_METRICS,
+  getMetricById,
+  getMetricByName,
+  getMetricsByCategory,
+  getMetricsByDriverCategory,
+  validateRegistry,
+} from './kpi_registry.js';
+
+// Overlay Contract — domain pack interface
+export {
+  type KPIOverride,
+  type FinancialProfile,
+  type RiskOverride,
+  type BenchmarkSource,
+  type NarrativeOverrides,
+  type GovernanceMetadata,
+  type DomainOverlay,
+  KPIOverrideSchema,
+  FinancialProfileSchema,
+  RiskOverrideSchema,
+  BenchmarkSourceSchema,
+  NarrativeOverridesSchema,
+  GovernanceMetadataSchema,
+  DomainOverlaySchema,
+  validateOverlay,
+  safeValidateOverlay,
+  validateOverlayConsistency,
+} from './overlay.schema.js';

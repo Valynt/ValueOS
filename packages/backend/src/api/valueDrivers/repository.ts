@@ -1,25 +1,26 @@
 /**
  * Value Drivers Repository
- * 
+ *
  * Data access layer for value drivers with Supabase/Postgres.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 import {
-  ValueDriver,
   CreateValueDriverRequest,
-  UpdateValueDriverRequest,
+  DriverStatus,
+  DriverType,
   ListValueDriversQuery,
   PaginatedResponse,
-  DriverType,
-  DriverStatus,
+  UpdateValueDriverRequest,
+  ValueDriver,
 } from './types';
 import {
   CreateValueDriverDbSchema,
   ListValueDriversQueryDbSchema,
-  UpdateValueDriverDbSchema,
   mapDriverStatusToDb,
   mapDriverTypeToDb,
+  UpdateValueDriverDbSchema,
 } from './dbValidation';
 import {
   DbConflictError,
@@ -51,14 +52,7 @@ export class ValueDriversRepository {
   private tableName = 'value_drivers';
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase configuration');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createServerSupabaseClient();
   }
 
   /**

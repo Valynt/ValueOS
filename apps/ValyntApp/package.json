@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bash ../../scripts/dev/start-frontend.sh",
     "build": "vite build",
     "build:strict": "tsc && vite build",
     "preview": "vite preview",
@@ -18,7 +18,6 @@
     "test:coverage": "vitest run --coverage --passWithNoTests"
   },
   "dependencies": {
-    "@auth0/auth0-react": "^2.11.0",
     "@monaco-editor/react": "^4.6.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -55,6 +54,7 @@
     "zundo": "^2.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
@@ -78,6 +78,7 @@
     "jsdom": "^24.0.0",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
+    "supertest": "^7.2.2",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",
     "vite": "^6.1.6",

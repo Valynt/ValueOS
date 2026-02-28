@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 
 /**
  * Middleware to set appropriate Cache-Control headers for API responses

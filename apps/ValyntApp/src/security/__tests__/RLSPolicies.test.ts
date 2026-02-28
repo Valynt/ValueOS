@@ -1,9 +1,9 @@
 /**
  * Row-Level Security (RLS) Policy Tests
- * 
+ *
  * Tests for Supabase RLS policies ensuring user/org isolation
  * and proper access control.
- * 
+ *
  * Note: These tests require a Supabase instance with RLS enabled.
  * Run with: npm test -- src/test/security/RLSPolicies.test.ts
  */
@@ -13,7 +13,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { dataProtectionConfig } from '../../config/dataProtection';
 
 // Test configuration
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'test-key';
 
 describe('RLS Policies - Agent Predictions', () => {
@@ -190,66 +190,66 @@ describe('RLS Policies - Performance', () => {
 
 /**
  * Integration Test Template
- * 
+ *
  * To run actual integration tests against Supabase:
- * 
+ *
  * 1. Set up test users:
  *    const { data: user1 } = await supabase.auth.signUp({
  *      email: 'user1@test.com',
  *      password: 'test123'
  *    });
- * 
+ *
  * 2. Create test data:
  *    const { data, error } = await supabase
  *      .from('agent_predictions')
  *      .insert({ ... });
- * 
+ *
  * 3. Verify isolation:
  *    const { data: user1Data } = await user1Client
  *      .from('agent_predictions')
  *      .select('*');
- *    
+ *
  *    const { data: user2Data } = await user2Client
  *      .from('agent_predictions')
  *      .select('*');
- *    
+ *
  *    expect(user1Data).not.toContainEqual(user2Data[0]);
- * 
+ *
  * 4. Clean up:
  *    await supabase.from('agent_predictions').delete().eq('id', testId);
  */
 
 /**
  * Manual Testing Checklist
- * 
+ *
  * Run these queries in Supabase SQL Editor to verify RLS:
- * 
+ *
  * 1. Check RLS is enabled:
- *    SELECT tablename, rowsecurity 
- *    FROM pg_tables 
+ *    SELECT tablename, rowsecurity
+ *    FROM pg_tables
  *    WHERE schemaname = 'public' AND rowsecurity = true;
- * 
+ *
  * 2. View all policies:
- *    SELECT schemaname, tablename, policyname, permissive, roles, cmd 
- *    FROM pg_policies 
+ *    SELECT schemaname, tablename, policyname, permissive, roles, cmd
+ *    FROM pg_policies
  *    WHERE schemaname = 'public';
- * 
+ *
  * 3. Test as user (set JWT):
  *    SET request.jwt.claim.sub = 'user-id-here';
  *    SELECT * FROM agent_predictions;
- * 
+ *
  * 4. Test as service role:
  *    SET request.jwt.claim.role = 'service_role';
  *    SELECT * FROM agent_predictions;
- * 
+ *
  * 5. Verify isolation:
  *    -- As user 1
  *    SET request.jwt.claim.sub = 'user-1';
  *    SELECT count(*) FROM agent_predictions;
- *    
+ *
  *    -- As user 2
  *    SET request.jwt.claim.sub = 'user-2';
  *    SELECT count(*) FROM agent_predictions;
- *    
+ *
  *    -- Counts should be different
  */

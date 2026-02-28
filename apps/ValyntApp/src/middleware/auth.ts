@@ -5,11 +5,11 @@
 
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { authService } from '../services/AuthService';
+import { authService } from '@backend/services/AuthService';
 import { AuthenticationError } from '../services/errors';
 import { Logger } from '../utils/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
-import { getSupabaseClient } from '../lib/supabase';
+import { createRequestSupabaseClient } from '../lib/supabase';
 import { getEnvVar } from '../lib/env';
 
 const logger = new Logger({ component: 'AuthMiddleware' });
@@ -72,8 +72,8 @@ function applyAuthContext(req: Request, user: any, session: any, claims: JwtPayl
 
 async function verifyTokenWithSupabase(token: string) {
   try {
-    const supabaseClient = getSupabaseClient();
-    const { data, error } = await supabaseClient.auth.getUser(token);
+    const supabaseClient = createRequestSupabaseClient(token);
+    const { data, error } = await supabaseClient.auth.getUser();
 
     if (error || !data?.user) {
       return null;
@@ -105,7 +105,7 @@ function verifyTokenLocally(token: string) {
   }
 
   try {
-    const claims = jwt.verify(token, secret) as JwtPayload;
+    const claims = jwt.verify(token, secret, { algorithms: ["HS256"] }) as JwtPayload;
     if (!claims?.sub) {
       return null;
     }

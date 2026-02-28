@@ -88,6 +88,7 @@ export const SDUIPageSchema = z
 })
     .strict();
 export class SDUIValidationError extends Error {
+    errors;
     constructor(message, errors) {
         super(message);
         this.errors = errors;

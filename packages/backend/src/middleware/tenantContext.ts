@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { AsyncLocalStorage } from "async_hooks";
 import { createLogger } from "@shared/lib/logger";
@@ -14,9 +14,11 @@ const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";
 
 const assertValidTctSecret = (): string => {
   const secret = process.env.TCT_SECRET || DEFAULT_TCT_SECRET;
-  if (process.env.NODE_ENV === "production" && secret === DEFAULT_TCT_SECRET) {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  // Require explicit TCT_SECRET in all non-development environments
+  if (nodeEnv !== "development" && secret === DEFAULT_TCT_SECRET) {
     validateEnv();
-    throw new Error("TCT_SECRET must be configured in production.");
+    throw new Error("TCT_SECRET must be configured in non-development environments.");
   }
   return secret;
 };
@@ -34,7 +36,12 @@ export const tenantContextStorage = new AsyncLocalStorage<TCTPayload>();
 
 type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-lookup" | "request" | "none";
 
-const resolveRoles = (user: any): string[] => {
+type TenantContextUser = {
+  role?: string | string[];
+  app_metadata?: { roles?: unknown; tier?: string };
+};
+
+const resolveRoles = (user: TenantContextUser | undefined): string[] => {
   const directRole = user?.role;
   if (Array.isArray(directRole)) {
     return directRole.filter((role) => typeof role === "string");
@@ -88,10 +95,10 @@ export const tenantContextMiddleware = (enforce = true) => {
     let tctPayload: TCTPayload | null = null;
 
     if (authHeader) {
-      const token = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+      const token = Array.isArray(authHeader) ? authHeader[0] ?? '' : authHeader;
 
       try {
-        tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as TCTPayload;
+        tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as unknown as TCTPayload;
         const requestTenantId = (req as any).tenantId as string | undefined;
 
         if (requestTenantId && tctPayload.tid !== requestTenantId) {

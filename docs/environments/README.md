@@ -1,6 +1,6 @@
 # Environments
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-16
 
 ---
 
@@ -10,7 +10,8 @@
 - [Local Development](./local-development.md)
 - [Production Environment](./production-environment.md)
 - [Staging Environment](./staging-environment.md)
+- [Secret Key Migration](./secret-key-migration.md)
 
 ---
 
-**Total Documents**: 4
+**Total Documents**: 5

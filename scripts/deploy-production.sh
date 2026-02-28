@@ -14,6 +14,8 @@ NC='\033[0m' # No Color
 
 # Configuration
 DOCKER_COMPOSE_FILE="docker-compose.prod.yml"
+BACKEND_RUNTIME_PATH="packages/backend"
+BACKEND_DOCKERFILE="docker/Dockerfile.backend"
 ENV_PRODUCTION=".env.production"
 ENV_EXAMPLE=".env.example"
 HEALTH_CHECK_URL="http://localhost/health"
@@ -56,6 +58,19 @@ check_dependencies() {
     fi
 
     log_success "All dependencies are available"
+}
+
+validate_backend_runtime_source() {
+    log_info "Validating backend runtime source-of-truth..."
+
+    local compose_path="infra/docker/${DOCKER_COMPOSE_FILE}"
+
+    if ! grep -q "dockerfile: ${BACKEND_DOCKERFILE}" "$compose_path"; then
+        log_error "Expected backend dockerfile ${BACKEND_DOCKERFILE} in ${compose_path}"
+        exit 1
+    fi
+
+    log_success "Backend runtime locked to ${BACKEND_RUNTIME_PATH} via ${BACKEND_DOCKERFILE}"
 }
 
 setup_environment() {
@@ -183,6 +198,7 @@ main() {
     case "${1:-deploy}" in
         "deploy")
             check_dependencies
+            validate_backend_runtime_source
             setup_environment
             build_and_deploy
             verify_deployment

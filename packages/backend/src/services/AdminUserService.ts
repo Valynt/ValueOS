@@ -8,6 +8,7 @@ import { createServerSupabaseClient } from "../lib/supabase.js"
 import { logger } from "../lib/logger.js"
 import { AuditLogService } from "./AuditLogService.js"
 import { authDirectoryService } from "./AuthDirectoryService.js"
+import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 import { ValidationError } from "./errors.js"
 
 export type TenantRole = "owner" | "admin" | "member" | "viewer";
@@ -36,22 +37,22 @@ export interface RemoveUserPayload {
 }
 
 export interface TenantUserRecord {
-  id: string;
+  id?: string;
+  userUuid: string;
+  tenantId: string;
   email: string;
-  fullName: string;
+  emailVerified: boolean;
+  displayName: string;
+  fullName?: string;
   role: string;
-  status: "active" | "invited" | "suspended" | "deactivated";
-  lastLoginAt?: string;
-  createdAt: string;
-  groups: string[];
+  createdAt?: string;
+  status: "active" | "invited" | "suspended" | "deactivated" | "inactive";
+  lastLoginAt: string | null;
+  creationSource: string;
+  mfaEnrolled: boolean;
+  deviceCount: number;
+  deviceListReference: string;
 }
-
-const ROLE_LABELS: Record<TenantRole, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  member: "User",
-  viewer: "Viewer",
-};
 
 const ROLE_METADATA_MAP: Record<TenantRole, string> = {
   owner: "ADMIN",
@@ -89,10 +90,6 @@ export class AdminUserService {
     return normalized;
   }
 
-  private formatRoleLabel(role: string): string {
-    const normalized = this.normalizeRole(role);
-    return ROLE_LABELS[normalized];
-  }
 
   private async updateUserMetadata(userId: string, role: TenantRole, tenantId: string) {
     const { data, error } = await this.getSupabase().auth.admin.getUserById(userId);
@@ -119,9 +116,28 @@ export class AdminUserService {
   }
 
   async listTenantUsers(tenantId: string): Promise<TenantUserRecord[]> {
+    const profiles = await userProfileDirectoryService.listTenantProfiles(tenantId);
+
+    if (profiles.length > 0) {
+      return profiles.map((profile) => ({
+        userUuid: profile.userUuid,
+        tenantId: profile.tenantId,
+        email: profile.email,
+        emailVerified: profile.emailVerified,
+        displayName: profile.displayName,
+        role: profile.role,
+        status: profile.status as TenantUserRecord["status"],
+        lastLoginAt: profile.lastLoginAt,
+        creationSource: profile.creationSource,
+        mfaEnrolled: profile.mfaEnrolled,
+        deviceCount: profile.deviceCount,
+        deviceListReference: profile.deviceListReference,
+      }));
+    }
+
     const { data, error } = await this.getSupabase()
       .from("user_tenants")
-      .select("user_id, role, status, created_at")
+      .select("user_id, role, status")
       .eq("tenant_id", tenantId);
 
     if (error) {
@@ -129,47 +145,26 @@ export class AdminUserService {
     }
 
     const rows = data ?? [];
-    if (rows.length === 0) {
-      return [];
-    }
-
     const userIds = rows.map((r) => r.user_id);
-
-    // Guard rail: use AuthDirectoryService (auth admin APIs), never auth schema table queries.
     const authProfiles = await authDirectoryService.getProfilesByIds(userIds);
 
-    const { data: roleRows, error: roleError } = await this.getSupabase()
-      .from("user_roles")
-      .select("user_id, role")
-      .eq("tenant_id", tenantId)
-      .in("user_id", userIds);
-
-    if (roleError) {
-      logger.warn("Failed to load user role enrichment", roleError, { tenantId });
-    }
-
-    const roleMap = new Map<string, string>();
-    for (const roleRow of roleRows ?? []) {
-      roleMap.set(roleRow.user_id, roleRow.role);
-    }
-
-    const userRecords = rows.map((row) => {
+    return rows.map((row) => {
       const user = authProfiles.get(row.user_id);
-      const resolvedRole = roleMap.get(row.user_id) || row.role || "member";
-
       return {
-        id: row.user_id,
+        userUuid: row.user_id,
+        tenantId,
         email: user?.email || "",
-        fullName: user?.fullName || "User",
-        role: this.formatRoleLabel(resolvedRole),
+        emailVerified: false,
+        displayName: user?.fullName || "User",
+        role: row.role || "member",
         status: (row.status || "active") as TenantUserRecord["status"],
-        lastLoginAt: user?.lastLoginAt || undefined,
-        createdAt: row.created_at || user?.createdAt || new Date().toISOString(),
-        groups: [],
+        lastLoginAt: user?.lastLoginAt ?? null,
+        creationSource: "unknown",
+        mfaEnrolled: false,
+        deviceCount: 0,
+        deviceListReference: "trusted_devices",
       };
     });
-
-    return userRecords;
   }
 
   async inviteUserToTenant(
@@ -255,17 +250,41 @@ export class AdminUserService {
       status: "success",
     });
 
-    return {
-      id: user.id,
-      email: user.email || payload.email,
-      fullName:
-        (user.user_metadata?.full_name as string | undefined) || payload.email.split("@")[0],
-      role: this.formatRoleLabel(role),
-      status: invited ? "invited" : "active",
-      lastLoginAt: user.last_sign_in_at || undefined,
-      createdAt: user.created_at || new Date().toISOString(),
-      groups: [],
-    };
+    await userProfileDirectoryService.syncProfile(user.id, payload.tenantId);
+
+    const profiles = await userProfileDirectoryService.listTenantProfiles(payload.tenantId);
+    const profile = profiles.find((entry) => entry.userUuid === user.id);
+
+    return profile
+      ? {
+          userUuid: profile.userUuid,
+          tenantId: profile.tenantId,
+          email: profile.email,
+          emailVerified: profile.emailVerified,
+          displayName: profile.displayName,
+          role: profile.role,
+          status: profile.status as TenantUserRecord["status"],
+          lastLoginAt: profile.lastLoginAt,
+          creationSource: profile.creationSource,
+          mfaEnrolled: profile.mfaEnrolled,
+          deviceCount: profile.deviceCount,
+          deviceListReference: profile.deviceListReference,
+        }
+      : {
+          userUuid: user.id,
+          tenantId: payload.tenantId,
+          email: user.email || payload.email,
+          emailVerified: false,
+          displayName:
+            (user.user_metadata?.full_name as string | undefined) || payload.email.split("@")[0],
+          role,
+          status: invited ? "invited" : "active",
+          lastLoginAt: user.last_sign_in_at ?? null,
+          creationSource: "invite",
+          mfaEnrolled: false,
+          deviceCount: 0,
+          deviceListReference: "trusted_devices",
+        };
   }
 
   async updateUserRole(actor: AdminActor, payload: UpdateRolePayload): Promise<void> {
@@ -305,6 +324,7 @@ export class AdminUserService {
     }
 
     await this.updateUserMetadata(payload.userId, role, payload.tenantId);
+    await userProfileDirectoryService.syncProfile(payload.userId, payload.tenantId);
 
     await this.auditLogService.logAudit({
       userId: actor.id,
@@ -346,6 +366,7 @@ export class AdminUserService {
     }
 
     await this.getSupabase().auth.admin.signOut(payload.userId);
+    await userProfileDirectoryService.syncProfile(payload.userId, payload.tenantId);
 
     await this.auditLogService.logAudit({
       userId: actor.id,

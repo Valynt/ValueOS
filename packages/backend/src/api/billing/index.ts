@@ -7,6 +7,10 @@ import express from 'express';
 import subscriptionsRouter from './subscriptions.js'
 import usageRouter from './usage.js'
 import invoicesRouter from './invoices.js'
+import summaryRouter from './summary.js'
+import plansRouter from './plans.js'
+import planChangeRouter from './plan-change.js'
+import paymentMethodsRouter from './payment-methods.js'
 import webhooksRouter from './webhooks.js'
 import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js'
@@ -30,7 +34,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.manage'),
+  requirePermission('billing:manage'),
   subscriptionsRouter
 );
 router.use(
@@ -38,16 +42,40 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.read'),
+  requirePermission('billing:read'),
   usageRouter
 );
 router.use(
-  '/invoices',
+  '/summary',
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.read'),
-  invoicesRouter
+  requirePermission('billing:read'),
+  summaryRouter
+);
+router.use(
+  '/plans',
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  requirePermission('billing:read'),
+  plansRouter
+);
+router.use(
+  '/plan-change',
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  requirePermission('billing:manage'),
+  planChangeRouter
+);
+router.use(
+  '/payment-methods',
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  requirePermission('billing:manage'),
+  paymentMethodsRouter
 );
 
 export default router;

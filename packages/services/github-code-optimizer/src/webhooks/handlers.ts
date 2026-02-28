@@ -1,17 +1,50 @@
-import { logger, logAnalysisEvent } from '../utils/logger.js';
-import { Repository, GitHubEvent } from '../types/index.js';
+import { logAnalysisEvent, logger } from '../utils/logger.js';
+import { BotConfig, GitHubEvent, Repository } from '../types/index.js';
 import { analyzeRepository } from '../services/analysisService.js';
 import { checkPermissions } from '../services/permissionService.js';
 import { loadRepositoryConfig } from '../services/configService.js';
 
+interface GitHubRepoPayload {
+  owner: { login: string };
+  name: string;
+  full_name: string;
+  id: number;
+  private: boolean;
+  default_branch: string;
+  html_url: string;
+}
+
+interface GitHubSender {
+  login: string;
+  id: number;
+  type: string;
+}
+
+interface GitHubInstallation {
+  id: number;
+}
+
+interface GitHubPullRequest {
+  number: number;
+  head?: { sha: string };
+}
+
+interface GitHubCommit {
+  id: string;
+  message: string;
+  modified?: string[];
+  added?: string[];
+  removed?: string[];
+}
+
 interface WebhookPayload {
   action?: string;
-  repository: any;
-  sender?: any;
-  installation?: any;
-  pull_request?: any;
-  repositories?: any[];
-  commits?: any[];
+  repository: GitHubRepoPayload;
+  sender?: GitHubSender;
+  installation?: GitHubInstallation;
+  pull_request?: GitHubPullRequest;
+  repositories?: GitHubRepoPayload[];
+  commits?: GitHubCommit[];
   after?: string;
   ref?: string;
 }
@@ -200,7 +233,7 @@ async function handleInstallationRepositoriesEvent(event: WebhookPayload) {
   });
 }
 
-function extractRepository(repoPayload: any): Repository {
+function extractRepository(repoPayload: GitHubRepoPayload): Repository {
   return {
     owner: repoPayload.owner.login,
     name: repoPayload.name,
@@ -217,7 +250,7 @@ function isMainBranch(ref: string): boolean {
   return branch === 'main' || branch === 'master';
 }
 
-function hasRelevantChanges(commits: any[], config: any): boolean {
+function hasRelevantChanges(commits: GitHubCommit[], config: BotConfig): boolean {
   if (!commits.length) return false;
 
   const relevantExtensions = new Set([

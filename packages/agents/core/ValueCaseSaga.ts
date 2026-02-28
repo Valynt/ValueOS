@@ -116,13 +116,13 @@ const VALID_TRANSITIONS: ReadonlyArray<SagaTransition> = [
 // ============================================================================
 
 export interface SagaPersistence {
-  saveState(snapshot: SagaSnapshot): Promise<void>;
-  loadState(valueCaseId: string): Promise<SagaSnapshot | null>;
-  recordTransition(record: SagaTransitionRecord): Promise<void>;
+  saveState(_snapshot: SagaSnapshot): Promise<void>;
+  loadState(_valueCaseId: string): Promise<SagaSnapshot | null>;
+  recordTransition(_record: SagaTransitionRecord): Promise<void>;
 }
 
 export interface SagaEventEmitter {
-  emit(event: {
+  emit(_event: {
     type: string;
     payload: Record<string, unknown>;
     meta: { correlationId: string; timestamp: string; source: string };
@@ -130,7 +130,7 @@ export interface SagaEventEmitter {
 }
 
 export interface SagaAuditLogger {
-  log(entry: {
+  log(_entry: {
     eventType: string;
     action: string;
     resourceId: string;
@@ -144,7 +144,7 @@ export interface SagaAuditLogger {
 // ============================================================================
 
 export type CompensationHandler = (
-  snapshot: SagaSnapshot
+  _snapshot: SagaSnapshot
 ) => Promise<CompensationResult>;
 
 const DEFAULT_COMPENSATION_HANDLERS: Record<string, CompensationHandler> = {

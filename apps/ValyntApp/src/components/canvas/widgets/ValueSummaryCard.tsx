@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { TrendingUp, BarChart3, Users } from "lucide-react";
+import { BarChart3, TrendingUp, Users } from "lucide-react";
 import type { WidgetProps } from "../CanvasHost";
 
 interface ValueSummaryData {

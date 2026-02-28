@@ -6,7 +6,7 @@
  * The encryption key is derived from CRM_TOKEN_ENCRYPTION_KEY env var.
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;

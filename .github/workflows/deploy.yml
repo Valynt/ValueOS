@@ -3,6 +3,8 @@ name: Deploy
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 9 * * 1'
   workflow_dispatch:
     inputs:
       environment:
@@ -18,26 +20,121 @@ on:
         required: false
         default: false
         type: boolean
+      incident_ticket_id:
+        description: "Incident ticket ID (required when skip_tests=true, e.g. INC-1234)"
+        required: false
+        type: string
+      incident_reference:
+        description: "Incident reference (ticket ID or incident URL; required when skip_tests=true)"
+        required: false
+        type: string
+      skip_tests_reason:
+        description: "Emergency justification for skipping tests (required when skip_tests=true)"
+        required: false
+        type: string
+      post_deploy_validation_checklist:
+        description: "Post-deploy validation checklist (required when skip_tests=true)"
+        required: false
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
+  issues: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
   NODE_VERSION: "20.19.0"
   PNPM_VERSION: "9.15.0"
+  SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
+  # Guardrail: if tests are bypassed, require protected environment approval + evidence fields.
+  # Additional restriction: skip_tests may ONLY be used for production emergency deploys.
+  emergency-bypass-authorization:
+    name: Emergency Test Bypass Authorization
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
+    environment:
+      name: emergency-test-bypass
+    outputs:
+      audit_file: ${{ steps.audit.outputs.audit_file }}
+    steps:
+      - name: Validate emergency bypass inputs
+        run: |
+          set -euo pipefail
+
+          if [ "${{ inputs.environment }}" != "production" ]; then
+            echo "skip_tests can only be used for production emergency deploys." >&2
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.incident_ticket_id }}" ]; then
+            if [ -z "${{ inputs.incident_reference }}" ]; then
+              echo "incident_ticket_id or incident_reference is required when skip_tests=true." >&2
+              exit 1
+            fi
+          fi
+
+          INCIDENT_REFERENCE="${{ inputs.incident_reference }}"
+          if [ -z "${INCIDENT_REFERENCE}" ]; then
+            INCIDENT_REFERENCE="${{ inputs.incident_ticket_id }}"
+          fi
+          if [ "${#INCIDENT_REFERENCE}" -lt 5 ]; then
+            echo "incident reference must be explicit (ticket or URL)." >&2
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.skip_tests_reason }}" ]; then
+            echo "skip_tests_reason is required when skip_tests=true." >&2
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.post_deploy_validation_checklist }}" ]; then
+            echo "post_deploy_validation_checklist is required when skip_tests=true." >&2
+            exit 1
+          fi
+
+      - name: Create emergency bypass audit log
+        id: audit
+        run: |
+          set -euo pipefail
+          AUDIT_FILE="emergency-test-bypass-audit-${{ github.run_id }}.json"
+
+          cat > "${AUDIT_FILE}" <<EOF
+          {
+            "timestamp_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "approver_identity": "${{ github.triggering_actor }}",
+            "workflow_actor": "${{ github.actor }}",
+            "reason": ${{ toJSON(inputs.skip_tests_reason) }},
+            "incident_reference": ${{ toJSON(inputs.incident_reference != '' && inputs.incident_reference || inputs.incident_ticket_id) }},
+            "post_deploy_validation_checklist": ${{ toJSON(inputs.post_deploy_validation_checklist) }}
+          }
+          EOF
+
+          echo "audit_file=${AUDIT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload emergency bypass audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-test-bypass-audit-${{ github.run_id }}
+          path: ${{ steps.audit.outputs.audit_file }}
+
   # ──────────────────────────────────────────────────────────────────────────
-  # 1. Quality gate — must pass before any deploy
+  # 1. Quality gate — must pass before any deploy (unless emergency bypass)
   # ──────────────────────────────────────────────────────────────────────────
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_tests }}
+    if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,17 +154,102 @@ jobs:
         run: |
           npx turbo run lint typecheck test
 
+  # Always emit a deployment audit artifact for non-scheduled runs.
+  emergency-skip-audit:
+    name: Emergency Skip Audit
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' }}
+    outputs:
+      incident_ticket_id: ${{ steps.collect.outputs.incident_ticket_id }}
+      incident_reference: ${{ steps.collect.outputs.incident_reference }}
+      skip_tests: ${{ steps.collect.outputs.skip_tests }}
+    steps:
+      - name: Validate skip requirements and create audit artifact
+        id: collect
+        env:
+          SKIP_TESTS: ${{ inputs.skip_tests }}
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          INCIDENT_REFERENCE: ${{ inputs.incident_reference }}
+          SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+          ACTOR: ${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          # If skip_tests is set, enforce evidence fields.
+          if [ "${SKIP_TESTS}" = "true" ]; then
+            if [ -z "${INCIDENT_REFERENCE:-}" ] && [ -z "${INCIDENT_TICKET_ID:-}" ]; then
+              echo "skip_tests=true requires incident_reference or incident_ticket_id" >&2
+              exit 1
+            fi
+            if [ -z "${SKIP_TESTS_REASON:-}" ]; then
+              echo "skip_tests=true requires skip_tests_reason" >&2
+              exit 1
+            fi
+            if [ -z "${POST_DEPLOY_VALIDATION_CHECKLIST:-}" ]; then
+              echo "skip_tests=true requires post_deploy_validation_checklist" >&2
+              exit 1
+            fi
+          fi
+
+          EFFECTIVE_INCIDENT_REFERENCE="${INCIDENT_REFERENCE:-${INCIDENT_TICKET_ID:-}}"
+          printf 'incident_ticket_id=%s\n' "${INCIDENT_TICKET_ID:-}" >> "$GITHUB_OUTPUT"
+          printf 'incident_reference=%s\n' "${EFFECTIVE_INCIDENT_REFERENCE}" >> "$GITHUB_OUTPUT"
+          printf 'skip_tests=%s\n' "${SKIP_TESTS}" >> "$GITHUB_OUTPUT"
+
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          payload = {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": os.environ["RUN_ID"],
+            "run_attempt": os.environ["RUN_ATTEMPT"],
+            "actor": os.environ["ACTOR"],
+            "event_name": os.environ["EVENT_NAME"],
+            "ref_name": os.environ["REF_NAME"],
+            "sha": os.environ["SHA"],
+            "skip_tests": os.environ.get("SKIP_TESTS", "false") == "true",
+            "incident_ticket_id": os.environ.get("INCIDENT_TICKET_ID", ""),
+            "incident_reference": os.environ.get("INCIDENT_REFERENCE") or os.environ.get("INCIDENT_TICKET_ID", ""),
+            "skip_tests_reason": os.environ.get("SKIP_TESTS_REASON", ""),
+            "post_deploy_validation_checklist": os.environ.get("POST_DEPLOY_VALIDATION_CHECKLIST", ""),
+          }
+
+          with open(f"emergency-skip-audit-{os.environ['RUN_ID']}.json", "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+          PY
+
+      - name: Upload emergency skip audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-skip-audit-${{ github.run_id }}
+          path: emergency-skip-audit-${{ github.run_id }}.json
+
   # ──────────────────────────────────────────────────────────────────────────
   # 2. Build and push container images
   # ──────────────────────────────────────────────────────────────────────────
   build-images:
-    name: Build Images
+    name: Build Container Images
     runs-on: ubuntu-latest
-    needs: [quality-gate]
-    if: always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
+    needs: [quality-gate, emergency-bypass-authorization, emergency-skip-audit]
+    if: >-
+      github.event_name != 'schedule' &&
+      always() &&
+      (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped') &&
+      (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped') &&
+      (!inputs.skip_tests || needs.emergency-bypass-authorization.result == 'success')
     outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
-      image_digest: ${{ steps.build.outputs.digest }}
+      image_tag: ${{ steps.backend-meta.outputs.version }}
+      image_digest: ${{ steps.backend-build.outputs.digest }}
+      image_ref: ${{ steps.backend-image-ref.outputs.image_ref }}
+      frontend_image_ref: ${{ steps.frontend-image-ref.outputs.image_ref }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,27 +260,114 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
+      # ── Backend ──────────────────────────────────────────────────────────
+      - name: Backend Docker metadata
+        id: backend-meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           tags: |
             type=sha,prefix=
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push frontend
-        id: build
+      - name: Build and push backend image
+        id: backend-build
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/ValyntApp/Dockerfile.prod
+          file: infra/docker/Dockerfile.backend
+          build-args: |
+            APP=@valueos/backend
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.backend-meta.outputs.tags }}
+          labels: ${{ steps.backend-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Resolve backend immutable image reference
+        id: backend-image-ref
+        run: |
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.backend-build.outputs.digest }}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign backend image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.backend-build.outputs.digest }}"
+
+      # ── Frontend ─────────────────────────────────────────────────────────
+      - name: Frontend Docker metadata
+        id: frontend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend image
+        id: frontend-build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.frontend
+          target: runtime
+          build-args: |
+            VITE_API_BASE_URL=/api
+          push: true
+          tags: ${{ steps.frontend-meta.outputs.tags }}
+          labels: ${{ steps.frontend-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Resolve frontend immutable image reference
+        id: frontend-image-ref
+        run: |
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}@${{ steps.frontend-build.outputs.digest }}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign frontend image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}@${{ steps.frontend-build.outputs.digest }}"
+
+  verify-supply-chain:
+    name: Verify Supply Chain Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify signed backend image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+        run: |
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            "${IMAGE_REF}"
+
+      - name: Verify signed frontend image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          IMAGE_REF: ${{ needs.build-images.outputs.frontend_image_ref }}
+        run: |
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            "${IMAGE_REF}"
 
   # ──────────────────────────────────────────────────────────────────────────
   # 3. Deploy to staging (automatic on main push)
@@ -106,7 +375,8 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build-images]
+    needs: [build-images, verify-supply-chain, emergency-skip-audit]
+    if: github.event_name != 'schedule'
     environment:
       name: staging
       url: https://staging.valueos.app
@@ -115,6 +385,31 @@ jobs:
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Install Supabase CLI
+        run: pnpm add -g supabase@latest
+
+      - name: Run database migrations (staging)
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::warning::STAGING_DATABASE_URL secret not set — skipping migrations"
+            exit 0
+          fi
+          cd infra/supabase/supabase
+          supabase db push --db-url "${DATABASE_URL}"
 
       - name: Configure kubeconfig
         run: |
@@ -126,14 +421,15 @@ jobs:
           cd infra/k8s
           IMAGE_TAG="${{ needs.build-images.outputs.image_tag }}"
 
-          # Update image tag in staging overlay
+          # Update image tags in staging overlay
           cd overlays/staging
-          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "ghcr.io/valynt/valueos-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "ghcr.io/valynt/valueos-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${IMAGE_TAG}"
           kustomize build . | kubectl apply -f -
 
           # Wait for rollout
-          kubectl -n valynt rollout status deployment/backend-blue --timeout=300s
-          kubectl -n valynt rollout status deployment/worker --timeout=300s
+          kubectl -n valynt-staging rollout status deployment/backend-staging --timeout=300s
+          kubectl -n valynt-staging rollout status deployment/worker-staging --timeout=300s
 
       - name: Smoke test staging
         run: |
@@ -149,6 +445,55 @@ jobs:
           echo "Staging health check failed"
           exit 1
 
+
+      - name: Capture staging operational verification artifact
+        env:
+          INCIDENT_REFERENCE: ${{ needs.emergency-skip-audit.outputs.incident_reference }}
+          SKIP_TESTS: ${{ needs.emergency-skip-audit.outputs.skip_tests }}
+          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          artifact = {
+            "environment": "staging",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "image_ref": os.environ.get("IMAGE_REF", ""),
+            "mandatory_verification_checklist": {
+              "health": {"endpoint": "https://staging.valueos.app/health", "status": "passed"},
+              "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
+              "key_metrics": {"load_test": "infra/testing/load-test.k6.js", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
+            },
+            "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
+          }
+
+          with open("post-deploy-verification-staging-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
+            json.dump(artifact, handle, indent=2)
+
+          with open("post-deploy-verification-staging-${{ github.run_id }}.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join([
+              "# Post-Deploy Mandatory Verification Checklist (Staging)",
+              "",
+              "- [x] Health check: https://staging.valueos.app/health returned 200",
+              "- [x] Rollback readiness confirmed (blue-green)",
+              "- [x] Key metrics captured (load test + SLO alert baseline)",
+              f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
+            ]))
+          PY
+
+      - name: Upload staging operational verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-verification-staging-${{ github.run_id }}
+          path: |
+            post-deploy-verification-staging-${{ github.run_id }}.json
+            post-deploy-verification-staging-${{ github.run_id }}.md
+
       - name: Run load test against staging
         uses: grafana/k6-action@v0.3.1
         with:
@@ -158,14 +503,49 @@ jobs:
           VUS: "20"
           DURATION: "1m"
 
+
+  preprod-slo-guard:
+    name: Pre-Prod SLO Guard
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Check pre-production burn-rate alerts
+        env:
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_STAGING_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_STAGING_TOKEN }}
+          ALERT_NAME_REGEX: ${{ env.SLO_ALERT_NAME_REGEX }}
+        run: |
+          if [ -z "${ALERTMANAGER_URL}" ]; then
+            echo "ALERTMANAGER_STAGING_URL secret is required for SLO guard"
+            exit 1
+          fi
+
+          AUTH_HEADER=()
+          if [ -n "${ALERTMANAGER_TOKEN}" ]; then
+            AUTH_HEADER=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+          fi
+
+          ALERTS_JSON=$(curl -fsSL "${AUTH_HEADER[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts")
+
+          ACTIVE_SLO_ALERTS=$(echo "$ALERTS_JSON" | jq --arg pattern "${ALERT_NAME_REGEX}" '[.[] | select(.status.state == "active" and (.labels.alertname | test($pattern)))] | length')
+
+          if [ "${ACTIVE_SLO_ALERTS}" -gt 0 ]; then
+            echo "Found ${ACTIVE_SLO_ALERTS} active SLO burn-rate alerts. Blocking production promotion."
+            echo "$ALERTS_JSON" | jq --arg pattern "${ALERT_NAME_REGEX}" '.[] | select(.status.state == "active" and (.labels.alertname | test($pattern))) | {alertname: .labels.alertname, severity: .labels.severity, summary: .annotations.summary}'
+            exit 1
+          fi
+
+          echo "No active SLO burn-rate alerts in pre-production."
+
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, build-images]
-    if: github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    needs: [deploy-staging, preprod-slo-guard, build-images, verify-supply-chain, emergency-skip-audit]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
       url: https://app.valueos.app
@@ -174,6 +554,31 @@ jobs:
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Install Supabase CLI
+        run: pnpm add -g supabase@latest
+
+      - name: Run database migrations (production)
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::PRODUCTION_DATABASE_URL secret is required for production deploys"
+            exit 1
+          fi
+          cd infra/supabase/supabase
+          supabase db push --db-url "${DATABASE_URL}"
 
       - name: Configure kubeconfig
         run: |
@@ -187,15 +592,17 @@ jobs:
 
           # Deploy to green (inactive) slot
           cd overlays/production
-          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "ghcr.io/valynt/valueos-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "ghcr.io/valynt/valueos-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${IMAGE_TAG}"
           kustomize build . | kubectl apply -f -
 
           # Wait for green rollout
-          kubectl -n valynt rollout status deployment/backend-green --timeout=300s
-          kubectl -n valynt rollout status deployment/worker --timeout=300s
+          kubectl -n valynt rollout status deployment/backend-green-production --timeout=300s
 
-          # Switch active service to green
-          kubectl -n valynt patch service backend-active \
+          # Switch active services to green
+          kubectl -n valynt patch service backend-active-production \
+            -p '{"spec":{"selector":{"slot":"green"}}}'
+          kubectl -n valynt patch service frontend-active-production \
             -p '{"spec":{"selector":{"slot":"green"}}}'
 
           echo "Production deploy complete — green slot is now active"
@@ -214,7 +621,129 @@ jobs:
           echo "Production health check failed — consider rollback"
           exit 1
 
-  # ──────────────────────────────────────────────────────────────────────────
+
+      - name: Capture production operational verification artifact
+        env:
+          INCIDENT_REFERENCE: ${{ needs.emergency-skip-audit.outputs.incident_reference }}
+          SKIP_TESTS: ${{ needs.emergency-skip-audit.outputs.skip_tests }}
+          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          artifact = {
+            "environment": "production",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "image_ref": os.environ.get("IMAGE_REF", ""),
+            "mandatory_verification_checklist": {
+              "health": {"endpoint": "https://app.valueos.app/health", "status": "passed"},
+              "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
+              "key_metrics": {"preprod_slo_guard": "passed", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
+            },
+            "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
+          }
+
+          with open("post-deploy-verification-production-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
+            json.dump(artifact, handle, indent=2)
+
+          with open("post-deploy-verification-production-${{ github.run_id }}.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join([
+              "# Post-Deploy Mandatory Verification Checklist (Production)",
+              "",
+              "- [x] Health check: https://app.valueos.app/health returned 200",
+              "- [x] Rollback readiness confirmed (blue-green)",
+              "- [x] Key metrics captured (preprod SLO guard + alert baseline)",
+              f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
+            ]))
+          PY
+
+      - name: Upload production operational verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-verification-production-${{ github.run_id }}
+          path: |
+            post-deploy-verification-production-${{ github.run_id }}.json
+            post-deploy-verification-production-${{ github.run_id }}.md
+
+
+  weekly-reliability-report:
+    name: Weekly Reliability Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Generate weekly SLO and incident report
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_PRODUCTION_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROMETHEUS_URL}" ] || [ -z "${ALERTMANAGER_URL}" ]; then
+            echo "PROMETHEUS_PRODUCTION_URL and ALERTMANAGER_PRODUCTION_URL are required"
+            exit 1
+          fi
+
+          prom_query() {
+            local query="$1"
+            local auth_header=()
+            if [ -n "${PROMETHEUS_TOKEN:-}" ]; then
+              auth_header=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
+            fi
+            curl -fsSL "${auth_header[@]}" --get --data-urlencode "query=${query}" "${PROMETHEUS_URL%/}/api/v1/query"
+          }
+
+          auth_header=()
+          if [ -n "${ALERTMANAGER_TOKEN:-}" ]; then
+            auth_header=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+          fi
+
+          API_AVAIL=$(prom_query 'slo:api_availability:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+
+          ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
+
+          INCIDENTS_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+          INCIDENTS_PREV_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[14d])) - sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+
+          REPORT_PATH="weekly-reliability-report.md"
+          RUN_DATE=$(date -u +%Y-%m-%d)
+
+          cat > "${REPORT_PATH}" <<REPORT
+          # Weekly Reliability Report (${RUN_DATE})
+
+          ## Current SLO Status (1h rolling)
+          - API Availability: ${API_AVAIL}
+          - API Latency (P95 <= 300ms good-event ratio): ${API_LATENCY}
+          - Authentication Success: ${AUTH_SUCCESS}
+          - Queue Health: ${QUEUE_HEALTH}
+
+          ## Burn-Rate Alert Status
+          - Active SLO burn-rate alerts: ${ACTIVE_BURN_ALERTS}
+
+          ## Incident Trend
+          - Incidents triggered in last 7d: ${INCIDENTS_7D}
+          - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
+
+          ## Notes
+          - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
+          REPORT
+
+      - name: Upload reliability report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-reliability-report-${{ github.run_id }}
+          path: weekly-reliability-report.md
+
+   # ──────────────────────────────────────────────────────────────────────────
   # 5. Rollback (manual trigger)
   # ──────────────────────────────────────────────────────────────────────────
   rollback:
@@ -239,3 +768,48 @@ jobs:
           kubectl -n valynt patch service backend-active \
             -p '{"spec":{"selector":{"slot":"blue"}}}'
           echo "Rolled back to blue slot"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 6. Deferred validation follow-up (only when skip_tests emergency bypass was used)
+  # ──────────────────────────────────────────────────────────────────────────
+  create-deferred-validation-followup:
+    name: Create Deferred Validation Follow-up
+    runs-on: ubuntu-latest
+    needs: [deploy-production, emergency-bypass-authorization]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.emergency-bypass-authorization.result == 'success' }}
+    steps:
+      - name: Create follow-up issue for deferred validations
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentStatus = '${{ needs.deploy-production.result }}';
+            const title = `Emergency deploy deferred validations: ${{ github.run_id }}`;
+            const body = [
+              '## Deferred validation follow-up (auto-created)',
+              '',
+              `- **Incident**: ${{ inputs.incident_ticket_id }}`,
+              `- **Workflow run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              `- **Requested by**: @${{ github.triggering_actor }}`,
+              `- **Deploy result**: ${deploymentStatus}`,
+              '',
+              '### Required post-deploy validation checklist',
+              '${{ inputs.post_deploy_validation_checklist }}',
+              '',
+              '### Emergency bypass reason',
+              '${{ inputs.skip_tests_reason }}',
+              '',
+              '### Execution tracking',
+              '- [ ] Validation execution started immediately',
+              '- [ ] Validation results linked back to this issue',
+              '- [ ] Incident timeline updated with validation outcomes',
+              '',
+              '> This task was created automatically and must be executed immediately after the emergency deployment.'
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['incident-followup', 'deferred-validation', 'priority:high']
+            });

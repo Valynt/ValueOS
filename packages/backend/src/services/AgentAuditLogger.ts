@@ -9,8 +9,8 @@ import { logger } from "../lib/logger.js"
 import { supabase } from "../lib/supabase.js"
 import { AgentContext, AgentType } from "./agent-types.js"
 import {
-  encrypt,
   decrypt,
+  encrypt,
   generateEncryptionKey,
 } from "../lib/crypto/CryptoUtils";
 
@@ -717,22 +717,24 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Query audit logs
+   * Query audit logs. organizationId is required for tenant isolation.
    */
-  async query(filters: AuditLogFilters = {}): Promise<AgentAuditLog[]> {
+  async query(filters: AuditLogFilters & { organizationId: string }): Promise<AgentAuditLog[]> {
+    if (!filters.organizationId) {
+      throw new Error("organizationId is required for agent audit log queries to enforce tenant isolation");
+    }
+
     let query = supabase.from("agent_audit_logs").select("*");
 
-    // Apply filters
+    // CRITICAL: Apply tenant filter first
+    query = query.eq("organization_id", filters.organizationId);
+
     if (filters.agent) {
       query = query.eq("agent_name", filters.agent);
     }
 
     if (filters.userId) {
       query = query.eq("user_id", filters.userId);
-    }
-
-    if (filters.organizationId) {
-      query = query.eq("organization_id", filters.organizationId);
     }
 
     if (filters.sessionId) {

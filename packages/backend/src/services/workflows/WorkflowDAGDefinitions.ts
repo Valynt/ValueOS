@@ -588,7 +588,7 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
   }
 
   // Check final stages exist
-  workflow.final_stages.forEach(finalStage => {
+  (workflow.final_stages ?? []).forEach(finalStage => {
     if (!workflow.stages.find(s => s.id === finalStage)) {
       errors.push(`Final stage '${finalStage}' not found in stages`);
     }
@@ -605,7 +605,8 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
   });
 
   // Check for unreachable stages
-  const reachableStages = new Set<string>([workflow.initial_stage]);
+  const entryStage = workflow.initial_stage ?? workflow.entry_stage ?? '';
+  const reachableStages = new Set<string>([entryStage]);
   let changed = true;
   while (changed) {
     changed = false;
@@ -659,7 +660,7 @@ function detectCycle(workflow: WorkflowDAG): boolean {
     return false;
   }
 
-  return dfs(workflow.initial_stage);
+  return dfs(workflow.initial_stage ?? workflow.entry_stage ?? '');
 }
 
 // ============================================================================

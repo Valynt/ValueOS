@@ -6,7 +6,8 @@
 
 import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
-import YAML from 'yamljs';
+import YAML from 'js-yaml';
+import fs from 'fs';
 import path from 'path';
 // import { logger } from '../utils/logger';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
@@ -20,13 +21,13 @@ router.use(serviceIdentityMiddleware);
 
 // Load OpenAPI specification
 const openApiPath = path.join(__dirname, '../../openapi.yaml');
-const openApiSpec = YAML.load(openApiPath);
+const openApiSpec = YAML.load(fs.readFileSync(openApiPath, 'utf8'));
 
 /**
  * Serve OpenAPI specification as JSON
  */
 router.get('/openapi.json', (_req, res) => {
-  res.json(openApiSpec);
+  return res.json(openApiSpec);
 });
 
 /**
@@ -34,7 +35,7 @@ router.get('/openapi.json', (_req, res) => {
  */
 router.get('/openapi.yaml', (_req, res) => {
   res.type('text/yaml');
-  res.send(YAML.stringify(openApiSpec, 10));
+  return res.send(YAML.dump(openApiSpec, { indent: 2 }));
 });
 
 /**
@@ -60,7 +61,7 @@ router.use(
  * Serve ReDoc documentation (alternative)
  */
 router.get('/redoc', (_req, res) => {
-  res.send(`
+  return res.send(`
 <!DOCTYPE html>
 <html>
   <head>
@@ -87,7 +88,7 @@ router.get('/redoc', (_req, res) => {
  * API documentation landing page
  */
 router.get('/', (_req, res) => {
-  res.send(`
+  return res.send(`
 <!DOCTYPE html>
 <html>
   <head>
@@ -245,7 +246,7 @@ router.get('/sdk/:language', (req, res) => {
   }
   
   // In production, this would generate actual SDK code
-  res.json({
+  return res.json({
     message: `SDK generation for ${language}`,
     instructions: `Use OpenAPI Generator to generate ${language} SDK`,
     command: `openapi-generator-cli generate -i /api/openapi.json -g ${language} -o ./sdk/${language}`

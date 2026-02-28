@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-import { describe, it, vi, expect, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Mock Redis Client
 const { mockEval } = vi.hoisted(() => ({

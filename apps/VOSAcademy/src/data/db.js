@@ -34,9 +34,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-import { eq, and, desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { users, pillars, progress, quizQuestions, quizResults, certifications, maturityAssessments, resources, simulationScenarios, simulationAttempts, } from "../drizzle/schema";
+import { certifications, maturityAssessments, pillars, progress, quizQuestions, quizResults, resources, simulationAttempts, simulationScenarios, users, } from "../drizzle/schema";
 import { ENV } from './_core/env';
 var _db = null;
 // Lazily create the drizzle instance so local tooling can run without a DB.

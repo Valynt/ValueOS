@@ -20,8 +20,8 @@ import type {
 export interface CrmProviderInterface {
   readonly provider: CrmProvider;
 
-  // OAuth flow
-  getAuthUrl(tenantId: string, redirectUri: string): OAuthStartResult;
+  // OAuth flow — nonce is an opaque state token (not tenant ID)
+  getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult;
   exchangeCodeForTokens(params: OAuthCallbackParams, redirectUri: string): Promise<OAuthTokens>;
   refreshTokenIfNeeded(tokens: OAuthTokens): Promise<OAuthTokens | null>;
 

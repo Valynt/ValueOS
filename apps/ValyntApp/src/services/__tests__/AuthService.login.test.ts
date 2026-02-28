@@ -5,15 +5,15 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthService } from "../AuthService";
-import { ValidationError, RateLimitError, AuthenticationError } from "../errors";
+import { AuthenticationError, RateLimitError, ValidationError } from "../errors";
 import {
+  createAuthErrorResponse,
   createLoginCredentials,
   createSuccessfulLoginResponse,
-  createAuthErrorResponse,
-  TEST_PASSWORDS,
   TEST_EMAILS,
+  TEST_PASSWORDS,
 } from "../../test-utils/auth.fixtures";
-import { setupAuthMocks, resetAuthMocks } from "../../test-utils/auth.helpers";
+import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
 
 // Setup mocks
 const mocks = setupAuthMocks();

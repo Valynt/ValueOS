@@ -21,7 +21,8 @@ import type {
 import { SagaTrigger } from '../core/ValueCaseSaga.js';
 import type { IdempotencyGuard } from '../core/IdempotencyGuard.js';
 import type { DeadLetterQueue, DLQEntry } from '../core/DeadLetterQueue.js';
-import type { RedTeamAgent, RedTeamOutput, Objection } from './agents/RedTeamAgent.js';
+import { ObjectionSchema } from './agents/RedTeamAgent.js';
+import type { Objection, RedTeamAgent, RedTeamOutput } from './agents/RedTeamAgent.js';
 
 // ============================================================================
 // Types
@@ -44,13 +45,33 @@ export interface ValueTree {
   timestamp: string;
 }
 
+export interface ValueRange {
+  low: number;
+  high: number;
+}
+
+export interface ValueDriver {
+  metric: string;
+  value: number;
+  unit: string;
+  timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+  assumptions?: string[];
+  citations?: string[];
+}
+
 export interface ValueTreeNode {
   id: string;
   label: string;
   value: number;
+  currency?: string;
+  timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+  range?: ValueRange;
   formula?: string;
   confidenceScore: number;
+  assumptions: string[];
+  dependencies: string[];
   citations: string[];
+  drivers: ValueDriver[];
   children?: ValueTreeNode[];
 }
 
@@ -78,12 +99,28 @@ export interface LoopProgress {
   timestamp: string;
 }
 
+export interface EvidenceReportItem {
+  title: string;
+  description: string;
+  confidence: number;
+  category: string;
+  verification_type: string;
+  priority: string;
+}
+
+export interface EvidenceReport {
+  valueCaseId: string;
+  items: EvidenceReportItem[];
+  analysis: string;
+  timestamp: string;
+}
+
 export interface LoopResult {
   valueCaseId: string;
   tenantId: string;
   hypotheses: ValueHypothesis[];
   valueTree: ValueTree | null;
-  evidenceBundle: Record<string, unknown> | null;
+  evidenceBundle: EvidenceReport | null;
   narrative: NarrativeBlock | null;
   objections: Objection[];
   revisionCount: number;
@@ -116,20 +153,37 @@ export interface OpportunityAgentInterface {
   }>;
 }
 
+export interface FinancialModelOutput {
+  title: string;
+  description: string;
+  confidence: number;
+  category: string;
+  model_type: string;
+  priority: string;
+  value?: number;
+  currency?: string;
+  timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+  range?: { low: number; high: number };
+  assumptions?: string[];
+  dependencies?: string[];
+  citations?: string[];
+  drivers?: Array<{
+    metric: string;
+    value: number;
+    unit: string;
+    timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+    assumptions?: string[];
+    citations?: string[];
+  }>;
+}
+
 export interface FinancialModelingAgentInterface {
   analyzeFinancialModels(
     query: string,
     context?: { organizationId?: string; userId?: string; sessionId?: string },
     idempotencyKey?: string
   ): Promise<{
-    financial_models: Array<{
-      title: string;
-      description: string;
-      confidence: number;
-      category: string;
-      model_type: string;
-      priority: string;
-    }>;
+    financial_models: FinancialModelOutput[];
     analysis: string;
   }>;
 }
@@ -181,20 +235,92 @@ export interface SSEEmitter {
 export const ValueHypothesisSchema = z.object({
   id: z.string(),
   description: z.string(),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
   category: z.string(),
-  estimatedValue: z.number().optional(),
+  estimatedValue: z.number().refine((n) => !Number.isNaN(n), { message: 'estimatedValue must not be NaN' }).optional(),
 });
+
+export const ValueDriverSchema = z.object({
+  metric: z.string(),
+  value: z.number().refine((n) => !Number.isNaN(n), { message: 'driver value must not be NaN' }),
+  unit: z.string(),
+  timeBasis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
+  assumptions: z.array(z.string()).optional(),
+  citations: z.array(z.string()).optional(),
+});
+
+export const ValueRangeSchema = z.object({
+  low: z.number(),
+  high: z.number(),
+});
+
+export const ValueTreeNodeSchema: z.ZodType<ValueTreeNode> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    value: z.number().refine((n) => !Number.isNaN(n), { message: 'node value must not be NaN' }),
+    currency: z.string().optional(),
+    timeBasis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
+    range: ValueRangeSchema.optional(),
+    formula: z.string().optional(),
+    confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+    assumptions: z.array(z.string()),
+    dependencies: z.array(z.string()),
+    citations: z.array(z.string()),
+    drivers: z.array(ValueDriverSchema),
+    children: z.array(ValueTreeNodeSchema).optional(),
+  })
+);
+
+export const ValueTreeSchema = z.object({
+  id: z.string(),
+  valueCaseId: z.string(),
+  nodes: z.array(ValueTreeNodeSchema),
+  totalValue: z.number().refine((n) => !Number.isNaN(n), { message: 'totalValue must not be NaN' }),
+  currency: z.string(),
+  timestamp: z.string(),
+}).strict();
+
+export const NarrativeSectionSchema = z.object({
+  heading: z.string(),
+  content: z.string(),
+  claimIds: z.array(z.string()),
+  confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+}).strict();
+
+export const NarrativeBlockSchema = z.object({
+  id: z.string(),
+  valueCaseId: z.string(),
+  title: z.string(),
+  executiveSummary: z.string(),
+  sections: z.array(NarrativeSectionSchema),
+  timestamp: z.string(),
+}).strict();
+
+/** Schema for the evidence bundle as constructed by the loop (not the formal EvidenceBundle domain type). */
+export const EvidenceReportSchema = z.object({
+  valueCaseId: z.string(),
+  items: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    confidence: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
+    category: z.string(),
+    verification_type: z.string(),
+    priority: z.string(),
+  })),
+  analysis: z.string(),
+  timestamp: z.string(),
+}).strict();
 
 export const LoopResultSchema = z.object({
   valueCaseId: z.string(),
   tenantId: z.string(),
   hypotheses: z.array(ValueHypothesisSchema),
-  valueTree: z.any().nullable(),
-  evidenceBundle: z.any().nullable(),
-  narrative: z.any().nullable(),
-  objections: z.array(z.any()),
-  revisionCount: z.number(),
+  valueTree: ValueTreeSchema.nullable(),
+  evidenceBundle: EvidenceReportSchema.nullable(),
+  narrative: NarrativeBlockSchema.nullable(),
+  objections: z.array(ObjectionSchema),
+  revisionCount: z.number().int().min(0),
   finalState: z.string(),
   success: z.boolean(),
   error: z.string().optional(),
@@ -246,19 +372,24 @@ export class HypothesisLoop {
   }
 
   /**
-   * Run the full hypothesis-first core loop
+   * Run the full hypothesis-first core loop.
+   *
+   * @param domainPackContext - Optional KPI vocabulary from a domain pack,
+   *   prepended to agent queries so they prefer industry-specific terminology.
    */
   async run(
     valueCaseId: string,
     tenantId: string,
     correlationId: string,
-    sse?: SSEEmitter
+    sse?: SSEEmitter,
+    domainPackContext?: string
   ): Promise<LoopResult> {
     const context = { organizationId: tenantId };
+    const packPrefix = domainPackContext ? `${domainPackContext}\n\n` : '';
     let revisionCount = 0;
     let hypotheses: ValueHypothesis[] = [];
     let valueTree: ValueTree | null = null;
-    let evidenceBundle: Record<string, unknown> | null = null;
+    let evidenceBundle: EvidenceReport | null = null;
     let narrative: NarrativeBlock | null = null;
     let allObjections: Objection[] = [];
 
@@ -269,7 +400,7 @@ export class HypothesisLoop {
         `${valueCaseId}:hypothesis`,
         async () => {
           const result = await this.opportunityAgent.analyzeOpportunities(
-            `Identify value drivers for case ${valueCaseId}`,
+            `${packPrefix}Identify value drivers for case ${valueCaseId}`,
             context
           );
           return result.opportunities.map((o, i) => ({
@@ -303,7 +434,7 @@ export class HypothesisLoop {
               ? `\nPrevious objections to address: ${allObjections.map((o) => o.description).join('; ')}`
               : '';
             return this.financialModelingAgent.analyzeFinancialModels(
-              `Build value tree for hypotheses: ${hypothesisContext}${objectionContext}`,
+              `${packPrefix}Build value tree for hypotheses: ${hypothesisContext}${objectionContext}`,
               context
             );
           },
@@ -313,21 +444,12 @@ export class HypothesisLoop {
           'financial-modeling'
         );
 
-        valueTree = {
-          id: `vt_${valueCaseId}_${revisionCount}`,
+        valueTree = this.buildValueTree(
           valueCaseId,
-          nodes: modelResult.financial_models.map((m, i) => ({
-            id: `node_${i}`,
-            label: m.title,
-            value: 0,
-            formula: m.description,
-            confidenceScore: m.confidence,
-            citations: [],
-          })),
-          totalValue: 0,
-          currency: 'USD',
-          timestamp: new Date().toISOString(),
-        };
+          revisionCount,
+          modelResult.financial_models,
+          hypotheses
+        );
         this.emitProgress(sse, 2, 'Model', 'completed');
 
         // Transition to VALIDATING
@@ -339,7 +461,7 @@ export class HypothesisLoop {
           `${valueCaseId}:evidence:${revisionCount}`,
           async () => {
             return this.groundTruthAgent.analyzeGroundtruth(
-              `Retrieve evidence for value tree: ${JSON.stringify(valueTree)}`,
+              `${packPrefix}Retrieve evidence for value tree: ${JSON.stringify(valueTree)}`,
               context
             );
           },
@@ -365,7 +487,7 @@ export class HypothesisLoop {
           `${valueCaseId}:narrative:${revisionCount}`,
           async () => {
             return this.narrativeAgent.analyzeNarrative(
-              `Create executive narrative for value tree: ${JSON.stringify(valueTree)} with evidence: ${JSON.stringify(evidenceBundle)}`,
+              `${packPrefix}Create executive narrative for value tree: ${JSON.stringify(valueTree)} with evidence: ${JSON.stringify(evidenceBundle)}`,
               context
             );
           },
@@ -399,7 +521,7 @@ export class HypothesisLoop {
               tenantId,
               valueTree: valueTree as unknown as Record<string, unknown>,
               narrativeBlock: narrative as unknown as Record<string, unknown>,
-              evidenceBundle: evidenceBundle!,
+              evidenceBundle: evidenceBundle as unknown as Record<string, unknown>,
               idempotencyKey: crypto.randomUUID(),
             });
           },
@@ -417,9 +539,8 @@ export class HypothesisLoop {
           this.emitProgress(sse, 6, 'Revision', 'running', `Revision cycle ${revisionCount + 1}`);
           revisionCount++;
 
-          // Transition back to DRAFTING via feedback
-          await this.saga.transition(valueCaseId, SagaTrigger.FEEDBACK_RECEIVED, correlationId);
-          await this.saga.transition(valueCaseId, SagaTrigger.USER_FEEDBACK, correlationId);
+          // Direct transition COMPOSING → DRAFTING via REDTEAM_OBJECTION
+          await this.saga.transition(valueCaseId, SagaTrigger.REDTEAM_OBJECTION, correlationId);
 
           this.emitProgress(sse, 6, 'Revision', 'completed', `Re-entering at DRAFTING`);
           // Loop continues
@@ -487,7 +608,8 @@ export class HypothesisLoop {
     correlationId: string,
     agentType: string
   ): Promise<T> {
-    const idempotencyKey = crypto.randomUUID();
+    // Deterministic key: same step retried produces the same key, hitting the cache.
+    const idempotencyKey = stepKey;
 
     try {
       const result = await this.idempotencyGuard.execute(idempotencyKey, fn);
@@ -497,7 +619,7 @@ export class HypothesisLoop {
 
       // Route to DLQ
       const dlqEntry: DLQEntry = {
-        taskId: `${stepKey}:${idempotencyKey}`,
+        taskId: `${stepKey}:${correlationId}`,
         agentType,
         input: { valueCaseId, stepKey },
         error: errorMsg,
@@ -510,6 +632,79 @@ export class HypothesisLoop {
 
       throw error;
     }
+  }
+
+  /**
+   * Build a ValueTree from the modeling agent's structured output.
+   * Falls back to hypothesis estimatedValue when the model doesn't provide a value.
+   */
+  private buildValueTree(
+    valueCaseId: string,
+    revisionCount: number,
+    models: FinancialModelOutput[],
+    hypotheses: ValueHypothesis[]
+  ): ValueTree {
+    // Index hypotheses by description for fallback value lookup.
+    // The modeling agent's title often derives from the hypothesis description.
+    const hypothesisValues: Array<{ description: string; value: number }> = [];
+    for (const h of hypotheses) {
+      if (typeof h.estimatedValue === 'number' && h.estimatedValue !== 0) {
+        hypothesisValues.push({ description: h.description.toLowerCase(), value: h.estimatedValue });
+      }
+    }
+
+    const nodes: ValueTreeNode[] = models.map((m, i) => {
+      // Resolve value: model output > hypothesis fallback > 0
+      const modelValue = typeof m.value === 'number' ? m.value : 0;
+      // Fuzzy match: find hypothesis whose description appears in the model title or vice versa
+      const titleLower = m.title.toLowerCase();
+      const matchedHypothesis = hypothesisValues.find(
+        (h) => titleLower.includes(h.description.substring(0, 30)) || h.description.includes(titleLower.substring(0, 30))
+      );
+      const hypothesisValue = matchedHypothesis?.value ?? 0;
+      const resolvedValue = modelValue !== 0 ? modelValue : hypothesisValue;
+
+      // Build driver sub-nodes
+      const drivers: ValueDriver[] = (m.drivers ?? []).map((d) => ({
+        metric: d.metric,
+        value: d.value,
+        unit: d.unit,
+        timeBasis: d.timeBasis,
+        assumptions: d.assumptions ?? [],
+        citations: d.citations ?? [],
+      }));
+
+      // Build citations: model citations > provenance pointers
+      const citations: string[] = m.citations && m.citations.length > 0
+        ? m.citations
+        : [`model:${valueCaseId}:${i}`];
+
+      return {
+        id: `node_${i}`,
+        label: m.title,
+        value: resolvedValue,
+        currency: m.currency ?? 'USD',
+        timeBasis: m.timeBasis,
+        range: m.range,
+        formula: m.description,
+        confidenceScore: m.confidence,
+        assumptions: m.assumptions ?? [],
+        dependencies: m.dependencies ?? [],
+        citations,
+        drivers,
+      };
+    });
+
+    const totalValue = nodes.reduce((sum, n) => sum + n.value, 0);
+
+    return {
+      id: `vt_${valueCaseId}_${revisionCount}`,
+      valueCaseId,
+      nodes,
+      totalValue,
+      currency: 'USD',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private emitProgress(

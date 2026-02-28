@@ -1,4 +1,4 @@
-import type { AgentState, AgentEvent } from "./types";
+import type { AgentEvent, AgentState } from "./types";
 
 type StateTransition = {
   from: AgentState;

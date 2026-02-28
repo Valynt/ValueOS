@@ -1,0 +1,110 @@
+name: Compliance Evidence Export
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 1 */3 *'
+
+permissions:
+  contents: read
+
+jobs:
+  export-evidence:
+    name: Export Compliance Evidence Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare evidence directories
+        run: |
+          mkdir -p evidence/security-scans evidence/privacy evidence/rls evidence/metadata
+
+      - name: Capture immutable run metadata
+        run: |
+          cat <<JSON > evidence/metadata/run-metadata.json
+          {
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "ref": "${{ github.ref }}",
+            "commit_sha": "${{ github.sha }}",
+            "exported_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+
+      - name: Run npm audit security scan
+        continue-on-error: true
+        run: |
+          npm audit --json > evidence/security-scans/npm-audit.json
+
+      - name: Run Semgrep security scan
+        continue-on-error: true
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+          generateSarif: "1"
+
+      - name: Collect Semgrep SARIF output
+        if: always()
+        run: |
+          if [ -f semgrep.sarif ]; then
+            cp semgrep.sarif evidence/security-scans/semgrep.sarif
+          else
+            echo "Semgrep SARIF output not found." > evidence/security-scans/semgrep-missing.txt
+          fi
+
+      - name: Run DSR/privacy compliance tests
+        continue-on-error: true
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=json --outputFile=evidence/privacy/dsr-workflow.json
+
+      - name: Run RLS validation tests
+        continue-on-error: true
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=json --outputFile=evidence/rls/rls-validation.json
+
+      - name: Record evidence manifest
+        if: always()
+        run: |
+          find evidence -type f | sort > evidence/metadata/evidence-manifest.txt
+
+      - name: Create compressed evidence bundle
+        if: always()
+        run: |
+          tar -czf compliance-evidence-bundle-${{ github.run_id }}.tar.gz evidence
+
+      - name: Upload compliance evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-evidence-bundle-${{ github.run_id }}
+          path: |
+            compliance-evidence-bundle-${{ github.run_id }}.tar.gz
+            evidence/
+          retention-days: 365

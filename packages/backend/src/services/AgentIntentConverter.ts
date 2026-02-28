@@ -8,7 +8,7 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { createIntent, UIIntent } from '../types/intent';
+import { createIntent, Intent } from '../types/intent';
 
 /**
  * Generic agent output - any object with agentType
@@ -24,7 +24,7 @@ interface GenericAgentOutput {
  */
 export interface IAgentIntentConverter {
   canConvert(agentType: string): boolean;
-  convert(output: GenericAgentOutput): UIIntent[];
+  convert(output: GenericAgentOutput): Intent[];
 }
 
 /**
@@ -55,7 +55,7 @@ abstract class BaseAgentConverter implements IAgentIntentConverter {
     );
   }
   
-  abstract convert(output: GenericAgentOutput): UIIntent[];
+  abstract convert(output: GenericAgentOutput): Intent[];
   
   protected createSource(output: GenericAgentOutput) {
     return {
@@ -72,8 +72,8 @@ abstract class BaseAgentConverter implements IAgentIntentConverter {
 class SystemMapperConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['systemmapper', 'system-mapper', 'system_mapper'];
   
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
     
     const systemMap = getNestedValue(output, 'systemMap') as Record<string, unknown> | undefined;
@@ -112,8 +112,8 @@ class SystemMapperConverter extends BaseAgentConverter {
 class InterventionDesignerConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['interventiondesigner', 'intervention-designer', 'intervention_designer'];
   
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
     
     const interventions = getNestedValue(output, 'interventions') as unknown[] | undefined;
@@ -137,8 +137,8 @@ class InterventionDesignerConverter extends BaseAgentConverter {
 class OutcomeEngineerConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['outcomeengineer', 'outcome-engineer', 'outcome_engineer'];
   
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
     
     const hypotheses = getNestedValue(output, 'hypotheses') as unknown[] | undefined;
@@ -163,8 +163,8 @@ class OutcomeEngineerConverter extends BaseAgentConverter {
 class RealizationLoopConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['realizationloop', 'realization-loop', 'realization_loop'];
   
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
     
     const metrics = getNestedValue(output, 'metrics') as unknown[] | undefined;
@@ -198,8 +198,8 @@ class RealizationLoopConverter extends BaseAgentConverter {
 class ValueEvalConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['valueeval', 'value-eval', 'value_eval'];
   
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
     
     const scores = getNestedValue(output, 'scores') as Record<string, number> | undefined;
@@ -229,8 +229,8 @@ class ValueEvalConverter extends BaseAgentConverter {
 class CoordinatorConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['coordinator', 'coordinator-agent'];
   
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
     
     const layoutDirective = getNestedValue(output, 'layoutDirective');
@@ -254,8 +254,8 @@ class CoordinatorConverter extends BaseAgentConverter {
 class GroundTruthConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['groundtruth', 'ground-truth', 'ground_truth', 'benchmark'];
 
-  convert(output: GenericAgentOutput): UIIntent[] {
-    const intents: UIIntent[] = [];
+  convert(output: GenericAgentOutput): Intent[] {
+    const intents: Intent[] = [];
     const source = this.createSource(output);
 
     const payload =
@@ -382,11 +382,11 @@ class GroundTruthConverter extends BaseAgentConverter {
 class GenericAgentConverter extends BaseAgentConverter {
   readonly supportedAgentTypes = ['*'];
   
-  canConvert(): boolean {
+  override canConvert(): boolean {
     return true; // Matches everything as fallback
   }
   
-  convert(output: GenericAgentOutput): UIIntent[] {
+  convert(output: GenericAgentOutput): Intent[] {
     const source = this.createSource(output);
     
     return [createIntent(
@@ -445,7 +445,7 @@ export class AgentIntentConverterRegistry {
   /**
    * Convert agent output to intents
    */
-  convert(output: GenericAgentOutput): UIIntent[] {
+  convert(output: GenericAgentOutput): Intent[] {
     const converter = this.converters.find(c => c.canConvert(output.agentType));
     
     if (!converter) {

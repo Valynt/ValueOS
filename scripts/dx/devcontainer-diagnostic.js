@@ -180,7 +180,7 @@ function produceFix() {
       name: "ValueOS Dev Container",
       dockerComposeFile: "docker-compose.devcontainer.yml",
       service: "app",
-      workspaceFolder: "/workspaces/ValueOS",
+      workspaceFolder: process.env.WORKSPACE_FOLDER || "/workspaces/ValueOS",
       shutdownAction: "stopCompose",
       postCreateCommand: devcontainerJson.postCreateCommand,
       remoteEnv: devcontainerJson.remoteEnv,
@@ -210,7 +210,7 @@ function verificationSteps() {
   console.log("### Commands");
   console.log("1. docker compose -f .devcontainer/docker-compose.devcontainer.yml config");
   console.log("2. Rebuild devcontainer in VS Code");
-  console.log("3. Verify workspace root is /workspaces/ValueOS");
+  console.log(`3. Verify workspace root is ${process.env.WORKSPACE_FOLDER || '/workspaces/ValueOS'}`);
   console.log("4. Check tool availability: node, pnpm, docker");
   console.log("### Expected Outcomes");
   console.log("- Config validates without errors");

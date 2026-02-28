@@ -139,6 +139,10 @@ export class MessageBus {
     try {
       if (payload.__compressed) {
         const decompressed = decompress(payload.data);
+        if (decompressed === null) {
+          logger.error('Failed to decompress message: decompress returned null');
+          return payload;
+        }
         return JSON.parse(decompressed);
       }
       return payload;
@@ -311,7 +315,7 @@ export class MessageBus {
 
       deliveryPromises.push(
         handler.handler(expandedEvent).catch((error) => {
-          logger.error('Handler error for ${handler.agent_name}:', error instanceof Error ? error : undefined);
+          logger.error(`Handler error for ${handler.agent_name}:`, error instanceof Error ? error : undefined);
           this.updateStats(channel, 'failed_delivery');
         })
       );

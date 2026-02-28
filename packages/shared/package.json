@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.29",
+    "@types/uuid": "^11.0.0",
     "typescript": "^5.9.3"
   },
   "tsErrorBaseline": 1

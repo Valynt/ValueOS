@@ -5,18 +5,18 @@
  * CRITICAL: These tests ensure revenue protection and service abuse prevention.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  getTestSupabaseClient,
-  cleanupBillingTables,
-  seedTestData,
   assertRecordExists,
+  cleanupBillingTables,
+  getTestSupabaseClient,
+  seedTestData,
 } from "../__helpers__/db-helpers";
 import {
   createCompleteBillingSetup,
+  createUsageAlert,
   createUsageEvent,
   createUsageQuota,
-  createUsageAlert,
 } from "../__helpers__/billing-factories";
 import type { SupabaseClient } from "@supabase/supabase-js";
 

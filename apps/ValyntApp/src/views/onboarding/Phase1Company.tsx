@@ -1,14 +1,24 @@
 import { useState } from "react";
-import { Building2, Plus, X, Globe, Package, Sparkles, Loader2 } from "lucide-react";
+import { Building2, Globe, Loader2, Package, Plus, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OnboardingPhase1Input } from "@/hooks/company-context/types";
 import type { ResearchJob, ResearchSuggestion } from "@/hooks/company-context/types";
 
 interface Props {
-  onNext: (data: OnboardingPhase1Input, researchJobId?: string) => void;
+  onNext: (
+    data: OnboardingPhase1Input,
+    researchJobId?: string,
+    options?: { fastTrack: boolean }
+  ) => void;
   researchJob?: ResearchJob | null;
   researchSuggestions?: ResearchSuggestion[];
-  onStartResearch?: (website: string, industry: string, companySize: string | null, salesMotion: string | null) => void;
+  onStartResearch?: (
+    website: string,
+    industry: string,
+    companySize: string | null,
+    salesMotion: string | null,
+    ticker?: string
+  ) => void;
   isResearching?: boolean;
 }
 
@@ -16,8 +26,10 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
   const [companyName, setCompanyName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [industry, setIndustry] = useState("");
+  const [ticker, setTicker] = useState("");
   const [companySize, setCompanySize] = useState<OnboardingPhase1Input["company_size"]>(null);
   const [salesMotion, setSalesMotion] = useState<OnboardingPhase1Input["sales_motion"]>(null);
+  const [fastTrackMode, setFastTrackMode] = useState(true);
   const [products, setProducts] = useState<OnboardingPhase1Input["products"]>([
     { name: "", description: "", product_type: "platform" },
   ]);
@@ -58,17 +70,19 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
         company_name: companyName.trim(),
         website_url: websiteUrl.trim(),
         industry: industry.trim(),
+        ticker: ticker.trim() || undefined,
         company_size: companySize,
         sales_motion: salesMotion,
         products: products.filter((p) => p.name.trim().length > 0),
       },
       researchJob?.id,
+      { fastTrack: fastTrackMode },
     );
   };
 
   const handleAutoFill = () => {
     if (onStartResearch && canAutoFill) {
-      onStartResearch(websiteUrl.trim(), industry.trim(), companySize, salesMotion);
+      onStartResearch(websiteUrl.trim(), industry.trim(), companySize, salesMotion, ticker.trim());
     }
   };
 
@@ -86,7 +100,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
   ];
 
   const entityStatus = researchJob?.entity_status ?? {};
-  const entityTypes = ["product", "competitor", "persona", "claim", "capability", "value_pattern"];
+  const entityTypes = ["product", "competitor", "persona", "claim", "capability", "value_pattern", "sec_filing"];
 
   return (
     <div className="space-y-6">
@@ -131,16 +145,29 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
         </div>
       </div>
 
-      <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
-          Industry
-        </label>
-        <input
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value)}
-          placeholder="e.g. Enterprise Software, Manufacturing, Financial Services"
-          className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+            Industry
+          </label>
+          <input
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value)}
+            placeholder="e.g. SaaS, FinTech"
+            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+            Ticker / CIK (optional)
+          </label>
+          <input
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="e.g. MSFT or 0000789019"
+            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+          />
+        </div>
       </div>
 
       {/* Company size */}
@@ -192,6 +219,36 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
       {/* Auto-fill from website */}
       {onStartResearch && (
         <div className="space-y-3">
+          <div className="p-4 rounded-xl border border-zinc-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setFastTrackMode((prev) => !prev)}
+              className="w-full flex items-start justify-between gap-3 text-left"
+            >
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-900">Fast-track onboarding</p>
+                <p className="text-[12px] text-zinc-500 mt-1">
+                  Use an AI research agent to scan your website and public signals, then preload competitors,
+                  personas, and claims so you can review and launch faster.
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "mt-0.5 inline-flex h-6 min-w-11 items-center rounded-full p-1 transition-colors",
+                  fastTrackMode ? "bg-zinc-900" : "bg-zinc-300"
+                )}
+                aria-label="Toggle fast-track onboarding"
+              >
+                <span
+                  className={cn(
+                    "h-4 w-4 rounded-full bg-white transition-transform",
+                    fastTrackMode ? "translate-x-5" : "translate-x-0"
+                  )}
+                />
+              </span>
+            </button>
+          </div>
+
           {!researchJob && (
             <button
               onClick={handleAutoFill}
@@ -204,7 +261,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
               )}
             >
               <Sparkles className="w-4 h-4" />
-              Auto-fill from website
+              {fastTrackMode ? "Run AI fast-track research" : "Auto-fill from website"}
             </button>
           )}
 

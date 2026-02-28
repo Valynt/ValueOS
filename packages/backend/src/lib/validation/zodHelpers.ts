@@ -10,16 +10,16 @@
  */
 
 import { z, ZodType, ZodTypeDef } from 'zod';
-import { sanitizeString, sanitizeForLog, sanitizeForPrompt } from './sanitize.js'
+import { sanitizeForLog, sanitizeForPrompt, sanitizeString } from './sanitize.js'
 import {
   normalizeEmail,
-  normalizePhone,
-  normalizeUuid,
-  normalizeSlug,
   normalizeName,
+  normalizePhone,
+  normalizeSlug,
   normalizeUrl,
+  normalizeUuid,
 } from './normalizers';
-import { SafePatterns, isValidEmail, isValidUuid, analyzeRegexSafety } from './safeRegex.js'
+import { analyzeRegexSafety, isValidEmail, isValidUuid, SafePatterns } from './safeRegex.js'
 
 // ============================================================================
 // Field Size Limits

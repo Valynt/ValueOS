@@ -2,7 +2,7 @@
  * Integration tests for server endpoints
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/server';
 import { domainValidator } from '../src/validator';

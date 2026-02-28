@@ -182,7 +182,7 @@ export class RedisRateLimitStore {
       for (const redisKey of keys) {
         const pipeline = this.redis.multi();
         pipeline.get(redisKey);
-        pipeline.pttl(redisKey);
+        pipeline.pTTL(redisKey);
         const results = await pipeline.exec();
 
         if (results && results.length >= 2) {

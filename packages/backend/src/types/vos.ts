@@ -44,6 +44,9 @@ export interface TargetAgentOutput {
   assumptions: string[];
   dependencies: string[];
   confidence_level: ConfidenceLevel;
+  valueTree?: Record<string, unknown>;
+  businessCase?: Record<string, unknown>;
+  roiModel?: Record<string, unknown>;
 }
 
 export interface TargetKPI {
@@ -213,15 +216,15 @@ export interface ValueFabricSnapshot {
   use_cases: UseCase[];
   value_trees: ValueTree[];
   roi_models: ROIModel[];
-  value_commits: any[]; // TODO: define ValueCommit
+  value_commits: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define ValueCommit
   telemetry_summary?: {
     total_events: number;
     kpis_tracked: number;
     last_event_timestamp?: string;
     coverage_percentage: number;
   };
-  realization_reports?: any[]; // TODO: define RealizationReport
-  expansion_models?: any[]; // TODO: define ExpansionModel
+  realization_reports?: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define RealizationReport
+  expansion_models?: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define ExpansionModel
 }
 
 // ============================================================================
@@ -303,7 +306,16 @@ export interface VMRTSeed {
   lifecycle_stage: LifecycleStage;
   default_kpis: string[];
   suggested_benchmarks: string[];
-  template_data: Record<string, any>;
+  template_data: Record<string, unknown>;
+  traceId?: string;
+  context?: Record<string, unknown>;
+  reasoningSteps?: unknown[];
+  valueModel?: Record<string, unknown>;
+  assumptions?: unknown[];
+  kpis?: unknown[];
+  benchmarks?: Record<string, unknown>;
+  citations?: unknown[];
+  provenance?: Record<string, unknown>;
 }
 
 export interface VMRTTrace {

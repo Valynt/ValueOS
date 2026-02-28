@@ -178,6 +178,40 @@ router.post(
   }
 );
 
+router.post(
+  '/resolve-ticker',
+  rateLimiters.agentExecution,
+  validateRequest({
+    domain: { type: 'string' as const, required: true, maxLength: 255 },
+  }),
+  async (req: Request, res: Response) => {
+    const { domain } = req.body;
+
+    return callGroundtruthApi(res, 'resolve-ticker', {
+      domain,
+    });
+  }
+);
+
+router.post(
+  '/filing-sections',
+  rateLimiters.agentExecution,
+  validateRequest({
+    identifier: { type: 'string' as const, required: true, maxLength: 64 },
+    filingType: { type: 'string' as const },
+    sections: { type: 'array' as const, required: true },
+  }),
+  async (req: Request, res: Response) => {
+    const { identifier, filingType, sections } = req.body;
+
+    return callGroundtruthApi(res, 'filing-sections', {
+      identifier,
+      filingType,
+      sections,
+    });
+  }
+);
+
 router.use((err: unknown, _req: Request, res: Response) => {
   logger.error('Groundtruth endpoint failed', err instanceof Error ? err : undefined);
   res.status(500).json({

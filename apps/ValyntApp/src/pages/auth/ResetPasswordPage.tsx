@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, CheckCircle, Mail } from "lucide-react";
-import { useAuth } from "@/app/providers/AuthProvider";
+import { CheckCircle, Loader2, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function ResetPasswordPage() {
   const [email, setEmail] = useState("");

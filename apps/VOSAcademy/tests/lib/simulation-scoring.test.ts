@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  calculateOverallScore,
-  calculateCategoryScores,
-  calculateWeightedScore,
-  isPassing,
-  determineTier,
-  calculateScoringResult,
-  generateFeedbackPrompt,
   analyzePerformance,
-  validateScoringResult,
+  calculateCategoryScores,
   calculateImprovementNeeded,
-  SCORING_THRESHOLDS,
+  calculateOverallScore,
+  calculateScoringResult,
+  calculateWeightedScore,
+  determineTier,
+  generateFeedbackPrompt,
+  isPassing,
   RUBRIC_WEIGHTS,
+  SCORING_THRESHOLDS,
   type SimulationResponse,
+  validateScoringResult,
 } from '../../src/lib/simulation-scoring';
 
 describe('Simulation Scoring', () => {

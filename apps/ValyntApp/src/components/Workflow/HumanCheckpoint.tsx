@@ -12,7 +12,7 @@
  */
 
 import React, { useState } from "react";
-import { CheckCircle2, XCircle, Clock, AlertTriangle, User } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, User, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CheckpointSummaryItem {

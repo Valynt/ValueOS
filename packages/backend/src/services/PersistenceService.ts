@@ -287,12 +287,19 @@ class PersistenceService {
   }
 
   async logHistory(
+    organizationId: string,
     componentId: string,
     actionType: "created" | "updated" | "deleted" | "moved" | "resized",
     actor: string,
-    changes: any
+    changes: unknown
   ): Promise<void> {
+    if (!organizationId) {
+      logger.error("logHistory called without organizationId — skipping to prevent cross-tenant leak");
+      return;
+    }
+
     const { error } = await supabase.from("component_history").insert({
+      organization_id: organizationId,
       component_id: componentId,
       action_type: actionType,
       actor,
@@ -353,6 +360,7 @@ class PersistenceService {
   }
 
   async logAgentActivity(
+    organizationId: string,
     caseId: string,
     agentName: string,
     activityType:
@@ -363,9 +371,15 @@ class PersistenceService {
       | "data-import",
     title: string,
     content: string,
-    metadata: any = {}
+    metadata: Record<string, unknown> = {}
   ): Promise<void> {
+    if (!organizationId) {
+      logger.error("logAgentActivity called without organizationId — skipping to prevent cross-tenant leak");
+      return;
+    }
+
     const { error } = await supabase.from("agent_activities").insert({
+      organization_id: organizationId,
       case_id: caseId,
       agent_name: agentName,
       activity_type: activityType,

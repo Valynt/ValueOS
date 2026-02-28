@@ -8,7 +8,7 @@ import { vi } from "vitest";
 import request from 'supertest';
 import express, { Express } from 'express';
 import { valueCasesRouter } from '../index.js'
-import { getValueCasesRepository, NotFoundError, DatabaseError } from '../repository.js'
+import { DatabaseError, getValueCasesRepository, NotFoundError } from '../repository.js'
 
 // Mock the repository
 vi.mock('../repository');

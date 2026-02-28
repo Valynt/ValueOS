@@ -47,13 +47,15 @@ async function resolveUserId(
 async function gatherFootprint(
   supabase: ReturnType<typeof createServerSupabaseClient>,
   userId: string,
+  tenantId: string,
 ) {
   const footprint: Record<string, unknown[]> = {};
   for (const { table, userColumn } of PII_TABLES) {
     const { data, error } = await supabase
       .from(table)
       .select("*")
-      .eq(userColumn, userId);
+      .eq(userColumn, userId)
+      .eq("tenant_id", tenantId);
     if (error) {
       logger.warn(`DSR: failed to read ${table}`, { error: error.message });
       footprint[table] = [];
@@ -111,7 +113,7 @@ router.post(
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const footprint = await gatherFootprint(supabase, userId);
+      const footprint = await gatherFootprint(supabase, userId, tenantId);
       await auditDsr(supabase, "export", actorId ?? "unknown", email, {
         tables: Object.keys(footprint),
       });
@@ -125,7 +127,7 @@ router.post(
         data: footprint,
       });
     } catch (err) {
-      logger.error("DSR export failed", { error: err, email });
+      logger.error("DSR export failed", err instanceof Error ? err : undefined, { email });
       return res.status(500).json({ error: "Export failed" });
     }
   },
@@ -161,7 +163,7 @@ router.post(
       const placeholderEmail = `deleted+${userId}@redacted.local`;
       const redactedTs = new Date().toISOString();
 
-      // 1. Anonymize user profile
+      // 1. Anonymize user profile (scoped to tenant)
       await supabase
         .from("users")
         .update({
@@ -171,13 +173,14 @@ router.post(
           avatar_url: null,
           metadata: { anonymized: true, anonymized_at: redactedTs },
         })
-        .eq("id", userId);
+        .eq("id", userId)
+        .eq("tenant_id", tenantId);
 
-      // 2. Scrub content in related tables
+      // 2. Scrub content in related tables (scoped to tenant)
       const scrubbed = { content: "[redacted]", metadata: { anonymized: true, redacted_at: redactedTs } };
-      await supabase.from("messages").update(scrubbed).eq("user_id", userId);
-      await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId);
-      await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId);
+      await supabase.from("messages").update(scrubbed).eq("user_id", userId).eq("tenant_id", tenantId);
+      await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
+      await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
 
       await auditDsr(supabase, "erase", actorId ?? "unknown", email, {
         anonymized_to: placeholderEmail,
@@ -193,7 +196,7 @@ router.post(
         erased_at: redactedTs,
       });
     } catch (err) {
-      logger.error("DSR erasure failed", { error: err, email });
+      logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { email });
       return res.status(500).json({ error: "Erasure failed" });
     }
   },
@@ -225,14 +228,14 @@ router.post(
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const footprint = await gatherFootprint(supabase, userId);
+      const footprint = await gatherFootprint(supabase, userId, tenantId);
       const summary = Object.fromEntries(
         Object.entries(footprint).map(([table, rows]) => [table, (rows as unknown[]).length]),
       );
 
       return res.json({ email, user_id: userId, record_counts: summary });
     } catch (err) {
-      logger.error("DSR status failed", { error: err, email });
+      logger.error("DSR status failed", err instanceof Error ? err : undefined, { email });
       return res.status(500).json({ error: "Status check failed" });
     }
   },

@@ -1,14 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type {
-  CompanyContext,
-  CompanyProduct,
   CompanyCapability,
-  CompanyCompetitor,
-  CompanyPersona,
-  CompanyValuePattern,
   CompanyClaimGovernance,
+  CompanyCompetitor,
+  CompanyContext,
+  CompanyPersona,
+  CompanyProduct,
   CompanyValueContext,
+  CompanyValuePattern,
   OnboardingPhase1Input,
   OnboardingPhase2Input,
   OnboardingPhase3Input,
@@ -213,22 +213,46 @@ export function useCompleteOnboarding(tenantId: string, contextId: string) {
     mutationFn: async () => {
       const sb = getClient();
 
-      // Snapshot the full context for version history
-      const fullContext = await sb
+      // Fetch the full hydrated context for the snapshot
+      const { data: context } = await sb
         .from("company_contexts")
         .select("*")
         .eq("id", contextId)
         .single();
 
-      if (fullContext.data) {
-        await sb.from("company_context_versions").insert({
-          context_id: contextId,
-          tenant_id: tenantId,
-          version: (fullContext.data.version ?? 0) + 1,
-          snapshot: fullContext.data,
-          change_reason: "Initial onboarding completed",
-        });
-      }
+      if (!context) throw new Error("Context not found");
+
+      const [products, competitors, personas, claimGovernance, suggestions] = await Promise.all([
+        sb.from("company_products").select("*").eq("context_id", contextId).then((r) => r.data ?? []),
+        sb.from("company_competitors").select("*").eq("context_id", contextId).then((r) => r.data ?? []),
+        sb.from("company_personas").select("*").eq("context_id", contextId).then((r) => r.data ?? []),
+        sb.from("company_claim_governance").select("*").eq("context_id", contextId).then((r) => r.data ?? []),
+        sb.from("company_research_suggestions").select("*").eq("context_id", contextId).eq("status", "accepted").then((r) => r.data ?? []),
+      ]);
+
+      const snapshot = {
+        context,
+        products,
+        competitors,
+        personas,
+        claimGovernance,
+        research_provenance: suggestions.map(s => ({
+          entity_type: s.entity_type,
+          entity_id: s.id, // suggestion id
+          job_id: s.job_id,
+          confidence_score: s.confidence_score,
+          payload_hash: s.entity_hash
+        }))
+      };
+
+      // Create version record
+      await sb.from("company_context_versions").insert({
+        context_id: contextId,
+        tenant_id: tenantId,
+        version: (context.version ?? 0) + 1,
+        snapshot,
+        change_reason: "Initial onboarding completed",
+      });
 
       // Mark as completed
       const { error } = await sb
@@ -236,7 +260,7 @@ export function useCompleteOnboarding(tenantId: string, contextId: string) {
         .update({
           onboarding_status: "completed",
           onboarding_completed_at: new Date().toISOString(),
-          version: (fullContext.data?.version ?? 0) + 1,
+          version: (context.version ?? 0) + 1,
         })
         .eq("id", contextId);
 

@@ -16,7 +16,7 @@
  * - Invalid ID logging for security audit trail
  */
 
-import { createHmac, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import { createLogger } from '../../lib/logger.js';
 import type { CrmProviderInterface } from './CrmProviderInterface.js';
@@ -98,9 +98,8 @@ export class HubSpotProvider implements CrmProviderInterface {
   // OAuth
   // ============================================================================
 
-  getAuthUrl(tenantId: string, redirectUri: string): OAuthStartResult {
+  getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();
-    const state = randomBytes(32).toString('hex');
 
     const scopes = [
       'crm.objects.deals.read',
@@ -114,12 +113,12 @@ export class HubSpotProvider implements CrmProviderInterface {
       client_id: config.clientId,
       redirect_uri: redirectUri,
       scope: scopes.join(' '),
-      state: `${state}:${tenantId}`,
+      state: nonce,
     });
 
     return {
       authUrl: `${HS_AUTH_URL}?${params.toString()}`,
-      state,
+      state: nonce,
     };
   }
 

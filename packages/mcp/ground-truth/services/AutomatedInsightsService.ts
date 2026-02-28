@@ -18,8 +18,8 @@ import {
   SentimentResult,
 } from "./SentimentAnalysisService";
 import {
-  PredictiveModelingService,
   ForecastingResult,
+  PredictiveModelingService,
   TrendAnalysisResult,
 } from "./PredictiveModelingService";
 import { getCache } from "../core/Cache";

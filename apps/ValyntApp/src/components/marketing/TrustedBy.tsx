@@ -1,4 +1,4 @@
-import { Hexagon, Triangle, Box, Circle, Command } from "lucide-react";
+import { Box, Circle, Command, Hexagon, Triangle } from "lucide-react";
 
 export function TrustedBy() {
   return (

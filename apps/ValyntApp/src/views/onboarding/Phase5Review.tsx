@@ -1,14 +1,15 @@
-import { useState } from "react";
 import {
-  CheckCircle2,
-  Building2,
-  Swords,
-  Users,
-  Shield,
-  Package,
-  Sparkles,
-  ExternalLink,
   Bot,
+  Building2,
+  CheckCircle2,
+  ExternalLink,
+  Package,
+  Shield,
+  Sparkles,
+  Swords,
+  TrendingUp,
+  Users,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -18,6 +19,8 @@ import type {
   OnboardingPhase4Input,
   ResearchSuggestion,
 } from "@/hooks/company-context/types";
+import { useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface Props {
   phase1: OnboardingPhase1Input;
@@ -37,18 +40,21 @@ function SectionCard({
   count,
   color,
   children,
+  badge,
 }: {
   icon: React.ElementType;
   title: string;
   count: number;
   color: string;
   children: React.ReactNode;
+  badge?: React.ReactNode;
 }) {
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl p-5">
       <div className="flex items-center gap-2 mb-3">
         <Icon className={cn("w-4 h-4", color)} />
         <h3 className="text-[13px] font-semibold text-zinc-900">{title}</h3>
+        {badge}
         <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 font-medium">
           {count}
         </span>
@@ -61,7 +67,7 @@ function SectionCard({
 function ProvenanceBadge({ suggestion }: { suggestion?: ResearchSuggestion | undefined }) {
   const [showSources, setShowSources] = useState(false);
 
-  if (!suggestion || suggestion.status !== "accepted") return null;
+  if (!suggestion || (suggestion.status !== "accepted" && suggestion.status !== "edited")) return null;
 
   return (
     <div className="inline-flex items-center gap-1 ml-2">
@@ -98,9 +104,17 @@ function ProvenanceBadge({ suggestion }: { suggestion?: ResearchSuggestion | und
 }
 
 export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack, isSubmitting, researchJobId, researchSuggestions }: Props) {
-  const acceptedSuggestions = researchSuggestions?.filter((s) => s.status === "accepted") ?? [];
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? "default";
+  const acceptMutation = useAcceptSuggestion(tenantId);
+  const rejectMutation = useRejectSuggestion(tenantId);
+
+  const acceptedSuggestions = researchSuggestions?.filter((s) => s.status === "accepted" || s.status === "edited") ?? [];
+  const pendingCapabilities = researchSuggestions?.filter((s) => s.entity_type === "capability" && s.status === "suggested") ?? [];
+  const pendingPatterns = researchSuggestions?.filter((s) => s.entity_type === "value_pattern" && s.status === "suggested") ?? [];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <div className="flex items-center gap-3 mb-2">
         <div className="w-10 h-10 bg-pink-50 rounded-xl flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-pink-600" />
@@ -175,6 +189,94 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
           })}
         </div>
       </SectionCard>
+
+      {/* Advanced AI Insights (Capabilities & Patterns) */}
+      {(pendingCapabilities.length > 0 || pendingPatterns.length > 0) && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-500" />
+            <h3 className="text-[14px] font-bold text-zinc-900">Advanced AI Insights</h3>
+          </div>
+
+          {pendingCapabilities.length > 0 && (
+            <SectionCard
+              icon={Zap}
+              title="Suggested Capabilities"
+              count={pendingCapabilities.length}
+              color="text-blue-500"
+              badge={<span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold border border-blue-100">NEW</span>}
+            >
+              <div className="space-y-3">
+                {pendingCapabilities.map((s) => {
+                  const p = s.payload as any;
+                  return (
+                    <div key={s.id} className="p-3 rounded-xl border border-blue-100 bg-blue-50/20 flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="text-[12px] font-semibold text-zinc-900">{p.capability}</p>
+                        <p className="text-[11px] text-zinc-500 mt-1">{p.operational_change}</p>
+                      </div>
+                      <button
+                        onClick={() => acceptMutation.mutate({
+                          suggestionId: s.id,
+                          contextId: s.context_id,
+                          entityType: s.entity_type,
+                          payload: s.payload as Record<string, unknown>,
+                        })}
+                        disabled={acceptMutation.isPending}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                      >
+                        Accept
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
+
+          {pendingPatterns.length > 0 && (
+            <SectionCard
+              icon={TrendingUp}
+              title="Suggested Value Patterns"
+              count={pendingPatterns.length}
+              color="text-emerald-500"
+              badge={<span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-bold border border-emerald-100">NEW</span>}
+            >
+              <div className="space-y-3">
+                {pendingPatterns.map((s) => {
+                  const p = s.payload as any;
+                  return (
+                    <div key={s.id} className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/20 flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="text-[12px] font-semibold text-zinc-900">{p.pattern_name}</p>
+                        <div className="flex gap-2 mt-1">
+                          {p.typical_kpis?.slice(0, 2).map((k: any, idx: number) => (
+                            <span key={idx} className="text-[10px] text-emerald-600 font-medium">
+                              • {k.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => acceptMutation.mutate({
+                          suggestionId: s.id,
+                          contextId: s.context_id,
+                          entityType: s.entity_type,
+                          payload: s.payload as Record<string, unknown>,
+                        })}
+                        disabled={acceptMutation.isPending}
+                        className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+                      >
+                        Accept
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          )}
+        </div>
+      )}
 
       {/* Competitors */}
       {phase2.competitors.length > 0 && (

@@ -19,16 +19,19 @@ var CircuitState;
  * Circuit breaker for health checks
  */
 class CircuitBreaker {
+    failureThreshold;
+    recoveryTimeout;
+    monitoringPeriod;
+    state = CircuitState.CLOSED;
+    failureCount = 0;
+    lastFailureTime = 0;
+    nextAttemptTime = 0;
     constructor(failureThreshold = 5, recoveryTimeout = 60000, // 1 minute
     monitoringPeriod = 300000 // 5 minutes
     ) {
         this.failureThreshold = failureThreshold;
         this.recoveryTimeout = recoveryTimeout;
         this.monitoringPeriod = monitoringPeriod;
-        this.state = CircuitState.CLOSED;
-        this.failureCount = 0;
-        this.lastFailureTime = 0;
-        this.nextAttemptTime = 0;
     }
     async execute(operation) {
         const now = Date.now();

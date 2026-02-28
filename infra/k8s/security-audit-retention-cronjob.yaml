@@ -12,7 +12,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: audit-retention
-              image: postgres:16
+              image: postgres@sha256:cedbd4a3809524b5d1c29fb855a695d9c688f1916ee29c07620ef35efe1d9732
               env:
                 - name: DATABASE_URL
                   valueFrom:

@@ -5,7 +5,7 @@
  * structure for success, error, and metadata handling.
  */
 
-import { MCPBaseError, createErrorResponse } from "../errors/MCPBaseError";
+import { createErrorResponse, MCPBaseError } from "../errors/MCPBaseError";
 
 // ============================================================================
 // Base Response Interface

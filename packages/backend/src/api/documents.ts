@@ -14,8 +14,8 @@ import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from "../middleware/rateLimiter.js";
 import { requirePermission } from "../middleware/rbac.js";
 import {
-  fileUploadSecurityMiddleware,
   contentTypeValidationMiddleware,
+  fileUploadSecurityMiddleware,
 } from "../middleware/fileUploadSecurity.js";
 
 interface LineageMetadata {

@@ -48,9 +48,9 @@ function normalizeApiBaseUrl(value) {
     return normalizedPath.replace(/\/$/, "") || "/api";
 }
 class ClientConfigLoader {
-    constructor() {
-        this.config = null;
-    }
+    static instance;
+    config = null;
+    constructor() { }
     static getInstance() {
         if (!ClientConfigLoader.instance) {
             ClientConfigLoader.instance = new ClientConfigLoader();

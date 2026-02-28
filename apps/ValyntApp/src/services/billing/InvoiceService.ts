@@ -3,23 +3,14 @@
  * Manages invoice storage and retrieval
  */
 
-import { createClient } from '@supabase/supabase-js';
 import StripeService from './StripeService';
 import { Invoice } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
+import { getSupabaseClient } from '../../lib/supabase';
 
 const logger = createLogger({ component: 'InvoiceService' });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: any = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
+const supabase = (() => { try { return getSupabaseClient(); } catch { return null; } })();
 
 class InvoiceService {
   private stripe: any;
@@ -97,16 +88,16 @@ class InvoiceService {
           total: stripeInvoice.total / 100,
           currency: stripeInvoice.currency,
           status: stripeInvoice.status,
-          period_start: stripeInvoice.period_start 
+          period_start: stripeInvoice.period_start
             ? new Date(stripeInvoice.period_start * 1000).toISOString()
             : null,
-          period_end: stripeInvoice.period_end 
+          period_end: stripeInvoice.period_end
             ? new Date(stripeInvoice.period_end * 1000).toISOString()
             : null,
-          due_date: stripeInvoice.due_date 
+          due_date: stripeInvoice.due_date
             ? new Date(stripeInvoice.due_date * 1000).toISOString()
             : null,
-          paid_at: stripeInvoice.status_transitions?.paid_at 
+          paid_at: stripeInvoice.status_transitions?.paid_at
             ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
             : null,
           line_items: stripeInvoice.lines?.data || [],
@@ -143,7 +134,7 @@ class InvoiceService {
         tax: stripeInvoice.tax / 100,
         total: stripeInvoice.total / 100,
         status: stripeInvoice.status,
-        paid_at: stripeInvoice.status_transitions?.paid_at 
+        paid_at: stripeInvoice.status_transitions?.paid_at
           ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString()
           : null,
         line_items: stripeInvoice.lines?.data || [],

@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: valynt
+  namespace: valynt
+  annotations:
+    # Set these values from your AWS Certificate Manager ARN for the production domain.
+    # Example: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID
+    alb.ingress.kubernetes.io/certificate-arn: ""
+    # WAF ACL ARN — provision via Terraform and set here.
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: ""
+    alb.ingress.kubernetes.io/tags: Environment=production,Application=valynt
+spec:
+  rules:
+  - host: app.valynt.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-active
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-active
+            port:
+              number: 80

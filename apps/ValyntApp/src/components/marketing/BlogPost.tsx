@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Tag, ArrowLeft, Share2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Calendar, Clock, Share2, Tag } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { SafeHtml } from '../security/SafeHtml';
 import { SEO } from './SEO';

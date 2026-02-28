@@ -1,13 +1,13 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  UUID,
-  Vector1536,
-  Fact,
-  FactStatus,
-  RetrievalOptions,
-  RerankedResult,
   EvidenceCard,
   EvidenceFirstPayload,
+  Fact,
+  FactStatus,
+  RerankedResult,
+  RetrievalOptions,
+  UUID,
+  Vector1536,
 } from "./types";
 
 export class RetrievalEngine {

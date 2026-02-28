@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { academyService } from '../AcademyService.js'
 import { supabase } from '../../lib/supabase.js'
 

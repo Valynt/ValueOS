@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import SwaggerParser from '@apidevtools/swagger-parser';
 import yaml from 'js-yaml';
 
-const SPEC_PATH = resolve('openapi.yaml');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SPEC_PATH = resolve(__dirname, 'openapi.yaml');
 
 const httpMethods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'];
 

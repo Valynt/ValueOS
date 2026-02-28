@@ -20,7 +20,7 @@ POSTGRES_PORT=54322
 SUPABASE_API_PORT=54321
 SUPABASE_STUDIO_PORT=54323
 REDIS_PORT=6379
-API_PORT=3001
+API_PORT=8000
 VITE_PORT=5173
 EOF
     echo "[bootstrap-env] Created .env.ports with defaults."
@@ -30,25 +30,25 @@ else
 fi
 
 # local (developer-specific)
-echo "[bootstrap-env] Checking .env.local..."
-if [[ ! -f .env.local ]]; then
+echo "[bootstrap-env] Checking ops/env/.env.local..."
+if [[ ! -f ops/env/.env.local ]]; then
   if [[ -f ops/env/.env.local.example ]]; then
-    cp ops/env/.env.local.example .env.local
-    echo "[bootstrap-env] Created .env.local from template."
+    cp ops/env/.env.local.example ops/env/.env.local
+    echo "[bootstrap-env] Created ops/env/.env.local from template."
   elif [[ -f .env.local.example ]]; then
-    cp .env.local.example .env.local
-    echo "[bootstrap-env] Created .env.local from root template."
+    cp .env.local.example ops/env/.env.local
+    echo "[bootstrap-env] Created ops/env/.env.local from root template."
   else
-    cat > .env.local <<'EOF'
+    cat > ops/env/.env.local <<'EOF'
 # Developer-local overrides (NOT committed)
 TOGETHER_API_KEY=
 SUPABASE_ANON_KEY=
 VITE_SUPABASE_ANON_KEY=
 EOF
-    echo "[bootstrap-env] Created .env.local with defaults."
+    echo "[bootstrap-env] Created ops/env/.env.local with defaults."
   fi
 else
-  echo "[bootstrap-env] .env.local already exists."
+  echo "[bootstrap-env] ops/env/.env.local already exists."
 fi
 
 echo "[bootstrap-env] Done."

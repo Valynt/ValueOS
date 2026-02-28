@@ -2,7 +2,7 @@
  * Customer Access Service Tests
  */
 
-import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomerAccessService } from '../CustomerAccessService.js'
 import { supabase } from '../../lib/supabase.js'
 import { emailService } from '../EmailService.js'

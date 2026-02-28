@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { workflowEventListener } from '../WorkflowEventListener.js'
 import { workflowSDUIAdapter } from '../WorkflowSDUIAdapter.js'
-import { TARGET_WORKFLOW, OPPORTUNITY_WORKFLOW } from '../workflows/WorkflowDAGDefinitions.js'
+import { OPPORTUNITY_WORKFLOW, TARGET_WORKFLOW } from '../workflows/WorkflowDAGDefinitions.js'
 
 // Mock dependencies
 vi.mock('../WorkflowSDUIAdapter', () => ({
