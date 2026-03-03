@@ -1,6 +1,6 @@
 /*
- * Design: Atelier — Refined Workspace Craft
- * Settings: Tabbed layout — General, Users & Roles, Audit Log, Billing
+ * VALYNT Settings Page
+ * Tabs: General, Users, Audit Log, Billing
  */
 import { useState } from "react";
 import {
@@ -17,24 +17,15 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { organization, users, formatDate, timeAgo } from "@/lib/data";
+import { currentOrg, users, auditLog } from "@/lib/data";
 import { toast } from "sonner";
-
-const auditLogs = [
-  { id: "1", action: "Value Case Approved", actor: "Jane Doe", target: "Cloud TCO Analysis", timestamp: "2026-03-02T15:30:00Z", details: "Approved transition from Discovery to Modeling" },
-  { id: "2", action: "Agent Disabled", actor: "Marcus Chen", target: "GroundTruthFetcher", timestamp: "2026-03-02T14:00:00Z", details: "Temporarily disabled due to rate limiting" },
-  { id: "3", action: "Model Updated", actor: "Sarah Kim", target: "Customer Retention Value", timestamp: "2026-02-25T10:00:00Z", details: "Updated to v3.0 with expanded churn metrics" },
-  { id: "4", action: "User Invited", actor: "Jane Doe", target: "Jordan Taylor", timestamp: "2026-02-20T09:00:00Z", details: "Invited as Viewer role" },
-  { id: "5", action: "Integration Connected", actor: "Jane Doe", target: "Salesforce", timestamp: "2026-02-15T11:00:00Z", details: "Connected Salesforce CRM integration" },
-  { id: "6", action: "Tenant Created", actor: "Jane Doe", target: "Meridian Partners", timestamp: "2026-02-10T08:00:00Z", details: "Created new tenant workspace" },
-];
 
 export default function Settings() {
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-[1000px]">
+    <div className="p-6 space-y-6 max-w-[1000px]">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <h1 className="text-xl font-bold text-foreground">Settings</h1>
+        <p className="text-[13px] text-muted-foreground mt-0.5">
           Manage your organization, users, and platform configuration.
         </p>
       </div>
@@ -69,17 +60,17 @@ export default function Settings() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-[12px] font-medium text-muted-foreground mb-1.5 block">Organization Name</label>
-                  <Input defaultValue={organization.name} className="h-10" />
+                  <Input defaultValue={currentOrg.name} className="h-10" />
                 </div>
                 <div>
                   <label className="text-[12px] font-medium text-muted-foreground mb-1.5 block">Slug</label>
-                  <Input defaultValue={organization.slug} className="h-10" />
+                  <Input defaultValue="value-org" className="h-10" />
                 </div>
               </div>
               <div>
-                <label className="text-[12px] font-medium text-muted-foreground mb-1.5 block">Tier</label>
+                <label className="text-[12px] font-medium text-muted-foreground mb-1.5 block">Plan</label>
                 <div className="flex items-center gap-2">
-                  <Badge className="capitalize">{organization.tier}</Badge>
+                  <Badge className="capitalize">{currentOrg.plan}</Badge>
                   <Button variant="link" size="sm" className="text-[12px] h-auto p-0" onClick={() => toast("Upgrade dialog coming soon")}>
                     Upgrade Plan
                   </Button>
@@ -141,7 +132,7 @@ export default function Settings() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <Avatar className="w-8 h-8">
-                              <AvatarFallback className="text-[11px] font-semibold bg-primary/10 text-primary">
+                              <AvatarFallback className="text-[11px] font-semibold bg-muted text-foreground">
                                 {user.name.split(" ").map((n) => n[0]).join("")}
                               </AvatarFallback>
                             </Avatar>
@@ -166,7 +157,7 @@ export default function Settings() {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-[12px] text-muted-foreground">
-                          {user.lastActive ? timeAgo(user.lastActive) : "—"}
+                          {user.lastActive || "—"}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => toast("User actions coming soon")}>
@@ -190,21 +181,19 @@ export default function Settings() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/30">
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">User</th>
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">Action</th>
-                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">Actor</th>
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">Target</th>
-                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">Details</th>
                       <th className="text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3">When</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {auditLogs.map((log) => (
-                      <tr key={log.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-3 text-[13px] font-medium">{log.action}</td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{log.actor}</td>
-                        <td className="px-4 py-3 text-[13px]">{log.target}</td>
-                        <td className="px-4 py-3 text-[12px] text-muted-foreground max-w-xs truncate">{log.details}</td>
-                        <td className="px-4 py-3 text-right text-[12px] text-muted-foreground">{timeAgo(log.timestamp)}</td>
+                    {auditLog.map((entry) => (
+                      <tr key={entry.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{entry.user}</td>
+                        <td className="px-4 py-3 text-[13px] font-medium">{entry.action}</td>
+                        <td className="px-4 py-3 text-[13px]">{entry.target}</td>
+                        <td className="px-4 py-3 text-right text-[12px] text-muted-foreground">{entry.timestamp}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -221,13 +210,13 @@ export default function Settings() {
               <CardTitle className="text-[15px]">Current Plan</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                 <div>
-                  <p className="text-lg font-bold">Enterprise</p>
-                  <p className="text-[12px] text-muted-foreground mt-0.5">Unlimited tenants, agents, and value cases</p>
+                  <p className="text-lg font-bold text-foreground">Standard</p>
+                  <p className="text-[12px] text-muted-foreground mt-0.5">Up to 10 tenants, 50 active cases</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold font-mono">$2,499</p>
+                  <p className="text-2xl font-bold font-mono">$499</p>
                   <p className="text-[11px] text-muted-foreground">/month</p>
                 </div>
               </div>
@@ -242,8 +231,8 @@ export default function Settings() {
               {[
                 { label: "Agent Runs", used: 563, limit: 5000 },
                 { label: "LLM Tokens", used: 2100000, limit: 10000000, format: (v: number) => `${(v / 1000000).toFixed(1)}M` },
-                { label: "Active Value Cases", used: 18, limit: 100 },
-                { label: "Connected Integrations", used: 5, limit: 20 },
+                { label: "Active Value Cases", used: 5, limit: 50 },
+                { label: "Connected Integrations", used: 3, limit: 10 },
               ].map((item) => (
                 <div key={item.label}>
                   <div className="flex items-center justify-between mb-1">
@@ -254,7 +243,7 @@ export default function Settings() {
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-primary rounded-full transition-all"
+                      className="h-full bg-foreground rounded-full transition-all"
                       style={{ width: `${Math.min((item.used / item.limit) * 100, 100)}%` }}
                     />
                   </div>

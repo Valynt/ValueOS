@@ -1,22 +1,32 @@
 /*
- * Design: Atelier — Refined Workspace Craft
- * Agent Hub: Agent cards with status, run history table, cost metrics
+ * VALYNT Agents Page — Agent Hub
+ * Shows agent cards with status, success rate, cost, run history
  */
 import { useState } from "react";
 import {
   Bot, Activity, DollarSign, Zap, CheckCircle2, XCircle, Clock,
-  Loader2, Power, PowerOff, Settings, ChevronDown, BarChart3,
-  AlertTriangle, TrendingUp, Hash,
+  Loader2, Power, Settings, Hash, Search,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { agents, agentRuns, timeAgo, getStatusColor } from "@/lib/data";
+import { agents, timeAgo } from "@/lib/data";
 import { toast } from "sonner";
+
+// Mock run history data
+const agentRuns = [
+  { id: "r1", agentName: "Opportunity Agent", status: "success", duration: 12.3, tokensUsed: 4520, cost: 0.18, startedAt: "2m ago", output: "" },
+  { id: "r2", agentName: "Research Agent", status: "success", duration: 45.1, tokensUsed: 12800, cost: 0.52, startedAt: "3m ago", output: "" },
+  { id: "r3", agentName: "Integrity Agent", status: "success", duration: 3.2, tokensUsed: 890, cost: 0.04, startedAt: "5m ago", output: "" },
+  { id: "r4", agentName: "Target Agent", status: "running" as const, duration: 0, tokensUsed: 0, cost: 0, startedAt: "Just now", output: "" },
+  { id: "r5", agentName: "Integrity Agent", status: "success", duration: 2.8, tokensUsed: 720, cost: 0.03, startedAt: "15m ago", output: "" },
+  { id: "r6", agentName: "Red Team Agent", status: "failed" as const, duration: 8.1, tokensUsed: 3200, cost: 0.13, startedAt: "1h ago", output: "Timeout: external API unreachable" },
+  { id: "r7", agentName: "Narrative Agent", status: "success", duration: 22.5, tokensUsed: 8900, cost: 0.36, startedAt: "1h ago", output: "" },
+  { id: "r8", agentName: "Opportunity Agent", status: "success", duration: 15.7, tokensUsed: 5100, cost: 0.21, startedAt: "2h ago", output: "" },
+];
 
 export default function Agents() {
   const [agentStates, setAgentStates] = useState<Record<string, boolean>>(
@@ -36,11 +46,11 @@ export default function Agents() {
   const avgSuccess = agents.reduce((sum, a) => sum + a.successRate, 0) / agents.length;
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-[1400px]">
+    <div className="p-6 space-y-6 max-w-[1400px]">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agent Hub</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <h1 className="text-xl font-bold text-foreground">Agents</h1>
+        <p className="text-[13px] text-muted-foreground mt-0.5">
           Monitor, configure, and control the agentic workforce powering your value cases.
         </p>
       </div>
@@ -49,8 +59,8 @@ export default function Agents() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Bot className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+              <Bot className="w-5 h-5 text-foreground" />
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground font-medium">Active Agents</p>
@@ -82,8 +92,8 @@ export default function Agents() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground font-medium">Cost (7d)</p>
@@ -109,9 +119,9 @@ export default function Agents() {
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center",
-                        agentStates[agent.id] ? "bg-primary/10" : "bg-muted"
+                        agentStates[agent.id] ? "bg-emerald-50" : "bg-muted"
                       )}>
-                        <Bot className={cn("w-5 h-5", agentStates[agent.id] ? "text-primary" : "text-muted-foreground")} />
+                        <Bot className={cn("w-5 h-5", agentStates[agent.id] ? "text-emerald-600" : "text-muted-foreground")} />
                       </div>
                       <div>
                         <p className="text-[14px] font-semibold">{agent.name}</p>
@@ -144,7 +154,7 @@ export default function Agents() {
                   </div>
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                    <span className="text-[10px] text-muted-foreground">Last run: {timeAgo(agent.lastRun)}</span>
+                    <span className="text-[10px] text-muted-foreground">Last run: {agent.lastRun}</span>
                     <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => toast("Agent settings coming soon")}>
                       <Settings className="w-3 h-3 mr-1" />
                       Configure
@@ -182,13 +192,13 @@ export default function Agents() {
                           <div className="flex items-center gap-2">
                             {run.status === "success" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> :
                              run.status === "failed" ? <XCircle className="w-3.5 h-3.5 text-red-500" /> :
-                             run.status === "running" ? <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin" /> :
+                             run.status === "running" ? <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" /> :
                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />}
                             <span className={cn(
                               "text-[12px] capitalize font-medium",
                               run.status === "success" ? "text-emerald-600" :
                               run.status === "failed" ? "text-red-500" :
-                              run.status === "running" ? "text-indigo-600" :
+                              run.status === "running" ? "text-blue-600" :
                               "text-muted-foreground"
                             )}>
                               {run.status}
@@ -208,7 +218,7 @@ export default function Agents() {
                           {run.cost > 0 ? `$${run.cost.toFixed(2)}` : "—"}
                         </td>
                         <td className="px-4 py-3 text-right text-[12px] text-muted-foreground">
-                          {timeAgo(run.startedAt)}
+                          {run.startedAt}
                         </td>
                       </tr>
                     ))}

@@ -1,18 +1,15 @@
 /*
- * Design: Atelier — Refined Workspace Craft
- * MainLayout: Sidebar + TopBar + Content + Agent Chat FAB
+ * VALYNT MainLayout — Sidebar + TopBar + Content + Agent Chat
  */
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { AgentChatSidebar } from "./AgentChatSidebar";
-import { useApp } from "@/contexts/AppContext";
-import { MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
+  const [agentOpen, setAgentOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const { agentChatOpen, setAgentChatOpen } = useApp();
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -36,24 +33,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <TopBar onMenuClick={() => setMobileSidebarOpen(true)} />
+        <TopBar onOpenAgent={() => setAgentOpen(true)} />
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
 
       {/* Agent Chat Sidebar */}
-      <AgentChatSidebar />
-
-      {/* Agent Chat FAB */}
-      {!agentChatOpen && (
-        <button
-          onClick={() => setAgentChatOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl hover:bg-primary/90 transition-all flex items-center justify-center z-30 group"
-        >
-          <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
-        </button>
-      )}
+      <AgentChatSidebar open={agentOpen} onClose={() => setAgentOpen(false)} />
     </div>
   );
 }

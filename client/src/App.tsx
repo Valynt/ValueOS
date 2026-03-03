@@ -7,12 +7,14 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { AppProvider } from "./contexts/AppContext";
 import { MainLayout } from "./components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
-import Opportunities from "./pages/Opportunities";
+import Cases from "./pages/Cases";
 import CaseCanvas from "./pages/CaseCanvas";
+import MyWork from "./pages/MyWork";
 import Models from "./pages/Models";
 import Agents from "./pages/Agents";
-import Integrations from "./pages/Integrations";
+import CompanyIntel from "./pages/CompanyIntel";
 import Settings from "./pages/Settings";
+import Ask from "./pages/Ask";
 
 function Router() {
   return (
@@ -20,13 +22,17 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
-        <Route path="/opportunities" component={Opportunities} />
-        <Route path="/opportunities/:id" component={CaseCanvas} />
-        <Route path="/opportunities/:id/cases/:caseId" component={CaseCanvas} />
+        <Route path="/cases" component={Cases} />
+        <Route path="/cases/:caseId" component={CaseCanvas} />
+        <Route path="/my-work" component={MyWork} />
         <Route path="/models" component={Models} />
         <Route path="/agents" component={Agents} />
-        <Route path="/integrations" component={Integrations} />
+        <Route path="/company-intel" component={CompanyIntel} />
         <Route path="/settings" component={Settings} />
+        <Route path="/ask" component={Ask} />
+        {/* Legacy routes */}
+        <Route path="/opportunities" component={Cases} />
+        <Route path="/opportunities/:id/cases/:caseId" component={CaseCanvas} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
