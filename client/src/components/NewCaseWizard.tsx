@@ -111,6 +111,12 @@ interface EnrichedCompanyData {
   techStack: EnrichedField;
   recentNews: EnrichedField;
   competitors: EnrichedField;
+  // Industry & Market Data (BLS / Census)
+  industryEmployment: EnrichedField;
+  avgIndustryWage: EnrichedField;
+  laborTrend: EnrichedField;
+  marketSizeProxy: EnrichedField;
+  establishmentCount: EnrichedField;
 }
 
 interface EnrichmentStep {
@@ -193,6 +199,12 @@ function mapBackendToEnrichedData(
     specialties: string[];
     executives: { name: string; title: string }[];
     recentFilings: { title: string; type: string; date: string; url: string }[];
+    // BLS / Census
+    industryEmployment: string;
+    avgIndustryWage: string;
+    laborTrend: string;
+    marketSizeProxy: string;
+    establishmentCount: string;
     sources: { name: string; status: string; fieldsFound: number }[];
     confidence: number;
     enrichedAt: string;
@@ -201,6 +213,8 @@ function mapBackendToEnrichedData(
   const yahooSource = backend.sources.find(s => s.name === "Yahoo Finance");
   const edgarSource = backend.sources.find(s => s.name === "SEC EDGAR");
   const linkedinSource = backend.sources.find(s => s.name === "LinkedIn");
+  const blsSource = backend.sources.find(s => s.name === "BLS (Labor Statistics)");
+  const censusSource = backend.sources.find(s => s.name === "Census Bureau");
 
   const yahooOk = yahooSource?.status === "success" || yahooSource?.status === "partial";
   const edgarOk = edgarSource?.status === "success" || edgarSource?.status === "partial";
@@ -271,6 +285,12 @@ function mapBackendToEnrichedData(
     techStack: medConf(techStack, linkedinOk ? "LinkedIn" : "BuiltWith"),
     recentNews: medConf(newsStr, "Company Profile"),
     competitors: medConf(competitorStr, "Industry Analysis"),
+    // BLS / Census
+    industryEmployment: medConf(backend.industryEmployment, blsSource?.status === "success" ? "BLS" : "N/A"),
+    avgIndustryWage: medConf(backend.avgIndustryWage, blsSource?.status === "success" ? "BLS" : "N/A"),
+    laborTrend: medConf(backend.laborTrend, blsSource?.status === "success" ? "BLS" : "N/A"),
+    marketSizeProxy: medConf(backend.marketSizeProxy, censusSource?.status === "success" ? "Census Bureau" : "N/A"),
+    establishmentCount: medConf(backend.establishmentCount, censusSource?.status === "success" ? "Census Bureau" : "N/A"),
   };
 }
 
@@ -461,9 +481,11 @@ export function NewCaseWizard({
 // ═══════════════════════════════════════════════════════════════════
 
 const ENRICHMENT_STEPS: Omit<EnrichmentStep, "status" | "fieldsFound" | "duration">[] = [
-  { id: "yahoo", label: "Yahoo Finance Profile", source: "Yahoo Finance", icon: TrendingUp },
   { id: "edgar", label: "SEC EDGAR Filings", source: "SEC EDGAR", icon: Landmark },
+  { id: "yahoo", label: "Yahoo Finance Profile", source: "Yahoo Finance", icon: TrendingUp },
   { id: "linkedin", label: "LinkedIn Company Profile", source: "LinkedIn", icon: Users },
+  { id: "bls", label: "Bureau of Labor Statistics", source: "BLS (Labor Statistics)", icon: BarChart3 },
+  { id: "census", label: "Census Bureau Market Data", source: "Census Bureau", icon: Database },
 ];
 
 function StepCompany({
@@ -620,35 +642,51 @@ function NewCompanyEnrichment({
 
     // Animate step progression while API runs
     const animateSteps = async () => {
-      // Step 1 runs for ~800ms
-      await new Promise((r) => setTimeout(r, 800));
-
-      // Step 2 (SEC EDGAR) starts
+      // Step 1 (SEC EDGAR) runs for ~700ms
+      await new Promise((r) => setTimeout(r, 700));
       setSteps((prev) =>
         prev.map((s, idx) => {
-          if (idx === 0) return { ...s, status: "complete", fieldsFound: 4, duration: 800 };
+          if (idx === 0) return { ...s, status: "complete", fieldsFound: 4, duration: 700 };
           if (idx === 1) return { ...s, status: "running" };
           return s;
         })
       );
 
-      await new Promise((r) => setTimeout(r, 700));
-
-      // Step 3 (LinkedIn) starts
+      // Step 2 (Yahoo Finance) ~600ms
+      await new Promise((r) => setTimeout(r, 600));
       setSteps((prev) =>
         prev.map((s, idx) => {
-          if (idx === 1) return { ...s, status: "complete", fieldsFound: 3, duration: 700 };
+          if (idx === 1) return { ...s, status: "complete", fieldsFound: 6, duration: 600 };
           if (idx === 2) return { ...s, status: "running" };
           return s;
         })
       );
 
-      await new Promise((r) => setTimeout(r, 600));
-
-      // All steps show as running/complete — final state set after API returns
+      // Step 3 (LinkedIn) ~500ms
+      await new Promise((r) => setTimeout(r, 500));
       setSteps((prev) =>
         prev.map((s, idx) => {
-          if (idx === 2) return { ...s, status: "complete", fieldsFound: 5, duration: 600 };
+          if (idx === 2) return { ...s, status: "complete", fieldsFound: 5, duration: 500 };
+          if (idx === 3) return { ...s, status: "running" };
+          return s;
+        })
+      );
+
+      // Step 4 (BLS) ~400ms
+      await new Promise((r) => setTimeout(r, 400));
+      setSteps((prev) =>
+        prev.map((s, idx) => {
+          if (idx === 3) return { ...s, status: "complete", fieldsFound: 3, duration: 400 };
+          if (idx === 4) return { ...s, status: "running" };
+          return s;
+        })
+      );
+
+      // Step 5 (Census) ~400ms
+      await new Promise((r) => setTimeout(r, 400));
+      setSteps((prev) =>
+        prev.map((s, idx) => {
+          if (idx === 4) return { ...s, status: "complete", fieldsFound: 2, duration: 400 };
           return s;
         })
       );
@@ -667,7 +705,9 @@ function NewCompanyEnrichment({
           (src) =>
             (s.id === "yahoo" && src.name === "Yahoo Finance") ||
             (s.id === "edgar" && src.name === "SEC EDGAR") ||
-            (s.id === "linkedin" && src.name === "LinkedIn")
+            (s.id === "linkedin" && src.name === "LinkedIn") ||
+            (s.id === "bls" && src.name === "BLS (Labor Statistics)") ||
+            (s.id === "census" && src.name === "Census Bureau")
         );
         return {
           ...s,
@@ -679,7 +719,8 @@ function NewCompanyEnrichment({
       setSteps(finalSteps);
 
       update({ enrichmentState: "complete", enrichedData });
-      toast.success(`Enriched "${apiResult.name}" from ${apiResult.sources.filter(s => s.status !== "failed").length} live sources`, {
+      const successSources = apiResult.sources.filter(s => s.status !== "failed").length;
+      toast.success(`Enriched "${apiResult.name}" from ${successSources} live sources`, {
         description: `${apiResult.confidence}% confidence · ${apiResult.sources.reduce((sum, s) => sum + s.fieldsFound, 0)} fields found`,
       });
     } catch (err: any) {
@@ -728,7 +769,7 @@ function NewCompanyEnrichment({
             </div>
             <div>
               <h4 className="text-[13px] font-semibold text-foreground">Live Company Enrichment</h4>
-              <p className="text-[11px] text-muted-foreground">Enter a company name to pull live data from Yahoo Finance, SEC EDGAR, and LinkedIn</p>
+              <p className="text-[11px] text-muted-foreground">Enter a company name to pull live data from 5 sources: SEC EDGAR, Yahoo Finance, LinkedIn, BLS, and Census</p>
             </div>
           </div>
 
@@ -755,9 +796,11 @@ function NewCompanyEnrichment({
           </div>
 
           <div className="flex items-center gap-4 mt-3 text-[10px] text-indigo-400">
-            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Yahoo Finance</span>
             <span className="flex items-center gap-1"><Landmark className="w-3 h-3" /> SEC EDGAR</span>
+            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Yahoo Finance</span>
             <span className="flex items-center gap-1"><Users className="w-3 h-3" /> LinkedIn</span>
+            <span className="flex items-center gap-1"><BarChart3 className="w-3 h-3" /> BLS</span>
+            <span className="flex items-center gap-1"><Database className="w-3 h-3" /> Census</span>
             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-medium text-emerald-600 border-emerald-200 bg-emerald-50">
               LIVE DATA
             </Badge>
@@ -766,7 +809,7 @@ function NewCompanyEnrichment({
 
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2.5">
           <Info className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Enter any publicly traded company name. Data is pulled live from Yahoo Finance (stock profile, financials), SEC EDGAR (filings), and LinkedIn (company details, specialties).</span>
+          <span>Enter any publicly traded company name. Data is pulled live from SEC EDGAR (filings, SIC code), Yahoo Finance (stock profile, financials), LinkedIn (company details, specialties), BLS (industry employment, wages), and Census Bureau (market size, establishments).</span>
         </div>
       </div>
     );
@@ -915,7 +958,7 @@ function NewCompanyEnrichment({
 
         <div className="flex items-center gap-2 text-[10px] text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
           <Zap className="w-3 h-3 flex-shrink-0" />
-          <span>Calling live APIs — Yahoo Finance, SEC EDGAR, and LinkedIn. This may take a few seconds.</span>
+          <span>Calling live APIs — SEC EDGAR, Yahoo Finance, LinkedIn, BLS, and Census Bureau. This may take a few seconds.</span>
         </div>
       </div>
     );
@@ -958,6 +1001,16 @@ function NewCompanyEnrichment({
           { key: "techStack", label: "Specialties / Tech", icon: Database },
           { key: "recentNews", label: "Company Summary", icon: FileSearch },
           { key: "competitors", label: "Competitive Intel", icon: Shield },
+        ],
+      },
+      {
+        title: "Industry & Market Data (BLS / Census)",
+        fields: [
+          { key: "industryEmployment", label: "Industry Employment", icon: Users },
+          { key: "avgIndustryWage", label: "Avg Industry Wage", icon: DollarSign },
+          { key: "laborTrend", label: "Labor Trend (YoY)", icon: TrendingUp },
+          { key: "marketSizeProxy", label: "Market Size (Payroll)", icon: BarChart3 },
+          { key: "establishmentCount", label: "Establishments", icon: Building2 },
         ],
       },
     ];
@@ -1092,7 +1145,7 @@ function NewCompanyEnrichment({
         {/* Edit hint */}
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
           <Info className="w-3 h-3 flex-shrink-0" />
-          <span>Click any value to manually override. Overridden fields are marked with 100% confidence. Data sourced live from Yahoo Finance, SEC EDGAR, and LinkedIn APIs.</span>
+          <span>Click any value to manually override. Overridden fields are marked with 100% confidence. Data sourced live from SEC EDGAR, Yahoo Finance, LinkedIn, BLS, and Census Bureau APIs.</span>
         </div>
       </div>
     );
@@ -1336,7 +1389,7 @@ function StepLaunch({
             <div className="flex items-center justify-between col-span-2">
               <span className="text-muted-foreground">Enrichment</span>
               <span className="text-emerald-600 font-medium text-[12px] flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Live data from 3 sources
+                <CheckCircle2 className="w-3 h-3" /> Live data from 5 sources
               </span>
             </div>
           )}

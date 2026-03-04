@@ -1,4 +1,21 @@
-- [ ] Build backend enrichment API route using YahooFinance + LinkedIn Data APIs
-- [ ] Wire frontend NewCaseWizard to call backend enrichment API instead of mock data
-- [ ] Write vitest tests for enrichment API route
-- [ ] Test end-to-end enrichment flow with live data
+# Project TODO
+
+- [x] Build backend enrichment API route using YahooFinance + LinkedIn Data APIs
+- [x] Wire frontend NewCaseWizard to call backend enrichment API instead of mock data
+- [x] Write vitest tests for enrichment API route
+- [x] Test end-to-end enrichment flow with live data
+- [x] Port New Case Wizard to ValyntApp
+- [x] Port Ask/Analysis Interface to ValyntApp
+- [x] Add Saga State Banners to ValueCaseCanvas
+- [x] Add CFO Defence Lineage to IntegrityStage
+- [x] Push all features to GitHub (PR #1213)
+- [x] Wire enrichment service to live SEC EDGAR adapter
+- [x] Wire enrichment service to live BLS adapter
+- [x] Wire enrichment service to live Census adapter
+- [x] Update ValyntApp enrichmentService.ts with real ESO calls
+- [x] Update Manus SaaS UI backend enrichment router with real ESO calls
+- [x] Update frontend EnrichedCompanyData type to include BLS/Census fields
+- [x] Add Industry & Market Data field group to enrichment wizard UI
+- [x] Add BLS and Census to enrichment step animation
+- [x] Update enrichment test file to verify all 5 data sources
+- [ ] Push all changes to GitHub

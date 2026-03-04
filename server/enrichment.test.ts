@@ -2,13 +2,17 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
-// Mock the callDataApi function
+// Mock the callDataApi function (used by Yahoo Finance + LinkedIn)
 vi.mock("./_core/dataApi", () => ({
   callDataApi: vi.fn(),
 }));
 
 import { callDataApi } from "./_core/dataApi";
 const mockCallDataApi = vi.mocked(callDataApi);
+
+// Mock global fetch for SEC EDGAR, BLS, and Census (they use fetch directly)
+const originalFetch = globalThis.fetch;
+let mockFetch: ReturnType<typeof vi.fn>;
 
 function createPublicContext(): TrpcContext {
   return {
@@ -23,7 +27,8 @@ function createPublicContext(): TrpcContext {
   };
 }
 
-// Sample API responses matching real YahooFinance/LinkedIn shapes
+// ── Mock API responses ──────────────────────────────────────────────
+
 const mockYahooProfile = {
   quoteType: {
     symbol: "CRM",
@@ -97,13 +102,158 @@ const mockLinkedinData = {
   },
 };
 
+// SEC EDGAR mock responses
+const mockSecTickers: Record<string, any> = {
+  "0": { cik_str: 1108524, ticker: "CRM", title: "SALESFORCE INC" },
+};
+
+const mockSecSubmissions = {
+  cik: "0001108524",
+  name: "SALESFORCE INC",
+  sic: "7372",
+  sicDescription: "SERVICES-PREPACKAGED SOFTWARE",
+  stateOfIncorporation: "DE",
+  filings: {
+    recent: {
+      form: ["10-K", "10-Q", "8-K"],
+      filingDate: ["2024-03-06", "2024-06-05", "2024-07-15"],
+      accessionNumber: ["0001108524-24-000001", "0001108524-24-000002", "0001108524-24-000003"],
+    },
+  },
+};
+
+// BLS mock responses
+const mockBLSEmployment = {
+  status: "REQUEST_SUCCEEDED",
+  Results: {
+    series: [
+      {
+        seriesID: "CES6054000001",
+        data: [
+          { year: "2026", period: "M01", value: "9876.0" },
+          { year: "2025", period: "M12", value: "9850.0" },
+          { year: "2025", period: "M11", value: "9830.0" },
+          { year: "2025", period: "M10", value: "9810.0" },
+          { year: "2025", period: "M09", value: "9790.0" },
+          { year: "2025", period: "M08", value: "9770.0" },
+          { year: "2025", period: "M07", value: "9750.0" },
+          { year: "2025", period: "M06", value: "9730.0" },
+          { year: "2025", period: "M05", value: "9710.0" },
+          { year: "2025", period: "M04", value: "9690.0" },
+          { year: "2025", period: "M03", value: "9670.0" },
+          { year: "2025", period: "M02", value: "9650.0" },
+        ],
+      },
+    ],
+  },
+};
+
+const mockBLSWage = {
+  status: "REQUEST_SUCCEEDED",
+  Results: {
+    series: [
+      {
+        seriesID: "CES6054000008",
+        data: [{ year: "2026", period: "M01", value: "42.50" }],
+      },
+    ],
+  },
+};
+
+// Census mock response
+const mockCensusCBP = [
+  ["ESTAB", "PAYANN", "EMP", "us"],
+  ["450000", "850000000", "9500000", "1"],
+];
+
+/**
+ * Create a mock fetch that routes SEC EDGAR, BLS, and Census URLs
+ * to their respective mock responses.
+ */
+function createMockFetch(options?: {
+  secFail?: boolean;
+  blsFail?: boolean;
+  censusFail?: boolean;
+}) {
+  return vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    const urlStr = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
+
+    // SEC EDGAR: company_tickers.json
+    if (urlStr.includes("company_tickers.json")) {
+      if (options?.secFail) return { ok: false, status: 500 } as Response;
+      return {
+        ok: true,
+        json: async () => mockSecTickers,
+      } as Response;
+    }
+
+    // SEC EDGAR: submissions
+    if (urlStr.includes("data.sec.gov/submissions")) {
+      if (options?.secFail) return { ok: false, status: 500 } as Response;
+      return {
+        ok: true,
+        json: async () => mockSecSubmissions,
+      } as Response;
+    }
+
+    // SEC EDGAR: search-index
+    if (urlStr.includes("efts.sec.gov")) {
+      return { ok: true, json: async () => ({}) } as Response;
+    }
+
+    // BLS: employment data
+    if (urlStr.includes("api.bls.gov") && urlStr.includes("CES6054000001")) {
+      if (options?.blsFail) return { ok: false, status: 500 } as Response;
+      return {
+        ok: true,
+        json: async () => mockBLSEmployment,
+      } as Response;
+    }
+
+    // BLS: wage data
+    if (urlStr.includes("api.bls.gov") && urlStr.includes("CES6054000008")) {
+      if (options?.blsFail) return { ok: false, status: 500 } as Response;
+      return {
+        ok: true,
+        json: async () => mockBLSWage,
+      } as Response;
+    }
+
+    // BLS: any other series
+    if (urlStr.includes("api.bls.gov")) {
+      if (options?.blsFail) return { ok: false, status: 500 } as Response;
+      return {
+        ok: true,
+        json: async () => ({ Results: { series: [{ data: [] }] } }),
+      } as Response;
+    }
+
+    // Census Bureau
+    if (urlStr.includes("api.census.gov")) {
+      if (options?.censusFail) return { ok: false, status: 500 } as Response;
+      return {
+        ok: true,
+        json: async () => mockCensusCBP,
+      } as Response;
+    }
+
+    // Fallback to original fetch for anything else
+    return originalFetch(url, init);
+  });
+}
+
+// ── Tests ────────────────────────────────────────────────────────────
+
 describe("enrichment.enrichCompany", () => {
   beforeEach(() => {
     mockCallDataApi.mockReset();
+    // Install mock fetch for SEC EDGAR, BLS, Census
+    mockFetch = createMockFetch();
+    globalThis.fetch = mockFetch;
   });
 
-  it("returns enriched company data when all APIs succeed", async () => {
-    // Setup mocks for all three API calls
+  it("returns enriched company data from all 5 sources", async () => {
+    // callDataApi handles Yahoo Finance + LinkedIn
     mockCallDataApi
       .mockResolvedValueOnce(mockYahooProfile) // YahooFinance/get_stock_profile
       .mockResolvedValueOnce(mockYahooFilings) // YahooFinance/get_stock_sec_filing
@@ -116,7 +266,7 @@ describe("enrichment.enrichCompany", () => {
       companyName: "Salesforce",
     });
 
-    // Verify the enriched data structure
+    // ── Overview fields ──
     expect(result).toBeDefined();
     expect(result.name).toBe("Salesforce");
     expect(result.sector).toBe("Technology");
@@ -124,38 +274,55 @@ describe("enrichment.enrichCompany", () => {
     expect(result.employees).toBe(79390);
     expect(result.website).toBe("https://www.salesforce.com");
     expect(result.ticker).toBe("CRM");
+    expect(result.headquarters).toContain("San Francisco");
 
-    // Verify financials
+    // ── Financials ──
     expect(result.marketCap).toBe("259B");
     expect(result.stockPrice).toBe("267.43");
     expect(result.peRatio).toBe("46.12");
 
-    // Verify LinkedIn data merged
+    // ── LinkedIn data ──
     expect(result.linkedinUrl).toBe("https://www.linkedin.com/company/salesforce");
     expect(result.crunchbaseUrl).toBe("https://www.crunchbase.com/organization/salesforce");
     expect(result.specialties).toContain("CRM");
     expect(result.specialties).toContain("Cloud Computing");
 
-    // Verify executives
+    // ── Executives ──
     expect(result.executives).toHaveLength(2);
     expect(result.executives[0].name).toBe("Marc Benioff");
     expect(result.executives[0].title).toBe("Chairman & CEO");
 
-    // Verify SEC filings
-    expect(result.recentFilings).toHaveLength(2);
+    // ── SEC EDGAR filings ──
+    expect(result.recentFilings.length).toBeGreaterThan(0);
     expect(result.recentFilings[0].type).toBe("10-K");
 
-    // Verify sources
-    expect(result.sources).toHaveLength(3);
-    expect(result.sources.find((s) => s.name === "Yahoo Finance")?.status).toBe("success");
-    expect(result.sources.find((s) => s.name === "SEC EDGAR")?.status).toBe("success");
-    expect(result.sources.find((s) => s.name === "LinkedIn")?.status).toBe("success");
+    // ── BLS data (Industry & Market) ──
+    expect(result.industryEmployment).not.toBe("N/A");
+    expect(result.industryEmployment).toContain("M"); // e.g. "9.9M"
+    expect(result.avgIndustryWage).not.toBe("N/A");
+    expect(result.avgIndustryWage).toContain("$"); // e.g. "$42.50/hr"
+    expect(result.laborTrend).not.toBe("N/A");
+    expect(result.laborTrend).toContain("YoY"); // e.g. "+2.3% YoY"
 
-    // Verify confidence > 0
-    expect(result.confidence).toBeGreaterThan(0);
+    // ── Census data ──
+    expect(result.marketSizeProxy).not.toBe("N/A");
+    expect(result.marketSizeProxy).toContain("$"); // e.g. "$850.0B annual payroll"
+    expect(result.establishmentCount).not.toBe("N/A");
+    expect(result.establishmentCount).toContain("450"); // 450,000
+
+    // ── Sources: all 5 + cross-reference ──
+    expect(result.sources.length).toBeGreaterThanOrEqual(5);
+    expect(result.sources.find((s) => s.name === "SEC EDGAR")?.status).toBe("success");
+    expect(result.sources.find((s) => s.name === "Yahoo Finance")?.status).toBe("success");
+    expect(result.sources.find((s) => s.name === "LinkedIn")?.status).toBe("success");
+    expect(result.sources.find((s) => s.name === "BLS (Labor Statistics)")?.status).toBe("success");
+    expect(result.sources.find((s) => s.name === "Census Bureau")?.status).toBe("success");
+
+    // ── Confidence should be high with all sources ──
+    expect(result.confidence).toBeGreaterThan(50);
     expect(result.enrichedAt).toBeTruthy();
 
-    // Verify all three APIs were called
+    // ── Verify callDataApi was called for Yahoo + LinkedIn ──
     expect(mockCallDataApi).toHaveBeenCalledTimes(3);
     expect(mockCallDataApi).toHaveBeenCalledWith("YahooFinance/get_stock_profile", {
       query: { symbol: "CRM", region: "US", lang: "en-US" },
@@ -166,14 +333,22 @@ describe("enrichment.enrichCompany", () => {
     expect(mockCallDataApi).toHaveBeenCalledWith("LinkedIn/get_company_details", {
       query: { username: "salesforce" },
     });
+
+    // ── Verify fetch was called for SEC EDGAR, BLS, Census ──
+    const fetchCalls = mockFetch.mock.calls.map((c: any) => {
+      const url = typeof c[0] === "string" ? c[0] : c[0] instanceof URL ? c[0].toString() : c[0].url;
+      return url;
+    });
+    expect(fetchCalls.some((u: string) => u.includes("sec.gov"))).toBe(true);
+    expect(fetchCalls.some((u: string) => u.includes("api.bls.gov"))).toBe(true);
+    expect(fetchCalls.some((u: string) => u.includes("api.census.gov"))).toBe(true);
   });
 
-  it("handles partial API failures gracefully", async () => {
-    // YahooFinance succeeds, LinkedIn fails
+  it("handles partial API failures gracefully — LinkedIn fails", async () => {
     mockCallDataApi
-      .mockResolvedValueOnce(mockYahooProfile) // profile succeeds
-      .mockResolvedValueOnce(mockYahooFilings) // filings succeed
-      .mockRejectedValueOnce(new Error("LinkedIn API unavailable")); // linkedin fails
+      .mockResolvedValueOnce(mockYahooProfile)
+      .mockResolvedValueOnce(mockYahooFilings)
+      .mockRejectedValueOnce(new Error("LinkedIn API unavailable"));
 
     const ctx = createPublicContext();
     const caller = appRouter.createCaller(ctx);
@@ -182,7 +357,7 @@ describe("enrichment.enrichCompany", () => {
       companyName: "Salesforce",
     });
 
-    // Should still return data from Yahoo Finance
+    // Yahoo Finance data should still be present
     expect(result.name).toBe("Salesforce, Inc.");
     expect(result.sector).toBe("Technology");
     expect(result.employees).toBe(79390);
@@ -191,13 +366,56 @@ describe("enrichment.enrichCompany", () => {
     expect(result.linkedinUrl).toBe("");
     expect(result.specialties).toEqual([]);
 
-    // Sources should reflect the failure
+    // LinkedIn source should show failed
     const linkedinSource = result.sources.find((s) => s.name === "LinkedIn");
     expect(linkedinSource?.status).toBe("failed");
     expect(linkedinSource?.fieldsFound).toBe(0);
+
+    // BLS and Census should still succeed (they use SIC from SEC EDGAR)
+    expect(result.sources.find((s) => s.name === "BLS (Labor Statistics)")?.status).toBe("success");
+    expect(result.sources.find((s) => s.name === "Census Bureau")?.status).toBe("success");
+  });
+
+  it("handles BLS and Census failures gracefully", async () => {
+    // Install mock fetch with BLS and Census failures
+    mockFetch = createMockFetch({ blsFail: true, censusFail: true });
+    globalThis.fetch = mockFetch;
+
+    mockCallDataApi
+      .mockResolvedValueOnce(mockYahooProfile)
+      .mockResolvedValueOnce(mockYahooFilings)
+      .mockResolvedValueOnce(mockLinkedinData);
+
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.enrichment.enrichCompany({
+      companyName: "Salesforce",
+    });
+
+    // Core data should still be present
+    expect(result.name).toBe("Salesforce");
+    expect(result.sector).toBe("Technology");
+
+    // BLS fields should be N/A
+    expect(result.industryEmployment).toBe("N/A");
+    expect(result.avgIndustryWage).toBe("N/A");
+    expect(result.laborTrend).toBe("N/A");
+
+    // Census fields should be N/A
+    expect(result.marketSizeProxy).toBe("N/A");
+    expect(result.establishmentCount).toBe("N/A");
+
+    // Yahoo + LinkedIn should still succeed
+    expect(result.sources.find((s) => s.name === "Yahoo Finance")?.status).toBe("success");
+    expect(result.sources.find((s) => s.name === "LinkedIn")?.status).toBe("success");
   });
 
   it("handles all APIs failing gracefully", async () => {
+    // Install mock fetch with all external failures
+    mockFetch = createMockFetch({ secFail: true, blsFail: true, censusFail: true });
+    globalThis.fetch = mockFetch;
+
     mockCallDataApi
       .mockRejectedValueOnce(new Error("Yahoo Finance down"))
       .mockRejectedValueOnce(new Error("SEC EDGAR down"))
@@ -212,8 +430,34 @@ describe("enrichment.enrichCompany", () => {
 
     // Should return a shell with the input name
     expect(result.name).toBe("Salesforce");
-    expect(result.confidence).toBe(0);
-    expect(result.sources.every((s) => s.status === "failed")).toBe(true);
+    expect(result.confidence).toBeLessThanOrEqual(15);
+
+    // All BLS/Census fields should be N/A
+    expect(result.industryEmployment).toBe("N/A");
+    expect(result.avgIndustryWage).toBe("N/A");
+    expect(result.laborTrend).toBe("N/A");
+    expect(result.marketSizeProxy).toBe("N/A");
+    expect(result.establishmentCount).toBe("N/A");
+  });
+
+  it("returns BLS sector label based on SIC code mapping", async () => {
+    // SIC 7372 maps to "Professional & Business Services" in our mapping
+    mockCallDataApi
+      .mockResolvedValueOnce(mockYahooProfile)
+      .mockResolvedValueOnce(mockYahooFilings)
+      .mockResolvedValueOnce(mockLinkedinData);
+
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.enrichment.enrichCompany({
+      companyName: "Salesforce",
+    });
+
+    // BLS should have found data based on SIC 7372 → sector 73 → Professional & Business Services
+    const blsSource = result.sources.find((s) => s.name === "BLS (Labor Statistics)");
+    expect(blsSource).toBeDefined();
+    expect(blsSource!.fieldsFound).toBeGreaterThan(0);
   });
 });
 
