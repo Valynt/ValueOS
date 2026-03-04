@@ -29,4 +29,10 @@
 - [x] Integrate cache into enrichment router with configurable TTL
 - [x] Add cache status indicators to frontend (cached badge, age, force-refresh)
 - [x] Write tests for cache hit/miss/expiry behavior
-- [ ] Push enrichment caching changes to GitHub
+- [x] Push enrichment caching changes to GitHub
+- [x] Extract UI design principles from Michael Filipiuk's PDF
+- [x] Create reusable UI Design Principles skill (SKILL.md)
+- [x] Audit current ValueOS UI against extracted principles
+- [x] Redesign layout and workflow for seamless user experience
+- [x] Implement UI improvements across all pages
+- [ ] Push UI redesign changes to GitHub

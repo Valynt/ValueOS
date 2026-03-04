@@ -63,8 +63,16 @@ export default function CaseCanvas() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
+      {/* Header with Breadcrumbs */}
       <div className="px-6 py-4 border-b border-border flex-shrink-0">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+          <span>/</span>
+          <Link href="/cases" className="hover:text-foreground transition-colors">Cases</Link>
+          <span>/</span>
+          <span className="text-foreground font-medium truncate max-w-[200px]">{vc.company}</span>
+        </nav>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/cases">
@@ -76,7 +84,7 @@ export default function CaseCanvas() {
               <div className="flex items-center gap-3">
                 <h1 className="text-lg font-semibold text-foreground">{vc.company} — {vc.title}</h1>
                 <Badge className={cn(
-                  "text-[10px] font-semibold capitalize",
+                  "text-xs font-semibold capitalize",
                   vc.status === "running" ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" :
                   vc.status === "committed" ? "bg-blue-100 text-blue-700 hover:bg-blue-100" :
                   "bg-muted text-muted-foreground hover:bg-muted"
@@ -85,11 +93,11 @@ export default function CaseCanvas() {
                 </Badge>
               </div>
               <div className="flex items-center gap-3 mt-0.5">
-                <p className="text-[12px] text-muted-foreground">{vc.caseNumber}</p>
+                <p className="text-xs text-muted-foreground">{vc.caseNumber}</p>
                 {/* Saga State Badge */}
                 <div className="flex items-center gap-1.5">
                   <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", currentSaga.color)} />
-                  <span className="text-[10px] font-mono font-semibold text-muted-foreground tracking-wider">
+                  <span className="text-xs font-mono font-semibold text-muted-foreground tracking-wider">
                     {currentSaga.state}
                   </span>
                 </div>

@@ -9,14 +9,13 @@ import { MainLayout } from "./components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import Cases from "./pages/Cases";
 import CaseCanvas from "./pages/CaseCanvas";
-import MyWork from "./pages/MyWork";
 import Models from "./pages/Models";
 import Agents from "./pages/Agents";
 import CompanyIntel from "./pages/CompanyIntel";
 import Settings from "./pages/Settings";
 import Ask from "./pages/Ask";
+
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <MainLayout>
       <Switch>
@@ -24,13 +23,13 @@ function Router() {
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/cases" component={Cases} />
         <Route path="/cases/:caseId" component={CaseCanvas} />
-        <Route path="/my-work" component={MyWork} />
         <Route path="/models" component={Models} />
         <Route path="/agents" component={Agents} />
         <Route path="/company-intel" component={CompanyIntel} />
         <Route path="/settings" component={Settings} />
         <Route path="/ask" component={Ask} />
         {/* Legacy routes */}
+        <Route path="/my-work" component={Dashboard} />
         <Route path="/opportunities" component={Cases} />
         <Route path="/opportunities/:caseId" component={CaseCanvas} />
         <Route path="/opportunities/:id/cases/:caseId" component={CaseCanvas} />
