@@ -15,8 +15,8 @@ import Agents from "./pages/Agents";
 import CompanyIntel from "./pages/CompanyIntel";
 import Settings from "./pages/Settings";
 import Ask from "./pages/Ask";
-
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <MainLayout>
       <Switch>

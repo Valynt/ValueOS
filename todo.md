@@ -1,0 +1,4 @@
+- [ ] Build backend enrichment API route using YahooFinance + LinkedIn Data APIs
+- [ ] Wire frontend NewCaseWizard to call backend enrichment API instead of mock data
+- [ ] Write vitest tests for enrichment API route
+- [ ] Test end-to-end enrichment flow with live data

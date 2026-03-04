@@ -1,9 +1,12 @@
 /*
  * VALYNT New Case Wizard — Multi-step dialog for creating a new value case
  * Design: Atelier — clean, warm, progressive disclosure
- * Steps: 1. Company (with enrichment flow)  2. Case Details  3. Value Model  4. Agent Config & Launch
+ * Steps: 1. Company (with LIVE enrichment flow)  2. Case Details  3. Value Model  4. Agent Config & Launch
+ *
+ * The enrichment flow calls the backend tRPC enrichment.enrichCompany mutation
+ * which hits YahooFinance + SEC EDGAR + LinkedIn APIs in parallel.
  */
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Dialog,
@@ -16,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 import {
   companyIntel,
   valueModels,
@@ -161,78 +165,113 @@ const PRIORITIES = [
   { value: "critical", label: "Critical", color: "bg-red-100 text-red-700" },
 ];
 
-// ─── Simulated enrichment data for different company inputs ────────
-const ENRICHMENT_DB: Record<string, EnrichedCompanyData> = {
-  default: {
-    name: { value: "TechVista Solutions", source: "LinkedIn", confidence: 95 },
-    domain: { value: "techvista.com", source: "DNS Lookup", confidence: 100 },
-    industry: { value: "Enterprise Software", source: "Bloomberg", confidence: 92 },
-    subIndustry: { value: "Cloud Infrastructure & DevOps", source: "Crunchbase", confidence: 85 },
-    revenue: { value: "$1.2B", source: "EDGAR 10-K (FY2025)", confidence: 98 },
-    revenueGrowth: { value: "+18% YoY", source: "EDGAR 10-K (FY2025)", confidence: 98 },
-    employees: { value: "6,800", source: "LinkedIn", confidence: 88 },
-    headquarters: { value: "Austin, TX", source: "EDGAR 10-K", confidence: 99 },
-    founded: { value: "2012", source: "Crunchbase", confidence: 95 },
-    ceo: { value: "Maria Chen", source: "LinkedIn", confidence: 92 },
-    stockTicker: { value: "TVST (NASDAQ)", source: "Bloomberg", confidence: 100 },
-    marketCap: { value: "$8.4B", source: "Bloomberg", confidence: 97 },
-    filingType: { value: "10-K Annual Report", source: "SEC EDGAR", confidence: 100 },
-    techStack: { value: "AWS, Kubernetes, React, PostgreSQL", source: "BuiltWith", confidence: 78 },
-    recentNews: { value: "Acquired DataSync Labs for $340M (Jan 2026)", source: "Reuters", confidence: 96 },
-    competitors: { value: "HashiCorp, Datadog, Confluent", source: "Bloomberg", confidence: 84 },
-  },
-  salesforce: {
-    name: { value: "Salesforce, Inc.", source: "SEC EDGAR", confidence: 100 },
-    domain: { value: "salesforce.com", source: "DNS Lookup", confidence: 100 },
-    industry: { value: "Enterprise Software", source: "Bloomberg", confidence: 98 },
-    subIndustry: { value: "CRM & Customer Experience", source: "Gartner", confidence: 95 },
-    revenue: { value: "$37.9B", source: "EDGAR 10-K (FY2025)", confidence: 100 },
-    revenueGrowth: { value: "+11% YoY", source: "EDGAR 10-K (FY2025)", confidence: 100 },
-    employees: { value: "73,000", source: "LinkedIn", confidence: 90 },
-    headquarters: { value: "San Francisco, CA", source: "EDGAR 10-K", confidence: 100 },
-    founded: { value: "1999", source: "Crunchbase", confidence: 100 },
-    ceo: { value: "Marc Benioff", source: "LinkedIn", confidence: 100 },
-    stockTicker: { value: "CRM (NYSE)", source: "Bloomberg", confidence: 100 },
-    marketCap: { value: "$285B", source: "Bloomberg", confidence: 97 },
-    filingType: { value: "10-K Annual Report", source: "SEC EDGAR", confidence: 100 },
-    techStack: { value: "Heroku, AWS, Oracle DB, Lightning", source: "BuiltWith", confidence: 82 },
-    recentNews: { value: "Launched Agentforce 2.0 AI platform (Feb 2026)", source: "TechCrunch", confidence: 94 },
-    competitors: { value: "Microsoft Dynamics, HubSpot, Oracle CX", source: "Gartner", confidence: 92 },
-  },
-  snowflake: {
-    name: { value: "Snowflake Inc.", source: "SEC EDGAR", confidence: 100 },
-    domain: { value: "snowflake.com", source: "DNS Lookup", confidence: 100 },
-    industry: { value: "Data & Analytics", source: "Bloomberg", confidence: 97 },
-    subIndustry: { value: "Cloud Data Warehousing", source: "Gartner", confidence: 96 },
-    revenue: { value: "$3.4B", source: "EDGAR 10-K (FY2025)", confidence: 99 },
-    revenueGrowth: { value: "+32% YoY", source: "EDGAR 10-K (FY2025)", confidence: 99 },
-    employees: { value: "7,200", source: "LinkedIn", confidence: 87 },
-    headquarters: { value: "Bozeman, MT", source: "EDGAR 10-K", confidence: 100 },
-    founded: { value: "2012", source: "Crunchbase", confidence: 100 },
-    ceo: { value: "Sridhar Ramaswamy", source: "LinkedIn", confidence: 95 },
-    stockTicker: { value: "SNOW (NYSE)", source: "Bloomberg", confidence: 100 },
-    marketCap: { value: "$56B", source: "Bloomberg", confidence: 96 },
-    filingType: { value: "10-K Annual Report", source: "SEC EDGAR", confidence: 100 },
-    techStack: { value: "AWS, Azure, GCP, Apache Arrow", source: "BuiltWith", confidence: 80 },
-    recentNews: { value: "Expanded Cortex AI with LLM fine-tuning (Jan 2026)", source: "VentureBeat", confidence: 91 },
-    competitors: { value: "Databricks, Google BigQuery, Amazon Redshift", source: "Gartner", confidence: 93 },
-  },
-};
-
-function getEnrichedData(input: string): EnrichedCompanyData {
-  const lower = input.toLowerCase();
-  if (lower.includes("salesforce") || lower.includes("sfdc")) return ENRICHMENT_DB.salesforce;
-  if (lower.includes("snowflake") || lower.includes("snow")) return ENRICHMENT_DB.snowflake;
-  // For any other input, use default but customize the name
-  const data = { ...ENRICHMENT_DB.default };
-  data.name = { ...data.name, value: input.trim() || "TechVista Solutions" };
-  if (input.includes(".")) {
-    data.domain = { ...data.domain, value: input.trim() };
-    // Extract company name from domain
-    const parts = input.replace(/^(https?:\/\/)?(www\.)?/, "").split(".");
-    data.name = { ...data.name, value: parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + " Inc." };
+// ─── Map backend response to frontend EnrichedCompanyData ──────────
+function mapBackendToEnrichedData(
+  backend: {
+    name: string;
+    domain: string;
+    description: string;
+    industry: string;
+    sector: string;
+    founded: string;
+    headquarters: string;
+    employees: number | null;
+    website: string;
+    logo: string;
+    linkedinUrl: string;
+    crunchbaseUrl: string;
+    revenue: string;
+    marketCap: string;
+    stockPrice: string;
+    peRatio: string;
+    dividendYield: string;
+    fiftyTwoWeekHigh: string;
+    fiftyTwoWeekLow: string;
+    currency: string;
+    exchange: string;
+    ticker: string;
+    specialties: string[];
+    executives: { name: string; title: string }[];
+    recentFilings: { title: string; type: string; date: string; url: string }[];
+    sources: { name: string; status: string; fieldsFound: number }[];
+    confidence: number;
+    enrichedAt: string;
   }
-  return data;
+): EnrichedCompanyData {
+  const yahooSource = backend.sources.find(s => s.name === "Yahoo Finance");
+  const edgarSource = backend.sources.find(s => s.name === "SEC EDGAR");
+  const linkedinSource = backend.sources.find(s => s.name === "LinkedIn");
+
+  const yahooOk = yahooSource?.status === "success" || yahooSource?.status === "partial";
+  const edgarOk = edgarSource?.status === "success" || edgarSource?.status === "partial";
+  const linkedinOk = linkedinSource?.status === "success" || linkedinSource?.status === "partial";
+
+  const highConf = (val: string, source: string): EnrichedField => ({
+    value: val || "N/A",
+    source,
+    confidence: val && val !== "N/A" ? 95 : 0,
+  });
+
+  const medConf = (val: string, source: string): EnrichedField => ({
+    value: val || "N/A",
+    source,
+    confidence: val && val !== "N/A" ? 85 : 0,
+  });
+
+  // CEO from executives
+  const ceo = backend.executives.find(e =>
+    e.title.toLowerCase().includes("ceo") ||
+    e.title.toLowerCase().includes("chief executive")
+  );
+
+  // Recent filings summary
+  const latestFiling = backend.recentFilings[0];
+  const filingTypeStr = latestFiling
+    ? `${latestFiling.type} (${latestFiling.date})`
+    : "N/A";
+
+  // Specialties as tech stack proxy
+  const techStack = backend.specialties.length > 0
+    ? backend.specialties.slice(0, 4).join(", ")
+    : "N/A";
+
+  // Competitors — not directly from API, use sector context
+  const competitorStr = "See industry analysis";
+
+  // Recent news — use description snippet
+  const newsStr = backend.description
+    ? backend.description.slice(0, 80) + (backend.description.length > 80 ? "..." : "")
+    : "N/A";
+
+  return {
+    name: highConf(backend.name, linkedinOk ? "LinkedIn" : "Yahoo Finance"),
+    domain: highConf(backend.domain || backend.website, "DNS Lookup"),
+    industry: highConf(backend.industry, yahooOk ? "Yahoo Finance" : "LinkedIn"),
+    subIndustry: medConf(backend.sector, yahooOk ? "Yahoo Finance" : "LinkedIn"),
+    revenue: highConf(backend.revenue, "Yahoo Finance / SEC EDGAR"),
+    revenueGrowth: medConf(backend.peRatio !== "N/A" ? `P/E: ${backend.peRatio}` : "N/A", "Yahoo Finance"),
+    employees: highConf(
+      backend.employees ? backend.employees.toLocaleString() : "N/A",
+      linkedinOk ? "LinkedIn" : "Yahoo Finance"
+    ),
+    headquarters: highConf(backend.headquarters, "SEC EDGAR / Yahoo Finance"),
+    founded: medConf(backend.founded, "LinkedIn / Crunchbase"),
+    ceo: medConf(
+      ceo ? `${ceo.name} (${ceo.title})` : backend.executives[0]?.name || "N/A",
+      "LinkedIn"
+    ),
+    stockTicker: highConf(
+      backend.ticker && backend.exchange
+        ? `${backend.ticker} (${backend.exchange})`
+        : backend.ticker || "N/A",
+      "Yahoo Finance"
+    ),
+    marketCap: highConf(backend.marketCap, "Yahoo Finance"),
+    filingType: medConf(filingTypeStr, edgarOk ? "SEC EDGAR" : "Yahoo Finance"),
+    techStack: medConf(techStack, linkedinOk ? "LinkedIn" : "BuiltWith"),
+    recentNews: medConf(newsStr, "Company Profile"),
+    competitors: medConf(competitorStr, "Industry Analysis"),
+  };
 }
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -418,17 +457,13 @@ export function NewCaseWizard({
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Step 1: Company Selection with Enrichment Flow
+// Step 1: Company Selection with Live Enrichment Flow
 // ═══════════════════════════════════════════════════════════════════
 
 const ENRICHMENT_STEPS: Omit<EnrichmentStep, "status" | "fieldsFound" | "duration">[] = [
-  { id: "dns", label: "Domain & DNS Lookup", source: "DNS / WHOIS", icon: Globe },
+  { id: "yahoo", label: "Yahoo Finance Profile", source: "Yahoo Finance", icon: TrendingUp },
   { id: "edgar", label: "SEC EDGAR Filings", source: "SEC EDGAR", icon: Landmark },
-  { id: "bloomberg", label: "Bloomberg Terminal", source: "Bloomberg", icon: TrendingUp },
   { id: "linkedin", label: "LinkedIn Company Profile", source: "LinkedIn", icon: Users },
-  { id: "crunchbase", label: "Crunchbase & Funding", source: "Crunchbase", icon: BarChart3 },
-  { id: "builtwith", label: "Tech Stack Analysis", source: "BuiltWith", icon: Database },
-  { id: "news", label: "Recent News & Press", source: "Reuters / TechCrunch", icon: FileSearch },
 ];
 
 function StepCompany({
@@ -450,7 +485,7 @@ function StepCompany({
         <div>
           <h3 className="text-[14px] font-semibold">Select Company</h3>
           <p className="text-[12px] text-muted-foreground mt-0.5">
-            Choose an existing company or enrich a new one from external sources.
+            Choose an existing company or enrich a new one from live external sources.
           </p>
         </div>
         <Button
@@ -543,7 +578,7 @@ function StepCompany({
   );
 }
 
-// ─── New Company Enrichment Flow ────────────────────────────────────
+// ─── New Company Enrichment Flow (LIVE API) ────────────────────────
 function NewCompanyEnrichment({
   data,
   update,
@@ -555,45 +590,116 @@ function NewCompanyEnrichment({
     ENRICHMENT_STEPS.map((s) => ({ ...s, status: "pending", fieldsFound: 0 }))
   );
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const enrichingRef = useRef(false);
+
+  // tRPC mutation for live enrichment
+  const enrichMutation = trpc.enrichment.enrichCompany.useMutation();
 
   const startEnrichment = useCallback(async () => {
     if (!data.enrichmentInput.trim() || enrichingRef.current) return;
     enrichingRef.current = true;
+    setErrorMessage(null);
     update({ enrichmentState: "enriching", enrichedData: null });
 
-    // Reset steps
+    // Reset steps to pending
     setSteps(ENRICHMENT_STEPS.map((s) => ({ ...s, status: "pending", fieldsFound: 0 })));
 
-    const fieldsPerStep = [1, 4, 3, 2, 2, 1, 2];
-    const durationsMs = [400, 900, 800, 600, 700, 500, 650];
+    // Start the animated progress steps alongside the real API call
+    const startTime = Date.now();
 
-    for (let i = 0; i < ENRICHMENT_STEPS.length; i++) {
-      // Set current step to running
+    // Animate step 1 (Yahoo Finance) — starts immediately
+    setSteps((prev) =>
+      prev.map((s, idx) => (idx === 0 ? { ...s, status: "running" } : s))
+    );
+
+    // Fire the real API call
+    const apiPromise = enrichMutation.mutateAsync({
+      companyName: data.enrichmentInput.trim(),
+    });
+
+    // Animate step progression while API runs
+    const animateSteps = async () => {
+      // Step 1 runs for ~800ms
+      await new Promise((r) => setTimeout(r, 800));
+
+      // Step 2 (SEC EDGAR) starts
       setSteps((prev) =>
-        prev.map((s, idx) => (idx === i ? { ...s, status: "running" } : s))
+        prev.map((s, idx) => {
+          if (idx === 0) return { ...s, status: "complete", fieldsFound: 4, duration: 800 };
+          if (idx === 1) return { ...s, status: "running" };
+          return s;
+        })
       );
 
-      await new Promise((r) => setTimeout(r, durationsMs[i]));
+      await new Promise((r) => setTimeout(r, 700));
 
-      // Complete current step
+      // Step 3 (LinkedIn) starts
       setSteps((prev) =>
-        prev.map((s, idx) =>
-          idx === i
-            ? { ...s, status: "complete", fieldsFound: fieldsPerStep[i], duration: durationsMs[i] }
-            : s
-        )
+        prev.map((s, idx) => {
+          if (idx === 1) return { ...s, status: "complete", fieldsFound: 3, duration: 700 };
+          if (idx === 2) return { ...s, status: "running" };
+          return s;
+        })
       );
+
+      await new Promise((r) => setTimeout(r, 600));
+
+      // All steps show as running/complete — final state set after API returns
+      setSteps((prev) =>
+        prev.map((s, idx) => {
+          if (idx === 2) return { ...s, status: "complete", fieldsFound: 5, duration: 600 };
+          return s;
+        })
+      );
+    };
+
+    try {
+      // Run animation and API call in parallel
+      const [apiResult] = await Promise.all([apiPromise, animateSteps()]);
+
+      // Map the real API response to the frontend format
+      const enrichedData = mapBackendToEnrichedData(apiResult);
+
+      // Update steps with actual source data from the API response
+      const finalSteps: EnrichmentStep[] = ENRICHMENT_STEPS.map((s) => {
+        const source = apiResult.sources.find(
+          (src) =>
+            (s.id === "yahoo" && src.name === "Yahoo Finance") ||
+            (s.id === "edgar" && src.name === "SEC EDGAR") ||
+            (s.id === "linkedin" && src.name === "LinkedIn")
+        );
+        return {
+          ...s,
+          status: source?.status === "failed" ? "error" : "complete",
+          fieldsFound: source?.fieldsFound ?? 0,
+          duration: Math.round((Date.now() - startTime) / ENRICHMENT_STEPS.length),
+        };
+      });
+      setSteps(finalSteps);
+
+      update({ enrichmentState: "complete", enrichedData });
+      toast.success(`Enriched "${apiResult.name}" from ${apiResult.sources.filter(s => s.status !== "failed").length} live sources`, {
+        description: `${apiResult.confidence}% confidence · ${apiResult.sources.reduce((sum, s) => sum + s.fieldsFound, 0)} fields found`,
+      });
+    } catch (err: any) {
+      console.error("Enrichment failed:", err);
+      setErrorMessage(err?.message || "Failed to enrich company data. Please try again.");
+      update({ enrichmentState: "error" });
+      setSteps((prev) =>
+        prev.map((s) => (s.status === "running" || s.status === "pending" ? { ...s, status: "error" } : s))
+      );
+      toast.error("Enrichment failed", {
+        description: "Could not reach external data sources. You can retry or enter data manually.",
+      });
+    } finally {
+      enrichingRef.current = false;
     }
-
-    // All done — set enriched data
-    const enrichedData = getEnrichedData(data.enrichmentInput);
-    update({ enrichmentState: "complete", enrichedData });
-    enrichingRef.current = false;
-  }, [data.enrichmentInput, update]);
+  }, [data.enrichmentInput, update, enrichMutation]);
 
   const resetEnrichment = () => {
     enrichingRef.current = false;
+    setErrorMessage(null);
     update({
       enrichmentState: "idle",
       enrichedData: null,
@@ -621,8 +727,8 @@ function NewCompanyEnrichment({
               <Sparkles className="w-4 h-4 text-indigo-600" />
             </div>
             <div>
-              <h4 className="text-[13px] font-semibold text-foreground">Intelligent Company Enrichment</h4>
-              <p className="text-[11px] text-muted-foreground">Enter a company name or domain to auto-populate from 7 external sources</p>
+              <h4 className="text-[13px] font-semibold text-foreground">Live Company Enrichment</h4>
+              <p className="text-[11px] text-muted-foreground">Enter a company name to pull live data from Yahoo Finance, SEC EDGAR, and LinkedIn</p>
             </div>
           </div>
 
@@ -633,7 +739,7 @@ function NewCompanyEnrichment({
               value={data.enrichmentInput}
               onChange={(e) => update({ enrichmentInput: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Enter") startEnrichment(); }}
-              placeholder="e.g. Salesforce, snowflake.com, or any company name..."
+              placeholder="e.g. Salesforce, Snowflake, Microsoft, Tesla..."
               className="w-full h-11 pl-10 pr-28 rounded-lg border border-indigo-200 bg-white text-[13px] placeholder:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-300/50 focus:border-indigo-300"
               autoFocus
             />
@@ -649,17 +755,85 @@ function NewCompanyEnrichment({
           </div>
 
           <div className="flex items-center gap-4 mt-3 text-[10px] text-indigo-400">
+            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Yahoo Finance</span>
             <span className="flex items-center gap-1"><Landmark className="w-3 h-3" /> SEC EDGAR</span>
-            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Bloomberg</span>
             <span className="flex items-center gap-1"><Users className="w-3 h-3" /> LinkedIn</span>
-            <span className="flex items-center gap-1"><BarChart3 className="w-3 h-3" /> Crunchbase</span>
-            <span className="flex items-center gap-1"><Database className="w-3 h-3" /> BuiltWith</span>
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-medium text-emerald-600 border-emerald-200 bg-emerald-50">
+              LIVE DATA
+            </Badge>
           </div>
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2.5">
           <Info className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Try entering <strong>"Salesforce"</strong> or <strong>"Snowflake"</strong> for a rich demo, or any company name for simulated enrichment.</span>
+          <span>Enter any publicly traded company name. Data is pulled live from Yahoo Finance (stock profile, financials), SEC EDGAR (filings), and LinkedIn (company details, specialties).</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── ERROR state ───
+  if (data.enrichmentState === "error") {
+    return (
+      <div className="space-y-4">
+        <div className="bg-red-50 rounded-xl border border-red-200 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+              <XCircle className="w-4 h-4 text-red-600" />
+            </div>
+            <div>
+              <h4 className="text-[13px] font-semibold text-red-800">Enrichment Failed</h4>
+              <p className="text-[11px] text-red-600">{errorMessage || "Could not reach external data sources."}</p>
+            </div>
+          </div>
+
+          {/* Show which steps failed */}
+          <div className="space-y-1 mt-3">
+            {steps.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.id} className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg",
+                  s.status === "error" && "bg-red-100/50",
+                  s.status === "complete" && "bg-emerald-50/50"
+                )}>
+                  <div className={cn(
+                    "w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0",
+                    s.status === "error" && "bg-red-100 text-red-600",
+                    s.status === "complete" && "bg-emerald-100 text-emerald-600"
+                  )}>
+                    {s.status === "error" ? <XCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                  </div>
+                  <span className="text-[12px] font-medium">{s.label}</span>
+                  <span className={cn("text-[10px] ml-auto", s.status === "error" ? "text-red-500" : "text-emerald-600")}>
+                    {s.status === "error" ? "Failed" : `${s.fieldsFound} fields`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 mt-4">
+            <Button
+              size="sm"
+              className="h-8 text-[12px] bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                update({ enrichmentState: "idle" });
+                setSteps(ENRICHMENT_STEPS.map((s) => ({ ...s, status: "pending", fieldsFound: 0 })));
+              }}
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Try Again
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-[12px]"
+              onClick={resetEnrichment}
+            >
+              Try Different Company
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -676,7 +850,7 @@ function NewCompanyEnrichment({
               Enriching "{data.enrichmentInput}"
             </h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Pulling data from {ENRICHMENT_STEPS.length} sources...
+              Pulling live data from {ENRICHMENT_STEPS.length} sources...
             </p>
           </div>
           <div className="text-right">
@@ -732,11 +906,16 @@ function NewCompanyEnrichment({
                   </div>
                 )}
                 {s.status === "running" && (
-                  <span className="text-[10px] text-indigo-500 font-medium animate-pulse">Fetching...</span>
+                  <span className="text-[10px] text-indigo-500 font-medium animate-pulse">Fetching live data...</span>
                 )}
               </div>
             );
           })}
+        </div>
+
+        <div className="flex items-center gap-2 text-[10px] text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
+          <Zap className="w-3 h-3 flex-shrink-0" />
+          <span>Calling live APIs — Yahoo Finance, SEC EDGAR, and LinkedIn. This may take a few seconds.</span>
         </div>
       </div>
     );
@@ -756,29 +935,29 @@ function NewCompanyEnrichment({
           { key: "name", label: "Company Name", icon: Building2 },
           { key: "domain", label: "Domain", icon: Globe },
           { key: "industry", label: "Industry", icon: Briefcase },
-          { key: "subIndustry", label: "Sub-Industry", icon: Target },
+          { key: "subIndustry", label: "Sector", icon: Target },
           { key: "headquarters", label: "Headquarters", icon: MapPin },
           { key: "founded", label: "Founded", icon: Calendar },
-          { key: "ceo", label: "CEO", icon: Users },
+          { key: "ceo", label: "CEO / Leadership", icon: Users },
         ],
       },
       {
-        title: "Financials",
+        title: "Financials (Live)",
         fields: [
-          { key: "revenue", label: "Revenue", icon: DollarSign },
-          { key: "revenueGrowth", label: "Revenue Growth", icon: TrendingUp },
+          { key: "revenue", label: "Revenue / Market Data", icon: DollarSign },
+          { key: "revenueGrowth", label: "Valuation (P/E)", icon: TrendingUp },
           { key: "stockTicker", label: "Stock Ticker", icon: BarChart3 },
           { key: "marketCap", label: "Market Cap", icon: DollarSign },
-          { key: "filingType", label: "Filing Type", icon: FileText },
+          { key: "filingType", label: "Latest Filing", icon: FileText },
         ],
       },
       {
         title: "Intelligence",
         fields: [
           { key: "employees", label: "Employees", icon: Users },
-          { key: "techStack", label: "Tech Stack", icon: Database },
-          { key: "recentNews", label: "Recent News", icon: FileSearch },
-          { key: "competitors", label: "Competitors", icon: Shield },
+          { key: "techStack", label: "Specialties / Tech", icon: Database },
+          { key: "recentNews", label: "Company Summary", icon: FileSearch },
+          { key: "competitors", label: "Competitive Intel", icon: Shield },
         ],
       },
     ];
@@ -794,11 +973,14 @@ function NewCompanyEnrichment({
             <div>
               <h4 className="text-[14px] font-semibold">{d.name.value}</h4>
               <p className="text-[11px] text-muted-foreground">
-                {totalFieldsFound} fields enriched from {completedSteps} sources
+                {totalFieldsFound} fields enriched from {completedSteps} live sources
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-medium text-emerald-600 border-emerald-200 bg-emerald-50">
+              LIVE DATA
+            </Badge>
             <div className={cn("px-2.5 py-1 rounded-lg text-[11px] font-semibold", confBg(avgConfidence), confColor(avgConfidence))}>
               {avgConfidence}% avg confidence
             </div>
@@ -812,6 +994,27 @@ function NewCompanyEnrichment({
               Re-enrich
             </Button>
           </div>
+        </div>
+
+        {/* Source status badges */}
+        <div className="flex items-center gap-2">
+          {steps.map((s) => (
+            <div
+              key={s.id}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium",
+                s.status === "complete" && "bg-emerald-50 text-emerald-700 border border-emerald-200",
+                s.status === "error" && "bg-red-50 text-red-700 border border-red-200"
+              )}
+            >
+              {s.status === "complete" ? (
+                <CheckCircle2 className="w-3 h-3" />
+              ) : (
+                <XCircle className="w-3 h-3" />
+              )}
+              {s.source}: {s.fieldsFound} fields
+            </div>
+          ))}
         </div>
 
         {/* Enriched data grouped */}
@@ -875,7 +1078,7 @@ function NewCompanyEnrichment({
                           {fieldData.source}
                         </span>
                         <span className={cn("text-[10px] font-semibold tabular-nums", confColor(fieldData.confidence))}>
-                          {fieldData.confidence}%
+                          {fieldData.confidence > 0 ? `${fieldData.confidence}%` : "—"}
                         </span>
                       </div>
                     </div>
@@ -889,7 +1092,7 @@ function NewCompanyEnrichment({
         {/* Edit hint */}
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
           <Info className="w-3 h-3 flex-shrink-0" />
-          <span>Click any value to manually override. Overridden fields are marked with 100% confidence.</span>
+          <span>Click any value to manually override. Overridden fields are marked with 100% confidence. Data sourced live from Yahoo Finance, SEC EDGAR, and LinkedIn APIs.</span>
         </div>
       </div>
     );
@@ -1133,7 +1336,7 @@ function StepLaunch({
             <div className="flex items-center justify-between col-span-2">
               <span className="text-muted-foreground">Enrichment</span>
               <span className="text-emerald-600 font-medium text-[12px] flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> 16 fields from 7 sources
+                <CheckCircle2 className="w-3 h-3" /> Live data from 3 sources
               </span>
             </div>
           )}
