@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  MessageSquareSpark,
   Settings,
   Sparkles,
   User,
@@ -25,6 +26,7 @@ const navItems = [
   { path: "/models", label: "Models", icon: Boxes },
   { path: "/agents", label: "Agents", icon: Bot },
   { path: "/company", label: "Company Intel", icon: Building2 },
+  { path: "/ask", label: "Ask ValueOS", icon: MessageSquareSpark },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

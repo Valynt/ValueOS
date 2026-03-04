@@ -19,6 +19,7 @@ import {
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { NewCaseWizard } from "@/components/NewCaseWizard";
 import { useDomainPacks } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
 
@@ -263,6 +264,7 @@ export default function Opportunities() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   // Mock data — workflow-oriented, not CRM-oriented
   const deals: ValueCase[] = [
@@ -394,8 +396,18 @@ export default function Opportunities() {
             <Sparkles className="w-3.5 h-3.5" />
             Agents
           </Link>
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white rounded-xl text-[12px] font-medium hover:bg-zinc-800 transition-colors"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            New Case
+          </button>
         </div>
       </div>
+
+      {/* New Case Wizard */}
+      <NewCaseWizard open={wizardOpen} onOpenChange={setWizardOpen} />
 
       {/* Quick start — always visible, never buried */}
       <InlineQuickStart />

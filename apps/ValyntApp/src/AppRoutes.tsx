@@ -64,6 +64,7 @@ const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
 const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
 const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
+const Ask = lazy(() => import("./views/Ask"));
 
 export function AppRoutes() {
   const publicRouteElements: Record<string, ReactElement> = {
@@ -131,6 +132,7 @@ export function AppRoutes() {
                               <Route path="/settings" element={<SettingsPage />} />
                               <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
                               <Route path="/company" element={<CompanyKnowledge />} />
+                              <Route path="/ask" element={<Ask />} />
                             </Route>
                           </Route>
                           </Route>

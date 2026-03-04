@@ -1,14 +1,21 @@
 import {
+  AlertTriangle,
   ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
   Clock,
+  GitBranch,
   Layers,
+  Loader2,
+  Lock,
   Play,
   RotateCcw,
   Shield,
+  Sparkles,
+  XCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-
 
 import { AgentThread } from "./canvas/AgentThread";
 import { EvidenceDrawer } from "./canvas/EvidenceDrawer";
@@ -21,7 +28,81 @@ import { RealizationStage } from "./canvas/RealizationStage";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
 
-// Workflow stages — the core loop
+// ── Saga State Machine ──────────────────────────────────────────
+// Maps to the architectural brief: INITIATED → DRAFTING → VALIDATING → COMPOSING → REFINING → FINALIZED
+type SagaState = "INITIATED" | "DRAFTING" | "VALIDATING" | "COMPOSING" | "REFINING" | "FINALIZED" | "FAILED";
+
+interface SagaStateConfig {
+  label: string;
+  description: string;
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+const sagaStates: Record<SagaState, SagaStateConfig> = {
+  INITIATED: {
+    label: "Initiated",
+    description: "Case created — awaiting hypothesis generation",
+    icon: Sparkles,
+    color: "text-blue-700",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+  },
+  DRAFTING: {
+    label: "Drafting",
+    description: "Agents are building the hypothesis and financial model",
+    icon: Loader2,
+    color: "text-violet-700",
+    bg: "bg-violet-50",
+    border: "border-violet-200",
+  },
+  VALIDATING: {
+    label: "Validating",
+    description: "Integrity Engine is verifying claims and running red-team challenges",
+    icon: Shield,
+    color: "text-amber-700",
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+  },
+  COMPOSING: {
+    label: "Composing",
+    description: "Narrative Agent is assembling the executive deliverable",
+    icon: GitBranch,
+    color: "text-pink-700",
+    bg: "bg-pink-50",
+    border: "border-pink-200",
+  },
+  REFINING: {
+    label: "Refining",
+    description: "Human review in progress — awaiting approval or iteration",
+    icon: Clock,
+    color: "text-orange-700",
+    bg: "bg-orange-50",
+    border: "border-orange-200",
+  },
+  FINALIZED: {
+    label: "Finalized",
+    description: "Case approved and locked — tracking realization KPIs",
+    icon: CheckCircle2,
+    color: "text-emerald-700",
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+  },
+  FAILED: {
+    label: "Failed",
+    description: "Saga encountered an unrecoverable error — manual intervention required",
+    icon: XCircle,
+    color: "text-red-700",
+    bg: "bg-red-50",
+    border: "border-red-200",
+  },
+};
+
+const sagaOrder: SagaState[] = ["INITIATED", "DRAFTING", "VALIDATING", "COMPOSING", "REFINING", "FINALIZED"];
+
+// ── Workflow Stages ─────────────────────────────────────────────
 const stages = [
   { key: "hypothesis", label: "Hypothesis", color: "bg-blue-500", description: "Discovery & claims" },
   { key: "model", label: "Model", color: "bg-violet-500", description: "Value architecture" },
@@ -30,11 +111,138 @@ const stages = [
   { key: "realization", label: "Realization", color: "bg-emerald-500", description: "Track & prove" },
 ];
 
+// Map stages to saga states for the banner
+const stageToSaga: Record<string, SagaState> = {
+  hypothesis: "DRAFTING",
+  model: "DRAFTING",
+  integrity: "VALIDATING",
+  narrative: "COMPOSING",
+  realization: "FINALIZED",
+};
+
+// ── Saga State Banner ───────────────────────────────────────────
+function SagaStateBanner({ currentState }: { currentState: SagaState }) {
+  const config = sagaStates[currentState];
+  const Icon = config.icon;
+  const currentIdx = sagaOrder.indexOf(currentState);
+
+  return (
+    <div className={cn("px-6 py-3 border-b flex items-center gap-4", config.bg, config.border)}>
+      {/* Current state indicator */}
+      <div className="flex items-center gap-2">
+        <Icon className={cn("w-4 h-4", config.color, currentState === "DRAFTING" && "animate-spin")} />
+        <span className={cn("text-[12px] font-bold uppercase tracking-[0.1em]", config.color)}>
+          {config.label}
+        </span>
+      </div>
+
+      {/* Description */}
+      <span className="text-[12px] text-zinc-600">{config.description}</span>
+
+      {/* State machine progress */}
+      <div className="ml-auto flex items-center gap-1">
+        {sagaOrder.map((state, idx) => {
+          const sc = sagaStates[state];
+          const isActive = state === currentState;
+          const isPast = idx < currentIdx;
+          const isFuture = idx > currentIdx;
+
+          return (
+            <div key={state} className="flex items-center gap-1">
+              <div
+                className={cn(
+                  "w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold transition-all",
+                  isActive && cn(sc.bg, sc.color, "ring-2 ring-offset-1", `ring-current`),
+                  isPast && "bg-emerald-100 text-emerald-600",
+                  isFuture && "bg-zinc-100 text-zinc-400"
+                )}
+                title={sc.label}
+              >
+                {isPast ? (
+                  <CheckCircle2 className="w-3 h-3" />
+                ) : (
+                  idx + 1
+                )}
+              </div>
+              {idx < sagaOrder.length - 1 && (
+                <div className={cn(
+                  "w-4 h-0.5 rounded-full",
+                  idx < currentIdx ? "bg-emerald-300" : "bg-zinc-200"
+                )} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Integrity Gate Banner ───────────────────────────────────────
+function IntegrityGateBanner({ stage }: { stage: string }) {
+  if (stage !== "integrity") return null;
+
+  return (
+    <div className="mx-6 mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3">
+      <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+        <AlertTriangle className="w-4 h-4 text-amber-600" />
+      </div>
+      <div className="flex-1">
+        <p className="text-[12px] font-semibold text-amber-800">Integrity Gate Active</p>
+        <p className="text-[11px] text-amber-600">
+          2 claims flagged with component-scoped vetoes. Resolve or override before advancing to Narrative.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-[11px] font-medium hover:bg-amber-700">
+          Review Flags
+        </button>
+        <button className="px-3 py-1.5 border border-amber-300 text-amber-700 rounded-lg text-[11px] font-medium hover:bg-amber-100">
+          Override All
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Stage Lock Indicator ────────────────────────────────────────
+function StageLockIndicator({ stage, sagaState }: { stage: string; sagaState: SagaState }) {
+  const stageIdx = stages.findIndex(s => s.key === stage);
+  const sagaIdx = sagaOrder.indexOf(sagaState);
+
+  // Stages beyond the current saga state are locked
+  const stageRequiredSaga: Record<string, number> = {
+    hypothesis: 0, // INITIATED
+    model: 1,      // DRAFTING
+    integrity: 2,  // VALIDATING
+    narrative: 3,  // COMPOSING
+    realization: 5, // FINALIZED
+  };
+
+  const requiredIdx = stageRequiredSaga[stage] ?? 0;
+  const isLocked = sagaIdx < requiredIdx;
+
+  if (!isLocked) return null;
+
+  return (
+    <div className="mx-6 mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
+      <Lock className="w-4 h-4 text-zinc-400" />
+      <p className="text-[12px] text-zinc-500">
+        This stage is locked. The case must reach <span className="font-semibold">{sagaStates[sagaOrder[requiredIdx]!]?.label}</span> state before this stage becomes active.
+      </p>
+    </div>
+  );
+}
+
+// ── Main Canvas ─────────────────────────────────────────────────
 export default function ValueCaseCanvas() {
   const { oppId, caseId } = useParams();
   const [activeStage, setActiveStage] = useState("hypothesis");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const { data: merged } = useMergedContext(caseId);
+
+  // In production, this would come from the backend saga state
+  const [sagaState] = useState<SagaState>(() => stageToSaga[activeStage] ?? "DRAFTING");
 
   const stageContent: Record<string, React.ReactNode> = {
     hypothesis: <HypothesisStage />,
@@ -45,6 +253,8 @@ export default function ValueCaseCanvas() {
   };
 
   const currentStage = stages.find((s) => s.key === activeStage);
+  const currentStageIdx = stages.findIndex((s) => s.key === activeStage);
+  const currentSagaForStage = stageToSaga[activeStage] ?? sagaState;
 
   return (
     <div className="h-full flex flex-col">
@@ -59,8 +269,12 @@ export default function ValueCaseCanvas() {
             <h2 className="text-[15px] font-black text-zinc-950 tracking-tight truncate">
               Acme Corp — Enterprise Platform Migration
             </h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 flex-shrink-0">
-              Running
+            <span className={cn(
+              "px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0",
+              sagaStates[currentSagaForStage].bg,
+              sagaStates[currentSagaForStage].color
+            )}>
+              {sagaStates[currentSagaForStage].label}
             </span>
             {merged?.pack && (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 flex-shrink-0">
@@ -103,9 +317,12 @@ export default function ValueCaseCanvas() {
         </button>
       </div>
 
+      {/* Saga State Banner */}
+      <SagaStateBanner currentState={currentSagaForStage} />
+
       {/* Stage selector — the workflow loop */}
       <div className="px-6 py-3 border-b border-zinc-100 bg-white flex items-center gap-1 flex-shrink-0">
-        {stages.map((s) => (
+        {stages.map((s, idx) => (
           <button
             key={s.key}
             onClick={() => setActiveStage(s.key)}
@@ -118,13 +335,32 @@ export default function ValueCaseCanvas() {
           >
             <div className={cn("w-2 h-2 rounded-full", s.color)} />
             {s.label}
+            {idx < currentStageIdx && (
+              <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-0.5" />
+            )}
           </button>
         ))}
 
-        {/* Loop indicator */}
-        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-zinc-400">
-          <RotateCcw className="w-3 h-3" />
-          <span>Iterate anytime</span>
+        {/* Stage navigation arrows */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            onClick={() => currentStageIdx > 0 && setActiveStage(stages[currentStageIdx - 1]!.key)}
+            disabled={currentStageIdx === 0}
+            className="p-1.5 rounded-lg hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-zinc-500" />
+          </button>
+          <button
+            onClick={() => currentStageIdx < stages.length - 1 && setActiveStage(stages[currentStageIdx + 1]!.key)}
+            disabled={currentStageIdx === stages.length - 1}
+            className="p-1.5 rounded-lg hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowRight className="w-3.5 h-3.5 text-zinc-500" />
+          </button>
+          <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 ml-2">
+            <RotateCcw className="w-3 h-3" />
+            <span>Iterate anytime</span>
+          </div>
         </div>
       </div>
 
@@ -132,6 +368,12 @@ export default function ValueCaseCanvas() {
       <div className="flex-1 flex overflow-hidden">
         {/* Canvas (main content area) */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Integrity Gate Banner (only on integrity stage) */}
+          <IntegrityGateBanner stage={activeStage} />
+
+          {/* Stage Lock Indicator (for stages beyond current saga state) */}
+          <StageLockIndicator stage={activeStage} sagaState={currentSagaForStage} />
+
           {/* Stage header */}
           <div className="flex items-center gap-3 mb-5">
             <div className={cn("w-3 h-3 rounded-full", currentStage?.color)} />
