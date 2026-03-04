@@ -45,8 +45,20 @@ interface EnrichedCompany {
 
   // Metadata
   sources: { name: string; status: "success" | "partial" | "failed"; fieldsFound: number }[];
+  sourceDetails: SourceDetail[];
   confidence: number;
   enrichedAt: string;
+}
+
+interface SourceDetail {
+  name: string;
+  status: "success" | "partial" | "failed";
+  fieldsFound: number;
+  latencyMs: number;
+  endpoint: string;
+  httpStatus: number | null;
+  rawResponse: Record<string, unknown> | null;
+  error: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -446,9 +458,11 @@ export const enrichmentRouter = router({
     .mutation(async ({ input }) => {
       const { companyName } = input;
       const sources: EnrichedCompany["sources"] = [];
+      const sourceDetails: SourceDetail[] = [];
 
       // ── Stage 1: SEC EDGAR (must run first to get ticker + SIC) ────────
       let secData: SECCompanyInfo | null = null;
+      const secStart = Date.now();
       try {
         secData = await fetchSECCompany(companyName);
         const secFields = [
@@ -459,13 +473,30 @@ export const enrichmentRouter = router({
           secData?.stateOfIncorporation,
           secData?.filings?.[0],
         ].filter(Boolean).length;
-        sources.push({
+        const secStatus: SourceDetail["status"] = secData ? (secFields > 2 ? "success" : "partial") : "failed";
+        sources.push({ name: "SEC EDGAR", status: secStatus, fieldsFound: secFields });
+        sourceDetails.push({
           name: "SEC EDGAR",
-          status: secData ? (secFields > 2 ? "success" : "partial") : "failed",
+          status: secStatus,
           fieldsFound: secFields,
+          latencyMs: Date.now() - secStart,
+          endpoint: `https://data.sec.gov/submissions/CIK*.json`,
+          httpStatus: secData ? 200 : null,
+          rawResponse: secData ? { cik: secData.cik, name: secData.name, ticker: secData.ticker, sic: secData.sic, sicDescription: secData.sicDescription, stateOfIncorporation: secData.stateOfIncorporation, filingsCount: secData.filings.length } : null,
+          error: secData ? null : "No matching company found in EDGAR",
         });
-      } catch {
+      } catch (err: any) {
         sources.push({ name: "SEC EDGAR", status: "failed", fieldsFound: 0 });
+        sourceDetails.push({
+          name: "SEC EDGAR",
+          status: "failed",
+          fieldsFound: 0,
+          latencyMs: Date.now() - secStart,
+          endpoint: `https://data.sec.gov/submissions/CIK*.json`,
+          httpStatus: null,
+          rawResponse: null,
+          error: err?.message || "SEC EDGAR fetch failed",
+        });
       }
 
       // Determine ticker for Yahoo Finance
@@ -473,6 +504,7 @@ export const enrichmentRouter = router({
       const linkedinUsername = guessLinkedInUsername(companyName);
 
       // ── Stage 2: Yahoo Finance + LinkedIn (parallel) ───────────────────
+      const stage2Start = Date.now();
       const [profileResult, filingsResult, linkedinResult] = await Promise.allSettled([
         callDataApi("YahooFinance/get_stock_profile", {
           query: { symbol: ticker, region: "US", lang: "en-US" },
@@ -486,6 +518,7 @@ export const enrichmentRouter = router({
       ]);
 
       // Parse YahooFinance Profile
+      const yahooLatency = Date.now() - stage2Start;
       let profile: any = null;
       let profileFieldCount = 0;
       if (profileResult.status === "fulfilled" && profileResult.value) {
@@ -502,13 +535,44 @@ export const enrichmentRouter = router({
           (ap.country ? 1 : 0) +
           (price.regularMarketPrice ? 1 : 0) +
           (sd.marketCap ? 1 : 0);
-        sources.push({
+        const yahooStatus: SourceDetail["status"] = profileFieldCount > 3 ? "success" : "partial";
+        sources.push({ name: "Yahoo Finance", status: yahooStatus, fieldsFound: profileFieldCount });
+        sourceDetails.push({
           name: "Yahoo Finance",
-          status: profileFieldCount > 3 ? "success" : "partial",
+          status: yahooStatus,
           fieldsFound: profileFieldCount,
+          latencyMs: yahooLatency,
+          endpoint: `YahooFinance/get_stock_profile?symbol=${ticker}`,
+          httpStatus: 200,
+          rawResponse: {
+            sector: ap.sector ?? null,
+            industry: ap.industry ?? null,
+            fullTimeEmployees: ap.fullTimeEmployees ?? null,
+            website: ap.website ?? null,
+            country: ap.country ?? null,
+            regularMarketPrice: price.regularMarketPrice ?? null,
+            marketCap: sd.marketCap ?? null,
+            trailingPE: sd.trailingPE ?? null,
+            dividendYield: sd.dividendYield ?? null,
+            fiftyTwoWeekHigh: sd.fiftyTwoWeekHigh ?? null,
+            fiftyTwoWeekLow: sd.fiftyTwoWeekLow ?? null,
+            exchange: profile?.quoteType?.exchange ?? null,
+            longName: profile?.quoteType?.longName ?? null,
+          },
+          error: null,
         });
       } else {
         sources.push({ name: "Yahoo Finance", status: "failed", fieldsFound: 0 });
+        sourceDetails.push({
+          name: "Yahoo Finance",
+          status: "failed",
+          fieldsFound: 0,
+          latencyMs: yahooLatency,
+          endpoint: `YahooFinance/get_stock_profile?symbol=${ticker}`,
+          httpStatus: null,
+          rawResponse: null,
+          error: profileResult.status === "rejected" ? profileResult.reason?.message || "Yahoo Finance API error" : "No data returned",
+        });
       }
 
       // Parse SEC Filings from Yahoo
@@ -519,6 +583,7 @@ export const enrichmentRouter = router({
       }
 
       // Parse LinkedIn
+      const linkedinLatency = Date.now() - stage2Start;
       let linkedin: any = null;
       let linkedinFieldCount = 0;
       if (linkedinResult.status === "fulfilled" && linkedinResult.value) {
@@ -533,25 +598,63 @@ export const enrichmentRouter = router({
             (linkedin?.industries?.length ? 1 : 0) +
             (linkedin?.specialities?.length ? 1 : 0) +
             (linkedin?.followerCount ? 1 : 0);
-          sources.push({
+          const liStatus: SourceDetail["status"] = linkedinFieldCount > 2 ? "success" : "partial";
+          sources.push({ name: "LinkedIn", status: liStatus, fieldsFound: linkedinFieldCount });
+          sourceDetails.push({
             name: "LinkedIn",
-            status: linkedinFieldCount > 2 ? "success" : "partial",
+            status: liStatus,
             fieldsFound: linkedinFieldCount,
+            latencyMs: linkedinLatency,
+            endpoint: `LinkedIn/get_company_details?username=${linkedinUsername}`,
+            httpStatus: 200,
+            rawResponse: {
+              name: linkedin?.name ?? null,
+              staffCount: linkedin?.staffCount ?? null,
+              industries: linkedin?.industries ?? [],
+              specialities: linkedin?.specialities ?? [],
+              followerCount: linkedin?.followerCount ?? null,
+              website: linkedin?.website ?? null,
+              foundedOn: linkedin?.foundedOn ?? null,
+              headquarter: linkedin?.headquarter ?? null,
+            },
+            error: null,
           });
         } else {
           sources.push({ name: "LinkedIn", status: "failed", fieldsFound: 0 });
+          sourceDetails.push({
+            name: "LinkedIn",
+            status: "failed",
+            fieldsFound: 0,
+            latencyMs: linkedinLatency,
+            endpoint: `LinkedIn/get_company_details?username=${linkedinUsername}`,
+            httpStatus: null,
+            rawResponse: null,
+            error: "LinkedIn API returned success=false",
+          });
         }
       } else {
         sources.push({ name: "LinkedIn", status: "failed", fieldsFound: 0 });
+        sourceDetails.push({
+          name: "LinkedIn",
+          status: "failed",
+          fieldsFound: 0,
+          latencyMs: linkedinLatency,
+          endpoint: `LinkedIn/get_company_details?username=${linkedinUsername}`,
+          httpStatus: null,
+          rawResponse: null,
+          error: linkedinResult.status === "rejected" ? linkedinResult.reason?.message || "LinkedIn API error" : "No data returned",
+        });
       }
 
       // ── Stage 3: BLS + Census (parallel, use SIC from SEC) ─────────────
       const sicCode = secData?.sic || "";
+      const stage3Start = Date.now();
       const [blsResult, censusResult] = await Promise.allSettled([
         fetchBLSData(sicCode || undefined),
         fetchCensusData(sicCode || undefined),
       ]);
 
+      const blsLatency = Date.now() - stage3Start;
       let blsData: BLSResult = { industryEmployment: "N/A", avgHourlyWage: "N/A", laborTrend: "N/A", sectorLabel: "N/A" };
       if (blsResult.status === "fulfilled") {
         blsData = blsResult.value;
@@ -560,15 +663,43 @@ export const enrichmentRouter = router({
           blsData.avgHourlyWage !== "N/A" ? 1 : 0,
           blsData.laborTrend !== "N/A" ? 1 : 0,
         ].reduce((a, b) => a + b, 0);
-        sources.push({
+        const blsStatus: SourceDetail["status"] = blsFields > 0 ? "success" : sicCode ? "partial" : "failed";
+        sources.push({ name: "BLS (Labor Statistics)", status: blsStatus, fieldsFound: blsFields });
+        const sicPrefix = sicCode?.substring(0, 2);
+        const mapping = sicPrefix ? SIC_TO_BLS_SECTOR[sicPrefix] : undefined;
+        sourceDetails.push({
           name: "BLS (Labor Statistics)",
-          status: blsFields > 0 ? "success" : sicCode ? "partial" : "failed",
+          status: blsStatus,
           fieldsFound: blsFields,
+          latencyMs: blsLatency,
+          endpoint: `https://api.bls.gov/publicAPI/v2/timeseries/data/?seriesid=${mapping?.seriesId ?? "N/A"}`,
+          httpStatus: blsFields > 0 ? 200 : null,
+          rawResponse: {
+            sectorLabel: blsData.sectorLabel,
+            industryEmployment: blsData.industryEmployment,
+            avgHourlyWage: blsData.avgHourlyWage,
+            laborTrend: blsData.laborTrend,
+            sicCode: sicCode || null,
+            sicPrefix: sicPrefix || null,
+            mappedSeriesId: mapping?.seriesId ?? null,
+          },
+          error: blsFields === 0 && sicCode ? "No data for this SIC sector" : blsFields === 0 ? "No SIC code available" : null,
         });
       } else {
         sources.push({ name: "BLS (Labor Statistics)", status: "failed", fieldsFound: 0 });
+        sourceDetails.push({
+          name: "BLS (Labor Statistics)",
+          status: "failed",
+          fieldsFound: 0,
+          latencyMs: blsLatency,
+          endpoint: "https://api.bls.gov/publicAPI/v2/timeseries/data/",
+          httpStatus: null,
+          rawResponse: null,
+          error: blsResult.status === "rejected" ? blsResult.reason?.message || "BLS API error" : "Unknown error",
+        });
       }
 
+      const censusLatency = Date.now() - stage3Start;
       let censusData: CensusResult = { marketSizeProxy: "N/A", establishmentCount: "N/A" };
       if (censusResult.status === "fulfilled") {
         censusData = censusResult.value;
@@ -576,17 +707,51 @@ export const enrichmentRouter = router({
           censusData.marketSizeProxy !== "N/A" ? 1 : 0,
           censusData.establishmentCount !== "N/A" ? 1 : 0,
         ].reduce((a, b) => a + b, 0);
-        sources.push({
+        const censusStatus: SourceDetail["status"] = censusFields > 0 ? "success" : sicCode ? "partial" : "failed";
+        sources.push({ name: "Census Bureau", status: censusStatus, fieldsFound: censusFields });
+        const sicPrefix = sicCode?.substring(0, 2);
+        const naicsCode = sicPrefix ? SIC_TO_NAICS[sicPrefix] : undefined;
+        sourceDetails.push({
           name: "Census Bureau",
-          status: censusFields > 0 ? "success" : sicCode ? "partial" : "failed",
+          status: censusStatus,
           fieldsFound: censusFields,
+          latencyMs: censusLatency,
+          endpoint: `https://api.census.gov/data/2021/cbp?get=ESTAB,PAYANN,EMP&for=us:*&NAICS2017=${naicsCode ?? "N/A"}`,
+          httpStatus: censusFields > 0 ? 200 : null,
+          rawResponse: {
+            marketSizeProxy: censusData.marketSizeProxy,
+            establishmentCount: censusData.establishmentCount,
+            sicCode: sicCode || null,
+            mappedNaicsCode: naicsCode ?? null,
+          },
+          error: censusFields === 0 && sicCode ? "No data for this NAICS sector" : censusFields === 0 ? "No SIC code available" : null,
         });
       } else {
         sources.push({ name: "Census Bureau", status: "failed", fieldsFound: 0 });
+        sourceDetails.push({
+          name: "Census Bureau",
+          status: "failed",
+          fieldsFound: 0,
+          latencyMs: censusLatency,
+          endpoint: "https://api.census.gov/data/2021/cbp",
+          httpStatus: null,
+          rawResponse: null,
+          error: censusResult.status === "rejected" ? censusResult.reason?.message || "Census API error" : "Unknown error",
+        });
       }
 
       // ── Stage 4: Cross-reference and merge ─────────────────────────────
       sources.push({ name: "Cross-Reference", status: "success", fieldsFound: 3 });
+      sourceDetails.push({
+        name: "Cross-Reference",
+        status: "success",
+        fieldsFound: 3,
+        latencyMs: 0,
+        endpoint: "internal://cross-reference",
+        httpStatus: null,
+        rawResponse: { method: "Multi-source field deduplication and confidence scoring", sourcesUsed: sources.length },
+        error: null,
+      });
 
       const ap = profile?.assetProfile ?? {};
       const price = profile?.price ?? {};
@@ -674,6 +839,7 @@ export const enrichmentRouter = router({
 
         // Metadata
         sources,
+        sourceDetails,
         confidence,
         enrichedAt: new Date().toISOString(),
       };
