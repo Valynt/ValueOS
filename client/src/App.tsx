@@ -32,6 +32,7 @@ function Router() {
         <Route path="/ask" component={Ask} />
         {/* Legacy routes */}
         <Route path="/opportunities" component={Cases} />
+        <Route path="/opportunities/:caseId" component={CaseCanvas} />
         <Route path="/opportunities/:id/cases/:caseId" component={CaseCanvas} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

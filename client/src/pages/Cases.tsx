@@ -98,7 +98,7 @@ export default function Cases() {
             {filtered.map((c) => (
               <tr key={c.id} className="border-b border-border last:border-0 hover:bg-accent/30 transition-colors">
                 <td className="px-4 py-3.5">
-                  <Link href={`/opportunities/${c.id}`}>
+                  <Link href={`/cases/${c.id}`}>
                     <div className="cursor-pointer">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground flex-shrink-0">

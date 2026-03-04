@@ -29,7 +29,7 @@ export default function MyWork() {
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Continue where you left off</p>
           <span className="text-[10px] text-muted-foreground">· Edited 25m ago</span>
         </div>
-        <Link href="/opportunities/vc_1">
+        <Link href="/cases/vc_1">
           <div className="border border-border rounded-xl p-4 bg-card hover:bg-accent/30 transition-colors cursor-pointer">
             <div className="flex items-center justify-between">
               <div>
@@ -75,7 +75,7 @@ export default function MyWork() {
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Recent Cases</p>
         <div className="space-y-2">
           {myRecentCases.map((c) => (
-            <Link key={c.id} href={`/opportunities/${c.id}`}>
+            <Link key={c.id} href={`/cases/${c.id}`}>
               <div className="border border-border rounded-xl p-4 bg-card hover:bg-accent/30 transition-colors cursor-pointer">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
