@@ -1,7 +1,7 @@
 /*
  * VALYNT Cases Page — List of all value cases
  * Shows case cards with company, title, status, confidence, value, last updated
- * Matches reference: "RECENT CASES" with status badges
+ * Integrates the NewCaseWizard dialog
  */
 import { useState } from "react";
 import { Link } from "wouter";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { valueCases, formatCurrency } from "@/lib/data";
-import { toast } from "sonner";
+import { NewCaseWizard } from "@/components/NewCaseWizard";
 
 const statusColors: Record<string, string> = {
   running: "bg-emerald-100 text-emerald-700",
@@ -23,6 +23,7 @@ const statusColors: Record<string, string> = {
 export default function Cases() {
   const [view, setView] = useState<"grid" | "list">("list");
   const [searchQuery, setSearchQuery] = useState("");
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const filtered = valueCases.filter(
     (c) =>
@@ -39,7 +40,10 @@ export default function Cases() {
           <h1 className="text-xl font-bold text-foreground">Value Cases</h1>
           <p className="text-[13px] text-muted-foreground mt-0.5">{valueCases.length} active cases across your organization</p>
         </div>
-        <Button className="h-9 text-[13px] bg-foreground text-background hover:bg-foreground/90" onClick={() => { toast("New case wizard coming soon"); }}>
+        <Button
+          className="h-9 text-[13px] bg-foreground text-background hover:bg-foreground/90"
+          onClick={() => setWizardOpen(true)}
+        >
           <Plus className="w-4 h-4 mr-1.5" />
           New Case
         </Button>
@@ -146,8 +150,9 @@ export default function Cases() {
           </tbody>
         </table>
       </div>
+
+      {/* New Case Wizard Dialog */}
+      <NewCaseWizard open={wizardOpen} onOpenChange={setWizardOpen} />
     </div>
   );
 }
-
-
