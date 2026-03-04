@@ -5,6 +5,8 @@
  * - SEC EDGAR (via existing ESO infrastructure)
  * - Yahoo Finance (public API)
  * - LinkedIn (company profile)
+ * - BLS (Bureau of Labor Statistics — industry employment & wages)
+ * - Census Bureau (County Business Patterns — market size & establishments)
  *
  * Returns a normalized EnrichedCompany object with per-field
  * source attribution and confidence scoring.
@@ -35,6 +37,12 @@ export interface EnrichedCompany {
   techStack: EnrichedField;
   recentNews: EnrichedField;
   competitors: EnrichedField;
+  // Industry & Market Data (BLS / Census)
+  industryEmployment: EnrichedField;
+  avgIndustryWage: EnrichedField;
+  laborTrend: EnrichedField;
+  marketSizeProxy: EnrichedField;
+  establishmentCount: EnrichedField;
 }
 
 export interface EnrichmentSource {
@@ -206,6 +214,183 @@ async function fetchYahooFinance(ticker: string): Promise<YahooQuoteResult | nul
   }
 }
 
+// ─── BLS (Bureau of Labor Statistics) ────────────────────────────
+
+/**
+ * Map SIC 2-digit prefix to BLS CES super-sector series IDs.
+ */
+const SIC_TO_BLS_SECTOR: Record<string, { seriesId: string; wageSeriesId: string; label: string }> = {
+  "73": { seriesId: "CES6054000001", wageSeriesId: "CES6054000008", label: "Professional & Business Services" },
+  "35": { seriesId: "CES3100000001", wageSeriesId: "CES3100000008", label: "Manufacturing" },
+  "36": { seriesId: "CES3100000001", wageSeriesId: "CES3100000008", label: "Manufacturing" },
+  "37": { seriesId: "CES3100000001", wageSeriesId: "CES3100000008", label: "Manufacturing" },
+  "48": { seriesId: "CES5000000001", wageSeriesId: "CES5000000008", label: "Information" },
+  "50": { seriesId: "CES4142000001", wageSeriesId: "CES4142000008", label: "Wholesale Trade" },
+  "51": { seriesId: "CES4200000001", wageSeriesId: "CES4200000008", label: "Retail Trade" },
+  "52": { seriesId: "CES5552000001", wageSeriesId: "CES5552000008", label: "Finance & Insurance" },
+  "53": { seriesId: "CES5553000001", wageSeriesId: "CES5553000008", label: "Real Estate" },
+  "60": { seriesId: "CES5552000001", wageSeriesId: "CES5552000008", label: "Finance & Insurance" },
+  "62": { seriesId: "CES5552000001", wageSeriesId: "CES5552000008", label: "Finance & Insurance" },
+  "70": { seriesId: "CES7000000001", wageSeriesId: "CES7000000008", label: "Leisure & Hospitality" },
+  "80": { seriesId: "CES6562000001", wageSeriesId: "CES6562000008", label: "Health Care" },
+  "82": { seriesId: "CES6561000001", wageSeriesId: "CES6561000008", label: "Educational Services" },
+};
+
+interface BLSResult {
+  industryEmployment: string;
+  avgHourlyWage: string;
+  laborTrend: string;
+  sectorLabel: string;
+}
+
+async function fetchBLSData(sicCode: string | undefined): Promise<BLSResult> {
+  const result: BLSResult = {
+    industryEmployment: "N/A",
+    avgHourlyWage: "N/A",
+    laborTrend: "N/A",
+    sectorLabel: "N/A",
+  };
+
+  if (!sicCode) return result;
+
+  const sicPrefix = sicCode.substring(0, 2);
+  const mapping = SIC_TO_BLS_SECTOR[sicPrefix];
+  if (!mapping) return result;
+
+  result.sectorLabel = mapping.label;
+  const currentYear = String(new Date().getFullYear());
+  const prevYear = String(new Date().getFullYear() - 1);
+
+  try {
+    // Fetch employment data
+    const empUrl = new URL("https://api.bls.gov/publicAPI/v2/timeseries/data/");
+    empUrl.searchParams.set("seriesid", mapping.seriesId);
+    empUrl.searchParams.set("startyear", prevYear);
+    empUrl.searchParams.set("endyear", currentYear);
+
+    const empResp = await fetch(empUrl.toString(), {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (empResp.ok) {
+      const empData = await empResp.json();
+      const series = empData?.Results?.series?.[0];
+      if (series?.data?.length > 0) {
+        const latestValue = parseFloat(series.data[0].value);
+        result.industryEmployment = `${(latestValue / 1000).toFixed(1)}M`;
+
+        if (series.data.length >= 12) {
+          const currentVal = parseFloat(series.data[0].value);
+          const yearAgoVal = parseFloat(series.data[11].value);
+          const pctChange = ((currentVal - yearAgoVal) / yearAgoVal) * 100;
+          result.laborTrend = pctChange >= 0
+            ? `+${pctChange.toFixed(1)}% YoY`
+            : `${pctChange.toFixed(1)}% YoY`;
+        }
+      }
+    }
+
+    // Fetch average hourly earnings
+    const wageUrl = new URL("https://api.bls.gov/publicAPI/v2/timeseries/data/");
+    wageUrl.searchParams.set("seriesid", mapping.wageSeriesId);
+    wageUrl.searchParams.set("startyear", currentYear);
+    wageUrl.searchParams.set("endyear", currentYear);
+
+    const wageResp = await fetch(wageUrl.toString(), {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (wageResp.ok) {
+      const wageData = await wageResp.json();
+      const wageSeries = wageData?.Results?.series?.[0];
+      if (wageSeries?.data?.length > 0) {
+        result.avgHourlyWage = `$${parseFloat(wageSeries.data[0].value).toFixed(2)}/hr`;
+      }
+    }
+  } catch (err) {
+    console.error("[EnrichmentService] BLS fetch failed:", err);
+  }
+
+  return result;
+}
+
+// ─── Census Bureau (County Business Patterns) ───────────────────
+
+const SIC_TO_NAICS: Record<string, string> = {
+  "73": "54", // Professional, Scientific, Technical Services
+  "35": "31", // Manufacturing
+  "36": "33", // Manufacturing
+  "37": "33", // Manufacturing
+  "48": "51", // Information
+  "50": "42", // Wholesale Trade
+  "51": "44", // Retail Trade
+  "52": "52", // Finance & Insurance
+  "53": "53", // Real Estate
+  "60": "52", // Finance & Insurance
+  "62": "52", // Finance & Insurance
+  "70": "72", // Accommodation & Food Services
+  "80": "62", // Health Care & Social Assistance
+  "82": "61", // Educational Services
+};
+
+interface CensusResult {
+  marketSizeProxy: string;
+  establishmentCount: string;
+}
+
+async function fetchCensusData(sicCode: string | undefined): Promise<CensusResult> {
+  const result: CensusResult = {
+    marketSizeProxy: "N/A",
+    establishmentCount: "N/A",
+  };
+
+  if (!sicCode) return result;
+
+  const sicPrefix = sicCode.substring(0, 2);
+  const naicsCode = SIC_TO_NAICS[sicPrefix];
+  if (!naicsCode) return result;
+
+  try {
+    const url = new URL("https://api.census.gov/data/2021/cbp");
+    url.searchParams.set("get", "ESTAB,PAYANN,EMP");
+    url.searchParams.set("for", "us:*");
+    url.searchParams.set("NAICS2017", naicsCode);
+
+    const resp = await fetch(url.toString(), {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (resp.ok) {
+      const cbpData = await resp.json();
+      if (Array.isArray(cbpData) && cbpData.length >= 2) {
+        const headers = cbpData[0] as string[];
+        const estabIdx = headers.indexOf("ESTAB");
+        const payannIdx = headers.indexOf("PAYANN");
+
+        let totalEstab = 0;
+        let totalPayroll = 0;
+        for (let i = 1; i < cbpData.length; i++) {
+          const row = cbpData[i];
+          if (estabIdx >= 0) totalEstab += parseInt(row[estabIdx] || "0", 10);
+          if (payannIdx >= 0) totalPayroll += parseInt(row[payannIdx] || "0", 10);
+        }
+
+        if (totalEstab > 0) {
+          result.establishmentCount = totalEstab.toLocaleString();
+        }
+        if (totalPayroll > 0) {
+          const payrollBillions = (totalPayroll * 1000) / 1e9;
+          result.marketSizeProxy = `$${payrollBillions.toFixed(1)}B annual payroll`;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[EnrichmentService] Census fetch failed:", err);
+  }
+
+  return result;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────
 
 function formatMarketCap(cap: number | undefined): string {
@@ -279,7 +464,56 @@ export async function enrichCompany(companyName: string): Promise<EnrichmentResu
     });
   }
 
-  // ── Source 3: Derived / Cross-referenced ──
+  // ── Source 3: BLS (Bureau of Labor Statistics) ──
+  const blsStart = Date.now();
+  let blsData: BLSResult = { industryEmployment: "N/A", avgHourlyWage: "N/A", laborTrend: "N/A", sectorLabel: "N/A" };
+  try {
+    blsData = await fetchBLSData(secData?.sic);
+    const blsFields = [
+      blsData.industryEmployment !== "N/A" ? 1 : 0,
+      blsData.avgHourlyWage !== "N/A" ? 1 : 0,
+      blsData.laborTrend !== "N/A" ? 1 : 0,
+    ].reduce((a, b) => a + b, 0);
+    sources.push({
+      name: "BLS (Labor Statistics)",
+      status: blsFields > 0 ? "success" : secData?.sic ? "partial" : "failed",
+      fieldsFound: blsFields,
+      latencyMs: Date.now() - blsStart,
+    });
+  } catch {
+    sources.push({
+      name: "BLS (Labor Statistics)",
+      status: "failed",
+      fieldsFound: 0,
+      latencyMs: Date.now() - blsStart,
+    });
+  }
+
+  // ── Source 4: Census Bureau ──
+  const censusStart = Date.now();
+  let censusData: CensusResult = { marketSizeProxy: "N/A", establishmentCount: "N/A" };
+  try {
+    censusData = await fetchCensusData(secData?.sic);
+    const censusFields = [
+      censusData.marketSizeProxy !== "N/A" ? 1 : 0,
+      censusData.establishmentCount !== "N/A" ? 1 : 0,
+    ].reduce((a, b) => a + b, 0);
+    sources.push({
+      name: "Census Bureau",
+      status: censusFields > 0 ? "success" : secData?.sic ? "partial" : "failed",
+      fieldsFound: censusFields,
+      latencyMs: Date.now() - censusStart,
+    });
+  } catch {
+    sources.push({
+      name: "Census Bureau",
+      status: "failed",
+      fieldsFound: 0,
+      latencyMs: Date.now() - censusStart,
+    });
+  }
+
+  // ── Source 5: Derived / Cross-referenced ──
   sources.push({
     name: "Cross-Reference",
     status: "success",
@@ -383,6 +617,32 @@ export async function enrichCompany(companyName: string): Promise<EnrichmentResu
       value: "N/A",
       source: "N/A",
       confidence: 0,
+    },
+    // Industry & Market Data (BLS / Census)
+    industryEmployment: {
+      value: blsData.industryEmployment,
+      source: blsData.industryEmployment !== "N/A" ? "BLS" : "N/A",
+      confidence: blsData.industryEmployment !== "N/A" ? 85 : 0,
+    },
+    avgIndustryWage: {
+      value: blsData.avgHourlyWage,
+      source: blsData.avgHourlyWage !== "N/A" ? "BLS" : "N/A",
+      confidence: blsData.avgHourlyWage !== "N/A" ? 85 : 0,
+    },
+    laborTrend: {
+      value: blsData.laborTrend,
+      source: blsData.laborTrend !== "N/A" ? "BLS" : "N/A",
+      confidence: blsData.laborTrend !== "N/A" ? 80 : 0,
+    },
+    marketSizeProxy: {
+      value: censusData.marketSizeProxy,
+      source: censusData.marketSizeProxy !== "N/A" ? "Census Bureau" : "N/A",
+      confidence: censusData.marketSizeProxy !== "N/A" ? 82 : 0,
+    },
+    establishmentCount: {
+      value: censusData.establishmentCount,
+      source: censusData.establishmentCount !== "N/A" ? "Census Bureau" : "N/A",
+      confidence: censusData.establishmentCount !== "N/A" ? 82 : 0,
     },
   };
 

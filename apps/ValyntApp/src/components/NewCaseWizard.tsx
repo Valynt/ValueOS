@@ -6,7 +6,7 @@
  *   - useTenant() for tenant isolation
  *   - useCreateCase() for Supabase case creation
  *   - useDomainPacks() for value model selection
- *   - enrichmentService for live SEC EDGAR + Yahoo Finance data
+ *   - enrichmentService for live SEC EDGAR + Yahoo Finance + BLS + Census data
  *
  * Steps:
  *   1. Company Selection (existing or new with enrichment)
@@ -72,6 +72,8 @@ import {
   Users,
   XCircle,
   Zap,
+  Factory,
+  Activity,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -125,6 +127,8 @@ interface EnrichmentStep {
 const ENRICHMENT_STEPS: EnrichmentStep[] = [
   { id: "sec", label: "SEC EDGAR", source: "sec.gov", icon: Landmark, status: "pending", fieldsFound: 0 },
   { id: "yahoo", label: "Yahoo Finance", source: "finance.yahoo.com", icon: TrendingUp, status: "pending", fieldsFound: 0 },
+  { id: "bls", label: "BLS (Labor Stats)", source: "bls.gov", icon: Activity, status: "pending", fieldsFound: 0 },
+  { id: "census", label: "Census Bureau", source: "census.gov", icon: Factory, status: "pending", fieldsFound: 0 },
   { id: "cross", label: "Cross-Reference", source: "derived", icon: Database, status: "pending", fieldsFound: 0 },
 ];
 
@@ -493,6 +497,8 @@ function NewCompanyEnrichment({
           (src) =>
             (s.id === "sec" && src.name === "SEC EDGAR") ||
             (s.id === "yahoo" && src.name === "Yahoo Finance") ||
+            (s.id === "bls" && src.name === "BLS (Labor Statistics)") ||
+            (s.id === "census" && src.name === "Census Bureau") ||
             (s.id === "cross" && src.name === "Cross-Reference")
         );
         return {
@@ -821,6 +827,16 @@ function NewCompanyEnrichment({
         fields: [
           { key: "employees", label: "Employees", icon: Users },
           { key: "recentNews", label: "Company Summary", icon: FileSearch },
+        ],
+      },
+      {
+        title: "Industry & Market Data (BLS / Census)",
+        fields: [
+          { key: "industryEmployment", label: "Industry Employment", icon: Users },
+          { key: "avgIndustryWage", label: "Avg. Industry Wage", icon: DollarSign },
+          { key: "laborTrend", label: "Labor Trend (YoY)", icon: TrendingUp },
+          { key: "marketSizeProxy", label: "Market Size (Payroll)", icon: BarChart3 },
+          { key: "establishmentCount", label: "Establishments", icon: Factory },
         ],
       },
     ];
