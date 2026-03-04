@@ -11,6 +11,7 @@ import {
   Bot,
   Building2,
   Settings,
+  FileText,
   LogOut,
   User,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const navItems = [
   { path: "/models", label: "Models", icon: Boxes },
   { path: "/agents", label: "Agents", icon: Bot },
   { path: "/company-intel", label: "Company Intel", icon: Building2 },
+  { path: "/strategy", label: "Strategy", icon: FileText },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

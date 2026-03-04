@@ -14,6 +14,7 @@ import Agents from "./pages/Agents";
 import CompanyIntel from "./pages/CompanyIntel";
 import Settings from "./pages/Settings";
 import Ask from "./pages/Ask";
+import Strategy from "./pages/Strategy";
 
 function Router() {
   return (
@@ -28,6 +29,7 @@ function Router() {
         <Route path="/company-intel" component={CompanyIntel} />
         <Route path="/settings" component={Settings} />
         <Route path="/ask" component={Ask} />
+        <Route path="/strategy" component={Strategy} />
         {/* Legacy routes */}
         <Route path="/my-work" component={Dashboard} />
         <Route path="/opportunities" component={Cases} />
