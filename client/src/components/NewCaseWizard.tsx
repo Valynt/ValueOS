@@ -62,6 +62,7 @@ import {
   FileSearch,
   Landmark,
 } from "lucide-react";
+import { DataSourcesPanel, type SourceDetail } from "@/components/DataSourcesPanel";
 
 // ─── Types ──────────────────────────────────────────────────────────
 interface WizardData {
@@ -306,6 +307,7 @@ export function NewCaseWizard({
   const [data, setData] = useState<WizardData>({ ...INITIAL_DATA });
   const [companySearch, setCompanySearch] = useState("");
   const [isLaunching, setIsLaunching] = useState(false);
+  const [sourceDetails, setSourceDetails] = useState<SourceDetail[]>([]);
   const [, navigate] = useLocation();
 
   const handleOpenChange = (open: boolean) => {
@@ -314,6 +316,7 @@ export function NewCaseWizard({
       setData({ ...INITIAL_DATA });
       setCompanySearch("");
       setIsLaunching(false);
+      setSourceDetails([]);
     }
     onOpenChange(open);
   };
@@ -421,6 +424,8 @@ export function NewCaseWizard({
               companySearch={companySearch}
               setCompanySearch={setCompanySearch}
               filteredCompanies={filteredCompanies}
+              sourceDetails={sourceDetails}
+              setSourceDetails={setSourceDetails}
             />
           )}
           {step === 2 && <StepCaseDetails data={data} update={update} />}
@@ -494,12 +499,16 @@ function StepCompany({
   companySearch,
   setCompanySearch,
   filteredCompanies,
+  sourceDetails,
+  setSourceDetails,
 }: {
   data: WizardData;
   update: (p: Partial<WizardData>) => void;
   companySearch: string;
   setCompanySearch: (s: string) => void;
   filteredCompanies: CompanyIntelItem[];
+  sourceDetails: SourceDetail[];
+  setSourceDetails: React.Dispatch<React.SetStateAction<SourceDetail[]>>;
 }) {
   return (
     <div className="space-y-4">
@@ -533,7 +542,7 @@ function StepCompany({
       </div>
 
       {data.isNewCompany ? (
-        <NewCompanyEnrichment data={data} update={update} />
+        <NewCompanyEnrichment data={data} update={update} sourceDetails={sourceDetails} setSourceDetails={setSourceDetails} />
       ) : (
         <>
           <div className="relative">
@@ -604,9 +613,13 @@ function StepCompany({
 function NewCompanyEnrichment({
   data,
   update,
+  sourceDetails,
+  setSourceDetails,
 }: {
   data: WizardData;
   update: (p: Partial<WizardData>) => void;
+  sourceDetails: SourceDetail[];
+  setSourceDetails: React.Dispatch<React.SetStateAction<SourceDetail[]>>;
 }) {
   const [steps, setSteps] = useState<EnrichmentStep[]>(
     ENRICHMENT_STEPS.map((s) => ({ ...s, status: "pending", fieldsFound: 0 }))
@@ -698,6 +711,11 @@ function NewCompanyEnrichment({
 
       // Map the real API response to the frontend format
       const enrichedData = mapBackendToEnrichedData(apiResult);
+
+      // Store source details for the DataSourcesPanel
+      if (apiResult.sourceDetails) {
+        setSourceDetails(apiResult.sourceDetails as SourceDetail[]);
+      }
 
       // Update steps with actual source data from the API response
       const finalSteps: EnrichmentStep[] = ENRICHMENT_STEPS.map((s) => {
@@ -1069,6 +1087,11 @@ function NewCompanyEnrichment({
             </div>
           ))}
         </div>
+
+        {/* Data Sources Detail Panel */}
+        {sourceDetails.length > 0 && (
+          <DataSourcesPanel sourceDetails={sourceDetails} />
+        )}
 
         {/* Enriched data grouped */}
         <div className="space-y-3">

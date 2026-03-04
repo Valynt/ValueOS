@@ -318,6 +318,71 @@ describe("enrichment.enrichCompany", () => {
     expect(result.sources.find((s) => s.name === "BLS (Labor Statistics)")?.status).toBe("success");
     expect(result.sources.find((s) => s.name === "Census Bureau")?.status).toBe("success");
 
+    // ── sourceDetails: raw API responses and latency ──
+    expect(result.sourceDetails).toBeDefined();
+    expect(result.sourceDetails.length).toBeGreaterThanOrEqual(5);
+
+    // Each sourceDetail should have the required shape
+    for (const sd of result.sourceDetails) {
+      expect(sd).toHaveProperty("name");
+      expect(sd).toHaveProperty("status");
+      expect(sd).toHaveProperty("fieldsFound");
+      expect(sd).toHaveProperty("latencyMs");
+      expect(sd).toHaveProperty("endpoint");
+      expect(typeof sd.latencyMs).toBe("number");
+      expect(sd.latencyMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // SEC EDGAR sourceDetail
+    const secDetail = result.sourceDetails.find((s) => s.name === "SEC EDGAR");
+    expect(secDetail).toBeDefined();
+    expect(secDetail!.status).toBe("success");
+    expect(secDetail!.rawResponse).toBeDefined();
+    expect(secDetail!.rawResponse!.cik).toBe("0001108524");
+    expect(secDetail!.rawResponse!.ticker).toBe("CRM");
+    expect(secDetail!.rawResponse!.sic).toBe("7372");
+    expect(secDetail!.endpoint).toContain("sec.gov");
+    expect(secDetail!.error).toBeNull();
+
+    // Yahoo Finance sourceDetail
+    const yahooDetail = result.sourceDetails.find((s) => s.name === "Yahoo Finance");
+    expect(yahooDetail).toBeDefined();
+    expect(yahooDetail!.status).toBe("success");
+    expect(yahooDetail!.rawResponse).toBeDefined();
+    expect(yahooDetail!.rawResponse!.sector).toBe("Technology");
+    expect(yahooDetail!.rawResponse!.industry).toBe("Software\u2014Application");
+    expect(yahooDetail!.rawResponse!.fullTimeEmployees).toBe(79390);
+    expect(yahooDetail!.httpStatus).toBe(200);
+
+    // LinkedIn sourceDetail
+    const liDetail = result.sourceDetails.find((s) => s.name === "LinkedIn");
+    expect(liDetail).toBeDefined();
+    expect(liDetail!.status).toBe("success");
+    expect(liDetail!.rawResponse).toBeDefined();
+    expect(liDetail!.rawResponse!.name).toBe("Salesforce");
+    expect(liDetail!.rawResponse!.staffCount).toBe(79000);
+
+    // BLS sourceDetail
+    const blsDetail = result.sourceDetails.find((s) => s.name === "BLS (Labor Statistics)");
+    expect(blsDetail).toBeDefined();
+    expect(blsDetail!.status).toBe("success");
+    expect(blsDetail!.rawResponse).toBeDefined();
+    expect(blsDetail!.rawResponse!.sicCode).toBe("7372");
+    expect(blsDetail!.endpoint).toContain("bls.gov");
+
+    // Census sourceDetail
+    const censusDetail = result.sourceDetails.find((s) => s.name === "Census Bureau");
+    expect(censusDetail).toBeDefined();
+    expect(censusDetail!.status).toBe("success");
+    expect(censusDetail!.rawResponse).toBeDefined();
+    expect(censusDetail!.endpoint).toContain("census.gov");
+
+    // Cross-Reference sourceDetail
+    const xrefDetail = result.sourceDetails.find((s) => s.name === "Cross-Reference");
+    expect(xrefDetail).toBeDefined();
+    expect(xrefDetail!.latencyMs).toBe(0);
+    expect(xrefDetail!.rawResponse!.method).toContain("deduplication");
+
     // ── Confidence should be high with all sources ──
     expect(result.confidence).toBeGreaterThan(50);
     expect(result.enrichedAt).toBeTruthy();
@@ -371,6 +436,13 @@ describe("enrichment.enrichCompany", () => {
     expect(linkedinSource?.status).toBe("failed");
     expect(linkedinSource?.fieldsFound).toBe(0);
 
+    // LinkedIn sourceDetail should have error
+    const liDetail = result.sourceDetails.find((s) => s.name === "LinkedIn");
+    expect(liDetail).toBeDefined();
+    expect(liDetail!.status).toBe("failed");
+    expect(liDetail!.rawResponse).toBeNull();
+    expect(liDetail!.error).toBeTruthy();
+
     // BLS and Census should still succeed (they use SIC from SEC EDGAR)
     expect(result.sources.find((s) => s.name === "BLS (Labor Statistics)")?.status).toBe("success");
     expect(result.sources.find((s) => s.name === "Census Bureau")?.status).toBe("success");
@@ -409,6 +481,17 @@ describe("enrichment.enrichCompany", () => {
     // Yahoo + LinkedIn should still succeed
     expect(result.sources.find((s) => s.name === "Yahoo Finance")?.status).toBe("success");
     expect(result.sources.find((s) => s.name === "LinkedIn")?.status).toBe("success");
+
+    // BLS and Census sourceDetails should show partial (SIC code exists but data fetch failed)
+    const blsDetail = result.sourceDetails.find((s) => s.name === "BLS (Labor Statistics)");
+    expect(blsDetail).toBeDefined();
+    expect(["partial", "failed"]).toContain(blsDetail!.status);
+    expect(blsDetail!.error).toBeTruthy();
+
+    const censusDetail = result.sourceDetails.find((s) => s.name === "Census Bureau");
+    expect(censusDetail).toBeDefined();
+    expect(["partial", "failed"]).toContain(censusDetail!.status);
+    expect(censusDetail!.error).toBeTruthy();
   });
 
   it("handles all APIs failing gracefully", async () => {
@@ -438,6 +521,15 @@ describe("enrichment.enrichCompany", () => {
     expect(result.laborTrend).toBe("N/A");
     expect(result.marketSizeProxy).toBe("N/A");
     expect(result.establishmentCount).toBe("N/A");
+
+    // All sourceDetails should have errors
+    expect(result.sourceDetails).toBeDefined();
+    for (const sd of result.sourceDetails) {
+      if (sd.name !== "Cross-Reference") {
+        expect(sd.status).toBe("failed");
+        expect(sd.error).toBeTruthy();
+      }
+    }
   });
 
   it("returns BLS sector label based on SIC code mapping", async () => {

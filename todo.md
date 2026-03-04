@@ -18,4 +18,9 @@
 - [x] Add Industry & Market Data field group to enrichment wizard UI
 - [x] Add BLS and Census to enrichment step animation
 - [x] Update enrichment test file to verify all 5 data sources
-- [ ] Push all changes to GitHub
+- [x] Push all changes to GitHub
+- [x] Update backend enrichment router to return raw API responses and latency per source
+- [x] Build DataSourcesPanel component with expandable source cards
+- [x] Integrate DataSourcesPanel into NewCaseWizard enrichment results view
+- [x] Update enrichment tests to verify raw response data is returned
+- [ ] Push Data Sources panel changes to GitHub
