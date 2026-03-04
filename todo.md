@@ -23,4 +23,10 @@
 - [x] Build DataSourcesPanel component with expandable source cards
 - [x] Integrate DataSourcesPanel into NewCaseWizard enrichment results view
 - [x] Update enrichment tests to verify raw response data is returned
-- [ ] Push Data Sources panel changes to GitHub
+- [x] Push Data Sources panel changes to GitHub
+- [x] Add enrichment_cache table to database schema
+- [x] Create cache helper functions (get, set, invalidate) in server/enrichmentCache.ts
+- [x] Integrate cache into enrichment router with configurable TTL
+- [x] Add cache status indicators to frontend (cached badge, age, force-refresh)
+- [x] Write tests for cache hit/miss/expiry behavior
+- [ ] Push enrichment caching changes to GitHub

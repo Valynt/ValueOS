@@ -1,10 +1,21 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { callDataApi } from "../_core/dataApi";
+import {
+  getCachedEnrichment,
+  setCachedEnrichment,
+  invalidateCachedEnrichment,
+  getCacheStats,
+  DEFAULT_CACHE_TTL_MS,
+  type CacheMeta,
+} from "../enrichmentCache";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
 interface EnrichedCompany {
+  // Cache metadata (present when result is served from cache)
+  cacheMeta?: CacheMeta;
+
   // Overview
   name: string;
   domain: string;
@@ -453,10 +464,26 @@ export const enrichmentRouter = router({
       z.object({
         companyName: z.string().min(1),
         domain: z.string().optional(),
+        forceRefresh: z.boolean().optional().default(false),
       })
     )
     .mutation(async ({ input }) => {
-      const { companyName } = input;
+      const { companyName, forceRefresh } = input;
+      const enrichmentStart = Date.now();
+
+      // ── Cache lookup (skip if forceRefresh) ────────────────────────────
+      if (!forceRefresh) {
+        const cached = await getCachedEnrichment(companyName, DEFAULT_CACHE_TTL_MS);
+        if (cached) {
+          console.log(`[Enrichment] Cache HIT for "${companyName}" (age: ${Math.round(cached.meta.cacheAgeMs / 1000)}s, hits: ${cached.meta.hitCount})`);
+          return { ...cached.data, cacheMeta: cached.meta } as EnrichedCompany;
+        }
+        console.log(`[Enrichment] Cache MISS for "${companyName}" — fetching from live sources`);
+      } else {
+        console.log(`[Enrichment] Force refresh for "${companyName}" — bypassing cache`);
+        await invalidateCachedEnrichment(companyName);
+      }
+
       const sources: EnrichedCompany["sources"] = [];
       const sourceDetails: SourceDetail[] = [];
 
@@ -842,7 +869,28 @@ export const enrichmentRouter = router({
         sourceDetails,
         confidence,
         enrichedAt: new Date().toISOString(),
+
+        // Cache metadata (not from cache — this is a fresh result)
+        cacheMeta: {
+          cached: false,
+          cachedAt: null,
+          cacheAgeMs: 0,
+          hitCount: 0,
+          ttlMs: DEFAULT_CACHE_TTL_MS,
+          stale: false,
+        },
       };
+
+      // ── Store in cache (async, don't block response) ──────────────────
+      const totalLatencyMs = Date.now() - enrichmentStart;
+      const successSources = sources.filter(s => s.status !== "failed").length;
+      setCachedEnrichment(
+        companyName,
+        enriched as unknown as Record<string, unknown>,
+        confidence,
+        successSources,
+        totalLatencyMs
+      ).catch(err => console.error("[Enrichment] Failed to cache result:", err));
 
       return enriched;
     }),
@@ -872,4 +920,22 @@ export const enrichmentRouter = router({
         return { found: false, ticker, name: input.query, exchange: "", price: "", marketCap: "" };
       }
     }),
+
+  /**
+   * Invalidate a cached enrichment result.
+   */
+  invalidateCache: publicProcedure
+    .input(z.object({ companyName: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const deleted = await invalidateCachedEnrichment(input.companyName);
+      return { invalidated: deleted, companyName: input.companyName };
+    }),
+
+  /**
+   * Get enrichment cache statistics.
+   */
+  cacheStats: publicProcedure.query(async () => {
+    const stats = await getCacheStats();
+    return stats ?? { totalEntries: 0, totalHits: 0, avgConfidence: 0 };
+  }),
 });
