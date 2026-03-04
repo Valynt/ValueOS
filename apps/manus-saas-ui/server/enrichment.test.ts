@@ -7,6 +7,18 @@ vi.mock("./_core/dataApi", () => ({
   callDataApi: vi.fn(),
 }));
 
+// Mock the enrichmentCache module so cache doesn't interfere with API tests
+vi.mock("./enrichmentCache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./enrichmentCache")>();
+  return {
+    ...actual,
+    getCachedEnrichment: vi.fn().mockResolvedValue(null), // Always cache miss
+    setCachedEnrichment: vi.fn().mockResolvedValue(undefined),
+    invalidateCachedEnrichment: vi.fn().mockResolvedValue(true),
+    getCacheStats: vi.fn().mockResolvedValue({ totalEntries: 0, totalHits: 0, avgConfidence: 0 }),
+  };
+});
+
 import { callDataApi } from "./_core/dataApi";
 const mockCallDataApi = vi.mocked(callDataApi);
 
