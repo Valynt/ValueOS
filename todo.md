@@ -39,4 +39,13 @@
 - [x] Build Together.ai Strategy proposal as a permanent web page
 - [x] Add route and navigation for the strategy page
 - [x] Style with professional typography, tables, and architecture diagram
-- [ ] Save checkpoint and publish
+- [x] Save checkpoint and publish
+- [x] Remove AI SDK packages (@ai-sdk/openai, @ai-sdk/react, ai)
+- [x] Remove unused Forge API files (imageGeneration.ts, voiceTranscription.ts, AIChatBox.tsx)
+- [x] Create Together.ai client wrapper (server/togetherClient.ts)
+- [x] Request TOGETHER_API_KEY secret
+- [x] Rewrite chat endpoint with ValueOS system prompts and agent tools
+- [x] Wire AgentChatSidebar to real Together.ai streaming endpoint
+- [x] Write tests for Together.ai chat integration
+- [x] Verify dev server and test chat flow
+- [ ] Push migration changes to GitHub

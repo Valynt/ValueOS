@@ -13,7 +13,13 @@
  */
 
 import { useState, useCallback, useRef } from "react";
-import type { FileUIPart } from "ai";
+/** File part for chat messages (previously from AI SDK, now local) */
+export interface FileUIPart {
+  type: "file";
+  url: string;
+  mediaType: string;
+  filename: string;
+}
 
 // ============================================================================
 // TYPES

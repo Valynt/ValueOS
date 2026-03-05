@@ -171,7 +171,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast as sonnerToast } from "sonner";
-import { AIChatBox } from "@/components/AIChatBox";
 
 export default function ComponentsShowcase() {
   const { theme, toggleTheme } = useTheme();
@@ -1369,40 +1368,6 @@ export default function ComponentsShowcase() {
             </Card>
           </section>
 
-          {/* AI ChatBox Section */}
-          <section className="space-y-4">
-            <h3 className="text-2xl font-semibold">AI ChatBox</h3>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    <p>
-                      A ready-to-use chat interface component that integrates
-                      with the AI SDK. Features streaming responses, tool
-                      calling, markdown rendering, and auto-scrolling.
-                    </p>
-                    <p className="mt-2">
-                      This component uses the /api/chat endpoint with AI SDK v6
-                      for streaming responses.
-                    </p>
-                  </div>
-                  <AIChatBox
-                    chatId="showcase-demo"
-                    initialMessages={[]}
-                    api="/api/chat"
-                    placeholder="Try sending a message..."
-                    emptyStateMessage="How can I help you today?"
-                    suggestedPrompts={[
-                      "What's the weather in Tokyo?",
-                      "Calculate 42 * 3.14",
-                      "What is React?",
-                      "Explain TypeScript",
-                    ]}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </section>
         </div>
       </main>
 
