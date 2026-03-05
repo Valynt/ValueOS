@@ -1,31 +1,48 @@
-import React, { useEffect, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-// TODO: RedisStreamBroker and useAuth were imported via broken cross-package
-// paths (../../../app/src/...).  These should be injected via props or context
-// rather than imported directly from the app layer.  Stubbed here so the
-// backend production build (esbuild) can compile the sdui package.
-interface StreamEvent {
+export interface HumanCheckpointUser {
+  id: string;
+}
+
+export interface HumanCheckpointAuth {
+  user: HumanCheckpointUser | null;
+}
+
+export interface HumanCheckpointStreamEvent {
   name: string;
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
 }
-interface RedisStreamBroker {
-  initialize(): Promise<void>;
-  startConsumer(handler: (event: StreamEvent) => Promise<void>): void;
-  publish(stream: string, data: Record<string, any>): Promise<void>;
+
+export interface HumanCheckpointBroker {
+  subscribe(handler: (event: HumanCheckpointStreamEvent) => Promise<void>): Promise<() => void> | (() => void);
+  publish(stream: string, data: Record<string, unknown>): Promise<void>;
 }
- 
-const RedisStreamBroker = class implements RedisStreamBroker {
-  constructor(_opts: { streamName: string; consumerName: string }) { }
-  async initialize() { }
-  startConsumer(_handler: (event: StreamEvent) => Promise<void>) { }
-  async publish(_stream: string, _data: Record<string, any>) {
-    console.warn('[HumanCheckpoint] RedisStreamBroker is stubbed — publish is a no-op. Wire a real broker via props/context.');
-  }
-};
-function useAuth(): { user: { id: string } | null } {
-  console.warn('[HumanCheckpoint] useAuth is stubbed — always returns null user. Wire a real auth provider via context.');
-  return { user: null };
+
+export interface HumanCheckpointDependencies {
+  auth: HumanCheckpointAuth;
+  broker: HumanCheckpointBroker;
+}
+
+const HumanCheckpointDependenciesContext = createContext<HumanCheckpointDependencies | null>(null);
+
+export interface HumanCheckpointProviderProps {
+  dependencies: HumanCheckpointDependencies;
+  children: React.ReactNode;
+}
+
+export function HumanCheckpointProvider({ dependencies, children }: HumanCheckpointProviderProps) {
+  return (
+    <HumanCheckpointDependenciesContext.Provider value={dependencies}>
+      {children}
+    </HumanCheckpointDependenciesContext.Provider>
+  );
+}
+
+function useHumanCheckpointDependencies(
+  dependencies?: HumanCheckpointDependencies
+): HumanCheckpointDependencies | null {
+  const contextDependencies = useContext(HumanCheckpointDependenciesContext);
+  return dependencies ?? contextDependencies;
 }
 
 interface HumanCheckpointProps {
@@ -34,15 +51,46 @@ interface HumanCheckpointProps {
   onApproval: (approved: boolean, reason?: string) => void;
   onPause: () => void;
   onResume: () => void;
+  dependencies?: HumanCheckpointDependencies;
 }
 
 interface CheckpointAction {
   id: string;
   actionType: string;
-  actionData: Record<string, any>;
+  actionData: Record<string, unknown>;
   requiresApproval: boolean;
   reason: string;
   timestamp: string;
+}
+
+function toCheckpointAction(payload: Record<string, unknown>): CheckpointAction | null {
+  const idempotencyKey = payload.idempotencyKey;
+  const actionType = payload.actionType;
+  const actionData = payload.actionData;
+  const requiresApproval = payload.requiresApproval;
+  const reason = payload.reason;
+  const emittedAt = payload.emittedAt;
+
+  if (
+    typeof idempotencyKey !== "string" ||
+    typeof actionType !== "string" ||
+    typeof reason !== "string" ||
+    typeof emittedAt !== "string" ||
+    typeof requiresApproval !== "boolean" ||
+    !actionData ||
+    typeof actionData !== "object"
+  ) {
+    return null;
+  }
+
+  return {
+    id: idempotencyKey,
+    actionType,
+    actionData: actionData as Record<string, unknown>,
+    requiresApproval,
+    reason,
+    timestamp: emittedAt,
+  };
 }
 
 export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
@@ -51,67 +99,90 @@ export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
   onApproval,
   onPause,
   onResume,
+  dependencies,
 }) => {
   const [pendingActions, setPendingActions] = useState<CheckpointAction[]>([]);
   const [isPaused, setIsPaused] = useState(false);
-  const [broker, setBroker] = useState<RedisStreamBroker | null>(null);
-  const { user } = useAuth();
+  const resolvedDependencies = useHumanCheckpointDependencies(dependencies);
+
+  const userId = resolvedDependencies?.auth.user?.id ?? "anonymous";
+  const broker = resolvedDependencies?.broker ?? null;
+
+  const consumerKey = useMemo(
+    () => `checkpoint-${userId}-${sessionId}`,
+    [sessionId, userId]
+  );
 
   useEffect(() => {
-    const initializeBroker = async () => {
-      const streamBroker = new RedisStreamBroker({
-        streamName: "agent.checkpoints",
-        consumerName: `checkpoint-${user?.id || "anonymous"}-${sessionId}`,
-      });
-      await streamBroker.initialize();
-      setBroker(streamBroker);
+    if (!broker) {
+      return undefined;
+    }
 
-      // Listen for checkpoint events
-      streamBroker.startConsumer(async (event) => {
-        if (event.name === "agent.action.checkpoint") {
-          const payload = event.payload;
-          if (
-            payload.sessionId === sessionId &&
-            payload.tenantId === tenantId &&
-            payload.requiresApproval
-          ) {
-            const checkpointAction: CheckpointAction = {
-              id: payload.idempotencyKey,
-              actionType: payload.actionType,
-              actionData: payload.actionData,
-              requiresApproval: payload.requiresApproval,
-              reason: payload.reason,
-              timestamp: payload.emittedAt,
-            };
-            setPendingActions((prev) => [...prev, checkpointAction]);
-            setIsPaused(true);
-            onPause();
-          }
+    let isActive = true;
+    let unsubscribe = () => undefined;
+
+    const subscribe = async () => {
+      const stop = await broker.subscribe(async (event) => {
+        if (!isActive || event.name !== "agent.action.checkpoint") {
+          return;
         }
+
+        const rawPayload = event.payload;
+        const payloadSessionId = rawPayload.sessionId;
+        const payloadTenantId = rawPayload.tenantId;
+
+        if (
+          typeof payloadSessionId !== "string" ||
+          typeof payloadTenantId !== "string" ||
+          payloadSessionId !== sessionId ||
+          payloadTenantId !== tenantId
+        ) {
+          return;
+        }
+
+        const checkpointAction = toCheckpointAction(rawPayload);
+        if (!checkpointAction || !checkpointAction.requiresApproval) {
+          return;
+        }
+
+        setPendingActions((prev) => {
+          if (prev.some((action) => action.id === checkpointAction.id)) {
+            return prev;
+          }
+
+          return [...prev, checkpointAction];
+        });
+        setIsPaused(true);
+        onPause();
       });
+
+      unsubscribe = stop;
     };
 
-    initializeBroker();
+    void subscribe();
 
     return () => {
-      // Cleanup
+      isActive = false;
+      unsubscribe();
     };
-  }, [sessionId, tenantId, user?.id, onPause]);
+  }, [broker, consumerKey, onPause, sessionId, tenantId]);
 
   const handleApproval = async (actionId: string, approved: boolean, reason?: string) => {
-    if (!broker) return;
+    if (!broker) {
+      return;
+    }
 
-    // Remove from pending actions
-    setPendingActions((prev) => prev.filter((action) => action.id !== actionId));
+    const nextPendingActions = pendingActions.filter((action) => action.id !== actionId);
+    setPendingActions(nextPendingActions);
 
-    // Publish approval decision
     await broker.publish("agent.action.checkpoint", {
       schemaVersion: "1.0.0",
-      idempotencyKey: uuidv4(),
+      idempotencyKey: `${actionId}:${approved ? "approved" : "rejected"}`,
+      checkpointIdempotencyKey: actionId,
       emittedAt: new Date().toISOString(),
       tenantId,
       sessionId,
-      userId: user?.id || "anonymous",
+      userId,
       actionType: "approval_response",
       actionData: { actionId, approved, reason },
       requiresApproval: false,
@@ -122,14 +193,13 @@ export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
 
     onApproval(approved, reason);
 
-    // If no more pending actions, resume
-    if (pendingActions.length <= 1) {
+    if (nextPendingActions.length === 0) {
       setIsPaused(false);
       onResume();
     }
   };
 
-  if (pendingActions.length === 0) {
+  if (!broker || pendingActions.length === 0) {
     return null;
   }
 
@@ -150,8 +220,8 @@ export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
               </button>
               <button
                 onClick={() => {
-                  const reason = prompt("Reason for rejection:");
-                  handleApproval(action.id, false, reason || undefined);
+                  const rejectionReason = window.prompt("Reason for rejection:");
+                  void handleApproval(action.id, false, rejectionReason ?? undefined);
                 }}
                 className="reject-btn"
               >
