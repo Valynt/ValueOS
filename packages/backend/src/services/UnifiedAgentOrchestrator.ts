@@ -46,9 +46,10 @@ import { AgentMessageQueue } from "./AgentMessageQueue.js";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
+import { AgentResponsePayload, WorkflowContextDTO, WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../types/workflow/orchestration";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 
-import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
+import { AgentContext, getAgentAPI } from "./AgentAPI";
 
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
@@ -141,17 +142,7 @@ export class IntegrityVetoMiddleware implements AgentMiddleware {
     return response;
   }
 }
-// Lazy-imported to avoid pulling the entire SDUI component tree into the backend at startup.
-// renderPage depends on React component registry which has deep frontend-only dependencies.
 type RenderPageOptions = Record<string, unknown>;
-let _renderPage: ((page: any, options?: RenderPageOptions) => any) | null = null;
-async function getRenderPage() {
-  if (!_renderPage) {
-    const mod = await import("@sdui/renderPage");
-    _renderPage = mod.renderPage;
-  }
-  return _renderPage;
-}
 import { supabase } from "../lib/supabase.js";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
@@ -170,6 +161,11 @@ import {
 } from "./agents/core/IAgent.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
 import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
+import { WorkflowExecutionStore as WorkflowExecutionStoreService } from "./workflows/WorkflowExecutionStore";
+import { DelegatingWorkflowRunner } from "./workflows/WorkflowRunner";
+import { DefaultIntegrityVetoService } from "./workflows/IntegrityVetoService";
+import { DefaultWorkflowSimulationService } from "./workflows/WorkflowSimulationService";
+import { DefaultWorkflowRenderService } from "./workflows/WorkflowRenderService";
 
 // ============================================================================
 // Types
@@ -177,7 +173,7 @@ import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExe
 
 export interface AgentResponse {
   type: "component" | "message" | "suggestion" | "sdui-page";
-  payload: any;
+  payload: AgentResponsePayload;
   streaming?: boolean;
   sduiPage?: SDUIPageDefinition;
   metadata?: IntegrityVetoMetadata;
@@ -382,6 +378,11 @@ export class UnifiedAgentOrchestrator {
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
   private executionStateService = new TenantExecutionStateService(supabase);
+  private executionStore: WorkflowExecutionStoreService;
+  private workflowRunner: DelegatingWorkflowRunner;
+  private integrityVetoService: DefaultIntegrityVetoService;
+  private workflowSimulationService: DefaultWorkflowSimulationService;
+  private workflowRenderService: DefaultWorkflowRenderService;
 
   constructor(configOrRegistry?: Partial<OrchestratorConfig> | AgentRegistry, ...rest: any[]) {
     // Support both factory-style (single config) and full-param construction
@@ -415,6 +416,55 @@ export class UnifiedAgentOrchestrator {
 
     // Initialize services
     this.confidenceMonitor = new ConfidenceMonitor(supabase);
+    this.executionStore = new WorkflowExecutionStoreService(supabase as never);
+    this.workflowRunner = new DelegatingWorkflowRunner({
+      executeDAGAsync: this.executeDAGAsync.bind(this),
+      executeStageWithRetry: this.executeStageWithRetry.bind(this),
+      executeStage: this.executeStage.bind(this),
+    });
+    this.integrityVetoService = new DefaultIntegrityVetoService({
+      agentAPI: this.agentAPI,
+      evaluateClaim: async (metricId, claimedValue, options) => {
+        const validation = await this.executeGroundTruthToolCall<{ warning?: string; benchmark?: { p50?: number } }>(
+          {
+            toolName: "eso_validate_claim",
+            payload: { metricId, claimedValue },
+            traceId: options.traceId,
+            context: options.context,
+          },
+        );
+        const metricValue = await this.executeGroundTruthToolCall<{ value?: number }>(
+          {
+            toolName: "eso_get_metric_value",
+            payload: { metricId, percentile: "p50" },
+            traceId: options.traceId,
+            context: options.context,
+          },
+        );
+        return { benchmarkValue: metricValue.value ?? validation.benchmark?.p50, warning: validation.warning };
+      },
+      getAverageConfidence: async (agentType) => (await this.confidenceMonitor.getMetrics(agentType, "hour")).avgConfidenceScore,
+      logVeto: async (agentType, query, payload, options, metadata) => {
+        await logAgentResponse(agentType, query, false, payload, { traceId: options.traceId, stageId: options.stageId, integrityVeto: metadata }, "integrity_veto", options.context);
+      },
+      invokeRefinement: async (agentType, prompt, context, attempt) => {
+        const circuitBreakerKey = `query-${agentType}-refine-${attempt}`;
+        const result = await this.circuitBreakers.execute(circuitBreakerKey, () => this.agentAPI.invokeAgent({ agent: agentType, query: prompt, context }), { timeoutMs: this.config.defaultTimeoutMs });
+        return { success: Boolean(result?.success), data: result?.data };
+      },
+      maxReRefineAttempts: this.maxReRefineAttempts,
+    });
+    this.workflowSimulationService = new DefaultWorkflowSimulationService(
+      this.llmGateway,
+      this.memorySystem,
+      async (workflowDefinitionId) => {
+        const { data: definition, error } = await supabase.from("workflow_definitions").select("*").eq("id", workflowDefinitionId).eq("is_active", true).maybeSingle();
+        if (error || !definition) throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
+        return definition as { dag_schema: WorkflowDAG };
+      },
+      () => this.config.enableSimulation,
+    );
+    this.workflowRenderService = new DefaultWorkflowRenderService(this.agentAPI, (envelope) => this.validateExecutionIntent(envelope), () => this.config.enableSDUI);
 
     // Initialize middleware
     this.initializeMiddleware();
@@ -569,186 +619,7 @@ export class UnifiedAgentOrchestrator {
       context?: AgentContext;
     }
   ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata; reRefine?: boolean }> {
-    const claims = this.extractNumericClaims(payload);
-
-    // Validate ground truth metadata schema if present (best-effort)
-    try {
-      if (typeof payload === "object" && payload !== null && "metadata" in payload) {
-        const metadata = (payload as any).metadata;
-        if (metadata) {
-          validateGroundTruthMetadata(metadata);
-          assertProvenance(metadata);
-        }
-      }
-    } catch (error) {
-      logger.warn("Ground truth metadata validation failed", {
-        traceId: options.traceId,
-        agentType: options.agentType,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    // Check ConfidenceMonitor for low confidence threshold (global signal)
-    try {
-      const metrics = await this.confidenceMonitor.getMetrics(options.agentType, "hour");
-      const confidenceScore = metrics.avgConfidenceScore;
-
-      if (confidenceScore < 0.85) {
-        logger.warn("Confidence score below threshold, triggering RE-REFINE", {
-          traceId: options.traceId,
-          agentType: options.agentType,
-          confidenceScore,
-          threshold: 0.85,
-        });
-        return { vetoed: false, reRefine: true };
-      }
-    } catch (error) {
-      logger.warn("Failed to check confidence score", {
-        traceId: options.traceId,
-        agentType: options.agentType,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    // Best-effort: ask Integrity agent to evaluate this output for per-output confidence
-    try {
-      if (this.agentAPI) {
-        const integrityAgentResponse = await this.agentAPI.invokeAgent({
-          agent: "integrity",
-          query: JSON.stringify({ intent: "validate_output", payload }),
-          context: options.context,
-        });
-
-        if (integrityAgentResponse?.success && integrityAgentResponse.data) {
-          const ia = integrityAgentResponse.data as any;
-          const integrityCheck = ia.integrityCheck ?? ia;
-
-          if (integrityCheck?.confidence !== undefined && integrityCheck.confidence < 0.85) {
-            logger.warn("Integrity agent reported low confidence, requesting RE-REFINE", {
-              traceId: options.traceId,
-              agentType: options.agentType,
-              integrityConfidence: integrityCheck.confidence,
-            });
-            return { vetoed: false, reRefine: true };
-          }
-
-          if (Array.isArray(integrityCheck?.issues) && integrityCheck.issues.length > 0) {
-            // Check for any high/critical issues that warrant a veto
-            const severe = (integrityCheck.issues as any[]).find((issue) =>
-              ["high", "critical"].includes(issue.severity) &&
-              ["logic_error", "data_integrity"].includes(issue.type)
-            );
-
-            if (severe) {
-              const vetoMetadata: IntegrityVetoMetadata = {
-                integrityVeto: true,
-                deviationPercent: 100,
-                benchmark: 0,
-                metricId: "integrity_agent_issue",
-                claimedValue: 0,
-                warning: `${severe.type}: ${severe.description}`,
-              };
-
-              await logAgentResponse(
-                options.agentType,
-                options.query ?? "integrity-agent-veto",
-                false,
-                payload,
-                {
-                  traceId: options.traceId,
-                  stageId: options.stageId,
-                  integrityVeto: vetoMetadata,
-                },
-                "integrity_veto",
-                options.context
-              );
-
-              return { vetoed: true, metadata: vetoMetadata };
-            }
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn("Integrity agent call failed during integrity evaluation", {
-        traceId: options.traceId,
-        agentType: options.agentType,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    if (claims.length === 0) {
-      return { vetoed: false };
-    }
-
-    await this.ensureGroundTruthInitialized();
-
-    let vetoMetadata: IntegrityVetoMetadata | undefined;
-    for (const claim of claims) {
-      try {
-        const metricValue = await this.executeGroundTruthToolCall<{ value?: number }>({
-          toolName: "eso_get_metric_value",
-          payload: { metricId: claim.metricId, percentile: "p50" },
-          traceId: options.traceId,
-          context: options.context,
-        });
-        const validation = await this.executeGroundTruthToolCall<{
-          warning?: string;
-          benchmark?: { p50?: number };
-        }>({
-          toolName: "eso_validate_claim",
-          payload: { metricId: claim.metricId, claimedValue: claim.claimedValue },
-          traceId: options.traceId,
-          context: options.context,
-        });
-
-        const benchmarkValue = metricValue.value ?? validation.benchmark?.p50;
-        if (!benchmarkValue) {
-          continue;
-        }
-        const deviationPercent =
-          (Math.abs(claim.claimedValue - benchmarkValue) / Math.abs(benchmarkValue)) * 100;
-        if (
-          deviationPercent > 15 &&
-          (!vetoMetadata || deviationPercent > vetoMetadata.deviationPercent)
-        ) {
-          vetoMetadata = {
-            integrityVeto: true,
-            deviationPercent,
-            benchmark: benchmarkValue,
-            metricId: claim.metricId,
-            claimedValue: claim.claimedValue,
-            warning: validation.warning,
-          };
-        }
-      } catch (error) {
-        logger.warn("Failed to validate claim against ground truth", {
-          traceId: options.traceId,
-          agentType: options.agentType,
-          stageId: options.stageId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    if (vetoMetadata) {
-      await logAgentResponse(
-        options.agentType,
-        options.query ?? "agent-output-veto",
-        false,
-        payload,
-        {
-          traceId: options.traceId,
-          stageId: options.stageId,
-          integrityVeto: vetoMetadata,
-        },
-        "integrity_veto",
-        options.context
-      );
-
-      return { vetoed: true, metadata: vetoMetadata };
-    }
-
-    return { vetoed: false };
+    return this.integrityVetoService.evaluateIntegrityVeto(payload, options);
   }
 
   private async evaluateStructuralTruthVeto(
@@ -761,78 +632,7 @@ export class UnifiedAgentOrchestrator {
       context?: AgentContext;
     }
   ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
-    // Always validate structural schema for outputs. If schema deviation
-    // exceeds threshold, flag veto and attempt to get a detailed integrity
-    // assessment from the `integrity` agent for richer audit context.
-    const validation = StructuralTruthModuleSchema.safeParse(payload);
-    if (validation.success) {
-      return { vetoed: false };
-    }
-
-    const issueCount = validation.error.issues.length;
-    const fieldCount = Math.max(1, STRUCTURAL_TRUTH_SCHEMA_FIELDS.length);
-    const deviationPercent = Math.min(100, (issueCount / fieldCount) * 100);
-
-    if (deviationPercent <= 15) {
-      return { vetoed: false };
-    }
-
-    const warning = validation.error.issues
-      .slice(0, 3)
-      .map((issue) => issue.message)
-      .join("; ");
-
-    const vetoMetadata: IntegrityVetoMetadata = {
-      integrityVeto: true,
-      deviationPercent,
-      benchmark: 15,
-      metricId: "structural_truth_schema",
-      claimedValue: deviationPercent,
-      warning: warning || "Structural truth schema deviation exceeded threshold.",
-    };
-
-    // Log the immediate veto decision for traceability
-    await logAgentResponse(
-      options.agentType,
-      options.query ?? "structural-truth-veto",
-      false,
-      payload,
-      {
-        traceId: options.traceId,
-        stageId: options.stageId,
-        integrityVeto: vetoMetadata,
-      },
-      "integrity_veto",
-      options.context
-    );
-
-    // Try to get a deeper integrity analysis by invoking the Integrity agent
-    // This is best-effort — don't fail the pipeline if the agent call fails.
-    try {
-      if (this.agentAPI) {
-        // Ask the integrity agent for a validation report to include in audit logs
-        const integrityAgentResponse = await this.agentAPI.invokeAgent({
-          agent: "integrity",
-          query: JSON.stringify({ intent: "validate_structural", payload }),
-          context: options.context,
-        });
-
-        if (integrityAgentResponse?.success && integrityAgentResponse.data) {
-          vetoMetadata.warning = `${vetoMetadata.warning} | integrity_agent_summary: ${
-            typeof integrityAgentResponse.data === "string"
-              ? integrityAgentResponse.data
-              : JSON.stringify(integrityAgentResponse.data)
-          }`;
-        }
-      }
-    } catch (err) {
-      logger.warn("Integrity agent call failed while enriching structural veto", {
-        traceId: options.traceId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
-    return { vetoed: true, metadata: vetoMetadata };
+    return this.integrityVetoService.evaluateStructuralTruthVeto(payload, options);
   }
 
   private async performReRefine(
@@ -841,66 +641,8 @@ export class UnifiedAgentOrchestrator {
     agentContext: AgentContext,
     traceId: string,
     maxAttempts: number = this.maxReRefineAttempts
-  ): Promise<{ success: boolean; response?: any; attempts: number }> {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        logger.info("Attempting RE-REFINE", { traceId, agentType, attempt });
-        const refinePrompt = `${originalQuery}\n\nREFINE: Please re-run your analysis with explicit grounding: include metric ids (ESO), numeric citations, provenance metadata, and a causal trace (impact cascade) that links back to any verified Opportunity in memory. Provide structured JSON output where possible. Attempt: ${attempt}`;
-
-        const circuitBreakerKey = `query-${agentType}-refine-${attempt}`;
-        const agentResponse = await this.circuitBreakers.execute(
-          circuitBreakerKey,
-          () =>
-            this.agentAPI.invokeAgent({
-              agent: agentType,
-              query: refinePrompt,
-              context: agentContext,
-            }),
-          { timeoutMs: this.config.defaultTimeoutMs }
-        );
-
-        if (!agentResponse?.success) {
-          logger.warn("RE-REFINE attempt failed (agent error)", { traceId, agentType, attempt });
-          continue;
-        }
-
-        const structural = await this.evaluateStructuralTruthVeto(agentResponse.data, {
-          traceId,
-          agentType,
-          query: originalQuery,
-          context: agentContext,
-        });
-        if (structural.vetoed) {
-          logger.warn("RE-REFINE produced structurally invalid output, retrying", { traceId, agentType, attempt });
-          continue;
-        }
-
-        const integrity = await this.evaluateIntegrityVeto(agentResponse.data, {
-          traceId,
-          agentType,
-          query: originalQuery,
-          context: agentContext,
-        });
-
-        if (integrity.reRefine) {
-          logger.info("RE-REFINE requested further refinement", { traceId, agentType, attempt });
-          continue;
-        }
-
-        if (integrity.vetoed) {
-          logger.warn("RE-REFINE produced output that was vetoed", { traceId, agentType, attempt });
-          return { success: false, response: agentResponse, attempts: attempt };
-        }
-
-        return { success: true, response: agentResponse, attempts: attempt };
-      } catch (err) {
-        logger.warn("RE-REFINE attempt errored", { traceId, agentType, attempt, error: err instanceof Error ? err.message : String(err) });
-        continue;
-      }
-    }
-
-    logger.info("RE-REFINE exhausted attempts without acceptance", { traceId, agentType, attempts: maxAttempts });
-    return { success: false, attempts: maxAttempts };
+  ): Promise<{ success: boolean; response?: unknown; attempts: number }> {
+    return this.integrityVetoService.performReRefine(agentType, originalQuery, agentContext, traceId, maxAttempts);
   }
 
   private normalizeExecutionRequest(intent: string, execution: Partial<ExecutionRequest> & Record<string, unknown>) {
@@ -1748,7 +1490,7 @@ export class UnifiedAgentOrchestrator {
   async executeWorkflow(
     envelope: ExecutionEnvelope,
     workflowDefinitionId: string,
-    context: Record<string, any> = {},
+    context: WorkflowContextDTO = {},
     userId?: string
   ): Promise<WorkflowExecutionResult> {
     this.validateExecutionIntent(envelope);
@@ -1829,7 +1571,7 @@ export class UnifiedAgentOrchestrator {
       );
 
       // Execute DAG asynchronously
-      this.executeDAGAsync(
+      this.workflowRunner.executeDAGAsync(
         execution.id,
         envelope.organizationId,
         dag,
@@ -1864,131 +1606,13 @@ export class UnifiedAgentOrchestrator {
    */
   async simulateWorkflow(
     workflowDefinitionId: string,
-    context: Record<string, any> = {},
+    context: WorkflowContextDTO = {},
     options?: {
       maxSteps?: number;
       stopOnFailure?: boolean;
     }
   ): Promise<SimulationResult> {
-    if (!this.config.enableSimulation) {
-      throw new Error("Simulation is disabled");
-    }
-
-    const simulationId = uuidv4();
-    const startTime = Date.now();
-
-    logger.info("Starting workflow simulation", {
-      simulationId,
-      workflowDefinitionId,
-    });
-
-    // Get workflow definition
-    const { data: definition, error: defError } = await supabase
-      .from("workflow_definitions")
-      .select("*")
-      .eq("id", workflowDefinitionId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (defError || !definition) {
-      throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
-    }
-
-    const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
-
-    // Retrieve similar past episodes for prediction
-    const orgId = (context as any)?.organizationId || (context as any)?.tenantId;
-    const similarEpisodes = await this.memorySystem.retrieve({
-      agent_id: "orchestrator",
-      organization_id: orgId || "",
-      limit: 5,
-    });
-
-    // Simulate each stage
-    const stepsSimulated: any[] = [];
-    let currentStageId = dag.initial_stage;
-    let simulationContext = { ...context };
-    let stepNumber = 0;
-    const maxSteps = options?.maxSteps || 50;
-    let totalConfidence = 0;
-    let successProbability = 1.0;
-
-    while (currentStageId && stepNumber < maxSteps) {
-      const stage = dag.stages.find((s) => s.id === currentStageId);
-      if (!stage) break;
-
-      stepNumber++;
-
-      // Predict stage outcome using LLM
-      const prediction = await this.predictStageOutcome(stage, simulationContext, similarEpisodes);
-
-      stepsSimulated.push({
-        stage_id: currentStageId,
-        stage_name: stage.name,
-        predicted_outcome: prediction.outcome,
-        confidence: prediction.confidence,
-        estimated_duration_seconds: prediction.estimatedDuration,
-      });
-
-      totalConfidence += prediction.confidence;
-      successProbability *= prediction.confidence;
-
-      // Update context with predicted outcome
-      simulationContext = {
-        ...simulationContext,
-        ...prediction.outcome,
-      };
-
-      // Find next stage
-      const transition = stage.transitions?.find((t) => {
-        if (t.condition) {
-          // Evaluate condition (simplified)
-          return prediction.outcome.success !== false;
-        }
-        return true;
-      });
-
-      currentStageId = transition?.to_stage ?? undefined;
-
-      if (dag.final_stages?.includes(currentStageId || "")) {
-        break;
-      }
-    }
-
-    const duration = Date.now() - startTime;
-    const avgConfidence = stepsSimulated.length > 0 ? totalConfidence / stepsSimulated.length : 0;
-
-    // Assess risks
-    const riskAssessment = {
-      low_confidence_steps: stepsSimulated.filter((s) => s.confidence < 0.7).length,
-      estimated_cost_usd: stepsSimulated.length * 0.01,
-      requires_approval: stepsSimulated.some(
-        (s) => s.stage_name.includes("delete") || s.stage_name.includes("remove")
-      ),
-    };
-
-    const result: SimulationResult = {
-      simulation_id: simulationId,
-      workflow_definition_id: workflowDefinitionId,
-      predicted_outcome: simulationContext,
-      confidence_score: avgConfidence,
-      risk_assessment: riskAssessment,
-      steps_simulated: stepsSimulated,
-      duration_estimate_seconds: stepsSimulated.reduce(
-        (sum, s) => sum + s.estimated_duration_seconds,
-        0
-      ),
-      success_probability: successProbability,
-    };
-
-    logger.info("Workflow simulation complete", {
-      simulationId,
-      stepsSimulated: stepsSimulated.length,
-      confidence: avgConfidence,
-      successProbability,
-    });
-
-    return result;
+    return this.workflowSimulationService.simulateWorkflow(workflowDefinitionId, context, options);
   }
 
   /**
@@ -1996,49 +1620,14 @@ export class UnifiedAgentOrchestrator {
    */
   private async predictStageOutcome(
     stage: WorkflowStage,
-    context: Record<string, any>,
-    similarEpisodes: any[]
+    context: WorkflowContextDTO,
+    similarEpisodes: unknown[]
   ): Promise<{
-    outcome: Record<string, any>;
+    outcome: Record<string, unknown>;
     confidence: number;
     estimatedDuration: number;
   }> {
-    const prompt = `Predict the outcome of workflow stage: ${stage.name}
-Description: ${stage.description || "N/A"}
-Context: ${JSON.stringify(context, null, 2)}
-Similar past episodes: ${similarEpisodes.length}
-
-Provide a JSON response with:
-- outcome: predicted result object
-- confidence: 0-1 score
-- estimatedDuration: seconds`;
-
-    try {
-      const organizationId = context.organizationId || context.organization_id;
-      const response = await this.llmGateway.complete({
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        temperature: 0.3,
-        metadata: {
-          tenantId: organizationId,
-          agentType: "workflow_predictor",
-        },
-      });
-
-      const parsed = JSON.parse(response.content);
-      return {
-        outcome: parsed.outcome || { success: true },
-        confidence: parsed.confidence || 0.7,
-        estimatedDuration: parsed.estimatedDuration || 5,
-      };
-    } catch (error) {
-      logger.warn("Failed to predict stage outcome, using defaults", { error });
-      return {
-        outcome: { success: true },
-        confidence: 0.5,
-        estimatedDuration: 10,
-      };
-    }
+    return this.workflowSimulationService.predictStageOutcome(stage, context, similarEpisodes);
   }
 
   private async executeDAGAsync(
@@ -2150,7 +1739,7 @@ Provide a JSON response with:
         stageTasks,
         async (task) => {
           const { stage, route, context } = task.payload;
-          const stageResult = await this.executeStageWithRetry(
+          const stageResult = await this.workflowRunner.executeStageWithRetry(
             executionId,
             stage,
             context,
@@ -2475,7 +2064,7 @@ Provide a JSON response with:
 
         const result = await this.circuitBreakers.execute(
           circuitBreakerKey,
-          () => this.executeStage(stage, context, route),
+          () => this.workflowRunner.executeStage(stage, context, route),
           {
             timeoutMs: (stage.timeout_seconds ?? 30) * 1000,
           }
@@ -2730,65 +2319,7 @@ Provide a JSON response with:
     context?: AgentContext,
     streamingCallback?: (update: StreamingUpdate) => void
   ): Promise<AgentResponse> {
-    this.validateExecutionIntent(envelope);
-    if (!this.config.enableSDUI) {
-      throw new Error("SDUI generation is disabled");
-    }
-
-    const traceId = uuidv4();
-
-    streamingCallback?.({
-      stage: "analyzing",
-      message: `Invoking ${agent} agent...`,
-      progress: 10,
-    });
-
-    try {
-      let response: APIAgentResponse<SDUIPageDefinition>;
-
-      // Route to appropriate agent method
-      switch (agent) {
-        case "opportunity":
-          response = await this.agentAPI.generateValueCase(query, context);
-          break;
-        case "realization":
-          response = await this.agentAPI.generateRealizationDashboard(query, context);
-          break;
-        case "expansion":
-          response = await this.agentAPI.generateExpansionOpportunities(query, context);
-          break;
-        default:
-          response = await this.agentAPI.invokeAgent({ agent, query, context });
-      }
-
-      streamingCallback?.({
-        stage: "processing",
-        message: "Processing agent response...",
-        progress: 60,
-      });
-
-      if (!response.success) {
-        throw new Error(response.error || "Agent request failed");
-      }
-
-      streamingCallback?.({
-        stage: "complete",
-        message: "SDUI page generated successfully",
-        progress: 100,
-      });
-
-      return {
-        type: "sdui-page",
-        payload: response.data,
-        sduiPage: response.data,
-      };
-    } catch (error) {
-      logger.error("SDUI generation failed", error instanceof Error ? error : undefined, {
-        traceId,
-        agent,
-      });
-      throw error;
-    }
+    return this.workflowRenderService.generateSDUIPage(envelope, agent, query, context, streamingCallback);
   }
 
   /**
@@ -2802,17 +2333,9 @@ Provide a JSON response with:
     renderOptions?: RenderPageOptions
   ): Promise<{
     response: AgentResponse;
-    rendered: any;
+    rendered: unknown;
   }> {
-    const response = await this.generateSDUIPage(envelope, agent, query, context);
-
-    if (response.sduiPage) {
-      const renderPage = await getRenderPage();
-      const rendered = renderPage(response.sduiPage, renderOptions);
-      return { response, rendered };
-    }
-
-    throw new Error("No SDUI page in response");
+    return this.workflowRenderService.generateAndRenderPage(envelope, agent, query, context, renderOptions);
   }
 
   // ==========================================================================
@@ -2825,7 +2348,7 @@ Provide a JSON response with:
   async planTask(
     intentType: string,
     description: string,
-    context: Record<string, any> = {}
+    context: WorkflowContextDTO = {}
   ): Promise<TaskPlanResult> {
     if (!this.config.enableTaskPlanning) {
       throw new Error("Task planning is disabled");
@@ -3125,50 +2648,14 @@ Provide a JSON response with:
     return parsed.data as WorkflowDAG;
   }
 
-  private async getNextEventSequence(executionId: string, organizationId: string): Promise<number> {
-    const { data, error } = await supabase
-      .from("workflow_events")
-      .select("sequence")
-      .eq("execution_id", executionId)
-      .eq("organization_id", organizationId)
-      .order("sequence", { ascending: false })
-      .limit(1);
-
-    if (error) {
-      throw new Error(`Failed to fetch workflow event sequence: ${error.message}`);
-    }
-
-    const lastSequence = data?.[0]?.sequence ?? 0;
-    return lastSequence + 1;
-  }
-
   private async recordWorkflowEvent(
     executionId: string,
     organizationId: string,
     eventType: WorkflowEvent["event_type"] | "workflow_initiated",
     stageId: string | null,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<void> {
-    const sequence = await this.getNextEventSequence(executionId, organizationId);
-    const requestId = String(metadata.request_id ?? metadata.requestId ?? executionId);
-    const eventMetadata = {
-      ...metadata,
-      request_id: requestId,
-      evidence_link: metadata.evidence_link ?? `workflow://${executionId}/events/${sequence}`,
-    };
-
-    const { error } = await supabase.from("workflow_events").insert({
-      execution_id: executionId,
-      organization_id: organizationId,
-      event_type: eventType,
-      stage_id: stageId,
-      metadata: eventMetadata,
-      sequence,
-    });
-
-    if (error) {
-      throw new Error(`Failed to record workflow event: ${error.message}`);
-    }
+    await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
   }
 
   /**
@@ -3346,11 +2833,7 @@ Provide a JSON response with:
     organizationId: string,
     executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
-    await supabase
-      .from("workflow_executions")
-      .update({ execution_record: executionRecord })
-      .eq("id", executionId)
-      .eq("organization_id", organizationId);
+    await this.executionStore.persistExecutionRecord(executionId, organizationId, executionRecord);
   }
 
   private async recordStageRun(
@@ -3360,24 +2843,16 @@ Provide a JSON response with:
     executionRecord: WorkflowExecutionRecord,
     startedAt: Date,
     completedAt: Date,
-    output?: Record<string, any>
+    output?: Record<string, unknown>
   ): Promise<void> {
-    await supabase.from("workflow_stage_runs").insert({
-      execution_id: executionId,
-      organization_id: organizationId,
-      stage_id: stage.id,
-      stage_name: stage.name || stage.id,
-      lifecycle_stage: stage.agent_type,
-      status: "completed",
-      inputs: (executionRecord.io as Record<string, unknown> | undefined)?.inputs,
-      assumptions: (executionRecord.io as Record<string, unknown> | undefined)?.assumptions,
-      outputs: output || {},
-      economic_deltas: output?.economic_deltas || executionRecord.economicDeltas,
-      persona: executionRecord.persona,
-      industry: executionRecord.industry,
-      fiscal_quarter: executionRecord.fiscalQuarter,
-      started_at: startedAt.toISOString(),
-      completed_at: completedAt.toISOString(),
+    await this.executionStore.recordStageRun({
+      executionId,
+      organizationId,
+      stage,
+      executionRecord,
+      startedAt,
+      completedAt,
+      output,
     });
   }
 
@@ -3388,64 +2863,27 @@ Provide a JSON response with:
     currentStage: string | null,
     executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
-    const update: any = {
+    await this.executionStore.updateExecutionStatus({
+      executionId,
+      organizationId,
       status,
-      current_stage: currentStage,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (executionRecord) {
-      update.execution_record = executionRecord;
-      update.persona = executionRecord.persona;
-      update.industry = executionRecord.industry;
-      update.fiscal_quarter = executionRecord.fiscalQuarter;
-    }
-
-    if (status === "completed" || status === "failed" || status === "rolled_back") {
-      update.completed_at = new Date().toISOString();
-    }
-
-    await supabase
-      .from("workflow_executions")
-      .update(update)
-      .eq("id", executionId)
-      .eq("organization_id", organizationId);
+      currentStage,
+      executionRecord,
+    });
   }
 
   /**
    * Get workflow execution status
    */
-  async getExecutionStatus(executionId: string, organizationId: string): Promise<any> {
-    const { data, error } = await supabase
-      .from("workflow_executions")
-      .select("*")
-      .eq("id", executionId)
-      .eq("organization_id", organizationId)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to get execution status: ${error.message}`);
-    }
-
-    return data;
+  async getExecutionStatus(executionId: string, organizationId: string): Promise<WorkflowExecutionStatusDTO | null> {
+    return this.executionStore.getExecutionStatus(executionId, organizationId);
   }
 
   /**
    * Get workflow execution logs
    */
-  async getExecutionLogs(executionId: string, organizationId: string): Promise<any[]> {
-    const { data, error } = await supabase
-      .from("workflow_execution_logs")
-      .select("*")
-      .eq("execution_id", executionId)
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      throw new Error(`Failed to get execution logs: ${error.message}`);
-    }
-
-    return data || [];
+  async getExecutionLogs(executionId: string, organizationId: string): Promise<WorkflowExecutionLogDTO[]> {
+    return this.executionStore.getExecutionLogs(executionId, organizationId);
   }
 
   private async handleWorkflowFailure(
