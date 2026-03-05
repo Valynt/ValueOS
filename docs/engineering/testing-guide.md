@@ -3716,8 +3716,15 @@ npm run test:perf
 # Accessibility tests
 npm run test:a11y
 
-# RLS leakage hammer
-npm run test:rls:leakage
+# RLS tests (root script)
+npm run test:rls
+
+# Equivalent direct Supabase invocation used by test:rls
+supabase --workdir infra/supabase/supabase test db \
+  infra/supabase/tests/database/rls_lint.test.sql \
+  infra/supabase/tests/database/rls_enabled_tables.test.sql \
+  infra/supabase/tests/database/negative_rls_check.test.sql \
+  infra/supabase/tests/database/billing_rls_cross_tenant.test.sql
 
 # CI pipeline (runs all)
 git push # Triggers GitHub Actions
