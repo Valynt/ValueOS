@@ -107,13 +107,40 @@ describe("HubSpotAdapter", () => {
   });
 
   it("retries and surfaces rate limit errors from pushUpdate", async () => {
+    vi.useFakeTimers();
     const adapter = new HubSpotAdapter({ provider: "hubspot", retryAttempts: 2 });
     await adapter.connect(credentials);
 
     apiRequestMock.mockRejectedValue({ code: 429, headers: { "retry-after": "2" } });
 
-    await expect(adapter.pushUpdate("deals", "deal-1", { amount: 2000 })).rejects.toBeInstanceOf(RateLimitError);
+    const promise = adapter.pushUpdate("deals", "deal-1", { amount: 2000 });
+    // Advance past both retryAfter delays (2 000 ms each)
+    await vi.runAllTimersAsync();
+    await expect(promise).rejects.toBeInstanceOf(RateLimitError);
     expect(apiRequestMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("uses retryAfter delay instead of exponential backoff on rate-limit errors", async () => {
+    vi.useFakeTimers();
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    const adapter = new HubSpotAdapter({ provider: "hubspot", retryAttempts: 2 });
+    await adapter.connect(credentials);
+
+    // retryAfter header = 5 seconds = 5 000 ms
+    apiRequestMock.mockRejectedValue({ code: 429, headers: { "retry-after": "5" } });
+
+    const promise = adapter.pushUpdate("contacts", "1", { firstname: "Test" });
+    await vi.runAllTimersAsync();
+    await expect(promise).rejects.toBeInstanceOf(RateLimitError);
+
+    // Every setTimeout call originating from withRetry should use retryAfter (5 000 ms),
+    // not the exponential fallback (1 000 ms for i=0, 2 000 ms for i=1).
+    const retryDelays = setTimeoutSpy.mock.calls.map(([, ms]) => ms);
+    expect(retryDelays.every((ms) => ms === 5000)).toBe(true);
+
+    vi.useRealTimers();
   });
 
   it("throws validation error for unsupported entity types", async () => {
