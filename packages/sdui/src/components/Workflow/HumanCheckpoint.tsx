@@ -52,10 +52,11 @@ export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
       return;
     }
 
+    let isMounted = true;
     let unsubscribe: (() => void) | undefined;
 
     const subscribeToCheckpointEvents = async () => {
-      unsubscribe = await broker.subscribe(async (event) => {
+      const nextUnsubscribe = await broker.subscribe(async (event) => {
         if (event.name !== "agent.action.checkpoint") {
           return;
         }
@@ -85,11 +86,19 @@ export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
           onPause();
         }
       });
+
+      if (!isMounted) {
+        nextUnsubscribe();
+        return;
+      }
+
+      unsubscribe = nextUnsubscribe;
     };
 
     void subscribeToCheckpointEvents();
 
     return () => {
+      isMounted = false;
       unsubscribe?.();
     };
   }, [broker, onPause, sessionId, tenantId]);

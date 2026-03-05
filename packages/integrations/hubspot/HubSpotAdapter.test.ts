@@ -18,6 +18,7 @@ describe("HubSpotAdapter", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -131,6 +132,8 @@ describe("HubSpotAdapter", () => {
   });
 
   it("retries push updates on rate limits and succeeds", async () => {
+    vi.useFakeTimers();
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
     const adapter = new HubSpotAdapter(BASE_CONFIG);
     await adapter.connect({ accessToken: "token", tenantId: "tenant-a" });
 
@@ -138,14 +141,17 @@ describe("HubSpotAdapter", () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ message: "Too many requests" }), {
           status: 429,
-          headers: { "retry-after": "0" },
+          headers: { "retry-after": "2" },
         })
       )
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "42" }), { status: 200 }));
 
-    await expect(
-      adapter.pushUpdate("contacts", "42", { firstname: "Grace" })
-    ).resolves.toBeUndefined();
+    const pushUpdatePromise = adapter.pushUpdate("contacts", "42", { firstname: "Grace" });
+
+    await vi.advanceTimersByTimeAsync(2000);
+    await expect(pushUpdatePromise).resolves.toBeUndefined();
+
+    expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
