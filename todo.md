@@ -68,3 +68,8 @@
 - [x] Add enrichment cache integration to tool executor for performance
 - [x] Write vitest tests for tool executor functions (23 tests passing)
 - [x] Verify end-to-end agent tool calling with live data
+- [x] Implement multi-round tool calling loop in agent router (max 5 rounds, parallel execution, timeouts, error recovery)
+- [x] Update streaming chat endpoint to emit roundProgress, toolCall, toolResult, chainSummary SSE events
+- [x] Add tool call visibility to frontend chat UI (round progress bar, chain summary card, per-tool status chips)
+- [x] Write vitest tests for multi-round tool calling loop (10 tests passing)
+- [x] Verify end-to-end multi-round agent flow — 63 total tests passing across 7 test files

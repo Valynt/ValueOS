@@ -1,7 +1,11 @@
 /*
  * VALYNT Agent Chat Sidebar — Sheet overlay from right
  * Streams responses from Together.ai via /api/chat SSE endpoint
- * Supports agent selection, tool execution visibility, and context-aware suggestions
+ * Supports multi-round tool calling with:
+ *  - Round progress indicators
+ *  - Parallel tool execution visibility
+ *  - Chain summary card after all rounds complete
+ *  - Per-tool status (success/error/timeout)
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
@@ -9,6 +13,7 @@ import {
   Bot,
   ArrowUp,
   ChevronDown,
+  ChevronRight,
   Wrench,
   Check,
   Search,
@@ -17,6 +22,11 @@ import {
   FileText,
   Swords,
   Zap,
+  AlertTriangle,
+  Clock,
+  Link2,
+  Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -42,6 +52,33 @@ interface ToolEvent {
   arguments?: string;
   result?: string;
   round: number;
+  status?: "success" | "error" | "timeout" | "executing";
+  latencyMs?: number;
+}
+
+interface RoundProgress {
+  round: number;
+  maxRounds: number;
+  toolCount: number;
+  tools?: string[];
+  successCount?: number;
+  errorCount?: number;
+  status: "executing" | "complete";
+}
+
+interface ChainSummary {
+  totalRounds: number;
+  totalToolCalls: number;
+  successCount: number;
+  errorCount: number;
+  totalLatencyMs: number;
+  limitReached?: boolean;
+  chain: Array<{
+    round: number;
+    tool: string;
+    status: "success" | "error" | "timeout";
+    latencyMs: number;
+  }>;
 }
 
 interface ChatMessage {
@@ -53,6 +90,8 @@ interface ChatMessage {
   agentSlug?: string;
   agentName?: string;
   toolEvents?: ToolEvent[];
+  roundProgress?: RoundProgress;
+  chainSummary?: ChainSummary;
 }
 
 /* -------------------------------------------------------
@@ -182,28 +221,73 @@ function formatToolName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function formatLatency(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 /* -------------------------------------------------------
-   Tool Event Chip
+   Tool Event Chip — shows individual tool call status
    ------------------------------------------------------- */
 
 function ToolEventChip({ event }: { event: ToolEvent }) {
   const [expanded, setExpanded] = useState(false);
 
-  return (
-    <div className="my-1.5">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[11px] font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
-      >
-        {event.result ? (
+  const statusIcon = () => {
+    switch (event.status) {
+      case "success":
+        return <Check className="w-3 h-3 text-emerald-600" />;
+      case "error":
+        return <AlertTriangle className="w-3 h-3 text-red-500" />;
+      case "timeout":
+        return <Clock className="w-3 h-3 text-amber-600" />;
+      case "executing":
+        return <Loader2 className="w-3 h-3 animate-spin text-blue-500" />;
+      default:
+        return event.result ? (
           <Check className="w-3 h-3 text-emerald-600" />
         ) : (
           <Wrench className="w-3 h-3 animate-spin" />
+        );
+    }
+  };
+
+  const statusColor = () => {
+    switch (event.status) {
+      case "success":
+        return "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400";
+      case "error":
+        return "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400";
+      case "timeout":
+        return "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400";
+      case "executing":
+        return "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400";
+      default:
+        return "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400";
+    }
+  };
+
+  return (
+    <div className="my-1">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-medium hover:opacity-80 transition-all",
+          statusColor()
         )}
-        {formatToolName(event.name)}
+      >
+        {statusIcon()}
+        <span className="truncate max-w-[140px]">
+          {formatToolName(event.name)}
+        </span>
+        {event.latencyMs != null && event.status !== "executing" && (
+          <span className="text-[9px] opacity-60 ml-0.5">
+            {formatLatency(event.latencyMs)}
+          </span>
+        )}
         <ChevronDown
           className={cn(
-            "w-3 h-3 transition-transform",
+            "w-3 h-3 transition-transform flex-shrink-0",
             expanded && "rotate-180"
           )}
         />
@@ -222,6 +306,178 @@ function ToolEventChip({ event }: { event: ToolEvent }) {
               {event.result}
             </div>
           )}
+          {event.status === "error" && !event.result && (
+            <div className="text-red-500">Tool execution failed</div>
+          )}
+          {event.status === "timeout" && (
+            <div className="text-amber-600">Tool timed out (30s limit)</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------
+   Round Progress Bar — shows round N of M with tool list
+   ------------------------------------------------------- */
+
+function RoundProgressBar({ progress }: { progress: RoundProgress }) {
+  const pct = (progress.round / progress.maxRounds) * 100;
+  const isComplete = progress.status === "complete";
+
+  return (
+    <div className="my-2 px-1">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+        <span className="flex items-center gap-1">
+          <Link2 className="w-3 h-3" />
+          Round {progress.round} of {progress.maxRounds}
+        </span>
+        <span>
+          {isComplete ? (
+            <span className="text-emerald-600 flex items-center gap-0.5">
+              <Check className="w-3 h-3" />
+              {progress.successCount ?? 0} done
+              {(progress.errorCount ?? 0) > 0 && (
+                <span className="text-red-500 ml-1">
+                  {progress.errorCount} failed
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="text-blue-500 flex items-center gap-0.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              {progress.toolCount} tool{progress.toolCount > 1 ? "s" : ""}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="h-1 bg-muted rounded-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-500",
+            isComplete ? "bg-emerald-500" : "bg-blue-500 animate-pulse"
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {progress.tools && !isComplete && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {progress.tools.map((t, i) => (
+            <span
+              key={i}
+              className="text-[9px] bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded"
+            >
+              {formatToolName(t)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------
+   Chain Summary Card — shown after all tool rounds complete
+   ------------------------------------------------------- */
+
+function ChainSummaryCard({ summary }: { summary: ChainSummary }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="my-2 rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3 py-2 text-[11px] hover:bg-muted/50 transition-colors"
+      >
+        <span className="flex items-center gap-1.5 font-medium text-foreground">
+          <Link2 className="w-3.5 h-3.5 text-emerald-600" />
+          Tool Chain: {summary.totalToolCalls} calls across{" "}
+          {summary.totalRounds} round{summary.totalRounds > 1 ? "s" : ""}
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">
+            {formatLatency(summary.totalLatencyMs)}
+          </span>
+          <ChevronRight
+            className={cn(
+              "w-3 h-3 text-muted-foreground transition-transform",
+              expanded && "rotate-90"
+            )}
+          />
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-2 border-t border-border/30">
+          {/* Stats row */}
+          <div className="flex gap-3 py-2 text-[10px]">
+            <span className="text-emerald-600">
+              {summary.successCount} succeeded
+            </span>
+            {summary.errorCount > 0 && (
+              <span className="text-red-500">
+                {summary.errorCount} failed
+              </span>
+            )}
+            {summary.limitReached && (
+              <span className="text-amber-600 flex items-center gap-0.5">
+                <AlertTriangle className="w-3 h-3" />
+                Limit reached
+              </span>
+            )}
+          </div>
+
+          {/* Chain visualization */}
+          <div className="space-y-1">
+            {summary.chain.map((step, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-2 text-[10px] font-mono"
+              >
+                <span className="text-muted-foreground w-4 text-right">
+                  R{step.round}
+                </span>
+                <span
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                    step.status === "success"
+                      ? "bg-emerald-500"
+                      : step.status === "timeout"
+                        ? "bg-amber-500"
+                        : "bg-red-500"
+                  )}
+                />
+                <span className="flex-1 truncate text-foreground">
+                  {formatToolName(step.tool)}
+                </span>
+                <span className="text-muted-foreground">
+                  {formatLatency(step.latencyMs)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Chain flow arrow visualization */}
+          <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-1 flex-wrap text-[9px] text-muted-foreground">
+            {summary.chain.map((step, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <span
+                  className={cn(
+                    "px-1.5 py-0.5 rounded",
+                    step.status === "success"
+                      ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+                      : "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400"
+                  )}
+                >
+                  {step.tool.replace(/_/g, " ")}
+                </span>
+                {i < summary.chain.length - 1 && (
+                  <span className="text-muted-foreground/50">→</span>
+                )}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -324,7 +580,10 @@ export function AgentChatSidebar({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: apiMessages,
-            agentSlug: selectedAgent.slug === "architect" ? undefined : selectedAgent.slug,
+            agentSlug:
+              selectedAgent.slug === "architect"
+                ? undefined
+                : selectedAgent.slug,
           }),
           signal: controller.signal,
           credentials: "include",
@@ -369,7 +628,7 @@ export function AgentChatSidebar({
                 );
               }
 
-              // Tool call event — add to tool events
+              // Tool call event — add to tool events with "executing" status
               if (parsed.toolCall) {
                 const tc = parsed.toolCall;
                 setMessages((prev) =>
@@ -384,6 +643,7 @@ export function AgentChatSidebar({
                               name: tc.name,
                               arguments: tc.arguments,
                               round: tc.round,
+                              status: "executing" as const,
                             },
                           ],
                         }
@@ -392,7 +652,7 @@ export function AgentChatSidebar({
                 );
               }
 
-              // Tool result event — update the matching tool event
+              // Tool result event — update the matching tool event with status
               if (parsed.toolResult) {
                 const tr = parsed.toolResult;
                 setMessages((prev) =>
@@ -402,10 +662,37 @@ export function AgentChatSidebar({
                           ...m,
                           toolEvents: (m.toolEvents || []).map((te) =>
                             te.id === tr.id
-                              ? { ...te, result: tr.result }
+                              ? {
+                                  ...te,
+                                  result: tr.result,
+                                  status: tr.status || "success",
+                                  latencyMs: tr.latencyMs,
+                                }
                               : te
                           ),
                         }
+                      : m
+                  )
+                );
+              }
+
+              // Round progress event
+              if (parsed.roundProgress) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, roundProgress: parsed.roundProgress }
+                      : m
+                  )
+                );
+              }
+
+              // Chain summary event
+              if (parsed.chainSummary) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, chainSummary: parsed.chainSummary }
                       : m
                   )
                 );
@@ -588,6 +875,11 @@ export function AgentChatSidebar({
                     : "bg-muted text-foreground rounded-tl-sm"
                 )}
               >
+                {/* Round progress bar */}
+                {msg.roundProgress && (
+                  <RoundProgressBar progress={msg.roundProgress} />
+                )}
+
                 {/* Tool events */}
                 {msg.toolEvents && msg.toolEvents.length > 0 && (
                   <div className="mb-2">
@@ -595,6 +887,11 @@ export function AgentChatSidebar({
                       <ToolEventChip key={te.id} event={te} />
                     ))}
                   </div>
+                )}
+
+                {/* Chain summary card */}
+                {msg.chainSummary && (
+                  <ChainSummaryCard summary={msg.chainSummary} />
                 )}
 
                 {/* Message content */}
@@ -624,11 +921,13 @@ export function AgentChatSidebar({
                   >
                     {formatTime(msg.timestamp)}
                   </p>
-                  {msg.agentName && msg.role === "assistant" && msg.id !== "welcome" && (
-                    <span className="text-[9px] text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">
-                      via {msg.agentName}
-                    </span>
-                  )}
+                  {msg.agentName &&
+                    msg.role === "assistant" &&
+                    msg.id !== "welcome" && (
+                      <span className="text-[9px] text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">
+                        via {msg.agentName}
+                      </span>
+                    )}
                 </div>
               </div>
             </div>
@@ -642,7 +941,7 @@ export function AgentChatSidebar({
                 onClick={() => setError(null)}
                 className="text-destructive/60 hover:text-destructive"
               >
-                Dismiss
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -713,8 +1012,8 @@ export function AgentChatSidebar({
             )}
           </div>
           <p className="text-[10px] text-muted-foreground text-center mt-2">
-            Powered by Together.ai · {selectedAgent.model} · Verify critical
-            financial data.
+            Powered by Together.ai · {selectedAgent.model} · Multi-round tool
+            chains enabled
           </p>
         </div>
       </SheetContent>
