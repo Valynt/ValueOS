@@ -7,6 +7,7 @@ import { lazy, type ReactElement, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { OnboardingGate } from "./app/routes/OnboardingGate";
+import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
 import { ProtectedRoute } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
@@ -47,7 +48,6 @@ const EnvironmentBanner = lazy(() =>
   })),
 );
 
-
 // Lazy load app shell + pages
 const MainLayout = lazy(() => import("./layouts/MainLayout").then((m) => ({ default: m.MainLayout })));
 const Dashboard = lazy(() => import("./views/Dashboard"));
@@ -86,13 +86,14 @@ export function AppRoutes() {
         <AuthProvider>
           <TenantProvider>
             <CompanyContextProvider>
-            <DrawerProvider>
-              <I18nProvider>
-                <ToastProvider>
-                  <SDUIStateProvider supabase={supabase}>
-                    <CommandPaletteProvider>
-                      <Suspense fallback={<LoadingSpinner />}>
-                      <Routes>
+              <DrawerProvider>
+                <I18nProvider>
+                  <ToastProvider>
+                    <SDUIStateProvider supabase={supabase}>
+                      <SDUIHumanCheckpointProvider>
+                        <CommandPaletteProvider>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <Routes>
                         {/* Public Auth Routes */}
                         {publicRoutePaths.map((path) => (
                           <Route
@@ -118,37 +119,38 @@ export function AppRoutes() {
 
                             {/* Main app — gated by onboarding completion */}
                             <Route element={<OnboardingGate />}>
-                            <Route element={<MainLayout />}>
-                              <Route path="/dashboard" element={<Dashboard />} />
-                              <Route path="/opportunities" element={<Opportunities />} />
-                              <Route path="/opportunities/:id" element={<OpportunityDetail />} />
-                              <Route path="/opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
-                              <Route path="/models" element={<Models />} />
-                              <Route path="/models/:id" element={<ModelDetail />} />
-                              <Route path="/agents" element={<Agents />} />
-                              <Route path="/agents/:id" element={<AgentDetail />} />
-                              <Route path="/integrations" element={<Integrations />} />
-                              <Route path="/settings" element={<SettingsPage />} />
-                              <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
-                              <Route path="/company" element={<CompanyKnowledge />} />
+                              <Route element={<MainLayout />}>
+                                <Route path="/dashboard" element={<Dashboard />} />
+                                <Route path="/opportunities" element={<Opportunities />} />
+                                <Route path="/opportunities/:id" element={<OpportunityDetail />} />
+                                <Route path="/opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                                <Route path="/models" element={<Models />} />
+                                <Route path="/models/:id" element={<ModelDetail />} />
+                                <Route path="/agents" element={<Agents />} />
+                                <Route path="/agents/:id" element={<AgentDetail />} />
+                                <Route path="/integrations" element={<Integrations />} />
+                                <Route path="/settings" element={<SettingsPage />} />
+                                <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
+                                <Route path="/company" element={<CompanyKnowledge />} />
+                              </Route>
                             </Route>
-                          </Route>
                           </Route>
                         </Route>
 
                         {/* Catch-all */}
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                      </Routes>
-                      </Suspense>
-                    </CommandPaletteProvider>
-                  </SDUIStateProvider>
-                  <Suspense fallback={null}>
-                    <BetaFeedbackWidget />
-                    <EnvironmentBanner />
-                  </Suspense>
-                </ToastProvider>
-              </I18nProvider>
-            </DrawerProvider>
+                            </Routes>
+                          </Suspense>
+                        </CommandPaletteProvider>
+                      </SDUIHumanCheckpointProvider>
+                    </SDUIStateProvider>
+                    <Suspense fallback={null}>
+                      <BetaFeedbackWidget />
+                      <EnvironmentBanner />
+                    </Suspense>
+                  </ToastProvider>
+                </I18nProvider>
+              </DrawerProvider>
             </CompanyContextProvider>
           </TenantProvider>
         </AuthProvider>
