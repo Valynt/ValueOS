@@ -29,6 +29,7 @@ export interface AuditLogEntry {
   resourceId: string;
   userId: string;
   userEmail: string;
+  status?: "success" | "failed";
   timestamp: string;
   ipAddress?: string;
   userAgent?: string;

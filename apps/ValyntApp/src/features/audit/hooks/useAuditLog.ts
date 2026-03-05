@@ -15,6 +15,7 @@ interface AuditLogResponse {
     ip_address?: string;
     user_agent?: string;
     details?: Record<string, unknown>;
+    status?: "success" | "failed";
   }>;
 }
 
@@ -95,6 +96,7 @@ export function useAuditLog() {
           timestamp: log.timestamp,
           ipAddress: log.ip_address,
           userAgent: log.user_agent,
+          status: log.status,
           metadata: log.details,
           changes: (log.details?.changes as AuditLogEntry["changes"]) ?? undefined,
         }));

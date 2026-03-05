@@ -176,6 +176,7 @@ export class AuditLogService extends BaseService {
               const sanitizedDetails = input.details
                 ? (sanitizeForLogging(input.details) as Record<string, unknown>)
                 : {};
+              const { status: _ignoredStatus, ...detailsWithoutStatus } = sanitizedDetails;
 
               // Calculate integrity hash (using secure SHA-256)
               const hash = await this.calculateHash({
@@ -183,7 +184,7 @@ export class AuditLogService extends BaseService {
                 action: input.action,
                 resourceType: input.resourceType,
                 resourceId: input.resourceId,
-                details: sanitizedDetails,
+                details: detailsWithoutStatus,
                 previousHash: this.lastHash,
               });
 
@@ -194,7 +195,7 @@ export class AuditLogService extends BaseService {
                 action: input.action,
                 resource_type: input.resourceType,
                 resource_id: input.resourceId,
-                details: sanitizedDetails,
+                details: detailsWithoutStatus,
                 ip_address: input.ipAddress || "",
                 user_agent: input.userAgent || "",
                 status: input.status || "success",
