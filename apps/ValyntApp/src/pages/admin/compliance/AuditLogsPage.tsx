@@ -69,7 +69,7 @@ export function AuditLogsPage() {
                 <td className="p-3">{log.userEmail}</td>
                 <td className="p-3">{log.action}</td>
                 <td className="p-3">{log.resource}</td>
-                <td className="p-3">{typeof log.metadata?.status === "string" ? log.metadata.status : "-"}</td>
+                <td className="p-3">{typeof log.status === "string" ? log.status : "-"}</td>
               </tr>
             ))}
           </tbody>
