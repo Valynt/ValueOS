@@ -142,11 +142,14 @@ export function Sidebar() {
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center justify-center py-2">
+                <Link
+                  href="/profile"
+                  className="flex items-center justify-center py-2 rounded-lg hover:bg-sidebar-accent transition-colors"
+                >
                   <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
                     <span className="text-xs font-semibold text-muted-foreground">{initials}</span>
                   </div>
-                </div>
+                </Link>
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={8}>
                 <p className="font-medium">{displayName}</p>
@@ -155,7 +158,10 @@ export function Sidebar() {
             </Tooltip>
           ) : (
             <>
-              <div className="flex items-center gap-3 px-3 py-2.5">
+              <Link
+                href="/profile"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-sidebar-accent transition-colors cursor-pointer"
+              >
                 <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
                   <span className="text-xs font-semibold text-muted-foreground">{initials}</span>
                 </div>
@@ -163,7 +169,8 @@ export function Sidebar() {
                   <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
                   <p className="text-xs text-muted-foreground capitalize">{displayRole}</p>
                 </div>
-              </div>
+                <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </Link>
               <button
                 onClick={() => logout()}
                 className="flex items-center gap-3 px-3 h-9 rounded-lg text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground w-full transition-colors"

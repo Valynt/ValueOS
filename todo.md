@@ -84,3 +84,9 @@
 - [x] Standardize component composition patterns (barrel exports, typed interfaces, compound components)
 - [x] Apply consistent spacing system (p-8/space-y-8), standardized font scale (text-xs/text-sm/text-base), and border-radius tokens
 - [x] Ensure all components follow React best practices — 84 tests passing across 8 test files
+- [x] Add profile fields to user schema (displayName, avatarUrl, bio, company, jobTitle, timezone, preferences)
+- [x] Create tRPC profile procedures (get, update, updatePreferences)
+- [x] Build Profile page UI with account details, edit forms, notification preferences, and danger zone
+- [x] Wire /profile route and add clickable user avatar in sidebar
+- [x] Write vitest tests for profile procedures (23 tests passing)
+- [x] Verify end-to-end profile flow — 107 total tests passing across 9 test files

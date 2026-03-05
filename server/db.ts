@@ -89,4 +89,63 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ── Profile Queries ──────────────────────────────────────────────────────────
+
+export async function getProfileByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select({
+      id: users.id,
+      openId: users.openId,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      bio: users.bio,
+      company: users.company,
+      jobTitle: users.jobTitle,
+      timezone: users.timezone,
+      preferences: users.preferences,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+      lastSignedIn: users.lastSignedIn,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateProfile(
+  userId: number,
+  data: {
+    displayName?: string | null;
+    bio?: string | null;
+    company?: string | null;
+    jobTitle?: string | null;
+    timezone?: string;
+    avatarUrl?: string | null;
+    preferences?: import("../drizzle/schema").UserPreferences;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updateSet: Record<string, unknown> = {};
+
+  if (data.displayName !== undefined) updateSet.displayName = data.displayName;
+  if (data.bio !== undefined) updateSet.bio = data.bio;
+  if (data.company !== undefined) updateSet.company = data.company;
+  if (data.jobTitle !== undefined) updateSet.jobTitle = data.jobTitle;
+  if (data.timezone !== undefined) updateSet.timezone = data.timezone;
+  if (data.avatarUrl !== undefined) updateSet.avatarUrl = data.avatarUrl;
+  if (data.preferences !== undefined) updateSet.preferences = data.preferences;
+
+  if (Object.keys(updateSet).length === 0) return;
+
+  await db.update(users).set(updateSet).where(eq(users.id, userId));
+}

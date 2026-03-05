@@ -1,6 +1,16 @@
 import { bigint, int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
+ * User preferences stored as JSON in the users table.
+ */
+export interface UserPreferences {
+  theme?: "light" | "dark" | "system";
+  emailNotifications?: boolean;
+  agentNotifications?: boolean;
+  weeklyDigest?: boolean;
+}
+
+/**
  * Core user table backing auth flow.
  * Extend this file with additional tables as your product grows.
  * Columns use camelCase to match both database fields and generated types.
@@ -17,6 +27,20 @@ export const users = mysqlTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  /** User's chosen display name (defaults to OAuth name) */
+  displayName: varchar("displayName", { length: 255 }),
+  /** URL to user's avatar image stored in S3 */
+  avatarUrl: text("avatarUrl"),
+  /** Short bio or job title */
+  bio: varchar("bio", { length: 500 }),
+  /** User's company or organization name */
+  company: varchar("company", { length: 255 }),
+  /** User's job title */
+  jobTitle: varchar("jobTitle", { length: 255 }),
+  /** IANA timezone identifier (e.g. America/New_York) */
+  timezone: varchar("timezone", { length: 64 }).default("UTC"),
+  /** User preferences stored as JSON (theme, notifications, etc.) */
+  preferences: json("preferences").$type<UserPreferences>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
