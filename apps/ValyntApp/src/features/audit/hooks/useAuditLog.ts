@@ -45,7 +45,19 @@ function getFilenameFromHeader(contentDisposition: string | null, fallback: stri
   }
 
   const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?\"?([^";]+)\"?/i);
-  return filenameMatch?.[1] ? decodeURIComponent(filenameMatch[1]) : fallback;
+  if (!filenameMatch?.[1]) {
+    return fallback;
+  }
+
+  const rawFilename = filenameMatch[1];
+
+  try {
+    return decodeURIComponent(rawFilename);
+  } catch {
+    // If the header contains malformed percent-encoding (e.g. stray '%' characters),
+    // fall back to the raw filename match instead of throwing and aborting the export.
+    return rawFilename || fallback;
+  }
 }
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
