@@ -18,6 +18,15 @@ export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
       ratios: z.array(z.number()).min(2).max(4),
       children: z.array(CanvasLayoutSchema),
       gap: z.number().default(16),
+      stackAt: z.enum(['sm', 'md', 'lg', 'xl']).or(z.literal(false)).default('md'),
+      dragResize: z.boolean().default(false),
+      minRatio: z.number().min(0.05).max(0.45).default(0.2),
+      slots: z
+        .object({
+          primary: CanvasLayoutSchema.optional(),
+          secondary: CanvasLayoutSchema.optional(),
+        })
+        .optional(),
     }),
 
     // Horizontal split
@@ -26,6 +35,15 @@ export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
       ratios: z.array(z.number()),
       children: z.array(CanvasLayoutSchema),
       gap: z.number().default(16),
+      stackAt: z.enum(['sm', 'md', 'lg', 'xl']).or(z.literal(false)).default('md'),
+      dragResize: z.boolean().default(false),
+      minRatio: z.number().min(0.05).max(0.45).default(0.2),
+      slots: z
+        .object({
+          primary: CanvasLayoutSchema.optional(),
+          secondary: CanvasLayoutSchema.optional(),
+        })
+        .optional(),
     }),
 
     // Grid layout
@@ -36,6 +54,15 @@ export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
       children: z.array(CanvasLayoutSchema),
       gap: z.number().default(16),
       responsive: z.boolean().default(true),
+      responsiveColumns: z
+        .object({
+          base: z.number().min(1).max(12).optional(),
+          sm: z.number().min(1).max(12).optional(),
+          md: z.number().min(1).max(12).optional(),
+          lg: z.number().min(1).max(12).optional(),
+          xl: z.number().min(1).max(12).optional(),
+        })
+        .optional(),
     }),
 
     // Dashboard panel
@@ -44,6 +71,13 @@ export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
       title: z.string().optional(),
       collapsible: z.boolean().default(false),
       children: z.array(CanvasLayoutSchema),
+      defaultCollapsed: z.boolean().default(false),
+      slots: z
+        .object({
+          header: CanvasLayoutSchema.optional(),
+          footer: CanvasLayoutSchema.optional(),
+        })
+        .optional(),
     }),
 
     // Component leaf node
