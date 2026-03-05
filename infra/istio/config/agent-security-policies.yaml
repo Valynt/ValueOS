@@ -36,6 +36,20 @@ spec:
       when:
         - key: request.auth.claims[tenant_id]
           notValues: ["*"]
+        - key: request.auth.claims[organization_id]
+          notValues: ["*"]
+    - to:
+        - operation:
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: ["*"]
+    - to:
+        - operation:
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[iss]
+          notValues: ["valueos-issuer"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -57,6 +71,32 @@ spec:
             methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
             paths: ["/api/*"]
       when:
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/valynt-agents/sa/valynt-agent"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[organization_id]
+          values: ["*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/backend"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[sub]
+          values: ["*"]
         - key: request.auth.claims[tenant_id]
           values: ["*"]
     - from:
@@ -67,7 +107,9 @@ spec:
             methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
             paths: ["/api/*"]
       when:
-        - key: request.auth.claims[tenant_id]
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[organization_id]
           values: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1

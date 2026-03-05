@@ -58,6 +58,11 @@ const resolveRoles = (user: TenantContextUser | undefined): string[] => {
   return [];
 };
 
+const isAgentScopedRequest = (req: Request): boolean => {
+  const requestPath = `${req.baseUrl ?? ""}${req.path ?? ""}`;
+  return requestPath.startsWith("/api/agents") || requestPath.startsWith("/api/groundtruth");
+};
+
 const buildRequestContext = (
   tenantId: string,
   req: Request,
@@ -148,12 +153,10 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
-    if (!resolvedTenantId) {
-      const claimTenantId = (req as any).user?.tenant_id || (req as any).user?.organization_id;
-      if (claimTenantId) {
-        resolvedTenantId = claimTenantId;
-        tenantSource = "user-claim";
-      }
+    const claimTenantId = (req as any).user?.tenant_id || (req as any).user?.organization_id;
+    if (!resolvedTenantId && claimTenantId) {
+      resolvedTenantId = claimTenantId;
+      tenantSource = "user-claim";
     }
 
     if (!resolvedTenantId) {
@@ -170,6 +173,23 @@ export const tenantContextMiddleware = (enforce = true) => {
         resolvedTenantId = userTenantId;
         tenantSource = "user-lookup";
       }
+    }
+
+    if (
+      isAgentScopedRequest(req) &&
+      claimTenantId &&
+      resolvedTenantId &&
+      claimTenantId !== resolvedTenantId
+    ) {
+      logger.warn("Agent request tenant diverges from authenticated claim", {
+        claimTenantId,
+        resolvedTenantId,
+        path: req.path,
+      });
+      return res.status(403).json({
+        error: "tenant_mismatch",
+        message: "Tenant context must match authenticated tenant claim.",
+      });
     }
 
     if (!resolvedTenantId) {
