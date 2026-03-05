@@ -21597,24 +21597,6 @@ BEGIN
     END IF;
 END $$;
 
-<<<<<<< HEAD
--- Populate existing NULL values with defaults
-UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
-UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
--- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
--- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
--- UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
--- UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'progressive_rollouts' AND table_schema = 'public') THEN
-        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    END IF;
-END $$;
-UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-=======
 -- Populate existing NULL values with defaults (guarded for fresh DB)
 DO $$ BEGIN
   UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
@@ -21627,11 +21609,15 @@ DO $$ BEGIN
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='progressive_rollouts' AND column_name='is_active') THEN
+    UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
+  END IF;
+END $$;
+DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
     UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
   END IF;
 END $$;
->>>>>>> c63dd384 (Refactor index creation in migrations to handle exceptions and improve error resilience; remove permissive policies and enforce least-privilege rules in new migration.)
 
 
 -- ================================================
