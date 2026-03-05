@@ -63,7 +63,7 @@ const lazyComponents = {
         default: mod.IntegrityVetoPanel,
     }))),
     // Development tools
-    ComponentPreview: lazy(() => import("./components/SDUI/ComponentPreview").then((mod) => ({ default: mod.ComponentPreview }))),
+    ComponentPreview: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.ComponentPreview }))),
     // Fallback components (loaded immediately as they're essential)
     UnknownComponentFallback: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.UnknownComponentFallback }))),
     SectionErrorFallback: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.SectionErrorFallback }))),
