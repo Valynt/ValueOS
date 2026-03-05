@@ -3562,28 +3562,51 @@ ALTER TABLE public.organizations
 
 ---
 
-## Release Readiness Checklist
+## Release Readiness SWAT Team Checklist
 
-### ✅ Pre-Release
-- [ ] Migration reviewed for expand/contract safety
-- [ ] Backfill plan defined (batch size, runtime, monitoring)
-- [ ] Index creation uses `CONCURRENTLY` where applicable
-- [ ] Rollback plan documented (or forward-fix marked as required)
-- [ ] Migration scripts validated: `pnpm run migration:validate`
-- [ ] Migration safety checks pass: `pnpm run migration:safety`
-- [ ] Staging run completed with verification queries
+Use this checklist for multi-agent SWAT team review of a multitenant enterprise SaaS release. Run it in parallel with AI outputs to enforce enterprise-grade rigor.
 
-### ✅ Release
-- [ ] Apply expand migration first
-- [ ] Deploy app with dual-write support
-- [ ] Run backfill job and monitor lag
-- [ ] Switch reads to new column once data is complete
+### Architecture Sentinel
+- [ ] Schema evolution backward/forward compatible
+- [ ] Shared vs schema-per-tenant validated
+- [ ] Sharding/scaling strategy reviewed
+- [ ] Migration runbooks updated
 
-### ✅ Post-Release
-- [ ] Apply contract migration (NOT NULL / drop old column)
-- [ ] Confirm performance metrics (index usage, query latency)
-- [ ] Remove legacy code paths
-- [ ] Document change + update runbooks
+### Security Guardian
+- [ ] Threat model updated
+- [ ] Secrets rotation confirmed
+- [ ] Zero-trust boundaries tested
+- [ ] Tenant-level RBAC + RLS enforced
+
+### Compliance Auditor
+- [ ] SOC2/FedRAMP control mapping updated
+- [ ] Audit logging validated
+- [ ] Data retention/export restrictions reviewed
+- [ ] Compliance artifacts refreshed
+
+### CI/CD Enforcer
+- [ ] Pipelines run: lint, type-check, SAST, DAST, SBOM
+- [ ] Build artifacts signed + reproducible
+- [ ] Canary/blue-green config validated
+- [ ] Rollback plan documented
+
+### Observability Analyst
+- [ ] Metrics/traces/logs tenant-segmented
+- [ ] Dashboards + alerts configured
+- [ ] Error budgets and SLOs verified
+- [ ] Rollback signals codified
+
+### Data Reliability Operator
+- [ ] Migrations forward/backward safe
+- [ ] Anonymization in non-prod confirmed
+- [ ] Backup/restore drills validated
+- [ ] Disaster recovery readiness checked
+
+### Customer Impact Commander
+- [ ] Feature toggles per tenant/region tested
+- [ ] Co-branding and localization verified
+- [ ] Entitlements and billing regression run
+- [ ] SLA commitments re-confirmed
 
 ---
 
