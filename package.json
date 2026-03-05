@@ -10,6 +10,7 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:rls": "supabase --workdir infra/supabase/supabase test db infra/supabase/tests/database/rls_lint.test.sql infra/supabase/tests/database/rls_enabled_tables.test.sql infra/supabase/tests/database/negative_rls_check.test.sql infra/supabase/tests/database/billing_rls_cross_tenant.test.sql",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
   "dependencies": {

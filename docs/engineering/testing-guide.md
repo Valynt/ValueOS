@@ -3717,7 +3717,7 @@ npm run test:perf
 npm run test:a11y
 
 # RLS tests (root script)
-npm run test:rls
+pnpm run test:rls
 
 # Equivalent direct Supabase invocation used by test:rls
 supabase --workdir infra/supabase/supabase test db \
