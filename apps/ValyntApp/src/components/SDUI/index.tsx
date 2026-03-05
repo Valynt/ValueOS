@@ -1,2 +1,3 @@
 // Keep ValyntApp SDUI exports aligned with shared package implementation.
-export * from "../../../../../packages/sdui/src/components/SDUI";
+// Use explicit TS entrypoint to avoid resolving placeholder JS siblings.
+export * from "../../../../../packages/sdui/src/components/SDUI/index.tsx";
