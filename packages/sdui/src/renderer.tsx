@@ -247,6 +247,22 @@ const renderSection = (
       section.children?.map((child: any, i: number) =>
         renderSection(child, i, debugOverlay, resolver, context, depth + 1)
       ) || [];
+    const slotNodes = section.slots
+      ? {
+          primary: section.slots.primary
+            ? renderSection(section.slots.primary, 0, debugOverlay, resolver, context, depth + 1)
+            : undefined,
+          secondary: section.slots.secondary
+            ? renderSection(section.slots.secondary, 1, debugOverlay, resolver, context, depth + 1)
+            : undefined,
+          header: section.slots.header
+            ? renderSection(section.slots.header, 2, debugOverlay, resolver, context, depth + 1)
+            : undefined,
+          footer: section.slots.footer
+            ? renderSection(section.slots.footer, 3, debugOverlay, resolver, context, depth + 1)
+            : undefined,
+        }
+      : undefined;
     // Always wrap layout in error boundary for isolation
     const LayoutComponent =
       section.type === "VerticalSplit"
@@ -263,7 +279,7 @@ const renderSection = (
         fallback={<SectionErrorFallback componentName={section.type} />}
         circuitBreaker={{ failureThreshold: 3, recoveryTimeout: 30000, monitoringPeriod: 300000 }}
       >
-        <LayoutComponent {...section} key={key}>
+        <LayoutComponent {...section} key={key} slots={slotNodes}>
           {childNodes}
         </LayoutComponent>
       </ComponentErrorBoundary>
