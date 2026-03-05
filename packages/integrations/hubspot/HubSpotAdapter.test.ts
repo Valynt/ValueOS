@@ -107,13 +107,22 @@ describe("HubSpotAdapter", () => {
   });
 
   it("retries and surfaces rate limit errors from pushUpdate", async () => {
-    const adapter = new HubSpotAdapter({ provider: "hubspot", retryAttempts: 2 });
-    await adapter.connect(credentials);
+    vi.useFakeTimers();
+    try {
+      const adapter = new HubSpotAdapter({ provider: "hubspot", retryAttempts: 2 });
+      await adapter.connect(credentials);
 
-    apiRequestMock.mockRejectedValue({ code: 429, headers: { "retry-after": "2" } });
+      apiRequestMock.mockRejectedValue({ code: 429, headers: { "retry-after": "2" } });
 
-    await expect(adapter.pushUpdate("deals", "deal-1", { amount: 2000 })).rejects.toBeInstanceOf(RateLimitError);
-    expect(apiRequestMock).toHaveBeenCalledTimes(2);
+      const pushPromise = adapter.pushUpdate("deals", "deal-1", { amount: 2000 });
+
+      await vi.runAllTimersAsync();
+
+      await expect(pushPromise).rejects.toBeInstanceOf(RateLimitError);
+      expect(apiRequestMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("throws validation error for unsupported entity types", async () => {

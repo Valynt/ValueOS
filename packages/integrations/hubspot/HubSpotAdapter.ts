@@ -289,29 +289,65 @@ export class HubSpotAdapter extends EnterpriseAdapter {
   }
 
   private retryAfterMs(error: unknown): number {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "headers" in error &&
-      typeof error.headers === "object" &&
-      error.headers !== null
-    ) {
-      const headers = error.headers as Record<string, string | number | string[]>;
-      const retryAfter = headers["retry-after"];
+    const rawHeaders = this.extractHeaders(error);
 
-      if (typeof retryAfter === "string") {
-        const retryAfterSeconds = Number.parseInt(retryAfter, 10);
-        if (!Number.isNaN(retryAfterSeconds)) {
-          return retryAfterSeconds * 1000;
+    if (rawHeaders && typeof rawHeaders === "object") {
+      const headers = rawHeaders as Record<string, unknown>;
+
+      for (const [key, value] of Object.entries(headers)) {
+        if (key.toLowerCase() === "retry-after") {
+          const parsed = this.parseRetryAfterValue(value);
+          if (parsed !== undefined) {
+            return parsed;
+          }
         }
-      }
-
-      if (typeof retryAfter === "number") {
-        return retryAfter * 1000;
       }
     }
 
     return 1000;
+  }
+
+  private extractHeaders(error: unknown): unknown {
+    if (typeof error !== "object" || error === null) {
+      return undefined;
+    }
+
+    // Check top-level headers first
+    if ("headers" in error) {
+      const headers = (error as { headers?: unknown }).headers;
+      if (headers !== undefined && headers !== null) {
+        return headers;
+      }
+    }
+
+    // Fallback to nested response.headers
+    if (
+      "response" in error &&
+      typeof (error as { response?: unknown }).response === "object" &&
+      (error as { response: Record<string, unknown> }).response !== null
+    ) {
+      const response = (error as { response: Record<string, unknown> }).response;
+      if ("headers" in response) {
+        return response.headers;
+      }
+    }
+
+    return undefined;
+  }
+
+  private parseRetryAfterValue(value: unknown): number | undefined {
+    if (typeof value === "string") {
+      const seconds = Number.parseInt(value, 10);
+      return Number.isNaN(seconds) ? undefined : seconds * 1000;
+    }
+    if (typeof value === "number") {
+      return value * 1000;
+    }
+    if (Array.isArray(value) && value.length > 0) {
+      // Some HTTP clients return multi-value headers as arrays; use the first value.
+      return this.parseRetryAfterValue(value[0]);
+    }
+    return undefined;
   }
 
   private statusCode(error: unknown): number | undefined {
