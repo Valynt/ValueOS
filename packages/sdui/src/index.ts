@@ -49,6 +49,8 @@ export { InteractiveChart } from "./components/SDUI/InteractiveChart";
 export { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
 export { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
 export { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+export { HumanCheckpointDependenciesProvider, useHumanCheckpointDependencies } from "./components/Workflow/HumanCheckpointDependencies";
+export type { HumanCheckpointAuth, HumanCheckpointBroker, HumanCheckpointDependencies, HumanCheckpointEvent, HumanCheckpointEventPayload } from "./components/Workflow/HumanCheckpointDependencies";
 
 // Atomic action system
 export { AtomicActionExecutor } from "./AtomicActionExecutor";
