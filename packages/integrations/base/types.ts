@@ -15,6 +15,7 @@ export interface IntegrationConfig {
   timeout?: number;
   retryAttempts?: number;
   rateLimitPerMinute?: number;
+  credentials?: Record<string, unknown>;
 }
 
 export interface NormalizedEntity {
@@ -26,6 +27,8 @@ export interface NormalizedEntity {
   metadata: {
     fetchedAt: Date;
     version?: string;
+    tenantId?: string;
+    organizationId?: string;
   };
 }
 
