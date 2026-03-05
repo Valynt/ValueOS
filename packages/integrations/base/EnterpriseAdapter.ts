@@ -6,7 +6,7 @@
  * - No app-specific logic
  */
 
-import { ConnectionError, IntegrationError } from "./errors.js";
+import { ConnectionError, IntegrationError, RateLimitError } from "./errors.js";
 import type {
   FetchOptions,
   IEnterpriseAdapter,
@@ -121,7 +121,11 @@ export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
         if (error instanceof IntegrationError && !error.retryable) {
           throw error;
         }
-        await this.delay(Math.pow(2, i) * 1000);
+        const delayMs =
+          error instanceof RateLimitError
+            ? error.retryAfter
+            : Math.pow(2, i) * 1000;
+        await this.delay(delayMs);
       }
     }
 
