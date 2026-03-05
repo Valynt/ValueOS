@@ -72,7 +72,7 @@ export class RedisStreamBroker {
       'eventName',
       name,
       'payload',
-      JSON.stringify(validatedPayload),
+      JSON.stringify({ ...payload, ...validatedPayload }),
       'idempotencyKey',
       idempotencyKey,
       'attempt',
