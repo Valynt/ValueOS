@@ -26,6 +26,7 @@ export interface NormalizedEntity {
   metadata: {
     fetchedAt: Date;
     version?: string;
+    tenantId?: string;
   };
 }
 
