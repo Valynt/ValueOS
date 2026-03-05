@@ -141,6 +141,7 @@ export function useAuditLog() {
   const exportLogs = useCallback(async (filter?: AuditFilter, format: "csv" | "json" = "csv") => {
     setIsExporting(true);
     setExportError(null);
+    setError(null);
 
     try {
       const params = buildExportParams(filter, format);
