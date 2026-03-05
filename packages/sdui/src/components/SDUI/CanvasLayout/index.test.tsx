@@ -73,4 +73,50 @@ describe("CanvasLayout primitives", () => {
     fireEvent.click(screen.getByRole("button"));
     expect(screen.queryByText("Panel Content")).not.toBeInTheDocument();
   });
+
+  it("renders non-responsive grid with fixed template columns", () => {
+    render(
+      <Grid columns={4} responsive={false} rows={2}>
+        <div>A</div>
+      </Grid>
+    );
+
+    const grid = screen.getByTestId("canvas-grid") as HTMLDivElement;
+    expect(grid.style.gridTemplateColumns).toContain("repeat(4");
+    expect(grid.style.gridTemplateRows).toContain("repeat(2");
+  });
+
+  it("updates split ratio when drag-resize is enabled", () => {
+    const addListenerSpy = vi.spyOn(window, "addEventListener");
+    const removeListenerSpy = vi.spyOn(window, "removeEventListener");
+
+    render(
+      <VerticalSplit ratios={[1, 1]} dragResize minRatio={0.25}>
+        <div>Left</div>
+        <div>Right</div>
+      </VerticalSplit>
+    );
+
+    const split = screen.getByTestId("canvas-vertical-split") as HTMLDivElement;
+    vi.spyOn(split, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 0, width: 1000, height: 600,
+      top: 0, left: 0, bottom: 600, right: 1000,
+      toJSON: () => ({}),
+    });
+
+    const separator = screen.getByRole("separator");
+
+    fireEvent.mouseDown(separator, { clientX: 800, clientY: 100 });
+    expect(split.style.gridTemplateColumns).toContain("0.8fr 0.2fr");
+
+    fireEvent.mouseMove(window, { clientX: 100, clientY: 100 });
+    expect(split.style.gridTemplateColumns).toContain("0.25fr 0.75fr");
+
+    fireEvent.mouseUp(window);
+    expect(addListenerSpy).toHaveBeenCalledWith("mousemove", expect.any(Function));
+    expect(removeListenerSpy).toHaveBeenCalledWith("mousemove", expect.any(Function));
+
+    addListenerSpy.mockRestore();
+    removeListenerSpy.mockRestore();
+  });
 });

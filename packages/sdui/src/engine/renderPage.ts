@@ -251,6 +251,30 @@ function renderNestedLayout(
   // Combine primary element with rendered children
   const allChildren = [primaryElement, ...renderedChildren];
 
+  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
+    VerticalSplit,
+    HorizontalSplit,
+    Grid,
+    DashboardPanel,
+    two_column: VerticalSplit,
+    dashboard: DashboardPanel,
+    grid: Grid,
+    flex: HorizontalSplit,
+  };
+
+  const PrimitiveLayout = primitiveLayoutMap[type];
+  if (PrimitiveLayout) {
+    return React.createElement(
+      PrimitiveLayout,
+      {
+        key: `nested-layout-${index}`,
+        "data-layout-type": type,
+        ...(props ?? {}),
+      },
+      allChildren
+    );
+  }
+
   return React.createElement(
     "div",
     {
