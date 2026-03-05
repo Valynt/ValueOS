@@ -34,71 +34,23 @@ SET row_security = off;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO postgres;
 GRANT CREATE ON SCHEMA auth TO postgres;
-DO $$
-BEGIN
 -- Populate existing NULL values with defaults (guarded for fresh DB)
-DO $$
-BEGIN
-  -- agent_sessions
-  BEGIN
-    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-  -- workflow_executions
-  BEGIN
-    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-  -- progressive_rollouts (exists guard)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    BEGIN
-      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-
-  -- feature_flags column guard
+DO $$ BEGIN
+  UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+  UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+EXCEPTION WHEN undefined_table OR undefined_column THEN NULL;
+END $$;
+DO $$ BEGIN
+  UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+  UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+EXCEPTION WHEN undefined_table OR undefined_column THEN NULL;
+END $$;
+DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
+    UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
   END IF;
-END;
-$$;
-
-COMMIT;
-BEGIN
-  -- agent_sessions
-  DO $$ BEGIN
-    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table THEN NULL;
-  END $$;
-  DO $$ BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    END IF;
-  END $$;
-  -- progressive_rollouts (exists guard)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    BEGIN
-      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-
-  -- feature_flags column guard
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-END;
-$$;
+EXCEPTION WHEN undefined_table OR undefined_column THEN NULL;
+END $$;
 
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
