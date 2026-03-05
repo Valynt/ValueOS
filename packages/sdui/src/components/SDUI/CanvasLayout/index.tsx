@@ -1,140 +1,205 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
-import React, { useState } from "react";
+import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import React, { useMemo, useState } from "react";
 
-// ============================================================================
-// Shared types
-// ============================================================================
+export type ResponsiveBreakpoint = "sm" | "md" | "lg" | "xl";
 
-interface LayoutBaseProps {
+export interface LayoutSlots {
+  primary?: React.ReactNode;
+  secondary?: React.ReactNode;
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
+export interface LayoutBaseProps {
   children?: React.ReactNode;
   className?: string;
+  slots?: LayoutSlots;
 }
 
-interface SplitProps extends LayoutBaseProps {
+export interface SplitProps extends LayoutBaseProps {
   ratios?: number[];
   gap?: number;
+  stackAt?: ResponsiveBreakpoint | false;
+  dragResize?: boolean;
+  minRatio?: number;
 }
 
-interface GridProps extends LayoutBaseProps {
+export interface GridResponsiveColumns {
+  base?: number;
+  sm?: number;
+  md?: number;
+  lg?: number;
+  xl?: number;
+}
+
+export interface GridProps extends LayoutBaseProps {
   columns?: number;
   rows?: number;
   gap?: number;
   responsive?: boolean;
+  responsiveColumns?: GridResponsiveColumns;
 }
 
-interface DashboardPanelProps extends LayoutBaseProps {
+export interface DashboardPanelProps extends LayoutBaseProps {
   title?: string;
   collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  contentClassName?: string;
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
+const BREAKPOINT_PREFIX: Record<ResponsiveBreakpoint, string> = {
+  sm: "sm",
+  md: "md",
+  lg: "lg",
+  xl: "xl",
+};
 
-/**
- * Convert ratio array to CSS grid template value.
- * e.g. [1, 2, 1] → "1fr 2fr 1fr"
- */
-function ratiosToTemplate(ratios: number[] | undefined, childCount: number): string {
-  if (ratios && ratios.length === childCount) {
-    return ratios.map((r) => `${r}fr`).join(" ");
+function toChildrenArray(children: React.ReactNode, slots?: LayoutSlots): React.ReactNode[] {
+  const slotted = [slots?.primary, slots?.secondary].filter(Boolean);
+  const fromChildren = React.Children.toArray(children);
+  return slotted.length > 0 ? slotted : fromChildren;
+}
+
+function ratiosToTemplate(ratios: number[], childCount: number): string {
+  if (childCount === 0) {
+    return "1fr";
   }
-  return `repeat(${childCount}, 1fr)`;
+
+  if (ratios.length === childCount) {
+    return ratios.map((value) => `${Math.max(value, 0.05)}fr`).join(" ");
+  }
+
+  return `repeat(${childCount}, minmax(0, 1fr))`;
 }
 
-function childArray(children: React.ReactNode): React.ReactNode[] {
-  return React.Children.toArray(children);
+function getStackClasses(direction: "horizontal" | "vertical", stackAt: SplitProps["stackAt"]): string {
+  if (!stackAt) {
+    return direction === "vertical" ? "grid-cols-[inherit]" : "grid-rows-[inherit]";
+  }
+
+  const prefix = BREAKPOINT_PREFIX[stackAt];
+  return direction === "vertical" ? `grid-cols-1 ${prefix}:grid-cols-[inherit]` : `grid-rows-1 ${prefix}:grid-rows-[inherit]`;
 }
 
-// ============================================================================
-// VerticalSplit — children arranged in columns (side-by-side)
-// ============================================================================
-
-export const VerticalSplit: React.FC<SplitProps> = ({
+function SplitLayout({
+  direction,
   ratios,
   gap = 16,
   children,
   className = "",
-}) => {
-  const kids = childArray(children);
+  slots,
+  stackAt = "md",
+  dragResize = false,
+  minRatio = 0.2,
+}: SplitProps & { direction: "horizontal" | "vertical" }) {
+  const childNodes = toChildrenArray(children, slots);
+  const baseRatios = useMemo(() => {
+    if (ratios && ratios.length === childNodes.length) {
+      return ratios;
+    }
+
+    return Array.from({ length: Math.max(childNodes.length, 1) }, () => 1);
+  }, [ratios, childNodes.length]);
+  const [dynamicRatios, setDynamicRatios] = useState(baseRatios);
+
+  const canDrag = dragResize && childNodes.length === 2;
+
+  const handleResize = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!canDrag) {
+      return;
+    }
+
+    const container = event.currentTarget.parentElement;
+    if (!container) {
+      return;
+    }
+
+    const bounds = container.getBoundingClientRect();
+    const position = direction === "vertical" ? event.clientX - bounds.left : event.clientY - bounds.top;
+    const total = direction === "vertical" ? bounds.width : bounds.height;
+
+    if (total <= 0) {
+      return;
+    }
+
+    const rawRatio = position / total;
+    const constrainedRatio = Math.max(minRatio, Math.min(1 - minRatio, rawRatio));
+    setDynamicRatios([constrainedRatio, 1 - constrainedRatio]);
+  };
+
+  const template = ratiosToTemplate(canDrag ? dynamicRatios : baseRatios, childNodes.length);
+
+  const style =
+    direction === "vertical"
+      ? { gridTemplateColumns: template, gap: `${gap}px` }
+      : { gridTemplateRows: template, gap: `${gap}px` };
+
+  const testId = direction === "vertical" ? "canvas-vertical-split" : "canvas-horizontal-split";
+  const axisClass = direction === "vertical" ? "grid-flow-col" : "grid-flow-row";
 
   return (
-    <div
-      data-testid="canvas-vertical-split"
-      className={`w-full ${className}`}
-      style={{
-        display: "grid",
-        gridTemplateColumns: ratiosToTemplate(ratios, kids.length),
-        gap: `${gap}px`,
-      }}
-    >
-      {kids.map((child, i) => (
-        <div key={i} className="min-w-0">
-          {child}
-        </div>
+    <div data-testid={testId} className={`w-full grid ${axisClass} ${getStackClasses(direction, stackAt)} ${className}`} style={style}>
+      {childNodes.map((child, index) => (
+        <React.Fragment key={`split-child-${index}`}>
+          <div className={direction === "vertical" ? "min-w-0" : "min-h-0"}>{child}</div>
+          {canDrag && index === 0 && (
+            <div
+              role="separator"
+              aria-orientation={direction === "vertical" ? "vertical" : "horizontal"}
+              onMouseDown={handleResize}
+              onMouseMove={(event) => {
+                if (event.buttons === 1) {
+                  handleResize(event);
+                }
+              }}
+              className="group z-10 flex items-center justify-center rounded bg-border/40 text-muted-foreground hover:bg-border"
+            >
+              <GripVertical className="h-3 w-3" />
+            </div>
+          )}
+        </React.Fragment>
       ))}
     </div>
   );
-};
-VerticalSplit.displayName = "VerticalSplit";
+}
 
-// ============================================================================
-// HorizontalSplit — children stacked in rows (top-to-bottom)
-// ============================================================================
+export function VerticalSplit(props: SplitProps) {
+  return <SplitLayout {...props} direction="vertical" />;
+}
 
-export const HorizontalSplit: React.FC<SplitProps> = ({
-  ratios,
-  gap = 16,
-  children,
-  className = "",
-}) => {
-  const kids = childArray(children);
+export function HorizontalSplit(props: SplitProps) {
+  return <SplitLayout {...props} direction="horizontal" />;
+}
 
-  return (
-    <div
-      data-testid="canvas-horizontal-split"
-      className={`w-full ${className}`}
-      style={{
-        display: "grid",
-        gridTemplateRows: ratiosToTemplate(ratios, kids.length),
-        gap: `${gap}px`,
-      }}
-    >
-      {kids.map((child, i) => (
-        <div key={i} className="min-h-0">
-          {child}
-        </div>
-      ))}
-    </div>
-  );
-};
-HorizontalSplit.displayName = "HorizontalSplit";
-
-// ============================================================================
-// Grid — CSS grid with configurable columns
-// ============================================================================
-
-export const Grid: React.FC<GridProps> = ({
+export function Grid({
   columns = 2,
   rows,
   gap = 16,
   responsive = true,
+  responsiveColumns,
   children,
   className = "",
-}) => {
-  const templateColumns = responsive
-    ? `repeat(auto-fill, minmax(min(100%, ${Math.floor(100 / columns)}%), 1fr))`
-    : `repeat(${columns}, 1fr)`;
+}: GridProps) {
+  const templateRows = rows ? `repeat(${rows}, minmax(0, 1fr))` : undefined;
 
-  const templateRows = rows ? `repeat(${rows}, auto)` : undefined;
+  const responsiveClasses = responsive
+    ? [
+        `grid-cols-${responsiveColumns?.base ?? 1}`,
+        responsiveColumns?.sm ? `sm:grid-cols-${responsiveColumns.sm}` : "",
+        `md:grid-cols-${responsiveColumns?.md ?? columns}`,
+        responsiveColumns?.lg ? `lg:grid-cols-${responsiveColumns.lg}` : "",
+        responsiveColumns?.xl ? `xl:grid-cols-${responsiveColumns.xl}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
 
   return (
     <div
       data-testid="canvas-grid"
-      className={`w-full ${className}`}
+      className={`w-full grid ${responsive ? responsiveClasses : ""} ${className}`}
       style={{
-        display: "grid",
-        gridTemplateColumns: templateColumns,
+        gridTemplateColumns: responsive ? undefined : `repeat(${columns}, minmax(0, 1fr))`,
         gridTemplateRows: templateRows,
         gap: `${gap}px`,
       }}
@@ -142,49 +207,41 @@ export const Grid: React.FC<GridProps> = ({
       {children}
     </div>
   );
-};
-Grid.displayName = "Grid";
+}
 
-// ============================================================================
-// DashboardPanel — titled, optionally collapsible container
-// ============================================================================
-
-export const DashboardPanel: React.FC<DashboardPanelProps> = ({
+export function DashboardPanel({
   title,
   collapsible = false,
+  defaultCollapsed = false,
+  contentClassName = "",
   children,
   className = "",
-}) => {
-  const [collapsed, setCollapsed] = useState(false);
+  slots,
+}: DashboardPanelProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   return (
-    <div
-      data-testid="canvas-dashboard-panel"
-      className={`rounded-lg border border-border bg-card ${className}`}
-    >
-      {title && (
+    <section data-testid="canvas-dashboard-panel" className={`rounded-lg border border-border bg-card ${className}`}>
+      {(title || slots?.header) && (
         <div
-          className={`flex items-center gap-2 px-4 py-3 border-b border-border ${
-            collapsible ? "cursor-pointer select-none hover:bg-muted/50" : ""
-          }`}
-          onClick={collapsible ? () => setCollapsed((prev) => !prev) : undefined}
+          className={`flex items-center gap-2 border-b border-border px-4 py-3 ${collapsible ? "cursor-pointer select-none hover:bg-muted/50" : ""}`}
+          onClick={collapsible ? () => setCollapsed((previous) => !previous) : undefined}
           role={collapsible ? "button" : undefined}
           aria-expanded={collapsible ? !collapsed : undefined}
         >
           {collapsible && (
-            <span className="text-muted-foreground">
-              {collapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-            </span>
+            <span className="text-muted-foreground">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
           )}
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {title && <h3 className="text-sm font-semibold text-foreground">{title}</h3>}
+          {slots?.header}
         </div>
       )}
-      {!collapsed && <div className="p-4 space-y-4">{children}</div>}
-    </div>
+      {!collapsed && (
+        <div className={`space-y-4 p-4 ${contentClassName}`}>
+          {children}
+          {slots?.footer}
+        </div>
+      )}
+    </section>
   );
-};
-DashboardPanel.displayName = "DashboardPanel";
+}

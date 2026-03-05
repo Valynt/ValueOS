@@ -7,6 +7,7 @@
 import { logger } from "@shared/lib/logger";
 import * as React from "react";
 
+import { DashboardPanel, Grid, HorizontalSplit, VerticalSplit } from "../components/SDUI/CanvasLayout";
 import type { SDUILayoutDirective, SDUIPageDefinition, SDUISection } from "../schema";
 
 export interface RenderContext {
@@ -179,14 +180,29 @@ function wrapWithLayout(
   }
 
   // Handle simple string layout types
+  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
+    two_column: VerticalSplit,
+    dashboard: DashboardPanel,
+    grid: Grid,
+    flex: HorizontalSplit,
+  };
+
+  const PrimitiveLayout = primitiveLayoutMap[layout as string];
+  if (PrimitiveLayout) {
+    return React.createElement(
+      PrimitiveLayout,
+      {
+        key: `layout-${index}`,
+        "data-layout": layout,
+      },
+      element
+    );
+  }
+
   const layoutClasses: Record<string, string> = {
     default: "sdui-layout-default",
     full_width: "sdui-layout-full-width",
-    two_column: "sdui-layout-two-column",
-    dashboard: "sdui-layout-dashboard",
     single_column: "sdui-layout-single-column",
-    grid: "sdui-layout-grid",
-    flex: "sdui-layout-flex",
     nested: "sdui-layout-nested",
   };
 

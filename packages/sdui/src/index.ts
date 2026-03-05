@@ -48,6 +48,20 @@ export { KPIForm } from "./components/SDUI/KPIForm";
 export { InteractiveChart } from "./components/SDUI/InteractiveChart";
 export { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
 export { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+export {
+  DashboardPanel,
+  Grid,
+  HorizontalSplit,
+  VerticalSplit,
+} from "./components/SDUI/CanvasLayout";
+export type {
+  DashboardPanelProps,
+  GridProps,
+  LayoutBaseProps,
+  LayoutSlots,
+  ResponsiveBreakpoint,
+  SplitProps,
+} from "./components/SDUI/CanvasLayout";
 export { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
 
 // Atomic action system
