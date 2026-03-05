@@ -4,9 +4,28 @@ import React from "react";
 import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
 import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
 import {
+  AgentResponseCard,
+  AgentWorkflowPanel,
+  Breadcrumbs,
+  ConfidenceIndicator,
   DataTable,
+  JsonViewer,
+  MetricBadge,
   InfoBanner,
+  ProgressBar,
+  TabBar,
+  TextBlock,
+  SideNavigation,
+  ScenarioSelector,
   SectionErrorFallback,
+  SDUIForm,
+  ValueCommitForm,
+  ConfirmationDialog,
+  ValueHypothesisCard,
+  LifecyclePanel,
+  IntegrityReviewPanel,
+  ExpansionBlock,
+  RealizationDashboard,
   UnknownComponentFallback,
   // Fallbacks
 } from "./components/SDUI";
@@ -399,6 +418,172 @@ versionedRegistry.register({
 });
 
 versionedRegistry.register({
+  component: ProgressBar,
+  version: 1,
+  description: "Progress indicator component",
+  optionalProps: ["label", "value", "max"],
+  tags: ["ui", "progress"],
+});
+
+versionedRegistry.register({
+  component: TextBlock,
+  version: 1,
+  description: "Typed text block with variants",
+  requiredProps: ["text"],
+  optionalProps: ["variant"],
+  tags: ["ui", "text"],
+});
+
+versionedRegistry.register({
+  component: MetricBadge,
+  version: 1,
+  description: "Compact metric label/value badge",
+  requiredProps: ["label", "value"],
+  optionalProps: ["tone"],
+  tags: ["ui", "metrics"],
+});
+
+versionedRegistry.register({
+  component: ConfidenceIndicator,
+  version: 1,
+  description: "Confidence score rendered as text or bar",
+  requiredProps: ["value"],
+  optionalProps: ["variant", "size"],
+  tags: ["ui", "metrics", "agent"],
+});
+
+versionedRegistry.register({
+  component: AgentResponseCard,
+  version: 1,
+  description: "Agent response card with optional reasoning",
+  optionalProps: ["title", "response", "reasoning", "confidence", "showReasoning"],
+  tags: ["ui", "agent"],
+});
+
+versionedRegistry.register({
+  component: AgentWorkflowPanel,
+  version: 1,
+  description: "Agent workflow and status panel",
+  requiredProps: ["agents"],
+  optionalProps: ["messages", "showMessages"],
+  tags: ["ui", "agent", "workflow"],
+});
+
+versionedRegistry.register({
+  component: Breadcrumbs,
+  version: 1,
+  description: "Breadcrumb navigation",
+  requiredProps: ["items"],
+  optionalProps: ["onNavigate"],
+  tags: ["ui", "navigation"],
+});
+
+versionedRegistry.register({
+  component: TabBar,
+  version: 1,
+  description: "Tab navigation bar",
+  requiredProps: ["tabs"],
+  optionalProps: ["activeId", "onChange"],
+  tags: ["ui", "navigation"],
+});
+
+versionedRegistry.register({
+  component: SideNavigation,
+  version: 1,
+  description: "Side navigation menu",
+  requiredProps: ["items"],
+  optionalProps: ["activeId", "onSelect"],
+  tags: ["ui", "navigation"],
+});
+
+versionedRegistry.register({
+  component: ScenarioSelector,
+  version: 1,
+  description: "Scenario picker control",
+  requiredProps: ["scenarios"],
+  optionalProps: ["selectedId", "onChange"],
+  tags: ["ui", "workflow"],
+});
+
+versionedRegistry.register({
+  component: SDUIForm,
+  version: 1,
+  description: "Dynamic schema-driven form",
+  requiredProps: ["fields"],
+  optionalProps: ["submitText", "onSubmit"],
+  tags: ["ui", "form"],
+});
+
+versionedRegistry.register({
+  component: ExpansionBlock,
+  version: 1,
+  description: "Collapsible content section",
+  requiredProps: ["title", "content"],
+  optionalProps: ["defaultExpanded"],
+  tags: ["ui", "content"],
+});
+
+versionedRegistry.register({
+  component: LifecyclePanel,
+  version: 1,
+  description: "Lifecycle stage list",
+  requiredProps: ["stages"],
+  optionalProps: ["currentStageId"],
+  tags: ["ui", "workflow"],
+});
+
+versionedRegistry.register({
+  component: IntegrityReviewPanel,
+  version: 1,
+  description: "Integrity issue review list",
+  requiredProps: ["issues"],
+  optionalProps: ["onResolve"],
+  tags: ["ui", "integrity"],
+});
+
+versionedRegistry.register({
+  component: RealizationDashboard,
+  version: 1,
+  description: "Realization metric dashboard",
+  requiredProps: ["metrics"],
+  tags: ["ui", "dashboard"],
+});
+
+versionedRegistry.register({
+  component: ValueCommitForm,
+  version: 1,
+  description: "Commitment form",
+  optionalProps: ["onSubmit"],
+  tags: ["ui", "form"],
+});
+
+versionedRegistry.register({
+  component: ConfirmationDialog,
+  version: 1,
+  description: "Confirmation dialog",
+  requiredProps: ["open", "title"],
+  optionalProps: ["description", "onConfirm", "onCancel"],
+  tags: ["ui", "dialog"],
+});
+
+versionedRegistry.register({
+  component: ValueHypothesisCard,
+  version: 1,
+  description: "Value hypothesis card",
+  requiredProps: ["title", "hypothesis"],
+  optionalProps: ["confidence"],
+  tags: ["ui", "value"],
+});
+
+versionedRegistry.register({
+  component: JsonViewer,
+  version: 1,
+  description: "JSON pretty printer",
+  requiredProps: ["data"],
+  tags: ["ui", "debug"],
+});
+
+versionedRegistry.register({
   component: KPIForm,
   version: 1,
   description: "Form for entering/editing KPI values",
@@ -571,9 +756,11 @@ export function resolveComponentFromLegacyRegistry(
  * Resolve component from registry (legacy function)
  */
 export function resolveComponentFromVersionedRegistry(
-  section: any
+  section: { component?: string; type?: string; version?: number }
 ): React.ComponentType<any> | null {
-  const result = versionedRegistry.resolve(section.component || section.type, section.version);
+  const name = section.component ?? section.type;
+  if (!name) return null;
+  const result = versionedRegistry.resolve(name, section.version);
   return result.component;
 }
 
