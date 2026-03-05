@@ -114,6 +114,7 @@ describe("useAuditLog exportLogs", () => {
             user_id: "user-1",
             user_email: "test@example.com",
             timestamp: "2025-01-01T00:00:00Z",
+            status: "failed",
             details: {},
           },
         ],
@@ -128,5 +129,6 @@ describe("useAuditLog exportLogs", () => {
 
     expect(apiClient.get).toHaveBeenCalledWith("/api/admin/audit-logs", expect.objectContaining({ userId: "user-1" }));
     expect(result.current.entries).toHaveLength(1);
+    expect(result.current.entries[0]?.status).toBe("failed");
   });
 });
