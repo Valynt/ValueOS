@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthError, ValidationError } from "../base/index.js";
+import { AuthError, IntegrationError, ValidationError } from "../base/index.js";
 import { HubSpotAdapter } from "./HubSpotAdapter.js";
 
 const BASE_CONFIG = {
@@ -32,7 +32,7 @@ describe("HubSpotAdapter", () => {
 
     await expect(adapter.validate()).resolves.toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/crm/v3/objects/contacts?limit=1"),
+      expect.stringContaining("/crm/v3/owners?limit=1&archived=false"),
       expect.objectContaining({ method: "GET" })
     );
   });
@@ -69,10 +69,53 @@ describe("HubSpotAdapter", () => {
     expect(entities[0]).toMatchObject({
       id: "hubspot:contacts:42",
       externalId: "42",
+      provider: "hubspot",
       type: "contacts",
+      data: {
+        firstname: "Ada",
+        lastname: "Lovelace",
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-02T00:00:00.000Z",
+        archived: false,
+      },
       metadata: {
         tenantId: "tenant-a",
         organizationId: "tenant-a",
+      },
+    });
+  });
+
+  it("fetches single entities and maps normalized fields", async () => {
+    const adapter = new HubSpotAdapter(BASE_CONFIG);
+    await adapter.connect({ accessToken: "token", tenantId: "tenant-a" });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        id: "abc123",
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-03T00:00:00.000Z",
+        archived: true,
+        properties: { dealname: "New Expansion" },
+      }), { status: 200 })
+    );
+
+    const entity = await adapter.fetchEntity("deals", "abc123");
+
+    expect(entity).toMatchObject({
+      id: "hubspot:deals:abc123",
+      externalId: "abc123",
+      provider: "hubspot",
+      type: "deals",
+      data: {
+        dealname: "New Expansion",
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-03T00:00:00.000Z",
+        archived: true,
+      },
+      metadata: {
+        tenantId: "tenant-a",
+        organizationId: "tenant-a",
+        version: "2024-01-03T00:00:00.000Z",
       },
     });
   });
@@ -110,6 +153,58 @@ describe("HubSpotAdapter", () => {
 
     expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries push updates on retryable 5xx responses", async () => {
+    const adapter = new HubSpotAdapter(BASE_CONFIG);
+    await adapter.connect({ accessToken: "token", tenantId: "tenant-a" });
+
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "temporary" }), { status: 500 })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "42" }), { status: 200 }));
+
+    await expect(
+      adapter.pushUpdate("contacts", "42", { firstname: "Grace" })
+    ).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry push updates on validation errors", async () => {
+    const adapter = new HubSpotAdapter(BASE_CONFIG);
+    await adapter.connect({ accessToken: "token", tenantId: "tenant-a" });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: "invalid" }), { status: 400 })
+    );
+
+    await expect(
+      adapter.pushUpdate("contacts", "42", { firstname: "Grace" })
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws timeout errors as retryable integration errors", async () => {
+    const adapter = new HubSpotAdapter({ ...BASE_CONFIG, timeout: 1 });
+    await adapter.connect({ accessToken: "token", tenantId: "tenant-a" });
+
+    fetchMock.mockImplementation(async (_input, init) => {
+      if (!init?.signal) {
+        throw new Error("Expected signal to be present");
+      }
+
+      await new Promise((resolve) => {
+        init.signal?.addEventListener("abort", resolve, { once: true });
+      });
+
+      throw new DOMException("Aborted", "AbortError");
+    });
+
+    await expect(adapter.validate()).rejects.toMatchObject<Partial<IntegrationError>>({
+      code: "TIMEOUT",
+      retryable: true,
+    });
   });
 
   it("fails validation for unsupported entity types", async () => {

@@ -44,10 +44,22 @@ type HubSpotCollectionResponse = {
 
 type HubSpotSingleResponse = HubSpotObject;
 
+type HubSpotClientRequest = {
+  method: HubSpotRequestMethod;
+  path: string;
+  query?: Record<string, string | number | boolean>;
+  body?: unknown;
+};
+
+type HubSpotClient = {
+  request<T>(request: HubSpotClientRequest): Promise<T>;
+};
+
 
 export class HubSpotAdapter extends EnterpriseAdapter {
   readonly provider = "hubspot";
   private accessToken: string | null = null;
+  private client: HubSpotClient | null = null;
   private readonly baseUrl: string;
 
   constructor(config: IntegrationConfig) {
@@ -70,9 +82,12 @@ export class HubSpotAdapter extends EnterpriseAdapter {
         "HubSpot access token is required in connect credentials or IntegrationConfig.credentials"
       );
     }
+
+    this.client = this.createClient(this.accessToken);
   }
 
   protected async doDisconnect(): Promise<void> {
+    this.client = null;
     this.accessToken = null;
   }
 
@@ -82,8 +97,8 @@ export class HubSpotAdapter extends EnterpriseAdapter {
     try {
       await this.request<HubSpotCollectionResponse>(
         "GET",
-        "/crm/v3/objects/contacts",
-        { limit: 1 }
+        "/crm/v3/owners",
+        { limit: 1, archived: false }
       );
       return true;
     } catch (error) {
@@ -260,36 +275,70 @@ export class HubSpotAdapter extends EnterpriseAdapter {
   ): Promise<T> {
     this.ensureConnected();
     const token = this.accessToken;
+    const client = this.client;
     const tenantId = this.credentials?.tenantId;
 
-    if (!token || !tenantId) {
+    if (!token || !tenantId || !client) {
       throw new AuthError(this.provider, "HubSpot adapter is not connected with valid credentials");
     }
 
-    const url = new URL(path, this.baseUrl);
-    if (query) {
-      Object.entries(query).forEach(([key, value]) => {
-        url.searchParams.set(key, String(value));
-      });
-    }
-
     return this.withRateLimit(tenantId, async () => {
-      const response = await fetch(url, {
+      return client.request<T>({
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: body ? JSON.stringify(body) : undefined,
+        path,
+        query,
+        body,
       });
-
-      if (response.ok) {
-        return (await response.json()) as T;
-      }
-
-      await this.throwMappedError(response);
-      throw new IntegrationError("Unexpected HubSpot error", "UNKNOWN_ERROR", this.provider, true);
     });
+  }
+
+  private createClient(token: string): HubSpotClient {
+    return {
+      request: async <T>({ method, path, query, body }: HubSpotClientRequest): Promise<T> => {
+        const url = new URL(path, this.baseUrl);
+        if (query) {
+          Object.entries(query).forEach(([key, value]) => {
+            url.searchParams.set(key, String(value));
+          });
+        }
+
+        const timeoutMs = this.config.timeout ?? 10000;
+        const abortController = new AbortController();
+        const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
+
+        try {
+          const response = await fetch(url, {
+            method,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: abortController.signal,
+          });
+
+          if (response.ok) {
+            return (await response.json()) as T;
+          }
+
+          await this.throwMappedError(response);
+          throw new IntegrationError("Unexpected HubSpot error", "UNKNOWN_ERROR", this.provider, true);
+        } catch (error) {
+          if (this.isAbortError(error)) {
+            throw new IntegrationError(
+              "HubSpot request timed out",
+              "TIMEOUT",
+              this.provider,
+              true
+            );
+          }
+
+          throw error;
+        } finally {
+          clearTimeout(timeoutHandle);
+        }
+      },
+    };
   }
 
   private async throwMappedError(response: Response): Promise<never> {
@@ -329,6 +378,15 @@ export class HubSpotAdapter extends EnterpriseAdapter {
 
   private async wait(ms: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isAbortError(error: unknown): boolean {
+    if (typeof error !== "object" || error === null) {
+      return false;
+    }
+
+    const maybeError = error as { name?: unknown };
+    return maybeError.name === "AbortError";
   }
 
   private readConfiguredAccessToken(): string | undefined {
