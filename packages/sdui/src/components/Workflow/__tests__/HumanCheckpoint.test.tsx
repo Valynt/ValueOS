@@ -104,6 +104,15 @@ describe("HumanCheckpoint", () => {
     expect(container.textContent).toContain("Needs review");
     expect(onPause).toHaveBeenCalledTimes(1);
 
+    await act(async () => {
+      await broker.emit({
+        name: "agent.action.checkpoint",
+        payload: createCheckpointPayload(),
+      });
+    });
+
+    expect(container.querySelectorAll(".checkpoint-action")).toHaveLength(1);
+
     act(() => {
       root.unmount();
     });
@@ -133,6 +142,8 @@ describe("HumanCheckpoint", () => {
     const publishedPayload = broker.publishCheckpointEvent.mock.calls[0]?.[0];
     expect(publishedPayload?.tenantId).toBe("tenant-1");
     expect(publishedPayload?.sessionId).toBe("session-1");
+    expect(publishedPayload?.idempotencyKey).toBeTypeOf("string");
+    expect(publishedPayload?.idempotencyKey).not.toBe("checkpoint-1");
     expect(publishedPayload?.checkpointIdempotencyKey).toBe("checkpoint-1");
     expect(publishedPayload?.actionData).toMatchObject({ actionId: "checkpoint-1", approved: true });
     expect(onApproval).toHaveBeenCalledWith(true, undefined);

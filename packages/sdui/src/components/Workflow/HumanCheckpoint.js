@@ -1,63 +1,79 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { v4 as uuidv4 } from "uuid";
 
-import { useAuth } from "../../../app/src/app/providers/AuthProvider";
-import { RedisStreamBroker } from "../../../app/src/services/messaging/RedisStreamBroker";
+import { useHumanCheckpointDependencies } from "./HumanCheckpointDependencies";
 
-export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onResume, }) => {
+export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onResume, auth: authProp, broker: brokerProp, }) => {
     const [pendingActions, setPendingActions] = useState([]);
     const [isPaused, setIsPaused] = useState(false);
-    const [broker, setBroker] = useState(null);
-    const { user } = useAuth();
+    const dependencies = useHumanCheckpointDependencies();
+    const auth = useMemo(() => {
+        return authProp ?? dependencies?.auth ?? null;
+    }, [authProp, dependencies?.auth]);
+    const broker = useMemo(() => {
+        return brokerProp ?? dependencies?.broker ?? null;
+    }, [brokerProp, dependencies?.broker]);
     useEffect(() => {
-        const initializeBroker = async () => {
-            const streamBroker = new RedisStreamBroker({
-                streamName: "agent.checkpoints",
-                consumerName: `checkpoint-${user?.id || "anonymous"}-${sessionId}`,
-            });
-            await streamBroker.initialize();
-            setBroker(streamBroker);
-            // Listen for checkpoint events
-            streamBroker.startConsumer(async (event) => {
-                if (event.name === "agent.action.checkpoint") {
-                    const payload = event.payload;
-                    if (payload.sessionId === sessionId &&
-                        payload.tenantId === tenantId &&
-                        payload.requiresApproval) {
-                        const checkpointAction = {
-                            id: payload.idempotencyKey,
-                            actionType: payload.actionType,
-                            actionData: payload.actionData,
-                            requiresApproval: payload.requiresApproval,
-                            reason: payload.reason,
-                            timestamp: payload.emittedAt,
-                        };
-                        setPendingActions((prev) => [...prev, checkpointAction]);
-                        setIsPaused(true);
-                        onPause();
-                    }
+        if (!broker) {
+            return;
+        }
+        let isMounted = true;
+        let unsubscribe;
+        const subscribeToCheckpointEvents = async () => {
+            const nextUnsubscribe = await broker.subscribe(async (event) => {
+                if (event.name !== "agent.action.checkpoint") {
+                    return;
+                }
+                const payload = event.payload;
+                if (payload.sessionId === sessionId &&
+                    payload.tenantId === tenantId &&
+                    payload.requiresApproval) {
+                    const checkpointAction = {
+                        id: payload.idempotencyKey,
+                        actionType: payload.actionType,
+                        actionData: payload.actionData,
+                        requiresApproval: payload.requiresApproval,
+                        reason: payload.reason,
+                        timestamp: payload.emittedAt,
+                    };
+                    setPendingActions((prev) => {
+                        if (prev.some((action) => action.id === checkpointAction.id)) {
+                            return prev;
+                        }
+                        return [...prev, checkpointAction];
+                    });
+                    setIsPaused(true);
+                    onPause();
                 }
             });
+            if (!isMounted) {
+                nextUnsubscribe();
+                return;
+            }
+            unsubscribe = nextUnsubscribe;
         };
-        initializeBroker();
+        void subscribeToCheckpointEvents();
         return () => {
-            // Cleanup
+            isMounted = false;
+            unsubscribe?.();
         };
-    }, [sessionId, tenantId, user?.id, onPause]);
+    }, [broker, onPause, sessionId, tenantId]);
     const handleApproval = async (actionId, approved, reason) => {
-        if (!broker)
+        if (!broker) {
             return;
-        // Remove from pending actions
-        setPendingActions((prev) => prev.filter((action) => action.id !== actionId));
-        // Publish approval decision
-        await broker.publish("agent.action.checkpoint", {
+        }
+        const nextPendingActions = pendingActions.filter((action) => action.id !== actionId);
+        const shouldResume = nextPendingActions.length === 0;
+        setPendingActions(nextPendingActions);
+        await broker.publishCheckpointEvent({
             schemaVersion: "1.0.0",
             idempotencyKey: uuidv4(),
+            checkpointIdempotencyKey: actionId,
             emittedAt: new Date().toISOString(),
             tenantId,
             sessionId,
-            userId: user?.id || "anonymous",
+            userId: auth?.userId ?? "anonymous",
             actionType: "approval_response",
             actionData: { actionId, approved, reason },
             requiresApproval: false,
@@ -66,8 +82,7 @@ export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onRe
                 : `Action rejected: ${reason || "No reason provided"}`,
         });
         onApproval(approved, reason);
-        // If no more pending actions, resume
-        if (pendingActions.length <= 1) {
+        if (shouldResume) {
             setIsPaused(false);
             onResume();
         }
@@ -76,8 +91,7 @@ export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onRe
         return null;
     }
     return (_jsx("div", { className: "human-checkpoint-overlay", children: _jsxs("div", { className: "checkpoint-modal", children: [_jsx("h3", { children: "Agent Action Requires Approval" }), pendingActions.map((action) => (_jsxs("div", { className: "checkpoint-action", children: [_jsxs("div", { className: "action-details", children: [_jsx("strong", { children: action.actionType }), _jsx("p", { children: action.reason }), _jsx("pre", { children: JSON.stringify(action.actionData, null, 2) })] }), _jsxs("div", { className: "action-controls", children: [_jsx("button", { onClick: () => handleApproval(action.id, true), className: "approve-btn", children: "Approve" }), _jsx("button", { onClick: () => {
-                                        const reason = prompt("Reason for rejection:");
-                                        handleApproval(action.id, false, reason || undefined);
+                                        const rejectionReason = prompt("Reason for rejection:");
+                                        void handleApproval(action.id, false, rejectionReason || undefined);
                                     }, className: "reject-btn", children: "Reject" })] })] }, action.id))), isPaused && (_jsx("div", { className: "pause-indicator", children: "Agent execution is paused pending your approval." }))] }) }));
 };
-//# sourceMappingURL=HumanCheckpoint.js.map
