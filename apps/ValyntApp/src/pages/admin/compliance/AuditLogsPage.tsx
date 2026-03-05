@@ -1,41 +1,59 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+
+import { useAuditLog } from "@/features/audit";
 
 import { useComplianceLiveStatus } from "./useComplianceLiveStatus";
 
-interface AuditLogItem {
-  id: string;
-  action: string;
-  resource_type: string;
-  status: string;
-  timestamp: string;
-  user_name: string;
-}
-
 export function AuditLogsPage() {
   const { data: controls } = useComplianceLiveStatus();
-  const { data: auditData, isLoading } = useQuery({
-    queryKey: ["compliance-audit-logs"],
-    queryFn: async () => {
-      const response = await fetch("/api/admin/compliance/audit-logs?limit=25");
-      if (!response.ok) throw new Error("Failed to load audit logs");
-      return response.json() as Promise<{ logs: AuditLogItem[] }>;
-    },
-    refetchInterval: 45000,
-  });
+  const { entries, isLoading, fetchLogs, exportLogs, isExporting, exportError } = useAuditLog();
+
+  useEffect(() => {
+    void fetchLogs();
+
+    const interval = window.setInterval(() => {
+      void fetchLogs();
+    }, 45000);
+
+    return () => window.clearInterval(interval);
+  }, [fetchLogs]);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900">Audit Logs</h2>
-        <p className="text-sm text-gray-500">Immutable events with evidence pointers and integrity status.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Audit Logs</h2>
+          <p className="text-sm text-gray-500">Immutable events with evidence pointers and integrity status.</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void exportLogs(undefined, "csv")}
+            className="rounded border px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
+            disabled={isExporting}
+          >
+            {isExporting ? "Exporting..." : "Export CSV"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportLogs(undefined, "json")}
+            className="rounded border px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
+            disabled={isExporting}
+          >
+            {isExporting ? "Exporting..." : "Export JSON"}
+          </button>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Controls Passing</div><div className="text-2xl font-semibold">{controls?.summary.controls_passing ?? 0}</div></div>
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Warnings</div><div className="text-2xl font-semibold">{controls?.summary.controls_warning ?? 0}</div></div>
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Failing</div><div className="text-2xl font-semibold">{controls?.summary.controls_failing ?? 0}</div></div>
-        <div className="rounded border p-3 bg-white"><div className="text-xs text-gray-500">Last Evidence Refresh</div><div className="text-sm font-medium">{controls ? new Date(controls.generated_at).toLocaleString() : "-"}</div></div>
+
+      {exportError && <p className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700">{exportError}</p>}
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div className="rounded border bg-white p-3"><div className="text-xs text-gray-500">Controls Passing</div><div className="text-2xl font-semibold">{controls?.summary.controls_passing ?? 0}</div></div>
+        <div className="rounded border bg-white p-3"><div className="text-xs text-gray-500">Warnings</div><div className="text-2xl font-semibold">{controls?.summary.controls_warning ?? 0}</div></div>
+        <div className="rounded border bg-white p-3"><div className="text-xs text-gray-500">Failing</div><div className="text-2xl font-semibold">{controls?.summary.controls_failing ?? 0}</div></div>
+        <div className="rounded border bg-white p-3"><div className="text-xs text-gray-500">Last Evidence Refresh</div><div className="text-sm font-medium">{controls ? new Date(controls.generated_at).toLocaleString() : "-"}</div></div>
       </div>
-      <div className="rounded border bg-white overflow-hidden">
+      <div className="overflow-hidden rounded border bg-white">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
@@ -44,13 +62,14 @@ export function AuditLogsPage() {
           </thead>
           <tbody>
             {isLoading && <tr><td className="p-3" colSpan={5}>Loading...</td></tr>}
-            {auditData?.logs.map((log) => (
+            {!isLoading && entries.length === 0 && <tr><td className="p-3" colSpan={5}>No audit logs found.</td></tr>}
+            {entries.map((log) => (
               <tr key={log.id} className="border-t">
                 <td className="p-3">{new Date(log.timestamp).toLocaleString()}</td>
-                <td className="p-3">{log.user_name}</td>
+                <td className="p-3">{log.userEmail}</td>
                 <td className="p-3">{log.action}</td>
-                <td className="p-3">{log.resource_type}</td>
-                <td className="p-3">{log.status}</td>
+                <td className="p-3">{log.resource}</td>
+                <td className="p-3">{typeof log.metadata?.status === "string" ? log.metadata.status : "-"}</td>
               </tr>
             ))}
           </tbody>
