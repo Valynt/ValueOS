@@ -27,7 +27,7 @@
 
 ValueOS uses a Multi-Agent Reinforcement Learning (MARL) loop. Production agent-fabric classes are located in `packages/backend/src/lib/agent-fabric/agents/`.
 
-> **Canonical path note:** For production backend agent-fabric logic, always edit files under `packages/backend/src/lib/agent-fabric/agents/` and orchestration/service entrypoints under `packages/backend/src/services/` (for example `packages/backend/src/services/UnifiedAgentOrchestrator.ts` and `packages/backend/src/services/UnifiedAgentAPI.ts`). Treat similarly named frontend docs/examples or deprecated standalone agent trees as non-canonical references.
+> **Canonical path note:** The production backend source of truth is `packages/backend/src/lib/agent-fabric/agents/` plus service entrypoints in `packages/backend/src/services/` (especially `packages/backend/src/services/UnifiedAgentOrchestrator.ts` and, when applicable, `packages/backend/src/services/UnifiedAgentAPI.ts`). Do **not** treat frontend examples, docs snippets, or deprecated standalone microservice agents under `packages/agents/` as canonical implementation paths.
 
 ### Agent Taxonomy
 
