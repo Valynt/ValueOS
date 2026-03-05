@@ -40,3 +40,5 @@ Notes & troubleshooting:
 - If CI time becomes a concern, run the full apply+rollback job only on PRs that add migrations and schedule nightly full runs.
 
 Contact: Mention this README in migration PRs or ping the infra team for questions.
+
+- `check-supabase-security-controls.mjs` — validates Supabase migration guardrails (RLS policy coverage for RLS-enabled tables, plaintext `credentials JSONB` columns, and tenant policies that rely on JWT claims without explicit `service_role` bypass) and emits `ci-artifacts/security-controls-summary.json` for artifact upload.
