@@ -9,7 +9,7 @@ interface AuditLogItem {
   id: string;
   action: string;
   resource_type: string;
-  status: string;
+  status?: "success" | "failed";
   timestamp: string;
   user_name: string;
 }
@@ -79,7 +79,7 @@ export function AuditLogsPage() {
                 <td className="p-3">{log.user_name}</td>
                 <td className="p-3">{log.action}</td>
                 <td className="p-3">{log.resource_type}</td>
-                <td className="p-3">{log.status}</td>
+                <td className="p-3">{log.status ?? "success"}</td>
               </tr>
             ))}
           </tbody>
