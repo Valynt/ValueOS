@@ -38,7 +38,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
           run_install: false
 
       - name: Resolve pnpm store path
@@ -321,7 +320,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
           run_install: false
 
       - name: Install dependencies
@@ -349,7 +347,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
           run_install: false
 
       - name: Install dependencies
@@ -550,7 +547,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
           run_install: false
 
       - name: Install dependencies
@@ -716,7 +712,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
           run_install: false
 
       - name: Install dependencies
@@ -750,7 +745,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9.15.0
           run_install: false
 
       - name: Install dependencies
