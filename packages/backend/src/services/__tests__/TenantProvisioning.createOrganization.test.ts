@@ -1,49 +1,35 @@
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createOrganization, TenantConfig } from '../TenantProvisioning.js'
 
-// Define mocks using vi.hoisted to ensure they are available before imports
 const mocks = vi.hoisted(() => {
-  const mockSingle = vi.fn();
+  const mockRpc = vi.fn();
   const mockEq = vi.fn();
-  const mockSelect = vi.fn();
-  const mockInsert = vi.fn();
   const mockUpdate = vi.fn();
   const mockFrom = vi.fn();
 
-  // Setup default return values for chain
   mockFrom.mockReturnValue({
-    insert: mockInsert,
-    select: mockSelect,
     update: mockUpdate,
   });
-  mockInsert.mockReturnValue({
-    select: mockSelect,
-  });
-  mockSelect.mockReturnValue({
-    single: mockSingle,
+
+  mockUpdate.mockReturnValue({
     eq: mockEq,
   });
-  mockEq.mockReturnValue({
-    single: mockSingle,
-    maybeSingle: mockSingle,
-  });
-  mockSingle.mockResolvedValue({ data: {}, error: null });
+
+  mockEq.mockResolvedValue({ data: null, error: null });
+  mockRpc.mockResolvedValue({ data: 'org-123', error: null });
 
   return {
-    mockSingle,
+    mockRpc,
     mockEq,
-    mockSelect,
-    mockInsert,
     mockUpdate,
     mockFrom,
   };
 });
 
-// Mock Supabase using the hoisted mocks
 vi.mock('../../lib/supabase', () => ({
   createServerSupabaseClient: () => ({
+    rpc: mocks.mockRpc,
     from: mocks.mockFrom,
   }),
   supabase: {},
@@ -64,7 +50,6 @@ vi.mock('../../lib/logger', () => ({
   })
 }));
 
-// Mock config to prevent actual config loading which might fail or check env vars
 vi.mock('../../config/environment', () => ({
   getConfig: () => ({
     features: { billing: false, usageTracking: false },
@@ -85,126 +70,47 @@ describe('TenantProvisioning.createOrganization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Reset chain mocks default behavior
-    mocks.mockFrom.mockReturnValue({
-        insert: mocks.mockInsert,
-        select: mocks.mockSelect,
-    });
-    mocks.mockInsert.mockReturnValue({
-        select: mocks.mockSelect,
-    });
-    mocks.mockSelect.mockReturnValue({
-        single: mocks.mockSingle,
-        eq: mocks.mockEq,
-    });
-    mocks.mockEq.mockReturnValue({
-      single: mocks.mockSingle,
-    });
+    mocks.mockRpc.mockResolvedValue({ data: 'org-123', error: null });
+    mocks.mockFrom.mockReturnValue({ update: mocks.mockUpdate });
+    mocks.mockUpdate.mockReturnValue({ eq: mocks.mockEq });
+    mocks.mockEq.mockResolvedValue({ data: null, error: null });
   });
 
-  it('successfully creates organization and owner membership and returns org', async () => {
-    // Setup org insert success
-    const mockOrg = { id: 'org-123', name: 'Test Org' };
-    mocks.mockSingle.mockResolvedValueOnce({
-      data: mockOrg,
-      error: null
-    });
-
-    // Setup membership insert success
-    mocks.mockSingle.mockResolvedValueOnce({
-      data: { id: 'membership-789' },
-      error: null
-    });
-
+  it('creates organization using provision_tenant rpc and returns canonical org id', async () => {
     const result = await createOrganization(config);
 
-    // Verify organizations insert
-    expect(mocks.mockFrom).toHaveBeenCalledWith('organizations');
-    expect(mocks.mockInsert).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'org-123',
-      tenant_id: 'org-123',
-      name: 'Test Org',
-      tier: 'professional', // mapped from starter
-      is_active: true,
-    }));
-
-    // Verify user_tenants insert
-    expect(mocks.mockFrom).toHaveBeenCalledWith('user_tenants');
-    expect(mocks.mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.mockRpc).toHaveBeenCalledWith('provision_tenant', {
+      organization_name: 'Test Org',
       user_id: 'user-456',
-      tenant_id: 'org-123',
-      status: 'active',
-      role: 'owner',
-    }));
-
-    // Verify return value
-    // expect(result).toBe(mockOrg); // Function returns void
-    expect(result).toBeUndefined();
-  });
-
-  it('fails cleanly if organization creation fails', async () => {
-    mocks.mockSingle.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'DB Error' }
     });
 
-    await expect(createOrganization(config)).rejects.toThrow('Failed to create organization: DB Error');
-
-    // Should NOT attempt membership insert
-    expect(mocks.mockFrom).toHaveBeenCalledTimes(1);
     expect(mocks.mockFrom).toHaveBeenCalledWith('organizations');
+    expect(mocks.mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      tier: 'professional',
+      settings: expect.objectContaining({
+        tier: 'starter',
+      }),
+    }));
+    expect(mocks.mockEq).toHaveBeenCalledWith('id', 'org-123');
+
+    expect(result).toBe('org-123');
   });
 
-  it('fails if membership creation fails', async () => {
-    // Org success
-    mocks.mockSingle.mockResolvedValueOnce({
-      data: { id: 'org-123' },
-      error: null
-    });
-
-    // Membership fail
-    mocks.mockSingle.mockResolvedValueOnce({
+  it('fails cleanly if provision_tenant rpc fails', async () => {
+    mocks.mockRpc.mockResolvedValue({
       data: null,
-      error: { message: 'Membership Error' }
+      error: { message: 'RPC Error' }
     });
 
-    await expect(createOrganization(config)).rejects.toThrow('Organization created but failed to assign owner membership: Membership Error');
+    await expect(createOrganization(config)).rejects.toThrow('Failed to create organization: RPC Error');
   });
 
-  it('handles idempotency: if org exists, proceeds to membership', async () => {
-    // Org insert fail with 409 (Conflict) - implied by error code or check
-    mocks.mockSingle.mockResolvedValueOnce({
+  it('fails cleanly if organization defaults update fails', async () => {
+    mocks.mockEq.mockResolvedValue({
       data: null,
-      error: { code: '23505', message: 'Duplicate key' }
+      error: { message: 'Update Error' }
     });
 
-    // We expect the code to fetch the existing org
-    const existingOrg = { id: 'org-123', tenant_id: 'org-123' };
-    mocks.mockSingle.mockResolvedValueOnce({
-        data: existingOrg,
-        error: null
-    });
-
-    // Then membership insert success
-    mocks.mockSingle.mockResolvedValueOnce({
-      data: { id: 'membership-789' },
-      error: null
-    });
-
-    const result = await createOrganization(config);
-
-    // 1. Insert Org (failed)
-    expect(mocks.mockFrom).toHaveBeenNthCalledWith(1, 'organizations');
-
-    // 2. Select Org (recovery)
-    expect(mocks.mockFrom).toHaveBeenNthCalledWith(2, 'organizations');
-    expect(mocks.mockSelect).toHaveBeenCalled();
-
-    // 3. Insert Membership
-    expect(mocks.mockFrom).toHaveBeenNthCalledWith(3, 'user_tenants');
-
-    // Should return existing org
-    // expect(result).toBe(existingOrg); // Function returns void
-    expect(result).toBeUndefined();
+    await expect(createOrganization(config)).rejects.toThrow('Failed to update organization defaults: Update Error');
   });
 });

@@ -1,0 +1,268 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: valueos-agents
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - list:
+        elements:
+          - agentName: benchmark
+            overlayPath: infra/k8s/overlays/agents/apps/benchmark
+            imageName: valynt/agent-benchmark
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "6"
+          - agentName: communicator
+            overlayPath: infra/k8s/overlays/agents/apps/communicator
+            imageName: valynt/agent-communicator
+            imageTag: latest
+            cpuRequest: 100m
+            memoryRequest: 256Mi
+            cpuLimit: 500m
+            memoryLimit: 1Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "12"
+          - agentName: company-intelligence
+            overlayPath: infra/k8s/overlays/agents/apps/company-intelligence
+            imageName: valynt/agent-company-intelligence
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "8"
+          - agentName: coordinator
+            overlayPath: infra/k8s/overlays/agents/apps/coordinator
+            imageName: valynt/agent-coordinator
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "10"
+          - agentName: expansion
+            overlayPath: infra/k8s/overlays/agents/apps/expansion
+            imageName: valynt/agent-expansion
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "8"
+          - agentName: financial-modeling
+            overlayPath: infra/k8s/overlays/agents/apps/financial-modeling
+            imageName: valynt/agent-financial-modeling
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "6"
+          - agentName: groundtruth
+            overlayPath: infra/k8s/overlays/agents/apps/groundtruth
+            imageName: valynt/agent-groundtruth
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "7"
+          - agentName: integrity
+            overlayPath: infra/k8s/overlays/agents/apps/integrity
+            imageName: valynt/agent-integrity
+            imageTag: latest
+            cpuRequest: 100m
+            memoryRequest: 256Mi
+            cpuLimit: 500m
+            memoryLimit: 1Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "10"
+          - agentName: intervention-designer
+            overlayPath: infra/k8s/overlays/agents/apps/intervention-designer
+            imageName: valynt/agent-intervention-designer
+            imageTag: latest
+            cpuRequest: 250m
+            memoryRequest: 640Mi
+            cpuLimit: 1250m
+            memoryLimit: 2.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "6"
+          - agentName: narrative
+            overlayPath: infra/k8s/overlays/agents/apps/narrative
+            imageName: valynt/agent-narrative
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "7"
+          - agentName: opportunity
+            overlayPath: infra/k8s/overlays/agents/apps/opportunity
+            imageName: valynt/agent-opportunity
+            imageTag: latest
+            cpuRequest: 500m
+            memoryRequest: 1Gi
+            cpuLimit: 1500m
+            memoryLimit: 2Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "10"
+          - agentName: outcome-engineer
+            overlayPath: infra/k8s/overlays/agents/apps/outcome-engineer
+            imageName: valynt/agent-outcome-engineer
+            imageTag: latest
+            cpuRequest: 250m
+            memoryRequest: 640Mi
+            cpuLimit: 1250m
+            memoryLimit: 2.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "6"
+          - agentName: realization
+            overlayPath: infra/k8s/overlays/agents/apps/realization
+            imageName: valynt/agent-realization
+            imageTag: latest
+            cpuRequest: 750m
+            memoryRequest: 1536Mi
+            cpuLimit: 2000m
+            memoryLimit: 3Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "5"
+          - agentName: research
+            overlayPath: infra/k8s/overlays/agents/apps/research
+            imageName: valynt/agent-research
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "8"
+          - agentName: system-mapper
+            overlayPath: infra/k8s/overlays/agents/apps/system-mapper
+            imageName: valynt/agent-system-mapper
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "8"
+          - agentName: target
+            overlayPath: infra/k8s/overlays/agents/apps/target
+            imageName: valynt/agent-target
+            imageTag: latest
+            cpuRequest: 100m
+            memoryRequest: 256Mi
+            cpuLimit: 500m
+            memoryLimit: 1Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "12"
+          - agentName: value-eval
+            overlayPath: infra/k8s/overlays/agents/apps/value-eval
+            imageName: valynt/agent-value-eval
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "7"
+          - agentName: value-mapping
+            overlayPath: infra/k8s/overlays/agents/apps/value-mapping
+            imageName: valynt/agent-value-mapping
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            envOverrides:
+              - name: MAX_CONCURRENT_REQUESTS
+                value: "8"
+  template:
+    metadata:
+      name: valueos-agent-{{ .agentName }}
+      labels:
+        app.kubernetes.io/part-of: valueos
+        app.kubernetes.io/component: agent
+        valueos.io/agent-name: "{{ .agentName }}"
+    spec:
+      project: valueos
+      source:
+        repoURL: https://github.com/valueos/ValueOS.git
+        targetRevision: main
+        path: "{{ .overlayPath }}"
+        kustomize:
+          namespace: valueos-agents
+          patches:
+            - target:
+                kind: Deployment
+                name: "{{ .agentName }}-agent"
+              patch: |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: {{ .agentName }}-agent
+                spec:
+                  template:
+                    metadata:
+                      labels:
+                        valueos.io/managed-by: argocd-appset
+                        valueos.io/agent-name: {{ .agentName }}
+                    spec:
+                      containers:
+                        - name: {{ .agentName }}-agent
+                          image: {{ .imageName }}:{{ .imageTag }}
+                          resources:
+                            requests:
+                              cpu: {{ .cpuRequest }}
+                              memory: {{ .memoryRequest }}
+                            limits:
+                              cpu: {{ .cpuLimit }}
+                              memory: {{ .memoryLimit }}
+                          env:
+                            - name: AGENT_NAME
+                              value: {{ .agentName }}
+                            {{ range .envOverrides }}
+                            - name: {{ .name }}
+                              value: {{ .value | quote }}
+                            {{ end }}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: valueos-agents
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true

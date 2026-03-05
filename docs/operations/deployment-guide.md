@@ -365,7 +365,7 @@ SELECT count(*) FROM public.semantic_memory WHERE organization_id = 'org-a-uuid'
 #### 2.3 Automated Test Script
 ```bash
 # Run automated RLS tests
-npm run test:rls
+pnpm run test:rls
 
 # Expected output:
 # ✓ All tables have RLS enabled
@@ -1531,7 +1531,7 @@ supabase storage rm avatars --recursive
 psql $DATABASE_URL -f scripts/verify-production-readiness.sql
 
 # 3. Run RLS policy tests
-npm run test:rls
+pnpm run test:rls
 ```
 
 ## ✅ Critical Verification Queries
@@ -2916,7 +2916,7 @@ cp .env.example .env.local
 nano .env.local
 
 # Start development server
-npm run dev
+pnpm run dev:frontend
 ```
 
 ### Production Build
@@ -2929,10 +2929,10 @@ cp .env.production.example .env.production
 nano .env.production
 
 # Build for production
-npm run build
+pnpm run build
 
-# Preview production build
-npm run preview
+# Validate deployment environment instead of local preview
+pnpm run dx:doctor
 ```
 
 ### Docker Deployment
@@ -2941,11 +2941,11 @@ npm run preview
 # Build stage
 FROM node:20.19.0-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
 COPY . .
 ARG VITE_APP_ENV=production
-RUN npm run build
+RUN pnpm run build
 
 # Production stage
 FROM nginx:alpine
