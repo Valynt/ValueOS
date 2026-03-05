@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
 
 import {
   HumanCheckpointAuth,
@@ -118,7 +117,7 @@ export const HumanCheckpoint: React.FC<HumanCheckpointProps> = ({
 
     await broker.publishCheckpointEvent({
       schemaVersion: "1.0.0",
-      idempotencyKey: uuidv4(),
+      idempotencyKey: `${actionId}:${approved ? "approved" : "rejected"}`,
       checkpointIdempotencyKey: actionId,
       emittedAt: new Date().toISOString(),
       tenantId,

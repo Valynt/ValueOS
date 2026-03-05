@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { v4 as uuidv4 } from "uuid";
-
 import { useHumanCheckpointDependencies } from "./HumanCheckpointDependencies";
 
 export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onResume, auth: authProp, broker: brokerProp, }) => {
@@ -68,7 +66,7 @@ export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onRe
         setPendingActions(nextPendingActions);
         await broker.publishCheckpointEvent({
             schemaVersion: "1.0.0",
-            idempotencyKey: uuidv4(),
+            idempotencyKey: `${actionId}:${approved ? "approved" : "rejected"}`,
             checkpointIdempotencyKey: actionId,
             emittedAt: new Date().toISOString(),
             tenantId,
