@@ -1,7 +1,15 @@
-import React from "react";
+export {
+  DashboardPanel,
+  Grid,
+  HorizontalSplit,
+  VerticalSplit,
+} from "@sdui/components/SDUI/CanvasLayout";
 
-// Placeholder layout components - these need to be implemented
-export const DashboardPanel: React.FC<any> = () => <div>DashboardPanel - Not implemented</div>;
-export const Grid: React.FC<any> = () => <div>Grid - Not implemented</div>;
-export const HorizontalSplit: React.FC<any> = () => <div>HorizontalSplit - Not implemented</div>;
-export const VerticalSplit: React.FC<any> = () => <div>VerticalSplit - Not implemented</div>;
+export type {
+  DashboardPanelProps,
+  GridLayoutProps,
+  LayoutBaseProps,
+  ResponsiveLayoutConfig,
+  SplitLayoutProps,
+  SplitResizeConfig,
+} from "@sdui/components/SDUI/CanvasLayout";

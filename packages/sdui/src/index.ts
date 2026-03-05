@@ -49,6 +49,12 @@ export { InteractiveChart } from "./components/SDUI/InteractiveChart";
 export { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
 export { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
 export { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+export {
+  DashboardPanel,
+  Grid,
+  HorizontalSplit,
+  VerticalSplit,
+} from "./components/SDUI/CanvasLayout";
 
 // Atomic action system
 export { AtomicActionExecutor } from "./AtomicActionExecutor";

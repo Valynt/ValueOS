@@ -15,7 +15,12 @@ export type SDUIComponentType =
   | "metric"
   | "progress"
   | "alert"
-  | "custom";
+  | "custom"
+  | "VerticalSplit"
+  | "HorizontalSplit"
+  | "Grid"
+  | "DashboardPanel"
+;
 
 export interface SDUIComponent {
   id: string;

@@ -95,3 +95,13 @@ export const UnknownComponentFallback: React.FC<UnknownComponentFallbackProps> =
   );
 };
 UnknownComponentFallback.displayName = "UnknownComponentFallback";
+
+export { DashboardPanel, Grid, HorizontalSplit, VerticalSplit } from "./CanvasLayout";
+export type {
+  DashboardPanelProps,
+  GridLayoutProps,
+  LayoutBaseProps,
+  ResponsiveLayoutConfig,
+  SplitLayoutProps,
+  SplitResizeConfig,
+} from "./CanvasLayout";

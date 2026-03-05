@@ -3,6 +3,7 @@ import type { SDUIComponent } from "./types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DashboardPanel, Grid, HorizontalSplit, VerticalSplit } from "@/components/SDUI/CanvasLayout";
 
 interface SDUIRendererProps {
   component: SDUIComponent;
@@ -55,6 +56,42 @@ export function SDUIRenderer({ component, onAction }: SDUIRendererProps) {
             ))}
           </CardContent>
         </Card>
+      );
+
+    case "VerticalSplit":
+      return (
+        <VerticalSplit {...(props as Record<string, unknown>)}>
+          {children?.map((child) => (
+            <SDUIRenderer key={child.id} component={child} onAction={onAction} />
+          ))}
+        </VerticalSplit>
+      );
+
+    case "HorizontalSplit":
+      return (
+        <HorizontalSplit {...(props as Record<string, unknown>)}>
+          {children?.map((child) => (
+            <SDUIRenderer key={child.id} component={child} onAction={onAction} />
+          ))}
+        </HorizontalSplit>
+      );
+
+    case "DashboardPanel":
+      return (
+        <DashboardPanel {...(props as Record<string, unknown>)}>
+          {children?.map((child) => (
+            <SDUIRenderer key={child.id} component={child} onAction={onAction} />
+          ))}
+        </DashboardPanel>
+      );
+
+    case "Grid":
+      return (
+        <Grid {...(props as Record<string, unknown>)}>
+          {children?.map((child) => (
+            <SDUIRenderer key={child.id} component={child} onAction={onAction} />
+          ))}
+        </Grid>
       );
 
     case "grid": {
