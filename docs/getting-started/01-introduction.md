@@ -25,7 +25,9 @@
 
 ## 1. The 7-Agent Fabric
 
-ValueOS uses a Multi-Agent Reinforcement Learning (MARL) loop. Agents are located in `src/lib/agent-fabric/`.
+ValueOS uses a Multi-Agent Reinforcement Learning (MARL) loop. Production agent-fabric classes are located in `packages/backend/src/lib/agent-fabric/agents/`.
+
+> **Canonical path note:** For production backend agent-fabric logic, always edit files under `packages/backend/src/lib/agent-fabric/agents/` and orchestration/service entrypoints under `packages/backend/src/services/` (for example `packages/backend/src/services/UnifiedAgentOrchestrator.ts` and `packages/backend/src/services/UnifiedAgentAPI.ts`). Treat similarly named frontend docs/examples or deprecated standalone agent trees as non-canonical references.
 
 ### Agent Taxonomy
 
@@ -70,7 +72,7 @@ Agents never write directly to the database. They submit a "Commit Proposal" to 
 ---
 
 **Last Updated:** 2026-01-28
-**Related:** `src/lib/agent-fabric/`, `src/services/UnifiedAgentAPI.ts`
+**Related:** `packages/backend/src/lib/agent-fabric/agents/`, `packages/backend/src/services/UnifiedAgentOrchestrator.ts`, `packages/backend/src/services/UnifiedAgentAPI.ts`
 
 ---
 
