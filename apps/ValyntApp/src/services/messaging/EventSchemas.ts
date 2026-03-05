@@ -74,6 +74,7 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     actionData: z.record(z.any()),
     requiresApproval: z.boolean(),
     reason: z.string(),
+    checkpointIdempotencyKey: z.string().min(1).optional(),
   }),
 };
 

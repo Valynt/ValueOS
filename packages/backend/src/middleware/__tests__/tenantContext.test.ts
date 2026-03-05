@@ -98,6 +98,31 @@ describe('tenantContextMiddleware', () => {
     expect(verifyTenantMembership).not.toHaveBeenCalled();
   });
 
+
+  it('rejects agent requests when tenant context diverges from JWT tenant claim', async () => {
+    (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
+    (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
+
+    const req = buildReq({
+      baseUrl: '/api/agents',
+      path: '/execute',
+      header: vi.fn((name: string) => (name === 'x-tenant-id' ? 'tenant-B' : undefined)),
+      serviceIdentityVerified: true,
+      user: { id: 'user-123', tenant_id: 'tenant-A' },
+    });
+    const res = mockRes();
+    const next = vi.fn();
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'tenant_mismatch',
+      message: 'Tenant context must match authenticated tenant claim.',
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('requires tenant membership verification for user tenants', async () => {
     (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
     (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(false);
