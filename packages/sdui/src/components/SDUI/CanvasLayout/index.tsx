@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, GripHorizontal } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 export type ResponsiveBreakpoint = "sm" | "md" | "lg" | "xl";
@@ -17,7 +17,7 @@ export interface LayoutBaseProps {
 }
 
 export interface SplitProps extends LayoutBaseProps {
-  ratios?: number[];
+  ratios?: [number, number] | number[];
   gap?: number;
   stackAt?: ResponsiveBreakpoint | false;
   dragResize?: boolean;
@@ -47,12 +47,41 @@ export interface DashboardPanelProps extends LayoutBaseProps {
   contentClassName?: string;
 }
 
-const BREAKPOINT_PREFIX: Record<ResponsiveBreakpoint, string> = {
-  sm: "sm",
-  md: "md",
-  lg: "lg",
-  xl: "xl",
+const COLUMN_CLASS_MAP: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5",
+  6: "grid-cols-6",
+  7: "grid-cols-7",
+  8: "grid-cols-8",
+  9: "grid-cols-9",
+  10: "grid-cols-10",
+  11: "grid-cols-11",
+  12: "grid-cols-12",
 };
+
+const BREAKPOINT_COLUMN_CLASS_MAP: Record<ResponsiveBreakpoint, Record<number, string>> = {
+  sm: Object.fromEntries(Object.entries(COLUMN_CLASS_MAP).map(([key, value]) => [Number(key), `sm:${value}`])) as Record<number, string>,
+  md: Object.fromEntries(Object.entries(COLUMN_CLASS_MAP).map(([key, value]) => [Number(key), `md:${value}`])) as Record<number, string>,
+  lg: Object.fromEntries(Object.entries(COLUMN_CLASS_MAP).map(([key, value]) => [Number(key), `lg:${value}`])) as Record<number, string>,
+  xl: Object.fromEntries(Object.entries(COLUMN_CLASS_MAP).map(([key, value]) => [Number(key), `xl:${value}`])) as Record<number, string>,
+};
+
+const STACK_CLASS_MAP: Record<ResponsiveBreakpoint, { vertical: string; horizontal: string }> = {
+  sm: { vertical: "flex-col sm:flex-row", horizontal: "flex-row sm:flex-col" },
+  md: { vertical: "flex-col md:flex-row", horizontal: "flex-row md:flex-col" },
+  lg: { vertical: "flex-col lg:flex-row", horizontal: "flex-row lg:flex-col" },
+  xl: { vertical: "flex-col xl:flex-row", horizontal: "flex-row xl:flex-col" },
+};
+
+function clampColumnCount(value: number | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(12, value));
+}
 
 function toChildrenArray(children: React.ReactNode, slots?: LayoutSlots): React.ReactNode[] {
   const slotted = [slots?.primary, slots?.secondary].filter(Boolean);
@@ -60,25 +89,14 @@ function toChildrenArray(children: React.ReactNode, slots?: LayoutSlots): React.
   return slotted.length > 0 ? slotted : fromChildren;
 }
 
-function ratiosToTemplate(ratios: number[], childCount: number): string {
+function normalizeRatios(ratios: number[] | undefined, childCount: number): number[] {
   if (childCount === 0) {
-    return "1fr";
+    return [];
   }
-
-  if (ratios.length === childCount) {
-    return ratios.map((value) => `${Math.max(value, 0.05)}fr`).join(" ");
+  if (ratios && ratios.length === childCount) {
+    return ratios.map((ratio) => Math.max(0.05, ratio));
   }
-
-  return `repeat(${childCount}, minmax(0, 1fr))`;
-}
-
-function getStackClasses(direction: "horizontal" | "vertical", stackAt: SplitProps["stackAt"]): string {
-  if (!stackAt) {
-    return direction === "vertical" ? "grid-cols-[inherit]" : "grid-rows-[inherit]";
-  }
-
-  const prefix = BREAKPOINT_PREFIX[stackAt];
-  return direction === "vertical" ? `grid-cols-1 ${prefix}:grid-cols-[inherit]` : `grid-rows-1 ${prefix}:grid-rows-[inherit]`;
+  return Array.from({ length: childCount }, () => 1);
 }
 
 function SplitLayout({
@@ -93,18 +111,16 @@ function SplitLayout({
   minRatio = 0.2,
 }: SplitProps & { direction: "horizontal" | "vertical" }) {
   const childNodes = toChildrenArray(children, slots);
-  const baseRatios = useMemo(() => {
-    if (ratios && ratios.length === childNodes.length) {
-      return ratios;
-    }
-
-    return Array.from({ length: Math.max(childNodes.length, 1) }, () => 1);
-  }, [ratios, childNodes.length]);
-  const [dynamicRatios, setDynamicRatios] = useState(baseRatios);
+  const ratioDefaults = useMemo(() => normalizeRatios(ratios, childNodes.length), [ratios, childNodes.length]);
+  const [dynamicRatios, setDynamicRatios] = useState(ratioDefaults);
 
   const canDrag = dragResize && childNodes.length === 2;
+  const isVertical = direction === "vertical";
 
-  const handleResize = (event: React.MouseEvent<HTMLDivElement>) => {
+  const activeRatios = canDrag ? dynamicRatios : ratioDefaults;
+  const totalRatio = activeRatios.reduce((sum, value) => sum + value, 0) || 1;
+
+  const onResize = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!canDrag) {
       return;
     }
@@ -115,50 +131,66 @@ function SplitLayout({
     }
 
     const bounds = container.getBoundingClientRect();
-    const position = direction === "vertical" ? event.clientX - bounds.left : event.clientY - bounds.top;
-    const total = direction === "vertical" ? bounds.width : bounds.height;
+    const pointer = isVertical ? event.clientX - bounds.left : event.clientY - bounds.top;
+    const total = isVertical ? bounds.width : bounds.height;
 
     if (total <= 0) {
       return;
     }
 
-    const rawRatio = position / total;
-    const constrainedRatio = Math.max(minRatio, Math.min(1 - minRatio, rawRatio));
-    setDynamicRatios([constrainedRatio, 1 - constrainedRatio]);
+    const normalized = pointer / total;
+    const constrained = Math.max(minRatio, Math.min(1 - minRatio, normalized));
+    setDynamicRatios([constrained, 1 - constrained]);
   };
 
-  const template = ratiosToTemplate(canDrag ? dynamicRatios : baseRatios, childNodes.length);
-
-  const style =
-    direction === "vertical"
-      ? { gridTemplateColumns: template, gap: `${gap}px` }
-      : { gridTemplateRows: template, gap: `${gap}px` };
-
-  const testId = direction === "vertical" ? "canvas-vertical-split" : "canvas-horizontal-split";
-  const axisClass = direction === "vertical" ? "grid-flow-col" : "grid-flow-row";
+  const stackClasses = stackAt ? STACK_CLASS_MAP[stackAt][direction] : isVertical ? "flex-row" : "flex-col";
 
   return (
-    <div data-testid={testId} className={`w-full grid ${axisClass} ${getStackClasses(direction, stackAt)} ${className}`} style={style}>
-      {childNodes.map((child, index) => (
-        <React.Fragment key={`split-child-${index}`}>
-          <div className={direction === "vertical" ? "min-w-0" : "min-h-0"}>{child}</div>
-          {canDrag && index === 0 && (
-            <div
-              role="separator"
-              aria-orientation={direction === "vertical" ? "vertical" : "horizontal"}
-              onMouseDown={handleResize}
-              onMouseMove={(event) => {
-                if (event.buttons === 1) {
-                  handleResize(event);
-                }
-              }}
-              className="group z-10 flex items-center justify-center rounded bg-border/40 text-muted-foreground hover:bg-border"
-            >
-              <GripVertical className="h-3 w-3" />
-            </div>
-          )}
-        </React.Fragment>
-      ))}
+    <div
+      data-testid={isVertical ? "canvas-vertical-split" : "canvas-horizontal-split"}
+      className={`relative flex w-full ${stackClasses} ${className}`}
+      style={{ gap: `${gap}px` }}
+    >
+      {childNodes.map((child, index) => {
+        const basis = `${(activeRatios[index] ?? 1 / childNodes.length) / totalRatio * 100}%`;
+
+        return (
+          <div
+            key={`split-child-${index}`}
+            className={isVertical ? "min-w-0" : "min-h-0"}
+            style={{ flexBasis: basis, flexGrow: 0, flexShrink: 1 }}
+          >
+            {child}
+          </div>
+        );
+      })}
+
+      {canDrag && (
+        <button
+          type="button"
+          role="separator"
+          aria-orientation={isVertical ? "vertical" : "horizontal"}
+          aria-label={isVertical ? "Resize columns" : "Resize rows"}
+          onMouseDown={onResize}
+          onMouseMove={(event) => {
+            if (event.buttons === 1) {
+              onResize(event);
+            }
+          }}
+          className={`absolute z-10 flex items-center justify-center rounded-md bg-border/60 text-muted-foreground hover:bg-border ${
+            isVertical
+              ? "top-1/2 h-12 w-3 -translate-y-1/2"
+              : "left-1/2 h-3 w-12 -translate-x-1/2"
+          }`}
+          style={
+            isVertical
+              ? { left: `calc(${(activeRatios[0] / totalRatio) * 100}% - 6px)` }
+              : { top: `calc(${(activeRatios[0] / totalRatio) * 100}% - 6px)` }
+          }
+        >
+          {isVertical ? <GripVertical className="h-3 w-3" /> : <GripHorizontal className="h-3 w-3" />}
+        </button>
+      )}
     </div>
   );
 }
@@ -180,15 +212,19 @@ export function Grid({
   children,
   className = "",
 }: GridProps) {
-  const templateRows = rows ? `repeat(${rows}, minmax(0, 1fr))` : undefined;
+  const base = clampColumnCount(responsiveColumns?.base, 1);
+  const sm = responsiveColumns?.sm ? clampColumnCount(responsiveColumns.sm, base) : undefined;
+  const md = clampColumnCount(responsiveColumns?.md, columns);
+  const lg = responsiveColumns?.lg ? clampColumnCount(responsiveColumns.lg, md) : undefined;
+  const xl = responsiveColumns?.xl ? clampColumnCount(responsiveColumns.xl, lg ?? md) : undefined;
 
   const responsiveClasses = responsive
     ? [
-        `grid-cols-${responsiveColumns?.base ?? 1}`,
-        responsiveColumns?.sm ? `sm:grid-cols-${responsiveColumns.sm}` : "",
-        `md:grid-cols-${responsiveColumns?.md ?? columns}`,
-        responsiveColumns?.lg ? `lg:grid-cols-${responsiveColumns.lg}` : "",
-        responsiveColumns?.xl ? `xl:grid-cols-${responsiveColumns.xl}` : "",
+        COLUMN_CLASS_MAP[base],
+        sm ? BREAKPOINT_COLUMN_CLASS_MAP.sm[sm] : "",
+        BREAKPOINT_COLUMN_CLASS_MAP.md[md],
+        lg ? BREAKPOINT_COLUMN_CLASS_MAP.lg[lg] : "",
+        xl ? BREAKPOINT_COLUMN_CLASS_MAP.xl[xl] : "",
       ]
         .filter(Boolean)
         .join(" ")
@@ -197,11 +233,11 @@ export function Grid({
   return (
     <div
       data-testid="canvas-grid"
-      className={`w-full grid ${responsive ? responsiveClasses : ""} ${className}`}
+      className={`grid w-full ${responsiveClasses} ${className}`}
       style={{
-        gridTemplateColumns: responsive ? undefined : `repeat(${columns}, minmax(0, 1fr))`,
-        gridTemplateRows: templateRows,
         gap: `${gap}px`,
+        gridTemplateColumns: responsive ? undefined : `repeat(${clampColumnCount(columns, 2)}, minmax(0, 1fr))`,
+        gridTemplateRows: rows ? `repeat(${rows}, minmax(0, 1fr))` : undefined,
       }}
     >
       {children}

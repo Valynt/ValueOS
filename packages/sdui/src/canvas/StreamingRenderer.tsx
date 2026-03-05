@@ -122,35 +122,42 @@ const CanvasLayoutRenderer: React.FC<{ layout: CanvasLayout; depth?: number }> =
   }
 
   const renderChildren = (children: CanvasLayout[] | undefined) =>
-    children?.map((child, i) => (
-      <CanvasLayoutRenderer key={i} layout={child} depth={depth + 1} />
-    ));
+    children?.map((child, i) => <CanvasLayoutRenderer key={i} layout={child} depth={depth + 1} />);
+
+  const slotNodes = "slots" in layout && layout.slots
+    ? {
+        primary: layout.slots.primary ? <CanvasLayoutRenderer layout={layout.slots.primary} depth={depth + 1} /> : undefined,
+        secondary: layout.slots.secondary ? <CanvasLayoutRenderer layout={layout.slots.secondary} depth={depth + 1} /> : undefined,
+        header: layout.slots.header ? <CanvasLayoutRenderer layout={layout.slots.header} depth={depth + 1} /> : undefined,
+        footer: layout.slots.footer ? <CanvasLayoutRenderer layout={layout.slots.footer} depth={depth + 1} /> : undefined,
+      }
+    : undefined;
 
   switch (layout.type) {
     case "VerticalSplit":
       return (
-        <VerticalSplit ratios={layout.ratios} gap={layout.gap}>
+        <VerticalSplit ratios={layout.ratios} gap={layout.gap} stackAt={layout.stackAt} dragResize={layout.dragResize} minRatio={layout.minRatio} slots={slotNodes}>
           {renderChildren(layout.children)}
         </VerticalSplit>
       );
 
     case "HorizontalSplit":
       return (
-        <HorizontalSplit ratios={layout.ratios} gap={layout.gap}>
+        <HorizontalSplit ratios={layout.ratios} gap={layout.gap} stackAt={layout.stackAt} dragResize={layout.dragResize} minRatio={layout.minRatio} slots={slotNodes}>
           {renderChildren(layout.children)}
         </HorizontalSplit>
       );
 
     case "Grid":
       return (
-        <Grid columns={layout.columns} rows={layout.rows} gap={layout.gap} responsive={layout.responsive}>
+        <Grid columns={layout.columns} rows={layout.rows} gap={layout.gap} responsive={layout.responsive} responsiveColumns={layout.responsiveColumns}>
           {renderChildren(layout.children)}
         </Grid>
       );
 
     case "DashboardPanel":
       return (
-        <DashboardPanel title={layout.title} collapsible={layout.collapsible}>
+        <DashboardPanel title={layout.title} collapsible={layout.collapsible} defaultCollapsed={layout.defaultCollapsed} slots={slotNodes}>
           {renderChildren(layout.children)}
         </DashboardPanel>
       );

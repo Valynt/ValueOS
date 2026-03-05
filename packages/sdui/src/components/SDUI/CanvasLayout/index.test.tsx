@@ -19,7 +19,7 @@ describe("CanvasLayout primitives", () => {
     expect(grid.className).toContain("lg:grid-cols-4");
     expect(container.firstChild).toMatchInlineSnapshot(`
 <div
-  class="w-full grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 "
+  class="grid w-full grid-cols-1 md:grid-cols-3 lg:grid-cols-4 "
   data-testid="canvas-grid"
   style="gap: 16px;"
 >
@@ -33,31 +33,24 @@ describe("CanvasLayout primitives", () => {
 `);
   });
 
-  it("supports dashboard panel collapse behavior", () => {
+  it("renders slot-based split children and supports drag resizing", () => {
     render(
-      <DashboardPanel title="Pipeline" collapsible>
-        <div>Panel Content</div>
-      </DashboardPanel>
+      <VerticalSplit dragResize slots={{ primary: <div>Left</div>, secondary: <div>Right</div> }} />
     );
 
-    expect(screen.getByText("Panel Content")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button"));
-    expect(screen.queryByText("Panel Content")).not.toBeInTheDocument();
+    const split = screen.getByTestId("canvas-vertical-split");
+    const separator = screen.getByRole("separator");
+
+    expect(split.className).toContain("md:flex-row");
+    expect(screen.getByText("Left")).toBeInTheDocument();
+    expect(screen.getByText("Right")).toBeInTheDocument();
+
+    fireEvent.mouseMove(separator, { buttons: 1, clientX: 250, clientY: 0 });
+    expect(separator).toHaveStyle({ left: expect.stringContaining("calc(") });
   });
 
-  it("renders split layouts with ratio templates and stack breakpoints", () => {
-    const { rerender } = render(
-      <VerticalSplit ratios={[1, 2]} stackAt="md">
-        <div>Left</div>
-        <div>Right</div>
-      </VerticalSplit>
-    );
-
-    const vertical = screen.getByTestId("canvas-vertical-split");
-    expect(vertical.className).toContain("md:grid-cols-[inherit]");
-    expect((vertical as HTMLDivElement).style.gridTemplateColumns).toContain("1fr 2fr");
-
-    rerender(
+  it("renders horizontal split with responsive stacking class", () => {
+    render(
       <HorizontalSplit ratios={[2, 1]} stackAt="lg">
         <div>Top</div>
         <div>Bottom</div>
@@ -65,7 +58,19 @@ describe("CanvasLayout primitives", () => {
     );
 
     const horizontal = screen.getByTestId("canvas-horizontal-split");
-    expect(horizontal.className).toContain("lg:grid-rows-[inherit]");
-    expect((horizontal as HTMLDivElement).style.gridTemplateRows).toContain("2fr 1fr");
+    expect(horizontal.className).toContain("lg:flex-col");
+  });
+
+  it("supports dashboard panel collapse behavior", () => {
+    render(
+      <DashboardPanel title="Pipeline" collapsible slots={{ footer: <div>Footer Slot</div> }}>
+        <div>Panel Content</div>
+      </DashboardPanel>
+    );
+
+    expect(screen.getByText("Panel Content")).toBeInTheDocument();
+    expect(screen.getByText("Footer Slot")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.queryByText("Panel Content")).not.toBeInTheDocument();
   });
 });
