@@ -48,4 +48,10 @@
 - [x] Wire AgentChatSidebar to real Together.ai streaming endpoint
 - [x] Write tests for Together.ai chat integration
 - [x] Verify dev server and test chat flow
-- [ ] Push migration changes to GitHub
+- [x] Push migration changes to GitHub
+- [x] Design agent registry with system prompts, tools, and model mappings for all 6 agents
+- [x] Build server-side agent router with per-agent tool execution
+- [x] Update AgentChatSidebar to support agent selection and context switching
+- [x] Wire Agents page and CaseCanvas to dispatch to specific agents
+- [x] Write tests for agent routing and tool execution
+- [ ] Push 6-agent integration to GitHub

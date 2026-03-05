@@ -12,9 +12,11 @@ import {
   ArrowLeft, Eye, Clock, Play, CheckCircle2, AlertTriangle,
   ChevronUp, ChevronDown, ExternalLink, Plus, Loader2,
   FileText, Shield, X, Zap, Lock, RotateCcw, Info,
-  TrendingUp, DollarSign, Target, BarChart3, GitBranch
+  TrendingUp, DollarSign, Target, BarChart3, GitBranch,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAgentDispatch } from "@/components/layout/MainLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -914,6 +916,22 @@ function RealizationStage() {
 }
 
 /* ============================================================
+   AGENT CHAT BUTTON (inline in workflow steps)
+   ============================================================ */
+function AgentChatButton({ slug }: { slug: string }) {
+  const { openAgent } = useAgentDispatch();
+  return (
+    <button
+      onClick={() => openAgent(slug)}
+      className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center hover:bg-muted"
+      title="Chat with this agent"
+    >
+      <MessageSquare className="w-3 h-3 text-muted-foreground" />
+    </button>
+  );
+}
+
+/* ============================================================
    AGENT WORKFLOW PANEL (right side)
    ============================================================ */
 function AgentWorkflowPanel() {
@@ -922,8 +940,18 @@ function AgentWorkflowPanel() {
       <div className="p-4">
         <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground mb-4">Agent Workflow</p>
         <div className="space-y-0">
-          {agentWorkflowSteps.map((step, i) => (
-            <div key={step.id} className="flex items-start gap-3 relative">
+          {agentWorkflowSteps.map((step, i) => {
+            const agentSlugMap: Record<string, string> = {
+              "Opportunity Agent": "opportunity",
+              "Research Agent": "research",
+              "Integrity Agent": "integrity",
+              "Target Agent": "target",
+              "Narrative Agent": "narrative",
+              "Red Team Agent": "redteam",
+            };
+            const slug = agentSlugMap[step.agent] || "architect";
+            return (
+            <div key={step.id} className="flex items-start gap-3 relative group">
               {/* Timeline line */}
               {i < agentWorkflowSteps.length - 1 && (
                 <div className="absolute left-[9px] top-5 bottom-0 w-0.5 bg-border" />
@@ -937,12 +965,16 @@ function AgentWorkflowPanel() {
                 {step.status === "completed" && <CheckCircle2 className="w-3 h-3 text-white" />}
                 {step.status === "running" && <Loader2 className="w-3 h-3 text-white animate-spin" />}
               </div>
-              <div className="pb-5">
-                <p className="text-[12.5px] font-medium text-foreground">{step.name}</p>
+              <div className="pb-5 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-[12.5px] font-medium text-foreground">{step.name}</p>
+                  <AgentChatButton slug={slug} />
+                </div>
                 <p className="text-[10.5px] text-muted-foreground">{step.agent} · {step.duration}</p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
