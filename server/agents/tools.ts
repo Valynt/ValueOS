@@ -1,13 +1,47 @@
 /**
- * Agent Tool Executor
+ * Agent Tool Executor — Live API Integration
  *
  * Handles tool calls from Together.ai function-calling responses.
- * Each tool function maps to a real backend operation (enrichment,
- * SEC search, industry lookup, etc.) or returns a structured
- * LLM-generated analysis for tools that don't have a dedicated API.
+ * Each data-retrieval tool calls the shared enrichment service directly
+ * (no HTTP loopback), while analysis tools use the Together.ai LLM.
+ *
+ * Data sources:
+ *  - SEC EDGAR (company filings, CIK, SIC codes)
+ *  - Yahoo Finance (stock profile, financials, executives)
+ *  - LinkedIn (company details, staff count, specialties)
+ *  - BLS (employment stats, wage data, labor trends)
+ *  - Census Bureau (establishment counts, market size proxy)
+ *
+ * Analysis tools (LLM-powered):
+ *  - validate_claim — evidence tier classification
+ *  - build_value_tree — financial projection modeling
+ *  - generate_narrative — executive-ready writing
+ *  - stress_test_assumption — adversarial analysis
+ *  - competitive_analysis — competitive landscape synthesis
  */
 
 import { together, MODELS } from "../togetherClient";
+import {
+  runFullEnrichment,
+  fetchSECCompany,
+  searchSECFilings,
+  fetchBLSData,
+  fetchCensusData,
+  fetchYahooFinance,
+  fetchLinkedIn,
+  guessTickerFromName,
+  type FullEnrichmentResult,
+  type SECCompanyInfo,
+  type BLSResult,
+  type CensusResult,
+  type YahooFinanceResult,
+  type LinkedInResult,
+} from "../lib/enrichmentService";
+import {
+  getCachedEnrichment,
+  setCachedEnrichment,
+  DEFAULT_CACHE_TTL_MS,
+} from "../enrichmentCache";
 
 /**
  * Execute a tool call by name with the given arguments.
@@ -17,39 +51,49 @@ export async function executeTool(
   toolName: string,
   args: Record<string, unknown>
 ): Promise<string> {
+  const startMs = Date.now();
   try {
+    let result: string;
+
     switch (toolName) {
+      // ── Data retrieval tools (live API calls) ──────────────────────
       case "enrich_company":
-        return await enrichCompany(args.companyName as string);
+        result = await enrichCompany(args.companyName as string);
+        break;
 
       case "search_sec_filings":
-        return await searchSecFilings(
+        result = await searchSecFilingsTool(
           args.companyName as string,
           args.formType as string | undefined
         );
+        break;
 
       case "lookup_industry_data":
-        return await lookupIndustryData(
+        result = await lookupIndustryData(
           args.sicCode as string | undefined,
           args.industryName as string | undefined
         );
+        break;
 
+      // ── LLM-powered analysis tools ────────────────────────────────
       case "validate_claim":
-        return await validateClaim(
+        result = await validateClaim(
           args.claim as string,
           args.companyName as string,
           args.sources as string[] | undefined
         );
+        break;
 
       case "build_value_tree":
-        return await buildValueTree(
+        result = await buildValueTree(
           args.companyName as string,
           args.hypotheses as string[],
           args.timeHorizonMonths as number | undefined
         );
+        break;
 
       case "generate_narrative":
-        return await generateNarrative(
+        result = await generateNarrative(
           args.companyName as string,
           args.caseTitle as string,
           args.totalValue as number,
@@ -59,152 +103,165 @@ export async function executeTool(
             items: string[];
           }> | undefined
         );
+        break;
 
       case "stress_test_assumption":
-        return await stressTestAssumption(
+        result = await stressTestAssumption(
           args.assumption as string,
           args.context as string | undefined
         );
+        break;
 
       case "competitive_analysis":
-        return await competitiveAnalysis(
+        result = await competitiveAnalysis(
           args.companyName as string,
           args.industry as string | undefined
         );
+        break;
 
       default:
-        return JSON.stringify({
-          error: `Unknown tool: ${toolName}`,
-        });
+        result = JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
+
+    const latencyMs = Date.now() - startMs;
+    console.log(`[Agent Tool] ${toolName} completed in ${latencyMs}ms`);
+    return result;
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Tool execution failed";
-    console.error(`[Agent Tool] ${toolName} failed:`, msg);
+    const msg =
+      error instanceof Error ? error.message : "Tool execution failed";
+    const latencyMs = Date.now() - startMs;
+    console.error(`[Agent Tool] ${toolName} failed after ${latencyMs}ms:`, msg);
     return JSON.stringify({ error: msg, tool: toolName });
   }
 }
 
 /* ============================================================
-   TOOL IMPLEMENTATIONS
+   DATA RETRIEVAL TOOLS — Live API calls via enrichmentService
    ============================================================ */
 
 /**
- * Enrich a company using the ESO pipeline (SEC + Yahoo + LinkedIn + BLS + Census).
- * Calls the enrichment tRPC procedure internally.
+ * Enrich a company using the full 5-source ESO pipeline.
+ * Checks the enrichment cache first, then falls back to live API calls.
  */
 async function enrichCompany(companyName: string): Promise<string> {
-  // Call the internal enrichment endpoint directly
   try {
-    const baseUrl = `http://localhost:${process.env.PORT || 3000}`;
-    const response = await fetch(`${baseUrl}/api/trpc/enrichment.enrichCompany`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        json: { companyName, forceRefresh: false },
-      }),
-    });
-
-    if (!response.ok) {
-      return JSON.stringify({
-        tool: "enrich_company",
-        status: "error",
-        message: `Enrichment API returned ${response.status}`,
-        companyName,
-      });
-    }
-
-    const data = await response.json();
-    const result = data?.result?.data?.json;
-
-    if (result) {
-      // Return a clean summary for the LLM
+    // Check cache first
+    const cached = await getCachedEnrichment(companyName, DEFAULT_CACHE_TTL_MS);
+    if (cached) {
+      console.log(
+        `[Agent Tool] enrich_company: cache HIT for "${companyName}" (age: ${Math.round(cached.meta.cacheAgeMs / 1000)}s)`
+      );
+      const data = cached.data as unknown as FullEnrichmentResult;
       return JSON.stringify({
         tool: "enrich_company",
         status: "success",
-        companyName: result.companyName,
-        ticker: result.ticker,
-        industry: result.industry,
-        revenue: result.revenue,
-        employees: result.employees,
-        marketCap: result.marketCap,
-        headquarters: result.headquarters,
-        description: result.description,
-        industryEmployment: result.industryEmployment,
-        avgIndustryWage: result.avgIndustryWage,
-        laborTrend: result.laborTrend,
-        marketSizeProxy: result.marketSizeProxy,
-        establishmentCount: result.establishmentCount,
-        sources: result.sources,
-        confidence: result.confidence,
+        cached: true,
+        cacheAgeSeconds: Math.round(cached.meta.cacheAgeMs / 1000),
+        companyName: data.companyName ?? companyName,
+        ticker: data.ticker,
+        industry: data.industry,
+        sector: data.sector,
+        sicCode: data.sicCode,
+        employees: data.employees,
+        headquarters: data.headquarters,
+        website: data.website,
+        description: typeof data.description === "string" ? data.description.slice(0, 500) : "N/A",
+        revenue: data.revenue,
+        marketCap: data.marketCap,
+        stockPrice: data.stockPrice,
+        industryEmployment: data.industryEmployment,
+        avgIndustryWage: data.avgIndustryWage,
+        laborTrend: data.laborTrend,
+        marketSizeProxy: data.marketSizeProxy,
+        establishmentCount: data.establishmentCount,
+        executives: data.executives?.slice(0, 3),
+        recentFilings: data.recentFilings?.slice(0, 5),
+        sources: data.sources,
+        confidence: data.confidence,
       });
     }
 
+    // Cache miss — run full enrichment pipeline
+    console.log(`[Agent Tool] enrich_company: cache MISS for "${companyName}" — calling live APIs`);
+    const result = await runFullEnrichment(companyName);
+
+    // Store in cache (async, don't block)
+    const successSources = result.sources.filter(
+      (s) => s.status === "success"
+    ).length;
+    setCachedEnrichment(
+      companyName,
+      result as unknown as Record<string, unknown>,
+      result.confidence,
+      successSources,
+      0
+    ).catch((err) =>
+      console.error("[Agent Tool] Failed to cache enrichment:", err)
+    );
+
     return JSON.stringify({
       tool: "enrich_company",
-      status: "partial",
-      message: "Enrichment returned incomplete data",
-      companyName,
+      status: "success",
+      cached: false,
+      companyName: result.companyName,
+      ticker: result.ticker,
+      industry: result.industry,
+      sector: result.sector,
+      sicCode: result.sicCode,
+      employees: result.employees,
+      headquarters: result.headquarters,
+      website: result.website,
+      description: result.description?.slice(0, 500),
+      revenue: result.revenue,
+      marketCap: result.marketCap,
+      stockPrice: result.stockPrice,
+      industryEmployment: result.industryEmployment,
+      avgIndustryWage: result.avgIndustryWage,
+      laborTrend: result.laborTrend,
+      marketSizeProxy: result.marketSizeProxy,
+      establishmentCount: result.establishmentCount,
+      executives: result.executives?.slice(0, 3),
+      recentFilings: result.recentFilings?.slice(0, 5),
+      sources: result.sources,
+      confidence: result.confidence,
     });
   } catch (error) {
     return JSON.stringify({
       tool: "enrich_company",
       status: "error",
-      message: error instanceof Error ? error.message : "Failed to call enrichment",
+      message:
+        error instanceof Error ? error.message : "Enrichment pipeline failed",
       companyName,
     });
   }
 }
 
 /**
- * Search SEC EDGAR for company filings.
+ * Search SEC EDGAR for company filings using EFTS full-text search.
+ * Falls back to company submissions endpoint if EFTS is unavailable.
  */
-async function searchSecFilings(
+async function searchSecFilingsTool(
   companyName: string,
   formType?: string
 ): Promise<string> {
   try {
-    // Use SEC EDGAR full-text search API
-    const query = encodeURIComponent(companyName);
-    const url = `https://efts.sec.gov/LATEST/search-index?q=${query}&dateRange=custom&startdt=2023-01-01&forms=${formType || "10-K,10-Q,8-K"}&hits.hits.total=5`;
+    const result = await searchSECFilings(companyName, formType);
 
-    const response = await fetch(
-      `https://efts.sec.gov/LATEST/search-index?q=${query}&forms=${formType || "10-K"}&hits.hits._source=file_date,display_names,form_type,file_num`,
-      {
-        headers: {
-          "User-Agent": "ValueOS/1.0 (enterprise-value-engineering)",
-          Accept: "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      // Fallback: use the company tickers endpoint
-      const tickerRes = await fetch(
-        `https://www.sec.gov/cgi-bin/browse-edgar?company=${query}&CIK=&type=${formType || "10-K"}&dateb=&owner=include&count=5&search_text=&action=getcompany`,
-        {
-          headers: {
-            "User-Agent": "ValueOS/1.0 (enterprise-value-engineering)",
-          },
-        }
-      );
-
-      return JSON.stringify({
-        tool: "search_sec_filings",
-        status: "partial",
-        message: `SEC search returned ${response.status}. Try using the company's CIK number or ticker symbol for more precise results.`,
-        companyName,
-        formType: formType || "10-K",
-        edgarUrl: `https://www.sec.gov/cgi-bin/browse-edgar?company=${query}&CIK=&type=${formType || "10-K"}&action=getcompany`,
-      });
-    }
-
-    const data = await response.json();
     return JSON.stringify({
       tool: "search_sec_filings",
-      status: "success",
+      status: result.status,
       companyName,
       formType: formType || "all",
-      results: data,
+      totalHits: result.totalHits,
+      filings: result.filings.slice(0, 10).map((f) => ({
+        form: f.form,
+        filingDate: f.filingDate,
+        companyName: f.companyName,
+        cik: f.cik,
+        fileUrl: f.fileUrl,
+      })),
+      edgarUrl: result.edgarUrl,
+      error: result.error,
     });
   } catch (error) {
     return JSON.stringify({
@@ -218,61 +275,119 @@ async function searchSecFilings(
 }
 
 /**
- * Look up BLS and Census industry data.
+ * Look up BLS and Census industry data by SIC code or industry name.
+ * If only industryName is provided, attempts to resolve a SIC code first
+ * via SEC EDGAR company lookup.
  */
 async function lookupIndustryData(
   sicCode?: string,
   industryName?: string
 ): Promise<string> {
-  const code = sicCode || "7372"; // Default to software if no code provided
-
   try {
-    // BLS Quarterly Census of Employment and Wages
-    const blsUrl = `https://api.bls.gov/publicAPI/v2/timeseries/data/CEU${code.padStart(8, "0")}01`;
-    const censusUrl = `https://api.census.gov/data/2021/cbp?get=ESTAB,EMP,PAYANN&for=us:*&NAICS2017=${code.slice(0, 2)}`;
+    // If no SIC code provided but we have an industry name, try to resolve it
+    let resolvedSicCode = sicCode;
+    let resolvedCompanyName: string | undefined;
 
-    const [blsRes, censusRes] = await Promise.allSettled([
-      fetch(blsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          seriesid: [`CEU${code.padStart(8, "0")}01`],
-          startyear: "2023",
-          endyear: "2025",
-        }),
-      }),
-      fetch(censusUrl),
+    if (!resolvedSicCode && industryName) {
+      // Try to find a representative company in SEC EDGAR
+      const secResult = await fetchSECCompany(industryName);
+      if (secResult?.sic) {
+        resolvedSicCode = secResult.sic;
+        resolvedCompanyName = secResult.name;
+        console.log(
+          `[Agent Tool] lookup_industry_data: resolved "${industryName}" → SIC ${resolvedSicCode} via ${resolvedCompanyName}`
+        );
+      }
+    }
+
+    // Default to software (7372) if still no SIC code
+    const code = resolvedSicCode || "7372";
+
+    // Fetch BLS and Census data in parallel
+    const [blsResult, censusResult] = await Promise.allSettled([
+      fetchBLSData(code),
+      fetchCensusData(code),
     ]);
 
-    const result: Record<string, unknown> = {
+    const bls: BLSResult =
+      blsResult.status === "fulfilled"
+        ? blsResult.value
+        : {
+            industryEmployment: "N/A",
+            avgHourlyWage: "N/A",
+            laborTrend: "N/A",
+            sectorLabel: "N/A",
+          };
+
+    const census: CensusResult =
+      censusResult.status === "fulfilled"
+        ? censusResult.value
+        : { marketSizeProxy: "N/A", establishmentCount: "N/A" };
+
+    const hasBlsData = bls.industryEmployment !== "N/A" || bls.avgHourlyWage !== "N/A";
+    const hasCensusData = census.marketSizeProxy !== "N/A" || census.establishmentCount !== "N/A";
+
+    return JSON.stringify({
       tool: "lookup_industry_data",
-      status: "success",
+      status: hasBlsData || hasCensusData ? "success" : "partial",
       sicCode: code,
-      industryName: industryName || "Unknown",
-    };
-
-    if (blsRes.status === "fulfilled" && blsRes.value.ok) {
-      const blsData = await blsRes.value.json();
-      result.blsData = blsData;
-    } else {
-      result.blsStatus = "unavailable";
-    }
-
-    if (censusRes.status === "fulfilled" && censusRes.value.ok) {
-      const censusData = await censusRes.value.json();
-      result.censusData = censusData;
-    } else {
-      result.censusStatus = "unavailable";
-    }
-
-    return JSON.stringify(result);
+      industryName: industryName || bls.sectorLabel || "Unknown",
+      resolvedFrom: resolvedCompanyName || null,
+      bls: {
+        sectorLabel: bls.sectorLabel,
+        industryEmployment: bls.industryEmployment,
+        avgHourlyWage: bls.avgHourlyWage,
+        laborTrend: bls.laborTrend,
+      },
+      census: {
+        marketSizeProxy: census.marketSizeProxy,
+        establishmentCount: census.establishmentCount,
+      },
+    });
   } catch (error) {
     return JSON.stringify({
       tool: "lookup_industry_data",
       status: "error",
-      message: error instanceof Error ? error.message : "Industry data lookup failed",
-      sicCode: code,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Industry data lookup failed",
+      sicCode: sicCode || "unknown",
     });
+  }
+}
+
+/* ============================================================
+   LLM-POWERED ANALYSIS TOOLS
+   ============================================================ */
+
+/**
+ * Strip DeepSeek-R1 <think>...</think> reasoning tokens from output.
+ * Returns only the final answer content.
+ */
+function stripThinkTokens(content: string): string {
+  return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
+/**
+ * Safely parse JSON from LLM output, handling markdown fences and think tokens.
+ */
+function safeParseLLMJson(content: string): Record<string, unknown> | null {
+  const cleaned = stripThinkTokens(content);
+  // Try direct parse first
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Try extracting from markdown code fence
+    const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenceMatch) {
+      try {
+        return JSON.parse(fenceMatch[1]);
+      } catch {
+        // fall through
+      }
+    }
+    return null;
   }
 }
 
@@ -284,14 +399,16 @@ async function validateClaim(
   companyName: string,
   sources?: string[]
 ): Promise<string> {
-  const sourceList = sources?.length ? sources.join(", ") : "No sources provided";
+  const sourceList = sources?.length
+    ? sources.join(", ")
+    : "No sources provided";
 
   const response = await together.chat.completions.create({
     model: MODELS.fast,
     messages: [
       {
         role: "system",
-        content: `You are a fact-checking analyst. Evaluate the following claim and classify it into an evidence tier. Respond ONLY with valid JSON.`,
+        content: `You are a fact-checking analyst. Evaluate the following claim and classify it into an evidence tier. Respond ONLY with valid JSON, no markdown fences.`,
       },
       {
         role: "user",
@@ -315,22 +432,28 @@ Classify this claim:
   });
 
   const content = response.choices[0]?.message?.content || "{}";
+  const parsed = safeParseLLMJson(content);
 
-  try {
-    const parsed = JSON.parse(content);
-    return JSON.stringify({ tool: "validate_claim", status: "success", claim, ...parsed });
-  } catch {
+  if (parsed) {
     return JSON.stringify({
       tool: "validate_claim",
       status: "success",
       claim,
-      rawAnalysis: content,
+      ...parsed,
     });
   }
+
+  return JSON.stringify({
+    tool: "validate_claim",
+    status: "success",
+    claim,
+    rawAnalysis: stripThinkTokens(content),
+  });
 }
 
 /**
  * Build a value tree — uses the LLM to structure financial projections.
+ * Enriches with live data when possible.
  */
 async function buildValueTree(
   companyName: string,
@@ -339,12 +462,28 @@ async function buildValueTree(
 ): Promise<string> {
   const horizon = timeHorizonMonths || 36;
 
+  // Try to get live financial context for better projections
+  let financialContext = "";
+  try {
+    const yahoo = await fetchYahooFinance(companyName);
+    if (yahoo.status !== "error") {
+      financialContext = `\nLive financial data for ${companyName}:
+- Revenue: ${yahoo.revenue}
+- Market Cap: ${yahoo.marketCap}
+- Employees: ${yahoo.employees ?? "N/A"}
+- Industry: ${yahoo.industry}
+- Sector: ${yahoo.sector}`;
+    }
+  } catch {
+    // Continue without financial context
+  }
+
   const response = await together.chat.completions.create({
     model: MODELS.toolCalling,
     messages: [
       {
         role: "system",
-        content: `You are a financial modeling specialist. Build a value tree from the given hypotheses. Respond ONLY with valid JSON.`,
+        content: `You are a financial modeling specialist. Build a value tree from the given hypotheses. Respond ONLY with valid JSON, no markdown fences.`,
       },
       {
         role: "user",
@@ -352,6 +491,7 @@ async function buildValueTree(
 Time horizon: ${horizon} months
 Hypotheses:
 ${hypotheses.map((h, i) => `${i + 1}. ${h}`).join("\n")}
+${financialContext}
 
 Build a value tree:
 {
@@ -380,9 +520,9 @@ Build a value tree:
   });
 
   const content = response.choices[0]?.message?.content || "{}";
+  const parsed = safeParseLLMJson(content);
 
-  try {
-    const parsed = JSON.parse(content);
+  if (parsed) {
     return JSON.stringify({
       tool: "build_value_tree",
       status: "success",
@@ -390,14 +530,14 @@ Build a value tree:
       timeHorizonMonths: horizon,
       ...parsed,
     });
-  } catch {
-    return JSON.stringify({
-      tool: "build_value_tree",
-      status: "success",
-      companyName,
-      rawAnalysis: content,
-    });
   }
+
+  return JSON.stringify({
+    tool: "build_value_tree",
+    status: "success",
+    companyName,
+    rawAnalysis: stripThinkTokens(content),
+  });
 }
 
 /**
@@ -453,7 +593,7 @@ Write:
     companyName,
     caseTitle,
     totalValue,
-    narrative: content,
+    narrative: stripThinkTokens(content),
   });
 }
 
@@ -469,7 +609,7 @@ async function stressTestAssumption(
     messages: [
       {
         role: "system",
-        content: `You are a skeptical financial analyst. Your job is to find weaknesses in value case assumptions. Respond with valid JSON.`,
+        content: `You are a skeptical financial analyst. Your job is to find weaknesses in value case assumptions. Respond with valid JSON only, no markdown fences, no <think> tags in your final answer.`,
       },
       {
         role: "user",
@@ -497,43 +637,62 @@ Generate a stress test:
   });
 
   const content = response.choices[0]?.message?.content || "{}";
+  const parsed = safeParseLLMJson(content);
 
-  try {
-    const parsed = JSON.parse(content);
+  if (parsed) {
     return JSON.stringify({
       tool: "stress_test_assumption",
       status: "success",
       assumption,
       ...parsed,
     });
-  } catch {
-    return JSON.stringify({
-      tool: "stress_test_assumption",
-      status: "success",
-      assumption,
-      rawAnalysis: content,
-    });
   }
+
+  return JSON.stringify({
+    tool: "stress_test_assumption",
+    status: "success",
+    assumption,
+    rawAnalysis: stripThinkTokens(content),
+  });
 }
 
 /**
- * Competitive analysis — uses the LLM to synthesize competitive landscape.
+ * Competitive analysis — enriches with live Yahoo Finance data for competitors,
+ * then uses the LLM to synthesize the competitive landscape.
  */
 async function competitiveAnalysis(
   companyName: string,
   industry?: string
 ): Promise<string> {
+  // Try to get live data for the target company
+  let companyContext = "";
+  try {
+    const yahoo = await fetchYahooFinance(companyName);
+    if (yahoo.status !== "error") {
+      companyContext = `\nLive data for ${companyName}:
+- Sector: ${yahoo.sector}
+- Industry: ${yahoo.industry}
+- Revenue: ${yahoo.revenue}
+- Market Cap: ${yahoo.marketCap}
+- Employees: ${yahoo.employees ?? "N/A"}
+- Stock Price: ${yahoo.stockPrice}`;
+    }
+  } catch {
+    // Continue without live data
+  }
+
   const response = await together.chat.completions.create({
     model: MODELS.chat,
     messages: [
       {
         role: "system",
-        content: `You are a competitive intelligence analyst. Analyze the competitive landscape. Respond with valid JSON.`,
+        content: `You are a competitive intelligence analyst. Analyze the competitive landscape. Respond with valid JSON only, no markdown fences.`,
       },
       {
         role: "user",
         content: `Company: ${companyName}
 ${industry ? `Industry: ${industry}` : ""}
+${companyContext}
 
 Analyze the competitive landscape:
 {
@@ -558,9 +717,9 @@ Analyze the competitive landscape:
   });
 
   const content = response.choices[0]?.message?.content || "{}";
+  const parsed = safeParseLLMJson(content);
 
-  try {
-    const parsed = JSON.parse(content);
+  if (parsed) {
     return JSON.stringify({
       tool: "competitive_analysis",
       status: "success",
@@ -568,12 +727,12 @@ Analyze the competitive landscape:
       industry: industry || "Unknown",
       ...parsed,
     });
-  } catch {
-    return JSON.stringify({
-      tool: "competitive_analysis",
-      status: "success",
-      companyName,
-      rawAnalysis: content,
-    });
   }
+
+  return JSON.stringify({
+    tool: "competitive_analysis",
+    status: "success",
+    companyName,
+    rawAnalysis: stripThinkTokens(content),
+  });
 }

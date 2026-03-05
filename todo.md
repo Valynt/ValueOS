@@ -55,11 +55,16 @@
 - [x] Wire Agents page and CaseCanvas to dispatch to specific agents
 - [x] Write tests for agent routing and tool execution
 - [x] Push 6-agent integration to GitHub
-- [ ] Refactor enrichment logic into reusable service functions
-- [ ] Wire agent tool executor to call live SEC/BLS/Census/Yahoo/LinkedIn APIs
-- [ ] Update tests for live tool execution integration
+- [x] Refactor enrichment logic into reusable service functions
+- [x] Wire agent tool executor to call live SEC/BLS/Census/Yahoo/LinkedIn APIs
+- [x] Update tests for live tool execution integration
 - [ ] Push live agent tools to GitHub
 - [x] Update Strategy page content to reflect completed migration (past tense, not future)
 - [x] Incorporate strategic review feedback (SDK Removal Paradox response, DeepSeek-R1 parsing, context window optimization, risk mitigations, updated model-to-agent mapping)
 - [x] Fix ON THIS PAGE sidebar overlap with main nav sidebar
 - [x] Fix floating Together.ai logo/link positioning
+- [x] Create server/lib/enrichmentService.ts with live API tool functions for all 5 data sources
+- [x] Wire tool executor into agent chat router for multi-round tool calling
+- [x] Add enrichment cache integration to tool executor for performance
+- [x] Write vitest tests for tool executor functions (23 tests passing)
+- [x] Verify end-to-end agent tool calling with live data
