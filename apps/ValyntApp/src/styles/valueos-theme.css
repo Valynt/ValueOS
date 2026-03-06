@@ -126,6 +126,11 @@
     --border: var(--valueos-neutral-border);
     --input: var(--valueos-neutral-border);
     --ring: var(--valueos-primary);
+    --focus-ring-color: var(--ring);
+    --focus-ring-error-color: var(--destructive);
+    --focus-ring-offset-color: var(--background);
+    --focus-ring-width: 2px;
+    --focus-ring-offset-width: 2px;
     
     /* Sidebar */
     --sidebar-background: var(--valueos-neutral-foreground);
@@ -253,6 +258,11 @@
     --border: var(--valueos-neutral-border);
     --input: var(--valueos-neutral-border);
     --ring: var(--valueos-primary);
+    --focus-ring-color: var(--ring);
+    --focus-ring-error-color: var(--destructive);
+    --focus-ring-offset-color: var(--background);
+    --focus-ring-width: 2px;
+    --focus-ring-offset-width: 2px;
 
     --sidebar-background: var(--valueos-neutral-background);
     --sidebar-foreground: var(--valueos-neutral-foreground);
@@ -298,11 +308,6 @@
 
   h2 {
     letter-spacing: var(--tracking-heading-medium);
-  }
-
-  /* Focus visible styles */
-  :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
   /* Reduced motion */
