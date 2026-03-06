@@ -3,28 +3,56 @@ import express, { Router } from "express";
 
 import { optionalAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
+import {
+  getTenantIdFromRequest,
+  ReadThroughCacheService,
+} from "../services/ReadThroughCacheService.js";
 
 const logger = createLogger("analytics-api");
 const analyticsRouter: Router = express.Router();
 
-// Rate limit analytics ingestion to prevent abuse from unauthenticated clients
 const analyticsLimiter = createRateLimiter("standard", {
   message: "Too many analytics requests. Please slow down.",
 });
 
-// Attach optional auth so we can attribute metrics to a user/tenant when available
 analyticsRouter.use(optionalAuth);
 analyticsRouter.use(analyticsLimiter);
 
-/**
- * Web Vitals analytics endpoint
- * Accepts Core Web Vitals metrics from the frontend
- */
+analyticsRouter.get("/summary", async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromRequest(req as any);
+    const payload = await ReadThroughCacheService.getOrLoad(
+      {
+        tenantId,
+        endpoint: "api-analytics-summary",
+        scope: "summary",
+        tier: "warm",
+        keyPayload: req.query,
+      },
+      async () => ({
+        success: true,
+        data: {
+          period: (req.query.period as string) || "24h",
+          generatedAt: new Date().toISOString(),
+          webVitalsEvents: 0,
+          performanceEvents: 0,
+        },
+      })
+    );
+
+    res.status(200).json(payload);
+    return;
+  } catch (error) {
+    logger.error("Failed to load analytics summary", error instanceof Error ? error : undefined);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+});
+
 analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
   try {
-    const { name, value, rating, delta, entries, userAgent, url, timestamp } = req.body;
+    const { name, value, rating, delta, userAgent, url, timestamp } = req.body;
 
-    // Validate required fields
     if (!name || typeof value !== "number") {
       return res.status(400).json({
         error: "Invalid payload",
@@ -32,7 +60,6 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
       });
     }
 
-    // Log the metric for analysis
     logger.info("Web Vital recorded", {
       name,
       value: Math.round(value),
@@ -44,21 +71,8 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
       ip: req.ip,
     });
 
-    // In production, you might want to:
-    // 1. Store in database for historical analysis
-    // 2. Send to monitoring service (DataDog, New Relic, etc.)
-    // 3. Aggregate metrics for alerting
-
-    // Example: Store in database (placeholder)
-    // await supabase.from('web_vitals').insert({
-    //   name,
-    //   value,
-    //   rating,
-    //   url,
-    //   user_agent: userAgent,
-    //   timestamp: new Date(timestamp),
-    //   organization_id: req.organizationId, // from tenant context
-    // });
+    const tenantId = getTenantIdFromRequest(req as any);
+    await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
 
     res.status(200).json({ success: true });
     return;
@@ -69,10 +83,6 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
   }
 });
 
-/**
- * Performance metrics endpoint
- * Accepts general performance metrics
- */
 analyticsRouter.post("/performance", express.json(), async (req, res) => {
   try {
     const { type, data, timestamp } = req.body;
@@ -83,6 +93,9 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
       timestamp: timestamp || new Date().toISOString(),
       ip: req.ip,
     });
+
+    const tenantId = getTenantIdFromRequest(req as any);
+    await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
 
     res.status(200).json({ success: true });
     return;

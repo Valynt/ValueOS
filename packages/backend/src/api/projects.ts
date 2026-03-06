@@ -8,7 +8,11 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "../lib/errors";
-import { asyncHandler } from "../middleware/globalErrorHandler.js"
+import { asyncHandler } from "../middleware/globalErrorHandler.js";
+import {
+  getTenantIdFromRequest,
+  ReadThroughCacheService,
+} from "../services/ReadThroughCacheService.js";
 
 const router = Router();
 
@@ -77,6 +81,14 @@ function deriveOwnerId(req: Request): string {
   return ownerId?.trim() || "unknown-user";
 }
 
+async function invalidateProjectCache(req: Request): Promise<void> {
+  const tenantId = getTenantIdFromRequest(req as any);
+  await Promise.all([
+    ReadThroughCacheService.invalidateEndpoint(tenantId, "api-projects-list"),
+    ReadThroughCacheService.invalidateEndpoint(tenantId, "api-projects-detail"),
+  ]);
+}
+
 router.post(
   "/",
   asyncHandler(async (req: Request, res: Response) => {
@@ -107,6 +119,7 @@ router.post(
     };
 
     projects.set(project.id, project);
+    await invalidateProjectCache(req);
 
     res.status(201).json({ data: project });
   })
@@ -118,35 +131,49 @@ router.get(
     requireBearerToken(req);
 
     const { page, pageSize, status, search } = listQuerySchema.parse(req.query);
-    const allProjects = Array.from(projects.values());
+    const tenantId = getTenantIdFromRequest(req as any);
 
-    const filtered = allProjects.filter((project) => {
-      if (status && project.status !== status) {
-        return false;
-      }
-
-      if (search) {
-        const lowerSearch = search.toLowerCase();
-        return (
-          project.name.toLowerCase().includes(lowerSearch) ||
-          project.description?.toLowerCase().includes(lowerSearch)
-        );
-      }
-
-      return true;
-    });
-
-    const start = (page - 1) * pageSize;
-    const items = filtered.slice(start, start + pageSize);
-
-    res.json({
-      data: {
-        items,
-        page,
-        pageSize,
-        total: filtered.length,
+    const payload = await ReadThroughCacheService.getOrLoad(
+      {
+        tenantId,
+        endpoint: "api-projects-list",
+        scope: "list",
+        tier: "warm",
+        keyPayload: { page, pageSize, status, search },
       },
-    });
+      async () => {
+        const allProjects = Array.from(projects.values());
+        const filtered = allProjects.filter((project) => {
+          if (status && project.status !== status) {
+            return false;
+          }
+
+          if (search) {
+            const lowerSearch = search.toLowerCase();
+            return (
+              project.name.toLowerCase().includes(lowerSearch) ||
+              project.description?.toLowerCase().includes(lowerSearch)
+            );
+          }
+
+          return true;
+        });
+
+        const start = (page - 1) * pageSize;
+        const items = filtered.slice(start, start + pageSize);
+
+        return {
+          data: {
+            items,
+            page,
+            pageSize,
+            total: filtered.length,
+          },
+        };
+      }
+    );
+
+    res.json(payload);
   })
 );
 
@@ -155,12 +182,25 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     requireBearerToken(req);
 
-    const project = projects.get(req.params.projectId);
-    if (!project) {
-      throw new NotFoundError("Project", req.params.projectId);
-    }
+    const tenantId = getTenantIdFromRequest(req as any);
+    const payload = await ReadThroughCacheService.getOrLoad(
+      {
+        tenantId,
+        endpoint: "api-projects-detail",
+        scope: req.params.projectId,
+        tier: "cold",
+      },
+      async () => {
+        const project = projects.get(req.params.projectId);
+        if (!project) {
+          throw new NotFoundError("Project", req.params.projectId);
+        }
 
-    res.json({ data: project });
+        return { data: project };
+      }
+    );
+
+    res.json(payload);
   })
 );
 
@@ -184,6 +224,8 @@ router.patch(
     };
 
     projects.set(updated.id, updated);
+    await invalidateProjectCache(req);
+
     res.json({ data: updated });
   })
 );
@@ -200,6 +242,8 @@ router.delete(
     }
 
     projects.delete(req.params.projectId);
+    await invalidateProjectCache(req);
+
     res.status(204).send();
   })
 );
