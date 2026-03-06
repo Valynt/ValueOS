@@ -479,11 +479,11 @@ SLO evaluation is computed per `service`, `tenant_tier`, and `region` labels to 
 
 | Alert ID | Severity | Trigger | Source | Expected Action |
 | --- | --- | --- | --- | --- |
-| `alert-slo-burnrate-api-fast` | Critical | `burn_rate_1h > 14.4` and `burn_rate_5m > 14.4` for any `tenant_tier,region` | Grafana managed alert (`uid: slo-api-fast-burn`) on `SLO-API-AVAIL` | Page Release Captain + On-Call SRE; assess rollback within 10 minutes. |
+| `alert-slo-burnrate-api-fast` | Critical | `burn_rate_1h > 14.4` and `burn_rate_5m > 14.4` for any evaluated SLO segment | Grafana managed alert (`uid: slo-api-fast-burn`) on `SLO-API-AVAIL` | Page Release Captain + On-Call SRE; assess rollback within 10 minutes. |
 | `alert-slo-burnrate-api-slow` | High | `burn_rate_6h > 6` and `burn_rate_30m > 6` | Grafana managed alert (`uid: slo-api-slow-burn`) | Stop progressive rollout; open incident channel. |
 | `alert-slo-burnrate-worker` | High | `burn_rate_6h > 4` and failed jobs concentrated in any segment | Grafana managed alert (`uid: slo-worker-burn`) | Pause queue-consuming deploys; divert traffic if region-specific. |
 
-Burn-rate recording rule ID in Prometheus: `slo:burn_rate:ratio{service,tenant_tier,region,window}`.
+Burn-rate recording rules in Prometheus are defined in `infra/k8s/monitoring/prometheus-slo-rules.yaml` (for example, `slo:api_availability:error_budget_burn_rate5m/1h`).
 
 ### Rollback Signals (Release Captain Decision Inputs)
 
