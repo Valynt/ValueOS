@@ -16,7 +16,7 @@ status: active
 
 ## Beta → GA Migration & Rollout Plan
 
-*Source: `operations/launch-readiness/migration-rollout-plan.md`*
+_Source: `operations/launch-readiness/migration-rollout-plan.md`_
 
 This runbook protects tenant data, de-risks schema changes, and removes beta-only feature flags without service disruption. It is designed for a dry-run on a test tenant followed by GA rollout.
 
@@ -88,6 +88,8 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
 
 ## Blocking Launch Chaos/Smoke Suite (Release Gate)
+
+Related architecture decision: [ADR 0006 — Multi-Tenant Data Isolation and Sharding Strategy](../engineering/adr/0006-multi-tenant-isolation-and-sharding.md).
 
 Before any production go-live, execute the unified suite:
 
