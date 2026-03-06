@@ -32,6 +32,42 @@ To prevent accidental regressions, CI includes `pnpm run ci:governance:self-chec
 - `ci:verify` still contains `pnpm run typecheck:signal --verify`, and
 - critical workflows (`ci-cd.yml`, `ci-tests.yml`, `pr-validation.yml`, `ci-bootstrap.yml`, `ci.yml`) include either `pnpm run ci:verify` or the direct governance command.
 
+## Application Security & Supply-Chain Gates (CI + Deploy)
+
+The following controls are implemented in `.github/workflows/ci.yml` and `.github/workflows/deploy.yml` and are intended to be configured as **required branch protection status checks** for `main` (and `develop` where applicable).
+
+### Required security jobs
+
+- **SAST:** `CodeQL Analysis` (job: `codeql`) in `ci.yml`.
+- **DAST (staging):** `DAST (ZAP Baseline on staging)` (job: `dast-staging`) in `deploy.yml`.
+- **SBOM for release images:** `Release Image SBOM (backend + frontend)` (job: `release-image-sbom`) in `deploy.yml`, uploads SPDX JSON artifacts for immutable backend/frontend image digests.
+- **Image signing + provenance attestation:** `Image Signing + Provenance Attestation` (job: `image-attestation`) in `deploy.yml`, with keyless cosign attestations for SPDX SBOM and SLSA provenance predicates.
+- **Reproducibility check:** `Reproducibility Check (deterministic backend image build)` (job: `reproducibility-check`) in `deploy.yml`, rebuilds backend image twice with deterministic flags and fails on mismatched image IDs.
+
+### Pass/fail criteria
+
+- **CodeQL SAST** passes only when CodeQL initialization + analyze steps succeed; any CodeQL failure fails the job.
+- **DAST (ZAP baseline)** passes only when baseline scan returns no blocking findings (`fail_action: true`); alerts at configured threshold fail the job.
+- **Release image SBOM** passes only when SBOMs are generated for both backend and frontend immutable image refs and uploaded as workflow artifacts.
+- **Image attestation** passes only when cosign can create and publish attestations (SPDX SBOM + SLSA provenance) for both backend and frontend image digests.
+- **Reproducibility** passes only when two independent backend builds produce identical image IDs; mismatch is a hard failure.
+- **Deployment Security Gate (required)** aggregates the above deployment checks and fails if any required job fails/cancels.
+
+### Required branch protection checks
+
+Configure these checks as required in branch protection rules:
+
+- `CI Required Checks`
+- `Security Gate (required)`
+- `Deployment Security Gate (required)`
+- `CodeQL Analysis`
+- `DAST (ZAP Baseline on staging)`
+- `Release Image SBOM (backend + frontend)`
+- `Image Signing + Provenance Attestation`
+- `Reproducibility Check (deterministic backend image build)`
+
+> Note: `Deployment Security Gate (required)` is the single deployment-side aggregation check; keeping underlying jobs required is recommended for direct visibility during enforcement rollout.
+
 ## Workflows
 
 ### 1. Terraform Validation (`terraform-validate.yml`)

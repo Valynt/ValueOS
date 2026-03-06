@@ -367,6 +367,166 @@ jobs:
             --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
             "${IMAGE_REF}"
 
+  release-image-sbom:
+    name: Release Image SBOM (backend + frontend)
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Generate backend image SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ needs.build-images.outputs.image_ref }}
+          format: spdx-json
+          output-file: backend-image.spdx.json
+
+      - name: Generate frontend image SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ needs.build-images.outputs.frontend_image_ref }}
+          format: spdx-json
+          output-file: frontend-image.spdx.json
+
+      - name: Upload release image SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-image-sbom-${{ github.run_id }}
+          path: |
+            backend-image.spdx.json
+            frontend-image.spdx.json
+          retention-days: 90
+
+  image-attestation:
+    name: Image Signing + Provenance Attestation
+    runs-on: ubuntu-latest
+    needs: [build-images, release-image-sbom]
+    if: github.event_name != 'schedule'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      COSIGN_EXPERIMENTAL: "true"
+    steps:
+      - name: Download release image SBOM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-image-sbom-${{ github.run_id }}
+          path: artifacts/release-sbom
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Create provenance predicates
+        run: |
+          mkdir -p artifacts/provenance
+          cat > artifacts/provenance/backend-provenance.json <<EOF
+          {
+            "_type": "https://in-toto.io/Statement/v0.1",
+            "subject": [{"name": "${{ needs.build-images.outputs.image_ref }}"}],
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "predicate": {
+              "buildType": "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+              "builder": {"id": "https://github.com/${{ github.repository }}/.github/workflows/deploy.yml"},
+              "invocation": {
+                "configSource": {
+                  "uri": "git+https://github.com/${{ github.repository }}.git",
+                  "digest": {"sha1": "${{ github.sha }}"},
+                  "entryPoint": ".github/workflows/deploy.yml"
+                }
+              }
+            }
+          }
+          EOF
+
+          cat > artifacts/provenance/frontend-provenance.json <<EOF
+          {
+            "_type": "https://in-toto.io/Statement/v0.1",
+            "subject": [{"name": "${{ needs.build-images.outputs.frontend_image_ref }}"}],
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "predicate": {
+              "buildType": "https://github.com/Attestations/GitHubActionsWorkflow@v1",
+              "builder": {"id": "https://github.com/${{ github.repository }}/.github/workflows/deploy.yml"},
+              "invocation": {
+                "configSource": {
+                  "uri": "git+https://github.com/${{ github.repository }}.git",
+                  "digest": {"sha1": "${{ github.sha }}"},
+                  "entryPoint": ".github/workflows/deploy.yml"
+                }
+              }
+            }
+          }
+          EOF
+
+      - name: Attest backend image SBOM and provenance
+        run: |
+          cosign attest --yes \
+            --type spdxjson \
+            --predicate artifacts/release-sbom/backend-image.spdx.json \
+            "${{ needs.build-images.outputs.image_ref }}"
+
+          cosign attest --yes \
+            --type slsaprovenance \
+            --predicate artifacts/provenance/backend-provenance.json \
+            "${{ needs.build-images.outputs.image_ref }}"
+
+      - name: Attest frontend image SBOM and provenance
+        run: |
+          cosign attest --yes \
+            --type spdxjson \
+            --predicate artifacts/release-sbom/frontend-image.spdx.json \
+            "${{ needs.build-images.outputs.frontend_image_ref }}"
+
+          cosign attest --yes \
+            --type slsaprovenance \
+            --predicate artifacts/provenance/frontend-provenance.json \
+            "${{ needs.build-images.outputs.frontend_image_ref }}"
+
+      - name: Upload provenance predicates
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-image-provenance-${{ github.run_id }}
+          path: artifacts/provenance/*.json
+          retention-days: 90
+
+  reproducibility-check:
+    name: Reproducibility Check (deterministic backend image build)
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image twice and compare image IDs
+        run: |
+          set -euo pipefail
+          docker buildx build --load --provenance=false --sbom=false \
+            -f infra/docker/Dockerfile.backend \
+            --build-arg APP=@valueos/backend \
+            -t reproducibility-backend:first .
+
+          docker buildx build --load --provenance=false --sbom=false \
+            -f infra/docker/Dockerfile.backend \
+            --build-arg APP=@valueos/backend \
+            -t reproducibility-backend:second .
+
+          FIRST_ID="$(docker image inspect reproducibility-backend:first --format '{{.Id}}')"
+          SECOND_ID="$(docker image inspect reproducibility-backend:second --format '{{.Id}}')"
+
+          echo "first_image_id=${FIRST_ID}"
+          echo "second_image_id=${SECOND_ID}"
+
+          if [ "${FIRST_ID}" != "${SECOND_ID}" ]; then
+            echo "Deterministic build verification failed: image IDs differ."
+            exit 1
+          fi
+
+          echo "Deterministic build verification passed."
+
+
+
   # ──────────────────────────────────────────────────────────────────────────
   # 3.5 Stability Seal - Quality gate to run full stability checks before promotion
   # This runs after images are built and supply-chain verified and must pass to promote to production.
@@ -575,13 +735,54 @@ jobs:
 
           echo "No active SLO burn-rate alerts in pre-production."
 
+  dast-staging:
+    name: DAST (ZAP Baseline on staging)
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Run OWASP ZAP baseline scan against staging
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: https://staging.valueos.app
+          fail_action: true
+          cmd_options: >-
+            -a
+            -m 5
+            -T 30
+
+  deployment-security-gate:
+    name: Deployment Security Gate (required)
+    runs-on: ubuntu-latest
+    needs:
+      - verify-supply-chain
+      - release-image-sbom
+      - image-attestation
+      - reproducibility-check
+      - dast-staging
+    if: always() && github.event_name != 'schedule'
+    steps:
+      - name: Enforce required deployment security checks
+        run: |
+          for status in \
+            "${{ needs.verify-supply-chain.result }}" \
+            "${{ needs.release-image-sbom.result }}" \
+            "${{ needs.image-attestation.result }}" \
+            "${{ needs.reproducibility-check.result }}" \
+            "${{ needs.dast-staging.result }}"; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "A required deployment security check failed or was cancelled."
+              exit 1
+            fi
+          done
+
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, preprod-slo-guard, build-images, verify-supply-chain, stability-seal, emergency-skip-audit]
+    needs: [deploy-staging, preprod-slo-guard, build-images, verify-supply-chain, stability-seal, emergency-skip-audit, deployment-security-gate]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
