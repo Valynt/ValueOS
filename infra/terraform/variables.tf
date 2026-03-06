@@ -102,6 +102,31 @@ variable "frontend_desired_count" {
   default     = 2
 }
 
+
+variable "frontend_autoscaling_min_capacity" {
+  description = "Minimum frontend ECS tasks for autoscaling"
+  type        = number
+  default     = 2
+}
+
+variable "frontend_autoscaling_max_capacity" {
+  description = "Maximum frontend ECS tasks for autoscaling"
+  type        = number
+  default     = 5
+}
+
+variable "frontend_autoscaling_cpu_target" {
+  description = "Frontend ECS target average CPU utilization percentage"
+  type        = number
+  default     = 70
+}
+
+variable "frontend_autoscaling_request_count_target" {
+  description = "Frontend ECS ALB requests-per-target target for autoscaling"
+  type        = number
+  default     = 1000
+}
+
 variable "frontend_cpu" {
   description = "Frontend task CPU units"
   type        = number
@@ -124,6 +149,31 @@ variable "backend_desired_count" {
   description = "Desired number of backend tasks"
   type        = number
   default     = 2
+}
+
+
+variable "backend_autoscaling_min_capacity" {
+  description = "Minimum backend ECS tasks for autoscaling"
+  type        = number
+  default     = 2
+}
+
+variable "backend_autoscaling_max_capacity" {
+  description = "Maximum backend ECS tasks for autoscaling"
+  type        = number
+  default     = 10
+}
+
+variable "backend_autoscaling_cpu_target" {
+  description = "Backend ECS target average CPU utilization percentage"
+  type        = number
+  default     = 70
+}
+
+variable "backend_autoscaling_request_count_target" {
+  description = "Backend ECS ALB requests-per-target target for autoscaling"
+  type        = number
+  default     = 1000
 }
 
 variable "backend_cpu" {
