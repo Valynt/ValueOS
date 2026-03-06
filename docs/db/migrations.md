@@ -2,6 +2,8 @@
 
 This document defines the deterministic workflow for schema snapshots and release-time drift checks.
 
+See also: `docs/db/schema-governance-plan.md` for migration governance, hardening gates, and operational controls.
+
 ## Source of truth
 
 All schema changes must originate from the same migration source directory:
