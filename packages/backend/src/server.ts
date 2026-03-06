@@ -110,6 +110,7 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
 
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
 import { createRateLimiter } from "./middleware/rateLimiter.js";
+import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
 import {
   accessLogMiddleware,
   globalErrorHandler,
@@ -155,6 +156,30 @@ const agentExecutionLimiter = createRateLimiter("strict", {
 });
 
 const billingAccessEnforcement = createBillingAccessEnforcement();
+const agentsConcurrencyGuard = createConcurrencyBackpressure("/api/agents", {
+  maxInFlight: 24,
+  maxQueueDepth: 120,
+  queueTimeoutMs: 12000,
+  retryAfterSeconds: 2,
+});
+const groundtruthConcurrencyGuard = createConcurrencyBackpressure("/api/groundtruth", {
+  maxInFlight: 12,
+  maxQueueDepth: 60,
+  queueTimeoutMs: 10000,
+  retryAfterSeconds: 2,
+});
+const llmConcurrencyGuard = createConcurrencyBackpressure("/api/llm", {
+  maxInFlight: 16,
+  maxQueueDepth: 64,
+  queueTimeoutMs: 8000,
+  retryAfterSeconds: 1,
+});
+const onboardingConcurrencyGuard = createConcurrencyBackpressure("/api/onboarding", {
+  maxInFlight: 10,
+  maxQueueDepth: 40,
+  queueTimeoutMs: 15000,
+  retryAfterSeconds: 3,
+});
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -411,6 +436,7 @@ app.use(
   tenantDbContextMiddleware(),
   billingAccessEnforcement,
   agentExecutionLimiter,
+  agentsConcurrencyGuard,
   agentsRouter
 );
 app.use(
@@ -422,9 +448,10 @@ app.use(
   tenantDbContextMiddleware(),
   billingAccessEnforcement,
   agentExecutionLimiter,
+  groundtruthConcurrencyGuard,
   groundtruthRouter
 );
-app.use("/api/llm", llmRouter);
+app.use("/api/llm", llmConcurrencyGuard, llmRouter);
 app.use("/api/mcp", mcpDiscoveryRouter);
 app.use("/api", workflowRouter);
 app.use(
@@ -442,7 +469,7 @@ app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
-app.use("/api/onboarding", onboardingRouter);
+app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
