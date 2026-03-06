@@ -37,6 +37,7 @@ status: deprecated
 3. Confirm changelog and migration list with Feature Owners.
 4. Ensure backup completed within last 24h (see `docs/backup-and-dr-playbook.md`).
 5. Validate secrets and runtime config: `./scripts/verify-env.sh production`.
+6. **Hard Go/No-Go**: `docs/security-compliance/threat-model.md` reviewed for this release (review record completed with security + engineering approvers).
 
 ## Runtime Source of Truth
 - Production backend runtime is **only** `packages/backend`.
