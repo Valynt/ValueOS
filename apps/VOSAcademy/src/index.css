@@ -12,6 +12,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Elevation aliases (canonical shadow scale) */
+  --elevation-1: var(--shadow-1);
+  --elevation-2: var(--shadow-2);
+  --elevation-3: var(--shadow-3);
+  --elevation-4: var(--shadow-4);
 
   /* Shadow tokens - Beautiful depth hierarchy */
   --shadow-beautiful-sm: var(--shadow-1);
@@ -69,11 +75,11 @@
   --sidebar-primary: var(--valueos-primary);
   --sidebar-primary-foreground: var(--valueos-primary-foreground);
 
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
+  --chart-1: var(--valueos-primary);
+  --chart-2: var(--valueos-secondary);
+  --chart-3: var(--valueos-accent);
+  --chart-4: var(--valueos-success);
+  --chart-5: var(--valueos-warning);
 
   --radius: 0.65rem;
 
@@ -97,6 +103,10 @@
 
   --destructive: var(--valueos-error);
   --destructive-foreground: var(--valueos-on-status);
+  --success: var(--valueos-success);
+  --success-foreground: var(--valueos-on-status);
+  --warning: var(--valueos-warning);
+  --warning-foreground: var(--valueos-on-status);
 
   --border: var(--valueos-neutral-border);
   --input: var(--valueos-neutral-border);
@@ -108,6 +118,21 @@
   --sidebar-accent-foreground: var(--valueos-neutral-foreground);
   --sidebar-border: var(--valueos-neutral-border);
   --sidebar-ring: var(--valueos-primary);
+
+  /* Shared spacing + layout tokens (additive) */
+  --space-0: 0;
+  --space-1: 0.5rem; /* 8px */
+  --space-2: 1rem; /* 16px */
+  --space-3: 1.5rem; /* 24px */
+  --space-4: 2rem; /* 32px */
+  --space-5: 2.5rem; /* 40px */
+  --space-6: 3rem; /* 48px */
+  --space-8: 4rem; /* 64px */
+
+  --container-max: 80rem; /* 1280px */
+  --container-padding-sm: 1rem; /* 16px */
+  --container-padding-md: 1.5rem; /* 24px */
+  --container-padding-lg: 2rem; /* 32px */
 }
 
 .dark {
@@ -138,16 +163,20 @@
 
   --destructive: var(--valueos-error);
   --destructive-foreground: var(--valueos-on-status);
+  --success: var(--valueos-success);
+  --success-foreground: var(--valueos-on-status);
+  --warning: var(--valueos-warning);
+  --warning-foreground: var(--valueos-on-status);
 
   --border: var(--valueos-neutral-border);
   --input: var(--valueos-neutral-border);
   --ring: var(--valueos-primary);
 
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
+  --chart-1: var(--valueos-primary);
+  --chart-2: var(--valueos-secondary);
+  --chart-3: var(--valueos-accent);
+  --chart-4: var(--valueos-success);
+  --chart-5: var(--valueos-warning);
 
   --sidebar: var(--valueos-neutral-surface);
   --sidebar-foreground: var(--valueos-neutral-foreground);
@@ -273,7 +302,9 @@
 
   /* Interactive card states */
   .card-interactive {
-    @apply transition-all duration-300 hover:shadow-beautiful-lg hover:-translate-y-1 cursor-pointer;
+    transition: transform var(--motion-duration-standard) var(--motion-ease-standard), box-shadow var(--motion-duration-standard) var(--motion-ease-standard);
+    box-shadow: var(--elevation-1);
+    cursor: pointer;
   }
 
   /* Learning content emphasis */
@@ -332,5 +363,21 @@
   .tech-data {
     font-family: var(--font-mono);
     @apply text-sm text-green-600 dark:text-green-400;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: var(--motion-duration-micro) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--motion-duration-micro) !important;
+  }
+
+  .card-interactive:hover,
+  .card-interactive:focus-visible {
+    transform: none;
+    box-shadow: var(--elevation-1);
   }
 }

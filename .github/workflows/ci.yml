@@ -94,8 +94,14 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Threat model freshness gate
+        run: node scripts/ci/check-threat-model-freshness.mjs
+
       - name: Observability contract gate
         run: node scripts/ci/check-observability-contract.mjs
+
+      - name: Query fingerprint perf budget gate
+        run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
 
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
@@ -124,6 +130,28 @@ jobs:
 
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
+
+      - name: Verify secret rotation metadata age
+        env:
+          SECRET_ROTATION_PROVIDERS: ${{ vars.SECRET_ROTATION_PROVIDERS }}
+          SECRET_ROTATION_MAX_AGE_DAYS: ${{ vars.SECRET_ROTATION_MAX_AGE_DAYS }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_SECRET_IDS: ${{ vars.AWS_SECRET_IDS }}
+          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+          VAULT_SECRET_PATHS: ${{ vars.VAULT_SECRET_PATHS }}
+          VAULT_KV_MOUNT: ${{ vars.VAULT_KV_MOUNT }}
+          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+          ROTATION_EVIDENCE_TIMESTAMP: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: node scripts/security/verify-secret-rotation.mjs
+
+      - name: Upload secret rotation evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-rotation-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/security/rotation/*.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Write security controls summary artifact
         if: success()
@@ -201,6 +229,12 @@ jobs:
 
       - name: Kubernetes architecture conformance
         run: node scripts/ci/check-k8s-architecture-conformance.mjs
+
+      - name: Terraform/K8s scaling parity check
+        run: node scripts/ci/check-terraform-k8s-scaling-parity.mjs
+
+      - name: Terraform module placeholder guard
+        run: node scripts/ci/check-terraform-no-stubs.mjs
 
       - name: Agent service account isolation check
         run: node scripts/ci/check-agent-service-accounts.mjs

@@ -22,6 +22,10 @@
     --accent-foreground: var(--valueos-accent-foreground);
     --destructive: var(--valueos-error);
     --destructive-foreground: var(--valueos-on-status);
+    --success: var(--valueos-success);
+    --success-foreground: var(--valueos-on-status);
+    --warning: var(--valueos-warning);
+    --warning-foreground: var(--valueos-on-status);
     --border: var(--valueos-neutral-border);
     --input: var(--valueos-neutral-border);
     --ring: var(--valueos-primary);
@@ -45,6 +49,10 @@
     --accent-foreground: var(--valueos-accent-foreground);
     --destructive: var(--valueos-error);
     --destructive-foreground: var(--valueos-on-status);
+    --success: var(--valueos-success);
+    --success-foreground: var(--valueos-on-status);
+    --warning: var(--valueos-warning);
+    --warning-foreground: var(--valueos-on-status);
     --border: var(--valueos-neutral-border);
     --input: var(--valueos-neutral-border);
     --ring: var(--valueos-primary);

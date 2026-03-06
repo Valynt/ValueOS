@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "updated_at": "2026-03-06T00:00:00Z",
+  "fingerprints": [
+    {
+      "name": "tenant_workflow_state_queue",
+      "fingerprint": "wf_state_by_tenant_status_started_at",
+      "max_mean_exec_time_ms": 25,
+      "max_total_exec_time_ms": 250000,
+      "max_calls": 50000
+    },
+    {
+      "name": "tenant_failed_agent_runs",
+      "fingerprint": "agent_runs_by_tenant_status_created_at",
+      "max_mean_exec_time_ms": 40,
+      "max_total_exec_time_ms": 180000,
+      "max_calls": 20000
+    },
+    {
+      "name": "tenant_case_artifacts",
+      "fingerprint": "shared_artifacts_by_tenant_case_created_at",
+      "max_mean_exec_time_ms": 30,
+      "max_total_exec_time_ms": 120000,
+      "max_calls": 15000
+    }
+  ]
+}
