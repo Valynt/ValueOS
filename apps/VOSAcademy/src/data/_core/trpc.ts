@@ -3,16 +3,17 @@ import { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 
 import type { User } from "../../drizzle/schema";
 
-import { applyRateLimitHeaders, buildRateLimitKey, checkRateLimit, getRateLimitIdentifiers, throwRateLimitExceeded } from "./error-handling";
+import { applyRateLimitHeaders, buildRateLimitKey, checkRateLimit, getRateLimitIdentifiers, throwRateLimitExceeded, type RateLimitIdentityUser } from "./error-handling";
 import { getSessionFromRequest, validateSessionToken } from "./session";
 
 export const createContext = async (opts: CreateHTTPContextOptions) => {
   const sessionToken = getSessionFromRequest(opts.req);
+  const normalizedToken = sessionToken?.trim();
   let user: User | null = null;
 
-  if (sessionToken) {
+  if (normalizedToken) {
     try {
-      user = await validateSessionToken(sessionToken);
+      user = await validateSessionToken(normalizedToken);
     } catch (error) {
       console.error('[tRPC] Session validation failed:', error);
     }
@@ -50,12 +51,13 @@ export type RateLimitOptions = {
   keyPrefix: string;
   maxRequests?: number;
   windowMs?: number;
+  userOverride?: RateLimitIdentityUser | null;
 };
 
-export const rateLimitMiddleware = ({ keyPrefix, maxRequests, windowMs }: RateLimitOptions) =>
+export const rateLimitMiddleware = ({ keyPrefix, maxRequests, windowMs, userOverride }: RateLimitOptions) =>
   t.middleware(async ({ ctx, next }) => {
     try {
-      const identifiers = getRateLimitIdentifiers(ctx.req, ctx.user);
+      const identifiers = getRateLimitIdentifiers(ctx.req, userOverride ?? ctx.user);
       const key = buildRateLimitKey(keyPrefix, identifiers);
       const result = await checkRateLimit(key, maxRequests, windowMs);
 
@@ -65,8 +67,12 @@ export const rateLimitMiddleware = ({ keyPrefix, maxRequests, windowMs }: RateLi
         throwRateLimitExceeded();
       }
     } catch (error) {
+      if (error instanceof TRPCError && error.code === "TOO_MANY_REQUESTS") {
+        throw error;
+      }
+
       console.error('[tRPC] Rate limit check failed:', error);
-      // Allow the request to proceed if rate limiting fails
+      // Allow the request to proceed if rate limiting infrastructure fails
       // This prevents a Redis outage from taking down the API
     }
 

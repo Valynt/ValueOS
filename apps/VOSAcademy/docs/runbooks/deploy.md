@@ -17,6 +17,8 @@
 3. **Deploy**
    - Push Docker image or static bundle to the release registry.
    - Update environment config for the target stage (staging → production) and run migrations if applicable.
+   - Verify `DATABASE_URL` TLS parameters are present for production (`sslmode=require` or `sslrootcert=/absolute/path/to/ca.pem`) because application startup now fails fast without one of these settings.
+   - If using `sslrootcert`, confirm the CA bundle file is mounted in the runtime image/host and contains valid certificate data.
    - Trigger deployment pipeline (GitHub Actions → cloud provider) with the release tag.
 4. **Post-deploy verification**
    - Hit `/health` and `/api/analytics` in the target environment.

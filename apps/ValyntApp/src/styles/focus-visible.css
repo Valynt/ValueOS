@@ -32,17 +32,34 @@
 }
 
 /*
- * Enhanced focus ring for interactive elements.
- * Uses the design system's --ring token for consistency.
+ * Unified focus ring for all interactive elements.
+ * Uses focus tokens from valueos-theme.css to stay consistent across themes.
  */
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
+:where(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [tabindex]
+):focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  box-shadow:
+    0 0 0 var(--focus-ring-offset-width) hsl(var(--focus-ring-offset-color)),
+    0 0 0 calc(var(--focus-ring-offset-width) + var(--focus-ring-width)) hsl(var(--focus-ring-color));
+}
+
+:where(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [tabindex]
+)[aria-invalid="true"]:focus-visible {
+  box-shadow:
+    0 0 0 var(--focus-ring-offset-width) hsl(var(--focus-ring-offset-color)),
+    0 0 0 calc(var(--focus-ring-offset-width) + var(--focus-ring-width)) hsl(var(--focus-ring-error-color));
 }
 
 /*

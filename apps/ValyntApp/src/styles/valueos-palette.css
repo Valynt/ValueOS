@@ -7,7 +7,7 @@
 :root {
   /* Core palette (canonical, do not use raw values outside this file). */
   --valueos-primary: hsl(217 91% 60%);
-  --valueos-primary-foreground: 0 0% 100%;
+  --valueos-primary-foreground: 222 47% 11%;
   --valueos-secondary: 210 40% 96%;
   --valueos-secondary-foreground: 222 47% 11%;
   --valueos-accent: 210 40% 96%;
@@ -25,13 +25,13 @@
   --valueos-success: 160 84% 39%;
   --valueos-warning: 38 92% 50%;
   --valueos-error: 0 84% 60%;
-  --valueos-on-status: 0 0% 100%;
+  --valueos-on-status: 222 47% 11%;
 }
 
 .dark {
   /* Core palette */
   --valueos-primary: 217 91% 60%;
-  --valueos-primary-foreground: 0 0% 100%;
+  --valueos-primary-foreground: 222 47% 11%;
   --valueos-secondary: 215 25% 27%;
   --valueos-secondary-foreground: 210 40% 98%;
   --valueos-accent: 215 25% 27%;
@@ -42,12 +42,12 @@
   --valueos-neutral-foreground: 210 40% 98%;
   --valueos-neutral-surface: 217 33% 17%;
   --valueos-neutral-subtle: 215 25% 27%;
-  --valueos-neutral-muted: 215 20% 65%;
+  --valueos-neutral-muted: 215 20% 72%;
   --valueos-neutral-border: 215 25% 27%;
 
   /* Semantic status */
   --valueos-success: 160 84% 39%;
   --valueos-warning: 38 92% 50%;
   --valueos-error: 0 84% 60%;
-  --valueos-on-status: 0 0% 100%;
+  --valueos-on-status: 222 47% 11%;
 }

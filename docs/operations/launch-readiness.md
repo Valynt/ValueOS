@@ -16,7 +16,7 @@ status: active
 
 ## Beta → GA Migration & Rollout Plan
 
-*Source: `operations/launch-readiness/migration-rollout-plan.md`*
+_Source: `operations/launch-readiness/migration-rollout-plan.md`_
 
 This runbook protects tenant data, de-risks schema changes, and removes beta-only feature flags without service disruption. It is designed for a dry-run on a test tenant followed by GA rollout.
 
@@ -77,17 +77,48 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 
 ## Go/No-Go Checklist
 
+- [ ] Pre-production launch gate passed in CI (`.github/workflows/deploy.yml` → `preprod-launch-gate` job).
+- [ ] Gate owners reviewed and approved outcomes for billing/entitlements, localization, tenant/region toggles, and co-branding scope.
 - [ ] Dry-run completed with zero data loss and passing smoke tests.
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
+- [ ] **Hard Go/No-Go**: `docs/security-compliance/threat-model.md` reviewed for this release, with approvers and date recorded in the document.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
 - [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
 
+## Pre-Production Launch Gate (CI Blocking Control)
+
+Production promotion is blocked unless the **Pre-Production Launch Gate** job succeeds in `.github/workflows/deploy.yml`.
+
+### Gate checks
+
+1. **Entitlements + billing regression tests**
+   - Backend billing regression coverage must pass before production promotion.
+   - Owner: **Revenue Platform**.
+2. **Localization smoke checks**
+   - Pseudo-localization smoke check must pass and emit an artifact for audit trail.
+   - Owner: **Product Engineering**.
+3. **Tenant/region feature-toggle validation**
+   - Tenant isolation and feature-toggle behavior checks must pass.
+   - Owner: **Platform**.
+4. **Co-branding asset/render checks (if applicable)**
+   - If co-branding assets are present for the release, branding asset/render verification must pass.
+   - If no co-branding assets are present, this check is explicitly skipped with a log entry.
+   - Owner: **Design Systems**.
+
+### Operational ownership and escalation
+
+- **Release Captain** confirms gate completion before requesting production environment approval.
+- **On-Call SRE** validates the gate result in the workflow run and ensures artifacts are available.
+- Failing gate checks are treated as **No-Go** until the owning team resolves issues or an incident-governed bypass process is invoked.
+
 ## Blocking Launch Chaos/Smoke Suite (Release Gate)
+
+Related architecture decision: [ADR 0006 — Multi-Tenant Data Isolation and Sharding Strategy](../engineering/adr/0006-multi-tenant-isolation-and-sharding.md).
 
 Before any production go-live, execute the unified suite:
 

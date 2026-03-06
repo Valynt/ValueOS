@@ -117,6 +117,54 @@ data:
           summary: "High request rate"
           description: "{{ $labels.namespace }} is receiving {{ $value }} requests/second"
 
+    - name: query-performance
+      interval: 60s
+      rules:
+      - alert: QueryFingerprintP95Regression
+        expr: |
+          query_fingerprint_p95_ms{slo_tier="tenant-critical"}
+          >
+          on (fingerprint)
+          (query_fingerprint_baseline_p95_ms{window="7d"} * 1.25)
+        for: 15m
+        labels:
+          severity: warning
+          component: database
+          slo_dashboard: infra/observability/grafana/dashboards/mission-control.json
+        annotations:
+          summary: "Query fingerprint p95 regression"
+          description: "Fingerprint {{ $labels.fingerprint }} p95 exceeded 125% of 7d baseline; inspect DB SLO dashboards."
+
+      - alert: QueryFingerprintTotalExecTimeRegression
+        expr: |
+          query_fingerprint_total_exec_time_ms{window="5m",slo_tier="tenant-critical"}
+          >
+          on (fingerprint)
+          (query_fingerprint_baseline_total_exec_time_ms{window="7d"} * 1.30)
+        for: 15m
+        labels:
+          severity: warning
+          component: database
+          slo_dashboard: infra/observability/grafana/dashboards/agent-performance.json
+        annotations:
+          summary: "Query fingerprint total execution time regression"
+          description: "Fingerprint {{ $labels.fingerprint }} total_exec_time is above baseline budget; check SLO error budget burn impact."
+
+      - alert: QueryFingerprintCallVolumeSpike
+        expr: |
+          query_fingerprint_calls{window="5m",slo_tier="tenant-critical"}
+          >
+          on (fingerprint)
+          (query_fingerprint_baseline_calls{window="7d"} * 1.40)
+        for: 20m
+        labels:
+          severity: info
+          component: database
+          slo_dashboard: infra/observability/grafana/dashboards/launch/launch-kpis.json
+        annotations:
+          summary: "Query fingerprint call volume spike"
+          description: "Fingerprint {{ $labels.fingerprint }} call volume is above 140% of baseline; verify workload and cache behavior."
+
     - name: kubernetes
       interval: 30s
       rules:

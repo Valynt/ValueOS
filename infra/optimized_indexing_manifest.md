@@ -39,3 +39,22 @@
 ---
 
 **See migrations in `infra/supabase/migrations/` for full DDL.**
+
+## Index Maintenance Playbook (Operational Cadence)
+
+### Bloat & Health Checks
+
+- **Daily**: `pg_stat_user_tables` dead tuple ratio review for tenant-critical tables (`workflow_states`, `agent_runs`, `shared_artifacts`, `cases`).
+- **Daily**: `pg_stat_user_indexes` scan-vs-size review to identify unused/overgrown indexes.
+- **Weekly**: capture top query fingerprints and verify index utility against `total_exec_time` leaders.
+
+### Maintenance Cadence
+
+- **Weekly (low traffic window)**: `VACUUM (ANALYZE)` on high-churn tenant tables.
+- **Monthly**: `REINDEX CONCURRENTLY` for indexes with sustained bloat > 20%.
+- **After major migrations**: mandatory `EXPLAIN (ANALYZE, BUFFERS)` comparison against baselines in `docs/operations/query-plan-baselines.md`.
+
+### Triggered Remediation
+
+- If query fingerprint mean latency regresses > 25% from baseline, run targeted `ANALYZE`, then reassess.
+- If dead tuple percentage remains > 20% post-vacuum, schedule `REINDEX CONCURRENTLY` and follow up with baseline replay.
