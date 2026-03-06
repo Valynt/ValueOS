@@ -127,7 +127,7 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
             <p className="text-success mb-4">
               You've earned a {claimedReferral.reward} discount on your first month!
             </p>
-            <div className="bg-white rounded-lg p-4 mb-4">
+            <div className="bg-card rounded-lg p-4 mb-4">
               <p className="text-sm text-muted-foreground">Referral ID</p>
               <p className="font-mono text-sm">{claimedReferral.referral_id}</p>
             </div>
