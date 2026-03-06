@@ -1,34 +1,13 @@
+import type {
+  StageExecutionResultDTO,
+  StageRouteDTO,
+  WorkflowRunner,
+  WorkflowStageContextDTO,
+} from "../../types/workflow/runner";
 import type { WorkflowExecutionRecord } from "../../types/workflowExecution";
 import type { WorkflowDAG, WorkflowStage } from "../../types/workflow";
 
-export interface StageExecutionContext extends Record<string, unknown> {
-  organizationId?: string;
-  sessionId?: string;
-  userId?: string;
-}
-
-export interface WorkflowRunner {
-  executeDAGAsync(
-    executionId: string,
-    organizationId: string,
-    dag: WorkflowDAG,
-    initialContext: StageExecutionContext,
-    traceId: string,
-    executionRecord?: WorkflowExecutionRecord
-  ): Promise<void>;
-  executeStageWithRetry(
-    executionId: string,
-    stage: WorkflowStage,
-    context: StageExecutionContext,
-    route: unknown,
-    traceId: string
-  ): Promise<{ status: "completed" | "failed"; output?: Record<string, unknown>; error?: string }>;
-  executeStage(
-    stage: WorkflowStage,
-    context: StageExecutionContext,
-    route: unknown
-  ): Promise<Record<string, unknown>>;
-}
+export type { WorkflowRunner };
 
 export class DelegatingWorkflowRunner implements WorkflowRunner {
   constructor(
@@ -39,15 +18,39 @@ export class DelegatingWorkflowRunner implements WorkflowRunner {
     }
   ) {}
 
-  executeDAGAsync(...args: Parameters<WorkflowRunner["executeDAGAsync"]>): Promise<void> {
-    return this.delegates.executeDAGAsync(...args);
+  executeDAGAsync(
+    executionId: string,
+    organizationId: string,
+    dag: WorkflowDAG,
+    initialContext: WorkflowStageContextDTO,
+    traceId: string,
+    executionRecord?: WorkflowExecutionRecord
+  ): Promise<void> {
+    return this.delegates.executeDAGAsync(
+      executionId,
+      organizationId,
+      dag,
+      initialContext,
+      traceId,
+      executionRecord
+    );
   }
 
-  executeStageWithRetry(...args: Parameters<WorkflowRunner["executeStageWithRetry"]>) {
-    return this.delegates.executeStageWithRetry(...args);
+  executeStageWithRetry(
+    executionId: string,
+    stage: WorkflowStage,
+    context: WorkflowStageContextDTO,
+    route: StageRouteDTO,
+    traceId: string
+  ): Promise<StageExecutionResultDTO> {
+    return this.delegates.executeStageWithRetry(executionId, stage, context, route, traceId);
   }
 
-  executeStage(...args: Parameters<WorkflowRunner["executeStage"]>) {
-    return this.delegates.executeStage(...args);
+  executeStage(
+    stage: WorkflowStage,
+    context: WorkflowStageContextDTO,
+    route: StageRouteDTO
+  ): Promise<Record<string, unknown>> {
+    return this.delegates.executeStage(stage, context, route);
   }
 }
