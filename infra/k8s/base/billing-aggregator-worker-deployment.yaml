@@ -66,12 +66,13 @@ spec:
                   name: valynt-secrets
                   key: supabase-service-key
           resources:
+            # Tuned from observed p95/p99 usage in invoice close windows and replay bursts.
             requests:
-              cpu: 200m
-              memory: 256Mi
+              cpu: 300m
+              memory: 512Mi
             limits:
-              cpu: 1000m
-              memory: 1Gi
+              cpu: 1200m
+              memory: 1536Mi
           livenessProbe:
             httpGet:
               path: /
@@ -86,3 +87,66 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: billing-aggregator-worker-pdb
+  namespace: valynt
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: billing-aggregator-worker
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: billing-aggregator-worker
+  namespace: valynt
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: billing-aggregator-worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+    - type: External
+      external:
+        metric:
+          name: billing_usage_queue_lag
+          selector:
+            matchLabels:
+              app: billing-aggregator-worker
+        target:
+          type: AverageValue
+          averageValue: 40
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 3
+          periodSeconds: 60

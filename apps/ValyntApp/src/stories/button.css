@@ -8,13 +8,13 @@
   font-family: var(--font-sans);
 }
 .storybook-button--primary {
-  background-color: #555ab9;
-  color: white;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
 }
 .storybook-button--secondary {
-  box-shadow: rgba(0, 0, 0, 0.15) 0px 0px 0px 1px inset;
+  box-shadow: hsl(var(--foreground) / 0.15) 0px 0px 0px 1px inset;
   background-color: transparent;
-  color: #333;
+  color: hsl(var(--foreground));
 }
 .storybook-button--small {
   padding: 10px 16px;

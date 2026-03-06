@@ -22,6 +22,14 @@ interface OAuthStatePayload {
   createdAt: number;
 }
 
+interface OpenIdConfig {
+  issuer?: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  userinfo_endpoint?: string;
+  jwks_uri?: string;
+}
+
 const OAUTH_STATE_COOKIE = "vosacademy_oauth_state";
 const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
 
@@ -110,13 +118,13 @@ function buildCookie(value: string, req: any, maxAgeSeconds: number): string {
   return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(value)}; Path=${options.path || "/"}; Max-Age=${maxAgeSeconds}; HttpOnly; ${options.secure ? "Secure;" : ""} ${options.sameSite ? `SameSite=${options.sameSite};` : ""}`;
 }
 
-async function fetchOpenIdConfig(oauthPortalUrl: string): Promise<Record<string, any> | null> {
+async function fetchOpenIdConfig(oauthPortalUrl: string): Promise<OpenIdConfig | null> {
   try {
     const response = await fetch(`${oauthPortalUrl}/.well-known/openid-configuration`);
     if (!response.ok) {
       return null;
     }
-    return (await response.json()) as Record<string, any>;
+    return (await response.json()) as OpenIdConfig;
   } catch (error) {
     console.warn("[OAuth] Failed to load OpenID configuration", error);
     return null;
@@ -154,11 +162,19 @@ async function validateIdToken(idToken: string, issuer: string, audience: string
   }
 
   try {
-    return jwt.verify(idToken, key, {
+    const payload = jwt.verify(idToken, key, {
+      algorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
       issuer,
       audience,
       clockTolerance: 5,
     }) as JwtPayload;
+
+    if (typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now()) {
+      console.error("[OAuth] ID token is expired");
+      return null;
+    }
+
+    return payload;
   } catch (error) {
     console.error("[OAuth] ID token validation failed", error);
     return null;
@@ -217,6 +233,11 @@ async function exchangeCodeForUserInfo(code: string, codeVerifier: string, redir
       return null;
     }
 
+    if (tokenData.token_type && tokenData.token_type.toLowerCase() !== "bearer") {
+      console.error("[OAuth] Unsupported token type", tokenData.token_type);
+      return null;
+    }
+
     const idTokenPayload = await validateIdToken(tokenData.id_token, issuer, process.env.OAUTH_AUDIENCE || appId, jwksUri);
     if (!idTokenPayload) {
       return null;
@@ -239,8 +260,14 @@ async function exchangeCodeForUserInfo(code: string, codeVerifier: string, redir
       email?: string;
     };
 
+    const openId = userInfo.sub || (idTokenPayload.sub as string);
+    if (!openId || (userInfo.sub && idTokenPayload.sub && userInfo.sub !== idTokenPayload.sub)) {
+      console.error("[OAuth] Subject mismatch between ID token and userinfo");
+      return null;
+    }
+
     return {
-      openId: userInfo.sub || (idTokenPayload.sub as string),
+      openId,
       name: userInfo.name || (idTokenPayload.name as string),
       email: userInfo.email || (idTokenPayload.email as string),
       loginMethod: "oauth",
@@ -283,11 +310,15 @@ export async function handleOAuthLogin(req: any, res: any): Promise<{ success: b
 
     res.setHeader("Set-Cookie", buildCookie(signedState, req, OAUTH_STATE_MAX_AGE_SECONDS));
 
-    const authUrl = new URL(`${oauthPortalUrl}/app-auth`);
-    authUrl.searchParams.set("appId", appId);
-    authUrl.searchParams.set("redirectUri", redirectUri);
+    const openIdConfig = await fetchOpenIdConfig(oauthPortalUrl);
+    const authorizationEndpoint = openIdConfig?.authorization_endpoint || `${oauthPortalUrl}/app-auth`;
+
+    const authUrl = new URL(authorizationEndpoint);
+    authUrl.searchParams.set("client_id", appId);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("scope", "openid profile email");
     authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("type", "signIn");
     authUrl.searchParams.set("code_challenge", codeChallenge);
     authUrl.searchParams.set("code_challenge_method", "S256");
 
@@ -305,28 +336,35 @@ export async function handleOAuthCallback(
   res: any
 ): Promise<{ success: boolean; redirectUrl: string }> {
   try {
+    const clearOAuthCookie = buildCookie("", req, 0);
+
     if (!code || !state) {
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_failed" };
     }
 
     const cookies = parseCookies(req.headers?.cookie);
     const signedState = cookies[OAUTH_STATE_COOKIE];
     if (!signedState) {
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     const statePayload = verifyOAuthState(signedState);
     if (!statePayload || statePayload.state !== state) {
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     if (Date.now() - statePayload.createdAt > OAUTH_STATE_MAX_AGE_SECONDS * 1000) {
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     const userInfo = await exchangeCodeForUserInfo(code, statePayload.codeVerifier, statePayload.redirectUri);
 
     if (!userInfo?.openId) {
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return {
         success: false,
         redirectUrl: "/?error=oauth_failed",
@@ -345,8 +383,6 @@ export async function handleOAuthCallback(
 
     const cookieOptions = getSessionCookieOptions(req);
     const sessionCookie = `${COOKIE_NAME}=${sessionToken}; Path=${cookieOptions.path || "/"}; Max-Age=${cookieOptions.maxAge}; HttpOnly; ${cookieOptions.secure ? "Secure;" : ""} ${cookieOptions.sameSite ? `SameSite=${cookieOptions.sameSite};` : ""}`;
-    const clearOAuthCookie = buildCookie("", req, 0);
-
     res.setHeader("Set-Cookie", [sessionCookie, clearOAuthCookie]);
 
     return {
@@ -355,6 +391,7 @@ export async function handleOAuthCallback(
     };
   } catch (error) {
     console.error("[OAuth] Callback handling failed:", error);
+    res.setHeader("Set-Cookie", buildCookie("", req, 0));
     return {
       success: false,
       redirectUrl: "/?error=server_error",

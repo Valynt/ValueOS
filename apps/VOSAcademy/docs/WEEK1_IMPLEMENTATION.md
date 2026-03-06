@@ -113,7 +113,7 @@ echo "VITE_OAUTH_PORTAL_URL=https://your-oauth-portal.com" >> .env.local
 echo "VITE_APP_ID=your-app-id" >> .env.local
 ```
 
-> **Production TLS requirement:** for production deployments, append `sslmode=require` or `sslrootcert=/path/to/ca.pem` to the `DATABASE_URL` to enforce encrypted connections.
+> **Production TLS requirement:** for production deployments, append `sslmode=require` or `sslrootcert=/path/to/ca.pem` to the `DATABASE_URL` to enforce encrypted connections. Startup now fails fast in production if neither setting is provided.
 
 ### 2. Run Tests
 ```bash

@@ -61,6 +61,12 @@
   --color-pulse-warning: hsl(var(--valueos-warning) / 0.5);
   --color-pulse-error: hsl(var(--valueos-error) / 0.5);
 
+  /* Canonical semantic status aliases */
+  --status-success: hsl(var(--valueos-success));
+  --status-warning: hsl(var(--valueos-warning));
+  --status-error: hsl(var(--valueos-error));
+  --status-info: hsl(var(--valueos-primary));
+
   /* ============================================
    * SEMANTIC COLORS
    * ============================================ */
@@ -93,11 +99,11 @@
 
   /* 7-State Agentic Model */
   --state-idle: hsl(var(--valueos-primary));
-  --state-clarify: hsl(var(--valueos-warning));
+  --state-clarify: var(--status-warning);
   --state-plan: hsl(var(--valueos-secondary));
   --state-execute: hsl(var(--valueos-primary));
   --state-review: hsl(var(--valueos-accent));
-  --state-finalize: hsl(var(--valueos-success));
+  --state-finalize: var(--status-success);
   --state-resume: hsl(var(--valueos-secondary));
 
   /* State Glows */

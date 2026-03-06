@@ -13,7 +13,7 @@
 3. [Migration Quick Reference](#migration-quick-reference)
 4. [Schema, Migration, and Database Governance Plan](#schema,-migration,-and-database-governance-plan)
 5. [JWT-Based RLS Policies Fix - Summary](#jwt-based-rls-policies-fix---summary)
-6. [Indexing Strategy & Query Optimization (Multi-Tenant SaaS)](#indexing-strategy-&-query-optimization-(multi-tenant-saas))
+6. [Indexing Strategy & Query Optimization (Multi-Tenant SaaS)](<#indexing-strategy-&-query-optimization-(multi-tenant-saas)>)
 7. [Proposed Changes Review Analysis](#proposed-changes-review-analysis)
 8. [Custom Domains Database Schema](#custom-domains-database-schema)
 9. [Foreign Key Actions Fix - Summary](#foreign-key-actions-fix---summary)
@@ -27,7 +27,7 @@
 
 ## ValueOS Database Pre-Release Audit
 
-*Source: `engineering/database/PRE_RELEASE_AUDIT_2026-01-05.md`*
+_Source: `engineering/database/PRE_RELEASE_AUDIT_2026-01-05.md`_
 
 ## Complete Security and Performance Review
 
@@ -58,6 +58,7 @@ The ValueOS database demonstrates a solid foundation with 98 tables, 131 RLS pol
 ### Risk Level: 🔴 HIGH
 
 **Key Concerns**:
+
 1. Unencrypted credentials in database
 2. 13 tables without RLS protection
 3. JWT-based RLS policies vulnerable to manipulation
@@ -65,6 +66,7 @@ The ValueOS database demonstrates a solid foundation with 98 tables, 131 RLS pol
 5. Missing audit trail immutability
 
 ### Database Statistics
+
 - **Tables**: 98
 - **Migrations**: 27 files
 - **Lines of SQL**: 16,164
@@ -73,6 +75,7 @@ The ValueOS database demonstrates a solid foundation with 98 tables, 131 RLS pol
 - **Foreign Keys**: 88
 
 ### Security Coverage
+
 - **RLS Enabled**: 85/98 tables (87%)
 - **RLS Missing**: 13 tables (13%)
 - **Proper CASCADE**: 64/88 FKs (73%)
@@ -90,6 +93,7 @@ The ValueOS database demonstrates a solid foundation with 98 tables, 131 RLS pol
 
 **Details**:
 OAuth tokens and API keys are stored in plaintext JSONB columns:
+
 ```sql
 -- integration_connections table
 credentials JSONB NOT NULL,
@@ -98,12 +102,14 @@ COMMENT ON COLUMN integration_connections.credentials IS
 ```
 
 **Risk**:
+
 - Database backup compromise exposes all integration credentials
 - Database administrator access exposes credentials
 - SQL injection could expose credentials
 - Compliance violations (PCI DSS, SOC2)
 
 **Fix**:
+
 ```sql
 -- Use Supabase Vault (Recommended - pgsodium is being deprecated)
 CREATE EXTENSION IF NOT EXISTS vault CASCADE;
@@ -134,6 +140,7 @@ SELECT vault.create_secret(
 **Impact**: Cross-tenant data leakage, unauthorized access
 
 **Affected Tables**:
+
 1. `llm_calls` - LLM usage data, cost information
 2. `webhook_events` - May contain sensitive payloads
 3. `login_attempts` - Authentication data
@@ -149,11 +156,13 @@ SELECT vault.create_secret(
 13. `secret_audit_logs_default` - Audit logs (default partition)
 
 **Risk**:
+
 - Users can access data from other tenants
 - Unauthorized access to sensitive information
 - Compliance violations (SOC2, ISO 27001)
 
 **Fix**:
+
 ```sql
 -- Example for llm_calls table
 ALTER TABLE llm_calls ENABLE ROW LEVEL SECURITY;
@@ -194,6 +203,7 @@ CREATE POLICY llm_calls_service_role ON llm_calls
 **Affected**: 30 policies across 7 tables
 
 **Problematic Pattern**:
+
 ```sql
 CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
   FOR SELECT
@@ -201,6 +211,7 @@ CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
 ```
 
 **Issues**:
+
 1. **JWT Claim Dependency**: Requires custom JWT claims to be set
 2. **Type Casting**: String to UUID casting can fail
 3. **Performance**: JWT parsing on every query
@@ -208,6 +219,7 @@ CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
 5. **Security**: Vulnerable to JWT manipulation if not properly validated
 
 **Affected Tables**:
+
 - `llm_gating_policies`
 - `llm_usage`
 - `agent_accuracy_metrics`
@@ -217,6 +229,7 @@ CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
 - `rate_limit_violations`
 
 **Fix**:
+
 ```sql
 -- Create helper function
 CREATE FUNCTION get_user_tenant_ids(p_user_id UUID)
@@ -250,10 +263,12 @@ CREATE POLICY llm_gating_policies_select ON llm_gating_policies
 **Impact**: Weak credentials in production if accidentally deployed
 
 **Affected Files**:
+
 - `scripts/seed_database.ts`
 - `scripts/seeds/create_dummy_user.sql`
 
 **Issues Found**:
+
 ```typescript
 // Plaintext placeholder passwords
 {
@@ -270,33 +285,35 @@ key_hash: 'sk_dev_1234567890abcdef', // Placeholder
 ```
 
 **Risk**:
+
 - Admin accounts with weak credentials
 - Predictable API keys
 - Accidental deployment to production
 
 **Fix**:
+
 ```typescript
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 // Environment check
-if (process.env.NODE_ENV === 'production') {
-  throw new Error('Cannot run seed script in production!');
+if (process.env.NODE_ENV === "production") {
+  throw new Error("Cannot run seed script in production!");
 }
 
 // Secure password generation
-const password = process.env.SEED_ADMIN_PASSWORD ||
-  crypto.randomBytes(16).toString('hex');
+const password =
+  process.env.SEED_ADMIN_PASSWORD || crypto.randomBytes(16).toString("hex");
 const password_hash = await bcrypt.hash(password, 10);
 
 // Secure API key generation
-const apiKey = crypto.randomBytes(32).toString('hex');
+const apiKey = crypto.randomBytes(32).toString("hex");
 const key_hash = await bcrypt.hash(apiKey, 10);
 
 // Log only in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('Admin password:', password);
-  console.log('API key:', apiKey);
+if (process.env.NODE_ENV === "development") {
+  console.log("Admin password:", password);
+  console.log("API key:", apiKey);
 }
 ```
 
@@ -315,12 +332,14 @@ if (process.env.NODE_ENV === 'development') {
 Audit tables allow UPDATE and DELETE operations, violating audit trail immutability requirements.
 
 **Risk**:
+
 - Audit trail tampering
 - Compliance violations
 - Loss of forensic evidence
 - Failed security audits
 
 **Fix**:
+
 ```sql
 -- Deny UPDATE on audit tables
 CREATE POLICY deny_audit_updates ON audit_logs
@@ -356,6 +375,7 @@ CREATE POLICY deny_security_audit_deletes ON security_audit_events
 **Impact**: Slow RLS policy evaluation, poor query performance
 
 **Missing Indexes**:
+
 ```sql
 -- RLS policy join tables
 CREATE INDEX idx_user_organizations_user_org_active
@@ -399,6 +419,7 @@ ON llm_usage(tenant_id, created_at DESC);
 **Impact**: Historical data leakage
 
 **Affected Tables**:
+
 - `approval_requests_archive`
 - `approvals_archive`
 
@@ -415,6 +436,7 @@ ON llm_usage(tenant_id, created_at DESC);
 **Impact**: Orphaned records, data integrity issues
 
 **Missing ON DELETE Actions** (19 foreign keys):
+
 ```sql
 -- Add ON DELETE actions
 ALTER TABLE agent_audit_log
@@ -439,6 +461,7 @@ ADD CONSTRAINT agent_audit_log_agent_id_fkey
 **Issue**: UPDATE policies missing WITH CHECK clauses
 
 **Fix**:
+
 ```sql
 -- Add WITH CHECK to UPDATE policies
 CREATE POLICY integration_connections_update ON integration_connections
@@ -472,6 +495,7 @@ CREATE POLICY integration_connections_update ON integration_connections
 **Impact**: Slow queries on configuration data
 
 **Fix**:
+
 ```sql
 -- Add GIN indexes for JSONB queries
 CREATE INDEX idx_integration_connections_config_gin
@@ -494,6 +518,7 @@ ON llm_gating_policies USING GIN (manifesto_enforcement);
 ### 11. 🟢 Partition Large Tables
 
 **Recommendation**: Partition time-series tables by month
+
 - `audit_logs`
 - `llm_usage`
 - `sync_history`
@@ -507,6 +532,7 @@ ON llm_gating_policies USING GIN (manifesto_enforcement);
 ### 12. 🟢 Create Materialized Views
 
 **Recommendation**: Create materialized views for common aggregations
+
 - LLM usage statistics
 - Agent performance metrics
 - Tenant usage summaries
@@ -519,6 +545,7 @@ ON llm_gating_policies USING GIN (manifesto_enforcement);
 ### 13. 🟢 Add Full-Text Search Indexes
 
 **Recommendation**: Add GIN indexes for full-text search
+
 ```sql
 CREATE INDEX idx_cases_title_gin
 ON cases USING GIN (to_tsvector('english', title));
@@ -553,6 +580,7 @@ ON messages USING GIN (to_tsvector('english', content));
 ## Timeline to Production Ready
 
 ### Minimum Viable Security (2 weeks)
+
 - **Week 1**: Fix critical issues #1-5
   - Day 1-3: Credential encryption
   - Day 4-5: Enable RLS on 13 tables
@@ -569,6 +597,7 @@ ON messages USING GIN (to_tsvector('english', content));
 - **Total**: 12-15 business days
 
 ### Recommended Timeline (3 weeks)
+
 - **Week 1**: Critical issues + testing
 - **Week 2**: High priority issues + testing
 - **Week 3**: Medium priority issues + final testing
@@ -579,6 +608,7 @@ ON messages USING GIN (to_tsvector('english', content));
 ## Compliance Impact
 
 ### Current Compliance Gaps
+
 - **SOC2 CC6.1**: ❌ Tenant isolation incomplete
 - **SOC2 CC6.6**: ❌ Audit logs not immutable
 - **ISO 27001 A.9.4.1**: ❌ Access control gaps
@@ -586,6 +616,7 @@ ON messages USING GIN (to_tsvector('english', content));
 - **GDPR Article 30**: ⚠️ Audit logging partial
 
 ### Post-Fix Compliance Status
+
 - **SOC2**: ✅ Compliant (after fixes)
 - **ISO 27001**: ✅ Compliant (after fixes)
 - **GDPR**: ✅ Compliant (after fixes)
@@ -595,6 +626,7 @@ ON messages USING GIN (to_tsvector('english', content));
 ## Recommendations
 
 ### Immediate Actions (This Week)
+
 1. **Create fix branch**: `fix/pre-release-security`
 2. **Implement credential encryption**: Use Supabase Vault
 3. **Enable RLS on 13 tables**: Create migration
@@ -602,6 +634,7 @@ ON messages USING GIN (to_tsvector('english', content));
 5. **Add audit immutability**: Create migration
 
 ### Week 2 Actions
+
 1. **Migrate JWT policies**: Create helper functions
 2. **Add composite indexes**: Create migration
 3. **Fix foreign keys**: Add ON DELETE actions
@@ -609,6 +642,7 @@ ON messages USING GIN (to_tsvector('english', content));
 5. **Test thoroughly**: Run RLS and security tests
 
 ### Week 3 Actions
+
 1. **Performance optimization**: Add remaining indexes
 2. **Documentation**: Update security docs
 3. **Monitoring**: Set up query performance tracking
@@ -622,10 +656,12 @@ ON messages USING GIN (to_tsvector('english', content));
 The ValueOS database has a solid architecture but requires critical security fixes before production deployment. The identified issues are well-understood and fixable within 2-3 weeks. **Do not deploy to production until all critical issues are resolved.**
 
 ### Risk Assessment
+
 - **Current Risk**: 🔴 HIGH - Data breach, compliance violations
 - **Post-Fix Risk**: 🟢 LOW - Production ready with monitoring
 
 ### Recommendation
+
 **HOLD PRODUCTION RELEASE** until critical and high-priority issues are resolved. Estimated timeline: 2-3 weeks.
 
 ---
@@ -633,11 +669,13 @@ The ValueOS database has a solid architecture but requires critical security fix
 ## Appendix
 
 ### A. Migration Files Reviewed
+
 - 27 migration files totaling 16,164 lines of SQL
 - Base schema: `20241227000000_squashed_schema.sql` (348KB)
 - Recent additions: Compliance, security, and LLM features
 
 ### B. Tools Used
+
 - PostgreSQL introspection queries
 - RLS policy analysis
 - Foreign key constraint validation
@@ -645,6 +683,7 @@ The ValueOS database has a solid architecture but requires critical security fix
 - Seed script security review
 
 ### C. References
+
 - [Supabase RLS Documentation](https://supabase.com/docs/guides/auth/row-level-security)
 - [PostgreSQL Security Best Practices](https://www.postgresql.org/docs/current/security.html)
 - [SOC2 Compliance Requirements](https://www.aicpa.org/soc)
@@ -660,7 +699,7 @@ The ValueOS database has a solid architecture but requires critical security fix
 
 ## Credential Encryption - Quick Start
 
-*Source: `engineering/database/ENCRYPTION_QUICK_START.md`*
+_Source: `engineering/database/ENCRYPTION_QUICK_START.md`_
 
 **Status**: ✅ Ready to Deploy
 **Priority**: CRITICAL
@@ -673,6 +712,7 @@ The ValueOS database has a solid architecture but requires critical security fix
 🔴 **CRITICAL**: OAuth tokens and API keys are currently stored in plaintext JSONB columns. This migration encrypts them using `pgsodium`.
 
 **Affected Tables**:
+
 - `integration_connections.credentials` → encrypted
 - `tenant_integrations.access_token` → encrypted
 - `tenant_integrations.refresh_token` → encrypted
@@ -711,6 +751,7 @@ SELECT * FROM migrate_credentials_to_encrypted();
 ```
 
 Expected output:
+
 ```
  table_name              | records_migrated | records_failed
 -------------------------+------------------+----------------
@@ -735,34 +776,31 @@ Expected: `encryption_percentage` should be 100.00 for both tables.
 
 ```typescript
 // ❌ OLD: Storing plaintext
-const { data } = await supabase
-  .from('integration_connections')
-  .insert({
-    credentials: { client_id: 'abc', client_secret: 'xyz' }
-  });
+const { data } = await supabase.from("integration_connections").insert({
+  credentials: { client_id: "abc", client_secret: "xyz" },
+});
 ```
 
 ### After (Encrypted)
 
 ```typescript
 // ✅ NEW: Auto-encrypted by trigger
-const { data } = await supabase
-  .from('integration_connections')
-  .insert({
-    credentials: { client_id: 'abc', client_secret: 'xyz' }
-  });
+const { data } = await supabase.from("integration_connections").insert({
+  credentials: { client_id: "abc", client_secret: "xyz" },
+});
 // Trigger automatically encrypts and clears plaintext
 
 // ✅ NEW: Reading encrypted data (service_role only)
 const { data } = await supabase
-  .from('integration_connections_decrypted')
-  .select('credentials')
-  .eq('id', integrationId)
+  .from("integration_connections_decrypted")
+  .select("credentials")
+  .eq("id", integrationId)
   .single();
 // credentials is automatically decrypted
 ```
 
 **Key Changes**:
+
 1. Use `integration_connections_decrypted` view to read credentials
 2. Use service role key (not anon key)
 3. Triggers handle encryption automatically
@@ -774,6 +812,7 @@ const { data } = await supabase
 ### Phase 1: Deploy Encryption (Week 1)
 
 **Day 1-2**: Development
+
 ```bash
 # 1. Apply migration
 supabase db push
@@ -789,6 +828,7 @@ psql $DATABASE_URL -c "SELECT * FROM credential_encryption_status;"
 ```
 
 **Day 3-4**: Staging
+
 ```bash
 # Same steps as development
 # Test all integration flows
@@ -796,6 +836,7 @@ psql $DATABASE_URL -c "SELECT * FROM credential_encryption_status;"
 ```
 
 **Day 5**: Production
+
 ```bash
 # Apply during low-traffic window
 # Monitor closely
@@ -916,6 +957,7 @@ WHERE tgrelid = 'integration_connections'::regclass;
 ## Checklist
 
 ### Development
+
 - [ ] Apply migration
 - [ ] Run tests (all pass)
 - [ ] Migrate existing data
@@ -924,6 +966,7 @@ WHERE tgrelid = 'integration_connections'::regclass;
 - [ ] Test all integration flows
 
 ### Staging
+
 - [ ] Apply migration
 - [ ] Migrate existing data
 - [ ] Test thoroughly
@@ -931,6 +974,7 @@ WHERE tgrelid = 'integration_connections'::regclass;
 - [ ] No errors detected
 
 ### Production
+
 - [ ] Schedule deployment window
 - [ ] Apply migration
 - [ ] Migrate existing data
@@ -957,7 +1001,7 @@ WHERE tgrelid = 'integration_connections'::regclass;
 
 ## Migration Quick Reference
 
-*Source: `engineering/migrations/MIGRATION_QUICK_REFERENCE.md`*
+_Source: `engineering/migrations/MIGRATION_QUICK_REFERENCE.md`_
 
 **Keep this handy!** 📌
 
@@ -1352,47 +1396,57 @@ Need to change schema?
 
 ## Schema, Migration, and Database Governance Plan
 
-*Source: `engineering/database/schema-governance-plan.md`*
+_Source: `engineering/database/schema-governance-plan.md`_
 
 ## Inventory & baseline
+
 - **Enumerate migration sources:** Inventory and track all schema/migration SQL under `supabase/migrations/` with naming aligned to the 14-digit `YYYYMMDDHHMMSS_description.sql` convention and dependency annotations as documented in the Supabase migration fix notes.【F:infra/supabase/MIGRATION_FIX.md†L58-L90】
 - **Review prior fixes:** Use the Supabase migration fix and resolution notes as baseline context for dependency order, rollback guidance, and lint expectations before planning new schema changes.【F:infra/supabase/MIGRATION_FIX.md†L1-L119】【F:infra/supabase/ISSUE_RESOLVED.md†L1-L91】
 - **Config alignment check:** Validate `infra/supabase/config.toml` against expected environment parity (ports, schema exposure, and database major version), and record any gaps as work items in the migration backlog.【F:infra/supabase/config.toml†L1-L81】【F:docs/dev/SYSTEM_INVARIANTS.md†L46-L146】
 
 ## Schema governance
+
 - **Migrations as source of truth:** Treat migration files as canonical schema. All schema changes must land as new migrations, reviewed and approved before deployment.【F:docs/dev/SYSTEM_INVARIANTS.md†L129-L146】
 - **Documentation co-location:** Maintain schema documentation alongside migrations in `docs/engineering/database/` and cross-link key schema references in `docs/context/database.md` so the system of record stays aligned with migration history.【F:docs/context/database.md†L20-L520】【F:docs/engineering/database/zero-downtime-migrations.md†L1-L80】
 
 ## Migration workflow & safety
+
 - **Standard developer flow:** Use Supabase CLI commands to generate/apply migrations in local development (e.g., `supabase db diff --file <name>`, `supabase db push`, `supabase db reset`). For the full local stack, follow the Local Dev Quickstart.【F:docs/getting-started/quickstart.md†L1-L60】
 - **Backward-compatible strategy:** Follow expand/contract (additive-first, destructive-later) with explicit rollout/rollback sequencing to avoid downtime.【F:docs/engineering/database/zero-downtime-migrations.md†L1-L160】
 - **Rollback/forward-fix planning:** Require rollback or forward-fix steps for each migration, and verify rollback files in `supabase/migrations/rollback/` when used, per migration safety runbooks.【F:docs/operations/deployment.md†L213-L340】【F:docs/operations/SECURITY_REMEDIATION.md†L204-L219】
 
 ## Automated validation & linting
+
 - **CI validation gates:** Add Supabase `db lint` and schema drift checks into CI and pre-deploy gates to ensure migrations match expected state and RLS coverage.【F:infra/supabase/SECURITY_HARDENING.md†L161-L171】【F:docs/operations/deployment.md†L86-L465】
 - **Scripted security checks:** Run SQL checks listed in `infra/supabase/SECURITY_HARDENING.md`, including RLS enabled for public tables, no PUBLIC grants, and explicit security posture for views/functions.【F:infra/supabase/SECURITY_HARDENING.md†L161-L189】
 
 ## Hardening standards
+
 - **RLS-first architecture:** Enforce tenant isolation policies on multi-tenant tables and user-specific policies on user-owned data, aligned to existing RLS remediation practices and migration guidance.【F:docs/context/database.md†L447-L520】【F:docs/operations/SECURITY_REMEDIATION.md†L41-L90】
 - **Least-privilege roles:** Revoke PUBLIC privileges on schemas/tables/sequences, and grant only required roles (authenticated, view_reader) per the hardening checklist.【F:infra/supabase/SECURITY_HARDENING.md†L59-L189】
 - **SECURITY DEFINER review:** Require explicit tenant checks and minimal ownership in SECURITY DEFINER functions following the security hardening templates and lint guidance.【F:infra/supabase/SECURITY_HARDENING.md†L239-L245】
 
 ## Operational controls
+
 - **Runbook-driven deploys:** Use deployment and rollback runbooks to apply and verify migrations, with pre-deploy backups and post-deploy validation queries (lint, RLS checks, migration list).【F:docs/operations/deployment.md†L58-L340】【F:docs/operations/launch-readiness/migration-rollout-plan.md†L8-L56】
 - **Environment parity:** Enforce consistent DB versions across dev/staging/prod using config parity checks and documented system invariants.【F:docs/dev/SYSTEM_INVARIANTS.md†L46-L146】【F:infra/supabase/config.toml†L1-L81】
 
 ## Observability & audit
+
 - **Trace correlation:** Require trace IDs on DB write paths and link Supabase audit logs to request/trace IDs for investigation and audits.【F:docs/environments/ValueOS Multi-Agent Fabric Observability and Debugging Guide.md†L121-L122】
 
 ## Testing strategy
+
 - **Migration test coverage:** Validate migrations end-to-end on a clean DB, verify RLS policy behavior across tenant boundaries, and check performance-critical indexes where policies rely on them.【F:docs/dev/SYSTEM_INVARIANTS.md†L111-L146】【F:docs/operations/ci/ci-runbook.md†L24-L31】
 - **Schema-aware service tests:** For services with DB helpers, ensure tests run against migrated schema before execution (e.g., `supabase test db` in CI).【F:docs/operations/ci/ci-runbook.md†L24-L31】
 
 ## Data lifecycle
+
 - **Seed alignment:** Keep seed data idempotent and aligned to migration versions; ensure `db reset` reliably recreates schema and seed state for deterministic testing.【F:infra/supabase/config.toml†L55-L70】【F:docs/dev/SYSTEM_INVARIANTS.md†L111-L146】
 - **Destructive procedures:** Document any destructive data maintenance tasks in runbooks and require explicit approval gates before production execution.【F:docs/operations/deployment.md†L281-L336】
 
 ## Governance checklist
+
 - **Migration review checklist:** Verify compatibility, data backfills, RLS/privileges, rollback/forward-fix plan, and lint status before approval.【F:infra/supabase/SECURITY_HARDENING.md†L161-L189】【F:docs/operations/deployment.md†L336-L465】
 - **High-risk change sign-off:** Require explicit sign-off for destructive or cross-tenant schema changes, and record the decision in the migration PR or runbook log.【F:docs/operations/launch-readiness/migration-rollout-plan.md†L8-L56】
 
@@ -1400,7 +1454,7 @@ Need to change schema?
 
 ## JWT-Based RLS Policies Fix - Summary
 
-*Source: `engineering/database/JWT_RLS_FIX_SUMMARY.md`*
+_Source: `engineering/database/JWT_RLS_FIX_SUMMARY.md`_
 
 **Date**: January 5, 2026
 **Status**: ✅ COMPLETE
@@ -1422,6 +1476,7 @@ Need to change schema?
 ### Why JWT-Based Policies Are Dangerous
 
 **Before** (Insecure):
+
 ```sql
 CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
   FOR SELECT
@@ -1429,6 +1484,7 @@ CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
 ```
 
 **Issues**:
+
 1. **JWT Manipulation**: If JWT validation is weak, attackers can modify `org_id` claim
 2. **Type Casting**: String to UUID casting can fail silently
 3. **Performance**: JWT parsing on every query
@@ -1436,6 +1492,7 @@ CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
 5. **No Database Validation**: Database trusts JWT without verification
 
 **After** (Secure):
+
 ```sql
 CREATE POLICY llm_gating_policies_select ON llm_gating_policies
   FOR SELECT
@@ -1445,6 +1502,7 @@ CREATE POLICY llm_gating_policies_select ON llm_gating_policies
 ```
 
 **Benefits**:
+
 1. **Database Validation**: Looks up actual user-tenant relationships
 2. **Type Safe**: No string casting
 3. **Performance**: Helper function marked STABLE for caching
@@ -1509,6 +1567,7 @@ $$;
 ```
 
 **Key Features**:
+
 - `SECURITY DEFINER`: Runs with elevated privileges to access lookup tables
 - `STABLE`: Allows query planner to cache results within a query
 - Returns arrays for efficient `ANY()` checks
@@ -1520,6 +1579,7 @@ $$;
 #### llm_gating_policies
 
 **Before**:
+
 ```sql
 -- Used auth.jwt() ->> 'org_id'
 CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
@@ -1528,6 +1588,7 @@ CREATE POLICY "Tenants can view own budget" ON llm_gating_policies
 ```
 
 **After**:
+
 ```sql
 -- Uses auth.uid() with helper function
 CREATE POLICY llm_gating_policies_select ON llm_gating_policies
@@ -1538,6 +1599,7 @@ CREATE POLICY llm_gating_policies_select ON llm_gating_policies
 #### llm_usage
 
 **Before**:
+
 ```sql
 -- Mixed JWT and auth.uid()
 CREATE POLICY "Tenants can view own usage" ON llm_usage
@@ -1546,6 +1608,7 @@ CREATE POLICY "Tenants can view own usage" ON llm_usage
 ```
 
 **After**:
+
 ```sql
 -- Consistent auth.uid() pattern
 CREATE POLICY llm_usage_tenant_select ON llm_usage
@@ -1556,6 +1619,7 @@ CREATE POLICY llm_usage_tenant_select ON llm_usage
 #### agent_accuracy_metrics
 
 **Before**:
+
 ```sql
 -- Used auth.jwt() ->> 'org_id'
 CREATE POLICY "Users can view org metrics" ON agent_accuracy_metrics
@@ -1564,6 +1628,7 @@ CREATE POLICY "Users can view org metrics" ON agent_accuracy_metrics
 ```
 
 **After**:
+
 ```sql
 -- Uses helper function
 CREATE POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics
@@ -1577,6 +1642,7 @@ CREATE POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics
 #### backup_logs
 
 **Before**:
+
 ```sql
 -- Used auth.jwt() ->> 'role'
 CREATE POLICY backup_logs_select_admin ON backup_logs
@@ -1585,6 +1651,7 @@ CREATE POLICY backup_logs_select_admin ON backup_logs
 ```
 
 **After**:
+
 ```sql
 -- Uses helper function
 CREATE POLICY backup_logs_select ON backup_logs
@@ -1595,6 +1662,7 @@ CREATE POLICY backup_logs_select ON backup_logs
 #### cost_alerts
 
 **Before**:
+
 ```sql
 -- Used auth.jwt() ->> 'role'
 CREATE POLICY cost_alerts_select_admin ON cost_alerts
@@ -1603,6 +1671,7 @@ CREATE POLICY cost_alerts_select_admin ON cost_alerts
 ```
 
 **After**:
+
 ```sql
 -- Uses helper function
 CREATE POLICY cost_alerts_select ON cost_alerts
@@ -1613,6 +1682,7 @@ CREATE POLICY cost_alerts_select ON cost_alerts
 #### rate_limit_violations
 
 **Before**:
+
 ```sql
 -- Used auth.jwt() ->> 'role'
 CREATE POLICY rate_limit_violations_select_admin ON rate_limit_violations
@@ -1621,6 +1691,7 @@ CREATE POLICY rate_limit_violations_select_admin ON rate_limit_violations
 ```
 
 **After**:
+
 ```sql
 -- Uses helper function
 CREATE POLICY rate_limit_violations_select ON rate_limit_violations
@@ -1637,11 +1708,13 @@ CREATE POLICY rate_limit_violations_select ON rate_limit_violations
 #### audit_logs_archive
 
 **Before**:
+
 - RLS enabled
 - No SELECT policies
 - Users couldn't access archived audit logs
 
 **After**:
+
 ```sql
 -- Users can view their own
 CREATE POLICY audit_logs_archive_select_own ON audit_logs_archive
@@ -1677,6 +1750,7 @@ psql $DATABASE_URL -f scripts/test-jwt-rls-fix.sql
 ```
 
 **Expected Output**:
+
 ```
 1. Checking for JWT usage in RLS policies...
 (0 rows)  # No JWT usage found
@@ -1700,6 +1774,7 @@ psql $DATABASE_URL -f scripts/test-archive-tables-rls.sql
 ```
 
 **Expected Output**:
+
 ```
 2. Checking RLS status...
  table_name                  | status
@@ -1741,13 +1816,13 @@ USING (tenant_id = ANY(get_user_tenant_ids(auth.uid())))
 
 ## Security Improvements
 
-| Aspect | Before (JWT) | After (auth.uid()) |
-|--------|--------------|-------------------|
-| **Validation** | Client-side only | Database enforced |
-| **Manipulation** | Vulnerable | Protected |
-| **Type Safety** | String casting | Native UUID |
-| **Performance** | Per-row parsing | Cached lookup |
-| **Maintenance** | JWT structure dependent | Database schema |
+| Aspect           | Before (JWT)            | After (auth.uid()) |
+| ---------------- | ----------------------- | ------------------ |
+| **Validation**   | Client-side only        | Database enforced  |
+| **Manipulation** | Vulnerable              | Protected          |
+| **Type Safety**  | String casting          | Native UUID        |
+| **Performance**  | Per-row parsing         | Cached lookup      |
+| **Maintenance**  | JWT structure dependent | Database schema    |
 
 ---
 
@@ -1872,98 +1947,114 @@ SELECT * FROM archive_tables_rls_status WHERE status != '✅ PROTECTED';
 
 ## Indexing Strategy & Query Optimization (Multi-Tenant SaaS)
 
-*Source: `engineering/database/INDEXING_STRATEGY_MULTI_TENANT.md`*
+_Source: `engineering/database/INDEXING_STRATEGY_MULTI_TENANT.md`_
 
 ## Tables & Key Columns
 
-| Table | Tenant Key | Primary Key | Frequently Queried Columns | Notes |
-| --- | --- | --- | --- | --- |
-| organizations | id | id | name, slug, tier | Tenant root. |
-| users | organization_id | id | email, status, role, created_at | Tenant-scoped users. |
-| api_keys | organization_id | id | user_id, key_hash, created_at | Service-to-service auth. |
-| audit_logs | organization_id | id | created_at, action, resource_type, resource_id | High-volume, append-only. |
-| cases | organization_id | id | status, priority, created_at, updated_at, user_id, title | Core workflow records. |
-| workflows | organization_id | id | name, is_active, updated_at | Versioned definitions. |
-| workflow_states | organization_id | id | workflow_id, case_id, status, started_at | Execution history. |
-| shared_artifacts | organization_id | id | case_id, artifact_type, created_at, created_by | Shared artifacts. |
-| agents | organization_id | id | name, agent_type, is_active | Agent registry. |
-| agent_runs | organization_id | id | agent_id, user_id, status, created_at | High-volume execution events. |
-| agent_memory | organization_id | id | agent_id, created_at | Vector search + metadata. |
-| models | organization_id | id | name, status, created_at | Business value models. |
-| kpis | organization_id | id | model_id, category | KPI definitions. |
+| Table            | Tenant Key      | Primary Key | Frequently Queried Columns                               | Notes                         |
+| ---------------- | --------------- | ----------- | -------------------------------------------------------- | ----------------------------- |
+| organizations    | id              | id          | name, slug, tier                                         | Tenant root.                  |
+| users            | organization_id | id          | email, status, role, created_at                          | Tenant-scoped users.          |
+| api_keys         | organization_id | id          | user_id, key_hash, created_at                            | Service-to-service auth.      |
+| audit_logs       | organization_id | id          | created_at, action, resource_type, resource_id           | High-volume, append-only.     |
+| cases            | organization_id | id          | status, priority, created_at, updated_at, user_id, title | Core workflow records.        |
+| workflows        | organization_id | id          | name, is_active, updated_at                              | Versioned definitions.        |
+| workflow_states  | organization_id | id          | workflow_id, case_id, status, started_at                 | Execution history.            |
+| shared_artifacts | organization_id | id          | case_id, artifact_type, created_at, created_by           | Shared artifacts.             |
+| agents           | organization_id | id          | name, agent_type, is_active                              | Agent registry.               |
+| agent_runs       | organization_id | id          | agent_id, user_id, status, created_at                    | High-volume execution events. |
+| agent_memory     | organization_id | id          | agent_id, created_at                                     | Vector search + metadata.     |
+| models           | organization_id | id          | name, status, created_at                                 | Business value models.        |
+| kpis             | organization_id | id          | model_id, category                                       | KPI definitions.              |
 
 ## Access Patterns & Index Strategy
 
 ### 1) List recent events by tenant (audit logs, agent runs)
+
 **Pattern**: `WHERE organization_id = ? ORDER BY created_at DESC LIMIT ?` with cursor pagination.
 
 **Indexes**
+
 - `idx_audit_logs_org_created_id` → `(organization_id, created_at DESC, id DESC)`
 - `idx_agent_runs_org_status_created_id` → `(organization_id, status, created_at DESC, id DESC)`
 
 **Rationale**
+
 - `organization_id` is the leading key to support tenant isolation.
 - `created_at DESC` enables index-only, ordered retrieval.
 - `id DESC` is a tie-breaker for stable cursor pagination.
 
 ### 2) Search cases/models/workflows by name/title
+
 **Pattern**: keyword search, partial matches, or FTS ranking.
 
 **Indexes**
+
 - Trigram: `idx_cases_title_trgm`, `idx_models_name_trgm`, `idx_workflows_name_trgm`
 - FTS: `idx_cases_fts`, `idx_models_fts`
 
 **Rationale**
+
 - Trigram indexes serve `ILIKE`/fuzzy matching for partial strings.
 - FTS indexes serve ranked full-text search for long-form fields.
 
 ### 3) Filter by status + updated_at (tenant-scoped)
+
 **Pattern**: `WHERE organization_id = ? AND status = ? ORDER BY updated_at DESC`.
 
 **Index**
+
 - `idx_cases_org_status_updated_id` → `(organization_id, status, updated_at DESC, id DESC)`
 
 **Rationale**
+
 - `status` is low-cardinality; combined with `organization_id` and a time column it is selective.
 - Supports high-frequency filters and cursor pagination.
 
 ### 4) Join to users (tenant-scoped lookups)
+
 **Pattern**: `JOIN users ON cases.user_id = users.id` with tenant filter.
 
 **Existing Indexes**
+
 - `idx_cases_user` → `(organization_id, user_id, created_at DESC)`
 - `idx_users_org_email` → `(organization_id, email)`
 
 **Rationale**
+
 - `organization_id` ensures tenant-local lookups.
 - Joins can remain efficient with composite tenant keys.
 
 ### 5) Filter on JSONB metadata/config
+
 **Pattern**: `WHERE metadata ->> 'source' = 'api'` or `definition @> '{...}'`.
 
 **Indexes**
+
 - `idx_cases_metadata_gin`
 - `idx_workflows_definition_gin`
 - `idx_agents_config_gin`
 - `idx_shared_artifacts_content_gin`
 
 **Rationale**
+
 - GIN indexes are essential for JSONB containment and key/value lookups.
 
 ## High- vs. Low-Cardinality Columns
 
-| Column | Cardinality | Guidance |
-| --- | --- | --- |
-| organization_id | High | Always lead composite indexes for tenant isolation. |
-| id (UUID) | High | Good tie-breaker for cursor pagination. |
-| created_at / updated_at | High | Use for ordering and time-window filters. |
-| status / role / is_active | Low | Only index when combined with tenant + time. |
-| agent_type / artifact_type | Medium | Add to composite indexes when frequently filtered. |
-| resource_type | Medium | Consider composite with organization_id when filtered. |
+| Column                     | Cardinality | Guidance                                               |
+| -------------------------- | ----------- | ------------------------------------------------------ |
+| organization_id            | High        | Always lead composite indexes for tenant isolation.    |
+| id (UUID)                  | High        | Good tie-breaker for cursor pagination.                |
+| created_at / updated_at    | High        | Use for ordering and time-window filters.              |
+| status / role / is_active  | Low         | Only index when combined with tenant + time.           |
+| agent_type / artifact_type | Medium      | Add to composite indexes when frequently filtered.     |
+| resource_type              | Medium      | Consider composite with organization_id when filtered. |
 
 ## Avoiding Slow OFFSET Pagination
 
 **Do not** use:
+
 ```sql
 SELECT *
 FROM audit_logs
@@ -1973,6 +2064,7 @@ OFFSET 1000 LIMIT 50;
 ```
 
 **Use cursor pagination instead**:
+
 ```sql
 SELECT *
 FROM audit_logs
@@ -1987,6 +2079,7 @@ LIMIT 50;
 ## Example Optimized Queries
 
 ### Recent audit activity for a tenant
+
 ```sql
 SELECT id, action, resource_type, resource_id, created_at
 FROM audit_logs
@@ -1996,6 +2089,7 @@ LIMIT 100;
 ```
 
 ### Search cases by title (fuzzy)
+
 ```sql
 SELECT id, title, status, updated_at
 FROM cases
@@ -2006,6 +2100,7 @@ LIMIT 50;
 ```
 
 ### Full-text search cases
+
 ```sql
 SELECT id, title, ts_rank_cd(
   to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')),
@@ -2020,6 +2115,7 @@ LIMIT 50;
 ```
 
 ### Filter by status + updated_at with cursor
+
 ```sql
 SELECT id, title, status, updated_at
 FROM cases
@@ -2031,6 +2127,7 @@ LIMIT 50;
 ```
 
 ### JSONB filter on workflow definition
+
 ```sql
 SELECT id, name, updated_at
 FROM workflows
@@ -2043,6 +2140,7 @@ LIMIT 25;
 ## EXPLAIN / ANALYZE Guidance
 
 When validating queries:
+
 - **Look for Index Scan / Index Only Scan** on the composite tenant index.
 - **Avoid Seq Scan** on high-volume tables unless filtering is highly selective.
 - **Check actual vs. estimated rows**; large mismatches often indicate stale stats.
@@ -2050,10 +2148,12 @@ When validating queries:
 - **Confirm filter recheck**: for GIN indexes, expect `Bitmap Index Scan + Bitmap Heap Scan`.
 
 Recommended workflow:
+
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
 SELECT ...
 ```
+
 - Ensure the **index condition includes organization_id**.
 - Check **buffer hits** for read-heavy queries.
 - Validate query stability with different cursor positions.
@@ -2061,13 +2161,14 @@ SELECT ...
 ## Migration Reference
 
 The index changes are codified in the Supabase migrations under:
+
 - `supabase/migrations/` (indexing strategy migration)
 
 ---
 
 ## Proposed Changes Review Analysis
 
-*Source: `engineering/database/Proposed Changes Review Analysis (1).md`*
+_Source: `engineering/database/Proposed Changes Review Analysis (1).md`_
 
 ## Executive Summary
 
@@ -2078,6 +2179,7 @@ The proposed changes introduce **four major modifications** to the enterprise Sa
 ## Change 1: Multi-Organization User Membership (user_tenants table)
 
 ### Proposed Code
+
 ```sql
 CREATE TABLE IF NOT EXISTS public.user_tenants (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -2087,22 +2189,26 @@ CREATE TABLE IF NOT EXISTS public.user_tenants (
 ```
 
 ### Stated Objective
+
 Support users belonging to multiple organizations (multi-org access).
 
 ### Analysis
 
 **✅ STRENGTHS:**
+
 - Proper composite primary key prevents duplicate memberships
 - Cascade deletes maintain referential integrity
 - Enables future multi-tenancy expansion
 
 **⚠️ CONCERNS:**
+
 1. **Conflicts with existing `users` table**: The current `users` table has a `NOT NULL` constraint on `organization_id`, enforcing 1-to-1 relationship. This creates schema inconsistency.
 2. **Missing RLS policies**: No Row-Level Security policies defined for this table
 3. **No role/permission tracking**: Missing columns for role within each organization
 4. **Incomplete integration**: The `security.get_user_organization_id()` function still returns a single org_id, not handling multi-org scenarios
 
 **🔧 REQUIRED FIXES:**
+
 1. Add RLS policies for `user_tenants` table
 2. Add `role` column to track permissions per organization
 3. Add `status` and timestamp columns for audit trail
@@ -2116,6 +2222,7 @@ Support users belonging to multiple organizations (multi-org access).
 ## Change 2: Service Role RLS Bypass Policies
 
 ### Proposed Code
+
 ```sql
 CREATE POLICY "app_service_bypass"
 ON public.organizations
@@ -2133,16 +2240,19 @@ WITH CHECK (true);
 ```
 
 ### Stated Objective
+
 Address Critical Blocker #2 - Allow backend services to perform cross-tenant operations (billing, LLM cost aggregation).
 
 ### Analysis
 
 **✅ STRENGTHS:**
+
 - Correctly uses role-based policies
 - Addresses legitimate need for service-level operations
 - Uses proper `USING (true)` and `WITH CHECK (true)` syntax
 
 **🚨 CRITICAL SECURITY CONCERNS:**
+
 1. **Overly Permissive**: Grants unrestricted access to ALL operations on organizations table
 2. **Violates Zero Trust Principle**: No logging or constraints on service role actions
 3. **Incomplete Coverage**: Only applies to `organizations` table, not `users` or other tables
@@ -2150,6 +2260,7 @@ Address Critical Blocker #2 - Allow backend services to perform cross-tenant ope
 5. **Breaks Defense-in-Depth**: Removes database-level tenant isolation for service accounts
 
 **🔧 REQUIRED FIXES:**
+
 1. **Add audit logging trigger** for all service role operations
 2. **Create specific policies** per operation type (SELECT, INSERT, UPDATE, DELETE) instead of blanket "FOR ALL"
 3. **Apply to all tenant-scoped tables** consistently
@@ -2157,6 +2268,7 @@ Address Critical Blocker #2 - Allow backend services to perform cross-tenant ope
 5. **Consider alternative**: Use `SECURITY DEFINER` functions with explicit audit logging instead of blanket bypass
 
 **ALTERNATIVE APPROACH (RECOMMENDED):**
+
 ```sql
 -- Instead of bypass, create specific service functions with audit
 CREATE OR REPLACE FUNCTION security.service_read_organization(p_org_id UUID)
@@ -2187,6 +2299,7 @@ $$;
 ## Change 3: Audit Log Immutability Enforcement
 
 ### Proposed Code
+
 ```sql
 CREATE OR REPLACE FUNCTION audit.enforce_audit_immutability()
 RETURNS TRIGGER
@@ -2210,22 +2323,26 @@ CREATE TRIGGER enforce_immutability_trigger
 ```
 
 ### Stated Objective
+
 Address Critical Blocker #6 - Ensure audit logs are immutable for SOC 2/GDPR compliance.
 
 ### Analysis
 
 **✅ STRENGTHS:**
+
 - Correctly prevents UPDATE and DELETE operations
 - Uses `BEFORE` trigger for early prevention
 - Clear error message for compliance
 - Addresses real compliance requirement
 
 **⚠️ MINOR ISSUES:**
+
 1. **Redundant check**: `IF OLD.timestamp IS NOT NULL` is always true in UPDATE/DELETE triggers
 2. **No exception for system maintenance**: Should allow superuser/specific role for emergency cleanup
 3. **Missing return value**: Should `RETURN OLD` for DELETE operations
 
 **🔧 REQUIRED FIXES:**
+
 ```sql
 CREATE OR REPLACE FUNCTION audit.enforce_audit_immutability()
 RETURNS TRIGGER
@@ -2254,6 +2371,7 @@ $$;
 ## Change 4: Vector Store Integration (pgvector + semantic_memory)
 
 ### Proposed Code
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS "vector";
 
@@ -2290,11 +2408,13 @@ WITH (lists = 100);
 ```
 
 ### Stated Objective
+
 Enable vector search for LLM semantic memory and RAG capabilities with proper tenant isolation.
 
 ### Analysis
 
 **✅ STRENGTHS:**
+
 - Proper tenant isolation via `organization_id`
 - RLS policies enforce multi-tenancy
 - Correct vector dimension (1536 for OpenAI embeddings)
@@ -2302,6 +2422,7 @@ Enable vector search for LLM semantic memory and RAG capabilities with proper te
 - Cascade delete maintains data integrity
 
 **⚠️ CONCERNS:**
+
 1. **Missing columns**: No `updated_at`, `metadata`, or `user_id` for tracking
 2. **No UPDATE/DELETE policies**: Only SELECT and INSERT are covered
 3. **Index configuration**: `lists = 100` is arbitrary; should be based on dataset size (rule of thumb: rows/1000)
@@ -2311,6 +2432,7 @@ Enable vector search for LLM semantic memory and RAG capabilities with proper te
 7. **Service role policy too permissive**: `WITH CHECK (true)` allows any org_id
 
 **🔧 REQUIRED FIXES:**
+
 ```sql
 -- Enhanced table definition
 CREATE TABLE IF NOT EXISTS public.semantic_memory (
@@ -2379,12 +2501,12 @@ CREATE TRIGGER update_semantic_memory_updated_at
 
 ### Summary of Changes
 
-| Change | Objective Met | Security Impact | Recommendation |
-|--------|--------------|-----------------|----------------|
-| **user_tenants table** | ⚠️ Partial | Medium Risk | Implement with fixes |
-| **Service role bypass** | ✅ Yes | 🚨 High Risk | Implement with strict audit logging |
-| **Audit immutability** | ✅ Yes | ✅ Improves security | Approve with minor fixes |
-| **Vector store** | ✅ Yes | Medium Risk | Implement with enhancements |
+| Change                  | Objective Met | Security Impact      | Recommendation                      |
+| ----------------------- | ------------- | -------------------- | ----------------------------------- |
+| **user_tenants table**  | ⚠️ Partial    | Medium Risk          | Implement with fixes                |
+| **Service role bypass** | ✅ Yes        | 🚨 High Risk         | Implement with strict audit logging |
+| **Audit immutability**  | ✅ Yes        | ✅ Improves security | Approve with minor fixes            |
+| **Vector store**        | ✅ Yes        | Medium Risk          | Implement with enhancements         |
 
 ### Critical Security Gaps Introduced
 
@@ -2396,12 +2518,14 @@ CREATE TRIGGER update_semantic_memory_updated_at
 ### Recommendations
 
 **IMMEDIATE ACTIONS:**
+
 1. ✅ **Approve audit immutability** with minor fixes
 2. ✅ **Approve vector store** with enhancements
 3. ⚠️ **Conditionally approve service bypass** with mandatory audit logging
 4. ⚠️ **Defer user_tenants** until schema conflicts resolved
 
 **BEFORE DEPLOYMENT:**
+
 1. Add comprehensive audit logging for all service role operations
 2. Complete multi-org implementation or remove user_tenants table
 3. Add missing RLS policies for UPDATE/DELETE operations
@@ -2413,16 +2537,19 @@ CREATE TRIGGER update_semantic_memory_updated_at
 ## Compliance Impact
 
 ### SOC 2 Compliance
+
 - ✅ Audit immutability strengthens compliance
 - ⚠️ Service role bypass needs compensating controls (audit logging)
 - ✅ Vector store properly isolated
 
 ### GDPR Compliance
+
 - ✅ Tenant isolation maintained (with fixes)
 - ⚠️ Service role access needs documented justification
 - ✅ Audit trail preserved
 
 ### HIPAA Readiness
+
 - ✅ Data isolation enforced
 - ⚠️ Service role needs additional access controls
 - ✅ Immutable audit log supports compliance
@@ -2439,7 +2566,7 @@ The proposed changes accomplish their stated objectives but introduce security r
 
 ## Custom Domains Database Schema
 
-*Source: `engineering/database/CUSTOM_DOMAINS_SCHEMA.md`*
+_Source: `engineering/database/CUSTOM_DOMAINS_SCHEMA.md`_
 
 **Version:** 1.0
 **Migration:** `20251208164354_custom_domains.sql`
@@ -2461,21 +2588,21 @@ Stores custom domains for tenant organizations with verification and SSL status.
 
 #### Schema
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PRIMARY KEY, DEFAULT gen_random_uuid() | Unique identifier |
-| `tenant_id` | UUID | NOT NULL, REFERENCES organizations(id) ON DELETE CASCADE | Organization that owns this domain |
-| `domain` | TEXT | NOT NULL, UNIQUE, CHECK (domain format) | The custom domain (e.g., app.acme.com) |
-| `verified` | BOOLEAN | DEFAULT FALSE | Whether domain ownership has been verified |
-| `verification_token` | TEXT | NOT NULL, CHECK (length >= 32) | Token for DNS/HTTP verification |
-| `verification_method` | TEXT | NOT NULL, CHECK IN ('dns', 'http') | Verification method used |
-| `ssl_status` | TEXT | NOT NULL, DEFAULT 'pending', CHECK IN ('pending', 'active', 'failed', 'expired') | SSL certificate status |
-| `ssl_issued_at` | TIMESTAMPTZ | NULL | When SSL certificate was issued |
-| `ssl_expires_at` | TIMESTAMPTZ | NULL | When SSL certificate expires |
-| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | When domain was added |
-| `verified_at` | TIMESTAMPTZ | NULL | When domain was verified |
-| `last_checked_at` | TIMESTAMPTZ | NULL | Last verification check |
-| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
+| Column                | Type        | Constraints                                                                      | Description                                |
+| --------------------- | ----------- | -------------------------------------------------------------------------------- | ------------------------------------------ |
+| `id`                  | UUID        | PRIMARY KEY, DEFAULT gen_random_uuid()                                           | Unique identifier                          |
+| `tenant_id`           | UUID        | NOT NULL, REFERENCES organizations(id) ON DELETE CASCADE                         | Organization that owns this domain         |
+| `domain`              | TEXT        | NOT NULL, UNIQUE, CHECK (domain format)                                          | The custom domain (e.g., app.acme.com)     |
+| `verified`            | BOOLEAN     | DEFAULT FALSE                                                                    | Whether domain ownership has been verified |
+| `verification_token`  | TEXT        | NOT NULL, CHECK (length >= 32)                                                   | Token for DNS/HTTP verification            |
+| `verification_method` | TEXT        | NOT NULL, CHECK IN ('dns', 'http')                                               | Verification method used                   |
+| `ssl_status`          | TEXT        | NOT NULL, DEFAULT 'pending', CHECK IN ('pending', 'active', 'failed', 'expired') | SSL certificate status                     |
+| `ssl_issued_at`       | TIMESTAMPTZ | NULL                                                                             | When SSL certificate was issued            |
+| `ssl_expires_at`      | TIMESTAMPTZ | NULL                                                                             | When SSL certificate expires               |
+| `created_at`          | TIMESTAMPTZ | DEFAULT NOW()                                                                    | When domain was added                      |
+| `verified_at`         | TIMESTAMPTZ | NULL                                                                             | When domain was verified                   |
+| `last_checked_at`     | TIMESTAMPTZ | NULL                                                                             | Last verification check                    |
+| `updated_at`          | TIMESTAMPTZ | DEFAULT NOW()                                                                    | Last update timestamp                      |
 
 #### Indexes
 
@@ -2502,20 +2629,20 @@ Audit log of all domain verification attempts for troubleshooting and compliance
 
 #### Schema
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PRIMARY KEY, DEFAULT gen_random_uuid() | Unique identifier |
-| `domain_id` | UUID | NOT NULL, REFERENCES custom_domains(id) ON DELETE CASCADE | Domain being verified |
-| `tenant_id` | UUID | NOT NULL, REFERENCES organizations(id) ON DELETE CASCADE | Organization that owns the domain |
-| `verification_method` | TEXT | NOT NULL, CHECK IN ('dns', 'http') | Verification method used |
-| `status` | TEXT | NOT NULL, CHECK IN ('success', 'failed', 'pending') | Verification result |
-| `error_message` | TEXT | NULL | Error message if verification failed |
-| `dns_records` | JSONB | NULL | DNS records found during verification |
-| `http_response` | JSONB | NULL | HTTP response during verification |
-| `checked_at` | TIMESTAMPTZ | DEFAULT NOW() | When verification was attempted |
-| `user_agent` | TEXT | NULL | User agent of requester |
-| `ip_address` | INET | NULL | IP address of requester |
-| `request_id` | TEXT | NULL | Request ID for tracing |
+| Column                | Type        | Constraints                                               | Description                           |
+| --------------------- | ----------- | --------------------------------------------------------- | ------------------------------------- |
+| `id`                  | UUID        | PRIMARY KEY, DEFAULT gen_random_uuid()                    | Unique identifier                     |
+| `domain_id`           | UUID        | NOT NULL, REFERENCES custom_domains(id) ON DELETE CASCADE | Domain being verified                 |
+| `tenant_id`           | UUID        | NOT NULL, REFERENCES organizations(id) ON DELETE CASCADE  | Organization that owns the domain     |
+| `verification_method` | TEXT        | NOT NULL, CHECK IN ('dns', 'http')                        | Verification method used              |
+| `status`              | TEXT        | NOT NULL, CHECK IN ('success', 'failed', 'pending')       | Verification result                   |
+| `error_message`       | TEXT        | NULL                                                      | Error message if verification failed  |
+| `dns_records`         | JSONB       | NULL                                                      | DNS records found during verification |
+| `http_response`       | JSONB       | NULL                                                      | HTTP response during verification     |
+| `checked_at`          | TIMESTAMPTZ | DEFAULT NOW()                                             | When verification was attempted       |
+| `user_agent`          | TEXT        | NULL                                                      | User agent of requester               |
+| `ip_address`          | INET        | NULL                                                      | IP address of requester               |
+| `request_id`          | TEXT        | NULL                                                      | Request ID for tracing                |
 
 #### Indexes
 
@@ -2531,6 +2658,7 @@ Audit log of all domain verification attempts for troubleshooting and compliance
 ### `custom_domains` Policies
 
 #### SELECT Policy: "Tenants can view own domains"
+
 ```sql
 tenant_id IN (
     SELECT id FROM organizations
@@ -2541,9 +2669,11 @@ tenant_id IN (
     )
 )
 ```
+
 **Effect:** Users can only view domains belonging to their organization(s).
 
 #### INSERT Policy: "Tenants can insert own domains"
+
 ```sql
 tenant_id IN (
     SELECT id FROM organizations
@@ -2555,29 +2685,37 @@ tenant_id IN (
     )
 )
 ```
+
 **Effect:** Only owners and admins can add domains.
 
 #### UPDATE Policy: "Tenants can update own domains"
+
 **Effect:** Only owners and admins can update their organization's domains.
 
 #### DELETE Policy: "Tenants can delete own domains"
+
 **Effect:** Only owners and admins can delete their organization's domains.
 
 #### Service Role Policy: "Service role can access all domains"
+
 ```sql
 auth.role() = 'service_role'
 ```
+
 **Effect:** Domain validator service can query all domains.
 
 ### `domain_verification_logs` Policies
 
 #### SELECT Policy: "Tenants can view own verification logs"
+
 **Effect:** Users can view verification logs for their organization's domains.
 
 #### INSERT Policy: "Service role can insert verification logs"
+
 **Effect:** Only the service role can create verification logs.
 
 #### Service Role Policy: "Service role can access all logs"
+
 **Effect:** Service role has full access for logging and auditing.
 
 ---
@@ -2589,6 +2727,7 @@ auth.role() = 'service_role'
 Logs a domain verification attempt.
 
 **Signature:**
+
 ```sql
 log_domain_verification(
     p_domain_id UUID,
@@ -2602,6 +2741,7 @@ log_domain_verification(
 ```
 
 **Usage:**
+
 ```sql
 SELECT log_domain_verification(
     'domain-uuid',
@@ -2831,7 +2971,7 @@ ORDER BY dvl.checked_at DESC;
 
 ## Foreign Key Actions Fix - Summary
 
-*Source: `engineering/database/FK_ACTIONS_FIX_SUMMARY.md`*
+_Source: `engineering/database/FK_ACTIONS_FIX_SUMMARY.md`_
 
 **Date**: January 5, 2026
 **Status**: ✅ COMPLETE
@@ -2844,6 +2984,7 @@ ORDER BY dvl.checked_at DESC;
 ### 🔴 Issue: 19 Foreign Keys Without ON DELETE Actions
 
 **Risk**:
+
 - Orphaned records when parent is deleted
 - Failed deletions due to FK constraints
 - Data integrity issues
@@ -2856,17 +2997,21 @@ ORDER BY dvl.checked_at DESC;
 ## Categorization Strategy
 
 ### Category 1: CASCADE (10 FKs)
+
 **When to use**: Dependent data that's meaningless without parent
 
 **Examples**:
+
 - Cases belong to tenants → DELETE tenant = DELETE cases
 - Messages belong to tenants → DELETE tenant = DELETE messages
 - Agent metrics belong to agents → DELETE agent = DELETE metrics
 
 ### Category 2: SET NULL (9 FKs)
+
 **When to use**: Audit/history records that should be preserved
 
 **Examples**:
+
 - Audit logs reference users → DELETE user = NULL reference (preserve log)
 - Approval requests reference requesters → DELETE user = NULL reference (preserve history)
 - Integration logs reference users → DELETE user = NULL reference (preserve audit trail)
@@ -2878,6 +3023,7 @@ ORDER BY dvl.checked_at DESC;
 ### CASCADE - Dependent Data (10 FKs)
 
 #### 1. Tenant-Related (3 FKs)
+
 ```sql
 -- Cases belong to tenants
 ALTER TABLE cases
@@ -2906,6 +3052,7 @@ ADD CONSTRAINT workflows_tenant_id_fkey
 ---
 
 #### 2. Agent-Related (5 FKs)
+
 ```sql
 -- Agent metrics
 ALTER TABLE agent_metrics
@@ -2948,6 +3095,7 @@ ADD CONSTRAINT message_bus_to_agent_id_fkey
 ---
 
 #### 3. Integration-Related (1 FK)
+
 ```sql
 -- Integration usage logs
 ALTER TABLE integration_usage_log
@@ -2962,6 +3110,7 @@ ADD CONSTRAINT integration_usage_log_integration_id_fkey
 ---
 
 #### 4. User-Related (1 FK)
+
 ```sql
 -- Approver roles
 ALTER TABLE approver_roles
@@ -2978,6 +3127,7 @@ ADD CONSTRAINT approver_roles_user_id_fkey
 ### SET NULL - Audit References (9 FKs)
 
 #### 1. Audit Logs (2 FKs)
+
 ```sql
 -- Agent audit logs
 ALTER TABLE agent_audit_log
@@ -2999,6 +3149,7 @@ ADD CONSTRAINT audit_logs_user_id_fkey
 ---
 
 #### 2. Approval System (4 FKs)
+
 ```sql
 -- Approval requests
 ALTER TABLE approval_requests
@@ -3034,6 +3185,7 @@ ADD CONSTRAINT approver_roles_granted_by_fkey
 ---
 
 #### 3. Integration & Usage (2 FKs)
+
 ```sql
 -- Integration usage logs (user)
 ALTER TABLE integration_usage_log
@@ -3055,6 +3207,7 @@ ADD CONSTRAINT tenant_integrations_connected_by_fkey
 ---
 
 #### 4. Resource Artifacts (1 FK)
+
 ```sql
 -- Resource artifacts (replacement tracking)
 ALTER TABLE resource_artifacts
@@ -3077,6 +3230,7 @@ psql $DATABASE_URL -f scripts/test-foreign-key-actions.sql
 ```
 
 **Expected Output**:
+
 ```
 Total foreign keys: 88
 
@@ -3097,12 +3251,14 @@ Delete actions:
 ### Before Fix
 
 **Tenant Deletion**:
+
 ```sql
 DELETE FROM tenants WHERE id = 'tenant-123';
 -- ERROR: update or delete on table "tenants" violates foreign key constraint
 ```
 
 **User Deletion**:
+
 ```sql
 DELETE FROM auth.users WHERE id = 'user-456';
 -- ERROR: update or delete on table "users" violates foreign key constraint
@@ -3115,6 +3271,7 @@ DELETE FROM auth.users WHERE id = 'user-456';
 ### After Fix
 
 **Tenant Deletion**:
+
 ```sql
 DELETE FROM tenants WHERE id = 'tenant-123';
 -- SUCCESS: Automatically deletes:
@@ -3126,6 +3283,7 @@ DELETE FROM tenants WHERE id = 'tenant-123';
 ```
 
 **User Deletion**:
+
 ```sql
 DELETE FROM auth.users WHERE id = 'user-456';
 -- SUCCESS: Automatically deletes:
@@ -3302,12 +3460,14 @@ SELECT * FROM test_foreign_key_cascade() WHERE test_result LIKE '❌%';
 ### Tables Affected
 
 **CASCADE**:
+
 - cases, messages, workflows (tenant data)
 - agent_metrics, agent_predictions, task_queue, message_bus (agent data)
 - integration_usage_log (integration data)
 - approver_roles (user data)
 
 **SET NULL**:
+
 - agent_audit_log, audit_logs (audit data)
 - approval_requests, approvals, approver_roles (approval history)
 - integration_usage_log, tenant_integrations (integration history)
@@ -3335,7 +3495,7 @@ SELECT * FROM test_foreign_key_cascade() WHERE test_result LIKE '❌%';
 
 ## Supabase Vault Quick Start
 
-*Source: `engineering/database/VAULT_QUICK_START.md`*
+_Source: `engineering/database/VAULT_QUICK_START.md`_
 
 **5-Minute Setup Guide**
 
@@ -3346,6 +3506,7 @@ SELECT * FROM test_foreign_key_cascade() WHERE test_result LIKE '❌%';
 Supabase Vault encrypts sensitive data (OAuth tokens, API keys) at rest. Encryption keys are stored outside your database for maximum security.
 
 **Why Vault?**
+
 - ✅ Recommended by Supabase (replaces pgsodium)
 - ✅ Encryption keys stored outside database
 - ✅ Simple API
@@ -3373,6 +3534,7 @@ SELECT * FROM migrate_credentials_to_vault();
 ```
 
 Expected output:
+
 ```
       table_name       | records_migrated | records_failed
 -----------------------+------------------+----------------
@@ -3399,16 +3561,14 @@ All tests should pass ✅
 
 ```typescript
 // Just insert normally - trigger handles encryption
-await supabase
-  .from('integration_connections')
-  .insert({
-    organization_id: orgId,
-    adapter_type: 'salesforce',
-    credentials: {
-      access_token: 'your_token',
-      refresh_token: 'your_refresh'
-    }
-  });
+await supabase.from("integration_connections").insert({
+  organization_id: orgId,
+  adapter_type: "salesforce",
+  credentials: {
+    access_token: "your_token",
+    refresh_token: "your_refresh",
+  },
+});
 
 // ✅ Credentials automatically encrypted in Vault
 // ✅ credentials column cleared
@@ -3431,7 +3591,7 @@ SELECT vault.create_secret(
 **From Application** (requires service_role key):
 
 ```typescript
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 // Use service_role key (NOT anon key)
 const supabaseAdmin = createClient(
@@ -3441,9 +3601,9 @@ const supabaseAdmin = createClient(
 
 // Access decrypted credentials
 const { data } = await supabaseAdmin
-  .from('integration_connections_decrypted')
-  .select('id, credentials')
-  .eq('id', integrationId)
+  .from("integration_connections_decrypted")
+  .select("id, credentials")
+  .eq("id", integrationId)
   .single();
 
 console.log(data.credentials); // Automatically decrypted
@@ -3480,8 +3640,8 @@ WHERE id = 'your-integration-id';
 // WRONG - anon key cannot access decrypted views
 const supabase = createClient(url, ANON_KEY);
 const { data } = await supabase
-  .from('integration_connections_decrypted')
-  .select('*'); // ❌ Permission denied
+  .from("integration_connections_decrypted")
+  .select("*"); // ❌ Permission denied
 ```
 
 ### ✅ Using service_role key
@@ -3490,8 +3650,8 @@ const { data } = await supabase
 // CORRECT - service_role key can access decrypted views
 const supabase = createClient(url, SERVICE_ROLE_KEY);
 const { data } = await supabase
-  .from('integration_connections_decrypted')
-  .select('*'); // ✅ Works
+  .from("integration_connections_decrypted")
+  .select("*"); // ✅ Works
 ```
 
 ### ❌ Accessing vault.secrets directly
@@ -3527,6 +3687,7 @@ Use service_role key, not anon key.
 ### "trigger not found"
 
 Re-run migration:
+
 ```bash
 psql $DATABASE_URL -f supabase/migrations/20260105000009_encrypt_credentials_vault.sql
 ```
@@ -3554,6 +3715,7 @@ psql $DATABASE_URL -f supabase/migrations/20260105000009_encrypt_credentials_vau
 ## Support
 
 **Questions?**
+
 1. Check [VAULT_ENCRYPTION_GUIDE.md](./VAULT_ENCRYPTION_GUIDE.md)
 2. Run test script: `scripts/test-vault-encryption.sql`
 3. Review Supabase Vault documentation
@@ -3563,7 +3725,7 @@ psql $DATABASE_URL -f supabase/migrations/20260105000009_encrypt_credentials_vau
 
 ## Flawless Dev Database Migrations
 
-*Source: `engineering/database/flawless-dev-migrations.md`*
+_Source: `engineering/database/flawless-dev-migrations.md`_
 
 This guide defines what "flawless" database migrations look like in local development for ValueOS. The goal is a workflow where schema changes are **versioned**, **automated**, and **reproducible**, so every developer runs the same migrations that will run in production.
 
@@ -3574,11 +3736,13 @@ This guide defines what "flawless" database migrations look like in local develo
 A developer should be able to clone the repo and run a single command to reach a ready-to-work database state.
 
 **Requirements**
+
 - **Idempotent**: Running the setup multiple times must not break or drift the schema.
 - **Automated**: Local dev should auto-apply migrations on start or via a standard script.
 - **Fast**: Fresh setup should complete in minutes, not hours.
 
 **Recommended Flow**
+
 - `supabase db reset` to rebuild schema + seed data locally.
 - `supabase db push` to apply pending migrations without resets.
 
@@ -3587,6 +3751,7 @@ A developer should be able to clone the repo and run a single command to reach a
 The repository is the single source of truth, not a shared database.
 
 **Rules**
+
 - Every schema change is a migration committed to git.
 - No manual edits to schemas via UI tools.
 - Migration files are ordered and timestamped for deterministic application.
@@ -3596,6 +3761,7 @@ The repository is the single source of truth, not a shared database.
 Local databases should be usable immediately with representative data.
 
 **Requirements**
+
 - **Synthetic or anonymized seed data** (not production dumps).
 - **Edge-case coverage** (e.g., users with zero orders, heavy usage records, missing optional fields).
 - **Separation of concerns**: schema migrations are distinct from seed data.
@@ -3610,6 +3776,7 @@ Local databases should be usable immediately with representative data.
 ## Recommended Workflow
 
 ### Create a Migration
+
 1. Generate a migration from schema changes:
    ```bash
    supabase db diff --file <name>
@@ -3618,6 +3785,7 @@ Local databases should be usable immediately with representative data.
 3. Add a rollback when possible.
 
 ### Apply Migrations Locally
+
 - **Fresh setup**:
   ```bash
   supabase db reset
@@ -3628,7 +3796,9 @@ Local databases should be usable immediately with representative data.
   ```
 
 ### Validate Before Merge
+
 Run the standard migration safety checks:
+
 ```bash
 pnpm run migration:validate
 pnpm run migration:safety
@@ -3636,12 +3806,12 @@ pnpm run migration:safety
 
 ## Collaboration & Drift Prevention
 
-| Risk Area | Mediocre | Excellent |
-| --- | --- | --- |
-| **Schema drift** | Local DB diverges from prod | CI enforces migration application on a clean DB |
-| **Rollbacks** | "Fix it in the next PR" | Every migration has a rollback or forward-fix plan |
-| **Validation** | Failures discovered late | Linting and safety checks catch risky SQL in PRs |
-| **Concurrency** | Colliding migration names | Timestamped migrations avoid conflicts |
+| Risk Area        | Mediocre                    | Excellent                                          |
+| ---------------- | --------------------------- | -------------------------------------------------- |
+| **Schema drift** | Local DB diverges from prod | CI enforces migration application on a clean DB    |
+| **Rollbacks**    | "Fix it in the next PR"     | Every migration has a rollback or forward-fix plan |
+| **Validation**   | Failures discovered late    | Linting and safety checks catch risky SQL in PRs   |
+| **Concurrency**  | Colliding migration names   | Timestamped migrations avoid conflicts             |
 
 ## Checklist for PRs with Migrations
 
@@ -3662,7 +3832,7 @@ pnpm run migration:safety
 
 ## Database Migrations - Quick Reference
 
-*Source: `engineering/database/QUICK_REFERENCE.md`*
+_Source: `engineering/database/QUICK_REFERENCE.md`_
 
 **TL;DR**: Migrations are self-contained. Just run them. No config needed.
 
@@ -3694,10 +3864,12 @@ psql $DATABASE_URL -f scripts/test-vault-encryption.sql
 ## 📋 Prerequisites
 
 ### Required ✅
+
 - PostgreSQL 15+
 - Supabase Vault extension (included with Supabase)
 
 ### Check
+
 ```bash
 psql $DATABASE_URL -c "SELECT version();"
 psql $DATABASE_URL -c "CREATE EXTENSION IF NOT EXISTS vault CASCADE;"
@@ -3708,6 +3880,7 @@ psql $DATABASE_URL -c "CREATE EXTENSION IF NOT EXISTS vault CASCADE;"
 **Supabase**: Already installed ✅
 
 **Self-hosted Supabase**:
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS vault CASCADE;
 ```
@@ -3729,30 +3902,33 @@ CREATE EXTENSION IF NOT EXISTS vault CASCADE;
 
 ## 📚 Documentation
 
-| Topic | File |
-|-------|------|
-| **Quick Deploy** | `FINAL_DEPLOYMENT_GUIDE.md` |
-| **Environment Setup** | `ENVIRONMENT_CONFIG_GUIDE.md` |
-| **Full Status** | `COMPLETE_STATUS_UPDATE.md` |
-| **Encryption** | `VAULT_ENCRYPTION_GUIDE.md` |
-| **Old (Deprecated)** | `CREDENTIAL_ENCRYPTION_GUIDE.md` |
+| Topic                 | File                             |
+| --------------------- | -------------------------------- |
+| **Quick Deploy**      | `FINAL_DEPLOYMENT_GUIDE.md`      |
+| **Environment Setup** | `ENVIRONMENT_CONFIG_GUIDE.md`    |
+| **Full Status**       | `COMPLETE_STATUS_UPDATE.md`      |
+| **Encryption**        | `VAULT_ENCRYPTION_GUIDE.md`      |
+| **Old (Deprecated)**  | `CREDENTIAL_ENCRYPTION_GUIDE.md` |
 
 ---
 
 ## 🆘 Troubleshooting
 
 **Vault extension not found?**
+
 ```sql
 -- Enable Vault extension
 CREATE EXTENSION IF NOT EXISTS vault CASCADE;
 ```
 
 **Permission denied?**
+
 ```sql
 ALTER USER your_user WITH SUPERUSER;
 ```
 
 **Slow queries?**
+
 ```sql
 -- Already fixed by migrations!
 -- Verify indexes:
@@ -3783,21 +3959,27 @@ See `FINAL_DEPLOYMENT_GUIDE.md` for detailed steps.
 
 ## Tenant Isolation Recommendation: Postgres RLS + Request Context
 
-*Source: `engineering/database/tenant_isolation_recommendation.md`*
+> Related ADR: [ADR 0006 — Multi-Tenant Data Isolation and Sharding Strategy](../engineering/adr/0006-multi-tenant-isolation-and-sharding.md)
+
+_Source: `engineering/database/tenant_isolation_recommendation.md`_
 
 ## Decision
+
 Adopt **Postgres Row-Level Security (RLS)** with a request-scoped tenant context (`SET LOCAL app.tenant_id`) as the primary tenant isolation mechanism. This gives database-enforced isolation, complements Supabase JWT-based policies, and minimizes ORM-level query mistakes. The implementation uses `security.current_tenant_id()` helpers plus RLS policies and security-barrier views for defense-in-depth.
 
 ## Why RLS for ValueOS
+
 ### Environment fit
-| Environment factor | RLS Pros | RLS Cons | Notes |
-| --- | --- | --- | --- |
-| **Serverless** | Stateless and enforced at the DB boundary regardless of app instance. | `SET LOCAL` context must be set per request/transaction; connection reuse requires careful cleanup. | Use request middleware that sets `SET LOCAL app.tenant_id` and releases the connection after the request. |
-| **Long-lived services** | Strong isolation even if app code misses tenant filters. | Requires connection pool hygiene to avoid tenant context leakage across requests. | The middleware uses `SET LOCAL` inside a transaction to scope the GUC. |
-| **ORM usage** | Avoids “forgotten tenant filter” bugs; ORM queries do not need manual tenant clauses. | ORM-level tests/linters are less effective because isolation happens below the ORM. | Pair with DB RLS tests and security barrier views. |
-| **Compliance (SOC2/ISO)** | Clear, auditable isolation at database layer; least-privilege by default. | Requires migration/test discipline to ensure new tables receive RLS policies. | The migration adds policies for all `memory_*` tables with `tenant_id`. |
+
+| Environment factor        | RLS Pros                                                                              | RLS Cons                                                                                            | Notes                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Serverless**            | Stateless and enforced at the DB boundary regardless of app instance.                 | `SET LOCAL` context must be set per request/transaction; connection reuse requires careful cleanup. | Use request middleware that sets `SET LOCAL app.tenant_id` and releases the connection after the request. |
+| **Long-lived services**   | Strong isolation even if app code misses tenant filters.                              | Requires connection pool hygiene to avoid tenant context leakage across requests.                   | The middleware uses `SET LOCAL` inside a transaction to scope the GUC.                                    |
+| **ORM usage**             | Avoids “forgotten tenant filter” bugs; ORM queries do not need manual tenant clauses. | ORM-level tests/linters are less effective because isolation happens below the ORM.                 | Pair with DB RLS tests and security barrier views.                                                        |
+| **Compliance (SOC2/ISO)** | Clear, auditable isolation at database layer; least-privilege by default.             | Requires migration/test discipline to ensure new tables receive RLS policies.                       | The migration adds policies for all `memory_*` tables with `tenant_id`.                                   |
 
 ## Implementation Highlights
+
 1. **Tenant context helpers**
    Functions `security.current_tenant_id()` and `security.current_tenant_id_uuid()` read `SET LOCAL app.tenant_id` first, then fall back to JWT claims. This supports both server-side transactions and Supabase-authenticated calls.
 
@@ -3811,15 +3993,16 @@ Adopt **Postgres Row-Level Security (RLS)** with a request-scoped tenant context
    The backend exposes a middleware that starts a transaction, executes `SET LOCAL app.tenant_id = $1`, and ties the connection lifecycle to the request.
 
 ## Operational Notes
-* Use the RLS test SQL (`infra/supabase/tests/tenant_rls_isolation.test.sql`) as part of migration validation.
-* Keep service-role usage minimal; prefer tenant-scoped connections.
-* Add indexes on `(tenant_id, id)` or `(tenant_id, created_at)` in tables with high-volume queries to support RLS performance.
+
+- Use the RLS test SQL (`infra/supabase/tests/tenant_rls_isolation.test.sql`) as part of migration validation.
+- Keep service-role usage minimal; prefer tenant-scoped connections.
+- Add indexes on `(tenant_id, id)` or `(tenant_id, created_at)` in tables with high-volume queries to support RLS performance.
 
 ---
 
 ## Zero-Downtime Migrations: Expand/Contract, Backfills, and Rollbacks
 
-*Source: `engineering/database/zero-downtime-migrations.md`*
+_Source: `engineering/database/zero-downtime-migrations.md`_
 
 This guide defines a safe, repeatable strategy for schema changes that must ship without downtime. It focuses on **expand/contract** migrations, large-table backfills, concurrent index creation, and rollback-safe releases.
 
@@ -3843,6 +4026,7 @@ in the release plan before deploying.
 ## ✅ Strategy Overview
 
 ### 1) Expand/Contract Pattern
+
 Use a multi-release approach to preserve backwards compatibility:
 
 1. **Expand**: Add new columns, tables, or indexes in a backward-compatible way.
@@ -3854,6 +4038,7 @@ Use a multi-release approach to preserve backwards compatibility:
 > **Rule:** Each migration must be safe to apply while both old and new app versions are running.
 
 ### 2) Backfill Strategy for Large Tables
+
 For large tables (millions of rows), avoid single-statement updates:
 
 - **Chunked updates** (e.g., 5k–50k rows per batch).
@@ -3862,6 +4047,7 @@ For large tables (millions of rows), avoid single-statement updates:
 - **Verify progress** with counts and checksums.
 
 ### 3) Concurrent Index Creation
+
 Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes (Postgres):
 
 - Must be run **outside of a transaction block**.
@@ -3870,6 +4056,7 @@ Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes (Postgres):
 - Always verify index creation success with `SELECT indexname, indexdef FROM pg_indexes WHERE indexname = 'idx_name'` and check for invalid indexes with `SELECT * FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid WHERE i.indisvalid = false;`
 
 ### 4) Safe Rollbacks (Forward-Only Where Needed)
+
 Not all migrations can be safely rolled back (e.g., destructive or data-loss changes). Treat them as **forward-only**:
 
 - Create **forward-fix migrations** instead of rolling back destructive changes.
@@ -3877,6 +4064,7 @@ Not all migrations can be safely rolled back (e.g., destructive or data-loss cha
 - Record irreversible steps in release notes and runbooks.
 
 ### 5) Migration Testing in CI
+
 Every migration PR should run:
 
 - Syntax validation
@@ -3898,6 +4086,7 @@ pnpm run migration:safety
 **Goal**: Add a required `billing_status` column (enum-like text) to a large `organizations` table without downtime.
 
 ### Phase 1 — Expand (Schema Only)
+
 **Migration 1**: Add nullable column + default
 
 ```sql
@@ -3913,20 +4102,21 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_orgs_billing_status
 **App change**: Start writing `billing_status` on new or updated records.
 
 ### Phase 2 — Backfill (Data Migration)
+
 **Backfill job** (outside migration):
 
 -- Example chunked backfill pattern
 UPDATE public.organizations
 SET billing_status = 'active'
 WHERE billing_status IS NULL
-  AND id IN (
-    SELECT id
-    FROM public.organizations
-    WHERE billing_status IS NULL
-    ORDER BY id
-    LIMIT 10000
-  )
-  AND (last_retry_timestamp IS NULL OR last_retry_timestamp < NOW() - INTERVAL '1 hour');
+AND id IN (
+SELECT id
+FROM public.organizations
+WHERE billing_status IS NULL
+ORDER BY id
+LIMIT 10000
+)
+AND (last_retry_timestamp IS NULL OR last_retry_timestamp < NOW() - INTERVAL '1 hour');
 
 -- Track problematic rows after several retries
 INSERT INTO migration_issues (table_name, record_id, issue, created_at)
@@ -3937,6 +4127,7 @@ WHERE billing_status IS NULL AND retry_count >= 3;
 Run repeatedly until `billing_status IS NULL` is 0. Track progress in logs.
 
 ### Phase 3 — Read Switch + Validate
+
 **App change**: Read `billing_status` for all logic.
 
 Validation queries:
@@ -3947,6 +4138,7 @@ SELECT billing_status, COUNT(*) FROM public.organizations GROUP BY billing_statu
 ```
 
 ### Phase 4 — Contract (Enforce + Cleanup)
+
 **Migration 2**: Add NOT NULL constraint and remove old logic
 
 ```sql
@@ -3963,42 +4155,49 @@ ALTER TABLE public.organizations
 Use this checklist for multi-agent SWAT team review of a multitenant enterprise SaaS release. Run it in parallel with AI outputs to enforce enterprise-grade rigor.
 
 ### Architecture Sentinel
+
 - [ ] Schema evolution backward/forward compatible
 - [ ] Shared vs schema-per-tenant validated
 - [ ] Sharding/scaling strategy reviewed
 - [ ] Migration runbooks updated
 
 ### Security Guardian
+
 - [ ] Threat model updated
 - [ ] Secrets rotation confirmed
 - [ ] Zero-trust boundaries tested
 - [ ] Tenant-level RBAC + RLS enforced
 
 ### Compliance Auditor
+
 - [ ] SOC2/FedRAMP control mapping updated
 - [ ] Audit logging validated
 - [ ] Data retention/export restrictions reviewed
 - [ ] Compliance artifacts refreshed
 
 ### CI/CD Enforcer
+
 - [ ] Pipelines run: lint, type-check, SAST, DAST, SBOM
 - [ ] Build artifacts signed + reproducible
 - [ ] Canary/blue-green config validated
 - [ ] Rollback plan documented
 
 ### Observability Analyst
+
 - [ ] Metrics/traces/logs tenant-segmented
 - [ ] Dashboards + alerts configured
 - [ ] Error budgets and SLOs verified
 - [ ] Rollback signals codified
 
 ### Data Reliability Operator
+
 - [ ] Migrations forward/backward safe
 - [ ] Anonymization in non-prod confirmed
 - [ ] Backup/restore drills validated
 - [ ] Disaster recovery readiness checked
 
 ### Customer Impact Commander
+
 - [ ] Feature toggles per tenant/region tested
 - [ ] Co-branding and localization verified
 - [ ] Entitlements and billing regression run

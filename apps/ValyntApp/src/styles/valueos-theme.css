@@ -10,6 +10,31 @@
 @layer base {
   :root {
     /* ===================
+       CANONICAL VALUEOS PALETTE
+       ===================
+       Source-of-truth palette for all apps.
+    */
+    --vos-color-primary: var(--valueos-primary);
+    --vos-color-primary-foreground: var(--valueos-primary-foreground);
+    --vos-color-secondary: var(--valueos-secondary);
+    --vos-color-secondary-foreground: var(--valueos-secondary-foreground);
+    --vos-color-accent: var(--valueos-accent);
+    --vos-color-accent-foreground: var(--valueos-accent-foreground);
+
+    --vos-color-neutral-background: var(--valueos-neutral-background);
+    --vos-color-neutral-foreground: var(--valueos-neutral-foreground);
+    --vos-color-neutral-surface: var(--valueos-neutral-surface);
+    --vos-color-neutral-subtle: var(--valueos-neutral-subtle);
+    --vos-color-neutral-muted: var(--valueos-neutral-muted);
+    --vos-color-neutral-border: var(--valueos-neutral-border);
+
+    --vos-color-success: var(--valueos-success);
+    --vos-color-warning: var(--valueos-warning);
+    --vos-color-error: var(--valueos-error);
+    --vos-color-info: var(--valueos-primary);
+    --vos-color-on-status: var(--valueos-on-status);
+
+    /* ===================
        COLOR PRIMITIVES
        =================== */
 
@@ -80,62 +105,62 @@
     */
 
     /* Backgrounds */
-    --background: var(--valueos-neutral-background);
-    --foreground: var(--valueos-neutral-foreground);
+    --background: var(--vos-color-neutral-background);
+    --foreground: var(--vos-color-neutral-foreground);
 
-    --surface: var(--valueos-neutral-surface);
-    --surface-elevated: var(--valueos-neutral-background);
+    --surface: var(--vos-color-neutral-surface);
+    --surface-elevated: var(--vos-color-neutral-background);
 
     /* Cards */
-    --card: var(--valueos-neutral-background);
-    --card-foreground: var(--valueos-neutral-foreground);
+    --card: var(--vos-color-neutral-background);
+    --card-foreground: var(--vos-color-neutral-foreground);
 
     /* Popovers */
-    --popover: var(--valueos-neutral-background);
-    --popover-foreground: var(--valueos-neutral-foreground);
+    --popover: var(--vos-color-neutral-background);
+    --popover-foreground: var(--vos-color-neutral-foreground);
 
     /* Primary */
-    --primary: var(--valueos-primary);
-    --primary-foreground: var(--valueos-primary-foreground);
+    --primary: var(--vos-color-primary);
+    --primary-foreground: var(--vos-color-primary-foreground);
 
     /* Secondary */
-    --secondary: var(--valueos-secondary);
-    --secondary-foreground: var(--valueos-secondary-foreground);
+    --secondary: var(--vos-color-secondary);
+    --secondary-foreground: var(--vos-color-secondary-foreground);
 
     /* Muted */
-    --muted: var(--valueos-neutral-subtle);
-    --muted-foreground: var(--valueos-neutral-muted);
+    --muted: var(--vos-color-neutral-subtle);
+    --muted-foreground: var(--vos-color-neutral-muted);
 
     /* Accent */
-    --accent: var(--valueos-accent);
-    --accent-foreground: var(--valueos-accent-foreground);
+    --accent: var(--vos-color-accent);
+    --accent-foreground: var(--vos-color-accent-foreground);
 
     /* Destructive */
-    --destructive: var(--valueos-error);
-    --destructive-foreground: var(--valueos-on-status);
+    --destructive: var(--vos-color-error);
+    --destructive-foreground: var(--vos-color-on-status);
 
     /* Success */
-    --success: var(--valueos-success);
-    --success-foreground: var(--valueos-on-status);
+    --success: var(--vos-color-success);
+    --success-foreground: var(--vos-color-on-status);
 
     /* Warning */
-    --warning: var(--valueos-warning);
-    --warning-foreground: var(--valueos-on-status);
+    --warning: var(--vos-color-warning);
+    --warning-foreground: var(--vos-color-on-status);
 
     /* Border & Input */
-    --border: var(--valueos-neutral-border);
-    --input: var(--valueos-neutral-border);
-    --ring: var(--valueos-primary);
+    --border: var(--vos-color-neutral-border);
+    --input: var(--vos-color-neutral-border);
+    --ring: var(--vos-color-primary);
 
     /* Sidebar */
-    --sidebar-background: var(--valueos-neutral-foreground);
-    --sidebar-foreground: var(--valueos-neutral-surface);
-    --sidebar-primary: var(--valueos-primary);
-    --sidebar-primary-foreground: var(--valueos-primary-foreground);
-    --sidebar-accent: var(--valueos-neutral-muted);
-    --sidebar-accent-foreground: var(--valueos-neutral-surface);
-    --sidebar-border: var(--valueos-neutral-muted);
-    --sidebar-ring: var(--valueos-primary);
+    --sidebar-background: var(--vos-color-neutral-foreground);
+    --sidebar-foreground: var(--vos-color-neutral-surface);
+    --sidebar-primary: var(--vos-color-primary);
+    --sidebar-primary-foreground: var(--vos-color-primary-foreground);
+    --sidebar-accent: var(--vos-color-neutral-muted);
+    --sidebar-accent-foreground: var(--vos-color-neutral-surface);
+    --sidebar-border: var(--vos-color-neutral-muted);
+    --sidebar-ring: var(--vos-color-primary);
 
     /* Border Radius */
     --radius: 0.5rem;
@@ -247,51 +272,71 @@
 
   /* Dark mode support (optional, for future) */
   .dark {
-    --background: var(--valueos-neutral-background);
-    --foreground: var(--valueos-neutral-foreground);
+    --vos-color-primary: var(--valueos-primary);
+    --vos-color-primary-foreground: var(--valueos-primary-foreground);
+    --vos-color-secondary: var(--valueos-secondary);
+    --vos-color-secondary-foreground: var(--valueos-secondary-foreground);
+    --vos-color-accent: var(--valueos-accent);
+    --vos-color-accent-foreground: var(--valueos-accent-foreground);
 
-    --surface: var(--valueos-neutral-surface);
-    --surface-elevated: var(--valueos-neutral-subtle);
+    --vos-color-neutral-background: var(--valueos-neutral-background);
+    --vos-color-neutral-foreground: var(--valueos-neutral-foreground);
+    --vos-color-neutral-surface: var(--valueos-neutral-surface);
+    --vos-color-neutral-subtle: var(--valueos-neutral-subtle);
+    --vos-color-neutral-muted: var(--valueos-neutral-muted);
+    --vos-color-neutral-border: var(--valueos-neutral-border);
 
-    --card: var(--valueos-neutral-surface);
-    --card-foreground: var(--valueos-neutral-foreground);
+    --vos-color-success: var(--valueos-success);
+    --vos-color-warning: var(--valueos-warning);
+    --vos-color-error: var(--valueos-error);
+    --vos-color-info: var(--valueos-primary);
+    --vos-color-on-status: var(--valueos-on-status);
 
-    --popover: var(--valueos-neutral-surface);
-    --popover-foreground: var(--valueos-neutral-foreground);
+    --background: var(--vos-color-neutral-background);
+    --foreground: var(--vos-color-neutral-foreground);
 
-    --primary: var(--valueos-primary);
-    --primary-foreground: var(--valueos-primary-foreground);
+    --surface: var(--vos-color-neutral-surface);
+    --surface-elevated: var(--vos-color-neutral-subtle);
 
-    --secondary: var(--valueos-secondary);
-    --secondary-foreground: var(--valueos-secondary-foreground);
+    --card: var(--vos-color-neutral-surface);
+    --card-foreground: var(--vos-color-neutral-foreground);
 
-    --muted: var(--valueos-neutral-subtle);
-    --muted-foreground: var(--valueos-neutral-muted);
+    --popover: var(--vos-color-neutral-surface);
+    --popover-foreground: var(--vos-color-neutral-foreground);
 
-    --accent: var(--valueos-accent);
-    --accent-foreground: var(--valueos-accent-foreground);
+    --primary: var(--vos-color-primary);
+    --primary-foreground: var(--vos-color-primary-foreground);
 
-    --destructive: var(--valueos-error);
-    --destructive-foreground: var(--valueos-on-status);
+    --secondary: var(--vos-color-secondary);
+    --secondary-foreground: var(--vos-color-secondary-foreground);
 
-    --success: var(--valueos-success);
-    --success-foreground: var(--valueos-on-status);
+    --muted: var(--vos-color-neutral-subtle);
+    --muted-foreground: var(--vos-color-neutral-muted);
 
-    --warning: var(--valueos-warning);
-    --warning-foreground: var(--valueos-on-status);
+    --accent: var(--vos-color-accent);
+    --accent-foreground: var(--vos-color-accent-foreground);
 
-    --border: var(--valueos-neutral-border);
-    --input: var(--valueos-neutral-border);
-    --ring: var(--valueos-primary);
+    --destructive: var(--vos-color-error);
+    --destructive-foreground: var(--vos-color-on-status);
 
-    --sidebar-background: var(--valueos-neutral-background);
-    --sidebar-foreground: var(--valueos-neutral-foreground);
-    --sidebar-primary: var(--valueos-primary);
-    --sidebar-primary-foreground: var(--valueos-primary-foreground);
-    --sidebar-accent: var(--valueos-neutral-subtle);
-    --sidebar-accent-foreground: var(--valueos-neutral-foreground);
-    --sidebar-border: var(--valueos-neutral-border);
-    --sidebar-ring: var(--valueos-primary);
+    --success: var(--vos-color-success);
+    --success-foreground: var(--vos-color-on-status);
+
+    --warning: var(--vos-color-warning);
+    --warning-foreground: var(--vos-color-on-status);
+
+    --border: var(--vos-color-neutral-border);
+    --input: var(--vos-color-neutral-border);
+    --ring: var(--vos-color-primary);
+
+    --sidebar-background: var(--vos-color-neutral-background);
+    --sidebar-foreground: var(--vos-color-neutral-foreground);
+    --sidebar-primary: var(--vos-color-primary);
+    --sidebar-primary-foreground: var(--vos-color-primary-foreground);
+    --sidebar-accent: var(--vos-color-neutral-subtle);
+    --sidebar-accent-foreground: var(--vos-color-neutral-foreground);
+    --sidebar-border: var(--vos-color-neutral-border);
+    --sidebar-ring: var(--vos-color-primary);
   }
 }
 
@@ -331,11 +376,6 @@
     letter-spacing: var(--tracking-heading-medium);
   }
 
-  /* Focus visible styles */
-  :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
-  }
-
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -344,31 +384,6 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-    }
-  }
-}
-
-@layer components {
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--container-padding-sm);
-    padding-right: var(--container-padding-sm);
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: var(--container-padding-md);
-      padding-right: var(--container-padding-md);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: var(--container-padding-lg);
-      padding-right: var(--container-padding-lg);
-      max-width: var(--container-max);
     }
   }
 }
