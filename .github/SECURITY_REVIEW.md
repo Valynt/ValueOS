@@ -156,12 +156,6 @@ npm update --dev
 
 #### OWASP Top 10 (2021)
 
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > abdf1deaad6ae735b2af5e199e9cf9d374047a98
-
 - ✅ A01:2021 - Broken Access Control: Cost governance prevents abuse
 - ✅ A03:2021 - Injection: Environment validation prevents misconfig
 - ✅ A05:2021 - Security Misconfiguration: Non-root user, secure defaults
@@ -204,12 +198,6 @@ npm update --dev
    ```
 
 #### Post-Merge (RECOMMENDED)
-
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > abdf1deaad6ae735b2af5e199e9cf9d374047a98
 
 1. Update remaining LOW severity vulnerabilities
 2. Enable GitHub Dependabot alerts
