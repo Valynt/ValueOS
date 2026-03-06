@@ -54,13 +54,13 @@ export default function Resources() {
   const getResourceIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'template':
-        return <FileSpreadsheet className="h-5 w-5" />;
+        return <FileSpreadsheet className="icon-md icon-accent" />;
       case 'guide':
-        return <BookOpen className="h-5 w-5" />;
+        return <BookOpen className="icon-md icon-accent" />;
       case 'playbook':
-        return <Presentation className="h-5 w-5" />;
+        return <Presentation className="icon-md icon-accent" />;
       default:
-        return <FileText className="h-5 w-5" />;
+        return <FileText className="icon-md icon-accent" />;
     }
   };
 
@@ -101,7 +101,7 @@ export default function Resources() {
           {/* Search */}
           <div className="mb-8">
             <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 icon-sm icon-muted" />
               <Input
                 type="text"
                 placeholder="Search resources..."
@@ -150,6 +150,9 @@ export default function Resources() {
           {Object.keys(resourcesByType).length === 0 ? (
             <Card className="bg-card text-card-foreground shadow-beautiful-md rounded-lg">
               <CardContent className="py-12 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted/60">
+                  <BookOpen className="icon-lg icon-muted" />
+                </div>
                 <p className="text-muted-foreground">No resources found matching your search.</p>
               </CardContent>
             </Card>
@@ -167,7 +170,7 @@ export default function Resources() {
                         <CardHeader>
                           <div className="flex items-start justify-between">
                             <div className="flex items-start gap-3 flex-1">
-                              <div className="mt-1 text-muted-foreground">
+                              <div className="mt-1">
                                 {getResourceIcon(resource.type)}
                               </div>
                               <div className="flex-1">
@@ -177,7 +180,7 @@ export default function Resources() {
                                 )}
                               </div>
                             </div>
-                            <Download className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-2" />
+                            <Download className="icon-md icon-muted flex-shrink-0 ml-2" />
                           </div>
                         </CardHeader>
                         <CardContent>

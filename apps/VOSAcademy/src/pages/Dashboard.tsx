@@ -194,9 +194,9 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shadow-beautiful-sm">
                     {access.canAccess ? (
-                      <Icon className="h-6 w-6 text-primary" />
+                      <Icon className="icon-lg icon-accent" />
                     ) : (
-                      <Lock className="h-6 w-6 text-muted-foreground" />
+                      <Lock className="icon-lg icon-muted" />
                     )}
                   </div>
                   <span className="inline-flex items-center px-2 py-1 rounded-md border border-border text-xs font-medium bg-background text-foreground">
