@@ -3,7 +3,7 @@
   cursor: pointer;
   border: 0;
   border-radius: 3em;
-  font-weight: 700;
+  font-weight: var(--font-weight-heading);
   line-height: var(--line-height-tight);
   font-family: var(--font-sans);
 }
@@ -18,13 +18,13 @@
 }
 .storybook-button--small {
   padding: 10px 16px;
-  font-size: var(--type-body-xs);
+  font-size: var(--font-size-body-xs);
 }
 .storybook-button--medium {
   padding: 11px 20px;
-  font-size: var(--type-body-sm);
+  font-size: var(--font-size-body-sm);
 }
 .storybook-button--large {
   padding: 12px 24px;
-  font-size: var(--type-body-md);
+  font-size: var(--font-size-body-md);
 }
