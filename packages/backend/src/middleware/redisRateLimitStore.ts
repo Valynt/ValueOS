@@ -145,7 +145,8 @@ export class RedisRateLimitStore {
   }
 
   /**
-   * Get all rate limit keys matching a pattern
+   * Get all rate limit keys matching a pattern.
+   * Uses SCAN instead of KEYS to avoid blocking Redis on large keyspaces.
    */
   async getKeys(pattern: string = "*"): Promise<string[]> {
     if (!this.redis) {
@@ -153,8 +154,19 @@ export class RedisRateLimitStore {
     }
 
     try {
-      const keys = await this.redis.keys(this.prefix + pattern);
-      return keys.map((key) => key.replace(this.prefix, ""));
+      const collected: string[] = [];
+      let cursor = 0;
+
+      do {
+        const reply = await this.redis.scan(cursor, {
+          MATCH: this.prefix + pattern,
+          COUNT: 100,
+        });
+        cursor = reply.cursor;
+        collected.push(...reply.keys.map((k) => k.replace(this.prefix, "")));
+      } while (cursor !== 0);
+
+      return collected;
     } catch (error) {
       logger.error("Redis rate limit keys fetch failed", {
         pattern,
@@ -165,7 +177,8 @@ export class RedisRateLimitStore {
   }
 
   /**
-   * Get statistics for monitoring
+   * Get statistics for monitoring.
+   * Uses SCAN instead of KEYS to avoid blocking Redis on large keyspaces.
    */
   async getStats(): Promise<{
     totalKeys: number;
@@ -176,10 +189,21 @@ export class RedisRateLimitStore {
     }
 
     try {
-      const keys = await this.redis.keys(this.prefix + "*");
+      const allKeys: string[] = [];
+      let cursor = 0;
+
+      do {
+        const reply = await this.redis.scan(cursor, {
+          MATCH: this.prefix + "*",
+          COUNT: 100,
+        });
+        cursor = reply.cursor;
+        allKeys.push(...reply.keys);
+      } while (cursor !== 0);
+
       const stats: Array<{ key: string; count: number; ttl: number }> = [];
 
-      for (const redisKey of keys) {
+      for (const redisKey of allKeys) {
         const pipeline = this.redis.multi();
         pipeline.get(redisKey);
         pipeline.pTTL(redisKey);

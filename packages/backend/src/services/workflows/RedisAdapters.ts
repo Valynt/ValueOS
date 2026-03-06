@@ -3,11 +3,11 @@ import {
   DLQStore, 
   IdempotencyStore 
 } from "@valueos/agents";
-import Redis from "ioredis";
 
+import { getIoRedisClient } from "../../lib/ioredisClient.js";
 import { logger } from "../../lib/logger.js";
 
-const redis = new Redis();
+const redis = getIoRedisClient();
 
 /**
  * Redis implementation of IdempotencyStore (R5).

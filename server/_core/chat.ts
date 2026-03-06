@@ -307,29 +307,71 @@ export function registerChatRoutes(app: Express) {
       const totalStartMs = Date.now();
 
       while (toolRound < MAX_TOOL_ROUNDS) {
-        // Make a non-streaming call to check for tool calls
-        const completion = await together.chat.completions.create({
+        // Single streaming call — accumulate tool_calls deltas or stream text directly.
+        // This avoids the previous pattern of a non-streaming probe call followed by a
+        // second streaming call, which doubled latency on every non-tool turn.
+        const stream = await together.chat.completions.create({
           model,
           messages: currentMessages,
           tools: tools.length > 0 ? tools : undefined,
           temperature,
           max_tokens: maxTokens,
-          stream: false,
+          stream: true,
         });
 
-        const choice = completion.choices[0];
-        const toolCalls = choice?.message?.tool_calls;
+        // Accumulators for the streamed response
+        let assistantContent = "";
+        const toolCallAccumulator: Record<
+          number,
+          { id: string; name: string; arguments: string }
+        > = {};
+        let finishReason: string | null = null;
 
-        // Filter to function tool calls only
-        const functionToolCalls = toolCalls?.filter(
-          (tc): tc is ChatCompletionMessageFunctionToolCall =>
-            tc.type === "function"
-        );
+        for await (const chunk of stream) {
+          const delta = chunk.choices?.[0]?.delta;
+          const chunkFinishReason = chunk.choices?.[0]?.finish_reason;
 
-        if (!functionToolCalls || functionToolCalls.length === 0) {
-          // ── No tool calls — stream the final text response ──────
+          if (chunkFinishReason) {
+            finishReason = chunkFinishReason;
+          }
 
-          // If we had tool rounds, emit the chain summary before streaming
+          if (delta?.content) {
+            assistantContent += delta.content;
+            // Stream text tokens to the client immediately
+            sendSSE(res, { content: delta.content });
+          }
+
+          // Accumulate tool_calls deltas (index-keyed, arguments arrive in fragments)
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index ?? 0;
+              if (!toolCallAccumulator[idx]) {
+                toolCallAccumulator[idx] = { id: tc.id ?? "", name: "", arguments: "" };
+              }
+              if (tc.id) toolCallAccumulator[idx].id = tc.id;
+              if (tc.function?.name) toolCallAccumulator[idx].name += tc.function.name;
+              if (tc.function?.arguments) toolCallAccumulator[idx].arguments += tc.function.arguments;
+            }
+          }
+        }
+
+        const accumulatedToolCalls = Object.values(toolCallAccumulator);
+        const functionToolCalls: ChatCompletionMessageFunctionToolCall[] =
+          accumulatedToolCalls
+            .filter((tc) => tc.name)
+            .map((tc) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.arguments },
+            }));
+
+        const hasToolCalls =
+          finishReason === "tool_calls" || functionToolCalls.length > 0;
+
+        if (!hasToolCalls) {
+          // ── No tool calls — text was already streamed above ──────
+
+          // If we had tool rounds, emit the chain summary
           if (toolRound > 0) {
             const totalLatencyMs = Date.now() - totalStartMs;
             const successCount = chainSteps.filter(
@@ -356,30 +398,11 @@ export function registerChatRoutes(app: Express) {
             });
           }
 
-          // Stream the final response
-          const stream = await together.chat.completions.create({
-            model,
-            messages: currentMessages,
-            temperature,
-            max_tokens: maxTokens,
-            stream: true,
+          sendSSE(res, {
+            done: true,
+            finishReason: finishReason ?? "stop",
+            toolRounds: toolRound,
           });
-
-          for await (const chunk of stream) {
-            const delta = chunk.choices?.[0]?.delta?.content;
-            if (delta) {
-              sendSSE(res, { content: delta });
-            }
-
-            const finishReason = chunk.choices?.[0]?.finish_reason;
-            if (finishReason) {
-              sendSSE(res, {
-                done: true,
-                finishReason,
-                toolRounds: toolRound,
-              });
-            }
-          }
 
           break; // Exit the tool loop
         }
@@ -413,7 +436,7 @@ export function registerChatRoutes(app: Express) {
         // Add the assistant's tool-call message to conversation
         currentMessages.push({
           role: "assistant",
-          content: choice.message.content || null,
+          content: assistantContent || null,
           tool_calls: functionToolCalls,
         } as ChatCompletionMessageParam);
 

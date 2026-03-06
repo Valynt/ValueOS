@@ -231,32 +231,19 @@ export class AgentFabricService {
 
     if (!valueCase) return null;
 
-    const { data: companyProfile } = await supabase
-      .from('company_profiles')
-      .select('*')
-      .eq('value_case_id', valueCaseId)
-      .single();
-
-    const { data: valueMaps } = await supabase
-      .from('value_maps')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
-
-    const { data: kpiHypotheses } = await supabase
-      .from('kpi_hypotheses')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
-
-    const { data: financialModel } = await supabase
-      .from('financial_models')
-      .select('*')
-      .eq('value_case_id', valueCaseId)
-      .single();
-
-    const { data: assumptions } = await supabase
-      .from('assumptions')
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+    const [
+      { data: companyProfile },
+      { data: valueMaps },
+      { data: kpiHypotheses },
+      { data: financialModel },
+      { data: assumptions },
+    ] = await Promise.all([
+      supabase.from('company_profiles').select('*').eq('value_case_id', valueCaseId).single(),
+      supabase.from('value_maps').select('*').eq('value_case_id', valueCaseId),
+      supabase.from('kpi_hypotheses').select('*').eq('value_case_id', valueCaseId),
+      supabase.from('financial_models').select('*').eq('value_case_id', valueCaseId).single(),
+      supabase.from('assumptions').select('*').eq('value_case_id', valueCaseId),
+    ]);
 
     return {
       value_case_id: valueCaseId,

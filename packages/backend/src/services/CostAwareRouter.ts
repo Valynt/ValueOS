@@ -27,10 +27,20 @@ export interface RoutingContext {
   sessionId?: string;
 }
 
+// TTL cache entry for monthly token counts. 60s staleness is acceptable
+// for budget enforcement — avoids a DB round-trip on every LLM call.
+interface BudgetCacheEntry {
+  monthlyTokens: number;
+  expiresAt: number;
+}
+
+const BUDGET_CACHE_TTL_MS = 60_000;
+
 export class CostAwareRouter {
   private costTracker: LLMCostTracker;
   private readonly SOFT_CAP_THRESHOLD = 0.9; // 90%
   private readonly MONTHLY_BUDGET_DEFAULT = 1000000; // 1M tokens
+  private readonly budgetCache = new Map<string, BudgetCacheEntry>();
 
   // Model hierarchy by cost-efficiency
   private readonly MODEL_HIERARCHY = {
@@ -80,22 +90,31 @@ export class CostAwareRouter {
   }
 
   /**
-   * Check tenant's current budget status
+   * Check tenant's current budget status.
+   * Monthly token counts are cached for 60s to avoid a DB query on every LLM call.
    */
   private async checkTenantBudget(tenantId: string): Promise<{
     usageRatio: number;
     monthlyTokens: number;
     monthlyBudget: number;
   }> {
-    const monthlyTokens = await this.costTracker.getMonthlyTokensByTenant(tenantId);
+    const now = Date.now();
+    const cached = this.budgetCache.get(tenantId);
+
+    let monthlyTokens: number;
+    if (cached && cached.expiresAt > now) {
+      monthlyTokens = cached.monthlyTokens;
+    } else {
+      monthlyTokens = await this.costTracker.getMonthlyTokensByTenant(tenantId);
+      this.budgetCache.set(tenantId, { monthlyTokens, expiresAt: now + BUDGET_CACHE_TTL_MS });
+    }
+
     const monthlyBudget = parseInt(
       process.env[`LLM_BUDGET_${tenantId}`] || this.MONTHLY_BUDGET_DEFAULT.toString()
     );
 
-    const usageRatio = monthlyTokens / monthlyBudget;
-
     return {
-      usageRatio,
+      usageRatio: monthlyTokens / monthlyBudget,
       monthlyTokens,
       monthlyBudget,
     };

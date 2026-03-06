@@ -123,19 +123,22 @@ export class LLMCache {
       }
       
       const entry: LLMCacheEntry = JSON.parse(cached);
-      
-      // Increment hit count
+
+      // Increment hit count and update stats hash atomically
       entry.hitCount++;
-      await this.client.set(key, JSON.stringify(entry), {
-        EX: this.config.ttl
-      });
-      
+      const statsKey = `${this.config.keyPrefix}stats`;
+      await Promise.all([
+        this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl }),
+        this.client.hIncrBy(statsKey, 'totalHits', 1),
+        this.client.hIncrByFloat(statsKey, 'totalCostSaved', entry.cost),
+      ]);
+
       logger.cache('hit', key, {
         model,
         hitCount: entry.hitCount,
         cost: entry.cost
       });
-      
+
       return entry;
     } catch (error) {
       logger.error('Failed to get from cache', error as Error);
@@ -174,10 +177,12 @@ export class LLMCache {
         hitCount: 0
       };
       
-      await this.client.set(key, JSON.stringify(entry), {
-        EX: this.config.ttl
-      });
-      
+      const statsKey = `${this.config.keyPrefix}stats`;
+      await Promise.all([
+        this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl }),
+        this.client.hIncrBy(statsKey, 'totalEntries', 1),
+      ]);
+
       logger.cache('set', key, {
         model,
         cost: metadata.cost,
@@ -207,27 +212,43 @@ export class LLMCache {
   }
   
   /**
-   * Clear all LLM cache entries
+   * Clear all LLM cache entries.
+   * Uses SCAN instead of KEYS to avoid blocking Redis on large keyspaces.
    */
   async clear(): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;
     }
-    
+
     try {
-      const keys = await this.client.keys(`${this.config.keyPrefix}*`);
-      
-      if (keys.length > 0) {
-        await this.client.del(keys);
-        logger.info(`Cleared ${keys.length} cache entries`);
-      }
+      let cursor = 0;
+      let totalDeleted = 0;
+
+      do {
+        const reply = await this.client.scan(cursor, {
+          MATCH: `${this.config.keyPrefix}*`,
+          COUNT: 100,
+        });
+        cursor = reply.cursor;
+        if (reply.keys.length > 0) {
+          await this.client.del(reply.keys);
+          totalDeleted += reply.keys.length;
+        }
+      } while (cursor !== 0);
+
+      // Reset the stats hash alongside the cache entries
+      await this.client.del(`${this.config.keyPrefix}stats`);
+
+      logger.info(`Cleared ${totalDeleted} cache entries`);
     } catch (error) {
       logger.error('Failed to clear cache', error as Error);
     }
   }
-  
+
   /**
-   * Get cache statistics
+   * Get cache statistics.
+   * Aggregates (hits, cost saved, entry count) are maintained in a Redis hash
+   * updated on each cache set/hit, so this method is O(1) instead of O(N).
    */
   async getStats(): Promise<{
     totalEntries: number;
@@ -236,47 +257,28 @@ export class LLMCache {
     cacheSize: number;
   }> {
     if (!this.config.enabled || !this.connected) {
-      return {
-        totalEntries: 0,
-        totalHits: 0,
-        totalCostSaved: 0,
-        cacheSize: 0
-      };
+      return { totalEntries: 0, totalHits: 0, totalCostSaved: 0, cacheSize: 0 };
     }
-    
+
     try {
-      const keys = await this.client.keys(`${this.config.keyPrefix}*`);
-      let totalHits = 0;
-      let totalCostSaved = 0;
-      
-      for (const key of keys) {
-        const cached = await this.client.get(key);
-        if (cached) {
-          const entry: LLMCacheEntry = JSON.parse(cached);
-          totalHits += entry.hitCount;
-          totalCostSaved += entry.cost * entry.hitCount;
-        }
-      }
-      
-      // Get approximate memory usage
-      const info = await this.client.info('memory');
-      const memoryMatch = info.match(/used_memory:(\d+)/);
+      const statsKey = `${this.config.keyPrefix}stats`;
+      const [statsHash, memInfo] = await Promise.all([
+        this.client.hGetAll(statsKey),
+        this.client.info('memory'),
+      ]);
+
+      const memoryMatch = memInfo.match(/used_memory:(\d+)/);
       const cacheSize = memoryMatch ? parseInt(memoryMatch[1]) : 0;
-      
+
       return {
-        totalEntries: keys.length,
-        totalHits,
-        totalCostSaved,
-        cacheSize
+        totalEntries: parseInt(statsHash.totalEntries ?? '0'),
+        totalHits: parseInt(statsHash.totalHits ?? '0'),
+        totalCostSaved: parseFloat(statsHash.totalCostSaved ?? '0'),
+        cacheSize,
       };
     } catch (error) {
       logger.error('Failed to get cache stats', error as Error);
-      return {
-        totalEntries: 0,
-        totalHits: 0,
-        totalCostSaved: 0,
-        cacheSize: 0
-      };
+      return { totalEntries: 0, totalHits: 0, totalCostSaved: 0, cacheSize: 0 };
     }
   }
   

@@ -1,8 +1,8 @@
-import Redis from "ioredis";
-
 import type { AgentEvent, AgentState } from "./types";
 
-const redis = new Redis();
+import { getIoRedisClient } from "../lib/ioredisClient.js";
+
+const redis = getIoRedisClient();
 
 export interface AgentStateData {
   id: string;

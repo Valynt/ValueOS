@@ -132,6 +132,7 @@ import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
+import { FabricMonitor } from "./lib/agent-fabric/FabricMonitor.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
@@ -612,6 +613,12 @@ async function startServer(): Promise<void> {
 
   // 6. Start audit log DLQ retry loop
   securityAuditService.startRetryLoop();
+
+  // 7. Start agent fabric DLQ monitor
+  const fabricMonitor = new FabricMonitor();
+  fabricMonitor.startMonitoring().catch((err) => {
+    logger.warn("[Instrumentation] FabricMonitor failed to start", { error: err });
+  });
 
   // 7. Register graceful shutdown handlers
   registerGracefulShutdown();

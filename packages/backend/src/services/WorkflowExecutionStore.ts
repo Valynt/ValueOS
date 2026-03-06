@@ -1,8 +1,8 @@
-import Redis from "ioredis";
-
 import type { AgentEvent, AgentState } from "../lib/agent/types";
 
-const redis = new Redis();
+import { getIoRedisClient } from "../lib/ioredisClient.js";
+
+const redis = getIoRedisClient();
 
 class WorkflowExecutionStore {
   async persistTransition(
