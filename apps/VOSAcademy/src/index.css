@@ -1,5 +1,6 @@
 @import "../../ValyntApp/src/styles/valueos-palette.css";
 @import "../../../packages/shared/src/styles/motion-shadows.css";
+@import "../../../packages/shared/src/styles/layout-tokens.css";
 @import "tailwindcss";
 @import "./styles/accessibility.css";
 
@@ -11,17 +12,21 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  
+
   /* Shadow tokens - Beautiful depth hierarchy */
   --shadow-beautiful-sm: var(--shadow-1);
   --shadow-beautiful-md: var(--shadow-2);
   --shadow-beautiful-lg: var(--shadow-3);
   --shadow-beautiful-xl: var(--shadow-4);
   --shadow-light-blue-sm: var(--shadow-2);
-  
+
   /* Font family tokens */
-  --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans:
+    Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -103,21 +108,6 @@
   --sidebar-accent-foreground: var(--valueos-neutral-foreground);
   --sidebar-border: var(--valueos-neutral-border);
   --sidebar-ring: var(--valueos-primary);
-
-  /* Shared spacing + layout tokens (additive) */
-  --space-0: 0;
-  --space-1: 0.5rem;  /* 8px */
-  --space-2: 1rem;    /* 16px */
-  --space-3: 1.5rem;  /* 24px */
-  --space-4: 2rem;    /* 32px */
-  --space-5: 2.5rem;  /* 40px */
-  --space-6: 3rem;    /* 48px */
-  --space-8: 4rem;    /* 64px */
-
-  --container-max: 80rem;         /* 1280px */
-  --container-padding-sm: 1rem;   /* 16px */
-  --container-padding-md: 1.5rem; /* 24px */
-  --container-padding-lg: 2rem;   /* 32px */
 }
 
 .dark {
@@ -167,7 +157,6 @@
   --sidebar-ring: var(--valueos-primary);
 }
 
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -194,17 +183,22 @@
     overflow-x: hidden;
     width: 100%;
   }
-  
+
   /* Typography refinements */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-weight: 600;
     letter-spacing: -0.02em;
   }
-  
+
   h1 {
     letter-spacing: -0.03em;
   }
-  
+
   h2 {
     letter-spacing: -0.025em;
   }
@@ -221,61 +215,31 @@
   }
 }
 
-@layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--container-padding-sm);
-    padding-right: var(--container-padding-sm);
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: var(--container-padding-md);
-      padding-right: var(--container-padding-md);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: var(--container-padding-lg);
-      padding-right: var(--container-padding-lg);
-      max-width: var(--container-max);
-    }
-  }
-}
 /* VOS-specific utility classes */
 @layer utilities {
   .vos-gradient {
     background-color: hsl(var(--valueos-neutral-foreground));
-    background-image:
-      radial-gradient(circle at 1px 1px, hsl(var(--valueos-neutral-background) / 0.05) 1px, transparent 0);
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      hsl(var(--valueos-neutral-background) / 0.05) 1px,
+      transparent 0
+    );
     background-size: 40px 40px;
     position: relative;
   }
-  
+
   .vos-gradient::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(ellipse at center, transparent 0%, hsl(var(--valueos-neutral-foreground) / 0.3) 100%);
+    background: radial-gradient(
+      ellipse at center,
+      transparent 0%,
+      hsl(var(--valueos-neutral-foreground) / 0.3) 100%
+    );
     pointer-events: none;
   }
 
@@ -306,27 +270,27 @@
   .maturity-5 {
     @apply bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200;
   }
-  
+
   /* Interactive card states */
   .card-interactive {
     @apply transition-all duration-300 hover:shadow-beautiful-lg hover:-translate-y-1 cursor-pointer;
   }
-  
+
   /* Learning content emphasis */
   .content-highlight {
     @apply bg-primary/10 border-l-4 border-primary pl-4 py-2 rounded-r-md;
   }
-  
+
   /* Success states for completed lessons */
   .lesson-complete {
     @apply bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800;
   }
-  
+
   /* In-progress states */
   .lesson-in-progress {
     @apply bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800;
   }
-  
+
   /* Locked/unavailable states */
   .lesson-locked {
     @apply opacity-60 cursor-not-allowed;
