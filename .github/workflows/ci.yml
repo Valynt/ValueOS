@@ -94,6 +94,9 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Threat model freshness gate
+        run: node scripts/ci/check-threat-model-freshness.mjs
+
       - name: Observability contract gate
         run: node scripts/ci/check-observability-contract.mjs
 
