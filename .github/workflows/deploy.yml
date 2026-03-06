@@ -502,12 +502,12 @@ jobs:
       - name: Build backend image twice and compare image IDs
         run: |
           set -euo pipefail
-          docker buildx build --load --provenance=false --sbom=false \
+          docker buildx build --no-cache --load --provenance=false --sbom=false \
             -f infra/docker/Dockerfile.backend \
             --build-arg APP=@valueos/backend \
             -t reproducibility-backend:first .
 
-          docker buildx build --load --provenance=false --sbom=false \
+          docker buildx build --no-cache --load --provenance=false --sbom=false \
             -f infra/docker/Dockerfile.backend \
             --build-arg APP=@valueos/backend \
             -t reproducibility-backend:second .
