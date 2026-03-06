@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 import type { User } from "../../drizzle/schema";
+import { logAuditEvent } from "../../lib/auditLogger";
 import { getUserByOpenId } from "../db";
 
 import { ENV } from "./env";
@@ -18,6 +19,11 @@ interface SessionKey {
 }
 
 const DEFAULT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+interface SessionRequestContext {
+  ipAddress?: string;
+  userAgent?: string;
+}
 
 function getSessionKeys(): SessionKey[] {
   const rawKeys = process.env.SESSION_JWT_KEYS;
@@ -79,7 +85,8 @@ function getSessionTenant(): string | undefined {
  * Parse session token and validate
  * In production, this should use JWT or encrypted session tokens
  */
-export async function validateSessionToken(token: string): Promise<User | null> {
+export async function validateSessionToken(token: string, context: SessionRequestContext = {}): Promise<User | null> {
+  const tenantOrOrg = ENV.appId || "unknown";
   try {
     const keys = getSessionKeys();
     const issuer = getSessionIssuer();
@@ -87,6 +94,16 @@ export async function validateSessionToken(token: string): Promise<User | null> 
 
     const decoded = jwt.decode(token, { complete: true });
     if (!decoded || typeof decoded !== "object") {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        details: { reason: "token_decode_failed" },
+      });
       return null;
     }
 
@@ -97,6 +114,16 @@ export async function validateSessionToken(token: string): Promise<User | null> 
 
     if (keyCandidates.length === 0) {
       console.warn("[Session] No matching keys found for token");
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        details: { reason: "no_matching_key" },
+      });
       return null;
     }
 
@@ -116,18 +143,61 @@ export async function validateSessionToken(token: string): Promise<User | null> 
     }
 
     if (!payload?.sub) {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        details: { reason: "missing_subject_claim" },
+      });
       return null;
     }
 
     if (payload.tenant && ENV.appId && payload.tenant !== ENV.appId) {
       console.warn("[Session] Token tenant mismatch");
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: payload.sub,
+        tenantOrOrg,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        details: { reason: "tenant_mismatch", tokenTenant: payload.tenant },
+      });
       return null;
     }
 
     const user = await getUserByOpenId(payload.sub);
+    await logAuditEvent({
+      timestamp: new Date().toISOString(),
+      actor: payload.sub,
+      tenantOrOrg,
+      action: "session.validate",
+      result: user ? "success" : "failure",
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      details: user ? undefined : { reason: "user_not_found" },
+    });
     return user || null;
   } catch (error) {
     console.error("[Session] Failed to validate token:", error);
+    await logAuditEvent({
+      timestamp: new Date().toISOString(),
+      actor: "anonymous",
+      tenantOrOrg,
+      action: "session.validate",
+      result: "failure",
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      details: {
+        reason: "exception",
+        message: error instanceof Error ? error.message : "unknown_error",
+      },
+    });
     return null;
   }
 }

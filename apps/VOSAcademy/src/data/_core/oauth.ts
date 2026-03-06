@@ -3,6 +3,7 @@ import { createHash, createHmac, createPublicKey, randomBytes, timingSafeEqual }
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
 import { upsertUser } from "../db";
+import { getRequestAuditContext, logAuditEvent } from "../../lib/auditLogger";
 
 import { COOKIE_NAME, getSessionCookieOptions } from "./cookies";
 import { createSessionToken, parseCookies } from "./session";
@@ -24,6 +25,10 @@ interface OAuthStatePayload {
 
 const OAUTH_STATE_COOKIE = "vosacademy_oauth_state";
 const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;
+
+function getTenantOrOrg(): string {
+  return process.env.VITE_APP_ID || "unknown";
+}
 
 function base64UrlEncode(input: Buffer | string): string {
   const buffer = typeof input === "string" ? Buffer.from(input) : input;
@@ -304,29 +309,82 @@ export async function handleOAuthCallback(
   req: any,
   res: any
 ): Promise<{ success: boolean; redirectUrl: string }> {
+  const requestContext = getRequestAuditContext(req);
+  const tenantOrOrg = getTenantOrOrg();
+
   try {
     if (!code || !state) {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "missing_code_or_state" },
+      });
       return { success: false, redirectUrl: "/?error=oauth_failed" };
     }
 
     const cookies = parseCookies(req.headers?.cookie);
     const signedState = cookies[OAUTH_STATE_COOKIE];
     if (!signedState) {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "missing_state_cookie" },
+      });
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     const statePayload = verifyOAuthState(signedState);
     if (!statePayload || statePayload.state !== state) {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "state_mismatch" },
+      });
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     if (Date.now() - statePayload.createdAt > OAUTH_STATE_MAX_AGE_SECONDS * 1000) {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "state_expired" },
+      });
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     const userInfo = await exchangeCodeForUserInfo(code, statePayload.codeVerifier, statePayload.redirectUri);
 
     if (!userInfo?.openId) {
+      await logAuditEvent({
+        timestamp: new Date().toISOString(),
+        actor: "anonymous",
+        tenantOrOrg,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "user_info_exchange_failed" },
+      });
       return {
         success: false,
         redirectUrl: "/?error=oauth_failed",
@@ -349,12 +407,36 @@ export async function handleOAuthCallback(
 
     res.setHeader("Set-Cookie", [sessionCookie, clearOAuthCookie]);
 
+    await logAuditEvent({
+      timestamp: new Date().toISOString(),
+      actor: userInfo.openId,
+      tenantOrOrg,
+      action: "oauth.callback",
+      result: "success",
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      details: { returnTo: statePayload.returnTo || "/dashboard" },
+    });
+
     return {
       success: true,
       redirectUrl: statePayload.returnTo || "/dashboard",
     };
   } catch (error) {
     console.error("[OAuth] Callback handling failed:", error);
+    await logAuditEvent({
+      timestamp: new Date().toISOString(),
+      actor: "anonymous",
+      tenantOrOrg,
+      action: "oauth.callback",
+      result: "failure",
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      details: {
+        reason: "exception",
+        message: error instanceof Error ? error.message : "unknown_error",
+      },
+    });
     return {
       success: false,
       redirectUrl: "/?error=server_error",

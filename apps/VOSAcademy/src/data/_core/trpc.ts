@@ -2,8 +2,10 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 
 import type { User } from "../../drizzle/schema";
+import { getRequestAuditContext, logAuditEvent } from "../../lib/auditLogger";
 
 import { applyRateLimitHeaders, buildRateLimitKey, checkRateLimit, getRateLimitIdentifiers, throwRateLimitExceeded } from "./error-handling";
+import { ENV } from "./env";
 import { getSessionFromRequest, validateSessionToken } from "./session";
 
 export const createContext = async (opts: CreateHTTPContextOptions) => {
@@ -12,9 +14,10 @@ export const createContext = async (opts: CreateHTTPContextOptions) => {
 
   if (sessionToken) {
     try {
-      user = await validateSessionToken(sessionToken);
+      const requestContext = getRequestAuditContext(opts.req);
+      user = await validateSessionToken(sessionToken, requestContext);
     } catch (error) {
-      console.error('[tRPC] Session validation failed:', error);
+      console.error("[tRPC] Session validation failed:", error);
     }
   }
 
@@ -33,6 +36,18 @@ export const router = t.router;
 export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.user) {
+    const requestContext = getRequestAuditContext(ctx.req);
+    await logAuditEvent({
+      timestamp: new Date().toISOString(),
+      actor: "anonymous",
+      tenantOrOrg: ENV.appId || "unknown",
+      action: "trpc.protected.authorize",
+      result: "failure",
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      details: { reason: "missing_authenticated_user" },
+    });
+
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to access this resource",
@@ -65,7 +80,7 @@ export const rateLimitMiddleware = ({ keyPrefix, maxRequests, windowMs }: RateLi
         throwRateLimitExceeded();
       }
     } catch (error) {
-      console.error('[tRPC] Rate limit check failed:', error);
+      console.error("[tRPC] Rate limit check failed:", error);
       // Allow the request to proceed if rate limiting fails
       // This prevents a Redis outage from taking down the API
     }
