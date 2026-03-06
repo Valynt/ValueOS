@@ -83,7 +83,7 @@ status: deprecated
      - `prod-slo-overview:api-p95-latency-by-segment`
      - `prod-slo-overview:api-error-rate-by-segment`
      - Alert UIDs `slo-api-fast-burn`, `slo-api-slow-burn`, and `slo-worker-burn`
-   - Review Loki query `loki-release-errors` and Tempo query `tempo-release-critical-path` before declaring success.
+   - Review the release-focused Loki error query and Tempo critical-path trace query defined in `docs/operations/monitoring-observability.md` before declaring success.
    - Review Supabase logs for RLS errors using `docs/operations/troubleshooting/rls-failures.md` queries.
    - Announce completion with a link to the workflow run and tag Feature Owners for final sign-off.
 
