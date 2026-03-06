@@ -112,7 +112,13 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         />
         <input
           type="search"
-          className={cn(inputVariants({ inputSize: "md" }), "pl-9", showClear && "pr-9", className)}
+          className={cn(
+            inputVariants({ inputSize: "md" }),
+            "pl-9",
+            showClear && "pr-9",
+            error && "border-destructive",
+            className
+          )}
           ref={ref}
           value={value}
           aria-invalid={error ? true : undefined}
