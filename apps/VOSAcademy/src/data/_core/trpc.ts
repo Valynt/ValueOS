@@ -8,11 +8,12 @@ import { getSessionFromRequest, validateSessionToken } from "./session";
 
 export const createContext = async (opts: CreateHTTPContextOptions) => {
   const sessionToken = getSessionFromRequest(opts.req);
+  const normalizedToken = sessionToken?.trim();
   let user: User | null = null;
 
-  if (sessionToken) {
+  if (normalizedToken) {
     try {
-      user = await validateSessionToken(sessionToken);
+      user = await validateSessionToken(normalizedToken);
     } catch (error) {
       console.error('[tRPC] Session validation failed:', error);
     }
