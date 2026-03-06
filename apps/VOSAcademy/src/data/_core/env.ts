@@ -20,6 +20,7 @@ const OPTIONAL_SERVER_ENV_VARS = [
   "SESSION_JWT_AUDIENCE",
   "SESSION_JWT_TTL_SECONDS",
   "SESSION_JWT_TENANT",
+  "SESSION_JWT_ACTIVE_KID",
 ] as const;
 
 /**
@@ -84,6 +85,7 @@ export const ENV = {
   sessionJwtKeys: process.env.SESSION_JWT_KEYS || "",
   sessionJwtTtlSeconds: process.env.SESSION_JWT_TTL_SECONDS || "",
   sessionJwtTenant: process.env.SESSION_JWT_TENANT || "",
+  sessionJwtActiveKid: process.env.SESSION_JWT_ACTIVE_KID || "",
 };
 
 /**

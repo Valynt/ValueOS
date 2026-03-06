@@ -5,7 +5,7 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { upsertUser } from "../db";
 
 import { COOKIE_NAME, getSessionCookieOptions } from "./cookies";
-import { createSessionToken, parseCookies } from "./session";
+import { createSessionTokenWithContext, parseCookies } from "./session";
 
 interface OAuthUserInfo {
   openId: string;
@@ -379,7 +379,9 @@ export async function handleOAuthCallback(
       lastSignedIn: new Date(),
     });
 
-    const sessionToken = createSessionToken(userInfo.openId);
+    const sessionToken = createSessionTokenWithContext(userInfo.openId, {
+      tenant: process.env.SESSION_JWT_TENANT || process.env.VITE_APP_ID || undefined,
+    });
 
     const cookieOptions = getSessionCookieOptions(req);
     const sessionCookie = `${COOKIE_NAME}=${sessionToken}; Path=${cookieOptions.path || "/"}; Max-Age=${cookieOptions.maxAge}; HttpOnly; ${cookieOptions.secure ? "Secure;" : ""} ${cookieOptions.sameSite ? `SameSite=${cookieOptions.sameSite};` : ""}`;
