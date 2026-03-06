@@ -108,7 +108,7 @@ describe('TenantProvisioning billing workflow', () => {
   it('migration enforces one current entitlement snapshot per tenant', () => {
     const migrationPath = resolve(
       process.cwd(),
-      'infra/supabase/supabase/migrations/20260304000000_tenant_provisioning_workflow.sql'
+      'infra/supabase/supabase/migrations/20260304000600_tenant_provisioning_workflow.sql'
     );
     const sql = readFileSync(migrationPath, 'utf8');
 

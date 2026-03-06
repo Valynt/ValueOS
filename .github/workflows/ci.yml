@@ -138,8 +138,25 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Supabase config.toml project_id guard
+        run: |
+          PROJECT_ID=$(grep '^project_id' infra/supabase/config.toml | sed 's/project_id = "\(.*\)"/\1/')
+          if [ "$PROJECT_ID" = "supabase" ] || [ -z "$PROJECT_ID" ]; then
+            echo "::error::infra/supabase/config.toml has default project_id \"${PROJECT_ID}\". Set it to the actual project name."
+            exit 1
+          fi
+          echo "project_id = ${PROJECT_ID} ✅"
+
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
+
+      - name: Migration rollback coverage
+        run: node scripts/ci/check-migration-rollbacks.mjs
+
+      - name: Schema snapshot freshness
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/ci/check-schema-snapshot-freshness.mjs
 
       - name: Critical architecture migrations gate
         run: node scripts/ci/verify-critical-architecture-migrations.mjs
@@ -432,6 +449,45 @@ jobs:
           path: reports/compliance
           retention-days: 90
 
+  db-lint:
+    name: Database lint & schema drift (required)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Supabase CLI
+        run: pnpm add -g supabase@2.67.1
+
+      - name: Start local Supabase
+        run: supabase start --workdir infra/supabase
+
+      - name: Apply migrations
+        run: supabase db push --workdir infra/supabase
+
+      - name: Run db lint (fail on warnings)
+        run: supabase db lint --workdir infra/supabase --level warning
+
+      - name: Check schema drift (fail if diff is non-empty)
+        run: |
+          DIFF=$(supabase db diff --workdir infra/supabase 2>&1 || true)
+          if [ -n "$DIFF" ]; then
+            echo "Schema drift detected — migrations do not match the current schema:"
+            echo "$DIFF"
+            exit 1
+          fi
+          echo "No schema drift detected."
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --workdir infra/supabase
+
   ci-required-checks:
     name: CI Required Checks
     runs-on: ubuntu-latest
@@ -439,11 +495,12 @@ jobs:
       - unit-tests
       - integration-tests
       - rls-and-compliance
+      - db-lint
     if: always()
     steps:
       - name: Enforce required unit/integration/compliance checks
         run: |
-          for status in "${{ needs.unit-tests.result }}" "${{ needs.integration-tests.result }}" "${{ needs.rls-and-compliance.result }}"; do
+          for status in "${{ needs.unit-tests.result }}" "${{ needs.integration-tests.result }}" "${{ needs.rls-and-compliance.result }}" "${{ needs.db-lint.result }}"; do
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
               echo "A required CI suite failed or was cancelled."
               exit 1

@@ -1,4 +1,15 @@
-import { bigint, int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  bigint,
+  boolean,
+  integer,
+  json,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 /**
  * User preferences stored as JSON in the users table.
@@ -15,18 +26,18 @@ export interface UserPreferences {
  * Extend this file with additional tables as your product grows.
  * Columns use camelCase to match both database fields and generated types.
  */
-export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
-  id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
+export const roleEnum = pgEnum("role", ["user", "admin"]);
+export const messageRoleEnum = pgEnum("message_role", ["user", "assistant"]);
+
+export const users = pgTable("users", {
+  /** Surrogate primary key. Auto-incremented. */
+  id: serial("id").primaryKey(),
+  /** OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: roleEnum("role").default("user").notNull(),
   /** User's chosen display name (defaults to OAuth name) */
   displayName: varchar("displayName", { length: 255 }),
   /** URL to user's avatar image stored in S3 */
@@ -42,7 +53,8 @@ export const users = mysqlTable("users", {
   /** User preferences stored as JSON (theme, notifications, etc.) */
   preferences: json("preferences").$type<UserPreferences>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  // Postgres has no onUpdateNow(); update via trigger or application layer.
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
@@ -56,8 +68,8 @@ export type InsertUser = typeof users.$inferInsert;
  * Each row stores the full enrichment response for a normalized company name.
  * TTL is enforced at query time — rows older than the configured TTL are treated as stale.
  */
-export const enrichmentCache = mysqlTable("enrichment_cache", {
-  id: int("id").autoincrement().primaryKey(),
+export const enrichmentCache = pgTable("enrichment_cache", {
+  id: serial("id").primaryKey(),
   /** Normalized company name (lowercase, trimmed) used as the cache key */
   companyKey: varchar("companyKey", { length: 255 }).notNull().unique(),
   /** Original company name as entered by the user */
@@ -65,13 +77,13 @@ export const enrichmentCache = mysqlTable("enrichment_cache", {
   /** Full enrichment response stored as JSON */
   data: json("data").notNull(),
   /** Number of successful sources in this cached result */
-  sourcesSucceeded: int("sourcesSucceeded").notNull().default(0),
+  sourcesSucceeded: integer("sourcesSucceeded").notNull().default(0),
   /** Confidence score (0-100) of the cached result */
-  confidence: int("confidence").notNull().default(0),
+  confidence: integer("confidence").notNull().default(0),
   /** Total latency of the original enrichment call in milliseconds */
-  totalLatencyMs: int("totalLatencyMs").notNull().default(0),
+  totalLatencyMs: integer("totalLatencyMs").notNull().default(0),
   /** How many times this cache entry has been served */
-  hitCount: int("hitCount").notNull().default(0),
+  hitCount: integer("hitCount").notNull().default(0),
   /** When this cache entry was created */
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   /** When this cache entry was last refreshed */
@@ -89,20 +101,20 @@ export type InsertEnrichmentCache = typeof enrichmentCache.$inferInsert;
  * Stores agent chat conversations. Each conversation belongs to a user
  * and is associated with a specific agent.
  */
-export const conversations = mysqlTable("conversations", {
-  id: int("id").autoincrement().primaryKey(),
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
   /** Owner of this conversation */
-  userId: int("userId").notNull(),
+  userId: integer("userId").notNull(),
   /** Agent slug (e.g. 'architect', 'research', 'integrity') */
   agentSlug: varchar("agentSlug", { length: 64 }).notNull(),
   /** Human-readable title (auto-generated from first message) */
   title: varchar("title", { length: 255 }),
   /** Whether this conversation is pinned/starred */
-  pinned: int("pinned").notNull().default(0),
+  pinned: boolean("pinned").notNull().default(false),
   /** Soft delete flag */
-  deleted: int("deleted").notNull().default(0),
+  deleted: boolean("deleted").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Conversation = typeof conversations.$inferSelect;
@@ -112,12 +124,11 @@ export type InsertConversation = typeof conversations.$inferInsert;
  * Individual messages within a conversation.
  * Stores both user and assistant messages with optional tool metadata.
  */
-export const messages = mysqlTable("messages", {
-  id: int("id").autoincrement().primaryKey(),
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
   /** Parent conversation */
-  conversationId: int("conversationId").notNull(),
-  /** 'user' or 'assistant' */
-  role: mysqlEnum("role", ["user", "assistant"]).notNull(),
+  conversationId: integer("conversationId").notNull(),
+  role: messageRoleEnum("role").notNull(),
   /** Message text content */
   content: text("content").notNull(),
   /** Agent slug for assistant messages */

@@ -1,0 +1,5 @@
+-- Rollback: 20260306000000_harden_provision_tenant_function
+-- This migration hardened the provision_tenant function in-place (SECURITY DEFINER,
+-- search_path). The rollback is to re-apply the previous function definition from
+-- 20260304000300_provision_tenant_rpc.sql.
+-- Forward-fix preferred: re-deploy the hardened version rather than rolling back.
