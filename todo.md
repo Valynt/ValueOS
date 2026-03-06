@@ -90,3 +90,10 @@
 - [x] Wire /profile route and add clickable user avatar in sidebar
 - [x] Write vitest tests for profile procedures (23 tests passing)
 - [x] Verify end-to-end profile flow — 107 total tests passing across 9 test files
+- [x] Add conversations and messages tables to database schema
+- [x] Create tRPC procedures for conversation CRUD (list, get, create, update, delete, saveMessage)
+- [x] Frontend-side persistence via tRPC mutations (keeps SSE endpoint stateless)
+- [x] Update AgentChatSidebar to load/restore conversations on mount
+- [x] Add conversation history panel with pinned/recent sections, new chat, delete, pin/unpin
+- [x] Write vitest tests for conversation persistence (17 tests passing)
+- [x] Verify end-to-end — 122 total tests passing across 10 test files

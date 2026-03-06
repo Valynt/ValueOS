@@ -82,3 +82,56 @@ export const enrichmentCache = mysqlTable("enrichment_cache", {
 
 export type EnrichmentCacheRow = typeof enrichmentCache.$inferSelect;
 export type InsertEnrichmentCache = typeof enrichmentCache.$inferInsert;
+
+// ── Conversations ──────────────────────────────────────────────────────────
+
+/**
+ * Stores agent chat conversations. Each conversation belongs to a user
+ * and is associated with a specific agent.
+ */
+export const conversations = mysqlTable("conversations", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Owner of this conversation */
+  userId: int("userId").notNull(),
+  /** Agent slug (e.g. 'architect', 'research', 'integrity') */
+  agentSlug: varchar("agentSlug", { length: 64 }).notNull(),
+  /** Human-readable title (auto-generated from first message) */
+  title: varchar("title", { length: 255 }),
+  /** Whether this conversation is pinned/starred */
+  pinned: int("pinned").notNull().default(0),
+  /** Soft delete flag */
+  deleted: int("deleted").notNull().default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
+
+/**
+ * Individual messages within a conversation.
+ * Stores both user and assistant messages with optional tool metadata.
+ */
+export const messages = mysqlTable("messages", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Parent conversation */
+  conversationId: int("conversationId").notNull(),
+  /** 'user' or 'assistant' */
+  role: mysqlEnum("role", ["user", "assistant"]).notNull(),
+  /** Message text content */
+  content: text("content").notNull(),
+  /** Agent slug for assistant messages */
+  agentSlug: varchar("agentSlug", { length: 64 }),
+  /** Agent display name for assistant messages */
+  agentName: varchar("agentName", { length: 128 }),
+  /** Tool events JSON array (tool calls, results, statuses) */
+  toolEvents: json("toolEvents"),
+  /** Chain summary JSON (total rounds, latency, etc.) */
+  chainSummary: json("chainSummary"),
+  /** Message timestamp (UTC ms since epoch) */
+  messageTimestamp: bigint("messageTimestamp", { mode: "number" }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;

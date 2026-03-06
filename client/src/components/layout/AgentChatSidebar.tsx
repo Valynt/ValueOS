@@ -1,10 +1,10 @@
-/*
+/**
  * VALYNT Agent Chat Sidebar — Sheet overlay from right
  * Streams responses from Together.ai via /api/chat SSE endpoint
- * Supports multi-round tool calling with:
- *  - Round progress indicators
- *  - Parallel tool execution visibility
- *  - Chain summary card after all rounds complete
+ * Supports:
+ *  - Conversation persistence (save/restore via tRPC)
+ *  - Conversation history panel
+ *  - Multi-round tool calling with round progress + chain summary
  *  - Per-tool status (success/error/timeout)
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
@@ -27,6 +27,11 @@ import {
   Link2,
   Loader2,
   X,
+  History,
+  Plus,
+  Pin,
+  Trash2,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -35,6 +40,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 /* -------------------------------------------------------
    Types
@@ -215,6 +222,15 @@ function formatTime(ts: number): string {
   });
 }
 
+function formatDate(ts: number | Date): string {
+  const d = ts instanceof Date ? ts : new Date(ts);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 86_400_000) return "Today";
+  if (diff < 172_800_000) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 function formatToolName(name: string): string {
   return name
     .replace(/_/g, " ")
@@ -352,7 +368,7 @@ function RoundProgressBar({ progress }: { progress: RoundProgress }) {
           )}
         </span>
       </div>
-      <div className="h-1 bg-muted rounded-full overflow-hidden">
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-all duration-500",
@@ -361,14 +377,14 @@ function RoundProgressBar({ progress }: { progress: RoundProgress }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      {progress.tools && !isComplete && (
+      {progress.tools && progress.tools.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
-          {progress.tools.map((t, i) => (
+          {progress.tools.map((tool, i) => (
             <span
               key={i}
-              className="text-[9px] bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded"
+              className="text-[9px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground"
             >
-              {formatToolName(t)}
+              {formatToolName(tool)}
             </span>
           ))}
         </div>
@@ -378,30 +394,28 @@ function RoundProgressBar({ progress }: { progress: RoundProgress }) {
 }
 
 /* -------------------------------------------------------
-   Chain Summary Card — shown after all tool rounds complete
+   Chain Summary Card — shows full tool chain after completion
    ------------------------------------------------------- */
 
 function ChainSummaryCard({ summary }: { summary: ChainSummary }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="my-2 rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
+    <div className="my-2 border border-border/50 rounded-lg overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2 text-[11px] hover:bg-muted/50 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] hover:bg-muted/50 transition-colors"
       >
-        <span className="flex items-center gap-1.5 font-medium text-foreground">
-          <Link2 className="w-3.5 h-3.5 text-emerald-600" />
-          Tool Chain: {summary.totalToolCalls} calls across{" "}
+        <Link2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+        <span className="font-medium">
+          {summary.totalToolCalls} tool call{summary.totalToolCalls > 1 ? "s" : ""} across{" "}
           {summary.totalRounds} round{summary.totalRounds > 1 ? "s" : ""}
         </span>
-        <span className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground">
-            {formatLatency(summary.totalLatencyMs)}
-          </span>
+        <span className="text-muted-foreground ml-auto flex items-center gap-1">
+          {formatLatency(summary.totalLatencyMs)}
           <ChevronRight
             className={cn(
-              "w-3 h-3 text-muted-foreground transition-transform",
+              "w-3 h-3 transition-transform",
               expanded && "rotate-90"
             )}
           />
@@ -409,54 +423,49 @@ function ChainSummaryCard({ summary }: { summary: ChainSummary }) {
       </button>
 
       {expanded && (
-        <div className="px-3 pb-2 border-t border-border/30">
+        <div className="px-3 pb-2 space-y-1 border-t border-border/30">
           {/* Stats row */}
-          <div className="flex gap-3 py-2 text-[10px]">
-            <span className="text-emerald-600">
-              {summary.successCount} succeeded
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground py-1.5">
+            <span className="flex items-center gap-1 text-emerald-600">
+              <Check className="w-3 h-3" />
+              {summary.successCount} success
             </span>
             {summary.errorCount > 0 && (
-              <span className="text-red-500">
+              <span className="flex items-center gap-1 text-red-500">
+                <AlertTriangle className="w-3 h-3" />
                 {summary.errorCount} failed
               </span>
             )}
             {summary.limitReached && (
-              <span className="text-amber-600 flex items-center gap-0.5">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="flex items-center gap-1 text-amber-600">
+                <Clock className="w-3 h-3" />
                 Limit reached
               </span>
             )}
           </div>
 
-          {/* Chain visualization */}
-          <div className="space-y-1">
-            {summary.chain.map((step, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 text-[10px] font-mono"
-              >
-                <span className="text-muted-foreground w-4 text-right">
-                  R{step.round}
-                </span>
-                <span
-                  className={cn(
-                    "w-1.5 h-1.5 rounded-full flex-shrink-0",
-                    step.status === "success"
-                      ? "bg-emerald-500"
-                      : step.status === "timeout"
-                        ? "bg-amber-500"
-                        : "bg-red-500"
-                  )}
-                />
-                <span className="flex-1 truncate text-foreground">
-                  {formatToolName(step.tool)}
-                </span>
-                <span className="text-muted-foreground">
-                  {formatLatency(step.latencyMs)}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* Tool list */}
+          {summary.chain.map((step, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 text-[10px] py-0.5"
+            >
+              {step.status === "success" ? (
+                <Check className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" />
+              )}
+              <span className="text-muted-foreground text-[9px] w-6">
+                R{step.round}
+              </span>
+              <span className="flex-1 truncate text-foreground">
+                {formatToolName(step.tool)}
+              </span>
+              <span className="text-muted-foreground">
+                {formatLatency(step.latencyMs)}
+              </span>
+            </div>
+          ))}
 
           {/* Chain flow arrow visualization */}
           <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-1 flex-wrap text-[9px] text-muted-foreground">
@@ -473,13 +482,179 @@ function ChainSummaryCard({ summary }: { summary: ChainSummary }) {
                   {step.tool.replace(/_/g, " ")}
                 </span>
                 {i < summary.chain.length - 1 && (
-                  <span className="text-muted-foreground/50">→</span>
+                  <span className="text-muted-foreground/50">&rarr;</span>
                 )}
               </span>
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------
+   Conversation History Panel
+   ------------------------------------------------------- */
+
+interface ConversationListItem {
+  id: number;
+  agentSlug: string;
+  title: string | null;
+  pinned: number;
+  updatedAt: Date | string;
+}
+
+function ConversationHistoryPanel({
+  conversations,
+  activeConversationId,
+  onSelect,
+  onDelete,
+  onPin,
+  onNewChat,
+  isLoading,
+}: {
+  conversations: ConversationListItem[];
+  activeConversationId: number | null;
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+  onPin: (id: number, pinned: boolean) => void;
+  onNewChat: () => void;
+  isLoading: boolean;
+}) {
+  const pinnedConvos = conversations.filter((c) => c.pinned === 1);
+  const recentConvos = conversations.filter((c) => c.pinned !== 1);
+
+  return (
+    <div className="border-b bg-muted/20 max-h-[320px] overflow-y-auto">
+      {/* New Chat button */}
+      <div className="px-3 pt-2 pb-1">
+        <button
+          onClick={onNewChat}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-medium text-foreground bg-muted hover:bg-muted/80 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Conversation
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {!isLoading && conversations.length === 0 && (
+        <p className="text-[11px] text-muted-foreground text-center py-4">
+          No previous conversations
+        </p>
+      )}
+
+      {/* Pinned conversations */}
+      {pinnedConvos.length > 0 && (
+        <div className="px-3 pt-2">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 px-1">
+            Pinned
+          </p>
+          {pinnedConvos.map((conv) => (
+            <ConversationRow
+              key={conv.id}
+              conv={conv}
+              isActive={conv.id === activeConversationId}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              onPin={onPin}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Recent conversations */}
+      {recentConvos.length > 0 && (
+        <div className="px-3 pt-2 pb-2">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 px-1">
+            Recent
+          </p>
+          {recentConvos.map((conv) => (
+            <ConversationRow
+              key={conv.id}
+              conv={conv}
+              isActive={conv.id === activeConversationId}
+              onSelect={onSelect}
+              onDelete={onDelete}
+              onPin={onPin}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConversationRow({
+  conv,
+  isActive,
+  onSelect,
+  onDelete,
+  onPin,
+}: {
+  conv: ConversationListItem;
+  isActive: boolean;
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+  onPin: (id: number, pinned: boolean) => void;
+}) {
+  const agent = AGENTS.find((a) => a.slug === conv.agentSlug);
+  const title = conv.title || `Chat with ${agent?.name || conv.agentSlug}`;
+  const updatedAt =
+    conv.updatedAt instanceof Date
+      ? conv.updatedAt
+      : new Date(conv.updatedAt);
+
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-colors",
+        isActive
+          ? "bg-foreground/10 border border-foreground/20"
+          : "hover:bg-muted"
+      )}
+      onClick={() => onSelect(conv.id)}
+    >
+      <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+        {agent?.icon || <MessageSquare className="w-3 h-3" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-medium truncate">{title}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {formatDate(updatedAt)}
+        </p>
+      </div>
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPin(conv.id, conv.pinned !== 1);
+          }}
+          className={cn(
+            "p-1 rounded hover:bg-muted transition-colors",
+            conv.pinned === 1 && "text-amber-500 opacity-100"
+          )}
+          title={conv.pinned === 1 ? "Unpin" : "Pin"}
+        >
+          <Pin className="w-3 h-3" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(conv.id);
+          }}
+          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+          title="Delete"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -493,15 +668,26 @@ export function AgentChatSidebar({
   onClose,
   initialAgentSlug,
 }: AgentChatSidebarProps) {
+  const { isAuthenticated } = useAuth();
   const [selectedSlug, setSelectedSlug] = useState(
     initialAgentSlug || "architect"
   );
   const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Conversation persistence state
+  const [activeConversationId, setActiveConversationId] = useState<
+    number | null
+  >(null);
+  const [pendingSaveMessages, setPendingSaveMessages] = useState<ChatMessage[]>(
+    []
+  );
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedAgent = useMemo(
     () => AGENTS.find((a) => a.slug === selectedSlug) || AGENTS[0],
@@ -517,8 +703,85 @@ export function AgentChatSidebar({
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // Generate welcome message when agent changes
+  // ── tRPC queries & mutations for persistence ──────────────
+
+  const conversationListQuery = trpc.conversations.list.useQuery(
+    { limit: 50 },
+    { enabled: open && isAuthenticated }
+  );
+
+  const createConversationMutation =
+    trpc.conversations.create.useMutation();
+  const saveMessageMutation =
+    trpc.conversations.saveMessage.useMutation();
+  const updateConversationMutation =
+    trpc.conversations.update.useMutation();
+  const deleteConversationMutation =
+    trpc.conversations.delete.useMutation();
+  const getConversationQuery = trpc.conversations.get.useQuery(
+    { conversationId: activeConversationId! },
+    {
+      enabled: activeConversationId !== null && open,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const utils = trpc.useUtils();
+
+  // ── Restore conversation from DB when selected ────────────
+
   useEffect(() => {
+    if (
+      getConversationQuery.data?.messages &&
+      getConversationQuery.data.messages.length > 0 &&
+      activeConversationId !== null
+    ) {
+      const dbMessages = getConversationQuery.data.messages;
+      const restoredMessages: ChatMessage[] = dbMessages.map((m, i) => ({
+        id: `db_${m.id ?? i}`,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp:
+          typeof m.messageTimestamp === "number"
+            ? m.messageTimestamp
+            : new Date(m.messageTimestamp).getTime(),
+        agentSlug: m.agentSlug ?? undefined,
+        agentName: m.agentName ?? undefined,
+        toolEvents: m.toolEvents as ToolEvent[] | undefined,
+        chainSummary: m.chainSummary as ChainSummary | undefined,
+      }));
+
+      // Add welcome message at the start
+      const agent = AGENTS.find(
+        (a) =>
+          a.slug === getConversationQuery.data?.conversation.agentSlug
+      );
+      const welcomeMsg: ChatMessage = {
+        id: "welcome",
+        role: "assistant",
+        content: `Hello! I'm the **${agent?.name || "Agent"}**. ${agent?.description || ""}. How can I help you today?`,
+        timestamp: restoredMessages[0]?.timestamp
+          ? restoredMessages[0].timestamp - 1
+          : Date.now(),
+        agentSlug: agent?.slug,
+        agentName: agent?.name,
+      };
+
+      setMessages([welcomeMsg, ...restoredMessages]);
+
+      // Set the agent slug from the conversation
+      if (getConversationQuery.data?.conversation.agentSlug) {
+        setSelectedSlug(
+          getConversationQuery.data.conversation.agentSlug
+        );
+      }
+    }
+  }, [getConversationQuery.data, activeConversationId]);
+
+  // ── Generate welcome message when agent changes (new chat) ─
+
+  useEffect(() => {
+    if (activeConversationId !== null) return; // Don't reset if viewing a saved conversation
     setMessages([
       {
         id: "welcome",
@@ -529,7 +792,7 @@ export function AgentChatSidebar({
         agentName: selectedAgent.name,
       },
     ]);
-  }, [selectedAgent]);
+  }, [selectedAgent, activeConversationId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -537,6 +800,64 @@ export function AgentChatSidebar({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // ── Debounced message persistence ─────────────────────────
+
+  const persistMessage = useCallback(
+    async (msg: ChatMessage, conversationId: number) => {
+      if (!isAuthenticated) return;
+      try {
+        await saveMessageMutation.mutateAsync({
+          conversationId,
+          message: {
+            role: msg.role,
+            content: msg.content,
+            agentSlug: msg.agentSlug,
+            agentName: msg.agentName,
+            toolEvents: msg.toolEvents?.map((te) => ({
+              id: te.id,
+              name: te.name,
+              arguments: te.arguments,
+              result: te.result,
+              round: te.round,
+              status: te.status,
+              latencyMs: te.latencyMs,
+            })),
+            chainSummary: msg.chainSummary,
+            messageTimestamp: msg.timestamp,
+          },
+        });
+      } catch (err) {
+        console.warn("[Chat Persistence] Failed to save message:", err);
+      }
+    },
+    [isAuthenticated, saveMessageMutation]
+  );
+
+  // ── Auto-title conversation after first assistant response ─
+
+  const autoTitleConversation = useCallback(
+    async (conversationId: number, userMessage: string) => {
+      if (!isAuthenticated) return;
+      try {
+        // Use the first 60 chars of the user's first message as the title
+        const title =
+          userMessage.length > 60
+            ? userMessage.slice(0, 57) + "..."
+            : userMessage;
+        await updateConversationMutation.mutateAsync({
+          conversationId,
+          title,
+        });
+        utils.conversations.list.invalidate();
+      } catch (err) {
+        console.warn("[Chat Persistence] Failed to auto-title:", err);
+      }
+    },
+    [isAuthenticated, updateConversationMutation, utils]
+  );
+
+  // ── Send message ──────────────────────────────────────────
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -565,6 +886,30 @@ export function AgentChatSidebar({
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setInput("");
       setIsStreaming(true);
+
+      // ── Create conversation on first user message ──────────
+      let convId = activeConversationId;
+      if (!convId && isAuthenticated) {
+        try {
+          const result = await createConversationMutation.mutateAsync({
+            agentSlug: selectedAgent.slug,
+          });
+          convId = result.id;
+          setActiveConversationId(convId);
+          // Auto-title with the first user message
+          autoTitleConversation(convId, text.trim());
+        } catch (err) {
+          console.warn(
+            "[Chat Persistence] Failed to create conversation:",
+            err
+          );
+        }
+      }
+
+      // Persist the user message
+      if (convId) {
+        persistMessage(userMsg, convId);
+      }
 
       // Build message history for the API (exclude the welcome message)
       const apiMessages = [...messages, userMsg]
@@ -628,7 +973,7 @@ export function AgentChatSidebar({
                 );
               }
 
-              // Tool call event — add to tool events with "executing" status
+              // Tool call event
               if (parsed.toolCall) {
                 const tc = parsed.toolCall;
                 setMessages((prev) =>
@@ -652,7 +997,7 @@ export function AgentChatSidebar({
                 );
               }
 
-              // Tool result event — update the matching tool event with status
+              // Tool result event
               if (parsed.toolResult) {
                 const tr = parsed.toolResult;
                 setMessages((prev) =>
@@ -708,12 +1053,23 @@ export function AgentChatSidebar({
           }
         }
 
-        // Mark streaming complete
-        setMessages((prev) =>
-          prev.map((m) =>
+        // Mark streaming complete and persist the assistant message
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
             m.id === assistantId ? { ...m, isStreaming: false } : m
-          )
-        );
+          );
+          // Persist the completed assistant message
+          const completedMsg = updated.find((m) => m.id === assistantId);
+          if (completedMsg && convId) {
+            persistMessage(completedMsg, convId);
+          }
+          return updated;
+        });
+
+        // Invalidate conversation list to show updated timestamp
+        if (convId) {
+          utils.conversations.list.invalidate();
+        }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
           setMessages((prev) =>
@@ -749,11 +1105,79 @@ export function AgentChatSidebar({
         abortRef.current = null;
       }
     },
-    [isStreaming, messages, selectedAgent]
+    [
+      isStreaming,
+      messages,
+      selectedAgent,
+      activeConversationId,
+      isAuthenticated,
+      createConversationMutation,
+      persistMessage,
+      autoTitleConversation,
+      utils,
+    ]
   );
 
   const handleSend = () => sendMessage(input);
   const handleStop = () => abortRef.current?.abort();
+
+  // ── Conversation history handlers ─────────────────────────
+
+  const handleSelectConversation = useCallback(
+    (id: number) => {
+      setActiveConversationId(id);
+      setShowHistory(false);
+      setShowAgentPicker(false);
+    },
+    []
+  );
+
+  const handleDeleteConversation = useCallback(
+    async (id: number) => {
+      try {
+        await deleteConversationMutation.mutateAsync({
+          conversationId: id,
+        });
+        utils.conversations.list.invalidate();
+        if (id === activeConversationId) {
+          handleNewChat();
+        }
+      } catch (err) {
+        console.warn("[Chat] Failed to delete conversation:", err);
+      }
+    },
+    [deleteConversationMutation, utils, activeConversationId]
+  );
+
+  const handlePinConversation = useCallback(
+    async (id: number, pinned: boolean) => {
+      try {
+        await updateConversationMutation.mutateAsync({
+          conversationId: id,
+          pinned,
+        });
+        utils.conversations.list.invalidate();
+      } catch (err) {
+        console.warn("[Chat] Failed to pin conversation:", err);
+      }
+    },
+    [updateConversationMutation, utils]
+  );
+
+  const handleNewChat = useCallback(() => {
+    setActiveConversationId(null);
+    setShowHistory(false);
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        content: `Hello! I'm the **${selectedAgent.name}**. ${selectedAgent.description}. How can I help you today?`,
+        timestamp: Date.now(),
+        agentSlug: selectedAgent.slug,
+        agentName: selectedAgent.name,
+      },
+    ]);
+  }, [selectedAgent]);
 
   return (
     <Sheet
@@ -762,6 +1186,7 @@ export function AgentChatSidebar({
         if (!v) {
           onClose();
           setShowAgentPicker(false);
+          setShowHistory(false);
         }
       }}
     >
@@ -772,7 +1197,10 @@ export function AgentChatSidebar({
         {/* Header with Agent Selector */}
         <SheetHeader className="px-5 py-4 border-b flex-row items-center gap-3 space-y-0">
           <button
-            onClick={() => setShowAgentPicker(!showAgentPicker)}
+            onClick={() => {
+              setShowAgentPicker(!showAgentPicker);
+              setShowHistory(false);
+            }}
             className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center flex-shrink-0">
@@ -804,6 +1232,25 @@ export function AgentChatSidebar({
           <p className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex-shrink-0">
             {selectedAgent.model}
           </p>
+
+          {/* History toggle button */}
+          {isAuthenticated && (
+            <button
+              onClick={() => {
+                setShowHistory(!showHistory);
+                setShowAgentPicker(false);
+              }}
+              className={cn(
+                "p-2 rounded-lg transition-colors flex-shrink-0",
+                showHistory
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              title="Conversation history"
+            >
+              <History className="w-4 h-4" />
+            </button>
+          )}
         </SheetHeader>
 
         {/* Agent Picker Dropdown */}
@@ -815,6 +1262,8 @@ export function AgentChatSidebar({
                 onClick={() => {
                   setSelectedSlug(agent.slug);
                   setShowAgentPicker(false);
+                  // Start a new chat when switching agents
+                  setActiveConversationId(null);
                 }}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors",
@@ -847,6 +1296,21 @@ export function AgentChatSidebar({
               </button>
             ))}
           </div>
+        )}
+
+        {/* Conversation History Panel */}
+        {showHistory && isAuthenticated && (
+          <ConversationHistoryPanel
+            conversations={
+              (conversationListQuery.data as ConversationListItem[]) || []
+            }
+            activeConversationId={activeConversationId}
+            onSelect={handleSelectConversation}
+            onDelete={handleDeleteConversation}
+            onPin={handlePinConversation}
+            onNewChat={handleNewChat}
+            isLoading={conversationListQuery.isLoading}
+          />
         )}
 
         {/* Messages */}
@@ -1012,8 +1476,10 @@ export function AgentChatSidebar({
             )}
           </div>
           <p className="text-[10px] text-muted-foreground text-center mt-2">
-            Powered by Together.ai · {selectedAgent.model} · Multi-round tool
-            chains enabled
+            Powered by Together.ai &middot; {selectedAgent.model} &middot;
+            {activeConversationId
+              ? " Conversation saved"
+              : " Multi-round tool chains enabled"}
           </p>
         </div>
       </SheetContent>
