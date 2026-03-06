@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Validation Script
         run: |
-          psql $DATABASE_URL -f supabase/tests/database/validate_all_fixes.sql
+          supabase db execute --file supabase/tests/database/validate_all_fixes.sql
 
       - name: Stop Supabase
         run: supabase stop
