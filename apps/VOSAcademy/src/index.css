@@ -224,16 +224,20 @@
   h4,
   h5,
   h6 {
+    font-weight: var(--font-weight-heading);
+    line-height: var(--line-height-heading);
+    letter-spacing: var(--tracking-heading);
     font-weight: 600;
     letter-spacing: -0.02em;
   }
 
   h1 {
-    letter-spacing: -0.03em;
+    line-height: var(--line-height-display);
+    letter-spacing: var(--tracking-heading-tight);
   }
 
   h2 {
-    letter-spacing: -0.025em;
+    letter-spacing: var(--tracking-heading-medium);
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
