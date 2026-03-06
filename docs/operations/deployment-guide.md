@@ -364,8 +364,8 @@ SELECT count(*) FROM public.semantic_memory WHERE organization_id = 'org-a-uuid'
 
 #### 2.3 Automated Test Script
 ```bash
-# Run automated RLS tests
-pnpm run test:rls
+# Run automated policy/isolation tests (current root script)
+pnpm run test
 
 # Expected output:
 # ✓ All tables have RLS enabled
@@ -1530,8 +1530,8 @@ supabase storage rm avatars --recursive
 # 2. Run SQL verification directly
 psql $DATABASE_URL -f scripts/verify-production-readiness.sql
 
-# 3. Run RLS policy tests
-pnpm run test:rls
+# 3. Run policy/isolation test suite (RLS checks are covered in Vitest)
+pnpm run test
 ```
 
 ## ✅ Critical Verification Queries
@@ -2916,7 +2916,7 @@ cp .env.example .env.local
 nano .env.local
 
 # Start development server
-pnpm run dev:frontend
+pnpm run dev
 ```
 
 ### Production Build
@@ -2931,8 +2931,8 @@ nano .env.production
 # Build for production
 pnpm run build
 
-# Validate deployment environment instead of local preview
-pnpm run dx:doctor
+# Run pre-deploy type safety checks
+pnpm run check
 ```
 
 ### Docker Deployment

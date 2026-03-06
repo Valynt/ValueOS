@@ -63,19 +63,21 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     message: z.string(),
     progress: z.number().optional(),
   }),
-  'agent.action.checkpoint': z.object({
-    schemaVersion: z.string(),
-    idempotencyKey: z.string().min(1),
-    emittedAt: z.string().datetime(),
-    tenantId: z.string().min(1),
-    sessionId: z.string().min(1),
-    userId: z.string().min(1),
-    actionType: z.string(),
-    actionData: z.record(z.any()),
-    requiresApproval: z.boolean(),
-    reason: z.string(),
-    checkpointIdempotencyKey: z.string().min(1).optional(),
-  }),
+  'agent.action.checkpoint': z
+    .object({
+      schemaVersion: z.string(),
+      idempotencyKey: z.string().min(1),
+      emittedAt: z.string().datetime(),
+      tenantId: z.string().min(1),
+      sessionId: z.string().min(1),
+      userId: z.string().min(1),
+      actionType: z.string(),
+      actionData: z.record(z.any()),
+      requiresApproval: z.boolean(),
+      reason: z.string(),
+      checkpointIdempotencyKey: z.string().min(1).optional(),
+    })
+    .passthrough(),
 };
 
 export type EventPayloadMap = {

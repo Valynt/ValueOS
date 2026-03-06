@@ -1,6 +1,4 @@
-# LEGACY WRAPPER — canonical compose lives in ops/compose/.
-# Thin passthrough wrapper for backward compatibility only.
-# Optional stacks are available under ops/compose/profiles/*.yml.
+# DEPRECATED: Legacy compose wrapper; use ops/compose/compose.yml as the canonical stack definition.
 
 include:
   - ../ops/compose/compose.yml
