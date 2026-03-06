@@ -450,6 +450,56 @@ const events = [...];
 batchTrackEvents(events);
 ```
 
+
+## Production SLO Framework
+
+### Service-Level SLOs (Tenant + Region Segmentation)
+
+SLO evaluation is computed per `service`, `tenant_tier`, and `region` labels to prevent aggregate metrics from hiding localized regressions.
+
+| SLO ID | Service | Segment | Target | Measurement Window | Dashboard/Query ID |
+| --- | --- | --- | --- | --- | --- |
+| `SLO-API-AVAIL` | Backend API (`/api/*`) | `tenant_tier` (`enterprise`, `growth`, `starter`) × `region` (`us-east-1`, `eu-west-1`) | Availability ≥ `99.95%` | Rolling 30 days | Grafana panel `prod-slo-overview:api-availability-by-segment`, PromQL `1 - (sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m])) by (tenant_tier,region) / sum(rate(valuecanvas_http_requests_total[5m])) by (tenant_tier,region))` |
+| `SLO-API-LAT` | Backend API | Same segment grid as above | p95 latency ≤ `450ms` | Rolling 30 days | Grafana panel `prod-slo-overview:api-p95-latency-by-segment`, PromQL `histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le,tenant_tier,region))` |
+| `SLO-API-ERR` | Backend API | Same segment grid as above | Error rate ≤ `0.5%` | Rolling 30 days | Grafana panel `prod-slo-overview:api-error-rate-by-segment`, PromQL `sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m])) by (tenant_tier,region) / sum(rate(valuecanvas_http_requests_total[5m])) by (tenant_tier,region)` |
+| `SLO-WORKER-AVAIL` | Queue workers (`worker`, `bullmq`) | `tenant_tier` × `region` | Job success ratio ≥ `99.5%` | Rolling 30 days | Grafana panel `prod-slo-overview:worker-success-by-segment`, PromQL `sum(rate(job_completed_total{service="worker"}[5m])) by (tenant_tier,region) / (sum(rate(job_completed_total{service="worker"}[5m])) by (tenant_tier,region) + sum(rate(job_failed_total{service="worker"}[5m])) by (tenant_tier,region))` |
+
+> **Tenant isolation requirement:** all SLO metrics and exemplars must carry `organization_id` and/or `tenant_id` dimensions in upstream telemetry and derived recording rules.
+
+### Error Budget Policy
+
+- **Budget window:** 30-day rolling SLO window with daily budget recomputation at 00:00 UTC.
+- **Budget ownership:** Release Captain owns release gating decisions, On-Call SRE owns active incident budget triage, and service owners provide mitigation plans.
+- **Release gating policy:**
+  - Remaining budget **≥ 50%**: normal releases allowed.
+  - Remaining budget **20–49%**: require Release Captain + On-Call SRE approval and reduced blast-radius rollout (canary only).
+  - Remaining budget **< 20%**: freeze non-critical releases; only fixes that improve reliability are permitted.
+
+#### Burn-Rate Alerts
+
+| Alert ID | Severity | Trigger | Source | Expected Action |
+| --- | --- | --- | --- | --- |
+| `alert-slo-burnrate-api-fast` | Critical | `burn_rate_1h > 14.4` and `burn_rate_5m > 14.4` for any evaluated SLO segment | Grafana managed alert (`uid: slo-api-fast-burn`) on `SLO-API-AVAIL` | Page Release Captain + On-Call SRE; assess rollback within 10 minutes. |
+| `alert-slo-burnrate-api-slow` | High | `burn_rate_6h > 6` and `burn_rate_30m > 6` | Grafana managed alert (`uid: slo-api-slow-burn`) | Stop progressive rollout; open incident channel. |
+| `alert-slo-burnrate-worker` | High | `burn_rate_6h > 4` and failed jobs concentrated in any segment | Grafana managed alert (`uid: slo-worker-burn`) | Pause queue-consuming deploys; divert traffic if region-specific. |
+
+Burn-rate recording rules in Prometheus are defined in `infra/k8s/monitoring/prometheus-slo-rules.yaml` (for example, `slo:api_availability:error_budget_burn_rate5m/1h`).
+
+### Rollback Signals (Release Captain Decision Inputs)
+
+The Release Captain triggers rollback when **any one** critical signal persists for 10 minutes (or faster if customer-impacting):
+
+1. **Availability breach:** `SLO-API-AVAIL` projection drops below `99.90%` for any enterprise tenant segment (`dashboard panel: prod-slo-overview:api-availability-by-segment`).
+2. **Latency regression:** API p95 exceeds `800ms` in two consecutive 5-minute windows for the same `tenant_tier,region` (`panel: prod-slo-overview:api-p95-latency-by-segment`).
+3. **Error spike:** `alert-slo-burnrate-api-fast` firing plus Loki exceptions query returns sustained release-correlated errors:
+   - Loki query ID `loki-release-errors`: `{app="api",env="prod"} |= "ERROR" |= "release_version={{ .ReleaseVersion }}"`
+4. **Trace health collapse:** Tempo service graph query ID `tempo-release-critical-path` shows >25% failed spans on the request critical path:
+   - Tempo TraceQL: `{ resource.service.name = "api" && span.http.route = "/api/workflows/:id" && span.status = error }`
+5. **Tenant-specific regressions:** two or more enterprise tenants in the same region fail smoke checks or produce P1 alerts tied to current release hash.
+
+When rollback criteria are met, capture decision evidence in incident notes with the relevant dashboard panel IDs, Loki query IDs, Tempo query IDs, and the release hash.
+
+
 ## Troubleshooting
 
 ### Events Not Appearing

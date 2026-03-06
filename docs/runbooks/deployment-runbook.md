@@ -97,8 +97,20 @@ status: deprecated
      - Design Systems owns co-branding checks.
 6. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
+   - Validate SLO panels and burn-rate alerts from `docs/operations/monitoring-observability.md#production-slo-framework`:
+     - `prod-slo-overview:api-availability-by-segment`
+     - `prod-slo-overview:api-p95-latency-by-segment`
+     - `prod-slo-overview:api-error-rate-by-segment`
+     - Alert UIDs `slo-api-fast-burn`, `slo-api-slow-burn`, and `slo-worker-burn`
+   - Review the release-focused Loki error query and Tempo critical-path trace query defined in `docs/operations/monitoring-observability.md` before declaring success.
    - Review Supabase logs for RLS errors using `docs/operations/troubleshooting/rls-failures.md` queries.
    - Announce completion with a link to the workflow run and tag Feature Owners for final sign-off.
+
+## Rollback Decision Signals (Release Captain)
+- Treat the rollback signals in `docs/operations/monitoring-observability.md#rollback-signals-release-captain-decision-inputs` as the authoritative triggers.
+- Roll back immediately if `alert-slo-burnrate-api-fast` is firing and either the Loki release-errors query or Tempo critical-path query confirms release-correlated failures.
+- For tenant/region-localized incidents, halt rollout and roll back only affected region workloads when supported by deployment topology.
+- Record rollback decision evidence (panel IDs, alert UIDs, Loki/Tempo query IDs, release hash) in incident timeline before closing the event.
 
 ## SLAs
 - **P1 (customer-facing outage/security risk):** acknowledge in ≤5 minutes, mitigation/rollback in ≤30 minutes.
