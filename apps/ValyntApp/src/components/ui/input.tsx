@@ -130,7 +130,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             onClick={onClear}
             className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Clear search"
-            aria-invalid={error ? true : undefined}
+            data-error={error ? "true" : undefined}
           >
             <X className="h-4 w-4" />
           </button>
