@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Docker Compose wrapper for ValueOS infrastructure orchestration only.
-# Application services should run via package scripts unless explicitly using the legacy stack.
+# This wrapper owns infra orchestration only.
+# App services run via package scripts unless explicitly using the legacy stack.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -112,4 +112,3 @@ elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
-
