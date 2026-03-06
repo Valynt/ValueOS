@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Deterministic Supabase interface contract validator.
-# Verifies expected compose services and host endpoints rather than container implementation details.
+# Validates compose service availability and host-facing Supabase endpoints,
+# not container implementation details (IDs/names/network aliases).
 
 COMPOSE_FILES_CSV="${DX_SUPABASE_COMPOSE_FILES:-ops/compose/compose.yml,ops/compose/profiles/supabase.yml}"
 DB_SERVICE="${DX_SUPABASE_DB_SERVICE:-postgres}"
@@ -13,6 +14,10 @@ STUDIO_SERVICE="${DX_SUPABASE_STUDIO_SERVICE:-studio}"
 SUPABASE_API_PORT="${SUPABASE_API_PORT:-${DX_SUPABASE_EXPECT_API_PORT:-54321}}"
 AUTH_PORT="${AUTH_PORT:-${DX_SUPABASE_EXPECT_AUTH_PORT:-9999}}"
 STUDIO_PORT="${STUDIO_PORT:-${DX_SUPABASE_EXPECT_STUDIO_PORT:-54324}}"
+
+SUPABASE_API_HOST="${DX_SUPABASE_API_HOST:-localhost}"
+AUTH_HOST="${DX_SUPABASE_AUTH_HOST:-localhost}"
+STUDIO_HOST="${DX_SUPABASE_STUDIO_HOST:-localhost}"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 warn() { echo "WARN: $*" >&2; }
@@ -57,8 +62,8 @@ echo "  db service:    ${DB_SERVICE}"
 echo "  api service:   ${API_SERVICE}"
 echo "  auth service:  ${AUTH_SERVICE}"
 echo "  studio service:${STUDIO_SERVICE}"
-echo "  auth endpoint: http://localhost:${AUTH_PORT}"
-echo "  api endpoint:  http://localhost:${SUPABASE_API_PORT}"
+echo "  auth endpoint: http://${AUTH_HOST}:${AUTH_PORT}"
+echo "  api endpoint:  http://${SUPABASE_API_HOST}:${SUPABASE_API_PORT}"
 echo
 
 for s in "$DB_SERVICE" "$API_SERVICE" "$AUTH_SERVICE"; do
@@ -106,11 +111,11 @@ probe_http() {
 }
 
 echo "HTTP probes:"
-probe_http "Auth" "http://localhost:${AUTH_PORT}/health"
-probe_http "Supabase API" "http://localhost:${SUPABASE_API_PORT}"
+probe_http "Auth" "http://${AUTH_HOST}:${AUTH_PORT}/health"
+probe_http "Supabase API" "http://${SUPABASE_API_HOST}:${SUPABASE_API_PORT}"
 
 if service_exists "$STUDIO_SERVICE" && service_running "$STUDIO_SERVICE"; then
-  probe_http "Studio" "http://localhost:${STUDIO_PORT}"
+  probe_http "Studio" "http://${STUDIO_HOST}:${STUDIO_PORT}"
 else
   warn "Skipping Studio probe; service not present/running."
 fi
