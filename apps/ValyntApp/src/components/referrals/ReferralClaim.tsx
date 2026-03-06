@@ -117,21 +117,21 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
 
   if (claimedReferral) {
     return (
-      <Card className="border-green-200 bg-green-50">
+      <Card className="border-success/30 bg-success/10">
         <CardContent className="p-6">
           <div className="text-center">
-            <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-green-900 mb-2">
+            <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">
               Referral Claimed Successfully!
             </h3>
-            <p className="text-green-800 mb-4">
+            <p className="text-success mb-4">
               You've earned a {claimedReferral.reward} discount on your first month!
             </p>
-            <div className="bg-white rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-600">Referral ID</p>
+            <div className="bg-card rounded-lg p-4 mb-4">
+              <p className="text-sm text-muted-foreground">Referral ID</p>
               <p className="font-mono text-sm">{claimedReferral.referral_id}</p>
             </div>
-            <Button onClick={skipReferral} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={skipReferral} className="bg-success text-success-foreground hover:bg-success/90">
               Continue to Signup
             </Button>
           </div>
@@ -180,28 +180,28 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
               />
               {isValidating && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                 </div>
               )}
               {validationResult !== null && !isValidating && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   {validationResult ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <CheckCircle className="h-4 w-4 text-success" />
                   ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertCircle className="h-4 w-4 text-destructive" />
                   )}
                 </div>
               )}
             </div>
 
             {validationResult === true && (
-              <p className="text-sm text-green-600 mt-1">
+              <p className="text-sm text-success mt-1">
                 Valid referral code! You'll get 20% off your first month.
               </p>
             )}
 
             {validationResult === false && (
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 Invalid or inactive referral code.
               </p>
             )}
@@ -226,9 +226,9 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
           </div>
         </form>
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h4 className="font-semibold text-blue-900 mb-2">How referrals work:</h4>
-          <ul className="text-sm text-blue-800 space-y-1">
+        <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20">
+          <h4 className="font-semibold text-primary mb-2">How referrals work:</h4>
+          <ul className="text-sm text-primary/90 space-y-1">
             <li>• Enter your friend's referral code above</li>
             <li>• Get 20% off your first month subscription</li>
             <li>• Your friend gets 1 month free when you subscribe</li>

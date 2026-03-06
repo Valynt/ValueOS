@@ -161,9 +161,15 @@ type RateLimitIdentifiers = {
   ip?: string | null;
 };
 
+type RateLimitIdentityUser = {
+  id?: string | null;
+  tenantId?: string | null;
+};
+
 let redisClient: RedisClientType | null = null;
 let redisConnectPromise: Promise<RedisClientType | null> | null = null;
 
+// Sliding-window rate limiter (Redis sorted-set + Lua for atomicity)
 const RATE_LIMIT_SCRIPT = `
   local key = KEYS[1]
   local now = tonumber(ARGV[1])
@@ -182,7 +188,6 @@ const RATE_LIMIT_SCRIPT = `
   end
 
   redis.call('PEXPIRE', key, window)
-  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
   local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
   local oldestScore = 0
   if oldest and #oldest >= 2 then
@@ -232,9 +237,16 @@ export function getRateLimitIdentifiers(req: IncomingMessage, user?: { id?: stri
     ? forwardedFor.split(",")[0]?.trim()
     : req.socket.remoteAddress;
 
+  const tenantFromHeaders = req.headers["x-tenant-id"] || req.headers["x-organization-id"];
+  const tenantId = Array.isArray(tenantFromHeaders)
+    ? tenantFromHeaders[0]
+    : typeof tenantFromHeaders === "string"
+      ? tenantFromHeaders.trim()
+      : null;
+
   return {
     userId: user?.id ?? null,
-    tenantId: user?.tenantId ?? null,
+    tenantId: user?.tenantId ?? tenantId,
     ip: ip ?? null,
   };
 }
@@ -308,3 +320,5 @@ export function throwRateLimitExceeded(): never {
     message: "Rate limit exceeded. Please try again later.",
   });
 }
+
+export type { RateLimitIdentityUser, RateLimitIdentifiers, RateLimitResult };

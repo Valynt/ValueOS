@@ -102,3 +102,7 @@ output "connection_string" {
 output "cluster_id" {
   value = aws_elasticache_replication_group.main.id
 }
+
+output "arn" {
+  value = aws_elasticache_replication_group.main.arn
+}

@@ -32,9 +32,18 @@ Copy `.env.example` to `.env.local`, then fill in the values. Alternatively, exp
 | --- | --- |
 | `VITE_OAUTH_PORTAL_URL` | Base URL for the OAuth portal used to generate login links. |
 | `VITE_APP_ID` | Application identifier passed to the OAuth portal. |
-| `DATABASE_URL` | Connection string for Postgres used by server-side data utilities and seed scripts. In production, include `sslmode=require` or `sslrootcert=/path/to/ca.pem` to enable TLS. |
+| `DATABASE_URL` | Connection string for Postgres used by server-side data utilities and seed scripts. In production, it **must** include `sslmode=require` or `sslrootcert=/path/to/ca.pem`; startup fails fast if neither is present. |
 | `OWNER_OPENID` | Owner OpenID value used by backend utilities. |
 | `NODE_ENV` | Environment mode; defaults to `development` if not set. |
+
+### Production TLS requirements
+
+When `NODE_ENV=production`, database connections require TLS and the app will fail fast at startup if TLS settings are missing. Configure one of the following in `DATABASE_URL`:
+
+- `sslmode=require` (encrypted transport, certificate not verified), or
+- `sslrootcert=/absolute/path/to/ca.pem` (encrypted transport with certificate validation).
+
+If you use `sslrootcert`, ensure the file exists in the runtime environment and contains a valid non-empty CA bundle.
 
 ### Secrets and credential handling
 

@@ -10,9 +10,34 @@
 @layer base {
   :root {
     /* ===================
+       CANONICAL VALUEOS PALETTE
+       ===================
+       Source-of-truth palette for all apps.
+    */
+    --vos-color-primary: var(--valueos-primary);
+    --vos-color-primary-foreground: var(--valueos-primary-foreground);
+    --vos-color-secondary: var(--valueos-secondary);
+    --vos-color-secondary-foreground: var(--valueos-secondary-foreground);
+    --vos-color-accent: var(--valueos-accent);
+    --vos-color-accent-foreground: var(--valueos-accent-foreground);
+
+    --vos-color-neutral-background: var(--valueos-neutral-background);
+    --vos-color-neutral-foreground: var(--valueos-neutral-foreground);
+    --vos-color-neutral-surface: var(--valueos-neutral-surface);
+    --vos-color-neutral-subtle: var(--valueos-neutral-subtle);
+    --vos-color-neutral-muted: var(--valueos-neutral-muted);
+    --vos-color-neutral-border: var(--valueos-neutral-border);
+
+    --vos-color-success: var(--valueos-success);
+    --vos-color-warning: var(--valueos-warning);
+    --vos-color-error: var(--valueos-error);
+    --vos-color-info: var(--valueos-primary);
+    --vos-color-on-status: var(--valueos-on-status);
+
+    /* ===================
        COLOR PRIMITIVES
        =================== */
-    
+
     /* Primary - Blue */
     --color-primary-50: 219 100% 97%;
     --color-primary-100: 214 95% 93%;
@@ -78,78 +103,79 @@
        ===================
        Usage: map component styles to semantic tokens only (no raw colors).
     */
-    
-    /* Backgrounds */
-    --background: var(--valueos-neutral-background);
-    --foreground: var(--valueos-neutral-foreground);
 
-    --surface: var(--valueos-neutral-surface);
-    --surface-elevated: var(--valueos-neutral-background);
-    
+    /* Backgrounds */
+    --background: var(--vos-color-neutral-background);
+    --foreground: var(--vos-color-neutral-foreground);
+
+    --surface: var(--vos-color-neutral-surface);
+    --surface-elevated: var(--vos-color-neutral-background);
+
     /* Cards */
-    --card: var(--valueos-neutral-background);
-    --card-foreground: var(--valueos-neutral-foreground);
-    
+    --card: var(--vos-color-neutral-background);
+    --card-foreground: var(--vos-color-neutral-foreground);
+
     /* Popovers */
-    --popover: var(--valueos-neutral-background);
-    --popover-foreground: var(--valueos-neutral-foreground);
-    
+    --popover: var(--vos-color-neutral-background);
+    --popover-foreground: var(--vos-color-neutral-foreground);
+
     /* Primary */
-    --primary: var(--valueos-primary);
-    --primary-foreground: var(--valueos-primary-foreground);
-    
+    --primary: var(--vos-color-primary);
+    --primary-foreground: var(--vos-color-primary-foreground);
+
     /* Secondary */
-    --secondary: var(--valueos-secondary);
-    --secondary-foreground: var(--valueos-secondary-foreground);
-    
+    --secondary: var(--vos-color-secondary);
+    --secondary-foreground: var(--vos-color-secondary-foreground);
+
     /* Muted */
-    --muted: var(--valueos-neutral-subtle);
-    --muted-foreground: var(--valueos-neutral-muted);
-    
+    --muted: var(--vos-color-neutral-subtle);
+    --muted-foreground: var(--vos-color-neutral-muted);
+
     /* Accent */
-    --accent: var(--valueos-accent);
-    --accent-foreground: var(--valueos-accent-foreground);
-    
+    --accent: var(--vos-color-accent);
+    --accent-foreground: var(--vos-color-accent-foreground);
+
     /* Destructive */
-    --destructive: var(--valueos-error);
-    --destructive-foreground: var(--valueos-on-status);
-    
+    --destructive: var(--vos-color-error);
+    --destructive-foreground: var(--vos-color-on-status);
+
     /* Success */
-    --success: var(--valueos-success);
-    --success-foreground: var(--valueos-on-status);
-    
+    --success: var(--vos-color-success);
+    --success-foreground: var(--vos-color-on-status);
+
     /* Warning */
-    --warning: var(--valueos-warning);
-    --warning-foreground: var(--valueos-on-status);
-    
+    --warning: var(--vos-color-warning);
+    --warning-foreground: var(--vos-color-on-status);
+
     /* Border & Input */
-    --border: var(--valueos-neutral-border);
-    --input: var(--valueos-neutral-border);
-    --ring: var(--valueos-primary);
-    
+    --border: var(--vos-color-neutral-border);
+    --input: var(--vos-color-neutral-border);
+    --ring: var(--vos-color-primary);
+
     /* Sidebar */
-    --sidebar-background: var(--valueos-neutral-foreground);
-    --sidebar-foreground: var(--valueos-neutral-surface);
-    --sidebar-primary: var(--valueos-primary);
-    --sidebar-primary-foreground: var(--valueos-primary-foreground);
-    --sidebar-accent: var(--valueos-neutral-muted);
-    --sidebar-accent-foreground: var(--valueos-neutral-surface);
-    --sidebar-border: var(--valueos-neutral-muted);
-    --sidebar-ring: var(--valueos-primary);
-    
+    --sidebar-background: var(--vos-color-neutral-foreground);
+    --sidebar-foreground: var(--vos-color-neutral-surface);
+    --sidebar-primary: var(--vos-color-primary);
+    --sidebar-primary-foreground: var(--vos-color-primary-foreground);
+    --sidebar-accent: var(--vos-color-neutral-muted);
+    --sidebar-accent-foreground: var(--vos-color-neutral-surface);
+    --sidebar-border: var(--vos-color-neutral-muted);
+    --sidebar-ring: var(--vos-color-primary);
+
     /* Border Radius */
     --radius: 0.5rem;
-    
+
     /* Marketing / Landing Page */
-    --bg-dark: #0B0C0F;
-    --bg-grid: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
-    --accent-green: #18C3A5;
-    
+    --bg-dark: #0b0c0f;
+    --bg-grid: radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    --accent-green: #18c3a5;
+
     /* ===================
        TYPOGRAPHY
        =================== */
-    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    --font-sans:
+      "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
     --font-weight-heading: 600;
 
     /* Type scale */
@@ -166,6 +192,20 @@
     --type-body-xs: 0.75rem; /* 12px */
     --type-caption: 0.75rem; /* 12px */
 
+    /* Canonical typography aliases */
+    --font-size-display-xl: var(--type-display-xl);
+    --font-size-display-lg: var(--type-display-lg);
+    --font-size-display-md: var(--type-display-md);
+    --font-size-heading-xl: var(--type-heading-xl);
+    --font-size-heading-lg: var(--type-heading-lg);
+    --font-size-heading-md: var(--type-heading-md);
+    --font-size-heading-sm: var(--type-heading-sm);
+    --font-size-body-lg: var(--type-body-lg);
+    --font-size-body-md: var(--type-body-md);
+    --font-size-body-sm: var(--type-body-sm);
+    --font-size-body-xs: var(--type-body-xs);
+    --font-size-caption: var(--type-caption);
+
     /* Line heights */
     --line-height-display: 1.1;
     --line-height-heading: 1.25;
@@ -175,14 +215,29 @@
     --line-height-normal: 1.5;
     --line-height-relaxed: 1.75;
 
+    /* Canonical line-height aliases */
+    --line-height-display-xl: var(--line-height-display);
+    --line-height-display-lg: var(--line-height-display);
+    --line-height-display-md: var(--line-height-display);
+    --line-height-heading-xl: var(--line-height-heading);
+    --line-height-heading-lg: var(--line-height-heading);
+    --line-height-heading-md: var(--line-height-heading);
+    --line-height-heading-sm: var(--line-height-heading);
+    --line-height-body-lg: var(--line-height-body);
+    --line-height-body-md: var(--line-height-body);
+    --line-height-body-sm: var(--line-height-body);
+    --line-height-body-xs: var(--line-height-body);
+    --line-height-caption-sm: var(--line-height-caption);
+
     /* Letter spacing */
     --tracking-heading: -0.02em;
     --tracking-heading-tight: -0.03em;
     --tracking-heading-medium: -0.025em;
+    --tracking-heading-loose: -0.015em;
     --tracking-tight: -0.025em;
     --tracking-normal: 0;
     --tracking-wide: 0.025em;
-    
+
     /* ===================
        LAYOUT
        =================== */
@@ -205,7 +260,7 @@
     --space-5: 2.5rem; /* 40px (Tailwind: 10) */
     --space-6: 3rem; /* 48px (Tailwind: 12) */
     --space-8: 4rem; /* 64px (Tailwind: 16) */
-    
+
     /* ===================
        TRANSITIONS
        =================== */
@@ -217,54 +272,73 @@
 
   /* Dark mode support (optional, for future) */
   .dark {
-    --background: var(--valueos-neutral-background);
-    --foreground: var(--valueos-neutral-foreground);
+    --vos-color-primary: var(--valueos-primary);
+    --vos-color-primary-foreground: var(--valueos-primary-foreground);
+    --vos-color-secondary: var(--valueos-secondary);
+    --vos-color-secondary-foreground: var(--valueos-secondary-foreground);
+    --vos-color-accent: var(--valueos-accent);
+    --vos-color-accent-foreground: var(--valueos-accent-foreground);
 
-    --surface: var(--valueos-neutral-surface);
-    --surface-elevated: var(--valueos-neutral-subtle);
+    --vos-color-neutral-background: var(--valueos-neutral-background);
+    --vos-color-neutral-foreground: var(--valueos-neutral-foreground);
+    --vos-color-neutral-surface: var(--valueos-neutral-surface);
+    --vos-color-neutral-subtle: var(--valueos-neutral-subtle);
+    --vos-color-neutral-muted: var(--valueos-neutral-muted);
+    --vos-color-neutral-border: var(--valueos-neutral-border);
 
-    --card: var(--valueos-neutral-surface);
-    --card-foreground: var(--valueos-neutral-foreground);
+    --vos-color-success: var(--valueos-success);
+    --vos-color-warning: var(--valueos-warning);
+    --vos-color-error: var(--valueos-error);
+    --vos-color-info: var(--valueos-primary);
+    --vos-color-on-status: var(--valueos-on-status);
 
-    --popover: var(--valueos-neutral-surface);
-    --popover-foreground: var(--valueos-neutral-foreground);
+    --background: var(--vos-color-neutral-background);
+    --foreground: var(--vos-color-neutral-foreground);
 
-    --primary: var(--valueos-primary);
-    --primary-foreground: var(--valueos-primary-foreground);
+    --surface: var(--vos-color-neutral-surface);
+    --surface-elevated: var(--vos-color-neutral-subtle);
 
-    --secondary: var(--valueos-secondary);
-    --secondary-foreground: var(--valueos-secondary-foreground);
+    --card: var(--vos-color-neutral-surface);
+    --card-foreground: var(--vos-color-neutral-foreground);
 
-    --muted: var(--valueos-neutral-subtle);
-    --muted-foreground: var(--valueos-neutral-muted);
+    --popover: var(--vos-color-neutral-surface);
+    --popover-foreground: var(--vos-color-neutral-foreground);
 
-    --accent: var(--valueos-accent);
-    --accent-foreground: var(--valueos-accent-foreground);
+    --primary: var(--vos-color-primary);
+    --primary-foreground: var(--vos-color-primary-foreground);
 
-    --destructive: var(--valueos-error);
-    --destructive-foreground: var(--valueos-on-status);
+    --secondary: var(--vos-color-secondary);
+    --secondary-foreground: var(--vos-color-secondary-foreground);
 
-    --success: var(--valueos-success);
-    --success-foreground: var(--valueos-on-status);
+    --muted: var(--vos-color-neutral-subtle);
+    --muted-foreground: var(--vos-color-neutral-muted);
 
-    --warning: var(--valueos-warning);
-    --warning-foreground: var(--valueos-on-status);
+    --accent: var(--vos-color-accent);
+    --accent-foreground: var(--vos-color-accent-foreground);
 
-    --border: var(--valueos-neutral-border);
-    --input: var(--valueos-neutral-border);
-    --ring: var(--valueos-primary);
+    --destructive: var(--vos-color-error);
+    --destructive-foreground: var(--vos-color-on-status);
 
-    --sidebar-background: var(--valueos-neutral-background);
-    --sidebar-foreground: var(--valueos-neutral-foreground);
-    --sidebar-primary: var(--valueos-primary);
-    --sidebar-primary-foreground: var(--valueos-primary-foreground);
-    --sidebar-accent: var(--valueos-neutral-subtle);
-    --sidebar-accent-foreground: var(--valueos-neutral-foreground);
-    --sidebar-border: var(--valueos-neutral-border);
-    --sidebar-ring: var(--valueos-primary);
+    --success: var(--vos-color-success);
+    --success-foreground: var(--vos-color-on-status);
+
+    --warning: var(--vos-color-warning);
+    --warning-foreground: var(--vos-color-on-status);
+
+    --border: var(--vos-color-neutral-border);
+    --input: var(--vos-color-neutral-border);
+    --ring: var(--vos-color-primary);
+
+    --sidebar-background: var(--vos-color-neutral-background);
+    --sidebar-foreground: var(--vos-color-neutral-foreground);
+    --sidebar-primary: var(--vos-color-primary);
+    --sidebar-primary-foreground: var(--vos-color-primary-foreground);
+    --sidebar-accent: var(--vos-color-neutral-subtle);
+    --sidebar-accent-foreground: var(--vos-color-neutral-foreground);
+    --sidebar-border: var(--vos-color-neutral-border);
+    --sidebar-ring: var(--vos-color-primary);
   }
 }
-
 
 /* ===================
    BASE STYLES
@@ -273,7 +347,7 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
@@ -289,20 +363,17 @@
   h5,
   h6 {
     font-weight: var(--font-weight-heading);
+    line-height: var(--line-height-heading);
     letter-spacing: var(--tracking-heading);
   }
 
   h1 {
+    line-height: var(--line-height-display);
     letter-spacing: var(--tracking-heading-tight);
   }
 
   h2 {
     letter-spacing: var(--tracking-heading-medium);
-  }
-
-  /* Focus visible styles */
-  :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
   /* Reduced motion */
@@ -313,31 +384,6 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-    }
-  }
-}
-
-@layer components {
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--container-padding-sm);
-    padding-right: var(--container-padding-sm);
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: var(--container-padding-md);
-      padding-right: var(--container-padding-md);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: var(--container-padding-lg);
-      padding-right: var(--container-padding-lg);
-      max-width: var(--container-max);
     }
   }
 }
@@ -353,7 +399,7 @@
 
   /* Marketing background grid */
   .bg-grid {
-    background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 24px 24px;
   }
 
@@ -426,7 +472,9 @@
   }
 
   @keyframes typing-bounce {
-    0%, 80%, 100% {
+    0%,
+    80%,
+    100% {
       transform: scale(0.8);
       opacity: 0.5;
     }
@@ -439,12 +487,7 @@
   /* Progress bar animation */
   .progress-indeterminate {
     animation: progress-indeterminate 1.5s infinite linear;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      hsl(var(--primary)),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
     background-size: 200% 100%;
   }
 
