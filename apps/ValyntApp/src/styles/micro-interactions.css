@@ -39,7 +39,7 @@
 }
 
 .hover-glow:hover {
-  box-shadow: var(--vc-glow-teal);
+  box-shadow: var(--shadow-3);
 }
 
 @keyframes pulse {
@@ -286,14 +286,16 @@
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation-duration: var(--motion-duration-micro) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: var(--motion-duration-micro) !important;
   }
 
   .hover-scale:hover,
-  .hover-lift:hover {
+  .hover-lift:hover,
+  .hover-glow:hover {
     transform: none;
+    box-shadow: none;
   }
 }
 
