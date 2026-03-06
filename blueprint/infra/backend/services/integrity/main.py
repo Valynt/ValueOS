@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict, List
-import jsonschema
+import json
 
 app = FastAPI(title="Integrity Agent Service")
 
