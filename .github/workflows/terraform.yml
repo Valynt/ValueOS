@@ -39,6 +39,12 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Terraform module placeholder guard
+        run: node ../../scripts/ci/check-terraform-no-stubs.mjs
+
+      - name: Terraform/K8s scaling parity check
+        run: node ../../scripts/ci/check-terraform-k8s-scaling-parity.mjs
+
       - name: Run Checkov custom secret policies
         uses: bridgecrewio/checkov-action@v12
         with:

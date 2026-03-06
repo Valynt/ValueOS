@@ -19,6 +19,7 @@ status: active
 - [Troubleshooting Runbook](./runbooks/troubleshooting-runbook.md)
 - [Incident Response](./incident-response.md)
 - [Launch Readiness](./launch-readiness.md)
+- [Query Performance Runbook](./runbooks/query-performance-runbook.md)
 
 ## Generated References
 
@@ -34,6 +35,7 @@ status: active
 - [Environment and Startup Unification](./env-startup-unification.md)
 - [Ci Cd Pipeline](./ci-cd-pipeline.md)
 - [Monitoring Observability](./monitoring-observability.md)
+- [Query Plan Baselines](./query-plan-baselines.md)
 - [Performance Tuning](./performance-tuning.md)
 - [Scaling Guide](./scaling-guide.md)
 
@@ -44,4 +46,4 @@ status: active
 
 ---
 
-**Total Documents**: 14
+**Total Documents**: 16

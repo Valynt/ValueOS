@@ -5,13 +5,15 @@ import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../../lib/logger";
 import type { SimulationResult } from "../UnifiedAgentOrchestrator";
 import { WorkflowDAG, WorkflowStage } from "../../types/workflow";
+import type { StagePredictionDTO, WorkflowStageContextDTO } from "../../types/workflow/runner";
 
 export interface WorkflowSimulationService {
   simulateWorkflow(
     workflowDefinitionId: string,
-    context?: Record<string, unknown>,
+    context?: WorkflowStageContextDTO,
     options?: { maxSteps?: number; stopOnFailure?: boolean }
   ): Promise<SimulationResult>;
+  predictStageOutcome(stage: WorkflowStage, context: WorkflowStageContextDTO, similarEpisodes: unknown[]): Promise<StagePredictionDTO>;
 }
 
 export class DefaultWorkflowSimulationService implements WorkflowSimulationService {
@@ -24,7 +26,7 @@ export class DefaultWorkflowSimulationService implements WorkflowSimulationServi
 
   async simulateWorkflow(
     workflowDefinitionId: string,
-    context: Record<string, unknown> = {},
+    context: WorkflowStageContextDTO = {},
     options?: { maxSteps?: number; stopOnFailure?: boolean }
   ): Promise<SimulationResult> {
     if (!this.isEnabled()) {
@@ -87,7 +89,7 @@ export class DefaultWorkflowSimulationService implements WorkflowSimulationServi
     };
   }
 
-  async predictStageOutcome(stage: WorkflowStage, context: Record<string, unknown>, similarEpisodes: unknown[]): Promise<{ outcome: Record<string, unknown>; confidence: number; estimatedDuration: number }> {
+  async predictStageOutcome(stage: WorkflowStage, context: WorkflowStageContextDTO, similarEpisodes: unknown[]): Promise<StagePredictionDTO> {
     const prompt = `Predict the outcome of workflow stage: ${stage.name}`;
     try {
       const organizationId = String(context.organizationId ?? context.organization_id ?? "");

@@ -1,0 +1,53 @@
+# Prometheus Adapter external metrics rules for backend autoscaling.
+# Merge into prometheus-adapter values under `rules.external`.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-adapter-backend-rules
+  namespace: valynt
+  labels:
+    app.kubernetes.io/name: prometheus-adapter
+    app.kubernetes.io/component: metrics
+data:
+  backend-rules.yaml: |
+    rules:
+      - seriesQuery: 'valuecanvas_http_requests_total{namespace!="",app!=""}'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+        name:
+          matches: "^valuecanvas_http_requests_total$"
+          as: "backend_http_requests_per_second"
+        metricsQuery: >-
+          sum(
+            rate(
+              valuecanvas_http_requests_total{
+                <<.LabelMatchers>>,
+                route!="/health/live",
+                route!="/health/ready",
+                route!="/metrics"
+              }[2m]
+            )
+          )
+
+      - seriesQuery: 'valuecanvas_http_request_duration_ms_bucket{namespace!="",app!="",le!=""}'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+        name:
+          matches: "^valuecanvas_http_request_duration_ms_bucket$"
+          as: "backend_http_p95_latency_ms"
+        metricsQuery: >-
+          histogram_quantile(
+            0.95,
+            sum(
+              rate(
+                valuecanvas_http_request_duration_ms_bucket{
+                  <<.LabelMatchers>>,
+                  route!="/health/live",
+                  route!="/health/ready",
+                  route!="/metrics"
+                }[2m]
+              )
+            ) by (le)
+          )

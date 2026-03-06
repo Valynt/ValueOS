@@ -16,7 +16,7 @@ status: active
 
 ## Beta → GA Migration & Rollout Plan
 
-*Source: `operations/launch-readiness/migration-rollout-plan.md`*
+_Source: `operations/launch-readiness/migration-rollout-plan.md`_
 
 This runbook protects tenant data, de-risks schema changes, and removes beta-only feature flags without service disruption. It is designed for a dry-run on a test tenant followed by GA rollout.
 
@@ -82,12 +82,15 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
+- [ ] **Hard Go/No-Go**: `docs/security-compliance/threat-model.md` reviewed for this release, with approvers and date recorded in the document.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
 - [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
 
 ## Blocking Launch Chaos/Smoke Suite (Release Gate)
+
+Related architecture decision: [ADR 0006 — Multi-Tenant Data Isolation and Sharding Strategy](../engineering/adr/0006-multi-tenant-isolation-and-sharding.md).
 
 Before any production go-live, execute the unified suite:
 
