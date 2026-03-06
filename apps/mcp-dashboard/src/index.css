@@ -1,8 +1,8 @@
 @import "../../ValyntApp/src/styles/valueos-palette.css";
-@import "../../../packages/shared/src/styles/layout-tokens.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import "../../../packages/shared/src/styles/layout-tokens.css";
 
 @layer base {
   :root {
