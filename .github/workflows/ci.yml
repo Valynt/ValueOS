@@ -205,6 +205,12 @@ jobs:
       - name: Kubernetes architecture conformance
         run: node scripts/ci/check-k8s-architecture-conformance.mjs
 
+      - name: Terraform/K8s scaling parity check
+        run: node scripts/ci/check-terraform-k8s-scaling-parity.mjs
+
+      - name: Terraform module placeholder guard
+        run: node scripts/ci/check-terraform-no-stubs.mjs
+
       - name: Agent service account isolation check
         run: node scripts/ci/check-agent-service-accounts.mjs
 
