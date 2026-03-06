@@ -1,34 +1,55 @@
+import crypto from "node:crypto";
+
 import { NextFunction, Request, Response } from "express";
 
 /**
  * Performance optimization middleware for HTTP caching headers
- * Sets appropriate Cache-Control headers for static assets and API responses
+ * Sets appropriate Cache-Control headers and payload/version-derived ETags.
  */
 export function cachingMiddleware(req: Request, res: Response, next: NextFunction): void {
   const url = req.url;
   const method = req.method;
 
-  // Only set caching for GET requests
   if (method !== "GET") {
-    return next();
+    next();
+    return;
   }
 
-  // Static assets (images, fonts, CSS, JS)
+  const appVersion = process.env.APP_VERSION || process.env.npm_package_version || "dev";
+
   if (isStaticAsset(url)) {
-    // Cache static assets for 1 year (31536000 seconds)
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    res.setHeader("ETag", generateETag(url));
-    return next();
+    res.setHeader("ETag", generateVersionedETag({ version: appVersion, payload: { url } }));
+    next();
+    return;
   }
 
-  // API responses - cache based on endpoint
   if (url.startsWith("/api/")) {
     const cacheMaxAge = getApiCacheMaxAge(url);
     if (cacheMaxAge > 0) {
       res.setHeader("Cache-Control", `public, max-age=${cacheMaxAge}`);
-      res.setHeader("ETag", generateETag(`${url}${JSON.stringify(req.query)}`));
+
+      const originalJson = res.json.bind(res);
+      res.json = ((body: unknown) => {
+        const etag = generateVersionedETag({
+          version: appVersion,
+          payload: {
+            method,
+            path: req.path,
+            query: req.query,
+            body,
+          },
+        });
+
+        res.setHeader("ETag", etag);
+
+        if (req.headers["if-none-match"] === etag) {
+          return res.status(304).end();
+        }
+
+        return originalJson(body);
+      }) as Response["json"];
     } else {
-      // No cache for dynamic endpoints
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
@@ -38,9 +59,6 @@ export function cachingMiddleware(req: Request, res: Response, next: NextFunctio
   next();
 }
 
-/**
- * Check if the URL is a static asset
- */
 function isStaticAsset(url: string): boolean {
   const staticExtensions = [
     ".js",
@@ -60,26 +78,15 @@ function isStaticAsset(url: string): boolean {
   return staticExtensions.some((ext) => url.endsWith(ext));
 }
 
-/**
- * Get appropriate cache max-age for API endpoints
- * Returns seconds, 0 means no cache
- */
 function getApiCacheMaxAge(url: string): number {
-  // Health checks - short cache
   if (url.includes("/health")) {
-    return 300; // 5 minutes
+    return 300;
   }
 
-  // Static data that rarely changes
-  if (
-    url.includes("/api/projects") ||
-    url.includes("/api/referrals") ||
-    url.includes("/api/docs")
-  ) {
-    return 900; // 15 minutes
+  if (url.includes("/api/projects") || url.includes("/api/referrals") || url.includes("/api/docs")) {
+    return 900;
   }
 
-  // User-specific data - no cache
   if (
     url.includes("/api/agents") ||
     url.includes("/api/workflow") ||
@@ -88,17 +95,16 @@ function getApiCacheMaxAge(url: string): number {
     url.includes("/api/billing") ||
     url.includes("/api/admin")
   ) {
-    return 0; // No cache
+    return 0;
   }
 
-  // Default for other API endpoints
-  return 300; // 5 minutes
+  return 300;
 }
 
-/**
- * Generate a simple ETag for caching
- */
-function generateETag(input: string): string {
-  const crypto = require("crypto");
-  return `"${crypto.createHash("md5").update(input).digest("hex")}"`;
+function generateVersionedETag(input: { version: string; payload: unknown }): string {
+  const digest = crypto
+    .createHash("sha256")
+    .update(`${input.version}:${JSON.stringify(input.payload)}`)
+    .digest("base64url");
+  return `W/\"${digest}\"`;
 }

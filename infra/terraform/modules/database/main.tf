@@ -131,3 +131,7 @@ output "password_secret_arn" {
 output "identifier" {
   value = aws_db_instance.main.identifier
 }
+
+output "arn" {
+  value = aws_db_instance.main.arn
+}

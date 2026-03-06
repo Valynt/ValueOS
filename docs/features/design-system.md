@@ -99,6 +99,7 @@ Welcome to the official design system for Valynt (ValueOS). This living style gu
   - [State Matrix](./components/state-matrix.md)
 - **[Layout](./layout/)**: Grid and container standards.
   - [Layout & Grid](./layout/grid.md)
+  - [ValueOS Layout Guidelines](./design-system/layout-guidelines.md)
 - **[Patterns](./patterns/)**: UX flows and compositions.
   - [Forms](./patterns/forms.md)
   - [Navigation](./patterns/navigation.md)

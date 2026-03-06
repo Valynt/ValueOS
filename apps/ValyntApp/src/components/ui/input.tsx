@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const inputVariants = cva(
   // Base styles
-  "flex w-full rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+  "flex w-full rounded-md border border-input bg-background text-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {
@@ -60,7 +60,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               inputVariants({ variant, inputSize }),
               leftIcon && "pl-9",
               rightIcon && "pr-9",
-              error && "border-destructive focus-visible:ring-destructive",
+              error && "border-destructive",
               className
             )}
             ref={ref}
@@ -81,7 +81,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         className={cn(
           inputVariants({ variant, inputSize }),
-          error && "border-destructive focus-visible:ring-destructive",
+          error && "border-destructive",
           className
         )}
         ref={ref}
@@ -101,7 +101,7 @@ export interface SearchInputProps extends Omit<InputProps, "leftIcon" | "rightIc
 }
 
 const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className, value, onClear, ...props }, ref) => {
+  ({ className, value, onClear, error, ...props }, ref) => {
     const showClear = value && String(value).length > 0 && onClear;
 
     return (
@@ -112,17 +112,25 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         />
         <input
           type="search"
-          className={cn(inputVariants({ inputSize: "md" }), "pl-9", showClear && "pr-9", className)}
+          className={cn(
+            inputVariants({ inputSize: "md" }),
+            "pl-9",
+            showClear && "pr-9",
+            error && "border-destructive",
+            className
+          )}
           ref={ref}
           value={value}
+          aria-invalid={error ? true : undefined}
           {...props}
         />
         {showClear && (
           <button
             type="button"
             onClick={onClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Clear search"
+            data-error={error ? "true" : undefined}
           >
             <X className="h-4 w-4" />
           </button>
@@ -145,8 +153,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         className={cn(
-          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          error && "border-destructive focus-visible:ring-destructive",
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          error && "border-destructive",
           className
         )}
         ref={ref}

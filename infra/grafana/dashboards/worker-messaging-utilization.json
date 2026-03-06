@@ -1,0 +1,131 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.5.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "title": "Worker & Messaging Utilization",
+  "uid": "worker-messaging-utilization",
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(container_cpu_usage_seconds_total, namespace)",
+        "current": { "text": "valynt", "value": "valynt" },
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(kube_pod_labels{namespace=\"$namespace\",label_component=~\"messaging|billing|background-jobs\"}, label_app)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "CPU Throttling Ratio (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 * sum by (pod) (rate(container_cpu_cfs_throttled_periods_total{namespace=\"$namespace\",pod=~\"$service.*\",container!=\"\"}[5m])) / sum by (pod) (rate(container_cpu_cfs_periods_total{namespace=\"$namespace\",pod=~\"$service.*\",container!=\"\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Container CPU Usage (cores)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",pod=~\"$service.*\",container!=\"\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory RSS (MiB)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (pod) (container_memory_rss{namespace=\"$namespace\",pod=~\"$service.*\",container!=\"\"}) / 1024 / 1024",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Node.js Heap Used (MiB)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (service) (nodejs_heap_size_used_bytes{service=~\"$service\"}) / 1024 / 1024",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Node.js Heap Utilization (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 * sum by (service) (nodejs_heap_size_used_bytes{service=~\"$service\"}) / sum by (service) (nodejs_heap_size_total_bytes{service=~\"$service\"})",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "GC Pause p95 (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(nodejs_gc_duration_seconds_bucket{service=~\"$service\"}[5m])) by (service, le)) * 1000",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 }
+    },
+    {
+      "type": "timeseries",
+      "title": "GC Pause p99 (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(nodejs_gc_duration_seconds_bucket{service=~\"$service\"}[5m])) by (service, le)) * 1000",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Lag by Service",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "max by (service) (message_worker_queue_depth{service=~\"$service\"} or billing_usage_queue_lag{service=~\"$service\"} or workflow_job_queue_lag{service=~\"$service\"})",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 }
+    }
+  ],
+  "schemaVersion": 38,
+  "version": 1
+}
