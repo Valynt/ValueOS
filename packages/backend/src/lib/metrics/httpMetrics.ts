@@ -16,7 +16,14 @@ export const httpRequestsTotal = new client.Counter({
   labelNames: ["method", "route", "status_code"],
 });
 
+export const readCacheEventsTotal = new client.Counter({
+  name: "valuecanvas_read_cache_events_total",
+  help: "Read cache lifecycle events",
+  labelNames: ["endpoint", "event"],
+});
+
 registry.registerMetric(httpRequestDuration);
 registry.registerMetric(httpRequestsTotal);
+registry.registerMetric(readCacheEventsTotal);
 
 export default registry;
