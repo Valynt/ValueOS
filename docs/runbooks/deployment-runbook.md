@@ -30,6 +30,11 @@ status: deprecated
 - **Release Captain:** Owns decision to deploy/rollback, coordinates comms, triggers pipelines.
 - **On-Call SRE:** Monitors health/alerts, executes infrastructure commands, approves rollback if needed.
 - **Feature Owners:** Validate smoke tests for their surface areas; provide sign-off on risky migrations.
+- **Pre-Production Launch Gate Owners:**
+  - **Billing + Entitlements Owner (Revenue Platform):** owns regression test health and sign-off for billing/entitlements checks.
+  - **Localization Owner (Product Engineering):** owns localization smoke checks and release-locale readiness.
+  - **Tenant Controls Owner (Platform):** owns tenant/region feature-toggle validation outcomes.
+  - **Brand Experience Owner (Design Systems):** owns co-branding asset/render verification when branded assets are in scope.
 
 ## Pre-Flight Checklist
 1. Feature freeze announced in `#releases` (no new merges after cutoff).
@@ -77,7 +82,20 @@ status: deprecated
    - UI: hit `https://app.valuecanvas.com/health` and confirm `200` + build hash.
    - Run policy checks: `npm run lint:policies` if applicable.
    - **Blocking launch chaos/smoke suite**: `node scripts/chaos/launch-chaos-smoke.mjs` (must pass all three mandatory checks and publish `launch-chaos-results.json`).
-5. **Post-deploy validation**
+5. **Pre-production launch gate (blocking before production deploy)**
+   - Workflow job: **Pre-Production Launch Gate** in `.github/workflows/deploy.yml`.
+   - This gate runs after staging deploy + pre-prod SLO guard and is required by the production deploy job.
+   - Required checks:
+     - Entitlements + billing regression tests.
+     - Localization smoke checks.
+     - Tenant/region feature-toggle validation.
+     - Co-branding asset/render checks (conditional: only when co-branding assets are present).
+   - Ownership:
+     - Revenue Platform team owns billing/entitlements regressions.
+     - Product Engineering owns localization checks.
+     - Platform team owns tenant/region toggle validation.
+     - Design Systems owns co-branding checks.
+6. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
    - Review Supabase logs for RLS errors using `docs/operations/troubleshooting/rls-failures.md` queries.
    - Announce completion with a link to the workflow run and tag Feature Owners for final sign-off.

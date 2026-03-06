@@ -77,6 +77,8 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 
 ## Go/No-Go Checklist
 
+- [ ] Pre-production launch gate passed in CI (`.github/workflows/deploy.yml` → `preprod-launch-gate` job).
+- [ ] Gate owners reviewed and approved outcomes for billing/entitlements, localization, tenant/region toggles, and co-branding scope.
 - [ ] Dry-run completed with zero data loss and passing smoke tests.
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
@@ -87,6 +89,32 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
 - [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
+
+## Pre-Production Launch Gate (CI Blocking Control)
+
+Production promotion is blocked unless the **Pre-Production Launch Gate** job succeeds in `.github/workflows/deploy.yml`.
+
+### Gate checks
+
+1. **Entitlements + billing regression tests**
+   - Backend billing regression coverage must pass before production promotion.
+   - Owner: **Revenue Platform**.
+2. **Localization smoke checks**
+   - Pseudo-localization smoke check must pass and emit an artifact for audit trail.
+   - Owner: **Product Engineering**.
+3. **Tenant/region feature-toggle validation**
+   - Tenant isolation and feature-toggle behavior checks must pass.
+   - Owner: **Platform**.
+4. **Co-branding asset/render checks (if applicable)**
+   - If co-branding assets are present for the release, branding asset/render verification must pass.
+   - If no co-branding assets are present, this check is explicitly skipped with a log entry.
+   - Owner: **Design Systems**.
+
+### Operational ownership and escalation
+
+- **Release Captain** confirms gate completion before requesting production environment approval.
+- **On-Call SRE** validates the gate result in the workflow run and ensures artifacts are available.
+- Failing gate checks are treated as **No-Go** until the owning team resolves issues or an incident-governed bypass process is invoked.
 
 ## Blocking Launch Chaos/Smoke Suite (Release Gate)
 
