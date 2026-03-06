@@ -41,7 +41,7 @@ updates:
 
   # Python dependencies
   - package-ecosystem: "pip"
-    directory: "/blueprint/infra/backend/services"
+    directory: "/blueprint/infra/backend/services/opportunity"
     schedule:
       interval: "weekly"
       day: "monday"
