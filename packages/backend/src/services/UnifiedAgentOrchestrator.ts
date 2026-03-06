@@ -46,7 +46,9 @@ import { AgentMessageQueue } from "./AgentMessageQueue.js";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
-import { AgentResponsePayload, WorkflowContextDTO, WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../types/workflow/orchestration";
+import { AgentResponsePayload, WorkflowContextDTO } from "../types/workflow/orchestration";
+import { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../types/execution/workflowExecutionDtos";
+import { StageExecutionResultDTO, StagePredictionDTO, StageRouteDTO, WorkflowStageContextDTO } from "../types/workflow/runner";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 
 import { AgentContext, getAgentAPI } from "./AgentAPI";
@@ -384,7 +386,7 @@ export class UnifiedAgentOrchestrator {
   private workflowSimulationService: DefaultWorkflowSimulationService;
   private workflowRenderService: DefaultWorkflowRenderService;
 
-  constructor(configOrRegistry?: Partial<OrchestratorConfig> | AgentRegistry, ...rest: any[]) {
+  constructor(configOrRegistry?: Partial<OrchestratorConfig> | AgentRegistry, ...rest: unknown[]) {
     // Support both factory-style (single config) and full-param construction
     if (configOrRegistry instanceof AgentRegistry) {
       this.registry = configOrRegistry;
@@ -474,7 +476,7 @@ export class UnifiedAgentOrchestrator {
    * Returns checkpoint middleware for HITL (Human-in-the-Loop) endpoints.
    * Returns null when no checkpoint system is configured.
    */
-  getCheckpointMiddleware(): any {
+  getCheckpointMiddleware(): null {
     return null;
   }
 
@@ -528,86 +530,6 @@ export class UnifiedAgentOrchestrator {
     throw new Error(`Unknown ground truth tool: ${params.toolName}`);
   }
 
-  private normalizeNumericValue(value: unknown): number | null {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-    if (typeof value === "string") {
-      const sanitized = value.replace(/[%,$]/g, "");
-      const parsed = Number(sanitized);
-      if (!Number.isNaN(parsed)) {
-        return parsed;
-      }
-    }
-    return null;
-  }
-
-  private extractNumericClaims(payload: unknown): Array<{
-    metricId: string;
-    claimedValue: number;
-  }> {
-    const claims: Array<{ metricId: string; claimedValue: number }> = [];
-    const addFromItem = (item: Record<string, unknown>) => {
-      const metricId =
-        (item.metricId as string) ||
-        (item.metric_id as string) ||
-        (item.kpi_id as string) ||
-        (item.metric as string) ||
-        (item.id as string);
-      if (!metricId) {
-        return;
-      }
-      const claimedValue = this.normalizeNumericValue(
-        item.claimedValue ??
-          item.claimed_value ??
-          item.value ??
-          item.amount ??
-          item.delta ??
-          item.metric_value
-      );
-      if (claimedValue === null) {
-        return;
-      }
-      claims.push({ metricId, claimedValue });
-    };
-    const addFromList = (list: unknown) => {
-      if (!Array.isArray(list)) {
-        return;
-      }
-      for (const entry of list) {
-        if (entry && typeof entry === "object" && !Array.isArray(entry)) {
-          addFromItem(entry as Record<string, unknown>);
-        }
-      }
-    };
-    const addFromContainer = (container: unknown) => {
-      if (!container || typeof container !== "object") {
-        return;
-      }
-      const record = container as Record<string, unknown>;
-      addFromList(record.economic_deltas ?? record.economicDeltas);
-      addFromList(record.metrics);
-      addFromList(record.claims);
-    };
-
-    if (Array.isArray(payload)) {
-      addFromList(payload);
-    } else {
-      addFromContainer(payload);
-      const payloadRecord = payload as Record<string, unknown> | null;
-      if (payloadRecord?.payload) {
-        addFromContainer(payloadRecord.payload);
-      }
-      if (payloadRecord?.data) {
-        addFromContainer(payloadRecord.data);
-      }
-      if (payloadRecord?.output) {
-        addFromContainer(payloadRecord.output);
-      }
-    }
-
-    return claims;
-  }
 
   public async evaluateIntegrityVeto(
     payload: unknown,
@@ -645,70 +567,10 @@ export class UnifiedAgentOrchestrator {
     return this.integrityVetoService.performReRefine(agentType, originalQuery, agentContext, traceId, maxAttempts);
   }
 
-  private normalizeExecutionRequest(intent: string, execution: Partial<ExecutionRequest> & Record<string, unknown>) {
+  private normalizeExecutionRequest(intent: string, execution: Partial<ExecutionRequest> & Record<string, unknown>): Partial<ExecutionRequest> & { intent: string } {
     return { ...execution, intent };
   }
 
-  private deriveFiscalQuarter(date: Date): string {
-    const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
-    return `Q${quarter}`;
-  }
-
-  private buildExecutionRecord(
-    workflowDefinitionId: string,
-    workflowVersion: number,
-    context: Record<string, any>,
-    userId: string,
-    traceId: string
-  ): WorkflowExecutionRecord {
-    const persona = context.persona || context.buyer_persona?.role || context.role;
-    const industry = context.industry || context.companyProfile?.industry;
-    const fiscalQuarter =
-      context.fiscal_quarter || context.quarter || this.deriveFiscalQuarter(new Date());
-
-    return {
-      id: uuidv4(),
-      workflow_id: workflowDefinitionId,
-      workspace_id: context.workspace_id || "",
-      organization_id: context.organization_id || "",
-      status: "pending",
-      started_at: new Date().toISOString(),
-      context,
-      workflowDefinitionId,
-      workflowVersion,
-      persona,
-      industry,
-      fiscalQuarter,
-      intent: {
-        description: context.intent || context.goal || "Workflow execution",
-        objective: context.objective,
-        successCriteria: context.successCriteria,
-        hypothesis: context.hypothesis,
-      },
-      entryPoint: {
-        trigger: context.entry_point || "orchestrator",
-        requestedBy: userId,
-        sessionId: context.sessionId,
-        channel: context.channel,
-      },
-      lifecycle: [],
-      io: {
-        inputs: context.inputs || context,
-        assumptions: context.assumptions || [],
-        outputs: {},
-      },
-      economicDeltas: context.economic_deltas || [],
-      auditEnvelope: {
-        traceId,
-        userId,
-        createdAt: new Date().toISOString(),
-        approvals: context.approvals ? Object.keys(context.approvals) : [],
-        complianceTags: context.compliance_tags,
-        notes: context.audit_notes,
-      },
-      outputs: [],
-    };
-  }
 
   /**
    * Check if agent invocation rate limit is exceeded
@@ -1175,7 +1037,7 @@ export class UnifiedAgentOrchestrator {
           'agent.organization_id': envelope.organizationId,
         },
       },
-      async (rootSpan: any) => {
+      async (rootSpan: Span) => {
     const processQueryStart = Date.now();
 
     try {
@@ -1190,7 +1052,7 @@ export class UnifiedAgentOrchestrator {
       // startActiveSpan executes the callback synchronously, so agentType
       // is assigned before the code below runs.
       let agentType: AgentType;
-      tracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
+      tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
         agentType = this.selectAgent(query, currentState);
         selectSpan.setAttributes({
           'agent.selected_type': agentType,
@@ -1622,11 +1484,7 @@ export class UnifiedAgentOrchestrator {
     stage: WorkflowStage,
     context: WorkflowContextDTO,
     similarEpisodes: unknown[]
-  ): Promise<{
-    outcome: Record<string, unknown>;
-    confidence: number;
-    estimatedDuration: number;
-  }> {
+  ): Promise<StagePredictionDTO> {
     return this.workflowSimulationService.predictStageOutcome(stage, context, similarEpisodes);
   }
 
@@ -1634,7 +1492,7 @@ export class UnifiedAgentOrchestrator {
     executionId: string,
     organizationId: string,
     dag: WorkflowDAG,
-    initialContext: Record<string, unknown>,
+    initialContext: WorkflowStageContextDTO,
     traceId: string,
     executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
@@ -1709,7 +1567,7 @@ export class UnifiedAgentOrchestrator {
       const stageTasks: RunnableTask<{
         stage: WorkflowStage;
         route: StageRoute;
-        context: Record<string, any>;
+        context: WorkflowContextDTO;
         startedAt: Date;
       }>[] = readyStages.map((stage) => {
         const route = this.routingLayer.routeStage(dag, stage.id, executionContext);
@@ -1743,7 +1601,7 @@ export class UnifiedAgentOrchestrator {
             executionId,
             stage,
             context,
-            route,
+            route as StageRouteDTO,
             traceId
           );
 
@@ -2002,10 +1860,10 @@ export class UnifiedAgentOrchestrator {
   private async executeStageWithRetry(
     executionId: string,
     stage: WorkflowStage,
-    context: Record<string, any>,
-    route: StageRoute,
+    context: WorkflowStageContextDTO,
+    route: StageRouteDTO,
     traceId: string
-  ): Promise<{ status: "completed" | "failed"; output?: any; error?: string }> {
+  ): Promise<StageExecutionResultDTO> {
     const stageTracer = getTracer();
     return stageTracer.startActiveSpan(
       'agent.executeStageWithRetry',
@@ -2064,7 +1922,7 @@ export class UnifiedAgentOrchestrator {
 
         const result = await this.circuitBreakers.execute(
           circuitBreakerKey,
-          () => this.workflowRunner.executeStage(stage, context, route),
+          () => this.workflowRunner.executeStage(stage, context, route as StageRouteDTO),
           {
             timeoutMs: (stage.timeout_seconds ?? 30) * 1000,
           }
@@ -2162,9 +2020,9 @@ export class UnifiedAgentOrchestrator {
    */
   private async executeStage(
     stage: WorkflowStage,
-    context: Record<string, any>,
-    route: StageRoute
-  ): Promise<Record<string, any>> {
+    context: WorkflowStageContextDTO,
+    route: StageRouteDTO
+  ): Promise<Record<string, unknown>> {
     const execTracer = getTracer();
     return execTracer.startActiveSpan(
       'agent.executeStage',
@@ -2174,7 +2032,7 @@ export class UnifiedAgentOrchestrator {
           'agent.agent_type': stage.agent_type,
         },
       },
-      async (execSpan: any) => {
+      async (execSpan: Span) => {
         const execStart = Date.now();
         const agentType = stage.agent_type as AgentType;
         const sessionId = context.sessionId || `session_${Date.now()}`;
@@ -2384,7 +2242,7 @@ export class UnifiedAgentOrchestrator {
     taskId: string,
     intentType: string,
     description: string,
-    context: Record<string, any>
+    context: WorkflowContextDTO
   ): SubgoalDefinition[] {
     // Map intent types to subgoal sequences
     const subgoalPatterns: Record<
@@ -2664,7 +2522,7 @@ export class UnifiedAgentOrchestrator {
   private async checkAutonomyGuardrails(
     executionId: string,
     stageId: string,
-    context: Record<string, any>,
+    context: WorkflowStageContextDTO,
     startTime: number
   ): Promise<void> {
     const autonomy = getAutonomyConfig() as ReturnType<typeof getAutonomyConfig> & {
@@ -2801,7 +2659,7 @@ export class UnifiedAgentOrchestrator {
     const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
     if (maxIterations !== undefined) {
       const executed = (context.executed_steps || []).filter(
-        (s: any) => s.agent_id === stageAgentId
+        (s: { agent_id?: string }) => s.agent_id === stageAgentId
       ).length;
       if (executed >= maxIterations) {
         await this.handleWorkflowFailure(

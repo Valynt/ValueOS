@@ -205,6 +205,11 @@ const getDatabaseSslConfig = (databaseUrl: string) => {
   if (sslrootcert) {
     const caPath = decodeURIComponent(sslrootcert);
     const ca = fs.readFileSync(caPath, "utf8");
+
+    if (!ca.trim()) {
+      throw new Error("[Database] sslrootcert must point to a non-empty CA bundle when NODE_ENV=production");
+    }
+
     return {
       rejectUnauthorized: true,
       ca,
@@ -218,7 +223,7 @@ const getDatabaseSslConfig = (databaseUrl: string) => {
   }
 
   throw new Error(
-    "[Database] DATABASE_URL must include sslmode=require or sslrootcert when NODE_ENV=production",
+    "[Database] DATABASE_URL must include sslmode=require or sslrootcert=/path/to/ca.pem when NODE_ENV=production",
   );
 };
 
@@ -320,6 +325,10 @@ export async function getDbConnection() {
   }
 
   if (!process.env.DATABASE_URL) {
+    if (IS_PRODUCTION) {
+      throw new Error("[Database] DATABASE_URL is required when NODE_ENV=production");
+    }
+
     console.error("[Database] DATABASE_URL not configured");
     return null;
   }
