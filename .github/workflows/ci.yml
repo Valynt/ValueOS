@@ -97,6 +97,9 @@ jobs:
       - name: Observability contract gate
         run: node scripts/ci/check-observability-contract.mjs
 
+      - name: Query fingerprint perf budget gate
+        run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
+
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
 
