@@ -345,11 +345,6 @@
     letter-spacing: var(--tracking-heading-medium);
   }
 
-  /* Focus visible styles */
-  :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
-  }
-
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *,
