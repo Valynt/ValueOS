@@ -127,11 +127,11 @@ export class LLMCache {
       // Increment hit count and update stats hash atomically
       entry.hitCount++;
       const statsKey = `${this.config.keyPrefix}stats`;
-      await Promise.all([
-        this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl }),
-        this.client.hIncrBy(statsKey, 'totalHits', 1),
-        this.client.hIncrByFloat(statsKey, 'totalCostSaved', entry.cost),
-      ]);
+      const tx = this.client.multi();
+      tx.set(key, JSON.stringify(entry), { EX: this.config.ttl });
+      tx.hIncrBy(statsKey, 'totalHits', 1);
+      tx.hIncrByFloat(statsKey, 'totalCostSaved', entry.cost);
+      await tx.exec();
 
       logger.cache('hit', key, {
         model,
