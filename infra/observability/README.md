@@ -18,6 +18,8 @@ This README is the canonical index for ValueOS observability assets: metrics, lo
 | [`grafana/dashboards/agent-performance.json`](./grafana/dashboards/agent-performance.json) | Agent runtime performance dashboard | Agent Platform Team | Platform Observability | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
 | [`grafana/dashboards/launch/launch-kpis.json`](./grafana/dashboards/launch/launch-kpis.json) | Launch KPI dashboard (onboarding success, mesh overhead, Stripe webhook ACK latency) | Product Engineering | Platform Observability | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
 | [`SLOs.md`](./SLOs.md) | SLO definitions and ownership | Service Owners | SRE On-Call | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
+| [`sql/top-query-fingerprints.sql`](./sql/top-query-fingerprints.sql) | Query fingerprint extraction source query (`pg_stat_statements`) | Platform Observability | Database Engineering | [`docs/operations/runbooks/query-performance-runbook.md`](../../docs/operations/runbooks/query-performance-runbook.md) |
+| [`query-fingerprint-budgets.json`](./query-fingerprint-budgets.json) | Fingerprint latency/cost budgets consumed by CI perf gate | Database Engineering | Platform Observability | [`docs/operations/runbooks/query-performance-runbook.md`](../../docs/operations/runbooks/query-performance-runbook.md) |
 
 ## Alert routing
 

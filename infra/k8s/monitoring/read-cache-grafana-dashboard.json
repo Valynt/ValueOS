@@ -1,0 +1,62 @@
+{
+  "dashboard": {
+    "title": "ValueOS Read Cache Effectiveness",
+    "tags": ["backend", "cache", "prometheus"],
+    "timezone": "UTC",
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Top Read Endpoints (GET, 5m)",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "topk(10, sum by (route) (rate(valuecanvas_http_requests_total{method=\"GET\",status_code=~\"2..\"}[5m])))",
+            "legendFormat": "{{ route }}",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Projects/Workflows/Analytics Read Throughput",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(valuecanvas_http_requests_total{method=\"GET\",route=~\"/api/projects|/api/projects/:projectId|/api/workflows/:id|/api/analytics/summary\"}[5m])) by (route)",
+            "legendFormat": "{{ route }}"
+          }
+        ],
+        "yaxes": [{ "label": "Req/s", "format": "reqps" }]
+      },
+      {
+        "id": 3,
+        "title": "Read Cache Hit Rate",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "100 * sum(rate(valuecanvas_read_cache_events_total{event=\"hit\"}[5m])) / clamp_min(sum(rate(valuecanvas_read_cache_events_total{event=~\"hit|miss\"}[5m])), 0.001)",
+            "legendFormat": "hit %"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Read Cache Events by Endpoint",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(rate(valuecanvas_read_cache_events_total[5m])) by (endpoint, event)",
+            "legendFormat": "{{ endpoint }} - {{ event }}"
+          }
+        ],
+        "yaxes": [{ "label": "Events/s", "format": "ops" }]
+      }
+    ]
+  }
+}

@@ -82,6 +82,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
+- [ ] **Hard Go/No-Go**: `docs/security-compliance/threat-model.md` reviewed for this release, with approvers and date recorded in the document.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
