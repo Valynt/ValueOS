@@ -11,6 +11,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Elevation aliases (canonical shadow scale) */
+  --elevation-1: var(--shadow-1);
+  --elevation-2: var(--shadow-2);
+  --elevation-3: var(--shadow-3);
+  --elevation-4: var(--shadow-4);
 
   /* Shadow tokens - Beautiful depth hierarchy */
   --shadow-beautiful-sm: var(--shadow-1);
@@ -332,7 +338,9 @@
 
   /* Interactive card states */
   .card-interactive {
-    @apply transition-all duration-300 hover:shadow-beautiful-lg hover:-translate-y-1 cursor-pointer;
+    transition: transform var(--motion-duration-standard) var(--motion-ease-standard), box-shadow var(--motion-duration-standard) var(--motion-ease-standard);
+    box-shadow: var(--elevation-1);
+    cursor: pointer;
   }
 
   /* Learning content emphasis */
@@ -391,5 +399,21 @@
   .tech-data {
     font-family: var(--font-mono);
     @apply text-sm text-green-600 dark:text-green-400;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: var(--motion-duration-micro) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--motion-duration-micro) !important;
+  }
+
+  .card-interactive:hover,
+  .card-interactive:focus-visible {
+    transform: none;
+    box-shadow: var(--elevation-1);
   }
 }
