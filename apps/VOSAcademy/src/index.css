@@ -1,5 +1,6 @@
 @import "../../ValyntApp/src/styles/valueos-palette.css";
 @import "../../../packages/shared/src/styles/motion-shadows.css";
+@import "../../../packages/shared/src/styles/icon-utilities.css";
 @import "tailwindcss";
 @import "./styles/accessibility.css";
 

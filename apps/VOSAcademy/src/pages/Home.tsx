@@ -35,7 +35,7 @@ export default function Home() {
               <div className="bg-card/95 text-card-foreground shadow-beautiful-md rounded-lg border border-border/40">
                 <div className="p-4">
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <BookOpen className="h-5 w-5 text-primary" />
+                    <BookOpen className="icon-md icon-accent" />
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">300+ VOS use cases</h3>
@@ -49,7 +49,7 @@ export default function Home() {
               <div className="bg-card/95 text-card-foreground shadow-beautiful-md rounded-lg border border-border/40">
                 <div className="p-4">
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-primary" />
+                    <Sparkles className="icon-md icon-accent" />
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">Daily content</h3>
@@ -63,7 +63,7 @@ export default function Home() {
               <div className="bg-card/95 text-card-foreground shadow-beautiful-md rounded-lg border border-border/40">
                 <div className="p-4">
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Users className="h-5 w-5 text-primary" />
+                    <Users className="icon-md icon-accent" />
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">Exclusive community</h3>
@@ -77,7 +77,7 @@ export default function Home() {
               <div className="bg-card/95 text-card-foreground shadow-beautiful-md rounded-lg border border-border/40">
                 <div className="p-4">
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Award className="h-5 w-5 text-primary" />
+                    <Award className="icon-md icon-accent" />
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">VOS certifications</h3>
@@ -130,7 +130,7 @@ export default function Home() {
               <div className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-shadow">
                 <div className="p-6">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <BookOpen className="h-6 w-6 text-primary" />
+                    <BookOpen className="icon-lg icon-accent" />
                   </div>
                   <h3 className="font-semibold mb-2">10 Core Pillars</h3>
                   <p className="text-sm text-muted-foreground">
@@ -142,7 +142,7 @@ export default function Home() {
               <div className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-shadow">
                 <div className="p-6">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <Brain className="h-6 w-6 text-primary" />
+                    <Brain className="icon-lg icon-accent" />
                   </div>
                   <h3 className="font-semibold mb-2">AI-Powered Tutor</h3>
                   <p className="text-sm text-muted-foreground">
@@ -154,7 +154,7 @@ export default function Home() {
               <div className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-shadow">
                 <div className="p-6">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <Target className="h-6 w-6 text-primary" />
+                    <Target className="icon-lg icon-accent" />
                   </div>
                   <h3 className="font-semibold mb-2">Interactive Simulations</h3>
                   <p className="text-sm text-muted-foreground">
@@ -166,7 +166,7 @@ export default function Home() {
               <div className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-shadow">
                 <div className="p-6">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <TrendingUp className="h-6 w-6 text-primary" />
+                    <TrendingUp className="icon-lg icon-accent" />
                   </div>
                   <h3 className="font-semibold mb-2">Maturity Progression</h3>
                   <p className="text-sm text-muted-foreground">
@@ -178,7 +178,7 @@ export default function Home() {
               <div className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-shadow">
                 <div className="p-6">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <Award className="h-6 w-6 text-primary" />
+                    <Award className="icon-lg icon-accent" />
                   </div>
                   <h3 className="font-semibold mb-2">Certification System</h3>
                   <p className="text-sm text-muted-foreground">
@@ -190,7 +190,7 @@ export default function Home() {
               <div className="bg-card text-card-foreground shadow-beautiful-md hover:shadow-beautiful-lg rounded-lg transition-shadow">
                 <div className="p-6">
                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <Users className="h-6 w-6 text-primary" />
+                    <Users className="icon-lg icon-accent" />
                   </div>
                   <h3 className="font-semibold mb-2">Role-Based Learning</h3>
                   <p className="text-sm text-muted-foreground">
