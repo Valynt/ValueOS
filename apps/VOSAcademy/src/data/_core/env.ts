@@ -9,6 +9,8 @@ if (typeof window !== "undefined") {
 
 const REQUIRED_SERVER_ENV_VARS = ["DATABASE_URL"] as const;
 
+const REQUIRED_CLIENT_PREFIX = "VITE_";
+
 /**
  * Optional but recommended environment variables
  */
@@ -77,14 +79,24 @@ export const ENV = {
   ownerOpenId: process.env.OWNER_OPENID || "",
   databaseUrl: process.env.DATABASE_URL || "",
   nodeEnv: process.env.NODE_ENV || "development",
-  oauthPortalUrl: process.env.VITE_OAUTH_PORTAL_URL || "",
-  appId: process.env.VITE_APP_ID || "",
+  oauthPortalUrl: getClientExposedEnv("VITE_OAUTH_PORTAL_URL"),
+  appId: getClientExposedEnv("VITE_APP_ID"),
   sessionJwtIssuer: process.env.SESSION_JWT_ISSUER || "",
   sessionJwtAudience: process.env.SESSION_JWT_AUDIENCE || "",
   sessionJwtKeys: process.env.SESSION_JWT_KEYS || "",
   sessionJwtTtlSeconds: process.env.SESSION_JWT_TTL_SECONDS || "",
   sessionJwtTenant: process.env.SESSION_JWT_TENANT || "",
 };
+
+function getClientExposedEnv(key: string): string {
+  if (!key.startsWith(REQUIRED_CLIENT_PREFIX)) {
+    throw new Error(
+      `[ENV] Attempted to access non-${REQUIRED_CLIENT_PREFIX} key in a client-exposed path: ${key}`,
+    );
+  }
+
+  return process.env[key] || "";
+}
 
 /**
  * Check if all required environment variables are configured
