@@ -926,6 +926,8 @@ Field-Level Encryption Keys
 - Pre-activation validation testing
 - Automatic audit logging
 - Admin notifications (for manual steps)
+- CI rotation metadata-age verification for AWS Secrets Manager/Vault via `scripts/security/verify-secret-rotation.mjs` with a required `Verify secret rotation metadata age` status check in `.github/workflows/ci.yml`.
+- Rotation evidence artifact published each run to deterministic paths under `evidence/security/rotation/<timestamp>.json` and uploaded as a workflow artifact.
 
 ### Secure Key Storage
 

@@ -23,6 +23,27 @@ export default defineConfig(({ mode }) => {
           // OAuth login handler
           server.middlewares.use("/api/oauth/login", async (req: any, res: any, next: any) => {
             try {
+              const errorHandlingModule = await import("./src/data/_core/error-handling" as any);
+              const loginRateLimitResult = await errorHandlingModule.checkRateLimit(
+                errorHandlingModule.buildRateLimitKey(
+                  "auth:oauth-login",
+                  errorHandlingModule.getRateLimitIdentifiers(req, {
+                    id: null,
+                    tenantId: process.env.VITE_APP_ID || null,
+                  })
+                ),
+                20,
+                60_000
+              );
+
+              errorHandlingModule.applyRateLimitHeaders(res, loginRateLimitResult);
+
+              if (!loginRateLimitResult.allowed) {
+                res.statusCode = 429;
+                res.end("Rate limit exceeded. Please try again later.");
+                return;
+              }
+
               const oauthModule = await import("./src/data/_core/oauth" as any);
               const result = await oauthModule.handleOAuthLogin(req, res);
 
@@ -47,6 +68,27 @@ export default defineConfig(({ mode }) => {
               if (!code || !state) {
                 res.statusCode = 400;
                 res.end("Missing code or state parameter");
+                return;
+              }
+
+              const errorHandlingModule = await import("./src/data/_core/error-handling" as any);
+              const callbackRateLimitResult = await errorHandlingModule.checkRateLimit(
+                errorHandlingModule.buildRateLimitKey(
+                  "auth:oauth-callback",
+                  errorHandlingModule.getRateLimitIdentifiers(req, {
+                    id: null,
+                    tenantId: process.env.VITE_APP_ID || null,
+                  })
+                ),
+                40,
+                60_000
+              );
+
+              errorHandlingModule.applyRateLimitHeaders(res, callbackRateLimitResult);
+
+              if (!callbackRateLimitResult.allowed) {
+                res.statusCode = 429;
+                res.end("Rate limit exceeded. Please try again later.");
                 return;
               }
 

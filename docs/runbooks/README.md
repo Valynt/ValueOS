@@ -31,6 +31,9 @@ This metadata is enforced in CI for changed files under `docs/runbooks/**`.
 - [Agent Runbook](./agent-runbook.md)
 - [Database Runbook](./database-runbook.md)
 - [Deployment Runbook](./deployment-runbook.md)
+- [Deployment (DB Gate Wrapper)](./deployment.md)
+- [Rollback Runbook](./rollback.md)
+- [Staging Deployment Runbook](./STAGING_DEPLOYMENT_RUNBOOK.md)
 - [Emergency Procedures](./emergency-procedures.md)
 - [Infrastructure Runbook](./infrastructure-runbook.md)
 - [Performance Runbook](./performance-runbook.md)
@@ -38,4 +41,4 @@ This metadata is enforced in CI for changed files under `docs/runbooks/**`.
 
 ---
 
-**Total Documents**: 7
+**Total Documents**: 10

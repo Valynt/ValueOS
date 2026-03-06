@@ -529,20 +529,66 @@ jobs:
             post-deploy-verification-staging-${{ github.run_id }}.json
             post-deploy-verification-staging-${{ github.run_id }}.md
 
-      - name: Run load test against staging
-        uses: grafana/k6-action@v0.3.1
-        with:
-          filename: infra/testing/load-test.k6.js
+
+  staging-performance-benchmarks:
+    name: Staging Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run standardized k6 benchmark suites against staging
         env:
           BASE_URL: https://staging.valueos.app
+          AUTH_TOKEN: ${{ secrets.STAGING_PERF_AUTH_TOKEN }}
           VUS: "100"
           DURATION: "5m"
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            -e BASE_URL \
+            -e AUTH_TOKEN \
+            -e VUS \
+            -e DURATION \
+            grafana/k6:0.53.0 run infra/testing/load-test.k6.js
 
+      - name: Build benchmark artifact with infra correlation
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
+          K6_SUMMARY_PATH: load-test-summary.json
+          BENCHMARK_OUTPUT_DIR: benchmark-artifacts
+        run: |
+          set -euo pipefail
+          python3 scripts/perf/analyze-k6-benchmark.py
+
+      - name: Enforce sustained critical route p95 <= 200ms promotion gate
+        run: |
+          set -euo pipefail
+          CRITICAL_P95=$(jq -r '.critical_route_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
+          if awk "BEGIN { exit !(${CRITICAL_P95} > 200) }"; then
+            echo "Critical route p95 ${CRITICAL_P95}ms exceeded 200ms sustained threshold. Blocking promotion."
+            exit 1
+          fi
+          echo "Critical route p95 ${CRITICAL_P95}ms is within threshold."
+
+      - name: Upload per-commit benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-benchmark-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            load-test-summary.json
+            load-test-results.json
+            benchmark-artifacts/benchmark-summary.json
+            benchmark-artifacts/benchmark-report.md
 
   preprod-slo-guard:
     name: Pre-Prod SLO Guard
     runs-on: ubuntu-latest
-    needs: [deploy-staging]
+    needs: [deploy-staging, staging-performance-benchmarks]
     if: github.event_name != 'schedule'
     steps:
       - name: Check pre-production burn-rate alerts
@@ -637,7 +683,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, preprod-slo-guard, preprod-launch-gate, build-images, verify-supply-chain, stability-seal, emergency-skip-audit]
+    needs: [deploy-staging, staging-performance-benchmarks, preprod-slo-guard, build-images, verify-supply-chain, stability-seal, emergency-skip-audit]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
@@ -807,6 +853,9 @@ jobs:
           API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
           AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
           QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          LATENCY_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          LATENCY_P95_PREV_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api"}[14d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          LATENCY_BUDGET_BURN=$(prom_query 'clamp_min((histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api"}[7d])) by (le)) * 1000 - 200) / 200, 0)' | jq -r '.data.result[0].value[1] // "0"')
 
           ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
 
@@ -832,8 +881,17 @@ jobs:
           - Incidents triggered in last 7d: ${INCIDENTS_7D}
           - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
 
+          ## Weekly Latency Trend
+          - Current 7d p95 (ms): ${LATENCY_P95_WEEK}
+          - Previous 7d p95 (ms): ${LATENCY_P95_PREV_WEEK}
+
+          ## Latency SLO Budget Burn-down
+          - Burn ratio (0 = healthy, >0 means over budget): ${LATENCY_BUDGET_BURN}
+          - Target threshold: p95 <= 200ms
+
           ## Notes
           - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
+          - Burn-down is computed from 7d p95 latency against the 200ms latency SLO target.
           REPORT
 
       - name: Upload reliability report artifact

@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-03-06T00:00:00Z",
+  "fingerprints": [
+    {
+      "fingerprint": "wf_state_by_tenant_status_started_at",
+      "mean_exec_time_ms": 18.1,
+      "total_exec_time_ms": 184530,
+      "calls": 13240
+    },
+    {
+      "fingerprint": "agent_runs_by_tenant_status_created_at",
+      "mean_exec_time_ms": 28.7,
+      "total_exec_time_ms": 109420,
+      "calls": 3798
+    },
+    {
+      "fingerprint": "shared_artifacts_by_tenant_case_created_at",
+      "mean_exec_time_ms": 12.4,
+      "total_exec_time_ms": 43122,
+      "calls": 3480
+    }
+  ]
+}

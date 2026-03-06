@@ -327,3 +327,25 @@ Pre-defined color classes for the 6 maturity levels (L0-L5):
   </div>
 </section>
 ```
+
+
+## Icon Utility Guidance
+
+Use shared icon utility classes to keep icon sizing and tone consistent across headers, cards, and empty states.
+
+- `icon-sm`: 16px icon size for inline controls and compact inputs.
+- `icon-md`: 20px icon size for standard card and list affordances.
+- `icon-lg`: 24px icon size for prominent emphasis in hero cards and empty states.
+- `icon-muted`: Applies semantic muted icon color (`--color-muted-foreground`) for supporting/de-emphasized icons.
+- `icon-accent`: Applies semantic primary accent icon color (`--color-primary`) for emphasized actions and feature icons.
+
+Recommended pairing:
+- Headers/search affordances: `icon-sm icon-muted`
+- Card-leading icons: `icon-md icon-accent` or `icon-lg icon-accent`
+- Empty states: `icon-lg icon-muted`
+
+```tsx
+<Search className="icon-sm icon-muted" />
+<BookOpen className="icon-md icon-accent" />
+<FolderOpen className="icon-lg icon-muted" />
+```

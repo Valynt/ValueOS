@@ -1,11 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-broker
+  name: redis-broker-primary
   namespace: valynt
   labels:
     app: redis-broker
     component: messaging
+    role: primary
 spec:
   type: ClusterIP
   ports:
@@ -13,27 +14,64 @@ spec:
       port: 6379
       targetPort: 6379
   selector:
-    app: redis-broker
+    app: redis-broker-primary
 ---
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Service
 metadata:
-  name: redis-broker
+  name: redis-broker-replicas
   namespace: valynt
   labels:
     app: redis-broker
     component: messaging
+    role: replica
 spec:
-  serviceName: redis-broker
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  selector:
+    app: redis-broker-replica
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel
+  namespace: valynt
+  labels:
+    app: redis-sentinel
+    component: messaging
+spec:
+  type: ClusterIP
+  ports:
+    - name: sentinel
+      port: 26379
+      targetPort: 26379
+  selector:
+    app: redis-sentinel
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-broker-primary
+  namespace: valynt
+  labels:
+    app: redis-broker-primary
+    component: messaging
+    role: primary
+spec:
+  serviceName: redis-broker-primary
   replicas: 1
   selector:
     matchLabels:
-      app: redis-broker
+      app: redis-broker-primary
   template:
     metadata:
       labels:
-        app: redis-broker
+        app: redis-broker-primary
         component: messaging
+        role: primary
       annotations:
         sidecar.istio.io/inject: "true"
     spec:
@@ -45,7 +83,7 @@ spec:
             - "--appendonly"
             - "yes"
             - "--maxmemory"
-            - "1gb"
+            - "1536mb"
             - "--maxmemory-policy"
             - "allkeys-lru"
             - "--active-expire-effort"
@@ -54,12 +92,13 @@ spec:
             - containerPort: 6379
               name: redis
           resources:
+            # Tuned from observed p95/p99 CPU and memory pressure in peak queue fan-out windows.
             requests:
-              cpu: 100m
-              memory: 512Mi
+              cpu: 300m
+              memory: 768Mi
             limits:
-              cpu: 500m
-              memory: 1Gi
+              cpu: 1500m
+              memory: 2Gi
           livenessProbe:
             exec:
               command: ["redis-cli", "ping"]
@@ -80,7 +119,176 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 2Gi
+            storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-broker-replica
+  namespace: valynt
+  labels:
+    app: redis-broker-replica
+    component: messaging
+    role: replica
+spec:
+  serviceName: redis-broker-replicas
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis-broker-replica
+  template:
+    metadata:
+      labels:
+        app: redis-broker-replica
+        component: messaging
+        role: replica
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args:
+            - sh
+            - -c
+            - |
+              redis-server \
+                --appendonly yes \
+                --maxmemory 1536mb \
+                --maxmemory-policy allkeys-lru \
+                --active-expire-effort 10 \
+                --replicaof redis-broker-primary 6379
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1200m
+              memory: 1536Mi
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-sentinel-config
+  namespace: valynt
+data:
+  sentinel.conf: |
+    port 26379
+    dir /tmp
+    sentinel monitor valynt-redis redis-broker-primary 6379 2
+    sentinel down-after-milliseconds valynt-redis 10000
+    sentinel failover-timeout valynt-redis 60000
+    sentinel parallel-syncs valynt-redis 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-sentinel
+  namespace: valynt
+  labels:
+    app: redis-sentinel
+    component: messaging
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis-sentinel
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel
+        component: messaging
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: sentinel
+          image: redis:7-alpine
+          command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "-p", "26379", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "-p", "26379", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: sentinel-config
+              mountPath: /etc/redis
+      volumes:
+        - name: sentinel-config
+          configMap:
+            name: redis-sentinel-config
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-broker-primary-pdb
+  namespace: valynt
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: redis-broker-primary
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-broker-replica-pdb
+  namespace: valynt
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis-broker-replica
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-sentinel-pdb
+  namespace: valynt
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: redis-sentinel
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -111,7 +319,11 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: REDIS_URL
-              value: redis://redis-broker:6379
+              value: redis://redis-broker-primary:6379
+            - name: REDIS_SENTINEL_ENDPOINTS
+              value: redis-sentinel:26379
+            - name: REDIS_SENTINEL_MASTER_SET
+              value: valynt-redis
             - name: BROKER_STREAM
               value: valynt.events
             - name: BROKER_GROUP
@@ -119,12 +331,13 @@ spec:
             - name: NODE_ENV
               value: production
           resources:
+            # Tuned from observed p95/p99 pod usage to reduce CPU throttling and OOM churn.
             requests:
-              cpu: 200m
-              memory: 256Mi
-            limits:
-              cpu: 500m
+              cpu: 350m
               memory: 512Mi
+            limits:
+              cpu: 1200m
+              memory: 1Gi
           livenessProbe:
             exec:
               command: ["/bin/sh", "-c", "pgrep node"]
@@ -139,6 +352,17 @@ spec:
             - containerPort: 9464
               name: metrics
 ---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: message-worker-pdb
+  namespace: valynt
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: message-worker
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -149,8 +373,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: message-worker
-  minReplicas: 1
-  maxReplicas: 5
+  minReplicas: 2
+  maxReplicas: 12
   metrics:
     - type: External
       external:
@@ -161,13 +385,13 @@ spec:
               app: message-worker
         target:
           type: AverageValue
-          averageValue: 50
+          averageValue: 30
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 70
+          averageUtilization: 65
     - type: Resource
       resource:
         name: memory
@@ -177,9 +401,16 @@ spec:
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
     scaleUp:
       stabilizationWindowSeconds: 60
       policies:
         - type: Percent
           value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 4
           periodSeconds: 60
