@@ -5,6 +5,7 @@
  * and adaptive concurrency scaling.
  */
 
+import os from "os";
 import { logger } from "../../lib/logger.js";
 
 import { getMemoryPressureMonitor, MemoryPressure } from './MemoryPressureMonitor.js'
@@ -56,6 +57,10 @@ export class SystemResourceMonitor {
   private monitoringInterval: NodeJS.Timeout | null = null;
   private lastResources: SystemResources | null = null;
   private memoryMonitor = getMemoryPressureMonitor();
+
+  // CPU delta tracking for accurate usage calculation
+  private lastCpuUsage = process.cpuUsage();
+  private lastCpuTime = Date.now();
 
   private readonly DEFAULT_THRESHOLDS: ResourceThresholds = {
     maxCpuUsage: 80,        // 80% CPU usage
@@ -306,17 +311,25 @@ export class SystemResourceMonitor {
   }
 
   private getCpuUsage(): number {
-    // Simplified CPU usage calculation
-    // In production, use proper CPU monitoring library
-    const startUsage = process.cpuUsage();
-    return Math.random() * 20 + 10; // Placeholder: 10-30% usage
+    const now = Date.now();
+    const elapsedMs = now - this.lastCpuTime;
+    if (elapsedMs < 1) return 0;
+
+    const usage = process.cpuUsage(this.lastCpuUsage);
+    // user + system time in microseconds; elapsedMs * 1000 = elapsed microseconds
+    const totalCpuUs = usage.user + usage.system;
+    const elapsedUs = elapsedMs * 1000 * os.cpus().length; // scale by core count
+
+    this.lastCpuUsage = process.cpuUsage();
+    this.lastCpuTime = now;
+
+    return Math.min(100, (totalCpuUs / elapsedUs) * 100);
   }
 
   private getSystemMemory(): { used: number; total: number; percentage: number } {
-    // Simplified system memory calculation
-    // In production, use proper system monitoring
-    const total = 16 * 1024 * 1024 * 1024; // 16GB
-    const used = total * 0.6; // 60% usage
+    const total = os.totalmem();
+    const free = os.freemem();
+    const used = total - free;
     return {
       used,
       total,

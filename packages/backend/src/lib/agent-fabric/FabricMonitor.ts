@@ -1,16 +1,15 @@
-import Redis from "ioredis";
-
 import { Logger, logger } from "../logger";
 
+import { getIoRedisClient } from "../ioredisClient.js";
 import { secureMessageBus } from "./SecureMessageBus";
 
 export class FabricMonitor {
-  private redis: Redis;
+  private redis: ReturnType<typeof getIoRedisClient>;
   private log: Logger;
   private dlqStreamName: string;
 
   constructor() {
-    this.redis = new Redis();
+    this.redis = getIoRedisClient();
     this.log = logger.withContext({ component: "fabric-monitor" });
     this.dlqStreamName = "agent_messages_dlq";
   }
