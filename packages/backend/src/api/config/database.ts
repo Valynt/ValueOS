@@ -10,11 +10,12 @@ export interface DatabaseConfig {
 /**
  * Database env precedence:
  * 1) DATABASE_URL (canonical)
- * 2) Legacy DB_* atomics fallback only when DATABASE_URL is not provided.
+ * 2) Legacy DB_URL fallback only when DATABASE_URL is not provided.
  */
 export function getDatabaseUrl(): string {
   return process.env.DATABASE_URL
-    || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${parseInt(process.env.DB_PORT || '5432')}/${process.env.DB_NAME || 'valuecanvas'}`;
+    || process.env.DB_URL
+    || "postgresql://postgres:@localhost:5432/valuecanvas";
 }
 
 function parseDatabaseConfigFromUrl(url: string): DatabaseConfig | null {
@@ -32,12 +33,13 @@ function parseDatabaseConfigFromUrl(url: string): DatabaseConfig | null {
   }
 }
 
-const parsedFromUrl = process.env.DATABASE_URL ? parseDatabaseConfigFromUrl(process.env.DATABASE_URL) : null;
+const canonicalDatabaseUrl = process.env.DATABASE_URL || process.env.DB_URL;
+const parsedFromUrl = canonicalDatabaseUrl ? parseDatabaseConfigFromUrl(canonicalDatabaseUrl) : null;
 
 export const databaseConfig: DatabaseConfig = parsedFromUrl || {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'valuecanvas',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
+  host: "localhost",
+  port: 5432,
+  database: "valuecanvas",
+  user: "postgres",
+  password: "",
 };

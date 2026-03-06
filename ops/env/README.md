@@ -40,6 +40,7 @@ Start from `ops/env/.env.local.example` and copy to the mode file you run.
 ### Bash/Node scripts
 - Bash scripts should source `scripts/lib/require-env.sh`, call `load_mode_env`, then `validate_mode_env`.
 - Migration scripts must use `DATABASE_URL` as canonical DB target.
+- Migration note: `DB_URL` and `DB_*` atomics are deprecated. Keep `DATABASE_URL` as source of truth; if a legacy consumer still reads `DB_URL`, derive it directly from `DATABASE_URL` and avoid separate host/user/password envs.
 
 ## Mode requirements
 

@@ -121,6 +121,16 @@ export function validateEnv(): ValidationResult {
     errors.push("TOGETHER_API_KEY is required in production");
   }
 
+
+  // Canonical DB precedence: DATABASE_URL first, with explicit DB_URL fallback only for legacy compatibility.
+  if (process.env.DB_URL && !process.env.DATABASE_URL) {
+    warnings.push("Using legacy DB_URL fallback. Prefer DATABASE_URL.");
+  }
+
+  if (process.env.DB_URL && process.env.DATABASE_URL && process.env.DB_URL !== process.env.DATABASE_URL) {
+    warnings.push("DATABASE_URL and DB_URL differ; DATABASE_URL takes precedence.");
+  }
+
   // Validate DATABASE_URL format if present
   if (process.env.DATABASE_URL) {
     const url = process.env.DATABASE_URL;
