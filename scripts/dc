@@ -12,6 +12,18 @@ APP_ENV_FILE="${ROOT}/ops/env/.env.local"
 SUPABASE_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/supabase.yml"
 OBSERVABILITY_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/observability.yml"
 
+# Optional profile overlays (profile => compose file).
+# These files add services and/or settings that are not present in the base compose file.
+declare -A PROFILE_COMPOSE_FILES=(
+  [caddy]="${ROOT}/ops/compose/profiles/caddy.yml"
+  [devcontainer]="${ROOT}/ops/compose/profiles/devcontainer.yml"
+  [observability]="${OBSERVABILITY_PROFILE_COMPOSE_FILE}"
+  [runtime-docker]="${ROOT}/ops/compose/profiles/runtime-docker.yml"
+  [studio]="${ROOT}/ops/compose/profiles/studio.yml"
+  [supabase]="${SUPABASE_PROFILE_COMPOSE_FILE}"
+  [tools]="${ROOT}/ops/compose/profiles/tools.yml"
+)
+
 ENV_FILE="${ROOT}/ops/env/.env.ports"
 LEGACY_ENV_FILE="${ROOT}/.env.ports"
 
@@ -38,15 +50,24 @@ Env files:
   * .env.ports              (legacy fallback)
 
 Profiles:
+  * No implicit default profile is added.
   * You may pass `--profile <name>` directly; those flags are forwarded unchanged.
-  * If you do NOT pass a profile on the CLI and VALUEOS_PROFILES is set,
-    its comma-separated values are forwarded as `--profile` flags.
+  * If VALUEOS_PROFILES is set, its comma-separated values are forwarded as
+    `--profile` flags (unless CLI `--profile` is already present).
+
+Supported profile names and compose-file mapping:
+  * supabase       -> ops/compose/profiles/supabase.yml
+  * observability  -> ops/compose/profiles/observability.yml
+  * studio         -> ops/compose/profiles/studio.yml
+  * tools          -> ops/compose/profiles/tools.yml
+  * caddy          -> ops/compose/profiles/caddy.yml
+  * devcontainer   -> ops/compose/profiles/devcontainer.yml
+  * runtime-docker -> ops/compose/profiles/runtime-docker.yml
+  * validate       -> passed through as docker compose profile (no extra overlay file)
 
 Compose overlays:
-  * If VALUEOS_PROFILES contains "supabase", the supabase overlay compose file is added:
-      ops/compose/profiles/supabase.yml
-  * If VALUEOS_PROFILES contains "observability", the observability overlay compose file is added:
-      ops/compose/profiles/observability.yml
+  * Overlay files are auto-added when their profile appears in VALUEOS_PROFILES
+    or is passed via CLI `--profile`.
 
 Examples:
   dc up -d
@@ -67,31 +88,59 @@ compose_args=(
   -f "${COMPOSE_FILE}"
 )
 
-# Add optional overlay compose files based on VALUEOS_PROFILES.
-if [[ ",${VALUEOS_PROFILES:-}," == *",supabase,"* ]]; then
-  compose_args+=( -f "${SUPABASE_PROFILE_COMPOSE_FILE}" )
-fi
-
-if [[ ",${VALUEOS_PROFILES:-}," == *",observability,"* ]]; then
-  compose_args+=( -f "${OBSERVABILITY_PROFILE_COMPOSE_FILE}" )
-fi
-
-# If the caller explicitly sets a profile flag, don't auto-add profiles.
+# Gather profiles from CLI args first.
 has_profile_arg=false
+explicit_profiles=()
+expect_profile_value=false
 for arg in "$@"; do
+  if [[ "${expect_profile_value}" == "true" ]]; then
+    explicit_profiles+=("${arg}")
+    expect_profile_value=false
+    continue
+  fi
+
   if [[ "${arg}" == "--profile" || "${arg}" == --profile=* ]]; then
     has_profile_arg=true
-    break
+    if [[ "${arg}" == "--profile" ]]; then
+      expect_profile_value=true
+    else
+      explicit_profiles+=("${arg#--profile=}")
+    fi
   fi
 done
 
-if [[ "${has_profile_arg}" == "false" ]]; then
-  profiles=()
-  if [[ -n "${VALUEOS_PROFILES:-}" ]]; then
-    IFS=',' read -r -a profiles <<< "${VALUEOS_PROFILES}"
-  fi
+env_profiles=()
+if [[ -n "${VALUEOS_PROFILES:-}" ]]; then
+  IFS=',' read -r -a env_profiles <<< "${VALUEOS_PROFILES}"
+fi
 
-  for profile in "${profiles[@]}"; do
+# Add optional overlay compose files based on profile names from CLI and env.
+profiles_for_overlay=("${explicit_profiles[@]}" "${env_profiles[@]}")
+added_overlays=()
+for profile in "${profiles_for_overlay[@]}"; do
+  profile="$(echo "${profile}" | xargs)"
+  [[ -n "${profile}" ]] || continue
+
+  overlay_file="${PROFILE_COMPOSE_FILES[${profile}]:-}"
+  if [[ -n "${overlay_file}" && -f "${overlay_file}" ]]; then
+    already_added=false
+    for added in "${added_overlays[@]}"; do
+      if [[ "${added}" == "${overlay_file}" ]]; then
+        already_added=true
+        break
+      fi
+    done
+
+    if [[ "${already_added}" == "false" ]]; then
+      compose_args+=( -f "${overlay_file}" )
+      added_overlays+=("${overlay_file}")
+    fi
+  fi
+done
+
+# If the caller explicitly sets a profile flag, don't auto-add profile flags from env.
+if [[ "${has_profile_arg}" == "false" ]]; then
+  for profile in "${env_profiles[@]}"; do
     profile="$(echo "${profile}" | xargs)"
     if [[ -n "${profile}" ]]; then
       compose_args+=(--profile "${profile}")
