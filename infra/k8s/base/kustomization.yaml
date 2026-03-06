@@ -31,6 +31,7 @@ resources:
   - redis-streams.yaml
   - nats-jetstream.yaml
   - billing-aggregator-worker-deployment.yaml
+  - worker-deployment.yaml
   # Security policies are in infra/k8s/security/ and applied separately:
   # kubectl apply -f ../security/istio-service-mesh.yaml
   # kubectl apply -f ../security/mesh-authentication.yaml
