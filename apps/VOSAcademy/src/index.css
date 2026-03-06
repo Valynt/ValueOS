@@ -1,5 +1,6 @@
 @import "../../ValyntApp/src/styles/valueos-palette.css";
 @import "../../../packages/shared/src/styles/motion-shadows.css";
+@import "../../../packages/shared/src/styles/layout-tokens.css";
 @import "tailwindcss";
 @import "./styles/accessibility.css";
 
@@ -243,43 +244,6 @@
   }
 }
 
-@layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--container-padding-sm);
-    padding-right: var(--container-padding-sm);
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: var(--container-padding-md);
-      padding-right: var(--container-padding-md);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: var(--container-padding-lg);
-      padding-right: var(--container-padding-lg);
-      max-width: var(--container-max);
-    }
-  }
-}
 /* VOS-specific utility classes */
 @layer utilities {
   .vos-gradient {
