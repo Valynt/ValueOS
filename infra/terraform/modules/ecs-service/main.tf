@@ -11,6 +11,16 @@ variable "security_group_ids" { type = list(string) }
 variable "container_image" { type = string }
 variable "container_port" { type = number }
 variable "desired_count" { type = number }
+variable "autoscaling_min_capacity" { type = number }
+variable "autoscaling_max_capacity" { type = number }
+variable "autoscaling_cpu_target" {
+  type    = number
+  default = 70
+}
+variable "autoscaling_request_count_target" {
+  type    = number
+  default = 1000
+}
 variable "cpu" { type = number }
 variable "memory" { type = number }
 variable "health_check_path" { type = string }
@@ -182,12 +192,59 @@ resource "aws_lb_target_group" "main" {
     unhealthy_threshold = 3
     timeout             = 5
     interval            = 30
-    matcher             = "200"
+    matcher             = "200-399"
   }
 
   deregistration_delay = 30
 
   tags = var.tags
+}
+
+# --- ECS Service Autoscaling ---
+
+resource "aws_appautoscaling_target" "main" {
+  max_capacity       = var.autoscaling_max_capacity
+  min_capacity       = var.autoscaling_min_capacity
+  resource_id        = "service/${split("/", var.cluster_id)[1]}/${aws_ecs_service.main.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "cpu_target_tracking" {
+  name               = "${var.name_prefix}-cpu-target-tracking"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.main.resource_id
+  scalable_dimension = aws_appautoscaling_target.main.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.main.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+
+    target_value       = var.autoscaling_cpu_target
+    scale_in_cooldown  = 120
+    scale_out_cooldown = 60
+  }
+}
+
+resource "aws_appautoscaling_policy" "request_count_target_tracking" {
+  name               = "${var.name_prefix}-request-count-target-tracking"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.main.resource_id
+  scalable_dimension = aws_appautoscaling_target.main.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.main.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ALBRequestCountPerTarget"
+      resource_label = "${replace(aws_lb.main.arn, "arn:aws:elasticloadbalancing:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:loadbalancer/", "")}/${replace(aws_lb_target_group.main.arn, "arn:aws:elasticloadbalancing:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:targetgroup/", "")}"
+    }
+
+    target_value       = var.autoscaling_request_count_target
+    scale_in_cooldown  = 120
+    scale_out_cooldown = 60
+  }
 }
 
 # --- ALB Listener ---
@@ -247,4 +304,16 @@ output "service_name" {
 
 output "load_balancer_dns" {
   value = aws_lb.main.dns_name
+}
+
+output "service_arn" {
+  value = aws_ecs_service.main.id
+}
+
+output "target_group_arn" {
+  value = aws_lb_target_group.main.arn
+}
+
+output "load_balancer_arn" {
+  value = aws_lb.main.arn
 }

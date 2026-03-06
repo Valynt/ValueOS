@@ -134,6 +134,10 @@ module "frontend" {
   container_image        = var.frontend_image
   container_port         = 80
   desired_count          = var.frontend_desired_count
+  autoscaling_min_capacity = var.frontend_autoscaling_min_capacity
+  autoscaling_max_capacity = var.frontend_autoscaling_max_capacity
+  autoscaling_cpu_target = var.frontend_autoscaling_cpu_target
+  autoscaling_request_count_target = var.frontend_autoscaling_request_count_target
   cpu                    = var.frontend_cpu
   memory                 = var.frontend_memory
   
@@ -161,6 +165,10 @@ module "backend" {
   container_image        = var.backend_image
   container_port         = 3000
   desired_count          = var.backend_desired_count
+  autoscaling_min_capacity = var.backend_autoscaling_min_capacity
+  autoscaling_max_capacity = var.backend_autoscaling_max_capacity
+  autoscaling_cpu_target = var.backend_autoscaling_cpu_target
+  autoscaling_request_count_target = var.backend_autoscaling_request_count_target
   cpu                    = var.backend_cpu
   memory                 = var.backend_memory
   
@@ -238,4 +246,34 @@ output "cache_endpoint" {
 output "monitoring_dashboard_url" {
   description = "Grafana dashboard URL"
   value       = module.monitoring.dashboard_url
+}
+
+output "database_arn" {
+  description = "Database ARN"
+  value       = module.database.arn
+}
+
+output "cache_arn" {
+  description = "Cache replication group ARN"
+  value       = module.cache.arn
+}
+
+output "frontend_service_arn" {
+  description = "Frontend ECS service ARN"
+  value       = module.frontend.service_arn
+}
+
+output "backend_service_arn" {
+  description = "Backend ECS service ARN"
+  value       = module.backend.service_arn
+}
+
+output "frontend_target_group_arn" {
+  description = "Frontend ALB target group ARN"
+  value       = module.frontend.target_group_arn
+}
+
+output "backend_target_group_arn" {
+  description = "Backend ALB target group ARN"
+  value       = module.backend.target_group_arn
 }
