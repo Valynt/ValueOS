@@ -399,7 +399,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          npx vitest run \
+          npx vitest run --config tests/security/vitest.security.config.ts \
             tests/security/rls-tenant-isolation.test.ts \
             tests/security/api-tenant-isolation.test.ts \
             tests/security/supabase-rls-policy-matrix.test.ts \
