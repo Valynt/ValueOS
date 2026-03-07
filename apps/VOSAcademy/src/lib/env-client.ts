@@ -5,6 +5,8 @@
 
 import { logger } from './logger';
 
+const REQUIRED_CLIENT_PREFIX = 'VITE_';
+
 const REQUIRED_CLIENT_ENV_VARS = [
   'VITE_OAUTH_PORTAL_URL',
   'VITE_APP_ID',
@@ -61,12 +63,22 @@ function validateClientEnv() {
   return true;
 }
 
+function getClientEnvValue(key: string): string {
+  if (!key.startsWith(REQUIRED_CLIENT_PREFIX)) {
+    throw new Error(
+      `[ENV] Attempted to access non-${REQUIRED_CLIENT_PREFIX} env key in client code: ${key}`,
+    );
+  }
+
+  return import.meta.env[key] || '';
+}
+
 // Validate on module load
 const isValid = validateClientEnv();
 
 export const CLIENT_ENV = {
-  oauthPortalUrl: import.meta.env.VITE_OAUTH_PORTAL_URL || '',
-  appId: import.meta.env.VITE_APP_ID || '',
+  oauthPortalUrl: getClientEnvValue('VITE_OAUTH_PORTAL_URL'),
+  appId: getClientEnvValue('VITE_APP_ID'),
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
   isValid,

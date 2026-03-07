@@ -1,6 +1,6 @@
 # ValueOS
 
-AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a multi-agent orchestration system backed by Supabase, Redis, and Kafka.
+AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a multi-agent orchestration system backed by Supabase, Redis, and CloudEvents messaging.
 
 ## Repository Layout
 
@@ -13,15 +13,20 @@ apps/
   mcp-dashboard/    # MCP observability dashboard
 
 packages/
-  agents/           # AI agent implementations (7-agent fabric)
+  agent-fabric/     # Primary multi-agent framework and shared orchestration primitives
+  agents/           # Standalone agent microservices (deprecated, mock-data based)
   backend/          # Express API server (billing, auth, workflows, agents)
   components/       # Shared UI component library and design system
+  config-v2/        # Shared configuration schemas and validation
   infra/            # Infrastructure utilities and queue abstractions
   integrations/     # Third-party integrations (Stripe, CRM, etc.)
   mcp/              # Model Context Protocol tooling
   memory/           # Agent memory and vector store layer
+  services/         # Cross-package services and adapters
   sdui/             # Server-Driven UI renderer
+  sdui-types/       # Shared SDUI type system
   shared/           # Shared types, utilities, and constants
+  test-utils/       # Shared test helpers and fixtures
 
 infra/
   k8s/              # Kubernetes manifests (blue-green, HPA, network policies)
@@ -38,32 +43,12 @@ infra/
 
 ## Quickstart
 
-### Devcontainer (recommended)
-
-Open the repo in VS Code or Gitpod. The devcontainer starts all infrastructure automatically.
-
-```bash
-# Verify the environment
-pnpm run dev:verify
-
-# Start the dev server
-pnpm dev
-```
-
-### Local development
-
 ```bash
 # Install dependencies
 pnpm install
 
-# Start infrastructure (Supabase, Kong, Postgres)
-pnpm run dx:up
-
-# Verify infrastructure
-pnpm run dev:verify
-
-# Start the frontend dev server
-pnpm dev
+# Start local development (server + Vite client)
+pnpm run dev
 ```
 
 ### Environment variables
@@ -80,13 +65,13 @@ See [docs/environments/local-development.md](docs/environments/local-development
 
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | Start ValyntApp dev server |
-| `pnpm run dev:verify` | Validate infrastructure and dependencies |
-| `pnpm run typecheck:islands` | Type-check strict-mode packages (must pass in CI) |
-| `pnpm run typecheck:signal` | Full TypeScript debt report |
+| `pnpm run dev` | Start local development (Express + Vite) |
+| `pnpm run check` | Run TypeScript no-emit checks |
 | `pnpm test` | Run unit tests (Vitest) |
-| `pnpm run lint` | ESLint across the monorepo |
-| `pnpm run build` | Production build via Turborepo |
+| `pnpm run format` | Format code with Prettier |
+| `pnpm run build` | Build client bundle and server entrypoint |
+| `pnpm run start` | Run the production build |
+| `pnpm run db:push` | Generate and apply Drizzle migrations |
 
 ## Architecture
 
@@ -100,11 +85,11 @@ ValueOS is a modular monolith deployed to Kubernetes with the following key laye
 |  Backend API (Express)                                  |
 |  REST endpoints · RBAC middleware · rate limiting        |
 +---------------------------------------------------------+
-|  Agent Fabric (7 AI agents)                             |
+|  Agent Fabric (6 lifecycle agents)                      |
 |  Orchestrator · Memory · MCP tools · BullMQ queues      |
 +---------------------------------------------------------+
 |  Data Layer                                             |
-|  Supabase (Postgres + RLS) · Redis · Kafka              |
+|  Supabase (Postgres + RLS) · Redis · CloudEvents bus    |
 +---------------------------------------------------------+
 ```
 

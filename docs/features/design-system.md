@@ -17,7 +17,7 @@
 
 ## Design Principles
 
-*Source: `features/design-system/principles.md`*
+_Source: `features/design-system/principles.md`_
 
 These core values guide every design decision at Valynt.
 
@@ -50,7 +50,17 @@ This is the task of creating a single, reusable library of components (buttons, 
 
 **Why it makes the difference:** Consistency builds trust and reduces cognitive load. When a button or link looks and behaves the same way everywhere in your app, users don't have to re-learn how to use your interface on every new screen. It makes the entire product feel cohesive, professional, and predictable, rather than a jumbled collection of different designs.
 
-## 5. Progressive Disclosure
+## 5. Refining Interaction Design & Microinteractions
+
+This focuses on the small, often subtle feedback and animations that happen when a user interacts with the UI.
+
+- Buttons should provide immediate visual feedback on hover/active/focus states.
+- Gestures and refresh patterns should communicate system status clearly.
+- Positive actions can use subtle motion (for example, a gentle bounce) to reinforce success.
+
+**Why it makes the difference:** This is what makes an interface feel responsive and alive. These small moments provide crucial feedback (confirming an action, showing a process is working) and guide the user. An interface without good interaction design can feel dead, clunky, or even broken, even if it's technically functional.
+
+## 6. Progressive Disclosure
 
 Don't overwhelm the user.
 
@@ -58,7 +68,7 @@ Don't overwhelm the user.
 - Allow **Drill-down** on demand.
 - Keep the "Zero State" clean and inviting.
 
-## 6. Consistency is Trust
+## 7. Consistency is Trust
 
 If it looks the same, it should act the same.
 
@@ -69,7 +79,7 @@ If it looks the same, it should act the same.
 
 ## Valynt Design System
 
-*Source: `features/design-system/README.md`*
+_Source: `features/design-system/README.md`_
 
 Welcome to the official design system for Valynt (ValueOS). This living style guide defines the visual language, components, and patterns used to build our agentic SaaS platform.
 
@@ -89,6 +99,7 @@ Welcome to the official design system for Valynt (ValueOS). This living style gu
   - [State Matrix](./components/state-matrix.md)
 - **[Layout](./layout/)**: Grid and container standards.
   - [Layout & Grid](./layout/grid.md)
+  - [ValueOS Layout Guidelines](./design-system/layout-guidelines.md)
 - **[Patterns](./patterns/)**: UX flows and compositions.
   - [Forms](./patterns/forms.md)
   - [Navigation](./patterns/navigation.md)
@@ -146,7 +157,7 @@ Use the shared icon utility classes to keep icon sizing and color consistent acr
 
 ## Untitled
 
-*Source: `design-system/DESIGN_SYSTEM_MASTER.md`*
+_Source: `design-system/DESIGN_SYSTEM_MASTER.md`_
 
 **Design System**
 
@@ -189,7 +200,7 @@ Next steps
 
 ## Canonical palette mapping
 
-*Source: `features/design-system/canonical-palette.md`*
+_Source: `features/design-system/canonical-palette.md`_
 
 The source-of-truth palette for ValueOS lives in `apps/ValyntApp/src/styles/valueos-palette.css`. It defines the shared primary/secondary/accent/neutral roles plus success/warning/error status colors, with light and dark variants using the same token names.
 
@@ -207,12 +218,12 @@ If you need new semantic colors, add them to the canonical palette first and the
 
 Track quality weekly and review at release readiness.
 
-| Metric | Definition | Target | Regression Threshold | Source |
-|---|---|---:|---:|---|
-| a11y pass rate | % of accessibility tests passing across audited routes | ≥ 98% | Drop > 2 points vs baseline | `tests/accessibility` + CI trend gate |
-| keyboard coverage | % of audited routes passing keyboard navigation checks | 100% | Drop > 5 points vs baseline | `tests/accessibility/axe-a11y.spec.ts` |
-| contrast regressions | Count of new serious/critical contrast-related violations | 0 | Any increase > 0 | axe run annotations + trend artifact |
-| localization completeness | % translated keys per supported locale vs source (`en`) | ≥ 90% (dev), ≥ 98% (release) | Any locale below threshold | `scripts/ci/check-i18n-keys.mjs` dashboard |
+| Metric                    | Definition                                                |                       Target |        Regression Threshold | Source                                     |
+| ------------------------- | --------------------------------------------------------- | ---------------------------: | --------------------------: | ------------------------------------------ |
+| a11y pass rate            | % of accessibility tests passing across audited routes    |                        ≥ 98% | Drop > 2 points vs baseline | `tests/accessibility` + CI trend gate      |
+| keyboard coverage         | % of audited routes passing keyboard navigation checks    |                         100% | Drop > 5 points vs baseline | `tests/accessibility/axe-a11y.spec.ts`     |
+| contrast regressions      | Count of new serious/critical contrast-related violations |                            0 |            Any increase > 0 | axe run annotations + trend artifact       |
+| localization completeness | % translated keys per supported locale vs source (`en`)   | ≥ 90% (dev), ≥ 98% (release) |  Any locale below threshold | `scripts/ci/check-i18n-keys.mjs` dashboard |
 
 ### Operational cadence
 

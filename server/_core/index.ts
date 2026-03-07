@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -8,6 +9,37 @@ import { registerChatRoutes } from "./chat";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+
+// ---------------------------------------------------------------------------
+// Rate limiters
+// ---------------------------------------------------------------------------
+
+/** Global: 1000 req/min per IP across all routes */
+const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
+/** Chat endpoint: 10 req/min per IP (LLM cost protection) */
+const chatLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Chat rate limit exceeded. Please wait before sending more messages." },
+});
+
+/** Enrichment tRPC procedure: 20 req/min per IP */
+const enrichmentLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Enrichment rate limit exceeded." },
+});
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -34,11 +66,15 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Global rate limit
+  app.use(globalLimiter);
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
-  // Chat API with streaming and tool calling
+  // Chat API with streaming and tool calling (tighter limit)
+  app.use("/api/chat", chatLimiter);
   registerChatRoutes(app);
-  // tRPC API
+  // tRPC API — enrichment procedure gets its own limit
+  app.use("/api/trpc/enrichment", enrichmentLimiter);
   app.use(
     "/api/trpc",
     createExpressMiddleware({

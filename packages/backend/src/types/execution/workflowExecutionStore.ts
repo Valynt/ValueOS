@@ -1,6 +1,6 @@
 import { WorkflowStatus } from "../workflow";
 import { WorkflowExecutionRecord } from "../workflowExecution";
-import { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../workflow/orchestration";
+import { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "./workflowExecutionDtos";
 
 export interface UpdateExecutionStatusInput {
   executionId: string;

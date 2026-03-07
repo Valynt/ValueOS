@@ -34,10 +34,12 @@ export default function ValueCaseCanvas() {
   const { oppId, caseId } = useParams();
   const [activeStage, setActiveStage] = useState("hypothesis");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  // runId is set when an agent is invoked; passed to AgentThread for status display
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const { data: merged } = useMergedContext(caseId);
 
   const stageContent: Record<string, React.ReactNode> = {
-    hypothesis: <HypothesisStage />,
+    hypothesis: <HypothesisStage onRunStarted={setActiveRunId} />,
     model: <ModelStage />,
     integrity: <IntegrityStage />,
     narrative: <NarrativeStage />,
@@ -146,7 +148,7 @@ export default function ValueCaseCanvas() {
 
         {/* Agent thread panel */}
         <div className="w-[340px] border-l border-zinc-200 bg-white p-5 overflow-y-auto flex-shrink-0 hidden xl:block">
-          <AgentThread />
+          <AgentThread runId={activeRunId} />
         </div>
       </div>
 

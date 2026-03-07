@@ -3,6 +3,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 
 import type { User } from "../../drizzle/schema";
 import { getUserByOpenId } from "../db";
+import { type AuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 import { ENV } from "./env";
 
@@ -10,6 +11,7 @@ import { ENV } from "./env";
 interface SessionClaims extends JwtPayload {
   sub: string;
   tenant?: string;
+  org?: string;
 }
 
 interface SessionKey {
@@ -18,6 +20,19 @@ interface SessionKey {
 }
 
 const DEFAULT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const SESSION_CLOCK_TOLERANCE_SECONDS = 5;
+
+interface SessionTokenContext {
+  tenant?: string;
+  organizationId?: string;
+}
+
+interface SessionVerificationConfig {
+  issuer: string;
+  audience: string;
+  ttlSeconds: number;
+  tenant?: string;
+}
 
 function getSessionKeys(): SessionKey[] {
   const rawKeys = process.env.SESSION_JWT_KEYS;
@@ -43,6 +58,10 @@ function getSessionKeys(): SessionKey[] {
   }
 
   return parsed;
+}
+
+function getPrimarySigningKid(): string | null {
+  return process.env.SESSION_JWT_ACTIVE_KID || null;
 }
 
 function getSessionIssuer(): string {
@@ -75,18 +94,49 @@ function getSessionTenant(): string | undefined {
   return process.env.SESSION_JWT_TENANT || undefined;
 }
 
+function getSessionVerificationConfig(): SessionVerificationConfig {
+  return {
+    issuer: getSessionIssuer(),
+    audience: getSessionAudience(),
+    ttlSeconds: getSessionTtlSeconds(),
+    tenant: getSessionTenant(),
+  };
+}
+
+function getPrimarySigningKey(keys: SessionKey[]): SessionKey {
+  const configuredKid = getPrimarySigningKid();
+  if (!configuredKid) {
+    return keys[0];
+  }
+
+  const selectedKey = keys.find((key) => key.kid === configuredKid);
+  if (!selectedKey) {
+    throw new Error(`[Session] SESSION_JWT_ACTIVE_KID (${configuredKid}) not found in SESSION_JWT_KEYS`);
+  }
+
+  return selectedKey;
+}
+
 /**
  * Parse session token and validate
  * In production, this should use JWT or encrypted session tokens
  */
-export async function validateSessionToken(token: string): Promise<User | null> {
+export async function validateSessionToken(token: string, requestContext?: AuditRequestContext): Promise<User | null> {
   try {
     const keys = getSessionKeys();
-    const issuer = getSessionIssuer();
-    const audience = getSessionAudience();
+    const { issuer, audience, tenant } = getSessionVerificationConfig();
 
     const decoded = jwt.decode(token, { complete: true });
     if (!decoded || typeof decoded !== "object") {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId: tenant || ENV.appId || undefined,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "token_decode_failed" },
+      });
       return null;
     }
 
@@ -97,6 +147,15 @@ export async function validateSessionToken(token: string): Promise<User | null> 
 
     if (keyCandidates.length === 0) {
       console.warn("[Session] No matching keys found for token");
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId: tenant || ENV.appId || undefined,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "missing_signing_key", kid: headerKid },
+      });
       return null;
     }
 
@@ -107,6 +166,7 @@ export async function validateSessionToken(token: string): Promise<User | null> 
           algorithms: ["HS256"],
           issuer,
           audience,
+          clockTolerance: SESSION_CLOCK_TOLERANCE_SECONDS,
         }) as SessionClaims;
         break;
       } catch (error) {
@@ -115,19 +175,84 @@ export async function validateSessionToken(token: string): Promise<User | null> 
       }
     }
 
-    if (!payload?.sub) {
+    if (!payload?.sub || !payload.exp || !payload.iat) {
+      await logAuditEvent({
+        actor: payload?.sub || "anonymous",
+        tenantId: payload?.tenant || tenant || ENV.appId || undefined,
+        organizationId: payload?.org,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "missing_required_claims" },
+      });
+      return null;
+    }
+
+    if (tenant && payload.tenant !== tenant) {
+      console.warn("[Session] Token tenant mismatch");
+      await logAuditEvent({
+        actor: payload.sub,
+        tenantId: payload.tenant || tenant || ENV.appId || undefined,
+        organizationId: payload.org,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: {
+          reason: "tenant_mismatch",
+          expectedTenant: tenant,
+          tokenTenant: payload.tenant,
+        },
+      });
       return null;
     }
 
     if (payload.tenant && ENV.appId && payload.tenant !== ENV.appId) {
-      console.warn("[Session] Token tenant mismatch");
+      console.warn("[Session] Token app mismatch");
+      await logAuditEvent({
+        actor: payload.sub,
+        tenantId: payload.tenant,
+        organizationId: payload.org,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: {
+          reason: "app_mismatch",
+          expectedAppId: ENV.appId,
+          tokenTenant: payload.tenant,
+        },
+      });
       return null;
     }
 
     const user = await getUserByOpenId(payload.sub);
+    await logAuditEvent({
+      actor: payload.sub,
+      tenantId: payload.tenant || tenant || ENV.appId || undefined,
+      organizationId: payload.org,
+      action: "session.validate",
+      result: user ? "success" : "failure",
+      ipAddress: requestContext?.ipAddress,
+      userAgent: requestContext?.userAgent,
+      details: { reason: user ? "validated" : "user_not_found" },
+    });
     return user || null;
   } catch (error) {
     console.error("[Session] Failed to validate token:", error);
+    await logAuditEvent({
+      actor: "anonymous",
+      tenantId: ENV.appId || undefined,
+      action: "session.validate",
+      result: "failure",
+      ipAddress: requestContext?.ipAddress,
+      userAgent: requestContext?.userAgent,
+      details: {
+        reason: "validation_exception",
+        error: error instanceof Error ? error.message : "unknown_error",
+      },
+    });
     return null;
   }
 }
@@ -137,15 +262,32 @@ export async function validateSessionToken(token: string): Promise<User | null> 
  */
 export function createSessionToken(openId: string): string {
   const keys = getSessionKeys();
-  const issuer = getSessionIssuer();
-  const audience = getSessionAudience();
-  const ttlSeconds = getSessionTtlSeconds();
-  const tenant = getSessionTenant();
+  const { issuer, audience, ttlSeconds, tenant } = getSessionVerificationConfig();
 
-  const primaryKey = keys[0];
+  const primaryKey = getPrimarySigningKey(keys);
   const payload: SessionClaims = {
     sub: openId,
     tenant: tenant || undefined,
+  };
+
+  return jwt.sign(payload, primaryKey.secret, {
+    algorithm: "HS256",
+    expiresIn: ttlSeconds,
+    issuer,
+    audience,
+    keyid: primaryKey.kid,
+  });
+}
+
+export function createSessionTokenWithContext(openId: string, context: SessionTokenContext): string {
+  const keys = getSessionKeys();
+  const { issuer, audience, ttlSeconds, tenant } = getSessionVerificationConfig();
+  const primaryKey = getPrimarySigningKey(keys);
+
+  const payload: SessionClaims = {
+    sub: openId,
+    tenant: context.tenant || tenant || undefined,
+    org: context.organizationId || undefined,
   };
 
   return jwt.sign(payload, primaryKey.secret, {

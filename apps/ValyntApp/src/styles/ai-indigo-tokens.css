@@ -3,18 +3,25 @@
  * ============================================ */
 
 @keyframes agent-glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 hsl(var(--valueos-primary) / 0.25), 0 0 16px 4px hsl(var(--valueos-primary) / 0.18);
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 hsl(var(--valueos-primary) / 0.25),
+      0 0 16px 4px hsl(var(--valueos-primary) / 0.18);
   }
   50% {
-    box-shadow: 0 0 0 6px hsl(var(--valueos-primary) / 0.12), 0 0 32px 8px hsl(var(--valueos-primary) / 0.32);
+    box-shadow:
+      0 0 0 6px hsl(var(--valueos-primary) / 0.12),
+      0 0 32px 8px hsl(var(--valueos-primary) / 0.32);
   }
 }
 
 [data-theme="ai-indigo"] .agent-glow,
 [data-theme="ai-indigo"].agent-glow {
   animation: agent-glow-pulse 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  box-shadow: 0 0 0 0 hsl(var(--valueos-primary) / 0.25), 0 0 16px 4px hsl(var(--valueos-primary) / 0.18);
+  box-shadow:
+    0 0 0 0 hsl(var(--valueos-primary) / 0.25),
+    0 0 16px 4px hsl(var(--valueos-primary) / 0.18);
 }
 @import "./valueos-palette.css";
 
@@ -54,6 +61,12 @@
   --color-pulse-warning: hsl(var(--valueos-warning) / 0.5);
   --color-pulse-error: hsl(var(--valueos-error) / 0.5);
 
+  /* Canonical semantic status aliases */
+  --status-success: hsl(var(--valueos-success));
+  --status-warning: hsl(var(--valueos-warning));
+  --status-error: hsl(var(--valueos-error));
+  --status-info: hsl(var(--valueos-primary));
+
   /* ============================================
    * SEMANTIC COLORS
    * ============================================ */
@@ -86,11 +99,11 @@
 
   /* 7-State Agentic Model */
   --state-idle: hsl(var(--valueos-primary));
-  --state-clarify: hsl(var(--valueos-warning));
+  --state-clarify: var(--status-warning);
   --state-plan: hsl(var(--valueos-secondary));
   --state-execute: hsl(var(--valueos-primary));
   --state-review: hsl(var(--valueos-accent));
-  --state-finalize: hsl(var(--valueos-success));
+  --state-finalize: var(--status-success);
   --state-resume: hsl(var(--valueos-secondary));
 
   /* State Glows */
@@ -110,21 +123,28 @@
   --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
 
   /* Display (Hero/Headlines) */
-  --text-display-xl: var(--type-display-xl);
-  --text-display-lg: var(--type-display-lg);
-  --text-display-md: var(--type-display-md);
+  --text-display-xl: var(--font-size-display-xl);
+  --text-display-lg: var(--font-size-display-lg);
+  --text-display-md: var(--font-size-display-md);
 
   /* Headings */
-  --text-heading-xl: var(--type-heading-xl);
-  --text-heading-lg: var(--type-heading-lg);
-  --text-heading-md: var(--type-heading-md);
-  --text-heading-sm: var(--type-heading-sm);
+  --text-heading-xl: var(--font-size-heading-xl);
+  --text-heading-lg: var(--font-size-heading-lg);
+  --text-heading-md: var(--font-size-heading-md);
+  --text-heading-sm: var(--font-size-heading-sm);
 
   /* Body */
-  --text-body-lg: var(--type-body-lg);
-  --text-body-md: var(--type-body-md);
-  --text-body-sm: var(--type-body-sm);
-  --text-body-xs: var(--type-body-xs);
+  --text-body-lg: var(--font-size-body-lg);
+  --text-body-md: var(--font-size-body-md);
+  --text-body-sm: var(--font-size-body-sm);
+  --text-body-xs: var(--font-size-body-xs);
+  --text-caption: var(--font-size-caption);
+
+  /* Line heights */
+  --text-display-line-height: var(--line-height-display-md);
+  --text-heading-line-height: var(--line-height-heading-md);
+  --text-body-line-height: var(--line-height-body-md);
+  --text-caption-line-height: var(--line-height-caption-sm);
 
   /* ============================================
    * SPACING SCALE
@@ -316,7 +336,6 @@
 [data-theme="ai-indigo"].layer-base {
   background: var(--bg-primary);
 }
-
 
 [data-theme="ai-indigo"] .layer-surface,
 [data-theme="ai-indigo"].layer-surface {

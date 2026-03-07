@@ -1,0 +1,24 @@
+@layer utilities {
+  .icon-sm {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .icon-md {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .icon-lg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .icon-muted {
+    color: var(--color-muted-foreground);
+  }
+
+  .icon-accent {
+    color: var(--color-primary);
+  }
+}

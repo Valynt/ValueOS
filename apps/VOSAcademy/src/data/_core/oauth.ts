@@ -5,7 +5,8 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { upsertUser } from "../db";
 
 import { COOKIE_NAME, getSessionCookieOptions } from "./cookies";
-import { createSessionToken, parseCookies } from "./session";
+import { createSessionTokenWithContext, parseCookies } from "./session";
+import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 interface OAuthUserInfo {
   openId: string;
@@ -20,6 +21,14 @@ interface OAuthStatePayload {
   redirectUri: string;
   returnTo: string;
   createdAt: number;
+}
+
+interface OpenIdConfig {
+  issuer?: string;
+  authorization_endpoint?: string;
+  token_endpoint?: string;
+  userinfo_endpoint?: string;
+  jwks_uri?: string;
 }
 
 const OAUTH_STATE_COOKIE = "vosacademy_oauth_state";
@@ -110,13 +119,13 @@ function buildCookie(value: string, req: any, maxAgeSeconds: number): string {
   return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(value)}; Path=${options.path || "/"}; Max-Age=${maxAgeSeconds}; HttpOnly; ${options.secure ? "Secure;" : ""} ${options.sameSite ? `SameSite=${options.sameSite};` : ""}`;
 }
 
-async function fetchOpenIdConfig(oauthPortalUrl: string): Promise<Record<string, any> | null> {
+async function fetchOpenIdConfig(oauthPortalUrl: string): Promise<OpenIdConfig | null> {
   try {
     const response = await fetch(`${oauthPortalUrl}/.well-known/openid-configuration`);
     if (!response.ok) {
       return null;
     }
-    return (await response.json()) as Record<string, any>;
+    return (await response.json()) as OpenIdConfig;
   } catch (error) {
     console.warn("[OAuth] Failed to load OpenID configuration", error);
     return null;
@@ -154,11 +163,19 @@ async function validateIdToken(idToken: string, issuer: string, audience: string
   }
 
   try {
-    return jwt.verify(idToken, key, {
+    const payload = jwt.verify(idToken, key, {
+      algorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
       issuer,
       audience,
       clockTolerance: 5,
     }) as JwtPayload;
+
+    if (typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now()) {
+      console.error("[OAuth] ID token is expired");
+      return null;
+    }
+
+    return payload;
   } catch (error) {
     console.error("[OAuth] ID token validation failed", error);
     return null;
@@ -217,6 +234,11 @@ async function exchangeCodeForUserInfo(code: string, codeVerifier: string, redir
       return null;
     }
 
+    if (tokenData.token_type && tokenData.token_type.toLowerCase() !== "bearer") {
+      console.error("[OAuth] Unsupported token type", tokenData.token_type);
+      return null;
+    }
+
     const idTokenPayload = await validateIdToken(tokenData.id_token, issuer, process.env.OAUTH_AUDIENCE || appId, jwksUri);
     if (!idTokenPayload) {
       return null;
@@ -239,8 +261,14 @@ async function exchangeCodeForUserInfo(code: string, codeVerifier: string, redir
       email?: string;
     };
 
+    const openId = userInfo.sub || (idTokenPayload.sub as string);
+    if (!openId || (userInfo.sub && idTokenPayload.sub && userInfo.sub !== idTokenPayload.sub)) {
+      console.error("[OAuth] Subject mismatch between ID token and userinfo");
+      return null;
+    }
+
     return {
-      openId: userInfo.sub || (idTokenPayload.sub as string),
+      openId,
       name: userInfo.name || (idTokenPayload.name as string),
       email: userInfo.email || (idTokenPayload.email as string),
       loginMethod: "oauth",
@@ -283,11 +311,15 @@ export async function handleOAuthLogin(req: any, res: any): Promise<{ success: b
 
     res.setHeader("Set-Cookie", buildCookie(signedState, req, OAUTH_STATE_MAX_AGE_SECONDS));
 
-    const authUrl = new URL(`${oauthPortalUrl}/app-auth`);
-    authUrl.searchParams.set("appId", appId);
-    authUrl.searchParams.set("redirectUri", redirectUri);
+    const openIdConfig = await fetchOpenIdConfig(oauthPortalUrl);
+    const authorizationEndpoint = openIdConfig?.authorization_endpoint || `${oauthPortalUrl}/app-auth`;
+
+    const authUrl = new URL(authorizationEndpoint);
+    authUrl.searchParams.set("client_id", appId);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("scope", "openid profile email");
     authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("type", "signIn");
     authUrl.searchParams.set("code_challenge", codeChallenge);
     authUrl.searchParams.set("code_challenge_method", "S256");
 
@@ -304,29 +336,84 @@ export async function handleOAuthCallback(
   req: any,
   res: any
 ): Promise<{ success: boolean; redirectUrl: string }> {
+  const requestContext = getAuditRequestContext(req);
+  const tenantId = process.env.SESSION_JWT_TENANT || process.env.VITE_APP_ID || undefined;
+
   try {
+    const clearOAuthCookie = buildCookie("", req, 0);
+
     if (!code || !state) {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "missing_code_or_state" },
+      });
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_failed" };
     }
 
     const cookies = parseCookies(req.headers?.cookie);
     const signedState = cookies[OAUTH_STATE_COOKIE];
     if (!signedState) {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "missing_state_cookie" },
+      });
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     const statePayload = verifyOAuthState(signedState);
     if (!statePayload || statePayload.state !== state) {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "state_mismatch" },
+      });
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     if (Date.now() - statePayload.createdAt > OAUTH_STATE_MAX_AGE_SECONDS * 1000) {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "state_expired" },
+      });
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return { success: false, redirectUrl: "/?error=oauth_state" };
     }
 
     const userInfo = await exchangeCodeForUserInfo(code, statePayload.codeVerifier, statePayload.redirectUri);
 
     if (!userInfo?.openId) {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId,
+        action: "oauth.callback",
+        result: "failure",
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: { reason: "userinfo_exchange_failed" },
+      });
+      res.setHeader("Set-Cookie", clearOAuthCookie);
       return {
         success: false,
         redirectUrl: "/?error=oauth_failed",
@@ -341,13 +428,23 @@ export async function handleOAuthCallback(
       lastSignedIn: new Date(),
     });
 
-    const sessionToken = createSessionToken(userInfo.openId);
+    const sessionToken = createSessionTokenWithContext(userInfo.openId, {
+      tenant: process.env.SESSION_JWT_TENANT || process.env.VITE_APP_ID || undefined,
+    });
 
     const cookieOptions = getSessionCookieOptions(req);
     const sessionCookie = `${COOKIE_NAME}=${sessionToken}; Path=${cookieOptions.path || "/"}; Max-Age=${cookieOptions.maxAge}; HttpOnly; ${cookieOptions.secure ? "Secure;" : ""} ${cookieOptions.sameSite ? `SameSite=${cookieOptions.sameSite};` : ""}`;
-    const clearOAuthCookie = buildCookie("", req, 0);
-
     res.setHeader("Set-Cookie", [sessionCookie, clearOAuthCookie]);
+
+    await logAuditEvent({
+      actor: userInfo.openId,
+      tenantId,
+      action: "oauth.callback",
+      result: "success",
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      details: { redirectTo: statePayload.returnTo || "/dashboard" },
+    });
 
     return {
       success: true,
@@ -355,6 +452,19 @@ export async function handleOAuthCallback(
     };
   } catch (error) {
     console.error("[OAuth] Callback handling failed:", error);
+    await logAuditEvent({
+      actor: "anonymous",
+      tenantId,
+      action: "oauth.callback",
+      result: "failure",
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      details: {
+        reason: "callback_exception",
+        error: error instanceof Error ? error.message : "unknown_error",
+      },
+    });
+    res.setHeader("Set-Cookie", buildCookie("", req, 0));
     return {
       success: false,
       redirectUrl: "/?error=server_error",

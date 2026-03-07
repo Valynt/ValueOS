@@ -51,7 +51,7 @@ export function KpiCard({
           </div>
           {Icon && (
             <div className="h-8 w-8 flex items-center justify-center rounded-lg bg-primary/10">
-              <Icon className="h-4 w-4 text-primary" />
+              <Icon className="icon-sm icon-accent" />
             </div>
           )}
         </div>

@@ -21,6 +21,8 @@ import { AuthenticatedRequest, requireAuth, requireRole } from '../../middleware
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
+import { hypothesisOutputService } from '../../services/HypothesisOutputService.js'
+import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/CaseValueTreeService.js'
 
 import { 
   ConflictError,
@@ -389,6 +391,121 @@ router.delete(
   requireRole(['admin']),
   validateUuidParam('caseId'),
   deleteCase
+);
+
+// ============================================================================
+// Hypothesis Output Routes
+// ============================================================================
+
+// GET /cases/:caseId/hypothesis — latest hypothesis output for a case
+router.get(
+  '/:caseId/hypothesis',
+  standardLimiter,
+  requireRole(['admin', 'member', 'viewer']),
+  validateUuidParam('caseId'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { caseId } = req.params;
+    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+    if (!organizationId) {
+      res.status(401).json({ error: 'Missing tenant context' });
+      return;
+    }
+
+    try {
+      const output = await hypothesisOutputService.getLatestForCase(caseId, organizationId);
+      if (!output) {
+        res.status(404).json({ data: null, message: 'No hypothesis output found for this case' });
+        return;
+      }
+      res.json({ data: output });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ============================================================================
+// Value Tree Routes
+// ============================================================================
+
+// GET /cases/:caseId/value-tree — all nodes for a case
+router.get(
+  '/:caseId/value-tree',
+  standardLimiter,
+  requireRole(['admin', 'member', 'viewer']),
+  validateUuidParam('caseId'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { caseId } = req.params;
+    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+    if (!organizationId) {
+      res.status(401).json({ error: 'Missing tenant context' });
+      return;
+    }
+
+    try {
+      const nodes = await caseValueTreeService.getTree(caseId, organizationId);
+      res.json({ data: nodes });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// PATCH /cases/:caseId/value-tree — replace full tree or upsert a single node
+router.patch(
+  '/:caseId/value-tree',
+  standardLimiter,
+  requireRole(['admin', 'member']),
+  validateUuidParam('caseId'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { caseId } = req.params;
+    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+    if (!organizationId) {
+      res.status(401).json({ error: 'Missing tenant context' });
+      return;
+    }
+
+    try {
+      const body = req.body as unknown;
+
+      // If body has a `nodes` array, replace the full tree
+      if (
+        body !== null &&
+        typeof body === 'object' &&
+        'nodes' in body &&
+        Array.isArray((body as Record<string, unknown>).nodes)
+      ) {
+        const { nodes } = body as { nodes: unknown[] };
+        const validated = nodes.map((n) =>
+          ValueTreeNodeInputSchema.omit({ case_id: true, organization_id: true }).parse(n)
+        );
+        const result = await caseValueTreeService.replaceTree(caseId, organizationId, validated);
+        res.json({ data: result });
+        return;
+      }
+
+      // Otherwise treat body as a single node upsert
+      const node = ValueTreeNodeInputSchema.parse({
+        ...(body as object),
+        case_id: caseId,
+        organization_id: organizationId,
+      });
+      const result = await caseValueTreeService.upsertNode(node);
+      res.json({ data: result });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        res.status(400).json({ error: 'Invalid node data', details: err.errors });
+        return;
+      }
+      next(err);
+    }
+  }
 );
 
 // Error handler

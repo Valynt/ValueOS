@@ -58,7 +58,7 @@
 - [x] Refactor enrichment logic into reusable service functions
 - [x] Wire agent tool executor to call live SEC/BLS/Census/Yahoo/LinkedIn APIs
 - [x] Update tests for live tool execution integration
-- [ ] Push live agent tools to GitHub
+- [x] Push live agent tools to GitHub (pushed to manus-saas-ui branch)
 - [x] Update Strategy page content to reflect completed migration (past tense, not future)
 - [x] Incorporate strategic review feedback (SDK Removal Paradox response, DeepSeek-R1 parsing, context window optimization, risk mitigations, updated model-to-agent mapping)
 - [x] Fix ON THIS PAGE sidebar overlap with main nav sidebar
@@ -73,3 +73,27 @@
 - [x] Add tool call visibility to frontend chat UI (round progress bar, chain summary card, per-tool status chips)
 - [x] Write vitest tests for multi-round tool calling loop (10 tests passing)
 - [x] Verify end-to-end multi-round agent flow — 63 total tests passing across 7 test files
+- [x] Complete Enterprise SaaS Quality, Security & Design Assessment (8 areas, composite score 3.75/5)
+- [x] Compile assessment report with scores, strengths, gaps, and recommendations
+- [x] Save checkpoint for permanent deployment
+- [x] Create standardized reusable component library (StatCard, SectionCard, StatusBadge, ActivityItem, DataTable, PageHeader, SearchToolbar, EmptyState)
+- [x] Refactor Dashboard/Home page with standardized stat widgets, trend indicators, and clean grid layout
+- [x] Refactor Cases and Agents pages with consistent card patterns and spacing
+- [x] Clean up sidebar navigation with auth integration, collapse toggle, and tooltips
+- [x] Extract custom hooks: useSearch (filtering), useViewToggle (list/grid persistence)
+- [x] Standardize component composition patterns (barrel exports, typed interfaces, compound components)
+- [x] Apply consistent spacing system (p-8/space-y-8), standardized font scale (text-xs/text-sm/text-base), and border-radius tokens
+- [x] Ensure all components follow React best practices — 84 tests passing across 8 test files
+- [x] Add profile fields to user schema (displayName, avatarUrl, bio, company, jobTitle, timezone, preferences)
+- [x] Create tRPC profile procedures (get, update, updatePreferences)
+- [x] Build Profile page UI with account details, edit forms, notification preferences, and danger zone
+- [x] Wire /profile route and add clickable user avatar in sidebar
+- [x] Write vitest tests for profile procedures (23 tests passing)
+- [x] Verify end-to-end profile flow — 107 total tests passing across 9 test files
+- [x] Add conversations and messages tables to database schema
+- [x] Create tRPC procedures for conversation CRUD (list, get, create, update, delete, saveMessage)
+- [x] Frontend-side persistence via tRPC mutations (keeps SSE endpoint stateless)
+- [x] Update AgentChatSidebar to load/restore conversations on mount
+- [x] Add conversation history panel with pinned/recent sections, new chat, delete, pin/unpin
+- [x] Write vitest tests for conversation persistence (17 tests passing)
+- [x] Verify end-to-end — 122 total tests passing across 10 test files

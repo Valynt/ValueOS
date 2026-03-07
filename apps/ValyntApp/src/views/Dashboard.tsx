@@ -12,8 +12,10 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
+import { useCreateCase } from "@/hooks/useCases";
 import { cn } from "@/lib/utils";
 
 // -- Active case card (the primary object) --
@@ -90,6 +92,27 @@ function CaseCard({
 
 // -- Quick start card --
 function QuickStart() {
+  const [companyName, setCompanyName] = useState("");
+  const navigate = useNavigate();
+  const createCase = useCreateCase();
+
+  const handleGo = async () => {
+    const name = companyName.trim();
+    if (!name) return;
+
+    const newCase = await createCase.mutateAsync({
+      name: `${name} — Value Case`,
+      status: "draft",
+      metadata: { company_name: name },
+    });
+
+    navigate(`/workspace/${newCase.id}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleGo();
+  };
+
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-4">
@@ -104,14 +127,27 @@ function QuickStart() {
       <div className="flex items-center gap-2">
         <input
           type="text"
+          value={companyName}
+          onChange={(e) => setCompanyName(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="e.g. Acme Corp, Snowflake, Stripe..."
           className="flex-1 px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-zinc-50 placeholder:text-zinc-400 placeholder:italic placeholder:font-light outline-none focus:border-zinc-400 focus:bg-white transition-colors"
+          disabled={createCase.isPending}
         />
-        <button className="px-5 py-3 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors flex items-center gap-2">
+        <button
+          onClick={handleGo}
+          disabled={!companyName.trim() || createCase.isPending}
+          className="px-5 py-3 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Play className="w-4 h-4" />
-          Go
+          {createCase.isPending ? "Creating…" : "Go"}
         </button>
       </div>
+      {createCase.isError && (
+        <p className="mt-2 text-[12px] text-red-500">
+          Failed to create case. Please try again.
+        </p>
+      )}
     </div>
   );
 }

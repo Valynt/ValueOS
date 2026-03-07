@@ -1,1 +1,28 @@
-/* Motion and shadow design tokens — shared across apps */
+/* Motion and elevation design tokens — shared across apps */
+:root {
+  /* Canonical motion durations */
+  --motion-duration-micro: 120ms;
+  --motion-duration-standard: 220ms;
+  --motion-duration-page: 360ms;
+
+  /* Canonical easing curves */
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+  --motion-ease-decelerate: cubic-bezier(0, 0, 0, 1);
+  --motion-ease-pulse: ease-in-out;
+  --motion-ease-linear: linear;
+
+  /* Semantic elevation scale */
+  --shadow-1: 0 1px 2px hsl(220 40% 2% / 0.24);
+  --shadow-2: 0 4px 12px hsl(220 40% 2% / 0.24);
+  --shadow-3: 0 10px 24px hsl(220 40% 2% / 0.28);
+  --shadow-4: 0 16px 40px hsl(220 40% 2% / 0.34);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-micro: 1ms;
+    --motion-duration-standard: 1ms;
+    --motion-duration-page: 1ms;
+  }
+}

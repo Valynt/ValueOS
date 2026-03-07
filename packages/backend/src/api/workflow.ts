@@ -10,6 +10,10 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
 import { createBillingAccessEnforcement } from '../middleware/billingAccessEnforcement.js'
+import {
+  getTenantIdFromRequest,
+  ReadThroughCacheService,
+} from "../services/ReadThroughCacheService.js"
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -30,20 +34,34 @@ router.get(
   rateLimiters.standard,
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    // Mock response until persistence layer is ready
-    const workflow = {
-      id,
-      name: "Untitled Workflow",
-      status: "draft",
-      steps: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const tenantId = getTenantIdFromRequest(req as any);
 
-    return res.json({
-      success: true,
-      data: workflow,
-    });
+    const payload = await ReadThroughCacheService.getOrLoad(
+      {
+        tenantId,
+        endpoint: "api-workflows-detail",
+        scope: id,
+        tier: "hot",
+      },
+      async () => {
+        // Mock response until persistence layer is ready
+        const workflow = {
+          id,
+          name: "Untitled Workflow",
+          status: "draft",
+          steps: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        return {
+          success: true,
+          data: workflow,
+        };
+      }
+    );
+
+    return res.json(payload);
   }
 );
 
@@ -127,16 +145,28 @@ router.get(
         (typeof nestedResult.confidence_score === 'number' ? nestedResult.confidence_score : undefined) ??
         null;
 
-      return res.json({
-        success: true,
-        data: {
-          workflow_id: executionId,
-          step_id: stepId,
-          reasoning,
-          evidence,
-          confidence_score: confidence,
+      const tenantId = getTenantIdFromRequest(req as any);
+      const payload = await ReadThroughCacheService.getOrLoad(
+        {
+          tenantId,
+          endpoint: "api-workflows-explain",
+          scope: `${executionId}:${stepId}`,
+          tier: "hot",
+          keyPayload: { confidence, evidenceCount: evidence.length },
         },
-      });
+        async () => ({
+          success: true,
+          data: {
+            workflow_id: executionId,
+            step_id: stepId,
+            reasoning,
+            evidence,
+            confidence_score: confidence,
+          },
+        })
+      );
+
+      return res.json(payload);
     } catch (err) {
       logger.error('Failed to generate workflow explanation', err instanceof Error ? err : undefined, {
         executionId,
