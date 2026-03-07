@@ -67,18 +67,19 @@ describe("Supabase RLS policy matrix hard gate", () => {
       createPayload: tenantId => ({
         id: "sec-value-case-a",
         tenant_id: tenantId,
-        title: "Security value case",
+        name: "Security value case",
         description: "RLS matrix",
-        status: "active",
+        status: "draft",
       }),
     },
   ];
 
   for (const target of targets) {
     it(`enforces standardized cross-tenant semantics on ${target.table}`, async () => {
-      await fixture.adminClient
+      const { error: insertError } = await fixture.adminClient
         .from(target.table)
         .insert(target.createPayload(fixture.tenantOne.tenantId));
+      expect(insertError).toBeNull();
 
       const { data: readData, error: readError } =
         await fixture.tenantTwo.client
