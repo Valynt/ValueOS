@@ -6,8 +6,10 @@ import {
   FileSearch,
   Layers,
   Lightbulb,
+  Loader2,
   Minus,
   Package,
+  Play,
   Plus,
   Sparkles,
   Swords,
@@ -20,7 +22,9 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
-import { type MergedKPI, useHardenAllKPIs, useHardenKPI, useMergedContext } from "@/hooks/useDomainPacks";
+import { useHardenAllKPIs, useHardenKPI, useMergedContext } from "@/hooks/useDomainPacks";
+import { useHypothesisOutput, useRunHypothesisAgent } from "@/hooks/useHypothesis";
+import type { ValueHypothesis } from "@/hooks/useHypothesis";
 import { cn } from "@/lib/utils";
 
 // Inline-editable text field
@@ -277,40 +281,32 @@ function DomainPackAssumptions() {
   );
 }
 
-export function HypothesisStage() {
-  const { companyContext, isReady } = useCompanyValueContext();
+interface HypothesisStageProps {
+  /** Called with the jobId when an agent run is started. */
+  onRunStarted?: (runId: string) => void;
+}
 
-  const [hypotheses, setHypotheses] = useState([
-    {
-      id: "h1",
-      text: "Acme's legacy infrastructure costs $45M/yr to maintain — migration could cut this by 60%",
-      confidence: 82,
-      source: "EDGAR 10-K + Gartner benchmark",
-      status: "verified" as const,
-      evidence: ["10-K FY2025 filing", "Gartner IT Spending Benchmark 2025"],
-    },
-    {
-      id: "h2",
-      text: "APAC expansion is blocked by on-prem scalability — cloud migration unblocks $2.1M in new revenue",
-      confidence: 68,
-      source: "Earnings call + customer interview",
-      status: "needs-evidence" as const,
-      evidence: ["Q3 2025 Earnings Call Transcript"],
-    },
-    {
-      id: "h3",
-      text: "Current 99.2% uptime is insufficient for APAC SLA requirements (99.95% needed)",
-      confidence: 91,
-      source: "Customer RFP + SLA docs",
-      status: "verified" as const,
-      evidence: ["Customer RFP v2.1", "Current SLA Dashboard Export"],
-    },
-  ]);
+export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
+  const { caseId } = useParams<{ caseId: string }>();
+  const { companyContext } = useCompanyValueContext();
 
-  const statusConfig = {
-    verified: { label: "Verified", color: "text-emerald-700", bg: "bg-emerald-50", icon: Check },
-    "needs-evidence": { label: "Needs Evidence", color: "text-amber-700", bg: "bg-amber-50", icon: AlertTriangle },
-    draft: { label: "Draft", color: "text-zinc-500", bg: "bg-zinc-100", icon: Edit3 },
+  const { data: hypothesisOutput, isLoading, isError } = useHypothesisOutput(caseId);
+  const runAgent = useRunHypothesisAgent(caseId);
+
+  const hypotheses: ValueHypothesis[] = hypothesisOutput?.hypotheses ?? [];
+
+  const confidenceToPercent = (c: number) => Math.round(c * 100);
+
+  const handleRunStage = () => {
+    const companyName = companyContext?.context.company_name;
+    runAgent.mutate(
+      { companyName, query: companyName ? `Analyze value opportunities for ${companyName}` : undefined },
+      {
+        onSuccess: (data) => {
+          if (data.runId) onRunStarted?.(data.runId);
+        },
+      },
+    );
   };
 
   return (
@@ -320,55 +316,130 @@ export function HypothesisStage() {
         <div className="flex items-center gap-2">
           <Lightbulb className="w-4 h-4 text-blue-600" />
           <h4 className="text-[13px] font-semibold text-zinc-900">Hypotheses</h4>
-          <span className="text-[11px] text-zinc-400">{hypotheses.length} claims</span>
+          {!isLoading && (
+            <span className="text-[11px] text-zinc-400">{hypotheses.length} claims</span>
+          )}
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-zinc-300 rounded-xl text-[12px] text-zinc-500 hover:border-zinc-400 hover:text-zinc-700 transition-colors">
-          <Plus className="w-3 h-3" />
-          Add Hypothesis
+        <button
+          onClick={handleRunStage}
+          disabled={runAgent.isPending || isLoading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 text-white rounded-xl text-[12px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {runAgent.isPending ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Play className="w-3 h-3" />
+          )}
+          {runAgent.isPending ? "Running…" : hypotheses.length > 0 ? "Re-run Stage" : "Run Stage"}
         </button>
       </div>
 
-      {/* Hypothesis cards */}
-      <div className="space-y-3">
-        {hypotheses.map((h) => {
-          const st = statusConfig[h.status];
-          const StIcon = st.icon;
-          return (
-            <div key={h.id} className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-colors">
-              {/* Status + confidence row */}
-              <div className="flex items-center justify-between mb-3">
-                <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", st.color, st.bg)}>
-                  <StIcon className="w-3 h-3" />
-                  <span>{st.label}</span>
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-zinc-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          <span className="text-[13px]">Loading hypothesis data…</span>
+        </div>
+      )}
+
+      {/* Error state */}
+      {isError && !isLoading && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-[13px] text-red-700">
+          Failed to load hypothesis data. Try running the stage again.
+        </div>
+      )}
+
+      {/* Agent running state */}
+      {runAgent.isPending && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
+          <Loader2 className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0" />
+          <div>
+            <p className="text-[13px] font-medium text-blue-900">Opportunity Agent running…</p>
+            <p className="text-[11px] text-blue-600 mt-0.5">Fetching financial data and generating hypotheses</p>
+          </div>
+        </div>
+      )}
+
+      {/* Agent error */}
+      {runAgent.isError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-[13px] text-red-700">
+          Agent run failed: {runAgent.error?.message ?? "Unknown error"}
+        </div>
+      )}
+
+      {/* Empty state — no run yet */}
+      {!isLoading && !runAgent.isPending && hypotheses.length === 0 && (
+        <div className="bg-zinc-50 border border-dashed border-zinc-300 rounded-2xl p-8 text-center">
+          <Lightbulb className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
+          <p className="text-[14px] font-medium text-zinc-600">No hypotheses yet</p>
+          <p className="text-[12px] text-zinc-400 mt-1">Click "Run Stage" to have the Opportunity Agent generate value hypotheses.</p>
+        </div>
+      )}
+
+      {/* Hypothesis cards — live data */}
+      {hypotheses.length > 0 && (
+        <div className="space-y-3">
+          {hypotheses.map((h, i) => {
+            const confidencePct = confidenceToPercent(h.confidence);
+            const status = confidencePct >= 75 ? "verified" : confidencePct >= 50 ? "needs-evidence" : "draft";
+            const statusConfig = {
+              verified: { label: "Verified", color: "text-emerald-700", bg: "bg-emerald-50", icon: Check },
+              "needs-evidence": { label: "Needs Evidence", color: "text-amber-700", bg: "bg-amber-50", icon: AlertTriangle },
+              draft: { label: "Draft", color: "text-zinc-500", bg: "bg-zinc-100", icon: Edit3 },
+            };
+            const st = statusConfig[status];
+            const StIcon = st.icon;
+
+            return (
+              <div key={`${h.title}-${i}`} className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-colors">
+                {/* Status + confidence row */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold", st.color, st.bg)}>
+                    <StIcon className="w-3 h-3" />
+                    <span>{st.label}</span>
+                  </div>
+                  <ConfidenceBadge value={confidencePct} source={h.category} />
                 </div>
-                <ConfidenceBadge value={h.confidence} source={h.source} />
-              </div>
 
-              {/* Hypothesis text — editable */}
-              <p className="text-[14px] text-zinc-800 leading-relaxed mb-3">
-                <EditableField value={h.text} onSave={(v) => {
-                  setHypotheses(prev => prev.map(x => x.id === h.id ? { ...x, text: v } : x));
-                }} />
-              </p>
+                {/* Title + description */}
+                <p className="text-[14px] font-semibold text-zinc-900 mb-1">{h.title}</p>
+                <p className="text-[13px] text-zinc-600 leading-relaxed mb-3">{h.description}</p>
 
-              {/* Evidence chain */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Evidence:</span>
-                {h.evidence.map((e) => (
-                  <span key={e} className="flex items-center gap-1 px-2 py-0.5 bg-zinc-50 border border-zinc-100 rounded-md text-[10px] text-zinc-600 cursor-pointer hover:bg-zinc-100 transition-colors">
-                    <FileSearch className="w-2.5 h-2.5" />
-                    {e}
-                  </span>
-                ))}
-                <button className="flex items-center gap-1 px-2 py-0.5 border border-dashed border-zinc-200 rounded-md text-[10px] text-zinc-400 hover:text-zinc-600 hover:border-zinc-300 transition-colors">
-                  <Plus className="w-2.5 h-2.5" />
-                  Link
-                </button>
+                {/* Impact range */}
+                {h.estimated_impact && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Impact:</span>
+                    <span className="text-[12px] font-medium text-zinc-700">
+                      {h.estimated_impact.low}–{h.estimated_impact.high} {h.estimated_impact.unit}
+                      {" "}over {h.estimated_impact.timeframe_months}mo
+                    </span>
+                  </div>
+                )}
+
+                {/* Evidence chain */}
+                {h.evidence.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Evidence:</span>
+                    {h.evidence.map((e) => (
+                      <span key={e} className="flex items-center gap-1 px-2 py-0.5 bg-zinc-50 border border-zinc-100 rounded-md text-[10px] text-zinc-600">
+                        <FileSearch className="w-2.5 h-2.5" />
+                        {e}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Metadata footer when output exists */}
+      {hypothesisOutput && (
+        <div className="text-[11px] text-zinc-400 text-right">
+          Last run: {new Date(hypothesisOutput.created_at).toLocaleString()} · confidence: {hypothesisOutput.confidence ?? "—"}
+        </div>
+      )}
 
       {/* Domain Pack KPIs — ghost suggestions from the selected pack */}
       <DomainPackKPIs />

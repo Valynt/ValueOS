@@ -17,6 +17,7 @@ import type { DomainContext } from '../../../agents/context/loadDomainContext.js
 import { featureFlags } from '../../../config/featureFlags.js';
 import { mcpGroundTruthService } from '../../../services/MCPGroundTruthService.js';
 import type { FinancialDataResult } from '../../../services/MCPGroundTruthService.js';
+import { hypothesisOutputService } from '../../../services/HypothesisOutputService.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -111,6 +112,12 @@ export class OpportunityAgent extends BaseAgent {
     // Step 3: Store hypotheses in memory for downstream agents
     await this.storeHypothesesInMemory(context, analysis);
 
+    // Step 3b: Persist hypothesis output to Supabase for frontend retrieval
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId && context.organization_id) {
+      await this.persistHypothesisOutput(context, valueCaseId, analysis);
+    }
+
     // Step 4: Build SDUI page sections
     const sduiSections = this.buildSDUISections(analysis, financialData);
 
@@ -162,9 +169,7 @@ export class OpportunityAgent extends BaseAgent {
     }
 
     try {
-      // Pass supabase client from context if available (set by orchestrator)
-      const supabaseClient = context.supabaseClient;
-      return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
+      return await loadDomainContext(context.organization_id, valueCaseId);
     } catch (err) {
       logger.warn('Failed to load domain pack context, proceeding without it', {
         value_case_id: valueCaseId,
@@ -450,6 +455,45 @@ Generate a JSON object with:
     }
 
     return sections;
+  }
+
+  // -------------------------------------------------------------------------
+  // Persistence
+  // -------------------------------------------------------------------------
+
+  /**
+   * Write hypothesis output to the hypothesis_outputs table so the
+   * frontend can load it without re-running the agent.
+   */
+  private async persistHypothesisOutput(
+    context: LifecycleContext,
+    valueCaseId: string,
+    analysis: OpportunityAnalysis,
+  ): Promise<void> {
+    const avgConfidence = analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0)
+      / analysis.hypotheses.length;
+    // Map the 5-level ConfidenceLevel to the 3-level DB enum
+    const dbConfidence: 'high' | 'medium' | 'low' =
+      avgConfidence >= 0.7 ? 'high' : avgConfidence >= 0.4 ? 'medium' : 'low';
+
+    try {
+      await hypothesisOutputService.create({
+        case_id: valueCaseId,
+        organization_id: context.organization_id,
+        agent_run_id: context.workspace_id,
+        hypotheses: analysis.hypotheses,
+        kpis: analysis.hypotheses.flatMap((h) => h.kpi_targets),
+        confidence: dbConfidence,
+        reasoning: `Generated ${analysis.hypotheses.length} hypotheses for "${context.user_inputs?.query}"`,
+      });
+    } catch (err) {
+      // Non-fatal: memory is already stored; log and continue
+      logger.warn('Failed to persist hypothesis output to DB', {
+        case_id: valueCaseId,
+        organization_id: context.organization_id,
+        error: (err as Error).message,
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -8,15 +8,13 @@
     "./core": "./core/index.ts",
     "./orchestration": "./orchestration/index.ts",
     "./tools": "./tools/index.ts",
-    "./evaluation": "./evaluation/index.ts",
-    "./base": "./base/src/index.ts"
+    "./evaluation": "./evaluation/index.ts"
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@valueos/agent-base": "workspace:*",
     "zod": "^3.25.76"
   },
   "peerDependencies": {
