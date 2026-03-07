@@ -5,6 +5,7 @@ import type { User } from "../../drizzle/schema";
 
 import { applyRateLimitHeaders, buildRateLimitKey, checkRateLimit, getRateLimitIdentifiers, throwRateLimitExceeded, type RateLimitIdentityUser } from "./error-handling";
 import { getSessionFromRequest, validateSessionToken } from "./session";
+import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 export const createContext = async (opts: CreateHTTPContextOptions) => {
   const sessionToken = getSessionFromRequest(opts.req);
@@ -13,7 +14,7 @@ export const createContext = async (opts: CreateHTTPContextOptions) => {
 
   if (normalizedToken) {
     try {
-      user = await validateSessionToken(normalizedToken);
+      user = await validateSessionToken(normalizedToken, getAuditRequestContext(opts.req));
     } catch (error) {
       console.error('[tRPC] Session validation failed:', error);
     }
@@ -34,6 +35,17 @@ export const router = t.router;
 export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.user) {
+    const requestContext = getAuditRequestContext(ctx.req);
+    await logAuditEvent({
+      actor: "anonymous",
+      tenantId: process.env.SESSION_JWT_TENANT || process.env.VITE_APP_ID || undefined,
+      action: "trpc.authorization",
+      result: "failure",
+      ipAddress: requestContext.ipAddress,
+      userAgent: requestContext.userAgent,
+      details: { reason: "missing_session", procedurePath: ctx.req.url || undefined },
+    });
+
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to access this resource",
