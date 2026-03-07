@@ -1,6 +1,6 @@
-import { sql } from "drizzle-orm";
-
-import { getDbConnection } from "../data/_core/db-connection";
+import { appendFile, mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type AuditResult = "success" | "failure";
 
@@ -14,6 +14,7 @@ export interface AuditLogEntry {
   actor: string;
   tenantId?: string;
   organizationId?: string;
+  tenantOrOrg: string;
   action: string;
   result: AuditResult;
   ipAddress?: string;
@@ -21,7 +22,7 @@ export interface AuditLogEntry {
   details?: Record<string, unknown>;
 }
 
-let schemaEnsured = false;
+const AUDIT_LOG_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../../logs/audit.log");
 
 function normalizeHeaderValue(value: string | string[] | undefined): string | undefined {
   if (!value) {
@@ -55,74 +56,42 @@ export function getAuditRequestContext(req: { headers?: Record<string, string | 
   };
 }
 
-async function ensureAuditSchema() {
-  if (schemaEnsured) {
-    return;
-  }
-
-  const db = await getDbConnection();
-  if (!db) {
-    throw new Error("[Audit] Database connection unavailable");
-  }
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id BIGSERIAL PRIMARY KEY,
-      timestamp TIMESTAMPTZ NOT NULL,
-      actor TEXT NOT NULL,
-      tenant_id TEXT,
-      organization_id TEXT,
-      action TEXT NOT NULL,
-      result TEXT NOT NULL,
-      ip_address TEXT,
-      user_agent TEXT,
-      details JSONB
-    )
-  `);
-
-  schemaEnsured = true;
+function resolveTenantOrOrg(entry: {
+  tenantOrOrg?: string;
+  tenantId?: string;
+  organizationId?: string;
+}): string {
+  return entry.tenantOrOrg || entry.organizationId || entry.tenantId || "unknown";
 }
 
-export async function logAuditEvent(entry: Omit<AuditLogEntry, "timestamp"> & { timestamp?: string }): Promise<void> {
+export async function logAuditEvent(
+  entry: Omit<AuditLogEntry, "timestamp" | "tenantOrOrg"> & {
+    timestamp?: string;
+    tenantOrOrg?: string;
+  }
+): Promise<void> {
   const timestamp = entry.timestamp || new Date().toISOString();
+  const record: AuditLogEntry = {
+    timestamp,
+    actor: entry.actor,
+    tenantId: entry.tenantId,
+    organizationId: entry.organizationId,
+    tenantOrOrg: resolveTenantOrOrg(entry),
+    action: entry.action,
+    result: entry.result,
+    ipAddress: entry.ipAddress || "unknown",
+    userAgent: entry.userAgent || "unknown",
+    details: entry.details,
+  };
 
   try {
-    await ensureAuditSchema();
-    const db = await getDbConnection();
-    if (!db) {
-      throw new Error("[Audit] Database connection unavailable");
-    }
-
-    await db.execute(sql`
-      INSERT INTO audit_logs (
-        timestamp,
-        actor,
-        tenant_id,
-        organization_id,
-        action,
-        result,
-        ip_address,
-        user_agent,
-        details
-      ) VALUES (
-        ${timestamp}::timestamptz,
-        ${entry.actor},
-        ${entry.tenantId ?? null},
-        ${entry.organizationId ?? null},
-        ${entry.action},
-        ${entry.result},
-        ${entry.ipAddress ?? null},
-        ${entry.userAgent ?? null},
-        ${entry.details ? JSON.stringify(entry.details) : null}::jsonb
-      )
-    `);
+    await mkdir(dirname(AUDIT_LOG_PATH), { recursive: true });
+    await appendFile(AUDIT_LOG_PATH, `${JSON.stringify(record)}\n`, "utf8");
   } catch (error) {
     console.error("[Audit] Failed to persist audit log", {
       error,
-      entry: {
-        ...entry,
-        timestamp,
-      },
+      record,
+      path: AUDIT_LOG_PATH,
     });
   }
 }
