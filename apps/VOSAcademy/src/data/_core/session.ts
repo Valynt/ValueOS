@@ -175,6 +175,19 @@ export async function validateSessionToken(token: string, requestContext?: Audit
       }
     }
 
+    if (!payload) {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId: tenant || ENV.appId || undefined,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "signature_verification_failed", kid: headerKid },
+      });
+      return null;
+    }
+
     if (!payload?.sub || !payload.exp || !payload.iat) {
       await logAuditEvent({
         actor: payload?.sub || "anonymous",
