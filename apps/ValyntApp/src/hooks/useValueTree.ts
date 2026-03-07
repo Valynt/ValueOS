@@ -3,6 +3,8 @@
  *
  * Fetches and mutates value_tree_nodes for a value case.
  * Backed by GET/PATCH /api/v1/value-cases/:caseId/value-tree.
+ *
+ * Also exports useRunTargetAgent for invoking the TargetAgent.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -118,6 +120,36 @@ export function useUpsertValueTreeNode(caseId: string | undefined) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+/**
+ * Invoke the TargetAgent for a case.
+ * On success, invalidates the value-tree query so ModelStage reloads.
+ */
+export function useRunTargetAgent(caseId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ jobId: string }, Error, { query?: string }>({
+    mutationFn: async (input) => {
+      const res = await fetch("/api/agents/target/invoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: input.query ?? "Generate KPI targets for this value case",
+          context: { value_case_id: caseId },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as Record<string, string>;
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json() as { data?: { jobId?: string } };
+      return { jobId: data.data?.jobId ?? "" };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["value-tree", caseId] });
     },
   });
 }

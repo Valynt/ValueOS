@@ -282,8 +282,12 @@ function DomainPackAssumptions() {
 }
 
 interface HypothesisStageProps {
-  /** Called with the jobId when an agent run is started. */
-  onRunStarted?: (runId: string) => void;
+  /**
+   * Called when an agent run is started.
+   * jobId is always provided; directResult is populated for direct-mode runs
+   * so AgentThread can show the result without polling.
+   */
+  onRunStarted?: (jobId: string, directResult?: import("@/hooks/useAgentJob").AgentJobResult) => void;
 }
 
 export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
@@ -303,7 +307,23 @@ export function HypothesisStage({ onRunStarted }: HypothesisStageProps) {
       { companyName, query: companyName ? `Analyze value opportunities for ${companyName}` : undefined },
       {
         onSuccess: (data) => {
-          if (data.runId) onRunStarted?.(data.runId);
+          if (!data.jobId) return;
+          // For direct-mode runs, pass the pre-resolved result so AgentThread
+          // skips polling and shows the result immediately.
+          if (data.mode === "direct") {
+            onRunStarted?.(data.jobId, {
+              jobId: data.jobId,
+              status: data.status === "completed" ? "completed" : "failed",
+              agentId: data.agentId,
+              mode: "direct",
+              result: data.result,
+              confidence: data.confidence,
+              reasoning: data.reasoning,
+              warnings: data.warnings,
+            });
+          } else {
+            onRunStarted?.(data.jobId);
+          }
         },
       },
     );

@@ -10,15 +10,21 @@ import {
 import { useState } from "react";
 
 import { useAgentJob } from "@/hooks/useAgentJob";
+import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { cn } from "@/lib/utils";
 
 interface AgentThreadProps {
   /** jobId returned by the agent invoke endpoint. Null = no run yet. */
   runId?: string | null;
+  /**
+   * Pre-resolved result from a direct-mode invoke (mode: "direct").
+   * When provided, polling is skipped and this result is displayed immediately.
+   */
+  directResult?: AgentJobResult | null;
 }
 
-export function AgentThread({ runId }: AgentThreadProps) {
-  const { data: job, isLoading } = useAgentJob(runId ?? null);
+export function AgentThread({ runId, directResult }: AgentThreadProps) {
+  const { data: job, isLoading } = useAgentJob(runId ?? null, directResult);
   const [message, setMessage] = useState("");
 
   const statusIcon = () => {
@@ -27,6 +33,7 @@ export function AgentThread({ runId }: AgentThreadProps) {
     switch (job?.status) {
       case "completed":
         return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
+      case "failed":
       case "error":
         return <XCircle className="w-3.5 h-3.5 text-red-500" />;
       case "unavailable":
@@ -39,11 +46,13 @@ export function AgentThread({ runId }: AgentThreadProps) {
   const statusLabel = () => {
     if (!runId) return "No active run";
     if (isLoading) return "Connecting…";
+    const modeTag = job?.mode === "direct" ? " · direct" : job?.mode === "kafka" ? " · async" : "";
     switch (job?.status) {
       case "queued": return "Queued";
       case "processing": return `Running${job.agentId ? ` · ${job.agentId}` : ""}`;
-      case "completed": return "Completed";
-      case "error": return "Failed";
+      case "completed": return `Completed${modeTag}`;
+      case "failed":
+      case "error": return `Failed${modeTag}`;
       case "unavailable": return "Infrastructure unavailable";
       default: return "Unknown";
     }

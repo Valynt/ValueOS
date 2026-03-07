@@ -21,6 +21,8 @@ import { AuthenticatedRequest, requireAuth, requireRole } from '../../middleware
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
+import { FinancialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js'
+import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js'
 import { hypothesisOutputService } from '../../services/HypothesisOutputService.js'
 import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/CaseValueTreeService.js'
 
@@ -447,7 +449,8 @@ router.get(
     }
 
     try {
-      const nodes = await caseValueTreeService.getTree(caseId, organizationId);
+      const repo = new ValueTreeRepository();
+      const nodes = await repo.getNodesForCase(caseId, organizationId);
       res.json({ data: nodes });
     } catch (err) {
       next(err);
@@ -503,6 +506,40 @@ router.patch(
         res.status(400).json({ error: 'Invalid node data', details: err.errors });
         return;
       }
+      next(err);
+    }
+  }
+);
+
+// ============================================================================
+// Financial Model Snapshot Routes
+// ============================================================================
+
+// GET /cases/:caseId/model-snapshots/latest — most recent snapshot for a case
+router.get(
+  '/:caseId/model-snapshots/latest',
+  standardLimiter,
+  requireRole(['admin', 'member', 'viewer']),
+  validateUuidParam('caseId'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { caseId } = req.params;
+    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+    if (!organizationId) {
+      res.status(401).json({ error: 'Missing tenant context' });
+      return;
+    }
+
+    try {
+      const repo = new FinancialModelSnapshotRepository();
+      const snapshot = await repo.getLatestSnapshotForCase(caseId, organizationId);
+      if (!snapshot) {
+        res.status(404).json({ data: null, message: 'No financial model snapshot found for this case' });
+        return;
+      }
+      res.json({ data: snapshot });
+    } catch (err) {
       next(err);
     }
   }

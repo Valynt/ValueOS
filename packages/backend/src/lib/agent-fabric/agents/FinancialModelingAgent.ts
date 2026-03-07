@@ -26,6 +26,7 @@ import {
   sensitivityAnalysis,
   toDecimalArray,
 } from '../../../domain/economic-kernel/economic_kernel.js';
+import { FinancialModelSnapshotRepository } from '../../../repositories/FinancialModelSnapshotRepository.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -148,6 +149,12 @@ export class FinancialModelingAgent extends BaseAgent {
 
     // Step 5: Store models in memory for TargetAgent and IntegrityAgent
     await this.storeModelsInMemory(context, computedModels, llmOutput);
+
+    // Step 5b: Persist snapshot to DB for frontend reads
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId) {
+      await this.persistSnapshot(valueCaseId, context.organization_id, computedModels, llmOutput);
+    }
 
     // Step 6: Build SDUI sections
     const sduiSections = this.buildSDUISections(computedModels, llmOutput);
@@ -570,6 +577,66 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     }
 
     return sections;
+  }
+
+  // -------------------------------------------------------------------------
+  // Persistence
+  // -------------------------------------------------------------------------
+
+  /**
+   * Persist an append-only financial model snapshot for the case.
+   * Uses the best-performing model's ROI/NPV as the top-level summary fields.
+   */
+  private async persistSnapshot(
+    caseId: string,
+    organizationId: string,
+    models: ComputedModel[],
+    llmOutput: FinancialModelingOutput,
+  ): Promise<void> {
+    // Pick the model with the highest NPV as the representative summary
+    const best = models.reduce((a, b) => (b.npv > a.npv ? b : a), models[0]);
+    const avgPayback = models
+      .map(m => m.payback_period)
+      .filter((p): p is number => p !== null)
+      .reduce((sum, p, _, arr) => sum + p / arr.length, 0) || null;
+
+    try {
+      const repo = new FinancialModelSnapshotRepository();
+      await repo.createSnapshot({
+        case_id: caseId,
+        organization_id: organizationId,
+        roi: best ? best.roi : undefined,
+        npv: best ? best.npv : undefined,
+        payback_period_months: avgPayback !== null ? Math.round(avgPayback * 12) : undefined,
+        assumptions_json: llmOutput.key_assumptions,
+        outputs_json: {
+          models: models.map(m => ({
+            hypothesis_id: m.hypothesis_id,
+            roi: m.roi,
+            npv: m.npv,
+            irr: m.irr,
+            payback_period: m.payback_period,
+            confidence: m.confidence,
+            category: m.category,
+          })),
+          portfolio_summary: llmOutput.portfolio_summary,
+          total_npv: models.reduce((s, m) => s + m.npv, 0),
+          average_confidence: models.reduce((s, m) => s + m.confidence, 0) / models.length,
+        },
+        source_agent: 'FinancialModelingAgent',
+      });
+      logger.info('FinancialModelingAgent: persisted snapshot', {
+        case_id: caseId,
+        organization_id: organizationId,
+        model_count: models.length,
+      });
+    } catch (err) {
+      // Non-fatal: memory store succeeded; log and continue.
+      logger.error('FinancialModelingAgent: failed to persist snapshot', {
+        case_id: caseId,
+        error: (err as Error).message,
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

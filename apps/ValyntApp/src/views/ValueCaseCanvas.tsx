@@ -18,6 +18,7 @@ import { ModelStage } from "./canvas/ModelStage";
 import { NarrativeStage } from "./canvas/NarrativeStage";
 import { RealizationStage } from "./canvas/RealizationStage";
 
+import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
 
@@ -34,12 +35,20 @@ export default function ValueCaseCanvas() {
   const { oppId, caseId } = useParams();
   const [activeStage, setActiveStage] = useState("hypothesis");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
-  // runId is set when an agent is invoked; passed to AgentThread for status display
+  // runId + directResult are set when an agent is invoked.
+  // directResult is populated for direct-mode runs (no Kafka) so AgentThread
+  // can show the result immediately without polling.
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [activeDirectResult, setActiveDirectResult] = useState<AgentJobResult | null>(null);
+
+  const handleRunStarted = (jobId: string, direct?: AgentJobResult) => {
+    setActiveRunId(jobId);
+    setActiveDirectResult(direct ?? null);
+  };
   const { data: merged } = useMergedContext(caseId);
 
   const stageContent: Record<string, React.ReactNode> = {
-    hypothesis: <HypothesisStage onRunStarted={setActiveRunId} />,
+    hypothesis: <HypothesisStage onRunStarted={handleRunStarted} />,
     model: <ModelStage />,
     integrity: <IntegrityStage />,
     narrative: <NarrativeStage />,
@@ -148,7 +157,7 @@ export default function ValueCaseCanvas() {
 
         {/* Agent thread panel */}
         <div className="w-[340px] border-l border-zinc-200 bg-white p-5 overflow-y-auto flex-shrink-0 hidden xl:block">
-          <AgentThread runId={activeRunId} />
+          <AgentThread runId={activeRunId} directResult={activeDirectResult} />
         </div>
       </div>
 
