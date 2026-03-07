@@ -1,12 +1,5 @@
 # DEPRECATED: Legacy compose wrapper; use ops/compose/compose.yml as the canonical stack definition.
+# Thin passthrough for backward compatibility only.
 
 include:
   - ../ops/compose/compose.yml
-
-services:
-  backend:
-    environment:
-      # Canonical database connection string.
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local}
-      # Legacy alias for older tooling; keep this derived from DATABASE_URL only.
-      DB_URL: ${DB_URL:-${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local}}
