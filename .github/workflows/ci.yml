@@ -399,7 +399,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          npx vitest run tests/security/rls-tenant-isolation.test.ts \
+          npx vitest run \
+            tests/security/rls-tenant-isolation.test.ts \
+            packages/memory/tests/tenant-vector-isolation.test.ts \
+            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
             --reporter=verbose \
             --reporter=junit \
             --reporter=json \
