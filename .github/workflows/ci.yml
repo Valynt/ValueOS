@@ -55,6 +55,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Guard deprecated e2e path
+        run: node scripts/ci/guard-deprecated-e2e-path.mjs
+
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
