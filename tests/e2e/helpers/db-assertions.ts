@@ -13,10 +13,11 @@ export interface WorkflowBoundaryResponse {
 export async function runWorkflowRequest(
   request: APIRequestContext,
   workflow: WorkflowFixture,
+  runId: string,
 ): Promise<WorkflowBoundaryResponse> {
   const requestBody = {
     ...workflow.executePayload,
-    e2eRunId: `${workflow.id.toLowerCase()}-${Date.now()}`,
+    e2eRunId: runId,
     mockedContract: false,
   };
 
