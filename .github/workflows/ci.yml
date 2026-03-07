@@ -175,20 +175,31 @@ jobs:
   tenant-isolation-gate:
     name: tenant-isolation-gate
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
 
-      - uses: pnpm/action-setup@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           run_install: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Prepare compliance report directories
+        run: |
+          mkdir -p reports/compliance/rls
+          mkdir -p reports/compliance/dsr
 
       - name: Tenant isolation + compliance tests
         env:
@@ -196,9 +207,11 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          mkdir -p reports/compliance/rls
-          npx vitest run \
+          npx vitest run --config tests/security/vitest.security.config.ts \
             tests/security/rls-tenant-isolation.test.ts \
+            tests/security/api-tenant-isolation.test.ts \
+            tests/security/supabase-rls-policy-matrix.test.ts \
+            tests/security/agent-invocation-tenant-boundary.test.ts \
             packages/memory/tests/tenant-vector-isolation.test.ts \
             packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
             --reporter=verbose \
@@ -212,7 +225,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          mkdir -p reports/compliance/dsr
           npx vitest run tests/compliance/dsr-workflow.test.ts \
             --reporter=verbose \
             --reporter=junit \
