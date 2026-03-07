@@ -3182,7 +3182,7 @@ npm test -- --coverage --run
 npx playwright test tests/e2e/auth-complete-flow.spec.ts --grep "E2E-001|E2E-002|E2E-003"
 
 # 5. Run security scan
-npm run security:scan
+bash scripts/test-agent-security.sh
 
 # 6. Run load tests
 k6 run tests/load/auth-load-test.js
@@ -3711,13 +3711,13 @@ npm test tests/integration
 npx playwright test
 
 # Performance tests
-npm run test:perf
+npx k6 run tests/load/
 
 # Accessibility tests
-npm run test:a11y
+npx playwright test --grep @a11y
 
-# RLS tests (root script)
-npm run test:rls
+# RLS tests
+pnpm run test:rls
 
 # Equivalent direct Supabase invocation used by test:rls
 supabase --workdir infra/supabase/supabase test db \
@@ -4115,10 +4115,10 @@ pnpm run db:health-check
 
 ```bash
 # Clean up test data
-npm run test:cleanup
+pnpm run test:cleanup
 
 # Reset rate limiters
-npm run test:reset-rate-limits
+pnpm run test:reset-rate-limits
 
 # Review test logs
 cat logs/test-execution.log
@@ -4204,7 +4204,7 @@ Password "password123!" was accepted.
 **Fix:** Verify Supabase credentials in `.env.local`
 
 **Issue:** Rate limit errors in tests
-**Fix:** Run `npm run test:reset-rate-limits` between test runs
+**Fix:** Run `pnpm run test:reset-rate-limits` between test runs
 
 **Issue:** OAuth tests failing
 **Fix:** Check if redirect URLs are whitelisted in provider dashboard
@@ -4236,7 +4236,7 @@ This document lists recommended, mature standards aligned to our stack and compl
 
 - Unit: Vitest (jsdom/node), mocking with `vi` and `msw` for network. Test runners: `vitest run --config vitest.config.unit.ts`.
 - Integration: Vitest with `testcontainers` + `test/setup-integration.ts` using Postgres/Redis MS images or `supabase test db`. Tests: `vitest run --config vitest.config.integration.ts`.
-- E2E: Playwright (`@playwright/test`) for browser/automation flows. CI: install browsers and run Playwright with `npm run test:e2e`.
+- E2E: Playwright (`@playwright/test`) for browser/automation flows. CI: install browsers and run Playwright with `npx playwright test`.
 - DB-as-a-service: Supabase (Postgres) — rely on `supabase` CLI for RLS and verification tests.
 - Message Queue: Redis + BullMQ — test by running Redis service in integration tests (or testcontainers).
 - Observability: OpenTelemetry & Prometheus compatible metrics; users must instrument long-running jobs and health checks.
@@ -4278,9 +4278,9 @@ Note: Performance and timing assertions in tests should be environment-tolerant.
 
 8. How to get started locally
 
-- Unit: `npm run test:unit`
-- Integration: `npm run test:integration` (requires Docker or the supabase CLI)
-- E2E: `npm run test:e2e` (requires application to be running; the CI uses a Compose definition to run the app)
+- Unit: `pnpm test` (runs `vitest run`)
+- Integration: `vitest run --config vitest.config.integration.ts` (requires Docker or the supabase CLI)
+- E2E: `npx playwright test` (requires application to be running; the CI uses a Compose definition to run the app)
 
 9. Contact & Ownership
 
