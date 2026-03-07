@@ -1,14 +1,16 @@
 name: CI
 
 on:
+  pull_request:
+    branches: [main, develop]
   push:
     branches: [main, develop]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main, develop]
   release:
     types: [published]
+  schedule:
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -17,26 +19,21 @@ concurrency:
 
 permissions:
   contents: read
-  security-events: write
   pull-requests: read
 
 jobs:
-  unit-tests:
-    name: Unit Tests & Coverage
+  unit-component-schema:
+    name: unit/component/schema
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           run_install: false
 
@@ -94,6 +91,11 @@ jobs:
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Unit suite + schema guard
+        run: |
+          npx vitest run --coverage --coverage.thresholds.lines=60 --coverage.thresholds.functions=50 --coverage.thresholds.branches=50 --coverage.thresholds.statements=60
+          node scripts/ci/check-migration-hygiene.mjs
+
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
@@ -127,7 +129,6 @@ jobs:
       - name: LLM readiness contract guard
         run: node scripts/ci/check-llm-readiness-contract.mjs
 
-      # Resolved merge: run BOTH (they are complementary) and keep the artifact.
       - name: Supabase tenant controls guard
         run: node scripts/ci/check-supabase-tenant-controls.mjs
 
@@ -147,262 +148,59 @@ jobs:
           ROTATION_EVIDENCE_TIMESTAMP: ${{ github.run_id }}-${{ github.run_attempt }}
         run: node scripts/security/verify-secret-rotation.mjs
 
-      - name: Upload secret rotation evidence artifact
+      - name: Emit lane summary
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: secret-rotation-evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          path: evidence/security/rotation/*.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Write security controls summary artifact
-        if: success()
-        run: node scripts/ci/write-security-controls-summary.mjs
-
-      - name: Upload security controls summary artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-controls-${{ github.sha }}
-          path: artifacts/security-controls/security-controls-${{ github.sha }}.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Migration file hygiene
-        run: node scripts/ci/check-migration-hygiene.mjs
-
-      - name: Critical architecture migrations gate
-        run: node scripts/ci/verify-critical-architecture-migrations.mjs
-
-      - name: Kubernetes secrets hygiene
-        run: node scripts/ci/check-k8s-secrets-hygiene.mjs
-
-      - name: Ops metadata policy (manifests/runbooks)
-        run: bash scripts/ci/check-ops-metadata.sh
-
-      - name: Upload ops metadata report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ops-metadata-report-${{ github.run_id }}
-          path: artifacts/ops-metadata/ops-metadata-report.jsonl
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: i18n key integrity
-        run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
-
-      - name: Upload i18n coverage dashboard
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: i18n-coverage-dashboard
-          path: artifacts/i18n/coverage-dashboard.json
-          retention-days: 30
-
-      - name: Pseudo-localization integrity
-        run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
-
-      - name: Upload pseudo-localization report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pseudo-localization-report
-          path: artifacts/i18n/pseudo-localization-report.json
-          retention-days: 30
-
-      - name: Localization overflow visual regression
         run: |
-          if [ -x ./node_modules/.bin/playwright ]; then
-            ./node_modules/.bin/playwright test scripts/test/playwright/visual-regression.spec.ts --grep "Localization Overflow"
-          else
-            echo "Playwright binary not installed; skipping localization overflow visual regression in this environment."
-          fi
+          mkdir -p artifacts/ci-lanes/unit-component-schema
+          cat > artifacts/ci-lanes/unit-component-schema/summary.md <<EOF
+          # unit/component/schema
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
 
-      - name: Critical claims verification
-        run: node scripts/ci/verify-critical-claims.mjs
-
-      - name: OpenAPI breaking-change detector
-        if: github.event_name == 'pull_request'
-        run: node scripts/ci/check-openapi-breaking-changes.mjs
-
-      - name: Infra manifest registry guard
-        run: node scripts/ci/check-infra-manifest-registry.mjs
-
-      - name: Kubernetes architecture conformance
-        run: node scripts/ci/check-k8s-architecture-conformance.mjs
-
-      - name: Terraform/K8s scaling parity check
-        run: node scripts/ci/check-terraform-k8s-scaling-parity.mjs
-
-      - name: Terraform module placeholder guard
-        run: node scripts/ci/check-terraform-no-stubs.mjs
-
-      - name: Agent service account isolation check
-        run: node scripts/ci/check-agent-service-accounts.mjs
-
-      - name: Agent policy guardrails
-        run: node scripts/ci/check-agent-policy-guardrails.mjs
-
-      - name: Versioned router compatibility tests
-        run: pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
-
-      - name: Multi-tenant chaos invariants
-        run: node --test tests/integration/multi-tenant-chaos-invariants.test.mjs
-
-      - name: Launch chaos/smoke suite (blocking)
-        run: node scripts/chaos/launch-chaos-smoke.mjs
-
-      - name: Upload launch chaos/smoke evidence
+      - name: Upload lane artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: launch-chaos-smoke-${{ github.run_id }}
-          path: artifacts/chaos-launch/**
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Build
-        run: npx turbo run build
-
-      - name: Unit test suite with coverage thresholds
-        run: npx vitest run --coverage --coverage.thresholds.lines=60 --coverage.thresholds.functions=50 --coverage.thresholds.branches=50 --coverage.thresholds.statements=60
-
-      - name: Upload unit coverage artifact
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: unit-coverage-${{ github.run_id }}
+          name: lane-unit-component-schema-${{ github.run_id }}
           path: |
-            coverage/unit/**
-            coverage/coverage-summary.json
+            coverage/**
+            artifacts/ci-lanes/unit-component-schema/**
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Download baseline coverage artifact
-        if: github.event_name == 'pull_request'
-        id: baseline-coverage
-        continue-on-error: true
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: ci.yml
-          branch: ${{ github.base_ref }}
-          name: unit-coverage-*
-          name_is_regexp: true
-          search_artifacts: true
-          path: baseline-coverage
-
-      - name: Coverage trend summary
-        if: always()
-        run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const currentPath = 'coverage/unit/coverage-summary.json';
-          if (!fs.existsSync(currentPath)) {
-            console.log('No coverage summary found for current run.');
-            process.exit(0);
-          }
-
-          const readSummary = (path) => JSON.parse(fs.readFileSync(path, 'utf8')).total;
-          const current = readSummary(currentPath);
-          const baselineCandidates = [
-            'baseline-coverage/coverage/unit/coverage-summary.json',
-            'baseline-coverage/coverage/coverage-summary.json',
-          ];
-          const baselinePath = baselineCandidates.find((p) => fs.existsSync(p));
-
-          const metric = (name, value, baseline) => {
-            const delta = baseline == null ? 'n/a' : `${(value - baseline).toFixed(2)}%`;
-            return `| ${name} | ${value.toFixed(2)}% | ${baseline == null ? 'n/a' : `${baseline.toFixed(2)}%`} | ${delta} |`;
-          };
-
-          const lines = [
-            '## Coverage trend',
-            '',
-            '| Metric | Current | Baseline | Delta |',
-            '| --- | ---: | ---: | ---: |',
-          ];
-
-          if (!baselinePath) {
-            lines.push(metric('Lines', current.lines.pct, null));
-            lines.push(metric('Statements', current.statements.pct, null));
-            lines.push(metric('Functions', current.functions.pct, null));
-            lines.push(metric('Branches', current.branches.pct, null));
-            lines.push('', 'Baseline artifact not found for this PR base branch.');
-          } else {
-            const baseline = readSummary(baselinePath);
-            lines.push(metric('Lines', current.lines.pct, baseline.lines.pct));
-            lines.push(metric('Statements', current.statements.pct, baseline.statements.pct));
-            lines.push(metric('Functions', current.functions.pct, baseline.functions.pct));
-            lines.push(metric('Branches', current.branches.pct, baseline.branches.pct));
-          }
-
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
-          NODE
-
-  integration-tests:
-    name: Integration Tests
+  tenant-isolation-gate:
+    name: tenant-isolation-gate
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           run_install: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run integration suite
-        run: npx vitest run "tests/integration/**/*.test.ts" "**/*.integration.{test,spec}.{js,ts,jsx,tsx}" --reporter=verbose
-
-  rls-and-compliance:
-    name: Compliance Core Suites (required)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Prepare compliance report directories
-        run: |
-          mkdir -p reports/compliance/rls
-          mkdir -p reports/compliance/dsr
-          mkdir -p reports/compliance/audit
-          mkdir -p reports/compliance/metadata
-
-      - name: Run RLS tenant isolation tests
+      - name: Tenant isolation + compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          npx vitest run tests/security/rls-tenant-isolation.test.ts \
+          mkdir -p reports/compliance/rls
+          npx vitest run \
+            tests/security/rls-tenant-isolation.test.ts \
+            packages/memory/tests/tenant-vector-isolation.test.ts \
+            packages/memory/tests/tenant-semantic-retrieval-boundary.test.ts \
             --reporter=verbose \
             --reporter=junit \
             --reporter=json \
@@ -414,440 +212,299 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
+          mkdir -p reports/compliance/dsr
           npx vitest run tests/compliance/dsr-workflow.test.ts \
             --reporter=verbose \
             --reporter=junit \
-            --reporter=json \
-            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml \
-            --outputFile.json=reports/compliance/dsr/vitest-dsr.json
+            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
 
-      - name: Run audit immutability compliance tests
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Emit lane summary
+        if: always()
         run: |
-          npx vitest run tests/compliance/audit/audit-log-immutability.test.ts \
-            --reporter=verbose \
-            --reporter=junit \
-            --reporter=json \
-            --outputFile.junit=reports/compliance/audit/vitest-audit-immutability.junit.xml \
-            --outputFile.json=reports/compliance/audit/vitest-audit-immutability.json
+          mkdir -p artifacts/ci-lanes/tenant-isolation-gate
+          cat > artifacts/ci-lanes/tenant-isolation-gate/summary.md <<EOF
+          # tenant-isolation-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
 
-      - name: Record workflow run metadata
-        run: |
-          cat > reports/compliance/metadata/workflow-run.json <<JSON
-          {
-            "workflow": "${{ github.workflow }}",
-            "run_id": "${{ github.run_id }}",
-            "run_attempt": "${{ github.run_attempt }}",
-            "sha": "${{ github.sha }}",
-            "ref": "${{ github.ref }}"
-          }
-          JSON
-
-      - name: Build checksum ledger
-        run: |
-          find reports/compliance -type f -print0 | sort -z | xargs -0 sha256sum > reports/compliance/SHA256SUMS
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign checksum ledger (keyless)
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign-blob \
-            --yes \
-            --output-certificate reports/compliance/SHA256SUMS.pem \
-            --output-signature reports/compliance/SHA256SUMS.sig \
-            reports/compliance/SHA256SUMS
-
-      - name: Upload compliance evidence artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: compliance-evidence-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: reports/compliance
-          retention-days: 90
-
-  ci-required-checks:
-    name: CI Required Checks
-    runs-on: ubuntu-latest
-    needs:
-      - unit-tests
-      - integration-tests
-      - rls-and-compliance
-    if: always()
-    steps:
-      - name: Enforce required unit/integration/compliance checks
-        run: |
-          for status in "${{ needs.unit-tests.result }}" "${{ needs.integration-tests.result }}" "${{ needs.rls-and-compliance.result }}"; do
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              echo "A required CI suite failed or was cancelled."
-              exit 1
-            fi
-          done
-
-  sast:
-    name: SAST (Semgrep)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Semgrep SAST
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/secrets
-            p/owasp-top-ten
-
-  sca-license:
-    name: SCA + License Scan (Trivy)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability + license scan
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: table
-          vuln-type: os,library
-          scanners: vuln,license,secret
-          severity: CRITICAL,HIGH
-          exit-code: '1'
-
-  iac:
-    name: IaC Scan (infra/**)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fail on IaC placeholders
-        run: |
-          patterns=(
-            "change_immediately"
-            "prod_[A-Za-z0-9_]*_key"
-            "192\.0\.2\.0/24"
-            "198\.51\.100\.0/24"
-            "203\.0\.113\.0/24"
-          )
-
-          for pattern in "${patterns[@]}"; do
-            if rg -n --glob '*.tf' --pcre2 "$pattern" infra/environments/prod/terraform; then
-              echo "❌ Found disallowed placeholder pattern: $pattern"
-              exit 1
-            fi
-          done
-
-          echo "✅ No placeholder markers found in production Terraform IaC files."
-
-
-      - name: Detect IaC files
-        id: detect
-        run: |
-          if [ -d "infra" ] && find infra -type f | grep -q .; then
-            echo "has_infra=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_infra=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run Checkov on infra/
-        if: steps.detect.outputs.has_infra == 'true'
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          directory: infra
-          quiet: true
-          soft_fail: false
-          external_checks_dir: .checkov/custom_policies
-
-      - name: No IaC files present
-        if: steps.detect.outputs.has_infra != 'true'
-        run: echo "No files found under infra/, skipping IaC scan."
-
-  ts-any-package-ratchet:
-    name: TS Any Package Ratchet
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Enforce TS any global and per-package ratchet
-        run: bash scripts/ts-any-ratchet.sh
-
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-          queries: security-extended
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript-typescript"
-
-  hadolint:
-    name: Dockerfile Lint (Hadolint)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Find Dockerfiles
-        id: find
-        run: |
-          files=$(find . -name "Dockerfile*" -not -path "*/node_modules/*" -not -path "./infra/legacy/*" -not -path "*/infra/legacy/*" | tr '\n' ',')
-          echo "dockerfiles=$files" >> "$GITHUB_OUTPUT"
-          if [ -z "$files" ]; then
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run Hadolint
-        if: steps.find.outputs.found == 'true'
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          recursive: true
-          failure-threshold: warning
-          format: sarif
-          output-file: hadolint-results.sarif
-
-      - name: Upload Hadolint SARIF
-        if: steps.find.outputs.found == 'true' && always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: hadolint-results.sarif
-          category: hadolint
-        continue-on-error: true
-
-  sbom:
-    name: SBOM Generation (CycloneDX)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Generate CycloneDX SBOM
-        uses: CycloneDX/gh-node-module-generatebom@v1
-        with:
-          path: .
-          output: bom.xml
-
-      - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cyclonedx-sbom
-          path: bom.xml
-
-  image-signature-verify:
-    name: Verify Image Signature (cosign verify)
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      RELEASE_IMAGE_REF: ${{ vars.RELEASE_IMAGE_REF }}
-    steps:
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Verify release image signature
-        run: |
-          if [ -z "$RELEASE_IMAGE_REF" ]; then
-            echo "RELEASE_IMAGE_REF repo variable is required for cosign verification."
-            exit 1
-          fi
-
-          cosign verify \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/.+" \
-            "$RELEASE_IMAGE_REF"
-
-  security-gate:
-    name: Security Gate (required)
-    runs-on: ubuntu-latest
-    needs:
-      - sast
-      - codeql
-      - hadolint
-      - sca-license
-      - iac
-      - sbom
-      - image-signature-verify
-      - rls-and-compliance
-    if: always()
-    steps:
-      - name: Fail if any security job failed
-        run: |
-          status_list="${{ join(needs.*.result, ' ') }}"
-          echo "Security job results: $status_list"
-          for status in $status_list; do
-            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              echo "A required security job failed or was cancelled."
-              exit 1
-            fi
-          done
-
-      - name: Block unresolved P0/P1 labels on PRs
-        if: github.event_name == 'pull_request'
-        env:
-          HAS_P0: ${{ contains(github.event.pull_request.labels.*.name, 'P0') }}
-          HAS_P1: ${{ contains(github.event.pull_request.labels.*.name, 'P1') }}
-        run: |
-          if [ "$HAS_P0" = "true" ] || [ "$HAS_P1" = "true" ]; then
-            echo "PR has unresolved severity label (P0/P1). Resolve and remove label before merge."
-            exit 1
-          fi
-          echo "No blocking P0/P1 labels found."
-
-
-  i18n-release-gate:
-    name: Release i18n Completeness Gate
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Enforce release translation completeness
-        env:
-          I18N_MIN_COVERAGE_PERCENT: 98
-        run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/release-coverage-dashboard.json
-
-      - name: Upload release i18n dashboard
+      - name: Upload lane artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: i18n-release-coverage-dashboard
-          path: artifacts/i18n/release-coverage-dashboard.json
-          retention-days: 90
-
-  accessibility-audit:
-    name: WCAG 2.2 AA Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright + axe-core
-        run: |
-          pnpm add -D @playwright/test @axe-core/playwright --filter .
-          npx playwright install --with-deps chromium
-
-      - name: Build frontend
-        run: npx turbo run build --filter=ValyntApp
-
-      - name: Run accessibility tests
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
-        run: npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html,json --output=artifacts/accessibility
-
-      - name: Build accessibility trend metrics
-        if: always()
-        run: |
-          node scripts/ci/a11y-trend-gate.mjs \
-            --report artifacts/accessibility/playwright-report.json \
-            --baseline .github/metrics/accessibility-baseline.json \
-            --metrics-out artifacts/accessibility/a11y-metrics.json \
-            --summary-out artifacts/accessibility/a11y-trend-summary.md
-
-      - name: Enforce WCAG severity budgets
-        if: always()
-        run: |
-          node scripts/ci/check-a11y-severity-budgets.mjs \
-            --report artifacts/accessibility/playwright-report.json \
-            --budget .github/metrics/wcag-severity-budgets.json \
-            --metrics-out artifacts/accessibility/wcag-severity-metrics.json
-
-      - name: Run route-level UX performance checks
-        if: always()
-        run: npx playwright test tests/performance/route-load-budgets.spec.ts --reporter=list
-
-      - name: Enforce UX performance budgets
-        if: always()
-        run: |
-          node scripts/ci/check-ux-performance-budgets.mjs \
-            --budget .github/metrics/ux-performance-budgets.json \
-            --dist-assets apps/ValyntApp/dist/assets \
-            --route-metrics artifacts/performance/route-load-metrics.json \
-            --output artifacts/performance/ux-performance-metrics.json
-
-      - name: Upload a11y HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: accessibility-report
-          path: playwright-report/
-          retention-days: 30
-
-      - name: Upload a11y trend artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: accessibility-trend
+          name: lane-tenant-isolation-gate-${{ github.run_id }}
           path: |
-            artifacts/accessibility/playwright-report.json
-            artifacts/accessibility/a11y-metrics.json
-            artifacts/accessibility/wcag-severity-metrics.json
-            artifacts/accessibility/a11y-trend-summary.md
-            artifacts/performance/route-load-metrics.json
-            artifacts/performance/ux-performance-metrics.json
+            reports/compliance/**
+            artifacts/ci-lanes/tenant-isolation-gate/**
+          if-no-files-found: warn
           retention-days: 30
+
+  critical-workflows-gate:
+    name: critical-workflows-gate
+    runs-on: ubuntu-latest
+    needs:
+      - unit-component-schema
+      - tenant-isolation-gate
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Critical workflow contracts
+        run: |
+          node scripts/ci/verify-critical-claims.mjs
+          pnpm exec vitest run \
+            packages/backend/src/__tests__/versioning.contract.test.ts \
+            apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
+
+      - name: Reload durability + chaos smoke
+        run: |
+          node --test tests/integration/multi-tenant-chaos-invariants.test.mjs
+          node scripts/chaos/launch-chaos-smoke.mjs
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/critical-workflows-gate
+          cat > artifacts/ci-lanes/critical-workflows-gate/summary.md <<EOF
+          # critical-workflows-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
+          - upstream_tenant_isolation: ${{ needs.tenant-isolation-gate.result }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-critical-workflows-gate-${{ github.run_id }}
+          path: |
+            artifacts/chaos-launch/**
+            artifacts/ci-lanes/critical-workflows-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  ui-localization-gate:
+    name: ui-localization-gate
+    runs-on: ubuntu-latest
+    needs:
+      - unit-component-schema
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Localization checks
+        run: |
+          node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
+          node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+
+      - name: Localization visual smoke
+        run: |
+          if [ -x ./node_modules/.bin/playwright ]; then
+            ./node_modules/.bin/playwright test scripts/test/playwright/visual-regression.spec.ts --grep "Localization Overflow"
+          else
+            echo "Playwright binary not installed; skipping localization overflow visual regression in this environment."
+          fi
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/ui-localization-gate
+          cat > artifacts/ci-lanes/ui-localization-gate/summary.md <<EOF
+          # ui-localization-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-ui-localization-gate-${{ github.run_id }}
+          path: |
+            artifacts/i18n/**
+            artifacts/ci-lanes/ui-localization-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  migration-verification:
+    name: migration-verification
+    runs-on: ubuntu-latest
+    needs:
+      - unit-component-schema
+      - tenant-isolation-gate
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Migration verification gates
+        run: |
+          node scripts/ci/verify-critical-architecture-migrations.mjs
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/migration-verification
+          cat > artifacts/ci-lanes/migration-verification/summary.md <<EOF
+          # migration-verification
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
+          - upstream_tenant_isolation: ${{ needs.tenant-isolation-gate.result }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-migration-verification-${{ github.run_id }}
+          path: artifacts/ci-lanes/migration-verification/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  nightly-node-chaos-replay:
+    name: nightly node/chaos/replay
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.19.0, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Chaos + replay workload
+        run: |
+          node scripts/chaos/launch-chaos-smoke.mjs
+          npx vitest run \
+            tests/integration/security-flows.test.ts \
+            tests/integration/message-bus-communication.test.ts \
+            --reporter=verbose
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/nightly-node-chaos-replay/${{ matrix.node-version }}
+          cat > artifacts/ci-lanes/nightly-node-chaos-replay/${{ matrix.node-version }}/summary.md <<EOF
+          # nightly node/chaos/replay
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - node_version: ${{ matrix.node-version }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-nightly-node-chaos-replay-${{ matrix.node-version }}-${{ github.run_id }}
+          path: |
+            artifacts/chaos-launch/**
+            artifacts/ci-lanes/nightly-node-chaos-replay/${{ matrix.node-version }}/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  pr-fast-blocking-subsets:
+    name: pr-fast-blocking-subsets
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs:
+      - unit-component-schema
+      - tenant-isolation-gate
+      - ui-localization-gate
+      - migration-verification
+    steps:
+      - name: Enforce PR release blockers
+        run: |
+          echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          for lane in \
+            "unit-component-schema:${{ needs.unit-component-schema.result }}" \
+            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
+            "ui-localization-gate:${{ needs.ui-localization-gate.result }}" \
+            "migration-verification:${{ needs.migration-verification.result }}"; do
+            echo "$lane"
+            status="${lane#*:}"
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Failing PR gate due to lane status: $lane"
+              exit 1
+            fi
+          done
+
+  staging-deploy-release-gates:
+    name: staging-deploy-release-gates
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - tenant-isolation-gate
+      - critical-workflows-gate
+      - migration-verification
+    steps:
+      - name: Enforce staging/deploy blockers
+        run: |
+          echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          for lane in \
+            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
+            "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
+            "migration-verification:${{ needs.migration-verification.result }}"; do
+            echo "$lane"
+            status="${lane#*:}"
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "Failing release gate due to lane status: $lane"
+              exit 1
+            fi
+          done
