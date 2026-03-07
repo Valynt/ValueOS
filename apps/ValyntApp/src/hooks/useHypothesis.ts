@@ -84,31 +84,50 @@ export function useHypothesisOutput(caseId: string | undefined) {
   });
 }
 
+export interface AgentInvokeResponse {
+  jobId: string;
+  /** Alias kept for backward compat with existing callers */
+  runId: string;
+  status: string;
+  mode?: "direct" | "kafka";
+  result?: unknown;
+  confidence?: string;
+  reasoning?: string;
+  warnings?: string[];
+  agentId?: string;
+}
+
 /**
  * Invoke the OpportunityAgent for a case.
  * On success, invalidates the hypothesis query so the stage reloads.
+ * Returns the full invoke response so callers can detect direct-mode results.
  */
 export function useRunHypothesisAgent(caseId: string | undefined) {
   const queryClient = useQueryClient();
 
-  return useMutation<{ runId: string }, Error, { companyName?: string; query?: string }>({
+  return useMutation<AgentInvokeResponse, Error, { companyName?: string; query?: string }>({
     mutationFn: async (input) => {
-      const result = await fetchJSON<{ runId: string }>(
-        `/api/agents/opportunity/invoke`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            caseId,
-            value_case_id: caseId,
-            query: input.query ?? input.companyName ?? "Analyze this value case",
-            company_name: input.companyName,
-          }),
-        },
-      );
-      return result;
+      const res = await fetch(`/api/agents/opportunity/invoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseId,
+          value_case_id: caseId,
+          query: input.query ?? input.companyName ?? "Analyze this value case",
+          company_name: input.companyName,
+          context: { value_case_id: caseId },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as Record<string, string>;
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      const json = await res.json() as { data: AgentInvokeResponse };
+      const data = json.data;
+      // Normalise: jobId and runId are the same field
+      return { ...data, runId: data.jobId ?? data.runId };
     },
     onSuccess: () => {
-      // Invalidate so HypothesisStage reloads once the agent has persisted output
       queryClient.invalidateQueries({ queryKey: ["hypothesis", caseId] });
     },
   });

@@ -21,6 +21,8 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
+import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
+import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -146,6 +148,12 @@ export class TargetAgent extends BaseAgent {
 
     // Step 4: Store KPI targets and model inputs in memory for downstream agents
     await this.storeTargetsInMemory(context, analysis, causalResults);
+
+    // Step 4b: Persist value driver tree to DB for frontend reads
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId) {
+      await this.persistValueTree(valueCaseId, context.organization_id, analysis.value_driver_tree);
+    }
 
     // Step 5: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis, causalResults);
@@ -547,6 +555,62 @@ Generate a JSON object with:
     });
 
     return sections;
+  }
+
+  // -------------------------------------------------------------------------
+  // Persistence
+  // -------------------------------------------------------------------------
+
+  /**
+   * Flatten the nested value driver tree and replace all nodes for the case.
+   * Parent/child relationships are preserved via node_key / parent_node_key.
+   */
+  private async persistValueTree(
+    caseId: string,
+    organizationId: string,
+    tree: Array<z.infer<typeof ValueDriverSchema>>,
+  ): Promise<void> {
+    const nodes: ValueTreeNodeWrite[] = [];
+
+    const flatten = (
+      items: Array<z.infer<typeof ValueDriverSchema>>,
+      parentKey: string | undefined,
+      depth: number,
+    ): void => {
+      items.forEach((node, idx) => {
+        nodes.push({
+          node_key: node.id,
+          label: node.label,
+          description: node.value,
+          driver_type: undefined, // TargetAgent tree nodes don't carry a category
+          parent_node_key: parentKey,
+          sort_order: depth * 100 + idx,
+          source_agent: 'target',
+          metadata: { type: node.type, status: node.status },
+        });
+        if (node.children?.length) {
+          flatten(node.children, node.id, depth + 1);
+        }
+      });
+    };
+
+    flatten(tree, undefined, 0);
+
+    try {
+      const repo = new ValueTreeRepository();
+      await repo.replaceNodesForCase(caseId, organizationId, nodes);
+      logger.info('TargetAgent: persisted value tree', {
+        case_id: caseId,
+        organization_id: organizationId,
+        node_count: nodes.length,
+      });
+    } catch (err) {
+      // Non-fatal: memory store succeeded; log and continue.
+      logger.error('TargetAgent: failed to persist value tree', {
+        case_id: caseId,
+        error: (err as Error).message,
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -5,6 +5,10 @@ import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
+import { createAgentFactory } from "../lib/agent-fabric/AgentFactory.js"
+import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js"
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js"
+import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js"
 import { rateLimiters } from "../middleware/rateLimiter.js"
 import { requirePermission } from "../middleware/rbac.js"
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
@@ -14,7 +18,22 @@ import { getEventSourcingService } from "../services/EventSourcingService.js"
 import { isKafkaEnabled } from "../services/kafkaConfig.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
 import { modelCardService } from "../services/ModelCardService.js"
+import type { LifecycleContext, LifecycleStage } from "../types/agent.js"
 import { sanitizeAgentInput } from "../utils/security.js"
+
+// Shared factory instance — created lazily on first direct-execution request.
+// Avoids startup cost when Kafka is available.
+let _directFactory: ReturnType<typeof createAgentFactory> | null = null;
+function getDirectFactory(): ReturnType<typeof createAgentFactory> {
+  if (!_directFactory) {
+    _directFactory = createAgentFactory({
+      llmGateway: new LLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
+      memorySystem: new MemorySystem({ max_memories: 1000, enable_persistence: false }),
+      circuitBreaker: new CircuitBreaker(),
+    });
+  }
+  return _directFactory;
+}
 
 const router = Router();
 
@@ -185,7 +204,77 @@ router.post(
     }
 
     if (!isKafkaEnabled()) {
-      return kafkaUnavailableResponse(res);
+      // Direct execution fallback: run the agent synchronously without Kafka.
+      // Returns the same response shape as the Kafka path so callers are mode-agnostic.
+      const jobId = uuidv4();
+      const userId = (req as any).user?.id ?? "unknown";
+      const directStartTime = Date.now();
+      try {
+        const factory = getDirectFactory();
+        if (!factory.hasFabricAgent(agentId)) {
+          logger.warn("Direct agent execution: unknown agent type", { agentId, tenantId, userId });
+          return res.status(404).json({
+            success: false,
+            error: { code: "AGENT_NOT_FOUND", message: `No fabric implementation for agent "${agentId}"` },
+          });
+        }
+
+        logger.info("Direct agent execution started", { agentId, jobId, tenantId, userId, mode: "direct" });
+
+        const agent = factory.create(agentId, tenantId);
+        const lifecycleContext: LifecycleContext = {
+          workspace_id: (context as Record<string, unknown>)?.workspace_id as string ?? jobId,
+          organization_id: tenantId,
+          user_id: userId,
+          lifecycle_stage: agentId as LifecycleStage,
+          user_inputs: { query: sanitizedQuery, ...(parameters ?? {}) },
+          workspace_data: (context as Record<string, unknown>)?.workspace_data as LifecycleContext["workspace_data"] ?? {},
+          previous_stage_outputs: (context as Record<string, unknown>)?.previous_stage_outputs as Record<string, unknown> | undefined,
+          metadata: { job_id: jobId, mode: "direct" },
+        };
+
+        const output = await agent.execute(lifecycleContext);
+        const durationMs = Date.now() - directStartTime;
+
+        logger.info("Direct agent execution completed", {
+          agentId, jobId, tenantId, userId,
+          status: output.status,
+          duration_ms: durationMs,
+          mode: "direct",
+        });
+
+        // Record metrics for direct-mode runs
+        try {
+          const metrics = getMetricsCollector();
+          const succeeded = output.status === "success" || output.status === "partial_success";
+          metrics.recordAgentInvocation(agentId, succeeded, durationMs);
+        } catch { /* metrics are non-fatal */ }
+
+        return res.json({
+          success: true,
+          data: {
+            jobId,
+            status: output.status === "success" || output.status === "partial_success" ? "completed" : "failed",
+            agentId,
+            mode: "direct",
+            result: output.result,
+            confidence: output.confidence,
+            reasoning: output.reasoning,
+            warnings: output.warnings,
+          },
+        });
+      } catch (directErr) {
+        logger.error("Direct agent execution failed", directErr instanceof Error ? directErr : undefined, {
+          agentId, jobId, tenantId, userId,
+          duration_ms: Date.now() - directStartTime,
+          mode: "direct",
+        });
+        return res.status(500).json({
+          success: false,
+          data: { jobId, status: "failed", agentId, mode: "direct" },
+          error: { code: "AGENT_EXECUTION_FAILED", message: directErr instanceof Error ? directErr.message : "Unknown error" },
+        });
+      }
     }
 
     try {

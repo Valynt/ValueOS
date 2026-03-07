@@ -1,5 +1,325 @@
 # Sprint Roadmap — Agentic Value-Case Workflow: Demo to Real
 
+---
+
+## Sprint 4 (Weeks 7–8): Complete the Core Path
+
+**Goal:** A user can create a case, run the core agent flow without Kafka, persist value tree and financial model output, open ModelStage and see real stored data, refresh and still see the same result.
+
+**Sprint success statement:**
+> "We can create a case, run the core agentic path without Kafka, persist generated value drivers and financial results, load them into the model stage, and recover them after refresh. This is a real workflow, not a mock."
+
+---
+
+### Problem Statement
+
+Sprint 1–2 wired the Hypothesis stage and ModelStage UI to real APIs, but ModelStage always shows an empty state because no agent ever writes to `value_tree_nodes` or `financial_model_snapshots`. Two gaps remain:
+
+1. **TargetAgent** produces a `value_driver_tree` in memory but never persists it to `value_tree_nodes`.
+2. **FinancialModelingAgent** computes ROI/NPV/payback but never writes to `financial_model_snapshots`.
+3. **Agent invoke endpoint** returns 503 in any environment without Kafka — making "Run Stage" non-functional in dev/staging.
+
+---
+
+### Non-Goals for This Sprint
+
+- IntegrityStage, NarrativeStage, RealizationStage end-to-end wiring
+- NarrativeAgent implementation
+- Export generation or version history
+- Kafka rollout or replacement
+- Performance tuning
+- Agent architecture redesign
+
+---
+
+### PR-01 — Schema: value_tree_nodes and financial_model_snapshots
+
+**Goal:** Durable schema for the core persistence path.
+
+**Changes:**
+- Add `value_tree_nodes` table with columns: `id`, `tenant_id`, `case_id`, `parent_node_id`, `node_key`, `label`, `description`, `driver_type`, `impact_estimate`, `confidence`, `sort_order`, `source_agent`, `metadata_json`, `created_at`, `updated_at`
+- Add `financial_model_snapshots` table with columns: `id`, `tenant_id`, `case_id`, `snapshot_version`, `roi`, `npv`, `payback_period_months`, `assumptions_json`, `outputs_json`, `source_agent`, `created_at`
+- Indexes on `(case_id, tenant_id)` for both tables
+- RLS policies using `security.user_has_tenant_access()` consistent with existing tenant model
+- Paired rollback SQL
+
+**Files:** `infra/supabase/supabase/migrations/20260317000000_value_tree_and_model_snapshots.sql`, rollback file
+
+**Acceptance criteria:**
+- [ ] Migration applies cleanly against local Supabase
+- [ ] RLS blocks cross-tenant reads and writes
+- [ ] Rollback script restores prior state
+- [ ] `pnpm run test:rls` passes
+
+---
+
+### PR-02 — Backend: ValueTreeRepository
+
+**Goal:** Clean persistence layer so agents don't write raw SQL inline.
+
+**Changes:**
+- Add `packages/backend/src/repositories/ValueTreeRepository.ts`
+- Methods: `replaceNodesForCase(caseId, tenantId, nodes[])`, `getNodesForCase(caseId, tenantId)`, `deleteNodesForCase(caseId, tenantId)`
+- Replace semantics: a new agent run replaces all generated nodes for the case
+- All writes scoped by `tenant_id` and `case_id`
+- Parent/child relationships preserved via `parent_node_id`
+- Co-located unit test
+
+**Files:** `packages/backend/src/repositories/ValueTreeRepository.ts`, `ValueTreeRepository.test.ts`
+
+**Acceptance criteria:**
+- [ ] Can write a full tree and read it back in sort order
+- [ ] Replace semantics are deterministic (old nodes deleted, new nodes inserted atomically)
+- [ ] Tenant isolation enforced — cross-tenant read returns empty
+
+---
+
+### PR-03 — Backend: FinancialModelSnapshotRepository
+
+**Goal:** Append-only snapshot store for financial model outputs.
+
+**Changes:**
+- Add `packages/backend/src/repositories/FinancialModelSnapshotRepository.ts`
+- Methods: `createSnapshot(caseId, tenantId, payload)`, `getLatestSnapshotForCase(caseId, tenantId)`, `listSnapshotsForCase(caseId, tenantId)`
+- Snapshot creation is append-only; historical snapshots remain intact
+- `snapshot_version` auto-incremented per case
+- Co-located unit test
+
+**Files:** `packages/backend/src/repositories/FinancialModelSnapshotRepository.ts`, `FinancialModelSnapshotRepository.test.ts`
+
+**Acceptance criteria:**
+- [ ] Can create and fetch latest snapshot
+- [ ] Historical snapshots are not overwritten
+- [ ] Tenant scoping enforced
+
+---
+
+### PR-04 — Backend: TargetAgent persists value_tree_nodes
+
+**Goal:** Move TargetAgent from in-memory output to durable output.
+
+**Changes:**
+- After `storeTargetsInMemory`, call `ValueTreeRepository.replaceNodesForCase` with the `value_driver_tree` output
+- Map `ValueDriverSchema` fields to `value_tree_nodes` columns (`node_key`, `label`, `driver_type`, `impact_estimate`, `confidence`, `sort_order`, `source_agent: "TargetAgent"`)
+- Require `case_id` and `tenant_id` from context; skip persistence with a warning log if absent
+- Add structured audit log entry on success/failure
+
+**Files:** `packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts`
+
+**Acceptance criteria:**
+- [ ] Running TargetAgent writes nodes to `value_tree_nodes`
+- [ ] Re-running replaces prior nodes for the same case
+- [ ] Audit log records the write with `case_id`, `tenant_id`, node count
+- [ ] Missing context skips persistence without throwing
+
+---
+
+### PR-05 — Backend: FinancialModelingAgent persists financial_model_snapshots
+
+**Goal:** Make financial calculations durable and reloadable.
+
+**Changes:**
+- After `storeModelsInMemory`, call `FinancialModelSnapshotRepository.createSnapshot` with computed ROI, NPV, payback period, assumptions, and full output payload
+- Store `key_assumptions` in `assumptions_json`, full `result` in `outputs_json`
+- Set `source_agent: "FinancialModelingAgent"`
+- Add structured audit log entry on success/failure
+
+**Files:** `packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts`
+
+**Acceptance criteria:**
+- [ ] Running FinancialModelingAgent creates a snapshot row
+- [ ] Latest snapshot retrievable by case
+- [ ] Refreshing the UI loads the same values from persistence
+
+---
+
+### PR-06 — Backend: Direct execution fallback for agent invoke endpoint
+
+**Goal:** Make the core path runnable without Kafka.
+
+**Changes:**
+- In `POST /api/agents/:agentId/invoke`: when `isKafkaEnabled()` is false, execute the agent directly via `UnifiedAgentOrchestrator` (or `AgentFactory` + agent `.execute()`) instead of returning 503
+- Return a consistent response shape in both paths:
+  ```ts
+  {
+    mode: "async" | "direct",
+    jobId: string,        // correlationId for async; generated uuid for direct
+    status: "queued" | "completed" | "failed",
+    resultPreview?: unknown,
+    error?: string,
+  }
+  ```
+- Keep existing Kafka path intact and unchanged
+- Direct execution is synchronous; response includes `status: "completed"` and `resultPreview` on success
+
+**Files:** `packages/backend/src/api/agents.ts`, shared API types
+
+**Acceptance criteria:**
+- [ ] In non-Kafka env, invoke endpoint executes and returns `status: "completed"`
+- [ ] In Kafka env, existing queue/job behavior unchanged
+- [ ] Response contract is identical shape in both modes
+- [ ] `pnpm run typecheck` passes
+
+---
+
+### PR-07 — Backend: Read APIs for value tree and latest model snapshot
+
+**Goal:** Give the frontend a real source of truth for ModelStage.
+
+**Changes:**
+- `GET /api/v1/value-cases/:caseId/value-tree` — already exists; verify it reads from `value_tree_nodes` (not the legacy `ValueTreeService`)
+- `GET /api/v1/value-cases/:caseId/model-snapshots/latest` — new endpoint returning latest `financial_model_snapshots` row or `{ data: null }` if none
+- Both validate tenant access via `req.tenantId`
+- Return explicit empty responses (`[]` / `null`) when no data exists
+
+**Files:** `packages/backend/src/api/valueCases/index.ts`
+
+**Acceptance criteria:**
+- [ ] Endpoints return persisted data only — no fabricated fallbacks
+- [ ] Empty state responses are `{ data: null }` or `{ data: [] }`, not errors
+- [ ] Cross-tenant access returns 401/403
+
+---
+
+### PR-08 — Frontend: useLatestModelSnapshot hook + ModelStage financial panel
+
+**Goal:** ModelStage renders real financial model data when available.
+
+**Changes:**
+- Add `apps/ValyntApp/src/hooks/useModelSnapshot.ts` — `useLatestModelSnapshot(caseId)` fetches `GET /api/v1/value-cases/:caseId/model-snapshots/latest`
+- Add financial summary panel to ModelStage: ROI, NPV, payback period loaded from snapshot
+- Show empty state ("Run the Target and Financial Modeling agents to generate a model") when snapshot is null
+- No hardcoded financial figures anywhere in ModelStage
+
+**Files:** `apps/ValyntApp/src/hooks/useModelSnapshot.ts`, `apps/ValyntApp/src/views/canvas/ModelStage.tsx`
+
+**Acceptance criteria:**
+- [ ] Fresh case shows truthful empty state
+- [ ] Case with snapshot renders real ROI/NPV/payback
+- [ ] Refresh preserves data
+- [ ] No inline hardcoded model arrays remain
+
+---
+
+### PR-09 — Frontend: Run Stage wiring for Target + Financial Modeling flow
+
+**Goal:** "Run Stage" in ModelStage triggers the real agent chain.
+
+**Changes:**
+- Add "Run Model" button to ModelStage that POSTs to `/api/agents/target/invoke` then `/api/agents/financial-modeling/invoke`
+- Handle `mode: "direct"` (immediate completion) and `mode: "async"` (poll via `useAgentJob`) from PR-06 response contract
+- On completion, invalidate `useValueTree` and `useLatestModelSnapshot` queries
+- Show loading/running/completed/failed states truthfully — no simulated progress
+
+**Files:** `apps/ValyntApp/src/views/canvas/ModelStage.tsx`, `apps/ValyntApp/src/hooks/useValueTree.ts`
+
+**Acceptance criteria:**
+- [ ] Button triggers real backend invocation
+- [ ] Direct mode: UI updates immediately after response
+- [ ] Async mode: UI polls and updates on completion
+- [ ] No hardcoded success path
+
+---
+
+### PR-10 — Frontend: Truthful AgentThread status for direct and async modes
+
+**Goal:** AgentThread reflects the PR-06 unified response contract.
+
+**Changes:**
+- Update `useAgentJob` to handle `mode: "direct"` responses (no polling needed — result is in the initial response)
+- Update AgentThread to show `mode` label: "Direct execution" vs "Queued (async)"
+- Remove any remaining simulated orchestration state
+
+**Files:** `apps/ValyntApp/src/hooks/useAgentJob.ts`, `apps/ValyntApp/src/views/canvas/AgentThread.tsx`
+
+**Acceptance criteria:**
+- [ ] Direct mode shows completion immediately without polling
+- [ ] Async mode polls until terminal state
+- [ ] Status is always one of: queued, running, completed, failed, streaming-unavailable
+- [ ] No simulated live streaming
+
+---
+
+### PR-11 — Integration tests: core persistence path
+
+**Goal:** Prove the feature is real, not just wired optimistically.
+
+**Changes:**
+- Backend integration tests (Vitest):
+  - invoke TargetAgent directly → assert `value_tree_nodes` rows exist for case
+  - invoke FinancialModelingAgent directly → assert `financial_model_snapshots` row exists
+  - GET value-tree endpoint → returns persisted nodes
+  - GET model-snapshots/latest → returns persisted snapshot
+  - Cross-tenant read → returns empty/403
+- Frontend: update existing `ModelStage` tests to assert empty state when no data, real data when nodes/snapshot present
+
+**Files:** `packages/backend/src/api/valueCases/__tests__/`, `packages/backend/src/lib/agent-fabric/agents/__tests__/`
+
+**Acceptance criteria:**
+- [ ] Tests fail if persistence breaks
+- [ ] Tests fail if non-Kafka invoke path regresses
+- [ ] Tests prove refresh survival (write → read → same data)
+- [ ] `pnpm test` passes
+
+---
+
+### PR-12 — Logging and audit events for the core path
+
+**Goal:** Make failures diagnosable without full observability infrastructure.
+
+**Changes:**
+Log the following events with `correlation_id`, `case_id`, `tenant_id`:
+- Agent invoke requested (mode selected: async/direct)
+- TargetAgent persisted value tree (node count)
+- FinancialModelingAgent persisted snapshot (ROI, NPV)
+- Read endpoints served empty vs populated result
+- Any persistence failure with error message
+
+**Files:** `packages/backend/src/api/agents.ts`, `TargetAgent.ts`, `FinancialModelingAgent.ts`, repository write points
+
+**Acceptance criteria:**
+- [ ] A failed run can be traced in logs by `correlation_id`
+- [ ] A successful run leaves a durable audit trail entry
+- [ ] No PII logged
+
+---
+
+### Implementation Order
+
+```
+PR-01  schema
+PR-02  ValueTreeRepository
+PR-03  FinancialModelSnapshotRepository
+PR-06  direct invoke fallback
+PR-04  TargetAgent persistence
+PR-05  FinancialModelingAgent persistence
+PR-07  read APIs
+PR-08  useModelSnapshot + ModelStage financial panel
+PR-09  Run Stage wiring
+PR-10  truthful AgentThread status
+PR-11  integration tests
+PR-12  logging/audit
+```
+
+---
+
+### Sprint 4 Acceptance Criteria (end-to-end)
+
+| # | Criterion | Verified by |
+|---|---|---|
+| S4-1 | Create case → run Target agent → `value_tree_nodes` rows exist | DB query after run |
+| S4-2 | Run Financial Modeling agent → `financial_model_snapshots` row exists | DB query after run |
+| S4-3 | ModelStage loads real value tree from API | Network tab: GET /value-tree returns rows |
+| S4-4 | ModelStage loads real financial snapshot | Network tab: GET /model-snapshots/latest returns data |
+| S4-5 | Refresh page → same data still present | Manual: reload, data unchanged |
+| S4-6 | Run Stage works without Kafka (`KAFKA_ENABLED=false`) | Local dev: invoke returns `status: "completed"` |
+| S4-7 | AgentThread shows truthful status in both modes | No simulated steps; mode label visible |
+| S4-8 | No hardcoded model data in ModelStage | Code review: no inline arrays |
+| S4-9 | `pnpm test` passes | CI green |
+| S4-10 | `pnpm run test:rls` passes for new tables | CI green |
+
+---
+
 **Theme:** Make the agentic value-case workflow real end-to-end  
 **Principle:** Smallest set of changes that transforms the product from demo-grade to real system behavior. A feature is *real* when: UI action → API call → backend execution → persistence → UI reflects result.  
 **Cadence:** 2-week sprints  

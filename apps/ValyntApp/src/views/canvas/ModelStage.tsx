@@ -5,6 +5,7 @@ import {
   BarChart3,
   Check,
   ChevronRight,
+  DollarSign,
   Edit3,
   Loader2,
   Minus,
@@ -15,7 +16,9 @@ import {
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { useUpsertValueTreeNode, useValueTree } from "@/hooks/useValueTree";
+import { useModelSnapshot, useRunFinancialModelingAgent } from "@/hooks/useModelSnapshot";
+import type { ModelSnapshot } from "@/hooks/useModelSnapshot";
+import { useRunTargetAgent, useUpsertValueTreeNode, useValueTree } from "@/hooks/useValueTree";
 import type { ValueTreeNode } from "@/hooks/useValueTree";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +76,10 @@ function EditableNumber({
 export function ModelStage() {
   const { caseId } = useParams<{ caseId: string }>();
   const { data: nodes = [], isLoading, isError } = useValueTree(caseId);
+  const { data: snapshot } = useModelSnapshot(caseId);
   const upsertNode = useUpsertValueTreeNode(caseId);
+  const runTarget = useRunTargetAgent(caseId);
+  const runFinancial = useRunFinancialModelingAgent(caseId);
 
   // Partition nodes by type for display
   const driverNodes = nodes.filter((n) => n.node_type === "driver" || n.node_type === "root");
@@ -135,9 +141,22 @@ export function ModelStage() {
         <div className="bg-zinc-50 border border-dashed border-zinc-300 rounded-2xl p-8 text-center">
           <BarChart3 className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
           <p className="text-[14px] font-medium text-zinc-600">No value tree yet</p>
-          <p className="text-[12px] text-zinc-400 mt-1">
-            Run the Hypothesis stage first — the agent will populate the value tree.
+          <p className="text-[12px] text-zinc-400 mt-1 mb-4">
+            Run the Target agent to generate KPI targets and the value driver tree.
           </p>
+          <button
+            onClick={() => runTarget.mutate({})}
+            disabled={runTarget.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-[13px] font-medium rounded-xl transition-colors"
+          >
+            {runTarget.isPending
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running…</>
+              : <><Plus className="w-3.5 h-3.5" /> Run Target Agent</>
+            }
+          </button>
+          {runTarget.isError && (
+            <p className="text-[12px] text-red-600 mt-2">{runTarget.error?.message}</p>
+          )}
         </div>
       )}
 
@@ -150,6 +169,16 @@ export function ModelStage() {
               <h4 className="text-[13px] font-semibold text-zinc-900">Value Architecture</h4>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => runTarget.mutate({})}
+                disabled={runTarget.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-60 text-zinc-700 text-[12px] font-medium rounded-lg transition-colors"
+              >
+                {runTarget.isPending
+                  ? <><Loader2 className="w-3 h-3 animate-spin" /> Running…</>
+                  : <><Minus className="w-3 h-3" /> Re-run Target</>
+                }
+              </button>
               <span className="text-[11px] text-zinc-400">Total Projected Value</span>
               <span className="text-xl font-black text-zinc-950 tracking-tight">{totalValueDisplay}</span>
             </div>
@@ -225,6 +254,34 @@ export function ModelStage() {
         </div>
       )}
 
+      {/* Financial model snapshot */}
+      {snapshot ? (
+        <FinancialPanel
+          snapshot={snapshot}
+          onRerun={() => runFinancial.mutate({})}
+          isRunning={runFinancial.isPending}
+        />
+      ) : !isLoading && nodes.length > 0 && (
+        <div className="bg-zinc-50 border border-dashed border-zinc-300 rounded-2xl p-6 text-center">
+          <DollarSign className="w-7 h-7 text-zinc-300 mx-auto mb-2" />
+          <p className="text-[13px] font-medium text-zinc-600 mb-1">No financial model yet</p>
+          <p className="text-[12px] text-zinc-400 mb-4">Run the Financial Modeling agent to compute ROI, NPV, and payback.</p>
+          <button
+            onClick={() => runFinancial.mutate({})}
+            disabled={runFinancial.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-[13px] font-medium rounded-xl transition-colors"
+          >
+            {runFinancial.isPending
+              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running…</>
+              : <><Plus className="w-3.5 h-3.5" /> Run Financial Model</>
+            }
+          </button>
+          {runFinancial.isError && (
+            <p className="text-[12px] text-red-600 mt-2">{runFinancial.error?.message}</p>
+          )}
+        </div>
+      )}
+
       {/* Assumptions */}
       {assumptionNodes.length > 0 && (
         <div className="bg-white border border-zinc-200 rounded-2xl p-5">
@@ -278,6 +335,109 @@ export function ModelStage() {
             })}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FinancialPanel — shows ROI/NPV/payback from the latest model snapshot
+// ---------------------------------------------------------------------------
+
+function fmt(n: number | null | undefined, decimals = 1): string {
+  if (n == null) return "—";
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(decimals)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(decimals)}`;
+}
+
+function fmtPct(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function FinancialPanel({
+  snapshot,
+  onRerun,
+  isRunning,
+}: {
+  snapshot: ModelSnapshot;
+  onRerun: () => void;
+  isRunning: boolean;
+}) {
+  const models = snapshot.outputs_json?.models ?? [];
+  const summary = snapshot.outputs_json?.portfolio_summary;
+
+  return (
+    <div className="bg-white border border-zinc-200 rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <DollarSign className="w-4 h-4 text-violet-600" />
+        <h4 className="text-[13px] font-semibold text-zinc-900">Financial Model</h4>
+        <span className="text-[11px] text-zinc-400 ml-auto">v{snapshot.snapshot_version}</span>
+        <button
+          onClick={onRerun}
+          disabled={isRunning}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-60 text-zinc-700 text-[12px] font-medium rounded-lg transition-colors"
+        >
+          {isRunning
+            ? <><Loader2 className="w-3 h-3 animate-spin" /> Running…</>
+            : <><Minus className="w-3 h-3" /> Re-run</>
+          }
+        </button>
+      </div>
+
+      {/* Top-line metrics */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="p-3 bg-zinc-50 rounded-xl text-center">
+          <p className="text-[10px] text-zinc-400 uppercase tracking-wide mb-1">ROI</p>
+          <p className="text-[18px] font-black text-zinc-950 tracking-tight">
+            {fmtPct(snapshot.roi)}
+          </p>
+        </div>
+        <div className="p-3 bg-zinc-50 rounded-xl text-center">
+          <p className="text-[10px] text-zinc-400 uppercase tracking-wide mb-1">NPV</p>
+          <p className={cn(
+            "text-[18px] font-black tracking-tight",
+            (snapshot.npv ?? 0) >= 0 ? "text-emerald-700" : "text-red-600"
+          )}>
+            {fmt(snapshot.npv)}
+          </p>
+        </div>
+        <div className="p-3 bg-zinc-50 rounded-xl text-center">
+          <p className="text-[10px] text-zinc-400 uppercase tracking-wide mb-1">Payback</p>
+          <p className="text-[18px] font-black text-zinc-950 tracking-tight">
+            {snapshot.payback_period_months != null
+              ? `${snapshot.payback_period_months}mo`
+              : "—"}
+          </p>
+        </div>
+      </div>
+
+      {/* Per-model breakdown */}
+      {models.length > 0 && (
+        <div className="space-y-2">
+          {models.map((m) => (
+            <div key={m.hypothesis_id} className="flex items-center gap-3 p-2.5 bg-zinc-50 rounded-xl">
+              <span className="text-[11px] text-zinc-500 flex-1 truncate capitalize">
+                {m.category.replace(/_/g, " ")}
+              </span>
+              <span className={cn(
+                "text-[12px] font-bold",
+                m.npv >= 0 ? "text-emerald-700" : "text-red-600"
+              )}>
+                {fmt(m.npv)}
+              </span>
+              <span className="text-[11px] text-zinc-400 w-10 text-right">
+                {Math.round(m.confidence * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Portfolio summary */}
+      {summary && (
+        <p className="text-[12px] text-zinc-500 mt-3 leading-relaxed">{summary}</p>
       )}
     </div>
   );
