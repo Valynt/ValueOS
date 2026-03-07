@@ -3,6 +3,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 
 import type { User } from "../../drizzle/schema";
 import { getUserByOpenId } from "../db";
+import { type AuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 import { ENV } from "./env";
 
@@ -120,13 +121,22 @@ function getPrimarySigningKey(keys: SessionKey[]): SessionKey {
  * Parse session token and validate
  * In production, this should use JWT or encrypted session tokens
  */
-export async function validateSessionToken(token: string): Promise<User | null> {
+export async function validateSessionToken(token: string, requestContext?: AuditRequestContext): Promise<User | null> {
   try {
     const keys = getSessionKeys();
     const { issuer, audience, tenant } = getSessionVerificationConfig();
 
     const decoded = jwt.decode(token, { complete: true });
     if (!decoded || typeof decoded !== "object") {
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId: tenant || ENV.appId || undefined,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "token_decode_failed" },
+      });
       return null;
     }
 
@@ -137,6 +147,15 @@ export async function validateSessionToken(token: string): Promise<User | null> 
 
     if (keyCandidates.length === 0) {
       console.warn("[Session] No matching keys found for token");
+      await logAuditEvent({
+        actor: "anonymous",
+        tenantId: tenant || ENV.appId || undefined,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "missing_signing_key", kid: headerKid },
+      });
       return null;
     }
 
@@ -157,23 +176,83 @@ export async function validateSessionToken(token: string): Promise<User | null> 
     }
 
     if (!payload?.sub || !payload.exp || !payload.iat) {
+      await logAuditEvent({
+        actor: payload?.sub || "anonymous",
+        tenantId: payload?.tenant || tenant || ENV.appId || undefined,
+        organizationId: payload?.org,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: { reason: "missing_required_claims" },
+      });
       return null;
     }
 
     if (tenant && payload.tenant !== tenant) {
       console.warn("[Session] Token tenant mismatch");
+      await logAuditEvent({
+        actor: payload.sub,
+        tenantId: payload.tenant || tenant || ENV.appId || undefined,
+        organizationId: payload.org,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: {
+          reason: "tenant_mismatch",
+          expectedTenant: tenant,
+          tokenTenant: payload.tenant,
+        },
+      });
       return null;
     }
 
     if (payload.tenant && ENV.appId && payload.tenant !== ENV.appId) {
       console.warn("[Session] Token app mismatch");
+      await logAuditEvent({
+        actor: payload.sub,
+        tenantId: payload.tenant,
+        organizationId: payload.org,
+        action: "session.validate",
+        result: "failure",
+        ipAddress: requestContext?.ipAddress,
+        userAgent: requestContext?.userAgent,
+        details: {
+          reason: "app_mismatch",
+          expectedAppId: ENV.appId,
+          tokenTenant: payload.tenant,
+        },
+      });
       return null;
     }
 
     const user = await getUserByOpenId(payload.sub);
+    await logAuditEvent({
+      actor: payload.sub,
+      tenantId: payload.tenant || tenant || ENV.appId || undefined,
+      organizationId: payload.org,
+      action: "session.validate",
+      result: user ? "success" : "failure",
+      ipAddress: requestContext?.ipAddress,
+      userAgent: requestContext?.userAgent,
+      details: { reason: user ? "validated" : "user_not_found" },
+    });
     return user || null;
   } catch (error) {
     console.error("[Session] Failed to validate token:", error);
+    await logAuditEvent({
+      actor: "anonymous",
+      tenantId: ENV.appId || undefined,
+      action: "session.validate",
+      result: "failure",
+      ipAddress: requestContext?.ipAddress,
+      userAgent: requestContext?.userAgent,
+      details: {
+        reason: "validation_exception",
+        error: error instanceof Error ? error.message : "unknown_error",
+      },
+    });
     return null;
   }
 }
