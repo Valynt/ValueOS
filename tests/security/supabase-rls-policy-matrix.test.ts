@@ -29,10 +29,11 @@ const assertCrossTenantWrite = (outcome: {
   data: unknown[] | null;
 }) => {
   expect(EXPECTED_SEMANTICS.write).toBe("forbidden");
-  const blockedByRlsError = outcome.error !== null;
-  const blockedByNoTargetRows =
-    Array.isArray(outcome.data) && outcome.data.length === 0;
-  expect(blockedByRlsError || blockedByNoTargetRows).toBe(true);
+  // For cross-tenant writes, RLS should silently filter out the operation:
+  // no error and zero affected rows.
+  expect(outcome.error).toBeNull();
+  const rows = Array.isArray(outcome.data) ? outcome.data : [];
+  expect(rows).toEqual([]);
 };
 
 describe("Supabase RLS policy matrix hard gate", () => {
