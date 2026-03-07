@@ -14,11 +14,18 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    globals: true,
     include: [
       "server/**/*.test.ts",
       "server/**/*.spec.ts",
-      "packages/memory/**/*.test.ts",
-      "packages/memory/**/*.spec.ts",
+      "packages/**/*.test.ts",
+      "packages/**/*.spec.ts",
+      "tests/**/*.test.ts",
+      "tests/**/*.spec.ts",
+      "scripts/**/*.test.ts",
+      "scripts/**/*.spec.ts",
+      "infra/**/*.test.ts",
+      "infra/**/*.spec.ts",
     ],
   },
 });
