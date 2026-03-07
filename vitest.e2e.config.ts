@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["tests/e2e/critical-preprod.test.ts"],
+    include: ["tests/e2e/**/*.test.ts"],
     testTimeout: 15000,
     hookTimeout: 10000,
     pool: "forks",
