@@ -66,12 +66,27 @@ export async function executeWorkflowFixture(
 ): Promise<void> {
   await page.goto(workflow.route);
 
-  const sessionState = await assertSessionSeeded(page, workflow);
-  const boundaryResponse = await runWorkflowRequest(request, workflow);
-  await assertWorkflowPersistenceBoundary(boundaryResponse, workflow, sessionState.runId);
+  // Generate a single runId for this workflow execution and thread it through
+  // both the session seeding and backend execution payloads.
+  const runId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `e2e-run-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-  const snapshot = await captureWorkflowSnapshot(page, workflow);
-  expect(snapshot.runId).toBe(sessionState.runId);
+  const workflowWithRunId: WorkflowFixture = {
+    ...workflow,
+    executePayload: {
+      ...workflow.executePayload,
+      runId,
+    },
+  };
 
-  await reloadAndAssertWorkflowSnapshot(page, workflow, snapshot);
+  const sessionState = await assertSessionSeeded(page, workflowWithRunId);
+  const boundaryResponse = await runWorkflowRequest(request, workflowWithRunId);
+  await assertWorkflowPersistenceBoundary(boundaryResponse, workflowWithRunId, runId);
+
+  const snapshot = await captureWorkflowSnapshot(page, workflowWithRunId);
+  expect(snapshot.runId).toBe(runId);
+
+  await reloadAndAssertWorkflowSnapshot(page, workflowWithRunId, snapshot);
 }
