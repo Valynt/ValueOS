@@ -58,8 +58,9 @@ const bootstrapTenantUser = async ({
   anonKey,
   cleanupIds,
 }: BootstrapUserInput): Promise<TenantJwtContext> => {
-  const email = `tenant-${suffix}-${Date.now()}@example.com`;
-  const password = `P@ssword-${suffix}-${Date.now()}`;
+  const uniqueSuffix = `${suffix}-${crypto.randomUUID()}`;
+  const email = `tenant-${uniqueSuffix}@example.com`;
+  const password = `P@ssword-${uniqueSuffix}`;
 
   const { data: createdUser, error: createUserError } =
     await adminClient.auth.admin.createUser({
