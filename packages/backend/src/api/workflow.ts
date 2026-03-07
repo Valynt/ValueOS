@@ -1,5 +1,6 @@
 import { logger } from '@shared/lib/logger';
 import { Request, Response, Router } from 'express';
+import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js'
 import { validateRequest, type ValidationSchema } from '../middleware/inputValidation.js'
@@ -14,6 +15,7 @@ import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
 } from "../services/ReadThroughCacheService.js"
+import { getUnifiedOrchestrator } from '../services/UnifiedAgentOrchestrator.js';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -28,6 +30,101 @@ const workflowExplainParamsSchema: ValidationSchema = {
   executionId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
   stepId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
 };
+
+const executeWorkflowBodySchema = z.object({
+  workflowId: z.string().min(1).optional(),
+  workflowDefinitionId: z.string().min(1).optional(),
+  input: z.record(z.string(), z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
+  reason: z.string().min(1).max(500).optional(),
+}).refine((body) => Boolean(body.workflowId || body.workflowDefinitionId), {
+  message: 'workflowId or workflowDefinitionId is required',
+});
+
+type WorkflowRequestUser = {
+  id?: string;
+  role?: string;
+};
+
+type WorkflowExecuteRequest = Request & {
+  tenantId?: string;
+  user?: WorkflowRequestUser;
+};
+
+async function executeWorkflowHandler(req: WorkflowExecuteRequest, res: Response): Promise<Response> {
+  const tenantId = getTenantIdFromRequest(req as unknown as { tenantId?: string; headers: Record<string, string | string[] | undefined> });
+  const parseResult = executeWorkflowBodySchema.safeParse(req.body ?? {});
+
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'validation_error',
+      message: parseResult.error.issues[0]?.message ?? 'Invalid workflow execution request payload',
+    });
+  }
+
+  if (!tenantId || tenantId === 'public') {
+    return res.status(403).json({
+      error: 'tenant_required',
+      message: 'Tenant context is required to execute workflows',
+    });
+  }
+
+  const payload = parseResult.data;
+  const workflowDefinitionId = payload.workflowDefinitionId ?? payload.workflowId;
+  const context = payload.input ?? payload.context ?? {};
+  const actorId = req.user?.id ?? 'api-user';
+
+  const executionEnvelope = {
+    intent: 'execute_workflow',
+    actor: {
+      id: actorId,
+      roles: req.user?.role ? [req.user.role] : undefined,
+    },
+    organizationId: tenantId,
+    entryPoint: 'api.workflow.execute',
+    reason: payload.reason ?? 'Workflow execution requested via API endpoint',
+    timestamps: {
+      requestedAt: new Date().toISOString(),
+    },
+  };
+
+  try {
+    const orchestrator = getUnifiedOrchestrator();
+    const result = await orchestrator.executeWorkflow(
+      executionEnvelope,
+      workflowDefinitionId,
+      context,
+      actorId,
+    );
+
+    return res.status(202).json({
+      success: true,
+      data: {
+        executionId: result.executionId,
+        workflowDefinitionId,
+        status: result.status,
+        currentStage: result.currentStage,
+        completedStages: result.completedStages,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to execute workflow';
+    const statusCode = message.includes('not found') ? 404 : 500;
+
+    logger.error('Failed to execute workflow', error instanceof Error ? error : undefined, {
+      tenantId,
+      workflowDefinitionId,
+    });
+
+    return res.status(statusCode).json({
+      error: 'workflow_execution_failed',
+      message,
+    });
+  }
+}
+
+router.post('/workflows/execute', rateLimiters.standard, executeWorkflowHandler);
+router.post('/workflow/execute', rateLimiters.standard, executeWorkflowHandler);
 
 router.get(
   '/workflows/:id',
