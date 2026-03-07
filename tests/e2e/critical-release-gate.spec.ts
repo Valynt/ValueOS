@@ -10,8 +10,10 @@ test.describe('Critical release gate (workflow orchestrator)', () => {
       try {
         await executeWorkflowFixture(page, request, workflow);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`[${workflow.id}] ${message}`);
+        if (error instanceof Error) {
+          throw new Error(`[${workflow.id}] ${error.message}`, { cause: error });
+        }
+        throw new Error(`[${workflow.id}] ${String(error)}`);
       }
     });
   }
