@@ -26,6 +26,32 @@ export interface SECCompanyInfo {
 
 const SEC_USER_AGENT = "ValueOS/1.0 (contact@valynt.com)";
 
+// In-memory cache for the SEC company tickers JSON.
+// The file is ~5MB and changes infrequently — fetching it per-request adds
+// 500–2000ms of latency. Cache for 24 hours.
+interface TickerCache {
+  data: Record<string, { cik_str: number; title: string; ticker: string }>;
+  expiresAt: number;
+}
+let _tickerCache: TickerCache | null = null;
+
+async function getSecTickers(): Promise<TickerCache["data"]> {
+  const now = Date.now();
+  if (_tickerCache && _tickerCache.expiresAt > now) {
+    return _tickerCache.data;
+  }
+
+  const resp = await fetch("https://www.sec.gov/files/company_tickers.json", {
+    headers: { "User-Agent": SEC_USER_AGENT, Accept: "application/json" },
+  });
+
+  if (!resp.ok) throw new Error(`SEC tickers fetch failed: ${resp.status}`);
+
+  const data = await resp.json() as TickerCache["data"];
+  _tickerCache = { data, expiresAt: now + 24 * 60 * 60 * 1000 };
+  return data;
+}
+
 /**
  * Resolve a company in SEC EDGAR by name or ticker.
  * Returns CIK, ticker, SIC code, and recent filings.
@@ -34,20 +60,8 @@ export async function fetchSECCompany(
   companyName: string
 ): Promise<SECCompanyInfo | null> {
   try {
-    // Step 1: Get company tickers list
-    const tickerResp = await fetch(
-      "https://www.sec.gov/files/company_tickers.json",
-      {
-        headers: {
-          "User-Agent": SEC_USER_AGENT,
-          Accept: "application/json",
-        },
-      }
-    );
-
-    if (!tickerResp.ok) return null;
-
-    const tickers = await tickerResp.json();
+    // Step 1: Get company tickers list (cached for 24h)
+    const tickers = await getSecTickers();
     const lowerName = companyName.toLowerCase();
 
     // Find matching company by name or ticker
