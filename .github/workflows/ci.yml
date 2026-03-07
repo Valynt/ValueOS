@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches: [main, develop]
   release:
@@ -393,13 +393,17 @@ jobs:
           mkdir -p reports/compliance/audit
           mkdir -p reports/compliance/metadata
 
-      - name: Run RLS tenant isolation tests
+      - name: Run RLS tenant isolation hard-gate suites
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          npx vitest run tests/security/rls-tenant-isolation.test.ts \
+          npx vitest run \
+            tests/security/rls-tenant-isolation.test.ts \
+            tests/security/api-tenant-isolation.test.ts \
+            tests/security/supabase-rls-policy-matrix.test.ts \
+            tests/security/agent-invocation-tenant-boundary.test.ts \
             --reporter=verbose \
             --reporter=junit \
             --reporter=json \
@@ -515,7 +519,7 @@ jobs:
           vuln-type: os,library
           scanners: vuln,license,secret
           severity: CRITICAL,HIGH
-          exit-code: '1'
+          exit-code: "1"
 
   iac:
     name: IaC Scan (infra/**)
@@ -542,7 +546,6 @@ jobs:
           done
 
           echo "✅ No placeholder markers found in production Terraform IaC files."
-
 
       - name: Detect IaC files
         id: detect
@@ -728,7 +731,6 @@ jobs:
             exit 1
           fi
           echo "No blocking P0/P1 labels found."
-
 
   i18n-release-gate:
     name: Release i18n Completeness Gate
