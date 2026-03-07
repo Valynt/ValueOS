@@ -2,7 +2,9 @@
  * Critical Pre-Production E2E Tests (temporary compatibility layer)
  *
  * Temporary mocked-contract scope used for compatibility checks only.
- * Non-gating by default: set RUN_CRITICAL_PREPROD_COMPAT=true to execute.
+ * Non-gating by default: set RUN_CRITICAL_PREPROD_COMPAT=true and run Vitest
+ * with the E2E config (e.g. `RUN_CRITICAL_PREPROD_COMPAT=true vitest -c vitest.e2e.config.ts`)
+ * for these tests to execute.
  *
  * Validates core invariants before production deployment:
  * 1. Tenant isolation across agents and memory
