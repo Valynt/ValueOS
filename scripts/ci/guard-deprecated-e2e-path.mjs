@@ -35,15 +35,24 @@ async function main() {
     throw error;
   }
 
-  if (files.length > 0) {
+  // Only treat test files in the deprecated path as an error; allow non-test files (e.g., README).
+  const testFiles = files.filter(
+    (file) => file.endsWith('.test.ts') || file.endsWith('.spec.ts'),
+  );
+
+  if (testFiles.length > 0) {
     console.error('❌ Deprecated e2e path is no longer allowed. Move these specs to tests/e2e/:');
-    for (const file of files) {
+    for (const file of testFiles) {
       console.error(` - ${file}`);
     }
     process.exit(1);
   }
 
-  console.log('✅ Deprecated e2e path exists but is empty: tests/test/e2e');
+  if (files.length > 0) {
+    console.log('✅ Deprecated e2e path exists and contains no test specs (only non-test files): tests/test/e2e');
+  } else {
+    console.log('✅ Deprecated e2e path exists but is empty: tests/test/e2e');
+  }
 }
 
 main().catch((error) => {
