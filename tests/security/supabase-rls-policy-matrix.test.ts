@@ -82,49 +82,51 @@ describe("Supabase RLS policy matrix hard gate", () => {
         .insert(target.createPayload(fixture.tenantOne.tenantId));
       expect(insertError).toBeNull();
 
-      const { data: readData, error: readError } =
-        await fixture.tenantTwo.client
-          .from(target.table)
-          .select("id")
-          .eq("id", target.id);
+      try {
+        const { data: readData, error: readError } =
+          await fixture.tenantTwo.client
+            .from(target.table)
+            .select("id")
+            .eq("id", target.id);
 
-      expect(readError).toBeNull();
-      assertCrossTenantRead(readData as unknown[] | null);
+        expect(readError).toBeNull();
+        assertCrossTenantRead(readData as unknown[] | null);
 
-      const { data: updateData, error: updateError } =
-        await fixture.tenantTwo.client
-          .from(target.table)
-          .update({ updated_at: new Date().toISOString() })
-          .eq("id", target.id)
-          .select("id");
+        const { data: updateData, error: updateError } =
+          await fixture.tenantTwo.client
+            .from(target.table)
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", target.id)
+            .select("id");
 
-      assertCrossTenantWrite({
-        error: updateError ? { message: updateError.message } : null,
-        data: updateData as unknown[] | null,
-      });
+        assertCrossTenantWrite({
+          error: updateError ? { message: updateError.message } : null,
+          data: updateData as unknown[] | null,
+        });
 
-      const { data: deleteData, error: deleteError } =
-        await fixture.tenantTwo.client
-          .from(target.table)
-          .delete()
-          .eq("id", target.id)
-          .select("id");
+        const { data: deleteData, error: deleteError } =
+          await fixture.tenantTwo.client
+            .from(target.table)
+            .delete()
+            .eq("id", target.id)
+            .select("id");
 
-      assertCrossTenantWrite({
-        error: deleteError ? { message: deleteError.message } : null,
-        data: deleteData as unknown[] | null,
-      });
+        assertCrossTenantWrite({
+          error: deleteError ? { message: deleteError.message } : null,
+          data: deleteData as unknown[] | null,
+        });
 
-      const { data: ownerView, error: ownerViewError } =
-        await fixture.tenantOne.client
-          .from(target.table)
-          .select("id")
-          .eq("id", target.id);
+        const { data: ownerView, error: ownerViewError } =
+          await fixture.tenantOne.client
+            .from(target.table)
+            .select("id")
+            .eq("id", target.id);
 
-      expect(ownerViewError).toBeNull();
-      expect(ownerView?.map(row => row.id)).toEqual([target.id]);
-
-      await fixture.adminClient.from(target.table).delete().eq("id", target.id);
+        expect(ownerViewError).toBeNull();
+        expect(ownerView?.map(row => row.id)).toEqual([target.id]);
+      } finally {
+        await fixture.adminClient.from(target.table).delete().eq("id", target.id);
+      }
     });
   }
 
