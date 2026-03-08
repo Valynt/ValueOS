@@ -1,5 +1,5 @@
 interface SecurityEvent {
-  category: 'authentication' | 'authorization' | 'session' | 'llm' | 'dependency' | 'formula';
+  category: 'authentication' | 'authorization' | 'autonomy' | 'session' | 'llm' | 'dependency' | 'formula';
   action: string;
   metadata?: Record<string, unknown>;
   severity?: 'info' | 'warn' | 'error';
