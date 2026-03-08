@@ -23,6 +23,7 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -165,6 +166,12 @@ export class RealizationAgent extends BaseAgent {
       sdui_sections: sduiSections,
     };
 
+    // Publish a milestone event for each proof point so the RecommendationEngine
+    // and other subscribers can react to individual KPI outcomes.
+    const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
+      ?? context.workspace_id;
+    await this.publishMilestoneEvents(context, opportunityId, analysis);
+
     return this.buildOutput(result, status, confidenceLevel, startTime, {
       reasoning: `Tracked ${analysis.proof_points.length} KPIs: ${onTargetCount} on target, ${overCount} exceeded, ${underCount} under target. ` +
         `Overall realization rate: ${(rate * 100).toFixed(0)}%. ` +
@@ -172,6 +179,42 @@ export class RealizationAgent extends BaseAgent {
         (analysis.expansion_signals.length > 0 ? `${analysis.expansion_signals.length} expansion signals detected.` : ''),
       suggested_next_actions: analysis.recommended_next_steps,
     });
+  }
+
+  private async publishMilestoneEvents(
+    context: LifecycleContext,
+    opportunityId: string,
+    analysis: RealizationAnalysis,
+  ): Promise<void> {
+    const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
+
+    for (const proofPoint of analysis.proof_points) {
+      try {
+        await getDomainEventBus().publish('realization.milestone_reached', {
+          ...buildEventEnvelope({
+            traceId,
+            tenantId: context.organization_id,
+            actorId: context.user_id,
+          }),
+          opportunityId,
+          workspaceId: context.workspace_id,
+          kpiId: proofPoint.kpi_id,
+          kpiName: proofPoint.kpi_name,
+          committedValue: proofPoint.committed_value,
+          realizedValue: proofPoint.realized_value,
+          unit: proofPoint.unit,
+          variancePercentage: proofPoint.variance_percentage,
+          direction: proofPoint.direction,
+          overallRealizationRate: analysis.overall_realization_rate,
+          expansionSignalCount: analysis.expansion_signals.length,
+        });
+      } catch (err) {
+        logger.warn('RealizationAgent: failed to publish realization.milestone_reached event', {
+          kpi_id: proofPoint.kpi_id,
+          error: (err as Error).message,
+        });
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

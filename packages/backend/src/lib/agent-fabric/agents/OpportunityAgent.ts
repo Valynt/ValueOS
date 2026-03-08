@@ -26,6 +26,8 @@ import type {
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
 
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +35,12 @@ import { BaseAgent } from './BaseAgent.js';
 // ---------------------------------------------------------------------------
 
 const ValueHypothesisSchema = z.object({
+  /**
+   * Stable identifier. The LLM may omit it; generateHypotheses() fills in a
+   * deterministic slug (`<category>-<1-based-index>`) after parsing so every
+   * hypothesis always carries a non-empty, unique-within-opportunity id.
+   */
+  id: z.string().optional(),
   title: z.string().min(1),
   description: z.string().min(1),
   category: z.enum([
@@ -112,6 +120,13 @@ export class OpportunityAgent extends BaseAgent {
     // Step 3: Store hypotheses in memory for downstream agents
     await this.storeHypothesesInMemory(context, analysis);
 
+    // Publish evidence.attached for each hypothesis that has financial grounding
+    if (financialData) {
+      const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
+        ?? context.workspace_id;
+      await this.publishEvidenceAttached(context, opportunityId, analysis, financialData);
+    }
+
     // Step 3b: Persist hypothesis output to Supabase for frontend retrieval
     const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
     if (valueCaseId && context.organization_id) {
@@ -141,11 +156,82 @@ export class OpportunityAgent extends BaseAgent {
       sdui_sections: sduiSections,
     };
 
+    // Publish domain event so downstream services (RecommendationEngine, etc.)
+    // can react without polling.
+    const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
+      ?? context.workspace_id;
+    await this.publishOpportunityUpdated(context, opportunityId, analysis, avgConfidence);
+
     return this.buildOutput(result, 'success', confidenceLevel, startTime, {
       reasoning: `Generated ${analysis.hypotheses.length} value hypotheses for "${query}"` +
         (financialData ? ` with financial grounding from ${financialData.sources.join(', ')}` : ''),
       suggested_next_actions: analysis.recommended_next_steps,
     });
+  }
+
+  private async publishOpportunityUpdated(
+    context: LifecycleContext,
+    opportunityId: string,
+    analysis: OpportunityAnalysis,
+    avgConfidence: number,
+  ): Promise<void> {
+    try {
+      const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
+      await getDomainEventBus().publish('opportunity.updated', {
+        ...buildEventEnvelope({
+          traceId,
+          tenantId: context.organization_id,
+          actorId: context.user_id,
+        }),
+        opportunityId,
+        workspaceId: context.workspace_id,
+        lifecycleStage: context.lifecycle_stage,
+        hypothesisCount: analysis.hypotheses.length,
+        averageConfidence: avgConfidence,
+        recommendedNextSteps: analysis.recommended_next_steps,
+      });
+    } catch (err) {
+      // Non-fatal: event bus failure must not break the agent response
+      logger.warn('OpportunityAgent: failed to publish opportunity.updated event', {
+        workspace_id: context.workspace_id,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  private async publishEvidenceAttached(
+    context: LifecycleContext,
+    opportunityId: string,
+    analysis: OpportunityAnalysis,
+    financialData: FinancialDataResult,
+  ): Promise<void> {
+    const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
+    const avgConfidence = analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0)
+      / analysis.hypotheses.length;
+
+    for (const hypothesis of analysis.hypotheses) {
+      try {
+        await getDomainEventBus().publish('evidence.attached', {
+          ...buildEventEnvelope({
+            traceId,
+            tenantId: context.organization_id,
+            actorId: context.user_id,
+          }),
+          opportunityId,
+          workspaceId: context.workspace_id,
+          // id is always set by generateHypotheses() before this runs
+          hypothesisId: hypothesis.id ?? `${hypothesis.category}-unknown`,
+          evidenceType: 'financial_data',
+          source: financialData.sources.join(', '),
+          confidenceDelta: avgConfidence,
+        });
+      } catch (err) {
+        logger.warn('OpportunityAgent: failed to publish evidence.attached event', {
+          hypothesis: hypothesis.title,
+          error: (err as Error).message,
+        });
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -313,6 +399,15 @@ Generate a JSON object with:
           },
         },
       );
+
+      // Ensure every hypothesis has a stable id. The LLM rarely emits one, so
+      // we inject a deterministic slug: `<category>-<1-based-index>`. This is
+      // stable across re-runs for the same analysis and unique within an
+      // opportunity, making it safe to use as a lookup key downstream.
+      result.hypotheses = result.hypotheses.map((h, i) => ({
+        ...h,
+        id: h.id ?? `${h.category}-${i + 1}`,
+      }));
 
       return result;
     } catch (err) {
