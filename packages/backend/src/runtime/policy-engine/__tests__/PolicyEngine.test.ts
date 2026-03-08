@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PolicyEngine, PolicyEngineOptions, ServiceReadiness } from "../index.js";
+import {
+  PolicyEngine,
+  PolicyEngineOptions,
+  ServiceReadiness,
+  HITL_CONFIDENCE_THRESHOLD,
+  PolicyCheckResult,
+} from "../index.js";
+import { DecisionContext } from "@shared/domain/DecisionContext.js";
 
 // ============================================================================
 // Shared mocks — hoisted so vi.mock factories can reference them
@@ -398,6 +405,126 @@ describe("PolicyEngine", () => {
       expect(agentIds).toContain("integrity-agent");
       expect(agentIds).toContain("compliance-auditor-agent");
       expect(agentIds).toHaveLength(7);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // HITL gating (Sprint 5)
+  // --------------------------------------------------------------------------
+
+  describe("checkHITL — HITL-01: external artifact + low confidence", () => {
+    function makeHITLContext(overrides: Partial<DecisionContext> = {}): DecisionContext {
+      return {
+        organization_id: "00000000-0000-0000-0000-000000000001",
+        is_external_artifact_action: false,
+        ...overrides,
+      };
+    }
+
+    function makeOpportunity(
+      confidence_score: number,
+      lifecycle_stage: NonNullable<DecisionContext["opportunity"]>["lifecycle_stage"] = "composing",
+    ): NonNullable<DecisionContext["opportunity"]> {
+      return {
+        id: "00000000-0000-0000-0000-000000000002",
+        lifecycle_stage,
+        confidence_score,
+        value_maturity: "medium",
+      };
+    }
+
+    it("blocks when confidence < 0.6 and action is external-facing", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.5),
+        is_external_artifact_action: true,
+      });
+      const result = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(false);
+      expect(result.hitl_required).toBe(true);
+      expect(result.hitl_reason).toBeDefined();
+      expect(result.details.rule_id).toBe("HITL-01");
+      expect(result.details.confidence_score).toBe(0.5);
+      expect(result.details.is_external_artifact_action).toBe(true);
+    });
+
+    it("blocks at confidence just below threshold (0.59)", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.59),
+        is_external_artifact_action: true,
+      });
+      const result = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(false);
+      expect(result.hitl_required).toBe(true);
+    });
+
+    it("allows at exactly the threshold (0.6)", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(HITL_CONFIDENCE_THRESHOLD),
+        is_external_artifact_action: true,
+      });
+      const result = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(true);
+      expect(result.hitl_required).toBe(false);
+    });
+
+    it("allows when confidence > 0.6", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.85),
+        is_external_artifact_action: true,
+      });
+      const result: PolicyCheckResult = engine.checkHITL(ctx);
+      expect(result.allowed).toBe(true);
+      expect(result.hitl_required).toBe(false);
+    });
+
+    it("allows when action is not external-facing, even with low confidence", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.3),
+        is_external_artifact_action: false,
+      });
+      expect(engine.checkHITL(ctx).allowed).toBe(true);
+    });
+
+    it("allows when opportunity is absent (no confidence to check)", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({ is_external_artifact_action: true });
+      expect(engine.checkHITL(ctx).allowed).toBe(true);
+    });
+
+    it("hitl_reason cites the threshold and actual score", () => {
+      const engine = makeEngine();
+      const ctx = makeHITLContext({
+        opportunity: makeOpportunity(0.42),
+        is_external_artifact_action: true,
+      });
+      const result = engine.checkHITL(ctx);
+      expect(result.hitl_reason).toContain(String(HITL_CONFIDENCE_THRESHOLD));
+      expect(result.hitl_reason).toContain("0.42");
+    });
+
+    it("HITL fires for every lifecycle stage when confidence < threshold", () => {
+      const engine = makeEngine();
+      const stages: NonNullable<DecisionContext["opportunity"]>["lifecycle_stage"][] = [
+        "discovery", "drafting", "validating", "composing", "refining", "realized", "expansion",
+      ];
+      for (const stage of stages) {
+        const ctx = makeHITLContext({
+          opportunity: makeOpportunity(0.3, stage),
+          is_external_artifact_action: true,
+        });
+        const result = engine.checkHITL(ctx);
+        expect(result.allowed).toBe(false);
+        expect(result.details.lifecycle_stage).toBe(stage);
+      }
+    });
+
+    it("HITL_CONFIDENCE_THRESHOLD is 0.6", () => {
+      expect(HITL_CONFIDENCE_THRESHOLD).toBe(0.6);
     });
   });
 });

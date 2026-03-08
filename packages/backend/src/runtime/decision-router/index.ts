@@ -1,14 +1,14 @@
 /**
  * DecisionRouter
  *
- * Selects the next agent or action based on workflow state and domain context.
+ * Selects the next agent or action based on structured domain state.
  *
- * Sprint 2: Extracted from UnifiedAgentOrchestrator.selectAgent() and the
- * AgentRoutingLayer/AgentRoutingScorer/AgentRegistry trio. The orchestrator
- * now delegates all routing decisions here via a thin facade.
+ * Sprint 2: Extracted from UnifiedAgentOrchestrator.selectAgent(). The
+ * orchestrator delegates all routing decisions here via a thin facade.
  *
- * Sprint 5 target: Replace selectAgentForQuery() keyword matching with
- * structured domain-state decisioning via DecisionContext.
+ * Sprint 5: Replaced selectAgentForQuery() keyword matching with
+ * domain-state decisioning via DecisionContext. Rules live in ./rules/.
+ * The legacy selectAgentForQuery() method is removed.
  */
 
 import { AgentType } from '../../services/agent-types.js';
@@ -16,14 +16,17 @@ import { AgentRegistry, RoutingContext } from '../../services/AgentRegistry.js';
 import { AgentRoutingLayer, StageRoute } from '../../services/AgentRoutingLayer.js';
 import { AgentRoutingScorer } from '../../services/AgentRoutingScorer.js';
 import { WorkflowDAG } from '../../types/workflow.js';
+import { DecisionContext } from '@shared/domain/DecisionContext.js';
+import {
+  RoutingRecommendation,
+  RoutingRule,
+  DOMAIN_ROUTING_RULES,
+} from './rules/index.js';
 
-/** Minimal workflow state shape needed for query-based routing. */
-export interface QueryRoutingState {
-  currentStage: string;
-}
-
-export type { StageRoute };
+export type { StageRoute, RoutingRecommendation, RoutingRule };
 export { AgentRegistry, AgentRoutingLayer, AgentRoutingScorer };
+export { DOMAIN_ROUTING_RULES } from './rules/index.js';
+export * from './rules/types.js';
 
 // ============================================================================
 // DecisionRouter
@@ -31,9 +34,15 @@ export { AgentRegistry, AgentRoutingLayer, AgentRoutingScorer };
 
 export class DecisionRouter {
   private routingLayer: AgentRoutingLayer;
+  private rules: RoutingRule[];
 
-  constructor(routingLayer?: AgentRoutingLayer) {
+  constructor(routingLayer?: AgentRoutingLayer, rules?: RoutingRule[]) {
     this.routingLayer = routingLayer ?? new AgentRoutingLayer();
+    // Rules are sorted by priority ascending at construction time so
+    // evaluate() can short-circuit on the first match without re-sorting.
+    this.rules = [...(rules ?? DOMAIN_ROUTING_RULES)].sort(
+      (a, b) => a.priority - b.priority
+    );
   }
 
   /**
@@ -45,91 +54,36 @@ export class DecisionRouter {
   }
 
   /**
-   * Select an agent for a free-form query against current workflow state.
+   * Select the next agent and action for a free-form query using structured
+   * domain state. Rules are evaluated in priority order; the first match wins.
    *
-   * @deprecated Sprint 5 will replace this with domain-state decisioning via
-   * DecisionContext. The keyword matching below is preserved from the original
-   * UnifiedAgentOrchestrator.selectAgent() to maintain behavioral parity during
-   * the transition.
+   * Returns null when no rule matches — callers should fall back to the
+   * 'coordinator' agent.
    */
-  selectAgentForQuery(query: string, state: QueryRoutingState): AgentType {
-    const lowerQuery = query.toLowerCase();
-
-    // Stage-based routing takes priority over keyword matching
-    switch (state.currentStage) {
-      case 'discovery':
-        return 'company-intelligence';
-      case 'research':
-        return 'research';
-      case 'analysis':
-        return 'system-mapper';
-      case 'benchmarking':
-        return 'benchmark';
-      case 'design':
-        return 'intervention-designer';
-      case 'modeling':
-        return 'financial-modeling';
-      case 'narrative':
-        return 'narrative';
-      default:
-        break;
+  evaluate(context: DecisionContext): RoutingRecommendation | null {
+    for (const rule of this.rules) {
+      const recommendation = rule.evaluate(context);
+      if (recommendation !== null) {
+        return recommendation;
+      }
     }
+    return null;
+  }
 
-    // Keyword-based fallback — to be replaced in Sprint 5
-    if (
-      lowerQuery.includes('research') ||
-      lowerQuery.includes('company intel') ||
-      lowerQuery.includes('persona')
-    ) {
-      return 'research';
-    }
-
-    if (
-      lowerQuery.includes('benchmark') ||
-      lowerQuery.includes('industry') ||
-      lowerQuery.includes('compare')
-    ) {
-      return 'benchmark';
-    }
-
-    if (
-      lowerQuery.includes('narrative') ||
-      lowerQuery.includes('story') ||
-      lowerQuery.includes('present') ||
-      lowerQuery.includes('explain')
-    ) {
-      return 'narrative';
-    }
-
-    if (lowerQuery.includes('roi') || lowerQuery.includes('financial')) {
-      return 'financial-modeling';
-    }
-
-    if (lowerQuery.includes('system') || lowerQuery.includes('map')) {
-      return 'system-mapper';
-    }
-
-    if (lowerQuery.includes('intervention') || lowerQuery.includes('solution')) {
-      return 'intervention-designer';
-    }
-
-    if (lowerQuery.includes('outcome') || lowerQuery.includes('result')) {
-      return 'outcome-engineer';
-    }
-
-    if (lowerQuery.includes('expand') || lowerQuery.includes('growth')) {
-      return 'expansion';
-    }
-
-    if (lowerQuery.includes('value') || lowerQuery.includes('opportunity')) {
-      return 'opportunity';
-    }
-
-    return 'coordinator';
+  /**
+   * Convenience wrapper: evaluate() and return the AgentType, defaulting to
+   * 'coordinator' when no rule matches.
+   */
+  selectAgent(context: DecisionContext): AgentType {
+    return this.evaluate(context)?.agent ?? 'coordinator';
   }
 
   getRoutingLayer(): AgentRoutingLayer {
     return this.routingLayer;
+  }
+
+  getRules(): RoutingRule[] {
+    return [...this.rules];
   }
 }
 
