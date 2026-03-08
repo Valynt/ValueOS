@@ -1,0 +1,327 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { WorkflowExecutor } from './WorkflowExecutor.js';
+
+vi.mock('uuid', () => ({ v4: (() => { let n = 0; return () => `uuid-${++n}`; })() }));
+vi.mock('../../lib/logger', () => ({ logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  },
+}));
+vi.mock('@opentelemetry/api', () => ({ SpanStatusCode: { OK: 1, ERROR: 2 } }));
+vi.mock('../../config/telemetry', () => ({
+  getTracer: vi.fn(() => ({
+    startActiveSpan: vi.fn((...args: unknown[]) => {
+      const fn = typeof args[args.length - 1] === 'function' ? args[args.length - 1] as (s: unknown) => unknown : null;
+      const span = { setAttributes: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), end: vi.fn() };
+      return fn ? fn(span) : undefined;
+    }),
+  })),
+}));
+vi.mock('../../services/workflows/WorkflowExecutionStore', () => ({
+  WorkflowExecutionStore: vi.fn(() => ({
+    persistExecutionRecord: vi.fn().mockResolvedValue(undefined),
+    updateExecutionStatus: vi.fn().mockResolvedValue(undefined),
+    recordStageRun: vi.fn().mockResolvedValue(undefined),
+    recordWorkflowEvent: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../services/CircuitBreaker', () => ({
+  CircuitBreakerManager: vi.fn(() => ({ execute: vi.fn((_k: string, fn: () => unknown) => fn()) })),
+}));
+vi.mock('../../services/AgentRegistry', () => ({
+  AgentRegistry: vi.fn(() => ({ recordRelease: vi.fn(), markHealthy: vi.fn(), recordFailure: vi.fn() })),
+}));
+vi.mock('../../services/AgentMessageBroker', () => ({
+  AgentMessageBroker: vi.fn(() => ({
+    sendToAgent: vi.fn().mockResolvedValue({ success: true, data: { result: 'ok' } }),
+  })),
+}));
+vi.mock('../../services/agents/resilience/AgentRetryManager', () => ({
+  AgentRetryManager: {
+    getInstance: vi.fn(() => ({
+      executeWithRetry: vi.fn().mockResolvedValue({ success: true, response: { data: { out: 'done' } }, attempts: 1 }),
+    })),
+  },
+}));
+vi.mock('../../services/EnhancedParallelExecutor', () => ({
+  getEnhancedParallelExecutor: vi.fn(() => ({
+    executeRunnableTasks: vi.fn(async (
+      tasks: Array<{ id: string; payload: unknown }>,
+      fn: (t: { id: string; payload: unknown }) => Promise<unknown>,
+    ) => {
+      const results = [];
+      for (const task of tasks) {
+        try { results.push({ taskId: task.id, success: true, result: await fn(task) }); }
+        catch (e) { results.push({ taskId: task.id, success: false, error: (e as Error).message }); }
+      }
+      return results;
+    }),
+  })),
+}));
+vi.mock('../../lib/agent-fabric/MemorySystem', () => ({
+  MemorySystem: vi.fn(() => ({
+    retrieve: vi.fn().mockResolvedValue([]),
+    storeEpisode: vi.fn().mockResolvedValue(undefined),
+    storeEpisodicMemory: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makePolicyMock() {
+  return {
+    assertTenantExecutionAllowed: vi.fn().mockResolvedValue(undefined),
+    evaluateIntegrityVeto: vi.fn().mockResolvedValue({ vetoed: false }),
+    evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
+  };
+}
+
+async function makeExecutor(
+  policy = makePolicyMock(),
+  cfg: Partial<{ enableWorkflows: boolean; maxRetryAttempts: number; maxAgentInvocationsPerMinute: number }> = {},
+  rateLimitFn: (t: string) => boolean = () => true,
+) {
+  const { CircuitBreakerManager } = await import('../../services/CircuitBreaker.js');
+  const { AgentRegistry } = await import('../../services/AgentRegistry.js');
+  const { AgentMessageBroker } = await import('../../services/AgentMessageBroker.js');
+  const { MemorySystem } = await import('../../lib/agent-fabric/MemorySystem.js');
+  return new WorkflowExecutor(
+    policy as never,
+    { routeStage: vi.fn().mockReturnValue({ selected_agent: { id: 'agent-1' } }) } as never,
+    new CircuitBreakerManager() as never,
+    new AgentRegistry() as never,
+    new AgentMessageBroker() as never,
+    new MemorySystem() as never,
+    rateLimitFn as never,
+    { enableWorkflows: true, maxRetryAttempts: 3, maxAgentInvocationsPerMinute: 20, ...cfg },
+  );
+}
+
+const makeStage = (o: Record<string, unknown> = {}) => ({
+  id: 'stage-1', name: 'Test Stage', agent_type: 'coordinator', description: 'Run coordinator',
+  timeout_seconds: 10, retry_config: { max_attempts: 2, initial_delay_ms: 100, max_delay_ms: 1000, multiplier: 2, jitter: false },
+  ...o,
+});
+const makeDAG = (o: Record<string, unknown> = {}) => ({
+  id: 'dag-1', initial_stage: 'stage-1', final_stages: ['stage-1'], stages: [makeStage()], transitions: [], ...o,
+});
+const makeCtx = () => ({ organizationId: 'org-1', sessionId: 'session-1', userId: 'user-1' });
+const makeEnvelope = () => ({
+  intent: 'test', actor: { id: 'user-1' }, organizationId: 'org-1',
+  entryPoint: 'api', reason: 'test', timestamps: { requestedAt: new Date().toISOString() },
+});
+
+// ---------------------------------------------------------------------------
+// _validateWorkflowDAG
+// ---------------------------------------------------------------------------
+
+describe('WorkflowExecutor._validateWorkflowDAG', () => {
+  let executor: WorkflowExecutor;
+  beforeEach(async () => { executor = await makeExecutor(); });
+
+  it('throws when dag is null', () => {
+    expect(() => (executor as never)._validateWorkflowDAG(null)).toThrow('must be an object');
+  });
+  it('throws when stages is empty', () => {
+    expect(() => (executor as never)._validateWorkflowDAG({ stages: [], initial_stage: 's1', final_stages: ['s1'] })).toThrow('non-empty array');
+  });
+  it('throws when initial_stage is missing', () => {
+    expect(() => (executor as never)._validateWorkflowDAG({ stages: [{ id: 's1' }], initial_stage: '', final_stages: ['s1'] })).toThrow('initial_stage is required');
+  });
+  it('throws when initial_stage does not reference an existing stage', () => {
+    expect(() => (executor as never)._validateWorkflowDAG({ stages: [{ id: 's1' }], initial_stage: 'missing', final_stages: ['s1'] })).toThrow('initial_stage must reference an existing stage');
+  });
+  it('throws when final_stages reference missing stages', () => {
+    expect(() => (executor as never)._validateWorkflowDAG({ stages: [{ id: 's1' }], initial_stage: 's1', final_stages: ['missing'] })).toThrow('final_stages reference missing stages');
+  });
+  it('returns the dag when valid', () => {
+    const dag = makeDAG();
+    expect((executor as never)._validateWorkflowDAG(dag)).toBe(dag);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// executeWorkflow
+// ---------------------------------------------------------------------------
+
+describe('WorkflowExecutor.executeWorkflow', () => {
+  it('throws when workflows are disabled', async () => {
+    const executor = await makeExecutor(makePolicyMock(), { enableWorkflows: false });
+    await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-1')).rejects.toThrow('Workflow execution is disabled');
+  });
+
+  it('calls assertTenantExecutionAllowed before querying DB', async () => {
+    const policy = makePolicyMock();
+    policy.assertTenantExecutionAllowed.mockRejectedValueOnce(new Error('Tenant paused'));
+    const executor = await makeExecutor(policy);
+    await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-1')).rejects.toThrow('Tenant paused');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+  });
+
+  it('throws when workflow definition is not found', async () => {
+    const { supabase } = await import('../../lib/supabase.js');
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    } as never);
+    const executor = await makeExecutor();
+    await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-missing')).rejects.toThrow('Workflow definition not found');
+  });
+
+  it('throws when workflow belongs to a different organization', async () => {
+    const { supabase } = await import('../../lib/supabase.js');
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'wf-1', organization_id: 'other-org', dag_schema: makeDAG(), version: '1', name: 'Test', is_active: true },
+        error: null,
+      }),
+    } as never);
+    const executor = await makeExecutor();
+    await expect(executor.executeWorkflow(makeEnvelope() as never, 'wf-1')).rejects.toThrow('not authorized');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// executeStage
+// ---------------------------------------------------------------------------
+
+describe('WorkflowExecutor.executeStage', () => {
+  let executor: WorkflowExecutor;
+  beforeEach(async () => { executor = await makeExecutor(); });
+
+  it('returns stage output on success', async () => {
+    (executor as never).messageBroker.sendToAgent.mockResolvedValueOnce({ success: true, data: { value: 42 } });
+    const result = await executor.executeStage(makeStage() as never, makeCtx(), { selected_agent: null } as never);
+    expect(result.stage_id).toBe('stage-1');
+    expect(result.output).toEqual({ value: 42 });
+  });
+
+  it('throws when message broker reports failure', async () => {
+    (executor as never).messageBroker.sendToAgent.mockResolvedValueOnce({ success: false, error: 'broker timeout' });
+    await expect(executor.executeStage(makeStage() as never, makeCtx(), { selected_agent: null } as never))
+      .rejects.toThrow('Agent communication failed: broker timeout');
+  });
+
+  it('continues when memory retrieval fails (non-fatal)', async () => {
+    (executor as never).memorySystem.retrieve.mockRejectedValueOnce(new Error('memory unavailable'));
+    (executor as never).messageBroker.sendToAgent.mockResolvedValueOnce({ success: true, data: {} });
+    await expect(executor.executeStage(makeStage() as never, makeCtx(), { selected_agent: null } as never)).resolves.toBeDefined();
+  });
+
+  it('includes past memories in broker context when available', async () => {
+    (executor as never).memorySystem.retrieve.mockResolvedValueOnce([{ content: 'prior', memory_type: 'episodic', importance: 0.8 }]);
+    (executor as never).messageBroker.sendToAgent.mockResolvedValueOnce({ success: true, data: {} });
+    await executor.executeStage(makeStage() as never, makeCtx(), { selected_agent: null } as never);
+    expect(JSON.stringify((executor as never).messageBroker.sendToAgent.mock.calls[0])).toContain('pastMemories');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// executeStageWithRetry
+// ---------------------------------------------------------------------------
+
+describe('WorkflowExecutor.executeStageWithRetry', () => {
+  let executor: WorkflowExecutor;
+  beforeEach(async () => { executor = await makeExecutor(); });
+
+  it('returns completed status on success', async () => {
+    (executor as never).retryManager.executeWithRetry.mockResolvedValueOnce({ success: true, response: { data: { output: 'done' } }, attempts: 1 });
+    const result = await executor.executeStageWithRetry('exec-1', makeStage() as never, makeCtx(), { selected_agent: { id: 'a1' } } as never, 'trace-1');
+    expect(result.status).toBe('completed');
+    expect(result.output).toEqual({ output: 'done' });
+  });
+
+  it('returns failed status when retry manager exhausts attempts', async () => {
+    (executor as never).retryManager.executeWithRetry.mockResolvedValueOnce({ success: false, error: new Error('all retries failed'), attempts: 3 });
+    const result = await executor.executeStageWithRetry('exec-1', makeStage() as never, makeCtx(), { selected_agent: { id: 'a1' } } as never, 'trace-1');
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('all retries failed');
+  });
+
+  it('records agent failure in registry when stage fails', async () => {
+    (executor as never).retryManager.executeWithRetry.mockResolvedValueOnce({ success: false, error: new Error('fail'), attempts: 1 });
+    await executor.executeStageWithRetry('exec-1', makeStage() as never, makeCtx(), { selected_agent: { id: 'a1' } } as never, 'trace-1');
+    expect((executor as never).registry.recordFailure).toHaveBeenCalledWith('a1');
+  });
+
+  it('records agent release and marks healthy when stage succeeds', async () => {
+    (executor as never).retryManager.executeWithRetry.mockResolvedValueOnce({ success: true, response: { data: { out: 1 } }, attempts: 1 });
+    await executor.executeStageWithRetry('exec-1', makeStage() as never, makeCtx(), { selected_agent: { id: 'a1' } } as never, 'trace-1');
+    expect((executor as never).registry.recordRelease).toHaveBeenCalledWith('a1');
+    expect((executor as never).registry.markHealthy).toHaveBeenCalledWith('a1');
+  });
+
+  it('returns failed when rate limit is exceeded inside retry agent execute()', async () => {
+    const limited = await makeExecutor(makePolicyMock(), {}, () => false);
+    (limited as never).retryManager.executeWithRetry.mockImplementationOnce(async (agent: { execute: () => Promise<unknown> }) => {
+      try { await agent.execute(); } catch (e) { return { success: false, error: e as Error, attempts: 1 }; }
+    });
+    const result = await limited.executeStageWithRetry('exec-1', makeStage() as never, makeCtx(), { selected_agent: null } as never, 'trace-1');
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('rate limit exceeded');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// executeDAGAsync — integrity veto paths
+// ---------------------------------------------------------------------------
+
+describe('WorkflowExecutor.executeDAGAsync', () => {
+  it('stops DAG and marks execution failed when structural truth veto fires', async () => {
+    const policy = makePolicyMock();
+    policy.evaluateStructuralTruthVeto.mockResolvedValueOnce({ vetoed: true, metadata: { integrityVeto: true } });
+    const executor = await makeExecutor(policy);
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: { output: 'x' } }, attempts: 1 });
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
+    expect(policy.evaluateStructuralTruthVeto).toHaveBeenCalled();
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
+  it('marks execution failed when integrity veto fires', async () => {
+    const policy = makePolicyMock();
+    policy.evaluateStructuralTruthVeto.mockResolvedValue({ vetoed: false });
+    policy.evaluateIntegrityVeto.mockResolvedValueOnce({ vetoed: true, metadata: { integrityVeto: true } });
+    const executor = await makeExecutor(policy);
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: { output: 'x' } }, attempts: 1 });
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
+    expect(policy.evaluateIntegrityVeto).toHaveBeenCalled();
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
+  it('marks execution completed when all stages pass', async () => {
+    const executor = await makeExecutor();
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: { output: 'ok' } }, attempts: 1 });
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
+  });
+
+  it('marks execution failed when stage execution fails', async () => {
+    const executor = await makeExecutor();
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: false, error: new Error('stage error'), attempts: 3 });
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
+  it('calls assertTenantExecutionAllowed on each DAG iteration', async () => {
+    const policy = makePolicyMock();
+    const executor = await makeExecutor(policy);
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: {} }, attempts: 1 });
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+  });
+});

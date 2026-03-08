@@ -1,16 +1,21 @@
 /**
  * ArtifactComposer
  *
- * Generates stakeholder-ready output artifacts from a BusinessCase.
- * Each stakeholder persona (CFO, CTO, LOB) receives a view that emphasises
- * the signals most relevant to their decision criteria while drawing from
- * the same underlying BusinessCase, hypotheses, and financial data.
+ * Assembles final business case artifacts: SDUI page generation, task planning,
+ * and narrative framing. Extracted from UnifiedAgentOrchestrator in Sprint 4.
  *
- * Extracted from UnifiedAgentOrchestrator in Sprint 4.
- * Multi-stakeholder views added in Sprint 9.
+ * Also supports stakeholder-ready business case views (Sprint 9), where CFO,
+ * CTO, and LOB personas receive tailored presentations of the same underlying
+ * BusinessCase, hypotheses, assumptions, and evidence.
+ *
+ * Owns:
+ *  - generateSDUIPage / generateAndRenderPage (delegated to WorkflowRenderService)
+ *  - planTask / generateSubgoals / determineExecutionOrder / calculateComplexity
+ *  - composeStakeholderView / composeAllStakeholderViews
  */
 
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
 import type {
   BusinessCase,
@@ -21,7 +26,42 @@ import type {
 } from "@valueos/shared/domain";
 import { calculateDefenseReadiness } from "../../domain/business-case/defenseReadiness.js";
 
-// ─── Persona types ────────────────────────────────────────────────────────────
+import { getAgentAPI } from "../../services/AgentAPI.js";
+import { DefaultWorkflowRenderService } from "../../services/workflows/WorkflowRenderService.js";
+import { DefaultWorkflowSimulationService } from "../../services/workflows/WorkflowSimulationService.js";
+import type { AgentType } from "../../services/agent-types.js";
+import type { AgentContext } from "../../services/AgentAPI.js";
+import type { WorkflowContextDTO } from "../../types/workflow/orchestration.js";
+import type {
+  AgentResponse,
+  ExecutionEnvelope,
+  RenderPageOptions,
+  StreamingUpdate,
+  TaskPlanResult,
+  SubgoalDefinition,
+} from "../../services/UnifiedAgentOrchestrator.js";
+
+export type { TaskPlanResult, SubgoalDefinition };
+
+// ============================================================================
+// Service config
+// ============================================================================
+
+export interface ArtifactComposerConfig {
+  enableSDUI: boolean;
+  enableTaskPlanning: boolean;
+  enableSimulation: boolean;
+}
+
+const DEFAULT_CONFIG: ArtifactComposerConfig = {
+  enableSDUI: true,
+  enableTaskPlanning: true,
+  enableSimulation: false,
+};
+
+// ============================================================================
+// Stakeholder persona types
+// ============================================================================
 
 /**
  * The three primary stakeholder personas for business case presentation.
@@ -33,12 +73,13 @@ import { calculateDefenseReadiness } from "../../domain/business-case/defenseRea
 export const StakeholderPersonaSchema = z.enum(["cfo", "cto", "lob"]);
 export type StakeholderPersona = z.infer<typeof StakeholderPersonaSchema>;
 
-// ─── Artifact types ───────────────────────────────────────────────────────────
+// ============================================================================
+// Stakeholder artifact types
+// ============================================================================
 
 export interface ArtifactSection {
   heading: string;
   content: string;
-  /** Relative priority for this section within the view (1 = highest). */
   priority: number;
 }
 
@@ -47,20 +88,10 @@ export interface StakeholderView {
   organization_id: string;
   persona: StakeholderPersona;
   title: string;
-  /** One-sentence executive summary tailored to the persona's concerns. */
   executive_summary: string;
   sections: ArtifactSection[];
-  /** Hypotheses surfaced for this persona, ordered by relevance. */
   highlighted_hypotheses: ValueHypothesis[];
-  /** Key metrics the persona cares about, extracted from financial_summary. */
   key_metrics: Record<string, string | number | null>;
-  /**
-   * Defense readiness score (0–1) computed from the assumptions and evidence
-   * passed to the composer. Mirrors BusinessCase.defense_readiness_score.
-   * Callers that persist the BusinessCase should write this value back to the
-   * domain object via calculateDefenseReadiness() in
-   * packages/backend/src/domain/business-case/defenseReadiness.ts.
-   */
   defense_readiness_score: number;
   generated_at: string;
 }
@@ -70,21 +101,13 @@ export interface ArtifactComposerInput {
   hypotheses: ValueHypothesis[];
   assumptions: Assumption[];
   evidence: Evidence[];
-  /**
-   * Pre-computed defense readiness score. When provided, skips the
-   * calculateDefenseReadiness call inside composeStakeholderView.
-   * Use this when composing multiple views from the same input to avoid
-   * recomputing the score once per persona.
-   */
   precomputed_defense_readiness_score?: number;
 }
 
-// ─── Persona strategies ───────────────────────────────────────────────────────
+// ============================================================================
+// Persona strategies
+// ============================================================================
 
-/**
- * Each strategy defines how a persona's view is assembled from the same
- * underlying BusinessCase data. Strategies are pure functions — no side effects.
- */
 interface PersonaStrategy {
   title: (bc: BusinessCase) => string;
   executive_summary: (bc: BusinessCase, fs: FinancialSummary | null) => string;
@@ -93,8 +116,6 @@ interface PersonaStrategy {
   hypothesis_sort: (a: ValueHypothesis, b: ValueHypothesis) => number;
   key_metrics: (fs: FinancialSummary | null) => Record<string, string | number | null>;
 }
-
-// ─── CFO strategy ─────────────────────────────────────────────────────────────
 
 const CFO_CATEGORIES = new Set([
   "cost_reduction",
@@ -105,21 +126,16 @@ const CFO_CATEGORIES = new Set([
 
 const cfoStrategy: PersonaStrategy = {
   title: (bc) => `${bc.title} — Financial Impact Summary`,
-
   executive_summary: (bc, fs) => {
     if (!fs) {
       return `${bc.title} presents a value opportunity currently under financial modelling.`;
     }
     const roi = fs.roi_3yr != null ? `${(fs.roi_3yr * 100).toFixed(0)}% 3-year ROI` : null;
-    const payback =
-      fs.payback_months != null
-        ? `${fs.payback_months}-month payback`
-        : null;
+    const payback = fs.payback_months != null ? `${fs.payback_months}-month payback` : null;
     const range = `$${(fs.total_value_low_usd / 1_000_000).toFixed(1)}M–$${(fs.total_value_high_usd / 1_000_000).toFixed(1)}M`;
     const parts = [range, roi, payback].filter(Boolean).join(", ");
     return `${bc.title} delivers ${parts} in validated value.`;
   },
-
   sections: (input) => {
     const { business_case: bc, hypotheses, assumptions } = input;
     const fs = bc.financial_summary ?? null;
@@ -150,7 +166,7 @@ const cfoStrategy: PersonaStrategy = {
                 `• ${h.description}` +
                 (h.estimated_value
                   ? ` ($${h.estimated_value.low.toLocaleString()}–$${h.estimated_value.high.toLocaleString()} ${h.estimated_value.unit})`
-                  : "")
+                  : ""),
             )
             .join("\n") || "No financial value drivers identified.",
       },
@@ -174,9 +190,7 @@ const cfoStrategy: PersonaStrategy = {
       },
     ];
   },
-
   hypothesis_filter: (h) => CFO_CATEGORIES.has(h.category) && h.status !== "rejected",
-
   hypothesis_sort: (a, b) => {
     const aVal = a.estimated_value?.high ?? 0;
     const bVal = b.estimated_value?.high ?? 0;
@@ -184,7 +198,6 @@ const cfoStrategy: PersonaStrategy = {
     const confOrder = { high: 2, medium: 1, low: 0 };
     return confOrder[b.confidence] - confOrder[a.confidence];
   },
-
   key_metrics: (fs) => ({
     total_value_low_usd: fs?.total_value_low_usd ?? null,
     total_value_high_usd: fs?.total_value_high_usd ?? null,
@@ -195,8 +208,6 @@ const cfoStrategy: PersonaStrategy = {
   }),
 };
 
-// ─── CTO strategy ─────────────────────────────────────────────────────────────
-
 const CTO_CATEGORIES = new Set([
   "operational_efficiency",
   "risk_mitigation",
@@ -205,14 +216,12 @@ const CTO_CATEGORIES = new Set([
 
 const ctoStrategy: PersonaStrategy = {
   title: (bc) => `${bc.title} — Technical Feasibility & Integration Assessment`,
-
   executive_summary: (bc, fs) => {
     const valueRange = fs
       ? ` delivering $${(fs.total_value_low_usd / 1_000_000).toFixed(1)}M–$${(fs.total_value_high_usd / 1_000_000).toFixed(1)}M in operational value`
       : "";
     return `${bc.title} addresses technical risk and operational efficiency${valueRange}.`;
   },
-
   sections: (input) => {
     const { business_case: bc, hypotheses, assumptions, evidence } = input;
     const techHypotheses = hypotheses.filter((h) => CTO_CATEGORIES.has(h.category));
@@ -228,7 +237,7 @@ const ctoStrategy: PersonaStrategy = {
                 `• ${h.description}` +
                 (h.estimated_value
                   ? ` (${h.estimated_value.low}–${h.estimated_value.high} ${h.estimated_value.unit} over ${h.estimated_value.timeframe_months} months)`
-                  : "")
+                  : ""),
             )
             .join("\n") || "No operational hypotheses identified.",
       },
@@ -243,7 +252,7 @@ const ctoStrategy: PersonaStrategy = {
                     `• [${e.tier.toUpperCase()}] ${e.title}` +
                     (e.grounding_score != null
                       ? ` — grounding score: ${(e.grounding_score * 100).toFixed(0)}%`
-                      : "")
+                      : ""),
                 )
                 .join("\n")
             : "No evidence items attached.",
@@ -256,7 +265,7 @@ const ctoStrategy: PersonaStrategy = {
             .map(
               (a) =>
                 `• ${a.name}: ${a.value} ${a.unit}` +
-                (a.human_reviewed ? " ✓" : " (pending review)")
+                (a.human_reviewed ? " ✓" : " (pending review)"),
             )
             .join("\n") || "No assumptions recorded.",
       },
@@ -273,9 +282,7 @@ const ctoStrategy: PersonaStrategy = {
       },
     ];
   },
-
   hypothesis_filter: (h) => CTO_CATEGORIES.has(h.category) && h.status !== "rejected",
-
   hypothesis_sort: (a, b) => {
     const confOrder = { high: 2, medium: 1, low: 0 };
     const confDiff = confOrder[b.confidence] - confOrder[a.confidence];
@@ -284,15 +291,12 @@ const ctoStrategy: PersonaStrategy = {
     const bMonths = b.estimated_value?.timeframe_months ?? Infinity;
     return aMonths - bMonths;
   },
-
   key_metrics: (fs) => ({
     total_value_low_usd: fs?.total_value_low_usd ?? null,
     total_value_high_usd: fs?.total_value_high_usd ?? null,
     payback_months: fs?.payback_months ?? null,
   }),
 };
-
-// ─── LOB strategy ─────────────────────────────────────────────────────────────
 
 const LOB_CATEGORIES = new Set([
   "operational_efficiency",
@@ -304,14 +308,12 @@ const LOB_CATEGORIES = new Set([
 
 const lobStrategy: PersonaStrategy = {
   title: (bc) => `${bc.title} — Operational Impact & Team Outcomes`,
-
   executive_summary: (bc, fs) => {
     const valueRange = fs
       ? ` with $${(fs.total_value_low_usd / 1_000_000).toFixed(1)}M–$${(fs.total_value_high_usd / 1_000_000).toFixed(1)}M in measurable outcomes`
       : "";
     return `${bc.title} improves day-to-day operations and team productivity${valueRange}.`;
   },
-
   sections: (input) => {
     const { hypotheses, assumptions, evidence } = input;
     const lobHypotheses = hypotheses.filter((h) => LOB_CATEGORIES.has(h.category));
@@ -356,11 +358,11 @@ const lobStrategy: PersonaStrategy = {
             .sort(
               (a, b) =>
                 (a.estimated_value?.timeframe_months ?? 0) -
-                (b.estimated_value?.timeframe_months ?? 0)
+                (b.estimated_value?.timeframe_months ?? 0),
             )
             .map(
               (h) =>
-                `• ${h.description.slice(0, 80)}… — ${h.estimated_value!.timeframe_months} months`
+                `• ${h.description.slice(0, 80)}… — ${h.estimated_value!.timeframe_months} months`,
             )
             .join("\n") || "Timeframes not yet estimated.",
       },
@@ -383,9 +385,7 @@ const lobStrategy: PersonaStrategy = {
       },
     ];
   },
-
   hypothesis_filter: (h) => LOB_CATEGORIES.has(h.category) && h.status !== "rejected",
-
   hypothesis_sort: (a, b) => {
     const aMonths = a.estimated_value?.timeframe_months ?? Infinity;
     const bMonths = b.estimated_value?.timeframe_months ?? Infinity;
@@ -393,7 +393,6 @@ const lobStrategy: PersonaStrategy = {
     const confOrder = { high: 2, medium: 1, low: 0 };
     return confOrder[b.confidence] - confOrder[a.confidence];
   },
-
   key_metrics: (fs) => ({
     total_value_low_usd: fs?.total_value_low_usd ?? null,
     total_value_high_usd: fs?.total_value_high_usd ?? null,
@@ -401,27 +400,186 @@ const lobStrategy: PersonaStrategy = {
   }),
 };
 
-// ─── Strategy registry ────────────────────────────────────────────────────────
-
 const STRATEGIES: Record<StakeholderPersona, PersonaStrategy> = {
   cfo: cfoStrategy,
   cto: ctoStrategy,
   lob: lobStrategy,
 };
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ============================================================================
+// ArtifactComposer service
+// ============================================================================
 
-/**
- * Compose a stakeholder-specific view of a BusinessCase.
- *
- * The same BusinessCase ID produces distinct views for each persona:
- * - CFO view emphasises ROI, payback, and financial risk.
- * - CTO view emphasises technical feasibility, evidence quality, and integration risk.
- * - LOB view emphasises operational impact, time-to-value, and team outcomes.
- */
+export class ArtifactComposer {
+  private readonly renderService: DefaultWorkflowRenderService;
+  private readonly simulationService: DefaultWorkflowSimulationService;
+
+  constructor(
+    private readonly config: ArtifactComposerConfig = DEFAULT_CONFIG,
+    validateExecutionIntent?: (envelope: ExecutionEnvelope) => void,
+  ) {
+    const agentAPI = getAgentAPI();
+    const validate = validateExecutionIntent ?? ((_e: ExecutionEnvelope) => {});
+    this.renderService = new DefaultWorkflowRenderService(
+      agentAPI,
+      validate,
+      () => this.config.enableSDUI,
+    );
+    this.simulationService = new DefaultWorkflowSimulationService(agentAPI);
+  }
+
+  async generateSDUIPage(
+    envelope: ExecutionEnvelope,
+    agent: AgentType,
+    query: string,
+    context?: AgentContext,
+    streamingCallback?: (update: StreamingUpdate) => void,
+  ): Promise<AgentResponse> {
+    return this.renderService.generateSDUIPage(
+      envelope,
+      agent,
+      query,
+      context,
+      streamingCallback,
+    );
+  }
+
+  async generateAndRenderPage(
+    envelope: ExecutionEnvelope,
+    agent: AgentType,
+    query: string,
+    context?: AgentContext,
+    renderOptions?: RenderPageOptions,
+  ): Promise<{ response: AgentResponse; rendered: unknown }> {
+    return this.renderService.generateAndRenderPage(
+      envelope,
+      agent,
+      query,
+      context,
+      renderOptions,
+    );
+  }
+
+  async planTask(
+    intentType: string,
+    description: string,
+    context: WorkflowContextDTO = {},
+  ): Promise<TaskPlanResult> {
+    if (!this.config.enableTaskPlanning) {
+      throw new Error("Task planning is disabled");
+    }
+
+    const taskId = uuidv4();
+    const subgoals = this._generateSubgoals(taskId, intentType, description, context);
+    const executionOrder = this._determineExecutionOrder(subgoals);
+    const complexityScore = this._calculateComplexity(subgoals);
+    const requiresSimulation =
+      this.config.enableSimulation && complexityScore > 0.7;
+
+    return {
+      taskId,
+      subgoals,
+      executionOrder,
+      complexityScore,
+      requiresSimulation,
+    };
+  }
+
+  private _generateSubgoals(
+    _taskId: string,
+    intentType: string,
+    description: string,
+    _context: WorkflowContextDTO,
+  ): SubgoalDefinition[] {
+    const patterns: Record<
+      string,
+      Array<{ type: string; agent: string; deps: string[] }>
+    > = {
+      value_assessment: [
+        { type: "discovery", agent: "opportunity", deps: [] },
+        { type: "analysis", agent: "system-mapper", deps: ["discovery"] },
+        { type: "design", agent: "intervention-designer", deps: ["analysis"] },
+        { type: "validation", agent: "value-eval", deps: ["design"] },
+      ],
+      financial_modeling: [
+        { type: "data_collection", agent: "company-intelligence", deps: [] },
+        { type: "modeling", agent: "financial-modeling", deps: ["data_collection"] },
+        { type: "reporting", agent: "coordinator", deps: ["modeling"] },
+      ],
+      expansion_planning: [
+        { type: "analysis", agent: "expansion", deps: [] },
+        { type: "opportunity_mapping", agent: "opportunity", deps: ["analysis"] },
+        { type: "planning", agent: "coordinator", deps: ["opportunity_mapping"] },
+      ],
+    };
+
+    const pattern = patterns[intentType] ?? patterns["value_assessment"] ?? [];
+    const idMap = new Map<string, string>();
+
+    return pattern.map((step, index) => {
+      const id = uuidv4();
+      idMap.set(step.type, id);
+      const dependencies = step.deps
+        .map((d) => idMap.get(d))
+        .filter((x): x is string => x !== undefined);
+
+      return {
+        id,
+        type: step.type,
+        description: `${step.type}: ${description}`,
+        assignedAgent: step.agent,
+        dependencies,
+        priority: pattern.length - index,
+        estimatedComplexity: 0.5 + index * 0.1,
+      };
+    });
+  }
+
+  private _determineExecutionOrder(subgoals: SubgoalDefinition[]): string[] {
+    const order: string[] = [];
+    const completed = new Set<string>();
+    const remaining = [...subgoals];
+
+    while (remaining.length > 0) {
+      const ready = remaining.filter((sg) =>
+        sg.dependencies.every((dep) => completed.has(dep)),
+      );
+
+      if (ready.length === 0) {
+        throw new Error("Circular dependency detected in subgoals");
+      }
+
+      for (const sg of ready) {
+        order.push(sg.id);
+        completed.add(sg.id);
+        remaining.splice(remaining.indexOf(sg), 1);
+      }
+    }
+
+    return order;
+  }
+
+  private _calculateComplexity(subgoals: SubgoalDefinition[]): number {
+    if (subgoals.length === 0) return 0;
+
+    const avg =
+      subgoals.reduce((s, sg) => s + sg.estimatedComplexity, 0) /
+      subgoals.length;
+    const countFactor = Math.min(subgoals.length / 10, 1);
+    const totalDeps = subgoals.reduce((s, sg) => s + sg.dependencies.length, 0);
+    const depFactor = Math.min(totalDeps / (subgoals.length * 2), 1);
+
+    return Math.min((avg + countFactor + depFactor) / 3, 1);
+  }
+}
+
+// ============================================================================
+// Stakeholder view API
+// ============================================================================
+
 export function composeStakeholderView(
   persona: StakeholderPersona,
-  input: ArtifactComposerInput
+  input: ArtifactComposerInput,
 ): StakeholderView {
   const {
     business_case: bc,
@@ -430,6 +588,7 @@ export function composeStakeholderView(
     evidence,
     precomputed_defense_readiness_score,
   } = input;
+
   const strategy = STRATEGIES[persona];
   const fs = bc.financial_summary ?? null;
 
@@ -447,8 +606,6 @@ export function composeStakeholderView(
     persona,
     title: strategy.title(bc),
     executive_summary: strategy.executive_summary(bc, fs),
-    // Sort by priority so callers can rely on the ordering regardless of
-    // the order strategies define their sections internally.
     sections: strategy.sections(input).sort((a, b) => a.priority - b.priority),
     highlighted_hypotheses: filteredHypotheses,
     key_metrics: strategy.key_metrics(fs),
@@ -457,17 +614,15 @@ export function composeStakeholderView(
   };
 }
 
-/**
- * Compose views for all three personas from the same BusinessCase.
- * Returns a map keyed by persona.
- */
 export function composeAllStakeholderViews(
-  input: ArtifactComposerInput
+  input: ArtifactComposerInput,
 ): Record<StakeholderPersona, StakeholderView> {
-  // Compute once and share across all three persona views.
   const precomputed_defense_readiness_score =
     input.precomputed_defense_readiness_score ??
-    calculateDefenseReadiness({ assumptions: input.assumptions, evidence: input.evidence }).score;
+    calculateDefenseReadiness({
+      assumptions: input.assumptions,
+      evidence: input.evidence,
+    }).score;
 
   const shared = { ...input, precomputed_defense_readiness_score };
 
@@ -477,3 +632,5 @@ export function composeAllStakeholderViews(
     lob: composeStakeholderView("lob", shared),
   };
 }
+
+export const artifactComposer = new ArtifactComposer();

@@ -19,9 +19,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationPersonalization } from "@/hooks/useNavigationPersonalization";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+// Primary product surfaces — shown prominently in nav.
+const primaryNavItems = [
   { path: "/dashboard", label: "My Work", icon: Zap },
   { path: "/opportunities", label: "Cases", icon: Briefcase },
+];
+
+// Platform surfaces — shown below a divider, less prominent.
+const platformNavItems = [
   { path: "/models", label: "Models", icon: Boxes },
   { path: "/agents", label: "Agents", icon: Bot },
   { path: "/company", label: "Company Intel", icon: Building2 },
@@ -43,18 +48,17 @@ export function Sidebar({ onClose }: SidebarProps) {
     trackRouteVisit(location.pathname);
   }, [location.pathname, trackRouteVisit]);
 
+  // Sort within each group by usage, preserving group boundaries.
   const prioritizedNavItems = useMemo(() => {
-    return [...navItems].sort((a, b) => {
-      const routeUsageDiff = getUsageCount(b.path) - getUsageCount(a.path);
-      if (routeUsageDiff !== 0) return routeUsageDiff;
-
-      const featureUsageDiff = getFeatureUsageCount(`nav:${b.path}`) - getFeatureUsageCount(`nav:${a.path}`);
-      if (featureUsageDiff !== 0) return featureUsageDiff;
-      return (
-        navItems.findIndex((item) => item.path === a.path) -
-        navItems.findIndex((item) => item.path === b.path)
-      );
-    });
+    const sortGroup = (group: typeof primaryNavItems) =>
+      [...group].sort((a, b) => {
+        const routeUsageDiff = getUsageCount(b.path) - getUsageCount(a.path);
+        if (routeUsageDiff !== 0) return routeUsageDiff;
+        const featureUsageDiff = getFeatureUsageCount(`nav:${b.path}`) - getFeatureUsageCount(`nav:${a.path}`);
+        if (featureUsageDiff !== 0) return featureUsageDiff;
+        return group.findIndex((item) => item.path === a.path) - group.findIndex((item) => item.path === b.path);
+      });
+    return [...sortGroup(primaryNavItems), ...sortGroup(platformNavItems)];
   }, [getFeatureUsageCount, getUsageCount]);
 
   const handleNavClick = (path: string) => {
@@ -102,37 +106,75 @@ export function Sidebar({ onClose }: SidebarProps) {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {prioritizedNavItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            onClick={() => handleNavClick(item.path)}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
-                collapsed && "justify-center px-2 min-w-11",
-                isActive
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                frequentRouteSet.has(item.path) && !isActive && "ring-1 ring-zinc-200 bg-zinc-50"
-              )
-            }
-          >
-            <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-            {!collapsed && (
-              <div className="flex items-center justify-between w-full">
-                <span>{item.label}</span>
-                {frequentRouteSet.has(item.path) && (
-                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-400">
-                    <Sparkles className="w-3 h-3" />
-                    Hot
-                  </span>
+      <nav className="flex-1 px-3 py-4">
+        {/* Primary product surfaces */}
+        <div className="space-y-1">
+          {prioritizedNavItems
+            .filter((item) => primaryNavItems.some((p) => p.path === item.path))
+            .map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => handleNavClick(item.path)}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
+                    collapsed && "justify-center px-2 min-w-11",
+                    isActive
+                      ? "bg-zinc-950 text-white"
+                      : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+                    frequentRouteSet.has(item.path) && !isActive && "ring-1 ring-zinc-200 bg-zinc-50"
+                  )
+                }
+              >
+                <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                {!collapsed && (
+                  <div className="flex items-center justify-between w-full">
+                    <span>{item.label}</span>
+                    {frequentRouteSet.has(item.path) && (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-400">
+                        <Sparkles className="w-3 h-3" />
+                        Hot
+                      </span>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-          </NavLink>
-        ))}
+              </NavLink>
+            ))}
+        </div>
+
+        {/* Divider */}
+        <div className={cn("my-3", collapsed ? "mx-1 border-t border-zinc-100" : "mx-1 border-t border-zinc-100")} />
+
+        {/* Platform surfaces */}
+        <div className="space-y-1">
+          {!collapsed && (
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+              Platform
+            </p>
+          )}
+          {prioritizedNavItems
+            .filter((item) => platformNavItems.some((p) => p.path === item.path))
+            .map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => handleNavClick(item.path)}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
+                    collapsed && "justify-center px-2 min-w-11",
+                    isActive
+                      ? "bg-zinc-100 text-zinc-900"
+                      : "text-zinc-400 hover:bg-zinc-50 hover:text-zinc-700"
+                  )
+                }
+              >
+                <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </NavLink>
+            ))}
+        </div>
       </nav>
 
       {/* User footer */}

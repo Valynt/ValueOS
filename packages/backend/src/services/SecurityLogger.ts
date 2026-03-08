@@ -1,3 +1,8 @@
+// Migrated to @valueos/core-services in Sprint 6.
+// This re-export exists for backward compatibility during the transition.
+// Update imports to use '@valueos/core-services' directly.
+export { securityLogger } from '@valueos/core-services';
+export type { SecurityEvent } from '@valueos/core-services';
 interface SecurityEvent {
   category: 'authentication' | 'authorization' | 'autonomy' | 'session' | 'llm' | 'dependency' | 'formula';
   action: string;

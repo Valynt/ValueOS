@@ -1,66 +1,155 @@
 /**
  * ContextStore
  *
- * Assembles the structured domain state (DecisionContext) from the database
- * and memory systems for agent consumption. Extracted from UnifiedAgentOrchestrator in Sprint 4.
+ * Assembles execution context and workflow state for agent consumption.
+ * Extracted from UnifiedAgentOrchestrator in Sprint 4.
  *
- * Also owns handleWorkflowFailure — the single write path that marks a
- * workflow_executions row as failed and emits an error log.
+ * Owns:
+ *  - WorkflowState creation and mutation helpers (createInitialState, updateStage)
+ *  - Execution status and log queries (delegated to WorkflowExecutionStore)
+ *  - Workflow failure recording
+ *  - Progress and completion helpers
+ *
+ * Sprint 5 target: extend with full DecisionContext hydration from domain
+ * repositories (Account, Opportunity, ValueHypothesis).
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from 'uuid';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { logger } from "../../lib/logger.js";
+import { supabase as defaultSupabase } from '../../lib/supabase.js';
+import { logger } from '../../lib/logger.js';
+import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
+import type { WorkflowState, WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
+import type { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from '../../types/execution/workflowExecutionDtos.js';
+import type { ExecutionRequest } from '../../types/execution.js';
 
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface WorkflowFailureUpdate {
-  status: "failed";
-  error_message: string;
-  completed_at: string;
-}
+export type { WorkflowState, WorkflowStatus };
 
 // ============================================================================
 // ContextStore
 // ============================================================================
 
 export class ContextStore {
-  constructor(private readonly supabase: SupabaseClient) {}
+  private readonly executionStore: WorkflowExecutionStore;
+  private readonly supabase: SupabaseClient;
 
-  /**
-   * Marks a workflow execution as failed and logs the error.
-   *
-   * The Supabase update result is checked; a DB-level error is logged as a
-   * secondary failure rather than swallowed silently.
-   */
+  constructor(supabaseClient: SupabaseClient = defaultSupabase) {
+    this.supabase = supabaseClient;
+    this.executionStore = new WorkflowExecutionStore(supabaseClient);
+  }
+
+  // --------------------------------------------------------------------------
+  // WorkflowState helpers (pure functions)
+  // --------------------------------------------------------------------------
+
+  createInitialState(
+    initialStage: string,
+    execution: Partial<ExecutionRequest> & Record<string, unknown> = {
+      intent: 'FullValueAnalysis',
+      environment: 'production',
+    },
+  ): WorkflowState {
+    const normalizedExecution = { ...execution, intent: execution.intent ?? 'agent-query' };
+    const now = new Date().toISOString();
+
+    return {
+      id: uuidv4(),
+      workflow_id: '',
+      execution_id: uuidv4(),
+      workspace_id: '',
+      organization_id: '',
+      lifecycle_stage: initialStage,
+      current_step: initialStage,
+      currentStage: initialStage,
+      status: 'initiated',
+      completed_steps: [],
+      state_data: {},
+      context: {
+        ...(normalizedExecution as Record<string, unknown>),
+        conversationHistory: [],
+      },
+      created_at: now,
+      updated_at: now,
+    };
+  }
+
+  updateStage(currentState: WorkflowState, stage: string, status: WorkflowStatus): WorkflowState {
+    const nextState: WorkflowState = {
+      ...currentState,
+      currentStage: stage,
+      status,
+      completed_steps: [...currentState.completed_steps],
+    };
+
+    if (
+      status === 'completed' &&
+      currentState.currentStage &&
+      !nextState.completed_steps.includes(currentState.currentStage)
+    ) {
+      nextState.completed_steps.push(currentState.currentStage);
+    }
+
+    return nextState;
+  }
+
+  isWorkflowComplete(state: WorkflowState): boolean {
+    return state.status === 'completed';
+  }
+
+  getProgress(state: WorkflowState, totalStages = 5): number {
+    return Math.round((state.completed_steps.length / totalStages) * 100);
+  }
+
+  // --------------------------------------------------------------------------
+  // Execution status and logs
+  // --------------------------------------------------------------------------
+
+  async getExecutionStatus(
+    executionId: string,
+    organizationId: string,
+  ): Promise<WorkflowExecutionStatusDTO | null> {
+    return this.executionStore.getExecutionStatus(executionId, organizationId);
+  }
+
+  async getExecutionLogs(
+    executionId: string,
+    organizationId: string,
+  ): Promise<WorkflowExecutionLogDTO[]> {
+    return this.executionStore.getExecutionLogs(executionId, organizationId);
+  }
+
+  // --------------------------------------------------------------------------
+  // Workflow failure recording
+  // --------------------------------------------------------------------------
+
   async handleWorkflowFailure(
     executionId: string,
     organizationId: string,
     errorMessage: string,
   ): Promise<void> {
-    const update: WorkflowFailureUpdate = {
-      status: "failed",
-      error_message: errorMessage,
-      completed_at: new Date().toISOString(),
-    };
+    const { error } = await this.supabase
+      .from('workflow_executions')
+      .update({
+        status: 'failed',
+        error_message: errorMessage,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', executionId)
+      .eq('organization_id', organizationId);
 
-    const { error: dbError } = await this.supabase
-      .from("workflow_executions")
-      .update(update)
-      .eq("id", executionId)
-      .eq("organization_id", organizationId);
-
-    if (dbError) {
+    if (error) {
       // Log but do not re-throw — the caller's error is the primary failure.
-      logger.error("Failed to persist workflow failure status", new Error(dbError.message), {
+      logger.error('Failed to persist workflow failure status', new Error(error.message), {
         executionId,
         organizationId,
-        dbError: dbError.message,
+        dbError: error.message,
       });
     }
 
-    logger.error("Workflow failed", undefined, { executionId, errorMessage });
+    logger.error('Workflow failed', undefined, { executionId, errorMessage });
   }
 }
+
+// Singleton
+export const contextStore = new ContextStore();
