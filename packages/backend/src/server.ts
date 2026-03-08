@@ -44,6 +44,7 @@ import { createCheckpointRouter } from "./api/checkpoints.js";
 import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
 import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
 import crmRouter from "./api/crm.js";
+import { valueCasesRouter } from "./api/valueCases/index.js";
 import complianceRouter from "./api/compliance.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
@@ -471,6 +472,7 @@ app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
+app.use("/api/v1/cases", valueCasesRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 // Mount checkpoint HITL endpoints
