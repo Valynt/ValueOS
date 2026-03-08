@@ -9,6 +9,23 @@ This guide describes how to contribute safely and consistently across ValueOS.
 - [Runbooks index](docs/runbooks/README.md)
 - [ADR index](docs/engineering/adr-index.md)
 
+## Local development setup
+
+There are two canonical runtimes. Start them from the repo root:
+
+```sh
+pnpm install
+
+# Start both together
+pnpm run dev
+
+# Or start independently
+pnpm run dev:frontend   # apps/ValyntApp — React + Vite
+pnpm run dev:backend    # packages/backend — Express API
+```
+
+All new product logic goes to one of these two runtimes. `server/_core/` is frozen and will be deleted in Sprint 2 of the architectural refactor.
+
 ## Deterministic dev environment invariants
 
 - **Single authoritative compose file:** use only `docker-compose.yml` at repo root as the base (no `compose.yml`).
@@ -69,10 +86,12 @@ PR size guideline:
 Run these locally from repo root before requesting review:
 
 ```sh
-pnpm run ci:verify
+pnpm run lint
+pnpm run check
+pnpm test
 ```
 
-If your change touches data access, authz, or policies, also run:
+If your change touches data access, authz, or RLS policies, also run:
 
 ```sh
 pnpm run test:rls
@@ -132,7 +151,7 @@ Escalate for dedicated security review when a change includes:
 **Validation checklist (by end of week 1)**
 
 - [ ] `pnpm run lint` passes.
-- [ ] `pnpm run typecheck:islands` passes.
+- [ ] `pnpm run check` passes (TypeScript).
 - [ ] `pnpm run test` passes for touched packages.
 - [ ] `pnpm run test:smoke` completed for impacted flows.
 - [ ] Submitted one PR with screenshots and test evidence.
@@ -148,7 +167,7 @@ Escalate for dedicated security review when a change includes:
 **Validation checklist (by end of week 1)**
 
 - [ ] `pnpm run lint` passes.
-- [ ] `pnpm run typecheck:islands` passes.
+- [ ] `pnpm run check` passes (TypeScript).
 - [ ] `pnpm run test` passes for touched packages.
 - [ ] `pnpm run test:rls` passes for policy-sensitive changes.
 - [ ] Submitted one PR including API contract and risk notes.
@@ -189,7 +208,7 @@ A change is done only when all items below are true:
 
 - Scope is complete and matches acceptance intent.
 - Code and documentation are updated together.
-- Required local checks completed and CI gates pass (`lint`, `typecheck`, `test`, `build`, plus applicable `test:rls`/`test:smoke`).
+- Required local checks completed and CI gates pass (`lint`, `check`, `test`, `build`, plus applicable `test:rls`/`test:smoke`).
 - PR includes clear test evidence and risk assessment.
 - Security review expectations were met for the change type.
 - Architecture impact is documented (ADR reference/update when required).

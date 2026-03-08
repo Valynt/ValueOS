@@ -66,7 +66,7 @@ services:
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-}
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local (example: postgresql://valueos_dev:change-me-dev-password@postgres:5432/valueos)}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local}
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,8 +77,8 @@ services:
     image: supabase/studio:latest
     profiles: ["studio"]
     environment:
-      SUPABASE_URL: http://rest:3000
-      STUDIO_PG_META_URL: http://rest:3000
+      SUPABASE_URL: ${SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
+      STUDIO_PG_META_URL: ${SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
     depends_on:
       postgres:
@@ -105,6 +105,3 @@ volumes:
 # DEPRECATED: use ops/compose/profiles/supabase.yml (profile: supabase)
 # This file is retained only as a backwards-compatible shim.
 # Do not add services here; use the canonical profile compose file instead.
-
-include:
-  - ./supabase.yml

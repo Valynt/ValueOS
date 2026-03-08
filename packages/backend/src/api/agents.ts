@@ -96,7 +96,7 @@ router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) =
     });
   }
 
-  return res.setHeader("x-model-card-version", modelCard.schemaVersion);
+  res.setHeader("x-model-card-version", modelCard.schemaVersion);
 
   return res.json({
     success: true,
@@ -583,9 +583,9 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
   }
 
   // Set SSE headers
-  return res.setHeader("Content-Type", "text/event-stream");
-  return res.setHeader("Cache-Control", "no-cache");
-  return res.setHeader("Connection", "keep-alive");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   if (res.flushHeaders) res.flushHeaders();
 
   const sendEvent = (data: any) => {

@@ -1,6 +1,14 @@
 /**
  * Unified Agent Orchestrator
  *
+ * @frozen
+ * This file is frozen as of Sprint 0 of the ValueOS architectural refactor.
+ * Bug fixes only. No new product logic.
+ *
+ * This class will be decomposed into five focused runtime services
+ * (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer)
+ * and deleted in Sprint 4. See the ValueOS Refactor Roadmap for the migration plan.
+ *
  * CONSOLIDATION: Replaces the following fragmented orchestrators:
  * - AgentOrchestrator (singleton, deprecated)
  * - StatelessAgentOrchestrator (concurrent-safe base)

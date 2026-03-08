@@ -72,8 +72,13 @@ test.describe("UI Smoke Test", () => {
       timeout: 30000,
     });
 
-    // Basic response check
-    expect(response?.status()).toBeLessThan(500);
+    // Basic response check - treat 4xx and 5xx as failures
+    expect(response, "Expected a navigation response from the app shell route.").not.toBeNull();
+    expect(
+      response!.status(),
+      `App shell request should succeed; received HTTP ${response!.status()}.`,
+    ).toBeGreaterThanOrEqual(200);
+    expect(response!.status()).toBeLessThan(400);
 
     // Wait for React to render
     await page.waitForLoadState("networkidle", { timeout: 15000 });

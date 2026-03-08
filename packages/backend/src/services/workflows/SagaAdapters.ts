@@ -5,7 +5,7 @@ import {
   SagaPersistence,
   SagaSnapshot,
   SagaTransitionRecord
-} from "@valueos/agents";
+} from "../../lib/agents/core/index.js";
 
 import { logger } from "../../lib/logger.js";
 import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";

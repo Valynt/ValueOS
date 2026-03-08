@@ -1,0 +1,91 @@
+/**
+ * DecisionRouter
+ *
+ * Selects the next agent or action based on structured domain state.
+ *
+ * Sprint 2: Extracted from UnifiedAgentOrchestrator.selectAgent(). The
+ * orchestrator delegates all routing decisions here via a thin facade.
+ *
+ * Sprint 5: Replaced selectAgentForQuery() keyword matching with
+ * domain-state decisioning via DecisionContext. Rules live in ./rules/.
+ * The legacy selectAgentForQuery() method is removed.
+ */
+
+import { AgentType } from '../../services/agent-types.js';
+import { AgentRegistry, RoutingContext } from '../../services/AgentRegistry.js';
+import { AgentRoutingLayer, StageRoute } from '../../services/AgentRoutingLayer.js';
+import { AgentRoutingScorer } from '../../services/AgentRoutingScorer.js';
+import { WorkflowDAG } from '../../types/workflow.js';
+import { DecisionContext } from '@shared/domain/DecisionContext.js';
+import {
+  RoutingRecommendation,
+  RoutingRule,
+  DOMAIN_ROUTING_RULES,
+} from './rules/index.js';
+
+export type { StageRoute, RoutingRecommendation, RoutingRule };
+export { AgentRegistry, AgentRoutingLayer, AgentRoutingScorer };
+export { DOMAIN_ROUTING_RULES } from './rules/index.js';
+export * from './rules/types.js';
+
+// ============================================================================
+// DecisionRouter
+// ============================================================================
+
+export class DecisionRouter {
+  private routingLayer: AgentRoutingLayer;
+  private rules: RoutingRule[];
+
+  constructor(routingLayer?: AgentRoutingLayer, rules?: RoutingRule[]) {
+    this.routingLayer = routingLayer ?? new AgentRoutingLayer();
+    // Rules are sorted by priority ascending at construction time so
+    // evaluate() can short-circuit on the first match without re-sorting.
+    this.rules = [...(rules ?? DOMAIN_ROUTING_RULES)].sort(
+      (a, b) => a.priority - b.priority
+    );
+  }
+
+  /**
+   * Select an agent for a DAG workflow stage.
+   * Uses capability scoring, load balancing, and sticky sessions.
+   */
+  routeStage(dag: WorkflowDAG, stageId: string, context: RoutingContext): StageRoute {
+    return this.routingLayer.routeStage(dag, stageId, context);
+  }
+
+  /**
+   * Select the next agent and action for a free-form query using structured
+   * domain state. Rules are evaluated in priority order; the first match wins.
+   *
+   * Returns null when no rule matches — callers should fall back to the
+   * 'coordinator' agent.
+   */
+  evaluate(context: DecisionContext): RoutingRecommendation | null {
+    for (const rule of this.rules) {
+      const recommendation = rule.evaluate(context);
+      if (recommendation !== null) {
+        return recommendation;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Convenience wrapper: evaluate() and return the AgentType, defaulting to
+   * 'coordinator' when no rule matches.
+   */
+  selectAgent(context: DecisionContext): AgentType {
+    return this.evaluate(context)?.agent ?? 'coordinator';
+  }
+
+  getRoutingLayer(): AgentRoutingLayer {
+    return this.routingLayer;
+  }
+
+  getRules(): RoutingRule[] {
+    return [...this.rules];
+  }
+}
+
+// Singleton for use by the orchestrator facade
+export const decisionRouter = new DecisionRouter();

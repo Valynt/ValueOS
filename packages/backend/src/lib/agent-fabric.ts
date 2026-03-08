@@ -1,4 +1,4 @@
-import { LoopResultSchema, ValueHypothesisSchema } from "@valueos/agents/orchestration";
+import { LoopResultSchema, ValueHypothesisSchema } from "./agents/orchestration/index.js";
 
 export interface AgentFabricResult {
   value_case_id: string;

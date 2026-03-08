@@ -67,9 +67,7 @@
       "@valueos/mcp": [
         "./packages/mcp/index.ts"
       ],
-      "@valueos/agents": [
-        "./packages/agents/index.ts"
-      ],
+
       "@valueos/components": [
         "./packages/components/index.ts"
       ],
@@ -82,12 +80,7 @@
       "@memory/*": [
         "./packages/memory/*"
       ],
-      "@agents/*": [
-        "./packages/agents/*"
-      ],
-      "@valueos/agents/*": [
-        "./packages/agents/*/src"
-      ],
+
       "@integrations/*": [
         "./packages/integrations/*"
       ],
