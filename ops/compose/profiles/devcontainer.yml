@@ -28,4 +28,16 @@ services:
     image: node:20-slim
     profiles: ["devcontainer"]
     working_dir: /workspaces/ValueOS
-    command: ["bash", "-lc", "p{
+    command: ["bash", "-lc", "pnpm --filter @valueos/frontend dev --host 0.0.0.0 --port 5173"]
+    volumes:
+      - ../../../:/workspaces/ValueOS:cached
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+
+volumes:
+  pnpm-store:
+    driver: local
+
+networks:
+  default:
+    name: ${VALUEOS_NETWORK:-valueos-network}

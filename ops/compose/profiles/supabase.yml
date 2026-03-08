@@ -53,7 +53,7 @@ services:
       postgres:
         condition: service_healthy
 
- storage:
+  storage:
     image: supabase/storage-api:v0.46.4
     profiles: ["supabase"]
     environment:
@@ -78,8 +78,9 @@ services:
     image: supabase/studio:latest
     profiles: ["supabase"]
     environment:
-      SUPABASE_URL: http://rest:3000
-      STUDIO_PG_META_URL: http://rest:3000
+      # Point at the host-facing kong proxy, not the internal rest service name.
+      SUPABASE_URL: ${SUPABASE_URL:-http://localhost:${KONG_PROXY_PORT:-54321}}
+      STUDIO_PG_META_URL: ${SUPABASE_URL:-http://localhost:${KONG_PROXY_PORT:-54321}}
       POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}
     depends_on:
       postgres:
