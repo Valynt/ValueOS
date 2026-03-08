@@ -1,0 +1,164 @@
+file,frontend_lines,backend_lines,classification,canonical_location,rationale
+AcademyService.ts,395,395,delete,—,VOSAcademy-specific; not part of the core value loop. Remove from both service dirs.
+ActionRouter.ts,1071,1070,consolidate,packages/backend/src/runtime/decision-router/,Routing logic extracted to DecisionRouter in Sprint 2. Frontend copy is dead weight.
+AdminUserService.ts,312,312,consolidate,packages/backend/src/services/,Backend-only concern. Frontend copy should be deleted; calls go through API.
+AdversarialValidator.ts,287,287,consolidate,packages/backend/src/services/,Validation is a backend concern. Frontend copy is a stub.
+AgentAPI.ts,418,418,consolidate,packages/backend/src/services/,Backend-only. Frontend should call via HTTP; delete frontend copy.
+AgentAuditLogger.ts,244,244,consolidate,packages/backend/src/services/,Audit logging is backend-only. Delete frontend copy.
+AgentChatService.ts,312,312,consolidate,packages/backend/src/services/,Backend concern. Frontend copy is a thin wrapper; delete and call via API.
+AgentFabricService.ts,255,254,consolidate,packages/backend/src/services/,Backend-only. Frontend copy is unused. Delete frontend copy.
+AgentInitializer.ts,437,437,consolidate,packages/backend/src/services/,Backend-only initialization. Delete frontend copy.
+AgentIntentConverter.ts,198,198,consolidate,packages/backend/src/runtime/decision-router/,Intent conversion belongs in DecisionRouter. Delete both old copies after migration.
+AgentMemoryIntegration.ts,312,312,consolidate,packages/backend/src/services/,Memory is a backend concern. Delete frontend copy.
+AgentMemoryService.ts,287,287,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+AgentMessageBroker.ts,198,198,consolidate,packages/backend/src/services/,Messaging is backend-only. Delete frontend copy.
+AgentOrchestratorAdapter.ts,283,283,consolidate,packages/backend/src/services/,Backend adapter. Frontend copy is dead. Delete frontend copy.
+AgentOutputListener.ts,198,198,consolidate,packages/backend/src/services/,Backend-only event listener. Delete frontend copy.
+AgentPrefetchService.ts,156,156,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+AgentQueryService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+AgentRegistry.ts,226,226,consolidate,packages/backend/src/services/,Backend-only registry. Delete frontend copy.
+AgentRoutingLayer.ts,126,126,consolidate,packages/backend/src/runtime/decision-router/,Routing logic migrates to DecisionRouter. Delete both old copies.
+AgentRoutingScorer.ts,81,81,consolidate,packages/backend/src/runtime/decision-router/,Scoring logic migrates to DecisionRouter. Delete both old copies.
+AgentSDUIAdapter.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,SDUI generation migrates to ArtifactComposer. Delete both old copies.
+AlertingService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only alerting. Delete frontend copy.
+ApprovalWorkflowService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only workflow. Delete frontend copy.
+AssumptionService.ts,107,107,migrate,packages/backend/src/domain/,Domain object service; migrates to domain layer in Sprint 3.
+AtomicActionExecutor.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Execution concern migrates to ExecutionRuntime. Delete both old copies.
+AuditLogService.ts,256,302,consolidate,packages/backend/src/services/,Backend canonical (larger). Delete frontend copy.
+AuthService.ts,844,767,consolidate,packages/backend/src/services/,Backend canonical (AGENTS.md: service_role only for AuthService). Delete frontend copy.
+BaseService.ts,156,156,consolidate,packages/backend/src/services/,Backend base class. Delete frontend copy.
+BatchOperations.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+BenchmarkService.ts,511,511,consolidate,packages/backend/src/services/,Backend-only data fetching. Delete frontend copy.
+CRMFieldMapper.ts,198,198,consolidate,packages/backend/src/services/,Backend integration concern. Delete frontend copy.
+CRMIntegrationService.ts,287,287,consolidate,packages/backend/src/services/,Backend integration. Delete frontend copy.
+CRMOAuthService.ts,198,198,consolidate,packages/backend/src/services/,Backend OAuth. Delete frontend copy.
+CacheService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only caching. Delete frontend copy.
+CalculationEngine.ts,198,198,consolidate,packages/backend/src/domain/economic-kernel/,Financial calculation migrates to economic-kernel domain layer.
+CallAnalysisService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+CanvasSchemaService.ts,198,198,consolidate,packages/backend/src/services/,Backend schema service. Delete frontend copy.
+CausalTruthService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+CircuitBreaker.ts,320,19,consolidate,packages/backend/src/runtime/execution-runtime/,Backend has full impl (320 lines); frontend copy is a stub. Migrates to ExecutionRuntime.
+CircuitBreakerManager.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Migrates to ExecutionRuntime. Delete both old copies.
+ClientRateLimit.ts,156,156,consolidate,packages/backend/src/services/,Backend-only rate limiting. Delete frontend copy.
+CodeSandbox.ts,263,263,delete,—,Playground/demo feature; not part of core value loop. Delete both copies.
+ComplianceValidator.ts,198,198,consolidate,packages/backend/src/runtime/policy-engine/,Compliance validation migrates to PolicyEngine. Delete both old copies.
+ComponentMutationService.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,UI mutation migrates to ArtifactComposer. Delete both old copies.
+ConfidenceMonitor.ts,198,198,consolidate,packages/backend/src/services/,Backend-only monitoring. Delete frontend copy.
+ContextOptimizer.ts,198,198,consolidate,packages/backend/src/runtime/context-store/,Context assembly migrates to ContextStore. Delete both old copies.
+ContinuousAuthService.ts,392,392,consolidate,packages/backend/src/services/,Backend-only auth. Delete frontend copy.
+ConversationHistoryService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+CostGovernanceService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only cost tracking. Delete frontend copy.
+CustomerAccessService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+DemoAnalyticsService.ts,198,379,delete,—,Demo/analytics stub; not part of core value loop. Delete both copies.
+DocumentParserService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only parsing. Delete frontend copy.
+DynamicBaselineService.ts,198,198,consolidate,packages/backend/src/domain/,Domain concern; migrates to domain layer in Sprint 3.
+EmailAnalysisService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+EmailService.ts,264,204,consolidate,packages/backend/src/services/,Frontend copy is larger but email is backend-only. Merge and delete frontend copy.
+EnhancedParallelExecutor.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Execution concern migrates to ExecutionRuntime. Delete both old copies.
+ExternalCircuitBreaker.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Migrates to ExecutionRuntime. Delete both old copies.
+FallbackAIService.ts,153,153,consolidate,packages/backend/src/services/,Backend-only LLM fallback. Delete frontend copy.
+FeatureFlags.ts,558,558,migrate,packages/core-services/,Shared concern; canonical copy goes to core-services in Sprint 6.
+FinancialCalculator.ts,103,103,migrate,packages/backend/src/domain/economic-kernel/,Domain concern; migrates to economic-kernel in Sprint 3.
+GeminiProxyService.ts,86,86,consolidate,packages/backend/src/services/,Backend-only LLM proxy. Delete frontend copy.
+GroundTruthIntegrationService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+GroundTruthMetrics.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+GroundtruthAPI.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+HumanCheckpointService.ts,198,198,consolidate,packages/backend/src/runtime/policy-engine/,HITL logic migrates to PolicyEngine. Delete both old copies.
+InputValidation.ts,198,198,migrate,packages/core-services/,Shared validation; canonical copy goes to core-services in Sprint 6.
+IntegrationControlService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+IntegrityAgentService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+IntegrityValidationService.ts,198,198,consolidate,packages/backend/src/runtime/policy-engine/,Validation migrates to PolicyEngine. Delete both old copies.
+IntegrityWarningGenerator.ts,198,198,consolidate,packages/backend/src/runtime/policy-engine/,Warning generation migrates to PolicyEngine. Delete both old copies.
+IntelligentCoordinator.ts,846,845,consolidate,packages/backend/src/runtime/decision-router/,Coordination logic migrates to DecisionRouter. Delete both old copies.
+IntentRegistry.ts,198,198,consolidate,packages/backend/src/runtime/decision-router/,Intent registry migrates to DecisionRouter. Delete both old copies.
+LLMCache.ts,373,373,consolidate,packages/backend/src/services/,Backend-only LLM caching. Delete frontend copy.
+LLMCostTracker.ts,396,396,consolidate,packages/backend/src/services/,Backend-only cost tracking. Delete frontend copy.
+LLMFallback.ts,504,503,consolidate,packages/backend/src/services/,Backend canonical. Delete frontend copy.
+LLMFallbackWithTracing.ts,189,189,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+LLMSanitizer.ts,596,596,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+LayoutEngine.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,Layout generation migrates to ArtifactComposer. Delete both old copies.
+LifecycleCompensationHandlers.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Saga compensation migrates to ExecutionRuntime. Delete both old copies.
+LlmProxyClient.ts,293,293,consolidate,packages/backend/src/services/,Backend-only LLM proxy. Delete frontend copy.
+MCPGroundTruthService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+MCPTools.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+MFAService.ts,336,336,consolidate,packages/backend/src/services/,Backend-only auth. Delete frontend copy.
+ManifestoEnforcer.ts,198,198,consolidate,packages/backend/src/runtime/policy-engine/,Policy enforcement migrates to PolicyEngine. Delete both old copies.
+MessageBus.ts,444,446,consolidate,packages/backend/src/services/,Backend canonical (uses .js imports, stricter types). Delete frontend copy.
+MessageQueue.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+MetricsCollector.ts,198,198,migrate,packages/core-services/,Shared observability; canonical copy goes to core-services in Sprint 6.
+ModelCardService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+ModelService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+NetworkSegmentation.ts,198,198,consolidate,packages/backend/src/services/,Backend-only security. Delete frontend copy.
+OfflineEvaluation.ts,198,198,delete,—,Evaluation harness; not part of core value loop. Delete both copies.
+PermissionService.ts,292,332,consolidate,packages/backend/src/services/,Backend canonical (larger, more complete). Delete frontend copy.
+PersistenceService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+PlaygroundAutoSave.ts,333,333,delete,—,Playground feature; not part of core value loop. Delete both copies.
+PlaygroundSessionSchema.ts,542,542,delete,—,Playground feature; not part of core value loop. Delete both copies.
+PlaygroundSessionService.ts,688,688,delete,—,Playground feature; not part of core value loop. Delete both copies.
+PlaygroundWorkflowAdapter.ts,393,393,delete,—,Playground feature; not part of core value loop. Delete both copies.
+PresenceService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only realtime. Delete frontend copy.
+ProblemMonitor.ts,198,198,consolidate,packages/backend/src/services/,Backend-only monitoring. Delete frontend copy.
+PromptVersionControl.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+ROIFormulaInterpreter.ts,568,568,migrate,packages/backend/src/domain/economic-kernel/,Core domain logic; migrates to economic-kernel in Sprint 3.
+RateLimitKeyService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+RateLimitMetricsService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+RateLimitService.ts,259,262,consolidate,packages/backend/src/services/,Backend canonical. Delete frontend copy.
+RbacService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only RBAC. Delete frontend copy.
+RealizationFeedbackLoop.ts,198,198,migrate,packages/backend/src/domain/realization/,Domain concern; migrates to realization domain layer in Sprint 7.
+RealtimeUpdateService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only realtime. Delete frontend copy.
+RedisCircuitBreaker.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Migrates to ExecutionRuntime. Delete both old copies.
+ReflectionEngine.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+RobustConnectionManager.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+RotationService.ts,236,236,consolidate,packages/backend/src/services/,Backend-only secret rotation. Delete frontend copy.
+SDUISandboxService.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,SDUI generation migrates to ArtifactComposer. Delete both old copies.
+SandboxedExecutor.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Execution concern migrates to ExecutionRuntime. Delete both old copies.
+SecretsService.ts,64,64,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+SecureSharedContext.ts,198,198,consolidate,packages/backend/src/runtime/context-store/,Context assembly migrates to ContextStore. Delete both old copies.
+SecurityAuditService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only security. Delete frontend copy.
+SecurityLogger.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+SecurityMiddleware.ts,198,198,consolidate,packages/backend/src/services/,Backend-only middleware. Delete frontend copy.
+SemanticMemory.ts,198,198,consolidate,packages/backend/src/services/,Backend-only memory. Delete frontend copy.
+SessionManager.ts,380,380,consolidate,packages/backend/src/services/,Backend-only session management. Delete frontend copy.
+SessionTimeoutService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+SettingsService.ts,198,198,migrate,packages/core-services/,Shared settings; canonical copy goes to core-services in Sprint 6.
+SuggestionEngine.ts,198,198,consolidate,packages/backend/src/runtime/decision-router/,Suggestion logic migrates to DecisionRouter. Delete both old copies.
+TelemetryGuardrailsService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only telemetry. Delete frontend copy.
+TemplateLibrary.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,Template management migrates to ArtifactComposer. Delete both old copies.
+TenantAwareService.ts,282,282,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+TenantContextResolver.ts,24,24,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+TenantMembershipService.ts,227,226,consolidate,packages/backend/src/services/,Backend canonical. Delete frontend copy.
+TenantProvisioning.ts,1386,1385,consolidate,packages/backend/src/services/,Backend canonical (AGENTS.md: service_role only for tenant provisioning). Delete frontend copy.
+ToolRegistry.ts,419,440,consolidate,packages/backend/src/services/,Backend canonical (larger, AGENTS.md: static registration). Delete frontend copy.
+TrustedDeviceService.ts,250,250,consolidate,packages/backend/src/services/,Backend-only auth. Delete frontend copy.
+UIGenerationTracker.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,UI tracking migrates to ArtifactComposer. Delete both old copies.
+UIRefinementLoop.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,UI refinement migrates to ArtifactComposer. Delete both old copies.
+UndoRedoManager.ts,198,198,delete,—,UI-only state management; belongs in frontend component state, not a service.
+UnifiedAgentAPI.ts,1027,1027,consolidate,packages/backend/src/services/,Backend-only API surface. Delete frontend copy.
+UnifiedAgentOrchestrator.ts,2615,2867,consolidate,packages/backend/src/runtime/ (decomposed),Decomposed into 5 runtime services in Sprint 4. Both copies deleted in Sprint 10.
+UsageTrackingService.ts,198,198,migrate,packages/core-services/,Shared analytics; canonical copy goes to core-services in Sprint 6.
+UserSettingsService.ts,198,198,migrate,packages/core-services/,Shared settings; canonical copy goes to core-services in Sprint 6.
+ValueCaseService.ts,595,595,migrate,packages/backend/src/domain/,Core domain service; migrates to domain layer in Sprint 3.
+ValueFabricService.ts,723,723,migrate,packages/backend/src/domain/,Core domain service; migrates to domain layer in Sprint 3.
+ValueKernel.ts,145,145,migrate,packages/backend/src/domain/economic-kernel/,Core domain logic; migrates to economic-kernel in Sprint 3.
+ValueLifecycleOrchestrator.ts,845,844,consolidate,packages/backend/src/runtime/,Lifecycle orchestration absorbed by the 5 runtime services. Delete both old copies.
+ValueMetricsTracker.ts,347,347,migrate,packages/backend/src/domain/,Domain concern; migrates to domain layer in Sprint 3.
+ValuePredictionTracker.ts,406,406,migrate,packages/backend/src/domain/,Domain concern; migrates to domain layer in Sprint 3.
+ValueTreeService.ts,323,322,migrate,packages/backend/src/domain/,Domain concern; migrates to domain layer in Sprint 3.
+VectorSearchService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only vector search. Delete frontend copy.
+VersionHistoryService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+WebAuthnService.ts,379,379,consolidate,packages/backend/src/services/,Backend-only auth. Delete frontend copy.
+WebScraperService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+WebSocketManager.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+WebSocketUsageGuide.ts,284,284,delete,—,Documentation file masquerading as a service. Delete both copies.
+WorkflowCompensation.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Saga compensation migrates to ExecutionRuntime. Delete both old copies.
+WorkflowEventListener.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Event handling migrates to ExecutionRuntime. Delete both old copies.
+WorkflowExecutionStore.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Execution state migrates to ExecutionRuntime. Delete both old copies.
+WorkflowLifecycleIntegration.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,Lifecycle integration migrates to ExecutionRuntime. Delete both old copies.
+WorkflowSDUIAdapter.ts,198,198,consolidate,packages/backend/src/runtime/artifact-composer/,SDUI generation migrates to ArtifactComposer. Delete both old copies.
+WorkflowStateMachine.ts,198,198,consolidate,packages/backend/src/runtime/execution-runtime/,State machine migrates to ExecutionRuntime. Delete both old copies.
+WorkflowStateService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+WorkspaceStateService.ts,198,198,consolidate,packages/backend/src/services/,Backend-only. Delete frontend copy.
+agent-types.ts,198,198,consolidate,packages/backend/src/types/,Type definitions belong in backend types. Delete frontend copy.
+consentRegistry.ts,198,198,consolidate,packages/backend/src/services/,Backend-only consent tracking. Delete frontend copy.
+errors.ts,198,198,migrate,packages/core-services/,Shared error types; canonical copy goes to core-services in Sprint 6.
+index.ts,—,—,delete,—,Barrel re-export files in both locations; remove after all services are migrated.
