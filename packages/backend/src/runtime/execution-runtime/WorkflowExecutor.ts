@@ -87,7 +87,7 @@ export class WorkflowExecutor {
     private readonly checkAgentRateLimit: (agentType: AgentType) => boolean,
     private readonly config: WorkflowExecutorConfig = DEFAULT_CONFIG,
   ) {
-    this.executionStore = new WorkflowExecutionStore(supabase as never);
+    this.executionStore = new WorkflowExecutionStore(supabase);
   }
 
   // --------------------------------------------------------------------------
