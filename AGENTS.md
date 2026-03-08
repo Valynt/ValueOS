@@ -165,3 +165,35 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
 | `.github/CODEOWNERS` | Review routing by team |
+
+## Context Engineering Layer
+
+`.ona/context/` contains structured context files that give agents the right information at the right time. They complement this file — AGENTS.md is the rule set, `.ona/context/` is the knowledge base.
+
+| File | What it contains | Read when |
+|---|---|---|
+| `.ona/context/decisions.md` | ADR digest + undocumented architectural decisions | Before changing system boundaries, data flows, or agent configuration |
+| `.ona/context/debt.md` | Prioritised technical debt with file locations and issue links | Before sprint planning; before touching any file with known stubs |
+| `.ona/context/user-stories.md` | Core user stories with acceptance criteria and implementation status | Before implementing a feature or writing tests for a lifecycle stage |
+| `.ona/context/traceability.md` | Full-stack map: agent → DB table → repository → API endpoint → frontend hook → UI component | Before touching any lifecycle stage (Hypothesis, Model, Integrity, Narrative, Realization, Expansion) |
+| `.ona/context/memory.md` | Lessons learned, anti-patterns, migration history, pre-PR checklist | Before submitting a PR that touches agent code, DB queries, or UI components |
+| `.ona/context/tools.md` | Both tool systems (MCP + BFA Semantic), interfaces, registration pattern, current inventory | Before adding a new tool or calling an existing one from agent code |
+
+### When to update these files
+
+- **`decisions.md`** — after a new ADR is accepted, or when an undocumented decision is made that future agents need to know about.
+- **`debt.md`** — when debt is resolved (mark it in the Resolved section) or newly discovered. Link GitHub issues.
+- **`user-stories.md`** — when a story's implementation status changes (a stage moves from ❌ to ✅).
+- **`traceability.md`** — when a new DB table, repository, endpoint, hook, or UI component is added for a lifecycle stage.
+- **`memory.md`** — after solving a non-obvious problem, removing a recurring anti-pattern, or completing a significant migration.
+- **`tools.md`** — when a new tool is registered or an existing tool's interface changes.
+
+### Relationship to other context sources
+
+These files do not replace existing sources — they index and summarise them for fast agent orientation:
+
+- **`AGENTS.md`** (this file) — non-negotiable rules and coding conventions. Agents must follow these regardless of context.
+- **`.windsurf/rules/`** — glob-triggered rules for Windsurf/Cascade. Enforced automatically on file match.
+- **`.windsurf/workflows/`** — step-by-step task workflows (add-feature, database-migration, debug-issue, etc.).
+- **`docs/engineering/adr/`** — full ADR records. `decisions.md` is a digest; go here for complete rationale.
+- **`docs/architecture/`** — detailed architecture documents. `traceability.md` is a navigation aid into these.
