@@ -13,9 +13,9 @@ apps/
   mcp-dashboard/    # MCP observability dashboard
 
 packages/
-  agent-fabric/     # Primary multi-agent framework and shared orchestration primitives
-  agents/           # Standalone agent microservices (deprecated, mock-data based)
-  backend/          # Express API server (billing, auth, workflows, agents)
+  agent-fabric/     # Multi-agent framework and shared orchestration primitives
+  agents/           # FROZEN — standalone agent microservices (deprecated; deletion target Sprint 2)
+  backend/          # Canonical API server (Express, billing, auth, workflows, agents)
   components/       # Shared UI component library and design system
   config-v2/        # Shared configuration schemas and validation
   infra/            # Infrastructure utilities and queue abstractions
@@ -47,8 +47,12 @@ infra/
 # Install dependencies
 pnpm install
 
-# Start local development (server + Vite client)
+# Start frontend and backend together
 pnpm run dev
+
+# Or start each runtime independently
+pnpm run dev:frontend   # apps/ValyntApp — React + Vite on port 5173
+pnpm run dev:backend    # packages/backend — Express API
 ```
 
 ### Environment variables
@@ -65,12 +69,14 @@ See [docs/environments/local-development.md](docs/environments/local-development
 
 | Command | Purpose |
 |---|---|
-| `pnpm run dev` | Start local development (Express + Vite) |
+| `pnpm run dev` | Start frontend and backend together |
+| `pnpm run dev:frontend` | Start `apps/ValyntApp` (React + Vite) only |
+| `pnpm run dev:backend` | Start `packages/backend` (Express API) only |
+| `pnpm run build` | Build both `apps/ValyntApp` and `packages/backend` |
+| `pnpm run start` | Start the production backend server |
 | `pnpm run check` | Run TypeScript no-emit checks |
 | `pnpm test` | Run unit tests (Vitest) |
 | `pnpm run format` | Format code with Prettier |
-| `pnpm run build` | Build client bundle and server entrypoint |
-| `pnpm run start` | Run the production build |
 | `pnpm run db:push` | Generate and apply Drizzle migrations |
 
 ## Architecture
@@ -133,12 +139,12 @@ See [DEPLOY.md](DEPLOY.md) for production deployment instructions using Docker C
 ### Supported contributor workflow
 
 1. Open this repository in the Dev Container.
-2. Run `pnpm run dx:up --mode local` to start the local development stack.
-
-1. Create a feature branch from `main`.
-2. Make changes following the patterns in [docs/engineering/code-standards.md](docs/engineering/code-standards.md).
-3. Ensure `pnpm run lint`, `pnpm test`, and `pnpm run typecheck:islands` pass.
-4. Open a PR using the [pull request template](.github/pull_request_template.md).
+2. Run `pnpm install` to install dependencies.
+3. Run `pnpm run dev` to start both runtimes, or `pnpm run dev:frontend` / `pnpm run dev:backend` independently.
+4. Create a feature branch from `main`.
+5. Make changes following the patterns in [docs/engineering/code-standards.md](docs/engineering/code-standards.md) and [AGENTS.md](AGENTS.md).
+6. Ensure `pnpm run lint`, `pnpm test`, and `pnpm run check` pass locally.
+7. Open a PR using the [pull request template](.github/pull_request_template.md).
 
 ## License
 
