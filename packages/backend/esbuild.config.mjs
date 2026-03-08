@@ -17,12 +17,12 @@ const alias = {
   '@valueos/sdui-types':  p('packages/sdui-types'),
   '@valueos/integrations':p('packages/integrations'),
   '@valueos/mcp':         p('packages/mcp'),
-  '@valueos/agents':      p('packages/agents'),
+
   '@valueos/components':  p('packages/components'),
   '@backend':             p('packages/backend/src'),
   '@infra':               p('packages/infra'),
   '@memory':              p('packages/memory'),
-  '@agents':              p('packages/agents'),
+
   '@integrations':        p('packages/integrations'),
   '@mcp':                 p('packages/mcp'),
   '@mcp-common':          p('packages/mcp/common'),

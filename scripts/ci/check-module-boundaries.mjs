@@ -7,7 +7,6 @@ const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
 const SCOPES = {
   appLib: "apps/ValyntApp/src/lib/",
   backend: "packages/backend/src/",
-  agents: "packages/agents/",
 };
 
 const importRegex = /(?:import|export)\s+(?:[^"']+\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/g;
@@ -42,13 +41,9 @@ for (const file of walk(repoRoot)) {
       }
     }
 
-    if (!rel.startsWith(SCOPES.agents)) {
-      if (spec.startsWith("@valueos/agents/") && spec.split("/").length > 3) {
-        violations.push(`${rel}: deep import into @valueos/agents internals (\"${spec}\")`);
-      }
-      if (resolvedRel?.startsWith("packages/agents/") && !resolvedRel.endsWith("index.ts")) {
-        violations.push(`${rel}: relative import reaches packages/agents internals (\"${spec}\")`);
-      }
+    // @valueos/agents was deleted in Sprint 2. Flag any surviving imports.
+    if (spec === '@valueos/agents' || spec.startsWith('@valueos/agents/')) {
+      violations.push(`${rel}: @valueos/agents was deleted in Sprint 2; import from packages/backend/src/lib/agents/ instead ("${spec}")`);
     }
   }
 }

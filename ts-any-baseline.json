@@ -47,10 +47,6 @@
     "packages/shared": {
       "baseline": 36,
       "monthly_reduction": 2
-    },
-    "packages/agents": {
-      "baseline": 0,
-      "monthly_reduction": 1
     }
   },
   "note": "Run 'bash scripts/ts-any-ratchet.sh --update' after reducing any count"

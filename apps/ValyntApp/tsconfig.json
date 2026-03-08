@@ -35,8 +35,7 @@
       "@valueos/sdui": ["../../packages/sdui/src/index.ts"],
       "@valueos/components": ["../../packages/components/index.ts"],
       "@valueos/components/*": ["../../packages/components/*"],
-      "@valueos/agents": ["../../packages/agents/index.ts"],
-      "@valueos/agents/*": ["../../packages/agents/*/src"],
+
       "@valueos/infra": ["../../packages/infra/index.ts"],
       "@valueos/memory": ["../../packages/memory/index.ts"],
       "@valueos/integrations": ["../../packages/integrations/index.ts"],

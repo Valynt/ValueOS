@@ -124,8 +124,7 @@
     "packages/backend": 4016,
     "packages/mcp": 468,
     "packages/sdui": 313,
-    "packages/shared": 6,
-    "packages/agents": 164
+    "packages/shared": 6
   },
   "topFiles": [
     {

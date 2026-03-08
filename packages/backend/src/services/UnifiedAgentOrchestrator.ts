@@ -158,6 +158,7 @@ import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
+import { DecisionRouter } from "../runtime/decision-router/index.js";
 import {
   AgentCapability,
   AgentConfiguration,
@@ -373,6 +374,8 @@ export class UnifiedAgentOrchestrator {
   private agentAPI = getAgentAPI();
   private registry: AgentRegistry;
   private routingLayer: AgentRoutingLayer;
+  /** Facade: all routing decisions delegate here. Replaces direct routingLayer + selectAgent calls. */
+  private decisionRouter: DecisionRouter;
   private circuitBreakers: CircuitBreakerManager;
   private config: OrchestratorConfig;
   private memorySystem: MemorySystem;
@@ -405,6 +408,7 @@ export class UnifiedAgentOrchestrator {
       this.llmGateway = rest[4] as LLMGateway;
       this.messageBroker = rest[5] as AgentMessageBroker;
       this.agentMessageQueue = rest[6] as AgentMessageQueue;
+      this.decisionRouter = new DecisionRouter(this.routingLayer);
     } else {
       const cfg = (configOrRegistry ?? {}) as Partial<OrchestratorConfig>;
       this.config = {
@@ -414,6 +418,7 @@ export class UnifiedAgentOrchestrator {
       } as OrchestratorConfig;
       this.registry = new AgentRegistry();
       this.routingLayer = new AgentRoutingLayer();
+      this.decisionRouter = new DecisionRouter(this.routingLayer);
       this.circuitBreakers = new CircuitBreakerManager();
       this.memorySystem = new MemorySystem(
         { max_memories: 1000, enable_persistence: true },
@@ -646,7 +651,7 @@ export class UnifiedAgentOrchestrator {
     });
 
     // Determine which agent to use based on query and current stage
-    const agentType = this.selectAgent(query, currentState);
+    const agentType = this.decisionRouter.selectAgentForQuery(query, currentState);
 
     // Check inter-agent rate limit
     if (!this.checkAgentRateLimit(agentType)) {
@@ -925,7 +930,7 @@ export class UnifiedAgentOrchestrator {
         throw new Error(result.error || "Async agent execution failed");
       }
 
-      const asyncAgentType = this.selectAgent(query, currentState);
+      const asyncAgentType = this.decisionRouter.selectAgentForQuery(query, currentState);
       const structuralCheck = await this.evaluateStructuralTruthVeto(
         result.data,
         {
@@ -1061,7 +1066,7 @@ export class UnifiedAgentOrchestrator {
       // is assigned before the code below runs.
       let agentType: AgentType;
       tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
-        agentType = this.selectAgent(query, currentState);
+        agentType = this.decisionRouter.selectAgentForQuery(query, currentState);
         selectSpan.setAttributes({
           'agent.selected_type': agentType,
           'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based',
@@ -1578,7 +1583,7 @@ export class UnifiedAgentOrchestrator {
         context: WorkflowContextDTO;
         startedAt: Date;
       }>[] = readyStages.map((stage) => {
-        const route = this.routingLayer.routeStage(dag, stage.id, executionContext);
+        const route = this.decisionRouter.routeStage(dag, stage.id, executionContext);
         const startedAt = new Date();
         stageStartTimes.set(stage.id, startedAt);
         inProgressStages.add(stage.id);
@@ -2356,7 +2361,9 @@ export class UnifiedAgentOrchestrator {
   // ==========================================================================
 
   /**
-   * Select appropriate agent based on query and state
+   * @deprecated Sprint 2: All callers now delegate to DecisionRouter.selectAgentForQuery().
+   * This method is retained for reference only and will be deleted in Sprint 5
+   * when keyword routing is replaced with domain-state decisioning.
    */
   private selectAgent(query: string, state: WorkflowState): AgentType {
     const lowerQuery = query.toLowerCase();

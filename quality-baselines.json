@@ -79,11 +79,10 @@
     "packages/backend": 3061,
     "packages/sdui": 179,
     "packages/mcp": 411,
-    "packages/agents": 0,
     "packages/infra": 6,
     "packages/services": 20,
     "packages/shared": 5,
-    "_note": "Re-baselined 2026-02-12. ValyntApp: noUnusedLocals/noUnusedParameters disabled, exactOptionalPropertyTypes disabled. Backend: uuid types added, vite-env.d.ts added. Deprecated standalone agents removed 2026-02-28; packages/agents re-baselined to 0 due to removal of deprecated modules."
+    "_note": "Re-baselined 2026-02-12. ValyntApp: noUnusedLocals/noUnusedParameters disabled, exactOptionalPropertyTypes disabled. Backend: uuid types added, vite-env.d.ts added. Deprecated standalone agents removed 2026-02-28. packages/agents deleted in Sprint 2 (refactor); core modules migrated to packages/backend/src/lib/agents/."
   },
   "performance": {
     "time_to_interaction": {

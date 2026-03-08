@@ -64,9 +64,7 @@
       "@valueos/mcp": [
         "./packages/mcp/index.ts"
       ],
-      "@valueos/agents": [
-        "./packages/agents/index.ts"
-      ],
+
       "@valueos/components": [
         "./packages/components/index.ts"
       ],

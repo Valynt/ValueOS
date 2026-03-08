@@ -3,8 +3,8 @@ import {
   GroundTruthAgentInterface,
   NarrativeAgentInterface,
   OpportunityAgentInterface,
-  RedTeamLLMGateway
-} from "@valueos/agents";
+} from "../../lib/agents/orchestration/index.js";
+import { RedTeamLLMGateway } from "../../lib/agents/orchestration/agents/RedTeamAgent.js";
 import { z } from "zod";
 
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
