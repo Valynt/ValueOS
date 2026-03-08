@@ -386,7 +386,8 @@ export class UnifiedAgentOrchestrator {
   private agentInvocationTimes: Map<string, number[]> = new Map();
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
   private groundTruthService = GroundTruthIntegrationService.getInstance();
-  private groundTruthInitialized = false;
+  // Stored Promise prevents duplicate initialization under concurrent calls.
+  private groundTruthInitPromise: Promise<void> | null = null;
   private confidenceMonitor: ConfidenceMonitor;
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
@@ -511,12 +512,11 @@ export class UnifiedAgentOrchestrator {
     );
   }
 
-  private async ensureGroundTruthInitialized(): Promise<void> {
-    if (this.groundTruthInitialized) {
-      return;
+  private ensureGroundTruthInitialized(): Promise<void> {
+    if (!this.groundTruthInitPromise) {
+      this.groundTruthInitPromise = this.groundTruthService.initialize();
     }
-    await this.groundTruthService.initialize();
-    this.groundTruthInitialized = true;
+    return this.groundTruthInitPromise;
   }
 
   private async executeGroundTruthToolCall<T>(params: {
@@ -2798,6 +2798,17 @@ export class UnifiedAgentOrchestrator {
     await this.collectComplianceEvidence(tenantId, "event", eventSource);
   }
 
+  /** Snapshot of internal service readiness, used by compliance evidence collection. */
+  private getServiceReadiness() {
+    return {
+      message_broker_ready: Boolean(this.messageBroker),
+      queue_ready: Boolean(this.agentMessageQueue),
+      memory_backend_ready: Boolean(this.memorySystem),
+      llm_gateway_ready: Boolean(this.llmGateway),
+      circuit_breaker_ready: Boolean(this.circuitBreakers),
+    };
+  }
+
   private async collectComplianceEvidence(
     tenantId: string,
     triggerType: "scheduled" | "event",
@@ -2827,14 +2838,6 @@ export class UnifiedAgentOrchestrator {
       };
     });
 
-    const serviceEvidence = {
-      message_broker_ready: Boolean(this.messageBroker),
-      queue_ready: Boolean(this.agentMessageQueue),
-      memory_backend_ready: Boolean(this.memorySystem),
-      llm_gateway_ready: Boolean(this.llmGateway),
-      circuit_breaker_ready: Boolean(this.circuitBreakers),
-    };
-
     await complianceEvidenceService.appendEvidence({
       tenantId,
       actorPrincipal: "unified-agent-orchestrator",
@@ -2845,7 +2848,7 @@ export class UnifiedAgentOrchestrator {
         tenant_id: tenantId,
         collected_at: new Date().toISOString(),
         agent_evidence: agentEvidence,
-        service_evidence: serviceEvidence,
+        service_evidence: this.getServiceReadiness(),
       },
     });
   }
