@@ -6,7 +6,7 @@
  *
  * Consolidates:
  * - ValueHypothesis interface (packages/backend/src/lib/agents/orchestration/HypothesisLoop.ts)
- * - hypothesis_outputs table schema (infra/supabase/migrations/20260310000000_core_workflow_tables.sql)
+ * - hypothesis_outputs table schema (Supabase migrations under infra/supabase/supabase/migrations/)
  * - ValueHypothesisSchema (packages/backend/src/services/AgentChatService.ts)
  *
  * Sprint 3: First-class domain definition. Agents must store and retrieve
