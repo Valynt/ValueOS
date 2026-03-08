@@ -76,6 +76,26 @@ export const BusinessCaseSchema = z.object({
   /** User ID of the person who owns/presents this case. */
   owner_id: z.string().uuid(),
 
+  /**
+   * Defense readiness score (0–1).
+   *
+   * Measures how well the business case can withstand scrutiny.
+   * Calculated from two signals:
+   *   - assumption validation rate: fraction of assumptions with human_reviewed=true
+   *   - evidence strength: mean grounding_score across attached evidence items
+   *
+   * Score = 0.6 * assumption_validation_rate + 0.4 * mean_evidence_grounding_score
+   *
+   * A score ≥ 0.8 is considered presentation-ready.
+   * A score < 0.4 indicates the case has unvalidated assumptions or weak evidence.
+   *
+   * Caller-populated: compute via calculateDefenseReadiness() in
+   * packages/backend/src/domain/business-case/defenseReadiness.ts and write
+   * the result back before persisting. ArtifactComposer computes this
+   * automatically and exposes it on StakeholderView.defense_readiness_score.
+   */
+  defense_readiness_score: z.number().min(0).max(1).nullable().optional(),
+
   /** ISO 8601 timestamps. */
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
