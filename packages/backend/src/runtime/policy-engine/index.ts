@@ -23,6 +23,10 @@ import { AgentRegistry } from "../../services/AgentRegistry.js";
 import { complianceEvidenceService } from "../../services/ComplianceEvidenceService.js";
 import { securityLogger } from "../../services/SecurityLogger.js";
 import { TenantExecutionStateService } from "../../services/billing/TenantExecutionStateService.js";
+import {
+  DefaultIntegrityVetoService,
+  type IntegrityCheckOptions,
+} from "../../services/workflows/IntegrityVetoService.js";
 import { WorkflowStageContextDTO } from "../../types/workflow/runner.js";
 import { DecisionContext } from "@shared/domain/DecisionContext.js";
 
@@ -60,6 +64,8 @@ export interface PolicyEngineOptions {
   serviceReadiness: () => ServiceReadiness;
   /** Optional override for testing — skips internal construction. */
   executionStateService?: Pick<TenantExecutionStateService, "getActiveState">;
+  /** Optional override for testing. */
+  integrityVetoService?: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto">;
 }
 
 // ============================================================================
@@ -132,12 +138,14 @@ export class PolicyEngine {
   private readonly executionStateService: Pick<TenantExecutionStateService, "getActiveState">;
   private readonly registry: AgentRegistry;
   private readonly serviceReadiness: () => ServiceReadiness;
+  private readonly integrityVetoService: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto"> | null;
 
   constructor(options: PolicyEngineOptions) {
     this.executionStateService =
       options.executionStateService ?? new TenantExecutionStateService(options.supabase);
     this.registry = options.registry;
     this.serviceReadiness = options.serviceReadiness;
+    this.integrityVetoService = options.integrityVetoService ?? null;
   }
 
   // --------------------------------------------------------------------------
@@ -339,8 +347,26 @@ export class PolicyEngine {
     });
   }
 
+   // --------------------------------------------------------------------------
+  // 4. Integrity veto delegation
   // --------------------------------------------------------------------------
-  // 4. HITL gating (Sprint 5)
+
+  /**
+   * Delegates to the injected IntegrityVetoService.
+   * Returns no-veto when no service was provided (e.g. in lightweight test setups).
+   */
+  async evaluateIntegrityVeto(
+    payload: unknown,
+    options: IntegrityCheckOptions,
+  ): Promise<{ vetoed: boolean; metadata?: unknown; reRefine?: boolean }> {
+    if (!this.integrityVetoService) {
+      return { vetoed: false };
+    }
+    return this.integrityVetoService.evaluateIntegrityVeto(payload, options);
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. HITL gating (Sprint 5)
   // --------------------------------------------------------------------------
 
   /**
@@ -357,7 +383,6 @@ export class PolicyEngine {
     const isExternalArtifact = context.is_external_artifact_action;
     const lifecycleStage = context.opportunity?.lifecycle_stage;
 
-    // HITL-01: Low confidence + external artifact → require approval
     if (
       isExternalArtifact &&
       opportunityConfidence !== undefined &&

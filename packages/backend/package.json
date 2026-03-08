@@ -42,6 +42,7 @@
     "winston": "^3.19.0",
     "ws": "^8.19.0",
     "uuid": "^11.1.0",
+    "@opentelemetry/api": "^1.9.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
