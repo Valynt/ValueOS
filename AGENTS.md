@@ -147,6 +147,8 @@ Full policy-as-code: `.windsurf/rules/global.md`
 
 | File | Purpose |
 |---|---|
+| `packages/shared/src/domain/` | **Canonical domain model** — 9 first-class domain objects as Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity). All agent reasoning must operate on these types. |
+| `packages/backend/src/runtime/decision-router/` | DecisionRouter — selects agent/action based on workflow state. Extracted from UnifiedAgentOrchestrator in Sprint 2. Sprint 5 target: replace keyword routing with domain-state decisioning. |
 | `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class |
 | `packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts` | Hypothesis generation (OPPORTUNITY phase) |
 | `packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts` | KPI target generation (DRAFTING phase) |
@@ -156,8 +158,9 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts` | Growth opportunities, expansion strategies (EXPANSION phase) |
 | `packages/backend/src/lib/agent-fabric/AgentFactory.ts` | Agent instantiation with dependency injection |
 | `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
+| `packages/backend/src/lib/agents/` | Agent core library — migrated from deleted `packages/agents/` in Sprint 2 (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
 | `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
-| `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Agent orchestration |
+| `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Agent orchestration — **@frozen**, decomposition target Sprint 4 |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
