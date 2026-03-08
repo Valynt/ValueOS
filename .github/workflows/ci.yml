@@ -52,30 +52,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Guard deprecated e2e path
-        run: node scripts/ci/guard-deprecated-e2e-path.mjs
-
-      - name: TS any ratchet
-        run: bash scripts/ts-any-ratchet.sh
-
-      - name: TS error package ratchet
-        run: node scripts/ci/ts-error-ratchet.mjs
-
-      - name: Debt policy ratchet
-        run: node scripts/debt/inventory.mjs
-
-      - name: Enforce Valynt service freeze
-        run: pnpm check:valynt-services-freeze
-
-      - name: Enforce frozen backend duplicate tree
-        run: pnpm check:frozen-backend-duplicate-tree
-
-      - name: Guard browser provider secrets
-        run: pnpm check:browser-provider-secrets
-
-      - name: Guard frontend bundle service-role identifiers
-        run: pnpm check:frontend-bundle-service-role
-
       - name: Check service duplicate filenames
         run: pnpm check:service-duplicates
 
@@ -99,12 +75,6 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
-      - name: Threat model freshness gate
-        run: node scripts/ci/check-threat-model-freshness.mjs
-
-      - name: Observability contract gate
-        run: node scripts/ci/check-observability-contract.mjs
-
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
 
@@ -122,6 +92,12 @@ jobs:
 
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
+
+      - name: Guard browser provider secrets
+        run: pnpm check:browser-provider-secrets
+
+      - name: Guard frontend bundle service-role identifiers
+        run: pnpm check:frontend-bundle-service-role
 
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs

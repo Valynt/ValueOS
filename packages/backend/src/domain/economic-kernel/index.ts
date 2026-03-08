@@ -38,6 +38,13 @@ export {
   validateRegistry,
 } from './kpi_registry.js';
 
+// Assumption-level sensitivity analysis (async — lazy-loads decimal.js)
+export {
+  type AssumptionImpact,
+  type AssumptionSensitivityResult,
+  analyseAssumptionSensitivity,
+} from './assumptionSensitivity.js';
+
 // Overlay Contract — domain pack interface
 export {
   type KPIOverride,
