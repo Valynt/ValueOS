@@ -159,6 +159,8 @@ import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
 import { DecisionRouter } from "../runtime/decision-router/index.js";
+import { DecisionContext } from "@shared/domain/DecisionContext.js";
+import { OpportunityLifecycleStageSchema } from "@shared/domain/Opportunity.js";
 import {
   AgentCapability,
   AgentConfiguration,
@@ -386,7 +388,9 @@ export class UnifiedAgentOrchestrator {
   private agentInvocationTimes: Map<string, number[]> = new Map();
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
   private groundTruthService = GroundTruthIntegrationService.getInstance();
-  private groundTruthInitialized = false;
+  // Stored Promise so concurrent callers await the same initialization rather
+  // than racing past the boolean check and calling initialize() multiple times.
+  private groundTruthInitPromise: Promise<void> | null = null;
   private confidenceMonitor: ConfidenceMonitor;
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
@@ -511,12 +515,14 @@ export class UnifiedAgentOrchestrator {
     );
   }
 
-  private async ensureGroundTruthInitialized(): Promise<void> {
-    if (this.groundTruthInitialized) {
-      return;
-    }
-    await this.groundTruthService.initialize();
-    this.groundTruthInitialized = true;
+  private ensureGroundTruthInitialized(): Promise<void> {
+    this.groundTruthInitPromise ??= this.groundTruthService.initialize().catch((err) => {
+      // Clear the cached promise so the next caller retries rather than
+      // re-throwing the same rejection indefinitely.
+      this.groundTruthInitPromise = null;
+      throw err;
+    });
+    return this.groundTruthInitPromise;
   }
 
   private async executeGroundTruthToolCall<T>(params: {
@@ -650,8 +656,10 @@ export class UnifiedAgentOrchestrator {
       queryLength: query.length,
     });
 
-    // Determine which agent to use based on query and current stage
-    const agentType = this.decisionRouter.selectAgentForQuery(query, currentState);
+    // Determine which agent to use based on domain state
+    const agentType = this.decisionRouter.selectAgent(
+      this.buildDecisionContext(currentState, envelope.organizationId)
+    );
 
     // Check inter-agent rate limit
     if (!this.checkAgentRateLimit(agentType)) {
@@ -930,7 +938,9 @@ export class UnifiedAgentOrchestrator {
         throw new Error(result.error || "Async agent execution failed");
       }
 
-      const asyncAgentType = this.decisionRouter.selectAgentForQuery(query, currentState);
+      const asyncAgentType = this.decisionRouter.selectAgent(
+        this.buildDecisionContext(currentState, envelope.organizationId)
+      );
       const structuralCheck = await this.evaluateStructuralTruthVeto(
         result.data,
         {
@@ -1066,7 +1076,9 @@ export class UnifiedAgentOrchestrator {
       // is assigned before the code below runs.
       let agentType: AgentType;
       tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
-        agentType = this.decisionRouter.selectAgentForQuery(query, currentState);
+        agentType = this.decisionRouter.selectAgent(
+          this.buildDecisionContext(currentState, envelope.organizationId)
+        );
         selectSpan.setAttributes({
           'agent.selected_type': agentType,
           'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based',
@@ -2361,88 +2373,55 @@ export class UnifiedAgentOrchestrator {
   // ==========================================================================
 
   /**
-   * @deprecated Sprint 2: All callers now delegate to DecisionRouter.selectAgentForQuery().
-   * This method is retained for reference only and will be deleted in Sprint 5
-   * when keyword routing is replaced with domain-state decisioning.
+   * Build a DecisionContext from WorkflowState for use by DecisionRouter.
+   *
+   * Sprint 5: Assembles the minimal context available from WorkflowState.
+   * When ContextStore is implemented (Sprint 6 target), this method will be
+   * replaced by a ContextStore.assemble() call that hydrates all domain
+   * objects from Supabase.
    */
-  private selectAgent(query: string, state: WorkflowState): AgentType {
-    const lowerQuery = query.toLowerCase();
+  private buildDecisionContext(
+    state: WorkflowState,
+    organizationId: string
+  ): DecisionContext {
+    // Map lifecycle_stage from WorkflowState to the canonical enum.
+    // WorkflowState.lifecycle_stage is untyped (string); parse defensively.
+    const stageParseResult = OpportunityLifecycleStageSchema.safeParse(
+      state.lifecycle_stage ?? state.currentStage
+    );
+    const lifecycleStage = stageParseResult.success ? stageParseResult.data : undefined;
 
-    // Stage-based routing
-    switch (state.currentStage) {
-      case "discovery":
-        return "company-intelligence";
-      case "research":
-        return "research";
-      case "analysis":
-        return "system-mapper";
-      case "benchmarking":
-        return "benchmark";
-      case "design":
-        return "intervention-designer";
-      case "modeling":
-        return "financial-modeling";
-      case "narrative":
-        return "narrative";
-      default:
-        break;
-    }
+    // Confidence score may be stored in state_data by agents that write it.
+    const rawConfidence = state.state_data?.confidence_score;
+    const confidenceScore =
+      typeof rawConfidence === 'number' ? rawConfidence : undefined;
 
-    // Intent-based routing - Research Agent
-    if (
-      lowerQuery.includes("research") ||
-      lowerQuery.includes("company intel") ||
-      lowerQuery.includes("persona")
-    ) {
-      return "research";
-    }
+    // Value maturity may be stored in state_data by FinancialModelingAgent.
+    // No default — omit the opportunity block when maturity is unknown so the
+    // lifecycle stage rule (P50) handles routing rather than P10 firing for
+    // every request and misrouting to financial-modeling.
+    const rawMaturity = state.state_data?.value_maturity;
+    const valueMaturity =
+      rawMaturity === 'low' || rawMaturity === 'medium' || rawMaturity === 'high'
+        ? rawMaturity
+        : undefined;
 
-    // Intent-based routing - Benchmark Agent
-    if (
-      lowerQuery.includes("benchmark") ||
-      lowerQuery.includes("industry") ||
-      lowerQuery.includes("compare")
-    ) {
-      return "benchmark";
-    }
+    // opportunity_id must come from state_data; workflow_id is not an
+    // opportunity identifier and must not be used as a fallback.
+    const opportunityId = state.state_data?.opportunity_id as string | undefined;
 
-    // Intent-based routing - Narrative Agent
-    if (
-      lowerQuery.includes("narrative") ||
-      lowerQuery.includes("story") ||
-      lowerQuery.includes("present") ||
-      lowerQuery.includes("explain")
-    ) {
-      return "narrative";
-    }
-
-    // Existing intent-based routing
-    if (lowerQuery.includes("roi") || lowerQuery.includes("financial")) {
-      return "financial-modeling";
-    }
-
-    if (lowerQuery.includes("system") || lowerQuery.includes("map")) {
-      return "system-mapper";
-    }
-
-    if (lowerQuery.includes("intervention") || lowerQuery.includes("solution")) {
-      return "intervention-designer";
-    }
-
-    if (lowerQuery.includes("outcome") || lowerQuery.includes("result")) {
-      return "outcome-engineer";
-    }
-
-    if (lowerQuery.includes("expand") || lowerQuery.includes("growth")) {
-      return "expansion";
-    }
-
-    if (lowerQuery.includes("value") || lowerQuery.includes("opportunity")) {
-      return "opportunity";
-    }
-
-    // Default to coordinator
-    return "coordinator";
+    return {
+      organization_id: organizationId,
+      opportunity: lifecycleStage && valueMaturity && opportunityId
+        ? {
+            id: opportunityId,
+            lifecycle_stage: lifecycleStage,
+            confidence_score: confidenceScore ?? 0,
+            value_maturity: valueMaturity,
+          }
+        : undefined,
+      is_external_artifact_action: false, // Callers may override via context enrichment
+    };
   }
 
   // ==========================================================================
