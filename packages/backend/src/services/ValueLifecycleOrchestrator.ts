@@ -117,11 +117,13 @@ import { DLQAlert } from "../lib/agent-fabric/FabricMonitor";
 
 import {
   DeadLetterQueue,
-  HypothesisLoop,
   IdempotencyGuard,
-  RedTeamAgent,
   ValueCaseSaga
-} from "@valueos/agents";
+} from "../lib/agents/core/index.js";
+import {
+  HypothesisLoop,
+  RedTeamAgent
+} from "../lib/agents/orchestration/index.js";
 
 import {
   AgentServiceAdapter,

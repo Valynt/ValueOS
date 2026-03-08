@@ -1,4 +1,4 @@
-import { LoopResultSchema, ValueHypothesisSchema } from '@valueos/agents/orchestration';
+import { LoopResultSchema, ValueHypothesisSchema } from '../lib/agents/orchestration/index.js';
 
 import { supabase } from '../lib/supabase.js';
 import { CanvasComponent } from '../types';
