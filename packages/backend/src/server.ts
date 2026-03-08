@@ -84,6 +84,7 @@ import { createVersionedApiRouter } from "./versioning.js";
 import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
+import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -610,6 +611,11 @@ async function startServer(): Promise<void> {
   const broadcastAdapter = initBroadcastAdapter(wss);
   await broadcastAdapter.init();
 
+  // 3.6. Start the RecommendationEngine — subscribes to domain events and
+  // pushes next-best-action recommendations to connected UI clients.
+  getRecommendationEngine().start();
+  logger.info("[Instrumentation] RecommendationEngine started");
+
   // 4. Workers run as a separate process (see workers/workerMain.ts).
   // In development, optionally start them in-process for convenience.
   if (settings.NODE_ENV === "development") {
@@ -665,6 +671,9 @@ function registerGracefulShutdown(): void {
 
     // 2. Stop audit DLQ retry loop
     securityAuditService.stopRetryLoop();
+
+    // 2.5. Stop RecommendationEngine subscriptions
+    getRecommendationEngine().stop();
 
     // 3. Tear down Redis pub/sub for WebSocket broadcasts
     getBroadcastAdapter().shutdown().catch(() => {});
