@@ -19,6 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.989.0",
     "@mcp/ground-truth": "workspace:*",
+    "@valueos/core-services": "workspace:*",
     "@valueos/shared": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -54,7 +55,6 @@
     "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.3",
     "@types/swagger-ui-express": "^4.1.8",
-    "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.27.3",
     "supertest": "^7.2.2",

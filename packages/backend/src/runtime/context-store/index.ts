@@ -139,8 +139,10 @@ export class ContextStore {
       .eq('organization_id', organizationId);
 
     if (error) {
-      logger.error('Failed to record workflow failure in DB', undefined, {
+      // Log but do not re-throw — the caller's error is the primary failure.
+      logger.error('Failed to persist workflow failure status', new Error(error.message), {
         executionId,
+        organizationId,
         dbError: error.message,
       });
     }

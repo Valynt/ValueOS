@@ -4,331 +4,297 @@
  * Pre-checks safety, data integrity, compliance rules, and HITL requirements
  * before agent execution. Extracted from UnifiedAgentOrchestrator in Sprint 4.
  *
- * Owns:
- *  - Tenant execution guard (pause state)
- *  - Autonomy guardrails (kill switch, duration, cost, iteration limits)
- *  - Integrity veto delegation (structural truth + ground-truth benchmarks)
- *  - Compliance evidence collection
+ * Owns three enforcement paths:
+ *  1. Tenant guard — blocks execution when the tenant is paused
+ *  2. Autonomy guardrails — kill switch, duration/cost limits, approval gates,
+ *     per-agent level/kill-switch/iteration checks
+ *  3. Compliance evidence collection — appends an audit record on demand
  */
 
-import { supabase } from '../../lib/supabase.js';
-import { logger } from '../../lib/logger.js';
-import { getAutonomyConfig } from '../../config/autonomy.js';
-import { securityLogger } from '../../services/SecurityLogger.js';
-import { complianceEvidenceService } from '../../services/ComplianceEvidenceService.js';
-import { TenantExecutionStateService } from '../../services/billing/TenantExecutionStateService.js';
+import { SupabaseClient } from "@supabase/supabase-js";
+
+import { getAutonomyConfig } from "../../config/autonomy.js";
+import { logger } from "../../lib/logger.js";
+import { AgentRegistry } from "../../services/AgentRegistry.js";
+import { complianceEvidenceService } from "../../services/ComplianceEvidenceService.js";
+import { securityLogger } from "../../services/SecurityLogger.js";
+import { TenantExecutionStateService } from "../../services/billing/TenantExecutionStateService.js";
 import {
   DefaultIntegrityVetoService,
   type IntegrityCheckOptions,
-} from '../../services/workflows/IntegrityVetoService.js';
-import { logAgentResponse } from '../../services/AgentAuditLogger.js';
-import { GroundTruthIntegrationService } from '../../services/GroundTruthIntegrationService.js';
-import { ConfidenceMonitor } from '../../services/ConfidenceMonitor.js';
-import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
-import { AgentRegistry } from '../../services/AgentRegistry.js';
-import { getAgentAPI } from '../../services/AgentAPI.js';
-import type { AgentContext } from '../../services/AgentAPI.js';
-import type { AgentType } from '../../services/agent-types.js';
-import type { WorkflowStageContextDTO } from '../../types/workflow/runner.js';
-import type { IntegrityVetoMetadata } from '../../services/UnifiedAgentOrchestrator.js';
+} from "../../services/workflows/IntegrityVetoService.js";
+import { WorkflowStageContextDTO } from "../../types/workflow/runner.js";
 
-export type { IntegrityCheckOptions };
-export type { IntegrityVetoMetadata };
+// ============================================================================
+// Types
+// ============================================================================
 
-/** Point-in-time health snapshot of services the PolicyEngine does not own. */
-export interface ServiceHealthSnapshot {
-  messageBrokerReady: boolean;
-  queueReady: boolean;
-  memoryBackendReady: boolean;
-  llmGatewayReady: boolean;
-  circuitBreakerReady: boolean;
+/**
+ * Extended autonomy config shape used by the guardrail checks.
+ * The base AutonomyConfig from config/autonomy.ts only carries the fields
+ * defined there; the orchestrator casts to this wider type at runtime.
+ */
+export interface GuardrailAutonomyConfig {
+  killSwitchEnabled?: boolean;
+  maxDurationMs?: number;
+  maxCostUsd?: number;
+  requireApprovalForDestructive?: boolean;
+  agentAutonomyLevels?: Record<string, string>;
+  agentKillSwitches?: Record<string, boolean>;
+  agentMaxIterations?: Record<string, number>;
+}
+
+export interface ServiceReadiness {
+  message_broker_ready: boolean;
+  queue_ready: boolean;
+  memory_backend_ready: boolean;
+  llm_gateway_ready: boolean;
+  circuit_breaker_ready: boolean;
+}
+
+export interface PolicyEngineOptions {
+  supabase: SupabaseClient;
+  registry: AgentRegistry;
+  /** Pre-built readiness snapshot from the caller (avoids coupling PolicyEngine to concrete service types). */
+  serviceReadiness: () => ServiceReadiness;
+  /** Optional override for testing — skips internal construction. */
+  executionStateService?: Pick<TenantExecutionStateService, "getActiveState">;
+  /** Optional override for testing. */
+  integrityVetoService?: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto">;
 }
 
 // ============================================================================
 // PolicyEngine
 // ============================================================================
 
-export interface PolicyEngineConfig {
-  defaultTimeoutMs: number;
-  maxReRefineAttempts: number;
-}
-
-const DEFAULT_CONFIG: PolicyEngineConfig = {
-  defaultTimeoutMs: 30_000,
-  maxReRefineAttempts: 2,
-};
-
 export class PolicyEngine {
-  private readonly executionStateService: TenantExecutionStateService;
-  private readonly integrityVetoService: DefaultIntegrityVetoService;
-  private readonly groundTruthService = GroundTruthIntegrationService.getInstance();
-  private readonly confidenceMonitor: ConfidenceMonitor;
-  // Stored Promise prevents double-initialization under concurrent callers.
-  private groundTruthInitPromise: Promise<void> | null = null;
+  private readonly executionStateService: Pick<TenantExecutionStateService, "getActiveState">;
+  private readonly registry: AgentRegistry;
+  private readonly serviceReadiness: () => ServiceReadiness;
+  private readonly integrityVetoService: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto"> | null;
 
-  constructor(
-    private readonly config: PolicyEngineConfig = DEFAULT_CONFIG,
-    private readonly circuitBreakers: CircuitBreakerManager = new CircuitBreakerManager(),
-    private readonly registry: AgentRegistry = new AgentRegistry(),
-  ) {
-    // Capture once; used consistently throughout the instance lifetime.
-    const agentAPI = getAgentAPI();
-    this.executionStateService = new TenantExecutionStateService(supabase);
-    this.confidenceMonitor = new ConfidenceMonitor(supabase);
-
-    this.integrityVetoService = new DefaultIntegrityVetoService({
-      agentAPI,
-      evaluateClaim: async (metricId, claimedValue, options) => {
-        await this.ensureGroundTruthInitialized();
-        const [validation, metricValue] = await Promise.all([
-          this.groundTruthService.validateClaim(metricId, claimedValue),
-          this.groundTruthService.getBenchmark(metricId, 'p50'),
-        ]);
-        return {
-          benchmarkValue: (metricValue as { value?: number }).value ?? (validation as { benchmark?: { p50?: number } }).benchmark?.p50,
-          warning: (validation as { warning?: string }).warning,
-        };
-      },
-      getAverageConfidence: async (agentType) =>
-        (await this.confidenceMonitor.getMetrics(agentType, 'hour')).avgConfidenceScore,
-      logVeto: async (agentType, query, payload, options, metadata) => {
-        await logAgentResponse(
-          agentType,
-          query,
-          false,
-          payload,
-          { traceId: options.traceId, stageId: options.stageId, integrityVeto: metadata },
-          'integrity_veto',
-          options.context,
-        );
-      },
-      invokeRefinement: async (agentType, prompt, context, attempt) => {
-        const key = `query-${agentType}-refine-${attempt}`;
-        const result = await this.circuitBreakers.execute(
-          key,
-          () => agentAPI.invokeAgent({ agent: agentType, query: prompt, context }),
-          { timeoutMs: this.config.defaultTimeoutMs },
-        );
-        return { success: Boolean(result?.success), data: result?.data };
-      },
-      maxReRefineAttempts: this.config.maxReRefineAttempts,
-    });
+  constructor(options: PolicyEngineOptions) {
+    this.executionStateService =
+      options.executionStateService ?? new TenantExecutionStateService(options.supabase);
+    this.registry = options.registry;
+    this.serviceReadiness = options.serviceReadiness;
+    this.integrityVetoService = options.integrityVetoService ?? null;
   }
 
   // --------------------------------------------------------------------------
-  // Tenant guard
+  // 1. Tenant guard
   // --------------------------------------------------------------------------
 
+  /**
+   * Throws if the tenant's execution is paused.
+   * Must be called before any agent work begins.
+   */
   async assertTenantExecutionAllowed(organizationId: string): Promise<void> {
     const state = await this.executionStateService.getActiveState(organizationId);
-    if (!state?.is_paused) return;
+    if (!state?.is_paused) {
+      return;
+    }
 
-    const pausedAt = state.paused_at ?? 'unknown';
-    const reason = state.reason ?? 'No reason provided';
+    const pausedAt = state.paused_at ?? "unknown";
+    const reason = state.reason ?? "No reason provided";
     throw new Error(
       `Tenant execution is paused for organization ${organizationId}. reason=${reason}; paused_at=${pausedAt}`,
     );
   }
 
   // --------------------------------------------------------------------------
-  // Autonomy guardrails
+  // 2. Autonomy guardrails
   // --------------------------------------------------------------------------
 
-  async checkAutonomyGuardrails(
+  /**
+   * Enforces all autonomy guardrails for a single stage execution.
+   * Throws on any violation; callers should treat the thrown error as fatal
+   * for the current execution and call handleWorkflowFailure before re-throwing.
+   */
+  async enforceAutonomyGuardrails(
     executionId: string,
     stageId: string,
     context: WorkflowStageContextDTO,
     startTime: number,
+    onFailure: (executionId: string, organizationId: string, reason: string) => Promise<void>,
   ): Promise<void> {
-    const autonomy = getAutonomyConfig() as ReturnType<typeof getAutonomyConfig> & {
-      killSwitchEnabled?: boolean;
-      maxDurationMs?: number;
-      maxCostUsd?: number;
-      requireApprovalForDestructive?: boolean;
-      agentAutonomyLevels?: Record<string, string>;
-      agentKillSwitches?: Record<string, boolean>;
-      agentMaxIterations?: Record<string, number>;
-    };
+    const autonomy = getAutonomyConfig() as ReturnType<typeof getAutonomyConfig> &
+      GuardrailAutonomyConfig;
 
+    const orgId = context.organizationId || context.organization_id || "";
+
+    // Kill switch
     if (autonomy.killSwitchEnabled) {
       securityLogger.log({
-        category: 'autonomy',
-        action: 'kill_switch_activated',
-        severity: 'error',
-        metadata: { executionId, stageId, reason: 'Global autonomy kill switch is enabled' },
+        category: "autonomy",
+        action: "kill_switch_activated",
+        severity: "error",
+        metadata: { executionId, stageId, reason: "Global autonomy kill switch is enabled" },
       });
-      throw new Error('Autonomy kill switch is enabled');
+      throw new Error("Autonomy kill switch is enabled");
     }
 
+    // Duration limit
     const elapsed = Date.now() - startTime;
     if (autonomy.maxDurationMs && elapsed > autonomy.maxDurationMs) {
+      await onFailure(executionId, orgId, "Autonomy guard: max duration exceeded");
       securityLogger.log({
-        category: 'autonomy',
-        action: 'duration_limit_exceeded',
-        severity: 'error',
+        category: "autonomy",
+        action: "duration_limit_exceeded",
+        severity: "error",
         metadata: { executionId, stageId, elapsedMs: elapsed, limitMs: autonomy.maxDurationMs },
       });
-      throw new Error('Autonomy guard: max duration exceeded');
+      throw new Error("Autonomy guard: max duration exceeded");
     }
 
-    const cost = (context as Record<string, unknown>).cost_accumulated_usd as number | undefined ?? 0;
+    // Cost limit
+    const cost = (context.cost_accumulated_usd as number | undefined) ?? 0;
     if (autonomy.maxCostUsd && cost > autonomy.maxCostUsd) {
+      await onFailure(executionId, orgId, "Autonomy guard: max cost exceeded");
       securityLogger.log({
-        category: 'autonomy',
-        action: 'cost_limit_exceeded',
-        severity: 'error',
+        category: "autonomy",
+        action: "cost_limit_exceeded",
+        severity: "error",
         metadata: { executionId, stageId, costUsd: cost, limitUsd: autonomy.maxCostUsd },
       });
-      throw new Error('Autonomy guard: max cost exceeded');
+      throw new Error("Autonomy guard: max cost exceeded");
     }
 
+    // Destructive action approval
     if (autonomy.requireApprovalForDestructive) {
-      const approvalState = (context as Record<string, unknown>).approvals as Record<string, unknown> ?? {};
-      const destructivePending = (context as Record<string, unknown>).destructive_actions_pending as string[] | undefined;
+      const approvalState = (context.approvals ?? {}) as Record<string, unknown>;
+      const destructivePending = context.destructive_actions_pending as string[] | undefined;
       if (destructivePending && destructivePending.length > 0 && !approvalState[executionId]) {
+        await onFailure(executionId, orgId, "Approval required for destructive actions");
         securityLogger.log({
-          category: 'autonomy',
-          action: 'destructive_action_unapproved',
-          severity: 'error',
+          category: "autonomy",
+          action: "destructive_action_unapproved",
+          severity: "error",
           metadata: { executionId, stageId, destructiveActions: destructivePending, requiresApproval: true },
         });
-        throw new Error('Approval required for destructive actions');
+        throw new Error("Approval required for destructive actions");
       }
     }
 
-    const agentLevels = autonomy.agentAutonomyLevels ?? {};
-    const stageAgentId = (context as Record<string, unknown>).current_agent_id as string | undefined;
+    // Per-agent autonomy level
+    const agentLevels: Record<string, string> = autonomy.agentAutonomyLevels || {};
+    const stageAgentId = context.current_agent_id as string | undefined;
     const level = stageAgentId ? agentLevels[stageAgentId] : undefined;
-    if (level === 'observe') {
+    if (level === "observe") {
+      await onFailure(executionId, orgId, `Agent ${stageAgentId} restricted to observe-only`);
       securityLogger.log({
-        category: 'autonomy',
-        action: 'agent_autonomy_violation',
-        severity: 'error',
-        metadata: { executionId, stageId, agentId: stageAgentId, autonomyLevel: level, violation: 'observe-only agent attempted action' },
+        category: "autonomy",
+        action: "agent_autonomy_violation",
+        severity: "error",
+        metadata: { executionId, stageId, agentId: stageAgentId, autonomyLevel: level, violation: "observe-only agent attempted action" },
       });
-      throw new Error('Autonomy guard: observe-only agent attempted action');
+      throw new Error("Autonomy guard: observe-only agent attempted action");
     }
 
-    const agentKillSwitches = autonomy.agentKillSwitches ?? {};
+    // Per-agent kill switch
+    const agentKillSwitches: Record<string, boolean> = autonomy.agentKillSwitches || {};
     if (stageAgentId && agentKillSwitches[stageAgentId]) {
+      await onFailure(executionId, orgId, `Agent ${stageAgentId} is disabled by kill switch`);
       securityLogger.log({
-        category: 'autonomy',
-        action: 'agent_kill_switch_activated',
-        severity: 'error',
+        category: "autonomy",
+        action: "agent_kill_switch_activated",
+        severity: "error",
         metadata: { executionId, stageId, agentId: stageAgentId, killSwitchEnabled: true },
       });
-      throw new Error('Autonomy guard: agent disabled');
+      throw new Error("Autonomy guard: agent disabled");
     }
 
-    const agentMaxIterations = autonomy.agentMaxIterations ?? {};
+    // Per-agent iteration limit
+    const agentMaxIterations: Record<string, number> = autonomy.agentMaxIterations || {};
     const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
     if (maxIterations !== undefined) {
-      const executed = ((context as Record<string, unknown>).executed_steps as Array<{ agent_id?: string }> ?? [])
-        .filter((s) => s.agent_id === stageAgentId).length;
+      const executedSteps = (context.executed_steps as { agent_id?: string }[] | undefined) ?? [];
+      const executed = executedSteps.filter((s) => s.agent_id === stageAgentId).length;
       if (executed >= maxIterations) {
+        await onFailure(executionId, orgId, `Agent ${stageAgentId} exceeded iteration limit`);
         securityLogger.log({
-          category: 'autonomy',
-          action: 'iteration_limit_exceeded',
-          severity: 'error',
+          category: "autonomy",
+          action: "iteration_limit_exceeded",
+          severity: "error",
           metadata: { executionId, stageId, agentId: stageAgentId, iterationsExecuted: executed, maxIterations },
         });
-        throw new Error('Autonomy guard: iteration limit exceeded');
+        throw new Error("Autonomy guard: iteration limit exceeded");
       }
     }
 
-    logger.debug('Autonomy guardrails passed', { executionId, stageId });
+    logger.debug("Autonomy guardrails passed", { executionId, stageId });
   }
 
   // --------------------------------------------------------------------------
-  // Integrity veto
+  // 3. Compliance evidence
   // --------------------------------------------------------------------------
 
-  async evaluateIntegrityVeto(
-    payload: unknown,
-    options: IntegrityCheckOptions,
-  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata; reRefine?: boolean }> {
-    return this.integrityVetoService.evaluateIntegrityVeto(payload, options);
-  }
-
-  async evaluateStructuralTruthVeto(
-    payload: unknown,
-    options: IntegrityCheckOptions,
-  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
-    return this.integrityVetoService.evaluateStructuralTruthVeto(payload, options);
-  }
-
-  async performReRefine(
-    agentType: AgentType,
-    originalQuery: string,
-    agentContext: AgentContext,
-    traceId: string,
-    maxAttempts?: number,
-  ): Promise<{ success: boolean; response?: unknown; attempts: number }> {
-    return this.integrityVetoService.performReRefine(agentType, originalQuery, agentContext, traceId, maxAttempts);
-  }
-
-  // --------------------------------------------------------------------------
-  // Compliance evidence
-  // --------------------------------------------------------------------------
-
+  /**
+   * Appends a compliance evidence record for the tenant.
+   * Collects agent registry health and service readiness from the caller-supplied
+   * snapshot function rather than accepting raw boolean flags.
+   */
   async collectComplianceEvidence(
     tenantId: string,
-    triggerType: 'scheduled' | 'event',
+    triggerType: "scheduled" | "event",
     triggerSource: string,
-    serviceHealth: ServiceHealthSnapshot,
   ): Promise<void> {
-    if (!tenantId) throw new Error('tenantId is required for compliance evidence collection');
+    if (!tenantId) {
+      throw new Error("tenantId is required for compliance evidence collection");
+    }
 
     const lifecycleAgents = [
-      'opportunity-agent',
-      'target-agent',
-      'financial-modeling-agent',
-      'integrity-agent',
-      'realization-agent',
-      'expansion-agent',
-      'compliance-auditor-agent',
+      "opportunity-agent",
+      "target-agent",
+      "financial-modeling-agent",
+      "integrity-agent",
+      "realization-agent",
+      "expansion-agent",
+      "compliance-auditor-agent",
     ];
 
     const agentEvidence = lifecycleAgents.map((agentId) => {
       const record = this.registry.getAgent(agentId);
       return {
         agent_id: agentId,
-        status: record?.status ?? 'unknown',
+        status: record?.status ?? "unknown",
         load: record?.load ?? null,
         last_heartbeat: record?.last_heartbeat ?? null,
       };
     });
 
+    const serviceEvidence = this.serviceReadiness();
+
     await complianceEvidenceService.appendEvidence({
       tenantId,
-      actorPrincipal: 'orchestrator-facade',
-      actorType: 'service',
+      actorPrincipal: "policy-engine",
+      actorType: "service",
       triggerType,
       triggerSource,
       evidence: {
         tenant_id: tenantId,
         collected_at: new Date().toISOString(),
         agent_evidence: agentEvidence,
-        service_evidence: {
-          message_broker_ready: serviceHealth.messageBrokerReady,
-          queue_ready: serviceHealth.queueReady,
-          memory_backend_ready: serviceHealth.memoryBackendReady,
-          llm_gateway_ready: serviceHealth.llmGatewayReady,
-          circuit_breaker_ready: serviceHealth.circuitBreakerReady,
-        },
+        service_evidence: serviceEvidence,
       },
     });
   }
 
   // --------------------------------------------------------------------------
-  // Internal helpers
+  // 4. Integrity veto delegation
   // --------------------------------------------------------------------------
 
-  private ensureGroundTruthInitialized(): Promise<void> {
-    this.groundTruthInitPromise ??= this.groundTruthService.initialize();
-    return this.groundTruthInitPromise;
+  /**
+   * Delegates to the injected IntegrityVetoService.
+   * Returns no-veto when no service was provided (e.g. in lightweight test setups).
+   */
+  async evaluateIntegrityVeto(
+    payload: unknown,
+    options: IntegrityCheckOptions,
+  ): Promise<{ vetoed: boolean; metadata?: unknown; reRefine?: boolean }> {
+    if (!this.integrityVetoService) {
+      return { vetoed: false };
+    }
+    return this.integrityVetoService.evaluateIntegrityVeto(payload, options);
   }
 }
-
-// Singleton
-export const policyEngine = new PolicyEngine();

@@ -23,6 +23,7 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -149,6 +150,11 @@ export class IntegrityAgent extends BaseAgent {
       sdui_sections: sduiSections,
     };
 
+    // Publish domain event so downstream services can react to validation outcomes.
+    const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
+      ?? context.workspace_id;
+    await this.publishHypothesisValidated(context, opportunityId, analysis, integrityResult, vetoDecision, supported, total);
+
     return this.buildOutput(result, status, this.toConfidenceLevel(integrityResult.confidence), startTime, {
       reasoning: `Validated ${total} claims: ${supported} supported, ${total - supported} flagged. ` +
         `Integrity score: ${(integrityResult.confidence * 100).toFixed(0)}%. ` +
@@ -159,6 +165,39 @@ export class IntegrityAgent extends BaseAgent {
           ? ['Review flagged claims', 'Strengthen evidence for weak hypotheses']
           : ['Proceed to NarrativeAgent for business case composition'],
     });
+  }
+
+  private async publishHypothesisValidated(
+    context: LifecycleContext,
+    opportunityId: string,
+    analysis: IntegrityAnalysis,
+    integrityResult: { confidence: number },
+    vetoDecision: { veto: boolean; reRefine: boolean },
+    supportedCount: number,
+    totalCount: number,
+  ): Promise<void> {
+    try {
+      const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
+      await getDomainEventBus().publish('hypothesis.validated', {
+        ...buildEventEnvelope({
+          traceId,
+          tenantId: context.organization_id,
+          actorId: context.user_id,
+        }),
+        opportunityId,
+        workspaceId: context.workspace_id,
+        supportedClaimCount: supportedCount,
+        totalClaimCount: totalCount,
+        integrityScore: integrityResult.confidence,
+        vetoed: vetoDecision.veto,
+        reRefineRequested: vetoDecision.reRefine,
+      });
+    } catch (err) {
+      logger.warn('IntegrityAgent: failed to publish hypothesis.validated event', {
+        workspace_id: context.workspace_id,
+        error: (err as Error).message,
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

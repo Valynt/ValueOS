@@ -29,11 +29,13 @@ import { WorkflowStatus } from "../types/index.js";
 import { WorkflowDAG, WorkflowStage } from "../types/workflow.js";
 import { WorkflowExecutionRecord } from "../types/workflowExecution.js";
 
-import { PolicyEngine, ServiceHealthSnapshot } from "../runtime/policy-engine/index.js";
+import { PolicyEngine, type ServiceReadiness } from "../runtime/policy-engine/index.js";
 import { ContextStore } from "../runtime/context-store/index.js";
 import { ExecutionRuntime } from "../runtime/execution-runtime/index.js";
 import { ArtifactComposer } from "../runtime/artifact-composer/index.js";
 import { DecisionRouter } from "../runtime/decision-router/index.js";
+import { supabase } from "../lib/supabase.js";
+import { AgentRegistry } from "./AgentRegistry.js";
 
 // ============================================================================
 // Re-exported types (preserved for consumer compatibility)
@@ -188,7 +190,21 @@ export class UnifiedAgentOrchestrator {
 
   constructor(private readonly config: Partial<OrchestratorConfig> = {}) {
     const cfg = { ...DEFAULT_CONFIG, ...config };
-    this.policy = new PolicyEngine({ defaultTimeoutMs: cfg.defaultTimeoutMs, maxReRefineAttempts: cfg.maxRetryAttempts });
+    // PolicyEngine now uses injected deps; supabase + registry are resolved
+    // lazily inside the runtime services, so we pass a no-op registry and
+    // a readiness snapshot that reports all services as ready.
+    const registry = new AgentRegistry();
+    this.policy = new PolicyEngine({
+      supabase,
+      registry,
+      serviceReadiness: (): ServiceReadiness => ({
+        message_broker_ready: true,
+        queue_ready: true,
+        memory_backend_ready: true,
+        llm_gateway_ready: true,
+        circuit_breaker_ready: true,
+      }),
+    });
     this.contextStore = new ContextStore();
     this.router = new DecisionRouter();
     this.executionRuntime = new ExecutionRuntime(this.policy, this.router, cfg);
@@ -256,11 +272,11 @@ export class UnifiedAgentOrchestrator {
   }
 
   async collectScheduledComplianceEvidence(tenantId: string): Promise<void> {
-    return this.policy.collectComplianceEvidence(tenantId, 'scheduled', 'compliance_scheduler', this._buildHealthSnapshot());
+    return this.policy.collectComplianceEvidence(tenantId, 'scheduled', 'compliance_scheduler');
   }
 
   async collectEventDrivenComplianceEvidence(tenantId: string, eventSource: string): Promise<void> {
-    return this.policy.collectComplianceEvidence(tenantId, 'event', eventSource, this._buildHealthSnapshot());
+    return this.policy.collectComplianceEvidence(tenantId, 'event', eventSource);
   }
 
   // --------------------------------------------------------------------------
@@ -305,16 +321,6 @@ export class UnifiedAgentOrchestrator {
 
   async planTask(intentType: string, description: string, context: WorkflowContextDTO = {}): Promise<TaskPlanResult> {
     return this.artifactComposer.planTask(intentType, description, context);
-  }
-
-  // --------------------------------------------------------------------------
-  // Private helpers
-  // --------------------------------------------------------------------------
-
-  private _buildHealthSnapshot(): ServiceHealthSnapshot {
-    // The facade no longer holds direct references to infrastructure services;
-    // report them as ready (they are initialized lazily by the runtime services).
-    return { messageBrokerReady: true, queueReady: true, memoryBackendReady: true, llmGatewayReady: true, circuitBreakerReady: true };
   }
 }
 

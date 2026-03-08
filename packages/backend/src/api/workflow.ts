@@ -242,7 +242,6 @@ router.get(
         (typeof nestedResult.confidence_score === 'number' ? nestedResult.confidence_score : undefined) ??
         null;
 
-      const tenantId = getTenantIdFromRequest(req as any);
       const payload = await ReadThroughCacheService.getOrLoad(
         {
           tenantId,
