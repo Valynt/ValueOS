@@ -112,6 +112,7 @@ export class WorkflowExecutor {
         .select('*')
         .eq('id', workflowDefinitionId)
         .eq('is_active', true)
+        .or(`organization_id.is.null,organization_id.eq.${envelope.organizationId}`)
         .maybeSingle();
 
       if (defError || !definition) throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
