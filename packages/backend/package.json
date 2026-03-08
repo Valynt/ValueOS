@@ -40,6 +40,7 @@
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0",
     "ws": "^8.19.0",
+    "uuid": "^11.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -52,7 +53,6 @@
     "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.3",
     "@types/swagger-ui-express": "^4.1.8",
-    "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.27.3",
     "supertest": "^7.2.2",
