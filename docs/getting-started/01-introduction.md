@@ -685,9 +685,9 @@ export class SecureAgent extends BaseAgent {
    ```
 
 2. **Implement Changes**
-   - Frontend: `apps/valynt-app/`
-   - Backend: `packages/services/`
-   - Agents: `packages/agents/`
+   - Frontend: `apps/ValyntApp/`
+   - Backend: `packages/backend/src/`
+   - Agents: `packages/backend/src/lib/agent-fabric/agents/` (canonical; `packages/agents/` is deprecated)
 
 3. **Run Tests**
 
@@ -720,7 +720,7 @@ export class SecureAgent extends BaseAgent {
 ### Agent Development
 
 ```typescript
-// packages/agents/MyAgent.ts
+// packages/backend/src/lib/agent-fabric/agents/MyAgent.ts
 export class MyAgent extends BaseAgent {
   public readonly lifecycleStage = "discovery";
   public readonly version = "1.0.0";
