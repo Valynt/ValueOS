@@ -936,7 +936,7 @@ jobs:
     if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.emergency-bypass-authorization.result == 'success' }}
     steps:
       - name: Create follow-up issue for deferred validations
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const deploymentStatus = '${{ needs.deploy-production.result }}';
