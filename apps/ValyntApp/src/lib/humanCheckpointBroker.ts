@@ -13,14 +13,14 @@ export interface CheckpointEvent {
 
 export type CheckpointHandler = (event: CheckpointEvent) => void;
 
-/**
+  /**
  * SSE-based broker for human checkpoint events.
  *
  * Subscribes to the backend SSE stream and dispatches parsed events to
- * registered handlers. Follows the codebase pattern of closing and nulling
- * the EventSource on error so callers can detect disconnection and reconnect.
+ * registered handlers. On error, logs and closes/nulls the underlying
+ * EventSource, matching the pattern used elsewhere in the codebase.
  */
-export class HumanCheckpointBroker {
+  export class HumanCheckpointBroker {
   private eventSource: EventSource | null = null;
   private readonly handlers = new Set<CheckpointHandler>();
   private readonly url: string;
