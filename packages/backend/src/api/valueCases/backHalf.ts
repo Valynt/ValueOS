@@ -195,7 +195,7 @@ backHalfRouter.get('/:id/narrative', ...auth, async (req: Request, res: Response
 });
 
 backHalfRouter.post('/:id/narrative/run', ...auth, async (req: Request, res: Response) => {
-  return runAgent(req, res, 'narrative', 'integrity');
+  return runAgent(req, res, 'narrative', 'narrative');
 });
 
 // ── Realization ──────────────────────────────────────────────────────────────

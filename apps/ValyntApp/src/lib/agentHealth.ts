@@ -62,7 +62,10 @@ export async function initializeAgents(options: AgentInitOptions = {}): Promise<
       const res = await fetch("/health/dependencies", { signal: controller.signal });
       clearTimeout(timer);
 
-      if (!res.ok) continue;
+      if (!res.ok) {
+        clearTimeout(timer);
+        continue;
+      }
 
       // Backend health endpoint returns service statuses; map to SystemHealth shape.
       const data = (await res.json()) as Record<string, unknown>;
