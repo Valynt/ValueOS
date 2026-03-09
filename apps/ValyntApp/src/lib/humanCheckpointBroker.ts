@@ -49,7 +49,11 @@ export class HumanCheckpointBroker {
       try {
         const data = JSON.parse(event.data) as CheckpointEvent;
         for (const handler of this.handlers) {
-          handler(data);
+          try {
+            handler(data);
+          } catch (error) {
+            logger.error("Error in human checkpoint handler", { error });
+          }
         }
       } catch {
         // Ignore malformed events from upstream proxies.
