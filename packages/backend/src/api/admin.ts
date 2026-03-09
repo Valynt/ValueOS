@@ -398,12 +398,50 @@ router.post(
 
       if (!result.success) {
         logger.error("Tenant provisioning failed", undefined, { errors: result.errors });
+        await auditLogService.createEntry({
+          action: "tenant.provision",
+          organizationId: result.organizationId ?? "",
+          actorId: actor.id,
+          actorEmail: actor.email,
+          success: false,
+          metadata: {
+            name,
+            tier,
+            ownerEmail,
+            errors: result.errors,
+          },
+        });
         return res.status(500).json({ error: "Provisioning failed", details: result.errors });
       }
 
+      await auditLogService.createEntry({
+        action: "tenant.provision",
+        organizationId: result.organizationId,
+        actorId: actor.id,
+        actorEmail: actor.email,
+        success: true,
+        metadata: {
+          name,
+          tier,
+          ownerEmail,
+        },
+      });
       return res.status(201).json({ organizationId: result.organizationId });
     } catch (error) {
       logger.error("Failed to provision tenant", error instanceof Error ? error : undefined);
+      const actor = (req as any).user;
+      if (actor?.id && actor?.email) {
+        await auditLogService.createEntry({
+          action: "tenant.provision",
+          organizationId: "",
+          actorId: actor.id,
+          actorEmail: actor.email,
+          success: false,
+          metadata: {
+            error: error instanceof Error ? sanitizeForLogging(error.message) : "Unknown error",
+          },
+        });
+      }
       return res.status(500).json({ error: "Failed to provision tenant" });
     }
   }
