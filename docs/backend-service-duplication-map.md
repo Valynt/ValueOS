@@ -1,6 +1,8 @@
 # Backend Service Duplication Map
 
-Canonical source: `packages/backend/src/services`. App-local backend-domain duplicates are frozen under `apps/ValyntApp/src/services`.
+> **Sprint 10 complete.** `apps/ValyntApp/src/services/` has been deleted entirely. All backend-domain code now lives exclusively in `packages/backend/src/services/` or `packages/core-services/`. This document is retained for historical reference.
+
+Canonical source: `packages/backend/src/services`. App-local backend-domain duplicates were deleted in Sprint 10.
 
 | Module | App path(s) | Backend path(s) | Classification | Action |
 |---|---|---|---|---|

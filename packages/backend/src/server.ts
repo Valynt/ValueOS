@@ -73,7 +73,7 @@ import {
 import { validateEnvOrThrow } from "./config/validateEnv.js";
 import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
-import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
+
 import { createServerSupabaseClient } from "./lib/supabase.js";
 import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";
 import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
@@ -477,8 +477,8 @@ app.use("/api/v1/cases", valueCasesRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 // Mount checkpoint HITL endpoints
-const orchestrator = getUnifiedOrchestrator();
-const checkpointMiddleware = orchestrator.getCheckpointMiddleware();
+// getCheckpointMiddleware() always returned null in the UAO facade; preserve that behaviour.
+const checkpointMiddleware = null;
 if (checkpointMiddleware) {
   app.use(
     "/api/checkpoints",

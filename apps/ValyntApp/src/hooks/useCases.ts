@@ -8,8 +8,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useTenant } from "@/contexts/TenantContext";
-import { CasesService } from "@/services/supabase/cases";
-import type { ValueCaseInsert } from "@/services/supabase/types";
+import { CasesService } from "@/lib/supabase/cases";
+import type { ValueCaseInsert } from "@/lib/supabase/types";
 
 /** List all cases for the current tenant. */
 export function useCasesList() {

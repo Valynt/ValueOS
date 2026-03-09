@@ -3,7 +3,7 @@
 // Canonical location: packages/core-services/src/SecurityLogger.ts
 
 export interface SecurityEvent {
-  category: 'authentication' | 'authorization' | 'session' | 'llm' | 'dependency' | 'formula';
+  category: 'authentication' | 'authorization' | 'session' | 'llm' | 'dependency' | 'formula' | 'autonomy';
   action: string;
   metadata?: Record<string, unknown>;
   severity?: 'info' | 'warn' | 'error';

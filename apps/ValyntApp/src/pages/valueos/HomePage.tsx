@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRecentCases } from "@/hooks/useCases";
-import type { ValueCaseWithRelations } from "@/services/supabase/types";
+import type { ValueCaseWithRelations } from "@/lib/supabase/types";
 
 const quickActions = [
   {

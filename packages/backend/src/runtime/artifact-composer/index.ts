@@ -39,7 +39,7 @@ import type {
   StreamingUpdate,
   TaskPlanResult,
   SubgoalDefinition,
-} from "../../services/UnifiedAgentOrchestrator.js";
+} from "../../types/orchestration.js";
 
 export type { TaskPlanResult, SubgoalDefinition };
 

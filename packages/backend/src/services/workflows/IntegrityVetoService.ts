@@ -4,7 +4,7 @@ import { assertProvenance, validateGroundTruthMetadata } from "@mcp/ground-truth
 import { logger } from "../../lib/logger";
 import { AgentType } from "../agent-types";
 import type { AgentContext, AgentAPI } from "../AgentAPI";
-import type { IntegrityVetoMetadata } from "../UnifiedAgentOrchestrator";
+import type { IntegrityVetoMetadata } from "../../types/orchestration.js";
 
 export interface IntegrityCheckOptions {
   traceId: string;

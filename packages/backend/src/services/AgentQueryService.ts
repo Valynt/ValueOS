@@ -5,7 +5,7 @@
  *
  * This service orchestrates:
  * 1. Session management (via WorkflowStateRepository)
- * 2. Query processing (via UnifiedAgentOrchestrator)
+ * 2. Query processing (via ExecutionRuntime)
  * 3. State persistence
  * 4. Trace ID generation for observability
  *
@@ -17,7 +17,6 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 
 import { logger } from "../lib/logger.js"
-import { agentQueryLatency } from "../lib/monitoring/metrics.js"
 import { WorkflowStateRepository } from "../repositories/WorkflowStateRepository";
 import { sanitizeInput } from "../security/InputSanitizer.js"
 import {
@@ -26,11 +25,9 @@ import {
 } from "../types/execution";
 
 import { TimeoutError } from "./errors.js"
-import {
-  AgentResponse,
-  getUnifiedOrchestrator,
-  UnifiedAgentOrchestrator,
-} from "./UnifiedAgentOrchestrator";
+import type { AgentResponse } from "../types/orchestration.js";
+import { ExecutionRuntime, createExecutionRuntime } from "../runtime/execution-runtime/index.js";
+import { ContextStore } from "../runtime/context-store/index.js";
 
 export interface QueryResult {
   sessionId: string;
@@ -66,11 +63,13 @@ export interface QueryOptions {
  */
 export class AgentQueryService {
   private stateRepo: WorkflowStateRepository;
-  private orchestrator: UnifiedAgentOrchestrator;
+  private executionRuntime: ExecutionRuntime;
+  private contextStore: ContextStore;
 
   constructor(private supabase: SupabaseClient) {
     this.stateRepo = new WorkflowStateRepository(supabase);
-    this.orchestrator = getUnifiedOrchestrator();
+    this.executionRuntime = createExecutionRuntime();
+    this.contextStore = new ContextStore();
   }
 
   /**
@@ -145,9 +144,9 @@ export class AgentQueryService {
 
       if (!currentSessionId) {
         // Create new session
-        const initialState = this.orchestrator.createInitialState(
+        const initialState = this.contextStore.createInitialState(
           options.initialStage || "discovery",
-          normalizedExecution
+          normalizedExecution as Partial<ExecutionRequest> & Record<string, unknown>
         );
 
         currentSessionId = await this.stateRepo.createSession(
@@ -173,7 +172,7 @@ export class AgentQueryService {
         reason: "interactive-query",
         timestamps: { requestedAt: new Date().toISOString() },
       } as const;
-      const result = await this.orchestrator.processQuery(
+      const result = await this.executionRuntime.processQuery(
         envelope,
         sanitizedQuery,
         currentState!,
@@ -186,7 +185,7 @@ export class AgentQueryService {
       await this.stateRepo.saveState(currentSessionId, result.nextState, tenantId);
 
       // 5. Update session status if workflow is complete
-      if (this.orchestrator.isWorkflowComplete(result.nextState)) {
+      if (this.contextStore.isWorkflowComplete(result.nextState)) {
         await this.stateRepo.updateSessionStatus(
           currentSessionId,
           result.nextState.status === "error" ? "error" : "completed",
@@ -195,12 +194,9 @@ export class AgentQueryService {
       }
 
       // 6. Calculate progress
-      const progress = this.orchestrator.getProgress(result.nextState);
+      const progress = this.contextStore.getProgress(result.nextState);
 
       const durationSeconds = (Date.now() - startTime) / 1000;
-      agentQueryLatency
-        .labels({ status: "success", model: "standard" })
-        .observe(durationSeconds);
 
       logger.info("Query handled successfully", {
         traceId,
@@ -218,9 +214,6 @@ export class AgentQueryService {
       };
     } catch (error) {
       const durationSeconds = (Date.now() - startTime) / 1000;
-      agentQueryLatency
-        .labels({ status: "error", model: "standard" })
-        .observe(durationSeconds);
 
       logger.error(
         "Error handling query",

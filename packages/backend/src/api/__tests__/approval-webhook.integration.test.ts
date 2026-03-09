@@ -8,7 +8,7 @@ import { createApprovalWebhookRouter } from '../approvalWebhooks.js';
 import { ApprovalWebhookService } from '../../services/approvals/ApprovalWebhookService.js';
 import { NotificationAdapterService } from '../../services/approvals/NotificationAdapterService.js';
 import { NotificationActionSigner } from '../../services/approvals/NotificationActionSigner.js';
-import type { AgentMiddlewareContext } from '../../services/UnifiedAgentOrchestrator.js';
+import type { AgentMiddlewareContext } from '../../types/orchestration.js';
 import { CheckpointMiddleware } from '../../services/middleware/CheckpointMiddleware.js';
 
 function buildContext(): AgentMiddlewareContext {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import type { AgentMiddlewareContext, AgentResponse } from '../../../types/orchestration.js';
 import { SemanticIntentMiddleware } from '../SemanticIntentMiddleware.js';
 
 // Mock logger and supabase

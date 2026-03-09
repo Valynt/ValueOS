@@ -1,12 +1,6 @@
 /**
  * Feature Flags Configuration
  *
- * CONSOLIDATION: Updated with unified orchestration flags
- *
- * Migration Path:
- * 1. ENABLE_UNIFIED_ORCHESTRATION: true -> use UnifiedAgentOrchestrator
- * 2. ENABLE_STATELESS_ORCHESTRATION: deprecated, superseded by unified
- *
  * Usage:
  *   import { featureFlags } from '@/config/featureFlags';
  *   if (featureFlags.ENABLE_UNIFIED_ORCHESTRATION) { ... }
@@ -19,9 +13,8 @@ import { logger } from "../lib/logger.js";
  */
 export interface FeatureFlags {
   /**
-   * Enable unified orchestration (consolidates all orchestrators)
-   * When enabled: Uses UnifiedAgentOrchestrator
-   * When disabled: Falls back to legacy orchestrators
+   * Enable unified orchestration (consolidates all orchestrators).
+   * Retained for backward compatibility; runtime now uses ExecutionRuntime unconditionally.
    */
   ENABLE_UNIFIED_ORCHESTRATION: boolean;
 

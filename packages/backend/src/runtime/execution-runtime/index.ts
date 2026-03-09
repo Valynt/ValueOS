@@ -24,7 +24,7 @@ import type { WorkflowContextDTO } from '../../types/workflow/orchestration.js';
 import type { WorkflowStageContextDTO, StageExecutionResultDTO, StageRouteDTO } from '../../types/workflow/runner.js';
 import type { WorkflowDAG, WorkflowStage } from '../../types/workflow.js';
 import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
-import type { ExecutionEnvelope, ProcessQueryResult, WorkflowExecutionResult } from '../../services/UnifiedAgentOrchestrator.js';
+import type { ExecutionEnvelope, ProcessQueryResult, WorkflowExecutionResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 
@@ -125,3 +125,32 @@ export class ExecutionRuntime {
 // No module-level singleton: callers construct and own their ExecutionRuntime
 // instance. This avoids the silent dependency-mismatch problem that arises when
 // a singleton ignores constructor arguments after the first call.
+
+// ============================================================================
+// Factory — wires default dependencies for production use
+// ============================================================================
+
+import { PolicyEngine as PolicyEngineImpl } from '../policy-engine/index.js';
+import { decisionRouter } from '../decision-router/index.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+
+/**
+ * Create an ExecutionRuntime with production-default dependencies.
+ * Use this in API routes and services that don't need custom wiring.
+ */
+export function createExecutionRuntime(config: Partial<ExecutionRuntimeConfig> = {}): ExecutionRuntime {
+  const supabase = createServerSupabaseClient();
+  const registry = new AgentRegistry();
+  const policy = new PolicyEngineImpl({
+    supabase,
+    registry,
+    serviceReadiness: () => ({
+      message_broker_ready: true,
+      queue_ready: true,
+      memory_backend_ready: true,
+      llm_gateway_ready: true,
+      circuit_breaker_ready: true,
+    }),
+  });
+  return new ExecutionRuntime(policy, decisionRouter, config);
+}

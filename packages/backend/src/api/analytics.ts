@@ -1,14 +1,21 @@
 import { createLogger } from "@shared/lib/logger";
 import express, { Router } from "express";
+import { z } from "zod";
 
+import { requireAuth } from "../middleware/auth.js";
 import { optionalAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
 } from "../services/ReadThroughCacheService.js";
+import {
+  ValueLoopAnalytics,
+  RecordEventInputSchema,
+} from "../analytics/ValueLoopAnalytics.js";
 
-const logger = createLogger("analytics-api");
+const logger = createLogger({ component: "analytics-api" });
 const analyticsRouter: Router = express.Router();
 
 const analyticsLimiter = createRateLimiter("standard", {
@@ -105,5 +112,43 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
     return;
   }
 });
+
+// ─── Value loop analytics ─────────────────────────────────────────────────────
+
+// POST /api/analytics/value-loop/events — record a single value loop event
+analyticsRouter.post(
+  "/value-loop/events",
+  requireAuth,
+  tenantContextMiddleware(),
+  express.json(),
+  async (req, res) => {
+    const tenantId = getTenantIdFromRequest(req as Parameters<typeof getTenantIdFromRequest>[0]);
+    const parsed = RecordEventInputSchema.safeParse({
+      ...req.body,
+      organizationId: tenantId,
+    });
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid event payload", details: parsed.error.flatten() });
+    }
+
+    await ValueLoopAnalytics.record(parsed.data);
+    return res.status(201).json({ success: true });
+  },
+);
+
+// GET /api/analytics/value-loop/insights — aggregated insights for the tenant
+analyticsRouter.get(
+  "/value-loop/insights",
+  requireAuth,
+  tenantContextMiddleware(),
+  async (req, res) => {
+    const tenantId = getTenantIdFromRequest(req as Parameters<typeof getTenantIdFromRequest>[0]);
+    const windowDays = Math.min(Number(req.query.days ?? 30), 90);
+
+    const insights = await ValueLoopAnalytics.getInsights(tenantId, windowDays);
+    return res.status(200).json({ success: true, data: insights });
+  },
+);
 
 export default analyticsRouter;

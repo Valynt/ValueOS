@@ -43,7 +43,7 @@ import { AuditLogService } from "./AuditLogService.js";
 import { canvasSchemaService } from "./CanvasSchemaService.js";
 import { ComponentMutationService } from "./ComponentMutationService.js";
 import { manifestoEnforcer } from "./ManifestoEnforcer.js";
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from "./UnifiedAgentOrchestrator.js";
+import { ExecutionRuntime, createExecutionRuntime } from "../runtime/execution-runtime/index.js";
 import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "./ValueTreeService.js";
 import { workspaceStateService } from "./WorkspaceStateService.js";
 
@@ -55,7 +55,7 @@ import { workspaceStateService } from "./WorkspaceStateService.js";
 export class ActionRouter {
   private handlers: Map<string, ActionHandler>;
   private auditLogService: AuditLogService;
-  private orchestrator: UnifiedAgentOrchestrator;
+  private executionRuntime: ExecutionRuntime;
   private agentAPI: AgentAPI;
   private valueTreeService: ValueTreeService | undefined;
 
@@ -63,14 +63,14 @@ export class ActionRouter {
 
   constructor(
     auditLogService?: AuditLogService,
-    orchestrator?: UnifiedAgentOrchestrator,
+    _orchestrator?: unknown,
     agentAPI?: AgentAPI,
     componentMutationService?: ComponentMutationService,
     valueTreeService?: ValueTreeService
   ) {
     this.handlers = new Map();
     this.auditLogService = auditLogService || new AuditLogService();
-    this.orchestrator = orchestrator || getUnifiedOrchestrator();
+    this.executionRuntime = createExecutionRuntime();
     this.agentAPI = agentAPI || getAgentAPI();
     this.componentMutationService = componentMutationService || new ComponentMutationService();
 
@@ -543,7 +543,7 @@ export class ActionRouter {
           reason: "workflow-step",
           timestamps: { requestedAt: new Date().toISOString() },
         } as const;
-        const result = await this.orchestrator.executeWorkflow(
+        const result = await this.executionRuntime.executeWorkflow(
           envelope,
           action.workflowId,
           { stepId: action.stepId, ...context },

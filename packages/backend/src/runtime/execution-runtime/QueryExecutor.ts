@@ -18,7 +18,7 @@ import { getAgentAPI } from '../../services/AgentAPI.js';
 import type { AgentContext } from '../../services/AgentAPI.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
-import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../services/UnifiedAgentOrchestrator.js';
+import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 

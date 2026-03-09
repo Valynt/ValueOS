@@ -1,5 +1,9 @@
 # Sprint Roadmap — Agentic Value-Case Workflow: Demo to Real
 
+> **Sprint 10 complete.** The architectural refactor is done. UnifiedAgentOrchestrator deleted. All frontend service duplicates removed. Five runtime services own orchestration. See AGENTS.md for the current architecture.
+
+---
+
 ---
 
 ## Sprint 4 (Weeks 7–8): Complete the Core Path

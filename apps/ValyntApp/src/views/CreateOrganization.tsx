@@ -14,11 +14,26 @@ import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
-import {
-  provisionTenant,
-  type TenantConfig,
-  type TenantTier,
-} from "@/services/TenantProvisioning";
+
+type TenantTier = "free" | "starter" | "professional" | "enterprise";
+
+async function provisionTenantViaApi(payload: {
+  organizationId: string;
+  name: string;
+  tier: TenantTier;
+  ownerId: string;
+  ownerEmail: string;
+  settings: { slug: string; brandColor: string };
+}): Promise<{ success: boolean; errors: string[] }> {
+  const res = await fetch("/api/admin/provision", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) return { success: true, errors: [] };
+  const body = (await res.json().catch(() => ({}))) as { errors?: string[]; error?: string };
+  return { success: false, errors: body.errors ?? [body.error ?? "Provisioning failed"] };
+}
 
 const orgNameSchema = z
   .string()
@@ -70,7 +85,7 @@ export function CreateOrganization() {
 
     try {
       const orgId = crypto.randomUUID();
-      const config: TenantConfig = {
+      const config = {
         organizationId: orgId,
         name: parsed.data,
         tier,
@@ -82,7 +97,7 @@ export function CreateOrganization() {
         },
       };
 
-      const result = await provisionTenant(config);
+      const result = await provisionTenantViaApi(config);
 
       if (!result.success) {
         setError(result.errors.join("; ") || "Provisioning failed. Please try again.");
