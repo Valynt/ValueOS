@@ -548,5 +548,9 @@ router.get(
 // Error handler
 router.use(handleError);
 
+// Back-half value loop endpoints (integrity, narrative, realization)
+import { backHalfRouter } from './backHalf.js';
+router.use('/', backHalfRouter);
+
 export default router;
 export { router as valueCasesRouter };

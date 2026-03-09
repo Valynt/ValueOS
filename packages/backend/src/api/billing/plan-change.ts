@@ -132,12 +132,17 @@ router.post('/submit', async (req: Request, res: Response): Promise<void> => {
         approval_request: approvalRequest
       });
     } else {
-      // TODO: implement SubscriptionService.changePlan
+      const updated = await SubscriptionService.changePlan(tenantId, new_plan_tier, {
+        effectiveDate: effective_date,
+        justification,
+      });
+
       res.json({
         status: 'completed',
         message: 'Plan change completed successfully',
-        new_plan_tier,
-        effective_date
+        subscription: updated,
+        new_plan_tier: updated.plan_tier,
+        effective_date: updated.current_period_start,
       });
     }
   } catch (error) {

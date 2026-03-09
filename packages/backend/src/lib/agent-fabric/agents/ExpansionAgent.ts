@@ -24,6 +24,7 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
+import { ExpansionOpportunityRepository } from '../../../repositories/ExpansionOpportunityRepository.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -119,6 +120,48 @@ export class ExpansionAgent extends BaseAgent {
 
     // Step 4: Store expansion opportunities as seeds for new cycles
     await this.storeExpansionInMemory(context, analysis);
+
+    // Step 4b: Persist to expansion_opportunities table (non-fatal)
+    if (context.value_case_id && context.organization_id) {
+      try {
+        const repo = new ExpansionOpportunityRepository();
+        const runId = context.session_id ?? `run-${Date.now()}`;
+        for (const opp of analysis.opportunities) {
+          await repo.createOpportunity({
+            organization_id: context.organization_id,
+            value_case_id: context.value_case_id,
+            session_id: context.session_id ?? null,
+            agent_run_id: runId,
+            title: opp.title,
+            description: opp.description,
+            type: opp.type,
+            source_kpi_id: opp.source_kpi_id ?? null,
+            estimated_value_low: opp.estimated_additional_value.low,
+            estimated_value_high: opp.estimated_additional_value.high,
+            estimated_value_unit: opp.estimated_additional_value.unit,
+            estimated_value_timeframe_months: opp.estimated_additional_value.timeframe_months,
+            confidence: opp.confidence,
+            evidence: opp.evidence,
+            prerequisites: opp.prerequisites,
+            stakeholders: opp.stakeholders,
+            portfolio_summary: analysis.portfolio_summary,
+            total_expansion_value_low: analysis.total_expansion_potential.low,
+            total_expansion_value_high: analysis.total_expansion_potential.high,
+            total_expansion_currency: analysis.total_expansion_potential.currency,
+            gap_analysis: analysis.gap_analysis,
+            new_cycle_recommendations: analysis.new_cycle_recommendations,
+            recommended_next_steps: analysis.recommended_next_steps,
+            hallucination_check: analysis.hallucination_check ?? null,
+            source_agent: this.name,
+          });
+        }
+      } catch (err) {
+        logger.warn('ExpansionAgent: failed to persist to expansion_opportunities — continuing', {
+          caseId: context.value_case_id,
+          error: (err as Error).message,
+        });
+      }
+    }
 
     // Step 5: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis);

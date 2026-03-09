@@ -74,11 +74,12 @@ export class DomainEventBus {
   ): Promise<void> {
     const validated = validateDomainEvent(name, payload);
 
+    const v = validated as Record<string, unknown>;
     logger.info('domain_event.published', {
       event: name,
-      id: validated.id,
-      traceId: validated.traceId,
-      tenantId: validated.tenantId,
+      id: v['id'],
+      traceId: v['traceId'],
+      tenantId: v['tenantId'],
     });
 
     await this.deliverLocally(name, validated);
