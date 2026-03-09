@@ -7,6 +7,7 @@
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
+import { z } from "zod";
 
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
@@ -17,10 +18,18 @@ import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
 import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
-import { provisionTenant, type TenantConfig } from "../services/TenantProvisioning.js"
+import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
+
+const provisionTenantSchema = z.object({
+  name: z.string().min(2).max(120),
+  tier: z.enum(["free", "starter", "professional", "enterprise"] as const satisfies readonly [TenantTier, ...TenantTier[]]),
+  ownerEmail: z.string().email(),
+  // ownerId is intentionally excluded — it is always derived from the authenticated
+  // user to prevent privilege escalation via the request body.
+});
 
 // POST /api/admin/provision — Create a new tenant (called from CreateOrganization UI).
 // Does not require an existing tenant context — the user is creating their first one.
@@ -28,14 +37,28 @@ router.post(
   "/provision",
   requireAuth,
   async (req: Request, res: Response) => {
-    const { organizationId, name, tier, ownerId, ownerEmail, settings } = req.body as TenantConfig;
-
-    if (!organizationId || !name || !tier || !ownerId || !ownerEmail) {
-      return res.status(400).json({ error: "Missing required provisioning fields" });
-    }
-
     try {
-      const result = await provisionTenant({ organizationId, name, tier, ownerId, ownerEmail, settings });
+      const actor = (req as any).user;
+      if (!actor?.id || !actor?.email) {
+        return res.status(401).json({ error: "Authenticated user required" });
+      }
+
+      const parsed = provisionTenantSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const { name, tier, ownerEmail } = parsed.data;
+
+      const result = await provisionTenant({
+        organizationId: "",
+        name,
+        tier,
+        // Always use the authenticated user's ID — never trust ownerId from the request body.
+        ownerId: actor.id,
+        ownerEmail,
+      });
+
       if (!result.success) {
         return res.status(422).json({ error: result.errors.join("; "), errors: result.errors });
       }
