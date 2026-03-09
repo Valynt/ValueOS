@@ -52,6 +52,12 @@ export class HttpHumanCheckpointBroker implements HumanCheckpointBroker {
         // malformed event — ignore
       }
     };
+    // Close and null the source on error so subscribers can detect
+    // disconnection. Matches the pattern used in useComplianceLiveStatus.
+    this.eventSource.onerror = () => {
+      this.eventSource?.close();
+      this.eventSource = null;
+    };
   }
 }
 

@@ -39,37 +39,53 @@ const FALLBACK_HEALTH: SystemHealth = {
   averageResponseTime: 0,
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function initializeAgents(options: AgentInitOptions = {}): Promise<SystemHealth> {
-  const { healthCheckTimeout = 5000 } = options;
+  const {
+    healthCheckTimeout = 5000,
+    retryAttempts = 3,
+    retryDelay = 1000,
+  } = options;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), healthCheckTimeout);
+  for (let attempt = 0; attempt <= retryAttempts; attempt++) {
+    if (attempt > 0) {
+      await sleep(retryDelay);
+    }
 
-  try {
-    const res = await fetch("/health/dependencies", { signal: controller.signal });
-    clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), healthCheckTimeout);
 
-    if (!res.ok) return FALLBACK_HEALTH;
+    try {
+      const res = await fetch("/health/dependencies", { signal: controller.signal });
+      clearTimeout(timer);
 
-    // Backend health endpoint returns service statuses; map to SystemHealth shape.
-    const data = (await res.json()) as Record<string, unknown>;
-    const agentStatus = data["agents"] as { available?: boolean } | undefined;
-    const available = agentStatus?.available !== false;
+      if (!res.ok) continue;
 
-    const health: SystemHealth = {
-      healthy: available,
-      agents: [],
-      totalAgents: 1,
-      availableAgents: available ? 1 : 0,
-      unavailableAgents: available ? 0 : 1,
-      averageResponseTime: 0,
-    };
+      // Backend health endpoint returns service statuses; map to SystemHealth shape.
+      const data = (await res.json()) as Record<string, unknown>;
+      const agentStatus = data["agents"] as { available?: boolean } | undefined;
+      const available = agentStatus?.available !== false;
 
-    options.onComplete?.(health);
-    return health;
-  } catch {
-    clearTimeout(timer);
-    options.onError?.(new Error("Agent health check failed"), FALLBACK_HEALTH);
-    return FALLBACK_HEALTH;
+      const health: SystemHealth = {
+        healthy: available,
+        agents: [],
+        totalAgents: 1,
+        availableAgents: available ? 1 : 0,
+        unavailableAgents: available ? 0 : 1,
+        averageResponseTime: 0,
+      };
+
+      options.onComplete?.(health);
+      return health;
+    } catch {
+      clearTimeout(timer);
+      // Retry on network/abort errors up to retryAttempts.
+    }
   }
+
+  options.onError?.(new Error("Agent health check failed"), FALLBACK_HEALTH);
+  return FALLBACK_HEALTH;
 }
