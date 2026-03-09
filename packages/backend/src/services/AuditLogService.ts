@@ -109,6 +109,40 @@ export class AuditLogService extends BaseService {
   }
 
   /**
+   * Resolve display name and email for a user ID.
+   *
+   * Uses the Supabase auth admin API (service_role) to look up the user.
+   * Falls back to placeholder values if the lookup fails or the user ID is
+   * not a valid UUID — this keeps audit logging non-fatal.
+   */
+  private async resolveActorIdentity(
+    userId: string,
+  ): Promise<{ userName: string; userEmail: string }> {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!userId || !UUID_RE.test(userId)) {
+      return { userName: userId || "system", userEmail: "" };
+    }
+
+    try {
+      const { data, error } = await this.supabase.auth.admin.getUserById(userId);
+      if (error || !data?.user) {
+        return { userName: userId, userEmail: "" };
+      }
+      const user = data.user;
+      const email = user.email ?? "";
+      const name =
+        (user.user_metadata?.["full_name"] as string | undefined) ??
+        (user.user_metadata?.["name"] as string | undefined) ??
+        email.split("@")[0] ??
+        userId;
+      return { userName: name, userEmail: email };
+    } catch {
+      // Non-fatal: audit log still written with userId as fallback
+      return { userName: userId, userEmail: "" };
+    }
+  }
+
+  /**
    * Log action routing events for ActionRouter
    */
   async logAction(input: {
@@ -125,10 +159,11 @@ export class AuditLogService extends BaseService {
     timestamp: string;
     trace_id?: string;
   }): Promise<AuditLogEntry> {
+    const { userName, userEmail } = await this.resolveActorIdentity(input.user_id);
     return this.logAudit({
       userId: input.user_id,
-      userName: "Unknown", // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Get from user context
-      userEmail: "unknown@valueos.com", // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Get from user context
+      userName,
+      userEmail,
       action: `action_router:${input.action_type}`,
       resourceType: "action",
       resourceId: input.trace_id || "unknown",

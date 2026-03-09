@@ -463,51 +463,167 @@ export class SecurityMonitor {
   }
 
   /**
-   * Send email alert (placeholder)
+   * Send email alert via SECURITY_EMAIL_WEBHOOK_URL (POST with JSON body).
+   * Env var is optional — logs only when not configured.
    */
   private sendEmailAlert(alert: SecurityAlert): void {
-    logger.info("Email alert sent", { alertId: alert.id, message: alert.message });
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with email service
+    const webhookUrl = process.env["SECURITY_EMAIL_WEBHOOK_URL"];
+    if (!webhookUrl) {
+      logger.info("Email alert (no webhook configured)", { alertId: alert.id, severity: alert.severity });
+      return;
+    }
+    this.postWebhook(webhookUrl, {
+      type: "email_alert",
+      alertId: alert.id,
+      severity: alert.severity,
+      message: alert.message,
+      timestamp: alert.timestamp.toISOString(),
+    }).catch((err: Error) =>
+      logger.error("Email alert webhook failed", { alertId: alert.id, error: err.message }),
+    );
   }
 
   /**
-   * Send Slack alert (placeholder)
+   * Send Slack alert via SECURITY_SLACK_WEBHOOK_URL (Slack Incoming Webhook format).
    */
   private sendSlackAlert(alert: SecurityAlert): void {
-    logger.info("Slack alert sent", { alertId: alert.id, message: alert.message });
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with Slack API
+    const webhookUrl = process.env["SECURITY_SLACK_WEBHOOK_URL"];
+    if (!webhookUrl) {
+      logger.info("Slack alert (no webhook configured)", { alertId: alert.id, severity: alert.severity });
+      return;
+    }
+    const emoji = alert.severity === "critical" ? "🚨" : alert.severity === "high" ? "⚠️" : "ℹ️";
+    this.postWebhook(webhookUrl, {
+      text: `${emoji} *Security Alert* [${alert.severity.toUpperCase()}]\n${alert.message}`,
+      attachments: [
+        {
+          color: alert.severity === "critical" ? "danger" : alert.severity === "high" ? "warning" : "good",
+          fields: [
+            { title: "Alert ID", value: alert.id, short: true },
+            { title: "Type", value: alert.type, short: true },
+            { title: "Escalation Level", value: String(alert.escalationLevel), short: true },
+            { title: "Timestamp", value: alert.timestamp.toISOString(), short: true },
+          ],
+        },
+      ],
+    }).catch((err: Error) =>
+      logger.error("Slack alert webhook failed", { alertId: alert.id, error: err.message }),
+    );
   }
 
   /**
-   * Send PagerDuty alert (placeholder)
+   * Send PagerDuty alert via SECURITY_PAGERDUTY_ROUTING_KEY (Events API v2).
    */
   private sendPagerDutyAlert(alert: SecurityAlert): void {
-    logger.info("PagerDuty alert sent", { alertId: alert.id, message: alert.message });
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with PagerDuty API
+    const routingKey = process.env["SECURITY_PAGERDUTY_ROUTING_KEY"];
+    if (!routingKey) {
+      logger.info("PagerDuty alert (no routing key configured)", { alertId: alert.id, severity: alert.severity });
+      return;
+    }
+    this.postWebhook("https://events.pagerduty.com/v2/enqueue", {
+      routing_key: routingKey,
+      event_action: "trigger",
+      dedup_key: alert.id,
+      payload: {
+        summary: alert.message,
+        severity: alert.severity === "critical" ? "critical" : alert.severity === "high" ? "error" : "warning",
+        source: "ValueOS SecurityMonitor",
+        timestamp: alert.timestamp.toISOString(),
+        custom_details: {
+          alert_id: alert.id,
+          alert_type: alert.type,
+          escalation_level: alert.escalationLevel,
+        },
+      },
+    }).catch((err: Error) =>
+      logger.error("PagerDuty alert failed", { alertId: alert.id, error: err.message }),
+    );
   }
 
   /**
-   * Escalate to security team (placeholder)
+   * Escalate to security team via SECURITY_TEAM_WEBHOOK_URL.
+   * Falls back to Slack webhook if security-team-specific URL is not set.
    */
   private escalateToSecurityTeam(alert: SecurityAlert): void {
-    logger.warn("Security team escalation", { alertId: alert.id, message: alert.message });
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with security team notification system
+    const webhookUrl =
+      process.env["SECURITY_TEAM_WEBHOOK_URL"] ?? process.env["SECURITY_SLACK_WEBHOOK_URL"];
+    if (!webhookUrl) {
+      logger.warn("Security team escalation (no webhook configured)", {
+        alertId: alert.id,
+        severity: alert.severity,
+      });
+      return;
+    }
+    this.postWebhook(webhookUrl, {
+      text: `🔒 *Security Team Escalation* [${alert.severity.toUpperCase()}]\n${alert.message}`,
+      attachments: [
+        {
+          color: "danger",
+          fields: [
+            { title: "Alert ID", value: alert.id, short: true },
+            { title: "Escalation Level", value: String(alert.escalationLevel), short: true },
+          ],
+        },
+      ],
+    }).catch((err: Error) =>
+      logger.error("Security team escalation webhook failed", { alertId: alert.id, error: err.message }),
+    );
   }
 
   /**
-   * Escalate to management (placeholder)
+   * Escalate to management via SECURITY_MANAGEMENT_WEBHOOK_URL.
    */
   private escalateToManagement(alert: SecurityAlert): void {
-    logger.error("Management escalation", { alertId: alert.id, message: alert.message });
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with management notification system
+    const webhookUrl = process.env["SECURITY_MANAGEMENT_WEBHOOK_URL"];
+    if (!webhookUrl) {
+      logger.error("Management escalation (no webhook configured)", {
+        alertId: alert.id,
+        severity: alert.severity,
+        message: alert.message,
+      });
+      return;
+    }
+    this.postWebhook(webhookUrl, {
+      type: "management_escalation",
+      alertId: alert.id,
+      severity: alert.severity,
+      message: alert.message,
+      escalationLevel: alert.escalationLevel,
+      timestamp: alert.timestamp.toISOString(),
+    }).catch((err: Error) =>
+      logger.error("Management escalation webhook failed", { alertId: alert.id, error: err.message }),
+    );
   }
 
   /**
-   * Send immediate notification (placeholder)
+   * Send immediate notification — fires all configured channels in parallel.
+   * Used for the highest-priority alerts that need multi-channel delivery.
    */
   private sendImmediateNotification(alert: SecurityAlert): void {
-    logger.warn("Immediate notification sent", { alertId: alert.id, message: alert.message });
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with real-time notification system
+    // Fire all configured channels simultaneously for immediate alerts
+    this.sendEmailAlert(alert);
+    this.sendSlackAlert(alert);
+    logger.warn("Immediate notification dispatched", {
+      alertId: alert.id,
+      severity: alert.severity,
+      message: alert.message,
+    });
+  }
+
+  /**
+   * POST a JSON payload to a webhook URL. Returns a promise so callers
+   * can attach error handlers without blocking the alert pipeline.
+   */
+  private async postWebhook(url: string, body: Record<string, unknown>): Promise<void> {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) {
+      throw new Error(`Webhook POST failed: ${response.status} ${response.statusText}`);
+    }
   }
 
   /**

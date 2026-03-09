@@ -4,6 +4,8 @@ import {
   Clock,
   ExternalLink,
   FileSearch,
+  Loader2,
+  Play,
   RotateCcw,
   Shield,
   ThumbsDown,
@@ -12,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useIntegrityResult, useRunIntegrityAgent } from "@/hooks/useIntegrity";
 
 type ClaimStatus = "verified" | "flagged" | "rejected" | "pending";
 
@@ -124,71 +127,75 @@ function ClaimCard({ claim }: { claim: Claim }) {
   );
 }
 
-export function IntegrityStage() {
-  const claims: Claim[] = [
-    {
-      id: "c1",
-      text: "Annual revenue $2.4B with 8.2% YoY growth",
-      tier: "Tier 1: EDGAR",
-      source: "10-K FY2025 Filing",
-      confidence: 98,
-      status: "verified",
-    },
-    {
-      id: "c2",
-      text: "Infrastructure cost reduction of $1.8M through server consolidation",
-      tier: "Tier 2: Market Data",
-      source: "Gartner IT Spending Benchmark 2025",
-      confidence: 72,
-      status: "flagged",
-      objection: "Server consolidation ratio of 4:1 exceeds industry average of 3:1. The $1.8M figure may be overstated by 15-20%.",
-    },
-    {
-      id: "c3",
-      text: "IT spend at 7.5% of revenue ($180M)",
-      tier: "Tier 2: Market Data",
-      source: "Gartner benchmark + customer estimate",
-      confidence: 82,
-      status: "verified",
-      resolution: "Cross-referenced with Gartner Manufacturing IT Spending Report 2025. 7.5% is within the 6.8-8.2% range for manufacturing sector.",
-    },
-    {
-      id: "c4",
-      text: "APAC expansion will generate $2.1M in new revenue within 18 months",
-      tier: "Tier 3: Self-reported",
-      source: "Customer interview — VP of Strategy",
-      confidence: 58,
-      status: "flagged",
-      objection: "Revenue projection is based on a single customer interview. No market sizing data or competitive analysis to support the $2.1M figure.",
-    },
-    {
-      id: "c5",
-      text: "Current uptime is 99.2%, target SLA requires 99.95%",
-      tier: "Tier 1: Customer Data",
-      source: "Customer SLA Dashboard Export",
-      confidence: 95,
-      status: "verified",
-    },
-    {
-      id: "c6",
-      text: "Migration can be completed in 12 months",
-      tier: "Tier 3: Estimate",
-      source: "Internal engineering assessment",
-      confidence: 45,
-      status: "pending",
-    },
-  ];
+export function IntegrityStage({ caseId }: { caseId?: string }) {
+  const { data: result, isLoading, error } = useIntegrityResult(caseId);
+  const runAgent = useRunIntegrityAgent(caseId);
+
+  // Map API ClaimValidation → local Claim shape for the existing ClaimCard component
+  const claims: Claim[] = (result?.claims ?? []).map((cv) => ({
+    id: cv.claim_id,
+    text: cv.claim_text,
+    tier: "Tier 2: Agent",
+    source: cv.evidence_assessment,
+    confidence: Math.round(cv.confidence * 100),
+    status:
+      cv.verdict === "supported"
+        ? "verified"
+        : cv.verdict === "unsupported"
+          ? "rejected"
+          : cv.verdict === "partially_supported"
+            ? "flagged"
+            : "pending",
+    objection: cv.issues.length > 0 ? cv.issues.map((i) => i.description).join(" ") : undefined,
+    resolution: cv.suggested_fix,
+  }));
 
   const verified = claims.filter((c) => c.status === "verified").length;
   const flagged = claims.filter((c) => c.status === "flagged").length;
   const pending = claims.filter((c) => c.status === "pending").length;
+  const overallScore = result?.overall_score != null ? Math.round(result.overall_score * 100) : null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-zinc-400">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+        <span className="text-[13px]">Loading integrity results…</span>
+      </div>
+    );
+  }
+
+  if (error && !result) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
+        <Shield className="w-8 h-8 text-zinc-300" />
+        <p className="text-[13px] text-zinc-500 text-center max-w-xs">
+          No integrity analysis yet. Run the Integrity Agent to validate claims in this value case.
+        </p>
+        <button
+          onClick={() => runAgent.mutate({})}
+          disabled={runAgent.isPending || !caseId}
+          className="flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white rounded-xl text-[12px] font-semibold hover:bg-zinc-800 disabled:opacity-50"
+        >
+          {runAgent.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Play className="w-3.5 h-3.5" />
+          )}
+          Run Integrity Agent
+        </button>
+        {runAgent.error && (
+          <p className="text-[11px] text-red-500">{runAgent.error.message}</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
       {/* Summary bar */}
       <div className="flex items-center gap-1 p-1 bg-white border border-zinc-200 rounded-2xl">
         {[
-          { label: "Total Claims", value: claims.length, color: "text-zinc-900" },
+          { label: "Total Claims", value: claims.length, color: "text-zinc-900", bg: undefined },
           { label: "Verified", value: verified, color: "text-emerald-700", bg: "bg-emerald-50" },
           { label: "Flagged", value: flagged, color: "text-amber-700", bg: "bg-amber-50" },
           { label: "Pending", value: pending, color: "text-zinc-500", bg: "bg-zinc-100" },
@@ -208,26 +215,57 @@ export function IntegrityStage() {
             <h4 className="text-[13px] font-semibold text-zinc-900">Integrity Score</h4>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-24 h-2.5 bg-zinc-100 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full" style={{ width: "76%" }} />
-            </div>
-            <span className="text-[14px] font-black text-zinc-950">76%</span>
+            {overallScore != null && (
+              <>
+                <div className="w-24 h-2.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      overallScore >= 80 ? "bg-emerald-500" : overallScore >= 60 ? "bg-amber-500" : "bg-red-400"
+                    )}
+                    style={{ width: `${overallScore}%` }}
+                  />
+                </div>
+                <span className="text-[14px] font-black text-zinc-950">{overallScore}%</span>
+              </>
+            )}
+            <button
+              onClick={() => runAgent.mutate({})}
+              disabled={runAgent.isPending || !caseId}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-lg text-[11px] font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {runAgent.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RotateCcw className="w-3 h-3" />
+              )}
+              Re-run
+            </button>
           </div>
         </div>
-        <p className="text-[12px] text-zinc-500">
-          2 claims need attention before this case can advance to Narrative. Resolve flagged items to improve the integrity score.
-        </p>
+        {result?.veto_decision && (
+          <p className={cn(
+            "text-[12px] font-medium",
+            result.veto_decision === "pass" ? "text-emerald-600" :
+            result.veto_decision === "veto" ? "text-red-600" : "text-amber-600"
+          )}>
+            Decision: {result.veto_decision === "pass" ? "Pass — ready to advance" :
+              result.veto_decision === "veto" ? "Veto — case blocked" : "Re-refine required"}
+          </p>
+        )}
       </div>
 
       {/* Claims list */}
-      <div>
-        <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mb-3">All Claims</h4>
-        <div className="space-y-3">
-          {claims.map((claim) => (
-            <ClaimCard key={claim.id} claim={claim} />
-          ))}
+      {claims.length > 0 && (
+        <div>
+          <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mb-3">All Claims</h4>
+          <div className="space-y-3">
+            {claims.map((claim) => (
+              <ClaimCard key={claim.id} claim={claim} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

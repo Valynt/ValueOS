@@ -12,6 +12,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { AgentThread } from "./canvas/AgentThread";
 import { EvidenceDrawer } from "./canvas/EvidenceDrawer";
+import { ExpansionStage } from "./canvas/ExpansionStage";
 import { HypothesisStage } from "./canvas/HypothesisStage";
 import { IntegrityStage } from "./canvas/IntegrityStage";
 import { ModelStage } from "./canvas/ModelStage";
@@ -29,6 +30,7 @@ const stages = [
   { key: "integrity", label: "Integrity", color: "bg-amber-500", description: "Verify & challenge" },
   { key: "narrative", label: "Narrative", color: "bg-pink-500", description: "Assemble & export" },
   { key: "realization", label: "Realization", color: "bg-emerald-500", description: "Track & prove" },
+  { key: "expansion", label: "Expansion", color: "bg-violet-400", description: "Grow & expand" },
 ];
 
 export default function ValueCaseCanvas() {
@@ -50,9 +52,10 @@ export default function ValueCaseCanvas() {
   const stageContent: Record<string, React.ReactNode> = {
     hypothesis: <HypothesisStage onRunStarted={handleRunStarted} />,
     model: <ModelStage />,
-    integrity: <IntegrityStage />,
-    narrative: <NarrativeStage />,
-    realization: <RealizationStage />,
+    integrity: <IntegrityStage caseId={caseId} />,
+    narrative: <NarrativeStage caseId={caseId} />,
+    realization: <RealizationStage caseId={caseId} />,
+    expansion: <ExpansionStage caseId={caseId} />,
   };
 
   const currentStage = stages.find((s) => s.key === activeStage);

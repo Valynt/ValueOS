@@ -52,6 +52,12 @@ const loopDuration = createHistogram(
   "End-to-end duration of a complete value loop execution",
 );
 
+/** Tenant API usage events, labelled by metric type. */
+const usageEvents = createCounter(
+  "value_loop_usage_events_total",
+  "Tenant API usage events recorded by the usage enforcement middleware",
+);
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export type ValueLoopStage =
@@ -146,6 +152,20 @@ export function recordFinancialCalculation(opts: {
       organizationId,
     });
   }
+}
+
+/**
+ * Record a tenant usage event from the usage enforcement middleware.
+ * Mirrors MetricsCollector.recordUsage() but on the value-loop registry
+ * so it appears in the value-loop Grafana dashboard.
+ */
+export function recordUsageEvent(opts: {
+  tenantId: string;
+  metric: string;
+  quantity?: number;
+}): void {
+  const { tenantId, metric, quantity = 1 } = opts;
+  usageEvents.add(quantity, { metric, tenant: tenantId });
 }
 
 /**

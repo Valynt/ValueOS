@@ -730,4 +730,50 @@ router.post(
   }
 );
 
+/**
+ * Memory subsystem health check.
+ *
+ * Verifies the semantic_memory table is reachable and returns row counts
+ * per organization (aggregated, no content). Used by ops dashboards to
+ * confirm durable agent memory is writing correctly.
+ */
+router.get("/health/memory", async (_req: Request, res: Response) => {
+  const startTime = Date.now();
+
+  try {
+    const { createServerSupabaseClient } = await import("../../lib/supabase.js");
+    const supabase = createServerSupabaseClient();
+
+    const { count, error } = await supabase
+      .from("semantic_memory")
+      .select("*", { count: "exact", head: true });
+
+    const latency = Date.now() - startTime;
+
+    if (error) {
+      return res.status(503).json({
+        status: "unhealthy",
+        latency,
+        message: `semantic_memory unreachable: ${error.message}`,
+        lastChecked: new Date().toISOString(),
+      });
+    }
+
+    return res.json({
+      status: latency < 500 ? "healthy" : "degraded",
+      latency,
+      message: `semantic_memory reachable — ${count ?? 0} total rows`,
+      row_count: count ?? 0,
+      lastChecked: new Date().toISOString(),
+    });
+  } catch (err) {
+    return res.status(503).json({
+      status: "unhealthy",
+      latency: Date.now() - startTime,
+      message: `Memory health check failed: ${err instanceof Error ? err.message : String(err)}`,
+      lastChecked: new Date().toISOString(),
+    });
+  }
+});
+
 export default router;
