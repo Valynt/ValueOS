@@ -1,7 +1,8 @@
 import { createLogger } from "@shared/lib/logger";
+import { getRequestSupabaseClient } from "@shared/lib/supabase";
 import express, { Router } from "express";
 
-import { optionalAuth } from "../middleware/auth.js";
+import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import {
   getTenantIdFromRequest,
@@ -101,6 +102,80 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
     return;
   } catch (error) {
     logger.error("Failed to process performance metric", error instanceof Error ? error : undefined);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+});
+
+analyticsRouter.post("/value-loop/events", requireAuth, express.json(), async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromRequest(req as any);
+    const { stage, eventType, durationMs, metadata } = req.body;
+
+    if (!stage || !eventType) {
+      return res.status(400).json({ error: "Invalid payload", required: ["stage", "eventType"] });
+    }
+
+    const supabase = getRequestSupabaseClient(req as any);
+    await supabase.from("value_loop_events").insert({
+      organization_id: tenantId,
+      stage,
+      event_type: eventType,
+      duration_ms: durationMs ?? null,
+      metadata: metadata ?? null,
+      recorded_at: new Date().toISOString(),
+    });
+
+    await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-value-loop");
+
+    res.status(200).json({ success: true });
+    return;
+  } catch (error) {
+    logger.error("Failed to record value-loop event", error instanceof Error ? error : undefined);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+});
+
+analyticsRouter.get("/value-loop/insights", requireAuth, async (req, res) => {
+  try {
+    const tenantId = getTenantIdFromRequest(req as any);
+
+    const payload = await ReadThroughCacheService.getOrLoad(
+      {
+        tenantId,
+        endpoint: "api-analytics-value-loop",
+        scope: "insights",
+        tier: "warm",
+        keyPayload: req.query,
+      },
+      async () => {
+        // getInsights queries Supabase — will throw if env vars are absent,
+        // which is caught by the outer try/catch and returned as a 500.
+        const supabase = getRequestSupabaseClient(req as any);
+        const { data, error } = await supabase
+          .from("value_loop_events")
+          .select("stage, event_type, duration_ms, recorded_at")
+          .eq("organization_id", tenantId)
+          .order("recorded_at", { ascending: false })
+          .limit(500);
+
+        if (error) throw error;
+
+        return {
+          success: true,
+          data: {
+            generatedAt: new Date().toISOString(),
+            events: data ?? [],
+          },
+        };
+      }
+    );
+
+    res.status(200).json(payload);
+    return;
+  } catch (error) {
+    logger.error("Failed to load value-loop insights", error instanceof Error ? error : undefined);
     res.status(500).json({ error: "Internal server error" });
     return;
   }

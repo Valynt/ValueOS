@@ -7,6 +7,7 @@
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
+import { z } from "zod";
 
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
@@ -17,6 +18,7 @@ import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
 import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
+import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
@@ -356,6 +358,53 @@ router.delete(
     } catch (error) {
       logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to remove permissions" });
+    }
+  }
+);
+
+const provisionTenantSchema = z.object({
+  name: z.string().min(2).max(120),
+  tier: z.enum(["free", "starter", "professional", "enterprise"] as const satisfies readonly [TenantTier, ...TenantTier[]]),
+  ownerEmail: z.string().email(),
+  // ownerId is intentionally excluded from the schema — it is always derived
+  // from the authenticated user to prevent privilege escalation.
+});
+
+router.post(
+  "/tenants",
+  requirePermission("tenants.provision"),
+  async (req: Request, res: Response) => {
+    try {
+      const actor = (req as any).user;
+      if (!actor?.id || !actor?.email) {
+        return res.status(401).json({ error: "Authenticated user required" });
+      }
+
+      const parsed = provisionTenantSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const { name, tier, ownerEmail } = parsed.data;
+
+      const result = await provisionTenant({
+        organizationId: "",
+        name,
+        tier,
+        // Always use the authenticated user's ID — never trust ownerId from the request body.
+        ownerId: actor.id,
+        ownerEmail,
+      });
+
+      if (!result.success) {
+        logger.error("Tenant provisioning failed", undefined, { errors: result.errors });
+        return res.status(500).json({ error: "Provisioning failed", details: result.errors });
+      }
+
+      return res.status(201).json({ organizationId: result.organizationId });
+    } catch (error) {
+      logger.error("Failed to provision tenant", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to provision tenant" });
     }
   }
 );
