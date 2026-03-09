@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import type { AgentMiddlewareContext, AgentResponse } from '../../../types/orchestration.js';
 import { ReasoningLoggerMiddleware } from '../ReasoningLoggerMiddleware.js';
 import type { ReasoningChain } from '../ReasoningLoggerMiddleware.js';
 

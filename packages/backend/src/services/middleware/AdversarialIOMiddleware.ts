@@ -15,7 +15,7 @@ import {
   AgentMiddleware,
   AgentMiddlewareContext,
   AgentResponse,
-} from '../UnifiedAgentOrchestrator.js';
+} from '../../types/orchestration.js';
 
 import {
   AdversarialIOConfig,

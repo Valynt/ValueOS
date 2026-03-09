@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
-import { storage, STORAGE_KEYS } from "@/services/storage";
+import { storage, STORAGE_KEYS } from "@/lib/storage";
 
 type Theme = "light" | "dark" | "system";
 

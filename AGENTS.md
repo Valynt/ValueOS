@@ -8,9 +8,7 @@ pnpm monorepo. Frontend apps in `apps/` (ValyntApp, VOSAcademy, mcp-dashboard). 
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
-**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via `UnifiedAgentOrchestrator`. Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
-
-**Standalone agents (deprecated):** Express-based microservices in `packages/agents/` (opportunity, target, integrity, realization, expansion, financial-modeling) use mock data and are superseded by the agent-fabric implementations. Do not extend these — use the fabric agents instead.
+**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via five focused runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
 
 ## Non-Negotiable Rules
 
@@ -88,7 +86,7 @@ export class MyAgent extends BaseAgent {
 ## Workflows & Messaging
 
 - DAG definitions: `packages/backend/src/data/lifecycleWorkflows.ts`
-- Orchestration: `UnifiedAgentOrchestrator` in `packages/backend/src/services/`
+- Orchestration: five runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer)
 - Inter-agent communication: `MessageBus` (CloudEvents) — propagate `trace_id` across async boundaries
 - Workflows are DAGs; cycles are forbidden
 - Saga pattern: every state mutation needs a compensation function
@@ -148,7 +146,7 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | File | Purpose |
 |---|---|
 | `packages/shared/src/domain/` | **Canonical domain model** — 9 first-class domain objects as Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity). All agent reasoning must operate on these types. |
-| `packages/backend/src/runtime/decision-router/` | DecisionRouter — selects agent/action based on workflow state. Extracted from UnifiedAgentOrchestrator in Sprint 2. Sprint 5 target: replace keyword routing with domain-state decisioning. |
+| `packages/backend/src/runtime/decision-router/` | DecisionRouter — selects agent/action based on structured domain state. |
 | `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class |
 | `packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts` | Hypothesis generation (OPPORTUNITY phase) |
 | `packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts` | KPI target generation (DRAFTING phase) |
@@ -158,9 +156,12 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts` | Growth opportunities, expansion strategies (EXPANSION phase) |
 | `packages/backend/src/lib/agent-fabric/AgentFactory.ts` | Agent instantiation with dependency injection |
 | `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
-| `packages/backend/src/lib/agents/` | Agent core library — migrated from deleted `packages/agents/` in Sprint 2 (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
+| `packages/backend/src/lib/agents/` | Agent core library (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
 | `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
-| `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Agent orchestration — **@frozen**, decomposition target Sprint 4 |
+| `packages/backend/src/runtime/` | Five runtime services that replaced UnifiedAgentOrchestrator: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer |
+| `packages/backend/src/types/orchestration.ts` | Canonical orchestration types (AgentResponse, ExecutionEnvelope, StreamingUpdate, etc.) |
+| `packages/backend/src/analytics/ValueLoopAnalytics.ts` | Value loop learning: recommendation acceptance, assumption corrections, evidence persuasiveness |
+| `packages/backend/src/observability/valueLoopMetrics.ts` | Prometheus metrics for value loop stage transitions, agent invocations, hypothesis confidence |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `.windsurf/rules/global.md` | Safety and compliance policy |

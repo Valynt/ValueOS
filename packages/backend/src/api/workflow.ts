@@ -15,7 +15,7 @@ import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
 } from "../services/ReadThroughCacheService.js"
-import { getUnifiedOrchestrator } from '../services/UnifiedAgentOrchestrator.js';
+import { createExecutionRuntime } from '../runtime/execution-runtime/index.js';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -89,10 +89,10 @@ async function executeWorkflowHandler(req: WorkflowExecuteRequest, res: Response
   };
 
   try {
-    const orchestrator = getUnifiedOrchestrator();
-    const result = await orchestrator.executeWorkflow(
+    const executionRuntime = createExecutionRuntime();
+    const result = await executionRuntime.executeWorkflow(
       executionEnvelope,
-      workflowDefinitionId,
+      workflowDefinitionId as string,
       context,
       actorId,
     );
@@ -101,7 +101,7 @@ async function executeWorkflowHandler(req: WorkflowExecuteRequest, res: Response
       success: true,
       data: {
         executionId: result.executionId,
-        workflowDefinitionId,
+        workflowDefinitionId: workflowDefinitionId!,
         status: result.status,
         currentStage: result.currentStage,
         completedStages: result.completedStages,
@@ -113,7 +113,7 @@ async function executeWorkflowHandler(req: WorkflowExecuteRequest, res: Response
 
     logger.error('Failed to execute workflow', error instanceof Error ? error : undefined, {
       tenantId,
-      workflowDefinitionId,
+      workflowDefinitionId: workflowDefinitionId!,
     });
 
     return res.status(statusCode).json({

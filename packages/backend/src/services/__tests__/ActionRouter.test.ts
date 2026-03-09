@@ -11,11 +11,11 @@ import { AgentAPI } from '../AgentAPI.js'
 import { assumptionService } from '../AssumptionService.js'
 import { AuditLogService } from '../AuditLogService.js'
 import { ComponentMutationService } from '../ComponentMutationService.js'
-import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator.js'
+import { ExecutionRuntime } from '../../runtime/execution-runtime/index.js'
 
 // Mock dependencies
 vi.mock('../AuditLogService');
-vi.mock('../UnifiedAgentOrchestrator');
+vi.mock('../../runtime/execution-runtime/index.js');
 vi.mock('../AgentAPI');
 vi.mock('../ComponentMutationService');
 vi.mock('../../lib/logger');

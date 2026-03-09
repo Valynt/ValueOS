@@ -5,15 +5,7 @@ import {
 } from "@valueos/sdui";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { HumanCheckpointBrokerAdapter } from "@/services/messaging/HumanCheckpointBrokerAdapter";
-import { RedisStreamBroker } from "@/services/messaging/RedisStreamBroker";
-
-const humanCheckpointBroker = new HumanCheckpointBrokerAdapter(
-  new RedisStreamBroker({
-    streamName: "agent.checkpoints",
-    consumerName: "human-checkpoint-ui",
-  }),
-);
+import { humanCheckpointBroker } from "@/lib/humanCheckpointBroker";
 
 interface SDUIHumanCheckpointProviderProps {
   children: ReactNode;

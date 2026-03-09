@@ -17,9 +17,35 @@ import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
 import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
+import { provisionTenant, type TenantConfig } from "../services/TenantProvisioning.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
+
+// POST /api/admin/provision — Create a new tenant (called from CreateOrganization UI).
+// Does not require an existing tenant context — the user is creating their first one.
+router.post(
+  "/provision",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const { organizationId, name, tier, ownerId, ownerEmail, settings } = req.body as TenantConfig;
+
+    if (!organizationId || !name || !tier || !ownerId || !ownerEmail) {
+      return res.status(400).json({ error: "Missing required provisioning fields" });
+    }
+
+    try {
+      const result = await provisionTenant({ organizationId, name, tier, ownerId, ownerEmail, settings });
+      if (!result.success) {
+        return res.status(422).json({ error: result.errors.join("; "), errors: result.errors });
+      }
+      return res.status(201).json({ organizationId: result.organizationId });
+    } catch (err) {
+      logger.error("Tenant provisioning failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ error: "Provisioning failed" });
+    }
+  }
+);
 
 router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
 

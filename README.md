@@ -1,31 +1,30 @@
 # ValueOS
 
-AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a multi-agent orchestration system backed by Supabase, Redis, and CloudEvents messaging.
+AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a six-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
 
 ## Repository Layout
 
-This is a pnpm monorepo managed with Turborepo.
+pnpm monorepo. Two runtimes: one frontend, one backend.
 
 ```
 apps/
-  ValyntApp/        # Primary web application (React + Vite + Tailwind)
+  ValyntApp/        # Web application (React + Vite + Tailwind) — the only frontend runtime
   VOSAcademy/       # Training and certification portal
   mcp-dashboard/    # MCP observability dashboard
 
 packages/
-  agent-fabric/     # Multi-agent framework and shared orchestration primitives
-  agents/           # FROZEN — standalone agent microservices (deprecated; deletion target Sprint 2)
-  backend/          # Canonical API server (Express, billing, auth, workflows, agents)
-  components/       # Shared UI component library and design system
-  config-v2/        # Shared configuration schemas and validation
+  backend/          # API server (Express) — the only backend runtime
+  shared/           # Canonical domain model (9 Zod-typed domain objects)
+  core-services/    # Canonical service implementations (migrated from app-local copies)
+  agent-fabric/     # Multi-agent framework primitives
+  components/       # Shared UI component library
+  config-v2/        # Shared configuration schemas
   infra/            # Infrastructure utilities and queue abstractions
   integrations/     # Third-party integrations (Stripe, CRM, etc.)
   mcp/              # Model Context Protocol tooling
   memory/           # Agent memory and vector store layer
-  services/         # Cross-package services and adapters
   sdui/             # Server-Driven UI renderer
   sdui-types/       # Shared SDUI type system
-  shared/           # Shared types, utilities, and constants
   test-utils/       # Shared test helpers and fixtures
 
 infra/
@@ -81,30 +80,47 @@ See [docs/environments/local-development.md](docs/environments/local-development
 
 ## Architecture
 
-ValueOS is a modular monolith deployed to Kubernetes with the following key layers:
+ValueOS is a modular monolith deployed to Kubernetes.
 
 ```
 +---------------------------------------------------------+
-|  Frontend (React + Vite + Tailwind + Radix UI)          |
-|  Route-level code splitting via React.lazy              |
+|  apps/ValyntApp  (React + Vite + Tailwind)              |
+|  Route-level code splitting · HTTP calls to backend     |
 +---------------------------------------------------------+
-|  Backend API (Express)                                  |
-|  REST endpoints · RBAC middleware · rate limiting        |
+|  packages/backend  (Express API)                        |
+|  REST endpoints · RBAC · rate limiting                  |
+|                                                         |
+|  Runtime services (packages/backend/src/runtime/):      |
+|    DecisionRouter   — selects agent/action by domain    |
+|    ExecutionRuntime — task lifecycle, queues, retries   |
+|    PolicyEngine     — safety, compliance, HITL          |
+|    ContextStore     — assembles domain state for agents |
+|    ArtifactComposer — generates business case outputs   |
 +---------------------------------------------------------+
-|  Agent Fabric (6 lifecycle agents)                      |
-|  Orchestrator · Memory · MCP tools · BullMQ queues      |
+|  Agent Fabric (packages/backend/src/lib/agent-fabric/)  |
+|  6 lifecycle agents · BaseAgent · secureInvoke          |
+|  OpportunityAgent · TargetAgent · FinancialModelingAgent|
+|  IntegrityAgent · RealizationAgent · ExpansionAgent     |
++---------------------------------------------------------+
+|  Domain Model (packages/shared/src/domain/)             |
+|  9 Zod-typed objects: Account, Opportunity, Stakeholder,|
+|  ValueHypothesis, Assumption, Evidence, BusinessCase,   |
+|  RealizationPlan, ExpansionOpportunity                  |
 +---------------------------------------------------------+
 |  Data Layer                                             |
 |  Supabase (Postgres + RLS) · Redis · CloudEvents bus    |
 +---------------------------------------------------------+
 ```
 
-- **Multi-tenancy**: Shared-schema with `tenant_id` columns enforced by Postgres RLS policies.
+- **Single runtime rule**: `apps/ValyntApp` is the only frontend. `packages/backend` is the only backend. No other entry points.
+- **Agent routing**: All agent decisions are driven by structured domain state, not keyword matching.
+- **Multi-tenancy**: Shared-schema with `organization_id` / `tenant_id` enforced by Postgres RLS on every table.
+- **LLM safety**: All agent LLM calls go through `BaseAgent.secureInvoke()` — circuit breaker, hallucination detection, Zod validation.
 - **Auth**: Supabase Auth with JWT, RBAC, WebAuthn/FIDO2, and MFA.
-- **Observability**: OpenTelemetry SDK, Prometheus metrics, Sentry error tracking, Winston logging.
+- **Observability**: OpenTelemetry SDK, Prometheus metrics (`packages/backend/src/observability/`), Sentry, Winston.
 - **Deployment**: Blue-green on Kubernetes with HPA, network policies, and External Secrets Operator.
 
-See [docs/architecture/](docs/architecture/) for detailed design documents.
+See [docs/architecture/](docs/architecture/) for detailed design documents and [AGENTS.md](AGENTS.md) for agent development conventions.
 
 ## Security
 

@@ -230,7 +230,6 @@ export function calculateRiskScore(
 
   // Factor 4: Core service files
   const coreServices = [
-    "UnifiedAgentOrchestrator",
     "LlmProxyClient",
     "SessionManager",
     "SemanticMemory",

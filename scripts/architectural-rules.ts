@@ -264,7 +264,6 @@ const coreServiceTestCoverageRule: PolicyRule = {
     const violations: PolicyViolation[] = [];
 
     const coreServices = [
-      "UnifiedAgentOrchestrator",
       "LlmProxyClient",
       "SessionManager",
       "SemanticMemory",

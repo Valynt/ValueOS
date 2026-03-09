@@ -37,7 +37,6 @@ export const V1_SERVICES = new Set([
 
   // Agent fabric (core loop)
   "AgentAPI",
-  "UnifiedAgentAPI",
   "AgentRegistry",
   "AgentFabricService",
   "AgentExecutorService",
@@ -46,17 +45,19 @@ export const V1_SERVICES = new Set([
   "AgentAuditLogger",
   "AgentStateStore",
   "AgentChatService",
-  "AgentInitializer",
-  "AgentIntentConverter",
   "AgentQueryService",
   "AgentRoutingLayer",
   "AgentRoutingScorer",
-  "AgentOutputListener",
   "AgentMessageBroker",
   "AgentMessageQueue",
-  "AgentOrchestratorAdapter",
   "AgentSDUIAdapter",
-  "UnifiedAgentOrchestrator",
+
+  // Runtime services (replaced UnifiedAgentOrchestrator)
+  "DecisionRouter",
+  "ExecutionRuntime",
+  "PolicyEngine",
+  "ContextStore",
+  "ArtifactComposer",
 
   // Workflow engine
   "WorkflowStateMachine",
@@ -116,7 +117,6 @@ export const V1_SERVICES = new Set([
   "PersistenceService",
   "BaseService",
   "DependencyInjectionContainer",
-  "ServiceRegistration",
 
   // Billing (core)
   "billing",
@@ -153,7 +153,6 @@ export const V1_SERVICES = new Set([
   "CausalTruthService",
 
   // Misc required
-  "ActionRouter",
   "IntentRegistry",
   "ConfidenceMonitor",
   "ContextOptimizer",
@@ -240,7 +239,6 @@ export const POST_V1_SERVICES = new Set([
   "WebScraperService",
   "PlaygroundAutoSave",
   "PlaygroundSessionService",
-  "PlaygroundWorkflowAdapter",
   "AgentPrefetchService",
   "UsageTrackingService",
   "kafkaConfig",

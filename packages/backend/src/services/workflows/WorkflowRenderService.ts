@@ -2,7 +2,7 @@ import { SDUIPageDefinition } from "@sdui/schema";
 
 import { AgentType } from "../agent-types";
 import type { AgentContext, AgentAPI, AgentResponse as APIAgentResponse } from "../AgentAPI";
-import type { AgentResponse, ExecutionEnvelope, StreamingUpdate } from "../UnifiedAgentOrchestrator";
+import type { AgentResponse, ExecutionEnvelope, StreamingUpdate } from "../../types/orchestration.js";
 
 export interface WorkflowRenderService {
   generateSDUIPage(
