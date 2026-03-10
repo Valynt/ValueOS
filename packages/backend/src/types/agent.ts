@@ -32,7 +32,8 @@ export type LifecycleStage =
   | 'target'
   | 'realization'
   | 'expansion'
-  | 'integrity';
+  | 'integrity'
+  | 'narrative';
 
 export interface ModelConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';

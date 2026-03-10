@@ -252,6 +252,58 @@ export class MetricsCollector {
   }
 
   /**
+   * Record a tenant API usage event.
+   *
+   * Increments the usage_events_total Prometheus counter and optionally
+   * persists to the usage_events table when a Supabase client is available.
+   * Non-fatal — errors are logged but never thrown.
+   */
+  recordUsage(opts: {
+    tenantId: string;
+    metric: string;
+    quantity?: number;
+    path?: string;
+    method?: string;
+    statusCode?: number;
+  }): void {
+    const { tenantId, metric, quantity = 1, path, method, statusCode } = opts;
+
+    try {
+      this.agentInvocationsCounter.add(quantity, {
+        'usage.metric': metric,
+        'usage.tenant': tenantId,
+      });
+    } catch (err) {
+      logger.error('Failed to record usage counter', err as Error, { tenantId, metric });
+    }
+
+    // Persist to usage_events table when Supabase is available (fire-and-forget)
+    if (this.supabase) {
+      (this.supabase as unknown as {
+        from: (t: string) => { insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }> }
+      })
+        .from('usage_events')
+        .insert({
+          tenant_id: tenantId,
+          metric,
+          quantity,
+          path: path ?? null,
+          method: method ?? null,
+          status_code: statusCode ?? null,
+          recorded_at: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) {
+            logger.warn('Failed to persist usage event', { tenantId, metric, error: error.message });
+          }
+        })
+        .catch((err: Error) => {
+          logger.warn('Usage event persistence threw', { tenantId, metric, error: err.message });
+        });
+    }
+  }
+
+  /**
    * Get agent metrics from database
    */
   async getAgentMetrics(

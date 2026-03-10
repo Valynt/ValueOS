@@ -213,7 +213,8 @@ export class AgentPrefetchService {
 
     if (!data || data.length === 0) return [];
 
-    return data.map((b: any) => ({
+    type BenchmarkRow = { metric: string; baseline_value: number; industry: string; source?: string };
+    return (data as BenchmarkRow[]).map((b) => ({
       metric: b.metric,
       baselineValue: b.baseline_value,
       industry: b.industry,
