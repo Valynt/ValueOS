@@ -9,6 +9,7 @@ import { BillingMetric } from '../config/billing.js';
 import { createLogger } from '../lib/logger.js';
 import { supabase } from '../lib/supabase.js';
 import { EntitlementsService } from '../services/billing/EntitlementsService.js';
+import { getMetricsCollector } from '../services/MetricsCollector.js';
 
 const logger = createLogger({ component: 'UsageEnforcementMiddleware' });
 
@@ -126,7 +127,13 @@ const usageContext = req.usageContext;
             metric: usageContext.metric,
             path: req.path
           });
-          // TODO: implement MetricsCollector.recordUsage — currently no such method exists
+          getMetricsCollector().recordUsage({
+            tenantId: usageContext.tenantId,
+            metric: usageContext.metric,
+            path: req.path,
+            method: req.method,
+            statusCode: res.statusCode,
+          });
         });
       }
 

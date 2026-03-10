@@ -5,7 +5,7 @@
  * payload heuristics. No LLM calls.
  */
 
-import { AgentMiddlewareContext } from '../UnifiedAgentOrchestrator.js';
+import { AgentMiddlewareContext } from '../../types/orchestration.js';
 
 import {
   CheckpointConfig,

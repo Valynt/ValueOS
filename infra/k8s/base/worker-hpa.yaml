@@ -14,49 +14,75 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: worker
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 12
   metrics:
+    # BullMQ agent job queue depth — primary scaling signal.
+    # Each worker processes ~30 jobs/min at p95; target 20 waiting jobs per pod.
     - type: External
       external:
         metric:
-          name: message_worker_queue_depth
+          name: bullmq_queue_waiting_jobs
           selector:
             matchLabels:
-              app: message-worker
+              queue: agent-jobs
         target:
           type: AverageValue
-          averageValue: "30"
+          averageValue: "20"
+
+    # BullMQ delayed jobs — scale up before burst hits the active queue.
+    - type: External
+      external:
+        metric:
+          name: bullmq_queue_delayed_jobs
+          selector:
+            matchLabels:
+              queue: agent-jobs
+        target:
+          type: AverageValue
+          averageValue: "50"
+
+    # CPU — secondary signal to catch compute-heavy LLM post-processing.
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 70
+          averageUtilization: 65
+
+    # Memory — guard against embedding/vector ops leaking.
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 75
+
   behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 420
-      selectPolicy: Min
-      policies:
-        - type: Percent
-          value: 10
-          periodSeconds: 60
-        - type: Pods
-          value: 1
-          periodSeconds: 120
     scaleUp:
-      stabilizationWindowSeconds: 20
+      # React quickly to queue depth spikes (agent runs are latency-sensitive).
+      stabilizationWindowSeconds: 30
       selectPolicy: Max
       policies:
+        # Allow doubling pod count every 30s during a burst.
         - type: Percent
           value: 100
           periodSeconds: 30
+        # Always add at least 2 pods per step to avoid thrashing.
         - type: Pods
-          value: 3
+          value: 2
           periodSeconds: 30
+
+    scaleDown:
+      # Wait 5 minutes before removing pods — BullMQ jobs can take up to 3 min.
+      stabilizationWindowSeconds: 300
+      selectPolicy: Min
+      policies:
+        # Remove at most 20% of pods per minute to avoid dropping in-flight jobs.
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+        # Never remove more than 1 pod per step when queue is draining.
+        - type: Pods
+          value: 1
+          periodSeconds: 120

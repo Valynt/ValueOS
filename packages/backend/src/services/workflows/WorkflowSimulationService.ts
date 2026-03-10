@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../../lib/logger";
-import type { SimulationResult } from "../UnifiedAgentOrchestrator";
+import type { SimulationResult } from "../../types/orchestration.js";
 import { WorkflowDAG, WorkflowStage } from "../../types/workflow";
 import type { StagePredictionDTO, WorkflowStageContextDTO } from "../../types/workflow/runner";
 

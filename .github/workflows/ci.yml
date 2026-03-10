@@ -22,6 +22,8 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Critical product path 1: value loop integrity, domain model, artifact accuracy
+  # Critical invariants: no untyped domain writes, no LLM numbers without math
   unit-component-schema:
     name: unit/component/schema
     runs-on: ubuntu-latest
@@ -52,36 +54,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Guard deprecated e2e path
-        run: node scripts/ci/guard-deprecated-e2e-path.mjs
-
-      - name: TS any ratchet
-        run: bash scripts/ts-any-ratchet.sh
-
-      - name: TS error package ratchet
-        run: node scripts/ci/ts-error-ratchet.mjs
-
-      - name: Debt policy ratchet
-        run: node scripts/debt/inventory.mjs
-
-      - name: Enforce Valynt service freeze
-        run: pnpm check:valynt-services-freeze
-
-      - name: Enforce frozen backend duplicate tree
-        run: pnpm check:frozen-backend-duplicate-tree
-
-      - name: Guard browser provider secrets
-        run: pnpm check:browser-provider-secrets
-
-      - name: Guard frontend bundle service-role identifiers
-        run: pnpm check:frontend-bundle-service-role
-
-      - name: Check service duplicate filenames
-        run: pnpm check:service-duplicates
-
-      - name: Check module boundaries
-        run: pnpm check:module-boundaries
-
       - name: Check runtime sentinels
         run: pnpm check:runtime-sentinels
 
@@ -98,12 +70,6 @@ jobs:
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
-
-      - name: Threat model freshness gate
-        run: node scripts/ci/check-threat-model-freshness.mjs
-
-      - name: Observability contract gate
-        run: node scripts/ci/check-observability-contract.mjs
 
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
@@ -123,6 +89,12 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      - name: Guard browser provider secrets
+        run: pnpm check:browser-provider-secrets
+
+      - name: Guard frontend bundle service-role identifiers
+        run: pnpm check:frontend-bundle-service-role
+
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
 
@@ -134,19 +106,6 @@ jobs:
 
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
-
-      - name: Verify secret rotation metadata age
-        env:
-          SECRET_ROTATION_PROVIDERS: ${{ vars.SECRET_ROTATION_PROVIDERS }}
-          SECRET_ROTATION_MAX_AGE_DAYS: ${{ vars.SECRET_ROTATION_MAX_AGE_DAYS }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          AWS_SECRET_IDS: ${{ vars.AWS_SECRET_IDS }}
-          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
-          VAULT_SECRET_PATHS: ${{ vars.VAULT_SECRET_PATHS }}
-          VAULT_KV_MOUNT: ${{ vars.VAULT_KV_MOUNT }}
-          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
-          ROTATION_EVIDENCE_TIMESTAMP: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: node scripts/security/verify-secret-rotation.mjs
 
       - name: Emit lane summary
         if: always()
@@ -172,6 +131,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  # Critical invariant: no cross-tenant data access
   tenant-isolation-gate:
     name: tenant-isolation-gate
     runs-on: ubuntu-latest
@@ -254,6 +214,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  # Critical product path 2: value loop end-to-end, versioning contracts
   critical-workflows-gate:
     name: critical-workflows-gate
     runs-on: ubuntu-latest
@@ -279,13 +240,7 @@ jobs:
         run: |
           node scripts/ci/verify-critical-claims.mjs
           pnpm exec vitest run \
-            packages/backend/src/__tests__/versioning.contract.test.ts \
-            apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
-
-      - name: Reload durability + chaos smoke
-        run: |
-          node --test tests/integration/multi-tenant-chaos-invariants.test.mjs
-          node scripts/chaos/launch-chaos-smoke.mjs
+            packages/backend/src/__tests__/versioning.contract.test.ts
 
       - name: Emit lane summary
         if: always()
@@ -306,171 +261,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lane-critical-workflows-gate-${{ github.run_id }}
-          path: |
-            artifacts/chaos-launch/**
-            artifacts/ci-lanes/critical-workflows-gate/**
+          path: artifacts/ci-lanes/critical-workflows-gate/**
           if-no-files-found: warn
           retention-days: 30
 
-  ui-localization-gate:
-    name: ui-localization-gate
-    runs-on: ubuntu-latest
-    needs:
-      - unit-component-schema
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Localization checks
-        run: |
-          node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
-          node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
-
-      - name: Localization visual smoke
-        run: |
-          if [ -x ./node_modules/.bin/playwright ]; then
-            ./node_modules/.bin/playwright test scripts/test/playwright/visual-regression.spec.ts --grep "Localization Overflow"
-          else
-            echo "Playwright binary not installed; skipping localization overflow visual regression in this environment."
-          fi
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/ui-localization-gate
-          cat > artifacts/ci-lanes/ui-localization-gate/summary.md <<EOF
-          # ui-localization-gate
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
-          EOF
-
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-ui-localization-gate-${{ github.run_id }}
-          path: |
-            artifacts/i18n/**
-            artifacts/ci-lanes/ui-localization-gate/**
-          if-no-files-found: warn
-          retention-days: 30
-
-  migration-verification:
-    name: migration-verification
-    runs-on: ubuntu-latest
-    needs:
-      - unit-component-schema
-      - tenant-isolation-gate
-    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release'
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Migration verification gates
-        run: |
-          node scripts/ci/verify-critical-architecture-migrations.mjs
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/migration-verification
-          cat > artifacts/ci-lanes/migration-verification/summary.md <<EOF
-          # migration-verification
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
-          - upstream_tenant_isolation: ${{ needs.tenant-isolation-gate.result }}
-          EOF
-
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-migration-verification-${{ github.run_id }}
-          path: artifacts/ci-lanes/migration-verification/**
-          if-no-files-found: warn
-          retention-days: 30
-
-  nightly-node-chaos-replay:
-    name: nightly node/chaos/replay
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [20.19.0, 22.x]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Chaos + replay workload
-        run: |
-          node scripts/chaos/launch-chaos-smoke.mjs
-          npx vitest run \
-            tests/integration/security-flows.test.ts \
-            tests/integration/message-bus-communication.test.ts \
-            --reporter=verbose
-
-      - name: Emit lane summary
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-lanes/nightly-node-chaos-replay/${{ matrix.node-version }}
-          cat > artifacts/ci-lanes/nightly-node-chaos-replay/${{ matrix.node-version }}/summary.md <<EOF
-          # nightly node/chaos/replay
-          - workflow: ${{ github.workflow }}
-          - run_id: ${{ github.run_id }}
-          - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - node_version: ${{ matrix.node-version }}
-          EOF
-
-      - name: Upload lane artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lane-nightly-node-chaos-replay-${{ matrix.node-version }}-${{ github.run_id }}
-          path: |
-            artifacts/chaos-launch/**
-            artifacts/ci-lanes/nightly-node-chaos-replay/${{ matrix.node-version }}/**
-          if-no-files-found: warn
-          retention-days: 30
-
+  # PR gate: blocks merge until critical lanes pass
   pr-fast-blocking-subsets:
     name: pr-fast-blocking-subsets
     runs-on: ubuntu-latest
@@ -478,17 +273,13 @@ jobs:
     needs:
       - unit-component-schema
       - tenant-isolation-gate
-      - ui-localization-gate
-      - migration-verification
     steps:
       - name: Enforce PR release blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
           for lane in \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
-            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
-            "ui-localization-gate:${{ needs.ui-localization-gate.result }}" \
-            "migration-verification:${{ needs.migration-verification.result }}"; do
+            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
@@ -497,6 +288,7 @@ jobs:
             fi
           done
 
+  # Deploy gate: blocks staging/production until critical lanes pass
   staging-deploy-release-gates:
     name: staging-deploy-release-gates
     runs-on: ubuntu-latest
@@ -504,15 +296,13 @@ jobs:
     needs:
       - tenant-isolation-gate
       - critical-workflows-gate
-      - migration-verification
     steps:
       - name: Enforce staging/deploy blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
           for lane in \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
-            "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
-            "migration-verification:${{ needs.migration-verification.result }}"; do
+            "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

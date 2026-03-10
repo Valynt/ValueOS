@@ -4,7 +4,7 @@
  * Defines the core schema and validation logic for Structural Truth Module
  *
  * This module ensures all agent outputs conform to the defined structural integrity
- * requirements before being processed by the UnifiedAgentOrchestrator.
+ * requirements before being processed by the agent runtime.
  */
 
 import { z } from "zod";

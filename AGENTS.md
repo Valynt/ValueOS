@@ -8,9 +8,7 @@ pnpm monorepo. Frontend apps in `apps/` (ValyntApp, VOSAcademy, mcp-dashboard). 
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
-**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via `UnifiedAgentOrchestrator`. Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
-
-**Standalone agents (deprecated):** Express-based microservices in `packages/agents/` (opportunity, target, integrity, realization, expansion, financial-modeling) use mock data and are superseded by the agent-fabric implementations. Do not extend these — use the fabric agents instead.
+**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
 
 ## Non-Negotiable Rules
 
@@ -88,7 +86,7 @@ export class MyAgent extends BaseAgent {
 ## Workflows & Messaging
 
 - DAG definitions: `packages/backend/src/data/lifecycleWorkflows.ts`
-- Orchestration: `UnifiedAgentOrchestrator` in `packages/backend/src/services/`
+- Orchestration: six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine)
 - Inter-agent communication: `MessageBus` (CloudEvents) — propagate `trace_id` across async boundaries
 - Workflows are DAGs; cycles are forbidden
 - Saga pattern: every state mutation needs a compensation function
@@ -148,7 +146,7 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | File | Purpose |
 |---|---|
 | `packages/shared/src/domain/` | **Canonical domain model** — 9 first-class domain objects as Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity). All agent reasoning must operate on these types. |
-| `packages/backend/src/runtime/decision-router/` | DecisionRouter — selects agent/action based on workflow state. Extracted from UnifiedAgentOrchestrator in Sprint 2. Sprint 5 target: replace keyword routing with domain-state decisioning. |
+| `packages/backend/src/runtime/decision-router/` | DecisionRouter — selects agent/action based on structured domain state. |
 | `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class |
 | `packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts` | Hypothesis generation (OPPORTUNITY phase) |
 | `packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts` | KPI target generation (DRAFTING phase) |
@@ -158,10 +156,46 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts` | Growth opportunities, expansion strategies (EXPANSION phase) |
 | `packages/backend/src/lib/agent-fabric/AgentFactory.ts` | Agent instantiation with dependency injection |
 | `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
-| `packages/backend/src/lib/agents/` | Agent core library — migrated from deleted `packages/agents/` in Sprint 2 (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
+| `packages/backend/src/lib/agents/` | Agent core library (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
 | `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
-| `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Agent orchestration — **@frozen**, decomposition target Sprint 4 |
+| `packages/backend/src/runtime/` | Six runtime services that replaced UnifiedAgentOrchestrator: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine |
+| `packages/backend/src/runtime/recommendation-engine/` | RecommendationEngine — subscribes to domain events (opportunity.updated, hypothesis.validated, evidence.attached, realization.milestone_reached) and pushes next-best-action recommendations to UI clients via RealtimeBroadcastService |
+| `packages/backend/src/types/orchestration.ts` | Canonical orchestration types (AgentResponse, ExecutionEnvelope, StreamingUpdate, etc.) |
+| `packages/backend/src/analytics/ValueLoopAnalytics.ts` | Value loop learning: recommendation acceptance, assumption corrections, evidence persuasiveness |
+| `packages/backend/src/observability/valueLoopMetrics.ts` | Prometheus metrics for value loop stage transitions, agent invocations, hypothesis confidence |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
 | `.github/CODEOWNERS` | Review routing by team |
+
+## Context Engineering Layer
+
+`.ona/context/` contains structured context files that give agents the right information at the right time. They complement this file — AGENTS.md is the rule set, `.ona/context/` is the knowledge base.
+
+| File | What it contains | Read when |
+|---|---|---|
+| `.ona/context/decisions.md` | ADR digest + undocumented architectural decisions | Before changing system boundaries, data flows, or agent configuration |
+| `.ona/context/debt.md` | Prioritised technical debt with file locations and issue links | Before sprint planning; before touching any file with known stubs |
+| `.ona/context/user-stories.md` | Core user stories with acceptance criteria and implementation status | Before implementing a feature or writing tests for a lifecycle stage |
+| `.ona/context/traceability.md` | Full-stack map: agent → DB table → repository → API endpoint → frontend hook → UI component | Before touching any lifecycle stage (Hypothesis, Model, Integrity, Narrative, Realization, Expansion) |
+| `.ona/context/memory.md` | Lessons learned, anti-patterns, migration history, pre-PR checklist | Before submitting a PR that touches agent code, DB queries, or UI components |
+| `.ona/context/tools.md` | Both tool systems (MCP + BFA Semantic), interfaces, registration pattern, current inventory | Before adding a new tool or calling an existing one from agent code |
+
+### When to update these files
+
+- **`decisions.md`** — after a new ADR is accepted, or when an undocumented decision is made that future agents need to know about.
+- **`debt.md`** — when debt is resolved (mark it in the Resolved section) or newly discovered. Link GitHub issues.
+- **`user-stories.md`** — when a story's implementation status changes (a stage moves from ❌ to ✅).
+- **`traceability.md`** — when a new DB table, repository, endpoint, hook, or UI component is added for a lifecycle stage.
+- **`memory.md`** — after solving a non-obvious problem, removing a recurring anti-pattern, or completing a significant migration.
+- **`tools.md`** — when a new tool is registered or an existing tool's interface changes.
+
+### Relationship to other context sources
+
+These files do not replace existing sources — they index and summarise them for fast agent orientation:
+
+- **`AGENTS.md`** (this file) — non-negotiable rules and coding conventions. Agents must follow these regardless of context.
+- **`.windsurf/rules/`** — glob-triggered rules for Windsurf/Cascade. Enforced automatically on file match.
+- **`.windsurf/workflows/`** — step-by-step task workflows (add-feature, database-migration, debug-issue, etc.).
+- **`docs/engineering/adr/`** — full ADR records. `decisions.md` is a digest; go here for complete rationale.
+- **`docs/architecture/`** — detailed architecture documents. `traceability.md` is a navigation aid into these.

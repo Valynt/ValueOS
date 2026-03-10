@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../../types/orchestration.js';
 
 // Mock logger
 vi.mock('../../../lib/logger.js', () => ({

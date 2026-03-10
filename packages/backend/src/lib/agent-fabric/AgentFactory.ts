@@ -16,6 +16,7 @@ import { ComplianceAuditorAgent } from "./agents/ComplianceAuditorAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
+import { NarrativeAgent } from "./agents/NarrativeAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
 import { TargetAgent } from "./agents/TargetAgent.js";
@@ -31,6 +32,7 @@ const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   target: "target",
   expansion: "expansion",
   integrity: "integrity",
+  narrative: "integrity", // narrative sits between integrity and realization
   realization: "realization",
   "compliance-auditor": "integrity",
 };
@@ -54,6 +56,7 @@ const FABRIC_AGENT_CLASSES: Partial<
   target: TargetAgent,
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
+  narrative: NarrativeAgent,
   realization: RealizationAgent,
   "compliance-auditor": ComplianceAuditorAgent,
 };

@@ -6,7 +6,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 
-import { featureFlags } from '../services/FeatureFlags';
+import { featureFlags } from '@valueos/core-services';
 import { logger } from '../utils/logger.js'
 
 /**

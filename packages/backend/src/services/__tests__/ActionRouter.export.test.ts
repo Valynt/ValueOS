@@ -39,7 +39,7 @@ vi.mock('../../lib/logger', () => {
 
 // Mock other dependencies of ActionRouter constructor
 vi.mock('../AuditLogService');
-vi.mock('../UnifiedAgentOrchestrator');
+vi.mock('../../runtime/execution-runtime/index.js');
 vi.mock('../AgentAPI');
 vi.mock('../ComponentMutationService');
 vi.mock('../ManifestoEnforcer', () => ({

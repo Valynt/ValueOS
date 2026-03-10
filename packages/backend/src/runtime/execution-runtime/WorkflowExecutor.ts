@@ -11,6 +11,7 @@ import { Span, SpanStatusCode } from '@opentelemetry/api';
 
 import { supabase } from '../../lib/supabase.js';
 import { logger } from '../../lib/logger.js';
+import { recordAgentInvocation, recordLoopCompletion } from '../../observability/valueLoopMetrics.js';
 import { getTracer } from '../../config/telemetry.js';
 import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
 import { AgentRegistry } from '../../services/AgentRegistry.js';
@@ -29,7 +30,7 @@ import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.
 import type {
   ExecutionEnvelope,
   WorkflowExecutionResult,
-} from '../../services/UnifiedAgentOrchestrator.js';
+} from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 import type {
@@ -87,7 +88,7 @@ export class WorkflowExecutor {
     private readonly checkAgentRateLimit: (agentType: AgentType) => boolean,
     private readonly config: WorkflowExecutorConfig = DEFAULT_CONFIG,
   ) {
-    this.executionStore = new WorkflowExecutionStore(supabase as never);
+    this.executionStore = new WorkflowExecutionStore(supabase);
   }
 
   // --------------------------------------------------------------------------
@@ -112,6 +113,7 @@ export class WorkflowExecutor {
         .select('*')
         .eq('id', workflowDefinitionId)
         .eq('is_active', true)
+        .or(`organization_id.is.null,organization_id.eq.${envelope.organizationId}`)
         .maybeSingle();
 
       if (defError || !definition) throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
@@ -286,6 +288,16 @@ export class WorkflowExecutor {
       return;
     }
 
+    const firstStage = (recordSnapshot.lifecycle as Array<{ startedAt?: string }> | undefined)?.[0];
+    const dagStartMs = firstStage?.startedAt
+      ? Date.now() - new Date(firstStage.startedAt).getTime()
+      : 0;
+    recordLoopCompletion({
+      organizationId,
+      sessionId: executionId,
+      durationMs: dagStartMs,
+      completedStages: [...completed.keys()] as import('../../observability/valueLoopMetrics.js').ValueLoopStage[],
+    });
     await this._updateStatus(executionId, organizationId, 'completed', null, recordSnapshot);
   }
 
@@ -410,6 +422,7 @@ export class WorkflowExecutor {
         if (!messageResult.success) throw new Error(`Agent communication failed: ${messageResult.error}`);
 
         const durationMs = Date.now() - start;
+        recordAgentInvocation({ agentName: agentType, stage: 'hypothesis', outcome: 'success', organizationId: orgId, durationMs });
         try {
           await this.memorySystem.storeEpisode({ sessionId, agentId: agentType, episodeType: 'stage_execution', taskIntent: stage.description ?? stage.id, context: { organizationId: orgId, stageId: stage.id }, initialState: context, finalState: messageResult.data as Record<string, unknown> ?? {}, success: true, rewardScore: 0.8, durationSeconds: durationMs / 1000 });
           await this.memorySystem.storeEpisodicMemory(sessionId, agentType, `Executed stage ${stage.id}: ${stage.description ?? stage.agent_type}`, { success: true, durationMs }, orgId);
@@ -421,6 +434,8 @@ export class WorkflowExecutor {
         return { stage_id: stage.id, agent_type: stage.agent_type, agent_id: route.selected_agent?.id, output: messageResult.data };
       } catch (err) {
         const durationMs = Date.now() - start;
+        const isTimeout = err instanceof Error && err.message.toLowerCase().includes('timeout');
+        recordAgentInvocation({ agentName: agentType, stage: 'hypothesis', outcome: isTimeout ? 'timeout' : 'error', organizationId: orgId, durationMs });
         try { await this.memorySystem.storeEpisode({ sessionId, agentId: agentType, episodeType: 'stage_execution', taskIntent: stage.description ?? stage.id, context: { organizationId: orgId, stageId: stage.id }, initialState: context, finalState: { error: err instanceof Error ? err.message : String(err) }, success: false, rewardScore: 0.1, durationSeconds: durationMs / 1000 }); } catch { /* ignore */ }
         span.setAttributes({ 'agent.latency_ms': durationMs });
         span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });

@@ -29,6 +29,17 @@ export type {
 // --- Billing ---
 export type { BillingCustomer, UsageAggregate } from "./billing";
 
+// --- Memory ---
+export type {
+  SemanticMemoryType,
+  SemanticMemoryRow,
+  SemanticMemoryInsert,
+  SemanticMemoryMatch,
+  ExpansionOpportunityType,
+  ExpansionOpportunityRow,
+  ExpansionOpportunityInsert,
+} from "./memory";
+
 // --- VOS ---
 export type { Benchmark } from "./vos";
 

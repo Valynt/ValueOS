@@ -2,13 +2,17 @@
  * PolicyEngine
  *
  * Pre-checks safety, data integrity, compliance rules, and HITL requirements
- * before agent execution. Extracted from UnifiedAgentOrchestrator in Sprint 4.
+ * before agent execution.
  *
  * Owns three enforcement paths:
  *  1. Tenant guard — blocks execution when the tenant is paused
  *  2. Autonomy guardrails — kill switch, duration/cost limits, approval gates,
  *     per-agent level/kill-switch/iteration checks
  *  3. Compliance evidence collection — appends an audit record on demand
+ *
+ * Sprint 5: Added checkHITL() — HITL gating based on DecisionContext.
+ *   HITL-01: If opportunity.confidenceScore < 0.6 AND the action involves an
+ *   external-facing artifact, require human approval before proceeding.
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -17,16 +21,17 @@ import { getAutonomyConfig } from "../../config/autonomy.js";
 import { logger } from "../../lib/logger.js";
 import { AgentRegistry } from "../../services/AgentRegistry.js";
 import { complianceEvidenceService } from "../../services/ComplianceEvidenceService.js";
-import { securityLogger } from "../../services/SecurityLogger.js";
+import { securityLogger } from "@valueos/core-services";
 import { TenantExecutionStateService } from "../../services/billing/TenantExecutionStateService.js";
 import {
   DefaultIntegrityVetoService,
   type IntegrityCheckOptions,
 } from "../../services/workflows/IntegrityVetoService.js";
 import { WorkflowStageContextDTO } from "../../types/workflow/runner.js";
+import { DecisionContext } from "@shared/domain/DecisionContext.js";
 
 // ============================================================================
-// Types
+// Types — autonomy guardrails
 // ============================================================================
 
 /**
@@ -62,6 +67,68 @@ export interface PolicyEngineOptions {
   /** Optional override for testing. */
   integrityVetoService?: Pick<DefaultIntegrityVetoService, "evaluateIntegrityVeto">;
 }
+
+// ============================================================================
+// Types — HITL (Sprint 5)
+// ============================================================================
+
+/**
+ * Point-in-time health state of the services PolicyEngine depends on.
+ *
+ * Passed as a single value object rather than individual boolean parameters
+ * so the method signature stays stable as new services are added. Callers
+ * assemble this from their own health checks; PolicyEngine does not own or
+ * query those services directly.
+ *
+ * @deprecated Use ServiceReadiness (snake_case) for new callers. This
+ * camelCase variant is retained for the Sprint 5 HITL path until ContextStore
+ * unifies the two.
+ */
+export interface ServiceHealthSnapshot {
+  messageBrokerReady: boolean;
+  queueReady: boolean;
+  memoryBackendReady: boolean;
+  llmGatewayReady: boolean;
+  circuitBreakerReady: boolean;
+}
+
+export interface PolicyCheckResult {
+  /** Whether the action is allowed to proceed without human intervention. */
+  allowed: boolean;
+  /**
+   * When allowed is false, the reason human approval is required.
+   * Included in audit logs and surfaced to the UI.
+   */
+  hitl_required: boolean;
+  hitl_reason?: string;
+  /**
+   * Structured details for audit trail and OTel span attributes.
+   */
+  details: PolicyCheckDetails;
+}
+
+export interface PolicyCheckDetails {
+  /** The policy rule that produced this result. */
+  rule_id: string;
+  /** Confidence score that triggered the check (if applicable). */
+  confidence_score?: number;
+  /** Whether the action was flagged as external-facing. */
+  is_external_artifact_action: boolean;
+  /** Lifecycle stage at the time of the check. */
+  lifecycle_stage?: string;
+}
+
+// ============================================================================
+// Thresholds
+// ============================================================================
+
+/**
+ * Minimum confidence score required to proceed with an external-facing
+ * artifact action without human approval.
+ *
+ * Sprint 5.5 requirement: trigger HITL if confidenceScore < 0.6.
+ */
+export const HITL_CONFIDENCE_THRESHOLD = 0.6;
 
 // ============================================================================
 // PolicyEngine
@@ -280,7 +347,7 @@ export class PolicyEngine {
     });
   }
 
-  // --------------------------------------------------------------------------
+   // --------------------------------------------------------------------------
   // 4. Integrity veto delegation
   // --------------------------------------------------------------------------
 
@@ -296,5 +363,56 @@ export class PolicyEngine {
       return { vetoed: false };
     }
     return this.integrityVetoService.evaluateIntegrityVeto(payload, options);
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. HITL gating (Sprint 5)
+  // --------------------------------------------------------------------------
+
+  /**
+   * Check whether the action described by the DecisionContext requires
+   * human approval before proceeding.
+   *
+   * Implements HITL-01: External artifact actions with low opportunity
+   * confidence require human approval.
+   *
+   * Returns `allowed: true` when no policy blocks the action.
+   */
+  checkHITL(context: DecisionContext): PolicyCheckResult {
+    const opportunityConfidence = context.opportunity?.confidence_score;
+    const isExternalArtifact = context.is_external_artifact_action;
+    const lifecycleStage = context.opportunity?.lifecycle_stage;
+
+    if (
+      isExternalArtifact &&
+      opportunityConfidence !== undefined &&
+      opportunityConfidence < HITL_CONFIDENCE_THRESHOLD
+    ) {
+      return {
+        allowed: false,
+        hitl_required: true,
+        hitl_reason:
+          `Opportunity confidence score is ${opportunityConfidence.toFixed(2)} ` +
+          `(below the ${HITL_CONFIDENCE_THRESHOLD} threshold). ` +
+          `Human approval is required before generating an external-facing artifact.`,
+        details: {
+          rule_id: "HITL-01",
+          confidence_score: opportunityConfidence,
+          is_external_artifact_action: isExternalArtifact,
+          lifecycle_stage: lifecycleStage,
+        },
+      };
+    }
+
+    return {
+      allowed: true,
+      hitl_required: false,
+      details: {
+        rule_id: "HITL-01",
+        confidence_score: opportunityConfidence,
+        is_external_artifact_action: isExternalArtifact,
+        lifecycle_stage: lifecycleStage,
+      },
+    };
   }
 }

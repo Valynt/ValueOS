@@ -24,7 +24,7 @@ pnpm run dev:frontend   # apps/ValyntApp — React + Vite
 pnpm run dev:backend    # packages/backend — Express API
 ```
 
-All new product logic goes to one of these two runtimes. `server/_core/` is frozen and will be deleted in Sprint 2 of the architectural refactor.
+All new product logic goes to one of these two runtimes. No other entry points exist.
 
 ## Deterministic dev environment invariants
 

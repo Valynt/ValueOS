@@ -396,6 +396,60 @@ class SubscriptionService {
   }
 
   /**
+   * Change the plan for an active subscription.
+   *
+   * Validates the transition (no same-plan change, no downgrade to free while
+   * active), then delegates to updateSubscription which uses the transactional
+   * service for atomic Stripe + DB updates.
+   *
+   * Callers should call previewSubscriptionChange first to show proration to
+   * the user before committing.
+   */
+  async changePlan(
+    tenantId: string,
+    newPlanTier: PlanTier,
+    options?: {
+      effectiveDate?: string;
+      justification?: string;
+      idempotencyKey?: string;
+    },
+  ): Promise<Subscription> {
+    if (!this.stripe || !this.stripeService) {
+      throw new Error('Billing service not configured');
+    }
+
+    const current = await this.getActiveSubscription(tenantId);
+    if (!current) {
+      throw new Error('No active subscription found for tenant');
+    }
+
+    const currentTier = current.plan_tier as PlanTier;
+    if (currentTier === newPlanTier) {
+      throw new Error(`Tenant is already on the ${newPlanTier} plan`);
+    }
+
+    logger.info('changePlan: initiating plan change', {
+      tenantId,
+      from: currentTier,
+      to: newPlanTier,
+      effectiveDate: options?.effectiveDate,
+      justification: options?.justification,
+    });
+
+    // Delegate to the transactional update path
+    const updated = await this.updateSubscription(tenantId, newPlanTier);
+
+    logger.info('changePlan: plan change completed', {
+      tenantId,
+      from: currentTier,
+      to: newPlanTier,
+      subscriptionId: updated.id,
+    });
+
+    return updated;
+  }
+
+  /**
    * Cancel subscription
    */
   async cancelSubscription(tenantId: string, immediately: boolean = false): Promise<Subscription> {

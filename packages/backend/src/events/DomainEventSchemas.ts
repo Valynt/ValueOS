@@ -114,13 +114,23 @@ export type DomainEventName =
   | 'opportunity.updated'
   | 'hypothesis.validated'
   | 'evidence.attached'
-  | 'realization.milestone_reached';
+  | 'realization.milestone_reached'
+  | 'narrative.drafted';
+
+export const NarrativeDraftedPayloadSchema = z.object({
+  organization_id: z.string(),
+  value_case_id: z.string().optional(),
+  defense_readiness_score: z.number().min(0).max(1),
+  format: z.string(),
+});
+export type NarrativeDraftedPayload = z.infer<typeof NarrativeDraftedPayloadSchema>;
 
 export type DomainEventPayloadMap = {
   'opportunity.updated': OpportunityUpdatedPayload;
   'hypothesis.validated': HypothesisValidatedPayload;
   'evidence.attached': EvidenceAttachedPayload;
   'realization.milestone_reached': RealizationMilestoneReachedPayload;
+  'narrative.drafted': NarrativeDraftedPayload;
 };
 
 export const domainEventSchemaRegistry: {
@@ -130,6 +140,7 @@ export const domainEventSchemaRegistry: {
   'hypothesis.validated': HypothesisValidatedPayloadSchema,
   'evidence.attached': EvidenceAttachedPayloadSchema,
   'realization.milestone_reached': RealizationMilestoneReachedPayloadSchema,
+  'narrative.drafted': NarrativeDraftedPayloadSchema,
 };
 
 export function validateDomainEvent<TName extends DomainEventName>(

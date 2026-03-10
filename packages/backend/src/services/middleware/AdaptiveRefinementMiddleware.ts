@@ -11,7 +11,7 @@ import type { AgentAPI } from '../AgentAPI.js';
 import type { CostAwareRouter, RoutingDecision } from '../CostAwareRouter.js';
 import type { LLMCostTracker } from '../LLMCostTracker.js';
 import type { ReflectionEngine, ReflectionResult } from '../ReflectionEngine.js';
-import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../UnifiedAgentOrchestrator.js';
+import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../types/orchestration.js';
 
 import type { RefinementMetadata } from './types.js';
 
