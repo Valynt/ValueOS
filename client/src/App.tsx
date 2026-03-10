@@ -17,7 +17,10 @@ import Ask from "./pages/Ask";
 import Strategy from "./pages/Strategy";
 import Profile from "./pages/Profile";
 
-function Router() {
+// Agentic UI Wireframes — frontend-only screens with mock data
+import WireframeRouter from "./pages/wireframes/WireframeRouter";
+
+function MainRouter() {
   return (
     <MainLayout>
       <Switch>
@@ -51,7 +54,15 @@ function App() {
         <AppProvider>
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <Switch>
+              {/* Agentic UI Wireframes — self-contained with own layout & theme */}
+              <Route path="/wireframes/:rest*" component={WireframeRouter} />
+              <Route path="/wireframes" component={WireframeRouter} />
+              {/* Main ValueOS application */}
+              <Route>
+                <MainRouter />
+              </Route>
+            </Switch>
           </TooltipProvider>
         </AppProvider>
       </ThemeProvider>

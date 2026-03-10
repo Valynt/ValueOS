@@ -42,6 +42,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* ValueOS Agentic UI — semantic colors used by wireframe screens */
+  --color-health: var(--health);
+  --color-warning: var(--warning);
+  --color-risk: var(--risk);
+  --color-info: var(--info);
 }
 
 :root {
@@ -79,6 +84,56 @@
   --sidebar-accent-foreground: oklch(0.145 0.005 285.823);
   --sidebar-border: oklch(0.922 0.004 286.32);
   --sidebar-ring: oklch(0.21 0.006 285.885);
+  /* ValueOS Agentic UI — semantic colors (light defaults) */
+  --health: oklch(0.7 0.18 155);
+  --warning: oklch(0.75 0.15 75);
+  --risk: oklch(0.65 0.2 25);
+  --info: oklch(0.65 0.18 250);
+}
+
+/*
+ * Wireframe dark theme — scoped to .wireframe-dark class.
+ * Applied by the WireframeShell layout wrapper so wireframe screens
+ * get the dark cinematic look without affecting the main ValueOS app.
+ */
+.wireframe-dark {
+  --background: oklch(0.13 0.008 270);
+  --foreground: oklch(0.93 0.005 270);
+  --card: oklch(0.17 0.01 270);
+  --card-foreground: oklch(0.93 0.005 270);
+  --popover: oklch(0.19 0.012 270);
+  --popover-foreground: oklch(0.93 0.005 270);
+  --primary: oklch(0.55 0.2 270);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.22 0.012 270);
+  --secondary-foreground: oklch(0.8 0.01 270);
+  --muted: oklch(0.2 0.008 270);
+  --muted-foreground: oklch(0.6 0.015 270);
+  --accent: oklch(0.22 0.015 270);
+  --accent-foreground: oklch(0.93 0.005 270);
+  --destructive: oklch(0.6 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.25 0.01 270);
+  --input: oklch(0.22 0.01 270);
+  --ring: oklch(0.55 0.2 270);
+  --chart-1: oklch(0.65 0.18 270);
+  --chart-2: oklch(0.55 0.2 290);
+  --chart-3: oklch(0.7 0.15 170);
+  --chart-4: oklch(0.65 0.15 50);
+  --chart-5: oklch(0.6 0.2 330);
+  --sidebar: oklch(0.15 0.01 270);
+  --sidebar-foreground: oklch(0.85 0.005 270);
+  --sidebar-primary: oklch(0.55 0.2 270);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.2 0.012 270);
+  --sidebar-accent-foreground: oklch(0.93 0.005 270);
+  --sidebar-border: oklch(0.25 0.01 270);
+  --sidebar-ring: oklch(0.55 0.2 270);
+  /* Semantic colors for wireframe dark mode */
+  --health: oklch(0.7 0.18 155);
+  --warning: oklch(0.75 0.15 75);
+  --risk: oklch(0.65 0.2 25);
+  --info: oklch(0.65 0.18 250);
 }
 
 @layer base {
@@ -132,6 +187,15 @@
       max-width: 1280px;
     }
   }
+
+  /* Wireframe annotation styles */
+  .wireframe-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
 }
 
 /* Custom scrollbar */
@@ -148,4 +212,12 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(0.7 0 0);
+}
+
+/* Wireframe dark scrollbar */
+.wireframe-dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.3 0.01 270);
+}
+.wireframe-dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.4 0.01 270);
 }
