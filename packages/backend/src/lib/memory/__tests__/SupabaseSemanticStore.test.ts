@@ -17,16 +17,26 @@ const mockOrder = vi.fn();
 
 // Flexible builder: every method returns `this` so chains work regardless of order.
 // Individual mocks override specific terminal calls.
+// mockOrder and mockEq both return the builder so further chaining works;
+// the builder itself is thenable (Promise-like) via mockOrder's resolved value
+// when tests set mockOrder.mockResolvedValue(...).
 function makeBuilder() {
   const builder: Record<string, unknown> = {};
   const self = () => builder;
   builder['insert'] = mockInsert;
   builder['update'] = (v: unknown) => { mockUpdateRow(v); return builder; };
   builder['select'] = self;
-  builder['eq'] = mockEq;
-  builder['order'] = mockOrder;
+  // eq returns the builder so chains like .eq(...).eq(...).order(...) work
+  builder['eq'] = (...args: unknown[]) => { mockEq(...args); return builder; };
+  // order returns a thenable builder — tests set mockOrder.mockResolvedValue(...)
+  // to control what the awaited result is
+  builder['order'] = (...args: unknown[]) => { mockOrder(...args); return builder; };
   builder['single'] = mockSingle;
   builder['maybeSingle'] = mockMaybeSingle;
+  // Make the builder itself awaitable so `await query` works when order() is terminal
+  builder['then'] = (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+    mockOrder.mock.results[mockOrder.mock.results.length - 1]?.value
+      ?.then(resolve, reject) ?? Promise.resolve({ data: [], error: null }).then(resolve, reject);
   return builder;
 }
 
@@ -130,6 +140,69 @@ describe('SupabaseSemanticStore', () => {
 
       const result = await store.findById(FACT_ID);
       expect(result).toBeNull();
+    });
+
+    it('applies organization_id filter when organizationId is supplied', async () => {
+      const eqCalls: Array<[string, string]> = [];
+      mockEq.mockImplementation((col: string, val: string) => {
+        eqCalls.push([col, val]);
+        return makeBuilder();
+      });
+      mockMaybeSingle.mockResolvedValue({ data: dbRow, error: null });
+
+      await store.findById(FACT_ID, ORG_ID);
+
+      const orgFilter = eqCalls.find(([col]) => col === 'organization_id');
+      expect(orgFilter).toBeDefined();
+      expect(orgFilter![1]).toBe(ORG_ID);
+    });
+  });
+
+  describe('update', () => {
+    it('scopes the write query to organization_id from the fetched row', async () => {
+      // Track eq() calls across both the fetch and the write chains
+      const eqCalls: Array<[string, string]> = [];
+
+      // The builder returned by from() must support chained .eq() calls and
+      // expose both .single() (fetch) and .update()→.eq()→.eq() (write).
+      function makeScopedBuilder(terminal: unknown) {
+        const b: Record<string, unknown> = {};
+        b['select'] = () => b;
+        b['update'] = (v: unknown) => { mockUpdateRow(v); return b; };
+        b['eq'] = (col: string, val: string) => { eqCalls.push([col, val]); return b; };
+        b['single'] = () => terminal;
+        b['maybeSingle'] = () => terminal;
+        return b;
+      }
+
+      // First call (fetch): returns the existing row including organization_id
+      const fetchResult = Promise.resolve({
+        data: { metadata: {}, organization_id: ORG_ID },
+        error: null,
+      });
+      // Second call (write): returns no error
+      const writeResult = Promise.resolve({ error: null });
+
+      let callIndex = 0;
+      vi.spyOn(
+        // Re-mock createServerSupabaseClient for this test only
+        // by replacing the from() on the store's internal supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (store as any).supabase,
+        'from',
+      ).mockImplementation(() => {
+        callIndex++;
+        return makeScopedBuilder(callIndex === 1 ? fetchResult : writeResult);
+      });
+
+      await store.update(FACT_ID, { status: 'approved' });
+
+      // The write must include both id and organization_id filters
+      const idFilter = eqCalls.find(([col]) => col === 'id');
+      const orgFilter = eqCalls.find(([col]) => col === 'organization_id');
+      expect(idFilter).toBeDefined();
+      expect(orgFilter).toBeDefined();
+      expect(orgFilter![1]).toBe(ORG_ID);
     });
   });
 

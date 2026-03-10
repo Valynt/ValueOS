@@ -68,3 +68,7 @@ Every new SDUI component must be registered in both `config/ui-registry.json` an
 ### Tool registration: static only
 
 Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRegistry.ts`. Dynamic tool creation at runtime is forbidden.
+
+### RecommendationEngine is the sixth runtime service
+
+`packages/backend/src/runtime/recommendation-engine/RecommendationEngine.ts` is a fully wired runtime service alongside the five originally documented ones (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). It subscribes to four domain events (`opportunity.updated`, `hypothesis.validated`, `evidence.attached`, `realization.milestone_reached`) and pushes next-best-action `Recommendation` objects to UI clients via `RealtimeBroadcastService`. It is started in `server.ts` and has its own test suite. All references to "five runtime services" in documentation were incorrect — there are six.

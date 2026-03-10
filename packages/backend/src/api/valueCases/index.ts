@@ -22,6 +22,7 @@ import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.j
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 import { FinancialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js'
+import { integrityOutputRepository } from '../../repositories/IntegrityOutputRepository.js'
 import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js'
 import { hypothesisOutputService } from '../../services/HypothesisOutputService.js'
 import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/CaseValueTreeService.js'
@@ -539,6 +540,36 @@ router.get(
         return;
       }
       res.json({ data: snapshot });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ============================================================================
+// Integrity Routes
+// ============================================================================
+
+// GET /cases/:caseId/integrity — latest integrity output for a case
+// Returns { data: IntegrityOutputRow | null } — never 404, empty state is data: null
+router.get(
+  '/:caseId/integrity',
+  standardLimiter,
+  requireRole(['admin', 'member', 'viewer']),
+  validateUuidParam('caseId'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { caseId } = req.params;
+    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+    if (!organizationId) {
+      res.status(401).json({ error: 'Missing tenant context' });
+      return;
+    }
+
+    try {
+      const output = await integrityOutputRepository.getForCase(caseId, organizationId);
+      res.json({ data: output });
     } catch (err) {
       next(err);
     }
