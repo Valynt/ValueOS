@@ -5,7 +5,7 @@
 The backend has accumulated three distinct architectural eras without retiring previous abstractions. The result:
 
 - 58% of backend TypeScript (147k of 252k LOC) lives in a single flat `services/` directory with 193 files
-- The canonical workflow execution path makes an HTTP round-trip to itself (QueryExecutor → AgentAPI → `fetch("http://localhost:3001")` → same process)
+- The canonical workflow execution path makes an HTTP round-trip to itself (QueryExecutor → AgentAPI → `fetch("http://localhost:3001/api/agents")` via `AGENTS_API_URL` → same process)
 - The DI container is fully built but never populated; `hasService()` always returns false
 - 7 parallel memory implementations coexist; the intended canonical package (`packages/memory`) has zero agent consumers
 - 5 independent CircuitBreaker class definitions with incompatible config interfaces
