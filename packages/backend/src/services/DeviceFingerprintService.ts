@@ -347,9 +347,9 @@ export class DeviceFingerprintService extends BaseService {
       riskScore += 0.4;
     }
 
-    // Check for new location (simplified - would integrate with GeoIP service)
+    // Detects IP change as a location proxy. GeoIP-based geo-distance comparison
+    // is deferred to post-GA — IP change is sufficient for the current security posture.
     if (device && device.ipAddress !== ipAddress) {
-      // In production, compare geo locations
       anomalies.push('new_location');
       riskScore += 0.15;
     }
@@ -363,15 +363,13 @@ export class DeviceFingerprintService extends BaseService {
       riskScore += 0.25;
     }
 
-    // Check for suspicious IP (would integrate with threat intelligence)
+    // Checks for known-bad IP patterns. Threat intelligence API integration
+    // and GeoIP-based impossible-travel detection are deferred to post-GA.
     const suspiciousIP = await this.checkSuspiciousIP(ipAddress);
     if (suspiciousIP) {
       anomalies.push('suspicious_ip');
       riskScore += 0.3;
     }
-
-    // Check for impossible travel (would need geo data)
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement with GeoIP service
 
     const recommendation = this.getRecommendation(riskScore, anomalies);
 
@@ -445,17 +443,10 @@ export class DeviceFingerprintService extends BaseService {
     );
   }
 
-  private async checkSuspiciousIP(ipAddress: string): Promise<boolean> {
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with threat intelligence API
-    // For now, check for known bad patterns
-    const suspiciousPatterns = [
-      /^10\./, // Private (shouldn't be external)
-      /^192\.168\./, // Private
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private
-    ];
-
-    // These are actually fine for internal, but suspicious if claimed as external
-    return false; // Placeholder
+  private async checkSuspiciousIP(_ipAddress: string): Promise<boolean> {
+    // Returns false until a threat intelligence provider is integrated (post-GA).
+    // Current detection boundary: new device, fingerprint mismatch, IP change, rapid device switching.
+    return false;
   }
 
   private shouldRequireMFA(

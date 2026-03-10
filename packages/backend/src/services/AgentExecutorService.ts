@@ -18,6 +18,7 @@ import {
 import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
 import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { EventSourcingService, getEventSourcingService } from "./EventSourcingService.js"
+import { isKafkaEnabled } from "./kafkaConfig.js"
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
 
 // AgentResponseEvent is not in shared types; define locally
@@ -78,19 +79,29 @@ export class AgentExecutorService {
   private unifiedAgentAPI = getUnifiedAgentAPI();
 
   /**
-   * Start the agent executor service
+   * Start the agent executor service.
+   *
+   * When KAFKA_ENABLED is false (the default for dev/staging), the Kafka consumer
+   * is not started. Agent requests are handled via direct execution on the invoke
+   * endpoint instead. Set KAFKA_ENABLED=true only when a Kafka broker is available.
    */
   async start(): Promise<void> {
+    if (!isKafkaEnabled()) {
+      logger.info("Kafka disabled — agent requests handled via direct execution on the invoke endpoint");
+      return;
+    }
     await this.consumer.connect();
     await this.consumer.subscribe();
-
-    logger.info("Agent executor service started");
+    logger.info("Agent executor service started (Kafka mode)");
   }
 
   /**
    * Stop the agent executor service
    */
   async stop(): Promise<void> {
+    if (!isKafkaEnabled()) {
+      return;
+    }
     await this.consumer.disconnect();
     logger.info("Agent executor service stopped");
   }

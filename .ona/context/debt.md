@@ -50,11 +50,11 @@ Every DB operation is a TODO comment returning mock data. Milestones, metrics, r
 
 ## P2 — Medium (feature completeness)
 
-### DEBT-008: Enterprise integrations are empty stubs
-**File:** `packages/integrations/src/`
+### DEBT-008: Enterprise integrations — ServiceNow, Slack, SharePoint not implemented
+**File:** `packages/integrations/`
 **Issue:** [#1349](https://github.com/Valynt/ValueOS/issues/1349)
 
-Salesforce, ServiceNow, Slack, and SharePoint adapters have empty method bodies. Only HubSpot has a real implementation. CRM integration falls back to mock "Acme Corp" data in dev.
+HubSpot and Salesforce are the only active adapters. ServiceNow, Slack, and SharePoint are scaffolded but all methods throw `Error("... not implemented")` and are excluded from the package's public exports. They are not wired into any production path. Implement when integration depth becomes a product priority post-GA.
 
 ### DEBT-009: ExpansionAgent has no DB persistence
 Same pattern as DEBT-003/004. No `expansion_outputs` table, no repository, no endpoint.
@@ -70,8 +70,8 @@ Email, Slack, PagerDuty, and management escalation methods are all TODO comments
 
 Code execution sandbox is scaffolded with placeholder `fetch` calls instead of the real E2B SDK.
 
-### DEBT-012: VOSAcademy content loader returns mock data
-`loadContentFromJson()` and `loadContentFromApi()` return hardcoded module structures. Curriculum content is not wired to any real data source.
+### DEBT-012: VOSAcademy content loader not implemented
+`loadContentFromJson()` and `loadContentFromApi()` now throw `Error("... not implemented")` explicitly. Curriculum content source is a product decision, not an engineering blocker. Implement when the content strategy is defined.
 
 ---
 

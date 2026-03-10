@@ -5,6 +5,10 @@ metadata:
   namespace: observability
   labels:
     app: prometheus
+# Alert rules are defined but NOT active in production until runbooks are published.
+# Prerequisite: docs/runbooks/ must contain a response procedure for each alert
+# before these rules are applied to a production cluster.
+# Target: Sprint 13 / post-GA.
 data:
   valynt-alerts.yml: |
     groups:
