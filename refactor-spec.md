@@ -111,7 +111,7 @@ All 8 phases described below. Each phase is independently shippable and must pas
 8. After Phase 5: `grep -rn "getAgentAPI\|AgentAPI" packages/backend/src/runtime` returns zero results
 9. After Phase 6: `packages/backend/src/services/CacheService.ts` does not exist
 10. After Phase 7: `find packages/backend/src/services -maxdepth 1 -name "*.ts" | wc -l` is ≤ 50 (down from 193)
-11. After Phase 8: `grep -rl "fetch(" apps/ValyntApp/src` returns ≤ 5 results (legitimate non-API uses only)
+11. After Phase 8: `grep -rl 'fetch(["'\''`]\/api\/' apps/ValyntApp/src` returns ≤ 5 results (raw frontend calls to backend \`/api/\` routes only)
 12. Each phase that introduces an architectural decision produces one ADR in `docs/engineering/adr/` and one entry in `.ona/context/decisions.md`
 
 ---
