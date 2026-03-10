@@ -75,24 +75,46 @@ export class SupabaseSagaPersistence implements SagaPersistence {
   }
 
   async recordTransition(record: SagaTransitionRecord): Promise<void> {
-    // We could use a separate table for this, or just rely on the audit log.
-    // For now, let's assume a saga_transitions table exists or we just audit it.
+    // Load organization_id from the workflow_states row for tenant isolation.
+    // Falls back to a no-op warn if the case isn't found rather than crashing.
+    let organizationId: string | null = null;
+    try {
+      const { data } = await (this.supabase
+        .from('workflow_states') as any)
+        .select('organization_id')
+        .eq('case_id', record.valueCaseId)
+        .maybeSingle();
+      organizationId = data?.organization_id ?? null;
+    } catch {
+      // Non-fatal — proceed without org scoping
+    }
+
+    if (!organizationId) {
+      logger.warn('saga_transitions: could not resolve organization_id — transition not persisted', {
+        valueCaseId: record.valueCaseId,
+        correlationId: record.correlationId,
+      });
+      return;
+    }
+
     const { error } = await (this.supabase
       .from('saga_transitions') as any)
       .insert({
         value_case_id: record.valueCaseId,
+        organization_id: organizationId,
         from_state: record.fromState,
         to_state: record.toState,
         trigger: record.trigger,
-        agent_id: record.agentId,
+        agent_id: record.agentId ?? null,
         correlation_id: record.correlationId,
-        timestamp: record.timestamp,
+        metadata: { timestamp: record.timestamp },
       });
 
     if (error) {
-      // If table doesn't exist, don't crash, just log.
-      // In a real scenario we'd ensure migration runs.
-      logger.warn('Could not record saga transition to saga_transitions table', { error });
+      logger.warn('Could not record saga transition to saga_transitions table', {
+        error: error.message,
+        valueCaseId: record.valueCaseId,
+      });
     }
   }
 }

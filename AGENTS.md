@@ -8,7 +8,7 @@ pnpm monorepo. Frontend apps in `apps/` (ValyntApp, VOSAcademy, mcp-dashboard). 
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
-**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via five focused runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
+**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
 
 ## Non-Negotiable Rules
 
@@ -86,7 +86,7 @@ export class MyAgent extends BaseAgent {
 ## Workflows & Messaging
 
 - DAG definitions: `packages/backend/src/data/lifecycleWorkflows.ts`
-- Orchestration: five runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer)
+- Orchestration: six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine)
 - Inter-agent communication: `MessageBus` (CloudEvents) — propagate `trace_id` across async boundaries
 - Workflows are DAGs; cycles are forbidden
 - Saga pattern: every state mutation needs a compensation function
@@ -158,7 +158,8 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
 | `packages/backend/src/lib/agents/` | Agent core library (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
 | `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
-| `packages/backend/src/runtime/` | Five runtime services that replaced UnifiedAgentOrchestrator: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer |
+| `packages/backend/src/runtime/` | Six runtime services that replaced UnifiedAgentOrchestrator: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine |
+| `packages/backend/src/runtime/recommendation-engine/` | RecommendationEngine — subscribes to domain events (opportunity.updated, hypothesis.validated, evidence.attached, realization.milestone_reached) and pushes next-best-action recommendations to UI clients via RealtimeBroadcastService |
 | `packages/backend/src/types/orchestration.ts` | Canonical orchestration types (AgentResponse, ExecutionEnvelope, StreamingUpdate, etc.) |
 | `packages/backend/src/analytics/ValueLoopAnalytics.ts` | Value loop learning: recommendation acceptance, assumption corrections, evidence persuasiveness |
 | `packages/backend/src/observability/valueLoopMetrics.ts` | Prometheus metrics for value loop stage transitions, agent invocations, hypothesis confidence |

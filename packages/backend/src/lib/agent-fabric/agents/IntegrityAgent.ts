@@ -26,6 +26,7 @@ import { logger } from '../../logger.js';
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 import { integrityOutputRepository } from '../../../repositories/IntegrityOutputRepository.js';
 
+import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,8 @@ export interface VetoDecision {
 // ---------------------------------------------------------------------------
 
 export class IntegrityAgent extends BaseAgent {
+  private readonly integrityRepo = new IntegrityResultRepository();
+
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
@@ -153,6 +156,25 @@ export class IntegrityAgent extends BaseAgent {
       claims_supported: supported,
       sdui_sections: sduiSections,
     };
+
+    // Persist integrity result to DB for frontend retrieval.
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId && context.organization_id) {
+      try {
+        await this.integrityRepo.createResult(valueCaseId, context.organization_id, {
+          session_id: context.workspace_id,
+          claims: analysis.claim_validations,
+          veto_decision: vetoDecision.veto ? 'veto' : vetoDecision.reRefine ? 're_refine' : 'pass',
+          overall_score: integrityResult.confidence,
+          data_quality_score: analysis.data_quality_score,
+          logic_score: analysis.logical_consistency_score,
+          evidence_score: analysis.evidence_coverage_score,
+          hallucination_check: !vetoDecision.veto,
+        });
+      } catch (err) {
+        logger.error('IntegrityAgent: failed to persist result', { error: (err as Error).message });
+      }
+    }
 
     // Publish domain event so downstream services can react to validation outcomes.
     const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)

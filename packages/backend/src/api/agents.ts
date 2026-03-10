@@ -4,6 +4,8 @@ import { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
+import type { AuthenticatedRequest } from "../middleware/auth.js";
+
 import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
 import { createAgentFactory } from "../lib/agent-fabric/AgentFactory.js"
 import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js"
@@ -61,10 +63,10 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 function resolveExternalSub(req: Request): string | undefined {
-  const anyReq = req as any;
-  const user = anyReq.user as Record<string, any> | undefined;
+  const authReq = req as AuthenticatedRequest;
+  const user = authReq.user as Record<string, unknown> | undefined;
 
-  const direct = user?.sub || user?.oidc_sub || user?.user_metadata?.sub || user?.app_metadata?.sub;
+  const direct = user?.['sub'] || user?.['oidc_sub'] || (user?.['user_metadata'] as Record<string, unknown> | undefined)?.['sub'] || (user?.['app_metadata'] as Record<string, unknown> | undefined)?.['sub'];
   if (typeof direct === 'string' && direct.length > 0) return direct;
 
   const authHeader = req.headers.authorization;
@@ -77,6 +79,24 @@ function resolveExternalSub(req: Request): string | undefined {
   }
 
   return undefined;
+}
+
+/** Minimal shape of an audit-trail event as stored by EventSourcingService. */
+interface AuditEvent {
+  eventType: string;
+  timestamp: string;
+  payload: {
+    agentId?: string;
+    userId?: string;
+    tenantId?: string;
+    sessionId?: string;
+    query?: string;
+    context?: Record<string, unknown>;
+    response?: unknown;
+    error?: string;
+    latency?: number;
+    [key: string]: unknown;
+  };
 }
 
 function kafkaUnavailableResponse(res: Response): Response {
@@ -165,8 +185,8 @@ router.post(
         agentId,
         severity,
         violations,
-        userId: (req as any).user?.id,
-        tenantId: (req as any).tenantId,
+        userId: (req as AuthenticatedRequest).user?.id,
+        tenantId: (req as AuthenticatedRequest).tenantId,
       });
 
       return res.status(400).json({
@@ -176,7 +196,7 @@ router.post(
     }
 
     // Add tenant context validation
-    const tenantId = (req as any).tenantId;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
       return res.status(403).json({
         error: "tenant_required",
@@ -215,7 +235,7 @@ router.post(
       // Direct execution fallback: run the agent synchronously without Kafka.
       // Returns the same response shape as the Kafka path so callers are mode-agnostic.
       const jobId = uuidv4();
-      const userId = (req as any).user?.id ?? "unknown";
+      const userId = (req as AuthenticatedRequest).user?.id ?? "unknown";
       const directStartTime = Date.now();
       try {
         const factory = getDirectFactory();
@@ -288,7 +308,7 @@ router.post(
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
-      const userId = (req as any).user?.id;
+      const userId = (req as AuthenticatedRequest).user?.id;
       const externalSub = resolveExternalSub(req);
 
       // Create agent request event
@@ -338,7 +358,7 @@ router.post(
           agentId,
           sessionId,
           tenantId,
-          userId: (req as any).user?.id,
+          userId: (req as AuthenticatedRequest).user?.id,
         }
       );
 
@@ -375,7 +395,7 @@ router.post(
     const action = actionRaw || "execute";
 
     // Validate tenant
-    const tenantId = (req as any).tenantId;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: "tenant_required", message: "Tenant context is required" } });
     }
@@ -387,7 +407,7 @@ router.post(
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
-      const userId = (req as any).user?.id;
+      const userId = (req as AuthenticatedRequest).user?.id;
       const externalSub = resolveExternalSub(req);
 
       const payload = {
@@ -447,7 +467,7 @@ router.post(
     const action = actionPart || undefined;
 
     // Tenant validation
-    const tenantId = (req as any).tenantId;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
     }
@@ -459,7 +479,7 @@ router.post(
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
-      const userId = (req as any).user?.id;
+      const userId = (req as AuthenticatedRequest).user?.id;
       const externalSub = resolveExternalSub(req);
 
       const normalizedAction = action
@@ -517,7 +537,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
 
     // Check if we have a response event
     const events = auditTrail.data?.events || [];
-    const responseEvent = events.find((e: any) => e.eventType === "agent.response");
+    const responseEvent = events.find((e: AuditEvent) => e.eventType === "agent.response");
 
     if (responseEvent) {
       // Job completed
@@ -525,7 +545,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
 
       // Populate Cache if successful
       if (result && !responseEvent.payload.error) {
-        const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+        const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
         if (requestEvent?.payload) {
           const { query, context, agentId, tenantId } = requestEvent.payload;
           try {
@@ -553,7 +573,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
       });
     } else {
       // Job still processing or queued
-      const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+      const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
       return res.json({
         success: true,
         data: {
@@ -596,7 +616,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
   res.setHeader("Connection", "keep-alive");
   if (res.flushHeaders) res.flushHeaders();
 
-  const sendEvent = (data: any) => {
+  const sendEvent = (data: Record<string, unknown>) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
@@ -624,7 +644,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
 
       if (auditTrail) {
         const events = auditTrail.data?.events || [];
-        const responseEvent = events.find((e: any) => e.eventType === "agent.response");
+        const responseEvent = events.find((e: AuditEvent) => e.eventType === "agent.response");
 
         if (responseEvent) {
           const result = responseEvent.payload.response;
@@ -632,7 +652,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
 
           // Populate Cache if successful
           if (result && !error) {
-            const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+            const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
             if (requestEvent?.payload) {
               const { query, context, agentId, tenantId } = requestEvent.payload;
               try {
@@ -657,7 +677,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
           return res.end();
         } else {
           // Send processing update
-          const requestEvent = events.find((e: any) => e.eventType === "agent.request");
+          const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
           sendEvent({
             status: "processing",
             agentId: requestEvent?.payload?.agentId ?? 'unknown',
@@ -698,7 +718,7 @@ router.post(
 
     const { issueId, resolution, modifiedOutput, agentId, sessionId } = parsed.data;
 
-    const tenantId = (req as any).tenantId;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
     }
@@ -710,7 +730,7 @@ router.post(
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
-      const userId = (req as any).user?.id;
+      const userId = (req as AuthenticatedRequest).user?.id;
       const externalSub = resolveExternalSub(req);
 
       // Publish a typed agent request to handle veto resolution
@@ -745,8 +765,8 @@ router.post(
           action: `veto_${resolution}`,
           outcome: 'success',
           details: { agentId, sessionId, modifiedOutput },
-          ipAddress: (req as any).ip || 'unknown',
-          userAgent: (req as any).headers['user-agent'] || '',
+          ipAddress: (req as AuthenticatedRequest).ip || 'unknown',
+          userAgent: (req as AuthenticatedRequest).headers['user-agent'] || '',
           timestamp: Date.now(),
           sessionId: sessionId || correlationId,
           correlationId,
