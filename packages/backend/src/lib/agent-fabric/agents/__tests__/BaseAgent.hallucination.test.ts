@@ -234,7 +234,7 @@ describe("BaseAgent hallucination detection", () => {
     it("flags outputs that contradict vetoed integrity results", async () => {
       mockRetrieve.mockResolvedValue([
         {
-          id: "mem_1", agent_id: "test", workspace_id: "ws-123",
+          id: "mem_1", agent_id: "test", organization_id: "org-456", workspace_id: "ws-123",
           content: "Integrity validation: VETOED",
           memory_type: "semantic", importance: 0.95,
           created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,

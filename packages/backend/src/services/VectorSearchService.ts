@@ -11,6 +11,8 @@
  * - Error handling
  */
 
+import { createHash } from "node:crypto";
+
 import { logger } from "@shared/lib/logger";
 
 import { supabase } from "../lib/supabase";
@@ -237,7 +239,12 @@ export class VectorSearchService {
   }
 
   /**
-   * Get memory statistics scoped to a tenant
+   * Get memory statistics scoped to a tenant.
+   *
+   * Delegates to the `get_semantic_memory_stats` Postgres function which
+   * returns total, per-type counts, and a 7-day recent count in a single
+   * round-trip. The previous implementation fetched all `type` values and
+   * grouped them in JavaScript, transferring O(n) rows for a stats call.
    */
   async getStats(organizationId: string): Promise<{
     total: number;
@@ -248,40 +255,22 @@ export class VectorSearchService {
       throw new Error("organizationId is required for tenant-scoped memory stats");
     }
 
-    try {
-      // Total count
-      const { count: total } = await supabase
-        .from("semantic_memory")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", organizationId);
+    const { data, error } = await supabase.rpc("get_semantic_memory_stats", {
+      p_organization_id: organizationId,
+    });
 
-      // Count by type
-      const { data: typeData } = await supabase
-        .from("semantic_memory")
-        .select("type")
-        .eq("organization_id", organizationId);
-
-      const byType: Record<string, number> = {};
-      typeData?.forEach((row: any) => {
-        byType[row.type] = (byType[row.type] || 0) + 1;
-      });
-
-      // Recent count (last 7 days)
-      const { count: recentCount } = await supabase
-        .from("semantic_memory")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", organizationId)
-        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-
-      return {
-        total: total || 0,
-        byType,
-        recentCount: recentCount || 0,
-      };
-    } catch (error) {
+    if (error) {
       logger.error("Failed to get memory stats", { error });
       throw error;
     }
+
+    const result = data as { total: number; byType: Record<string, number>; recentCount: number } | null;
+
+    return {
+      total: result?.total ?? 0,
+      byType: result?.byType ?? {},
+      recentCount: result?.recentCount ?? 0,
+    };
   }
 
   /**
@@ -474,14 +463,12 @@ export class VectorSearchService {
   }
 
   private hashEmbedding(embedding: number[]): string {
-    // Simple hash for cache key (first/last/middle values)
-    if (embedding.length === 0) return "0:0:0";
-    const samples = [
-      embedding[0],
-      embedding[Math.floor(embedding.length / 2)],
-      embedding[embedding.length - 1],
-    ];
-    return samples.map((v) => v!.toFixed(4)).join(":");
+    if (embedding.length === 0) return "empty";
+    // SHA-256 over the full embedding so that semantically distinct vectors
+    // never collide in the cache. Float32Array gives a stable binary
+    // representation regardless of JS number precision.
+    const buf = Buffer.from(new Float32Array(embedding).buffer);
+    return createHash("sha256").update(buf).digest("hex").slice(0, 16);
   }
 }
 

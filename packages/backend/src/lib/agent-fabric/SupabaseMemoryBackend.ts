@@ -43,9 +43,9 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
   constructor(private semanticMemory: SemanticMemoryService) {}
 
   async store(memory: Memory): Promise<string> {
-    const organizationId = memory.metadata?.organization_id as string | undefined;
+    const organizationId = memory.organization_id;
     if (!organizationId) {
-      throw new Error("organization_id required in memory metadata for persistent storage");
+      throw new Error("organization_id required on memory for persistent storage");
     }
 
     try {
@@ -127,6 +127,7 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
         memories.push({
           id: (meta.agent_memory_id as string) || result.entry.id,
           agent_id: String(meta.agentType || ""),
+          organization_id: query.organization_id,
           workspace_id: String(meta.session_id || ""),
           content: result.entry.content,
           memory_type: (meta.agent_memory_type as MemoryType) || "episodic",
