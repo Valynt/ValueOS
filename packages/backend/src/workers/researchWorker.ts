@@ -85,8 +85,8 @@ function getServiceSupabase(): SupabaseClient {
 
 function createLLMAdapter(): LLMGatewayInterface {
   const gateway = new LLMGateway({
-    provider: (process.env.LLM_PROVIDER as 'openai' | 'anthropic') || 'openai',
-    model: process.env.LLM_MODEL || 'gpt-4o',
+    provider: (process.env.LLM_PROVIDER as 'openai' | 'anthropic' | 'together') || 'together',
+    model: process.env.LLM_MODEL || 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
     temperature: 0.3,
     max_tokens: 4096,
   });

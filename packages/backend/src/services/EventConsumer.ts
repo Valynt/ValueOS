@@ -45,7 +45,13 @@ export class EventConsumer {
   private readonly tctSecret: string;
 
   constructor(config: ConsumerConfig) {
-    this.tctSecret = process.env.TCT_SECRET || "default-tct-secret-change-me";
+    const tctSecret = process.env.TCT_SECRET;
+    if (!tctSecret) {
+      throw new Error(
+        "TCT_SECRET environment variable is required. Set it before starting the event consumer.",
+      );
+    }
+    this.tctSecret = tctSecret;
     this.config = {
       maxRetries: 3,
       retryDelay: 1000,
