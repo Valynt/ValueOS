@@ -39,7 +39,7 @@ All 8 phases described below. Each phase is independently shippable and must pas
 ### R2 — Delete Dead Scaffolding (Phase 2)
 
 - `DependencyInjectionContainer.ts` deleted; the `hasService` guard in `UnifiedAgentAPI` replaced with direct construction (which is what already happens at runtime)
-- `packages/sdui-types/` deleted after confirming zero runtime imports in `apps/VOSAcademy` and `apps/mcp-dashboard`
+- `packages/sdui-types/` deleted only after (a) relocating shared SDUI types to a canonical location (e.g., `packages/sdui` or `@valueos/shared`), (b) updating all `@valueos/sdui-types` imports in `packages/sdui` to the new location, and (c) confirming zero runtime imports in `apps/VOSAcademy` and `apps/mcp-dashboard`
 - `packages/agent-fabric/` root-level stub package deleted (`runAgentWithBudget.ts` returns hardcoded simulated output; `types.ts` conflicts with `types/agent.ts`)
 - `ValueLifecycleOrchestrator`, `IntelligentCoordinator`, `SelfHealingManager` moved to `services/post-v1/`
 - `AgentFabricService` (hardcoded preview data) and `CostAwareRoutingService` (stub response body) moved to `services/post-v1/` or deleted after live-caller audit
