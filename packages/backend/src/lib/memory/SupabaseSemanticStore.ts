@@ -104,10 +104,10 @@ export class SupabaseSemanticStore implements SemanticStore {
     id: string,
     updates: Partial<Pick<SemanticFact, 'status' | 'version' | 'updatedAt' | 'metadata'>>,
   ): Promise<void> {
-    // Fetch current metadata to merge
+    // Fetch current row — select organization_id so the write is scoped to the same tenant.
     const { data: existing, error: fetchError } = await this.supabase
       .from('semantic_memory')
-      .select('metadata')
+      .select('metadata, organization_id')
       .eq('id', id)
       .single();
 
@@ -115,7 +115,8 @@ export class SupabaseSemanticStore implements SemanticStore {
       throw new Error(`Semantic fact not found for update: ${id}`);
     }
 
-    const currentMeta = (existing as { metadata: Record<string, unknown> }).metadata ?? {};
+    const row = existing as { metadata: Record<string, unknown>; organization_id: string };
+    const currentMeta = row.metadata ?? {};
     const mergedMeta: Record<string, unknown> = {
       ...currentMeta,
       ...(updates.metadata ?? {}),
@@ -123,13 +124,16 @@ export class SupabaseSemanticStore implements SemanticStore {
     if (updates.status !== undefined) mergedMeta['status'] = updates.status;
     if (updates.version !== undefined) mergedMeta['version'] = updates.version;
 
+    // Scope the write to both id AND organization_id — prevents updating a row
+    // that belongs to a different tenant if RLS is misconfigured.
     const { error } = await this.supabase
       .from('semantic_memory')
       .update({
         metadata: mergedMeta,
         updated_at: updates.updatedAt ?? new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('organization_id', row.organization_id);
 
     if (error) {
       logger.error('SupabaseSemanticStore.update failed', { id, error: error.message });
@@ -137,12 +141,19 @@ export class SupabaseSemanticStore implements SemanticStore {
     }
   }
 
-  async findById(id: string): Promise<SemanticFact | null> {
-    const { data, error } = await this.supabase
+  async findById(id: string, organizationId?: string): Promise<SemanticFact | null> {
+    let query = this.supabase
       .from('semantic_memory')
       .select('*')
-      .eq('id', id)
-      .maybeSingle();
+      .eq('id', id);
+
+    // When the caller supplies organizationId, scope the query to that tenant.
+    // This is defence-in-depth on top of RLS.
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId) as typeof query;
+    }
+
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
       logger.error('SupabaseSemanticStore.findById failed', { id, error: error.message });

@@ -154,6 +154,54 @@ describe('SupabaseVectorStore', () => {
     });
   });
 
+  describe('deleteByArtifactId', () => {
+    it('includes organization_id filter when tenantId is supplied', async () => {
+      const eqCalls: Array<[string, string]> = [];
+
+      // Build a delete chain that records every .eq() call
+      const deleteChain: Record<string, unknown> = {};
+      deleteChain['eq'] = (col: string, val: string) => {
+        eqCalls.push([col, val]);
+        return deleteChain;
+      };
+      deleteChain['select'] = () => Promise.resolve({ data: [{ id: 'chunk-1' }], error: null });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.spyOn((store as any).supabase, 'from').mockReturnValue({
+        delete: () => deleteChain,
+      });
+
+      const count = await store.deleteByArtifactId(ARTIFACT_ID, TENANT_ID);
+
+      expect(count).toBe(1);
+      const artifactFilter = eqCalls.find(([col]) => col === 'metadata->>artifact_id');
+      const orgFilter = eqCalls.find(([col]) => col === 'organization_id');
+      expect(artifactFilter).toBeDefined();
+      expect(orgFilter).toBeDefined();
+      expect(orgFilter![1]).toBe(TENANT_ID);
+    });
+
+    it('omits organization_id filter and logs a warning when tenantId is not supplied', async () => {
+      const eqCalls: Array<[string, string]> = [];
+      const deleteChain: Record<string, unknown> = {};
+      deleteChain['eq'] = (col: string, val: string) => {
+        eqCalls.push([col, val]);
+        return deleteChain;
+      };
+      deleteChain['select'] = () => Promise.resolve({ data: [], error: null });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      vi.spyOn((store as any).supabase, 'from').mockReturnValue({
+        delete: () => deleteChain,
+      });
+
+      await store.deleteByArtifactId(ARTIFACT_ID);
+
+      const orgFilter = eqCalls.find(([col]) => col === 'organization_id');
+      expect(orgFilter).toBeUndefined();
+    });
+  });
+
   describe('hybridSearch', () => {
     it('calls match_semantic_memory_hybrid RPC', async () => {
       mockRpc.mockResolvedValue({ data: [rpcRow], error: null });
