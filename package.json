@@ -13,7 +13,10 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
-    "test:e2e:gate": "vitest run --config vitest.e2e.config.ts"
+    "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
+    "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
+    "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs",
+    "check:frontend-bundle-service-role": "node scripts/ci/check-frontend-bundle-service-role.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
