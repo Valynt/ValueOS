@@ -209,29 +209,34 @@ export class OpportunityAgent extends BaseAgent {
     const avgConfidence = analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0)
       / analysis.hypotheses.length;
 
-    for (const hypothesis of analysis.hypotheses) {
-      try {
-        await getDomainEventBus().publish('evidence.attached', {
-          ...buildEventEnvelope({
-            traceId,
-            tenantId: context.organization_id,
-            actorId: context.user_id,
-          }),
-          opportunityId,
-          workspaceId: context.workspace_id,
-          // id is always set by generateHypotheses() before this runs
-          hypothesisId: hypothesis.id ?? `${hypothesis.category}-unknown`,
-          evidenceType: 'financial_data',
-          source: financialData.sources.join(', '),
-          confidenceDelta: avgConfidence,
-        });
-      } catch (err) {
-        logger.warn('OpportunityAgent: failed to publish evidence.attached event', {
-          hypothesis: hypothesis.title,
-          error: (err as Error).message,
-        });
-      }
-    }
+    // Publish all evidence events concurrently — each is independent and the
+    // event bus is in-process, so parallel dispatch is safe. Per-item errors
+    // are caught individually so one failure does not suppress the others.
+    await Promise.all(
+      analysis.hypotheses.map(async (hypothesis) => {
+        try {
+          await getDomainEventBus().publish('evidence.attached', {
+            ...buildEventEnvelope({
+              traceId,
+              tenantId: context.organization_id,
+              actorId: context.user_id,
+            }),
+            opportunityId,
+            workspaceId: context.workspace_id,
+            // id is always set by generateHypotheses() before this runs
+            hypothesisId: hypothesis.id ?? `${hypothesis.category}-unknown`,
+            evidenceType: 'financial_data',
+            source: financialData.sources.join(', '),
+            confidenceDelta: avgConfidence,
+          });
+        } catch (err) {
+          logger.warn('OpportunityAgent: failed to publish evidence.attached event', {
+            hypothesis: hypothesis.title,
+            error: (err as Error).message,
+          });
+        }
+      }),
+    );
   }
 
   // -------------------------------------------------------------------------

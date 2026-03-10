@@ -1,31 +1,16 @@
-import { WebSocket } from "ws";
-
 import { logger } from "../lib/logger.js";
-import { wss } from "../server";
 
 import { getBroadcastAdapter } from "./WebSocketBroadcastAdapter.js";
-
-
-interface AuthenticatedWebSocket extends WebSocket {
-  tenantId: string;
-}
 
 export class RealtimeBroadcastService {
   broadcastToTenant(tenantId: string, messageType: string, payload: unknown): void {
     try {
       const message = JSON.stringify({ type: messageType, payload, timestamp: new Date().toISOString() });
 
-      try {
-        getBroadcastAdapter().broadcast(tenantId, message);
-      } catch {
-        // Adapter not initialised — fall back to local-only delivery.
-        (wss as unknown as { clients: Set<WebSocket> }).clients.forEach((client) => {
-          const authed = client as AuthenticatedWebSocket;
-          if (client.readyState === WebSocket.OPEN && authed.tenantId === tenantId) {
-            client.send(message);
-          }
-        });
-      }
+      // getBroadcastAdapter() throws if initBroadcastAdapter() was never called.
+      // That is a startup sequencing bug — surface it as an error rather than
+      // silently falling back to an O(total_connections) client scan.
+      getBroadcastAdapter().broadcast(tenantId, message);
 
       logger.debug("Broadcasted realtime message", { tenantId, messageType });
     } catch (error) {
