@@ -70,17 +70,17 @@ app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCase
 | Layer | Artifact | Status |
 |---|---|---|
 | **Agent** | `IntegrityAgent.ts` — validates claims, assigns confidence scores, component-scoped vetoes | ✅ |
-| **DB table** | `integrity_outputs` | ❌ does not exist |
-| **Repository** | `IntegrityOutputRepository.ts` | ❌ does not exist |
-| **Service** | — | ❌ |
-| **API endpoint** | `GET /api/v1/value-cases/:caseId/integrity` | ❌ |
-| **API endpoint** | `POST /api/agents/integrity/invoke` | ✅ (agent invocable) |
-| **Frontend hook** | `useIntegrityOutput(caseId)` | ❌ |
-| **UI component** | `IntegrityStage.tsx` — renders **hardcoded Acme Corp demo data** | ⚠️ |
-| **User story** | US-004 | ❌ |
-| **Debt ref** | DEBT-003, issue #1344 | |
+| **DB table** | `integrity_outputs` — migration `20260325000000_integrity_outputs.sql` | ✅ |
+| **Repository** | `packages/backend/src/repositories/IntegrityOutputRepository.ts` | ✅ |
+| **Service** | — | — |
+| **API endpoint** | `GET /api/v1/cases/:caseId/integrity` | ✅ |
+| **API endpoint** | `POST /api/agents/integrity/invoke` | ✅ |
+| **Frontend hook** | `apps/ValyntApp/src/hooks/useIntegrityOutput.ts` | ✅ |
+| **UI component** | `IntegrityStage.tsx` — wired to real data, empty state, veto banner | ✅ |
+| **User story** | US-004 | ✅ |
+| **Debt ref** | DEBT-001, DEBT-002, DEBT-003 — all resolved in Sprint 11 | |
 
-**To implement:** migration → `IntegrityOutputRepository` → `GET` endpoint → update `IntegrityAgent.execute()` to persist → `useIntegrityOutput` hook → wire `IntegrityStage`.
+**Implemented in Sprint 11.** Full stack slice complete.
 
 ---
 

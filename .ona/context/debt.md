@@ -7,33 +7,18 @@ Source of truth for sprint planning. Linked GitHub issues where they exist.
 
 ## P0 — Blocking (production path broken)
 
-### DEBT-001: Direct-mode agent execution uses wrong LLM provider
-**File:** `packages/backend/src/services/UnifiedAgentOrchestrator.ts:414`
-**File:** `packages/backend/src/routes/agents.ts` (getDirectFactory)
-**Issue:** [#1343](https://github.com/Valynt/ValueOS/issues/1343)
+~~### DEBT-001: Direct-mode agent execution uses wrong LLM provider~~
+**Resolved in Sprint 11.** `provider: "openai"` → `provider: "together"` in `getDirectFactory()` (`packages/backend/src/api/agents.ts`). Regression test: `src/api/__tests__/agents.factory.test.ts`.
 
-`LLMGateway` only implements `provider: "together"`. Both `UnifiedAgentOrchestrator` and `getDirectFactory()` instantiate it with `provider: "openai"`, causing every direct-mode agent invocation to throw `'Provider not implemented'`.
-
-**Fix:** Change `provider: "openai"` → `provider: "together"` in both locations.
-
-### DEBT-002: Direct-mode MemorySystem has persistence disabled
-**File:** `packages/backend/src/routes/agents.ts` (getDirectFactory)
-
-`MemorySystem` is instantiated with `enable_persistence: false` for direct-mode execution. Agent-to-agent memory handoffs fail because memories are lost between HTTP requests.
-
-**Fix:** Set `enable_persistence: true` or wire to `SupabaseMemoryBackend`.
+~~### DEBT-002: Direct-mode MemorySystem has persistence disabled~~
+**Resolved in Sprint 11.** `enable_persistence: false` → `true` + `SupabaseMemoryBackend` wired in `getDirectFactory()`. Regression test: `src/api/__tests__/agents.factory.test.ts`.
 
 ---
 
 ## P1 — High (lifecycle loop incomplete, visible to users)
 
-### DEBT-003: IntegrityStage renders hardcoded demo data
-**File:** `apps/ValyntApp/src/` (IntegrityStage component)
-**Issue:** [#1344](https://github.com/Valynt/ValueOS/issues/1344)
-
-No `integrity_outputs` table, no repository, no API endpoint. `IntegrityAgent` stores output in `MemorySystem` only — lost on restart.
-
-**Fix:** Migration + `IntegrityOutputRepository` + `GET /api/v1/value-cases/:id/integrity` + frontend hook.
+~~### DEBT-003: IntegrityStage renders hardcoded demo data~~
+**Resolved in Sprint 11.** Migration `20260325000000_integrity_outputs.sql`, `IntegrityOutputRepository`, `GET /api/v1/cases/:caseId/integrity`, `useIntegrityOutput` hook, `IntegrityStage` wired to real data.
 
 ### DEBT-004: RealizationStage renders hardcoded demo data
 **File:** `apps/ValyntApp/src/` (RealizationStage component)
