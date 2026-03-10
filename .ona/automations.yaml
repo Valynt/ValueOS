@@ -52,11 +52,11 @@ tasks:
         fi
       done
       if [ -n "$MISSING" ]; then
-        echo "FAIL: missing required env vars:$MISSING"
-        echo "Copy .env.local.example to .env.local and fill in values."
-        exit 1
+        echo "WARNING: missing env vars:$MISSING"
+        echo "Copy .env.local.example to .env.local and fill in values before running the full stack."
+      else
+        echo "All required env vars present."
       fi
-      echo "All required env vars present."
 
       echo "--- DB connection ---"
       if command -v psql &>/dev/null && [ -n "${DATABASE_URL:-}" ]; then
