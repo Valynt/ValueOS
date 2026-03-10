@@ -31,6 +31,5 @@ AS $$
   WHERE organization_id = p_organization_id;
 $$;
 
--- Grant execute to authenticated and service_role
-GRANT EXECUTE ON FUNCTION public.get_semantic_memory_stats(uuid) TO authenticated;
+-- Grant execute only to service_role (backend usage)
 GRANT EXECUTE ON FUNCTION public.get_semantic_memory_stats(uuid) TO service_role;
