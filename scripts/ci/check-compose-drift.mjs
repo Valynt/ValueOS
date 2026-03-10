@@ -57,6 +57,8 @@ const trackedComposeFiles = execSync(
 
 for (const relativePath of trackedComposeFiles) {
   if (relativePath.startsWith("ops/compose/")) continue;
+  // infra/docker/ is the canonical location for production compose files
+  if (relativePath.startsWith("infra/docker/")) continue;
 
   const content = readFileSync(resolve(ROOT, relativePath), "utf-8");
   if (/^services:/m.test(content)) {
