@@ -205,8 +205,9 @@ export class SagaCoordinator {
    */
   private async executeSaga(sagaState: SagaState, definition: SagaDefinition): Promise<void> {
     const timeout = definition.timeout || 300000; // 5 minutes default
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Saga timeout")), timeout);
+      timeoutHandle = setTimeout(() => reject(new Error("Saga timeout")), timeout);
     });
 
     try {
@@ -277,12 +278,15 @@ export class SagaCoordinator {
         sagaType: sagaState.sagaType,
         correlationId: sagaState.correlationId,
       });
+    } finally {
+      // Always clear the timeout to prevent handle leaks on both success and failure.
+      clearTimeout(timeoutHandle);
     }
 
-    // Clean up completed sagas after a delay
+    // Keep the saga state briefly for debugging, then evict.
     setTimeout(() => {
       this.activeSagas.delete(sagaState.sagaId);
-    }, 60000); // Keep for 1 minute for debugging
+    }, 60000);
   }
 
   /**

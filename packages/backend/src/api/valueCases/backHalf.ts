@@ -248,6 +248,47 @@ backHalfRouter.post('/:id/expansion/run', ...auth, async (req: Request, res: Res
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
 
+/**
+ * Allowed origins for PDF renderUrl (SSRF protection).
+ *
+ * Only the app's own origin is permitted. Requests to internal network
+ * addresses, cloud metadata endpoints, or arbitrary external URLs are blocked.
+ * Set PDF_ALLOWED_ORIGINS (comma-separated) to override in non-standard
+ * deployments. Falls back to APP_URL, then localhost.
+ */
+function getAllowedRenderOrigins(): string[] {
+  const envOrigins = process.env.PDF_ALLOWED_ORIGINS;
+  if (envOrigins) {
+    return envOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+  }
+  const appUrl = process.env.APP_URL ?? 'http://localhost:3001';
+  try {
+    return [new URL(appUrl).origin];
+  } catch {
+    // APP_URL is misconfigured — log and return empty list so all renderUrls
+    // are rejected rather than crashing the request handler.
+    logger.error('PDF export: APP_URL is not a valid URL, all renderUrl requests will be blocked', {
+      appUrl,
+    });
+    return [];
+  }
+}
+
+function isAllowedRenderUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  // Block non-http(s) schemes (file://, gopher://, etc.)
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return false;
+  }
+  const origin = parsed.origin;
+  return getAllowedRenderOrigins().some((allowed) => origin === allowed);
+}
+
 const PdfExportBodySchema = z.object({
   renderUrl: z.string().url(),
   title: z.string().optional(),
@@ -264,6 +305,19 @@ backHalfRouter.post('/:id/export/pdf', ...auth, async (req: Request, res: Respon
   }
 
   const { renderUrl, title } = parsed.data;
+
+  // SSRF protection: renderUrl must resolve to the app's own origin.
+  if (!isAllowedRenderUrl(renderUrl)) {
+    logger.warn('PDF export blocked: renderUrl not in allowed origins', {
+      caseId,
+      tenantId,
+      renderUrl,
+    });
+    return res.status(400).json({
+      success: false,
+      error: 'renderUrl must point to the application origin',
+    });
+  }
 
   // Extract auth token from the incoming request to pass to Puppeteer
   const authToken =

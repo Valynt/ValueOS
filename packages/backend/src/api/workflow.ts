@@ -62,8 +62,8 @@ async function executeWorkflowHandler(req: WorkflowExecuteRequest, res: Response
     });
   }
 
-  if (!tenantId || tenantId === 'public') {
-    return res.status(403).json({
+  if (!tenantId) {
+    return res.status(401).json({
       error: 'tenant_required',
       message: 'Tenant context is required to execute workflows',
     });
@@ -131,7 +131,7 @@ router.get(
   rateLimiters.standard,
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const tenantId = getTenantIdFromRequest(req as any);
+    const tenantId = getTenantIdFromRequest(req as any) ?? "anonymous";
 
     const payload = await ReadThroughCacheService.getOrLoad(
       {

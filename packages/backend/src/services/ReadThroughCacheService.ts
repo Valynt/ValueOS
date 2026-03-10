@@ -74,14 +74,15 @@ export class ReadThroughCacheService {
 export function getTenantIdFromRequest(req: {
   tenantId?: string;
   headers: Record<string, string | string[] | undefined>;
-}): string {
+}): string | undefined {
   const tenantHeader = req.headers["x-tenant-id"];
   const organizationHeader = req.headers["x-organization-id"];
   const tenant =
     (Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader) ||
     (Array.isArray(organizationHeader) ? organizationHeader[0] : organizationHeader) ||
-    req.tenantId ||
-    "public";
+    req.tenantId;
 
-  return tenant;
+  // Return undefined rather than a "public" sentinel so callers can
+  // distinguish "no tenant" from a real tenant named "public".
+  return tenant || undefined;
 }

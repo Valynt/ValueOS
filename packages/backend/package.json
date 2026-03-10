@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.989.0",
+    "bullmq": "^5.56.0",
     "@mcp/ground-truth": "workspace:*",
     "@valueos/core-services": "workspace:*",
     "@valueos/shared": "workspace:*",

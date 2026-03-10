@@ -246,11 +246,12 @@ export class WorkflowStateRepository {
     }
   }
 
-  async cleanupOldSessions(maxAgeMs: number): Promise<number> {
-    const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+  async cleanupOldSessions(olderThanDays: number, tenantId: string): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
     const { data } = await this.supabase
       .from('workflow_states')
       .delete()
+      .eq('organization_id', tenantId)
       .lt('updated_at', cutoff)
       .select('id');
     return data?.length ?? 0;

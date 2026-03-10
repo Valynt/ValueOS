@@ -1,4 +1,4 @@
-import { Job, Queue, Worker } from "bullmq";
+import { Job, Queue, QueueEvents, Worker } from "bullmq";
 
 import {
   getAgentMessageQueueConfig,
@@ -31,6 +31,7 @@ export interface AgentInvocationResult {
 export class AgentMessageQueue {
   private queue: Queue<AgentInvocationJob>;
   private worker: Worker<AgentInvocationJob>;
+  private queueEvents: QueueEvents;
   private agentAPI = getAgentAPI();
 
   constructor(redisUrl?: string) {
@@ -39,6 +40,12 @@ export class AgentMessageQueue {
     // Use provided redisUrl or config default
     const finalRedisUrl =
       redisUrl || config.redis.url || "redis://localhost:6379";
+
+    // QueueEvents is required by job.waitUntilFinished() to receive
+    // completion/failure notifications from Redis pub/sub.
+    this.queueEvents = new QueueEvents("agent-invocations", {
+      connection: { url: finalRedisUrl },
+    });
 
     // Create queue with Redis connection
     this.queue = new Queue<AgentInvocationJob>("agent-invocations", {
@@ -164,17 +171,19 @@ export class AgentMessageQueue {
       throw new Error(`Job ${jobId} not found`);
     }
 
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
-      // Use BullMQ's job completion promise with timeout race
+      // waitUntilFinished subscribes to QueueEvents pub/sub and resolves
+      // when the job completes or rejects when it fails. The timeout races
+      // against it so we don't block indefinitely.
       await Promise.race([
-        // @ts-ignore - BullMQ types may not include finished getter
-        job.finished,
-        new Promise<never>((_, reject) =>
-          setTimeout(
+        job.waitUntilFinished(this.queueEvents),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(
             () => reject(new Error(`Job ${jobId} timeout`)),
             effectiveTimeout
-          )
-        ),
+          );
+        }),
       ]);
 
       return job.returnvalue as AgentInvocationResult;
@@ -185,6 +194,8 @@ export class AgentMessageQueue {
         );
       }
       throw error;
+    } finally {
+      clearTimeout(timeoutHandle);
     }
   }
 
@@ -223,6 +234,7 @@ export class AgentMessageQueue {
 
     await this.worker.close();
     await this.queue.close();
+    await this.queueEvents.close();
 
     logger.info("Agent Message Queue shut down");
   }

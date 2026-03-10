@@ -158,10 +158,12 @@ router.post(
     const { agentId } = req.params;
 
     // Zod Validation Schema
+    // parameters is restricted to scalar values (string | number | boolean) so
+    // nested objects cannot smuggle unsanitized strings into agent prompts.
     const invokeSchema = z.object({
       query: z.string().max(2000),
       context: z.any().optional(), // Flexible context
-      parameters: z.record(z.unknown()).optional(),
+      parameters: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
       sessionId: z.string().max(100).optional(),
     });
 
@@ -193,6 +195,38 @@ router.post(
         error: "Invalid request",
         message: "Agent prompt rejected due to unsafe content",
       });
+    }
+
+    // Sanitize string values in parameters to prevent prompt injection.
+    // Numbers and booleans are safe scalars; they pass through unchanged.
+    // Nested objects are rejected at the schema level above.
+    let sanitizedParameters: Record<string, string | number | boolean> | undefined;
+    if (parameters) {
+      sanitizedParameters = {};
+      for (const [key, value] of Object.entries(parameters)) {
+        if (typeof value === "string") {
+          const { sanitized: sanitizedValue, safe: paramSafe, violations: paramViolations } =
+            sanitizeAgentInput(value);
+          if (!paramSafe) {
+            logger.warn("Blocked unsafe agent parameter", {
+              agentId,
+              key,
+              violations: paramViolations,
+              userId: (req as AuthenticatedRequest).user?.id,
+              tenantId: (req as AuthenticatedRequest).tenantId,
+            });
+            return res.status(400).json({
+              error: "Invalid request",
+              message: `Agent parameter '${key}' rejected due to unsafe content`,
+            });
+          }
+          sanitizedParameters[key] = typeof sanitizedValue === "string"
+            ? sanitizedValue
+            : String(sanitizedValue);
+        } else {
+          sanitizedParameters[key] = value;
+        }
+      }
     }
 
     // Add tenant context validation
@@ -255,7 +289,7 @@ router.post(
           organization_id: tenantId,
           user_id: userId,
           lifecycle_stage: agentId as LifecycleStage,
-          user_inputs: { query: sanitizedQuery, ...(parameters ?? {}) },
+          user_inputs: { query: sanitizedQuery, ...(sanitizedParameters ?? {}) },
           workspace_data: (context as Record<string, unknown>)?.workspace_data as LifecycleContext["workspace_data"] ?? {},
           previous_stage_outputs: (context as Record<string, unknown>)?.previous_stage_outputs as Record<string, unknown> | undefined,
           metadata: { job_id: jobId, mode: "direct" },
@@ -322,7 +356,7 @@ router.post(
           tenantId,
           query: sanitizedQuery,
           context,
-          parameters,
+          parameters: sanitizedParameters,
           priority: "normal",
           timeout: getAgentAPIConfig().timeout, // Centralized timeout config
         },

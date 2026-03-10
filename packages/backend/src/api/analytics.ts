@@ -4,7 +4,7 @@ import express, { Router } from "express";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { getTenantIdFromRequest } from "../services/ReadThroughCacheService.js";
+import { getTenantIdFromRequest, ReadThroughCacheService } from "../services/ReadThroughCacheService.js";
 import {
   ValueLoopAnalytics,
   RecordEventInputSchema,
@@ -22,7 +22,7 @@ analyticsRouter.use(analyticsLimiter);
 
 analyticsRouter.get("/summary", async (req, res) => {
   try {
-    const tenantId = getTenantIdFromRequest(req as any);
+    const tenantId = getTenantIdFromRequest(req as any) ?? "anonymous";
     const payload = await ReadThroughCacheService.getOrLoad(
       {
         tenantId,
@@ -74,7 +74,9 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
     });
 
     const tenantId = getTenantIdFromRequest(req as any);
-    await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
+    if (tenantId) {
+      await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
+    }
 
     res.status(200).json({ success: true });
     return;
@@ -97,7 +99,9 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
     });
 
     const tenantId = getTenantIdFromRequest(req as any);
-    await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
+    if (tenantId) {
+      await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
+    }
 
     res.status(200).json({ success: true });
     return;
@@ -117,7 +121,10 @@ analyticsRouter.post(
   tenantContextMiddleware(),
   express.json(),
   async (req, res) => {
-    const tenantId = getTenantIdFromRequest(req as Parameters<typeof getTenantIdFromRequest>[0]);
+    const tenantId = (req as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return res.status(401).json({ error: "Tenant context required" });
+    }
     const parsed = RecordEventInputSchema.safeParse({
       ...req.body,
       organizationId: tenantId,
@@ -138,7 +145,10 @@ analyticsRouter.get(
   requireAuth,
   tenantContextMiddleware(),
   async (req, res) => {
-    const tenantId = getTenantIdFromRequest(req as Parameters<typeof getTenantIdFromRequest>[0]);
+    const tenantId = (req as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return res.status(401).json({ error: "Tenant context required" });
+    }
     const windowDays = Math.min(Number(req.query.days ?? 30), 90);
 
     const insights = await ValueLoopAnalytics.getInsights(tenantId, windowDays);
