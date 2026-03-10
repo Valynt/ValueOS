@@ -106,7 +106,7 @@ All 8 phases described below. Each phase is independently shippable and must pas
 3. `pnpm run test:rls` passes after Phase 4 (schema migration)
 4. After Phase 1: `grep -rn "export type LifecycleStage" packages/backend/src` returns zero results; all imports resolve to `@valueos/shared`
 5. After Phase 2: `grep -rn "createServiceCollection\|addSingleton\|hasService" packages/backend/src` returns zero results outside deleted files
-6. After Phase 3: `grep -rn "^export class CircuitBreaker\|^class CircuitBreaker" packages/backend/src` returns exactly 2 results (canonical + private in `lib/resilience.ts`)
+6. After Phase 3: `grep -rn "^export class CircuitBreaker\>\|^class CircuitBreaker\>" packages/backend/src` returns exactly 2 results (canonical + private in `lib/resilience.ts`)
 7. After Phase 4: `grep -r "@valueos/memory" packages/backend/src` returns results outside `lib/memory/` adapter files (i.e., `packages/memory` has real consumers)
 8. After Phase 5: `grep -rn "getAgentAPI\|AgentAPI" packages/backend/src/runtime` returns zero results
 9. After Phase 6: `packages/backend/src/services/CacheService.ts` does not exist
