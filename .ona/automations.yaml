@@ -13,20 +13,6 @@ tasks:
     triggeredBy:
       - postDevcontainerStart
 
-  applyMigrations:
-    name: Apply database migrations
-    description: Run database migrations if a local Supabase instance is available.
-    command: |
-      if command -v supabase &> /dev/null && supabase status &> /dev/null; then
-        pnpm run db:apply-migrations || echo "WARNING: database migrations failed" >&2
-      else
-        echo "Supabase not running, skipping migrations"
-      fi
-    triggeredBy:
-      - postDevcontainerStart
-    dependsOn:
-      - installDeps
-
   setupTools:
     name: Setup dev tools
     description: Install tsx and other global dev tools.
@@ -44,3 +30,150 @@ tasks:
       - postDevcontainerStart
     dependsOn:
       - installDeps
+
+  validateEnvironment:
+    name: Validate environment
+    description: Typecheck, lint, verify required env vars, and confirm DB connectivity. Fails fast so engineers know the environment is broken before writing code.
+    command: |
+      echo "--- typecheck ---"
+      pnpm --filter @valueos/backend typecheck || { echo "FAIL: typecheck"; exit 1; }
+
+      echo "--- lint ---"
+      pnpm --filter @valueos/backend lint || { echo "FAIL: lint"; exit 1; }
+
+      echo "--- env vars ---"
+      REQUIRED_VARS="NODE_ENV DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY REDIS_URL"
+      MISSING=""
+      for var in $REQUIRED_VARS; do
+        if [ -z "${!var:-}" ]; then
+          MISSING="$MISSING $var"
+        fi
+      done
+      if [ -n "$MISSING" ]; then
+        echo "FAIL: missing required env vars:$MISSING"
+        echo "Copy .env.local.example to .env.local and fill in values."
+        exit 1
+      fi
+      echo "All required env vars present."
+
+      echo "--- DB connection ---"
+      if command -v psql &>/dev/null && [ -n "${DATABASE_URL:-}" ]; then
+        psql "$DATABASE_URL" -c "SELECT 1" -q --no-psqlrc &>/dev/null \
+          && echo "DB reachable." \
+          || echo "WARNING: DB not reachable (expected in fresh environments)."
+      else
+        echo "psql not available or DATABASE_URL unset — skipping DB ping."
+      fi
+
+      echo "Environment validation passed."
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - setupTools
+
+  runTests:
+    name: Run tests
+    description: Execute the full Vitest suite to catch regressions before any code is written.
+    command: |
+      echo "--- unit + memory tests ---"
+      pnpm test || { echo "FAIL: root test suite"; exit 1; }
+
+      echo "--- backend agent + domain + orchestration tests ---"
+      pnpm --filter @valueos/backend test || { echo "FAIL: backend test suite"; exit 1; }
+
+      echo "Tests passed."
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - validateEnvironment
+
+  applyMigrations:
+    name: Apply database migrations
+    description: Reset and re-apply all migrations so the local schema matches the migration files. Catches schema drift (e.g. tables present in archived migrations but absent from active ones).
+    command: |
+      if ! command -v supabase &>/dev/null; then
+        echo "supabase CLI not found — skipping migration guard."
+        exit 0
+      fi
+
+      if ! supabase status &>/dev/null; then
+        echo "Supabase not running — skipping migration guard."
+        exit 0
+      fi
+
+      echo "--- migration guard ---"
+      MIGRATIONS_DIR="${MIGRATIONS_DIR:-infra/supabase/supabase/migrations}"
+      if [ ! -d "$MIGRATIONS_DIR" ]; then
+        echo "WARNING: migrations directory not found at $MIGRATIONS_DIR"
+        exit 0
+      fi
+
+      echo "Applying migrations from $MIGRATIONS_DIR..."
+      pnpm run db:apply-migrations \
+        && echo "Migrations applied." \
+        || { echo "FAIL: migrations failed — schema may be out of sync"; exit 1; }
+
+      echo "--- RLS enforcement check ---"
+      if [ -f scripts/check-rls-enforcement.sh ]; then
+        bash scripts/check-rls-enforcement.sh \
+          && echo "RLS check passed." \
+          || { echo "FAIL: RLS enforcement check"; exit 1; }
+      fi
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - setupTools
+
+  agentHealthCheck:
+    name: Agent runtime health check
+    description: Verify that backend API, Redis, Supabase, and LLM gateway env are reachable before developers run agent workflows.
+    command: |
+      BACKEND_PORT="${BACKEND_PORT:-8000}"
+      REDIS_HOST="${REDIS_HOST:-localhost}"
+      REDIS_PORT="${REDIS_PORT:-6379}"
+
+      PASS=0
+      FAIL=0
+
+      pass() { echo "  ✓ $1"; PASS=$((PASS + 1)); }
+      fail() { echo "  ✗ $1 (not reachable)"; FAIL=$((FAIL + 1)); }
+
+      echo "--- agent runtime health ---"
+
+      if curl -sf "http://localhost:${BACKEND_PORT}/health" &>/dev/null; then
+        pass "Backend API (:${BACKEND_PORT}/health)"
+      else
+        fail "Backend API (:${BACKEND_PORT}/health)"
+      fi
+
+      if redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping &>/dev/null; then
+        pass "Redis (:${REDIS_PORT})"
+      else
+        fail "Redis (:${REDIS_PORT})"
+      fi
+
+      if [ -n "${SUPABASE_URL:-}" ] && curl -sf "${SUPABASE_URL}/rest/v1/" -H "apikey: ${SUPABASE_ANON_KEY:-}" &>/dev/null; then
+        pass "Supabase (${SUPABASE_URL})"
+      else
+        fail "Supabase (SUPABASE_URL)"
+      fi
+
+      if [ -n "${VITE_LLM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
+        pass "LLM gateway env (VITE_LLM_API_KEY or OPENAI_API_KEY)"
+      else
+        fail "LLM gateway env (VITE_LLM_API_KEY or OPENAI_API_KEY)"
+      fi
+
+      echo ""
+      echo "Health summary: $PASS passed, $FAIL not reachable."
+
+      if [ "$FAIL" -gt 0 ]; then
+        echo "WARNING: $FAIL service(s) unreachable. Start the full stack with 'pnpm run dx' before running agent workflows."
+      fi
+
+      # Non-fatal: infrastructure may not be running in a fresh environment.
+      exit 0
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - setupTools

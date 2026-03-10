@@ -24,7 +24,9 @@ import type {
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+import { integrityOutputRepository } from '../../../repositories/IntegrityOutputRepository.js';
 
+import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +84,8 @@ export interface VetoDecision {
 // ---------------------------------------------------------------------------
 
 export class IntegrityAgent extends BaseAgent {
+  private readonly integrityRepo = new IntegrityResultRepository();
+
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
@@ -122,6 +126,9 @@ export class IntegrityAgent extends BaseAgent {
     // Step 5: Store validation results in memory
     await this.storeValidationInMemory(context, analysis, vetoDecision);
 
+    // Step 5b: Persist output to integrity_outputs table so it survives restarts
+    await this.persistOutput(context, analysis, integrityResult, vetoDecision);
+
     // Step 6: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis, integrityResult, vetoDecision);
 
@@ -149,6 +156,25 @@ export class IntegrityAgent extends BaseAgent {
       claims_supported: supported,
       sdui_sections: sduiSections,
     };
+
+    // Persist integrity result to DB for frontend retrieval.
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId && context.organization_id) {
+      try {
+        await this.integrityRepo.createResult(valueCaseId, context.organization_id, {
+          session_id: context.workspace_id,
+          claims: analysis.claim_validations,
+          veto_decision: vetoDecision.veto ? 'veto' : vetoDecision.reRefine ? 're_refine' : 'pass',
+          overall_score: integrityResult.confidence,
+          data_quality_score: analysis.data_quality_score,
+          logic_score: analysis.logical_consistency_score,
+          evidence_score: analysis.evidence_coverage_score,
+          hallucination_check: !vetoDecision.veto,
+        });
+      } catch (err) {
+        logger.error('IntegrityAgent: failed to persist result', { error: (err as Error).message });
+      }
+    }
 
     // Publish domain event so downstream services can react to validation outcomes.
     const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
@@ -450,6 +476,72 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
       );
     } catch (err) {
       logger.warn('Failed to store integrity validation in memory', { error: (err as Error).message });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // DB Persistence
+  // -------------------------------------------------------------------------
+
+  private async persistOutput(
+    context: LifecycleContext,
+    analysis: IntegrityAnalysis,
+    integrityResult: IntegrityCheck,
+    vetoDecision: VetoDecision,
+  ): Promise<void> {
+    const caseId = context.user_inputs?.value_case_id as string | undefined;
+    const organizationId = context.organization_id;
+
+    if (!caseId || !organizationId) {
+      logger.warn('IntegrityAgent: skipping DB persistence — case_id or organization_id missing', {
+        workspace_id: context.workspace_id,
+        has_case_id: !!caseId,
+        has_org_id: !!organizationId,
+      });
+      return;
+    }
+
+    try {
+      const claims = analysis.claim_validations.map(cv => ({
+        claim_id: cv.claim_id,
+        text: cv.claim_text,
+        confidence_score: cv.confidence,
+        evidence_tier: undefined as number | undefined,
+        // partially_supported is flagged so the UI surfaces evidence gaps for review,
+        // not just outright failures.
+        flagged: cv.verdict === 'unsupported' ||
+          cv.verdict === 'insufficient_evidence' ||
+          cv.verdict === 'partially_supported' ||
+          cv.issues.some(i => i.severity === 'high' || i.severity === 'critical'),
+        flag_reason: cv.issues.length > 0
+          ? cv.issues.map(i => i.description).join('; ')
+          : undefined,
+      }));
+
+      await integrityOutputRepository.upsertForCase({
+        case_id: caseId,
+        organization_id: organizationId,
+        claims,
+        overall_confidence: integrityResult.confidence,
+        veto_triggered: vetoDecision.veto,
+        veto_reason: vetoDecision.veto ? vetoDecision.reason : undefined,
+        source_agent: 'IntegrityAgent',
+      });
+
+      logger.info('IntegrityAgent: output persisted', {
+        case_id: caseId,
+        organization_id: organizationId,
+        claim_count: claims.length,
+        veto_triggered: vetoDecision.veto,
+        action: 'integrity_output_persisted',
+      });
+    } catch (err) {
+      // Persistence failure must not break the agent response
+      logger.error('IntegrityAgent: failed to persist output to DB', {
+        case_id: caseId,
+        organization_id: organizationId,
+        error: (err as Error).message,
+      });
     }
   }
 
