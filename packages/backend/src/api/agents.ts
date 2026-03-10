@@ -12,7 +12,6 @@ import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js"
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js"
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js"
 import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js"
-import { semanticMemory } from "../services/SemanticMemory.js"
 import { rateLimiters } from "../middleware/rateLimiter.js"
 import { requirePermission } from "../middleware/rbac.js"
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
@@ -22,16 +21,20 @@ import { getEventSourcingService } from "../services/EventSourcingService.js"
 import { isKafkaEnabled } from "../services/kafkaConfig.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
 import { modelCardService } from "../services/ModelCardService.js"
+import { semanticMemory } from "../services/SemanticMemory.js"
 import type { LifecycleContext, LifecycleStage } from "../types/agent.js"
 import { sanitizeAgentInput } from "../utils/security.js"
 
 // Shared factory instance — created lazily on first direct-execution request.
 // Avoids startup cost when Kafka is available.
+// DEBT-001 fix: use provider "together" — LLMGateway only implements "together".
+// DEBT-002 fix: enable_persistence: true with SupabaseMemoryBackend so agent
+//               memory survives across HTTP requests (consistent with ExecutionRuntime).
 let _directFactory: ReturnType<typeof createAgentFactory> | null = null;
 function getDirectFactory(): ReturnType<typeof createAgentFactory> {
   if (!_directFactory) {
     _directFactory = createAgentFactory({
-      llmGateway: new LLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
+      llmGateway: new LLMGateway({ provider: "together", model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo" }),
       memorySystem: new MemorySystem(
         { max_memories: 1000, enable_persistence: true },
         new SupabaseMemoryBackend(semanticMemory),

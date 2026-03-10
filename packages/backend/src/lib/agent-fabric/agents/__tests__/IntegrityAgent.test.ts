@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Hoisted mocks ---
 
-const { mockRetrieve, mockStoreSemanticMemory, mockComplete } = vi.hoisted(() => ({
+const { mockRetrieve, mockStoreSemanticMemory, mockComplete, mockUpsertForCase } = vi.hoisted(() => ({
   mockRetrieve: vi.fn(),
   mockStoreSemanticMemory: vi.fn().mockResolvedValue("mem_1"),
   mockComplete: vi.fn(),
+  mockUpsertForCase: vi.fn().mockResolvedValue({ id: "integrity-out-1" }),
 }));
 
 // --- Module mocks ---
@@ -40,6 +41,10 @@ vi.mock("../../CircuitBreaker.js", () => ({
 
 vi.mock("../../../../services/MCPGroundTruthService.js", () => ({
   mcpGroundTruthService: { getFinancialData: vi.fn().mockResolvedValue(null) },
+}));
+
+vi.mock("../../../../repositories/IntegrityOutputRepository.js", () => ({
+  integrityOutputRepository: { upsertForCase: mockUpsertForCase },
 }));
 
 // --- Imports ---
@@ -276,6 +281,40 @@ describe("IntegrityAgent", () => {
       expect(validationCall![4].supported_count).toBe(2);
       expect(validationCall![4].veto).toBe(false);
     });
+
+    it("persists output to DB when case_id and organization_id are present", async () => {
+      await agent.execute(makeContext({
+        user_inputs: { value_case_id: "case-uuid-1" },
+        organization_id: "org-456",
+      }));
+
+      expect(mockUpsertForCase).toHaveBeenCalledOnce();
+      const [payload] = mockUpsertForCase.mock.calls[0] as [Record<string, unknown>];
+      expect(payload.case_id).toBe("case-uuid-1");
+      expect(payload.organization_id).toBe("org-456");
+      expect(payload.veto_triggered).toBe(false);
+      expect(Array.isArray(payload.claims)).toBe(true);
+      expect((payload.claims as unknown[]).length).toBe(2);
+
+      // Verify field mapping: ClaimValidation → IntegrityClaim
+      const firstClaim = (payload.claims as Array<Record<string, unknown>>)[0];
+      // claim_text maps to text (not claim_id)
+      expect(typeof firstClaim.text).toBe("string");
+      expect(firstClaim.text).not.toBe(firstClaim.claim_id);
+      // confidence maps to confidence_score (0–1 range)
+      expect(typeof firstClaim.confidence_score).toBe("number");
+      expect(firstClaim.confidence_score).toBeGreaterThanOrEqual(0);
+      expect(firstClaim.confidence_score).toBeLessThanOrEqual(1);
+      // flagged is a boolean derived from verdict
+      expect(typeof firstClaim.flagged).toBe("boolean");
+    });
+
+    it("skips DB persistence when case_id is absent", async () => {
+      // No value_case_id in user_inputs
+      await agent.execute(makeContext({ user_inputs: {} }));
+
+      expect(mockUpsertForCase).not.toHaveBeenCalled();
+    });
   });
 
   describe("execute — veto scenario", () => {
@@ -315,6 +354,18 @@ describe("IntegrityAgent", () => {
       const result = await agent.execute(makeContext());
 
       expect(result.suggested_next_actions).toContain("Address data integrity issues");
+    });
+
+    it("persists veto_triggered: true to DB", async () => {
+      await agent.execute(makeContext({
+        user_inputs: { value_case_id: "case-uuid-veto" },
+        organization_id: "org-456",
+      }));
+
+      expect(mockUpsertForCase).toHaveBeenCalledOnce();
+      const [payload] = mockUpsertForCase.mock.calls[0] as [Record<string, unknown>];
+      expect(payload.veto_triggered).toBe(true);
+      expect(typeof payload.veto_reason).toBe("string");
     });
   });
 
