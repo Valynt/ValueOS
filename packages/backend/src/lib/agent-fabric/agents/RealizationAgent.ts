@@ -25,6 +25,7 @@ import type {
 import { logger } from '../../logger.js';
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 
+import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -94,6 +95,7 @@ const EXPANSION_THRESHOLD = 1.1;
 // ---------------------------------------------------------------------------
 
 export class RealizationAgent extends BaseAgent {
+  private readonly realizationRepo = new RealizationReportRepository();
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
@@ -165,6 +167,41 @@ export class RealizationAgent extends BaseAgent {
       expansion_threshold: EXPANSION_THRESHOLD,
       sdui_sections: sduiSections,
     };
+
+    // Persist realization report to DB for frontend retrieval.
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId && context.organization_id) {
+      try {
+        await this.realizationRepo.createReport(valueCaseId, context.organization_id, {
+          session_id: context.workspace_id,
+          kpis: analysis.proof_points.map(p => ({
+            kpi_id: p.kpi_id,
+            kpi_name: p.kpi_name,
+            committed_value: p.committed_value,
+            realized_value: p.realized_value,
+            unit: p.unit,
+            variance_percentage: p.variance_percentage,
+            direction: p.direction,
+            confidence: p.confidence,
+          })),
+          milestones: [],
+          risks: analysis.interventions.map((iv, i) => ({
+            id: `risk-${i}`,
+            description: iv.description,
+            severity: iv.priority === 'critical' ? 'critical' : iv.priority === 'high' ? 'high' : iv.priority === 'medium' ? 'medium' : 'low',
+            mitigation: iv.type,
+          })),
+          variance_analysis: {
+            overall_rate: analysis.overall_realization_rate,
+            summary: analysis.variance_summary,
+            expansion_signals: analysis.expansion_signals,
+          },
+          hallucination_check: true,
+        });
+      } catch (err) {
+        logger.error('RealizationAgent: failed to persist report', { error: (err as Error).message });
+      }
+    }
 
     // Publish a milestone event for each proof point so the RecommendationEngine
     // and other subscribers can react to individual KPI outcomes.

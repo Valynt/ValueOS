@@ -6,7 +6,8 @@
  */
 
 import { getGroundtruthConfig, isBrowser } from '../lib/env.js';
-import { logger } from '../lib/logger.js'
+import { logger } from '../lib/logger.js';
+import { getRedisClient } from '../lib/redisClient.js';
 
 import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
@@ -445,20 +446,62 @@ class MCPGroundTruthService {
   }): Promise<Record<string, string> | null> {
     await this.initialize();
 
-    if (this.server) {
-      // Use financialsMcp key for now as it's EDGAR-related
-      return this.callMcpTool('financialsMcp', 'get_filing_sections', {
-        identifier: request.identifier,
-        filing_type: request.filingType || '10-K',
-        sections: request.sections,
-      }, data => data?.sections || null);
-    }
+    // Cache EDGAR filing sections for 24 hours — filings are immutable once
+    // published, so a long TTL is safe and avoids redundant SEC API calls.
+    const cacheKey = `edgar:filing:${request.identifier}:${request.filingType ?? '10-K'}:${request.sections.sort().join(',')}`;
+    const EDGAR_CACHE_TTL_SECONDS = 24 * 60 * 60;
 
-    return this.callGroundtruthApi<Record<string, string>>('filingSectionsApi', {
-      identifier: request.identifier,
-      filingType: request.filingType,
-      sections: request.sections,
-    });
+    try {
+      const redis = await getRedisClient();
+      if (redis) {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          return JSON.parse(cached) as Record<string, string>;
+        }
+      }
+
+      let result: Record<string, string> | null = null;
+
+      if (this.server) {
+        result = await this.callMcpTool('financialsMcp', 'get_filing_sections', {
+          identifier: request.identifier,
+          filing_type: request.filingType || '10-K',
+          sections: request.sections,
+        }, data => data?.sections || null);
+      } else {
+        result = await this.callGroundtruthApi<Record<string, string>>('filingSectionsApi', {
+          identifier: request.identifier,
+          filingType: request.filingType,
+          sections: request.sections,
+        });
+      }
+
+      if (result && redis) {
+        await redis.set(cacheKey, JSON.stringify(result), { EX: EDGAR_CACHE_TTL_SECONDS });
+      }
+
+      return result;
+    } catch (cacheErr) {
+      // Cache failure is non-fatal — fall through to live fetch
+      logger.warn('EDGAR cache error — fetching live', {
+        identifier: request.identifier,
+        error: (cacheErr as Error).message,
+      });
+
+      if (this.server) {
+        return this.callMcpTool('financialsMcp', 'get_filing_sections', {
+          identifier: request.identifier,
+          filing_type: request.filingType || '10-K',
+          sections: request.sections,
+        }, data => data?.sections || null);
+      }
+
+      return this.callGroundtruthApi<Record<string, string>>('filingSectionsApi', {
+        identifier: request.identifier,
+        filingType: request.filingType,
+        sections: request.sections,
+      });
+    }
   }
 
   getCircuitBreakerMetrics(): Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>> {

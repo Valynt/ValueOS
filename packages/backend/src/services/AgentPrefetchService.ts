@@ -30,8 +30,8 @@ interface PrefetchConfig {
 
 interface PrefetchCache {
   stage: WorkflowStage;
-  context: any;
-  result: any;
+  context: Record<string, unknown>;
+  result: unknown;
   timestamp: number;
 }
 
@@ -98,7 +98,7 @@ class AgentPrefetchService {
    */
   async prefetchNextStage(
     currentStage: WorkflowStage,
-    context: any
+    context: Record<string, unknown>
   ): Promise<void> {
     if (!this.config.enabled) {
       logger.debug('Prefetch disabled');
@@ -155,8 +155,8 @@ class AgentPrefetchService {
    */
   getPrefetchedResult(
     stage: WorkflowStage,
-    context: any
-  ): any | null {
+    context: Record<string, unknown>
+  ): unknown {
     const cacheKey = this.getCacheKey(stage, context);
     const cached = this.cache.get(cacheKey);
 
@@ -173,8 +173,8 @@ class AgentPrefetchService {
    */
   private async fetchStageData(
     stage: WorkflowStage,
-    context: any
-  ): Promise<any> {
+    context: Record<string, unknown>
+  ): Promise<unknown> {
     // This would call the appropriate agent based on stage
     // For now, we'll use a generic approach
     
@@ -193,16 +193,17 @@ class AgentPrefetchService {
   /**
    * Get prompt for stage
    */
-  private getStagePrompt(stage: WorkflowStage, context: any): string {
+  private getStagePrompt(stage: WorkflowStage, context: Record<string, unknown>): string {
+    const company = typeof context['company'] === 'string' ? context['company'] : 'unknown';
     switch (stage) {
       case 'opportunity':
-        return `Analyze opportunity for: ${context.company}`;
+        return `Analyze opportunity for: ${company}`;
       case 'target':
-        return `Create target analysis for: ${context.company}`;
+        return `Create target analysis for: ${company}`;
       case 'realization':
-        return `Plan realization for: ${context.company}`;
+        return `Plan realization for: ${company}`;
       case 'expansion':
-        return `Identify expansion opportunities for: ${context.company}`;
+        return `Identify expansion opportunities for: ${company}`;
       default:
         return '';
     }
@@ -230,7 +231,7 @@ class AgentPrefetchService {
   /**
    * Generate cache key
    */
-  private getCacheKey(stage: WorkflowStage, context: any): string {
+  private getCacheKey(stage: WorkflowStage, context: Record<string, unknown>): string {
     // Simple hash of stage + context
     const contextStr = JSON.stringify(context);
     return `${stage}:${contextStr}`;

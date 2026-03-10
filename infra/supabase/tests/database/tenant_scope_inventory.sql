@@ -67,6 +67,7 @@ VALUES
   ('public', 'feedback_loops', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'financial_models', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'golden_examples', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
+  ('public', 'integrity_outputs', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'integrity_results', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'invoices', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
   ('public', 'kpi_hypotheses', 'tenant_column', '(tenant_id|organization_id)', 'Policy predicates must scope rows by tenant_id/organization_id.'),
