@@ -9,9 +9,7 @@ import {
   Loader2,
   Play,
   RotateCcw,
-  Shield,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -101,14 +99,14 @@ export function NarrativeStage({ caseId }: { caseId?: string }) {
             <h4 className="text-[13px] font-semibold text-zinc-900">Narrative Assembly</h4>
           </div>
           <div className="flex items-center gap-2">
-            {draft.confidence && (
+            {draft.defense_readiness_score != null && (
               <span className={cn(
                 "text-[10px] px-2 py-0.5 rounded-full font-semibold",
-                draft.confidence === "high" ? "bg-emerald-50 text-emerald-700" :
-                draft.confidence === "medium" ? "bg-amber-50 text-amber-700" :
+                draft.defense_readiness_score >= 0.8 ? "bg-emerald-50 text-emerald-700" :
+                draft.defense_readiness_score >= 0.6 ? "bg-amber-50 text-amber-700" :
                 "bg-zinc-100 text-zinc-500"
               )}>
-                {draft.confidence} confidence
+                {Math.round(draft.defense_readiness_score * 100)}% defense readiness
               </span>
             )}
             <button
@@ -125,22 +123,10 @@ export function NarrativeStage({ caseId }: { caseId?: string }) {
             </button>
           </div>
         </div>
-        {(draft.audience ?? draft.tone) && (
-          <div className="flex items-center gap-4">
-            {draft.audience && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Audience</span>
-                <span className="text-[11px] text-zinc-600">{draft.audience}</span>
-              </div>
-            )}
-            {draft.tone && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Tone</span>
-                <span className="text-[11px] text-zinc-600">{draft.tone}</span>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Format</span>
+          <span className="text-[11px] text-zinc-600">{draft.format.replace(/_/g, " ")}</span>
+        </div>
       </div>
 
       {/* Format selector (display only — agent produces executive format) */}
@@ -159,10 +145,12 @@ export function NarrativeStage({ caseId }: { caseId?: string }) {
         ))}
       </div>
 
-      {/* Executive summary */}
-      <Section title="Executive Summary" icon={FileText} defaultOpen={true}>
+      {/* Narrative content */}
+      <Section title="Narrative" icon={FileText} defaultOpen={true}>
         <div className="pt-4 space-y-4">
-          <p className="text-[13px] text-zinc-700 leading-relaxed">{draft.executive_summary}</p>
+          <pre className="text-[13px] text-zinc-700 leading-relaxed whitespace-pre-wrap font-sans">
+            {draft.content}
+          </pre>
           <div className="flex items-center gap-2 pt-2 border-t border-zinc-100">
             <button className="flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200 rounded-lg text-[11px] font-medium text-zinc-600 hover:bg-zinc-50">
               <Edit3 className="w-3 h-3" />
@@ -181,33 +169,6 @@ export function NarrativeStage({ caseId }: { caseId?: string }) {
               Adjust Tone
             </button>
           </div>
-        </div>
-      </Section>
-
-      {/* Problem & Solution */}
-      <Section title="Problem & Solution" icon={TrendingUp}>
-        <div className="pt-4 space-y-4">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-2">Problem</p>
-            <p className="text-[13px] text-zinc-700 leading-relaxed">{draft.problem_statement}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-2">Solution</p>
-            <p className="text-[13px] text-zinc-700 leading-relaxed">{draft.solution_narrative}</p>
-          </div>
-        </div>
-      </Section>
-
-      {/* Value proposition */}
-      <Section title="Value Proposition" icon={Shield} defaultOpen={false}>
-        <div className="pt-4 space-y-4">
-          <p className="text-[13px] text-zinc-700 leading-relaxed">{draft.value_proposition}</p>
-          {draft.call_to_action && (
-            <div className="p-4 rounded-xl bg-zinc-950 text-white">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1">Call to Action</p>
-              <p className="text-[13px] leading-relaxed">{draft.call_to_action}</p>
-            </div>
-          )}
         </div>
       </Section>
 

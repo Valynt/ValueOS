@@ -42,6 +42,7 @@ describe("SupabaseMemoryBackend", () => {
       const memory: Memory = {
         id: "mem_123",
         agent_id: "OpportunityAgent",
+        organization_id: ORG_ID,
         workspace_id: "session-1",
         content: "Discovered market opportunity in fintech",
         memory_type: "episodic",
@@ -68,10 +69,11 @@ describe("SupabaseMemoryBackend", () => {
       expect(call.metadata.importance).toBe(0.8);
     });
 
-    it("throws when organization_id is missing from metadata", async () => {
+    it("throws when organization_id is missing", async () => {
       const memory: Memory = {
         id: "mem_456",
         agent_id: "agent-1",
+        organization_id: "",
         workspace_id: "ws-1",
         content: "no org",
         memory_type: "working",

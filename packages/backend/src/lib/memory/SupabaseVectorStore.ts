@@ -265,16 +265,31 @@ export class SupabaseVectorStore implements VectorStore {
     };
   }
 
-  async deleteByArtifactId(artifactId: string): Promise<number> {
-    const { data, error } = await this.supabase
+  async deleteByArtifactId(artifactId: string, tenantId?: string): Promise<number> {
+    // tenantId is required in production to prevent cross-tenant deletes.
+    // Callers that do not yet supply it will hit RLS as the only guard — log a
+    // warning so the gap is visible in observability.
+    if (!tenantId) {
+      logger.warn('SupabaseVectorStore.deleteByArtifactId called without tenantId — relying on RLS only', {
+        artifactId,
+      });
+    }
+
+    let query = this.supabase
       .from('semantic_memory')
       .delete()
-      .eq('metadata->>artifact_id', artifactId)
-      .select('id');
+      .eq('metadata->>artifact_id', artifactId);
+
+    if (tenantId) {
+      query = query.eq('organization_id', tenantId) as typeof query;
+    }
+
+    const { data, error } = await query.select('id');
 
     if (error) {
       logger.error('SupabaseVectorStore.deleteByArtifactId failed', {
         artifactId,
+        tenantId,
         error: error.message,
       });
       throw new Error(`Failed to delete chunks: ${error.message}`);

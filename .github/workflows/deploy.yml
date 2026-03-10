@@ -261,7 +261,7 @@ jobs:
       # ── Backend ──────────────────────────────────────────────────────────
       - name: Backend Docker metadata
         id: backend-meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           tags: |
@@ -302,7 +302,7 @@ jobs:
       # ── Frontend ─────────────────────────────────────────────────────────
       - name: Frontend Docker metadata
         id: frontend-meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
           tags: |
@@ -936,7 +936,7 @@ jobs:
     if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.emergency-bypass-authorization.result == 'success' }}
     steps:
       - name: Create follow-up issue for deferred validations
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const deploymentStatus = '${{ needs.deploy-production.result }}';

@@ -16,6 +16,7 @@ function makeMemory(overrides: Partial<Memory> = {}): Memory {
   return {
     id: "mem_1",
     agent_id: "target",
+    organization_id: "org-1",
     workspace_id: "ws-1",
     content: "baseline: 45.5 currency, target: 32",
     memory_type: "semantic",

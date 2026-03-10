@@ -82,8 +82,8 @@ Update status when stories are implemented or acceptance criteria change.
 - Integrity output is persisted and loadable on page refresh
 - VE can see which claims are flagged and why
 
-**Status:** ❌ `IntegrityStage` renders hardcoded demo data (DEBT-003, issue #1344)  
-**Gap:** No `integrity_outputs` table, no repository, no API endpoint
+**Status:** ✅ Implemented in Sprint 11  
+**Delivered:** `integrity_outputs` table + RLS, `IntegrityOutputRepository`, `GET /api/v1/cases/:caseId/integrity`, `useIntegrityOutput` hook, `IntegrityStage` wired to real data with empty state and veto banner. DEBT-001, DEBT-002, DEBT-003 resolved.
 
 ---
 

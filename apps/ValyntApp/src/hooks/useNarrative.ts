@@ -16,14 +16,10 @@ export interface NarrativeDraft {
   organization_id: string;
   value_case_id: string;
   session_id: string | null;
-  executive_summary: string;
-  problem_statement: string;
-  solution_narrative: string;
-  value_proposition: string;
-  call_to_action: string;
-  tone: string | null;
-  audience: string | null;
-  confidence: "high" | "medium" | "low" | null;
+  /** Full narrative text as stored in the narrative_drafts.content column. */
+  content: string;
+  format: "executive_summary" | "technical" | "board_deck" | "customer_facing";
+  defense_readiness_score: number | null;
   hallucination_check: boolean | null;
   source_agent: string;
   created_at: string;

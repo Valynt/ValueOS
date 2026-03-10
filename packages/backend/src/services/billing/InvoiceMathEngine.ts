@@ -101,7 +101,7 @@ export class InvoiceMathEngine {
     // Fetch tenant settings once and derive both credits and tax from it
     const tenantSettings = await this.fetchTenantSettings(tenant_id);
     const appliedCredits = this.calculateAppliedCredits(tenantSettings);
-    const taxAmount = this.calculateTaxAmount(subtotal, tenant_id, tenantSettings);
+    const taxAmount = this.calculateTaxAmount(subtotal - appliedCredits, tenant_id, tenantSettings);
 
     const totalAmount = subtotal - appliedCredits + taxAmount;
     const amountDue = Math.max(0, totalAmount); // Ensure non-negative

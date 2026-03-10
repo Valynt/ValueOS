@@ -35,6 +35,7 @@ describe("MemorySystem", () => {
     it("stores and retrieves memories from local cache", async () => {
       const id = await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "test memory",
         memory_type: "episodic",
@@ -56,6 +57,7 @@ describe("MemorySystem", () => {
     it("enforces tenant isolation on retrieve", async () => {
       await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "tenant A memory",
         memory_type: "episodic",
@@ -80,6 +82,7 @@ describe("MemorySystem", () => {
     it("clears memories for an agent", async () => {
       await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "to be cleared",
         memory_type: "working",
@@ -115,6 +118,7 @@ describe("MemorySystem", () => {
     it("delegates store to backend", async () => {
       await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "persisted memory",
         memory_type: "semantic",
@@ -132,6 +136,7 @@ describe("MemorySystem", () => {
       const backendMemory: Memory = {
         id: "supabase-mem-1",
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "from supabase",
         memory_type: "episodic",
@@ -158,6 +163,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "cached memory",
         memory_type: "episodic",
@@ -179,6 +185,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "local only",
         memory_type: "working",
@@ -200,6 +207,7 @@ describe("MemorySystem", () => {
 
       const id = await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "still cached",
         memory_type: "episodic",
@@ -237,6 +245,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "agent-1",
+        organization_id: ORG_ID,
         workspace_id: "ws-1",
         content: "late-bound backend",
         memory_type: "procedural",
@@ -416,6 +425,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "agent-a",
+        organization_id: ORG_ID,
         workspace_id: "s1",
         content: "Working memory",
         memory_type: "working",
@@ -467,6 +477,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "a1",
+        organization_id: ORG_ID,
         workspace_id: "s1",
         content: "Low importance",
         memory_type: "episodic",
@@ -476,6 +487,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "a1",
+        organization_id: ORG_ID,
         workspace_id: "s1",
         content: "High importance",
         memory_type: "episodic",
@@ -485,6 +497,7 @@ describe("MemorySystem", () => {
 
       await ms.store({
         agent_id: "a1",
+        organization_id: ORG_ID,
         workspace_id: "s1",
         content: "Medium importance",
         memory_type: "episodic",
