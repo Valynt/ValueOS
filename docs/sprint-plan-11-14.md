@@ -2,7 +2,7 @@
 
 **Author:** Lead DevOps / Lead Developer
 **Date:** 2026-03-20
-**Baseline:** Post-Sprint 10 (UAO deleted, five runtime services wired, ValueLoopAnalytics live)
+**Baseline:** Post-Sprint 10 (UAO deleted, six runtime services wired: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine; ValueLoopAnalytics live)
 
 ---
 
