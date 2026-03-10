@@ -509,7 +509,7 @@ export class MemorySystem {
     for (const [id, memory] of this.memories.entries()) {
       if (
         memory.agent_id === agentId &&
-        memory.metadata?.organization_id === organizationId &&
+        memory.organization_id === organizationId &&
         (!workspaceId || memory.workspace_id === workspaceId)
       ) {
         this.unindexMemory(memory);
