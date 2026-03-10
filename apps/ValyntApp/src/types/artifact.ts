@@ -1,5 +1,6 @@
 export type ArtifactType = "document" | "presentation" | "report" | "template";
-export type ArtifactFormat = "pdf" | "docx" | "pptx" | "html" | "markdown" | "json";
+// "pptx" is excluded — no PPTX rendering pipeline exists. PDF covers the export requirement.
+export type ArtifactFormat = "pdf" | "docx" | "html" | "markdown" | "json";
 export type AuditEventType = "created" | "updated" | "deleted" | "viewed" | "shared" | "exported";
 export type DistributionStatus = "pending" | "sent" | "delivered" | "failed";
 

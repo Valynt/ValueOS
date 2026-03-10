@@ -1,5 +1,9 @@
 /**
  * ServiceNow Adapter
+ *
+ * NOT_IMPLEMENTED — scaffolded for future integration.
+ * Salesforce covers the enterprise CRM requirement for beta.
+ * See DEBT-008 in .ona/context/debt.md.
  */
 
 import {
@@ -20,10 +24,22 @@ export class ServiceNowAdapter extends EnterpriseAdapter {
     }));
   }
 
-  protected async doConnect(): Promise<void> {}
-  protected async doDisconnect(): Promise<void> {}
-  async validate(): Promise<boolean> { this.ensureConnected(); return true; }
-  async fetchEntities(_entityType: string, _options?: FetchOptions): Promise<NormalizedEntity[]> { this.ensureConnected(); return []; }
-  async fetchEntity(_entityType: string, _externalId: string): Promise<NormalizedEntity | null> { this.ensureConnected(); return null; }
-  async pushUpdate(_entityType: string, _externalId: string, _data: Record<string, unknown>): Promise<void> { this.ensureConnected(); }
+  protected async doConnect(): Promise<void> {
+    throw new Error("ServiceNowAdapter: not implemented. See DEBT-008.");
+  }
+  protected async doDisconnect(): Promise<void> {
+    throw new Error("ServiceNowAdapter: not implemented. See DEBT-008.");
+  }
+  async validate(): Promise<boolean> {
+    throw new Error("ServiceNowAdapter: not implemented. See DEBT-008.");
+  }
+  async fetchEntities(_entityType: string, _options?: FetchOptions): Promise<NormalizedEntity[]> {
+    throw new Error("ServiceNowAdapter: not implemented. See DEBT-008.");
+  }
+  async fetchEntity(_entityType: string, _externalId: string): Promise<NormalizedEntity | null> {
+    throw new Error("ServiceNowAdapter: not implemented. See DEBT-008.");
+  }
+  async pushUpdate(_entityType: string, _externalId: string, _data: Record<string, unknown>): Promise<void> {
+    throw new Error("ServiceNowAdapter: not implemented. See DEBT-008.");
+  }
 }

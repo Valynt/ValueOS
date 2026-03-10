@@ -16,7 +16,7 @@ export interface ContentLoaderOptions {
 
 export interface LoadedContent {
   modules: CurriculumModule[];
-  resources: any[];
+  resources: unknown[];
   metadata: {
     source: string;
     loadedAt: Date;
@@ -26,62 +26,26 @@ export interface LoadedContent {
 
 /**
  * Load content from JSON file
+ *
+ * Not implemented — curriculum content source is a product decision.
+ * See DEBT-012 in .ona/context/debt.md.
  */
-export async function loadContentFromJson(path: string): Promise<LoadedContent> {
-  try {
-    // In a real implementation, this would fetch from an API or file system
-    // For now, return mock data structure
-    const mockModules: CurriculumModule[] = [
-      {
-        id: `pillar-${Date.now()}-module-1`,
-        title: "Introduction to Concepts",
-        description: "Fundamental concepts and principles",
-        pillarId: 1,
-        order: 1,
-        requiredMaturityLevel: 0,
-        estimatedDuration: "1 hour",
-        skills: ["Basic understanding", "Core concepts"],
-        resources: ["guide-1", "template-1"]
-      }
-    ];
-
-    return {
-      modules: mockModules,
-      resources: [],
-      metadata: {
-        source: path,
-        loadedAt: new Date(),
-        version: "1.0.0"
-      }
-    };
-  } catch (error) {
-    console.error('Failed to load content from JSON:', error);
-    throw new Error('Content loading failed');
-  }
+export async function loadContentFromJson(_path: string): Promise<LoadedContent> {
+  throw new Error(
+    "loadContentFromJson: not implemented. Curriculum content source is a product decision. See DEBT-012."
+  );
 }
 
 /**
  * Load content from API endpoint
+ *
+ * Not implemented — curriculum content source is a product decision.
+ * See DEBT-012 in .ona/context/debt.md.
  */
-export async function loadContentFromApi(endpoint: string, options: any = {}): Promise<LoadedContent> {
-  try {
-    // In a real implementation, this would make an API call
-    // For now, return mock data
-    logger.debug("Loading content from API", { endpoint, options });
-
-    return {
-      modules: [],
-      resources: [],
-      metadata: {
-        source: endpoint,
-        loadedAt: new Date(),
-        version: "api-1.0"
-      }
-    };
-  } catch (error) {
-    console.error('Failed to load content from API:', error);
-    throw new Error('API content loading failed');
-  }
+export async function loadContentFromApi(_endpoint: string, _options: Record<string, unknown> = {}): Promise<LoadedContent> {
+  throw new Error(
+    "loadContentFromApi: not implemented. Curriculum content source is a product decision. See DEBT-012."
+  );
 }
 
 /**
@@ -135,12 +99,10 @@ export function validateContent(content: LoadedContent): { valid: boolean; error
  * Merge loaded content with existing curriculum
  */
 export function mergeContent(
-  existingCurriculum: any,
+  existingCurriculum: Record<string, unknown>,
   newContent: LoadedContent,
   options: { overwrite?: boolean } = {}
-): any {
-  // In a real implementation, this would intelligently merge content
-  // For now, just return the new content
+): Record<string, unknown> {
   logger.debug("Merging content", { overwrite: options.overwrite });
 
   return {
@@ -153,18 +115,16 @@ export function mergeContent(
 /**
  * Export content for backup or migration
  */
-export function exportContent(content: any, format: 'json' | 'csv' = 'json'): string {
+export function exportContent(content: { modules?: CurriculumModule[] }, format: 'json' | 'csv' = 'json'): string {
   switch (format) {
     case 'json':
       return JSON.stringify(content, null, 2);
 
     case 'csv':
-      // Convert to CSV format
-      // This would be more complex for nested structures
       return 'id,title,description,pillarId,order,requiredMaturityLevel\n' +
-             content.modules?.map((m: any) =>
+             (content.modules?.map((m) =>
                `"${m.id}","${m.title}","${m.description}",${m.pillarId},${m.order},${m.requiredMaturityLevel}`
-             ).join('\n') || '';
+             ).join('\n') ?? '');
 
     default:
       throw new Error(`Unsupported export format: ${format}`);

@@ -411,7 +411,6 @@ export function BrandingPage() {
               onValueChange={() => {}}
               options={[
                 { value: "pdf", label: "PDF" },
-                { value: "pptx", label: "PowerPoint" },
                 { value: "docx", label: "Word" },
               ]}
             />
