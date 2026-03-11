@@ -967,6 +967,8 @@ async function archiveTenantData(organizationId: string): Promise<void> {
         if (columns.has('metadata') && columns.has('id')) {
           const rows = archivePayload[entry.table];
           if (Array.isArray(rows)) {
+            // Note: Parallelizing row updates within a table could also be done,
+            // but might hit rate limits. Keeping sequential for rows for now.
             for (const row of rows) {
               if (!row || !('id' in row)) {
                 errors.push(`Failed to archive metadata for ${entry.table}: missing id`);

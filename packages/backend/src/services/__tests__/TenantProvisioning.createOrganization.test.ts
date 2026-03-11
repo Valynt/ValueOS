@@ -35,8 +35,8 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {},
 }));
 
-vi.mock('../../lib/logger', () => ({
-  logger: {
+vi.mock('../../lib/logger', () => {
+  const loggerMock = {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
@@ -55,6 +55,44 @@ vi.mock('../../config/environment', () => ({
     features: { billing: false, usageTracking: false },
     email: { enabled: false },
   }),
+}));
+
+vi.mock('../billing/CustomerService', () => ({
+  default: {
+      createCustomer: vi.fn(),
+      updatePaymentMethod: vi.fn()
+  }
+}));
+
+vi.mock('../billing/SubscriptionService', () => ({
+  default: {
+      createSubscription: vi.fn()
+  }
+}));
+
+vi.mock('../SettingsService', () => ({
+  settingsService: {
+    initializeOrganizationSettings: vi.fn()
+  }
+}));
+
+vi.mock('../EmailService', () => ({
+  emailService: {
+    send: vi.fn()
+  }
+}));
+
+vi.mock('../IntegrationControlService', () => ({
+  integrationControlService: {
+    disableIntegrations: vi.fn(),
+    scrubCredentials: vi.fn()
+  }
+}));
+
+vi.mock('../AuditLogService', () => ({
+  auditLogService: {
+    createEntry: vi.fn()
+  }
 }));
 
 describe('TenantProvisioning.createOrganization', () => {
