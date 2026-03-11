@@ -32,6 +32,13 @@ export interface RolloutMetrics {
   lastUpdated: Date;
 }
 
+interface UsageEvent {
+  feature_name: string;
+  user_id: string;
+  enabled: boolean;
+  timestamp: string;
+}
+
 export class ProgressiveRollout {
   private featureName: string;
   private config: RolloutConfig | null = null;
