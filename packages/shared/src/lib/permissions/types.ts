@@ -84,6 +84,9 @@ export const PERMISSIONS = {
   APPROVALS_VIEW: "approvals:view" as Permission,
   APPROVALS_CREATE: "approvals:create" as Permission,
   APPROVALS_MANAGE: "approvals:manage" as Permission,
+
+  // Tenant ownership transfer — restricted to the current owner only.
+  OWNER_TRANSFER: "owner.transfer" as Permission,
 } as const;
 
 export function parsePermission(permission: string): { resource: string; action: string } | null {

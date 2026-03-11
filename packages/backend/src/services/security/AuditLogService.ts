@@ -56,6 +56,10 @@ export interface AuditLogCreateInput {
   resourceType: string;
   resourceId: string;
   details?: Record<string, unknown>;
+  /** Snapshot of the resource state before the mutation. Stored in details.before_state. */
+  beforeState?: Record<string, unknown>;
+  /** Snapshot of the resource state after the mutation. Stored in details.after_state. */
+  afterState?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   status?: "success" | "failed";
@@ -238,9 +242,10 @@ export class AuditLogService extends BaseService {
           const result = await this.executeRequest(
             async () => {
               // Sanitize sensitive data
-              const sanitizedDetails = input.details
-                ? (sanitizeForLogging(input.details) as Record<string, unknown>)
-                : {};
+              const rawDetails: Record<string, unknown> = { ...input.details };
+              if (input.beforeState !== undefined) rawDetails["before_state"] = input.beforeState;
+              if (input.afterState !== undefined) rawDetails["after_state"] = input.afterState;
+              const sanitizedDetails = sanitizeForLogging(rawDetails) as Record<string, unknown>;
               const { status: _ignoredStatus, ...detailsWithoutStatus } = sanitizedDetails;
 
               // Calculate integrity hash (using secure SHA-256)
