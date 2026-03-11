@@ -5,8 +5,8 @@
 The backend has accumulated three distinct architectural eras without retiring previous abstractions. The result:
 
 - 58% of backend TypeScript (147k of 252k LOC) lives in a single flat `services/` directory with 193 files
-- The canonical workflow execution path makes an HTTP round-trip to itself (QueryExecutor → AgentAPI → `fetch("http://localhost:3001")` → same process)
-- The DI container is fully built but never populated; `hasService()` always returns false
+- The canonical workflow execution path makes an HTTP round-trip to itself (QueryExecutor → AgentAPI → `fetch("http://localhost:3001/api/agents")` via `AGENTS_API_URL` → same process)
+- The DI container is never initialized (`createServiceCollection()` is never called); `getServiceProvider()` returns `null` and `hasService()` throws when invoked, making it effectively unusable
 - 7 parallel memory implementations coexist; the intended canonical package (`packages/memory`) has zero agent consumers
 - 5 independent CircuitBreaker class definitions with incompatible config interfaces
 - 6 local `LifecycleStage` type definitions with divergent member sets; a 7th vocabulary exists in `packages/shared/src/domain/Opportunity.ts`
@@ -39,7 +39,7 @@ All 8 phases described below. Each phase is independently shippable and must pas
 ### R2 — Delete Dead Scaffolding (Phase 2)
 
 - `DependencyInjectionContainer.ts` deleted; the `hasService` guard in `UnifiedAgentAPI` replaced with direct construction (which is what already happens at runtime)
-- `packages/sdui-types/` deleted after confirming zero runtime imports in `apps/VOSAcademy` and `apps/mcp-dashboard`
+- `packages/sdui-types/` deleted only after (a) relocating shared SDUI types to a canonical location (e.g., `packages/sdui` or `@valueos/shared`), (b) updating all `@valueos/sdui-types` imports in `packages/sdui` to the new location, and (c) confirming zero runtime imports in `apps/VOSAcademy` and `apps/mcp-dashboard`
 - `packages/agent-fabric/` root-level stub package deleted (`runAgentWithBudget.ts` returns hardcoded simulated output; `types.ts` conflicts with `types/agent.ts`)
 - `ValueLifecycleOrchestrator`, `IntelligentCoordinator`, `SelfHealingManager` moved to `services/post-v1/`
 - `AgentFabricService` (hardcoded preview data) and `CostAwareRoutingService` (stub response body) moved to `services/post-v1/` or deleted after live-caller audit
@@ -104,14 +104,14 @@ All 8 phases described below. Each phase is independently shippable and must pas
 1. `pnpm test` passes after each phase before the next phase begins
 2. `pnpm run lint` passes after each phase
 3. `pnpm run test:rls` passes after Phase 4 (schema migration)
-4. After Phase 1: `grep -rn "export type LifecycleStage" packages/backend/src` returns zero results; all imports resolve to `@valueos/shared`
+4. After Phase 1: `grep -rn "type LifecycleStage" packages/backend/src` returns zero results; all imports resolve to `@valueos/shared`
 5. After Phase 2: `grep -rn "createServiceCollection\|addSingleton\|hasService" packages/backend/src` returns zero results outside deleted files
-6. After Phase 3: `grep -rn "^export class CircuitBreaker\|^class CircuitBreaker" packages/backend/src` returns exactly 2 results (canonical + private in `lib/resilience.ts`)
+6. After Phase 3: `grep -rn "^export class CircuitBreaker\>\|^class CircuitBreaker\>" packages/backend/src` returns exactly 2 results (canonical + private in `lib/resilience.ts`)
 7. After Phase 4: `grep -r "@valueos/memory" packages/backend/src` returns results outside `lib/memory/` adapter files (i.e., `packages/memory` has real consumers)
 8. After Phase 5: `grep -rn "getAgentAPI\|AgentAPI" packages/backend/src/runtime` returns zero results
 9. After Phase 6: `packages/backend/src/services/CacheService.ts` does not exist
 10. After Phase 7: `find packages/backend/src/services -maxdepth 1 -name "*.ts" | wc -l` is ≤ 50 (down from 193)
-11. After Phase 8: `grep -rl "fetch(" apps/ValyntApp/src` returns ≤ 5 results (legitimate non-API uses only)
+11. After Phase 8: `grep -rl 'fetch(["'\''`]\/api\/' apps/ValyntApp/src` returns ≤ 5 results (raw frontend calls to backend \`/api/\` routes only)
 12. Each phase that introduces an architectural decision produces one ADR in `docs/engineering/adr/` and one entry in `.ona/context/decisions.md`
 
 ---
