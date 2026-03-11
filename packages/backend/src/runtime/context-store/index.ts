@@ -44,12 +44,16 @@ export class ContextStore {
   // --------------------------------------------------------------------------
 
   createInitialState(
+    organizationId: string,
     initialStage: string,
     execution: Partial<ExecutionRequest> & Record<string, unknown> = {
       intent: 'FullValueAnalysis',
       environment: 'production',
     },
   ): WorkflowState {
+    if (!organizationId) {
+      throw new Error('ContextStore.createInitialState: organizationId is required');
+    }
     const normalizedExecution = { ...execution, intent: execution.intent ?? 'agent-query' };
     const now = new Date().toISOString();
 
@@ -58,11 +62,11 @@ export class ContextStore {
       workflow_id: '',
       execution_id: uuidv4(),
       workspace_id: '',
-      organization_id: '',
+      organization_id: organizationId,
       lifecycle_stage: initialStage,
       current_step: initialStage,
       currentStage: initialStage,
-      status: 'initiated',
+      status: 'pending',
       completed_steps: [],
       state_data: {},
       context: {

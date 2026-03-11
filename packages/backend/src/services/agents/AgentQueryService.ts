@@ -145,16 +145,18 @@ export class AgentQueryService {
       if (!currentSessionId) {
         // Create new session
         const initialState = this.contextStore.createInitialState(
+          tenantId,
           options.initialStage || "discovery",
           normalizedExecution as Partial<ExecutionRequest> & Record<string, unknown>
         );
 
-        currentSessionId = await this.stateRepo.createSession(
+        const createdSession = await this.stateRepo.createSession({
           userId,
-          initialState,
-          tenantId
-        );
-        currentState = initialState;
+          organizationId: tenantId,
+          initialStage: options.initialStage || 'discovery',
+        });
+        currentSessionId = createdSession.id;
+        currentState = createdSession;
 
         logger.info("New session created", {
           traceId,
@@ -182,13 +184,13 @@ export class AgentQueryService {
       );
 
       // 4. Save updated state
-      await this.stateRepo.saveState(currentSessionId, result.nextState, tenantId);
+      await this.stateRepo.saveState(result.nextState);
 
       // 5. Update session status if workflow is complete
       if (this.contextStore.isWorkflowComplete(result.nextState)) {
         await this.stateRepo.updateSessionStatus(
           currentSessionId,
-          result.nextState.status === "error" ? "error" : "completed",
+          result.nextState.status === 'failed' ? 'failed' : 'completed',
           tenantId
         );
       }

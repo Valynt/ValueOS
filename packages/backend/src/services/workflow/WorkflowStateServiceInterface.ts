@@ -5,49 +5,18 @@
  * This interface can be used for dependency injection and mocking.
  */
 
-import { WorkflowState } from '../repositories/WorkflowStateRepository';
+import { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
+import type { SessionInitOptions } from './WorkflowStateService.js';
 
-export interface SessionInitOptions {
-  caseId: string;
-  userId: string;
-  tenantId: string;
-  initialStage?: string;
-  context?: Record<string, any>;
-}
+export type { SessionInitOptions };
 
 export interface IWorkflowStateService {
-  /**
-   * Load existing session or create new one
-   * @param options Session initialization options
-   * @returns Session ID and initial workflow state
-   */
   loadOrCreateSession(options: SessionInitOptions): Promise<{ sessionId: string; state: WorkflowState }>;
-
-  /**
-   * Save workflow state to database
-   * @param sessionId Session identifier
-   * @param state Updated workflow state
-   * @param tenantId Tenant identifier for multi-tenancy
-   */
-  saveWorkflowState(sessionId: string, state: WorkflowState, tenantId: string): Promise<void>;
-
-  /**
-   * Get active session for a specific case
-   * @param userId User identifier
-   * @param tenantId Tenant identifier
-   * @param caseId Case identifier
-   * @returns Session data or null if not found
-   */
-  getActiveSessionForCase(userId: string, tenantId: string, caseId: string): Promise<any>;
-
-  /**
-   * Create new session
-   * @param userId User identifier
-   * @param initialState Initial workflow state
-   * @param tenantId Tenant identifier
-   * @returns Session ID
-   */
-  createSession(userId: string, initialState: WorkflowState, tenantId: string): Promise<string>;
+  saveWorkflowState(state: WorkflowState): Promise<void>;
+  getWorkflowState(sessionId: string, tenantId: string): Promise<WorkflowState | null>;
+  getSession(sessionId: string, tenantId: string): Promise<WorkflowState | null>;
+  updateSessionStatus(sessionId: string, status: string, tenantId: string): Promise<void>;
+  cleanupOldSessions(olderThanDays: number, tenantId: string): Promise<number>;
 }
 
 /**
@@ -55,7 +24,7 @@ export interface IWorkflowStateService {
  * This avoids circular dependencies by creating the service on demand
  */
 export interface WorkflowStateServiceFactory {
-  createWorkflowStateService(): IWorkflowStateService;
+  createWorkflowStateService(): Promise<IWorkflowStateService>;
 }
 
 /**
@@ -79,10 +48,8 @@ export function getWorkflowStateServiceFactory(): WorkflowStateServiceFactory {
     // Default factory implementation
     workflowStateServiceFactory = {
       createWorkflowStateService: async () => {
-        // Dynamic import to avoid circular dependency
         const { WorkflowStateService } = await import('./WorkflowStateService');
-        const { supabase } = await import('../lib/supabase');
-        return new WorkflowStateService(supabase);
+        return new WorkflowStateService();
       }
     };
   }

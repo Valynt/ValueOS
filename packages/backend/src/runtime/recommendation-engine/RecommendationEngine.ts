@@ -24,6 +24,8 @@ import type {
 } from '../../events/DomainEventSchemas.js';
 import { DecisionRouter } from '../decision-router/index.js';
 import { getRealtimeBroadcastService } from '../../services/RealtimeBroadcastService.js';
+import type { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
 
 // ---------------------------------------------------------------------------
 // Recommendation shape pushed to the UI
@@ -108,9 +110,20 @@ export class RecommendationEngine {
       traceId: payload.traceId,
     });
 
-    const nextAgent = this.router.selectAgentForQuery('opportunity value hypothesis', {
-      currentStage: payload.lifecycleStage,
-    });
+    const stageParseResult = OpportunityLifecycleStageSchema.safeParse(payload.lifecycleStage);
+    const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
+
+    const decisionContext: DecisionContext = {
+      organization_id: payload.tenantId,
+      opportunity: {
+        id: payload.opportunityId,
+        lifecycle_stage,
+        confidence_score: payload.averageConfidence,
+        value_maturity: payload.averageConfidence >= 0.7 ? 'high' : payload.averageConfidence >= 0.4 ? 'medium' : 'low',
+      },
+      is_external_artifact_action: false,
+    };
+    const nextAgent = this.router.selectAgent(decisionContext);
 
     const confidence = payload.averageConfidence;
     const priority = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';

@@ -33,6 +33,8 @@ import type { WorkflowState } from '../../repositories/WorkflowStateRepository.j
 import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
+import type { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
 
 // ============================================================================
 // QueryExecutor
@@ -75,6 +77,44 @@ export class QueryExecutor {
     private readonly agentMessageQueue: AgentMessageQueue,
     private readonly config: QueryExecutorConfig = DEFAULT_CONFIG,
   ) {}
+
+  // --------------------------------------------------------------------------
+  // DecisionContext assembly
+  // --------------------------------------------------------------------------
+
+  /**
+   * Build a DecisionContext from the available WorkflowState and
+   * ExecutionEnvelope. WorkflowState carries a flat `currentStage` string;
+   * we map it to the canonical OpportunityLifecycleStage enum, defaulting to
+   * 'discovery' when the value is absent or unrecognised.
+   *
+   * Full hydration from domain repositories (Opportunity, ValueHypothesis,
+   * BusinessCase) is deferred to the ContextStore Sprint 5 target. Until
+   * then, only the fields derivable from WorkflowState are populated.
+   */
+  private buildDecisionContext(
+    state: WorkflowState,
+    organizationId: string,
+  ): DecisionContext {
+    const rawStage = state.currentStage ?? state.lifecycle_stage ?? 'discovery';
+    const stageParseResult = OpportunityLifecycleStageSchema.safeParse(rawStage);
+    const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
+
+    const opportunityId = state.context?.opportunityId ?? state.context?.opportunity_id;
+
+    return {
+      organization_id: organizationId,
+      opportunity: opportunityId
+        ? {
+            id: String(opportunityId),
+            lifecycle_stage,
+            confidence_score: 0.5,
+            value_maturity: 'low',
+          }
+        : undefined,
+      is_external_artifact_action: false,
+    };
+  }
 
   // --------------------------------------------------------------------------
   // Rate limiting
@@ -134,7 +174,8 @@ export class QueryExecutor {
       queryLength: query.length,
     });
 
-    const agentType = this.router.selectAgentForQuery(query, currentState);
+    const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
+    const agentType = this.router.selectAgent(decisionContext);
 
     if (!this.checkAgentRateLimit(agentType)) {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -176,7 +217,7 @@ export class QueryExecutor {
       logger.error('Async agent invocation failed', { jobId, error: result.error, traceId: result.traceId });
       return {
         response: { type: 'message', payload: { message: result.error || 'Agent request failed', error: true } },
-        nextState: { ...currentState, status: 'error', context: { ...currentState.context, lastError: result.error || 'Agent invocation failed', errorTimestamp: new Date().toISOString() } },
+        nextState: { ...currentState, status: 'failed', context: { ...currentState.context, lastError: result.error || 'Agent invocation failed', errorTimestamp: new Date().toISOString() } },
         traceId: result.traceId,
       };
     }
@@ -235,7 +276,7 @@ export class QueryExecutor {
         { role: 'assistant', content: typeof result.data === 'string' ? result.data : JSON.stringify(result.data), timestamp: new Date().toISOString() },
       ];
     }
-    nextState.status = 'in_progress';
+    nextState.status = 'running';
 
     logger.info('Async query result processed', { jobId, traceId: result.traceId });
     return {
@@ -280,7 +321,8 @@ export class QueryExecutor {
 
     if (!result.success) throw new Error(result.error || 'Async agent execution failed');
 
-    const agentType = this.router.selectAgentForQuery(query, currentState);
+    const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
+    const agentType = this.router.selectAgent(decisionContext);
     const agentContext: AgentContext = { userId: envelope.actor.id || userId, sessionId, organizationId: envelope.organizationId };
 
     const structuralCheck = await this.policy.evaluateStructuralTruthVeto(result.data, { traceId, agentType, query, context: agentContext });
@@ -301,7 +343,7 @@ export class QueryExecutor {
         { role: 'assistant', content: typeof result.data === 'string' ? result.data : JSON.stringify(result.data), timestamp: new Date().toISOString() },
       ];
     }
-    nextState.status = 'in_progress';
+    nextState.status = 'running';
     return { response: { type: 'message', payload: { message: typeof result.data === 'string' ? result.data : JSON.stringify(result.data) } }, nextState, traceId: result.traceId };
   }
 
@@ -326,7 +368,8 @@ export class QueryExecutor {
 
         let agentType: AgentType;
         tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
-          agentType = this.router.selectAgentForQuery(query, currentState);
+          const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
+          agentType = this.router.selectAgent(decisionContext);
           selectSpan.setAttributes({ 'agent.selected_type': agentType, 'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based' });
           selectSpan.setStatus({ code: SpanStatusCode.OK });
           selectSpan.end();
@@ -410,7 +453,7 @@ export class QueryExecutor {
             { role: 'assistant', content: typeof agentResponse.data === 'string' ? agentResponse.data : JSON.stringify(agentResponse.data), timestamp: new Date().toISOString() },
           ];
         }
-        nextState.status = agentResponse.success ? 'in_progress' : 'completed';
+        nextState.status = agentResponse.success ? 'running' : 'completed';
 
         const response: AgentResponse = {
           type: 'message',
@@ -433,7 +476,7 @@ export class QueryExecutor {
         rootSpan.end();
         return {
           response: { type: 'message', payload: { message: 'I encountered an error processing your request. Please try again.', error: true } },
-          nextState: { ...currentState, status: 'error', context: { ...currentState.context, lastError: error instanceof Error ? error.message : 'Unknown error', errorTimestamp: new Date().toISOString() } },
+          nextState: { ...currentState, status: 'failed', context: { ...currentState.context, lastError: error instanceof Error ? error.message : 'Unknown error', errorTimestamp: new Date().toISOString() } },
           traceId,
         };
       }
