@@ -4,6 +4,10 @@
  */
 
 import { type Permission, PERMISSIONS } from "../../lib/permissions";
+import {
+  type RbacInvalidationEvent,
+  subscribeRbacInvalidation,
+} from "../../lib/rbacInvalidation.js";
 
 import { AuthorizationError, NotFoundError } from "./errors.js"
 import { TenantAwareService } from "./TenantAwareService.js"
@@ -37,10 +41,48 @@ export interface UserRole {
 export class PermissionService extends TenantAwareService {
   private roleCache: Map<string, CachedRole> = new Map();
   private readonly cacheTTL: number;
+  private unsubscribeRbac?: () => Promise<void>;
 
   constructor(cacheTTL: number = ROLE_CACHE_TTL_MS) {
     super("PermissionService");
     this.cacheTTL = cacheTTL;
+    // Subscribe to cross-instance invalidation events. Fire-and-forget —
+    // if Redis is unavailable the in-process TTL still bounds staleness.
+    this.initRbacSubscription();
+  }
+
+  private initRbacSubscription(): void {
+    subscribeRbacInvalidation((event: RbacInvalidationEvent) => {
+      this.handleRbacInvalidation(event);
+    })
+      .then((unsubscribe) => {
+        this.unsubscribeRbac = unsubscribe;
+      })
+      .catch(() => {
+        // Redis unavailable — degraded to in-process cache only.
+      });
+  }
+
+  private handleRbacInvalidation(event: RbacInvalidationEvent): void {
+    if (event.roleId) {
+      this.invalidateRoleCache(event.roleId);
+    } else {
+      // Broad invalidation (tenant-wide role change or user removal).
+      this.invalidateRoleCache();
+    }
+    // Also clear the TenantAwareService request deduplication cache for
+    // any user-roles keys affected by this event.
+    if (event.userId && event.tenantId) {
+      this.clearCache(`user-roles-${event.userId}-organization-${event.tenantId}`);
+      this.clearCache(`user-roles-${event.userId}-any-any`);
+    } else {
+      this.clearCache();
+    }
+  }
+
+  /** Release the Redis subscription. Call on graceful shutdown. */
+  async destroy(): Promise<void> {
+    await this.unsubscribeRbac?.();
   }
 
   /**

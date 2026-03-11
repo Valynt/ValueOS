@@ -1,9 +1,21 @@
-import { createServerSupabaseClient } from "../lib/supabase.js";
+import { USER_ROLE_PERMISSIONS } from "@shared/lib/permissions";
 
-import { auditLogService } from "./AuditLogService.js";
-import { ValidationError } from "./errors.js";
+import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
+
+import { auditLogService } from "../security/AuditLogService.js";
+import { ValidationError } from "../errors.js";
 
 const CUSTOM_ROLE_PREFIX = "custom:";
+
+// Role hierarchy — higher index = more privilege.
+// An actor may only grant permissions they themselves hold.
+const ROLE_RANK: Record<string, number> = {
+  viewer: 0,
+  member: 1,
+  admin: 2,
+  owner: 3,
+};
 
 export interface AdminActor {
   id: string;
@@ -22,13 +34,84 @@ function encodeRoleName(tenantId: string, roleName: string): string {
   return `${CUSTOM_ROLE_PREFIX}${tenantId}:${roleName.trim().toLowerCase()}`;
 }
 
-function decodeRoleName(rawName: string): string {
-  const [, roleName] = rawName.split(":", 3);
-  return roleName || rawName;
+/**
+ * Decode a stored role name back to the human-readable role name.
+ *
+ * Stored format: "custom:{tenantId}:{roleName}"
+ *
+ * Previous implementation used `split(':', 3)[1]` which returned the tenantId
+ * segment (index 1), not the role name (index 2). Fixed by stripping the
+ * "custom:" prefix and then the tenantId segment explicitly.
+ *
+ * When tenantId is provided it is stripped precisely, preserving any colons
+ * that may appear in the role name itself.
+ */
+function decodeRoleName(rawName: string, tenantId?: string): string {
+  if (!rawName.startsWith(CUSTOM_ROLE_PREFIX)) return rawName;
+  const withoutPrefix = rawName.slice(CUSTOM_ROLE_PREFIX.length); // "{tenantId}:{roleName}"
+  if (tenantId && withoutPrefix.startsWith(`${tenantId}:`)) {
+    return withoutPrefix.slice(tenantId.length + 1);
+  }
+  // Fallback: strip up to and including the first colon (tenantId segment).
+  const colonIdx = withoutPrefix.indexOf(":");
+  return colonIdx === -1 ? withoutPrefix : withoutPrefix.slice(colonIdx + 1);
 }
 
 export class AdminRoleService {
   private supabase = createServerSupabaseClient();
+
+  /**
+   * Fetch the actor's system role in the given tenant and expand it to the
+   * full permission set they hold. Used to enforce the privilege ceiling —
+   * an actor cannot grant permissions they do not themselves possess.
+   */
+  private async getActorPermissions(actorId: string, tenantId: string): Promise<Set<string>> {
+    const { data, error } = await this.supabase
+      .from("user_tenants")
+      .select("role")
+      .eq("user_id", actorId)
+      .eq("tenant_id", tenantId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (error || !data) return new Set();
+
+    const rolePerms = USER_ROLE_PERMISSIONS[data.role as keyof typeof USER_ROLE_PERMISSIONS] ?? [];
+    return new Set(rolePerms as string[]);
+  }
+
+  /**
+   * Assert that every requested permission key is held by the actor.
+   * Owners bypass the check — they hold all permissions by definition.
+   */
+  private async assertPrivilegeCeiling(
+    actor: AdminActor,
+    tenantId: string,
+    permissionKeys: string[],
+  ): Promise<void> {
+    if (!permissionKeys.length) return;
+
+    // Fetch actor's current role rank first — owners skip the per-permission check.
+    const { data: actorRow } = await this.supabase
+      .from("user_tenants")
+      .select("role")
+      .eq("user_id", actor.id)
+      .eq("tenant_id", tenantId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    const actorRank = ROLE_RANK[actorRow?.role ?? ""] ?? -1;
+    if (actorRank >= ROLE_RANK["owner"]) return; // owners may grant anything
+
+    const actorPerms = await this.getActorPermissions(actor.id, tenantId);
+    const forbidden = permissionKeys.filter((key) => !actorPerms.has(key));
+
+    if (forbidden.length > 0) {
+      throw new ValidationError(
+        `Cannot grant permissions exceeding your own privilege: ${forbidden.join(", ")}`,
+      );
+    }
+  }
 
   private async resolvePermissionIds(permissionKeys: string[]): Promise<string[]> {
     if (!permissionKeys.length) return [];
@@ -101,15 +184,26 @@ export class AdminRoleService {
       },
     });
 
+    await publishRbacInvalidation({ roleId: role.id, tenantId: input.tenantId });
+
     return {
       id: role.id,
-      name: decodeRoleName(role.name),
+      name: decodeRoleName(role.name, input.tenantId),
       description: role.description,
       createdAt: role.created_at,
     };
   }
 
   async updateCustomRole(actor: AdminActor, roleId: string, input: CustomRoleInput) {
+    // Fetch current state before mutating for the audit before_state.
+    const { data: current } = await this.supabase
+      .from("roles")
+      .select("name,description")
+      .eq("id", roleId)
+      .maybeSingle();
+    const previousName = current ? decodeRoleName(current.name, input.tenantId) : null;
+    const previousDescription = current?.description ?? null;
+
     const encodedName = encodeRoleName(input.tenantId, input.name);
     const { data, error } = await this.supabase
       .from("roles")
@@ -131,14 +225,16 @@ export class AdminRoleService {
       resourceId: roleId,
       details: {
         tenantId: input.tenantId,
-        roleName: input.name,
-        description: input.description,
+        before: { name: previousName, description: previousDescription },
+        after: { name: input.name, description: input.description ?? null },
       },
     });
 
+    await publishRbacInvalidation({ roleId, tenantId: input.tenantId });
+
     return {
       id: data.id,
-      name: decodeRoleName(data.name),
+      name: decodeRoleName(data.name, input.tenantId),
       description: data.description,
       createdAt: data.created_at,
     };
@@ -169,12 +265,18 @@ export class AdminRoleService {
       resourceId: roleId,
       details: { tenantId },
     });
+
+    // Invalidate all caches — deleted role may have been held by any user in the tenant.
+    await publishRbacInvalidation({ roleId, tenantId });
   }
 
   async assignPermissionsToRole(
     actor: AdminActor,
     input: { tenantId: string; roleId: string; permissionKeys: string[] }
   ) {
+    // Enforce privilege ceiling — actor cannot grant permissions they don't hold.
+    await this.assertPrivilegeCeiling(actor, input.tenantId, input.permissionKeys);
+
     const permissionIds = await this.resolvePermissionIds(input.permissionKeys);
 
     const rows = permissionIds.map((permissionId) => ({
@@ -204,6 +306,8 @@ export class AdminRoleService {
         permissionKeys: input.permissionKeys,
       },
     });
+
+    await publishRbacInvalidation({ roleId: input.roleId, tenantId: input.tenantId });
   }
 
   async removePermissionsFromRole(
@@ -236,6 +340,8 @@ export class AdminRoleService {
         permissionKeys: input.permissionKeys,
       },
     });
+
+    await publishRbacInvalidation({ roleId: input.roleId, tenantId: input.tenantId });
   }
 
   async listRolePermissionMatrix(tenantId: string) {
@@ -301,7 +407,7 @@ export class AdminRoleService {
       .filter((role: any) => role.name.startsWith(`${CUSTOM_ROLE_PREFIX}${tenantId}:`))
       .map((role: any) => ({
         id: role.id,
-        name: decodeRoleName(role.name),
+        name: decodeRoleName(role.name, tenantId),
         description: role.description,
         permissions: permissionsByRole.get(role.id) || [],
       }));

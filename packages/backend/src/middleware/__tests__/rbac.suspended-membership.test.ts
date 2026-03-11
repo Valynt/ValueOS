@@ -17,11 +17,22 @@ vi.mock("@shared/lib/logger", () => ({
   }),
 }));
 
-vi.mock("@shared/lib/permissions", () => ({
-  hasPermission: vi.fn().mockReturnValue(true),
-  USER_ROLE_PERMISSIONS: { admin: ["users:read"] },
-  USER_ROLES: { ADMIN: "admin", MEMBER: "member", VIEWER: "viewer" },
-}));
+vi.mock("@shared/lib/permissions", () => {
+  function matchesOne(granted: string, required: string): boolean {
+    if (granted === required) return true;
+    const [gr, ga] = granted.split(":");
+    const [rr] = required.split(":");
+    return (gr === rr || gr === "*") && ga === "*";
+  }
+  function hasPermission(grantedList: string[] | undefined, required: string): boolean {
+    return (grantedList ?? []).some((g) => matchesOne(g, required));
+  }
+  return {
+    hasPermission,
+    USER_ROLE_PERMISSIONS: { admin: ["users:read"] },
+    USER_ROLES: { ADMIN: "admin", MEMBER: "member", VIEWER: "viewer" },
+  };
+});
 
 // Supabase client factory — replaced per test via mockSupabase()
 const supabaseMock = { from: vi.fn() };
@@ -90,10 +101,9 @@ describe("requirePermission — membership status gate (Fix 3)", () => {
     vi.clearAllMocks();
   });
 
-  it("passes the membership gate for an active user (proceeds to role expansion)", async () => {
-    // All three queries fire in parallel. user_tenants → active; user_roles and
-    // user_permissions → empty, so permission expansion returns false and we get
-    // a 403 from the RBAC check — NOT from the membership gate.
+  it("passes the membership gate for an active user with a matching role", async () => {
+    // user_tenants → active; user_roles → admin (has users:read); memberships → null.
+    // The full permission check should pass and call next().
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === "user_tenants") {
         return {
@@ -102,12 +112,24 @@ describe("requirePermission — membership status gate (Fix 3)", () => {
           maybeSingle: vi.fn().mockResolvedValue({ data: { status: "active" }, error: null }),
         };
       }
+      if (table === "memberships") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
         then: vi.fn().mockImplementation((resolve: (v: unknown) => unknown) =>
-          Promise.resolve(resolve({ data: [], error: null })),
+          Promise.resolve(
+            resolve(
+              table === "user_roles"
+                ? { data: [{ role: "admin" }], error: null }
+                : { data: [], error: null },
+            ),
+          ),
         ),
       };
     });
@@ -118,13 +140,9 @@ describe("requirePermission — membership status gate (Fix 3)", () => {
 
     await middleware(req, res, next);
 
-    // The membership gate passed (no early 403 with "inactive" message).
-    // The final 403 comes from the RBAC permission check (no matching role).
-    expect(res.status).toHaveBeenCalledWith(403);
-    const jsonArg = (res.json as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, string>;
-    // Must be the RBAC denial message, not the membership gate message
-    expect(jsonArg?.message).toMatch(/Permission denied/i);
-    expect(jsonArg?.message).not.toMatch(/inactive/i);
+    // Active membership + matching role → access granted.
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalledWith(403);
   });
 
   it("denies a user with inactive membership (suspended)", async () => {

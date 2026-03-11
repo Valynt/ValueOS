@@ -5,6 +5,7 @@
  */
 
 import { logger } from "../../lib/logger.js"
+import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js"
 import { createServerSupabaseClient } from "../../lib/supabase.js"
 
 import { AuditLogService } from "./AuditLogService.js"
@@ -348,6 +349,15 @@ export class AdminUserService {
 
     await this.assertNotLastAdmin(payload.userId, payload.tenantId, role);
 
+    // Fetch current role before mutating so the audit log captures before_state.
+    const { data: currentRow } = await this.getSupabase()
+      .from("user_tenants")
+      .select("role")
+      .eq("user_id", payload.userId)
+      .eq("tenant_id", payload.tenantId)
+      .maybeSingle();
+    const previousRole = currentRow?.role ?? null;
+
     const { error: updateMembershipError } = await this.getSupabase()
       .from("user_tenants")
       .update({
@@ -393,10 +403,13 @@ export class AdminUserService {
       resourceId: payload.userId,
       details: {
         tenantId: payload.tenantId,
-        role,
+        before: { role: previousRole },
+        after: { role },
       },
       status: "success",
     });
+
+    await publishRbacInvalidation({ userId: payload.userId, tenantId: payload.tenantId });
   }
 
   async removeUserFromTenant(actor: AdminActor, payload: RemoveUserPayload): Promise<void> {
@@ -440,6 +453,8 @@ export class AdminUserService {
       },
       status: "success",
     });
+
+    await publishRbacInvalidation({ userId: payload.userId, tenantId: payload.tenantId });
   }
 }
 
