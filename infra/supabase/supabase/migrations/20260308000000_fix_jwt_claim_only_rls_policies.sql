@@ -237,18 +237,19 @@ DO $$ BEGIN
         EXECUTE 'DROP POLICY IF EXISTS approval_requests_tenant_insert ON public.approval_requests';
         EXECUTE 'DROP POLICY IF EXISTS approval_requests_tenant_update ON public.approval_requests';
 
+        -- approval_requests uses organization_id (uuid), not tenant_id
         EXECUTE 'CREATE POLICY approval_requests_tenant_select ON public.approval_requests
             AS RESTRICTIVE FOR SELECT TO authenticated
-            USING (security.user_has_tenant_access(tenant_id))';
+            USING (organization_id = (auth.jwt() ->> ''tenant_id'')::uuid)';
 
         EXECUTE 'CREATE POLICY approval_requests_tenant_insert ON public.approval_requests
             AS RESTRICTIVE FOR INSERT TO authenticated
-            WITH CHECK (security.user_has_tenant_access(tenant_id))';
+            WITH CHECK (organization_id = (auth.jwt() ->> ''tenant_id'')::uuid)';
 
         EXECUTE 'CREATE POLICY approval_requests_tenant_update ON public.approval_requests
             AS RESTRICTIVE FOR UPDATE TO authenticated
-            USING (security.user_has_tenant_access(tenant_id))
-            WITH CHECK (security.user_has_tenant_access(tenant_id))';
+            USING (organization_id = (auth.jwt() ->> ''tenant_id'')::uuid)
+            WITH CHECK (organization_id = (auth.jwt() ->> ''tenant_id'')::uuid)';
     END IF;
 END $$;
 

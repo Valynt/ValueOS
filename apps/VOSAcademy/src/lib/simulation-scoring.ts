@@ -35,7 +35,7 @@ export interface ScoringResult {
  */
 export const SCORING_THRESHOLDS = {
   PASSING_SCORE: 80,
-  SILVER_THRESHOLD: 85,
+  SILVER_THRESHOLD: 80,
   GOLD_THRESHOLD: 95,
 } as const;
 

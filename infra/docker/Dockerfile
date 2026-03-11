@@ -17,8 +17,8 @@ RUN apt-get update && apt-get upgrade -y && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# Enable corepack
+RUN corepack enable
 
 WORKDIR /app
 

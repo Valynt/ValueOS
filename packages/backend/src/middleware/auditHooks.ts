@@ -17,6 +17,12 @@ import { NextFunction, Request, Response } from "express";
 
 import { auditLogService } from "../services/AuditLogService";
 
+interface RequestUser {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
 /**
  * Extract user info from request
  */
@@ -25,11 +31,11 @@ function getUserInfo(req: Request): {
   userName: string;
   userEmail: string;
 } {
-  const user = req.user as any;
+  const user = req.user as RequestUser | undefined;
   return {
-    userId: user?.id || "anonymous",
-    userName: user?.name || user?.email || "Anonymous",
-    userEmail: user?.email || "unknown@example.com",
+    userId: user?.id ?? "anonymous",
+    userName: user?.name ?? user?.email ?? "Anonymous",
+    userEmail: user?.email ?? "unknown@example.com",
   };
 }
 

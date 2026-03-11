@@ -81,11 +81,8 @@ export interface MonitoringConfig {
     replayAttacks: number; // per minute
     compromisedAgents: number; // total
   };
-  escalationRules: {
-    highSensitivityAccess: AlertType[];
-    agentCompromised: AlertType[];
-    circuitBreakerOpened: AlertType[];
-  };
+  escalationRules: Partial<Record<SecurityEventType, AlertType[]>>;
+  notificationEmails?: string[];
   retentionPeriod: number; // days
 }
 
@@ -111,10 +108,11 @@ export class SecurityMonitor {
       compromisedAgents: 1, // 1 total
     },
     escalationRules: {
-      highSensitivityAccess: ["immediate_notification", "email_alert"],
-      agentCompromised: ["immediate_notification", "slack_notification", "pager_duty"],
-      circuitBreakerOpened: ["immediate_notification", "security_team_escalation"],
+      high_sensitivity_data_access: ["immediate_notification", "email_alert"],
+      agent_compromised: ["immediate_notification", "slack_notification", "pager_duty"],
+      circuit_breaker_opened: ["immediate_notification", "security_team_escalation"],
     },
+    notificationEmails: process.env.SECURITY_ALERT_EMAIL ? [process.env.SECURITY_ALERT_EMAIL] : ['security@valuecanvas.com'],
     retentionPeriod: 30, // 30 days
   };
 

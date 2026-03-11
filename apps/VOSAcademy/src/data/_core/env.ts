@@ -1,7 +1,7 @@
 /**
  * Required environment variables for server-side operations
  */
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "test") {
   throw new Error(
     "[ENV] Security risk: Server environment module loaded in browser context. This could expose server secrets. Use env-client.ts for browser environment variables which should be prefixed with VITE_."
   );

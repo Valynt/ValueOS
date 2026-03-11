@@ -12,12 +12,41 @@
  */
 
 // Browser-compatible hash function (replaces Node.js crypto)
+import { SupabaseClient } from "@supabase/supabase-js";
+
 import { logger } from "../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
 import type { AuditLogEntry } from "../types";
 
 import { BaseService } from "./BaseService.js";
+
+// audit_logs is not in the generated Database type — use a typed helper
+// rather than scattering `as any` across every query.
+function auditLogsTable(supabase: SupabaseClient) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase as any).from("audit_logs");
+}
+
+/** Shape of a persisted audit log row returned from the database. */
+export interface AuditLogEntry {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  details?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  status: "success" | "failed";
+  integrity_hash: string;
+  previous_hash?: string;
+  timestamp: string;
+  archived?: boolean;
+}
 
 export interface AuditLogCreateInput {
   userId: string;
@@ -27,6 +56,10 @@ export interface AuditLogCreateInput {
   resourceType: string;
   resourceId: string;
   details?: Record<string, unknown>;
+  /** Snapshot of the resource state before the mutation. Stored in details.before_state. */
+  beforeState?: Record<string, unknown>;
+  /** Snapshot of the resource state after the mutation. Stored in details.after_state. */
+  afterState?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   status?: "success" | "failed";
@@ -152,8 +185,8 @@ export class AuditLogService extends BaseService {
     user_id: string;
     session_id?: string;
     organization_id?: string;
-    action_data: any;
-    result_data: any;
+    action_data: Record<string, unknown>;
+    result_data: Record<string, unknown>;
     success: boolean;
     error_message?: string;
     duration_ms: number;
@@ -209,9 +242,10 @@ export class AuditLogService extends BaseService {
           const result = await this.executeRequest(
             async () => {
               // Sanitize sensitive data
-              const sanitizedDetails = input.details
-                ? (sanitizeForLogging(input.details) as Record<string, unknown>)
-                : {};
+              const rawDetails: Record<string, unknown> = { ...input.details };
+              if (input.beforeState !== undefined) rawDetails["before_state"] = input.beforeState;
+              if (input.afterState !== undefined) rawDetails["after_state"] = input.afterState;
+              const sanitizedDetails = sanitizeForLogging(rawDetails) as Record<string, unknown>;
               const { status: _ignoredStatus, ...detailsWithoutStatus } = sanitizedDetails;
 
               // Calculate integrity hash (using secure SHA-256)

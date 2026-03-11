@@ -6,7 +6,7 @@ import { DealsView } from '../DealsView';
 
 // Mocks
 const mockErrorToast = vi.fn();
-vi.mock('@/components/Common/Toast', () => ({
+vi.mock('@/components/common/Toast', () => ({
   useToast: () => ({
     error: mockErrorToast,
   }),

@@ -383,8 +383,14 @@ export class SecurityMetricsCollector {
     const key = `${event.category}_${event.outcome}`;
     this.metrics.set(key, (this.metrics.get(key) || 0) + 1);
 
+    // Sanitize metadata before storing to prevent secret leakage in memory/API
+    const sanitizedEvent: SecurityEvent = {
+      ...event,
+      metadata: sanitizeMetadata(event.metadata),
+    };
+
     // Store recent events (circular buffer)
-    this.events.push(event);
+    this.events.push(sanitizedEvent);
     if (this.events.length > this.maxEvents) {
       this.events.shift();
     }
