@@ -82,9 +82,10 @@ export function useUsageSummary() {
         throw new Error(res.error?.message ?? "Failed to fetch usage summary");
       }
       if (!res.data) return null;
-      const parsed = BillingSummaryResponseSchema.parse(res.data);
-      if (!parsed.usage) return null;
-      return mapUsageSummary(parsed.usage);
+      const usage = (res.data as { usage?: unknown }).usage;
+      if (!usage) return null;
+      const parsedUsage = BillingSummaryResponseSchema.shape.usage.parse(usage);
+      return mapUsageSummary(parsedUsage);
     },
     staleTime: 30_000,
     retry: (failureCount, error) => {
