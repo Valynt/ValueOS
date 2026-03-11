@@ -278,6 +278,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         { headers: { Authorization: `Bearer ${accessToken}` } }
       )
       .then((res) => {
+        // Ignore stale responses if a newer fetch has been started.
+        if (lastFetchKeyRef.current !== fetchKey) {
+          return;
+        }
         if (res.success && res.data?.data) {
           setNotifications(res.data.data.map(rowToNotification));
         }
