@@ -23,7 +23,7 @@ SET search_path = public, pg_temp;
 CREATE OR REPLACE FUNCTION public.compute_portfolio_value(p_tenant_id TEXT)
 RETURNS JSON
 LANGUAGE plpgsql
-STABLE
+VOLATILE
 SECURITY INVOKER
 SET search_path = public
 AS $$
@@ -62,7 +62,9 @@ BEGIN
   END IF;
 
   -- Compute the rollup. RLS on value_cases provides a second layer of
-  -- defence; the explicit tenant_id filter is retained for query efficiency.
+  -- defence. Filter on both tenant_id (TEXT legacy) and organization_id
+  -- (UUID canonical) so rows inserted by either code path are included
+  -- during the dual-column transition period.
   RETURN (
     SELECT json_build_object(
       'totalValue', COALESCE(SUM(
@@ -76,8 +78,8 @@ BEGIN
       'avgConfidence', COALESCE(AVG(quality_score), 0)
     )
     FROM public.value_cases
-    WHERE tenant_id = v_tenant_id
-      AND status   != 'archived'
+    WHERE (tenant_id = v_tenant_id OR organization_id = v_tenant_id::uuid)
+      AND status != 'archived'
   );
 END;
 $$;
