@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Must be set before the module is imported so the singleton proxy resolves correctly.
+process.env.WEB_SCRAPER_ENCRYPTION_KEY = 'd'.repeat(64); // 32-byte hex for tests
+
 import { webScraperService } from '../WebScraperService.js'
 
 describe('WebScraperService', () => {
