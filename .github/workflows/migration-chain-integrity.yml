@@ -52,7 +52,7 @@ jobs:
       MIGRATIONS_DIR: infra/supabase/supabase/migrations
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Postgres client and pgvector
         run: |

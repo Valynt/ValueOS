@@ -134,7 +134,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
@@ -249,7 +249,7 @@ jobs:
       image_ref: ${{ steps.backend-image-ref.outputs.image_ref }}
       frontend_image_ref: ${{ steps.frontend-image-ref.outputs.image_ref }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -377,7 +377,7 @@ jobs:
     needs: [build-images, verify-supply-chain]
     if: ${{ github.event_name != 'schedule' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
@@ -414,7 +414,7 @@ jobs:
       name: staging
       url: https://staging.valueos.app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -536,7 +536,7 @@ jobs:
     needs: [deploy-staging]
     if: github.event_name != 'schedule'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run standardized k6 benchmark suites against staging
         env:
@@ -627,7 +627,7 @@ jobs:
     needs: [deploy-staging, preprod-slo-guard]
     if: github.event_name != 'schedule'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
@@ -689,7 +689,7 @@ jobs:
       name: production
       url: https://app.valueos.app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -910,7 +910,7 @@ jobs:
     needs: [deploy-production]
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
