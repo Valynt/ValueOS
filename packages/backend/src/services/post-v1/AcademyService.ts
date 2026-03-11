@@ -133,11 +133,12 @@ class AcademyService {
   /**
    * Get user progress for all lessons
    */
-  async getUserProgress(userId: string): Promise<UserProgress[]> {
+  async getUserProgress(organizationId: string, userId: string): Promise<UserProgress[]> {
     try {
       const { data, error } = await supabase
         .from('academy_progress')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('user_id', userId);
 
       if (error) throw error;
@@ -186,7 +187,7 @@ class AcademyService {
   /**
    * Get pillar progress summary for current user
    */
-  async getPillarProgress(): Promise<PillarProgress[]> {
+  async getPillarProgress(organizationId: string): Promise<PillarProgress[]> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return this.getDefaultPillarProgress();
@@ -194,6 +195,7 @@ class AcademyService {
       const { data, error } = await supabase
         .from('user_pillar_progress')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -235,7 +237,7 @@ class AcademyService {
   /**
    * Get certification progress for current user
    */
-  async getCertificationProgress(): Promise<CertificationProgress[]> {
+  async getCertificationProgress(organizationId: string): Promise<CertificationProgress[]> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -243,6 +245,7 @@ class AcademyService {
       const { data: certs, error: certError } = await supabase
         .from('academy_certifications')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('user_id', user.id);
 
       if (certError) throw certError;
