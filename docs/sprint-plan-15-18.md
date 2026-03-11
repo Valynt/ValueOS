@@ -66,6 +66,8 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 **Objective:** Every critical data asset has a named owner, a criticality tier, and active freshness + pipeline-status monitoring.
 
+**Proof of completion:** Value-case APIs are live, observable, and producing trustworthy operational signals.
+
 **Architectural rationale:** Observability cannot be layered onto unknown assets. The minimum production-safe baseline from the checklist — inventory, ownership, freshness, volume, pipeline failure monitoring — must exist before anomaly detection or quality rules are meaningful. This sprint also resolves the `valueCasesRouter` P0 mount gap, which blocks all Stage 1–3 data reads in production.
 
 **Depends on:** Sprint 14 (performance indexes, type safety pass)
@@ -119,11 +121,21 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 **Risk:** BullMQ event hook API may differ across versions.  
 **Contingency:** Fall back to polling `queue.getJobCounts()` on a 30-second interval if event hooks are unavailable.
 
+### Sprint 15 — Dependency strip
+
+| | |
+|---|---|
+| **Blockers entering sprint** | Sprint 14 complete; `valueCasesRouter` not yet mounted in `server.ts` |
+| **Artifacts produced** | `data-asset-inventory.md`, `dataFreshness.ts`, `dataVolume.ts`, `queueMetrics.ts`, `/health/dependencies` updated with freshness + queue keys |
+| **Conditions required for Sprint 16** | T1 inventory published with named owners; freshness and volume gauges emitting to Prometheus; `pnpm test` green |
+
 ---
 
 ## Sprint 16 — Schema Drift, Lineage, Quality, and Incidents (Weeks 3–4)
 
 **Objective:** Breaking schema changes are detected before they reach production. Every T1 data failure has a runbook and an owner who gets paged.
+
+**Proof of completion:** Data assets, schema changes, incidents, and quality failures are detectable and attributable.
 
 **Architectural rationale:** Freshness and volume monitoring (Sprint 15) tell you *when* data is missing. Schema drift detection tells you *why*. Lineage tells you *what is affected*. Incident runbooks tell you *what to do*. These three capabilities compound — without them, a schema change in `hypothesis_outputs` silently breaks `HypothesisStage` with no path to diagnosis.
 
@@ -141,13 +153,19 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 16-2 — End-to-end lineage map for T1 lifecycle stages
 
-**Checklist refs:** §3 (lineage and dependency visibility)  
+**Checklist refs:** §3 (lineage and dependency visibility)
+
+**Lineage scope (pinned):** Table-level and job-level only. Column-level lineage and event-level lineage are explicitly out of scope for this sprint — they require a dedicated platform effort and are deferred post-Sprint 18. The goal here is blast-radius assessment: given a broken or stale table, which jobs wrote to it and which API endpoints and UI components consume it.
+
 **Acceptance criteria:**
-- `docs/observability/lineage.md` documents the full lineage for each T1 stage: source signal → agent → DB table → repository → API endpoint → frontend hook → UI component
-- Lineage entries reference the traceability map in `.ona/context/traceability.md` (no duplication — lineage.md adds blast-radius annotations)
-- Each lineage entry includes: "if this table is stale/missing, these downstream components are affected"
-- Lineage is machine-readable: `docs/observability/lineage.json` mirrors the markdown with a structured schema for programmatic blast-radius queries
-- `packages/backend/src/observability/lineageRegistry.ts` exports `getDownstreamImpact(table): string[]` — returns affected API endpoints and UI components
+- `docs/observability/lineage.md` documents lineage for each T1 stage at two levels:
+  - **Job level:** which agent (job) writes to which table, including the BullMQ queue name and agent class
+  - **Table level:** for each T1 table, which API endpoints read from it and which frontend hooks/components consume those endpoints
+- Lineage entries reference `.ona/context/traceability.md` (no duplication — lineage.md adds blast-radius annotations only)
+- Each entry includes: "if this table is stale or missing, these jobs, endpoints, and UI components are affected"
+- Lineage is machine-readable: `docs/observability/lineage.json` with schema `{ table, written_by: string[], read_by_endpoints: string[], consumed_by_components: string[] }`
+- `packages/backend/src/observability/lineageRegistry.ts` exports `getDownstreamImpact(table): { endpoints: string[]; components: string[] }` — used by incident runbooks to populate blast-radius in alert payloads
+- Column-level and event-level lineage are explicitly marked as out of scope in the document header
 
 ### KR 16-3 — Data quality rules for T1 agent output tables
 
@@ -183,24 +201,44 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - `pnpm run data:quality` runs quality checks against local Supabase; fails if violation rate >0% on T1 tables in a clean seed
 - `pnpm test` green; `pnpm run test:rls` green
 
+### Sprint 16 — Dependency strip
+
+| | |
+|---|---|
+| **Blockers entering sprint** | T1 inventory and freshness/volume monitoring live (Sprint 15); DEBT-010 SecurityMonitor stubs unresolved |
+| **Artifacts produced** | `schemaDrift.ts`, `lineageRegistry.ts`, `lineage.json`, `dataQuality.ts`, `incident-runbooks/`, `incident-severity.md`, SecurityMonitor alert channels implemented |
+| **Conditions required for Sprint 17** | Schema snapshot CI check passing; at least one incident runbook reviewed by an owner; `pnpm run schema:snapshot` and `pnpm run data:quality` both green |
+
 ---
 
 ## Sprint 17 — Anomaly Detection, Streaming, and AI/Vector Observability (Weeks 5–6)
 
 **Objective:** Distribution anomalies in agent outputs are detected automatically. BullMQ queue health is visible. Vector memory freshness and embedding drift are observable.
 
-**Architectural rationale:** Sprints 15–16 cover the deterministic layer (freshness, volume, schema, quality rules). Sprint 17 covers the probabilistic layer — distribution drift in LLM outputs, queue consumer lag, and vector index staleness. These are the failure modes most likely to be invisible without explicit instrumentation in an agentic system. ValueOS's competitive differentiation (persistent value memory, compounding lifecycle intelligence) depends on the vector layer being trustworthy.
+**Proof of completion:** AI/memory and customer-lifecycle persistence are measurable for freshness, lag, drift, and integrity.
+
+**Architectural rationale:** Sprints 15–16 cover the deterministic layer (freshness, volume, schema, quality rules). Sprint 17 covers the probabilistic layer — distribution drift in LLM outputs, queue consumer lag, and vector index staleness. These are the failure modes most likely to be invisible without explicit instrumentation in an agentic system. AI/vector observability is not advanced nice-to-have work here — it is core product integrity work. ValueOS's differentiation (persistent value memory, compounding lifecycle intelligence) is only trustworthy if the vector layer is observable.
 
 **Depends on:** Sprint 16 (quality rules and lineage live; incident process defined)
 
 ### KR 17-1 — Distribution drift detection for agent confidence scores
 
-**Checklist refs:** §8 (distribution and anomaly detection), §19 (AI/ML and agentic data observability)  
+**Checklist refs:** §8 (distribution and anomaly detection), §19 (AI/ML and agentic data observability)
+
+**Operational definition of confidence drift (v1):**
+- **Signal:** the `confidence` field returned by `secureInvoke` for each agent run, mapped to numeric: `high=1.0`, `medium=0.5`, `low=0.0`
+- **Window:** rolling 50-run window per agent per tenant (not time-based — run-count-based avoids false positives for low-volume tenants)
+- **Baseline:** mean and stddev computed over the window once ≥10 runs exist; no alert fired below that threshold
+- **Drift condition:** a new score deviates >2σ from the window mean on three consecutive runs (single-run spikes are noise; three consecutive runs indicate a shift)
+- **Action triggered:** emit `agent_confidence_drift_total{agent}` counter; log `WARN` with `{ agent, orgId, currentScore, windowMean, windowStddev, consecutiveDeviations }`; no automated remediation in v1
+- **Hallucination signal rate:** separate metric — `agent_hallucination_signal_rate{agent}` gauge = fraction of runs in the last 24h where `hallucination_check` returned `true`; threshold >20% triggers `WARN` log
+
 **Acceptance criteria:**
-- `packages/backend/src/observability/distributionMonitor.ts` exports `trackConfidenceDistribution(agent, score, orgId)` — called by each agent after `secureInvoke`; records score in a rolling 7-day window per agent per tenant
-- `detectConfidenceDrift(agent, orgId)` computes mean and stddev over the window; emits `agent_confidence_drift_total{agent}` counter when current score deviates >2σ from the rolling mean
-- Hallucination signal rate tracked: `agent_hallucination_signal_rate{agent}` gauge = (runs with `hallucination_check: true`) / (total runs) over 24h
-- Unit test: drift detection fires correctly on a crafted sequence of scores
+- `packages/backend/src/observability/distributionMonitor.ts` exports `trackConfidenceDistribution(agent, score, orgId)` — appends to a per-agent per-tenant ring buffer (max 50 entries) stored in Redis
+- `detectConfidenceDrift(agent, orgId)` reads the buffer, computes mean/stddev, applies the three-consecutive-run rule; returns `{ drifting: boolean; mean: number; stddev: number; consecutiveDeviations: number }`
+- Called by `BaseAgent` after every `secureInvoke` — no agent-specific wiring required
+- Unit test: buffer fills correctly; drift fires on run 3 of a deviation sequence; no false positive on a single outlier
+- Unit test: hallucination rate gauge emits correct fraction
 
 ### KR 17-2 — BullMQ consumer lag and stall observability
 
@@ -246,19 +284,33 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - All tests pass with mocked Supabase and Prometheus clients
 - `pnpm test` green; `pnpm run test:rls` green
 
+### Sprint 17 — Dependency strip
+
+| | |
+|---|---|
+| **Blockers entering sprint** | Lineage registry and incident runbooks live (Sprint 16); `realization_outputs` and `expansion_outputs` tables do not yet exist |
+| **Artifacts produced** | `distributionMonitor.ts` (Redis-backed ring buffer), `queueHealth.ts`, `vectorHealth.ts`, `realization_outputs` + `expansion_outputs` migrations, `RealizationOutputRepository.ts`, `ExpansionOutputRepository.ts`, `RealizationStage` and `ExpansionStage` wired to real data |
+| **Conditions required for Sprint 18** | Confidence drift detection emitting to Prometheus; vector orphan and stale-embedding counters live; `pnpm run test:rls` green for both new tables; `RealizationStage` shows no hardcoded data |
+
 ---
 
 ## Sprint 18 — Cost Visibility, Compliance, Governance, and SLO Attainment (Weeks 7–8)
 
 **Objective:** Data platform cost is attributed by domain. Sensitive data access is auditable. SLO attainment is measurable. Governance standards are enforced at the PR boundary.
 
-**Architectural rationale:** Sprints 15–17 build the detection layer. Sprint 18 closes the loop: cost attribution prevents silent spend growth, compliance observability satisfies enterprise audit requirements, and SLO measurement turns the monitoring infrastructure into a feedback signal for engineering priorities. This sprint also resolves remaining P1 debt (DEBT-005 NarrativeAgent, DEBT-006 canvas title, DEBT-007 commitment tracking stubs) that was deferred from Sprint 11.
+**Proof of completion:** Platform operations can be governed by cost, compliance, and service-level outcomes.
+
+**Architectural rationale:** Sprints 15–17 build the detection layer. Sprint 18 closes the loop: cost attribution prevents silent spend growth, compliance observability satisfies enterprise audit requirements, and SLO measurement turns the monitoring infrastructure into a feedback signal for engineering priorities. DEBT-005, DEBT-006, and DEBT-007 also land here — they are product-completeness items (the canvas is not fully real without them) rather than platform unblockers, and they depend on the persistence layer from Sprint 17 being stable before the commitment tracking stubs can be resolved against real tables.
 
 **Depends on:** Sprint 17 (anomaly detection, vector health, realization/expansion persistence live)
 
 ### KR 18-1 — NarrativeAgent and full canvas wiring (DEBT-005, DEBT-006)
 
-**Debt refs:** DEBT-005 / #1346, DEBT-006 / #1347  
+**Debt refs:** DEBT-005 / #1346, DEBT-006 / #1347
+
+**Classification:** Product-completeness items. The canvas is not fully real without a working Narrative stage and a correct case title. These are not platform unblockers — no other sprint's observability work depends on them — but they are required for the product to be considered complete at the end of this planning horizon.
+
+
 **Acceptance criteria:**
 - `packages/backend/src/lib/agent-fabric/agents/NarrativeAgent.ts` — extends `BaseAgent`, `lifecycleStage = "composing"`, `version = "1.0.0"`, uses `secureInvoke` with Zod schema including `hallucination_check: z.boolean().optional()`, confidence threshold 0.6–0.85, persists to `narrative_drafts` via `NarrativeDraftRepository`, stores memory with `this.organizationId`
 - Registered in `AgentFactory.ts`
@@ -269,7 +321,11 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 18-2 — ValueCommitmentTrackingService stub resolution (DEBT-007)
 
-**Debt ref:** DEBT-007 / #1348  
+**Debt ref:** DEBT-007 / #1348
+
+**Classification:** Product-completeness item. The commitment tracking feature is scaffolded but entirely inert — milestones, metrics, risks, and audit entries all return mock data. Resolving this requires `realization_outputs` to exist (Sprint 17), which is why it lands here rather than earlier. It is not a platform unbocker for observability work.
+
+
 **Acceptance criteria:**
 - All 12+ TODO stubs in `ValueCommitmentTrackingService.ts` replaced with real Supabase queries scoped to `organization_id`
 - Milestones, metrics, risks, stakeholders, and audit entries write to and read from `realization_outputs` (created in Sprint 17)
@@ -311,6 +367,14 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 **Risk:** SLO attainment computation requires Prometheus query API; may not be available in all dev environments.  
 **Contingency:** Fall back to direct Supabase queries for attainment calculation in environments without Prometheus. The `sloTracker` accepts a pluggable `MetricsReader` interface.
+
+### Sprint 18 — Dependency strip
+
+| | |
+|---|---|
+| **Blockers entering sprint** | `realization_outputs` and `expansion_outputs` tables live (Sprint 17); `narrative_drafts` table exists (Sprint 11 plan); `NarrativeAgent.ts` does not yet exist |
+| **Artifacts produced** | `NarrativeAgent.ts`, `NarrativeStage` wired, `ValueCaseCanvas` title fixed, `ValueCommitmentTrackingService` stubs resolved, `costAttribution.ts`, `complianceMonitor.ts`, `sloTracker.ts`, `slo-definitions.md` |
+| **Conditions required for post-Sprint 18** | All SLO attainment endpoints returning real data; no "Acme Corp" literal anywhere in canvas; `pnpm test` green; `pnpm run test:rls` green |
 
 ---
 

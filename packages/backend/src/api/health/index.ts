@@ -21,6 +21,10 @@ import { rateLimiters } from "../../middleware/rateLimiter.js"
 import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware.js"
 import { securityHeadersMiddleware } from "../../middleware/securityHeaders.js"
 import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware.js"
+import { checkAllT1TableFreshness } from "../../observability/dataFreshness.js"
+import { getQueueHealth } from "../../observability/queueMetrics.js"
+import { getCrmSyncQueue, getCrmWebhookQueue, getPrefetchQueue } from "../../workers/crmWorker.js"
+import { getResearchQueue } from "../../workers/researchWorker.js"
 
 
 
@@ -606,9 +610,56 @@ router.get("/health/dependencies", async (_req: Request, res: Response) => {
   if (enabledChecks.openAI) checks.openAI = results[idx++];
   if (enabledChecks.redis) checks.redis = results[idx++];
 
+  // Data freshness — T1 tables. Uses a representative system org ID for the
+  // cross-tenant freshness check; individual tenant freshness is tracked by
+  // the 5-minute cron in the observability module.
+  const systemOrgId = process.env.SYSTEM_ORG_ID ?? "";
+  let dataFreshness: Record<string, unknown> | undefined;
+  if (systemOrgId) {
+    try {
+      const freshnessResults = await checkAllT1TableFreshness(systemOrgId);
+      dataFreshness = Object.fromEntries(
+        freshnessResults.map((r) => [
+          r.table,
+          { status: r.status, lagMinutes: r.lagMinutes !== null ? Math.round(r.lagMinutes) : null },
+        ]),
+      );
+    } catch {
+      dataFreshness = { error: "freshness check unavailable" };
+    }
+  }
+
+  // Queue health — all registered BullMQ queues.
+  let queues: Record<string, unknown> | undefined;
+  try {
+    const queueEntries = await Promise.all([
+      getQueueHealth(getCrmSyncQueue(), "crm-sync"),
+      getQueueHealth(getCrmWebhookQueue(), "crm-webhook"),
+      getQueueHealth(getPrefetchQueue(), "crm-prefetch"),
+      getQueueHealth(getResearchQueue(), "onboarding-research"),
+    ]);
+    queues = Object.fromEntries(
+      queueEntries.map((q) => [
+        q.queue,
+        {
+          waiting: q.waiting,
+          active: q.active,
+          delayed: q.delayed,
+          failed: q.failed,
+          stalledCount: q.stalledCount,
+          lastFailedAt: q.lastFailedAt,
+        },
+      ]),
+    );
+  } catch {
+    queues = { error: "queue health unavailable" };
+  }
+
   res.json({
     timestamp: new Date().toISOString(),
     checks,
+    ...(dataFreshness ? { data_freshness: dataFreshness } : {}),
+    ...(queues ? { queues } : {}),
   });
 });
 

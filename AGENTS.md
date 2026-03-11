@@ -163,6 +163,7 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/types/orchestration.ts` | Canonical orchestration types (AgentResponse, ExecutionEnvelope, StreamingUpdate, etc.) |
 | `packages/backend/src/analytics/ValueLoopAnalytics.ts` | Value loop learning: recommendation acceptance, assumption corrections, evidence persuasiveness |
 | `packages/backend/src/observability/valueLoopMetrics.ts` | Prometheus metrics for value loop stage transitions, agent invocations, hypothesis confidence |
+| `docs/observability/data-asset-inventory.md` | T1/T2/T3 data asset inventory — tables, queues, owners, freshness SLAs, downstream dependency map |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
