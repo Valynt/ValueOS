@@ -247,6 +247,48 @@ router.delete(
   }
 );
 
+const transferOwnershipSchema = z.object({
+  newOwnerId: z.string().uuid(),
+});
+
+router.post(
+  "/transfer-ownership",
+  requirePermission("owner.transfer"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
+
+      const parsed = transferOwnershipSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const actor = (req as any).user;
+      const actorName =
+        actor?.user_metadata?.full_name ||
+        actor?.user_metadata?.name ||
+        actor?.email ||
+        "Admin User";
+
+      await adminUserService.transferOwnership(
+        { id: actor.id, email: actor.email, name: actorName },
+        { newOwnerId: parsed.data.newOwnerId, tenantId },
+      );
+
+      return res.json({ message: "Ownership transferred" });
+    } catch (error) {
+      if (error instanceof Error && error.name === "ValidationError") {
+        return res.status(409).json({ error: error.message });
+      }
+      logger.error("Failed to transfer ownership", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to transfer ownership" });
+    }
+  }
+);
+
 router.post(
   "/roles",
   requirePermission("roles.assign"),

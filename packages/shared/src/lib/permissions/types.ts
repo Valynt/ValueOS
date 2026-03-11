@@ -79,6 +79,9 @@ export const PERMISSIONS = {
   AGENTS_VIEW: "agents:view" as Permission,
   AGENTS_CREATE: "agents:create" as Permission,
   AGENTS_EXECUTE: "agents:execute" as Permission,
+
+  // Tenant ownership transfer — restricted to the current owner only.
+  OWNER_TRANSFER: "owner.transfer" as Permission,
 } as const;
 
 export function parsePermission(permission: string): { resource: string; action: string } | null {
