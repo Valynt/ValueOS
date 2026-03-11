@@ -88,17 +88,35 @@ function extractTableNames(sql) {
   return tables;
 }
 
-function extractTableColumns(sql, tableName) {
-  // Extract column names from the CREATE TABLE block for a given table.
+function extractTableBody(sql, tableName) {
+  // Extract the body of a CREATE TABLE block using paren-depth tracking so
+  // that nested parentheses in CHECK constraints (e.g. ANY (ARRAY[...])) do
+  // not truncate the body prematurely.
   const clean = stripComments(sql);
-  const tablePattern = new RegExp(
-    `CREATE\\s+TABLE\\s+IF\\s+NOT\\s+EXISTS\\s+(?:public\\.)?${tableName}\\s*\\(([\\s\\S]*?)\\)\\s*;`,
+  const headerPattern = new RegExp(
+    `CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:public\\.)?${tableName}\\s*\\(`,
     "i"
   );
-  const m = tablePattern.exec(clean);
-  if (!m) return new Set();
+  const headerMatch = headerPattern.exec(clean);
+  if (!headerMatch) return null;
 
-  const body = m[1];
+  let depth = 1;
+  let i = headerMatch.index + headerMatch[0].length;
+  const start = i;
+  while (i < clean.length && depth > 0) {
+    if (clean[i] === "(") depth++;
+    else if (clean[i] === ")") depth--;
+    i++;
+  }
+  // i is now one past the closing ')' of the CREATE TABLE block
+  return depth === 0 ? clean.slice(start, i - 1) : null;
+}
+
+function extractTableColumns(sql, tableName) {
+  // Extract column names from the CREATE TABLE block for a given table.
+  const body = extractTableBody(sql, tableName);
+  if (!body) return new Set();
+
   const cols = new Set();
   // Match column definitions: word at start of line (after optional whitespace),
   // followed by a type keyword. Excludes CONSTRAINT, PRIMARY, UNIQUE, CHECK, FOREIGN.
@@ -229,12 +247,22 @@ for (const [file, sql] of Object.entries(sqlByFile)) {
   }
 
   // Merge columns added via ALTER TABLE ADD COLUMN.
+  // Tables defined in later files are handled in the second pass below.
   for (const [tableName, cols] of extractAddedColumns(sql)) {
     if (tableMap.has(tableName)) {
       for (const col of cols) tableMap.get(tableName).columns.add(col);
     }
-    // If the table isn't in the map yet (defined in a later file), we'll
-    // pick up the ADD COLUMN on the next pass — acceptable for static analysis.
+  }
+}
+
+// Second pass: apply ADD COLUMN statements whose tables were defined in a
+// later file than the ALTER TABLE. This covers migrations that add columns
+// to tables introduced by a subsequent migration (unusual but valid).
+for (const [, sql] of Object.entries(sqlByFile)) {
+  for (const [tableName, cols] of extractAddedColumns(sql)) {
+    if (tableMap.has(tableName)) {
+      for (const col of cols) tableMap.get(tableName).columns.add(col);
+    }
   }
 }
 

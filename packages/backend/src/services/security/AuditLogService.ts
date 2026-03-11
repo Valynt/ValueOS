@@ -15,7 +15,7 @@
 import { logger } from "../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
-import { AuditLogEntry } from "../types";
+import type { AuditLogEntry } from "../types";
 
 import { BaseService } from "./BaseService.js";
 
@@ -47,6 +47,7 @@ export interface AuditLogQuery {
 
 export interface AuditLogExportOptions {
   format: "csv" | "json";
+  tenantId: string;
   query?: AuditLogQuery;
 }
 
@@ -77,13 +78,13 @@ export class AuditLogService extends BaseService {
 
     try {
       const { data } = await this.supabase
-        .from("audit_logs" as any)
+        .from("audit_logs")
         .select("integrity_hash")
         .order("timestamp", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      this.lastHash = data?.integrity_hash || null;
+      this.lastHash = (data as { integrity_hash: string | null } | null)?.integrity_hash ?? null;
       this.initialized = true;
 
       logger.info("Audit hash chain initialized", {
@@ -240,8 +241,8 @@ export class AuditLogService extends BaseService {
               };
 
               const { data, error } = await this.supabase
-                .from("audit_logs" as any)
-                .insert(logEntry as any)
+                .from("audit_logs")
+                .insert(logEntry)
                 .select()
                 .single();
 
@@ -255,7 +256,7 @@ export class AuditLogService extends BaseService {
               }
 
               this.lastHash = hash;
-              return data as unknown as AuditLogEntry;
+              return data as AuditLogEntry;
             },
             { skipCache: true }
           );
@@ -270,7 +271,7 @@ export class AuditLogService extends BaseService {
   /**
    * Calculate cryptographic hash for integrity
    */
-  private async calculateHash(data: any): Promise<string> {
+  private async calculateHash(data: Record<string, unknown>): Promise<string> {
     const content = JSON.stringify(data);
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(content);
@@ -293,37 +294,37 @@ export class AuditLogService extends BaseService {
 
     return this.executeRequest(
       async () => {
-        let dbQuery = this.supabase.from("audit_logs" as any).select("*");
+        let dbQuery = this.supabase.from("audit_logs").select("*");
 
         // CRITICAL: Apply tenant filter first for security
-        dbQuery = dbQuery.eq("tenant_id" as any, query.tenantId as any);
+        dbQuery = dbQuery.eq("tenant_id", query.tenantId);
 
         if (query.userId) {
-          dbQuery = dbQuery.eq("user_id" as any, query.userId as any);
+          dbQuery = dbQuery.eq("user_id", query.userId);
         }
 
         if (query.action) {
           if (Array.isArray(query.action)) {
-            dbQuery = dbQuery.in("action" as any, query.action);
+            dbQuery = dbQuery.in("action", query.action);
           } else {
-            dbQuery = dbQuery.eq("action" as any, query.action as any);
+            dbQuery = dbQuery.eq("action", query.action);
           }
         }
 
         if (query.resourceType) {
           if (Array.isArray(query.resourceType)) {
-            dbQuery = dbQuery.in("resource_type" as any, query.resourceType);
+            dbQuery = dbQuery.in("resource_type", query.resourceType);
           } else {
-            dbQuery = dbQuery.eq("resource_type" as any, query.resourceType as any);
+            dbQuery = dbQuery.eq("resource_type", query.resourceType);
           }
         }
 
         if (query.resourceId) {
-          dbQuery = dbQuery.eq("resource_id" as any, query.resourceId as any);
+          dbQuery = dbQuery.eq("resource_id", query.resourceId);
         }
 
         if (query.status) {
-          dbQuery = dbQuery.eq("status" as any, query.status as any);
+          dbQuery = dbQuery.eq("status", query.status);
         }
 
         if (query.startDate) {
@@ -347,7 +348,7 @@ export class AuditLogService extends BaseService {
         const { data, error } = await dbQuery;
 
         if (error) throw error;
-        return (data || []) as unknown as AuditLogEntry[];
+        return (data ?? []) as AuditLogEntry[];
       },
       {
         deduplicationKey: `audit-logs-${JSON.stringify(query)}`,
@@ -362,13 +363,13 @@ export class AuditLogService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
-          .from("audit_logs" as any)
+          .from("audit_logs")
           .select("*")
-          .eq("id" as any, id as any)
+          .eq("id", id)
           .maybeSingle();
 
         if (error) throw error;
-        return data as unknown as AuditLogEntry | null;
+        return (data ?? null) as AuditLogEntry | null;
       },
       {
         deduplicationKey: `audit-log-${id}`,
@@ -382,7 +383,7 @@ export class AuditLogService extends BaseService {
   async export(options: AuditLogExportOptions): Promise<string> {
     super.log("info", "Exporting audit logs", options);
 
-    const logs = await this.query(options.query);
+    const logs = await this.query({ ...options.query, tenantId: options.tenantId });
 
     if (options.format === "csv") {
       return this.exportToCsv(logs);
@@ -395,6 +396,7 @@ export class AuditLogService extends BaseService {
    * Get audit log statistics
    */
   async getStatistics(
+    tenantId: string,
     startDate: string,
     endDate: string
   ): Promise<{
@@ -406,7 +408,7 @@ export class AuditLogService extends BaseService {
   }> {
     return this.executeRequest(
       async () => {
-        const logs = await this.query({ startDate, endDate });
+        const logs = await this.query({ tenantId, startDate, endDate });
 
         const totalEvents = logs.length;
         const successfulEvents = logs.filter((l) => l.status === "success").length;
@@ -414,7 +416,7 @@ export class AuditLogService extends BaseService {
 
         const actionCounts = new Map<string, number>();
         logs.forEach((log) => {
-          actionCounts.set(log.action, (actionCounts.get(log.action) || 0) + 1);
+          actionCounts.set(log.action, (actionCounts.get(log.action) ?? 0) + 1);
         });
 
         const topActions = Array.from(actionCounts.entries())
@@ -424,12 +426,13 @@ export class AuditLogService extends BaseService {
 
         const userCounts = new Map<string, { userName: string; count: number }>();
         logs.forEach((log) => {
-          const existing = userCounts.get(log.userId) || {
-            userName: log.userName,
+          const uid = log.user_id ?? "unknown";
+          const existing = userCounts.get(uid) ?? {
+            userName: log.user_name ?? uid,
             count: 0,
           };
-          userCounts.set(log.userId, {
-            userName: log.userName,
+          userCounts.set(uid, {
+            userName: log.user_name ?? uid,
             count: existing.count + 1,
           });
         });
@@ -484,13 +487,13 @@ export class AuditLogService extends BaseService {
     const rows = logs.map((log) => [
       this.escapeCsvField(log.id),
       this.escapeCsvField(log.timestamp),
-      this.escapeCsvField(log.userName),
-      this.escapeCsvField(log.userEmail),
+      this.escapeCsvField(log.user_name),
+      this.escapeCsvField(log.user_email),
       this.escapeCsvField(log.action),
-      this.escapeCsvField(log.resourceType),
-      this.escapeCsvField(log.resourceId),
+      this.escapeCsvField(log.resource_type),
+      this.escapeCsvField(log.resource_id),
       this.escapeCsvField(log.status),
-      this.escapeCsvField(log.ipAddress),
+      this.escapeCsvField(log.ip_address),
     ]);
 
     return [headers, ...rows].map((row) => row.join(",")).join("\n");
@@ -507,8 +510,8 @@ export class AuditLogService extends BaseService {
       async () => {
         // Mark as archived instead of deleting
         const { data, error } = await this.supabase
-          .from("audit_logs" as any)
-          .update({ archived: true } as any)
+          .from("audit_logs")
+          .update({ archived: true })
           .lt("timestamp", olderThan)
           .select("id");
 
@@ -528,20 +531,20 @@ export class AuditLogService extends BaseService {
    * Verify audit log integrity
    * AUD-301: Verify cryptographic hash chain
    */
-  async verifyIntegrity(limit: number = 1000): Promise<{
+  async verifyIntegrity(tenantId: string, limit: number = 1000): Promise<{
     valid: boolean;
     errors: string[];
     checked: number;
   }> {
     logger.info("Verifying audit log integrity", { limit });
 
-    const logs = await this.query({ limit });
+    const logs = await this.query({ tenantId, limit });
     const errors: string[] = [];
     let previousHash: string | null = null;
 
     // Check in reverse chronological order
     for (let i = logs.length - 1; i >= 0; i--) {
-      const log = logs[i] as any;
+      const log = logs[i];
 
       // Verify hash chain
       if (log.previous_hash !== previousHash) {
@@ -566,7 +569,7 @@ export class AuditLogService extends BaseService {
         );
       }
 
-      previousHash = log.integrity_hash || null;
+      previousHash = log.integrity_hash ?? null;
     }
 
     const valid = errors.length === 0;
