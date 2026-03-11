@@ -498,7 +498,7 @@ importers:
         version: link:../../packages/core-services
       '@valueos/infra':
         specifier: file:../../packages/infra
-        version: link:../../packages/infra
+        version: file:packages/infra
       '@valueos/shared':
         specifier: ^1.0.0
         version: link:../../packages/shared
