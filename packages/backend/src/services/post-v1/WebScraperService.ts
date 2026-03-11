@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { resolve } from "dns";
 import { promisify } from "util";
 
@@ -6,7 +5,7 @@ import * as cheerio from "cheerio";
 import * as ipaddr from "ipaddr.js";
 import { createClient, type RedisClientType } from "redis";
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 
 const resolveAsync = promisify(resolve);
 
@@ -222,8 +221,19 @@ export class WebScraperService {
     }
   ) {
     this.userAgent = userAgent;
-    this.encryptionKey =
-      process.env.WEB_SCRAPER_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
+    const encryptionKey = process.env.WEB_SCRAPER_ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      // A random key generated at construction time is not usable: it changes on every
+      // process start and differs across replicas, making previously-encrypted cache
+      // entries permanently unreadable. Fail fast so the missing secret is caught at
+      // startup rather than silently corrupting cached data.
+      throw new Error(
+        "WEB_SCRAPER_ENCRYPTION_KEY environment variable is required. " +
+          "Generate a 32-byte hex key with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" " +
+          "and set it in your environment configuration."
+      );
+    }
+    this.encryptionKey = encryptionKey;
 
     const cacheMax = options?.cacheMaxEntries ?? DEFAULT_CACHE_MAX_ENTRIES;
     const requestTimesMax = options?.requestTimesMaxEntries ?? DEFAULT_REQUEST_TIMES_MAX_ENTRIES;
@@ -689,4 +699,37 @@ export class WebScraperService {
   }
 }
 
-export const webScraperService = new WebScraperService();
+// Lazy singleton — constructed on first access so that the missing-key error
+// surfaces at call time rather than at module import time (which would break
+// any module that imports this file in a test environment without the key set).
+let _webScraperServiceInstance: WebScraperService | null = null;
+
+export function getWebScraperService(): WebScraperService {
+  if (!_webScraperServiceInstance) {
+    _webScraperServiceInstance = new WebScraperService();
+  }
+  return _webScraperServiceInstance;
+}
+
+/**
+ * Reset the singleton so the next call to getWebScraperService() constructs
+ * a fresh instance. Use in test afterEach/afterAll hooks when
+ * WEB_SCRAPER_ENCRYPTION_KEY is changed between tests.
+ */
+export function resetWebScraperService(): void {
+  _webScraperServiceInstance = null;
+}
+
+/**
+ * @deprecated Use getWebScraperService() instead.
+ *
+ * Construction is deferred to first property access via a Proxy. If
+ * WEB_SCRAPER_ENCRYPTION_KEY is not set, the error surfaces on the first
+ * method call, not at module import time. Use getWebScraperService() for
+ * explicit construction and predictable error timing.
+ */
+export const webScraperService: WebScraperService = new Proxy({} as WebScraperService, {
+  get(_target, prop) {
+    return getWebScraperService()[prop as keyof WebScraperService];
+  },
+});

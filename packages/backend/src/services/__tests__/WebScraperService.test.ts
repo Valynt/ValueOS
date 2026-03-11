@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { webScraperService } from '../WebScraperService.js'
+// Must be set before the module is imported so the singleton proxy resolves correctly.
+process.env.WEB_SCRAPER_ENCRYPTION_KEY = 'd'.repeat(64); // 32-byte hex for tests
+
+import { webScraperService, resetWebScraperService } from '../WebScraperService.js'
 
 describe('WebScraperService', () => {
   const originalFetch = global.fetch;
@@ -12,6 +15,9 @@ describe('WebScraperService', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     vi.restoreAllMocks();
+    // Reset the singleton so a key change in another test file doesn't bleed
+    // into this one (BUG-5 fix).
+    resetWebScraperService();
   });
 
   it('should scrape title, h1, and content from HTML', async () => {

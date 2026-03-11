@@ -43,8 +43,134 @@ export type PermissionScope = "global" | "tenant" | "team" | "self";
 const ROLE_PERMISSIONS = USER_ROLE_PERMISSIONS;
 
 /**
- * Check if user has permission
- * Uses batched queries for better performance
+ * Resolved permission set for a user within a tenant.
+ * Fetched once and evaluated locally for any number of permission checks.
+ */
+interface ResolvedPermissions {
+  /** false when the user has no active membership — all checks must deny */
+  active: boolean;
+  /** union of system-role permissions + custom-role permissions + explicit grants */
+  granted: string[];
+}
+
+/**
+ * Fetch the complete permission set for a user in one logical operation.
+ *
+ * Round-trips:
+ *   1. Parallel: user_tenants (status) + user_roles + user_permissions
+ *   2. Sequential (only when system roles don't satisfy the check):
+ *      memberships → membership_roles (custom RBAC graph)
+ *
+ * Callers that need to evaluate multiple permissions (requireAnyPermission,
+ * requireAllPermissions) call this once and evaluate locally — no per-permission
+ * DB round-trips.
+ */
+async function resolvePermissions(
+  supabase: SupabaseClient,
+  userId: string,
+  tenantId: string,
+): Promise<ResolvedPermissions> {
+  // Round-trip 1: membership status + system roles + explicit grants in parallel.
+  const [membershipResult, rolesResult, permissionsResult] = await Promise.all([
+    supabase
+      .from("user_tenants")
+      .select("status")
+      .eq("user_id", userId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle(),
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("tenant_id", tenantId),
+    supabase
+      .from("user_permissions")
+      .select("permission")
+      .eq("user_id", userId)
+      .eq("tenant_id", tenantId),
+  ]);
+
+  const { data: tenantMembership, error: membershipStatusError } = membershipResult;
+  const { data: userRoles, error: rolesError } = rolesResult;
+  const { data: explicitPermissions, error: permError } = permissionsResult;
+
+  // Verify active membership — user_tenants is the RLS authority.
+  if (membershipStatusError) {
+    logger.error("Failed to verify membership status", membershipStatusError, { userId, tenantId });
+    return { active: false, granted: [] };
+  }
+
+  if (!tenantMembership || tenantMembership.status !== "active") {
+    logger.warn("Permission denied: membership inactive or missing", {
+      userId,
+      tenantId,
+      status: tenantMembership?.status ?? "not_found",
+    });
+    return { active: false, granted: [] };
+  }
+
+  if (rolesError) {
+    logger.error("Failed to fetch user roles", rolesError, { userId, tenantId });
+    return { active: false, granted: [] };
+  }
+
+  if (permError) {
+    logger.error("Failed to fetch user permissions", permError, { userId, tenantId });
+    // Continue — explicit grants are additive; a fetch failure is non-fatal.
+  }
+
+  // Expand system roles into their permission sets.
+  const granted: string[] = [];
+
+  for (const userRole of userRoles ?? []) {
+    const rolePermissions = ROLE_PERMISSIONS[userRole.role as Role];
+    if (rolePermissions) {
+      granted.push(...rolePermissions);
+    }
+  }
+
+  // Round-trip 2 (conditional): custom RBAC graph via memberships.
+  const { data: membership, error: membershipError } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (membershipError) {
+    logger.error("Failed to fetch membership", membershipError, { userId, tenantId });
+  } else if (membership?.id) {
+    const { data: customRolePermissions, error: customRoleError } = await supabase
+      .from("membership_roles")
+      .select("role_permissions(permissions(key))")
+      .eq("membership_id", membership.id);
+
+    if (customRoleError) {
+      logger.error("Failed to fetch custom role permissions", customRoleError, { userId, tenantId });
+    } else {
+      for (const row of customRolePermissions ?? []) {
+        const rolePerms = (row as Record<string, unknown>).role_permissions;
+        const normalized = Array.isArray(rolePerms) ? rolePerms : [rolePerms];
+        for (const rp of normalized) {
+          const perm = Array.isArray(rp?.permissions) ? rp.permissions[0] : rp?.permissions;
+          if (perm?.key) granted.push(perm.key);
+        }
+      }
+    }
+  }
+
+  // Append explicit per-user grants.
+  for (const ep of explicitPermissions ?? []) {
+    if (ep.permission) granted.push(ep.permission);
+  }
+
+  return { active: true, granted };
+}
+
+/**
+ * Check if user has a single permission.
+ * For multi-permission checks use requireAnyPermission / requireAllPermissions
+ * which call resolvePermissions once and evaluate locally.
  */
 async function hasPermission(
   supabase: SupabaseClient,
@@ -54,104 +180,14 @@ async function hasPermission(
   _scope: PermissionScope = "tenant"
 ): Promise<boolean> {
   try {
-    // Batch both queries in parallel for better performance
-    const [rolesResult, permissionsResult] = await Promise.all([
-      supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .eq("tenant_id", tenantId),
-      supabase
-        .from("user_permissions")
-        .select("permission")
-        .eq("user_id", userId)
-        .eq("tenant_id", tenantId),
-    ]);
-
-    const { data: userRoles, error: rolesError } = rolesResult;
-    const { data: explicitPermissions, error: permError } = permissionsResult;
-
-    if (rolesError) {
-      logger.error("Failed to fetch user roles", rolesError, {
-        userId,
-        tenantId,
-      });
-      return false;
-    }
-
-    if (permError) {
-      logger.error("Failed to fetch user permissions", permError, {
-        userId,
-        tenantId,
-      });
-      // Continue with role-based check even if explicit permissions fail
-    }
-
-    // Check if any system role has the permission (using unified permission matching with wildcard support)
-    if (userRoles && userRoles.length > 0) {
-      for (const userRole of userRoles) {
-        const rolePermissions = ROLE_PERMISSIONS[userRole.role as Role];
-        if (rolePermissions && matchPermission(rolePermissions, permission)) {
-          return true;
-        }
-      }
-    }
-
-    // Resolve tenant membership roles for custom role matrix
-    const { data: membership, error: membershipError } = await supabase
-      .from("memberships")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (membershipError) {
-      logger.error("Failed to fetch membership", membershipError, { userId, tenantId });
-    } else if (membership?.id) {
-      const { data: customRolePermissions, error: customRoleError } = await supabase
-        .from("membership_roles")
-        .select("role_permissions(permissions(key))")
-        .eq("membership_id", membership.id);
-
-      if (customRoleError) {
-        logger.error("Failed to fetch custom role permissions", customRoleError, { userId, tenantId });
-      } else {
-        const grantedPermissions: string[] = [];
-        for (const row of customRolePermissions || []) {
-          const rolePermissions = (row as Record<string, unknown>).role_permissions;
-          const normalized = Array.isArray(rolePermissions) ? rolePermissions : [rolePermissions];
-          for (const rp of normalized) {
-            const perm = Array.isArray(rp?.permissions) ? rp.permissions[0] : rp?.permissions;
-            if (perm?.key) {
-              grantedPermissions.push(perm.key);
-            }
-          }
-        }
-
-        if (grantedPermissions.length > 0 && matchPermission(grantedPermissions, permission)) {
-          return true;
-        }
-      }
-    }
-
-    // Check explicit permission grants
-    if (explicitPermissions && explicitPermissions.length > 0) {
-      const grantedPermissions = explicitPermissions.map((p) => p.permission);
-      if (matchPermission(grantedPermissions, permission)) {
-        return true;
-      }
-    }
-
-    return false;
+    const { active, granted } = await resolvePermissions(supabase, userId, tenantId);
+    if (!active) return false;
+    return matchPermission(granted, permission);
   } catch (error) {
     logger.error(
       "Permission check failed",
       error instanceof Error ? error : undefined,
-      {
-        userId,
-        tenantId,
-        permission,
-      }
+      { userId, tenantId, permission }
     );
     return false;
   }
@@ -436,29 +472,20 @@ export function requireAnyPermission(...permissions: Permission[]) {
 
       const supabase = getRequestSupabaseClient(req);
 
-      // Check if user has any of the permissions
-      for (const permission of permissions) {
-        const allowed = await hasPermission(
-          supabase,
-          userId,
-          tenantId,
-          permission
-        );
-        if (allowed) {
-          logger.debug("Permission granted (any)", {
-            userId,
-            tenantId,
-            permission,
-          });
-          return next();
+      // Resolve the full permission set once, then evaluate all candidates locally.
+      // Avoids N sequential hasPermission() calls (each making 3–5 DB round-trips).
+      const { active, granted } = await resolvePermissions(supabase, userId, tenantId);
+
+      if (active) {
+        for (const permission of permissions) {
+          if (matchPermission(granted, permission)) {
+            logger.debug("Permission granted (any)", { userId, tenantId, permission });
+            return next();
+          }
         }
       }
 
-      logger.warn("All permissions denied", {
-        userId,
-        tenantId,
-        permissions,
-      });
+      logger.warn("All permissions denied", { userId, tenantId, permissions });
 
       return res.status(403).json({
         error: "Forbidden",
@@ -505,36 +532,28 @@ export function requireAllPermissions(...permissions: Permission[]) {
 
       const supabase = getRequestSupabaseClient(req);
 
-      // Check if user has all permissions
-      for (const permission of permissions) {
-        const allowed = await hasPermission(
-          supabase,
-          userId,
-          tenantId,
-          permission
-        );
-        if (!allowed) {
-          logger.warn("Permission denied (all)", {
-            userId,
-            tenantId,
-            permission,
-            required: permissions,
-          });
+      // Resolve the full permission set once, then evaluate all candidates locally.
+      const { active, granted } = await resolvePermissions(supabase, userId, tenantId);
 
-          return res.status(403).json({
-            error: "Forbidden",
-            message: `Permission denied: requires all of ${permissions.join(", ")}`,
-          });
+      if (active) {
+        for (const permission of permissions) {
+          if (!matchPermission(granted, permission)) {
+            logger.warn("Permission denied (all)", { userId, tenantId, permission, required: permissions });
+            return res.status(403).json({
+              error: "Forbidden",
+              message: `Permission denied: requires all of ${permissions.join(", ")}`,
+            });
+          }
         }
+        logger.debug("All permissions granted", { userId, tenantId, permissions });
+        return next();
       }
 
-      logger.debug("All permissions granted", {
-        userId,
-        tenantId,
-        permissions,
+      logger.warn("Permission denied (all) — inactive membership", { userId, tenantId });
+      return res.status(403).json({
+        error: "Forbidden",
+        message: `Permission denied: requires all of ${permissions.join(", ")}`,
       });
-
-      return next();
     } catch (error) {
       logger.error(
         "Permission middleware error",

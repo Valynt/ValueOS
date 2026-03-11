@@ -198,6 +198,9 @@ router.patch(
 
       return res.json({ message: "Role updated" });
     } catch (error) {
+      if (error instanceof Error && error.name === "ValidationError") {
+        return res.status(409).json({ error: error.message });
+      }
       logger.error("Failed to update role", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to update role" });
     }
@@ -235,6 +238,9 @@ router.delete(
 
       return res.json({ message: "User removed" });
     } catch (error) {
+      if (error instanceof Error && error.name === "ValidationError") {
+        return res.status(409).json({ error: error.message });
+      }
       logger.error("Failed to remove user", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to remove user" });
     }

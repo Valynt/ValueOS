@@ -1,9 +1,13 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { WebScraperService } from "../WebScraperService.js";
 
 describe("WebScraperService bounded-memory caching", () => {
   let service: WebScraperService;
+
+  beforeEach(() => {
+    process.env.WEB_SCRAPER_ENCRYPTION_KEY = "b".repeat(64); // 32-byte hex for tests
+  });
 
   afterEach(() => {
     service?.destroy();

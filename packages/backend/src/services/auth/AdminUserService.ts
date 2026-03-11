@@ -4,8 +4,9 @@
  * Handles tenant user administration with server-side permissions and audit logging.
  */
 
-import { logger } from "../lib/logger.js"
-import { createServerSupabaseClient } from "../lib/supabase.js"
+import { logger } from "../../lib/logger.js"
+import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js"
+import { createServerSupabaseClient } from "../../lib/supabase.js"
 
 import { AuditLogService } from "./AuditLogService.js"
 import { authDirectoryService } from "./AuthDirectoryService.js"
@@ -89,6 +90,61 @@ export class AdminUserService {
       throw new ValidationError(`Unsupported role: ${role}`);
     }
     return normalized;
+  }
+
+  /**
+   * Throws if removing or demoting targetUserId would leave the tenant with
+   * zero admin/owner members. Called before any removal or role downgrade.
+   *
+   * "Admin" is defined as role IN ('owner', 'admin') with status = 'active'
+   * in user_tenants — the RLS authority table.
+   */
+  private async assertNotLastAdmin(
+    targetUserId: string,
+    tenantId: string,
+    incomingRole?: TenantRole,
+  ): Promise<void> {
+    // Only relevant when the target currently holds an elevated role.
+    const { data: current, error: currentErr } = await this.getSupabase()
+      .from("user_tenants")
+      .select("role")
+      .eq("user_id", targetUserId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (currentErr) {
+      throw new ValidationError(`Failed to verify current role: ${currentErr.message}`);
+    }
+
+    const isCurrentlyAdmin =
+      current?.role === "owner" || current?.role === "admin";
+
+    // If the user is not currently an admin/owner, no last-admin risk.
+    if (!isCurrentlyAdmin) return;
+
+    // If a new role is provided and it is also elevated, no risk.
+    const isIncomingAdmin =
+      incomingRole === "owner" || incomingRole === "admin";
+    if (incomingRole !== undefined && isIncomingAdmin) return;
+
+    // Count remaining active admins/owners excluding the target user.
+    const { count, error: countErr } = await this.getSupabase()
+      .from("user_tenants")
+      .select("user_id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("status", "active")
+      .in("role", ["owner", "admin"])
+      .neq("user_id", targetUserId);
+
+    if (countErr) {
+      throw new ValidationError(`Failed to count tenant admins: ${countErr.message}`);
+    }
+
+    if ((count ?? 0) === 0) {
+      throw new ValidationError(
+        "Cannot remove or demote the last admin. Assign another admin first.",
+      );
+    }
   }
 
 
@@ -291,6 +347,17 @@ export class AdminUserService {
   async updateUserRole(actor: AdminActor, payload: UpdateRolePayload): Promise<void> {
     const role = this.normalizeRole(payload.role);
 
+    await this.assertNotLastAdmin(payload.userId, payload.tenantId, role);
+
+    // Fetch current role before mutating so the audit log captures before_state.
+    const { data: currentRow } = await this.getSupabase()
+      .from("user_tenants")
+      .select("role")
+      .eq("user_id", payload.userId)
+      .eq("tenant_id", payload.tenantId)
+      .maybeSingle();
+    const previousRole = currentRow?.role ?? null;
+
     const { error: updateMembershipError } = await this.getSupabase()
       .from("user_tenants")
       .update({
@@ -336,13 +403,18 @@ export class AdminUserService {
       resourceId: payload.userId,
       details: {
         tenantId: payload.tenantId,
-        role,
+        before: { role: previousRole },
+        after: { role },
       },
       status: "success",
     });
+
+    await publishRbacInvalidation({ userId: payload.userId, tenantId: payload.tenantId });
   }
 
   async removeUserFromTenant(actor: AdminActor, payload: RemoveUserPayload): Promise<void> {
+    await this.assertNotLastAdmin(payload.userId, payload.tenantId);
+
     const { error: removeError } = await this.getSupabase()
       .from("user_tenants")
       .update({
@@ -381,6 +453,8 @@ export class AdminUserService {
       },
       status: "success",
     });
+
+    await publishRbacInvalidation({ userId: payload.userId, tenantId: payload.tenantId });
   }
 }
 
