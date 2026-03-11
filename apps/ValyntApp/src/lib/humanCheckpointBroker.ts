@@ -11,6 +11,8 @@ import type {
   HumanCheckpointEventPayload,
 } from "@valueos/sdui";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 export class HttpHumanCheckpointBroker implements HumanCheckpointBroker {
   private readonly handlers = new Set<
     (event: HumanCheckpointEvent) => Promise<void> | void
@@ -32,11 +34,7 @@ export class HttpHumanCheckpointBroker implements HumanCheckpointBroker {
   }
 
   async publishCheckpointEvent(payload: HumanCheckpointEventPayload): Promise<void> {
-    await fetch("/api/checkpoints", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    await apiClient.post("/api/checkpoints", payload);
   }
 
   private ensureEventSource(): void {

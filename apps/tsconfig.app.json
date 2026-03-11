@@ -56,7 +56,7 @@
         "./packages/sdui/src/index.ts"
       ],
       "@valueos/sdui-types": [
-        "./packages/sdui-types/index.ts"
+        "./packages/sdui/src/schema.ts"
       ],
       "@valueos/integrations": [
         "./packages/integrations/index.ts"

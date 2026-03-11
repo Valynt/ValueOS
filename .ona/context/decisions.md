@@ -13,6 +13,46 @@ Full records: `docs/engineering/adr/`. Update this file when a new ADR is accept
 
 ---
 
+## ADR-0014 — Direct Agent Invocation Rule (Accepted, 2026-06-10)
+
+**Decision:** Server-side orchestration calls `AgentFactory.create(agentType, orgId).execute(context)` directly. `AgentAPI` (HTTP client) is for external/frontend callers only. `QueryExecutor` no longer makes an HTTP round-trip to itself.
+
+**Rule for agents and services:** Never import `AgentAPI` for intra-process agent invocation. Use `createAgentFactory(deps).create(agentType, orgId).execute(context)`.
+
+---
+
+## ADR-0013 — Two-Layer Memory Architecture (Accepted, 2026-06-10)
+
+**Decision:** `MemorySystem` (in-process L1 cache) → `SupabaseMemoryBackend` → `SupabaseSemanticStore` (`packages/memory` adapter) → `semantic_memory` table. `packages/memory` is now the canonical persistent layer with real agent consumers. `AgentMemoryService` deleted.
+
+**Consequence for agents:** Store memory via `this.memorySystem.store(...)` as before. Never import `AgentMemoryService`. For explicit DB cleanup use `SupabaseSemanticStore` directly. Every memory operation must include `organization_id`.
+
+---
+
+## ADR-0012 — Canonical Circuit Breaker (Accepted, 2026-06-10)
+
+**Decision:** `lib/resilience/CircuitBreaker.ts` is the single canonical implementation. `CircuitBreakerConfig` extended with optional `recoveryTimeout`/`monitoringPeriod`/`successThreshold` fields. `config/secrets/CircuitBreaker.ts` deleted; `RedisCircuitBreaker` and `CategorizedCircuitBreakerManager` refactored to delegate to canonical. Legacy type shims deleted.
+
+**Consequence for agents:** Import `CircuitBreaker` from `lib/resilience/CircuitBreaker` or the `services/CircuitBreaker` re-export barrel. Never define a new `CircuitBreaker` class. Use optional config fields for domain-specific needs.
+
+---
+
+## ADR-0011 — DI Container Removal (Accepted, 2026-06-10)
+
+**Decision:** `DependencyInjectionContainer.ts` deleted. Module-level singletons (`getMyService()` lazy-init pattern) are the standard for shared service instances. The container was fully built but never populated — `hasService()` always returned false.
+
+**Consequence for agents:** Never import from `DependencyInjectionContainer`. Use module-level singletons for shared instances. Tests mock at the module boundary.
+
+---
+
+## ADR-0010 — Canonical LifecycleStage Vocabulary (Accepted, 2026-06-10)
+
+**Decision:** One `LifecycleStage` type, exported from `packages/shared/src/domain/`. Canonical values: `discovery | drafting | validating | composing | refining | realized | expansion`. Internal agent routing labels (`opportunity`, `modeling`, `target`, `integrity`, `narrative`) are mapped to canonical stages via `packages/backend/src/lib/agent-fabric/lifecycleStageAdapter.ts`.
+
+**Consequence for agents:** Import `LifecycleStage` from `@valueos/shared` only. Never define it locally. When constructing `AgentConfig.lifecycle_stage`, use `agentLabelToLifecycleStage(agentType)` from the adapter. Agent class `lifecycleStage` properties remain as routing labels — the adapter translates at the factory boundary.
+
+---
+
 ## ADR-0005 — Theme Precedence and Token Governance ⚠️ [PROPOSED — not yet accepted]
 
 **Decision:** Design token precedence order: global base → brand theme → tenant override → component local. Tokens defined at a lower layer cannot be overridden by a higher layer without explicit `!important` annotation in the token definition.

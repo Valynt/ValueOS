@@ -9,6 +9,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -46,15 +48,7 @@ export interface ModelSnapshot {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function fetchJSON<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (res.status === 404) return null as T;
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body.error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+// fetchJSON removed — use apiClient (Phase 8 / ADR-0014)
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -68,10 +62,11 @@ export function useModelSnapshot(caseId: string | undefined) {
   return useQuery<ModelSnapshot | null>({
     queryKey: ["model-snapshot", caseId],
     queryFn: async () => {
-      const result = await fetchJSON<{ data: ModelSnapshot | null }>(
+      const result = await apiClient.get<{ data: ModelSnapshot | null }>(
         `/api/v1/value-cases/${caseId}/model-snapshots/latest`,
       );
-      return result?.data ?? null;
+      if (!result.success) throw new Error(result.error?.message ?? "Request failed");
+      return result.data?.data ?? null;
     },
     enabled: !!caseId,
     staleTime: 30_000,
@@ -87,20 +82,12 @@ export function useRunFinancialModelingAgent(caseId: string | undefined) {
 
   return useMutation<{ jobId: string }, Error, { query?: string }>({
     mutationFn: async (input) => {
-      const res = await fetch("/api/agents/financial-modeling/invoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: input.query ?? "Build financial model for this value case",
-          context: { value_case_id: caseId },
-        }),
+      const res = await apiClient.post<{ data?: { jobId?: string } }>("/api/agents/financial-modeling/invoke", {
+        query: input.query ?? "Build financial model for this value case",
+        context: { value_case_id: caseId },
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as Record<string, string>;
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-      const data = await res.json() as { data?: { jobId?: string } };
-      return { jobId: data.data?.jobId ?? "" };
+      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+      return { jobId: res.data?.data?.jobId ?? "" };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["model-snapshot", caseId] });

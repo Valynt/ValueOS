@@ -31,7 +31,7 @@
       "@valueos/shared": ["../../packages/shared/src"],
       "@valueos/shared/*": ["../../packages/shared/src/*"],
       "@shared/*": ["../../packages/shared/src/*"],
-      "@valueos/sdui-types": ["../../packages/sdui-types/index.ts"],
+      "@valueos/sdui-types": ["../../packages/sdui/src/schema.ts"],
       "@valueos/sdui": ["../../packages/sdui/src/index.ts"],
       "@valueos/components": ["../../packages/components/index.ts"],
       "@valueos/components/*": ["../../packages/components/*"],

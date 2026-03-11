@@ -1,3 +1,5 @@
+import { apiClient } from "@/api/client/unified-api-client";
+
 import type { LLMConfig, LLMMessage, LLMRequest, LLMResponse } from "./types";
 
 const defaultConfig: LLMConfig = {
@@ -24,40 +26,35 @@ class LLMClient {
     const lastMessage = messages[messages.length - 1];
     const prompt = lastMessage?.content || "";
 
-    const response = await fetch("/api/llm/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        prompt,
-        messages,
-        model: config.model,
-        maxTokens: config.maxTokens,
-        temperature: config.temperature,
-      }),
+    type LLMPayload = {
+      success?: boolean;
+      error?: string;
+      message?: string;
+      data?: {
+        content?: string;
+        model?: string;
+        usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+      };
+    };
+
+    const response = await apiClient.post<LLMPayload>("/api/llm/chat", {
+      prompt,
+      messages,
+      model: config.model,
+      maxTokens: config.maxTokens,
+      temperature: config.temperature,
     });
 
-    const payload = (await response.json().catch(() => null)) as
-      | {
-          success?: boolean;
-          error?: string;
-          message?: string;
-          data?: {
-            content?: string;
-            model?: string;
-            usage?: {
-              promptTokens?: number;
-              completionTokens?: number;
-              totalTokens?: number;
-            };
-          };
-        }
-      | null;
+    // apiClient never throws — check transport-level success first
+    if (!response.success) {
+      throw new Error(response.error?.message ?? "LLM request failed");
+    }
 
-    if (!response.ok || payload?.success === false) {
-      const message = payload?.message || payload?.error || `LLM request failed: ${response.status}`;
+    const payload = response.data;
+
+    // Check application-level success flag from the backend payload
+    if (payload?.success === false) {
+      const message = payload?.message || payload?.error || "LLM request failed";
       throw new Error(message);
     }
 
@@ -84,6 +81,8 @@ class LLMClient {
     return response.content;
   }
 
+  // Raw fetch retained in stream(): apiClient does not expose the raw Response
+  // body needed for SSE/streaming. Migrate when apiClient supports streaming.
   async *stream(request: LLMRequest): AsyncGenerator<string, void, unknown> {
     const config = { ...this.config, ...request.config };
     const messages = request.messages;
@@ -92,10 +91,7 @@ class LLMClient {
 
     const response = await fetch("/api/llm/chat", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
         model: config.model,

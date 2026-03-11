@@ -15,8 +15,12 @@ import { logger } from "../../lib/logger.js"
 
 import {
   CircuitBreaker,
-  createConfigurableCircuitBreaker,
-} from "./CircuitBreaker";
+  type CircuitBreakerConfig,
+} from "../../lib/resilience/CircuitBreaker.js";
+
+function createConfigurableCircuitBreaker(config: Partial<CircuitBreakerConfig>): CircuitBreaker {
+  return new CircuitBreaker(config);
+}
 import type {
   AuditAction,
   AuditResult,

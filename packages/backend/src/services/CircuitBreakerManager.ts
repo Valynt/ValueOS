@@ -1,28 +1,20 @@
-// Re-export from the canonical implementation
+// Re-export from the canonical implementation in lib/resilience. ADR-0012.
 export {
   CircuitBreaker,
   CircuitBreakerManager,
   CircuitBreakerError,
-} from "../lib/resilience/CircuitBreaker";
+} from "../lib/resilience/CircuitBreaker.js";
 
 export type {
   CircuitState,
   CircuitBreakerConfig,
   CircuitBreakerMetrics,
-} from "../lib/resilience/CircuitBreaker";
+} from "../lib/resilience/CircuitBreaker.js";
 
-// Re-export categorized circuit breaker manager
+// Categorized circuit breaker manager (delegates to canonical CircuitBreaker internally)
 export {
   CategorizedCircuitBreakerManager,
   getCategorizedCircuitBreakerManager,
   resetCategorizedCircuitBreakerManager,
   AGENT_CATEGORIES,
-} from "./CircuitBreakerManager.categorized";
-
-// Legacy type exports for backward compatibility
-export type {
-  AgentCategory,
-  CategoryConfig,
-  CircuitBreakerStats,
-  CircuitBreakerEvent,
-} from "./CircuitBreakerManager.types";
+} from "./CircuitBreakerManager.categorized.js";

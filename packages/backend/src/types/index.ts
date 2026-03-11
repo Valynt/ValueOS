@@ -23,8 +23,10 @@ export type {
   WorkflowStage,
   WorkflowTransition,
   WorkflowDAG,
-  CircuitBreakerState,
 } from "./workflow";
+
+// CircuitState is the canonical circuit breaker state type (ADR-0012)
+export type { CircuitState as CircuitBreakerState } from "../lib/resilience/CircuitBreaker.js";
 
 // --- Billing ---
 export type { BillingCustomer, UsageAggregate } from "./billing";

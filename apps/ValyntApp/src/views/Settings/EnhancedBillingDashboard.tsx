@@ -12,6 +12,8 @@
 import { Calendar, CreditCard, Download, TrendingUp } from 'lucide-react';
 import React from 'react';
 
+import { apiClient } from '../../api/client/unified-api-client';
+
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,
@@ -61,26 +63,20 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
   // Fetch subscription details on mount
   React.useEffect(() => {
     const fetchSubscription = async () => {
-      try {
-        setSubscriptionLoading(true);
-        const response = await fetch('/api/billing/subscription');
-        if (!response.ok) {
-           // If 404, it might mean no subscription, defaulting to free
-           const HTTP_NOT_FOUND = 404;
-           if (response.status === HTTP_NOT_FOUND) {
-             // Mock minimal subscription object for free tier
-             setCurrentSubscription({ plan_tier: 'free' } as unknown as Subscription);
-             return;
-           }
-           throw new Error('Failed to fetch subscription');
+      setSubscriptionLoading(true);
+      const res = await apiClient.get<Subscription>('/api/billing/subscription');
+      if (res.success) {
+        setCurrentSubscription(res.data ?? null);
+      } else {
+        const msg = res.error?.message ?? '';
+        // 404 means no subscription yet — default to free tier
+        if (msg.includes('404') || msg.includes('Not Found')) {
+          setCurrentSubscription({ plan_tier: 'free' } as unknown as Subscription);
+        } else {
+          setSubscriptionError(new Error(msg || 'Failed to load subscription'));
         }
-        const data = await response.json();
-        setCurrentSubscription(data);
-      } catch (err) {
-        setSubscriptionError(err instanceof Error ? err : new Error('Unknown error'));
-      } finally {
-        setSubscriptionLoading(false);
       }
+      setSubscriptionLoading(false);
     };
 
     fetchSubscription();
@@ -127,25 +123,13 @@ export const EnhancedBillingDashboard: React.FC<EnhancedBillingDashboardProps> =
         throw new Error('You are already on the highest plan. Contact sales for custom needs.');
       }
 
-      const response = await fetch('/api/billing/subscription', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ planTier: nextTier }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to upgrade plan');
-      }
+      const putRes = await apiClient.put('/api/billing/subscription', { planTier: nextTier });
+      if (!putRes.success) throw new Error(putRes.error?.message ?? 'Failed to upgrade plan');
 
       // Refresh subscription data
-      const subResponse = await fetch('/api/billing/subscription');
-      if (subResponse.ok) {
-        const subData = await subResponse.json();
-        setCurrentSubscription(subData);
-      }
+      const subRes = await apiClient.get<Subscription>('/api/billing/subscription');
+      if (!subRes.success) throw new Error(subRes.error?.message ?? 'Failed to reload subscription');
+      setCurrentSubscription(subRes.data ?? null);
     });
   };
 

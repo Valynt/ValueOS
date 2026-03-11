@@ -6,6 +6,7 @@
 import { AlertCircle, CreditCard, FileText, TrendingUp } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
+import { apiClient } from "../../api/client/unified-api-client";
 import { InvoiceList } from "../../components/Billing/InvoiceList";
 import { PlanSelector } from "../../components/Billing/PlanSelector";
 import { UsageMeter } from "../../components/Billing/UsageMeter";
@@ -29,24 +30,14 @@ export const BillingDashboard: React.FC = () => {
   const fetchBillingData = async () => {
     setLoading(true);
     try {
-      // Fetch subscription
-      const subRes = await fetch("/api/billing/subscription");
-      if (subRes.ok) {
-        setSubscription(await subRes.json());
-      }
-
-      // Fetch usage
-      const usageRes = await fetch("/api/billing/usage");
-      if (usageRes.ok) {
-        setUsage(await usageRes.json());
-      }
-
-      // Fetch invoices
-      const invoicesRes = await fetch("/api/billing/invoices");
-      if (invoicesRes.ok) {
-        const data = await invoicesRes.json();
-        setInvoices(data.invoices || []);
-      }
+      const [subRes, usageRes, invoicesRes] = await Promise.allSettled([
+        apiClient.get<Subscription>("/api/billing/subscription"),
+        apiClient.get<UsageSummary>("/api/billing/usage"),
+        apiClient.get<{ invoices?: Invoice[] }>("/api/billing/invoices"),
+      ]);
+      if (subRes.status === "fulfilled") setSubscription(subRes.value.data ?? null);
+      if (usageRes.status === "fulfilled") setUsage(usageRes.value.data ?? null);
+      if (invoicesRes.status === "fulfilled") setInvoices(invoicesRes.value.data?.invoices ?? []);
     } catch (error) {
       console.error("Failed to fetch billing data:", error);
     } finally {
@@ -55,35 +46,23 @@ export const BillingDashboard: React.FC = () => {
   };
 
   const handlePlanChange = async (newPlan: PlanTier) => {
-    try {
-      const res = await fetch("/api/billing/subscription", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planTier: newPlan }),
-      });
-
-      if (res.ok) {
-        await fetchBillingData();
-        setActiveTab("usage");
-      } else {
-        setError("Failed to update plan");
-      }
-    } catch (error) {
-      console.error("Failed to update plan:", error);
+    const res = await apiClient.put("/api/billing/subscription", { planTier: newPlan });
+    if (!res.success) {
+      console.error("Failed to update plan:", res.error?.message);
       setError("Failed to update plan");
+      return;
     }
+    await fetchBillingData();
+    setActiveTab("usage");
   };
 
   const handleDownloadInvoice = async (invoiceId: string) => {
-    try {
-      const res = await fetch(`/api/billing/invoices/${invoiceId}/pdf`);
-      if (res.ok) {
-        const { pdfUrl } = await res.json();
-        window.open(pdfUrl, "_blank");
-      }
-    } catch (error) {
-      console.error("Failed to download invoice:", error);
+    const res = await apiClient.get<{ pdfUrl: string }>(`/api/billing/invoices/${invoiceId}/pdf`);
+    if (!res.success) {
+      console.error("Failed to download invoice:", res.error?.message);
+      return;
     }
+    if (res.data?.pdfUrl) window.open(res.data.pdfUrl, "_blank");
   };
 
   const handleViewInvoice = (invoiceId: string) => {

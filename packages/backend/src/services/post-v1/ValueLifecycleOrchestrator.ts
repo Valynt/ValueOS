@@ -24,7 +24,8 @@ import { TargetAgentInputSchema } from "../validators/agentInputs.js";
 
 
 
-export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
+// Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts. ADR-0010.
+export type { LifecycleStage } from '@valueos/shared';
 
 /**
  * Saga-aligned lifecycle states from the design brief.

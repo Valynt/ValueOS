@@ -3,6 +3,23 @@ import { SDUIPageDefinition } from "@sdui/schema";
 import { AgentType } from "../agent-types";
 import type { AgentContext, AgentAPI, AgentResponse as APIAgentResponse } from "../AgentAPI";
 import type { AgentResponse, ExecutionEnvelope, StreamingUpdate } from "../../types/orchestration.js";
+import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
+import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
+import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
+import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
+import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker.js";
+
+let _renderFactory: ReturnType<typeof createAgentFactory> | null = null;
+function getRenderFactory(): ReturnType<typeof createAgentFactory> {
+  if (!_renderFactory) {
+    _renderFactory = createAgentFactory({
+      llmGateway: new LLMGateway({ provider: 'together', model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' }),
+      memorySystem: new MemorySystem({ max_memories: 1000, enable_persistence: true }, new SupabaseMemoryBackend()),
+      circuitBreaker: new CircuitBreaker(),
+    });
+  }
+  return _renderFactory;
+}
 
 export interface WorkflowRenderService {
   generateSDUIPage(
@@ -55,8 +72,23 @@ export class DefaultWorkflowRenderService implements WorkflowRenderService {
       case "expansion":
         response = await this.agentAPI.generateExpansionOpportunities(query, context);
         break;
-      default:
-        response = await this.agentAPI.invokeAgent({ agent, query, context });
+      default: {
+        // ADR-0014: direct factory invocation — no HTTP round-trip
+        const orgId = context?.organizationId ?? 'unknown';
+        const agentInstance = getRenderFactory().create(agent, orgId);
+        const output = await agentInstance.execute({
+          workspace_id: context?.sessionId ?? '',
+          user_id: context?.userId ?? '',
+          organization_id: orgId,
+          session_id: context?.sessionId ?? '',
+          query,
+        });
+        response = {
+          success: output.status === 'success' || output.status === 'partial_success',
+          data: output.result as SDUIPageDefinition,
+          error: output.errors?.[0]?.message,
+        };
+      }
     }
 
     streamingCallback?.({ stage: "processing", message: "Processing agent response...", progress: 60 });

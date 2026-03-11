@@ -21,7 +21,7 @@ import { createAgentFactory } from '../../lib/agent-fabric/AgentFactory.js';
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
-import { semanticMemory } from '../../services/SemanticMemory.js';
+
 import { logger } from '../../lib/logger.js';
 import { AuthenticatedRequest, requireAuth } from '../../middleware/auth.js';
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
@@ -62,7 +62,7 @@ function getFactory() {
       llmGateway: new LLMGateway({ provider: 'openai', model: 'gpt-4o-mini' }),
       memorySystem: new MemorySystem(
         { max_memories: 1000, enable_persistence: true },
-        new SupabaseMemoryBackend(semanticMemory),
+        new SupabaseMemoryBackend(),
       ),
       circuitBreaker: new CircuitBreaker(),
     });

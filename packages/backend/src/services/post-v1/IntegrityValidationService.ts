@@ -18,7 +18,13 @@ import { logger } from "../lib/logger.js"
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 
 import { AdversarialValidator } from "./AdversarialValidator.js"
-import { AgentMemoryService } from "./AgentMemoryService.js"
+
+// Minimal interface for cross-agent consistency memory queries.
+// AgentMemoryService was removed (ADR-0013); callers should inject MemorySystem
+// when this service is wired into production.
+interface MemoryQueryService {
+  queryMemories(params: { caseId: string; agentType: string; limit: number }): Promise<{ memories: unknown[] }>;
+}
 
 // ============================================================================
 // Types
@@ -109,13 +115,16 @@ export interface IntegrityViolation {
 
 export class IntegrityValidationService {
   private adversarialValidator: AdversarialValidator;
-  private agentMemoryService: AgentMemoryService;
+  private agentMemoryService: MemoryQueryService;
   private sourceVerifier: SourceVerifier;
   private consistencyChecker: ConsistencyChecker;
 
-  constructor(agentMemoryService: AgentMemoryService, supabaseUrl: string, supabaseKey: string) {
+  constructor(agentMemoryService: MemoryQueryService | null, supabaseUrl: string, supabaseKey: string) {
     this.adversarialValidator = new AdversarialValidator();
-    this.agentMemoryService = agentMemoryService;
+    // Default to a no-op stub when no memory service is provided.
+    this.agentMemoryService = agentMemoryService ?? {
+      queryMemories: async () => ({ memories: [] }),
+    };
     this.sourceVerifier = new SourceVerifier(supabaseUrl, supabaseKey);
     this.consistencyChecker = new ConsistencyChecker();
   }
@@ -846,7 +855,7 @@ class ConsistencyChecker {
 // ============================================================================
 
 export function createIntegrityValidationService(
-  agentMemoryService: AgentMemoryService,
+  agentMemoryService: MemoryQueryService | null,
   supabaseUrl: string,
   supabaseKey: string
 ): IntegrityValidationService {

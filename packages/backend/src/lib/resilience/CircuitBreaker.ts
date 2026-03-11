@@ -11,6 +11,12 @@ export interface CircuitBreakerConfig {
   failureThreshold: number;
   resetTimeout: number;
   halfOpenRequests: number;
+  /** Alias for resetTimeout — used by Redis and secrets subsystems. */
+  recoveryTimeout?: number;
+  /** Monitoring window in ms — informational, not enforced by this implementation. */
+  monitoringPeriod?: number;
+  /** Number of successes needed to close from half-open. Defaults to halfOpenRequests. */
+  successThreshold?: number;
 }
 
 export interface CircuitBreakerMetrics {
@@ -38,8 +44,12 @@ export class CircuitBreaker {
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = {
       failureThreshold: config?.failureThreshold ?? 5,
-      resetTimeout: config?.resetTimeout ?? 30_000,
-      halfOpenRequests: config?.halfOpenRequests ?? 1,
+      // recoveryTimeout is an alias for resetTimeout used by Redis/secrets subsystems
+      resetTimeout: config?.resetTimeout ?? config?.recoveryTimeout ?? 30_000,
+      halfOpenRequests: config?.halfOpenRequests ?? config?.successThreshold ?? 1,
+      recoveryTimeout: config?.recoveryTimeout,
+      monitoringPeriod: config?.monitoringPeriod,
+      successThreshold: config?.successThreshold,
     };
   }
 
@@ -62,10 +72,6 @@ export class CircuitBreaker {
       this.onFailure();
       throw err;
     }
-  }
-
-  getState(): CircuitState {
-    return this.state;
   }
 
   getMetrics(): CircuitBreakerMetrics {
@@ -154,5 +160,4 @@ export class LLMCircuitBreaker extends CircuitBreaker {
   }
 }
 
-// Re-export RedisCircuitBreaker (standalone implementation, no circular dependency)
-export { RedisCircuitBreaker } from "../../services/RedisCircuitBreaker.js";
+

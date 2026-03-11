@@ -7,6 +7,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 // ============================================================================
 // Types (mirrored from backend)
 // ============================================================================
@@ -62,17 +64,7 @@ export interface MergedContext {
 
 const API_BASE = "/api/v1/domain-packs";
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as Record<string, string>).error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+// fetchJSON removed — use apiClient (Phase 8 / ADR-0014)
 
 // ============================================================================
 // Demo fallback data — used when the backend API is unavailable
@@ -149,11 +141,13 @@ export function useDomainPacks() {
     queryKey: ["domain-packs"],
     queryFn: async () => {
       try {
-        return await fetchJSON<{ packs: DomainPack[] }>(API_BASE).then(r => r.packs);
-      } catch {
-        // Fallback to demo data when backend is unavailable
-        return DEMO_PACKS;
+        const res = await apiClient.get<{ packs: DomainPack[] }>(API_BASE);
+        if (res.success) return res.data?.packs ?? [];
+      } catch (err) {
+        console.error("Failed to fetch domain packs:", err);
       }
+      // Fallback to demo data when backend is unavailable or returns failure
+      return DEMO_PACKS;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -173,14 +167,16 @@ export function useMergedContext(caseId: string | undefined) {
       }
 
       try {
-        return await fetchJSON<MergedContext>(`${API_BASE}/value-cases/${caseId}/merged-context`);
-      } catch {
-        // Fallback to demo data when backend is unavailable
-        const params = new URLSearchParams(window.location.search);
-        const packId = params.get("packId");
-        if (packId === "demo-pack-saas") return DEMO_SAAS_CONTEXT;
-        return DEMO_BANKING_CONTEXT;
+        const res = await apiClient.get<MergedContext>(`${API_BASE}/value-cases/${caseId}/merged-context`);
+        if (res.success) return res.data as MergedContext;
+      } catch (err) {
+        console.error("Failed to fetch merged context:", err);
       }
+      // Fallback to demo data when backend is unavailable or returns failure
+      const params = new URLSearchParams(window.location.search);
+      const packId = params.get("packId");
+      if (packId === "demo-pack-saas") return DEMO_SAAS_CONTEXT;
+      return DEMO_BANKING_CONTEXT;
     },
     enabled: !!caseId,
   });
@@ -192,10 +188,7 @@ export function useSetDomainPack() {
 
   return useMutation({
     mutationFn: ({ caseId, packId }: { caseId: string; packId: string }) =>
-      fetchJSON(`${API_BASE}/value-cases/${caseId}/set-pack`, {
-        method: "POST",
-        body: JSON.stringify({ packId }),
-      }),
+      apiClient.post(`${API_BASE}/value-cases/${caseId}/set-pack`, { packId }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["merged-context", variables.caseId] });
     },
@@ -218,10 +211,7 @@ export function useHardenKPI() {
       baselineValue?: number;
       targetValue?: number;
     }) =>
-      fetchJSON(`${API_BASE}/value-cases/${caseId}/harden-kpi`, {
-        method: "POST",
-        body: JSON.stringify({ kpiKey, baselineValue, targetValue }),
-      }),
+      apiClient.post(`${API_BASE}/value-cases/${caseId}/harden-kpi`, { kpiKey, baselineValue, targetValue }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["merged-context", variables.caseId] });
     },
@@ -234,9 +224,7 @@ export function useHardenAllKPIs() {
 
   return useMutation({
     mutationFn: ({ caseId }: { caseId: string }) =>
-      fetchJSON<{ hardenedCount: number }>(`${API_BASE}/value-cases/${caseId}/harden-all-kpis`, {
-        method: "POST",
-      }),
+      apiClient.post<{ hardenedCount: number }>(`${API_BASE}/value-cases/${caseId}/harden-all-kpis`, {}),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["merged-context", variables.caseId] });
     },

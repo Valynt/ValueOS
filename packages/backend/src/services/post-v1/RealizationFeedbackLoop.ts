@@ -9,7 +9,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { logger } from "../lib/logger.js"
 
-export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
+// Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts. ADR-0010.
+export type { LifecycleStage } from '@valueos/shared';
 
 export interface ActualOutcome {
   actual_value: number;

@@ -1,3 +1,4 @@
+import { apiClient } from "@/api/client/unified-api-client";
 /**
  * useAgentJob
  *
@@ -28,21 +29,18 @@ export interface AgentJobResult {
   message?: string;
 }
 
+// Phase 8: use UnifiedApiClient (ADR-0014)
 async function fetchJobStatus(jobId: string): Promise<AgentJobResult> {
-  const res = await fetch(`/api/agents/jobs/${jobId}`);
-
-  // Kafka unavailable — backend returns 503 or specific error
-  if (res.status === 503) {
-    return { jobId, status: "unavailable", message: "Agent infrastructure not available" };
+  const res = await apiClient.get<{ data: AgentJobResult }>(`/api/agents/jobs/${jobId}`);
+  if (!res.success) {
+    const msg = res.error?.message ?? "";
+    // 503 means agent infrastructure is down — treat as unavailable, not an error
+    if (msg.includes("503") || msg.toLowerCase().includes("unavailable")) {
+      return { jobId, status: "unavailable", message: "Agent infrastructure not available" };
+    }
+    throw new Error(msg || "Failed to fetch job status");
   }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body.message ?? `HTTP ${res.status}`);
-  }
-
-  const json = await res.json() as { success: boolean; data: AgentJobResult };
-  return json.data;
+  return res.data?.data ?? { jobId, status: "unavailable", message: "No data in response" };
 }
 
 const TERMINAL_STATUSES: AgentJobStatus[] = ["completed", "failed", "error", "unavailable"];

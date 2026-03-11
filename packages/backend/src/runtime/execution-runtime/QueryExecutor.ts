@@ -14,9 +14,21 @@ import { featureFlags } from '../../config/featureFlags.js';
 import { logger } from '../../lib/logger.js';
 import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
 import { AgentMessageQueue } from '../../services/AgentMessageQueue.js';
-import { getAgentAPI } from '../../services/AgentAPI.js';
-import type { AgentContext } from '../../services/AgentAPI.js';
 import type { AgentType } from '../../services/agent-types.js';
+import { createAgentFactory } from '../../lib/agent-fabric/AgentFactory.js';
+import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
+import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
+import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
+import { CircuitBreaker } from '../../lib/resilience/CircuitBreaker.js';
+import type { LifecycleContext } from '../../types/agent.js';
+
+// AgentContext shape used for direct factory invocation (ADR-0014)
+interface AgentContext {
+  userId: string;
+  sessionId: string;
+  organizationId: string;
+  metadata?: Record<string, unknown>;
+}
 import type { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
 import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
@@ -37,8 +49,24 @@ const DEFAULT_CONFIG: QueryExecutorConfig = {
 };
 
 export class QueryExecutor {
-  private readonly agentAPI = getAgentAPI();
   private readonly agentInvocationTimes = new Map<string, number[]>();
+
+  /**
+   * Lazy singleton factory — created on first agent invocation.
+   * ADR-0014: server-side orchestration calls AgentFactory directly;
+   * AgentAPI (HTTP client) is for external/frontend callers only.
+   */
+  private _factory: ReturnType<typeof createAgentFactory> | null = null;
+  private getFactory(): ReturnType<typeof createAgentFactory> {
+    if (!this._factory) {
+      this._factory = createAgentFactory({
+        llmGateway: new LLMGateway({ provider: 'together', model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' }),
+        memorySystem: new MemorySystem({ max_memories: 1000, enable_persistence: true }, new SupabaseMemoryBackend()),
+        circuitBreaker: new CircuitBreaker(),
+      });
+    }
+    return this._factory;
+  }
 
   constructor(
     private readonly policy: PolicyEngine,
@@ -316,9 +344,30 @@ export class QueryExecutor {
           metadata: { companyProfile: currentState.context?.companyProfile, currentStage: currentState.currentStage },
         };
 
+        // ADR-0014: invoke agent directly via AgentFactory — no HTTP round-trip.
+        const lifecycleCtx: LifecycleContext = {
+          workspace_id: agentContext.sessionId,
+          user_id: agentContext.userId,
+          organization_id: agentContext.organizationId,
+          session_id: agentContext.sessionId,
+          query,
+          metadata: agentContext.metadata,
+        };
+
         let agentResponse = await this.circuitBreakers.execute(
           `query-${agentType}`,
-          () => this.agentAPI.invokeAgent({ agent: agentType, query, context: agentContext }),
+          async () => {
+            const agent = this.getFactory().create(agentType, agentContext.organizationId);
+            const output = await agent.execute(lifecycleCtx);
+            return {
+              success: output.status === 'success' || output.status === 'partial_success',
+              data: output.result,
+              error: output.errors?.[0]?.message,
+              confidence: output.confidence === 'high' || output.confidence === 'very_high' ? 0.85
+                : output.confidence === 'medium' ? 0.65
+                : 0.4,
+            };
+          },
           { timeoutMs: this.config.defaultTimeoutMs },
         );
 

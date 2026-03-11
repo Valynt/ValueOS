@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import type { AgentMessage, AgentSession, AgentStatus } from "../types";
 
 export function useAgent(agentId: string) {
@@ -82,25 +83,17 @@ export function useAgent(agentId: string) {
   const executeAction = useCallback(async (actionId: string) => {
     setStatus("executing");
     try {
-      // call backend endpoint for agent action execution
-      const response = await fetch(`/api/agents/${agentId}/actions/${actionId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-
-      const result = await response.json();
+      // ADR-0014 / Phase 8: use UnifiedApiClient for auth, retry, error handling
+      const result = await apiClient.post<{ message?: string }>(
+        `/api/agents/${agentId}/actions/${actionId}`,
+        {},
+      );
       // optionally append a system message or update session based on result
       const systemMsg: AgentMessage = {
         id: `msg_${Date.now()}`,
         agentId,
         type: "system",
-        content: `Action ${actionId} executed: ${result?.message ?? 'success'}`,
+        content: `Action ${actionId} executed: ${result?.data?.message ?? 'success'}`,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, systemMsg]);

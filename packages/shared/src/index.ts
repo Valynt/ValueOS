@@ -8,6 +8,9 @@
  * This is a LEAF package - cannot import from any other package.
  */
 
+// Domain model (canonical domain objects and LifecycleStage)
+export * from "./domain/index.js";
+
 // Types and schemas
 export * from "./types/index.js";
 export * from "./schemas/index.js";

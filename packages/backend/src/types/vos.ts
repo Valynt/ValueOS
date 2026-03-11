@@ -6,10 +6,12 @@
  */
 
 // ============================================================================
-// Lifecycle Types (re-export from workflow for compatibility)
+// Lifecycle Types
 // ============================================================================
 
-export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
+// Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts.
+// Re-exported here for backward compatibility. ADR-0010.
+export type { LifecycleStage } from '@valueos/shared';
 
 // ============================================================================
 // Manifesto Validation

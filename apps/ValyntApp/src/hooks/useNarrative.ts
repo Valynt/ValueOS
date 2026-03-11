@@ -7,6 +7,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -39,17 +41,7 @@ export interface AgentRunResponse {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body["error"] ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+// fetchJSON removed — use apiClient (Phase 8 / ADR-0014)
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -59,10 +51,11 @@ export function useNarrativeDraft(caseId: string | undefined) {
   return useQuery<NarrativeDraft | null>({
     queryKey: ["narrative", caseId],
     queryFn: async () => {
-      const result = await fetchJSON<{ data: NarrativeDraft }>(
+      const result = await apiClient.get<{ data: NarrativeDraft }>(
         `/api/v1/cases/${caseId}/narrative`,
       );
-      return result.data;
+      if (!result.success) throw new Error(result.error?.message ?? "Request failed");
+      return result.data?.data ?? null;
     },
     enabled: !!caseId,
     staleTime: 30_000,
@@ -78,14 +71,13 @@ export function useRunNarrativeAgent(caseId: string | undefined) {
 
   return useMutation<AgentRunResponse, Error, Record<string, unknown> | undefined>({
     mutationFn: async (context) => {
-      const res = await fetchJSON<{ success: boolean; data: AgentRunResponse }>(
+      const res = await apiClient.post<{ data: AgentRunResponse }>(
         `/api/v1/cases/${caseId}/narrative/run`,
-        {
-          method: "POST",
-          body: JSON.stringify({ context: context ?? {} }),
-        },
+        { context: context ?? {} },
       );
-      return res.data;
+      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+      if (!res.data?.data) throw new Error("Empty response from narrative/run");
+      return res.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["narrative", caseId] });

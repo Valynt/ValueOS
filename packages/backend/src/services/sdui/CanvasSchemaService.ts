@@ -42,7 +42,7 @@ import { ROIModel, ROIModelCalculation } from "../types/vos";
 import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
 import { LifecycleStage } from "../types/workflow";
 
-import { CacheService } from "./CacheService.js"
+import { SDUICacheService } from "./SDUICacheService.js";
 import { ROIFormulaInterpreter } from "./ROIFormulaInterpreter.js"
 import { ValueFabricService } from "./ValueFabricService.js"
 
@@ -61,16 +61,16 @@ interface SchemaHead {
  * Canvas Schema Service
  */
 export class CanvasSchemaService {
-  private cacheService: CacheService;
+  private cacheService: SDUICacheService;
   private valueFabricService: ValueFabricService;
   private readonly CACHE_TTL = 300; // 5 minutes
   private readonly CACHE_PREFIX = "sdui:schema:";
 
   constructor(
-    cacheService?: CacheService,
+    cacheService?: SDUICacheService,
     valueFabricService?: ValueFabricService
   ) {
-    this.cacheService = cacheService || new CacheService();
+    this.cacheService = cacheService || new SDUICacheService();
     this.valueFabricService =
       valueFabricService || new ValueFabricService(getSupabaseClient());
   }
@@ -252,9 +252,7 @@ export class CanvasSchemaService {
         timestamp: Date.now(),
         ttl: this.CACHE_TTL,
       };
-      await this.cacheService.set(cacheKey, entry, {
-        ttl: this.CACHE_TTL * 1000,
-      });
+      await this.cacheService.set(cacheKey, entry, this.CACHE_TTL);
       logger.debug("Cached schema", { workspaceId, ttl: this.CACHE_TTL });
     } catch (error) {
       logger.error("Failed to cache schema", {
@@ -283,12 +281,10 @@ export class CanvasSchemaService {
       const size = JSON.stringify(schema).length;
 
       // Step 2: Store schema by hash (immutable, long TTL)
-      await this.cacheService.setCAS(hash, schema, { namespace: "schema" });
+      await this.cacheService.setCAS(hash, schema);
 
       // Step 3: Update head pointer
-      await this.cacheService.setHead(workspaceId, hash, {
-        namespace: "schema",
-      });
+      await this.cacheService.setHead(workspaceId, hash);
 
       logger.debug("Cached schema with CAS", {
         workspaceId,
@@ -313,9 +309,7 @@ export class CanvasSchemaService {
    */
   async getSchemaHead(workspaceId: string): Promise<SchemaHead | null> {
     try {
-      const head = await this.cacheService.getHead(workspaceId, {
-        namespace: "schema",
-      });
+      const head = await this.cacheService.getHead(workspaceId);
 
       if (!head) return null;
 
@@ -340,9 +334,7 @@ export class CanvasSchemaService {
    */
   async getSchemaByHash(hash: string): Promise<SDUIPageDefinition | null> {
     try {
-      const schema = await this.cacheService.getCAS<SDUIPageDefinition>(hash, {
-        namespace: "schema",
-      });
+      const schema = await this.cacheService.getCAS<SDUIPageDefinition>(hash);
 
       if (schema) {
         logger.debug("Retrieved schema by hash", { hash: shortHash(hash) });
@@ -369,10 +361,7 @@ export class CanvasSchemaService {
   } | null> {
     try {
       const result =
-        await this.cacheService.getByResourceId<SDUIPageDefinition>(
-          workspaceId,
-          { namespace: "schema" }
-        );
+        await this.cacheService.getByResourceId<SDUIPageDefinition>(workspaceId);
 
       if (result) {
         logger.debug("Retrieved schema with CAS", {
@@ -380,7 +369,7 @@ export class CanvasSchemaService {
           hash: shortHash(result.hash),
         });
         return {
-          schema: result.content,
+          schema: result.value,
           hash: result.hash,
           updatedAt: result.updatedAt,
         };

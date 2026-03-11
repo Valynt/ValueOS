@@ -15,13 +15,40 @@ import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend
 import { rateLimiters } from "../middleware/rateLimiter.js"
 import { requirePermission } from "../middleware/rbac.js"
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
-import { agentCache } from "../services/CacheService.js"
+// In-process agent response cache (non-tenant routing state — Map is acceptable per ADR-0012)
+const _agentResponseCache = new Map<string, { value: unknown; expiresAt: number }>();
+const AGENT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function _agentCacheKey(query: string, context: Record<string, unknown>): string {
+  const { sessionId: _s, timestamp: _t, ...normalized } = context;
+  const str = query + JSON.stringify(normalized);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    hash = (hash << 5) - hash + c;
+    hash = hash & hash;
+  }
+  return `${String(context["agentType"] ?? "unknown")}:${Math.abs(hash).toString(36)}`;
+}
+
+const agentCache = {
+  async get(query: string, context: Record<string, unknown>): Promise<unknown | null> {
+    const key = _agentCacheKey(query, context);
+    const entry = _agentResponseCache.get(key);
+    if (!entry || Date.now() > entry.expiresAt) { _agentResponseCache.delete(key); return null; }
+    return entry.value;
+  },
+  async set(query: string, context: Record<string, unknown>, value: unknown): Promise<void> {
+    const key = _agentCacheKey(query, context);
+    _agentResponseCache.set(key, { value, expiresAt: Date.now() + AGENT_CACHE_TTL_MS });
+  },
+};
 import { getEventProducer } from "../services/EventProducer.js"
 import { getEventSourcingService } from "../services/EventSourcingService.js"
 import { isKafkaEnabled } from "../services/kafkaConfig.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
 import { modelCardService } from "../services/ModelCardService.js"
-import { semanticMemory } from "../services/SemanticMemory.js"
+
 import type { LifecycleContext, LifecycleStage } from "../types/agent.js"
 import { sanitizeAgentInput } from "../utils/security.js"
 
@@ -37,7 +64,7 @@ function getDirectFactory(): ReturnType<typeof createAgentFactory> {
       llmGateway: new LLMGateway({ provider: "together", model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo" }),
       memorySystem: new MemorySystem(
         { max_memories: 1000, enable_persistence: true },
-        new SupabaseMemoryBackend(semanticMemory),
+        new SupabaseMemoryBackend(),
       ),
       circuitBreaker: new CircuitBreaker(),
     });
