@@ -356,6 +356,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(compression());
 app.use(express.json());
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
@@ -418,6 +419,9 @@ app.get("/health/secrets", secretHealthMiddleware());
 app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
 
 // Mount routes
+// Apply standard rate limiting to all API routes by default
+app.use("/api", rateLimiters.standard);
+
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
 apiRouter.use(
