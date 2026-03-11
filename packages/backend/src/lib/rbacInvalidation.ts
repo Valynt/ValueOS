@@ -12,6 +12,17 @@
 
 import { logger } from "./logger.js";
 import { getRedisClient } from "./redis.js";
+import { createCounter } from "./observability/index.js";
+
+/**
+ * Incremented whenever Redis is unavailable for RBAC pub/sub.
+ * A sustained non-zero rate means cross-instance cache invalidation is broken
+ * and stale permission caches may persist until TTL expiry.
+ */
+const redisUnavailableCounter = createCounter(
+  "rbac_redis_unavailable_total",
+  "Number of times Redis was unavailable for RBAC pub/sub (publish or subscribe path)",
+);
 
 const CHANNEL = "rbac:invalidate";
 
@@ -34,7 +45,11 @@ export async function publishRbacInvalidation(
 ): Promise<void> {
   const client = await getRedisClient();
   if (!client) {
-    logger.debug("Redis unavailable — skipping RBAC invalidation publish", event);
+    redisUnavailableCounter.inc();
+    logger.warn(
+      "Redis unavailable — RBAC invalidation publish skipped; cross-instance caches will not be cleared",
+      event,
+    );
     return;
   }
 
@@ -58,7 +73,10 @@ export async function subscribeRbacInvalidation(
 ): Promise<() => Promise<void>> {
   const client = await getRedisClient();
   if (!client) {
-    logger.warn("Redis unavailable — RBAC invalidation subscription skipped");
+    redisUnavailableCounter.inc();
+    logger.error(
+      "Redis unavailable — RBAC invalidation subscription skipped; this instance will not receive cross-instance cache invalidations (degraded-security mode)",
+    );
     return async () => {};
   }
 

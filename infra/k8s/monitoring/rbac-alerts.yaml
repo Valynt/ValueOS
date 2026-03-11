@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rbac-alerts
+  labels:
+    app.kubernetes.io/component: rbac
+spec:
+  groups:
+    - name: rbac.degraded
+      rules:
+        - alert: RbacRedisPubSubUnavailable
+          expr: |
+            increase(rbac_redis_unavailable_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+            component: rbac
+          annotations:
+            summary: "RBAC Redis pub/sub unavailable — cross-instance cache invalidation is broken"
+            description: >
+              rbac_redis_unavailable_total has incremented in the last 5 minutes.
+              Permission changes on one instance will not propagate to others until
+              the cache TTL expires (default 5 minutes). Users whose roles were
+              revoked may retain access on stale instances.
+            runbook_url: "https://docs.valueos.com/runbooks/rbac-redis-unavailable"

@@ -135,6 +135,7 @@ import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
+import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
@@ -674,6 +675,9 @@ function registerGracefulShutdown(): void {
 
     // 2.5. Stop RecommendationEngine subscriptions
     getRecommendationEngine().stop();
+
+    // 2.6. Tear down RBAC invalidation Redis pub/sub subscription
+    permissionService.destroy().catch(() => {});
 
     // 3. Tear down Redis pub/sub for WebSocket broadcasts
     getBroadcastAdapter().shutdown().catch(() => {});

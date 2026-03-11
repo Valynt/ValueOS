@@ -109,6 +109,21 @@ Every new SDUI component must be registered in both `config/ui-registry.json` an
 
 Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRegistry.ts`. Dynamic tool creation at runtime is forbidden.
 
+### RBAC invalidation: degraded-security mode when Redis is unavailable
+
+**Decision:** When Redis is unavailable, `publishRbacInvalidation()` and `subscribeRbacInvalidation()` fall back gracefully rather than throwing. In-process cache invalidation still fires, so single-instance deployments are unaffected.
+
+**Trade-off accepted:** In a multi-instance deployment without Redis, each instance holds its own `PermissionService` role cache. A role or membership change on one instance will not propagate to others until the cache TTL expires (default: 5 minutes). During that window, a user whose permissions were revoked may retain access on instances that have not yet received the invalidation event.
+
+**Mitigations in place:**
+- `rbac_redis_unavailable_total` Prometheus counter increments on every missed publish or subscribe. `RbacRedisPubSubUnavailable` alert fires after 5 minutes of sustained increments (`infra/k8s/monitoring/rbac-alerts.yaml`).
+- Both paths log at `warn` (publish) / `error` (subscribe) so the condition is visible in structured logs.
+- `permissionService.destroy()` is called in `registerGracefulShutdown()` to cleanly unsubscribe the Redis pub/sub connection on shutdown.
+
+**When to revisit:** If the deployment model requires zero-tolerance for stale permissions (e.g., regulated environments), replace the TTL-based fallback with a synchronous DB check on every request, or reduce the cache TTL to 0 when Redis is unavailable.
+
+**Files:** `packages/backend/src/lib/rbacInvalidation.ts`, `packages/backend/src/services/auth/PermissionService.ts`, `packages/backend/src/server.ts`
+
 ### RecommendationEngine is the sixth runtime service
 
 `packages/backend/src/runtime/recommendation-engine/RecommendationEngine.ts` is a fully wired runtime service alongside the five originally documented ones (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). It subscribes to four domain events (`opportunity.updated`, `hypothesis.validated`, `evidence.attached`, `realization.milestone_reached`) and pushes next-best-action `Recommendation` objects to UI clients via `RealtimeBroadcastService`. It is started in `server.ts` and has its own test suite. All references to "five runtime services" in documentation were incorrect — there are six.
