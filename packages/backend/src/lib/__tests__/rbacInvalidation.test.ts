@@ -5,14 +5,15 @@
  *   - publishRbacInvalidation publishes to the correct Redis channel
  *   - subscribeRbacInvalidation calls the handler when a message arrives
  *   - Both degrade gracefully when Redis is unavailable
+ *   - The rbac_redis_unavailable_total counter increments on each fallback path
  *   - AdminRoleService calls publishRbacInvalidation after mutations
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ── Redis mock — must be hoisted so the factory can reference the objects ─────
+// ── Mocks — all hoisted so they are in place before module-level code runs ────
 
-const { redisMock, subscriberMock } = vi.hoisted(() => {
+const { redisMock, subscriberMock, counterMock } = vi.hoisted(() => {
   const subscriberMock = {
     connect: vi.fn().mockResolvedValue(undefined),
     subscribe: vi.fn().mockResolvedValue(undefined),
@@ -23,7 +24,8 @@ const { redisMock, subscriberMock } = vi.hoisted(() => {
     publish: vi.fn().mockResolvedValue(1),
     duplicate: vi.fn().mockReturnValue(subscriberMock),
   };
-  return { redisMock, subscriberMock };
+  const counterMock = { inc: vi.fn() };
+  return { redisMock, subscriberMock, counterMock };
 });
 
 vi.mock("../redis.js", () => ({
@@ -32,6 +34,12 @@ vi.mock("../redis.js", () => ({
 
 vi.mock("../logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+// createCounter is called at module level in rbacInvalidation.ts — must be
+// mocked before the module is imported so the counter reference is our spy.
+vi.mock("../observability/index.js", () => ({
+  createCounter: vi.fn(() => counterMock),
 }));
 
 import { publishRbacInvalidation, subscribeRbacInvalidation } from "../rbacInvalidation.js";
@@ -63,13 +71,15 @@ describe("publishRbacInvalidation (Fix 7)", () => {
     expect(parsed.tenantId).toBe("tenant-1");
   });
 
-  it("does not throw when Redis is unavailable", async () => {
+  it("increments the unavailable counter and does not throw when Redis is unavailable", async () => {
     const { getRedisClient } = await import("../redis.js");
     vi.mocked(getRedisClient).mockResolvedValueOnce(null);
 
     await expect(
       publishRbacInvalidation({ roleId: "role-1" }),
     ).resolves.not.toThrow();
+
+    expect(counterMock.inc).toHaveBeenCalledOnce();
   });
 
   it("does not throw when Redis.publish rejects", async () => {
@@ -115,12 +125,14 @@ describe("subscribeRbacInvalidation (Fix 7)", () => {
     expect(subscriberMock.disconnect).toHaveBeenCalled();
   });
 
-  it("returns a no-op unsubscribe when Redis is unavailable", async () => {
+  it("increments the unavailable counter and returns a no-op unsubscribe when Redis is unavailable", async () => {
     const { getRedisClient } = await import("../redis.js");
     vi.mocked(getRedisClient).mockResolvedValueOnce(null);
 
     const unsubscribe = await subscribeRbacInvalidation(vi.fn());
     await expect(unsubscribe()).resolves.not.toThrow();
+
+    expect(counterMock.inc).toHaveBeenCalledOnce();
   });
 
   it("does not throw when a malformed message is received", async () => {
