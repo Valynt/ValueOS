@@ -78,14 +78,20 @@ Code execution sandbox is scaffolded with placeholder `fetch` calls instead of t
 ## Ongoing — TypeScript `any` debt
 
 **Baseline (2026-02-13):** 1,977 `any` usages across the codebase. Target: <100.
+**Updated (2026-03-11):** `packages/backend` reduced from 712 → ~680 (AuditLogService, ToolRegistry, auditHooks cleaned in PR #1422).
 
 | Module | Count | Monthly target |
 |---|---|---|
 | `apps/ValyntApp` | 839 | -26/month |
-| `packages/backend` | 712 | -22/month |
+| `packages/backend` | ~680 | -22/month |
 | `packages/sdui` | 133 | -4/month |
 | `packages/mcp` | 96 | -3/month |
 | `apps/VOSAcademy` | 67 | -3/month |
+
+**Highest-density remaining files (backend):**
+- `config/secrets/InputValidator.ts` (21) — custom validation logic, replace with Zod
+- `api/referrals.ts` (20), `api/admin.ts` (20) — request body types
+- `services/collaboration/AgentCollaborationService.ts` (17) — agent message payloads
 
 **Rule:** Do not introduce new `any`. Use `unknown` + type guards. Replace `any` in files you touch.
 Dashboard: `docs/debt/ts-any-dashboard.md`
@@ -99,3 +105,14 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | Standalone agents in `packages/agents/` used in production | Superseded by agent-fabric; deprecated | 2026-02 |
 | Missing `workflow_checkpoints` migration | Migration added | 2026-02 |
 | Missing `financial_model_snapshots` migration | Migration added | 2026-02 |
+| SEC-02: Placeholder secrets committed to git | Removed from tracking; `.gitignore` updated (PR #1422) | 2026-03 |
+| SEC-01: Checkpoint routes unauthenticated | `requireAuth` + `requirePermission` added (PR #1422) | 2026-03 |
+| SEC-06: `POST /usage/persist` missing input validation | Zod schema added (PR #1422) | 2026-03 |
+| CQA-01: Redis-based WorkflowExecutionStore dead code | Deleted; broken imports fixed (PR #1422) | 2026-03 |
+| CQA-02: Root MySQL/Drizzle schema dead code | `drizzle/` dir and `drizzle.config.ts` deleted (PR #1422) | 2026-03 |
+| EH-01: Silent catch in server.ts telemetry block | Error detail now logged (PR #1422) | 2026-03 |
+| EH-02: `tenantId` absent from logger context | `tenantContextMiddleware` calls `runWithContext` (PR #1422) | 2026-03 |
+| EH-03: Sentry stubs were no-ops | Real `@sentry/node` + `@sentry/react` wired (PR #1422) | 2026-03 |
+| EH-A-04: No audit trail on teams/usage mutations | `auditOperation`/`auditRoleAssignment`/`auditBulkDelete` added (PR #1422) | 2026-03 |
+| INF-01: Legacy `health.ts` with hardcoded responses | Deleted; server uses `health/index.ts` with real checks (PR #1422) | 2026-03 |
+| CQA-04 (partial): `any` in AuditLogService, ToolRegistry, auditHooks | Replaced with typed alternatives (PR #1422) | 2026-03 |
