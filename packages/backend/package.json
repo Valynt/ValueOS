@@ -20,6 +20,7 @@
     "@aws-sdk/client-secrets-manager": "^3.989.0",
     "@mcp/ground-truth": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
+    "@sentry/node": "^10.43.0",
     "@valueos/core-services": "workspace:*",
     "@valueos/shared": "workspace:*",
     "bullmq": "^5.56.0",

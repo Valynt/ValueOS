@@ -2,7 +2,6 @@ export * from "./LifecycleCompensationHandlers.js";
 export * from "./SagaCoordinator.js";
 export * from "./WorkflowCompensation.js";
 export * from "./WorkflowEventListener.js";
-export * from "./WorkflowExecutionStore.js";
 export * from "./WorkflowLifecycleIntegration.js";
 export * from "./WorkflowSDUIAdapter.js";
 export * from "./WorkflowStateMachine.js";

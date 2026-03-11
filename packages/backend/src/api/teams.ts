@@ -9,6 +9,7 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
+import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks.js"
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requirePermission } from "../middleware/rbac.js"
@@ -76,6 +77,7 @@ router.post(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.invite"),
+  auditOperation("user_invite", "team_member", (req) => req.params.tenantId),
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
@@ -130,6 +132,7 @@ router.patch(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("roles.assign"),
+  auditRoleAssignment(),
   validateRequest(ValidationSchemas.adminChangeRole),
   async (req: Request, res: Response) => {
     try {
@@ -174,6 +177,7 @@ router.delete(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.delete"),
+  auditBulkDelete("team_member"),
   async (req: Request, res: Response) => {
     try {
       const tenantId = (req as any).tenantId as string;
@@ -216,6 +220,7 @@ router.delete(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.delete"),
+  auditOperation("invite_cancel", "team_invite", (req) => req.params.userId),
   async (req: Request, res: Response) => {
     try {
       const tenantId = (req as any).tenantId as string;

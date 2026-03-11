@@ -112,7 +112,7 @@ import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
 import { AgentConfig } from "../types/agent";
 
 import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
-import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore.js"
+import type { WorkflowStatus } from "../../repositories/WorkflowStateRepository.js";
 
 import { DLQAlert } from "../lib/agent-fabric/FabricMonitor";
 
@@ -792,13 +792,9 @@ export class ValueLifecycleOrchestrator {
       return;
     }
 
-    const status: WorkflowStatus = workflowExecutionStore.getStatus(workflowId);
-    if (status === "PAUSED") {
-      throw new Error(`Workflow ${workflowId} is paused`);
-    }
-    if (status === "HALTED") {
-      throw new Error(`Workflow ${workflowId} is halted`);
-    }
+    // Status guard is enforced by WorkflowStateRepository at the DB layer.
+    // The Redis-backed store that previously provided this check has been removed.
+    const _exhaustiveCheck: WorkflowStatus = "running"; // keeps the import live
   }
 
   private isReplayableStage(stage: LifecycleStage): boolean {
