@@ -37,22 +37,17 @@ type MemoryType =
 /**
  * Faithful copy of VectorSearchService.buildFilterClause after the fix.
  * Kept in sync so the test validates the actual logic.
+ *
+ * BUG-4 fix: the 8 hardcoded lineage conditions that were unconditionally
+ * prepended to `conditions` have been removed. All lineage guards now live
+ * exclusively inside the `if (requireLineage)` block, eliminating duplicates.
  */
 function buildFilterClause(
   type?: MemoryType,
   filters: Record<string, unknown> = {},
   requireLineage: boolean = true,
 ): string {
-  const conditions: string[] = [
-    "(metadata ? 'source_origin')",
-    "(metadata ? 'data_sensitivity_level')",
-    "metadata->>'source_origin' IS NOT NULL",
-    "metadata->>'data_sensitivity_level' IS NOT NULL",
-    "metadata->>'source_origin' <> ''",
-    "metadata->>'data_sensitivity_level' <> ''",
-    "LOWER(metadata->>'source_origin') <> 'unknown'",
-    "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'",
-  ];
+  const conditions: string[] = [];
 
   if (type) {
     if (!VALID_TYPES.has(type)) {
@@ -62,8 +57,14 @@ function buildFilterClause(
   }
 
   if (requireLineage) {
-    conditions.push("metadata ? 'source_origin'");
-    conditions.push("metadata ? 'data_sensitivity_level'");
+    conditions.push("(metadata ? 'source_origin')");
+    conditions.push("(metadata ? 'data_sensitivity_level')");
+    conditions.push("metadata->>'source_origin' IS NOT NULL");
+    conditions.push("metadata->>'data_sensitivity_level' IS NOT NULL");
+    conditions.push("metadata->>'source_origin' <> ''");
+    conditions.push("metadata->>'data_sensitivity_level' <> ''");
+    conditions.push("LOWER(metadata->>'source_origin') <> 'unknown'");
+    conditions.push("LOWER(metadata->>'data_sensitivity_level') <> 'unknown'");
     conditions.push("COALESCE(metadata->>'source_origin', '') <> ''");
     conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
   }
@@ -217,6 +218,24 @@ describe('VectorSearchService SQL injection prevention', () => {
       const clause = buildFilterClause();
       expect(clause).toContain("(metadata ? 'source_origin')");
       expect(clause).toContain("(metadata ? 'data_sensitivity_level')");
+    });
+
+    // BUG-4 regression: lineage conditions must not appear twice when
+    // requireLineage=true. Previously the 8 conditions were unconditionally
+    // prepended AND appended inside the if-block, producing duplicates.
+    it('does not emit duplicate lineage conditions (BUG-4 regression)', () => {
+      const clause = buildFilterClause(undefined, {}, true);
+      const parts = clause.replace(/^WHERE /, '').split(' AND ');
+
+      // Every condition must be unique.
+      const unique = new Set(parts.map((p) => p.trim()));
+      expect(unique.size).toBe(parts.length);
+    });
+
+    it('emits no lineage conditions when requireLineage=false', () => {
+      const clause = buildFilterClause(undefined, {}, false);
+      expect(clause).not.toContain('source_origin');
+      expect(clause).not.toContain('data_sensitivity_level');
     });
   });
 });

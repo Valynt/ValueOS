@@ -189,7 +189,7 @@ describe("SaaS Schema Architecture Fixes", () => {
       };
 
       // Mock dynamic import
-      jest.doMock("../SubscriptionService.transaction", () => ({
+      vi.doMock("../SubscriptionService.transaction", () => ({
         default: vi.fn().mockImplementation(() => mockTransactionalService),
       }));
 
@@ -210,7 +210,7 @@ describe("SaaS Schema Architecture Fixes", () => {
         ),
       };
 
-      jest.doMock("../SubscriptionService.transaction", () => ({
+      vi.doMock("../SubscriptionService.transaction", () => ({
         default: vi.fn().mockImplementation(() => mockTransactionalService),
       }));
 
@@ -324,5 +324,5 @@ describe("SaaS Schema Architecture Fixes", () => {
 
 afterEach(() => {
   vi.clearAllMocks();
-  jest.resetModules();
+  vi.resetModules();
 });

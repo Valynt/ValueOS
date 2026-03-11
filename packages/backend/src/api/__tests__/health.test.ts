@@ -187,8 +187,7 @@ describe('Health Check API', () => {
         await request(app).get('/health/live');
       }
       
-      // If we get here without crashing, memory is not leaking catastrophically
-      expect(true).toBe(true);
+      // Completing 100 requests without throwing is the assertion
     });
   });
 });

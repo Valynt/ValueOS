@@ -76,11 +76,7 @@ describe('API Error Scenarios', () => {
       // May return empty data or error
     });
 
-    it('should reject expired tokens', async () => {
-      // This test requires token generation/expiry simulation
-      // Document expected behavior
-      expect(true).toBe(true);  // Placeholder
-    });
+    it.todo('should reject expired tokens');
   });
 
   describe('403 Forbidden', () => {
@@ -104,11 +100,7 @@ describe('API Error Scenarios', () => {
       expect(data).toBeNull();
     });
 
-    it('should reject operations without proper permissions', async () => {
-      // This test requires RBAC implementation
-      // Document expected behavior
-      expect(true).toBe(true);  // Placeholder
-    });
+    it.todo('should reject operations without proper permissions');
   });
 
   describe('404 Not Found', () => {
@@ -139,11 +131,7 @@ describe('API Error Scenarios', () => {
   });
 
   describe('500 Internal Server Error', () => {
-    it('should handle database connection errors gracefully', async () => {
-      // This test requires simulating database failures
-      // Can be tested in integration environment with chaos engineering
-      expect(true).toBe(true);  // Placeholder
-    });
+    it.todo('should handle database connection errors gracefully');
 
     it('should handle malformed queries gracefully', async () => {
       if (!testAdminClient) return;

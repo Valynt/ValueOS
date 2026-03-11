@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * Simplified Integration Test for Canvas Workspace
  *
@@ -228,7 +229,7 @@ describe('Canvas Workspace Core Integration', () => {
  * Mock implementation for testing hooks without full dependencies
  */
 export const mockUseCanvasCommand = () => ({
-  processCommand: jest.fn().mockResolvedValue({ success: true }),
+  processCommand: vi.fn().mockResolvedValue({ success: true }),
   isProcessing: false,
   canProcess: true,
 });
@@ -243,28 +244,28 @@ export const mockUseCanvasSession = () => ({
   cases: [],
   inProgressCases: [],
   completedCases: [],
-  selectCase: jest.fn(),
-  createNewCase: jest.fn(),
-  updateWorkflowState: jest.fn(),
-  clearSession: jest.fn(),
-  refreshSession: jest.fn(),
-  refetchCases: jest.fn(),
+  selectCase: vi.fn(),
+  createNewCase: vi.fn(),
+  updateWorkflowState: vi.fn(),
+  clearSession: vi.fn(),
+  refreshSession: vi.fn(),
+  refetchCases: vi.fn(),
   isSessionValid: true,
   currentUserId: 'test-user',
   currentTenantId: 'test-tenant',
   userEmail: 'test@example.com',
   userCreatedAt: '2024-01-01T00:00:00Z',
   workflowStateService: {
-    loadOrCreateSession: jest.fn(),
-    saveWorkflowState: jest.fn(),
+    loadOrCreateSession: vi.fn(),
+    saveWorkflowState: vi.fn(),
   },
 });
 
 export const mockUseCommandProcessor = () => ({
-  executeCommand: jest.fn().mockResolvedValue({ success: true }),
-  undo: jest.fn().mockResolvedValue(true),
-  redo: jest.fn().mockResolvedValue(true),
-  clearHistory: jest.fn(),
+  executeCommand: vi.fn().mockResolvedValue({ success: true }),
+  undo: vi.fn().mockResolvedValue(true),
+  redo: vi.fn().mockResolvedValue(true),
+  clearHistory: vi.fn(),
   isProcessing: false,
   canUndo: false,
   canRedo: false,

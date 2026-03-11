@@ -385,10 +385,9 @@ describe('Billing Plan Enforcement', () => {
       const usage = quota + 1;
       const isHard = isHardCap('free', metric);
 
-      if (isHard && usage > quota) {
-        // Should block immediately
-        expect(true).toBe(true);
-      }
+      // storage_gb is a hard cap — verify the classification and that usage exceeds quota
+      expect(isHard).toBe(true);
+      expect(usage).toBeGreaterThan(quota);
     });
 
     it('should warn on soft cap violations', () => {
@@ -397,10 +396,9 @@ describe('Billing Plan Enforcement', () => {
       const usage = quota + 1;
       const isHard = isHardCap('free', metric);
 
-      if (!isHard && usage > quota) {
-        // Should warn but allow (with grace period)
-        expect(true).toBe(true);
-      }
+      // llm_tokens is a soft cap — verify the classification and that usage exceeds quota
+      expect(isHard).toBe(false);
+      expect(usage).toBeGreaterThan(quota);
     });
   });
 
@@ -523,10 +521,8 @@ describe('Billing Plan Enforcement', () => {
       const metric: BillingMetric = 'storage_gb';
       const isHard = isHardCap('free', metric);
 
-      if (isHard) {
-        // No grace period for hard caps
-        expect(true).toBe(true);
-      }
+      // Hard caps have no grace period — verify storage_gb is classified as hard
+      expect(isHard).toBe(true);
     });
   });
 
@@ -599,15 +595,7 @@ describe('Billing Plan Enforcement', () => {
       expect(totalUsage).toBe(1500);
     });
 
-    it('should enforce payment before allowing overage', () => {
-      const tier: PlanTier = 'standard';
-      const hasPaymentMethod = true; // Assume payment method on file
-
-      if (!hasPaymentMethod) {
-        // Should block overage if no payment method
-        expect(true).toBe(true);
-      }
-    });
+    it.todo('should enforce payment before allowing overage');
   });
 
   describe('Plan Comparison', () => {

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * VOS-SUPER-003: Audit Trail Dashboard - Comprehensive Test Suite
  * Tests for audit trail functionality, security, performance, and accessibility
@@ -13,15 +14,15 @@ import { useAuditTrail } from '../../src/hooks/useAuditTrail';
 import { AuditTrailDashboard } from '../../src/views/AuditTrailDashboard';
 
 // Mock dependencies
-jest.mock('../../src/hooks/useAuditTrail');
-jest.mock('../../lib/auth/PermissionMiddleware');
-jest.mock('../../services/AuditLogService');
-jest.mock('../../lib/agent-fabric/SecureMessageBus');
+vi.mock('../../src/hooks/useAuditTrail');
+vi.mock('../../lib/auth/PermissionMiddleware');
+vi.mock('../../services/AuditLogService');
+vi.mock('../../lib/agent-fabric/SecureMessageBus');
 
-const mockUseAuditTrail = useAuditTrail as jest.MockedFunction<typeof useAuditTrail>;
-const mockPermissionMiddleware = PermissionMiddleware as jest.MockedClass<typeof PermissionMiddleware>;
-const mockAuditLogService = auditLogService as jest.Mocked<typeof auditLogService>;
-const mockSecureMessageBus = secureMessageBus as jest.Mocked<typeof secureMessageBus>;
+const mockUseAuditTrail = useAuditTrail as vi.MockedFunction<typeof useAuditTrail>;
+const mockPermissionMiddleware = PermissionMiddleware as vi.MockedClass<typeof PermissionMiddleware>;
+const mockAuditLogService = auditLogService as vi.Mocked<typeof auditLogService>;
+const mockSecureMessageBus = secureMessageBus as vi.Mocked<typeof secureMessageBus>;
 
 // Test data
 const mockAuditEvents = [
@@ -106,7 +107,7 @@ const mockIntegrity = {
 
 describe('AuditTrailDashboard - Unit Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Default mock implementations
     mockUseAuditTrail.mockReturnValue({
@@ -122,20 +123,20 @@ describe('AuditTrailDashboard - Unit Tests', () => {
         maxBufferSize: 1000,
         pauseOnInactive: true,
       },
-      applyFilters: jest.fn(),
-      exportData: jest.fn(),
-      verifyIntegrity: jest.fn(),
-      toggleRealTime: jest.fn(),
-      clearError: jest.fn(),
+      applyFilters: vi.fn(),
+      exportData: vi.fn(),
+      verifyIntegrity: vi.fn(),
+      toggleRealTime: vi.fn(),
+      clearError: vi.fn(),
     });
 
     mockPermissionMiddleware.mockImplementation(() => ({
-      checkPermission: jest.fn().mockResolvedValue(true),
-      requirePermission: jest.fn(),
+      checkPermission: vi.fn().mockResolvedValue(true),
+      requirePermission: vi.fn(),
     }) as any);
 
-    mockAuditLogService.query = jest.fn().mockResolvedValue([]);
-    mockSecureMessageBus.subscribe = jest.fn().mockReturnValue({ unsubscribe: jest.fn() });
+    mockAuditLogService.query = vi.fn().mockResolvedValue([]);
+    mockSecureMessageBus.subscribe = vi.fn().mockReturnValue({ unsubscribe: vi.fn() });
   });
 
   describe('Rendering', () => {
@@ -231,7 +232,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
 
   describe('Filtering', () => {
     it('applies filters when Apply button is clicked', () => {
-      const mockApplyFilters = jest.fn();
+      const mockApplyFilters = vi.fn();
       mockUseAuditTrail.mockReturnValueOnce({
         ...mockUseAuditTrail(),
         applyFilters: mockApplyFilters,
@@ -267,7 +268,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
     });
 
     it('clears error when dismiss is clicked', () => {
-      const mockClearError = jest.fn();
+      const mockClearError = vi.fn();
       mockUseAuditTrail.mockReturnValueOnce({
         ...mockUseAuditTrail(),
         error: 'Test error',
@@ -283,7 +284,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
 
   describe('Real-time Updates', () => {
     it('toggles real-time updates', () => {
-      const mockToggleRealTime = jest.fn();
+      const mockToggleRealTime = vi.fn();
       mockUseAuditTrail.mockReturnValueOnce({
         ...mockUseAuditTrail(),
         realTimeConfig: { enabled: true, updateInterval: 5000, maxBufferSize: 1000, pauseOnInactive: true },
@@ -316,16 +317,16 @@ describe('AuditTrailDashboard - Unit Tests', () => {
 
   describe('Export Functionality', () => {
     it('exports data as CSV (basic)', async () => {
-      const mockExportData = jest.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
+      const mockExportData = vi.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
       mockUseAuditTrail.mockReturnValueOnce({
         ...mockUseAuditTrail(),
         exportData: mockExportData,
       });
 
       // Mock URL.createObjectURL
-      const mockCreateObjectURL = jest.fn().mockReturnValue('blob:url');
+      const mockCreateObjectURL = vi.fn().mockReturnValue('blob:url');
       global.URL.createObjectURL = mockCreateObjectURL;
-      global.URL.revokeObjectURL = jest.fn();
+      global.URL.revokeObjectURL = vi.fn();
 
       render(<AuditTrailDashboard />);
       
@@ -342,14 +343,14 @@ describe('AuditTrailDashboard - Unit Tests', () => {
     });
 
     it('exports data as JSON (full)', async () => {
-      const mockExportData = jest.fn().mockResolvedValue(new Blob(['json'], { type: 'application/json' }));
+      const mockExportData = vi.fn().mockResolvedValue(new Blob(['json'], { type: 'application/json' }));
       mockUseAuditTrail.mockReturnValueOnce({
         ...mockUseAuditTrail(),
         exportData: mockExportData,
       });
 
-      global.URL.createObjectURL = jest.fn().mockReturnValue('blob:url');
-      global.URL.revokeObjectURL = jest.fn();
+      global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
+      global.URL.revokeObjectURL = vi.fn();
 
       render(<AuditTrailDashboard />);
       
@@ -364,14 +365,14 @@ describe('AuditTrailDashboard - Unit Tests', () => {
     });
 
     it('handles export errors gracefully', async () => {
-      const mockExportData = jest.fn().mockRejectedValue(new Error('Export failed'));
+      const mockExportData = vi.fn().mockRejectedValue(new Error('Export failed'));
       mockUseAuditTrail.mockReturnValueOnce({
         ...mockUseAuditTrail(),
         exportData: mockExportData,
       });
 
       // Mock alert
-      const mockAlert = jest.fn();
+      const mockAlert = vi.fn();
       global.alert = mockAlert;
 
       render(<AuditTrailDashboard />);
@@ -391,7 +392,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
 
   describe('Integrity Verification', () => {
     it('verifies integrity when button is clicked', async () => {
-      const mockVerifyIntegrity = jest.fn().mockResolvedValue({
+      const mockVerifyIntegrity = vi.fn().mockResolvedValue({
         hashChainValid: true,
         tamperedEvents: [],
         verificationErrors: [],
@@ -403,7 +404,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
       });
 
       // Mock alert
-      const mockAlert = jest.fn();
+      const mockAlert = vi.fn();
       global.alert = mockAlert;
 
       render(<AuditTrailDashboard />);
@@ -417,7 +418,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
     });
 
     it('shows integrity failure details', async () => {
-      const mockVerifyIntegrity = jest.fn().mockResolvedValue({
+      const mockVerifyIntegrity = vi.fn().mockResolvedValue({
         hashChainValid: false,
         tamperedEvents: ['evt-3'],
         verificationErrors: ['Hash mismatch at event evt-3'],
@@ -428,7 +429,7 @@ describe('AuditTrailDashboard - Unit Tests', () => {
         verifyIntegrity: mockVerifyIntegrity,
       });
 
-      const mockAlert = jest.fn();
+      const mockAlert = vi.fn();
       global.alert = mockAlert;
 
       render(<AuditTrailDashboard />);
@@ -484,10 +485,10 @@ describe('AuditTrailDashboard - Unit Tests', () => {
 
   describe('Permission Check', () => {
     it('checks audit:read permission on mount', () => {
-      const mockCheckPermission = jest.fn().mockResolvedValue(true);
+      const mockCheckPermission = vi.fn().mockResolvedValue(true);
       mockPermissionMiddleware.mockImplementation(() => ({
         checkPermission: mockCheckPermission,
-        requirePermission: jest.fn(),
+        requirePermission: vi.fn(),
       }) as any);
 
       render(<AuditTrailDashboard />);
@@ -496,13 +497,13 @@ describe('AuditTrailDashboard - Unit Tests', () => {
     });
 
     it('handles permission denial gracefully', () => {
-      const mockCheckPermission = jest.fn().mockResolvedValue(false);
+      const mockCheckPermission = vi.fn().mockResolvedValue(false);
       mockPermissionMiddleware.mockImplementation(() => ({
         checkPermission: mockCheckPermission,
-        requirePermission: jest.fn(),
+        requirePermission: vi.fn(),
       }) as any);
 
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation();
 
       render(<AuditTrailDashboard />);
       
@@ -521,14 +522,14 @@ describe('AuditTrailDashboard - Unit Tests', () => {
 
 describe('AuditTrailDashboard - Integration Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('completes full workflow: load → filter → export → verify', async () => {
     // Setup
-    const mockApplyFilters = jest.fn();
-    const mockExportData = jest.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
-    const mockVerifyIntegrity = jest.fn().mockResolvedValue({
+    const mockApplyFilters = vi.fn();
+    const mockExportData = vi.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
+    const mockVerifyIntegrity = vi.fn().mockResolvedValue({
       hashChainValid: true,
       tamperedEvents: [],
       verificationErrors: [],
@@ -546,18 +547,18 @@ describe('AuditTrailDashboard - Integration Tests', () => {
       applyFilters: mockApplyFilters,
       exportData: mockExportData,
       verifyIntegrity: mockVerifyIntegrity,
-      toggleRealTime: jest.fn(),
-      clearError: jest.fn(),
+      toggleRealTime: vi.fn(),
+      clearError: vi.fn(),
     });
 
     mockPermissionMiddleware.mockImplementation(() => ({
-      checkPermission: jest.fn().mockResolvedValue(true),
-      requirePermission: jest.fn(),
+      checkPermission: vi.fn().mockResolvedValue(true),
+      requirePermission: vi.fn(),
     }) as any);
 
-    global.URL.createObjectURL = jest.fn().mockReturnValue('blob:url');
-    global.URL.revokeObjectURL = jest.fn();
-    global.alert = jest.fn();
+    global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
+    global.URL.revokeObjectURL = vi.fn();
+    global.alert = vi.fn();
 
     render(<AuditTrailDashboard />);
 
@@ -583,8 +584,8 @@ describe('AuditTrailDashboard - Integration Tests', () => {
   });
 
   it('handles real-time event updates', async () => {
-    const mockToggleRealTime = jest.fn();
-    const mockSubscribe = jest.fn((channel, callback) => {
+    const mockToggleRealTime = vi.fn();
+    const mockSubscribe = vi.fn((channel, callback) => {
       // Simulate receiving a new event
       setTimeout(() => {
         callback({
@@ -598,7 +599,7 @@ describe('AuditTrailDashboard - Integration Tests', () => {
           verificationStatus: 'verified',
         });
       }, 100);
-      return { unsubscribe: jest.fn() };
+      return { unsubscribe: vi.fn() };
     });
 
     mockSecureMessageBus.subscribe = mockSubscribe;
@@ -620,7 +621,7 @@ describe('AuditTrailDashboard - Integration Tests', () => {
 
 describe('AuditTrailDashboard - Security Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('prevents XSS in event metadata', () => {
@@ -651,7 +652,7 @@ describe('AuditTrailDashboard - Security Tests', () => {
   });
 
   it('validates filter inputs to prevent injection', () => {
-    const mockApplyFilters = jest.fn();
+    const mockApplyFilters = vi.fn();
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       applyFilters: mockApplyFilters,
@@ -676,23 +677,23 @@ describe('AuditTrailDashboard - Security Tests', () => {
   });
 
   it('requires proper permissions for export', async () => {
-    const mockCheckPermission = jest.fn()
+    const mockCheckPermission = vi.fn()
       .mockResolvedValueOnce(true) // audit:read
       .mockResolvedValueOnce(false); // audit:export
 
     mockPermissionMiddleware.mockImplementation(() => ({
       checkPermission: mockCheckPermission,
-      requirePermission: jest.fn(),
+      requirePermission: vi.fn(),
     }) as any);
 
-    const mockExportData = jest.fn();
+    const mockExportData = vi.fn();
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       exportData: mockExportData,
     });
 
     // Mock alert to prevent actual alert
-    const mockAlert = jest.fn();
+    const mockAlert = vi.fn();
     global.alert = mockAlert;
 
     render(<AuditTrailDashboard />);
@@ -708,14 +709,14 @@ describe('AuditTrailDashboard - Security Tests', () => {
   });
 
   it('logs export activity for audit purposes', async () => {
-    const mockExportData = jest.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
+    const mockExportData = vi.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' }));
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       exportData: mockExportData,
     });
 
-    global.URL.createObjectURL = jest.fn().mockReturnValue('blob:url');
-    global.URL.revokeObjectURL = jest.fn();
+    global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
+    global.URL.revokeObjectURL = vi.fn();
 
     render(<AuditTrailDashboard />);
 
@@ -735,7 +736,7 @@ describe('AuditTrailDashboard - Security Tests', () => {
 
 describe('AuditTrailDashboard - Performance Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('handles large dataset efficiently', async () => {
@@ -768,7 +769,7 @@ describe('AuditTrailDashboard - Performance Tests', () => {
       action: i % 2 === 0 ? 'SaaS opportunity' : 'Regular action',
     }));
 
-    const mockApplyFilters = jest.fn();
+    const mockApplyFilters = vi.fn();
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       events: largeDataset,
@@ -818,7 +819,7 @@ describe('AuditTrailDashboard - Performance Tests', () => {
 
 describe('AuditTrailDashboard - Accessibility Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('has proper ARIA labels', () => {
@@ -878,19 +879,19 @@ describe('AuditTrailDashboard - Accessibility Tests', () => {
 
 describe('AuditTrailDashboard - Mobile Responsiveness', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Mock window.matchMedia
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
-      value: jest.fn().mockImplementation(query => ({
+      value: vi.fn().mockImplementation(query => ({
         matches: query === '(max-width: 768px)',
         media: query,
         onchange: null,
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
       })),
     });
   });
@@ -941,13 +942,13 @@ describe('AuditTrailDashboard - Mobile Responsiveness', () => {
 
 describe('AuditTrailDashboard - Error Handling', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('handles network failures gracefully', async () => {
-    mockAuditLogService.query = jest.fn().mockRejectedValue(new Error('Network error'));
+    mockAuditLogService.query = vi.fn().mockRejectedValue(new Error('Network error'));
     
-    const mockClearError = jest.fn();
+    const mockClearError = vi.fn();
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       error: 'Network error',
@@ -964,13 +965,13 @@ describe('AuditTrailDashboard - Error Handling', () => {
   });
 
   it('handles permission errors', () => {
-    const mockCheckPermission = jest.fn().mockRejectedValue(new Error('Permission denied'));
+    const mockCheckPermission = vi.fn().mockRejectedValue(new Error('Permission denied'));
     mockPermissionMiddleware.mockImplementation(() => ({
       checkPermission: mockCheckPermission,
-      requirePermission: jest.fn(),
+      requirePermission: vi.fn(),
     }) as any);
 
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
 
     render(<AuditTrailDashboard />);
 
@@ -980,13 +981,13 @@ describe('AuditTrailDashboard - Error Handling', () => {
   });
 
   it('handles export failures', async () => {
-    const mockExportData = jest.fn().mockRejectedValue(new Error('Export failed'));
+    const mockExportData = vi.fn().mockRejectedValue(new Error('Export failed'));
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       exportData: mockExportData,
     });
 
-    const mockAlert = jest.fn();
+    const mockAlert = vi.fn();
     global.alert = mockAlert;
 
     render(<AuditTrailDashboard />);
@@ -1000,13 +1001,13 @@ describe('AuditTrailDashboard - Error Handling', () => {
   });
 
   it('handles integrity verification failures', async () => {
-    const mockVerifyIntegrity = jest.fn().mockRejectedValue(new Error('Verification failed'));
+    const mockVerifyIntegrity = vi.fn().mockRejectedValue(new Error('Verification failed'));
     mockUseAuditTrail.mockReturnValueOnce({
       ...mockUseAuditTrail(),
       verifyIntegrity: mockVerifyIntegrity,
     });
 
-    const mockAlert = jest.fn();
+    const mockAlert = vi.fn();
     global.alert = mockAlert;
 
     render(<AuditTrailDashboard />);
@@ -1025,7 +1026,7 @@ describe('AuditTrailDashboard - Error Handling', () => {
 
 describe('AuditTrailDashboard - Compliance Features', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('displays SOC 2 compliance indicators', () => {
@@ -1037,7 +1038,7 @@ describe('AuditTrailDashboard - Compliance Features', () => {
   });
 
   it('verifies hash chain integrity', async () => {
-    const mockVerifyIntegrity = jest.fn().mockResolvedValue({
+    const mockVerifyIntegrity = vi.fn().mockResolvedValue({
       hashChainValid: true,
       tamperedEvents: [],
       verificationErrors: [],
@@ -1049,7 +1050,7 @@ describe('AuditTrailDashboard - Compliance Features', () => {
       verifyIntegrity: mockVerifyIntegrity,
     });
 
-    const mockAlert = jest.fn();
+    const mockAlert = vi.fn();
     global.alert = mockAlert;
 
     render(<AuditTrailDashboard />);
@@ -1082,10 +1083,10 @@ describe('AuditTrailDashboard - Compliance Features', () => {
   });
 
   it('logs all audit trail access', async () => {
-    const mockCheckPermission = jest.fn().mockResolvedValue(true);
+    const mockCheckPermission = vi.fn().mockResolvedValue(true);
     mockPermissionMiddleware.mockImplementation(() => ({
       checkPermission: mockCheckPermission,
-      requirePermission: jest.fn(),
+      requirePermission: vi.fn(),
     }) as any);
 
     // This would verify that accessing the dashboard itself is logged
@@ -1097,27 +1098,3 @@ describe('AuditTrailDashboard - Compliance Features', () => {
 });
 
 // ============================================================================
-// Summary Test Report
-// ============================================================================
-
-describe('AuditTrailDashboard - Test Coverage Summary', () => {
-  it('has comprehensive test coverage', () => {
-    const testSuites = [
-      'Unit Tests',
-      'Integration Tests',
-      'Security Tests',
-      'Performance Tests',
-      'Accessibility Tests',
-      'Mobile Responsiveness',
-      'Error Handling',
-      'Compliance Features',
-    ];
-
-    console.log('✅ VOS-SUPER-003 Test Suite Coverage:');
-    testSuites.forEach(suite => {
-      console.log(`   - ${suite}`);
-    });
-
-    expect(true).toBe(true); // Placeholder to ensure test passes
-  });
-});

@@ -114,12 +114,7 @@ describe('Grace Policy Enforcement Validation', () => {
       }
     });
 
-    it('should reset grace period after successful billing cycle', async () => {
-      // After grace period expires and presumably billing happens,
-      // grace period should reset for next cycle
-      // (This would require additional test setup for billing cycle logic)
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should reset grace period after successful billing cycle');
   });
 
   describe('Grace Period Boundaries', () => {
@@ -166,11 +161,7 @@ describe('Grace Policy Enforcement Validation', () => {
   });
 
   describe('Grace Period Configuration', () => {
-    it('should respect configurable grace period duration', async () => {
-      // Test with different grace period settings
-      // (Would require configuration override in test)
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should respect configurable grace period duration');
 
     it('should respect configurable overage multiplier', async () => {
       // Test with different overage percentages
@@ -281,23 +272,12 @@ describe('Grace Policy Enforcement Validation', () => {
       expect(graceStatus).toHaveProperty('gracePeriodRemaining');
     });
 
-    it('should alert when approaching grace period limits', async () => {
-      // Test alerting logic for grace period usage
-      // (Would integrate with alerting system)
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should alert when approaching grace period limits');
   });
 
   describe('Grace Period Recovery', () => {
-    it('should allow normal usage after grace period payment', async () => {
-      // Simulate payment during grace period
-      // Subsequent usage should be normal
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should allow normal usage after grace period payment');
 
-    it('should reset grace period after plan change', async () => {
-      // Plan change should reset grace period state
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should reset grace period after plan change');
   });
 });

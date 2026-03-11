@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * Performance and Load Testing Suite
  *
@@ -5,7 +6,6 @@
  * and scalability validation of the Enhanced Parallel Executor system.
  */
 
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import { AgentType } from '../src/services/agent-types';
 import { getContextOptimizer } from '../src/services/ContextOptimizer';
@@ -49,19 +49,19 @@ interface PerformanceMetrics {
 // ============================================================================
 
 // Mock logger to reduce noise in performance tests
-jest.mock('../src/lib/logger', () => ({
+vi.mock('../src/lib/logger', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
 // Mock external dependencies
-jest.mock('../src/services/UnifiedAgentAPI', () => ({
+vi.mock('../src/services/UnifiedAgentAPI', () => ({
   getUnifiedAgentAPI: () => ({
-    invoke: jest.fn().mockImplementation(async ({ agent, query }) => {
+    invoke: vi.fn().mockImplementation(async ({ agent, query }) => {
       // Simulate realistic processing times
       const baseDelay = 50; // Base 50ms
       const agentMultiplier = {
@@ -104,10 +104,10 @@ jest.mock('../src/services/UnifiedAgentAPI', () => ({
 }));
 
 // Mock audit logger
-jest.mock('../src/services/AgentAuditLogger', () => ({
+vi.mock('../src/services/AgentAuditLogger', () => ({
   getAuditLogger: () => ({
-    log: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn().mockResolvedValue([]),
+    log: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue([]),
   }),
 }));
 
@@ -132,7 +132,7 @@ describe('Performance and Load Testing', () => {
     executor = null as any;
     resourceMonitor.stop();
     memoryMonitor.stop();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   /**

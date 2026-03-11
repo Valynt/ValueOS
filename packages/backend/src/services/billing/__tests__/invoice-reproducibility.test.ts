@@ -367,11 +367,7 @@ describe('Invoice Reproducibility Verification', () => {
       });
     });
 
-    it('should handle large datasets consistently', async () => {
-      // Test with larger invoice data
-      // (Would need mock data with many line items)
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should handle large datasets consistently');
   });
 
   describe('Error Handling', () => {
@@ -387,10 +383,6 @@ describe('Invoice Reproducibility Verification', () => {
       await expect(InvoiceMathEngine.calculateInvoice(input)).rejects.toThrow();
     });
 
-    it('should maintain consistency even with partial failures', async () => {
-      // Test behavior when some data sources are unavailable
-      // (Would need to mock partial failures)
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should maintain consistency even with partial failures');
   });
 });

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -33,12 +34,12 @@ describe("Port Management Functions", () => {
   };
 
   beforeEach(() => {
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe("resolvePort", () => {
@@ -122,15 +123,15 @@ describe("Port Management Functions", () => {
 
   describe("writePortsEnvFile", () => {
     beforeEach(() => {
-      jest.spyOn(fs, "readFileSync").mockReturnValue(JSON.stringify(mockPorts));
-      jest.spyOn(fs, "writeFileSync").mockImplementation(() => {});
-      jest.spyOn(fs, "existsSync").mockReturnValue(false);
-      jest.spyOn(fs, "unlinkSync").mockImplementation(() => {});
-      jest.spyOn(fs, "statSync").mockReturnValue({ mtime: new Date() });
+      vi.spyOn(fs, "readFileSync").mockReturnValue(JSON.stringify(mockPorts));
+      vi.spyOn(fs, "writeFileSync").mockImplementation(() => {});
+      vi.spyOn(fs, "existsSync").mockReturnValue(false);
+      vi.spyOn(fs, "unlinkSync").mockImplementation(() => {});
+      vi.spyOn(fs, "statSync").mockReturnValue({ mtime: new Date() });
     });
 
     afterEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it("should write ports env file", () => {

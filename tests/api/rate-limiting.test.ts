@@ -40,37 +40,17 @@ describe("API Rate Limiting", () => {
       // This test documents expected behavior
     });
 
-    it("should allow requests after rate limit window expires", async () => {
-      // This test requires time-based simulation
-      // Document expected behavior
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should allow requests after rate limit window expires");
   });
 
   describe("Rate Limit Headers", () => {
-    it("should include rate limit headers in response", async () => {
-      // This test checks for standard rate limit headers:
-      // X-RateLimit-Limit
-      // X-RateLimit-Remaining
-      // X-RateLimit-Reset
-
-      // Note: Supabase may not provide these headers by default
-      // Test against custom API if implemented
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should include rate limit headers in response");
   });
 
   describe("429 Too Many Requests", () => {
-    it("should return 429 when rate limit exceeded", async () => {
-      // This requires actually hitting the rate limit
-      // Which may take time or require high request volume
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should return 429 when rate limit exceeded");
 
-    it("should include Retry-After header in 429 response", async () => {
-      // Standard HTTP behavior for rate limiting
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should include Retry-After header in 429 response");
   });
 
   describe("Burst Protection", () => {
@@ -99,10 +79,6 @@ describe("API Rate Limiting", () => {
   });
 
   describe("Cross-Tenant Fairness", () => {
-    it("should not let one tenant affect another tenant rate limits", async () => {
-      // This requires multi-tenant simulation
-      // Document expected behavior
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should not let one tenant affect another tenant rate limits");
   });
 });

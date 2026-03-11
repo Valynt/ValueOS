@@ -255,23 +255,31 @@ backHalfRouter.post('/:id/expansion/run', ...auth, async (req: Request, res: Res
  * addresses, cloud metadata endpoints, or arbitrary external URLs are blocked.
  * Set PDF_ALLOWED_ORIGINS (comma-separated) to override in non-standard
  * deployments. Falls back to APP_URL, then localhost.
+ *
+ * Computed once on first call and cached — env vars do not change at runtime
+ * and re-parsing on every request would flood logs if APP_URL is misconfigured.
  */
+let _allowedRenderOrigins: string[] | undefined;
 function getAllowedRenderOrigins(): string[] {
+  if (_allowedRenderOrigins !== undefined) return _allowedRenderOrigins;
+
   const envOrigins = process.env.PDF_ALLOWED_ORIGINS;
   if (envOrigins) {
-    return envOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+    _allowedRenderOrigins = envOrigins.split(',').map((o) => o.trim()).filter(Boolean);
+    return _allowedRenderOrigins;
   }
   const appUrl = process.env.APP_URL ?? 'http://localhost:3001';
   try {
-    return [new URL(appUrl).origin];
+    _allowedRenderOrigins = [new URL(appUrl).origin];
   } catch {
-    // APP_URL is misconfigured — log and return empty list so all renderUrls
-    // are rejected rather than crashing the request handler.
+    // APP_URL is misconfigured — log once and cache an empty list so all
+    // renderUrls are rejected rather than crashing the request handler.
     logger.error('PDF export: APP_URL is not a valid URL, all renderUrl requests will be blocked', {
       appUrl,
     });
-    return [];
+    _allowedRenderOrigins = [];
   }
+  return _allowedRenderOrigins;
 }
 
 function isAllowedRenderUrl(rawUrl: string): boolean {

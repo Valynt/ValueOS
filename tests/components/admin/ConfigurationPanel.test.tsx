@@ -216,9 +216,7 @@ describe('ConfigurationPanel - Week 1 Complete', () => {
         expect(screen.getByText('Organization')).toBeDefined();
       });
 
-      // Component should set up beforeunload listener
-      // (Testing the actual browser warning is not possible in jsdom)
-      expect(true).toBe(true);
+      // beforeunload listener registration cannot be verified in jsdom
     });
   });
 

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * ConfigurationPanel Tests
  * 
@@ -10,14 +11,14 @@ import { ConfigurationPanel } from '../ConfigurationPanel';
 import '@testing-library/jest-dom';
 
 // Mock the toast hook
-jest.mock('@/components/ui/use-toast', () => ({
+vi.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({
-    toast: jest.fn()
+    toast: vi.fn()
   })
 }));
 
 // Mock fetch
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 const mockConfigurations = {
   configurations: {
@@ -70,14 +71,14 @@ const mockConfigurations = {
 
 describe('ConfigurationPanel - Week 1, Item 1: Remove Placeholder Tabs', () => {
   beforeEach(() => {
-    (global.fetch as jest.Mock).mockResolvedValue({
+    (global.fetch as vi.Mock).mockResolvedValue({
       ok: true,
       json: async () => mockConfigurations
     });
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Tab Structure', () => {
@@ -256,7 +257,7 @@ describe('ConfigurationPanel - Week 1, Item 1: Remove Placeholder Tabs', () => {
 
   describe('Error States', () => {
     it('should handle fetch errors gracefully', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+      (global.fetch as vi.Mock).mockRejectedValueOnce(new Error('Network error'));
 
       render(<ConfigurationPanel organizationId="test-org" userRole="tenant_admin" />);
 
@@ -267,7 +268,7 @@ describe('ConfigurationPanel - Week 1, Item 1: Remove Placeholder Tabs', () => {
     });
 
     it('should handle empty configurations', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ configurations: null })
       });

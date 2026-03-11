@@ -4234,7 +4234,7 @@ This document lists recommended, mature standards aligned to our stack and compl
 
 2. Tools and Standards (stack-specific)
 
-- Unit: Vitest (jsdom/node), mocking with `vi` and `msw` for network. Test runners: `vitest run --config vitest.config.unit.ts`.
+- Unit: Vitest (jsdom/node), mocking with `vi` and `msw` for network. Test runners: `pnpm test` (root, all packages) or `pnpm --filter @valueos/<pkg> test` (single package).
 - Integration: Vitest with `testcontainers` + `test/setup-integration.ts` using Postgres/Redis MS images or `supabase test db`. Tests: `vitest run --config vitest.config.integration.ts`.
 - E2E: Playwright (`@playwright/test`) for browser/automation flows. CI: install browsers and run Playwright with `npx playwright test`.
 - DB-as-a-service: Supabase (Postgres) — rely on `supabase` CLI for RLS and verification tests.
