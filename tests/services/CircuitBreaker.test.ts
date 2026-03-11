@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * Circuit Breaker Unit Tests
  *
@@ -5,7 +6,6 @@
  * failure handling, state transitions, and category-based management.
  */
 
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import { CircuitBreakerManager } from '../src/services/CircuitBreaker';
 import { AGENT_CATEGORIES, CategorizedCircuitBreakerManager } from '../src/services/CircuitBreakerManager';
@@ -15,22 +15,22 @@ import { AGENT_CATEGORIES, CategorizedCircuitBreakerManager } from '../src/servi
 // ============================================================================
 
 // Mock console methods to reduce test noise
-const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
+const mockConsoleWarn = vi.spyOn(console, 'warn').mockImplementation();
+const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();
 
 // Mock logger
-jest.mock('../src/lib/logger', () => ({
+vi.mock('../src/lib/logger', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
 describe('CircuitBreakerManager', () => {
   let circuitBreaker: CircuitBreakerManager;
-  let mockTask: jest.Mock;
+  let mockTask: vi.Mock;
 
   beforeEach(() => {
     circuitBreaker = new CircuitBreakerManager({
@@ -42,11 +42,11 @@ describe('CircuitBreakerManager', () => {
       halfOpenMaxProbes: 2,
     });
 
-    mockTask = jest.fn();
+    mockTask = vi.fn();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Basic Functionality', () => {
@@ -330,15 +330,15 @@ describe('CircuitBreakerManager', () => {
 
 describe('CategorizedCircuitBreakerManager', () => {
   let categorizedManager: CategorizedCircuitBreakerManager;
-  let mockTask: jest.Mock;
+  let mockTask: vi.Mock;
 
   beforeEach(() => {
     categorizedManager = new CategorizedCircuitBreakerManager();
-    mockTask = jest.fn();
+    mockTask = vi.fn();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Category-Based Execution', () => {
@@ -424,8 +424,8 @@ describe('CategorizedCircuitBreakerManager', () => {
   describe('Performance Metrics', () => {
     it('should calculate performance metrics correctly', async () => {
       // Simulate some executions
-      const successTask = jest.fn().mockResolvedValue('success');
-      const failTask = jest.fn().mockRejectedValue(new Error('Test error'));
+      const successTask = vi.fn().mockResolvedValue('success');
+      const failTask = vi.fn().mockRejectedValue(new Error('Test error'));
 
       // Successful executions
       await categorizedManager.executeWithCategory('research', successTask);
@@ -445,7 +445,7 @@ describe('CategorizedCircuitBreakerManager', () => {
     });
 
     it('should track category-specific performance', async () => {
-      const successTask = jest.fn().mockResolvedValue('success');
+      const successTask = vi.fn().mockResolvedValue('success');
 
       await categorizedManager.executeWithCategory('research', successTask);
       await categorizedManager.executeWithCategory('integrity', successTask);
@@ -543,12 +543,12 @@ describe('Circuit Breaker Integration Tests', () => {
       minimumSamples: 2,
     });
 
-    const slowTask = jest.fn().mockImplementation(async () => {
+    const slowTask = vi.fn().mockImplementation(async () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       return 'success';
     });
 
-    const failTask = jest.fn().mockRejectedValue(new Error('Test error'));
+    const failTask = vi.fn().mockRejectedValue(new Error('Test error'));
 
     // Execute concurrent tasks
     const promises = [
@@ -570,8 +570,8 @@ describe('Circuit Breaker Integration Tests', () => {
   it('should maintain separate state for different keys', async () => {
     const circuitBreaker = new CircuitBreakerManager();
 
-    const successTask = jest.fn().mockResolvedValue('success');
-    const failTask = jest.fn().mockRejectedValue(new Error('Test error'));
+    const successTask = vi.fn().mockResolvedValue('success');
+    const failTask = vi.fn().mockRejectedValue(new Error('Test error'));
 
     // Execute successful tasks on key1
     await circuitBreaker.execute('key1', successTask);

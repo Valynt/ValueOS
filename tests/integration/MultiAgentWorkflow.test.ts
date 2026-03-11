@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * Multi-Agent Workflow Integration Tests
  *
@@ -5,7 +6,6 @@
  * and system-wide orchestration scenarios.
  */
 
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import { SecureMessageBus } from '../src/lib/agent-fabric/SecureMessageBus';
 import { AgentType } from '../src/services/agent-types';
@@ -20,23 +20,23 @@ import { SecurityMonitor } from '../src/services/security/SecurityMonitor';
 // ============================================================================
 
 // Mock console methods
-const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
+const mockConsoleWarn = vi.spyOn(console, 'warn').mockImplementation();
+const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();
 
 // Mock logger
-jest.mock('../src/lib/logger', () => ({
+vi.mock('../src/lib/logger', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
 // Mock external dependencies
-jest.mock('../src/services/UnifiedAgentAPI', () => ({
+vi.mock('../src/services/UnifiedAgentAPI', () => ({
   getUnifiedAgentAPI: () => ({
-    invoke: jest.fn().mockImplementation(async ({ agent, query }) => {
+    invoke: vi.fn().mockImplementation(async ({ agent, query }) => {
       // Simulate different agent behaviors
       const responses = {
         coordinator: { success: true, data: { workflowId: 'test-workflow', status: 'coordinated' } },
@@ -70,32 +70,32 @@ jest.mock('../src/services/UnifiedAgentAPI', () => ({
 }));
 
 // Mock audit logger
-jest.mock('../src/services/AgentAuditLogger', () => ({
+vi.mock('../src/services/AgentAuditLogger', () => ({
   getAuditLogger: () => ({
-    log: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn().mockResolvedValue([]),
+    log: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue([]),
   }),
 }));
 
 // Mock crypto utilities
-jest.mock('../src/lib/crypto/CryptoUtils', () => ({
-  signMessage: jest.fn().mockResolvedValue('mock-signature'),
-  verifySignature: jest.fn().mockResolvedValue(true),
-  encrypt: jest.fn().mockReturnValue({
+vi.mock('../src/lib/crypto/CryptoUtils', () => ({
+  signMessage: vi.fn().mockResolvedValue('mock-signature'),
+  verifySignature: vi.fn().mockResolvedValue(true),
+  encrypt: vi.fn().mockReturnValue({
     data: 'encrypted-data',
     iv: 'mock-iv',
     algorithm: 'aes-256-gcm',
     tag: 'mock-tag',
   }),
-  decrypt: jest.fn().mockReturnValue('decrypted-data'),
-  generateNonce: jest.fn().mockReturnValue('mock-nonce'),
-  isEncrypted: jest.fn().mockReturnValue(false),
-  generateEncryptionKey: jest.fn().mockReturnValue('mock-key'),
+  decrypt: vi.fn().mockReturnValue('decrypted-data'),
+  generateNonce: vi.fn().mockReturnValue('mock-nonce'),
+  isEncrypted: vi.fn().mockReturnValue(false),
+  generateEncryptionKey: vi.fn().mockReturnValue('mock-key'),
 }));
 
 // Mock agent identity
-jest.mock('../src/lib/auth/AgentIdentity', () => ({
-  hasPermission: jest.fn().mockReturnValue(true),
+vi.mock('../src/lib/auth/AgentIdentity', () => ({
+  hasPermission: vi.fn().mockReturnValue(true),
 }));
 
 describe('Multi-Agent Workflow Integration', () => {
@@ -120,7 +120,7 @@ describe('Multi-Agent Workflow Integration', () => {
     messageBus.destroy();
     securityMonitor.stop();
     resourceMonitor.stop();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Complete ValueOS Workflow', () => {
@@ -276,7 +276,7 @@ describe('Multi-Agent Workflow Integration', () => {
       // Monitor resource changes
       const initialConcurrency = executor['currentMaxConcurrency'];
       resourceMonitor.addListener({
-        onResourceChange: jest.fn().mockImplementation((resources) => {
+        onResourceChange: vi.fn().mockImplementation((resources) => {
           // Simulate resource pressure detection
           if (resources.memory.percentage > 75) {
             executor['currentMaxConcurrency'] = Math.floor(initialConcurrency * 0.5);
@@ -714,7 +714,7 @@ describe('End-to-End System Integration', () => {
 
       // Simulate resource pressure during execution
       const resourceListener = {
-        onResourceChange: jest.fn().mockImplementation((resources) => {
+        onResourceChange: vi.fn().mockImplementation((resources) => {
           // Log resource changes for verification
           console.log(`Resource change: CPU=${resources.cpu.usage}%, Memory=${resources.memory.percentage}%`);
         }),

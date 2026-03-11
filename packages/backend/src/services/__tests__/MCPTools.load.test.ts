@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * MCP Tools Load Tests
  *
@@ -16,7 +17,7 @@ vi.mock("../../mcp-crm", () => ({
 }));
 
 describe("MCP Tools - Load Testing", () => {
-  const mockService = mcpGroundTruthService as jest.Mocked<typeof mcpGroundTruthService>;
+  const mockService = mcpGroundTruthService as vi.Mocked<typeof mcpGroundTruthService>;
 
   beforeEach(() => {
     vi.clearAllMocks();

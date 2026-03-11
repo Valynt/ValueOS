@@ -62,7 +62,7 @@ vi.mock('../../../lib/logger', () => ({
 
 describe('Value Drivers API', () => {
   let app: Express;
-  let mockRepository: jest.Mocked<ReturnType<typeof getValueDriversRepository>>;
+  let mockRepository: vi.Mocked<ReturnType<typeof getValueDriversRepository>>;
 
   const validDriverData = {
     name: 'Demo Prep Time Reduction',
@@ -96,7 +96,7 @@ describe('Value Drivers API', () => {
       incrementUsage: vi.fn(),
     } as any;
 
-    (getValueDriversRepository as jest.Mock).mockReturnValue(mockRepository);
+    (getValueDriversRepository as vi.Mock).mockReturnValue(mockRepository);
   });
 
   afterEach(() => {
@@ -324,7 +324,7 @@ describe('Value Drivers API', () => {
   describe('Authentication Errors', () => {
     it('should return 403 for non-admin trying to create', async () => {
       const { requireRole } = require('../../../middleware/auth');
-      (requireRole as jest.Mock).mockImplementationOnce(() => (_req: any, res: any) => {
+      (requireRole as vi.Mock).mockImplementationOnce(() => (_req: any, res: any) => {
         return res.status(403).json({
           error: 'FORBIDDEN',
           message: 'Admin access required',

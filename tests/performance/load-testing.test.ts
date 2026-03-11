@@ -326,8 +326,7 @@ describe('Load Testing', () => {
         await client.from('tenants').select('id, name').limit(10);
       }
 
-      // If we get here without crashing, memory is managed properly
-      expect(true).toBe(true);
+      // Completing all iterations without throwing is the assertion
 
       console.log(`✅ Memory stable over ${iterations} iterations`);
     });

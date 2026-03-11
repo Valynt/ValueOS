@@ -57,7 +57,7 @@ vi.mock('../../../lib/logger', () => ({
 
 describe('Value Cases API', () => {
   let app: Express;
-  let mockRepository: jest.Mocked<ReturnType<typeof getValueCasesRepository>>;
+  let mockRepository: vi.Mocked<ReturnType<typeof getValueCasesRepository>>;
 
   beforeEach(() => {
     app = express();
@@ -72,7 +72,7 @@ describe('Value Cases API', () => {
       list: vi.fn(),
     } as any;
 
-    (getValueCasesRepository as jest.Mock).mockReturnValue(mockRepository);
+    (getValueCasesRepository as vi.Mock).mockReturnValue(mockRepository);
   });
 
   afterEach(() => {
@@ -259,7 +259,7 @@ describe('Value Cases API', () => {
     it('should return 403 for insufficient permissions', async () => {
       // Override the mock for this test
       const { requireRole } = require('../../../middleware/auth');
-      (requireRole as jest.Mock).mockImplementationOnce(() => (_req: any, res: any) => {
+      (requireRole as vi.Mock).mockImplementationOnce(() => (_req: any, res: any) => {
         return res.status(403).json({
           error: 'FORBIDDEN',
           message: 'Insufficient permissions',

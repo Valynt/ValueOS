@@ -345,7 +345,6 @@ const testOverrides = {
       afterAll: "readonly",
       vi: "readonly",
       vitest: "readonly",
-      jest: "readonly",
     },
   },
   rules: {
@@ -361,7 +360,24 @@ const testOverrides = {
       },
     ],
     "no-console": "off",
-    "no-restricted-syntax": "off",
+    // Ban placeholder assertions — use it.todo('description') for unimplemented tests
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector:
+          "CallExpression[callee.object.callee.name='expect'][callee.object.arguments.0.value=true][callee.property.name='toBe'][arguments.0.value=true]",
+        message:
+          "Placeholder assertion expect(true).toBe(true) is banned. Use it.todo('description') for unimplemented tests.",
+      },
+    ],
+    // Ban @jest/globals — use vitest (vi, expect, it, describe) instead
+    "no-restricted-imports": [
+      "error",
+      {
+        name: "@jest/globals",
+        message: "Use vitest imports (vi, expect, it, describe) instead of @jest/globals.",
+      },
+    ],
   },
 };
 

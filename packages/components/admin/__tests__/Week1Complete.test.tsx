@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * Week 1 Complete Tests
  * 
@@ -14,13 +15,13 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ConfigurationPanel } from '../ConfigurationPanel';
 import '@testing-library/jest-dom';
 
-jest.mock('@/components/ui/use-toast', () => ({
+vi.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({
-    toast: jest.fn()
+    toast: vi.fn()
   })
 }));
 
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 const mockConfigurations = {
   configurations: {
@@ -76,17 +77,17 @@ const mockConfigurations = {
 
 describe('Week 1: Ship Blockers - Complete', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
-    (global.fetch as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (global.fetch as vi.Mock).mockResolvedValue({
       ok: true,
       json: async () => mockConfigurations
     });
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('Item 2: Unified Save Pattern', () => {
@@ -124,7 +125,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should show "Saved" indicator after successful save', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockConfigurations
       }).mockResolvedValueOnce({
@@ -144,7 +145,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
       // Wait for debounce and save
       act(() => {
-        jest.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1000);
       });
 
       await waitFor(() => {
@@ -168,11 +169,11 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
       // Should only call fetch once after debounce
       act(() => {
-        jest.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1000);
       });
 
       await waitFor(() => {
-        const fetchCalls = (global.fetch as jest.Mock).mock.calls.filter(
+        const fetchCalls = (global.fetch as vi.Mock).mock.calls.filter(
           call => call[0].includes('/api/admin/configurations') && call[1]?.method === 'PUT'
         );
         expect(fetchCalls).toHaveLength(1);
@@ -180,7 +181,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should show "Last saved" timestamp', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockConfigurations
       }).mockResolvedValueOnce({
@@ -198,7 +199,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
       fireEvent.change(maxUsersInput, { target: { value: '100' } });
 
       act(() => {
-        jest.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1000);
       });
 
       await waitFor(() => {
@@ -207,7 +208,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
       // Wait for "Saved" to transition to "Last saved"
       act(() => {
-        jest.advanceTimersByTime(2000);
+        vi.advanceTimersByTime(2000);
       });
 
       await waitFor(() => {
@@ -218,7 +219,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
   describe('Item 3: Proper Error Messages', () => {
     it('should show specific error for 403 Forbidden', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: false,
         status: 403,
         json: async () => ({ message: 'Access denied' })
@@ -240,7 +241,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should show specific error for 404 Not Found', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: false,
         status: 404,
         json: async () => ({})
@@ -260,7 +261,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should show specific error for 500 Server Error', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
         json: async () => ({})
@@ -280,7 +281,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should show Retry button in error toast', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
         json: async () => ({})
@@ -300,7 +301,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should show setting name in save error', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockConfigurations
       }).mockResolvedValueOnce({
@@ -321,7 +322,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
       fireEvent.change(maxUsersInput, { target: { value: '100' } });
 
       act(() => {
-        jest.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1000);
       });
 
       await waitFor(() => {
@@ -430,7 +431,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
     });
 
     it('should clear warning after save completes', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as vi.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockConfigurations
       }).mockResolvedValueOnce({
@@ -450,7 +451,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
       // Wait for save
       act(() => {
-        jest.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1000);
       });
 
       await waitFor(() => {
@@ -468,7 +469,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
   describe('Integration: All Week 1 Items Together', () => {
     it('should handle complete user flow', async () => {
-      (global.fetch as jest.Mock)
+      (global.fetch as vi.Mock)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => mockConfigurations
@@ -501,7 +502,7 @@ describe('Week 1: Ship Blockers - Complete', () => {
 
       // 5. Completes save
       act(() => {
-        jest.advanceTimersByTime(1000);
+        vi.advanceTimersByTime(1000);
       });
 
       await waitFor(() => {

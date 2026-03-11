@@ -171,11 +171,7 @@ describe('Webhook Idempotency Validation', () => {
       // Verify no additional side effects occurred
     });
 
-    it('should handle partial processing failures', async () => {
-      // Test scenario where webhook processing fails partway through
-      // Should be able to retry without corruption
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should handle partial processing failures');
 
     it('should preserve event order', async () => {
       const webhookService = new WebhookService();
@@ -214,11 +210,7 @@ describe('Webhook Idempotency Validation', () => {
       ).rejects.toThrow();
     });
 
-    it('should handle database connection failures', async () => {
-      // Test with simulated database outage
-      // Should not process duplicates during outage recovery
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should handle database connection failures');
 
     it('should handle Stripe API failures', async () => {
       // Test with invalid webhook signatures
@@ -254,10 +246,7 @@ describe('Webhook Idempotency Validation', () => {
       expect(results.every(r => r.processed)).toBe(true);
     });
 
-    it('should maintain performance with large event history', async () => {
-      // Test deduplication performance with large dataset
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should maintain performance with large event history');
   });
 
   describe('Security and Validation', () => {
@@ -319,27 +308,18 @@ describe('Webhook Idempotency Validation', () => {
     it('should log duplicate webhook attempts', async () => {
       const webhookService = new WebhookService();
 
-      // Process original
       await webhookService.processWebhook(mockInvoiceWebhook);
+      const result = await webhookService.processWebhook(mockInvoiceWebhook);
 
-      // Process duplicate - should be logged
-      await webhookService.processWebhook(mockInvoiceWebhook);
-
-      // Verify logging occurred (would check log output)
-      expect(true).toBe(true); // Placeholder
+      // Duplicate is detected — isDuplicate flag is the observable signal for logging
+      expect(result.isDuplicate).toBe(true);
     });
 
-    it('should provide webhook processing metrics', async () => {
-      // Test metrics collection for duplicate detection
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should provide webhook processing metrics');
   });
 
   describe('Integration Testing', () => {
-    it('should integrate with Stripe webhook verification', async () => {
-      // Test with real Stripe webhook signature verification
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should integrate with Stripe webhook verification');
 
     it('should handle webhook retries from Stripe', async () => {
       // Test Stripe's automatic retry behavior
