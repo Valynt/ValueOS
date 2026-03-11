@@ -173,10 +173,12 @@ export class AgentMessageQueue {
 
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
-      // waitUntilFinished subscribes to QueueEvents pub/sub and resolves
-      // when the job completes or rejects when it fails. The timeout races
-      // against it so we don't block indefinitely.
-      await Promise.race([
+      // waitUntilFinished subscribes to QueueEvents pub/sub and resolves with
+      // the job's return value when the job completes, or rejects when it fails.
+      // The timeout races against it so we don't block indefinitely.
+      // Use the resolved value directly — job.returnvalue is a stale snapshot
+      // that BullMQ does not update on the local Job object after resolution.
+      const result = await Promise.race([
         job.waitUntilFinished(this.queueEvents),
         new Promise<never>((_, reject) => {
           timeoutHandle = setTimeout(
@@ -186,7 +188,7 @@ export class AgentMessageQueue {
         }),
       ]);
 
-      return job.returnvalue as AgentInvocationResult;
+      return result as AgentInvocationResult;
     } catch (error) {
       if (error instanceof Error && error.message.includes("timeout")) {
         throw new Error(

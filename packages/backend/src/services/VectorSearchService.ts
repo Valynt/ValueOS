@@ -389,16 +389,7 @@ export class VectorSearchService {
     filters: Record<string, any> = {},
     requireLineage: boolean = true
   ): string {
-    const conditions: string[] = [
-      "(metadata ? 'source_origin')",
-      "(metadata ? 'data_sensitivity_level')",
-      "metadata->>'source_origin' IS NOT NULL",
-      "metadata->>'data_sensitivity_level' IS NOT NULL",
-      "metadata->>'source_origin' <> ''",
-      "metadata->>'data_sensitivity_level' <> ''",
-      "LOWER(metadata->>'source_origin') <> 'unknown'",
-      "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'",
-    ];
+    const conditions: string[] = [];
 
     // Type filter — validate against known enum and escape for defense-in-depth
     if (type) {
@@ -409,8 +400,14 @@ export class VectorSearchService {
     }
 
     if (requireLineage) {
-      conditions.push("metadata ? 'source_origin'");
-      conditions.push("metadata ? 'data_sensitivity_level'");
+      conditions.push("(metadata ? 'source_origin')");
+      conditions.push("(metadata ? 'data_sensitivity_level')");
+      conditions.push("metadata->>'source_origin' IS NOT NULL");
+      conditions.push("metadata->>'data_sensitivity_level' IS NOT NULL");
+      conditions.push("metadata->>'source_origin' <> ''");
+      conditions.push("metadata->>'data_sensitivity_level' <> ''");
+      conditions.push("LOWER(metadata->>'source_origin') <> 'unknown'");
+      conditions.push("LOWER(metadata->>'data_sensitivity_level') <> 'unknown'");
       conditions.push("COALESCE(metadata->>'source_origin', '') <> ''");
       conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
     }

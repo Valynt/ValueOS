@@ -131,7 +131,8 @@ router.get(
   rateLimiters.standard,
   async (req: Request, res: Response) => {
     const { id } = req.params;
-    const tenantId = getTenantIdFromRequest(req as any) ?? "anonymous";
+    // Use a fixed prefix that cannot collide with real UUID tenant IDs.
+    const tenantId = getTenantIdFromRequest(req as any) ?? "__anon__";
 
     const payload = await ReadThroughCacheService.getOrLoad(
       {
