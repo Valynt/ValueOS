@@ -50,6 +50,9 @@ export interface IntegrityOutputRow {
   veto_triggered: boolean;
   veto_reason: string | null;
   source_agent: string;
+  // Promoted scalar columns (populated on write, avoids jsonb parsing for aggregation)
+  claim_count: number;
+  flagged_claim_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +69,8 @@ export class IntegrityOutputRepository {
   async upsertForCase(input: IntegrityOutputWrite): Promise<IntegrityOutputRow> {
     const validated = IntegrityOutputWriteSchema.parse(input);
 
+    const flaggedCount = validated.claims.filter(c => c.flagged).length;
+
     const { data, error } = await supabase
       .from('integrity_outputs')
       .upsert(
@@ -78,6 +83,9 @@ export class IntegrityOutputRepository {
           veto_triggered: validated.veto_triggered,
           veto_reason: validated.veto_reason ?? null,
           source_agent: validated.source_agent,
+          // Promoted scalar columns — avoids jsonb parsing for aggregation queries
+          claim_count: validated.claims.length,
+          flagged_claim_count: flaggedCount,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'case_id,organization_id' },

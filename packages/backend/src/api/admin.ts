@@ -18,7 +18,9 @@ import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
 import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
+import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob.js"
 import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
+import { tenantDeletionService } from "../services/tenant/TenantDeletionService.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
@@ -411,6 +413,126 @@ router.delete(
     } catch (error) {
       logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to remove permissions" });
+    }
+  }
+);
+
+// ── Tenant deletion ───────────────────────────────────────────────────────────
+
+/**
+ * POST /admin/tenants/:tenantId/delete
+ * Phase 1: Initiate soft delete. Marks tenant pending_deletion, cancels billing.
+ * Body: { reason: string }
+ */
+router.post(
+  "/tenants/:tenantId/delete",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const { tenantId } = req.params;
+    const { reason } = req.body as { reason?: string };
+    const requestedBy = (req as unknown as { userId?: string }).userId ?? "unknown";
+
+    if (!reason) return res.status(400).json({ error: "reason is required" });
+
+    try {
+      const result = await tenantDeletionService.initiateSoftDelete(tenantId, requestedBy, reason);
+      return res.status(result.success ? 200 : 500).json(result);
+    } catch (error) {
+      logger.error("Admin: tenant soft-delete failed", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Soft-delete failed" });
+    }
+  }
+);
+
+/**
+ * POST /admin/tenants/:tenantId/export
+ * Phase 2: Export all tenant data. Returns the export archive as JSON.
+ */
+router.post(
+  "/tenants/:tenantId/export",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const { tenantId } = req.params;
+    try {
+      const exportData = await tenantDeletionService.exportTenantData(tenantId);
+      return res.status(200).json(exportData);
+    } catch (error) {
+      logger.error("Admin: tenant export failed", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Export failed" });
+    }
+  }
+);
+
+/**
+ * POST /admin/tenants/:tenantId/hard-delete
+ * Phase 3: Permanently delete all tenant data. Requires export to be complete
+ * and the soft-delete window to have elapsed.
+ */
+router.post(
+  "/tenants/:tenantId/hard-delete",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const { tenantId } = req.params;
+    try {
+      const result = await tenantDeletionService.hardDelete(tenantId);
+      return res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+      logger.error("Admin: tenant hard-delete failed", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Hard-delete failed" });
+    }
+  }
+);
+
+/**
+ * POST /admin/tenants/process-scheduled-deletions
+ * Cron-triggered: hard-delete all tenants whose soft-delete window has elapsed.
+ */
+router.post(
+  "/tenants/process-scheduled-deletions",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (_req: Request, res: Response) => {
+    try {
+      const result = await tenantDeletionService.processScheduledDeletions();
+      return res.status(200).json(result);
+    } catch (error) {
+      logger.error("Admin: scheduled deletions failed", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Scheduled deletion job failed" });
+    }
+  }
+);
+
+// ── Key rotation ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /admin/crm/re-encrypt-tokens
+ *
+ * Triggers the CRM token re-encryption job. Run this after rotating
+ * CRM_TOKEN_KEY_VERSION to re-encrypt existing rows under the new key.
+ *
+ * Requires: system.admin permission.
+ * Returns: { processed, reEncrypted, skipped, errors }
+ */
+router.post(
+  "/crm/re-encrypt-tokens",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (_req: Request, res: Response) => {
+    try {
+      logger.info("Admin: CRM token re-encryption job triggered");
+      const result = await tokenReEncryptionJob.run();
+      return res.status(200).json(result);
+    } catch (error) {
+      logger.error("Admin: CRM token re-encryption job failed", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Re-encryption job failed" });
     }
   }
 );

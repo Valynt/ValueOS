@@ -74,6 +74,10 @@ export class RealizationReportRepository {
     orgId: string,
     payload: RealizationReportPayload,
   ): Promise<RealizationReport> {
+    const overallRate = typeof payload.variance_analysis?.['overall_realization_rate'] === 'number'
+      ? payload.variance_analysis['overall_realization_rate']
+      : null;
+
     const { data, error } = await this.supabase
       .from('realization_reports')
       .insert({
@@ -86,6 +90,11 @@ export class RealizationReportRepository {
         variance_analysis: payload.variance_analysis,
         hallucination_check: payload.hallucination_check ?? null,
         source_agent: payload.source_agent ?? 'RealizationAgent',
+        // Promoted scalar columns — avoids jsonb parsing for aggregation queries
+        kpi_count: payload.kpis.length,
+        milestone_count: payload.milestones.length,
+        risk_count: payload.risks.length,
+        overall_realization_rate: overallRate,
       })
       .select()
       .single();
