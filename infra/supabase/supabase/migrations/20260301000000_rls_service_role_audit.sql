@@ -279,8 +279,8 @@ DO $$ BEGIN
 
             EXECUTE 'CREATE POLICY user_tenants_tenant_update_v2 ON public.user_tenants
                 FOR UPDATE TO authenticated
-                USING (tenant_id = (auth.jwt() ->> ''tenant_id''))
-                WITH CHECK (tenant_id = (auth.jwt() ->> ''tenant_id''))';
+                USING (tenant_id = (auth.jwt() ->> ''tenant_id'') AND user_id = auth.uid()::text)
+                WITH CHECK (tenant_id = (auth.jwt() ->> ''tenant_id'') AND user_id = auth.uid()::text)';
 
             EXECUTE 'GRANT SELECT, UPDATE ON public.user_tenants TO authenticated';
             EXECUTE 'GRANT ALL ON public.user_tenants TO service_role';
