@@ -91,7 +91,7 @@ export class AdversarialValidator {
   private challengePrompts: Map<ChallengeType, ChallengePrompt[]>;
 
   constructor() {
-    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.llm = createLLMGateway();
     this.initializeChallengePrompts();
   }
 
