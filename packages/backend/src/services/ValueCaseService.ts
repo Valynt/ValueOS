@@ -136,7 +136,7 @@ class ValueCaseService extends TenantAwareService {
           )
         `
         )
-        .eq("tenant_id", tenantId)
+        .or(`tenant_id.eq.${tenantId},organization_id.eq.${tenantId}`)
         .order("updated_at", { ascending: false });
 
       if (!vcError && valueCases && valueCases.length > 0) {
@@ -190,7 +190,7 @@ class ValueCaseService extends TenantAwareService {
         `
         )
         .eq("id", id)
-        .eq("tenant_id", tenantId)
+        .or(`tenant_id.eq.${tenantId},organization_id.eq.${tenantId}`)
         .single();
 
       if (error || !data) {
