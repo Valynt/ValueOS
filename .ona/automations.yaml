@@ -108,27 +108,100 @@ tasks:
     name: Apply database migrations
     description: Reset and re-apply all migrations so the local schema matches the migration files. Catches schema drift (e.g. tables present in archived migrations but absent from active ones).
     command: |
-      if ! command -v supabase &>/dev/null; then
-        echo "supabase CLI not found — skipping migration guard."
+      MIGRATIONS_DIR="${MIGRATIONS_DIR:-infra/supabase/supabase/migrations}"
+      if [ ! -d "$MIGRATIONS_DIR" ]; then
+        echo "WARNING: migrations directory not found at $MIGRATIONS_DIR — skipping."
         exit 0
       fi
 
-      if ! supabase status &>/dev/null; then
-        echo "Supabase not running — skipping migration guard."
+      # Resolve DATABASE_URL for the local Supabase CLI stack.
+      # Priority: existing DATABASE_URL env var → ops/env/.env.local → supabase status output.
+      if [ -z "${DATABASE_URL:-}" ]; then
+        if [ -f ops/env/.env.local ]; then
+          set -a; . ops/env/.env.local; set +a
+        fi
+      fi
+
+      if [ -z "${DATABASE_URL:-}" ] && command -v supabase >/dev/null 2>&1; then
+        # Extract DB URL from the running local Supabase stack.
+        _SB_DB_URL="$(supabase status 2>/dev/null | grep -i 'DB URL' | awk '{print $NF}')"
+        if [ -n "$_SB_DB_URL" ]; then
+          export DATABASE_URL="$_SB_DB_URL"
+        fi
+      fi
+
+      if [ -z "${DATABASE_URL:-}" ]; then
+        echo "DATABASE_URL not set and could not be derived from supabase status."
+        echo "Copy ops/env/.env.local.example to ops/env/.env.local and set DATABASE_URL."
+        echo "Skipping migration guard."
+        exit 0
+      fi
+
+      if ! command -v psql >/dev/null 2>&1; then
+        echo "psql not found — skipping migration guard."
+        exit 0
+      fi
+
+      # Verify the database is reachable before attempting migrations.
+      if ! psql "$DATABASE_URL" -c "SELECT 1" -q --no-psqlrc >/dev/null 2>&1; then
+        echo "Database not reachable at DATABASE_URL — skipping migration guard."
         exit 0
       fi
 
       echo "--- migration guard ---"
-      MIGRATIONS_DIR="${MIGRATIONS_DIR:-infra/supabase/supabase/migrations}"
-      if [ ! -d "$MIGRATIONS_DIR" ]; then
-        echo "WARNING: migrations directory not found at $MIGRATIONS_DIR"
+      echo "Applying migrations from $MIGRATIONS_DIR..."
+
+      # Ensure the tracking table exists so we can record and skip applied migrations.
+      # Grants match scripts/db/apply-migrations.sh and 02-create-migrations-table.sh.
+      psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q -c "
+        CREATE TABLE IF NOT EXISTS public.schema_migrations (
+          name        TEXT PRIMARY KEY,
+          applied_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+          checksum    TEXT
+        );
+        ALTER TABLE public.schema_migrations ENABLE ROW LEVEL SECURITY;
+        GRANT SELECT ON public.schema_migrations TO anon, authenticated;
+        GRANT ALL   ON public.schema_migrations TO service_role, supabase_admin;
+      " || { echo "FAIL: could not create schema_migrations tracking table"; exit 1; }
+
+      _migration_count=0
+      _skipped=0
+      _applied=0
+
+      # POSIX-compatible loop — avoids bash-only mapfile and process substitution.
+      while IFS= read -r _file; do
+        _migration_count=$((_migration_count + 1))
+        _name="$(basename "$_file")"
+
+        # Skip if already recorded in schema_migrations.
+        _already_applied="$(psql "$DATABASE_URL" -tAX --set=name="$_name" -c \
+          "SELECT 1 FROM public.schema_migrations WHERE name = :'name' LIMIT 1;" 2>/dev/null || true)"
+        if [ "$_already_applied" = "1" ]; then
+          _skipped=$((_skipped + 1))
+          continue
+        fi
+
+        echo "  -> $_name"
+        if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -f "$_file"; then
+          # Record the migration as applied.
+          psql "$DATABASE_URL" -X -q --set=name="$_name" -c \
+            "INSERT INTO public.schema_migrations (name) VALUES (:'name') ON CONFLICT (name) DO NOTHING;" \
+            || true
+          _applied=$((_applied + 1))
+        else
+          echo "FAIL: $_name"
+          exit 1
+        fi
+      done << EOF
+$(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
+EOF
+
+      if [ "$_migration_count" -eq 0 ]; then
+        echo "No migration files found — nothing to apply."
         exit 0
       fi
 
-      echo "Applying migrations from $MIGRATIONS_DIR..."
-      pnpm run db:apply-migrations \
-        && echo "Migrations applied." \
-        || { echo "FAIL: migrations failed — schema may be out of sync"; exit 1; }
+      echo "Migrations: $_applied applied, $_skipped already up-to-date."
 
       echo "--- RLS enforcement check ---"
       if [ -f scripts/check-rls-enforcement.sh ]; then
