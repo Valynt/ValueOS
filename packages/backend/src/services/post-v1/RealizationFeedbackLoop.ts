@@ -112,7 +112,7 @@ export class RealizationFeedbackLoop {
 
       if (error) throw error;
 
-      this.compensations.get(loopId)!.push(() => this.deleteFeedback((feedback as any).id));
+      this.compensations.get(loopId)!.push(() => this.deleteFeedback((feedback as any).id, context.organizationId));
 
       // Step 4: Update agent accuracy metrics
       await this.updateAgentAccuracy(valueCommit.agent_type, variance, context);
@@ -174,9 +174,14 @@ export class RealizationFeedbackLoop {
     // Implementation would revert any changes made to the value commit
   }
 
-  private async deleteFeedback(feedbackId: string): Promise<void> {
-    logger.info("Compensating: deleting feedback", { feedbackId });
-    await this.supabase.from("feedback_loops").delete().eq("id", feedbackId);
+  private async deleteFeedback(feedbackId: string, organizationId: string): Promise<void> {
+    logger.info("Compensating: deleting feedback", { feedbackId, organizationId });
+    // organizationId guard prevents accidental cross-tenant deletion if feedbackId is ever reused
+    await this.supabase
+      .from("feedback_loops")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("id", feedbackId);
   }
 
   private calculateVariance(predicted: number, actual: number): VarianceAnalysis {

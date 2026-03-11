@@ -96,16 +96,20 @@ export class PromptVersionControlService {
   /**
    * Create a new prompt version
    */
-  async createVersion(data: {
-    promptKey: string;
-    template: string;
-    variables: string[];
-    metadata: PromptVersion['metadata'];
-  }): Promise<PromptVersion> {
-    // Get next version number
+  async createVersion(
+    organizationId: string,
+    data: {
+      promptKey: string;
+      template: string;
+      variables: string[];
+      metadata: PromptVersion['metadata'];
+    }
+  ): Promise<PromptVersion> {
+    // Get next version number scoped to this tenant
     const { data: existingVersions } = await this.supabase
       .from('prompt_versions')
       .select('version')
+      .eq('organization_id', organizationId)
       .eq('prompt_key', data.promptKey)
       .order('version', { ascending: false })
       .limit(1);
@@ -114,26 +118,26 @@ export class PromptVersionControlService {
       ? existingVersions[0].version + 1
       : 1;
 
-    const version: Omit<PromptVersion, 'id'> = {
-      promptKey: data.promptKey,
-      version: nextVersion,
-      template: data.template,
-      variables: data.variables,
-      metadata: data.metadata,
-      performance: {},
-      status: 'draft',
-      createdAt: new Date(),
-    };
-
     const { data: created, error } = await this.supabase
       .from('prompt_versions')
-      .insert(version)
+      .insert({
+        organization_id: organizationId,
+        prompt_key: data.promptKey,
+        version: nextVersion,
+        template: data.template,
+        variables: data.variables,
+        metadata: data.metadata,
+        performance: {},
+        status: 'draft',
+        created_at: new Date(),
+      })
       .select()
       .single();
 
     if (error) throw error;
 
     logger.info('Prompt version created', {
+      organizationId,
       promptKey: data.promptKey,
       version: nextVersion,
       author: data.metadata.author
@@ -145,9 +149,8 @@ export class PromptVersionControlService {
   /**
    * Get active version for a prompt key
    */
-  async getActiveVersion(promptKey: string): Promise<PromptVersion | null> {
-    // Check cache first
-    const cacheKey = `active:${promptKey}`;
+  async getActiveVersion(organizationId: string, promptKey: string): Promise<PromptVersion | null> {
+    const cacheKey = `active:${organizationId}:${promptKey}`;
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
     }
@@ -155,6 +158,7 @@ export class PromptVersionControlService {
     const { data, error } = await this.supabase
       .from('prompt_versions')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('status', 'active')
       .order('version', { ascending: false })
@@ -174,10 +178,11 @@ export class PromptVersionControlService {
   /**
    * Get specific version
    */
-  async getVersion(promptKey: string, version: number): Promise<PromptVersion | null> {
+  async getVersion(organizationId: string, promptKey: string, version: number): Promise<PromptVersion | null> {
     const { data, error } = await this.supabase
       .from('prompt_versions')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('version', version)
       .single();
@@ -189,10 +194,11 @@ export class PromptVersionControlService {
   /**
    * List all versions for a prompt key
    */
-  async listVersions(promptKey: string): Promise<PromptVersion[]> {
+  async listVersions(organizationId: string, promptKey: string): Promise<PromptVersion[]> {
     const { data, error } = await this.supabase
       .from('prompt_versions')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .order('version', { ascending: false });
 
@@ -203,27 +209,30 @@ export class PromptVersionControlService {
   /**
    * Activate a version
    */
-  async activateVersion(promptKey: string, version: number): Promise<void> {
-    // Deactivate current active version
+  async activateVersion(organizationId: string, promptKey: string, version: number): Promise<void> {
+    // Deactivate current active version within this tenant
     await this.supabase
       .from('prompt_versions')
-      .update({ status: 'deprecated', deprecatedAt: new Date() })
+      .update({ status: 'deprecated', deprecated_at: new Date() })
+      .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('status', 'active');
 
     // Activate new version
     const { error } = await this.supabase
       .from('prompt_versions')
-      .update({ status: 'active', activatedAt: new Date() })
+      .update({ status: 'active', activated_at: new Date() })
+      .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('version', version);
 
     if (error) throw error;
 
     // Clear cache
-    this.cache.delete(`active:${promptKey}`);
+    this.cache.delete(`active:${organizationId}:${promptKey}`);
 
     logger.info('Prompt version activated', {
+      organizationId,
       promptKey,
       version
     });
@@ -232,7 +241,7 @@ export class PromptVersionControlService {
   /**
    * Render prompt with variables
    */
-  renderPrompt(template: string, variables: Record<string, any>): string {
+  renderPrompt(template: string, variables: Record<string, unknown>): string {
     let rendered = template;
 
     for (const [key, value] of Object.entries(variables)) {
@@ -255,8 +264,9 @@ export class PromptVersionControlService {
    * Execute prompt and track performance
    */
   async executePrompt(
+    organizationId: string,
     promptKey: string,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     userId: string,
     options?: {
       version?: number;
@@ -271,11 +281,11 @@ export class PromptVersionControlService {
     let version: PromptVersion | null = null;
 
     if (options?.abTestId) {
-      version = await this.getVersionFromABTest(options.abTestId, userId);
+      version = await this.getVersionFromABTest(organizationId, options.abTestId, userId);
     } else if (options?.version) {
-      version = await this.getVersion(promptKey, options.version);
+      version = await this.getVersion(organizationId, promptKey, options.version);
     } else {
-      version = await this.getActiveVersion(promptKey);
+      version = await this.getActiveVersion(organizationId, promptKey);
     }
 
     if (!version) {
@@ -286,17 +296,16 @@ export class PromptVersionControlService {
     const renderedPrompt = this.renderPrompt(version.template, variables);
 
     // Create execution record
-    const execution: Omit<PromptExecution, 'id' | 'response' | 'latency' | 'cost' | 'tokens' | 'success'> = {
-      promptVersionId: version.id,
-      userId,
-      variables,
-      renderedPrompt,
-      createdAt: new Date(),
-    };
-
     const { data: created, error } = await this.supabase
       .from('prompt_executions')
-      .insert(execution)
+      .insert({
+        organization_id: organizationId,
+        prompt_version_id: version.id,
+        user_id: userId,
+        variables,
+        rendered_prompt: renderedPrompt,
+        created_at: new Date(),
+      })
       .select()
       .single();
 
@@ -313,6 +322,7 @@ export class PromptVersionControlService {
    * Record execution results
    */
   async recordExecution(
+    organizationId: string,
     executionId: string,
     results: {
       response: string;
@@ -326,12 +336,13 @@ export class PromptVersionControlService {
     const { error } = await this.supabase
       .from('prompt_executions')
       .update(results)
+      .eq('organization_id', organizationId)
       .eq('id', executionId);
 
     if (error) throw error;
 
     // Update version performance metrics asynchronously
-    this.updateVersionPerformance(executionId).catch(err =>
+    this.updateVersionPerformance(organizationId, executionId).catch(err =>
       logger.error('Failed to update version performance', err)
     );
   }
@@ -340,6 +351,7 @@ export class PromptVersionControlService {
    * Add user feedback
    */
   async addFeedback(
+    organizationId: string,
     executionId: string,
     feedback: {
       rating: number;
@@ -349,11 +361,13 @@ export class PromptVersionControlService {
     const { error } = await this.supabase
       .from('prompt_executions')
       .update({ feedback })
+      .eq('organization_id', organizationId)
       .eq('id', executionId);
 
     if (error) throw error;
 
     logger.info('Prompt feedback recorded', {
+      organizationId,
       executionId,
       rating: feedback.rating
     });
@@ -362,72 +376,78 @@ export class PromptVersionControlService {
   /**
    * Update version performance metrics
    */
-  private async updateVersionPerformance(executionId: string): Promise<void> {
-    // Get execution
+  private async updateVersionPerformance(organizationId: string, executionId: string): Promise<void> {
+    // Get execution — scoped to tenant to prevent cross-tenant metric pollution
     const { data: execution } = await this.supabase
       .from('prompt_executions')
       .select('prompt_version_id')
+      .eq('organization_id', organizationId)
       .eq('id', executionId)
       .single();
 
     if (!execution) return;
 
-    // Calculate aggregate metrics
+    // Calculate aggregate metrics within this tenant only
     const { data: metrics } = await this.supabase
       .from('prompt_executions')
       .select('latency, cost, tokens, success, feedback')
+      .eq('organization_id', organizationId)
       .eq('prompt_version_id', execution.prompt_version_id);
 
     if (!metrics || metrics.length === 0) return;
 
+    const ratedMetrics = metrics.filter(m => m.feedback?.rating);
     const performance = {
       avgLatency: metrics.reduce((sum, m) => sum + (m.latency || 0), 0) / metrics.length,
       avgCost: metrics.reduce((sum, m) => sum + (m.cost || 0), 0) / metrics.length,
       avgTokens: metrics.reduce((sum, m) => sum + (m.tokens?.total || 0), 0) / metrics.length,
       successRate: metrics.filter(m => m.success).length / metrics.length,
-      userSatisfaction: metrics
-        .filter(m => m.feedback?.rating)
-        .reduce((sum, m) => sum + (m.feedback?.rating || 0), 0) /
-        metrics.filter(m => m.feedback?.rating).length || 0,
+      userSatisfaction: ratedMetrics.length > 0
+        ? ratedMetrics.reduce((sum, m) => sum + (m.feedback?.rating || 0), 0) / ratedMetrics.length
+        : 0,
     };
 
-    // Update version
+    // Update version — scoped to tenant
     await this.supabase
       .from('prompt_versions')
       .update({ performance })
+      .eq('organization_id', organizationId)
       .eq('id', execution.prompt_version_id);
   }
 
   /**
    * Create A/B test
    */
-  async createABTest(data: {
-    name: string;
-    promptKey: string;
-    variants: ABTest['variants'];
-  }): Promise<ABTest> {
+  async createABTest(
+    organizationId: string,
+    data: {
+      name: string;
+      promptKey: string;
+      variants: ABTest['variants'];
+    }
+  ): Promise<ABTest> {
     // Validate weights sum to 100
     const totalWeight = data.variants.reduce((sum, v) => sum + v.weight, 0);
     if (Math.abs(totalWeight - 100) > 0.01) {
       throw new Error('Variant weights must sum to 100');
     }
 
-    const test: Omit<ABTest, 'id'> = {
-      name: data.name,
-      promptKey: data.promptKey,
-      variants: data.variants,
-      status: 'draft',
-    };
-
     const { data: created, error } = await this.supabase
       .from('ab_tests')
-      .insert(test)
+      .insert({
+        organization_id: organizationId,
+        name: data.name,
+        prompt_key: data.promptKey,
+        variants: data.variants,
+        status: 'draft',
+      })
       .select()
       .single();
 
     if (error) throw error;
 
     logger.info('A/B test created', {
+      organizationId,
       name: data.name,
       promptKey: data.promptKey,
       variants: data.variants.length
@@ -439,31 +459,33 @@ export class PromptVersionControlService {
   /**
    * Start A/B test
    */
-  async startABTest(testId: string): Promise<void> {
+  async startABTest(organizationId: string, testId: string): Promise<void> {
     const { error } = await this.supabase
       .from('ab_tests')
       .update({
         status: 'running',
-        startDate: new Date(),
+        start_date: new Date(),
       })
+      .eq('organization_id', organizationId)
       .eq('id', testId);
 
     if (error) throw error;
 
-    logger.info('A/B test started', { testId });
+    logger.info('A/B test started', { organizationId, testId });
   }
 
   /**
    * Get version from A/B test (weighted random selection)
    */
   private async getVersionFromABTest(
+    organizationId: string,
     testId: string,
     userId: string
   ): Promise<PromptVersion | null> {
-    // Get test
     const { data: test } = await this.supabase
       .from('ab_tests')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('id', testId)
       .single();
 
@@ -482,6 +504,7 @@ export class PromptVersionControlService {
         const { data: version } = await this.supabase
           .from('prompt_versions')
           .select('*')
+          .eq('organization_id', organizationId)
           .eq('id', variant.versionId)
           .single();
 
@@ -495,10 +518,11 @@ export class PromptVersionControlService {
   /**
    * Get A/B test results
    */
-  async getABTestResults(testId: string): Promise<ABTest['results']> {
+  async getABTestResults(organizationId: string, testId: string): Promise<ABTest['results']> {
     const { data: test } = await this.supabase
       .from('ab_tests')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('id', testId)
       .single();
 
@@ -510,20 +534,21 @@ export class PromptVersionControlService {
       const { data: executions } = await this.supabase
         .from('prompt_executions')
         .select('latency, cost, success, feedback')
+        .eq('organization_id', organizationId)
         .eq('prompt_version_id', variant.versionId);
 
       if (!executions || executions.length === 0) continue;
 
+      const ratedExecs = executions.filter(e => e.feedback?.rating);
       results.push({
         variant: variant.name,
         executions: executions.length,
         avgLatency: executions.reduce((sum, e) => sum + (e.latency || 0), 0) / executions.length,
         avgCost: executions.reduce((sum, e) => sum + (e.cost || 0), 0) / executions.length,
         successRate: executions.filter(e => e.success).length / executions.length,
-        userSatisfaction: executions
-          .filter(e => e.feedback?.rating)
-          .reduce((sum, e) => sum + (e.feedback?.rating || 0), 0) /
-          executions.filter(e => e.feedback?.rating).length || 0,
+        userSatisfaction: ratedExecs.length > 0
+          ? ratedExecs.reduce((sum, e) => sum + (e.feedback?.rating || 0), 0) / ratedExecs.length
+          : 0,
       });
     }
 
@@ -533,43 +558,47 @@ export class PromptVersionControlService {
   /**
    * Complete A/B test and select winner
    */
-  async completeABTest(testId: string, winnerVariantName: string): Promise<void> {
+  async completeABTest(organizationId: string, testId: string, winnerVariantName: string): Promise<void> {
     const { data: test } = await this.supabase
       .from('ab_tests')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('id', testId)
       .single();
 
     if (!test) throw new Error('Test not found');
 
-    const winner = test.variants.find(v => v.name === winnerVariantName);
+    const winner = test.variants.find((v: { name: string }) => v.name === winnerVariantName);
     if (!winner) throw new Error('Winner variant not found');
 
-    // Get winner version
+    // Get winner version — scoped to tenant
     const { data: winnerVersion } = await this.supabase
       .from('prompt_versions')
       .select('*')
+      .eq('organization_id', organizationId)
       .eq('id', winner.versionId)
       .single();
 
     if (!winnerVersion) throw new Error('Winner version not found');
 
     // Activate winner
-    await this.activateVersion(test.promptKey, winnerVersion.version);
+    await this.activateVersion(organizationId, test.prompt_key, winnerVersion.version);
 
     // Mark test as completed
     await this.supabase
       .from('ab_tests')
       .update({
         status: 'completed',
-        endDate: new Date(),
+        end_date: new Date(),
       })
+      .eq('organization_id', organizationId)
       .eq('id', testId);
 
     logger.info('A/B test completed', {
+      organizationId,
       testId,
       winner: winnerVariantName,
-      promptKey: test.promptKey,
+      promptKey: test.prompt_key,
       version: winnerVersion.version
     });
   }
@@ -578,6 +607,7 @@ export class PromptVersionControlService {
    * Compare versions
    */
   async compareVersions(
+    organizationId: string,
     promptKey: string,
     versions: number[]
   ): Promise<{
@@ -590,6 +620,7 @@ export class PromptVersionControlService {
       const { data } = await this.supabase
         .from('prompt_versions')
         .select('version, performance')
+        .eq('organization_id', organizationId)
         .eq('prompt_key', promptKey)
         .eq('version', version)
         .single();
