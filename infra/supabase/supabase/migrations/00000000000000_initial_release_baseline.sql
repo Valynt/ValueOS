@@ -18,6 +18,33 @@ CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 SET search_path = public, pg_temp;
 
 -- ============================================================================
+-- Security schema bootstrap
+-- The security schema and user_has_tenant_access() are fully defined in
+-- 20260213000010_canonical_identity_baseline.sql. We create a minimal stub
+-- here so that RLS policies in this migration can reference the function.
+-- The canonical migration will replace these stubs with the real definitions.
+-- ============================================================================
+
+CREATE SCHEMA IF NOT EXISTS security;
+GRANT USAGE ON SCHEMA security TO authenticated;
+GRANT USAGE ON SCHEMA security TO anon;
+
+CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id UUID)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$ SELECT false; $$;
+
+CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id TEXT)
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$ SELECT false; $$;
+
+REVOKE ALL ON FUNCTION security.user_has_tenant_access(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION security.user_has_tenant_access(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION security.user_has_tenant_access(UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION security.user_has_tenant_access(TEXT) TO anon, authenticated;
+
+-- ============================================================================
 -- 1. billing_meters — Catalog of billable meters
 -- ============================================================================
 
@@ -81,9 +108,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_tag_tier_uni
     ON public.billing_price_versions (tenant_id, version_tag, plan_tier)
     WHERE tenant_id IS NOT NULL;
 
--- Seed v1 pricing from current PLANS config
+-- Drop any previously added unconditional constraint — the partial unique index
+-- idx_billing_price_versions_global_tag_tier_unique (WHERE tenant_id IS NULL)
+-- is the correct uniqueness mechanism for global rows and allows tenant-scoped
+-- rows to share the same (version_tag, plan_tier) across different tenants.
+ALTER TABLE public.billing_price_versions
+    DROP CONSTRAINT IF EXISTS billing_price_versions_tag_tier_unique;
+
+-- Seed v1 global pricing rows (tenant_id IS NULL).
+-- Uses INSERT ... WHERE NOT EXISTS instead of ON CONFLICT because Postgres
+-- ON CONFLICT requires a constraint, but our uniqueness is enforced by a
+-- partial index (WHERE tenant_id IS NULL) which cannot be used as an arbiter.
 INSERT INTO public.billing_price_versions (version_tag, plan_tier, definition, status, activated_at)
-VALUES
+SELECT * FROM (VALUES
     ('v1.0', 'free', '{
         "name": "Free",
         "price_usd": 0,
@@ -97,7 +134,7 @@ VALUES
             "user_seats":        {"included_quantity": 3,        "hard_cap_quantity": 3,        "overage_rate": 0,        "enforcement": "hard_lock"}
         },
         "features": ["Up to 3 users", "10K AI tokens/month", "1K API calls/month", "Email support"]
-    }'::jsonb, 'active', now()),
+    }'::jsonb, 'active'::text, now()),
 
     ('v1.0', 'standard', '{
         "name": "Standard",
@@ -112,7 +149,7 @@ VALUES
             "user_seats":        {"included_quantity": 25,       "hard_cap_quantity": null,      "overage_rate": 5.0,      "enforcement": "bill_overage"}
         },
         "features": ["Up to 25 users", "1M AI tokens/month + overage", "100K API calls/month + overage", "Priority support", "SSO"]
-    }'::jsonb, 'active', now()),
+    }'::jsonb, 'active'::text, now()),
 
     ('v1.0', 'enterprise', '{
         "name": "Enterprise",
@@ -127,8 +164,14 @@ VALUES
             "user_seats":        {"included_quantity": -1,       "hard_cap_quantity": null,      "overage_rate": 0,        "enforcement": "bill_overage"}
         },
         "features": ["Unlimited users", "10M AI tokens/month + discounted overage", "1M API calls/month + discounted overage", "24/7 support", "SSO & SCIM", "Custom SLA"]
-    }'::jsonb, 'active', now())
-ON CONFLICT (version_tag, plan_tier) DO NOTHING;
+    }'::jsonb, 'active'::text, now())
+) AS v(version_tag, plan_tier, definition, status, activated_at)
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.billing_price_versions bpv
+    WHERE bpv.version_tag = v.version_tag
+      AND bpv.plan_tier   = v.plan_tier
+      AND bpv.tenant_id IS NULL
+);
 
 -- ============================================================================
 -- 3. usage_policies — Per-tenant enforcement overrides
@@ -232,98 +275,89 @@ CREATE INDEX IF NOT EXISTS idx_entitlement_snapshots_tenant_effective
 
 -- ============================================================================
 -- 7. ALTER existing tables — Harden usage evidence + pin price versions
+-- These tables are created in 20260213000010_canonical_identity_baseline.sql
+-- which runs after this file. All alterations are guarded by table-existence
+-- checks so this migration is safe to apply in any order.
 -- ============================================================================
 
--- 7a. usage_events: add idempotency key + optional HMAC signature
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'usage_events' AND column_name = 'idempotency_key'
-    ) THEN
-        ALTER TABLE public.usage_events ADD COLUMN idempotency_key text;
+    -- 7a. usage_events: add idempotency key + optional HMAC signature
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'usage_events') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'usage_events' AND column_name = 'idempotency_key') THEN
+            ALTER TABLE public.usage_events ADD COLUMN idempotency_key text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'usage_events' AND column_name = 'signature') THEN
+            ALTER TABLE public.usage_events ADD COLUMN signature text;
+        END IF;
+        -- Update metric CHECK constraint to include ai_tokens
+        ALTER TABLE public.usage_events DROP CONSTRAINT IF EXISTS usage_events_metric_check;
+        ALTER TABLE public.usage_events ADD CONSTRAINT usage_events_metric_check
+            CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'usage_events' AND column_name = 'signature'
-    ) THEN
-        ALTER TABLE public.usage_events ADD COLUMN signature text;
+    -- 7b. usage_aggregates: add evidence chain columns
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'usage_aggregates') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'usage_aggregates' AND column_name = 'period_id') THEN
+            ALTER TABLE public.usage_aggregates ADD COLUMN period_id uuid;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'usage_aggregates' AND column_name = 'source_event_count') THEN
+            ALTER TABLE public.usage_aggregates ADD COLUMN source_event_count integer;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'usage_aggregates' AND column_name = 'source_hash') THEN
+            ALTER TABLE public.usage_aggregates ADD COLUMN source_hash text;
+        END IF;
+        ALTER TABLE public.usage_aggregates DROP CONSTRAINT IF EXISTS usage_aggregates_metric_check;
+        ALTER TABLE public.usage_aggregates ADD CONSTRAINT usage_aggregates_metric_check
+            CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
+    END IF;
+
+    -- 7c. subscriptions: pin to price version
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'subscriptions') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'subscriptions' AND column_name = 'price_version_id') THEN
+            ALTER TABLE public.subscriptions ADD COLUMN price_version_id uuid REFERENCES public.billing_price_versions(id);
+        END IF;
+    END IF;
+
+    -- 7d. invoices: reference price version
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'invoices') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'invoices' AND column_name = 'price_version_id') THEN
+            ALTER TABLE public.invoices ADD COLUMN price_version_id uuid REFERENCES public.billing_price_versions(id);
+        END IF;
+    END IF;
+
+    -- 7e. usage_alerts metric check
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'usage_alerts') THEN
+        ALTER TABLE public.usage_alerts DROP CONSTRAINT IF EXISTS usage_alerts_metric_check;
+        ALTER TABLE public.usage_alerts ADD CONSTRAINT usage_alerts_metric_check
+            CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
+    END IF;
+
+    -- 7f. usage_quotas metric check
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'usage_quotas') THEN
+        ALTER TABLE public.usage_quotas DROP CONSTRAINT IF EXISTS usage_quotas_metric_check;
+        ALTER TABLE public.usage_quotas ADD CONSTRAINT usage_quotas_metric_check
+            CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
+    END IF;
+
+    -- 7g. subscription_items metric check
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'subscription_items') THEN
+        ALTER TABLE public.subscription_items DROP CONSTRAINT IF EXISTS subscription_items_metric_check;
+        ALTER TABLE public.subscription_items ADD CONSTRAINT subscription_items_metric_check
+            CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
     END IF;
 END $$;
 
--- Unique constraint on (tenant_id, idempotency_key) for dedup — only where key is non-null
-CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_events_idempotency
-    ON public.usage_events (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
-
--- 7b. usage_aggregates: add evidence chain columns
+-- Index for usage_events idempotency — only created if table exists
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'usage_aggregates' AND column_name = 'period_id'
-    ) THEN
-        ALTER TABLE public.usage_aggregates ADD COLUMN period_id uuid;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'usage_aggregates' AND column_name = 'source_event_count'
-    ) THEN
-        ALTER TABLE public.usage_aggregates ADD COLUMN source_event_count integer;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'usage_aggregates' AND column_name = 'source_hash'
-    ) THEN
-        ALTER TABLE public.usage_aggregates ADD COLUMN source_hash text;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'usage_events') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_usage_events_idempotency') THEN
+            CREATE UNIQUE INDEX idx_usage_events_idempotency
+                ON public.usage_events (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+        END IF;
     END IF;
 END $$;
-
--- 7c. subscriptions: pin to price version
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'subscriptions' AND column_name = 'price_version_id'
-    ) THEN
-        ALTER TABLE public.subscriptions ADD COLUMN price_version_id uuid REFERENCES public.billing_price_versions(id);
-    END IF;
-END $$;
-
--- 7d. invoices: reference price version
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'invoices' AND column_name = 'price_version_id'
-    ) THEN
-        ALTER TABLE public.invoices ADD COLUMN price_version_id uuid REFERENCES public.billing_price_versions(id);
-    END IF;
-END $$;
-
--- 7e. Update metric CHECK constraints to include new meter keys
--- usage_events: add ai_tokens to allowed metrics
-ALTER TABLE public.usage_events DROP CONSTRAINT IF EXISTS usage_events_metric_check;
-ALTER TABLE public.usage_events ADD CONSTRAINT usage_events_metric_check
-    CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
-
-ALTER TABLE public.usage_aggregates DROP CONSTRAINT IF EXISTS usage_aggregates_metric_check;
-ALTER TABLE public.usage_aggregates ADD CONSTRAINT usage_aggregates_metric_check
-    CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
-
-ALTER TABLE public.usage_alerts DROP CONSTRAINT IF EXISTS usage_alerts_metric_check;
-ALTER TABLE public.usage_alerts ADD CONSTRAINT usage_alerts_metric_check
-    CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
-
-ALTER TABLE public.usage_quotas DROP CONSTRAINT IF EXISTS usage_quotas_metric_check;
-ALTER TABLE public.usage_quotas ADD CONSTRAINT usage_quotas_metric_check
-    CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
-
-ALTER TABLE public.subscription_items DROP CONSTRAINT IF EXISTS subscription_items_metric_check;
-ALTER TABLE public.subscription_items ADD CONSTRAINT subscription_items_metric_check
-    CHECK (metric IN ('llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats', 'ai_tokens'));
 
 -- ============================================================================
 -- 8. RLS policies for new tables
@@ -344,41 +378,37 @@ ALTER TABLE public.entitlement_snapshots ENABLE ROW LEVEL SECURITY;
 CREATE POLICY billing_meters_select ON public.billing_meters
     FOR SELECT TO authenticated USING (true);
 
--- billing_price_versions: tenant-scoped read access via tenant-linked
--- subscriptions, enforced from JWT tenant_id context.
+-- billing_price_versions: global rows (tenant_id IS NULL) are readable by all
+-- authenticated users; tenant-scoped rows require active membership.
 CREATE POLICY billing_price_versions_select ON public.billing_price_versions
     FOR SELECT TO authenticated
     USING (
-        EXISTS (
-            SELECT 1
-            FROM public.subscriptions s
-            WHERE s.price_version_id = billing_price_versions.id
-              AND s.tenant_id = (auth.jwt() ->> 'tenant_id')::uuid
-        )
+        tenant_id IS NULL
+        OR security.user_has_tenant_access(tenant_id)
     );
 
 -- usage_policies: tenant-scoped
 CREATE POLICY usage_policies_tenant ON public.usage_policies
     FOR ALL TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id))
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 -- billing_approval_policies: tenant-scoped
 CREATE POLICY billing_approval_policies_tenant ON public.billing_approval_policies
     FOR ALL TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id))
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 -- billing_approval_requests: tenant-scoped
 CREATE POLICY billing_approval_requests_tenant ON public.billing_approval_requests
     FOR ALL TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id))
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 -- entitlement_snapshots: tenant-scoped read
 CREATE POLICY entitlement_snapshots_tenant ON public.entitlement_snapshots
     FOR SELECT TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id));
 
 -- service_role gets full access to all new tables
 GRANT ALL ON public.billing_meters TO service_role;
