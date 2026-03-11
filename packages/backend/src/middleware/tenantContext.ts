@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "async_hooks";
 
 import { createLogger } from "@shared/lib/logger";
+import { getContext, runWithContext } from "@shared/lib/context";
 import {
   getUserTenantId,
   verifyTenantExists,
@@ -243,9 +244,15 @@ export const tenantContextMiddleware = (enforce = true) => {
     };
 
     const contextPayload = tctPayload ?? buildRequestContext(resolvedTenantId, req, membershipUserId);
+
+    // Merge tenantId into the shared AsyncLocalStorage context so the logger
+    // automatically includes it in every log entry for this request.
+    const existingContext = getContext() ?? {};
+    const sharedContext = { ...existingContext, tenantId: resolvedTenantId };
+
     tenantContextStorage.run(contextPayload, () => {
       (req as any).tenantContext = contextPayload;
-      attachContext();
+      runWithContext(sharedContext, attachContext);
     });
   };
 };

@@ -6,6 +6,9 @@
 
 import { Request, Response, Router } from 'express';
 
+import { requireAuth } from '../middleware/auth.js';
+import { requirePermission } from '../middleware/rbac.js';
+import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { logger } from '../lib/logger.js';
 import { CheckpointMiddleware } from '../services/middleware/CheckpointMiddleware.js';
 
@@ -15,11 +18,17 @@ import { CheckpointMiddleware } from '../services/middleware/CheckpointMiddlewar
  * The caller must pass the same CheckpointMiddleware instance that is
  * registered in the orchestrator pipeline so the in-memory pending map
  * is shared.
+ *
+ * All routes require authentication and tenant context. Approve/reject
+ * additionally require the `approvals:manage` permission.
  */
 export function createCheckpointRouter(
   checkpointMiddleware: CheckpointMiddleware,
 ): Router {
   const router = Router();
+
+  // All checkpoint routes require an authenticated session and tenant context.
+  router.use(requireAuth, tenantContextMiddleware());
 
   /**
    * GET /api/checkpoints/:checkpointId
@@ -40,7 +49,7 @@ export function createCheckpointRouter(
   /**
    * POST /api/checkpoints/:checkpointId/approve
    */
-  router.post('/:checkpointId/approve', (req: Request, res: Response) => {
+  router.post('/:checkpointId/approve', requirePermission('approvals:manage'), (req: Request, res: Response) => {
     const { checkpointId } = req.params;
     const resolvedBy = (req as any).user?.id ?? req.body?.resolvedBy ?? 'unknown';
 
@@ -61,7 +70,7 @@ export function createCheckpointRouter(
   /**
    * POST /api/checkpoints/:checkpointId/reject
    */
-  router.post('/:checkpointId/reject', (req: Request, res: Response) => {
+  router.post('/:checkpointId/reject', requirePermission('approvals:manage'), (req: Request, res: Response) => {
     const { checkpointId } = req.params;
     const reason = req.body?.reason ?? 'Rejected by reviewer';
     const resolvedBy = (req as any).user?.id ?? req.body?.resolvedBy ?? 'unknown';

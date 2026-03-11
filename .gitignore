@@ -14,6 +14,10 @@ build/
 .env.test.local
 .env.production.local
 
+# Production secrets — never commit real values; inject at deploy time
+infra/docker/overlays/prod/secrets/*.txt
+!infra/docker/overlays/prod/secrets/README.md
+
 # IDE and editor files
 .vscode/
 .idea/

@@ -1,13 +1,18 @@
 /**
- * Sentry stub — captures exceptions when Sentry is configured,
- * otherwise logs to console.
+ * Sentry integration for the SDUI package.
+ *
+ * Uses @sentry/react when available; falls back to console when not configured.
  */
+
+import * as Sentry from "@sentry/react";
+
 export function captureException(error: unknown, context?: Record<string, unknown>): void {
-  // In production, this would forward to Sentry.
-  // For local dev, log to stderr.
-  console.error("[sentry stub] captureException:", error, context);
+  Sentry.withScope((scope) => {
+    if (context) scope.setExtras(context);
+    Sentry.captureException(error);
+  });
 }
 
 export function captureMessage(message: string, level?: string): void {
-  console.warn(`[sentry stub] captureMessage (${level ?? "info"}):`, message);
+  Sentry.captureMessage(message, (level as Sentry.SeverityLevel) ?? "info");
 }
