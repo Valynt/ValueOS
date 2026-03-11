@@ -3,7 +3,7 @@
  * Role-based access control and permission checking
  */
 
-import { type Permission, PERMISSIONS } from "../lib/permissions";
+import { type Permission, PERMISSIONS } from "../../lib/permissions";
 
 import { AuthorizationError, NotFoundError } from "./errors.js"
 import { TenantAwareService } from "./TenantAwareService.js"
@@ -196,7 +196,9 @@ export class PermissionService extends TenantAwareService {
         return data || [];
       },
       {
-        deduplicationKey: `user-roles-${userId}-${scope}-${scopeId}`,
+        // Include scopeId (tenantId for organization scope) in the key so that
+        // a user switching tenants cannot receive cached roles from a prior tenant.
+        deduplicationKey: `user-roles-${userId}-${scope ?? "any"}-${scopeId ?? "any"}`,
       }
     );
   }
@@ -280,7 +282,9 @@ export class PermissionService extends TenantAwareService {
 
         if (error) throw error;
 
-        this.clearCache(`user-roles-${userId}`);
+        // Invalidate the scoped key and the broad fallback.
+        this.clearCache(`user-roles-${userId}-${scope}-${scopeId}`);
+        this.clearCache(`user-roles-${userId}-any-any`);
         this.clearCache();
 
         return data;
@@ -314,7 +318,9 @@ export class PermissionService extends TenantAwareService {
 
         if (error) throw error;
 
-        this.clearCache(`user-roles-${userId}`);
+        // Invalidate the scoped key and the broad fallback.
+        this.clearCache(`user-roles-${userId}-${scope}-${scopeId}`);
+        this.clearCache(`user-roles-${userId}-any-any`);
         this.clearCache();
       },
       { skipCache: true }

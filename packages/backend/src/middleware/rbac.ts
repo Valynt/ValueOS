@@ -54,8 +54,16 @@ async function hasPermission(
   _scope: PermissionScope = "tenant"
 ): Promise<boolean> {
   try {
-    // Batch both queries in parallel for better performance
-    const [rolesResult, permissionsResult] = await Promise.all([
+    // Fetch membership status, system roles, and explicit grants in one round-trip.
+    // user_tenants is checked here (not in a prior sequential query) so the
+    // suspended-membership gate adds zero extra latency to the happy path.
+    const [membershipResult, rolesResult, permissionsResult] = await Promise.all([
+      supabase
+        .from("user_tenants")
+        .select("status")
+        .eq("user_id", userId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
       supabase
         .from("user_roles")
         .select("role")
@@ -68,8 +76,26 @@ async function hasPermission(
         .eq("tenant_id", tenantId),
     ]);
 
+    const { data: tenantMembership, error: membershipStatusError } = membershipResult;
     const { data: userRoles, error: rolesError } = rolesResult;
     const { data: explicitPermissions, error: permError } = permissionsResult;
+
+    // Verify active membership before expanding permissions.
+    // user_tenants is the RLS authority — a suspended or removed user must not
+    // pass permission checks even if stale user_roles rows remain.
+    if (membershipStatusError) {
+      logger.error("Failed to verify membership status", membershipStatusError, { userId, tenantId });
+      return false;
+    }
+
+    if (!tenantMembership || tenantMembership.status !== "active") {
+      logger.warn("Permission denied: membership inactive or missing", {
+        userId,
+        tenantId,
+        status: tenantMembership?.status ?? "not_found",
+      });
+      return false;
+    }
 
     if (rolesError) {
       logger.error("Failed to fetch user roles", rolesError, {
