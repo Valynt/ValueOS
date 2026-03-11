@@ -38,25 +38,30 @@ SET search_path = public
 AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
-    -- Hard removal: disable the memberships row and mark it as sync-disabled.
+    -- Hard removal: disable the memberships row and mark it as sync-disabled,
+    -- but avoid overwriting admin-disabled rows (disabled_by_sync = false).
     UPDATE public.memberships
-    SET    status          = 'disabled',
+    SET    status           = 'disabled',
            disabled_by_sync = true,
-           updated_at      = now()
-    WHERE  tenant_id       = OLD.tenant_id
-      AND  user_id::text   = OLD.user_id;
+           updated_at       = now()
+    WHERE  tenant_id        = OLD.tenant_id
+      AND  user_id::text    = OLD.user_id
+      AND  (status <> 'disabled' OR disabled_by_sync = true);
 
     RETURN OLD;
   END IF;
 
   -- UPDATE: propagate inactive status to memberships.
   IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status = 'inactive' THEN
+    -- Only mark as sync-disabled when we are the actor disabling the row.
+    -- Leave admin-disabled rows (disabled_by_sync = false) untouched.
     UPDATE public.memberships
-    SET    status          = 'disabled',
+    SET    status           = 'disabled',
            disabled_by_sync = true,
-           updated_at      = now()
-    WHERE  tenant_id       = NEW.tenant_id
-      AND  user_id::text   = NEW.user_id;
+           updated_at       = now()
+    WHERE  tenant_id        = NEW.tenant_id
+      AND  user_id::text    = NEW.user_id
+      AND  (status <> 'disabled' OR disabled_by_sync = true);
   END IF;
 
   -- Reactivation: only re-enable rows that this trigger previously disabled.
