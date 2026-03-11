@@ -34,5 +34,10 @@
   "remoteEnv": {
     "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"
   },
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  "customizations": {
+    "gitpod": {
+      "automationsFile": ".ona/automations.yaml"
+    }
+  }
 }

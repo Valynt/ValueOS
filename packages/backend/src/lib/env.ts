@@ -52,6 +52,14 @@ export function getValidatedSupabaseRuntimeConfig(): RuntimeSupabaseConfig {
 
   if (missing.length > 0) {
     const environment = process.env.NODE_ENV || 'development';
+    // In test environments the Supabase client is always mocked at the module
+    // level. Return stub values so constructors that call createServerSupabaseClient()
+    // can complete without throwing — actual network calls will never be made.
+    // VITEST is always set by the vitest runner; NODE_ENV may remain 'development'
+    // depending on the shell. Never stub in production regardless of VITEST.
+    if (environment !== 'production' && (environment === 'test' || process.env.VITEST)) {
+      return { url: 'http://localhost:54321', serviceRoleKey: 'test-service-role-key' };
+    }
     throw new Error(
       `[config] Missing required Supabase runtime configuration: ${missing.join(', ')}. ` +
         `Refusing to boot in ${environment} mode without explicit runtime values.`,
