@@ -327,18 +327,40 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   );
 
   const markAllAsRead = useCallback(() => {
+    // If we don't have an access token, just perform a local optimistic update.
+    if (!accessToken) {
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      return;
+    }
+
+    // Capture original read flags for all notifications that exist at this moment.
+    let snapshotReadById: Record<string, boolean> = {};
+
+    // Optimistically mark all current notifications as read.
     setNotifications((prev) => {
-      const snapshot = prev;
-      if (!accessToken) return prev.map((n) => ({ ...n, read: true }));
-      apiClient
-        .post("/api/v1/notifications/read-all", undefined, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-        .catch(() => {
-          setNotifications(snapshot);
-        });
+      snapshotReadById = prev.reduce<Record<string, boolean>>((acc, n) => {
+        acc[n.id] = n.read;
+        return acc;
+      }, {});
       return prev.map((n) => ({ ...n, read: true }));
     });
+
+    apiClient
+      .post("/api/v1/notifications/read-all", undefined, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      .catch(() => {
+        // On failure, revert only the read flags for notifications
+        // that existed when markAllAsRead was triggered. Leave any
+        // newer notifications (not in snapshotReadById) untouched.
+        setNotifications((prev) =>
+          prev.map((n) =>
+            Object.prototype.hasOwnProperty.call(snapshotReadById, n.id)
+              ? { ...n, read: snapshotReadById[n.id] }
+              : n
+          )
+        );
+      });
   }, [accessToken]);
 
   // ------------------------------------------------------------------
