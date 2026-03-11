@@ -38,8 +38,18 @@ import {
   useRealizationKpis,
   useExpansionOpportunities,
 } from "../useWireframeData";
-import type { WireframeCase } from "../useWireframeData";
 
+type WireframeCase = {
+  id: string;
+  name: string;
+  companyName: string;
+  status: string;
+  phase: string;
+  totalValue: number;
+  updatedAt: string;
+  createdAt: string;
+  [key: string]: unknown;
+};
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
