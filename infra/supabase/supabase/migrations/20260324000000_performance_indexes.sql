@@ -19,8 +19,9 @@ SET search_path = public, pg_temp;
 
 -- ---------------------------------------------------------------------------
 -- approval_requests
+-- Hot queries: (organization_id, status) for pending approvals list
 -- DDL uses organization_id (not tenant_id). Index corrected to match.
--- The column is requested_by, not requester_id.
+-- Canonical columns: organization_id, requested_by (not tenant_id/requester_id)
 -- ---------------------------------------------------------------------------
 
 CREATE INDEX IF NOT EXISTS idx_approval_requests_org_status
@@ -56,13 +57,9 @@ CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id
 CREATE INDEX IF NOT EXISTS idx_agent_memory_org_session_type
   ON public.agent_memory (organization_id, session_id, memory_type, created_at DESC);
 
--- ---------------------------------------------------------------------------
--- value_loop_events (Sprint 10 — table name is value_loop_events)
--- Hot queries: (organization_id, event_type, created_at)
--- ---------------------------------------------------------------------------
-
-CREATE INDEX IF NOT EXISTS idx_value_loop_events_org_event
-  ON public.value_loop_events (organization_id, event_type, created_at DESC);
+-- value_loop_events: real table is value_loop_events.
+-- The correct index already exists in 20260320000000_value_loop_analytics.sql.
+-- See 20260327020000 for cleanup of the phantom index.
 
 -- ---------------------------------------------------------------------------
 -- saga_transitions (Sprint 13)

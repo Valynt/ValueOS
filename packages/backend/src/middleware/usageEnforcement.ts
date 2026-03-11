@@ -60,17 +60,18 @@ export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
           path: req.path
         });
 
-        // Return 402 Payment Required for quota exceeded
+        // Return 402 Payment Required for quota exceeded.
+        // Body shape matches the sprint plan spec so the UI can render a
+        // structured upgrade prompt without parsing the reason string.
         return res.status(402).json({
-          error: 'Payment Required',
-          message: 'Usage quota exceeded',
-          code: 'QUOTA_EXCEEDED',
-          details: {
-            metric,
-            reason: entitlementCheck.reason,
-            grace_period_remaining: entitlementCheck.gracePeriodRemaining,
-            suggested_action: entitlementCheck.suggestedAction
-          }
+          allowed: false,
+          reason: entitlementCheck.reason ?? 'quota_exceeded',
+          meter_key: metric,
+          cap: entitlementCheck.quota ?? null,
+          used: entitlementCheck.currentUsage ?? null,
+          upgrade_url: '/billing?tab=plans',
+          grace_period_remaining: entitlementCheck.gracePeriodRemaining ?? null,
+          suggested_action: entitlementCheck.suggestedAction ?? 'Upgrade your plan to continue.',
         });
       }
 
@@ -82,6 +83,18 @@ export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
         entitlementCheck,
         timestamp: new Date().toISOString()
       };
+
+      // Soft limit: warn but do not block. The UI reads this header to show
+      // the threshold alert banner (Sprint 16 KR4).
+      if (entitlementCheck.status === 'warning') {
+        res.setHeader('X-Usage-Warning', `${metric} usage is at or above 80% of quota`);
+        logger.warn('Usage approaching limit', {
+          tenantId,
+          metric,
+          remaining: entitlementCheck.remaining,
+          path: req.path,
+        });
+      }
 
       logger.debug('Usage allowed', {
         tenantId,

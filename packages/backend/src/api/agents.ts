@@ -15,6 +15,7 @@ import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend
 import { rateLimiters } from "../middleware/rateLimiter.js"
 import { requirePermission } from "../middleware/rbac.js"
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
+import { usageEnforcement } from "../middleware/usageEnforcement.js"
 // In-process agent response cache (non-tenant routing state — Map is acceptable per ADR-0012)
 const _agentResponseCache = new Map<string, { value: unknown; expiresAt: number }>();
 const AGENT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -180,7 +181,9 @@ router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) =
 router.post(
   "/:agentId/invoke",
   rateLimiters.agentExecution,
-  // Basic validation middleware removed in favor of Zod inside handler
+  // Enforce llm_tokens quota before executing. Returns 402 when the tenant is
+  // at their hard cap. Soft limit (80%) logs a warning but does not block.
+  ...usageEnforcement({ metric: 'llm_tokens' }),
   async (req: Request, res: Response) => {
     const { agentId } = req.params;
 
@@ -332,11 +335,30 @@ router.post(
           mode: "direct",
         });
 
-        // Record metrics for direct-mode runs
+        // Record metrics for direct-mode runs.
+        // Failed runs are not billed (per billing-v2 spec).
+        const succeeded = output.status === "success" || output.status === "partial_success";
         try {
           const metrics = getMetricsCollector();
-          const succeeded = output.status === "success" || output.status === "partial_success";
-          metrics.recordAgentInvocation(agentId, succeeded, durationMs);
+          metrics.recordAgentInvocation(agentId, succeeded, durationMs, tenantId);
+
+          if (succeeded) {
+            // Prefer token counts from agent output metadata; fall back to a
+            // prompt-length estimate when the provider does not return usage.
+            const tokenUsage = output.metadata?.token_usage;
+            const totalTokens =
+              tokenUsage?.total_tokens ??
+              Math.ceil(sanitizedQuery.length / 4);
+
+            const idempotencyKey = `${sessionId}:${agentId}:${jobId}`;
+            metrics.recordUsage({
+              tenantId,
+              metric: 'llm_tokens',
+              quantity: totalTokens,
+              path: `/api/agents/${agentId}/invoke`,
+              idempotencyKey,
+            });
+          }
         } catch { /* metrics are non-fatal */ }
 
         return res.json({

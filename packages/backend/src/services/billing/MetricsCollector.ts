@@ -265,8 +265,13 @@ export class MetricsCollector {
     path?: string;
     method?: string;
     statusCode?: number;
+    /**
+     * Idempotency key — stored as `request_id` in usage_events.
+     * Prevents double-billing on retries. When omitted a UUID is generated.
+     */
+    idempotencyKey?: string;
   }): void {
-    const { tenantId, metric, quantity = 1, path, method, statusCode } = opts;
+    const { tenantId, metric, quantity = 1, path, method, statusCode, idempotencyKey } = opts;
 
     try {
       this.agentInvocationsCounter.add(quantity, {
@@ -277,8 +282,15 @@ export class MetricsCollector {
       logger.error('Failed to record usage counter', err as Error, { tenantId, metric });
     }
 
-    // Persist to usage_events table when Supabase is available (fire-and-forget)
+    // Persist to usage_events table when Supabase is available (fire-and-forget).
+    // Column names match the usage_events schema: amount, request_id, metadata, timestamp.
     if (this.supabase) {
+      const requestId = idempotencyKey ?? crypto.randomUUID();
+      const metadata: Record<string, unknown> = {};
+      if (path) metadata['path'] = path;
+      if (method) metadata['method'] = method;
+      if (statusCode !== undefined) metadata['status_code'] = statusCode;
+
       (this.supabase as unknown as {
         from: (t: string) => { insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }> }
       })
@@ -286,11 +298,10 @@ export class MetricsCollector {
         .insert({
           tenant_id: tenantId,
           metric,
-          quantity,
-          path: path ?? null,
-          method: method ?? null,
-          status_code: statusCode ?? null,
-          recorded_at: new Date().toISOString(),
+          amount: quantity,
+          request_id: requestId,
+          metadata,
+          timestamp: new Date().toISOString(),
         })
         .then(({ error }) => {
           if (error) {

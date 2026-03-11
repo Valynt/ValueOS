@@ -145,23 +145,16 @@ CREATE POLICY ff_evaluations_service_role ON public.feature_flag_evaluations
     WITH CHECK (true);
 
 -- ============================================================================
--- 5. Add 'aggregated' column to usage_records if it doesn't exist
+-- 5. Add 'aggregated' column to usage_events for aggregation pipeline tracking
+-- (usage_records was a phantom table; the real table is usage_events)
 -- ============================================================================
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'usage_records'
-          AND column_name = 'aggregated'
-    ) THEN
-        ALTER TABLE public.usage_records ADD COLUMN aggregated boolean NOT NULL DEFAULT false;
-        CREATE INDEX idx_usage_records_unaggregated
-            ON public.usage_records (created_at)
-            WHERE aggregated = false;
-    END IF;
-END $$;
+ALTER TABLE public.usage_events
+  ADD COLUMN IF NOT EXISTS aggregated boolean NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_usage_events_unaggregated
+  ON public.usage_events (created_at)
+  WHERE aggregated = false;
 
 -- ============================================================================
 -- 6. Seed billing feature flags for gradual rollout
