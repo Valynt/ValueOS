@@ -1,12 +1,18 @@
 /**
  * Workflow State Repository
- * 
- * Repository pattern for workflow state persistence and retrieval
+ *
+ * Repository pattern for workflow state persistence and retrieval.
+ *
+ * Tenant isolation: every method that reads or writes rows requires an
+ * explicit organizationId parameter. The ambient getCurrentTenantContext()
+ * pattern has been removed — it silently produced unscoped queries when
+ * called from background workers or any code path that bypasses
+ * tenantContextMiddleware.
  */
 
+import { randomUUID } from 'node:crypto';
 import { logger } from '../lib/logger.js';
 import { createServerSupabaseClient } from '../lib/supabase.js';
-import { getCurrentTenantContext } from '../middleware/tenantContext.js'
 
 export interface WorkflowState {
   id: string;
@@ -32,14 +38,11 @@ export type WorkflowStatus =
   | 'failed'
   | 'cancelled'
   | 'paused'
-  | 'error'
-  | 'in_progress'
-  | 'initiated'
   | 'rolled_back';
 
 export interface WorkflowStateFilter {
+  organization_id: string;
   workspace_id?: string;
-  organization_id?: string;
   workflow_id?: string;
   execution_id?: string;
   status?: WorkflowStatus;
@@ -53,19 +56,18 @@ export class WorkflowStateRepository {
     this.supabase = createServerSupabaseClient();
   }
 
-  private resolveTenantId(): string | undefined {
-    return getCurrentTenantContext()?.tid;
+  private assertOrganizationId(organizationId: string, method: string): void {
+    if (!organizationId) {
+      throw new Error(`WorkflowStateRepository.${method}: organizationId is required`);
+    }
   }
 
   async create(state: Omit<WorkflowState, 'id' | 'created_at' | 'updated_at'>): Promise<WorkflowState> {
-    const tenantId = this.resolveTenantId();
-    if (tenantId && state.organization_id !== tenantId) {
-      throw new Error("Tenant context mismatch for workflow state creation");
-    }
+    this.assertOrganizationId(state.organization_id, 'create');
     const now = new Date().toISOString();
     const newState: WorkflowState = {
       ...state,
-      id: `wfs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: randomUUID(),
       created_at: now,
       updated_at: now,
     };
@@ -84,13 +86,14 @@ export class WorkflowStateRepository {
     return data as WorkflowState;
   }
 
-  async findById(id: string): Promise<WorkflowState | null> {
-    const tenantId = this.resolveTenantId();
-    let query = this.supabase.from('workflow_states').select('*').eq('id', id);
-    if (tenantId) {
-      query = query.eq('organization_id', tenantId);
-    }
-    const { data, error } = await query.single();
+  async findById(id: string, organizationId: string): Promise<WorkflowState | null> {
+    this.assertOrganizationId(organizationId, 'findById');
+    const { data, error } = await this.supabase
+      .from('workflow_states')
+      .select('*')
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') return null; // Not found
@@ -101,13 +104,14 @@ export class WorkflowStateRepository {
     return data as WorkflowState;
   }
 
-  async findByExecutionId(executionId: string): Promise<WorkflowState | null> {
-    const tenantId = this.resolveTenantId();
-    let query = this.supabase.from('workflow_states').select('*').eq('execution_id', executionId);
-    if (tenantId) {
-      query = query.eq('organization_id', tenantId);
-    }
-    const { data, error } = await query.single();
+  async findByExecutionId(executionId: string, organizationId: string): Promise<WorkflowState | null> {
+    this.assertOrganizationId(organizationId, 'findByExecutionId');
+    const { data, error } = await this.supabase
+      .from('workflow_states')
+      .select('*')
+      .eq('execution_id', executionId)
+      .eq('organization_id', organizationId)
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') return null;
@@ -119,15 +123,13 @@ export class WorkflowStateRepository {
   }
 
   async find(filter: WorkflowStateFilter): Promise<WorkflowState[]> {
-    let query = this.supabase.from('workflow_states').select('*');
+    this.assertOrganizationId(filter.organization_id, 'find');
+    let query = this.supabase
+      .from('workflow_states')
+      .select('*')
+      .eq('organization_id', filter.organization_id);
 
     if (filter.workspace_id) query = query.eq('workspace_id', filter.workspace_id);
-    const tenantId = this.resolveTenantId();
-    if (filter.organization_id) {
-      query = query.eq('organization_id', filter.organization_id);
-    } else if (tenantId) {
-      query = query.eq('organization_id', tenantId);
-    }
     if (filter.workflow_id) query = query.eq('workflow_id', filter.workflow_id);
     if (filter.execution_id) query = query.eq('execution_id', filter.execution_id);
     if (filter.status) query = query.eq('status', filter.status);
@@ -143,19 +145,19 @@ export class WorkflowStateRepository {
     return (data as WorkflowState[]) || [];
   }
 
-  async update(id: string, updates: Partial<Omit<WorkflowState, 'id' | 'created_at'>>): Promise<WorkflowState> {
-    const tenantId = this.resolveTenantId();
-    let updateQuery = this.supabase
+  async update(
+    id: string,
+    organizationId: string,
+    updates: Partial<Omit<WorkflowState, 'id' | 'created_at'>>,
+  ): Promise<WorkflowState> {
+    this.assertOrganizationId(organizationId, 'update');
+    const { data, error } = await this.supabase
       .from('workflow_states')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-    if (tenantId) {
-      updateQuery = updateQuery.eq('organization_id', tenantId);
-    }
-    const { data, error } = await updateQuery.select().single();
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
 
     if (error) {
       logger.error('Failed to update workflow state', { error, id });
@@ -165,24 +167,29 @@ export class WorkflowStateRepository {
     return data as WorkflowState;
   }
 
-  async updateStatus(id: string, status: WorkflowStatus): Promise<WorkflowState> {
-    return this.update(id, { status });
+  async updateStatus(id: string, organizationId: string, status: WorkflowStatus): Promise<WorkflowState> {
+    return this.update(id, organizationId, { status });
   }
 
-  async updateProgress(id: string, currentStep: string, completedSteps: string[]): Promise<WorkflowState> {
-    return this.update(id, {
+  async updateProgress(
+    id: string,
+    organizationId: string,
+    currentStep: string,
+    completedSteps: string[],
+  ): Promise<WorkflowState> {
+    return this.update(id, organizationId, {
       current_step: currentStep,
       completed_steps: completedSteps,
     });
   }
 
-  async delete(id: string): Promise<boolean> {
-    const tenantId = this.resolveTenantId();
-    let deleteQuery = this.supabase.from('workflow_states').delete().eq('id', id);
-    if (tenantId) {
-      deleteQuery = deleteQuery.eq('organization_id', tenantId);
-    }
-    const { error } = await deleteQuery;
+  async delete(id: string, organizationId: string): Promise<boolean> {
+    this.assertOrganizationId(organizationId, 'delete');
+    const { error } = await this.supabase
+      .from('workflow_states')
+      .delete()
+      .eq('id', id)
+      .eq('organization_id', organizationId);
 
     if (error) {
       logger.error('Failed to delete workflow state', { error, id });
@@ -192,13 +199,16 @@ export class WorkflowStateRepository {
     return true;
   }
 
-  // Session management methods used by AgentQueryService
-  async getState(sessionId: string): Promise<WorkflowState | null> {
-    return this.findById(sessionId);
+  // --------------------------------------------------------------------------
+  // Session management helpers (used by AgentQueryService)
+  // --------------------------------------------------------------------------
+
+  async getState(sessionId: string, organizationId: string): Promise<WorkflowState | null> {
+    return this.findById(sessionId, organizationId);
   }
 
   async saveState(state: WorkflowState): Promise<WorkflowState> {
-    return this.update(state.id, state);
+    return this.update(state.id, state.organization_id, state);
   }
 
   async createSession(params: {
@@ -221,37 +231,42 @@ export class WorkflowStateRepository {
     });
   }
 
-  async getSession(sessionId: string): Promise<WorkflowState | null> {
-    return this.findById(sessionId);
+  async getSession(sessionId: string, organizationId: string): Promise<WorkflowState | null> {
+    return this.findById(sessionId, organizationId);
   }
 
   async getActiveSessions(organizationId: string): Promise<WorkflowState[]> {
     return this.find({ organization_id: organizationId });
   }
 
-  async getActiveSessionForCase(caseId: string): Promise<WorkflowState | null> {
-    const results = await this.find({ workflow_id: caseId });
+  async getActiveSessionForCase(caseId: string, organizationId: string): Promise<WorkflowState | null> {
+    const results = await this.find({ organization_id: organizationId, workflow_id: caseId });
     return results[0] ?? null;
   }
 
-  async updateSessionStatus(sessionId: string, status: WorkflowStatus): Promise<WorkflowState> {
-    return this.updateStatus(sessionId, status);
+  async updateSessionStatus(
+    sessionId: string,
+    status: WorkflowStatus,
+    organizationId: string,
+  ): Promise<WorkflowState> {
+    return this.updateStatus(sessionId, organizationId, status);
   }
 
-  async incrementErrorCount(sessionId: string): Promise<void> {
-    const state = await this.findById(sessionId);
+  async incrementErrorCount(sessionId: string, organizationId: string): Promise<void> {
+    const state = await this.findById(sessionId, organizationId);
     if (state) {
       const errorCount = ((state.state_data?.errorCount as number) ?? 0) + 1;
-      await this.update(sessionId, { state_data: { ...state.state_data, errorCount } });
+      await this.update(sessionId, organizationId, { state_data: { ...state.state_data, errorCount } });
     }
   }
 
-  async cleanupOldSessions(olderThanDays: number, tenantId: string): Promise<number> {
+  async cleanupOldSessions(olderThanDays: number, organizationId: string): Promise<number> {
+    this.assertOrganizationId(organizationId, 'cleanupOldSessions');
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
     const { data } = await this.supabase
       .from('workflow_states')
       .delete()
-      .eq('organization_id', tenantId)
+      .eq('organization_id', organizationId)
       .lt('updated_at', cutoff)
       .select('id');
     return data?.length ?? 0;
