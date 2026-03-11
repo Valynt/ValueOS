@@ -150,16 +150,21 @@ CREATE POLICY ff_evaluations_service_role ON public.feature_flag_evaluations
 
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'usage_records'
-          AND column_name = 'aggregated'
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'usage_records'
     ) THEN
-        ALTER TABLE public.usage_records ADD COLUMN aggregated boolean NOT NULL DEFAULT false;
-        CREATE INDEX idx_usage_records_unaggregated
-            ON public.usage_records (created_at)
-            WHERE aggregated = false;
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'usage_records'
+              AND column_name = 'aggregated'
+        ) THEN
+            ALTER TABLE public.usage_records ADD COLUMN aggregated boolean NOT NULL DEFAULT false;
+            CREATE INDEX idx_usage_records_unaggregated
+                ON public.usage_records (created_at)
+                WHERE aggregated = false;
+        END IF;
     END IF;
 END $$;
 
