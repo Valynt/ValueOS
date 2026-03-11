@@ -23,12 +23,12 @@ import {
  */
 export interface JSONSchema {
   type: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, JSONSchema>;
   required?: string[];
   description?: string;
   items?: JSONSchema;
-  enum?: any[];
-  [key: string]: any;
+  enum?: unknown[];
+  [key: string]: unknown;
 }
 
 /**
@@ -45,10 +45,10 @@ export interface MCPTool {
   parameters: JSONSchema;
   
   /** Execute the tool with given parameters */
-  execute(params: any, context?: ToolExecutionContext): Promise<ToolResult>;
+  execute(params: Record<string, unknown>, context?: ToolExecutionContext): Promise<ToolResult>;
   
   /** Optional: Validate parameters before execution */
-  validate?(params: any): Promise<ValidationResult>;
+  validate?(params: Record<string, unknown>): Promise<ValidationResult>;
   
   /** Optional: Tool metadata */
   metadata?: {
@@ -72,7 +72,7 @@ export interface ToolExecutionContext {
   workflowId?: string;
   agentType?: string;
   traceId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -80,11 +80,11 @@ export interface ToolExecutionContext {
  */
 export interface ToolResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   metadata?: {
     duration?: number;
@@ -170,7 +170,7 @@ export class ToolRegistry {
    */
   async execute(
     toolName: string,
-    params: any,
+    params: Record<string, unknown>,
     context?: ToolExecutionContext
   ): Promise<ToolResult> {
     const tool = this.tools.get(toolName);
@@ -376,7 +376,7 @@ export class ToolRegistry {
   /**
    * Convert tools to OpenAI function format
    */
-  toOpenAIFunctions(): any[] {
+  toOpenAIFunctions(): Array<{ name: string; description: string; parameters: JSONSchema }> {
     return Array.from(this.tools.values()).map(tool => ({
       name: tool.name,
       description: tool.description,
@@ -387,7 +387,7 @@ export class ToolRegistry {
   /**
    * Convert tools to Anthropic tool format
    */
-  toAnthropicTools(): any[] {
+  toAnthropicTools(): Array<{ name: string; description: string; input_schema: JSONSchema }> {
     return Array.from(this.tools.values()).map(tool => ({
       name: tool.name,
       description: tool.description,
@@ -413,11 +413,11 @@ export abstract class BaseTool implements MCPTool {
   abstract name: string;
   abstract description: string;
   abstract parameters: JSONSchema;
-  abstract execute(params: any, context?: ToolExecutionContext): Promise<ToolResult>;
+  abstract execute(params: Record<string, unknown>, context?: ToolExecutionContext): Promise<ToolResult>;
 
   metadata?: MCPTool['metadata'];
 
-  async validate(params: any): Promise<ValidationResult> {
+  async validate(params: Record<string, unknown>): Promise<ValidationResult> {
     // Basic validation against JSON schema
     const errors: string[] = [];
 

@@ -12,12 +12,40 @@
  */
 
 // Browser-compatible hash function (replaces Node.js crypto)
+import { SupabaseClient } from "@supabase/supabase-js";
+
 import { logger } from "../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
-import { AuditLogEntry } from "../types";
 
 import { BaseService } from "./BaseService.js";
+
+// audit_logs is not in the generated Database type — use a typed helper
+// rather than scattering `as any` across every query.
+function auditLogsTable(supabase: SupabaseClient) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase as any).from("audit_logs");
+}
+
+/** Shape of a persisted audit log row returned from the database. */
+export interface AuditLogEntry {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  details?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  status: "success" | "failed";
+  integrity_hash: string;
+  previous_hash?: string;
+  timestamp: string;
+  archived?: boolean;
+}
 
 export interface AuditLogCreateInput {
   userId: string;
@@ -76,8 +104,7 @@ export class AuditLogService extends BaseService {
     if (this.initialized) return;
 
     try {
-      const { data } = await this.supabase
-        .from("audit_logs" as any)
+      const { data } = await auditLogsTable(this.supabase)
         .select("integrity_hash")
         .order("timestamp", { ascending: false })
         .limit(1)
@@ -151,8 +178,8 @@ export class AuditLogService extends BaseService {
     user_id: string;
     session_id?: string;
     organization_id?: string;
-    action_data: any;
-    result_data: any;
+    action_data: Record<string, unknown>;
+    result_data: Record<string, unknown>;
     success: boolean;
     error_message?: string;
     duration_ms: number;
@@ -239,9 +266,8 @@ export class AuditLogService extends BaseService {
                 previous_hash: this.lastHash || undefined,
               };
 
-              const { data, error } = await this.supabase
-                .from("audit_logs" as any)
-                .insert(logEntry as any)
+              const { data, error } = await auditLogsTable(this.supabase)
+                .insert(logEntry)
                 .select()
                 .single();
 
@@ -270,7 +296,7 @@ export class AuditLogService extends BaseService {
   /**
    * Calculate cryptographic hash for integrity
    */
-  private async calculateHash(data: any): Promise<string> {
+  private async calculateHash(data: Record<string, unknown>): Promise<string> {
     const content = JSON.stringify(data);
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(content);
@@ -293,37 +319,37 @@ export class AuditLogService extends BaseService {
 
     return this.executeRequest(
       async () => {
-        let dbQuery = this.supabase.from("audit_logs" as any).select("*");
+        let dbQuery = auditLogsTable(this.supabase).select("*");
 
         // CRITICAL: Apply tenant filter first for security
-        dbQuery = dbQuery.eq("tenant_id" as any, query.tenantId as any);
+        dbQuery = dbQuery.eq("tenant_id", query.tenantId);
 
         if (query.userId) {
-          dbQuery = dbQuery.eq("user_id" as any, query.userId as any);
+          dbQuery = dbQuery.eq("user_id", query.userId);
         }
 
         if (query.action) {
           if (Array.isArray(query.action)) {
-            dbQuery = dbQuery.in("action" as any, query.action);
+            dbQuery = dbQuery.in("action", query.action);
           } else {
-            dbQuery = dbQuery.eq("action" as any, query.action as any);
+            dbQuery = dbQuery.eq("action", query.action);
           }
         }
 
         if (query.resourceType) {
           if (Array.isArray(query.resourceType)) {
-            dbQuery = dbQuery.in("resource_type" as any, query.resourceType);
+            dbQuery = dbQuery.in("resource_type", query.resourceType);
           } else {
-            dbQuery = dbQuery.eq("resource_type" as any, query.resourceType as any);
+            dbQuery = dbQuery.eq("resource_type", query.resourceType);
           }
         }
 
         if (query.resourceId) {
-          dbQuery = dbQuery.eq("resource_id" as any, query.resourceId as any);
+          dbQuery = dbQuery.eq("resource_id", query.resourceId);
         }
 
         if (query.status) {
-          dbQuery = dbQuery.eq("status" as any, query.status as any);
+          dbQuery = dbQuery.eq("status", query.status);
         }
 
         if (query.startDate) {
@@ -361,10 +387,9 @@ export class AuditLogService extends BaseService {
   async getById(id: string): Promise<AuditLogEntry | null> {
     return this.executeRequest(
       async () => {
-        const { data, error } = await this.supabase
-          .from("audit_logs" as any)
+        const { data, error } = await auditLogsTable(this.supabase)
           .select("*")
-          .eq("id" as any, id as any)
+          .eq("id", id)
           .maybeSingle();
 
         if (error) throw error;
@@ -506,9 +531,8 @@ export class AuditLogService extends BaseService {
     return this.executeRequest(
       async () => {
         // Mark as archived instead of deleting
-        const { data, error } = await this.supabase
-          .from("audit_logs" as any)
-          .update({ archived: true } as any)
+        const { data, error } = await auditLogsTable(this.supabase)
+          .update({ archived: true })
           .lt("timestamp", olderThan)
           .select("id");
 
@@ -541,7 +565,7 @@ export class AuditLogService extends BaseService {
 
     // Check in reverse chronological order
     for (let i = logs.length - 1; i >= 0; i--) {
-      const log = logs[i] as any;
+      const log = logs[i];
 
       // Verify hash chain
       if (log.previous_hash !== previousHash) {
