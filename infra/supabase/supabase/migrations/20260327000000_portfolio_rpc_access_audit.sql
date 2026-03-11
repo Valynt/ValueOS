@@ -76,28 +76,16 @@ BEGIN
     -- the JWT claim and returns false for any caller whose token does not
     -- include p_tenant_id in their tenant membership.
     IF NOT security.user_has_tenant_access(p_tenant_id) THEN
-        -- Write an observable denial record. This runs under SECURITY DEFINER
-        -- so it succeeds even though the caller has no INSERT on security_events.
-        INSERT INTO public.security_events (
-            event_type,
-            resource,
-            actor_id,
-            tenant_id,
-            detail
-        ) VALUES (
-            'access_denied',
-            'compute_portfolio_value',
-            (auth.uid())::text,
-            p_tenant_id,
-            jsonb_build_object(
-                'requested_tenant', p_tenant_id,
-                'caller_uid',       (auth.uid())::text,
-                'ip',               current_setting('request.headers', true)::jsonb->>'x-forwarded-for'
-            )
-        );
+        -- Log an observable denial record to the PostgreSQL logs. This avoids
+        -- performing writes inside a STABLE function while still providing
+        -- operational visibility into access denials.
+        RAISE LOG 'access_denied: compute_portfolio_value denied for caller_uid=% tenant_id=% ip=%'
+            , (auth.uid())::text
+            , p_tenant_id
+            , current_setting('request.headers', true)::jsonb->>'x-forwarded-for';
 
         -- Raise an error rather than returning zeros. The caller receives a
-        -- structured error; the denial is now in security_events.
+        -- structured error; the denial is visible in server logs.
         RAISE EXCEPTION 'access_denied'
             USING ERRCODE = 'insufficient_privilege',
                   DETAIL  = 'Caller does not have access to tenant ' || p_tenant_id;
