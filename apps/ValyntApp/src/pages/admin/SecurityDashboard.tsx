@@ -4,6 +4,8 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { apiClient } from "@/api/client/unified-api-client";
 import {
   Activity,
   AlertTriangle,
@@ -85,9 +87,9 @@ export function SecurityDashboard() {
   } = useQuery({
     queryKey: ["security-dashboard"],
     queryFn: async (): Promise<DashboardData> => {
-      const response = await fetch("/api/admin/security/dashboard");
-      if (!response.ok) throw new Error("Failed to fetch dashboard data");
-      return response.json();
+      const res = await apiClient.get<DashboardData>("/api/admin/security/dashboard");
+      if (!res.data) throw new Error("Empty response from security dashboard");
+      return res.data;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -96,9 +98,8 @@ export function SecurityDashboard() {
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
     queryKey: ["security-alerts"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/security/alerts");
-      if (!response.ok) throw new Error("Failed to fetch alerts");
-      return response.json() as { alerts: SecurityAlert[]; count: number };
+      const res = await apiClient.get<{ alerts: SecurityAlert[]; count: number }>("/api/admin/security/alerts");
+      return res.data;
     },
     refetchInterval: 60000, // Refresh every minute
   });
@@ -106,11 +107,8 @@ export function SecurityDashboard() {
   // Reset metrics mutation
   const resetMetricsMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/admin/security/reset-metrics", {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Failed to reset metrics");
-      return response.json();
+      const res = await apiClient.post<unknown>("/api/admin/security/reset-metrics", {});
+      return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["security-dashboard"] });

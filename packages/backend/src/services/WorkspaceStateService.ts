@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase.js'
 import { WorkspaceState } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 
-import { CacheService } from './CacheService.js'
+import { SDUICacheService } from './SDUICacheService.js';
 
 /**
  * State change callback
@@ -28,15 +28,15 @@ export type Unsubscribe = () => void;
  * Workspace State Service
  */
 export class WorkspaceStateService extends EventEmitter {
-  private cacheService: CacheService;
+  private cacheService: SDUICacheService;
   private readonly CACHE_PREFIX = 'workspace:state:';
   private readonly CACHE_TTL = 300; // 5 minutes
   private subscriptions: Map<string, Set<StateChangeCallback>>;
   private stateVersions: Map<string, number>;
 
-  constructor(cacheService?: CacheService) {
+  constructor(cacheService?: SDUICacheService) {
     super();
-    this.cacheService = cacheService || new CacheService();
+    this.cacheService = cacheService || new SDUICacheService();
     this.subscriptions = new Map();
     this.stateVersions = new Map();
   }

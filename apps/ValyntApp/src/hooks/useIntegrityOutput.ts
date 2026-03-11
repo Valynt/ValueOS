@@ -6,12 +6,12 @@
  * - GET /api/v1/cases/:caseId/integrity — returns { data: IntegrityOutput | null }
  * - runAgent() — POSTs to /api/agents/integrity/invoke, then invalidates the query
  *
- * Empty state (data: null) means the agent has not run yet for this case.
+ * Phase 8: migrated from raw fetch() + manual auth headers to UnifiedApiClient (ADR-0014).
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { supabase } from "@/lib/supabase";
+import { apiClient } from "@/api/client/unified-api-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,46 +49,6 @@ export interface UseIntegrityOutputReturn {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (supabase) {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) {
-      headers["Authorization"] = `Bearer ${data.session.access_token}`;
-    }
-  }
-  return headers;
-}
-
-async function fetchJSON<T>(url: string): Promise<T> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(url, { headers, credentials: "include" });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body.error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-async function postJSON<T>(url: string, body: unknown): Promise<T> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(errBody.error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-// ---------------------------------------------------------------------------
 // Query key factory
 // ---------------------------------------------------------------------------
 
@@ -108,28 +68,24 @@ export function useIntegrityOutput(caseId: string | undefined): UseIntegrityOutp
     queryKey: integrityOutputKeys.forCase(caseId ?? ""),
     enabled: !!caseId,
     queryFn: async () => {
-      const res = await fetchJSON<{ data: IntegrityOutput | null }>(
+      const res = await apiClient.get<{ data: IntegrityOutput | null }>(
         `/api/v1/cases/${caseId}/integrity`,
       );
-      return res.data;
+      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+      return res.data?.data ?? null;
     },
   });
 
   const mutation = useMutation<unknown, Error, string>({
     mutationFn: async (organizationId: string) => {
-      const res = await postJSON<{ mode: "direct" | "async"; jobId?: string; result?: unknown }>(
+      const res = await apiClient.post<{ mode: "direct" | "async"; jobId?: string; result?: unknown }>(
         "/api/agents/integrity/invoke",
         { caseId, organizationId, query: "validate claims" },
       );
-
-      // For async mode, the result is not immediately available — the query
-      // invalidation below will re-fetch once the job completes.
-      // For direct mode, the result is in res.result but we still re-fetch
-      // to get the persisted DB row (canonical source of truth).
-      return res;
+      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+      return res.data;
     },
     onSuccess: () => {
-      // Invalidate so the GET query re-fetches the persisted output
       void queryClient.invalidateQueries({
         queryKey: integrityOutputKeys.forCase(caseId ?? ""),
       });

@@ -4,6 +4,8 @@
  * Comprehensive audit logging for compliance and security monitoring
  */
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 export interface AuditEvent {
   id: string;
   timestamp: number;
@@ -406,15 +408,9 @@ class AuditLogger {
 
     try {
       if (process.env.NODE_ENV === "production") {
-        await fetch("/api/audit/events", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            events: batch,
-            clientTimestamp: Date.now(),
-          }),
+        await apiClient.post("/api/audit/events", {
+          events: batch,
+          clientTimestamp: Date.now(),
         });
       }
     } catch (error) {

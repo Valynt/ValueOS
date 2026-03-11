@@ -7,6 +7,8 @@ import { AlertCircle, CheckCircle, Gift } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 
+import { apiClient } from '@/api/client/unified-api-client';
+
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -29,34 +31,33 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
   const [claimedReferral, setClaimedReferral] = useState<any>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<boolean | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const validateReferralCode = async (code: string) => {
     if (code.length !== 8) {
       setValidationResult(null);
+      setValidationError(null);
       return;
     }
 
     setIsValidating(true);
-    try {
-      const response = await fetch('/api/referrals/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.toUpperCase() })
-      });
-
-      const data = await response.json();
-      setValidationResult(data.valid);
-    } catch (error) {
-      setValidationResult(false);
-    } finally {
-      setIsValidating(false);
+    setValidationError(null);
+    const res = await apiClient.post<{ valid: boolean }>('/api/referrals/validate', { code: code.toUpperCase() });
+    if (!res.success) {
+      // API failure — don't mark the code invalid, surface the error separately
+      setValidationResult(null);
+      setValidationError('Could not validate code. Try again.');
+    } else {
+      setValidationResult(res.data?.valid ?? false);
     }
+    setIsValidating(false);
   };
 
   const handleReferralCodeChange = (value: string) => {
     const formattedCode = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     setReferralCode(formattedCode);
     setValidationResult(null);
+    setValidationError(null);
 
     if (formattedCode.length === 8) {
       validateReferralCode(formattedCode);
@@ -78,34 +79,31 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
 
     setIsSubmitting(true);
 
-    try {
-      const response = await fetch('/api/referrals/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          referral_code: referralCode.toUpperCase(),
-          referee_email: email
-        })
-      });
+    const res = await apiClient.post<{ success: boolean; error?: string; message?: string }>('/api/referrals/claim', {
+      referral_code: referralCode.toUpperCase(),
+      referee_email: email,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to claim referral');
-      }
-
-      setClaimedReferral(data);
-      toast.success(data.message || 'Referral claimed successfully!');
-
-      if (onReferralClaimed) {
-        onReferralClaimed(data);
-      }
-
-    } catch (error) {
-      console.error('Error claiming referral:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to claim referral');
-    } finally {
+    if (!res.success) {
+      toast.error(res.error?.message ?? 'Failed to claim referral');
       setIsSubmitting(false);
+      return;
+    }
+
+    const data = res.data;
+
+    if (!data?.success) {
+      toast.error(data?.error ?? 'Failed to claim referral');
+      setIsSubmitting(false);
+      return;
+    }
+
+    setClaimedReferral(data);
+    toast.success(data.message ?? 'Referral claimed successfully!');
+    setIsSubmitting(false);
+
+    if (onReferralClaimed) {
+      onReferralClaimed(data);
     }
   };
 
@@ -203,6 +201,12 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
             {validationResult === false && (
               <p className="text-sm text-destructive mt-1">
                 Invalid or inactive referral code.
+              </p>
+            )}
+
+            {validationError && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {validationError}
               </p>
             )}
           </div>

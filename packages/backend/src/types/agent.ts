@@ -26,14 +26,9 @@ export interface AgentConfig {
 // This re-export keeps backward compatibility for consumers of types/agent.ts.
 export type { AgentType } from '../services/agent-types.js';
 
-export type LifecycleStage =
-  | 'opportunity'
-  | 'modeling'
-  | 'target'
-  | 'realization'
-  | 'expansion'
-  | 'integrity'
-  | 'narrative';
+// Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts.
+// Re-exported here for backward compatibility. ADR-0010.
+export type { LifecycleStage } from '@valueos/shared';
 
 export interface ModelConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';

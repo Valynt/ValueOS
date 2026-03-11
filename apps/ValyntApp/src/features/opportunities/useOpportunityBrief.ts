@@ -102,6 +102,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
+// Raw fetch retained: apiClient.setAuthToken is not yet wired to the Supabase
+// session in app bootstrap, so auth must be attached manually here (see debt.md).
 async function fetchJSON<T>(url: string): Promise<T> {
   const headers = await getAuthHeaders();
   const res = await fetch(url, { headers, credentials: "include" });

@@ -12,7 +12,7 @@ import { logger } from '../lib/logger.js'
 import { supabase } from '../lib/supabase.js'
 
 import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI.js'
-import { semanticMemory } from './SemanticMemory.js';
+
 
 export interface MemoryEnhancedRequest extends AgentRequest {
   /** Session ID for memory persistence */
@@ -49,7 +49,7 @@ export class AgentMemoryIntegration {
     this.llmGateway = new LLMGateway(supabase as any);
     this.memorySystem = new MemorySystem(
       { max_memories: 1000, enable_persistence: true },
-      new SupabaseMemoryBackend(semanticMemory),
+      new SupabaseMemoryBackend(),
     );
   }
 

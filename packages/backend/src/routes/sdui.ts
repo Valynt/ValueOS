@@ -11,8 +11,8 @@
  * Enhanced with automatic migration and rollback capabilities
  */
 
-// Define local types since imports are not available
-type LifecycleStage = "opportunity" | "target" | "realization" | "expansion" | "integrity";
+// Canonical LifecycleStage — ADR-0010.
+import type { LifecycleStage } from '@valueos/shared';
 
 import { Request, Response, Router } from "express";
 
@@ -23,14 +23,16 @@ import { canvasSchemaService } from "../services/CanvasSchemaService.js";
 
 const router: Router = Router();
 
-// Helper to validate lifecycle stage
+// Helper to validate lifecycle stage against canonical values (ADR-0010)
 function isValidStage(stage: string): stage is LifecycleStage {
   const stages: LifecycleStage[] = [
-    "opportunity",
-    "target",
-    "realization",
+    "discovery",
+    "drafting",
+    "validating",
+    "composing",
+    "refining",
+    "realized",
     "expansion",
-    "integrity",
   ];
   return stages.includes(stage as LifecycleStage);
 }

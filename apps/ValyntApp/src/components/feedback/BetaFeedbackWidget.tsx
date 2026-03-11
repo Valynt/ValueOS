@@ -1,6 +1,7 @@
 import { Camera, MessageSquareText, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -122,13 +123,7 @@ export function BetaFeedbackWidget() {
     });
 
     try {
-      await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      await apiClient.post("/api/feedback", payload);
     } catch (error) {
       console.warn("Feedback submission failed", error);
     } finally {

@@ -62,6 +62,9 @@ export const OrganizationUsers: React.FC = () => {
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const { session } = useAuth();
 
+  // Raw fetch retained throughout this component: apiClient.setAuthToken is not
+  // yet wired to the Supabase session in app bootstrap, and CSRF headers must
+  // also be injected manually here (see debt.md).
   const buildHeaders = useCallback(
     (includeJson?: boolean) => {
       const headers: Record<string, string> = {};

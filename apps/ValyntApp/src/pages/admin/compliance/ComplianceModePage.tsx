@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { useComplianceLiveStatus } from "./useComplianceLiveStatus";
 import { ComplianceModeStatus } from "./types";
 
@@ -13,9 +15,8 @@ export function ComplianceModePage() {
   const { data: mode } = useQuery({
     queryKey: ["compliance-mode"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/compliance/mode");
-      if (!response.ok) throw new Error("Failed to load compliance mode");
-      return response.json() as Promise<ComplianceModeStatus>;
+      const res = await apiClient.get<ComplianceModeStatus>("/api/admin/compliance/mode");
+      return res.data;
     },
     refetchInterval: 30000,
   });

@@ -9,6 +9,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -43,17 +45,7 @@ export interface ValueTreeNodeUpdate {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body.error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+// fetchJSON removed — use apiClient (Phase 8 / ADR-0014)
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -66,10 +58,11 @@ export function useValueTree(caseId: string | undefined) {
   return useQuery<ValueTreeNode[]>({
     queryKey: ["value-tree", caseId],
     queryFn: async () => {
-      const result = await fetchJSON<{ data: ValueTreeNode[] }>(
+      const result = await apiClient.get<{ data: ValueTreeNode[] }>(
         `/api/v1/value-cases/${caseId}/value-tree`,
       );
-      return result.data ?? [];
+      if (!result.success) throw new Error(result.error?.message ?? "Request failed");
+      return result.data?.data ?? [];
     },
     enabled: !!caseId,
     staleTime: 30_000,
@@ -86,14 +79,13 @@ export function useUpsertValueTreeNode(caseId: string | undefined) {
 
   return useMutation<ValueTreeNode, Error, ValueTreeNodeUpdate>({
     mutationFn: async (node) => {
-      const result = await fetchJSON<{ data: ValueTreeNode }>(
+      const result = await apiClient.patch<{ data: ValueTreeNode }>(
         `/api/v1/value-cases/${caseId}/value-tree`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(node),
-        },
+        node,
       );
-      return result.data;
+      if (!result.success) throw new Error(result.error?.message ?? "Request failed");
+      if (!result.data?.data) throw new Error("Empty response from value-tree patch");
+      return result.data.data;
     },
     onMutate: async (update) => {
       await queryClient.cancelQueries({ queryKey });
@@ -133,20 +125,12 @@ export function useRunTargetAgent(caseId: string | undefined) {
 
   return useMutation<{ jobId: string }, Error, { query?: string }>({
     mutationFn: async (input) => {
-      const res = await fetch("/api/agents/target/invoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: input.query ?? "Generate KPI targets for this value case",
-          context: { value_case_id: caseId },
-        }),
+      const res = await apiClient.post<{ data?: { jobId?: string } }>("/api/agents/target/invoke", {
+        query: input.query ?? "Generate KPI targets for this value case",
+        context: { value_case_id: caseId },
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as Record<string, string>;
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-      const data = await res.json() as { data?: { jobId?: string } };
-      return { jobId: data.data?.jobId ?? "" };
+      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+      return { jobId: res.data?.data?.jobId ?? "" };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["value-tree", caseId] });
@@ -162,14 +146,12 @@ export function useReplaceValueTree(caseId: string | undefined) {
 
   return useMutation<ValueTreeNode[], Error, Omit<ValueTreeNodeUpdate, "id">[]>({
     mutationFn: async (nodes) => {
-      const result = await fetchJSON<{ data: ValueTreeNode[] }>(
+      const result = await apiClient.patch<{ data: ValueTreeNode[] }>(
         `/api/v1/value-cases/${caseId}/value-tree`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ nodes }),
-        },
+        { nodes },
       );
-      return result.data ?? [];
+      if (!result.success) throw new Error(result.error?.message ?? "Request failed");
+      return result.data?.data ?? [];
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["value-tree", caseId], data);

@@ -2,14 +2,14 @@ import { useEffect } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { ComplianceControlStatusResponse } from "./types";
 
 async function fetchControlStatus(): Promise<ComplianceControlStatusResponse> {
-  const response = await fetch("/api/admin/compliance/control-status");
-  if (!response.ok) {
-    throw new Error("Failed to load control status");
-  }
-  return response.json() as Promise<ComplianceControlStatusResponse>;
+  const res = await apiClient.get<ComplianceControlStatusResponse>("/api/admin/compliance/control-status");
+  if (!res.data) throw new Error("Empty response from control-status");
+  return res.data;
 }
 
 export function useComplianceLiveStatus() {

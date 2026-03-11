@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { PolicyHistoryEntry } from "./types";
 
 export function PolicyHistoryPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["compliance-policy-history"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/compliance/policy-history");
-      if (!response.ok) throw new Error("Failed to load policy history");
-      return response.json() as Promise<{ history: PolicyHistoryEntry[] }>;
+      const res = await apiClient.get<{ history: PolicyHistoryEntry[] }>("/api/admin/compliance/policy-history");
+      return res.data;
     },
     refetchInterval: 60000,
   });

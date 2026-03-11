@@ -25,10 +25,38 @@ vi.mock('../../config/telemetry', () => ({
   })),
 }));
 
-vi.mock('../../services/AgentAPI', () => ({
-  getAgentAPI: vi.fn(() => ({
-    invokeAgent: vi.fn().mockResolvedValue({ success: true, data: { message: 'ok' } }),
+// ADR-0014: QueryExecutor now calls AgentFactory directly — no HTTP round-trip.
+vi.mock('../../lib/agent-fabric/AgentFactory', () => ({
+  createAgentFactory: vi.fn(() => ({
+    create: vi.fn(() => ({
+      execute: vi.fn().mockResolvedValue({
+        status: 'success',
+        result: { message: 'ok' },
+        confidence: 'high',
+        errors: [],
+        agent_id: 'test-agent',
+        agent_type: 'coordinator',
+        lifecycle_stage: 'discovery',
+        metadata: { execution_time_ms: 10, model_version: 'test', timestamp: new Date().toISOString() },
+      }),
+    })),
   })),
+}));
+
+vi.mock('../../lib/agent-fabric/LLMGateway', () => ({
+  LLMGateway: vi.fn(() => ({})),
+}));
+
+vi.mock('../../lib/agent-fabric/MemorySystem', () => ({
+  MemorySystem: vi.fn(() => ({})),
+}));
+
+vi.mock('../../lib/agent-fabric/SupabaseMemoryBackend', () => ({
+  SupabaseMemoryBackend: vi.fn(() => ({})),
+}));
+
+vi.mock('../../lib/resilience/CircuitBreaker', () => ({
+  CircuitBreaker: vi.fn(() => ({})),
 }));
 
 vi.mock('../../config/featureFlags', () => ({
@@ -332,5 +360,49 @@ describe('QueryExecutor.processQuery (sync path)', () => {
     );
     const result = await limited.processQuery(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     expect(result.response?.payload).toMatchObject({ error: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ADR-0014: Direct agent invocation — no HTTP round-trip
+// ---------------------------------------------------------------------------
+
+describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
+  it('calls AgentFactory.create().execute() without a network hop', async () => {
+    const { createAgentFactory } = await import('../../lib/agent-fabric/AgentFactory.js');
+    const mockExecute = vi.fn().mockResolvedValue({
+      status: 'success',
+      result: { answer: 'direct invocation works' },
+      confidence: 'high',
+      errors: [],
+      agent_id: 'opportunity',
+      agent_type: 'opportunity',
+      lifecycle_stage: 'discovery',
+      metadata: { execution_time_ms: 5, model_version: 'test', timestamp: new Date().toISOString() },
+    });
+    const mockCreate = vi.fn(() => ({ execute: mockExecute }));
+    vi.mocked(createAgentFactory).mockReturnValueOnce({ create: mockCreate } as never);
+
+    const policy = makePolicyMock();
+    const executor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('opportunity') as never,
+      makeCircuitBreakerMock() as never,
+      makeQueueMock() as never,
+    );
+
+    const result = await executor.processQuery(
+      makeEnvelope() as never,
+      'what is the opportunity?',
+      makeState() as never,
+      'user-1',
+      'session-1',
+    );
+
+    // Agent was invoked directly — no fetch/HTTP call
+    expect(mockCreate).toHaveBeenCalledWith('opportunity', 'org-1');
+    expect(mockExecute).toHaveBeenCalledOnce();
+    expect(result.response?.type).toBe('message');
+    expect(result.response?.payload.message).toContain('direct invocation works');
   });
 });

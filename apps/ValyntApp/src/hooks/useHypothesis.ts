@@ -3,9 +3,13 @@
  *
  * Fetches the latest hypothesis output for a value case and provides
  * a mutation to invoke the OpportunityAgent.
+ *
+ * Phase 8: migrated from raw fetch() to UnifiedApiClient (ADR-0014).
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,22 +46,6 @@ export interface HypothesisOutput {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body.error ?? `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-// ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
 
@@ -69,16 +57,16 @@ export function useHypothesisOutput(caseId: string | undefined) {
   return useQuery<HypothesisOutput | null>({
     queryKey: ["hypothesis", caseId],
     queryFn: async () => {
-      const result = await fetchJSON<{ data: HypothesisOutput | null }>(
+      const result = await apiClient.get<{ data: HypothesisOutput | null }>(
         `/api/v1/value-cases/${caseId}/hypothesis`,
       );
-      return result.data;
+      if (!result.success) throw new Error(result.error?.message ?? "Request failed");
+      return result.data?.data ?? null;
     },
     enabled: !!caseId,
     staleTime: 30_000,
-    // 404 means no output yet — treat as null, not an error
     retry: (failureCount, error) => {
-      if (error instanceof Error && error.message.includes("HTTP 404")) return false;
+      if (error instanceof Error && error.message.includes("404")) return false;
       return failureCount < 2;
     },
   });
@@ -100,31 +88,25 @@ export interface AgentInvokeResponse {
 /**
  * Invoke the OpportunityAgent for a case.
  * On success, invalidates the hypothesis query so the stage reloads.
- * Returns the full invoke response so callers can detect direct-mode results.
  */
 export function useRunHypothesisAgent(caseId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation<AgentInvokeResponse, Error, { companyName?: string; query?: string }>({
     mutationFn: async (input) => {
-      const res = await fetch(`/api/agents/opportunity/invoke`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const res = await apiClient.post<{ data: AgentInvokeResponse }>(
+        `/api/agents/opportunity/invoke`,
+        {
           caseId,
           value_case_id: caseId,
           query: input.query ?? input.companyName ?? "Analyze this value case",
           company_name: input.companyName,
           context: { value_case_id: caseId },
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as Record<string, string>;
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-      const json = await res.json() as { data: AgentInvokeResponse };
-      const data = json.data;
-      // Normalise: jobId and runId are the same field
+        },
+      );
+      if (!res.success) throw new Error(res.error?.message ?? "Request failed");
+      const data = res.data?.data;
+      if (!data) throw new Error("No data in response");
       return { ...data, runId: data.jobId ?? data.runId };
     },
     onSuccess: () => {

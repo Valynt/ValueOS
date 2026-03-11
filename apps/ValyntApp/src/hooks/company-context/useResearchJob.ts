@@ -34,7 +34,12 @@ async function getAccessToken(): Promise<string> {
   return token;
 }
 
-/** Typed fetch wrapper that hits the backend API with auth. */
+/**
+ * Typed fetch wrapper that hits the backend API with auth.
+ * Not migrated to apiClient: apiClient.setAuthToken is not yet wired to the
+ * Supabase session in app bootstrap, so this file must attach the token manually
+ * until that wiring is in place (see debt.md).
+ */
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken();
   const res = await fetch(path, {

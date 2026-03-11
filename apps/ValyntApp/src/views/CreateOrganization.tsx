@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
@@ -25,14 +26,13 @@ async function provisionTenantViaApi(payload: {
   ownerEmail: string;
   settings: { slug: string; brandColor: string };
 }): Promise<{ success: boolean; errors: string[] }> {
-  const res = await fetch("/api/admin/provision", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (res.ok) return { success: true, errors: [] };
-  const body = (await res.json().catch(() => ({}))) as { errors?: string[]; error?: string };
-  return { success: false, errors: body.errors ?? [body.error ?? "Provisioning failed"] };
+  try {
+    await apiClient.post("/api/admin/provision", payload);
+    return { success: true, errors: [] };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Provisioning failed";
+    return { success: false, errors: [msg] };
+  }
 }
 
 const orgNameSchema = z

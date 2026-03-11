@@ -8,7 +8,8 @@
  */
 
 import type { GroundTruthIntegrationService } from "../../services/GroundTruthIntegrationService.js";
-import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
+import type { AgentConfig } from "../../types/agent.js";
+import type { LifecycleStage } from "@valueos/shared";
 import { logger } from "../logger.js";
 
 import { BaseAgent } from "./agents/BaseAgent.js";
@@ -24,28 +25,10 @@ import { CircuitBreaker } from "./CircuitBreaker.js";
 import { KnowledgeFabricValidator } from "./KnowledgeFabricValidator.js";
 import { LLMGateway } from "./LLMGateway.js";
 import { MemorySystem } from "./MemorySystem.js";
-
-// Maps agent type strings to lifecycle stages for config construction
-const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
-  opportunity: "opportunity",
-  "financial-modeling": "modeling",
-  target: "target",
-  expansion: "expansion",
-  integrity: "integrity",
-  narrative: "integrity", // narrative sits between integrity and realization
-  realization: "realization",
-  "compliance-auditor": "integrity",
-};
-
-
-const STAGE_AGENT_TYPE_MAP: Record<LifecycleStage, string> = {
-  opportunity: "opportunity",
-  modeling: "financial-modeling",
-  target: "target",
-  realization: "realization",
-  expansion: "expansion",
-  integrity: "integrity",
-};
+import {
+  agentLabelToLifecycleStage,
+  LIFECYCLE_STAGE_TO_AGENT_LABEL,
+} from "./lifecycleStageAdapter.js";
 
 // Maps agent types to their fabric agent classes.
 const FABRIC_AGENT_CLASSES: Partial<
@@ -123,12 +106,12 @@ export class AgentFactory {
       );
     }
 
-    const lifecycleStage = AGENT_LIFECYCLE_MAP[agentType] || "opportunity";
+    const lifecycleStage = agentLabelToLifecycleStage(agentType);
 
     const config: AgentConfig = {
       id: `${agentType}-agent`,
       name: agentType,
-      type: lifecycleStage as AgentConfig["type"],
+      type: agentType as AgentConfig["type"],
       lifecycle_stage: lifecycleStage,
       capabilities: [],
       model: {
@@ -180,7 +163,7 @@ export class AgentFactory {
    * Convenience wrapper that maps stage names to agent types.
    */
   createForStage(stage: LifecycleStage, organizationId: string): BaseAgent {
-    return this.create(STAGE_AGENT_TYPE_MAP[stage], organizationId);
+    return this.create(LIFECYCLE_STAGE_TO_AGENT_LABEL[stage], organizationId);
   }
 }
 

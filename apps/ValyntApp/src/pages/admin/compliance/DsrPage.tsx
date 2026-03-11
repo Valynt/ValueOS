@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { DsrQueueItem } from "./types";
 
 export function DsrPage() {
   const { data } = useQuery({
     queryKey: ["compliance-dsr"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/compliance/dsr");
-      if (!response.ok) throw new Error("Failed to load DSR queue");
-      return response.json() as Promise<{ queue: DsrQueueItem[] }>;
+      const res = await apiClient.get<{ queue: DsrQueueItem[] }>("/api/admin/compliance/dsr");
+      return res.data;
     },
     refetchInterval: 30000,
   });

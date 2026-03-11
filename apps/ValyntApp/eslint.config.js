@@ -54,6 +54,19 @@ const valyntAppConfig = {
     ],
     "security/detect-object-injection": "warn",
     // "security/detect-non-literal-fs-filename": "error", // Disabled due to ESLint 9 compatibility
+    // ADR-0014 / Phase 8: All REST calls to /api/ routes must use UnifiedApiClient.
+    // Raw fetch() to backend API routes bypasses auth, retry, and error handling.
+    "no-restricted-syntax": [
+      "warn",
+      {
+        selector: "CallExpression[callee.name='fetch'][arguments.0.type='Literal'][arguments.0.value=/^\\/api\\//]",
+        message: "Use apiClient from unified-api-client instead of raw fetch() for /api/ routes.",
+      },
+      {
+        selector: "CallExpression[callee.name='fetch'][arguments.0.type='TemplateLiteral']",
+        message: "Use apiClient from unified-api-client instead of raw fetch() for API calls.",
+      },
+    ],
     "no-restricted-imports": [
       "error",
       {

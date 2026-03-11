@@ -30,8 +30,13 @@ import { getRedisClient } from "../../lib/redisClient";
 
 import { awsCacheMonitor } from "./CachePerformanceMonitor.js"
 import {
-  createConfigurableCircuitBreaker,
-} from "./CircuitBreaker";
+  CircuitBreaker,
+  type CircuitBreakerConfig,
+} from "../../lib/resilience/CircuitBreaker.js";
+
+function createConfigurableCircuitBreaker(config: Partial<CircuitBreakerConfig>): CircuitBreaker {
+  return new CircuitBreaker(config);
+}
 import { InputValidator } from "./InputValidator.js"
 import type {
   AuditAction,

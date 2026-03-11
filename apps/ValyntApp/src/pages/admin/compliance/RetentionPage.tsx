@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { RetentionRule } from "./types";
 
 export function RetentionPage() {
   const { data } = useQuery({
     queryKey: ["compliance-retention"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/compliance/retention");
-      if (!response.ok) throw new Error("Failed to load retention rules");
-      return response.json() as Promise<{ rules: RetentionRule[] }>;
+      const res = await apiClient.get<{ rules: RetentionRule[] }>("/api/admin/compliance/retention");
+      return res.data;
     },
     refetchInterval: 120000,
   });

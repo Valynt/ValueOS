@@ -17,7 +17,7 @@ import { AgentMessageBroker } from '../../services/AgentMessageBroker.js';
 import { AgentMessageQueue } from '../../services/AgentMessageQueue.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
-import { semanticMemory } from '../../services/SemanticMemory.js';
+
 import type { AgentType } from '../../services/agent-types.js';
 import type { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
 import type { WorkflowContextDTO } from '../../types/workflow/orchestration.js';
@@ -66,7 +66,7 @@ export class ExecutionRuntime {
     agentMessageQueue: AgentMessageQueue = new AgentMessageQueue(),
     memorySystem: MemorySystem = new MemorySystem(
       { max_memories: 1000, enable_persistence: true },
-      new SupabaseMemoryBackend(semanticMemory),
+      new SupabaseMemoryBackend(),
     ),
   ) {
     const cfg = { ...DEFAULT_CONFIG, ...config };

@@ -26,9 +26,9 @@ import type { LifecycleContext } from "../types/agent.js";
 import { AgentType } from "./agent-types.js"
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
-import { cacheService } from "./CacheService.js"
+import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 import { CircuitBreakerManager } from "./CircuitBreaker.js"
-import { getService, hasService, SERVICE_TOKENS } from "./DependencyInjectionContainer.js";
+
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestOptions,
@@ -251,18 +251,10 @@ export class UnifiedAgentAPI {
       ? new GroundtruthAPI(groundtruthConfig)
       : null;
 
-    // Resolve AgentFactory: prefer explicit config, then DI container
+    // Resolve AgentFactory from explicit config; otherwise stays null
+    // and executeLocalAgent falls back to mock.
     if (config.agentFactory) {
       this.agentFactory = config.agentFactory;
-    } else {
-      try {
-        if (hasService(SERVICE_TOKENS.AGENT_FACTORY)) {
-          this.agentFactory = getService<AgentFactory>(SERVICE_TOKENS.AGENT_FACTORY);
-        }
-      } catch {
-        // DI container not yet initialized — agentFactory stays null,
-        // executeLocalAgent will fall back to mock
-      }
     }
   }
 
@@ -310,44 +302,7 @@ export class UnifiedAgentAPI {
     try {
       this.assertRoutingConfigured(request.agent);
 
-      // Generate cache key for cache-aside pattern
-      const cacheKey = this.generateAgentCacheKey(sanitizedRequest);
-
-      // Check cache first (cache-aside pattern)
-      const cachedResponse = await cacheService.get<UnifiedAgentResponse<T>>(
-        cacheKey,
-        {
-          storage: "redis",
-          namespace: "agent-outputs",
-          ttl: 10 * 60 * 1000, // 10 minutes for agent outputs
-        }
-      );
-
-      if (cachedResponse) {
-        logger.info("Agent output cache hit", {
-          traceId,
-          agent: request.agent,
-          cacheKey,
-        });
-
-        // Update metadata with cache info
-        cachedResponse.metadata = {
-          ...cachedResponse.metadata,
-          traceId,
-          cached: true,
-          cacheHitAt: new Date().toISOString(),
-        };
-
-        return cachedResponse;
-      }
-
-      logger.info("Agent output cache miss, executing agent", {
-        traceId,
-        agent: request.agent,
-        cacheKey,
-      });
-
-      // Add idempotency check
+      // Add idempotency check before cache
       if (request.idempotencyKey) {
         const existingResponse = await this.checkIdempotency(
           request.idempotencyKey
@@ -357,64 +312,54 @@ export class UnifiedAgentAPI {
         }
       }
 
-      // Get circuit breaker for this agent
-      const circuitBreakerKey = `agent-${request.agent}`;
+      const tenantId =
+        sanitizedRequest.context?.organizationId ||
+        sanitizedRequest.context?.organization_id ||
+        "system";
 
-      // Execute with circuit breaker protection
-      const response = await this.circuitBreakers.execute(
-        circuitBreakerKey,
-        () => this.executeAgentRequest(sanitizedRequest, traceId),
+      // Cache agent outputs via ReadThroughCacheService (tenant-scoped Redis). ADR-0012.
+      const result = await ReadThroughCacheService.getOrLoad<UnifiedAgentResponse<T>>(
         {
-          timeoutMs: this.config.timeout,
-          // Convert failure threshold count to rate (e.g., 5 failures = 0.5 rate)
-          failureRateThreshold: (this.config.failureThreshold || 5) / 10,
-        }
-      );
-
-      const enrichedResponse = await this.attachGroundtruth(
-        sanitizedRequest,
-        response,
-        traceId
-      );
-      const duration = Date.now() - startTime;
-
-      // Add metadata
-      const result: UnifiedAgentResponse<T> = {
-        ...enrichedResponse,
-        metadata: {
-          agent: request.agent,
-          duration,
-          timestamp: new Date().toISOString(),
-          traceId,
-          cached: false,
-          ...enrichedResponse.metadata,
+          endpoint: `agent-outputs/${request.agent}`,
+          tenantId,
+          tier: "medium",
+          keyPayload: this.generateAgentCacheKey(sanitizedRequest),
         },
-      };
+        async () => {
+          const circuitBreakerKey = `agent-${request.agent}`;
+          const response = await this.circuitBreakers.execute(
+            circuitBreakerKey,
+            () => this.executeAgentRequest(sanitizedRequest, traceId),
+            {
+              timeoutMs: this.config.timeout,
+              failureRateThreshold: (this.config.failureThreshold || 5) / 10,
+            }
+          );
 
-      // Cache successful responses (only if not already cached by idempotency)
-      if (result.success && !request.idempotencyKey) {
-        try {
-          await cacheService.set(cacheKey, result, {
-            storage: "redis",
-            namespace: "agent-outputs",
-            ttl: 10 * 60 * 1000, // 10 minutes
-          });
-          logger.debug("Agent output cached", {
-            traceId,
-            agent: request.agent,
-            cacheKey,
-          });
-        } catch (cacheError) {
-          logger.warn("Failed to cache agent output", {
-            traceId,
-            agent: request.agent,
-            cacheKey,
-            error:
-              cacheError instanceof Error
-                ? cacheError.message
-                : String(cacheError),
-          });
+          const enrichedResponse = await this.attachGroundtruth(
+            sanitizedRequest,
+            response,
+            traceId
+          );
+          const duration = Date.now() - startTime;
+
+          return {
+            ...enrichedResponse,
+            metadata: {
+              agent: request.agent,
+              duration,
+              timestamp: new Date().toISOString(),
+              traceId,
+              cached: false,
+              ...enrichedResponse.metadata,
+            },
+          };
         }
+      );
+
+      // Stamp traceId on cached responses
+      if (result.metadata) {
+        result.metadata.traceId = traceId;
       }
 
       // Log to audit

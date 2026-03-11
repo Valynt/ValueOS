@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { useAuditLog } from "../../../features/audit";
 
 import { useComplianceLiveStatus } from "./useComplianceLiveStatus";
@@ -21,9 +23,8 @@ export function AuditLogsPage() {
   const { data: auditData, isLoading } = useQuery({
     queryKey: ["compliance-audit-logs"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/compliance/audit-logs?limit=25");
-      if (!response.ok) throw new Error("Failed to load audit logs");
-      return response.json() as Promise<{ logs: AuditLogItem[] }>;
+      const res = await apiClient.get<{ logs: AuditLogItem[] }>("/api/admin/compliance/audit-logs?limit=25");
+      return res.data;
     },
     refetchInterval: 45000,
   });

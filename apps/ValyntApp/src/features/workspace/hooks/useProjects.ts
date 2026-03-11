@@ -9,6 +9,9 @@ export function useProjects(workspaceId?: string) {
   const [error, setError] = useState<string | null>(null);
   const { session } = useAuth();
 
+  // Raw fetch retained throughout this hook: apiClient.setAuthToken is not yet
+  // wired to the Supabase session in app bootstrap, so auth must be attached
+  // manually here (see debt.md).
   const getHeaders = useCallback(() => {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',

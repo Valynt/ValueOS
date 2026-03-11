@@ -7,6 +7,8 @@ import { Copy, Gift, Share2, TrendingUp, Users } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
+import { apiClient } from '@/api/client/unified-api-client';
+
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -63,16 +65,8 @@ export const ReferralDashboard: React.FC = () => {
 
   const fetchReferralDashboard = async () => {
     try {
-      const response = await fetch('/api/referrals/dashboard', {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch referral dashboard');
-      }
-
-      const data = await response.json();
-      setDashboard(data.dashboard);
+      const res = await apiClient.get<{ dashboard: ReferralDashboard }>('/api/referrals/dashboard');
+      setDashboard(res.data?.dashboard ?? null);
     } catch (error) {
       console.error('Error fetching referral dashboard:', error);
       toast.error('Failed to load referral data');
