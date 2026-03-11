@@ -15,6 +15,7 @@ export const RESOURCES = {
   VALUE_TREES: "value_trees",
   COMMITMENTS: "commitments",
   AGENTS: "agents",
+  APPROVALS: "approvals",
 } as const;
 
 export type Resource = (typeof RESOURCES)[keyof typeof RESOURCES];
@@ -79,6 +80,10 @@ export const PERMISSIONS = {
   AGENTS_VIEW: "agents:view" as Permission,
   AGENTS_CREATE: "agents:create" as Permission,
   AGENTS_EXECUTE: "agents:execute" as Permission,
+
+  APPROVALS_VIEW: "approvals:view" as Permission,
+  APPROVALS_CREATE: "approvals:create" as Permission,
+  APPROVALS_MANAGE: "approvals:manage" as Permission,
 } as const;
 
 export function parsePermission(permission: string): { resource: string; action: string } | null {

@@ -12,12 +12,41 @@
  */
 
 // Browser-compatible hash function (replaces Node.js crypto)
+import { SupabaseClient } from "@supabase/supabase-js";
+
 import { logger } from "../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
 import type { AuditLogEntry } from "../types";
 
 import { BaseService } from "./BaseService.js";
+
+// audit_logs is not in the generated Database type — use a typed helper
+// rather than scattering `as any` across every query.
+function auditLogsTable(supabase: SupabaseClient) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase as any).from("audit_logs");
+}
+
+/** Shape of a persisted audit log row returned from the database. */
+export interface AuditLogEntry {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  details?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+  status: "success" | "failed";
+  integrity_hash: string;
+  previous_hash?: string;
+  timestamp: string;
+  archived?: boolean;
+}
 
 export interface AuditLogCreateInput {
   userId: string;
@@ -152,8 +181,8 @@ export class AuditLogService extends BaseService {
     user_id: string;
     session_id?: string;
     organization_id?: string;
-    action_data: any;
-    result_data: any;
+    action_data: Record<string, unknown>;
+    result_data: Record<string, unknown>;
     success: boolean;
     error_message?: string;
     duration_ms: number;
