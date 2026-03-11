@@ -1,0 +1,286 @@
+name: Migration chain integrity
+
+# Verifies that the active migration chain applies cleanly from a blank
+# Postgres database with no manual pre-steps. Catches:
+#   - Missing table dependencies (tables referenced but not created)
+#   - Index references to non-existent tables or columns
+#   - RLS policies that reference missing functions
+#   - Any SQL syntax error in a migration file
+#
+# Runs on every PR and push that touches migrations, and nightly on main.
+
+on:
+  pull_request:
+    paths:
+      - "infra/supabase/supabase/migrations/**"
+  push:
+    branches: [main, develop]
+    paths:
+      - "infra/supabase/supabase/migrations/**"
+  schedule:
+    # Nightly at 03:00 UTC — catches drift even when no migration PRs are open.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: migration-integrity-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  clean-apply:
+    name: Clean apply from zero
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: valueos_test
+          # Required for pgvector and other extensions
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/valueos_test
+      MIGRATIONS_DIR: infra/supabase/supabase/migrations
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Postgres client and pgvector
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          # Install pgvector extension into the test database
+          PGPASSWORD=postgres psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+          PGPASSWORD=postgres psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;" || true
+          PGPASSWORD=postgres psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" || true
+
+      - name: Stub auth schema
+        # Supabase provides auth.uid() and auth.jwt() in hosted environments.
+        # Stub them here so migrations that call these functions don't fail.
+        run: |
+          PGPASSWORD=postgres psql "$DATABASE_URL" <<'SQL'
+            CREATE SCHEMA IF NOT EXISTS auth;
+
+            CREATE OR REPLACE FUNCTION auth.uid()
+            RETURNS uuid
+            LANGUAGE sql STABLE
+            AS $$ SELECT NULL::uuid $$;
+
+            CREATE OR REPLACE FUNCTION auth.jwt()
+            RETURNS jsonb
+            LANGUAGE sql STABLE
+            AS $$ SELECT '{}'::jsonb $$;
+
+            CREATE OR REPLACE FUNCTION auth.role()
+            RETURNS text
+            LANGUAGE sql STABLE
+            AS $$ SELECT 'anon'::text $$;
+          SQL
+
+      - name: Apply active migrations in order
+        run: |
+          set -euo pipefail
+
+          MIGRATIONS_DIR="${{ env.MIGRATIONS_DIR }}"
+          DB="${{ env.DATABASE_URL }}"
+          FAILED=0
+
+          echo "Applying migrations from: $MIGRATIONS_DIR"
+          echo ""
+
+          # Apply only top-level .sql files (not rollbacks, not _deferred/, not _archived/)
+          # Sort by filename (timestamp order).
+          while IFS= read -r -d '' migration; do
+            filename=$(basename "$migration")
+
+            # Skip rollback files
+            if [[ "$filename" == *.rollback.sql ]]; then
+              echo "  skip (rollback): $filename"
+              continue
+            fi
+
+            echo "  applying: $filename"
+            if ! PGPASSWORD=postgres psql "$DB" -v ON_ERROR_STOP=1 -f "$migration" > /tmp/migration_output.txt 2>&1; then
+              echo ""
+              echo "FAILED: $filename"
+              cat /tmp/migration_output.txt
+              FAILED=1
+              break
+            fi
+          done < <(find "$MIGRATIONS_DIR" -maxdepth 1 -name "*.sql" -print0 | sort -z)
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Migration chain is broken. A fresh database cannot be provisioned."
+            exit 1
+          fi
+
+          echo ""
+          echo "All migrations applied successfully."
+
+      - name: Verify load-bearing tables exist
+        # These are the tables that active migrations reference but don't create —
+        # they must now exist from the canonical baseline migration.
+        run: |
+          set -euo pipefail
+          DB="${{ env.DATABASE_URL }}"
+
+          REQUIRED_TABLES=(
+            tenants
+            user_tenants
+            memberships
+            value_cases
+            agent_memory
+            billing_customers
+            subscriptions
+            invoices
+            webhook_events
+            audit_logs
+            security_audit_log
+          )
+
+          MISSING=0
+          for table in "${REQUIRED_TABLES[@]}"; do
+            count=$(PGPASSWORD=postgres psql "$DB" -t -c \
+              "SELECT COUNT(*) FROM information_schema.tables
+               WHERE table_schema = 'public' AND table_name = '$table';" | tr -d ' ')
+            if [ "$count" -eq 0 ]; then
+              echo "MISSING TABLE: $table"
+              MISSING=1
+            else
+              echo "  ok: $table"
+            fi
+          done
+
+          if [ "$MISSING" -eq 1 ]; then
+            echo ""
+            echo "Required tables are missing after clean apply."
+            exit 1
+          fi
+
+      - name: Verify security schema and RLS functions exist
+        run: |
+          set -euo pipefail
+          DB="${{ env.DATABASE_URL }}"
+
+          # security.user_has_tenant_access must exist — all active RLS policies call it.
+          count=$(PGPASSWORD=postgres psql "$DB" -t -c \
+            "SELECT COUNT(*) FROM pg_proc p
+             JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'security'
+               AND p.proname = 'user_has_tenant_access';" | tr -d ' ')
+
+          if [ "$count" -lt 2 ]; then
+            echo "MISSING: security.user_has_tenant_access (expected TEXT and UUID overloads, found $count)"
+            exit 1
+          fi
+          echo "  ok: security.user_has_tenant_access ($count overloads)"
+
+      - name: Verify RLS is enabled on tenant-scoped tables
+        run: |
+          set -euo pipefail
+          DB="${{ env.DATABASE_URL }}"
+
+          # These tables must have RLS enabled after a clean apply.
+          REQUIRED_RLS=(
+            tenants
+            user_tenants
+            memberships
+            value_cases
+            agent_memory
+            audit_logs
+            security_audit_log
+            semantic_memory
+            hypothesis_outputs
+            financial_model_snapshots
+            integrity_outputs
+            narrative_drafts
+            realization_reports
+            expansion_opportunities
+            saga_transitions
+            workflow_checkpoints
+            value_loop_events
+          )
+
+          MISSING_RLS=0
+          for table in "${REQUIRED_RLS[@]}"; do
+            rls=$(PGPASSWORD=postgres psql "$DB" -t -c \
+              "SELECT rowsecurity FROM pg_tables
+               WHERE schemaname = 'public' AND tablename = '$table';" | tr -d ' ')
+            if [ "$rls" != "t" ]; then
+              echo "RLS NOT ENABLED: $table (rowsecurity=$rls)"
+              MISSING_RLS=1
+            else
+              echo "  ok: $table"
+            fi
+          done
+
+          if [ "$MISSING_RLS" -eq 1 ]; then
+            echo ""
+            echo "One or more tenant-scoped tables are missing RLS."
+            exit 1
+          fi
+
+      - name: Verify indexes reference real columns
+        # Catches the class of bug where a performance index was added for a
+        # column that doesn't exist on the table (e.g., tenant_id on a table
+        # that only has organization_id).
+        run: |
+          set -euo pipefail
+          DB="${{ env.DATABASE_URL }}"
+
+          INVALID=$(PGPASSWORD=postgres psql "$DB" -t -c "
+            SELECT
+              n.nspname || '.' || t.relname AS table_name,
+              i.relname                     AS index_name,
+              a.attname                     AS column_name
+            FROM pg_index ix
+            JOIN pg_class  t ON t.oid = ix.indrelid
+            JOIN pg_class  i ON i.oid = ix.indexrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            -- Unnest the index key attribute numbers
+            JOIN LATERAL unnest(ix.indkey) AS k(attnum) ON true
+            -- Left join to find columns that don't exist
+            LEFT JOIN pg_attribute a
+              ON a.attrelid = ix.indrelid AND a.attnum = k.attnum
+            WHERE n.nspname = 'public'
+              AND k.attnum > 0
+              AND a.attname IS NULL
+            ORDER BY table_name, index_name;
+          " | grep -v "^$" || true)
+
+          if [ -n "$INVALID" ]; then
+            echo "Indexes referencing non-existent columns:"
+            echo "$INVALID"
+            exit 1
+          fi
+          echo "  ok: all indexes reference valid columns"
+
+      - name: Verify compute_portfolio_value is not SECURITY DEFINER
+        # Ensures the security patch (20260328000000) is in effect.
+        run: |
+          set -euo pipefail
+          DB="${{ env.DATABASE_URL }}"
+
+          sec_def=$(PGPASSWORD=postgres psql "$DB" -t -c \
+            "SELECT prosecdef FROM pg_proc p
+             JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public'
+               AND p.proname = 'compute_portfolio_value'
+             LIMIT 1;" | tr -d ' ')
+
+          if [ "$sec_def" = "t" ]; then
+            echo "SECURITY VIOLATION: compute_portfolio_value is still SECURITY DEFINER."
+            echo "The cross-tenant exposure patch (20260328000000) was not applied."
+            exit 1
+          fi
+          echo "  ok: compute_portfolio_value is SECURITY INVOKER"
