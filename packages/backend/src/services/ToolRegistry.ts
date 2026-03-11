@@ -241,14 +241,19 @@ export class ToolRegistry {
       // Failed calls are not billed (per billing-v2 spec).
       if (result.success && context?.tenantId) {
         try {
+          const idempotencyKey =
+            context?.requestId
+              ? `${context.requestId}:${toolName}`
+              : context?.sessionId
+                ? `${context.sessionId}:${toolName}`
+                : undefined;
+
           getMetricsCollector().recordUsage({
             tenantId: context.tenantId,
             metric: 'api_calls',
             quantity: 1,
             path: `/tools/${toolName}`,
-            idempotencyKey: context.sessionId
-              ? `${context.sessionId}:${toolName}:${Date.now()}`
-              : undefined,
+            idempotencyKey,
           });
         } catch { /* metering is non-fatal */ }
       }
