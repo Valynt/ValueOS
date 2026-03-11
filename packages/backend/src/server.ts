@@ -474,6 +474,8 @@ app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
 app.use("/api/v1/cases", valueCasesRouter);
+// Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
+app.use("/api/v1/value-cases", valueCasesRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 // Mount checkpoint HITL endpoints
