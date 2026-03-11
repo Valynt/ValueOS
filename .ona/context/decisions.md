@@ -124,6 +124,20 @@ Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRe
 
 **Files:** `packages/backend/src/lib/rbacInvalidation.ts`, `packages/backend/src/services/auth/PermissionService.ts`, `packages/backend/src/server.ts`
 
+### High-volume table partitioning (Sprint 16)
+
+`usage_ledger`, `rated_ledger`, `saga_transitions`, and `value_loop_events` are now `PARTITION BY RANGE (created_at / rated_at)` tables (migration `20260401000000`). Monthly partitions are created explicitly; a `_p_default` catch-all partition absorbs rows that fall outside named ranges.
+
+**Scheduler requirement:** A cron job must call `SELECT public.create_next_monthly_partitions()` monthly (e.g. `0 0 1 * *`) to create the next two partitions before they are needed. Without this, new rows fall into `_p_default` and are never pruned. Wire via pg_cron or an external scheduler before the first month boundary after deployment.
+
+**PK change:** Composite PKs `(id, partition_key)` replace the previous uuid-only PKs. Application queries by `id` alone still work. FK references to these tables from other tables are not supported by Postgres on partitioned tables — use application-level joins instead.
+
+**Trade-off accepted:** The `_p_default` partition is a safety net, not a long-term home. Rows in `_p_default` cannot be moved to a named partition without a `DELETE + INSERT`. Monitor `_p_default` row count; if it grows, the scheduler is not running.
+
+**Files:** `infra/supabase/supabase/migrations/20260401000000_partition_high_volume_tables.sql`
+
+---
+
 ### RecommendationEngine is the sixth runtime service
 
 `packages/backend/src/runtime/recommendation-engine/RecommendationEngine.ts` is a fully wired runtime service alongside the five originally documented ones (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). It subscribes to four domain events (`opportunity.updated`, `hypothesis.validated`, `evidence.attached`, `realization.milestone_reached`) and pushes next-best-action `Recommendation` objects to UI clients via `RealtimeBroadcastService`. It is started in `server.ts` and has its own test suite. All references to "five runtime services" in documentation were incorrect — there are six.

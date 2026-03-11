@@ -120,6 +120,26 @@ browser to handler: `server.ts mount` + `router path` + `endpoint path`.
 
 ---
 
+## Tenant Deletion Workflow (Sprint 16)
+
+`TenantDeletionService` (`packages/backend/src/services/tenant/TenantDeletionService.ts`) implements three-phase offboarding:
+
+1. **Soft delete** (`initiateSoftDelete`) — marks `status = 'pending_deletion'`, sets `deletion_scheduled_at = now + 30 days`, cancels billing via `deprovisionTenant`. Exposed at `POST /admin/tenants/:tenantId/delete`.
+2. **Export** (`exportTenantData`) — dumps all tenant rows from every table in FK-safe order to a JSON archive, records `data_exported_at`. Exposed at `POST /admin/tenants/:tenantId/export`. Caller is responsible for storing the archive.
+3. **Hard delete** (`hardDelete`) — deletes rows in FK-safe order, marks `status = 'deleted'`. Gated on `data_exported_at IS NOT NULL` and `deletion_scheduled_at <= now`. Exposed at `POST /admin/tenants/:tenantId/hard-delete`.
+
+`processScheduledDeletions()` is the cron entry point — call it daily to process tenants whose 30-day window has elapsed. Exposed at `POST /admin/tenants/process-scheduled-deletions`.
+
+**Non-obvious behaviour:**
+- Hard delete continues past per-table errors (partial deletion is retriable; stopping mid-run leaves orphaned rows that are harder to clean up).
+- The 30-day window is a constant in the service (`SOFT_DELETE_DAYS = 30`), not a per-tenant config. Change it there if the business requirement changes.
+- The export does not include `auth.users` rows — those are managed by Supabase Auth and require a separate erasure call via the Auth admin API.
+- `crm_connections` is included in the FK-safe deletion order; encrypted tokens are deleted with the row.
+
+**Migration:** `20260401030000_tenant_deletion_columns.sql` adds `deletion_requested_at`, `deletion_scheduled_at`, `data_exported_at`, `deleted_at`, `deletion_reason`, `deletion_requested_by` to `tenants` and extends the `status` check constraint to include `pending_deletion`.
+
+---
+
 ## Recurring Review Checklist
 
 Before submitting any PR that touches agent code, verify:

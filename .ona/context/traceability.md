@@ -182,6 +182,18 @@ Frontend hook
 API: `GET|POST /api/integrations` → `integrationsRouter` (mounted in server.ts)  
 CRM: `GET|POST /api/crm` → `crmRouter` (mounted in server.ts)
 
+### CRM connection persistence
+
+| Layer | Artifact | Status |
+|---|---|---|
+| **DB table** | `crm_connections` — migration `20260401020000_crm_connections.sql` | ✅ |
+| **Service** | `CrmConnectionService.ts` — CRUD for OAuth connections | ✅ |
+| **Encryption** | `tokenEncryption.ts` — AES-256-GCM envelope encryption with key versioning | ✅ |
+| **Key rotation** | `TokenReEncryptionJob.ts` — re-encrypts rows after `CRM_TOKEN_KEY_VERSION` bump | ✅ |
+| **Admin endpoint** | `POST /admin/crm/re-encrypt-tokens` — triggers re-encryption job | ✅ |
+
+`crm_connections` has a `token_key_version` column (indexed) that the re-encryption job filters on. After rotating `CRM_TOKEN_KEY_VERSION`, call the admin endpoint to re-encrypt existing rows. The job is idempotent and processes in batches of 50.
+
 ---
 
 ## Frontend Component → Route Map

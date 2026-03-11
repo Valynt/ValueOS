@@ -99,3 +99,16 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | Standalone agents in `packages/agents/` used in production | Superseded by agent-fabric; deprecated | 2026-02 |
 | Missing `workflow_checkpoints` migration | Migration added | 2026-02 |
 | Missing `financial_model_snapshots` migration | Migration added | 2026-02 |
+| Missing `sessions`, `messages`, `agent_audit_logs` migrations (GDPR Art.17 gap) | Migration `20260331000000_p1_missing_tables.sql` | 2026-03 |
+| Missing `workflow_executions`, `prompt_executions`, `agent_predictions`, `active_sessions` migrations | Migration `20260331010000_deferred_tables.sql` | 2026-03 |
+| Deferred performance indexes with no target tables | Tables created; indexes promoted in `20260331020000_promote_deferred_indexes.sql` | 2026-03 |
+| `AuditLogService.ts` — all `audit_logs` queries cast as `any` | `AuditLogEntry` type added; all casts removed | 2026-03 |
+| `pnpm run test:rls` was a no-op (documented but not wired) | Script wired in `package.json` | 2026-03 |
+| `value_cases` queries used `tenant_id` only, missing rows with only `organization_id` set | `ValueCaseService.ts` queries updated to `.or(tenant_id,organization_id)` | 2026-03 |
+| `semantic_memory` had no `embedding_model` column — stale vectors undetectable after model change | Column + index added in `20260331040000_semantic_memory_embedding_model.sql` | 2026-03 |
+| No `created_by`/`updated_by` actor columns on mutable tables | Added to `value_cases`, `hypothesis_outputs`, `integrity_outputs`, `narrative_drafts`, `realization_reports` in `20260331030000_actor_columns.sql` | 2026-03 |
+| `usage_ledger`, `rated_ledger`, `saga_transitions`, `value_loop_events` — no partitioning | Converted to monthly `PARTITION BY RANGE` in `20260401000000`; `create_next_monthly_partitions()` function added | 2026-04 |
+| `claims`, `kpis`, `milestones`, `risks` buried in jsonb — unindexable for aggregation | Scalar count columns promoted on `integrity_outputs` and `realization_reports` in `20260401010000` | 2026-04 |
+| `crm_connections` had no active migration (only in archived monolith) | Migration `20260401020000_crm_connections.sql` added | 2026-04 |
+| Key rotation incomplete — no job to re-encrypt existing ciphertext | `TokenReEncryptionJob.ts` + `POST /admin/crm/re-encrypt-tokens` | 2026-04 |
+| No tenant deletion workflow (offboarding path undefined) | `TenantDeletionService.ts` (3-phase) + 4 admin endpoints + `20260401030000_tenant_deletion_columns.sql` | 2026-04 |
