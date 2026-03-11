@@ -69,10 +69,10 @@ describe("MCP Server Integration", () => {
 
       // Mock database connections
       const mockSupabase = require("../../src/lib/supabase").supabase;
-      mockSupabase.from = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+      mockSupabase.from = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [],
               error: null,
             }),
@@ -104,7 +104,7 @@ describe("MCP Server Integration", () => {
   describe("Rate Limiting Integration", () => {
     beforeEach(async () => {
       // Set up successful initialization
-      jest.spyOn(configManager, "loadConfig").mockResolvedValue({
+      vi.spyOn(configManager, "loadConfig").mockResolvedValue({
         environment: "test",
         debug: true,
         logLevel: "debug",
@@ -128,10 +128,10 @@ describe("MCP Server Integration", () => {
 
       // Mock successful database connection
       const mockSupabase = require("../../src/lib/supabase").supabase;
-      mockSupabase.from = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+      mockSupabase.from = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 {
                   id: "test-connection",
@@ -150,10 +150,10 @@ describe("MCP Server Integration", () => {
       });
 
       // Mock HubSpot module
-      jest.doMock("../../src/mcp-crm/modules/HubSpotModule", () => ({
-        HubSpotModule: jest.fn().mockImplementation(() => ({
+      vi.doMock("../../src/mcp-crm/modules/HubSpotModule", () => ({
+        HubSpotModule: vi.fn().mockImplementation(() => ({
           provider: "hubspot",
-          searchDeals: jest.fn().mockResolvedValue({
+          searchDeals: vi.fn().mockResolvedValue({
             deals: [],
             total: 0,
             hasMore: false,
@@ -195,7 +195,7 @@ describe("MCP Server Integration", () => {
       const HubSpotModule = require("../../src/mcp-crm/modules/HubSpotModule").HubSpotModule;
       HubSpotModule.mockImplementation(() => ({
         provider: "hubspot",
-        searchDeals: jest.fn().mockRejectedValue(new Error("API Error")),
+        searchDeals: vi.fn().mockRejectedValue(new Error("API Error")),
       }));
 
       await crmServer.executeTool("crm_search_deals", { limit: 1 });
@@ -209,7 +209,7 @@ describe("MCP Server Integration", () => {
   describe("Configuration Integration", () => {
     it("should use configuration for field mappings", async () => {
       // Mock successful initialization
-      jest.spyOn(configManager, "loadConfig").mockResolvedValue({
+      vi.spyOn(configManager, "loadConfig").mockResolvedValue({
         environment: "test",
         debug: true,
         logLevel: "debug",
@@ -237,10 +237,10 @@ describe("MCP Server Integration", () => {
 
       // Mock database connection
       const mockSupabase = require("../../src/lib/supabase").supabase;
-      mockSupabase.from = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+      mockSupabase.from = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 {
                   id: "test-connection",
@@ -269,7 +269,7 @@ describe("MCP Server Integration", () => {
   describe("Error Handling Integration", () => {
     it("should handle configuration errors gracefully", async () => {
       // Mock invalid configuration
-      jest.spyOn(configManager, "loadConfig").mockResolvedValue({
+      vi.spyOn(configManager, "loadConfig").mockResolvedValue({
         environment: "invalid",
         debug: "not-boolean",
         // Missing required fields
@@ -285,7 +285,7 @@ describe("MCP Server Integration", () => {
 
     it("should handle rate limiter errors gracefully", async () => {
       // Mock successful config but rate limiter failure
-      jest.spyOn(configManager, "loadConfig").mockResolvedValue({
+      vi.spyOn(configManager, "loadConfig").mockResolvedValue({
         environment: "test",
         debug: true,
         logLevel: "debug",
@@ -309,10 +309,10 @@ describe("MCP Server Integration", () => {
 
       // Mock database connection
       const mockSupabase = require("../../src/lib/supabase").supabase;
-      mockSupabase.from = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+      mockSupabase.from = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 {
                   id: "test-connection",
@@ -341,7 +341,7 @@ describe("MCP Server Integration", () => {
       const startTime = Date.now();
 
       // Mock successful initialization
-      jest.spyOn(configManager, "loadConfig").mockResolvedValue({
+      vi.spyOn(configManager, "loadConfig").mockResolvedValue({
         environment: "test",
         debug: true,
         logLevel: "debug",
@@ -365,10 +365,10 @@ describe("MCP Server Integration", () => {
 
       // Mock database connection
       const mockSupabase = require("../../src/lib/supabase").supabase;
-      mockSupabase.from = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+      mockSupabase.from = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 {
                   id: "test-connection",
@@ -392,7 +392,7 @@ describe("MCP Server Integration", () => {
 
     it("should handle concurrent tool execution efficiently", async () => {
       // Mock successful initialization
-      jest.spyOn(configManager, "loadConfig").mockResolvedValue({
+      vi.spyOn(configManager, "loadConfig").mockResolvedValue({
         environment: "test",
         debug: true,
         logLevel: "debug",
@@ -416,10 +416,10 @@ describe("MCP Server Integration", () => {
 
       // Mock database connection
       const mockSupabase = require("../../src/lib/supabase").supabase;
-      mockSupabase.from = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+      mockSupabase.from = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 {
                   id: "test-connection",

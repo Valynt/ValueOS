@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 /**
  * Connection Pool Tests
  *
@@ -274,7 +275,7 @@ describe("HTTPConnectionPool", () => {
   describe("HTTP Operations", () => {
     it("should make HTTP requests with correct headers", async () => {
       // Mock fetch
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ data: "test" }),
       });
@@ -298,7 +299,7 @@ describe("HTTPConnectionPool", () => {
     });
 
     it("should handle HTTP errors gracefully", async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
         statusText: "Not Found",
@@ -310,7 +311,7 @@ describe("HTTPConnectionPool", () => {
     });
 
     it("should handle network errors", async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error("Network error"));
+      global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 
       await expect(httpPool.makeRequest("/error")).rejects.toThrow("Network error");
     });

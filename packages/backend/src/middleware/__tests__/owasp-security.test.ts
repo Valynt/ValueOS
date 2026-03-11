@@ -196,26 +196,14 @@ describe("OWASP Security Hardening Tests", () => {
   describe("SSRF Protection", () => {
     // Note: SSRF tests would be in NetworkSegmentation.test.ts
     // These are integration tests that require the full service
-    it("should block localhost access", () => {
-      // This would be tested in the NetworkSegmentation service
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should block localhost access");
 
-    it("should block private IP ranges", () => {
-      // This would be tested in the NetworkSegmentation service
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should block private IP ranges");
   });
 
   describe("XSS Protection", () => {
-    it("should sanitize HTML input", () => {
-      // This would be tested in the frontend InputSanitizer tests
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should sanitize HTML input");
 
-    it("should encode dangerous characters", () => {
-      // This would be tested in the frontend InputSanitizer tests
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo("should encode dangerous characters");
   });
 });

@@ -44,6 +44,6 @@ describe("Application Smoke Test", () => {
     await import("../utils/cache");
     await import("../utils/export");
     await import("../utils/settingsErrorHandler");
-    expect(true).toBe(true);
+    // Completing all imports without throwing is the assertion
   });
 });

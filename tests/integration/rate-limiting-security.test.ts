@@ -1,10 +1,10 @@
+import { vi } from 'vitest';
 /**
  * Integration Tests for Rate Limiting Security Enhancement
  *
  * Comprehensive test suite covering all threat scenarios and edge cases
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
 
 import { AdvancedThreatDetectionService } from '../src/services/AdvancedThreatDetectionService';
 import { DynamicBaselineService } from '../src/services/DynamicBaselineService';
@@ -18,21 +18,21 @@ import { SecurityEventValidator } from '../src/services/SecurityEventValidator';
 
 // Mock Supabase client
 const mockSupabase = {
-  from: jest.fn(() => mockSupabase),
-  select: jest.fn(() => mockSupabase),
-  insert: jest.fn(() => mockSupabase),
-  update: jest.fn(() => mockSupabase),
-  delete: jest.fn(() => mockSupabase),
-  eq: jest.fn(() => mockSupabase),
-  gte: jest.fn(() => mockSupabase),
-  lte: jest.fn(() => mockSupabase),
-  order: jest.fn(() => mockSupabase),
-  limit: jest.fn(() => mockSupabase),
-  single: jest.fn(() => mockSupabase),
-  maybeSingle: jest.fn(() => mockSupabase),
-  in: jest.fn(() => mockSupabase),
-  match: jest.fn(() => mockSupabase),
-  then: jest.fn((resolve) => resolve({
+  from: vi.fn(() => mockSupabase),
+  select: vi.fn(() => mockSupabase),
+  insert: vi.fn(() => mockSupabase),
+  update: vi.fn(() => mockSupabase),
+  delete: vi.fn(() => mockSupabase),
+  eq: vi.fn(() => mockSupabase),
+  gte: vi.fn(() => mockSupabase),
+  lte: vi.fn(() => mockSupabase),
+  order: vi.fn(() => mockSupabase),
+  limit: vi.fn(() => mockSupabase),
+  single: vi.fn(() => mockSupabase),
+  maybeSingle: vi.fn(() => mockSupabase),
+  in: vi.fn(() => mockSupabase),
+  match: vi.fn(() => mockSupabase),
+  then: vi.fn((resolve) => resolve({
     data: [],
     error: null
   }))
@@ -40,28 +40,28 @@ const mockSupabase = {
 
 // Mock Redis client
 const mockRedisClient = {
-  get: jest.fn(),
-  set: jest.fn(),
-  setex: jest.fn(),
-  del: jest.fn(),
-  ttl: jest.fn(),
-  ping: jest.fn(() => Promise.resolve('PONG'))
+  get: vi.fn(),
+  set: vi.fn(),
+  setex: vi.fn(),
+  del: vi.fn(),
+  ttl: vi.fn(),
+  ping: vi.fn(() => Promise.resolve('PONG'))
 };
 
 // Mock logger
 const mockLogger = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn()
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn()
 };
 
-jest.mock('../src/lib/logger', () => ({
+vi.mock('../src/lib/logger', () => ({
   logger: mockLogger
 }));
 
-jest.mock('@lib/redisClient', () => ({
-  getRedisClient: jest.fn(() => Promise.resolve(mockRedisClient))
+vi.mock('@lib/redisClient', () => ({
+  getRedisClient: vi.fn(() => Promise.resolve(mockRedisClient))
 }));
 
 describe('Rate Limiting Security Enhancement Integration Tests', () => {
@@ -86,7 +86,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Reset circuit breaker
     redisCircuitBreaker.resetAllCircuits();
@@ -133,7 +133,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
     it('should fallback to statistical detection when ML fails', async () => {
       // Mock ML service failure
-      jest.spyOn(mlService, 'analyzeEvent').mockRejectedValue(new Error('ML service unavailable'));
+      vi.spyOn(mlService, 'analyzeEvent').mockRejectedValue(new Error('ML service unavailable'));
 
       const securityEvent = {
         tenantId: 'tenant-1',
@@ -246,7 +246,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
     it('should detect anomalies using dynamic baselines', async () => {
       // Mock baseline with specific values
-      jest.spyOn(baselineService, 'isAnomalous').mockResolvedValue({
+      vi.spyOn(baselineService, 'isAnomalous').mockResolvedValue({
         isAnomalous: true,
         baseline: {
           id: 'baseline-1',
@@ -267,7 +267,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
     });
 
     it('should record metrics for baseline learning', async () => {
-      const recordSpy = jest.spyOn(baselineService, 'recordMetric');
+      const recordSpy = vi.spyOn(baselineService, 'recordMetric');
 
       await baselineService.recordMetric('tenant-1', 'login_spike', 75, {
         eventType: 'auth.success',
@@ -316,7 +316,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
     it('should check IP block status', async () => {
       // Mock IP is blocked
-      jest.spyOn(enforcementService, 'isIPBlocked').mockResolvedValue(true);
+      vi.spyOn(enforcementService, 'isIPBlocked').mockResolvedValue(true);
 
       const isBlocked = await enforcementService.isIPBlocked('192.168.1.100', 'tenant-1');
 
@@ -325,7 +325,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
     it('should check user quarantine status', async () => {
       // Mock user is quarantined
-      jest.spyOn(enforcementService, 'isUserQuarantined').mockResolvedValue(true);
+      vi.spyOn(enforcementService, 'isUserQuarantined').mockResolvedValue(true);
 
       const isQuarantined = await enforcementService.isUserQuarantined('user-1', 'tenant-1');
 
@@ -348,7 +348,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
       };
 
       // Mock threat detection
-      jest.spyOn(threatDetectionService, 'analyzeSecurityEvent').mockResolvedValue({
+      vi.spyOn(threatDetectionService, 'analyzeSecurityEvent').mockResolvedValue({
         threats: [{
           id: 'brute_force_attempt',
           name: 'Brute Force Attack',
@@ -362,7 +362,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
       });
 
       // Mock incident creation
-      jest.spyOn(securityAutomationService as any, 'createSecurityIncident').mockResolvedValue({
+      vi.spyOn(securityAutomationService as any, 'createSecurityIncident').mockResolvedValue({
         id: 'incident-1',
         tenantId: 'tenant-1',
         title: 'AUTHENTICATION: Brute Force Attack',
@@ -457,7 +457,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
     it('should use fallback when Redis fails', async () => {
       // Mock Redis failure
-      jest.spyOn(mockRedisClient, 'get').mockRejectedValue(new Error('Redis connection failed'));
+      vi.spyOn(mockRedisClient, 'get').mockRejectedValue(new Error('Redis connection failed'));
 
       const result = await redisCircuitBreaker.execute({
         operation: () => mockRedisClient.get('test-key'),
@@ -535,7 +535,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
       };
 
       // Mock metrics query
-      jest.spyOn(metricsService as any, 'queryMetrics').mockResolvedValue([]);
+      vi.spyOn(metricsService as any, 'queryMetrics').mockResolvedValue([]);
 
       const dashboard = await metricsService.getDashboard(query);
 
@@ -715,7 +715,7 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
     it('should maintain performance during Redis failures', async () => {
       // Mock Redis failure
-      jest.spyOn(mockRedisClient, 'get').mockRejectedValue(new Error('Redis unavailable'));
+      vi.spyOn(mockRedisClient, 'get').mockRejectedValue(new Error('Redis unavailable'));
 
       const events = Array.from({ length: 100 }, (_, i) => ({
         tenantId: 'tenant-1',
@@ -751,6 +751,6 @@ describe('Rate Limiting Security Enhancement Integration Tests', () => {
 
   afterAll(() => {
     // Cleanup
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 });

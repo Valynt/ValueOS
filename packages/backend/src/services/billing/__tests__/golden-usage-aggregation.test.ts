@@ -127,16 +127,7 @@ describe('Usage Aggregation Golden Tests', () => {
       expect(integrityResult).toHaveProperty('evidence_chain');
     });
 
-    it('should detect data tampering in source events', async () => {
-      // This would test that if source events are modified,
-      // the hash verification fails
-      const aggregator = new UsageAggregator();
-
-      // Create aggregate, then modify source events, then verify
-      // (simplified test structure)
-
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should detect data tampering in source events');
   });
 
   describe('Boundary Conditions', () => {

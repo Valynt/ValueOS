@@ -380,8 +380,7 @@ describe('Chaos Engineering Service', () => {
       chaosEngineering.setBlastRadius(experimentId, 0);
       chaosEngineering.setBlastRadius(experimentId, 1);
       
-      // Should handle gracefully
-      expect(true).toBe(true);
+      // Completing edge-case calls without throwing is the assertion
     });
   });
 

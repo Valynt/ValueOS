@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
 describe('infra package sanity', () => {
-  it('should pass a trivial assertion', () => {
-    expect(true).toBe(true);
-  });
+  it.todo('should pass a trivial assertion');
 });

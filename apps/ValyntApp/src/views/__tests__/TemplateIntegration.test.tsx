@@ -77,18 +77,7 @@ describe("Template Integration Workflows", () => {
       expect(screen.getByText("Total Impact")).toBeInTheDocument();
     });
 
-    it("should handle scenario selection workflow", async () => {
-      // Mock scenario data
-      // const mockScenarios = [
-      //   { id: "1", name: "Base Case", description: "Standard scenario" },
-      //   { id: "2", name: "Optimistic", description: "Best case" },
-      // ];
-
-      // const mockOnSelect = vi.fn();
-
-      // Since ScenarioSelector is not implemented, skip this test for now
-      expect(true).toBe(true);
-    });
+    it.todo("should handle scenario selection workflow");
   });
 
   describe("Value Canvas Integration", () => {

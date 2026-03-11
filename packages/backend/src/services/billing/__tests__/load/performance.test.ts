@@ -344,7 +344,7 @@ describe("Load and Stress Tests", () => {
 
       // Memory should be released after cleanup
       // In production, monitor with heap snapshots
-      expect(true).toBe(true);
+      // Completing cleanup loop without OOM is the assertion
     });
   });
 

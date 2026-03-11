@@ -9,7 +9,5 @@ describe("Critical Alias Resolution Smoke Test", () => {
     expect(Object.keys(DesignSystem).length).toBeGreaterThanOrEqual(0);
   });
 
-  it("should perform a basic reality check", () => {
-    expect(true).toBe(true);
-  });
+  it.todo("should perform a basic reality check");
 });

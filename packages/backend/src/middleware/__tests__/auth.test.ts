@@ -2,16 +2,21 @@ import { __setEnvSourceForTests } from '@shared/lib/env';
 import jwt from 'jsonwebtoken';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../services/AuthService', () => ({
+vi.mock('../../services/AuthService.js', () => ({
   authService: {
     getSession: vi.fn(),
   },
 }));
 
-vi.mock('../../lib/supabase', () => ({
+vi.mock('@shared/lib/supabase', () => ({
   createRequestSupabaseClient: vi.fn(),
   getRequestSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
+}));
+
+// Prevent real Redis connection attempts in isTokenRevoked
+vi.mock('@shared/lib/redisClient', () => ({
+  getRedisClient: vi.fn().mockResolvedValue(null),
 }));
 
 const logAudit = vi.fn().mockResolvedValue({ id: 'audit-id' });
@@ -24,9 +29,9 @@ vi.mock('../../services/AuditLogService.js', () => ({
 
 const { requireAuth, requireTenantRequestAlignment } = await import('../auth');
 const { requirePermission } = await import('../rbac');
-const { authService } = await import('../../services/AuthService');
+const { authService } = await import('../../services/AuthService.js');
 const { createRequestSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
-  await import('../../lib/supabase');
+  await import('@shared/lib/supabase');
 
 function mockRes() {
   return {
@@ -38,9 +43,21 @@ function mockRes() {
 describe('auth middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    __setEnvSourceForTests({ SUPABASE_JWT_SECRET: 'test-secret' });
-    (getSupabaseClient as unknown as { mockImplementation: (_fn: () => never) => void }).mockImplementation(() => {
-      throw new Error('supabase unavailable');
+    __setEnvSourceForTests({
+      SUPABASE_JWT_SECRET: 'test-secret',
+      // Enable local JWT fallback so verifyTokenLocally runs when Supabase is mocked out
+      NODE_ENV: 'development',
+      ALLOW_LOCAL_JWT_FALLBACK: 'true',
+      // Required by validateFallbackClaims
+      SUPABASE_JWT_ISSUER: 'https://test.supabase.co/auth/v1',
+      SUPABASE_JWT_AUDIENCE: 'authenticated',
+    });
+    // Return a mock Supabase client whose auth.getUser returns null so the
+    // middleware falls through to local JWT verification without a network call.
+    (getSupabaseClient as unknown as { mockReturnValue: (_v: unknown) => void }).mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: null, error: new Error('supabase unavailable') }),
+      },
     });
     (createRequestSupabaseClient as unknown as { mockImplementation: (_fn: () => {}) => void }).mockImplementation(
       (req: any) => {
@@ -61,6 +78,8 @@ describe('auth middleware', () => {
         email: 'user@example.com',
         role: 'member',
         organization_id: 'tenant-abc',
+        iss: 'https://test.supabase.co/auth/v1',
+        aud: 'authenticated',
       },
       'test-secret',
       { expiresIn: '1h' }
@@ -83,7 +102,11 @@ describe('auth middleware', () => {
   });
 
   it('rejects an invalid bearer token with 401', async () => {
-    const token = jwt.sign({ sub: 'user-123' }, 'wrong-secret', { expiresIn: '1h' });
+    const token = jwt.sign(
+      { sub: 'user-123', iss: 'https://test.supabase.co/auth/v1', aud: 'authenticated', organization_id: 'tenant-abc' },
+      'wrong-secret',
+      { expiresIn: '1h' }
+    );
 
     const req = {
       headers: {

@@ -177,9 +177,9 @@ describe("BaseAgent", () => {
       expect(result).toBe(false);
     });
 
-    it("updates organizationId from context", async () => {
-      await agent.validateInput(makeContext({ organization_id: "org-new" }));
-      // Verify by calling secureInvoke and checking the tenant metadata
+    it("uses organizationId from constructor for LLM tenant metadata", async () => {
+      // validateInput validates the context but does not mutate organizationId —
+      // the agent always uses the org it was constructed with (constructor injection).
       const schema = z.object({ value: z.string() });
       mockLLMGateway.complete.mockResolvedValue(
         makeLLMResponse(JSON.stringify({ value: "test" }))
@@ -189,7 +189,7 @@ describe("BaseAgent", () => {
 
       expect(mockLLMGateway.complete).toHaveBeenCalledWith(
         expect.objectContaining({
-          metadata: expect.objectContaining({ tenantId: "org-new" }),
+          metadata: expect.objectContaining({ tenantId: "org-456" }),
         })
       );
     });
@@ -316,8 +316,11 @@ describe("BaseAgent", () => {
         "episodic",
         expect.stringContaining("LLM Response:"),
         expect.objectContaining({
+          // hallucination_check reflects hallucinationResult.passed (true for clean response)
           hallucination_check: true,
-          confidence: 0.5,
+          // confidence reflects hallucinationResult.groundingScore: 1.0 for a response
+          // with no signals (no refusal patterns, self-references, or contradictions)
+          confidence: 1,
           validation_method: "knowledge_fabric",
         }),
         "org-456"
@@ -442,7 +445,7 @@ describe("BaseAgent", () => {
       );
     });
 
-    it("falls back to passing when validator throws", async () => {
+    it("fails closed when validator throws (security contract)", async () => {
       const mockValidator = {
         validate: vi.fn().mockRejectedValue(new Error("validator crash")),
       };
@@ -451,8 +454,8 @@ describe("BaseAgent", () => {
 
       const result = await agent.invokeSecure("s1", "prompt", schema);
 
-      // Should not throw — falls back to passed
-      expect(result.hallucination_check).toBe(true);
+      // Should not throw — but fails closed: validator crash → hallucination_check false
+      expect(result.hallucination_check).toBe(false);
     });
   });
 

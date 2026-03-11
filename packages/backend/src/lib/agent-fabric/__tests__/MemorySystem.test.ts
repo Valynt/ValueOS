@@ -331,14 +331,14 @@ describe("MemorySystem", () => {
         success: true,
         rewardScore: 0.9,
         durationSeconds: 2.5,
-      });
+      }, ORG_ID);
 
       expect(episodeId).toMatch(/^ep_/);
 
       const similar = await ms.retrieveSimilarEpisodes(
         { agent: "opportunity", query: "customer churn" },
-        5,
         ORG_ID,
+        5,
       );
 
       expect(similar).toHaveLength(1);
@@ -357,7 +357,7 @@ describe("MemorySystem", () => {
         success: true,
         rewardScore: 0.8,
         durationSeconds: 1,
-      });
+      }, "org-a");
 
       await ms.storeEpisode({
         sessionId: "s2",
@@ -370,12 +370,12 @@ describe("MemorySystem", () => {
         success: true,
         rewardScore: 0.7,
         durationSeconds: 1,
-      });
+      }, "org-b");
 
       const resultsA = await ms.retrieveSimilarEpisodes(
         { agent: "opportunity", query: "revenue" },
-        10,
         "org-a",
+        10,
       );
 
       expect(resultsA).toHaveLength(1);
@@ -460,7 +460,7 @@ describe("MemorySystem", () => {
         success: true,
         rewardScore: 0.5,
         durationSeconds: 1,
-      });
+      }, ORG_ID);
 
       const stats = ms.getStats();
       expect(stats.totalMemories).toBe(2);

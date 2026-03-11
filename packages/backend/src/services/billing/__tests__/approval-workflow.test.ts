@@ -132,11 +132,7 @@ describe('Approval Workflow Testing', () => {
       ).rejects.toThrow();
     });
 
-    it('should handle expired requests', async () => {
-      // Simulate expired request (would need time mocking)
-      // Request should not be approvable after expiry
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should handle expired requests');
   });
 
   describe('Security and Access Control', () => {
@@ -216,21 +212,7 @@ describe('Approval Workflow Testing', () => {
       expect(request.status).toBe('pending'); // Should require approval
     });
 
-    it('should handle dual control requirements', async () => {
-      // Set dual control policy
-      await BillingApprovalService.setApprovalPolicy(
-        mockTenantId,
-        'custom_pricing',
-        {
-          requires_approval: true,
-          requires_dual_control: true,
-          approver_roles: ['admin']
-        }
-      );
-
-      // Approval should require two different approvers
-      expect(true).toBe(true); // Placeholder for dual control logic
-    });
+    it.todo('should handle dual control requirements');
 
     it('should respect cost thresholds', async () => {
       await BillingApprovalService.setApprovalPolicy(
@@ -380,11 +362,7 @@ describe('Approval Workflow Testing', () => {
   });
 
   describe('Error Handling and Resilience', () => {
-    it('should handle network failures gracefully', async () => {
-      // Test with simulated network issues
-      // Should not leave requests in inconsistent state
-      expect(true).toBe(true); // Placeholder
-    });
+    it.todo('should handle network failures gracefully');
 
     it('should prevent race conditions', async () => {
       const request = await BillingApprovalService.createApprovalRequest(
