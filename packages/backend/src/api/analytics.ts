@@ -22,7 +22,9 @@ analyticsRouter.use(analyticsLimiter);
 
 analyticsRouter.get("/summary", async (req, res) => {
   try {
-    const tenantId = getTenantIdFromRequest(req as any) ?? "anonymous";
+    // Use a fixed prefix that cannot collide with real UUID tenant IDs so
+    // unauthenticated callers never share a cache bucket with real tenants.
+    const tenantId = getTenantIdFromRequest(req as any) ?? "__anon__";
     const payload = await ReadThroughCacheService.getOrLoad(
       {
         tenantId,

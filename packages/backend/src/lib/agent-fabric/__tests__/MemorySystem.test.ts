@@ -519,3 +519,55 @@ describe("MemorySystem", () => {
     });
   });
 });
+
+// ── BUG-1 regression: consolidate() must use top-level organization_id ────────
+// Before the fix, consolidate() filtered on memory.metadata?.organization_id
+// (the old location). After the B3 refactor moved organization_id to a
+// top-level field, memories stored without metadata.organization_id were
+// silently skipped — consolidation was a no-op for all tenants.
+
+describe("MemorySystem.consolidate() tenant isolation (BUG-1 regression)", () => {
+  const ORG_A = "org-a-111";
+  const ORG_B = "org-b-222";
+
+  it("consolidates memories stored with top-level organization_id (no metadata.organization_id)", async () => {
+    const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+    // Store two episodic memories using the high-level helper which sets
+    // organization_id at the top level only (no metadata.organization_id).
+    await ms.storeEpisodicMemory("s1", "agent-x", "Memory A", {}, ORG_A);
+    await ms.storeEpisodicMemory("s1", "agent-x", "Memory B", {}, ORG_A);
+
+    // Simulate enough accesses to trigger consolidation (threshold is 3).
+    for (let i = 0; i < 4; i++) {
+      await ms.retrieve({ agent_id: "agent-x", organization_id: ORG_A, memory_type: "episodic" });
+    }
+
+    const result = await ms.consolidate(ORG_A);
+
+    // Must consolidate — not a no-op.
+    expect(result.episodicMerged).toBe(2);
+    expect(result.semanticCreated).toBe(1);
+  });
+
+  it("does not consolidate memories belonging to a different tenant", async () => {
+    const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+    // ORG_B memories — should NOT be touched when consolidating ORG_A.
+    await ms.storeEpisodicMemory("s1", "agent-x", "Org B Memory 1", {}, ORG_B);
+    await ms.storeEpisodicMemory("s1", "agent-x", "Org B Memory 2", {}, ORG_B);
+
+    for (let i = 0; i < 4; i++) {
+      await ms.retrieve({ agent_id: "agent-x", organization_id: ORG_B, memory_type: "episodic" });
+    }
+
+    // Consolidate ORG_A — ORG_B memories must be untouched.
+    const result = await ms.consolidate(ORG_A);
+    expect(result.episodicMerged).toBe(0);
+    expect(result.semanticCreated).toBe(0);
+
+    // ORG_B memories still present.
+    const orgBMemories = await ms.retrieve({ agent_id: "agent-x", organization_id: ORG_B });
+    expect(orgBMemories.length).toBeGreaterThanOrEqual(2);
+  });
+});

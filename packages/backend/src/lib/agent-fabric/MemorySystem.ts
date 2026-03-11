@@ -337,6 +337,7 @@ export class MemorySystem {
       initial_state: input.initialState,
       final_state: input.finalState,
       success: input.success,
+      reward_score: input.rewardScore,
       duration_seconds: input.durationSeconds,
       created_at: new Date().toISOString(),
     };
@@ -424,7 +425,7 @@ export class MemorySystem {
 
     const episodicByAgent = new Map<string, Memory[]>();
     for (const memory of this.memories.values()) {
-      if (memory.metadata?.organization_id !== organizationId) continue;
+      if (memory.organization_id !== organizationId) continue;
 
       // Prune expired working memory
       if (memory.memory_type === "working") {
