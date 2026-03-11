@@ -170,6 +170,10 @@ export class RealtimeService {
       unsubscribe: () => {
         void channel.untrack();
         void channel.unsubscribe();
+        // Ensure the channel is fully removed from the client to avoid leaks,
+        // matching the behavior of other subscription helpers in this file.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        void (getClient() as any).removeChannel(channel);
       },
     };
   }
