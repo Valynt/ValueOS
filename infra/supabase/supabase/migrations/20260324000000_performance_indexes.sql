@@ -6,45 +6,38 @@ SET search_path = public, pg_temp;
 
 -- ---------------------------------------------------------------------------
 -- approval_requests
--- Hot queries: (tenant_id, status) for pending approvals list
+-- Hot queries: (organization_id, status) for pending approvals list
+-- Canonical columns: organization_id, requested_by (not tenant_id/requester_id)
 -- ---------------------------------------------------------------------------
 
-CREATE INDEX IF NOT EXISTS idx_approval_requests_tenant_status
-  ON public.approval_requests (tenant_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_org_status
+  ON public.approval_requests (organization_id, status, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_approval_requests_requester_created
-  ON public.approval_requests (requester_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_requested_by_created
+  ON public.approval_requests (requested_by, created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- workflow_executions
--- Hot queries: (organization_id, status), (case_id, created_at)
+-- NOTE: created_at and case_id columns are added in
+-- 20260327020000_fix_performance_index_violations.sql. Indexes that depend
+-- on those columns are created there, after the columns exist.
 -- ---------------------------------------------------------------------------
-
-CREATE INDEX IF NOT EXISTS idx_workflow_executions_org_status
-  ON public.workflow_executions (organization_id, status, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_executions_case_created
-  ON public.workflow_executions (case_id, created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- prompt_executions
--- Hot queries: (tenant_id, prompt_version_id), (session_id)
+-- Hot queries: (tenant_id, prompt_version_id)
+-- NOTE: session_id column is added in 20260327020000. The session index is
+-- created there.
 -- ---------------------------------------------------------------------------
 
 CREATE INDEX IF NOT EXISTS idx_prompt_executions_tenant_version
   ON public.prompt_executions (tenant_id, prompt_version_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_prompt_executions_session
-  ON public.prompt_executions (session_id, created_at DESC);
-
 -- ---------------------------------------------------------------------------
 -- agent_predictions
--- Composite index for MetricsCollector.getAgentMetrics() — filters by
--- agent_type + created_at range, which is the dominant query pattern.
+-- NOTE: organization_id column is added in 20260327020000. The org index is
+-- created there.
 -- ---------------------------------------------------------------------------
-
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_org_type_created
-  ON public.agent_predictions (organization_id, agent_type, created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- value_cases
@@ -54,13 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_agent_predictions_org_type_created
 CREATE INDEX IF NOT EXISTS idx_value_cases_org_status
   ON public.value_cases (organization_id, status, created_at DESC);
 
--- ---------------------------------------------------------------------------
--- active_sessions
--- Hot queries: (tenant_id, expires_at) for session validation
--- ---------------------------------------------------------------------------
-
-CREATE INDEX IF NOT EXISTS idx_active_sessions_tenant_expires
-  ON public.active_sessions (tenant_id, expires_at DESC);
+-- active_sessions: table does not exist in the migration chain; index removed.
+-- See 20260327020000 for the DROP INDEX cleanup.
 
 -- ---------------------------------------------------------------------------
 -- user_tenants
@@ -80,13 +68,9 @@ CREATE INDEX IF NOT EXISTS idx_user_tenants_user_id
 CREATE INDEX IF NOT EXISTS idx_agent_memory_org_session_type
   ON public.agent_memory (organization_id, session_id, memory_type, created_at DESC);
 
--- ---------------------------------------------------------------------------
--- value_loop_analytics (from Sprint 10 migration)
--- Hot queries: (organization_id, event_type, created_at)
--- ---------------------------------------------------------------------------
-
-CREATE INDEX IF NOT EXISTS idx_value_loop_analytics_org_event
-  ON public.value_loop_analytics (organization_id, event_type, created_at DESC);
+-- value_loop_analytics: table name was wrong; real table is value_loop_events.
+-- The correct index already exists in 20260320000000_value_loop_analytics.sql.
+-- See 20260327020000 for the DROP INDEX cleanup of the phantom index.
 
 -- ---------------------------------------------------------------------------
 -- saga_transitions (Sprint 13)

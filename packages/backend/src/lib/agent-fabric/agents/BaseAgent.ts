@@ -179,7 +179,12 @@ export abstract class BaseAgent {
       context?: Record<string, unknown>;
       idempotencyKey?: string;
     } = {}
-  ): Promise<T & { hallucination_check?: boolean; hallucination_details?: HallucinationCheckResult }> {
+  ): Promise<T & {
+    hallucination_check?: boolean;
+    hallucination_details?: HallucinationCheckResult;
+    /** Token counts from the LLM response. Undefined when the provider does not return usage. */
+    token_usage?: { input_tokens: number; output_tokens: number; total_tokens: number };
+  }> {
     const {
       trackPrediction = true,
       confidenceThresholds = { low: 0.6, high: 0.85 },
@@ -268,10 +273,21 @@ export abstract class BaseAgent {
         });
       }
 
+      // Surface token counts so the API layer can emit usage events without
+      // re-parsing the raw LLM response.
+      const tokenUsage = response.usage
+        ? {
+            input_tokens: response.usage.prompt_tokens,
+            output_tokens: response.usage.completion_tokens,
+            total_tokens: response.usage.total_tokens,
+          }
+        : undefined;
+
       return {
         ...parsed,
         hallucination_check: hallucinationResult.passed,
         hallucination_details: hallucinationResult,
+        token_usage: tokenUsage,
       };
     });
   }

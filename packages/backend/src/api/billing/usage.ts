@@ -132,8 +132,35 @@ router.get('/spend-forecasting', async (req: Request, res: Response): Promise<vo
   }
 });
 
-// Get drill-down ledger view per tenant
-// TODO: implement ledger query via UsageAggregator once getRatedLedgerEntries is available
+/**
+ * Parse a ledger dateRange param into UTC period bounds.
+ *
+ * Accepts:
+ *   "YYYY-MM"         — single month
+ *   "YYYY-MM:YYYY-MM" — inclusive month range
+ *
+ * Returns null when the format is invalid.
+ */
+export function parseLedgerDateRange(
+  dateRange: string,
+): { periodStart: Date; periodEnd: Date } | null {
+  const [startPart, endPart] = dateRange.split(':');
+  const periodStart = new Date(`${startPart}-01T00:00:00.000Z`);
+  if (isNaN(periodStart.getTime())) return null;
+
+  const endMonth = endPart ?? startPart;
+  const parts = endMonth.split('-').map(Number);
+  if (parts.length < 2 || parts.some(isNaN)) return null;
+  const [endYear, endMonthNum] = parts;
+  // Exclusive upper bound: first day of the month after endMonth.
+  const periodEnd = new Date(Date.UTC(endYear, endMonthNum, 1));
+  if (isNaN(periodEnd.getTime())) return null;
+
+  return { periodStart, periodEnd };
+}
+
+// Get drill-down ledger view per tenant.
+// dateRange format: "YYYY-MM" (single month) or "YYYY-MM:YYYY-MM" (inclusive range).
 router.get('/ledger/:dateRange', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId as string | undefined;
@@ -143,9 +170,41 @@ router.get('/ledger/:dateRange', async (req: Request, res: Response): Promise<vo
     }
     const { dateRange } = req.params;
 
+    const parsed = parseLedgerDateRange(dateRange);
+    if (!parsed) {
+      res.status(400).json({ error: 'Invalid dateRange format. Use YYYY-MM or YYYY-MM:YYYY-MM.' });
+      return;
+    }
+    const { periodStart, periodEnd } = parsed;
+
+    const { data, error: dbError } = await supabase
+      .from('rated_ledger')
+      .select(
+        'id, meter_key, period_start, period_end, quantity_used, quantity_included, quantity_overage, unit_price, amount, rated_at'
+      )
+      .eq('tenant_id', tenantId)
+      .gte('period_start', periodStart.toISOString())
+      .lt('period_start', periodEnd.toISOString())
+      .order('period_start', { ascending: true });
+
+    if (dbError) {
+      logger.error('Error querying rated_ledger', dbError);
+      res.status(500).json({ error: 'Failed to fetch ledger data' });
+      return;
+    }
+
+    const ledgerEntries = data ?? [];
+
+    // Aggregate total billed amount per meter key for the breakdown panel.
+    const breakdownByMetric: Record<string, number> = {};
+    for (const entry of ledgerEntries) {
+      const key = entry.meter_key as string;
+      breakdownByMetric[key] = (breakdownByMetric[key] ?? 0) + Number(entry.amount);
+    }
+
     res.json({
-      ledgerEntries: [],
-      breakdownByMetric: {},
+      ledgerEntries,
+      breakdownByMetric,
       dateRange,
       timestamp: new Date().toISOString()
     });

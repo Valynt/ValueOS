@@ -17,6 +17,7 @@ import {
   PolicyEnforcementError,
   recordPolicyAuditEvent,
 } from './policy/PolicyEnforcement.js';
+import { getMetricsCollector } from './MetricsCollector.js';
 
 /**
  * JSON Schema for tool parameters
@@ -68,6 +69,8 @@ export interface MCPTool {
  */
 export interface ToolExecutionContext {
   userId?: string;
+  /** Tenant (organization) ID — required for usage metering and tenant isolation. */
+  tenantId?: string;
   sessionId?: string;
   workflowId?: string;
   agentType?: string;
@@ -233,6 +236,22 @@ export class ToolRegistry {
 
       // Track execution
       this.trackExecution(toolName, context?.userId);
+
+      // Emit api_calls usage event for successful tool invocations only.
+      // Failed calls are not billed (per billing-v2 spec).
+      if (result.success && context?.tenantId) {
+        try {
+          getMetricsCollector().recordUsage({
+            tenantId: context.tenantId,
+            metric: 'api_calls',
+            quantity: 1,
+            path: `/tools/${toolName}`,
+            idempotencyKey: context.sessionId
+              ? `${context.sessionId}:${toolName}:${Date.now()}`
+              : undefined,
+          });
+        } catch { /* metering is non-fatal */ }
+      }
 
       logger.info('Tool execution completed', {
         toolName,

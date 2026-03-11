@@ -20,11 +20,21 @@ export interface Subscription {
   userId: string;
   planTier: PlanTier;
   status: SubscriptionStatus;
+  /**
+   * The raw status string returned by the backend. May include values outside
+   * the UI-facing SubscriptionStatus union (e.g. "unpaid", "incomplete").
+   * Use this when you need to display or act on the exact backend state.
+   */
+  rawStatus: string;
   currentPeriodStart: string;
   currentPeriodEnd: string;
   cancelAtPeriodEnd: boolean;
 }
 
+/**
+ * UI-facing subscription statuses. Maps the full backend set to the states
+ * the product surfaces to users. Use rawStatus for the uncoerced value.
+ */
 export type SubscriptionStatus = "active" | "canceled" | "past_due" | "trialing";
 
 export interface Invoice {

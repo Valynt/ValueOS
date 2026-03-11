@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useSubscription } from "@/features/billing";
+import { useInvoices, useSubscription, useUsageSummary } from "@/features/billing";
+import type { UsageMetricWithMeta } from "@/features/billing/hooks/useUsageSummary";
 import { cn } from "@/lib/utils";
 
 type Tab = "usage" | "plans" | "invoices";
@@ -38,16 +39,10 @@ const plans = [
   },
 ];
 
-const mockInvoices = [
-  { id: "INV-001", date: "Jan 1, 2026", amount: 29, status: "paid" as const },
-  { id: "INV-002", date: "Dec 1, 2025", amount: 29, status: "paid" as const },
-  { id: "INV-003", date: "Nov 1, 2025", amount: 29, status: "paid" as const },
-];
 
 export function BillingPage() {
   const [activeTab, setActiveTab] = useState<Tab>("usage");
-  const { subscription, isLoading, error, changePlan, cancelSubscription } = useSubscription();
-  const [currentPlan, setCurrentPlan] = useState<PlanTier>(subscription?.planTier || "free");
+  const { subscription, isLoading, changePlan } = useSubscription();
 
   const tabs = [
     { id: "usage" as const, label: "Usage", icon: TrendingUp },
@@ -116,72 +111,121 @@ export function BillingPage() {
           currentPlan={subscription?.planTier || "free"}
           onSelectPlan={async (plan) => {
             await changePlan(plan);
-            setCurrentPlan(plan);
           }}
         />
       )}
-      {activeTab === "invoices" && <InvoicesTab invoices={mockInvoices} />}
+      {activeTab === "invoices" && <InvoicesTab />}
     </div>
   );
 }
 
 function UsageTab() {
-  const usage = [
-    { metric: "API Calls", used: 8500, limit: 10000 },
-    { metric: "Storage", used: 3.2, limit: 10, unit: "GB" },
-    { metric: "Projects", used: 12, limit: 50 },
-  ];
+  const { data, isLoading, error } = useUsageSummary();
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Card key={i}>
+            <CardHeader className="pb-2">
+              <LoadingSkeleton className="w-24 h-4" />
+            </CardHeader>
+            <CardContent>
+              <LoadingSkeleton className="w-32 h-8 mb-3" />
+              <LoadingSkeleton className="w-full h-2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive">
+        <CardContent className="flex items-start gap-3 py-4">
+          <AlertCircle className="icon-md text-destructive mt-0.5" />
+          <p className="text-sm text-destructive">Failed to load usage data. Please try again.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const metrics = data?.metrics ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {usage.map((item) => {
-          const percentage = (item.used / item.limit) * 100;
-          return (
-            <Card key={item.metric}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">{item.metric}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {item.used.toLocaleString()}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {" "}
-                    / {item.limit.toLocaleString()} {item.unit || ""}
-                  </span>
-                </div>
-                <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full transition-all",
-                      percentage >= 90
-                        ? "bg-destructive"
-                        : percentage >= 75
-                          ? "bg-yellow-500"
-                          : "bg-primary"
-                    )}
-                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% used</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {metrics.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground text-sm">
+            No usage data yet for this billing period.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {metrics.map((item: UsageMetricWithMeta) => {
+            const percentage = item.percentage;
+            return (
+              <Card key={item.metricKey}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">{item.metric}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {item.used.toLocaleString()}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {" "}
+                      / {item.limit.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full transition-all",
+                        percentage >= 100
+                          ? "bg-destructive"
+                          : percentage >= 80
+                            ? "bg-yellow-500"
+                            : "bg-primary"
+                      )}
+                      style={{ width: `${Math.min(percentage, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{percentage.toFixed(0)}% used</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Usage Alert */}
-      <Card className="border-yellow-200 bg-yellow-50">
-        <CardContent className="flex items-start gap-3 py-4">
-          <AlertCircle className="icon-md text-yellow-600 mt-0.5" />
-          <div>
-            <p className="font-medium text-yellow-900">Usage Alert</p>
-            <p className="text-sm text-yellow-800">
-              You're approaching your API call limit. Consider upgrading your plan.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Threshold alerts — data-driven, not hardcoded */}
+      {data?.hardLimitReached && (
+        <Card className="border-destructive bg-red-50">
+          <CardContent className="flex items-start gap-3 py-4">
+            <AlertCircle className="icon-md text-destructive mt-0.5" />
+            <div>
+              <p className="font-medium text-destructive">Usage limit reached</p>
+              <p className="text-sm text-red-800">
+                You have reached your plan limit. Upgrade to continue using this feature.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {!data?.hardLimitReached && data?.thresholdBreached && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="flex items-start gap-3 py-4">
+            <AlertCircle className="icon-md text-yellow-600 mt-0.5" />
+            <div>
+              <p className="font-medium text-yellow-900">Approaching limit</p>
+              <p className="text-sm text-yellow-800">
+                You're approaching your plan limit. Consider upgrading your plan.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -240,11 +284,41 @@ function PlansTab({
   );
 }
 
-function InvoicesTab({
-  invoices,
-}: {
-  invoices: Array<{ id: string; date: string; amount: number; status: "paid" | "pending" }>;
-}) {
+function InvoicesTab() {
+  const { data: invoices, isLoading, error } = useInvoices();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Invoice History</CardTitle>
+          <CardDescription>Download and view your past invoices</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center justify-between py-4">
+                <LoadingSkeleton className="w-32 h-4" />
+                <LoadingSkeleton className="w-24 h-4" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive">
+        <CardContent className="flex items-start gap-3 py-4">
+          <AlertCircle className="icon-md text-destructive mt-0.5" />
+          <p className="text-sm text-destructive">Failed to load invoices. Please try again.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -252,32 +326,46 @@ function InvoicesTab({
         <CardDescription>Download and view your past invoices</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="divide-y">
-          {invoices.map((invoice) => (
-            <div key={invoice.id} className="flex items-center justify-between py-4">
-              <div>
-                <p className="font-medium">{invoice.id}</p>
-                <p className="text-sm text-muted-foreground">{invoice.date}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="font-medium">${invoice.amount}</span>
-                <span
-                  className={cn(
-                    "text-xs px-2 py-1 rounded-full",
-                    invoice.status === "paid"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
+        {!invoices || invoices.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">No invoices yet.</p>
+        ) : (
+          <div className="divide-y">
+            {invoices.map((invoice) => (
+              <div key={invoice.id} className="flex items-center justify-between py-4">
+                <div>
+                  <p className="font-medium">{invoice.id}</p>
+                  <p className="text-sm text-muted-foreground">{invoice.date}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-medium">${invoice.amount}</span>
+                  <span
+                    className={cn(
+                      "text-xs px-2 py-1 rounded-full",
+                      invoice.status === "paid"
+                        ? "bg-green-100 text-green-700"
+                        : invoice.status === "failed"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-yellow-100 text-yellow-700"
+                    )}
+                  >
+                    {invoice.status}
+                  </span>
+                  {invoice.pdfUrl ? (
+                    <Button variant="ghost" size="sm" asChild>
+                      <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer">
+                        Download
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm" disabled>
+                      Download
+                    </Button>
                   )}
-                >
-                  {invoice.status}
-                </span>
-                <Button variant="ghost" size="sm">
-                  Download
-                </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
