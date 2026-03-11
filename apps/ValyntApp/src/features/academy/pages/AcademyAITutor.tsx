@@ -273,8 +273,9 @@ export default function AcademyAITutor() {
                       onClick={handleSendMessage}
                       disabled={!inputMessage.trim() || isLoading}
                       size="icon"
+                      aria-label="Send message"
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
