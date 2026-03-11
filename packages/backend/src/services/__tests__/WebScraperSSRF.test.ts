@@ -13,6 +13,7 @@ describe('WebScraperService SSRF TOCTOU', () => {
   let scraper: WebScraperService;
 
   beforeEach(() => {
+    process.env.WEB_SCRAPER_ENCRYPTION_KEY = "c".repeat(64); // 32-byte hex for tests
     scraper = new WebScraperService();
     vi.clearAllMocks();
   });

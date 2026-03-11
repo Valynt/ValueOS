@@ -7,6 +7,7 @@ describe("WebScraperService rate limiting", () => {
   let scraper: WebScraperService;
 
   beforeEach(() => {
+    process.env.WEB_SCRAPER_ENCRYPTION_KEY = "a".repeat(64); // 32-byte hex for tests
     scraper = new WebScraperService();
     vi.restoreAllMocks();
   });

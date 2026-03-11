@@ -17,6 +17,7 @@ describe("WebScraperService - HTML Structure Tests", () => {
   let service: WebScraperService;
 
   beforeEach(() => {
+    process.env.WEB_SCRAPER_ENCRYPTION_KEY = "e".repeat(64); // 32-byte hex for tests
     service = new WebScraperService();
     vi.clearAllMocks();
   });

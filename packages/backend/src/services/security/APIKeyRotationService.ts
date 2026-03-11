@@ -1,12 +1,54 @@
 /**
  * API Key Rotation Service (VOS-SEC-005)
- * Automated rotation for LLM provider API keys, Supabase, and AWS credentials
+ *
+ * Automated rotation for LLM provider API keys and AWS credentials.
  *
  * SOC 2 Compliance: CC6.7 (Key Management)
+ *
+ * Provider support matrix:
+ * - together_ai  — manual (no public key-management API); admin notification sent
+ * - openai       — manual (OpenAI key-management API is not publicly available); admin notification sent
+ * - anthropic    — manual (Anthropic key-management API is not publicly available); admin notification sent
+ * - supabase     — manual (Supabase does not support programmatic service-role key rotation)
+ * - aws-iam      — automated via @aws-sdk/client-iam when AWS_ROTATION_ENABLED=true;
+ *                  falls back to admin notification otherwise
+ *
+ * For providers that require manual rotation, this service:
+ *   1. Sends an admin notification with step-by-step instructions
+ *   2. Throws ManualRotationRequiredError so callers can surface the requirement
+ *   3. Logs an audit event
  */
 
-import logger from "../../lib/logger.js";
-import { auditLogService } from "../AuditLogService.js";
+import { createLogger } from "../../lib/logger.js";
+import { auditLogService } from "./AuditLogService.js";
+
+const logger = createLogger({ component: "APIKeyRotationService" });
+
+// ---------------------------------------------------------------------------
+// Error types
+// ---------------------------------------------------------------------------
+
+/**
+ * Thrown when a provider requires manual key rotation.
+ * Callers should surface this to operators via the configured alert channel.
+ */
+export class ManualRotationRequiredError extends Error {
+  public readonly provider: string;
+  public readonly instructions: string[];
+  public readonly dueDate: Date;
+
+  constructor(provider: string, instructions: string[], dueDate: Date) {
+    super(`Manual rotation required for provider: ${provider}`);
+    this.name = "ManualRotationRequiredError";
+    this.provider = provider;
+    this.instructions = instructions;
+    this.dueDate = dueDate;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public interfaces
+// ---------------------------------------------------------------------------
 
 export interface APIKeyRotationConfig {
   provider: "openai" | "anthropic" | "supabase" | "aws-iam" | "together_ai";
@@ -18,196 +60,159 @@ export interface APIKeyRotationConfig {
 
 export interface RotationResult {
   provider: string;
+  /** Masked new key (first 4 + last 4 chars). Never the full key. */
   newKey: string;
   oldKeyRetired: boolean;
   rotatedAt: Date;
   nextRotation: Date;
 }
 
-/**
- * APIKeyRotationService
- * Handles automated rotation of external API keys
- */
+interface AWSAccessKey {
+  AccessKeyId: string;
+  SecretAccessKey: string;
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 export class APIKeyRotationService {
-  private rotationSchedule: Map<string, NodeJS.Timeout> = new Map();
+  private rotationSchedule: Map<string, ReturnType<typeof setInterval>> = new Map();
+
+  // ── Public rotation methods ──────────────────────────────────────────────
 
   /**
-   * Rotate OpenAI API Key
+   * OpenAI does not expose a public key-management API.
+   * Sends an admin notification and throws ManualRotationRequiredError.
    */
   async rotateOpenAIKey(): Promise<RotationResult> {
-    logger.info("Starting OpenAI API key rotation");
-
-    try {
-      // 1. Generate new API key via OpenAI API
-      const newKey = await this.generateNewOpenAIKey();
-
-      // 2. Update in Supabase Vault
-      await this.updateSecretInVault("openai_api_key", newKey);
-
-      // 3. Test new key
-      await this.testOpenAIKey(newKey);
-
-      // 4. Retire old key (after grace period)
-      // setTimeout(() => this.retireOpenAIKey(), 2 * 60 * 60 * 1000); // 2 hour grace period - method not implemented
-
-      // 5. Log rotation event
-      await this.logRotationEvent("openai", newKey);
-
-      const now = new Date();
-      const nextRotation = new Date(now);
-      nextRotation.setDate(now.getDate() + 90); // 90 days
-
-      return {
-        provider: "openai",
-        newKey: this.maskKey(newKey),
-        oldKeyRetired: false, // Will be retired after grace period
-        rotatedAt: now,
-        nextRotation,
-      };
-    } catch (error) {
-      logger.error("Failed to rotate OpenAI API key", { error: error as Error });
-      throw error;
-    }
+    logger.info("OpenAI API key rotation initiated");
+    return this.requireManualRotation("openai", [
+      "1. Go to https://platform.openai.com/api-keys",
+      "2. Click 'Create new secret key'",
+      `3. Name: valueos-production-${Date.now()}`,
+      "4. Copy the key immediately (shown only once)",
+      "5. Update the OPENAI_API_KEY secret in your vault / environment",
+      "6. Verify: curl https://api.openai.com/v1/models -H 'Authorization: Bearer <new-key>'",
+      "7. Delete the old key from the OpenAI dashboard",
+      "8. Confirm completion in Slack #security",
+    ]);
   }
 
   /**
-   * Rotate Anthropic API Key
+   * Anthropic does not expose a public key-management API.
+   * Sends an admin notification and throws ManualRotationRequiredError.
    */
   async rotateAnthropicKey(): Promise<RotationResult> {
-    logger.info("Starting Anthropic API key rotation");
-
-    try {
-      const newKey = await this.generateNewAnthropicKey();
-      await this.updateSecretInVault("anthropic_api_key", newKey);
-      await this.testAnthropicKey(newKey);
-
-      setTimeout(() => this.retireAnthropicKey(), 2 * 60 * 60 * 1000);
-
-      await this.logRotationEvent("anthropic", newKey);
-
-      const now = new Date();
-      const nextRotation = new Date(now);
-      nextRotation.setDate(now.getDate() + 90);
-
-      return {
-        provider: "anthropic",
-        newKey: this.maskKey(newKey),
-        oldKeyRetired: false,
-        rotatedAt: now,
-        nextRotation,
-      };
-    } catch (error) {
-      logger.error("Failed to rotate Anthropic API key", { error: error as Error });
-      throw error;
-    }
+    logger.info("Anthropic API key rotation initiated");
+    return this.requireManualRotation("anthropic", [
+      "1. Go to https://console.anthropic.com/settings/keys",
+      "2. Click 'Create Key'",
+      `3. Name: valueos-production-${Date.now()}`,
+      "4. Copy the key immediately (shown only once)",
+      "5. Update the ANTHROPIC_API_KEY secret in your vault / environment",
+      "6. Verify the new key works with a test request",
+      "7. Revoke the old key from the Anthropic console",
+      "8. Confirm completion in Slack #security",
+    ]);
   }
 
   /**
-   * Rotate Together.ai API Key
-   * Primary LLM provider for ValueOS (100% of inference traffic)
+   * Together.ai does not expose a public key-management API.
+   * Sends an admin notification and throws ManualRotationRequiredError.
    */
   async rotateTogetherAIKey(): Promise<RotationResult> {
-    logger.info("Starting Together.ai API key rotation");
-
-    try {
-      // 1. Generate new API key
-      const newKey = await this.generateNewTogetherAIKey();
-
-      // 2. Update in Supabase Vault
-      await this.updateSecretInVault("together_api_key", newKey);
-
-      // 3. Test new key
-      await this.testTogetherAIKey(newKey);
-
-      // 4. Retire old key (after grace period)
-      setTimeout(() => this.retireTogetherAIKey(), 2 * 60 * 60 * 1000); // 2 hour grace period
-
-      // 5. Log rotation event
-      await this.logRotationEvent("together_ai", newKey);
-
-      const now = new Date();
-      const nextRotation = new Date(now);
-      nextRotation.setDate(now.getDate() + 90); // 90 days
-
-      return {
-        provider: "together_ai",
-        newKey: this.maskKey(newKey),
-        oldKeyRetired: false, // Will be retired after grace period
-        rotatedAt: now,
-        nextRotation,
-      };
-    } catch (error) {
-      logger.error("Failed to rotate Together.ai API key", { error: error as Error });
-      throw error;
-    }
+    logger.info("Together.ai API key rotation initiated");
+    return this.requireManualRotation("together_ai", [
+      "1. Go to https://api.together.ai/settings/api-keys",
+      "2. Click 'Create API Key'",
+      `3. Name: valueos-production-${Date.now()}`,
+      "4. Copy the key immediately (shown only once)",
+      "5. Update the TOGETHER_API_KEY secret in your vault / environment",
+      "6. Verify: curl https://api.together.ai/v1/models -H 'Authorization: Bearer <new-key>'",
+      "7. Delete the old key from the Together.ai dashboard",
+      "8. Confirm completion in Slack #security",
+    ]);
   }
 
   /**
-   * Rotate Supabase Service Role Key
+   * Supabase does not support programmatic service-role key rotation.
+   * Sends an admin notification and throws ManualRotationRequiredError.
    */
   async rotateSupabaseKey(): Promise<RotationResult> {
-    logger.info("Starting Supabase service role key rotation");
-
-    try {
-      // Supabase doesn't support programmatic key rotation yet
-      // Generate new project API key manually in dashboard
-      // This method updates the reference and notifies admins
-
-      const notification = {
-        type: "MANUAL_ROTATION_REQUIRED",
-        provider: "supabase",
-        message: "Supabase service role key rotation requires manual intervention",
-        instructions: [
-          "1. Go to Supabase Dashboard > Project Settings > API",
-          "2. Generate new service_role key",
-          "3. Update SUPABASE_SERVICE_ROLE_KEY in environment",
-          "4. Update Supabase Vault entry",
-          "5. Test application connectivity",
-        ],
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      };
-
-      await this.notifyAdmins(notification);
-      await this.logRotationEvent("supabase", "MANUAL_ROTATION_REQUIRED");
-
-      const now = new Date();
-      const nextRotation = new Date(now);
-      nextRotation.setDate(now.getDate() + 180); // 180 days
-
-      return {
-        provider: "supabase",
-        newKey: "MANUAL_ROTATION_REQUIRED",
-        oldKeyRetired: false,
-        rotatedAt: now,
-        nextRotation,
-      };
-    } catch (error) {
-      logger.error("Failed to rotate Supabase key", { error: error as Error });
-      throw error;
-    }
+    logger.info("Supabase service role key rotation initiated");
+    return this.requireManualRotation("supabase", [
+      "1. Go to Supabase Dashboard > Project Settings > API",
+      "2. Generate a new service_role key",
+      "3. Update SUPABASE_SERVICE_ROLE_KEY in your vault / environment",
+      "4. Restart all backend services to pick up the new key",
+      "5. Verify connectivity: run pnpm run dx:doctor",
+      "6. Revoke the old key in the Supabase dashboard",
+      "7. Confirm completion in Slack #security",
+    ]);
   }
 
   /**
-   * Rotate AWS IAM Access Keys
+   * AWS IAM key rotation.
+   *
+   * When AWS_ROTATION_ENABLED=true and AWS credentials are configured,
+   * creates a new IAM access key, stores it in the vault, validates it,
+   * and schedules deletion of the old key after a 2-hour grace period.
+   *
+   * When AWS_ROTATION_ENABLED is not set, falls back to admin notification.
    */
   async rotateAWSKeys(): Promise<RotationResult> {
-    logger.info("Starting AWS IAM access key rotation");
+    logger.info("AWS IAM access key rotation initiated");
+
+    if (process.env.AWS_ROTATION_ENABLED !== "true") {
+      return this.requireManualRotation("aws-iam", [
+        "1. Go to AWS IAM Console > Users > valueos-service",
+        "2. Security credentials > Create access key",
+        "3. Copy AccessKeyId and SecretAccessKey (shown only once)",
+        "4. Update AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your vault / environment",
+        "5. Restart backend services",
+        "6. Verify AWS connectivity",
+        "7. Delete the old access key from IAM",
+        "8. Confirm completion in Slack #security",
+        "",
+        "To enable automated rotation, set AWS_ROTATION_ENABLED=true and ensure",
+        "the service role has iam:CreateAccessKey and iam:DeleteAccessKey permissions.",
+      ]);
+    }
 
     try {
-      // AWS key rotation using AWS SDK
-      const newAccessKeyId = await this.generateNewAWSAccessKey();
-      const newSecretKey = await this.getAWSSecretKey(newAccessKeyId);
+      const { newKey, oldKeyId } = await this.rotateAWSAccessKeyAutomated();
 
-      await this.updateSecretInVault("aws_access_key_id", newAccessKeyId);
-      await this.updateSecretInVault("aws_secret_access_key", newSecretKey);
+      // Write both values as a single atomic secret so the vault never holds
+      // a new access key ID paired with the old secret (or vice versa).
+      await this.updateSecretInVault("aws_credentials", {
+        aws_access_key_id: newKey.AccessKeyId,
+        aws_secret_access_key: newKey.SecretAccessKey,
+      });
 
-      // Test AWS credentials - placeholder implementation
-      logger.info("Would test AWS credentials", { accessKeyId: newAccessKeyId });
+      await this.validateAWSCredentials(newKey.AccessKeyId, newKey.SecretAccessKey);
 
-      // Retire old key after grace period - placeholder
-      // setTimeout(() => this.retireAWSKey(), 2 * 60 * 60 * 1000);
+      // Schedule old key deletion after 2-hour grace period to allow in-flight
+      // requests using the old key to complete.
+      if (oldKeyId) {
+        const gracePeriodMs = 2 * 60 * 60 * 1000;
+        const timer = setTimeout(async () => {
+          try {
+            await this.deleteAWSAccessKey(oldKeyId);
+            logger.info("Old AWS access key deleted after grace period", {
+              oldKeyId: this.maskKey(oldKeyId),
+            });
+          } catch (err) {
+            logger.error("Failed to delete old AWS access key — manual deletion required", {
+              oldKeyId: this.maskKey(oldKeyId),
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }, gracePeriodMs);
+        if (timer.unref) timer.unref();
+      }
 
-      await this.logRotationEvent("aws-iam", newAccessKeyId);
+      await this.logRotationEvent("aws-iam", newKey.AccessKeyId);
 
       const now = new Date();
       const nextRotation = new Date(now);
@@ -215,20 +220,22 @@ export class APIKeyRotationService {
 
       return {
         provider: "aws-iam",
-        newKey: this.maskKey(newAccessKeyId),
+        newKey: this.maskKey(newKey.AccessKeyId),
         oldKeyRetired: false,
         rotatedAt: now,
         nextRotation,
       };
-    } catch (error) {
-      logger.error("Failed to rotate AWS IAM keys", { error: error as Error });
-      throw error;
+    } catch (err) {
+      if (err instanceof ManualRotationRequiredError) throw err;
+      logger.error("Automated AWS key rotation failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
     }
   }
 
-  /**
-   * Schedule automatic rotation
-   */
+  // ── Scheduling ───────────────────────────────────────────────────────────
+
   scheduleRotation(config: APIKeyRotationConfig): void {
     if (!config.autoRotate) {
       logger.info(`Auto-rotation disabled for ${config.provider}`);
@@ -239,39 +246,32 @@ export class APIKeyRotationService {
 
     const timer = setInterval(async () => {
       logger.info(`Scheduled rotation triggered for ${config.provider}`);
-
       try {
         switch (config.provider) {
-          case "openai":
-            await this.rotateOpenAIKey();
-            break;
-          case "anthropic":
-            await this.rotateAnthropicKey();
-            break;
-          case "together_ai":
-            await this.rotateTogetherAIKey();
-            break;
-          case "supabase":
-            await this.rotateSupabaseKey();
-            break;
-          case "aws-iam":
-            await this.rotateAWSKeys();
-            break;
+          case "openai":      await this.rotateOpenAIKey();     break;
+          case "anthropic":   await this.rotateAnthropicKey();  break;
+          case "together_ai": await this.rotateTogetherAIKey(); break;
+          case "supabase":    await this.rotateSupabaseKey();   break;
+          case "aws-iam":     await this.rotateAWSKeys();       break;
         }
-      } catch (error) {
-        logger.error(`Scheduled rotation failed for ${config.provider}`, { error: error as Error });
+      } catch (err) {
+        if (err instanceof ManualRotationRequiredError) {
+          logger.warn(`Scheduled rotation for ${config.provider} requires manual action`, {
+            provider: err.provider,
+            dueDate: err.dueDate.toISOString(),
+          });
+        } else {
+          logger.error(`Scheduled rotation failed for ${config.provider}`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     }, intervalMs);
 
     this.rotationSchedule.set(config.provider, timer);
-    logger.info(
-      `Rotation scheduled for ${config.provider} every ${config.rotationIntervalDays} days`
-    );
+    logger.info(`Rotation scheduled for ${config.provider} every ${config.rotationIntervalDays} days`);
   }
 
-  /**
-   * Cancel scheduled rotation
-   */
   cancelRotation(provider: string): void {
     const timer = this.rotationSchedule.get(provider);
     if (timer) {
@@ -281,188 +281,170 @@ export class APIKeyRotationService {
     }
   }
 
-  // Private helper methods
+  // ── Private helpers ──────────────────────────────────────────────────────
 
-  private async generateNewOpenAIKey(): Promise<string> {
-    // In production, use OpenAI API to generate new key
-    // This is a placeholder for the actual implementation
-    const response = await fetch("https://api.openai.com/v1/keys", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_ADMIN_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: `valueos-${Date.now()}`,
-        scopes: ["api.read", "api.write"],
-      }),
+  /**
+   * Notify admins and throw ManualRotationRequiredError.
+   * Used for all providers that lack a programmatic key-management API.
+   */
+  private async requireManualRotation(
+    provider: string,
+    instructions: string[],
+  ): Promise<never> {
+    const dueDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.notifyAdmins({ provider, instructions, dueDate });
+    await this.logRotationEvent(provider, "MANUAL_ROTATION_REQUIRED").catch((err) => {
+      logger.warn("Failed to log rotation audit event", {
+        provider,
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API returned ${response.status}`);
+    throw new ManualRotationRequiredError(provider, instructions, dueDate);
+  }
+
+  /**
+   * Create a new AWS IAM access key.
+   * Requires @aws-sdk/client-iam and iam:CreateAccessKey + iam:ListAccessKeys permissions.
+   */
+  private async rotateAWSAccessKeyAutomated(): Promise<{
+    newKey: AWSAccessKey;
+    oldKeyId: string | null;
+  }> {
+    let iamModule: typeof import("@aws-sdk/client-iam");
+    try {
+      iamModule = await import("@aws-sdk/client-iam");
+    } catch {
+      throw new Error(
+        "@aws-sdk/client-iam is not installed. " +
+          "Run: pnpm add @aws-sdk/client-iam --filter @valueos/backend"
+      );
     }
 
-    const data = (await response.json()) as { key: string };
-    return data.key;
-  }
+    const { IAMClient, CreateAccessKeyCommand, ListAccessKeysCommand } = iamModule;
 
-  private async generateNewAnthropicKey(): Promise<string> {
-    // Similar to OpenAI, use Anthropic Console API
-    // Placeholder implementation
-    const response = await fetch("https://api.anthropic.com/v1/keys", {
-      method: "POST",
-      headers: {
-        "X-API-Key": process.env.ANTHROPIC_ADMIN_KEY || "",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: `valueos-${Date.now()}`,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Anthropic API returned ${response.status}`);
+    const region = process.env.AWS_REGION;
+    if (!region) {
+      throw new Error("AWS_REGION environment variable is required for automated IAM key rotation");
     }
 
-    const data = (await response.json()) as { key: string };
-    return data.key;
-  }
+    const iamClient = new IAMClient({ region });
 
-  private async generateNewAWSAccessKey(): Promise<string> {
-    // Placeholder implementation - AWS SDK would be needed for actual implementation
-    throw new Error("AWS key rotation not implemented - requires AWS SDK");
-  }
+    const listResult = await iamClient.send(new ListAccessKeysCommand({}));
+    const currentKeys = listResult.AccessKeyMetadata ?? [];
+    const oldKeyId = currentKeys.find((k) => k.Status === "Active")?.AccessKeyId ?? null;
 
-  private async getAWSSecretKey(accessKeyId: string): Promise<string> {
-    // AWS returns secret key only once during creation
-    // Must be captured immediately
-    return process.env.AWS_NEW_SECRET_KEY || "";
-  }
+    const createResult = await iamClient.send(new CreateAccessKeyCommand({}));
+    const newKey = createResult.AccessKey;
 
-  private async updateSecretInVault(key: string, value: string): Promise<void> {
-    // Placeholder implementation - would need Supabase client
-    logger.info("Would update secret in vault", { key });
-  }
-
-  private async testOpenAIKey(key: string): Promise<void> {
-    const response = await fetch("https://api.openai.com/v1/models", {
-      headers: { Authorization: `Bearer ${key}` },
-    });
-
-    if (!response.ok) {
-      throw new Error("New OpenAI key failed validation");
+    if (!newKey?.AccessKeyId || !newKey.SecretAccessKey) {
+      throw new Error("AWS IAM CreateAccessKey returned an incomplete key object");
     }
 
-    logger.info("OpenAI key validated successfully");
+    return {
+      newKey: { AccessKeyId: newKey.AccessKeyId, SecretAccessKey: newKey.SecretAccessKey },
+      oldKeyId,
+    };
   }
 
-  private async testAnthropicKey(key: string): Promise<void> {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "X-API-Key": key,
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 10,
-        messages: [{ role: "user", content: "test" }],
-      }),
-    });
+  private async deleteAWSAccessKey(accessKeyId: string): Promise<void> {
+    const { IAMClient, DeleteAccessKeyCommand } = await import("@aws-sdk/client-iam");
+    const region = process.env.AWS_REGION;
+    if (!region) throw new Error("AWS_REGION is required");
+    const iamClient = new IAMClient({ region });
+    await iamClient.send(new DeleteAccessKeyCommand({ AccessKeyId: accessKeyId }));
+  }
 
-    if (!response.ok) {
-      throw new Error("New Anthropic key failed validation");
+  private async validateAWSCredentials(accessKeyId: string, secretAccessKey: string): Promise<void> {
+    try {
+      const { STSClient, GetCallerIdentityCommand } = await import("@aws-sdk/client-sts");
+      const region = process.env.AWS_REGION ?? "us-east-1";
+      const stsClient = new STSClient({
+        region,
+        credentials: { accessKeyId, secretAccessKey },
+      });
+      await stsClient.send(new GetCallerIdentityCommand({}));
+      logger.info("New AWS credentials validated via STS GetCallerIdentity");
+    } catch (err) {
+      // @aws-sdk/client-sts is an optional peer dependency; treat its absence as
+      // a non-fatal skip.  Any other error (network, auth) is re-thrown so the
+      // caller can decide whether to roll back.
+      const isModuleNotFound =
+        err instanceof Error &&
+        ("code" in err
+          ? (err as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND"
+          : err.message.includes("Cannot find module"));
+
+      if (isModuleNotFound) {
+        logger.warn("Could not validate new AWS credentials: @aws-sdk/client-sts not available", {
+          accessKeyId: this.maskKey(accessKeyId),
+        });
+        return;
+      }
+
+      throw err;
+    }
+  }
+
+  /**
+   * Write one or more key-value pairs as a single secret in the configured vault.
+   *
+   * Accepts a `Record<string, string>` so callers can write multiple related
+   * values (e.g. AWS access key ID + secret) atomically — the vault never
+   * holds a new access key ID paired with the old secret.
+   *
+   * Uses AWSSecretProvider when AWS_SECRETS_MANAGER_ENABLED=true.
+   */
+  private async updateSecretInVault(
+    key: string,
+    value: string | Record<string, string>,
+  ): Promise<void> {
+    if (process.env.AWS_SECRETS_MANAGER_ENABLED !== "true") {
+      logger.warn("Vault write skipped — AWS_SECRETS_MANAGER_ENABLED is not set", {
+        secretKey: key,
+        action: "manual_update_required",
+      });
+      return;
     }
 
-    logger.info("Anthropic key validated successfully");
-  }
+    try {
+      const { ProviderFactory } = await import("../../config/secrets/ProviderFactory.js");
+      const factory = ProviderFactory.getInstance();
+      const provider = factory.createProvider({
+        type: "aws",
+        region: process.env.AWS_REGION ?? "us-east-1",
+        environment: process.env.NODE_ENV ?? "production",
+      });
 
-  private async retireAnthropicKey(): Promise<void> {
-    logger.info("Retiring old Anthropic API key");
-    // Revoke old key via Anthropic API
-  }
+      const tenantId = "system";
+      const now = new Date().toISOString();
+      const secretValue: Record<string, string> =
+        typeof value === "string" ? { value } : value;
 
-  private async retireAWSKey(): Promise<void> {
-    logger.info("Retiring old AWS access key");
-    // Delete old IAM access key via AWS SDK
-  }
+      await provider.setSecret(
+        tenantId,
+        key,
+        secretValue,
+        {
+          tenantId,
+          secretPath: key,
+          version: now,
+          createdAt: now,
+          lastAccessed: now,
+          sensitivityLevel: "critical",
+        },
+        "system-rotation",
+      );
 
-  private async generateNewTogetherAIKey(): Promise<string> {
-    // Together.ai currently requires manual key generation via dashboard
-    // This is a semi-automated approach that notifies admins
-
-    // Future: If Together.ai adds key management API, implement programmatic generation
-    // const response = await fetch('https://api.together.ai/v1/keys', {
-    //   method: 'POST',
-    //   headers: {
-    //     '//     'Authorization': `Bearer ${process.env.TOGETHER_ADMIN_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     name: `valueos-${Date.now()}`,
-    //     scopes: ['inference'],
-    //   }),
-    // });
-
-    // For now: Notify admins to manually generate key
-    await this.notifyAdmins({
-      type: "MANUAL_KEY_GENERATION_REQUIRED",
-      provider: "together_ai",
-      message: "Together.ai API key rotation required",
-      instructions: [
-        "1. Go to https://api.together.ai/settings/api-keys",
-        '2. Click "Create API Key"',
-        "3. Name: valueos-production-" + Date.now(),
-        "4. Copy the key",
-        '5. Update Supabase Vault secret "together_api_key"',
-        "6. Confirm completion in Slack #security",
-      ],
-      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-    });
-
-    // Return placeholder - actual key will be updated in vault manually
-    // The system will poll for the new key
-    throw new Error("Manual key generation required - admin notification sent");
-  }
-
-  private async testTogetherAIKey(key: string): Promise<void> {
-    const response = await fetch("https://api.together.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        messages: [{ role: "user", content: "Test connection" }],
-        max_tokens: 5, // Minimal tokens for cost efficiency
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`New Together.ai key failed validation: ${response.status}`);
+      logger.info("Secret updated in vault", { secretKey: key });
+    } catch (err) {
+      logger.error("Failed to update secret in vault", {
+        secretKey: key,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
     }
-
-    logger.info("Together.ai key validated successfully");
-  }
-
-  private async retireTogetherAIKey(): Promise<void> {
-    logger.info("Retiring old Together.ai API key");
-
-    // Together.ai requires manual key revocation
-    await this.notifyAdmins({
-      type: "MANUAL_KEY_REVOCATION_REQUIRED",
-      provider: "together_ai",
-      message: "Grace period expired. Revoke old Together.ai key now.",
-      instructions: [
-        "1. Go to https://api.together.ai/settings/api-keys",
-        "2. Find the old key (check rotation logs for key prefix)",
-        '3. Click "Delete"',
-        "4. Confirm deletion",
-        "5. Verify in Slack #security",
-      ],
-    });
   }
 
   private maskKey(key: string): string {
@@ -489,58 +471,84 @@ export class APIKeyRotationService {
     });
   }
 
-  private async notifyAdmins(notification: any): Promise<void> {
-    logger.warn("Manual rotation required", notification);
+  private async notifyAdmins(notification: {
+    provider: string;
+    instructions: string[];
+    dueDate: Date;
+  }): Promise<void> {
+    logger.warn("Manual key rotation required — admin notification", {
+      provider: notification.provider,
+      dueDate: notification.dueDate.toISOString(),
+      instructions: notification.instructions,
+    });
 
-    // In production, send email/Slack notification
-    // For now, just log and create a task in the system
+    const slackWebhook = process.env.SECURITY_SLACK_WEBHOOK_URL;
+    if (slackWebhook) {
+      const body = {
+        text: `:key: *API Key Rotation Required* — \`${notification.provider}\``,
+        attachments: [
+          {
+            color: "warning",
+            fields: [
+              { title: "Provider", value: notification.provider, short: true },
+              { title: "Due by", value: notification.dueDate.toISOString(), short: true },
+              { title: "Steps", value: notification.instructions.join("\n"), short: false },
+            ],
+          },
+        ],
+      };
+      await fetch(slackWebhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).catch((err: unknown) => {
+        logger.error("Failed to send Slack rotation notification", {
+          provider: notification.provider,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
   }
 }
 
 export const apiKeyRotationService = new APIKeyRotationService();
 
-// Initialize rotation schedules on service startup
 export function initializeAPIKeyRotation(): void {
   logger.info("Initializing API key rotation schedules");
 
-  // Schedule Together.ai rotation every 90 days (PRIMARY LLM PROVIDER)
   apiKeyRotationService.scheduleRotation({
     provider: "together_ai",
-    currentKey: process.env.TOGETHER_API_KEY || "",
+    currentKey: process.env.TOGETHER_API_KEY ?? "",
     rotationIntervalDays: 90,
     autoRotate: true,
   });
 
-  // Schedule OpenAI rotation every 90 days
   apiKeyRotationService.scheduleRotation({
     provider: "openai",
-    currentKey: process.env.OPENAI_API_KEY || "",
+    currentKey: process.env.OPENAI_API_KEY ?? "",
     rotationIntervalDays: 90,
     autoRotate: true,
   });
 
-  // Schedule Anthropic rotation every 90 days
   apiKeyRotationService.scheduleRotation({
     provider: "anthropic",
-    currentKey: process.env.ANTHROPIC_API_KEY || "",
+    currentKey: process.env.ANTHROPIC_API_KEY ?? "",
     rotationIntervalDays: 90,
     autoRotate: true,
   });
 
-  // Schedule AWS rotation every 90 days
   apiKeyRotationService.scheduleRotation({
     provider: "aws-iam",
-    currentKey: process.env.AWS_ACCESS_KEY_ID || "",
+    currentKey: process.env.AWS_ACCESS_KEY_ID ?? "",
     rotationIntervalDays: 90,
     autoRotate: true,
   });
 
-  // Supabase requires manual rotation (notify every 180 days)
   apiKeyRotationService.scheduleRotation({
     provider: "supabase",
-    currentKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    currentKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
     rotationIntervalDays: 180,
-    autoRotate: true, // Will send notifications
+    autoRotate: true,
   });
 
   logger.info("API key rotation schedules initialized");
