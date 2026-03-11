@@ -9,12 +9,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
 import type { PresenceUser } from '../../lib/realtime/supabaseRealtime';
 
-// Mock Supabase
-const mockSupabase = {
+// Mock Supabase — must use vi.hoisted so the factory runs before imports
+const mockSupabase = vi.hoisted(() => ({
   channel: vi.fn(),
-};
+  removeChannel: vi.fn(),
+  removeAllChannels: vi.fn(),
+}));
 
 vi.mock('../../lib/supabase', () => ({
+  createBrowserSupabaseClient: () => mockSupabase,
   supabase: mockSupabase,
 }));
 
@@ -42,7 +45,7 @@ describe('Presence System Load Tests', () => {
       mockSupabase.channel.mockReturnValue(mockChannel);
 
       // Simulate 10 users joining
-      const unsubscribes = [];
+      const subscriptions: Array<{ unsubscribe: () => void; channel: unknown }> = [];
       for (let i = 0; i < 10; i++) {
         const user: PresenceUser = {
           userId: `user-${i}`,
@@ -52,7 +55,7 @@ describe('Presence System Load Tests', () => {
           lastSeen: new Date().toISOString(),
         };
 
-        const unsubscribe = realtimeService.subscribeToPresence(
+        const subscription = realtimeService.subscribeToPresence(
           valueCaseId,
           user,
           (presenceUsers) => {
@@ -60,14 +63,14 @@ describe('Presence System Load Tests', () => {
           }
         );
 
-        unsubscribes.push(unsubscribe);
+        subscriptions.push(subscription);
       }
 
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(10);
       expect(mockChannel.track).toHaveBeenCalledTimes(10);
 
       // Cleanup
-      unsubscribes.forEach((unsub) => unsub());
+      subscriptions.forEach(({ unsubscribe }) => unsubscribe());
     });
 
     it('should handle 50 concurrent users', async () => {
@@ -83,7 +86,7 @@ describe('Presence System Load Tests', () => {
       mockSupabase.channel.mockReturnValue(mockChannel);
 
       const startTime = Date.now();
-      const unsubscribes = [];
+      const subscriptions: Array<{ unsubscribe: () => void; channel: unknown }> = [];
 
       for (let i = 0; i < 50; i++) {
         const user: PresenceUser = {
@@ -94,13 +97,13 @@ describe('Presence System Load Tests', () => {
           lastSeen: new Date().toISOString(),
         };
 
-        const unsubscribe = realtimeService.subscribeToPresence(
+        const subscription = realtimeService.subscribeToPresence(
           valueCaseId,
           user,
           () => {}
         );
 
-        unsubscribes.push(unsubscribe);
+        subscriptions.push(subscription);
       }
 
       const endTime = Date.now();
@@ -109,7 +112,7 @@ describe('Presence System Load Tests', () => {
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(50);
       expect(duration).toBeLessThan(5000); // Should complete in < 5 seconds
 
-      unsubscribes.forEach((unsub) => unsub());
+      subscriptions.forEach(({ unsubscribe }) => unsubscribe());
     });
 
     it('should handle 100 concurrent users', async () => {
@@ -125,7 +128,7 @@ describe('Presence System Load Tests', () => {
       mockSupabase.channel.mockReturnValue(mockChannel);
 
       const startTime = Date.now();
-      const unsubscribes = [];
+      const subscriptions: Array<{ unsubscribe: () => void; channel: unknown }> = [];
 
       for (let i = 0; i < 100; i++) {
         const user: PresenceUser = {
@@ -136,13 +139,13 @@ describe('Presence System Load Tests', () => {
           lastSeen: new Date().toISOString(),
         };
 
-        const unsubscribe = realtimeService.subscribeToPresence(
+        const subscription = realtimeService.subscribeToPresence(
           valueCaseId,
           user,
           () => {}
         );
 
-        unsubscribes.push(unsubscribe);
+        subscriptions.push(subscription);
       }
 
       const endTime = Date.now();
@@ -151,7 +154,7 @@ describe('Presence System Load Tests', () => {
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(100);
       expect(duration).toBeLessThan(10000); // Should complete in < 10 seconds
 
-      unsubscribes.forEach((unsub) => unsub());
+      subscriptions.forEach(({ unsubscribe }) => unsubscribe());
     });
   });
 
@@ -177,7 +180,7 @@ describe('Presence System Load Tests', () => {
         lastSeen: new Date().toISOString(),
       };
 
-      realtimeService.subscribeToPresence(valueCaseId, user, (users) => {
+      const { channel } = realtimeService.subscribeToPresence(valueCaseId, user, (users) => {
         updates.push(...users);
       });
 
@@ -185,7 +188,7 @@ describe('Presence System Load Tests', () => {
 
       // Simulate 100 cursor movements
       for (let i = 0; i < 100; i++) {
-        await realtimeService.updatePresence(valueCaseId, {
+        await realtimeService.updatePresence(channel, {
           cursorX: i * 10,
           cursorY: i * 10,
         });
@@ -219,18 +222,19 @@ describe('Presence System Load Tests', () => {
         lastSeen: new Date().toISOString(),
       }));
 
-      // Subscribe all users
-      users.forEach((user) => {
-        realtimeService.subscribeToPresence(valueCaseId, user, () => {});
+      // Subscribe all users, capture channel references
+      const channels = users.map((user) => {
+        const { channel } = realtimeService.subscribeToPresence(valueCaseId, user, () => {});
+        return channel;
       });
 
       const startTime = Date.now();
 
-      // Each user makes 10 cursor updates
-      const updatePromises = users.map((user, userIndex) =>
+      // Each user makes 10 cursor updates using their channel reference
+      const updatePromises = channels.map((channel, userIndex) =>
         Promise.all(
           Array.from({ length: 10 }, (_, i) =>
-            realtimeService.updatePresence(valueCaseId, {
+            realtimeService.updatePresence(channel, {
               cursorX: userIndex * 100 + i * 10,
               cursorY: userIndex * 100 + i * 10,
             })
@@ -274,7 +278,7 @@ describe('Presence System Load Tests', () => {
           lastSeen: new Date().toISOString(),
         };
 
-        const unsubscribe = realtimeService.subscribeToPresence(
+        const { unsubscribe } = realtimeService.subscribeToPresence(
           valueCaseId,
           user,
           () => {}
@@ -304,7 +308,7 @@ describe('Presence System Load Tests', () => {
 
       mockSupabase.channel.mockReturnValue(mockChannel);
 
-      const unsubscribes = [];
+      const subscriptions: Array<{ unsubscribe: () => void; channel: unknown }> = [];
 
       // Users join at 100ms intervals
       for (let i = 0; i < 10; i++) {
@@ -318,18 +322,18 @@ describe('Presence System Load Tests', () => {
           lastSeen: new Date().toISOString(),
         };
 
-        const unsubscribe = realtimeService.subscribeToPresence(
+        const subscription = realtimeService.subscribeToPresence(
           valueCaseId,
           user,
           () => {}
         );
 
-        unsubscribes.push(unsubscribe);
+        subscriptions.push(subscription);
       }
 
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(10);
 
-      unsubscribes.forEach((unsub) => unsub());
+      subscriptions.forEach(({ unsubscribe }) => unsubscribe());
     });
   });
 
@@ -354,13 +358,13 @@ describe('Presence System Load Tests', () => {
         lastSeen: new Date().toISOString(),
       };
 
-      realtimeService.subscribeToPresence(valueCaseId, user, () => {});
+      const { channel } = realtimeService.subscribeToPresence(valueCaseId, user, () => {});
 
       const statuses: Array<'active' | 'idle' | 'away'> = ['active', 'idle', 'away'];
 
       // Cycle through statuses 20 times
       for (let i = 0; i < 20; i++) {
-        await realtimeService.updatePresence(valueCaseId, {
+        await realtimeService.updatePresence(channel, {
           status: statuses[i % 3],
         });
       }
@@ -392,7 +396,7 @@ describe('Presence System Load Tests', () => {
           lastSeen: new Date().toISOString(),
         };
 
-        const unsubscribe = realtimeService.subscribeToPresence(
+        const { unsubscribe } = realtimeService.subscribeToPresence(
           valueCaseId,
           user,
           () => {}
@@ -463,7 +467,7 @@ describe('Presence System Load Tests', () => {
         // No cursorX or cursorY
       };
 
-      const unsubscribe = realtimeService.subscribeToPresence(
+      const { unsubscribe } = realtimeService.subscribeToPresence(
         valueCaseId,
         user,
         () => {}
@@ -497,7 +501,7 @@ describe('Presence System Load Tests', () => {
         // No selectedElementId
       };
 
-      const unsubscribe = realtimeService.subscribeToPresence(
+      const { unsubscribe } = realtimeService.subscribeToPresence(
         valueCaseId,
         user,
         () => {}
