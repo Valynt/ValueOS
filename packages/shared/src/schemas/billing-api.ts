@@ -62,33 +62,37 @@ export type BackendSubscription = z.infer<typeof BackendSubscriptionSchema>;
 
 const MeterRecordSchema = z.record(MeterKeySchema, z.number());
 
-export const BackendUsageSummarySchema = z.object({
-  tenant_id: z.string(),
-  period_start: z.string(),
-  period_end: z.string(),
-  usage: MeterRecordSchema,
-  quotas: MeterRecordSchema,
-  percentages: MeterRecordSchema,
-  overages: MeterRecordSchema,
-});
+export const BackendUsageSummarySchema = z
+  .object({
+    tenant_id: z.string(),
+    period_start: z.string(),
+    period_end: z.string(),
+    usage: MeterRecordSchema,
+    quotas: MeterRecordSchema,
+    percentages: MeterRecordSchema,
+    overages: MeterRecordSchema,
+  })
+  .passthrough();
 export type BackendUsageSummary = z.infer<typeof BackendUsageSummarySchema>;
 
 // The summary endpoint wraps the usage object inside a top-level `usage` key.
-export const BillingSummaryResponseSchema = z.object({
-  tenant_id: z.string(),
-  subscription: z
-    .object({
-      id: z.string(),
-      status: BackendSubscriptionStatusSchema,
-      plan_tier: BackendPlanTierSchema,
-      current_period_start: z.string(),
-      current_period_end: z.string(),
-      cancel_at_period_end: z.boolean(),
-    })
-    .nullable(),
-  usage: BackendUsageSummarySchema.nullable(),
-  generated_at: z.string(),
-});
+export const BillingSummaryResponseSchema = z
+  .object({
+    tenant_id: z.string(),
+    subscription: z
+      .object({
+        id: z.string(),
+        status: BackendSubscriptionStatusSchema,
+        plan_tier: BackendPlanTierSchema,
+        current_period_start: z.string(),
+        current_period_end: z.string(),
+        cancel_at_period_end: z.boolean(),
+      })
+      .nullable(),
+    usage: BackendUsageSummarySchema.nullable(),
+    generated_at: z.string(),
+  })
+  .passthrough();
 export type BillingSummaryResponse = z.infer<typeof BillingSummaryResponseSchema>;
 
 // ---------------------------------------------------------------------------
