@@ -7,7 +7,7 @@ import {
   Sparkles,
   User
 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "../../../components/ui/badge";
@@ -266,6 +266,7 @@ export default function AcademyAITutor() {
                       value={inputMessage}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputMessage(e.target.value)}
                       placeholder="Ask me anything about VOS..."
+                      aria-label="Message input"
                       onKeyPress={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSendMessage()}
                       disabled={isLoading}
                     />
