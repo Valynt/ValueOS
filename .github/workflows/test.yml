@@ -69,11 +69,14 @@ jobs:
           FILTER: ${{ github.event.inputs.filter }}
           COVERAGE: ${{ github.event.inputs.coverage }}
         run: |
-          CMD="npx vitest run"
-          if [ "$COVERAGE" = "true" ]; then CMD="$CMD --coverage"; fi
-          if [ -n "$FILTER" ]; then CMD="$CMD $FILTER"; fi
-          echo "Running: $CMD"
-          $CMD
+          # Build the argument list without string-concatenating user input into
+          # a command string. Each element is a separate word so the shell never
+          # interprets FILTER content as additional commands or flags.
+          ARGS=()
+          if [ "$COVERAGE" = "true" ]; then ARGS+=(--coverage); fi
+          if [ -n "$FILTER" ]; then ARGS+=(-- "$FILTER"); fi
+          echo "Running: npx vitest run ${ARGS[*]}"
+          npx vitest run "${ARGS[@]}"
 
       - name: Upload coverage
         if: ${{ github.event.inputs.coverage == 'true' }}
