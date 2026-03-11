@@ -118,7 +118,7 @@ export const BackendInvoiceSchema = z.object({
   currency: z.string(),
   period_start: z.string(),
   period_end: z.string(),
-  invoice_pdf: z.string().optional(),
+  invoice_pdf_url: z.string().optional(),
   hosted_invoice_url: z.string().optional(),
   created_at: z.string(),
 });
