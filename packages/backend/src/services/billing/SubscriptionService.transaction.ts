@@ -145,7 +145,9 @@ class TransactionalSubscriptionService {
       stripeCallAttempted = true;
       const stripeResults = await this.updateStripeItems(items, newPlanTier, idempotencyKey);
 
-      await this.markChangeStatus(change.id, "stripe_updated");
+      await this.markChangeStatus(change.id, "stripe_updated", {
+        stripe_updated_at: new Date().toISOString(),
+      });
 
       // Step 3: Update the DB subscription record.
       const updatedSubscription = await this.updateSubscriptionRecord(
@@ -373,35 +375,44 @@ class TransactionalSubscriptionService {
   /**
    * Best-effort rollback: revert Stripe items to their original price IDs.
    * Returns true if all rollbacks succeeded, false if any failed.
+   *
+   * `items` MUST be the pre-forward-update snapshot (old price IDs). Callers
+   * must not re-fetch subscription items between the forward update and this
+   * call, or the "original" price IDs will already reflect the new plan.
    */
   private async rollbackStripeItems(
     items: SubscriptionItemRow[],
     baseIdempotencyKey: string,
   ): Promise<boolean> {
-    let allSucceeded = true;
-
-    await Promise.all(
-      items.map(async (item, index) => {
-        try {
-          // Rollback idempotency key is distinct from the forward key so Stripe
-          // treats it as a separate operation.
-          const rollbackKey = `${baseIdempotencyKey}_rollback_${index}`;
-          await this.stripe.subscriptionItems.update(
-            item.stripe_subscription_item_id,
-            { price: item.stripe_price_id },
-            { idempotencyKey: rollbackKey },
-          );
-        } catch (err) {
-          allSucceeded = false;
-          logger.error("Failed to rollback Stripe subscription item", {
-            itemId: item.id,
-            stripeItemId: item.stripe_subscription_item_id,
-            originalPriceId: item.stripe_price_id,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+    // Use Promise.allSettled so each item's outcome is independent and the
+    // results are inspected from a single array rather than via a shared
+    // mutable flag that concurrent callbacks could race on.
+    const results = await Promise.allSettled(
+      items.map((item, index) => {
+        // Rollback idempotency key is distinct from the forward key so Stripe
+        // treats it as a separate operation.
+        const rollbackKey = `${baseIdempotencyKey}_rollback_${index}`;
+        return this.stripe.subscriptionItems.update(
+          item.stripe_subscription_item_id,
+          { price: item.stripe_price_id },
+          { idempotencyKey: rollbackKey },
+        );
       }),
     );
+
+    let allSucceeded = true;
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === "rejected") {
+        allSucceeded = false;
+        logger.error("Failed to rollback Stripe subscription item", {
+          itemId: items[i].id,
+          stripeItemId: items[i].stripe_subscription_item_id,
+          originalPriceId: items[i].stripe_price_id,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    }
 
     return allSucceeded;
   }

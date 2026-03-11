@@ -712,6 +712,15 @@ export function getWebScraperService(): WebScraperService {
 }
 
 /**
+ * Reset the singleton so the next call to getWebScraperService() constructs
+ * a fresh instance. Use in test afterEach/afterAll hooks when
+ * WEB_SCRAPER_ENCRYPTION_KEY is changed between tests.
+ */
+export function resetWebScraperService(): void {
+  _webScraperServiceInstance = null;
+}
+
+/**
  * @deprecated Use getWebScraperService() instead.
  *
  * Construction is deferred to first property access via a Proxy. If

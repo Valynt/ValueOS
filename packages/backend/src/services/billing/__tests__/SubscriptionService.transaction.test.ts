@@ -173,6 +173,25 @@ describe("TransactionalSubscriptionService", () => {
     expect(tableNames).toContain("usage_quotas");
   });
 
+  it("BUG-3 regression: sets stripe_updated_at when marking stripe_updated", async () => {
+    setupHappyPath();
+    const service = makeService();
+
+    await service.updateSubscriptionWithTransaction(TENANT_ID, "enterprise");
+
+    // The 4th from() call is markChangeStatus("stripe_updated").
+    // Verify the update payload includes stripe_updated_at.
+    const updateCalls = (supabaseMock.from.mock.results as { value: { update: ReturnType<typeof vi.fn> } }[])
+      .map((r) => r.value?.update?.mock?.calls?.[0]?.[0])
+      .filter(Boolean);
+
+    const stripeUpdatedCall = updateCalls.find(
+      (payload: Record<string, unknown>) => payload.status === "stripe_updated",
+    );
+    expect(stripeUpdatedCall).toBeDefined();
+    expect(typeof stripeUpdatedCall?.stripe_updated_at).toBe("string");
+  });
+
   it("passes idempotency keys to every Stripe item update", async () => {
     setupHappyPath();
     const service = makeService();
@@ -232,6 +251,63 @@ describe("TransactionalSubscriptionService", () => {
     ).rejects.toThrow("Stripe error");
 
     expect(stripeItemUpdateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("BUG-1 regression: rollback returns false when multiple items fail concurrently", async () => {
+    // Two items — both rollbacks fail. Promise.allSettled ensures both are
+    // attempted and the result is inspected from the settled array rather than
+    // via a shared mutable flag that concurrent callbacks could race on.
+    const twoItems = [
+      { ...mockItems[0], id: "item-1", stripe_subscription_item_id: "si_1", stripe_price_id: "price_standard_llm" },
+      { ...mockItems[0], id: "item-2", stripe_subscription_item_id: "si_2", stripe_price_id: "price_standard_agent", metric: "agent_executions" },
+    ];
+
+    const calls = [
+      chain({ data: mockSubscription, error: null }),
+      chain({ data: twoItems, error: null }),
+      chain({ data: { id: "change-1" }, error: null }),
+      chain({ error: null }), // mark failed
+      chain({ error: null }), // mark needs_reconciliation
+    ];
+    let i = 0;
+    supabaseMock.from.mockImplementation(() => calls[i++] ?? chain({ error: null }));
+
+    process.env.STRIPE_PRICE_AGENT_EXECUTIONS_ENTERPRISE = "price_enterprise_agent";
+
+    // Both forward calls succeed so updateStripeItems resolves; then both
+    // rollback calls fail so rollbackStripeItems returns false.
+    stripeItemUpdateMock
+      .mockResolvedValueOnce({ price: { id: "price_enterprise_llm" } })   // forward item-1
+      .mockResolvedValueOnce({ price: { id: "price_enterprise_agent" } })  // forward item-2
+      // DB update throws to trigger the catch block
+      .mockRejectedValueOnce(new Error("Rollback error 1")) // rollback item-1
+      .mockRejectedValueOnce(new Error("Rollback error 2")); // rollback item-2
+
+    // Make the DB subscription update fail so we enter the catch path.
+    const callsWithDbFailure = [
+      chain({ data: mockSubscription, error: null }),          // fetchActiveSubscription
+      chain({ data: twoItems, error: null }),                  // fetchSubscriptionItems
+      chain({ data: { id: "change-1" }, error: null }),        // createChangeRecord
+      chain({ error: null }),                                  // markChangeStatus stripe_updated
+      chain({ data: null, error: { message: "DB error" } }),   // updateSubscriptionRecord fails
+      chain({ error: null }),                                  // markChangeStatus failed
+      chain({ error: null }),                                  // markChangeStatus needs_reconciliation
+    ];
+    let j = 0;
+    supabaseMock.from.mockImplementation(() => callsWithDbFailure[j++] ?? chain({ error: null }));
+
+    const service = makeService();
+
+    await expect(
+      service.updateSubscriptionWithTransaction(TENANT_ID, "enterprise"),
+    ).rejects.toThrow("DB error");
+
+    // 2 forward calls + 2 rollback calls = 4 total.
+    expect(stripeItemUpdateMock).toHaveBeenCalledTimes(4);
+    // Rollback keys must be distinct from forward keys.
+    const calls4 = stripeItemUpdateMock.mock.calls as [string, unknown, { idempotencyKey: string }][];
+    expect(calls4[2][2].idempotencyKey).toContain("_rollback_0");
+    expect(calls4[3][2].idempotencyKey).toContain("_rollback_1");
   });
 
   it("reconcileSubscription marks pending changes as failed", async () => {

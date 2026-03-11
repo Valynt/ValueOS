@@ -215,6 +215,11 @@ export class PermissionService extends TenantAwareService {
   ): Promise<UserRole[]> {
     if (scope && scopeId) {
       await this.ensureTenantScopeAccess(scope, scopeId, userId);
+    } else {
+      // No specific scope provided — still verify the user has at least one
+      // active tenant membership so suspended/removed users cannot enumerate
+      // their roles via the unscoped path.
+      await this.getUserTenants(userId);
     }
 
     return this.executeRequest(

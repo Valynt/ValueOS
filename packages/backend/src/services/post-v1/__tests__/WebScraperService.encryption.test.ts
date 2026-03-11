@@ -25,19 +25,16 @@ vi.mock("../../../lib/logger.js", () => ({
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
-import { WebScraperService, getWebScraperService } from "../WebScraperService.js";
+import { WebScraperService, getWebScraperService, resetWebScraperService } from "../WebScraperService.js";
 
 describe("WebScraperService encryption key validation", () => {
   const originalKey = process.env.WEB_SCRAPER_ENCRYPTION_KEY;
 
-  beforeEach(() => {
-    // Reset the lazy singleton between tests.
-    // Access the module-level variable via the exported factory's closure.
-    // We do this by re-importing after clearing — but since vi.mock is hoisted
-    // and modules are cached, we manipulate the env var and test construction directly.
-  });
-
   afterEach(() => {
+    // Reset the singleton so the next test constructs a fresh instance with
+    // whatever WEB_SCRAPER_ENCRYPTION_KEY is set at that point.
+    resetWebScraperService();
+
     if (originalKey === undefined) {
       delete process.env.WEB_SCRAPER_ENCRYPTION_KEY;
     } else {
