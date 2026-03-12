@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-unit-component-schema-${{ github.run_id }}
           path: |
@@ -213,7 +213,7 @@ jobs:
 
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-tenant-isolation-gate-${{ github.run_id }}
           path: |
@@ -266,7 +266,7 @@ jobs:
 
       - name: Upload lane artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lane-critical-workflows-gate-${{ github.run_id }}
           path: artifacts/ci-lanes/critical-workflows-gate/**
@@ -330,7 +330,7 @@ jobs:
 
       - name: Upload accessibility artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: accessibility-audit-${{ github.run_id }}
           path: |
@@ -423,7 +423,7 @@ jobs:
 
       - name: Upload security artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-gate-${{ github.run_id }}
           path: |
