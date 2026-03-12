@@ -174,12 +174,11 @@ export class BillingSpendEvaluationService extends EventEmitter {
     this.emit('billing.daily_spend.threshold', event);
 
     await this.messageBus.publishMessage('billing.daily_spend.threshold', {
+      tenant_id: organizationId,
       event_type: 'alert',
       sender_id: 'billing-spend-evaluator',
       recipient_ids: ['billing-monitor'],
-      recipient_agent: 'billing-monitor',
       message_type: 'status_update',
-      tenant_id: organizationId,
       organization_id: organizationId,
       content: `Daily spend ${threshold} threshold reached`,
       payload: event,

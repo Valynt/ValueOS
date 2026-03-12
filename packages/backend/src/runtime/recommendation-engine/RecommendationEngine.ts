@@ -104,6 +104,11 @@ export class RecommendationEngine {
    * DecisionRouter and push the result to the UI.
    */
   private async onOpportunityUpdated(payload: OpportunityUpdatedPayload): Promise<void> {
+    if (!payload.tenantId) {
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'opportunity.updated' });
+      return;
+    }
+
     logger.info('RecommendationEngine: opportunity.updated received', {
       opportunityId: payload.opportunityId,
       tenantId: payload.tenantId,
@@ -154,6 +159,11 @@ export class RecommendationEngine {
    * or escalate based on the integrity outcome.
    */
   private async onHypothesisValidated(payload: HypothesisValidatedPayload): Promise<void> {
+    if (!payload.tenantId) {
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'hypothesis.validated' });
+      return;
+    }
+
     logger.info('RecommendationEngine: hypothesis.validated received', {
       opportunityId: payload.opportunityId,
       tenantId: payload.tenantId,
@@ -210,6 +220,11 @@ export class RecommendationEngine {
    * user knows grounding data has been incorporated.
    */
   private async onEvidenceAttached(payload: EvidenceAttachedPayload): Promise<void> {
+    if (!payload.tenantId) {
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'evidence.attached' });
+      return;
+    }
+
     logger.info('RecommendationEngine: evidence.attached received', {
       opportunityId: payload.opportunityId,
       tenantId: payload.tenantId,
@@ -240,6 +255,11 @@ export class RecommendationEngine {
    * intervention based on the KPI direction.
    */
   private async onMilestoneReached(payload: RealizationMilestoneReachedPayload): Promise<void> {
+    if (!payload.tenantId) {
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'realization.milestone_reached' });
+      return;
+    }
+
     logger.info('RecommendationEngine: realization.milestone_reached received', {
       opportunityId: payload.opportunityId,
       tenantId: payload.tenantId,

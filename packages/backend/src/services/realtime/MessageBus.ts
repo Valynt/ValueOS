@@ -23,14 +23,14 @@ export class MessageBus {
   private channels: Map<string, ChannelConfig>;
   private stats: Map<string, MessageStats>;
   private messageHistory: Map<string, CommunicationEvent[]>;
-  private redis: any; // Redis client (optional)
-  private nats: any; // NATS client (optional)
+  private redis: unknown; // Redis client (optional)
+  private nats: unknown; // NATS client (optional)
   /** Tracks channels with an active Redis subscription to prevent duplicate listeners. */
   private redisChannels: Set<string>;
   /** Tracks channels with an active NATS subscription to prevent duplicate listeners. */
   private natsChannels: Set<string>;
 
-  constructor(config?: { redis?: any; nats?: any }) {
+  constructor(config?: { redis?: unknown; nats?: unknown }) {
     this.subscribers = new Map();
     this.channels = new Map();
     this.stats = new Map();
@@ -45,12 +45,20 @@ export class MessageBus {
   }
 
   /**
-   * Publish a message to a channel
+   * Publish a message to a channel.
+   *
+   * Throws if `payload.tenant_id` is absent or empty — every event must be
+   * scoped to a tenant so consumers can enforce isolation without inspecting
+   * the payload body.
    */
   async publishMessage(
     channel: string,
     payload: CreateCommunicationEvent
   ): Promise<string> {
+    if (!payload.tenant_id) {
+      throw new Error('CommunicationEvent missing tenant_id');
+    }
+
     const messageId = uuidv4();
 
     const event: CommunicationEvent = {
@@ -148,7 +156,7 @@ export class MessageBus {
   /**
    * Compress message payload
    */
-  compressMessage(payload: any): any {
+  compressMessage(payload: unknown): unknown {
     try {
       const jsonString = JSON.stringify(payload);
       const compressed = compress(jsonString);
@@ -160,23 +168,30 @@ export class MessageBus {
   }
 
   /**
-   * Expand compressed message
+   * Expand a compressed message payload.
+   *
+   * Throws on decompression failure so callers receive an explicit error
+   * rather than a malformed `{ __compressed: true, data: '...' }` object
+   * that would silently propagate as a domain payload.
    */
-  expandMessage(payload: any): any {
-    try {
-      if (payload.__compressed) {
-        const decompressed = decompress(payload.data);
-        if (decompressed === null) {
-          logger.error('Failed to decompress message: decompress returned null');
-          return payload;
-        }
-        return JSON.parse(decompressed);
-      }
-      return payload;
-    } catch (error) {
-      logger.error('Failed to expand message', error instanceof Error ? error : undefined);
+  expandMessage(payload: unknown): unknown {
+    if (
+      typeof payload !== 'object' ||
+      payload === null ||
+      !('__compressed' in payload) ||
+      !(payload as Record<string, unknown>).__compressed
+    ) {
       return payload;
     }
+
+    const raw = String((payload as Record<string, unknown>).data);
+    const decompressed = decompress(raw);
+    if (decompressed === null) {
+      throw new Error('MessageBus: decompression returned null — payload may be corrupt');
+    }
+    // JSON.parse throws on malformed input; let it propagate so deliverMessage
+    // can catch it, log it, and count it as a failed delivery.
+    return JSON.parse(decompressed);
   }
 
   /**
@@ -344,10 +359,20 @@ export class MessageBus {
         continue;
       }
 
-      // Expand compressed payload
-      const expandedEvent = event.compressed
-        ? { ...event, payload: this.expandMessage(event.payload) }
-        : event;
+      // Expand compressed payload — throws on corrupt data
+      let expandedEvent: CommunicationEvent;
+      try {
+        expandedEvent = event.compressed
+          ? { ...event, payload: this.expandMessage(event.payload) }
+          : event;
+      } catch (expandError) {
+        logger.error(
+          `MessageBus: failed to expand payload for handler ${handler.agent_name}`,
+          expandError instanceof Error ? expandError : undefined,
+        );
+        this.updateStats(channel, 'failed_delivery');
+        continue;
+      }
 
       deliveryPromises.push(
         handler.handler(expandedEvent).catch((error) => {
@@ -380,16 +405,9 @@ export class MessageBus {
   }
 
   private shouldCompress(payload: unknown): boolean {
-    if (payload === undefined || payload === null) {
-      return false;
-    }
-
+    if (payload === undefined || payload === null) return false;
     const jsonString = JSON.stringify(payload);
-    if (!jsonString) {
-      return false;
-    }
-
-    return jsonString.length > 1024; // Compress if > 1KB
+    return jsonString !== undefined && jsonString.length > 1024; // Compress if > 1KB
   }
 
   private updateStats(
@@ -430,8 +448,9 @@ export class MessageBus {
 
   private async publishToRedis(channel: string, event: CommunicationEvent): Promise<void> {
     if (!this.redis) return;
+    const redis = this.redis as { publish(ch: string, msg: string): Promise<unknown> };
     try {
-      await this.redis.publish(channel, JSON.stringify(event));
+      await redis.publish(channel, JSON.stringify(event));
     } catch (error) {
       logger.error('Redis publish error', error instanceof Error ? error : undefined);
     }
@@ -439,8 +458,9 @@ export class MessageBus {
 
   private subscribeToRedis(channel: string): void {
     if (!this.redis) return;
+    const redis = this.redis as { subscribe(ch: string, cb: (msg: string) => void): void };
     try {
-      this.redis.subscribe(channel, (message: string) => {
+      redis.subscribe(channel, (message: string) => {
         const event = JSON.parse(message) as CommunicationEvent;
         // Route through deliverMessage so the tenant_id guard and subscriber
         // filters apply to messages arriving from Redis, not just local publishes.
@@ -455,8 +475,9 @@ export class MessageBus {
 
   private async publishToNATS(channel: string, event: CommunicationEvent): Promise<void> {
     if (!this.nats) return;
+    const nats = this.nats as { publish(ch: string, msg: string): Promise<unknown> };
     try {
-      await this.nats.publish(channel, JSON.stringify(event));
+      await nats.publish(channel, JSON.stringify(event));
     } catch (error) {
       logger.error('NATS publish error', error instanceof Error ? error : undefined);
     }
@@ -464,8 +485,9 @@ export class MessageBus {
 
   private subscribeToNATS(channel: string): void {
     if (!this.nats) return;
+    const nats = this.nats as { subscribe(ch: string, cb: (msg: string) => void): void };
     try {
-      this.nats.subscribe(channel, (message: string) => {
+      nats.subscribe(channel, (message: string) => {
         const event = JSON.parse(message) as CommunicationEvent;
         // Route through deliverMessage so the tenant_id guard and subscriber
         // filters apply to messages arriving from NATS, not just local publishes.
@@ -482,7 +504,7 @@ export class MessageBus {
 // Singleton instance
 let messageBusInstance: MessageBus | null = null;
 
-export function getMessageBus(config?: { redis?: any; nats?: any }): MessageBus {
+export function getMessageBus(config?: { redis?: unknown; nats?: unknown }): MessageBus {
   if (!messageBusInstance) {
     messageBusInstance = new MessageBus(config);
   }

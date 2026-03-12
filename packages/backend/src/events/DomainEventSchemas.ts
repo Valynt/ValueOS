@@ -117,7 +117,7 @@ export type DomainEventName =
   | 'realization.milestone_reached'
   | 'narrative.drafted';
 
-export const NarrativeDraftedPayloadSchema = z.object({
+export const NarrativeDraftedPayloadSchema = DomainEventEnvelopeSchema.extend({
   organization_id: z.string(),
   value_case_id: z.string().optional(),
   defense_readiness_score: z.number().min(0).max(1),
