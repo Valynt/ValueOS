@@ -224,6 +224,7 @@ export abstract class BaseAgent {
           userId: "system",
           idempotencyKey,
           prompt_versions: this.activePromptReferences,
+          prompt_approvals: this.activePromptApprovals,
           ...context,
         },
       };
