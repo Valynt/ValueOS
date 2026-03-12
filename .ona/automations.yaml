@@ -1,34 +1,104 @@
+services:
+  postgres:
+    name: PostgreSQL
+    description: Postgres 15 database for local development.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        docker run --rm --name valueos-postgres \
+          -e POSTGRES_DB=valueos \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_PASSWORD=postgres \
+          -p 5432:5432 \
+          postgres:15-alpine
+      ready: |
+        docker exec valueos-postgres pg_isready -U postgres
+      stop: |
+        docker stop valueos-postgres 2>/dev/null || true
+
+  redis:
+    name: Redis
+    description: Redis 7 cache and BullMQ queue broker.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        docker run --rm --name valueos-redis \
+          -p 6379:6379 \
+          redis:7-alpine \
+          redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+      ready: |
+        docker exec valueos-redis redis-cli ping | grep -q PONG
+      stop: |
+        docker stop valueos-redis 2>/dev/null || true
+
+  nats:
+    name: NATS
+    description: NATS message broker for inter-agent CloudEvents messaging.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        docker run --rm --name valueos-nats \
+          -p 4222:4222 \
+          -p 8222:8222 \
+          nats:2-alpine \
+          -m 8222
+      ready: |
+        curl -sf http://localhost:8222/healthz
+      stop: |
+        docker stop valueos-nats 2>/dev/null || true
+
+  backend:
+    name: Backend API
+    description: Express API server on port 8000.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona env port open 8000 --protocol https 2>/dev/null || true
+        pnpm run dev:backend
+      ready: |
+        curl -sf http://localhost:8000/health
+
+  frontend:
+    name: ValyntApp (Vite)
+    description: Vite dev server for ValyntApp on port 5173.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        ona env port open 5173 --protocol https 2>/dev/null || true
+        pnpm run dev:frontend
+      ready: |
+        curl -sf http://localhost:5173
+
 tasks:
   installDeps:
     name: Install dependencies
-    description: Enable corepack and install pnpm workspace dependencies.
+    description: Enable corepack, activate pnpm, and install workspace dependencies.
     command: |
       sudo corepack enable --install-directory /usr/local/bin 2>/dev/null || true
       corepack prepare pnpm@9.15.0 --activate 2>/dev/null || true
-      # Remove any partial node_modules from a previous failed/concurrent run
-      # before installing. ENOTEMPTY errors occur when multiple pnpm processes
-      # race to write the same package directory on first boot.
+      # Clean incomplete node_modules from a previous failed run before installing.
+      # ENOTEMPTY errors occur when multiple pnpm processes race on first boot.
       if [ -d node_modules/.pnpm ] && [ ! -f node_modules/.modules.yaml ]; then
         echo "Detected incomplete node_modules — cleaning before install."
         rm -rf node_modules
       fi
-      # CI=true prevents interactive TTY prompts; --no-frozen-lockfile handles
-      # lockfile drift (e.g. when package.json is updated without regenerating the lock).
       CI=true pnpm install --no-frozen-lockfile
     triggeredBy:
       - postDevcontainerStart
 
   setupTools:
     name: Setup dev tools
-    description: Install tsx and other global dev tools.
+    description: Install tsx and other global CLI tools required by backend scripts.
     command: |
-      if [ -z "$PNPM_HOME" ]; then
-        echo "WARNING: PNPM_HOME not set by container env, defaulting to /home/vscode/.local/share/pnpm" >&2
-        export PNPM_HOME="/home/vscode/.local/share/pnpm"
-      fi
+      export PNPM_HOME="${PNPM_HOME:-/home/vscode/.local/share/pnpm}"
       mkdir -p "$PNPM_HOME"
       export PATH="$PNPM_HOME:$PATH"
-      if ! command -v tsx &> /dev/null; then
+      if ! command -v tsx &>/dev/null; then
         pnpm add -g tsx
       fi
     triggeredBy:
@@ -36,77 +106,9 @@ tasks:
     dependsOn:
       - installDeps
 
-  validateEnvironment:
-    name: Validate environment
-    description: Typecheck, lint, verify required env vars, and confirm DB connectivity. Fails fast so engineers know the environment is broken before writing code.
-    command: |
-      echo "--- typecheck ---"
-      # Typecheck is non-fatal: the codebase has a tracked tsErrorBaseline in
-      # packages/backend/package.json. Errors here are pre-existing; new errors
-      # will surface in CI on PRs.
-      pnpm --filter @valueos/backend typecheck 2>&1 | tail -3 || true
-      echo "Typecheck complete (pre-existing errors tracked in tsErrorBaseline)."
-
-      echo "--- lint ---"
-      # Non-fatal: lint warnings are tracked as a baseline. Errors will surface in CI.
-      pnpm --filter @valueos/backend lint 2>&1 | tail -3 || true
-      echo "Lint complete."
-
-      echo "--- env vars ---"
-      REQUIRED_VARS="NODE_ENV DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY REDIS_URL"
-      MISSING=""
-      for var in $REQUIRED_VARS; do
-        if [ -z "${!var:-}" ]; then
-          MISSING="$MISSING $var"
-        fi
-      done
-      if [ -n "$MISSING" ]; then
-        echo "WARNING: missing env vars:$MISSING"
-        echo "Copy .env.local.example to .env.local and fill in values before running the full stack."
-      else
-        echo "All required env vars present."
-      fi
-
-      echo "--- DB connection ---"
-      if command -v psql &>/dev/null && [ -n "${DATABASE_URL:-}" ]; then
-        psql "$DATABASE_URL" -c "SELECT 1" -q --no-psqlrc &>/dev/null \
-          && echo "DB reachable." \
-          || echo "WARNING: DB not reachable (expected in fresh environments)."
-      else
-        echo "psql not available or DATABASE_URL unset — skipping DB ping."
-      fi
-
-      echo "Environment validation passed."
-    triggeredBy:
-      - postDevcontainerStart
-    dependsOn:
-      - setupTools
-
-  runTests:
-    name: Run tests
-    description: Execute the full Vitest suite to catch regressions before any code is written.
-    command: |
-      # Guard: node_modules must be present (installDeps may have failed)
-      if [ ! -f node_modules/.modules.yaml ]; then
-        echo "node_modules not ready — re-running install before tests."
-        CI=true pnpm install --no-frozen-lockfile || { echo "FAIL: install failed, cannot run tests"; exit 1; }
-      fi
-
-      echo "--- unit + memory tests ---"
-      pnpm test || { echo "FAIL: root test suite"; exit 1; }
-
-      echo "--- backend agent + domain + orchestration tests ---"
-      pnpm --filter @valueos/backend test || { echo "FAIL: backend test suite"; exit 1; }
-
-      echo "Tests passed."
-    triggeredBy:
-      - postDevcontainerStart
-    dependsOn:
-      - validateEnvironment
-
   applyMigrations:
     name: Apply database migrations
-    description: Reset and re-apply all migrations so the local schema matches the migration files. Catches schema drift (e.g. tables present in archived migrations but absent from active ones).
+    description: Apply pending SQL migrations to the local Postgres instance.
     command: |
       MIGRATIONS_DIR="${MIGRATIONS_DIR:-infra/supabase/supabase/migrations}"
       if [ ! -d "$MIGRATIONS_DIR" ]; then
@@ -114,45 +116,25 @@ tasks:
         exit 0
       fi
 
-      # Resolve DATABASE_URL for the local Supabase CLI stack.
-      # Priority: existing DATABASE_URL env var → ops/env/.env.local → supabase status output.
-      if [ -z "${DATABASE_URL:-}" ]; then
-        if [ -f ops/env/.env.local ]; then
-          set -a; . ops/env/.env.local; set +a
-        fi
+      # Resolve DATABASE_URL: env var -> ops/env/.env.local -> default local credentials.
+      if [ -z "${DATABASE_URL:-}" ] && [ -f ops/env/.env.local ]; then
+        set -a; . ops/env/.env.local; set +a
       fi
+      export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/valueos}"
 
-      if [ -z "${DATABASE_URL:-}" ] && command -v supabase >/dev/null 2>&1; then
-        # Extract DB URL from the running local Supabase stack.
-        _SB_DB_URL="$(supabase status 2>/dev/null | grep -i 'DB URL' | awk '{print $NF}')"
-        if [ -n "$_SB_DB_URL" ]; then
-          export DATABASE_URL="$_SB_DB_URL"
-        fi
-      fi
-
-      if [ -z "${DATABASE_URL:-}" ]; then
-        echo "DATABASE_URL not set and could not be derived from supabase status."
-        echo "Copy ops/env/.env.local.example to ops/env/.env.local and set DATABASE_URL."
-        echo "Skipping migration guard."
+      # Wait for Postgres to be reachable before attempting migrations.
+      _retries=0
+      until pg_isready -d "$DATABASE_URL" -q 2>/dev/null || [ "$_retries" -ge 30 ]; do
+        echo "Waiting for Postgres..."
+        sleep 2
+        _retries=$((_retries + 1))
+      done
+      if ! pg_isready -d "$DATABASE_URL" -q 2>/dev/null; then
+        echo "Postgres not reachable after 60s — skipping migrations."
         exit 0
       fi
 
-      if ! command -v psql >/dev/null 2>&1; then
-        echo "psql not found — skipping migration guard."
-        exit 0
-      fi
-
-      # Verify the database is reachable before attempting migrations.
-      if ! psql "$DATABASE_URL" -c "SELECT 1" -q --no-psqlrc >/dev/null 2>&1; then
-        echo "Database not reachable at DATABASE_URL — skipping migration guard."
-        exit 0
-      fi
-
-      echo "--- migration guard ---"
-      echo "Applying migrations from $MIGRATIONS_DIR..."
-
-      # Ensure the tracking table exists so we can record and skip applied migrations.
-      # Grants match scripts/db/apply-migrations.sh and 02-create-migrations-table.sh.
+      # Ensure migration tracking table exists.
       psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q -c "
         CREATE TABLE IF NOT EXISTS public.schema_migrations (
           name        TEXT PRIMARY KEY,
@@ -162,108 +144,79 @@ tasks:
         ALTER TABLE public.schema_migrations ENABLE ROW LEVEL SECURITY;
         GRANT SELECT ON public.schema_migrations TO anon, authenticated;
         GRANT ALL   ON public.schema_migrations TO service_role, supabase_admin;
-      " || { echo "FAIL: could not create schema_migrations tracking table"; exit 1; }
+      " || { echo "FAIL: could not create schema_migrations table"; exit 1; }
 
-      _migration_count=0
-      _skipped=0
       _applied=0
-
-      # POSIX-compatible loop — avoids bash-only mapfile and process substitution.
-      while IFS= read -r _file; do
-        _migration_count=$((_migration_count + 1))
+      _skipped=0
+      for _file in $(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name "*.sql" | sort); do
         _name="$(basename "$_file")"
-
-        # Skip if already recorded in schema_migrations.
-        _already_applied="$(psql "$DATABASE_URL" -tAX --set=name="$_name" -c \
-          "SELECT 1 FROM public.schema_migrations WHERE name = :'name' LIMIT 1;" 2>/dev/null || true)"
-        if [ "$_already_applied" = "1" ]; then
+        _already="$(psql "$DATABASE_URL" -tAX -c "SELECT 1 FROM public.schema_migrations WHERE name = '$_name' LIMIT 1;" 2>/dev/null || true)"
+        if [ "$_already" = "1" ]; then
           _skipped=$((_skipped + 1))
           continue
         fi
-
         echo "  -> $_name"
         if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -f "$_file"; then
-          # Record the migration as applied.
-          psql "$DATABASE_URL" -X -q --set=name="$_name" -c \
-            "INSERT INTO public.schema_migrations (name) VALUES (:'name') ON CONFLICT (name) DO NOTHING;" \
-            || true
+          psql "$DATABASE_URL" -X -q -c "INSERT INTO public.schema_migrations (name) VALUES ('$_name') ON CONFLICT (name) DO NOTHING;" || true
           _applied=$((_applied + 1))
         else
-          echo "FAIL: $_name"
-          exit 1
+          echo "FAIL: $_name"; exit 1
         fi
-      done << EOF
-$(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
-EOF
-
-      if [ "$_migration_count" -eq 0 ]; then
-        echo "No migration files found — nothing to apply."
-        exit 0
-      fi
+      done
 
       echo "Migrations: $_applied applied, $_skipped already up-to-date."
-
-      echo "--- RLS enforcement check ---"
-      if [ -f scripts/check-rls-enforcement.sh ]; then
-        bash scripts/check-rls-enforcement.sh \
-          && echo "RLS check passed." \
-          || { echo "FAIL: RLS enforcement check"; exit 1; }
-      fi
     triggeredBy:
-      - postDevcontainerStart
+      - postEnvironmentStart
     dependsOn:
       - setupTools
 
-  agentHealthCheck:
-    name: Agent runtime health check
-    description: Verify that backend API, Redis, Supabase, and LLM gateway env are reachable before developers run agent workflows.
+  lint:
+    name: Lint
+    description: Run ESLint across the workspace.
     command: |
-      BACKEND_PORT="${BACKEND_PORT:-8000}"
-      REDIS_HOST="${REDIS_HOST:-localhost}"
-      REDIS_PORT="${REDIS_PORT:-6379}"
-
-      PASS=0
-      FAIL=0
-
-      pass() { echo "  ✓ $1"; PASS=$((PASS + 1)); }
-      fail() { echo "  ✗ $1 (not reachable)"; FAIL=$((FAIL + 1)); }
-
-      echo "--- agent runtime health ---"
-
-      if curl -sf "http://localhost:${BACKEND_PORT}/health" &>/dev/null; then
-        pass "Backend API (:${BACKEND_PORT}/health)"
-      else
-        fail "Backend API (:${BACKEND_PORT}/health)"
-      fi
-
-      if redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping &>/dev/null; then
-        pass "Redis (:${REDIS_PORT})"
-      else
-        fail "Redis (:${REDIS_PORT})"
-      fi
-
-      if [ -n "${SUPABASE_URL:-}" ] && curl -sf "${SUPABASE_URL}/rest/v1/" -H "apikey: ${SUPABASE_ANON_KEY:-}" &>/dev/null; then
-        pass "Supabase (${SUPABASE_URL})"
-      else
-        fail "Supabase (SUPABASE_URL)"
-      fi
-
-      if [ -n "${VITE_LLM_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
-        pass "LLM gateway env (VITE_LLM_API_KEY or OPENAI_API_KEY)"
-      else
-        fail "LLM gateway env (VITE_LLM_API_KEY or OPENAI_API_KEY)"
-      fi
-
-      echo ""
-      echo "Health summary: $PASS passed, $FAIL not reachable."
-
-      if [ "$FAIL" -gt 0 ]; then
-        echo "WARNING: $FAIL service(s) unreachable. Start the full stack with 'pnpm run dx' before running agent workflows."
-      fi
-
-      # Non-fatal: infrastructure may not be running in a fresh environment.
-      exit 0
+      pnpm run lint
     triggeredBy:
-      - postDevcontainerStart
+      - manual
     dependsOn:
-      - setupTools
+      - installDeps
+
+  typecheck:
+    name: Typecheck
+    description: Run tsc --noEmit across all packages via Turbo.
+    command: |
+      pnpm run check
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  test:
+    name: Run tests
+    description: Execute the full Vitest suite (unit + backend).
+    command: |
+      pnpm test
+      pnpm --filter @valueos/backend test
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  testRls:
+    name: RLS policy tests
+    description: Validate row-level security tenant isolation policies.
+    command: |
+      pnpm run test:rls
+    triggeredBy:
+      - manual
+    dependsOn:
+      - applyMigrations
+
+  build:
+    name: Build
+    description: Build ValyntApp and backend for production.
+    command: |
+      pnpm run build
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps

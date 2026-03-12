@@ -7,15 +7,19 @@
     },
     "ghcr.io/devcontainers/features/docker-in-docker": {}
   },
-  "forwardPorts": [5173, 8000, 5432, 6379],
+  "forwardPorts": [5173, 8000, 24678, 5432, 6379, 4222, 8222],
   "portsAttributes": {
     "5173": {
-      "label": "Vite Dev Server",
+      "label": "ValyntApp (Vite)",
       "onAutoForward": "notify"
     },
     "8000": {
       "label": "Backend API",
       "onAutoForward": "notify"
+    },
+    "24678": {
+      "label": "Vite HMR",
+      "onAutoForward": "silent"
     },
     "5432": {
       "label": "PostgreSQL",
@@ -23,6 +27,14 @@
     },
     "6379": {
       "label": "Redis",
+      "onAutoForward": "silent"
+    },
+    "4222": {
+      "label": "NATS",
+      "onAutoForward": "silent"
+    },
+    "8222": {
+      "label": "NATS Monitoring",
       "onAutoForward": "silent"
     }
   },
@@ -36,6 +48,19 @@
   },
   "remoteUser": "vscode",
   "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        "ms-playwright.playwright",
+        "vitest.explorer",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml"
+      ]
+    },
     "gitpod": {
       "automationsFile": ".ona/automations.yaml"
     }
