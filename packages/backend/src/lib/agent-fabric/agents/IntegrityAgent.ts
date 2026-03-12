@@ -500,8 +500,9 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
         ? claim.id.replace(/^kpi-/, '')
         : claim.text.toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
       const currentFingerprint = [claim.baselineValue, claim.targetValue, claim.impactLow, claim.impactHigh, claim.timeframeMonths].filter(v => v !== undefined).join('|');
-      const existingFingerprint = rangeFingerprint.get(contradictionKey);
-      if (existingFingerprint && existingFingerprint !== currentFingerprint) {
+      const hasExistingFingerprint = rangeFingerprint.has(contradictionKey);
+      const existingFingerprint = hasExistingFingerprint ? rangeFingerprint.get(contradictionKey) : undefined;
+      if (hasExistingFingerprint && existingFingerprint !== currentFingerprint) {
         verdict = verdict === 'supported' ? 'unsupported' : verdict;
         confidence = Math.min(confidence, 0.45);
         issues.push({ type: 'logic_error', severity: 'high', description: 'Contradictory claim ranges detected for similar claim key.' });
