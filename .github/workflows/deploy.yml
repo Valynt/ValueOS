@@ -271,7 +271,7 @@ jobs:
 
       - name: Build and push backend image
         id: backend-build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: infra/docker/Dockerfile.backend
@@ -312,7 +312,7 @@ jobs:
 
       - name: Build and push frontend image
         id: frontend-build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: infra/docker/Dockerfile.frontend
