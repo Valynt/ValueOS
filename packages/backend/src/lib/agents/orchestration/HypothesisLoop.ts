@@ -24,7 +24,7 @@ import type {
 import { SagaTrigger } from '../core/ValueCaseSaga.js';
 
 import { ObjectionSchema } from './agents/RedTeamAgent.js';
-import type { Objection, RedTeamAgent, RedTeamOutput } from './agents/RedTeamAgent.js';
+import type { Objection, RedTeamAnalyzer, RedTeamOutput } from './agents/RedTeamAgent.js';
 
 // ============================================================================
 // Types
@@ -346,7 +346,7 @@ export class HypothesisLoop {
   private financialModelingAgent: FinancialModelingAgentInterface;
   private groundTruthAgent: GroundTruthAgentInterface;
   private narrativeAgent: NarrativeAgentInterface;
-  private redTeamAgent: RedTeamAgent;
+  private redTeamAgent: RedTeamAnalyzer;
   private config: LoopConfig;
 
   constructor(deps: {
@@ -357,7 +357,7 @@ export class HypothesisLoop {
     financialModelingAgent: FinancialModelingAgentInterface;
     groundTruthAgent: GroundTruthAgentInterface;
     narrativeAgent: NarrativeAgentInterface;
-    redTeamAgent: RedTeamAgent;
+    redTeamAgent: RedTeamAnalyzer;
     config?: Partial<LoopConfig>;
   }) {
     this.saga = deps.saga;

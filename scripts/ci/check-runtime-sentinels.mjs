@@ -5,12 +5,14 @@ const targets = [
   "apps/ValyntApp/src/lib/llm/client.ts",
   "apps/ValyntApp/src/features/workflow/hooks/useWorkflow.ts",
   "packages/backend/src/lib/agent-fabric.ts",
+  "packages/backend/src/lib/agents/orchestration/agents/RedTeamAgent.ts",
 ];
 
 const blockedPhrases = [
   "This is a placeholder response",
   "TODO: Implement actual",
   "placeholder that should be replaced",
+  "not implemented",
 ];
 
 const violations = [];

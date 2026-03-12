@@ -12,7 +12,7 @@ import { BaseAgent, type HallucinationCheckResult } from '../../../agent-fabric/
 import { CircuitBreaker } from '../../../agent-fabric/CircuitBreaker.js';
 import { type LLMGateway } from '../../../agent-fabric/LLMGateway.js';
 import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
-import type { AgentConfig, LifecycleContext } from '../../../../types/agent.js';
+import type { AgentConfig, AgentOutput, LifecycleContext } from '../../../../types/agent.js';
 
 // ============================================================================
 // Types
@@ -46,9 +46,23 @@ export interface RedTeamOutput {
   timestamp: string;
 }
 
+export interface RedTeamAnalyzer {
+  analyze(input: RedTeamInput): Promise<RedTeamOutput>;
+}
+
 // ============================================================================
 // Zod Schemas
 // ============================================================================
+
+
+export const RedTeamInputSchema = z.object({
+  valueCaseId: z.string(),
+  tenantId: z.string(),
+  valueTree: z.record(z.unknown()),
+  narrativeBlock: z.record(z.unknown()),
+  evidenceBundle: z.record(z.unknown()),
+  idempotencyKey: z.string(),
+});
 
 export const ObjectionSchema = z.object({
   id: z.string(),
@@ -173,8 +187,10 @@ export class RedTeamAgent extends BaseAgent {
     );
   }
 
-  async execute(_context: LifecycleContext) {
-    throw new Error('RedTeamAgent.execute is not implemented. Use analyze() for orchestration flow.');
+  async execute(context: LifecycleContext): Promise<AgentOutput> {
+    const redTeamInput = RedTeamInputSchema.parse(context.metadata?.redTeamInput);
+    const result = await this.analyze(redTeamInput);
+    return this.prepareOutput(result as unknown as Record<string, unknown>, 'success');
   }
 
   /**
