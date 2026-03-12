@@ -1,19 +1,9 @@
 import { createHash } from 'node:crypto';
+import type { PromptApprovalMetadata, PromptVersionReference } from '../../types/agent';
 
 export type PromptRiskClass = 'low' | 'medium' | 'high' | 'critical';
 
-export interface PromptApprovalMetadata {
-  owner: string;
-  ticket: string;
-  risk_class: PromptRiskClass;
-  approved_at: string;
-}
-
-export interface PromptVersionReference {
-  key: string;
-  version: string;
-}
-
+export type { PromptApprovalMetadata, PromptVersionReference };
 interface PromptVersionRecord {
   template: string;
   created_at: string;
