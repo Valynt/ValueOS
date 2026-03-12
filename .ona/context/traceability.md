@@ -29,16 +29,12 @@ Opportunity   Target +    Integrity   Narrative   Expansion  Realization
 | **Service** | `HypothesisOutputService.ts` — upsert/get by `case_id` + `organization_id` | ✅ |
 | **API endpoint** | `GET /api/v1/value-cases/:caseId/hypothesis` | ✅ |
 | **API endpoint** | `POST /api/agents/opportunity/invoke` | ✅ |
-| **Router mount** | `valueCasesRouter` exported but **never imported or mounted in `server.ts`** | ❌ |
+| **Router mount** | `valueCasesRouter` mounted at `/api/v1/cases` and `/api/v1/value-cases` in `server.ts` | ✅ |
 | **Frontend hook** | `useHypothesisOutput(caseId)` — polls GET, exposes `runAgent()` | ✅ |
 | **UI component** | `HypothesisStage.tsx` — renders hypotheses, triggers agent run | ✅ |
 | **User story** | US-002 | ✅ |
 
-**Confirmed gap:** `valueCasesRouter` is exported from `packages/backend/src/api/valueCases/index.ts` but is not imported or mounted anywhere in `server.ts` (verified by grep across all non-test files). All `/api/v1/value-cases/...` frontend calls return 404. Fix: add to `server.ts`:
-```typescript
-import { valueCasesRouter } from './api/valueCases/index.js';
-app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCasesRouter);
-```
+**Resolved.** `valueCasesRouter` is mounted at both `/api/v1/cases` and `/api/v1/value-cases` in `server.ts` (verified 2026-07-01).
 
 ---
 
@@ -144,11 +140,11 @@ app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCase
 Frontend hook
   └─ POST /api/agents/:agentId/invoke
        └─ agentsRouter (server.ts: /api/agents)
-            └─ getDirectFactory() → LLMGateway { provider: "together" }  ⚠️ currently "openai" — DEBT-001
+            └─ getDirectFactory() → LLMGateway { provider: "together" }  ✅ resolved (DEBT-001)
                  └─ AgentFactory.create(agentId)
                       └─ XAgent.execute(context)
                            ├─ this.secureInvoke(sessionId, prompt, schema)  ← required
-                           ├─ this.memorySystem.store(...)  ⚠️ enable_persistence: false — DEBT-002
+                           ├─ this.memorySystem.store(...)  ✅ enable_persistence: true (DEBT-002 resolved)
                            └─ repository.upsert(output)  ← only for Opportunity, Target, Financial
 ```
 
@@ -169,7 +165,7 @@ Frontend hook
 | `/api/v1/value-cases/:caseId/model-snapshots/latest` | GET | viewer+ | Latest financial snapshot |
 
 **Router:** `packages/backend/src/api/valueCases/index.ts` → exported as `valueCasesRouter`  
-❌ Not mounted in `server.ts` — all endpoints in this table currently return 404. See Stage 1 gap above for the fix.
+✅ Mounted in `server.ts` at `/api/v1/cases` and `/api/v1/value-cases`.
 
 ---
 
