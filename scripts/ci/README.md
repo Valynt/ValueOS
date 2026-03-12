@@ -48,3 +48,5 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 - `check-infra-manifest-registry.mjs` — validates the active/deprecated manifest registry in `infra/README.md` and blocks references to deprecated paths.
 - `check-k8s-architecture-conformance.mjs` — lints `infra/k8s/**` manifests for required platform labels, probes, security context, and autoscaling policy declarations.
 - `check-supabase-security-controls.mjs` — validates Supabase migration guardrails (RLS policy coverage for RLS-enabled tables, plaintext `credentials JSONB` columns, and tenant policies that rely on JWT claims without explicit `service_role` bypass) and emits `ci-artifacts/security-controls-summary.json` for artifact upload.
+
+- `check-migration-governance.mjs` — scans Supabase migrations/rollbacks for duplicate or near-duplicate migration intents, rollback files without forward migration pairs, and schema concerns that are active across multiple non-archived paths. Writes `ci-artifacts/migration-governance-report.json` (or `--report <path>`) for machine-readable CI artifacts and fails only when newly introduced duplicate intents are detected.
