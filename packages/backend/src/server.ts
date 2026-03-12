@@ -357,7 +357,18 @@ app.use(
   })
 );
 app.use(compression());
-app.use(express.json());
+// Preserve the raw body buffer for Stripe webhook signature verification.
+// All other routes receive the normal JSON-parsed body.
+// Parsers are instantiated once and reused across requests.
+const stripeRawParser = express.raw({ type: "application/json", limit: "256kb" });
+const jsonParser = express.json();
+app.use((req, _res, next) => {
+  if (req.path.startsWith("/api/billing/webhooks")) {
+    stripeRawParser(req, _res, next);
+  } else {
+    jsonParser(req, _res, next);
+  }
+});
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);

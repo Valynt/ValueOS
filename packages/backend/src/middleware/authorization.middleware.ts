@@ -1,4 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
+import { createLogger } from '@shared/lib/logger';
+import { createServerSupabaseClient } from '@shared/lib/supabase';
+
+const logger = createLogger({ component: 'authorization-middleware' });
 
 interface AuthContext {
   tenantId: string;
@@ -9,7 +13,13 @@ interface AuthContext {
 
 export function requireTenantScope() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const auth = (req as Request & { auth?: AuthContext }).auth as AuthContext;
+    const auth = (req as Request & { auth?: AuthContext }).auth;
+
+    if (!auth) {
+      res.status(401).json({ error: 'authentication_required' });
+      return;
+    }
+
     const requestedTenantId = req.params.tenantId || req.body?.tenantId;
 
     if (!requestedTenantId) {
@@ -28,27 +38,48 @@ export function requireTenantScope() {
 
 export function requireCustomerEntitlement() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const auth = (req as Request & { auth?: AuthContext }).auth as AuthContext;
-    const requestedValueCaseId = req.params.valueCaseId || req.params.token; // For customer portal
+    const auth = (req as Request & { auth?: AuthContext }).auth;
+
+    if (!auth) {
+      res.status(401).json({ error: 'authentication_required' });
+      return;
+    }
+
+    const requestedValueCaseId = req.params.valueCaseId || req.params.token;
 
     if (!auth.customerId) {
       res.status(403).json({ error: 'customer_context_required' });
       return;
     }
 
-    // Check if customer has access to this value case
-    // This could be via a customer_value_cases table or by validating the token
-    // For now, assume the token validation already ensures access
-    // In production, add explicit check:
-    // const { data, error } = await supabase
-    //   .from('customer_value_cases')
-    //   .select('id')
-    //   .eq('customer_id', auth.customerId)
-    //   .eq('value_case_id', requestedValueCaseId)
-    //   .single();
-    // if (error || !data) {
-    //   return res.status(403).json({ error: 'customer_access_denied' });
-    // }
+    if (!requestedValueCaseId) {
+      res.status(400).json({ error: 'value_case_id required' });
+      return;
+    }
+
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from('customer_value_cases')
+      .select('id')
+      .eq('customer_id', auth.customerId)
+      .eq('value_case_id', requestedValueCaseId)
+      .maybeSingle();
+
+    if (error) {
+      logger.error('Entitlement check failed', undefined, {
+        customerId: auth.customerId,
+        valueCaseId: requestedValueCaseId,
+        dbError: error.message,
+        dbCode: error.code,
+      });
+      res.status(503).json({ error: 'service_unavailable' });
+      return;
+    }
+
+    if (!data) {
+      res.status(403).json({ error: 'customer_access_denied' });
+      return;
+    }
 
     next();
   };
