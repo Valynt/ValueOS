@@ -140,7 +140,10 @@ export class SharePointAdapter extends EnterpriseAdapter {
   async fetchEntities(entityType: string, options?: FetchOptions): Promise<NormalizedEntity[]> {
     this.ensureConnected();
     const type = this.validateEntityType(entityType);
-    const tenantId = this.credentials?.tenantId ?? "default";
+    const tenantId = this.credentials?.tenantId;
+    if (!tenantId) {
+      throw new ValidationError("Missing tenantId in SharePoint credentials for rate limiting");
+    }
     const top = options?.limit ?? 100;
 
     return this.withRateLimit(tenantId, async () => {
