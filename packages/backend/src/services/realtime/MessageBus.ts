@@ -116,10 +116,26 @@ export class MessageBus {
     // Only subscribe once per channel — deliverMessage fans out to all local subscribers.
     if (this.redis && !this.redisChannels.has(channel)) {
       this.redisChannels.add(channel);
-      this.subscribeToRedis(channel);
+      try {
+        this.subscribeToRedis(channel);
+      } catch (error) {
+        this.redisChannels.delete(channel);
+        logger.error(
+          `Failed to subscribe to Redis channel "${channel}"`,
+          error instanceof Error ? error : undefined,
+        );
+      }
     } else if (this.nats && !this.natsChannels.has(channel)) {
       this.natsChannels.add(channel);
-      this.subscribeToNATS(channel);
+      try {
+        this.subscribeToNATS(channel);
+      } catch (error) {
+        this.natsChannels.delete(channel);
+        logger.error(
+          `Failed to subscribe to NATS channel "${channel}"`,
+          error instanceof Error ? error : undefined,
+        );
+      }
     }
 
     // Return unsubscribe function
