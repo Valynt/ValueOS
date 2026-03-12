@@ -466,6 +466,19 @@ SLO evaluation is computed per `service`, `tenant_tier`, and `region` labels to 
 
 > **Tenant isolation requirement:** all SLO metrics and exemplars must carry `organization_id` and/or `tenant_id` dimensions in upstream telemetry and derived recording rules.
 
+### Value Loop Tenant-Scoped Queries
+
+Use `organization_id` as the canonical tenant label key for value-loop dashboards and alerts.
+
+| Query ID | Purpose | PromQL |
+| --- | --- | --- |
+| `value-loop:stage-transition-p95-by-org` | Detect slow lifecycle handoffs per tenant | `histogram_quantile(0.95, sum(rate(value_loop_stage_transition_seconds_bucket{organization_id!=""}[5m])) by (le,organization_id,from_stage,to_stage))` |
+| `value-loop:agent-invocation-rate-by-org` | Track agent traffic and outcomes per tenant | `sum(rate(value_loop_agent_invocations_total{organization_id!=""}[5m])) by (organization_id,agent,stage,outcome)` |
+| `value-loop:hypothesis-confidence-avg-by-org` | Monitor model confidence drift per tenant | `sum(rate(value_loop_hypothesis_confidence_sum{organization_id!=""}[15m])) by (organization_id,agent) / clamp_min(sum(rate(value_loop_hypothesis_confidence_count{organization_id!=""}[15m])) by (organization_id,agent), 1)` |
+| `value-loop:financial-unvalidated-rate-by-org` | Alert when unvalidated financial outputs spike per tenant | `sum(rate(value_loop_financial_calculations_total{organization_id!="",validated="false"}[15m])) by (organization_id,type) / clamp_min(sum(rate(value_loop_financial_calculations_total{organization_id!=""}[15m])) by (organization_id,type), 1)` |
+| `value-loop:e2e-duration-p95-by-org` | Measure end-to-end value-loop latency per tenant | `histogram_quantile(0.95, sum(rate(value_loop_e2e_duration_seconds_bucket{organization_id!=""}[15m])) by (le,organization_id,stages))` |
+
+
 ### Error Budget Policy
 
 - **Budget window:** 30-day rolling SLO window with daily budget recomputation at 00:00 UTC.
