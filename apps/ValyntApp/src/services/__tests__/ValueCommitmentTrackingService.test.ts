@@ -712,26 +712,31 @@ describe('ValueCommitmentTrackingService', () => {
   // -------------------------------------------------------------------------
 
   describe('validateAgainstGroundTruth', () => {
-    it('returns isValid true when progress >= 80%', async () => {
-      mockGet.mockResolvedValue(ok({
-        commitment_id: COMMIT_ID, overall_progress: 85,
-        milestone_completion: 90, metric_achievement: 78,
-        risk_level: 'low', days_remaining: 30, is_on_track: true,
-      }));
+    it('POSTs to /:id/validate-progress and returns backend verdict', async () => {
+      const verdict = {
+        isValid: true, confidence: 0.85, issues: [], recommendations: [],
+      };
+      mockPost.mockResolvedValue(ok(verdict));
       const svc = makeService();
 
       const result = await svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID);
 
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/validate-progress`,
+        {},
+      );
       expect(result.isValid).toBe(true);
       expect(result.issues).toHaveLength(0);
     });
 
-    it('returns isValid false with issue when progress < 80%', async () => {
-      mockGet.mockResolvedValue(ok({
-        commitment_id: COMMIT_ID, overall_progress: 60,
-        milestone_completion: 55, metric_achievement: 67,
-        risk_level: 'high', days_remaining: 10, is_on_track: false,
-      }));
+    it('returns isValid false when backend reports issues', async () => {
+      const verdict = {
+        isValid: false,
+        confidence: 0.6,
+        issues: ['Overall progress 60% is 20pp below the 80% threshold'],
+        recommendations: ['Metric actuals are lagging — update current values or revise targets'],
+      };
+      mockPost.mockResolvedValue(ok(verdict));
       const svc = makeService();
 
       const result = await svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID);
@@ -739,6 +744,37 @@ describe('ValueCommitmentTrackingService', () => {
       expect(result.isValid).toBe(false);
       expect(result.issues.length).toBeGreaterThan(0);
       expect(result.recommendations.length).toBeGreaterThan(0);
+    });
+
+    it('throws CommitmentApiError when backend returns failure', async () => {
+      mockPost.mockResolvedValue({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'HTTP 404: Not Found' },
+      });
+      const svc = makeService();
+
+      await expect(
+        svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(CommitmentApiError);
+    });
+
+    it('throws CommitmentApiError when network call fails', async () => {
+      mockPost.mockRejectedValue(new Error('network error'));
+      const svc = makeService();
+
+      await expect(
+        svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(CommitmentApiError);
+    });
+
+    it('returns isValid false without calling apiClient when flag is false', async () => {
+      const svc = makeService('false');
+
+      const result = await svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID);
+
+      expect(mockPost).not.toHaveBeenCalled();
+      expect(result.isValid).toBe(false);
+      expect(result.issues.length).toBeGreaterThan(0);
     });
   });
 });

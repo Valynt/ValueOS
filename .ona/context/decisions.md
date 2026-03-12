@@ -138,6 +138,12 @@ Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRe
 
 ---
 
+### SecurityMonitor alert channels are implemented (not stubs)
+
+`packages/backend/src/services/security/SecurityMonitor.ts` implements key alert delivery channels via webhook URLs, including: email (`SECURITY_EMAIL_WEBHOOK_URL`), Slack (`SECURITY_SLACK_WEBHOOK_URL`), PagerDuty (`SECURITY_PAGERDUTY_ROUTING_KEY`), security-team escalation (`SECURITY_TEAM_WEBHOOK_URL`), and management escalation (`SECURITY_MANAGEMENT_WEBHOOK_URL`). Each method gracefully no-ops when the env var is absent. DEBT-010 in `debt.md` was incorrect and has been corrected (2026-07-15).
+
+---
+
 ### RecommendationEngine is the sixth runtime service
 
 `packages/backend/src/runtime/recommendation-engine/RecommendationEngine.ts` is a fully wired runtime service alongside the five originally documented ones (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). It subscribes to four domain events (`opportunity.updated`, `hypothesis.validated`, `evidence.attached`, `realization.milestone_reached`) and pushes next-best-action `Recommendation` objects to UI clients via `RealtimeBroadcastService`. It is started in `server.ts` and has its own test suite. All references to "five runtime services" in documentation were incorrect — there are six.

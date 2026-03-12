@@ -10,13 +10,17 @@ import {
 } from "../lib/errors";
 import { asyncHandler } from "../middleware/globalErrorHandler.js";
 import {
+  projectStatuses,
+  projectsRepository,
+  type ProjectRecord,
+} from "../repositories/ProjectsRepository.js";
+import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
 } from "../services/ReadThroughCacheService.js";
+import { auditLogService } from "../services/AuditLogService.js";
 
 const router = Router();
-
-const projectStatuses = ["planned", "active", "paused", "completed"] as const;
 
 const projectCreateSchema = z.object({
   name: z.string().min(2).max(120),
@@ -38,34 +42,12 @@ const listQuerySchema = z.object({
   search: z.string().min(1).max(120).optional(),
 });
 
-type ProjectStatus = (typeof projectStatuses)[number];
-
-interface ProjectRecord {
-  id: string;
-  name: string;
-  description?: string;
-  status: ProjectStatus;
-  tags: string[];
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Temporary in-process store partitioned by tenant. Replace with a durable
-// Supabase-backed repository (projects table + organization_id filter) before GA.
-const projectsByTenant = new Map<string, Map<string, ProjectRecord>>();
-
-function getTenantStore(req: Request): Map<string, ProjectRecord> {
-  const tenantId = getTenantIdFromRequest(req as any);
+function getTenantId(req: Request): string {
+  const tenantId = getTenantIdFromRequest(req as unknown as { tenantId?: string });
   if (!tenantId) {
     throw new UnauthorizedError("Tenant context required");
   }
-  let store = projectsByTenant.get(tenantId);
-  if (!store) {
-    store = new Map<string, ProjectRecord>();
-    projectsByTenant.set(tenantId, store);
-  }
-  return store;
+  return tenantId;
 }
 
 function requireBearerToken(req: Request): string {
@@ -84,7 +66,7 @@ function requireBearerToken(req: Request): string {
 
 function requireWriteRole(req: Request, allowedRoles: string[]): void {
   // Role must come from verified JWT claims, not client-supplied headers.
-  const user = (req as any).user as Record<string, unknown> | undefined;
+  const user = (req as unknown as { user?: Record<string, unknown> }).user;
   const role =
     (user?.role as string | undefined) ??
     (user?.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined;
@@ -95,16 +77,54 @@ function requireWriteRole(req: Request, allowedRoles: string[]): void {
 
 function deriveOwnerId(req: Request): string {
   // Owner is the authenticated user's ID from JWT claims, never a header.
-  return ((req as any).user?.id as string | undefined) ?? "unknown-user";
+  return ((req as unknown as { user?: { id?: string } }).user?.id as string | undefined) ?? "unknown-user";
 }
 
 async function invalidateProjectCache(req: Request): Promise<void> {
-  const tenantId = getTenantIdFromRequest(req as any);
+  const tenantId = getTenantId(req);
   if (!tenantId) return;
   await Promise.all([
     ReadThroughCacheService.invalidateEndpoint(tenantId, "api-projects-list"),
     ReadThroughCacheService.invalidateEndpoint(tenantId, "api-projects-detail"),
   ]);
+}
+
+function toApiProject(project: ProjectRecord) {
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description ?? undefined,
+    status: project.status,
+    tags: project.tags,
+    ownerId: project.owner_id,
+    createdAt: project.created_at,
+    updatedAt: project.updated_at,
+  };
+}
+
+async function writeProjectAuditLog(
+  req: Request,
+  action: "create" | "update" | "delete",
+  projectId: string,
+): Promise<void> {
+  const user = (req as unknown as { user?: Record<string, unknown> }).user;
+  const tenantId = getTenantId(req);
+  await auditLogService.createEntry({
+    userId: ((user?.id as string | undefined) ?? "unknown-user"),
+    userName: ((user?.name as string | undefined) ?? "unknown-user"),
+    userEmail: ((user?.email as string | undefined) ?? "unknown@example.com"),
+    action,
+    resourceType: "project",
+    resourceId: projectId,
+    details: {
+      tenantId,
+      actorId: (user?.id as string | undefined) ?? "unknown-user",
+      correlationId: req.header("x-correlation-id") ?? req.header("x-request-id") ?? null,
+      traceId: req.header("x-trace-id") ?? null,
+      route: req.originalUrl,
+      method: req.method,
+    },
+  });
 }
 
 router.post(
@@ -116,31 +136,27 @@ router.post(
     const payload = projectCreateSchema.parse(req.body);
     const normalizedName = payload.name.toLowerCase();
 
-    const tenantStore = getTenantStore(req);
-    const existing = Array.from(tenantStore.values()).find(
-      (project) => project.name.toLowerCase() === normalizedName
-    );
+    const tenantId = getTenantId(req);
+    const existing = await projectsRepository.findByName(tenantId, normalizedName);
 
     if (existing) {
       throw new ConflictError("Project name already exists");
     }
 
-    const now = new Date().toISOString();
-    const project: ProjectRecord = {
+    const project = await projectsRepository.create({
       id: `proj_${uuidv4()}`,
+      organizationId: tenantId,
       name: payload.name,
       description: payload.description,
       status: payload.status,
       tags: payload.tags ?? [],
       ownerId: deriveOwnerId(req),
-      createdAt: now,
-      updatedAt: now,
-    };
+    });
 
-    tenantStore.set(project.id, project);
+    await writeProjectAuditLog(req, "create", project.id);
     await invalidateProjectCache(req);
 
-    res.status(201).json({ data: project });
+    res.status(201).json({ data: toApiProject(project) });
   })
 );
 
@@ -150,10 +166,7 @@ router.get(
     requireBearerToken(req);
 
     const { page, pageSize, status, search } = listQuerySchema.parse(req.query);
-    // getTenantStore throws UnauthorizedError when tenant is absent, guaranteeing
-    // a non-undefined tenantId for the cache key before getOrLoad is called.
-    const tenantStore = getTenantStore(req);
-    const tenantId = getTenantIdFromRequest(req as any) as string;
+    const tenantId = getTenantId(req);
 
     const payload = await ReadThroughCacheService.getOrLoad(
       {
@@ -164,32 +177,19 @@ router.get(
         keyPayload: { page, pageSize, status, search },
       },
       async () => {
-        const allProjects = Array.from(tenantStore.values());
-        const filtered = allProjects.filter((project) => {
-          if (status && project.status !== status) {
-            return false;
-          }
-
-          if (search) {
-            const lowerSearch = search.toLowerCase();
-            return (
-              project.name.toLowerCase().includes(lowerSearch) ||
-              project.description?.toLowerCase().includes(lowerSearch)
-            );
-          }
-
-          return true;
+        const { items, total } = await projectsRepository.list(tenantId, {
+          page,
+          pageSize,
+          status,
+          search,
         });
-
-        const start = (page - 1) * pageSize;
-        const items = filtered.slice(start, start + pageSize);
 
         return {
           data: {
-            items,
+            items: items.map(toApiProject),
             page,
             pageSize,
-            total: filtered.length,
+            total,
           },
         };
       }
@@ -204,10 +204,7 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     requireBearerToken(req);
 
-    // getTenantStore throws UnauthorizedError when tenant is absent, guaranteeing
-    // a non-undefined tenantId for the cache key before getOrLoad is called.
-    const tenantStore = getTenantStore(req);
-    const tenantId = getTenantIdFromRequest(req as any) as string;
+    const tenantId = getTenantId(req);
     const payload = await ReadThroughCacheService.getOrLoad(
       {
         tenantId,
@@ -216,12 +213,12 @@ router.get(
         tier: "cold",
       },
       async () => {
-        const project = tenantStore.get(req.params.projectId);
+        const project = await projectsRepository.getById(tenantId, req.params.projectId);
         if (!project) {
           throw new NotFoundError("Project", req.params.projectId);
         }
 
-        return { data: project };
+        return { data: toApiProject(project) };
       }
     );
 
@@ -235,24 +232,34 @@ router.patch(
     requireBearerToken(req);
     requireWriteRole(req, ["admin", "editor"]);
 
-    const tenantStore = getTenantStore(req);
-    const existing = tenantStore.get(req.params.projectId);
+    const tenantId = getTenantId(req);
+    const existing = await projectsRepository.getById(tenantId, req.params.projectId);
     if (!existing) {
       throw new NotFoundError("Project", req.params.projectId);
     }
 
     const payload = projectUpdateSchema.parse(req.body);
-    const updated: ProjectRecord = {
-      ...existing,
+    if (payload.name && payload.name.toLowerCase() !== existing.name.toLowerCase()) {
+      const duplicate = await projectsRepository.findByName(tenantId, payload.name.toLowerCase());
+      if (duplicate && duplicate.id !== req.params.projectId) {
+        throw new ConflictError("Project name already exists");
+      }
+    }
+
+    const updated = await projectsRepository.update(tenantId, req.params.projectId, {
       ...payload,
       tags: payload.tags ?? existing.tags,
-      updatedAt: new Date().toISOString(),
-    };
+      description: payload.description ?? existing.description ?? undefined,
+    });
 
-    tenantStore.set(updated.id, updated);
+    if (!updated) {
+      throw new NotFoundError("Project", req.params.projectId);
+    }
+
+    await writeProjectAuditLog(req, "update", updated.id);
     await invalidateProjectCache(req);
 
-    res.json({ data: updated });
+    res.json({ data: toApiProject(updated) });
   })
 );
 
@@ -262,13 +269,14 @@ router.delete(
     requireBearerToken(req);
     requireWriteRole(req, ["admin"]);
 
-    const tenantStore = getTenantStore(req);
-    const exists = tenantStore.has(req.params.projectId);
+    const tenantId = getTenantId(req);
+    const exists = await projectsRepository.getById(tenantId, req.params.projectId);
     if (!exists) {
       throw new NotFoundError("Project", req.params.projectId);
     }
 
-    tenantStore.delete(req.params.projectId);
+    await projectsRepository.delete(tenantId, req.params.projectId);
+    await writeProjectAuditLog(req, "delete", req.params.projectId);
     await invalidateProjectCache(req);
 
     res.status(204).send();

@@ -14,6 +14,10 @@ export interface SecureMessage {
   id: string;
   fromAgentId: string;
   toAgentId: string;
+  tenantContext: {
+    tenantId: string;
+    organizationId: string;
+  };
   payload: unknown;
   priority: MessagePriority;
   encrypted: boolean;
@@ -23,10 +27,19 @@ export interface SecureMessage {
 }
 
 export interface SendOptions {
+  tenantContext: {
+    tenantId: string;
+    organizationId: string;
+  };
   priority?: MessagePriority;
   encrypted?: boolean;
   correlationId?: string;
   replyTo?: string;
+  senderIdentity?: AgentIdentity;
+  metadata?: {
+    tenant_id?: string;
+    organization_id?: string;
+  };
 }
 
 export interface ConsumerGroupConfig {
@@ -54,18 +67,45 @@ export class SecureMessageBus extends EventEmitter {
   }
 
   async send(
-    from: string,
+    from: string | AgentIdentity,
     to: string,
     payload: unknown,
-    options: SendOptions = {}
+    options: SendOptions
   ): Promise<SecureMessage> {
+    const fromAgentId = typeof from === "string" ? from : from.agent_id;
+    const authenticatedOrgId = typeof from === "string" ? undefined : from.organization_id;
+    const senderOrgId = options.senderIdentity?.organization_id;
+    const metadataOrgId = options.metadata?.organization_id ?? options.metadata?.tenant_id;
+    const organizationId = authenticatedOrgId || senderOrgId || metadataOrgId || options.tenantContext.organizationId;
+    const tenantId = options.metadata?.tenant_id || options.tenantContext.tenantId;
+
+    if (!organizationId || !tenantId) {
+      throw new Error("Tenant context is required for SecureMessageBus.publish");
+    }
+
+    if (authenticatedOrgId && authenticatedOrgId !== organizationId) {
+      throw new Error("Tenant context mismatch with authenticated sender identity");
+    }
+
+    if (options.tenantContext.organizationId && options.tenantContext.organizationId !== organizationId) {
+      throw new Error("Tenant context organization does not match resolved sender organization");
+    }
+
+    if (options.tenantContext.tenantId && options.tenantContext.tenantId !== tenantId) {
+      throw new Error("Tenant context tenant does not match resolved sender tenant");
+    }
+
     const message: SecureMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      fromAgentId: from,
+      fromAgentId,
       toAgentId: to,
+      tenantContext: {
+        tenantId,
+        organizationId,
+      },
       payload,
-      priority: options.priority || "normal",
-      encrypted: options.encrypted || false,
+      priority: options.priority ?? "normal",
+      encrypted: options.encrypted ?? false,
       correlationId: options.correlationId,
       replyTo: options.replyTo,
       timestamp: new Date(),
@@ -80,11 +120,15 @@ export class SecureMessageBus extends EventEmitter {
     // Also emit locally for immediate subscribers
     const handlers = this.subscribers.get(to) || [];
     for (const { handler, patterns } of handlers) {
-      if (!patterns || patterns.includes("*") || patterns.includes(from)) {
+      if (!patterns || patterns.includes("*") || patterns.includes(fromAgentId)) {
+        if (!message.tenantContext.organizationId || !message.tenantContext.tenantId) {
+          throw new Error("Tenant context is required for SecureMessageBus.consume");
+        }
+
         handler(message, {
-          agent_id: from,
+          agent_id: fromAgentId,
           agent_type: "unknown",
-          organization_id: "",
+          organization_id: message.tenantContext.organizationId,
           permissions: [],
           issued_at: "",
           expires_at: "",
@@ -142,10 +186,14 @@ export class SecureMessageBus extends EventEmitter {
     await broker.startConsumer(async (event) => {
       if (event.name === "agent_message") {
         const { message } = event.payload;
+        if (!message.tenantContext?.tenantId || !message.tenantContext?.organizationId) {
+          throw new Error("Tenant context is required for SecureMessageBus.consume");
+        }
+
         const senderIdentity = {
           agent_id: message.fromAgentId,
           agent_type: agentType,
-          organization_id: "",
+          organization_id: message.tenantContext.organizationId,
           permissions: [],
           issued_at: "",
           expires_at: "",

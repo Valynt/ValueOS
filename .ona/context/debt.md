@@ -50,14 +50,13 @@ Issue [#1348](https://github.com/Valynt/ValueOS/issues/1348).
 ~~### DEBT-009: ExpansionAgent has no DB persistence~~
 **Resolved outside sprint cadence.** `expansion_opportunities` table (migration `20260322000000_persistent_memory_tables.sql`), `ExpansionOpportunityRepository`, `GET /api/v1/cases/:caseId/expansion` + `POST .../expansion/run`, `useExpansion` hook, `ExpansionStage` wired to real data, registered in `LifecycleStageNav`.
 
-### DEBT-010: SecurityMonitor alert channels are stubs
-**File:** `packages/backend/src/services/security/SecurityMonitor.ts:470-502`
-**Ticket:** VOS-DEBT-1427
-
-Email, Slack, PagerDuty, and management escalation methods are all TODO comments. Security alerts are logged but not delivered.
+~~### DEBT-010: SecurityMonitor alert channels are stubs~~
+**Resolved (2026-07-15).** Assessment was incorrect. `SecurityMonitor` alert channels are implemented via webhook URLs: email (`SECURITY_EMAIL_WEBHOOK_URL`), Slack (`SECURITY_SLACK_WEBHOOK_URL`), PagerDuty (`SECURITY_PAGERDUTY_ROUTING_KEY`), and security-team escalation (`SECURITY_TEAM_WEBHOOK_URL`). Each method gracefully logs when the env var is absent. No TODO stubs remain.
 
 ~~### DEBT-011: SandboxedExecutor uses placeholder E2B SDK calls~~
 **Resolved.** Replaced placeholder `fetch` calls with the `@e2b/code-interpreter` SDK (`Sandbox.create` + `runCode` + `kill`). `E2B_API_KEY` documented in `.env.local.example`.
+
+Code execution sandbox is scaffolded with placeholder `fetch` calls instead of the real E2B SDK.
 
 ~~### DEBT-012: VOSAcademy content loader not implemented~~
 **Resolved.** `loadContentFromJson()` fetches a static JSON asset by URL path (place file in `public/`); `loadContentFromApi()` fetches from an API endpoint with optional `pillarId`/`role` query params. Both validate the response with Zod before returning.
@@ -67,20 +66,23 @@ Email, Slack, PagerDuty, and management escalation methods are all TODO comments
 ## Ongoing — TypeScript `any` debt
 
 **Baseline (2026-02-13):** 1,977 `any` usages across the codebase. Target: <100.
-**Updated (2026-03-11):** `packages/backend` reduced from 712 → ~680 (AuditLogService, ToolRegistry, auditHooks cleaned in PR #1422).
+**Updated (2026-07-15):** Measured actuals post-Sprint 27 (grep `: any\b|as any\b|<any>` --include="*.ts" --include="*.tsx").
 
-| Module | Count | Monthly target |
+| Module | Count (2026-07-15) | Sprint 31 target |
 |---|---|---|
-| `apps/ValyntApp` | 839 | -26/month |
-| `packages/backend` | ~680 | -22/month |
-| `packages/sdui` | 133 | -4/month |
-| `packages/mcp` | 96 | -3/month |
-| `apps/VOSAcademy` | 67 | -3/month |
+| `packages/backend` | 1,654 (production files ~664 after Sprint 26 work) | <400 |
+| `apps/ValyntApp` | 409 (production files ~207 after Sprint 27 work) | <100 |
+| `packages/sdui` | 221 (production files ~50 after Sprint 27 work) | <20 |
+| `apps/VOSAcademy` | 99 | <50 |
+| `packages/mcp` | 0 | maintain 0 |
 
-**Highest-density remaining files (backend):**
-- `config/secrets/InputValidator.ts` (21) — custom validation logic, replace with Zod
-- `api/referrals.ts` (20), `api/admin.ts` (20) — request body types
-- `services/collaboration/AgentCollaborationService.ts` (17) — agent message payloads
+**Highest-density production files entering Sprint 28:**
+- `apps/ValyntApp/src/mcp-ground-truth/core/IntegratedMCPServer.ts` (39)
+- `packages/backend/src/api/admin.ts` (22), `api/referrals.ts` (20)
+- `packages/sdui/src/engine/renderPage.ts` (16), `realtime/WebSocketDataSource.ts` (14), `DataBindingResolver.ts` (14)
+- `packages/backend/src/services/agents/AgentMemoryIntegration.ts` (15)
+- `packages/backend/src/services/sdui/CanvasSchemaService.ts` (13), `services/post-v1/PlaygroundAutoSave.ts` (13), `services/post-v1/OfflineEvaluation.ts` (13), `config/ServiceConfigManager.ts` (13)
+- `apps/VOSAcademy/src/lib/icons.tsx` (40), `data/routers.d.ts` (18)
 
 **Rule:** Do not introduce new `any`. Use `unknown` + type guards. Replace `any` in files you touch.
 Dashboard: `docs/debt/ts-any-dashboard.md`
@@ -106,6 +108,7 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | DEBT-006: ValueCaseCanvas hardcoded title | `ValueCaseCanvas.tsx` uses `useCase(caseId)` hook | 2026-06 |
 | DEBT-007: ValueCommitmentTrackingService stubs | DB migration + `ValueCommitmentBackendService` sub-resources + 10 router endpoints + frontend migration | 2026-07 |
 | DEBT-009: ExpansionAgent had no DB persistence | `expansion_opportunities` table + `ExpansionOpportunityRepository` + API + hook + `ExpansionStage` wired | 2026-06 |
+| DEBT-010: SecurityMonitor alert channels | Channels implemented via webhook URLs (email, Slack, PagerDuty, escalation) — original assessment was incorrect | 2026-07-15 |
 | No `created_by`/`updated_by` actor columns on mutable tables | Added to `value_cases`, `hypothesis_outputs`, `integrity_outputs`, `narrative_drafts`, `realization_reports` in `20260331030000_actor_columns.sql` | 2026-03 |
 | `usage_ledger`, `rated_ledger`, `saga_transitions`, `value_loop_events` — no partitioning | Converted to monthly `PARTITION BY RANGE` in `20260401000000`; `create_next_monthly_partitions()` function added | 2026-04 |
 | `claims`, `kpis`, `milestones`, `risks` buried in jsonb — unindexable for aggregation | Scalar count columns promoted on `integrity_outputs` and `realization_reports` in `20260401010000` | 2026-04 |

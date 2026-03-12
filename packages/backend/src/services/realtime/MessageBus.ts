@@ -8,14 +8,14 @@
 import { compress, decompress } from 'lz-string';
 import { v4 as uuidv4 } from 'uuid';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import type {
   ChannelConfig,
   CommunicationEvent,
   CreateCommunicationEvent,
   MessageHandler,
   MessageStats,
-} from '../types/CommunicationEvent';
+} from '../../types/CommunicationEvent.js';
 
 
 export class MessageBus {
@@ -345,8 +345,16 @@ export class MessageBus {
     this.messageHistory.set(channel, history);
   }
 
-  private shouldCompress(payload: any): boolean {
+  private shouldCompress(payload: unknown): boolean {
+    if (payload === undefined || payload === null) {
+      return false;
+    }
+
     const jsonString = JSON.stringify(payload);
+    if (!jsonString) {
+      return false;
+    }
+
     return jsonString.length > 1024; // Compress if > 1KB
   }
 
