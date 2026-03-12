@@ -8,7 +8,7 @@
  */
 
 // import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase.js'
+import { supabase } from '../../lib/supabase.js'
 
 import { getAgentAPI } from './AgentAPI.js'
 

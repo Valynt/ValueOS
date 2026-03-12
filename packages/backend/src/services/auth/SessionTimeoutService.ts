@@ -12,7 +12,7 @@
  * - Graceful logout on timeout
  */
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import {
   getSessionTimeoutForRole,
 } from "../security/SecurityConfig";

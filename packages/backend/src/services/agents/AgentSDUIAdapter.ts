@@ -16,7 +16,7 @@
 
 import { AtomicUIAction, createAddAction } from "@sdui/AtomicUIActions";
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { AgentOutput } from "../../types/agent-output";
 import { SDUIUpdate } from "../types/sdui-integration";
 

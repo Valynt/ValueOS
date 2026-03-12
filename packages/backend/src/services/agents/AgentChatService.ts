@@ -27,7 +27,7 @@ import {
 } from "../data/valueModelExamples";
 import { contextFabric } from "../lib/agent-fabric/ContextFabric";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import {
   WorkflowState,
   WorkflowStateRepository,

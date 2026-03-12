@@ -17,9 +17,9 @@ import {
   ValidationResult,
 } from "@valueos/shared/types/actions";
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 import { EnforcementResult, enforceRules } from "../lib/rules";
-import { getSupabaseClient } from "../lib/supabase.js";
+import { getSupabaseClient } from "../../lib/supabase.js";
 import {
   ActionValidationError,
   validateActionContext,

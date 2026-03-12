@@ -20,7 +20,7 @@ let storage: any = null;
  * Initialize the context storage (Node.js only)
  */
 export async function initializeContext(): Promise<void> {
-  if (typeof window === 'undefined') {
+  if (typeof (globalThis as Record<string, unknown>)['window'] === 'undefined') {
     try {
       const { AsyncLocalStorage } = await import('async_hooks');
       storage = new AsyncLocalStorage<RequestContext>();

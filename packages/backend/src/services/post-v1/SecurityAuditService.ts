@@ -1,9 +1,9 @@
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { sanitizeForLogging } from "../lib/piiFilter.js"
 import { captureMessage } from "../lib/sentry";
-import { createServerSupabaseClient } from "../lib/supabase.js"
+import { createServerSupabaseClient } from "../../lib/supabase.js"
 
-import { BaseService } from "./BaseService.js"
+import { BaseService } from "../BaseService.js"
 
 
 export interface RequestAuditEvent {

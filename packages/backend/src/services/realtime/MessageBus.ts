@@ -8,7 +8,7 @@
 import { compress, decompress } from 'lz-string';
 import { v4 as uuidv4 } from 'uuid';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import type {
   ChannelConfig,
   CommunicationEvent,

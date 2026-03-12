@@ -18,7 +18,7 @@ import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
 import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { ValidationError } from "../lib/errors.js";
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
 import { TargetAgentInputSchema } from "../validators/agentInputs.js";
 

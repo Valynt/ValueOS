@@ -3,7 +3,7 @@
  * Implements network-level segmentation and access controls for AI agents
  */
 
-import logger from "../lib/logger.js";
+import logger from "../../lib/logger.js";
 
 import { clientRateLimit } from "./ClientRateLimit.js";
 import { securityLogger } from "./SecurityLogger.js";

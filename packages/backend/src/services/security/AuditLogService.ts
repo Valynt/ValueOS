@@ -14,12 +14,12 @@
 // Browser-compatible hash function (replaces Node.js crypto)
 import { SupabaseClient } from "@supabase/supabase-js";
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
-import { createServerSupabaseClient } from "../lib/supabase.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
 import type { AuditLogEntry } from "../types";
 
-import { BaseService } from "./BaseService.js";
+import { BaseService } from "../BaseService.js";
 
 // audit_logs is not in the generated Database type — use a typed helper
 // rather than scattering `as any` across every query.

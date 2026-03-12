@@ -5,8 +5,8 @@
  * Interacts with the crm-oauth edge function.
  */
 
-import { logger } from "../lib/logger.js"
-import { supabase } from "../lib/supabase.js"
+import { logger } from "../../lib/logger.js"
+import { supabase } from "../../lib/supabase.js"
 
 // ============================================================================
 // Types

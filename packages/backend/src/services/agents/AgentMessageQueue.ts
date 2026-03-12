@@ -3,7 +3,7 @@ import { Job, Queue, QueueEvents, Worker } from "bullmq";
 import {
   getAgentMessageQueueConfig,
 } from "../config/ServiceConfigManager";
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 
 import { AgentType } from "./agent-types.js"

@@ -18,17 +18,17 @@
  *   logger.error('Operation failed', error, { context: data });
  */
 
-import { isDevelopment, isProduction, isTest } from "../config/environment";
-import { getTraceContextForLogging } from "../config/telemetry";
+import { isDevelopment, isProduction, isTest } from "../config/environment.js";
+import { getTraceContextForLogging } from "../config/telemetry.js";
 
-import { getContext } from "./context";
+import { getContext } from "./context.js";
 import {
   sanitizeError,
   sanitizeForLogging,
   sanitizeRequest,
   sanitizeUser,
   validateLogMessage,
-} from "./piiFilter";
+} from "./piiFilter.js";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -338,7 +338,8 @@ export function setupMonitoring() {
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Sentry = typeof window === "undefined" ? require("@sentry/node") : null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const Sentry = typeof (globalThis as Record<string, unknown>)['window'] === "undefined" ? require("@sentry/node") : null as any;
 
       if (Sentry) {
         logger.addListener((entry) => {

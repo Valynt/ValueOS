@@ -11,7 +11,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { createCounter, createHistogram } from '../lib/observability/index.js'
 
 export interface AgentMetrics {

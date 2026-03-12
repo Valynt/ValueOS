@@ -8,7 +8,7 @@
 import { HubSpotModule } from "@mcp/crm/modules/HubSpotModule";
 import { CRMDeal } from "@mcp/crm/types";
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
 import { integrationControlService } from "./IntegrationControlService.js"
 

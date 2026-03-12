@@ -13,7 +13,7 @@
  * - Comprehensive error handling and logging
  */
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 /**
  * Connection strategy types

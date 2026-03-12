@@ -8,7 +8,7 @@
 import { BaseEvent } from "@shared/types/events";
 import { CompressionTypes, Kafka, logLevel, Message, Producer } from "kafkajs";
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import {
   kafkaProducerErrors,
   kafkaProducerEventsTotal,

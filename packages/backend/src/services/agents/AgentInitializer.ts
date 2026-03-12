@@ -8,7 +8,7 @@
  */
 
 import { getConfig, isProduction } from "../config/environment.js"
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
 import { AgentAPI, AgentType } from "./AgentAPI.js"
 

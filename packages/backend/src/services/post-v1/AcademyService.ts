@@ -5,8 +5,8 @@
  * Handles progress tracking, certifications, and resource access.
  */
 
-import { logger } from '../lib/logger.js'
-import { supabase } from '../lib/supabase.js'
+import { logger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js'
 import {
   AcademyLesson,
   AcademyModule,

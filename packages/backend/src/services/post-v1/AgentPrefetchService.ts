@@ -16,7 +16,7 @@
  * - When user clicks "Next", show instantly
  */
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 import { agentChatService } from './AgentChatService.js'
 

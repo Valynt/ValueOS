@@ -85,6 +85,8 @@ describe('VectorMemory tenant isolation boundaries', () => {
       threshold: 0.6,
       limit: 10,
       attachProvenance: false,
+      vectorWeight: 0.7,
+      ftsWeight: 0.3,
     });
 
     expect(results).toHaveLength(1);

@@ -12,7 +12,7 @@
 
 import DOMPurify from 'dompurify';
 
-import { BaseService } from './BaseService.js'
+import { BaseService } from '../BaseService.js'
 
 export interface SanitizationConfig {
   allowHtml: boolean;
