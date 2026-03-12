@@ -41,6 +41,8 @@ export type MemoryType = "episodic" | "semantic" | "procedural" | "working";
 export interface MemoryQuery {
   agent_id: string;
   workspace_id?: string;
+  include_cross_workspace?: boolean;
+  cross_workspace_reason?: string;
   query_text?: string;
   memory_type?: MemoryType;
   limit?: number;
@@ -216,6 +218,19 @@ export class MemorySystem {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
     }
 
+    if (query.include_cross_workspace && !query.cross_workspace_reason) {
+      throw new Error("cross_workspace_reason is required when include_cross_workspace is true");
+    }
+
+    if (query.include_cross_workspace) {
+      logger.info("Cross-workspace memory retrieval requested", {
+        agent_id: query.agent_id,
+        organization_id: query.organization_id,
+        requester_workspace_id: query.workspace_id ?? null,
+        include_cross_workspace: query.include_cross_workspace,
+        cross_workspace_reason: query.cross_workspace_reason,
+      });
+    }
     // Try persistent backend first for cross-session recall
     if (this.backend && this.config.enable_persistence) {
       try {
@@ -260,7 +275,7 @@ export class MemorySystem {
     for (const id of candidateIds) {
       const memory = this.memories.get(id);
       if (!memory) continue;
-      if (query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
+      if (!query.include_cross_workspace && query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
       if (query.min_importance && memory.importance < query.min_importance) continue;
 
       memory.accessed_at = new Date().toISOString();

@@ -206,6 +206,7 @@ export class ExpansionAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 20,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.type === 'proof_point')
@@ -227,6 +228,7 @@ export class ExpansionAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 10,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.type === 'expansion_signal')
@@ -248,6 +250,7 @@ export class ExpansionAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       const report = memories.find(m => m.metadata?.type === 'variance_report');
       return report ? { content: report.content, metadata: report.metadata || {} } : null;
@@ -268,6 +271,7 @@ export class ExpansionAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 10,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.verified === true && m.metadata?.category)
