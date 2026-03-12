@@ -4,6 +4,7 @@ import { supabase } from "../supabase";
 
 const NON_SENSITIVE_STATE_KEY = "valynt.auth.state";
 const REFRESH_TOKEN_FINGERPRINT_KEY = "valynt.auth.refresh.fingerprint";
+const REFRESH_TOKEN_STATUS_RPC = "get_refresh_token_status";
 let lastRefreshToken: string | null = null;
 let authSubscription: { unsubscribe: () => void } | null = null;
 
@@ -23,18 +24,54 @@ const persistNonSensitiveAuthState = (session: Session) => {
   sessionStorage.setItem(NON_SENSITIVE_STATE_KEY, JSON.stringify(state));
 };
 
-const hashRefreshToken = (token: string): string => {
-  let hash = 2166136261;
-  for (let i = 0; i < token.length; i += 1) {
-    hash ^= token.charCodeAt(i);
-    hash +=
-      (hash << 1) +
-      (hash << 4) +
-      (hash << 7) +
-      (hash << 8) +
-      (hash << 24);
+const hashRefreshToken = async (token: string): Promise<string> => {
+  const data = new TextEncoder().encode(token);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const digestBytes = Array.from(new Uint8Array(digest));
+  const hexDigest = digestBytes
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `sha256-${hexDigest}`;
+};
+
+interface RefreshTokenStatusResponse {
+  trusted: boolean;
+  replayDetected?: boolean;
+  revoked?: boolean;
+}
+
+const isRefreshTokenStatusResponse = (
+  value: unknown,
+): value is RefreshTokenStatusResponse => {
+  if (!value || typeof value !== "object") {
+    return false;
   }
-  return `fnv1a-${(hash >>> 0).toString(16)}`;
+
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.trusted === "boolean";
+};
+
+const checkRefreshTokenStatusWithBackend = async (
+  currentFingerprint: string,
+  previousFingerprint: string | null,
+  event?: string,
+): Promise<RefreshTokenStatusResponse | null> => {
+  if (!supabase || !previousFingerprint) {
+    return null;
+  }
+
+  const { data, error } = await supabase.rpc(REFRESH_TOKEN_STATUS_RPC, {
+    current_refresh_token_fingerprint: currentFingerprint,
+    previous_refresh_token_fingerprint: previousFingerprint,
+    auth_event: event ?? null,
+  });
+
+  if (error) {
+    return null;
+  }
+
+  return isRefreshTokenStatusResponse(data) ? data : null;
 };
 
 const getStoredRefreshTokenFingerprint = (): string | null => {
@@ -62,8 +99,8 @@ const handleSignedOut = () => {
   clearLocalState();
 };
 
-const handleTokenRefreshed = (session: Session | null) => {
-  if (!trackRefreshTokenState(session, "TOKEN_REFRESHED") || !session) {
+const handleTokenRefreshed = async (session: Session | null) => {
+  if (!(await trackRefreshTokenState(session, "TOKEN_REFRESHED")) || !session) {
     return;
   }
 
@@ -77,42 +114,62 @@ const handleUnexpectedRefreshToken = async () => {
   }
 };
 
-const trackRefreshTokenState = (
+const trackRefreshTokenState = async (
   session: Session | null,
   event?: string,
-): boolean => {
+): Promise<boolean> => {
   if (!session?.refresh_token) {
     sessionStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
     lastRefreshToken = null;
     return false;
   }
 
-  const fingerprint = hashRefreshToken(session.refresh_token);
+  const fingerprint = await hashRefreshToken(session.refresh_token);
   const previousFingerprint = getStoredRefreshTokenFingerprint();
-  const tokenRotated =
-    Boolean(previousFingerprint) && previousFingerprint !== fingerprint;
-  const rotationAllowedEvents = new Set([
-    "SIGNED_IN",
-    "INITIAL_SESSION",
-    "TOKEN_REFRESHED",
-  ]);
-  const isRotationAllowed = !event || rotationAllowedEvents.has(event);
+  const tokenRotated = Boolean(previousFingerprint && previousFingerprint !== fingerprint);
 
-  if (previousFingerprint) {
-    if (event === "TOKEN_REFRESHED") {
-      void handleUnexpectedRefreshToken();
-      return false;
-    }
-
-    if (!isRotationAllowed && tokenRotated) {
-      void handleUnexpectedRefreshToken();
-      return false;
-    }
+  if (event === "TOKEN_REFRESHED" && previousFingerprint && previousFingerprint === fingerprint) {
+    void handleUnexpectedRefreshToken();
+    return false;
   }
+
+  const backendStatus = await checkRefreshTokenStatusWithBackend(
+    fingerprint,
+    previousFingerprint,
+    event,
+  );
+
+  if (backendStatus && (!backendStatus.trusted || backendStatus.replayDetected || backendStatus.revoked)) {
+    void handleUnexpectedRefreshToken();
+    return false;
+  }
+
+  // Client fingerprinting is telemetry only: do not force sign-out solely due to
+  // local rotation detection because legitimate refresh and sign-in flows rotate tokens.
+  void tokenRotated;
 
   lastRefreshToken = fingerprint;
   sessionStorage.setItem(REFRESH_TOKEN_FINGERPRINT_KEY, fingerprint);
   return true;
+};
+
+const handleAuthStateChange = async (event: string, session: Session | null) => {
+  if (event === "SIGNED_OUT") {
+    handleSignedOut();
+    return;
+  }
+
+  if (event === "TOKEN_REFRESHED") {
+    await handleTokenRefreshed(session);
+    return;
+  }
+
+  const isTracked = await trackRefreshTokenState(session, event);
+  if (!isTracked || !session) {
+    return;
+  }
+
+  persistNonSensitiveAuthState(session);
 };
 
 export const secureTokenManager = {
@@ -124,22 +181,7 @@ export const secureTokenManager = {
     }
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        handleSignedOut();
-        return;
-      }
-
-      if (event === "TOKEN_REFRESHED") {
-        handleTokenRefreshed(session);
-        return;
-      }
-
-      const isTracked = trackRefreshTokenState(session, event);
-      if (!isTracked || !session) {
-        return;
-      }
-
-      persistNonSensitiveAuthState(session);
+      void handleAuthStateChange(event, session);
     });
 
     authSubscription = data.subscription;
@@ -148,8 +190,8 @@ export const secureTokenManager = {
     // Never deserialize session tokens from localStorage.
     return null;
   },
-  storeSession: (session: Session) => {
-    if (!trackRefreshTokenState(session, "SIGNED_IN")) {
+  storeSession: async (session: Session) => {
+    if (!(await trackRefreshTokenState(session, "SIGNED_IN"))) {
       clearLocalState();
       return;
     }
@@ -169,7 +211,7 @@ export const secureTokenManager = {
       return null;
     }
 
-    if (!trackRefreshTokenState(data.session, "INITIAL_SESSION")) {
+    if (!(await trackRefreshTokenState(data.session, "INITIAL_SESSION"))) {
       return null;
     }
 
