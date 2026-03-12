@@ -178,9 +178,6 @@ export class QueryExecutor {
     const schemaResult = DecisionContextSchema.safeParse(context);
     if (!schemaResult.success) {
       for (const issue of schemaResult.error.issues) {
-        if (issue.path.length === 1 && issue.path[0] === 'organization_id') {
-          continue;
-        }
         diagnostics.push(`DecisionContext schema validation failed at ${issue.path.join('.') || 'root'}: ${issue.message}`);
       }
     }
