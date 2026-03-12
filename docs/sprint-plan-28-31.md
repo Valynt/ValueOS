@@ -73,7 +73,7 @@
 
 **Objective:** `packages/backend` production `any` count is below 530. The five highest-density production files in the API and agent layers are fully typed.
 
-**Success statement:** `grep -rn ": any\b\|as any\b\|<any>" packages/backend/src --include="*.ts" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 530. `api/admin.ts`, `api/referrals.ts`, `services/agents/AgentMemoryIntegration.ts`, `services/sdui/CanvasSchemaService.ts`, and `config/ServiceConfigManager.ts` contain zero `any` usages. `pnpm test` green.
+**Success statement:** `grep -rnE ": any([^A-Za-z0-9_]|$)|as any([^A-Za-z0-9_]|$)|<any>" packages/backend/src --include="*.ts" | grep -vE "__tests__|\.test\.|\.spec\." | wc -l` reports fewer than 530. `api/admin.ts`, `api/referrals.ts`, `services/agents/AgentMemoryIntegration.ts`, `services/sdui/CanvasSchemaService.ts`, and `config/ServiceConfigManager.ts` contain zero `any` usages. `pnpm test` green.
 
 **Depends on:** Sprint 27 complete.
 
