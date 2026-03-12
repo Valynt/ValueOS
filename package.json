@@ -12,7 +12,7 @@
     "check": "turbo run typecheck",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:e2e:gate": "pnpm run check:e2e-path && vitest run --config vitest.e2e.config.ts",
+    "test:e2e:gate": "pnpm run check:e2e-path && vitest run --config vitest.e2e.config.ts tests/e2e/**/*.test.ts",
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
     "check:no-prod-mocks": "tsx scripts/check-no-prod-mocks.ts",
     "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs",
