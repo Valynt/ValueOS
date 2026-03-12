@@ -1,57 +1,100 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
-import { assertSessionSeeded } from './session-assertions';
-import { assertWorkflowPersistenceBoundary, runWorkflowRequest } from './db-assertions';
-import { captureWorkflowSnapshot, reloadAndAssertWorkflowSnapshot } from './reload-assertions';
+import { assertSessionSeeded } from "./session-assertions";
+import {
+  assertWorkflowPersistenceBoundary,
+  runWorkflowRequest,
+} from "./db-assertions";
+import {
+  captureWorkflowSnapshot,
+  reloadAndAssertWorkflowSnapshot,
+} from "./reload-assertions";
 
 export interface WorkflowFixture {
-  id: 'WF-1' | 'WF-2' | 'WF-3' | 'WF-4' | 'WF-5';
+  id: "WF-1" | "WF-2" | "WF-3" | "WF-4" | "WF-5";
   workflowDefinitionId: string;
   title: string;
   route: string;
   executePayload: Record<string, unknown>;
 }
 
+export type WorkflowId = WorkflowFixture["id"];
+
 export const WORKFLOW_FIXTURES: WorkflowFixture[] = [
   {
-    id: 'WF-1',
-    workflowDefinitionId: 'opportunity-discovery-v1',
-    title: 'Opportunity discovery workflow boundary contract',
-    route: '/',
-    executePayload: { workflowId: 'opportunity-discovery-v1', context: { organization_id: 'e2e-org', user_id: 'wf-1-user', workspace_id: 'e2e-workspace' } },
+    id: "WF-1",
+    workflowDefinitionId: "opportunity-discovery-v1",
+    title: "Opportunity discovery workflow boundary contract",
+    route: "/",
+    executePayload: {
+      workflowId: "opportunity-discovery-v1",
+      context: {
+        organization_id: "e2e-org",
+        user_id: "wf-1-user",
+        workspace_id: "e2e-workspace",
+      },
+    },
   },
   {
-    id: 'WF-2',
-    workflowDefinitionId: 'target-value-commit-v1',
-    title: 'Target commit workflow boundary contract',
-    route: '/',
-    executePayload: { workflowId: 'target-value-commit-v1', context: { organization_id: 'e2e-org', user_id: 'wf-2-user', workspace_id: 'e2e-workspace' } },
+    id: "WF-2",
+    workflowDefinitionId: "target-value-commit-v1",
+    title: "Target commit workflow boundary contract",
+    route: "/",
+    executePayload: {
+      workflowId: "target-value-commit-v1",
+      context: {
+        organization_id: "e2e-org",
+        user_id: "wf-2-user",
+        workspace_id: "e2e-workspace",
+      },
+    },
   },
   {
-    id: 'WF-3',
-    workflowDefinitionId: 'realization-tracking-v1',
-    title: 'Realization tracking workflow boundary contract',
-    route: '/',
-    executePayload: { workflowId: 'realization-tracking-v1', context: { organization_id: 'e2e-org', user_id: 'wf-3-user', workspace_id: 'e2e-workspace' } },
+    id: "WF-3",
+    workflowDefinitionId: "realization-tracking-v1",
+    title: "Realization tracking workflow boundary contract",
+    route: "/",
+    executePayload: {
+      workflowId: "realization-tracking-v1",
+      context: {
+        organization_id: "e2e-org",
+        user_id: "wf-3-user",
+        workspace_id: "e2e-workspace",
+      },
+    },
   },
   {
-    id: 'WF-4',
-    workflowDefinitionId: 'expansion-modeling-v1',
-    title: 'Expansion modeling workflow boundary contract',
-    route: '/',
-    executePayload: { workflowId: 'expansion-modeling-v1', context: { organization_id: 'e2e-org', user_id: 'wf-4-user', workspace_id: 'e2e-workspace' } },
+    id: "WF-4",
+    workflowDefinitionId: "expansion-modeling-v1",
+    title: "Expansion modeling workflow boundary contract",
+    route: "/",
+    executePayload: {
+      workflowId: "expansion-modeling-v1",
+      context: {
+        organization_id: "e2e-org",
+        user_id: "wf-4-user",
+        workspace_id: "e2e-workspace",
+      },
+    },
   },
   {
-    id: 'WF-5',
-    workflowDefinitionId: 'integrity-controls-v1',
-    title: 'Integrity controls workflow boundary contract',
-    route: '/',
-    executePayload: { workflowId: 'integrity-controls-v1', context: { organization_id: 'e2e-org', user_id: 'wf-5-user', workspace_id: 'e2e-workspace' } },
+    id: "WF-5",
+    workflowDefinitionId: "integrity-controls-v1",
+    title: "Integrity controls workflow boundary contract",
+    route: "/",
+    executePayload: {
+      workflowId: "integrity-controls-v1",
+      context: {
+        organization_id: "e2e-org",
+        user_id: "wf-5-user",
+        workspace_id: "e2e-workspace",
+      },
+    },
   },
 ];
 
-export function getWorkflowFixture(id: WorkflowFixture['id']): WorkflowFixture {
-  const fixture = WORKFLOW_FIXTURES.find((candidate) => candidate.id === id);
+export function getWorkflowFixture(id: WorkflowFixture["id"]): WorkflowFixture {
+  const fixture = WORKFLOW_FIXTURES.find(candidate => candidate.id === id);
   if (!fixture) {
     throw new Error(`Unknown workflow fixture: ${id}`);
   }
@@ -62,14 +105,14 @@ export function getWorkflowFixture(id: WorkflowFixture['id']): WorkflowFixture {
 export async function executeWorkflowFixture(
   page: Page,
   request: APIRequestContext,
-  workflow: WorkflowFixture,
+  workflow: WorkflowFixture
 ): Promise<void> {
   await page.goto(workflow.route);
 
   // Generate a single runId for this workflow execution and thread it through
   // both the session seeding and backend execution payloads.
   const runId =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
       : `e2e-run-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -81,9 +124,17 @@ export async function executeWorkflowFixture(
     },
   };
 
-  const sessionState = await assertSessionSeeded(page, workflowWithRunId);
-  const boundaryResponse = await runWorkflowRequest(request, workflowWithRunId);
-  await assertWorkflowPersistenceBoundary(boundaryResponse, workflowWithRunId, runId);
+  await assertSessionSeeded(page, workflowWithRunId, runId);
+  const boundaryResponse = await runWorkflowRequest(
+    request,
+    workflowWithRunId,
+    runId
+  );
+  await assertWorkflowPersistenceBoundary(
+    boundaryResponse,
+    workflowWithRunId,
+    runId
+  );
 
   const snapshot = await captureWorkflowSnapshot(page, workflowWithRunId);
   expect(snapshot.runId).toBe(runId);
