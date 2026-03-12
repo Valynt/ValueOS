@@ -118,9 +118,8 @@ export type DomainEventName =
   | 'narrative.drafted';
 
 export const NarrativeDraftedPayloadSchema = DomainEventEnvelopeSchema.extend({
-  organization_id: z.string(),
-  value_case_id: z.string().optional(),
-  defense_readiness_score: z.number().min(0).max(1),
+  valueCaseId: z.string().optional(),
+  defenseReadinessScore: z.number().min(0).max(1),
   format: z.string(),
 });
 export type NarrativeDraftedPayload = z.infer<typeof NarrativeDraftedPayloadSchema>;

@@ -243,15 +243,24 @@ describe("NarrativeAgent", () => {
       expect(output.status).toBe("success");
     });
 
-    it("publishes narrative.drafted domain event", async () => {
+    it("publishes narrative.drafted domain event with normalized payload fields", async () => {
       mockComplete.mockResolvedValue(llmResponse(VALID_LLM_RESPONSE));
 
       await agent.execute(makeContext());
 
       expect(mockPublish).toHaveBeenCalledWith(
         "narrative.drafted",
-        expect.anything(),
+        expect.objectContaining({
+          valueCaseId: "case-abc",
+          defenseReadinessScore: 0.82,
+          format: "executive_summary",
+        }),
       );
+
+      const publishedPayload = mockPublish.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(publishedPayload).not.toHaveProperty("organization_id");
+      expect(publishedPayload).not.toHaveProperty("value_case_id");
+      expect(publishedPayload).not.toHaveProperty("defense_readiness_score");
     });
   });
 });
