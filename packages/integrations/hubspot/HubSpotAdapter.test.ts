@@ -31,8 +31,11 @@ describe("HubSpotAdapter", () => {
     );
 
     await expect(adapter.validate()).resolves.toBe(true);
+    // fetch receives a URL object; compare via toString()
+    const [calledUrl] = fetchMock.mock.calls[0];
+    expect(String(calledUrl)).toContain("/crm/v3/owners?limit=1&archived=false");
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/crm/v3/owners?limit=1&archived=false"),
+      expect.anything(),
       expect.objectContaining({ method: "GET" })
     );
   });
@@ -156,6 +159,7 @@ describe("HubSpotAdapter", () => {
   });
 
   it("retries push updates on retryable 5xx responses", async () => {
+    vi.useFakeTimers();
     const adapter = new HubSpotAdapter(BASE_CONFIG);
     await adapter.connect({ accessToken: "token", tenantId: "tenant-a" });
 
@@ -165,9 +169,9 @@ describe("HubSpotAdapter", () => {
       )
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "42" }), { status: 200 }));
 
-    await expect(
-      adapter.pushUpdate("contacts", "42", { firstname: "Grace" })
-    ).resolves.toBeUndefined();
+    const pushPromise = adapter.pushUpdate("contacts", "42", { firstname: "Grace" });
+    await vi.runAllTimersAsync();
+    await expect(pushPromise).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
