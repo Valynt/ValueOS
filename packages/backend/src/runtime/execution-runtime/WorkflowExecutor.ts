@@ -513,14 +513,24 @@ export class WorkflowExecutor {
       ? lifecycleStageValue
       : stage.agent_type;
 
+    const opportunityId = contextRecord.opportunity_id ?? contextRecord.opportunityId;
+    const confidenceScore = extractOpportunityConfidence(contextRecord);
+
+    const opportunity =
+      opportunityId !== undefined ||
+      lifecycleStage !== undefined ||
+      confidenceScore !== undefined
+        ? {
+            ...(opportunityId !== undefined && { id: String(opportunityId) }),
+            ...(lifecycleStage && { lifecycle_stage: lifecycleStage }),
+            ...(confidenceScore !== undefined && { confidence_score: confidenceScore }),
+            value_maturity: 'low' as const,
+          }
+        : undefined;
+
     const decisionContext: DecisionContext = {
       organization_id: organizationId,
-      opportunity: {
-        id: String(contextRecord.opportunity_id ?? contextRecord.opportunityId ?? stage.id),
-        lifecycle_stage: lifecycleStage,
-        confidence_score: extractOpportunityConfidence(contextRecord) ?? 0.5,
-        value_maturity: 'low',
-      },
+      ...(opportunity && { opportunity }),
       is_external_artifact_action: isExternalArtifactActionForStage(stage),
     };
 
