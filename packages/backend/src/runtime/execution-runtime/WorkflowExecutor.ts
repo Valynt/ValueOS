@@ -238,15 +238,15 @@ export class WorkflowExecutor {
         const stageCompleted = new Date();
         inProgress.delete(stage.id);
 
-        if (result.success && result.result?.stageResult.status === 'pending_approval') {
+        if (result.success && result.result?.stageResult.status === 'waiting_approval') {
           const hitlMetadata = result.result.stageResult.output ?? {};
-          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, hitlMetadata, 'pending_approval');
+          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, hitlMetadata, 'waiting_approval');
           await this._recordWorkflowEvent(executionId, organizationId, 'stage_waiting_for_approval', stage.id, {
             reason: 'hitl_required',
             ...hitlMetadata,
             traceId,
           });
-          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'pending_approval', stage.id);
+          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'waiting_approval', stage.id);
           return;
         }
 
