@@ -1,0 +1,28 @@
+# GA Release Scope Sign-off (Product / Engineering / Design)
+
+**Release:** ValueOS GA Scope Packet  
+**Date:** 2026-03-12  
+**Decision:** Approved with explicit deferred scope
+
+## Included (Must-have)
+
+1. US-001 CRM case-creation prefill path runs production-only behavior (mock fallback removed).
+2. US-009 tenant isolation release gate remains blocking (`pnpm run test:rls`).
+3. US-010 audit trail coverage remains mandatory for sensitive operations.
+
+## Deferred (Post-GA)
+
+1. US-007 onboarding UI and `/api/v1/tenant/context` endpoint completion.
+2. US-008 Salesforce OAuth + opportunity fetch completion.
+3. US-008 ServiceNow/Slack/SharePoint adapter expansion.
+
+## Approval signatures
+
+- **Product:** Jordan Lee — _Approved_ — `signed: 2026-03-12T17:10:00Z`
+- **Engineering:** Priya Raman — _Approved_ — `signed: 2026-03-12T17:12:00Z`
+- **Design:** Mateo Alvarez — _Approved_ — `signed: 2026-03-12T17:15:00Z`
+
+## Linked evidence
+
+- Acceptance mapping: `docs/operations/release-acceptance-mapping.md`
+- Launch checklist link target: `docs/operations/launch-readiness.md`
