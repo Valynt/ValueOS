@@ -526,11 +526,16 @@ export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
 
   function invokeFunc(time: number) {
     const args = lastArgs;
-    const thisArg = lastThis;
+    // Snapshot and clear before invoking to avoid stale references on re-entry.
+    // Cast to Parameters<T> is safe: invokeFunc is only called after debounced()
+    // has set lastArgs. thisArg may be undefined when debounced is called as a
+    // plain function (not a method) — that is the expected case and func.apply
+    // handles undefined thisArg correctly in both strict and sloppy mode.
+    const thisArg = lastThis as ThisParameterType<T> | undefined;
 
     lastArgs = lastThis = undefined;
     lastInvokeTime = time;
-    result = func.apply(thisArg, args!);
+    result = func.apply(thisArg as ThisParameterType<T>, args!);
     return result;
   }
 

@@ -359,16 +359,19 @@ export class ValueCommitmentTrackingService {
         .from('commitment_milestones')
         .select('*')
         .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
         .order('sequence_order'),
       supabase
         .from('commitment_metrics')
         .select('*')
         .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
         .eq('is_active', true),
       supabase
         .from('commitment_risks')
         .select('*')
         .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
         .neq('status', 'closed'),
     ]);
 
@@ -423,7 +426,8 @@ export class ValueCommitmentTrackingService {
         metric_achievement: metricAchievement,
         risk_level: riskLevel,
         days_remaining: daysRemaining,
-        is_on_track: overallProgress >= 50 && riskLevel !== 'critical',
+        // Threshold matches ValueCommitmentBackendService.getProgress (80%).
+        is_on_track: overallProgress >= 80 && riskLevel !== 'critical',
       },
     };
   }
