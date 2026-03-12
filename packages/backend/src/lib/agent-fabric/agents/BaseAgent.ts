@@ -192,7 +192,7 @@ export abstract class BaseAgent {
       confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
-      storeRawModelOutputInMemory = true,
+      storeRawModelOutputInMemory = false,
     } = options;
 
     return this.circuitBreaker.execute(async () => {
