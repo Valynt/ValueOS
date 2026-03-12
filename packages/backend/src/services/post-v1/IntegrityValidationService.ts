@@ -12,7 +12,7 @@
  - Performance signal accuracy verification
  */
 
-import { SDUIPageDefinition } from "@sdui/schema";
+import { SDUIPageDefinition } from "@valueos/sdui";
 
 import { logger } from "../lib/logger.js"
 import { WorkflowState } from "../repositories/WorkflowStateRepository";

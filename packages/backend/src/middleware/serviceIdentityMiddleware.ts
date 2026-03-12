@@ -251,10 +251,13 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
   );
 
   if (!configuredAssertions && !serviceIdentityToken) {
-    // In production this path should never be reached — validateServiceIdentityConfig()
-    // must be called at startup to catch this misconfiguration before requests arrive.
-    if (process.env.NODE_ENV === 'production') {
-      logger.error('Service identity middleware reached with no configured assertions in production', {
+    // Fail closed in production (caught at startup by validateServiceIdentityConfig)
+    // or when SERVICE_IDENTITY_REQUIRED=true is set explicitly.
+    const shouldReject =
+      process.env.NODE_ENV === 'production' ||
+      process.env.SERVICE_IDENTITY_REQUIRED === 'true';
+    if (shouldReject) {
+      logger.error('Service identity middleware reached with no configured assertions', {
         path: req.originalUrl || req.url,
       });
       return res.status(503).json({ error: 'Service identity not configured' });

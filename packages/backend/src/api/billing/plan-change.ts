@@ -8,7 +8,7 @@ import express, { Request, Response } from 'express';
 
 import { PlanTier } from '../../config/billing.js';
 import { BillingApprovalService } from '../../services/billing/BillingApprovalService.js';
-import SubscriptionService from '../../services/billing/SubscriptionService.js';
+import { subscriptionService as SubscriptionService } from '../../services/billing/SubscriptionService.js';
 const billingApprovalService = new BillingApprovalService();
 
 const router = express.Router();

@@ -12,9 +12,9 @@
  */
 
 import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
-import { AgentRegistry } from '../../services/AgentRegistry.js';
-import { AgentMessageBroker } from '../../services/AgentMessageBroker.js';
-import { AgentMessageQueue } from '../../services/AgentMessageQueue.js';
+import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
+import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
+import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
 
@@ -30,6 +30,7 @@ import type { DecisionRouter } from '../decision-router/index.js';
 
 import { QueryExecutor, type QueryExecutorConfig } from './QueryExecutor.js';
 import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecutor.js';
+import type { IExecutionRuntime } from '../../types/execution/IExecutionRuntime.js';
 
 export { QueryExecutor, WorkflowExecutor };
 export type { QueryExecutorConfig, WorkflowExecutorConfig };
@@ -52,7 +53,7 @@ const DEFAULT_CONFIG: ExecutionRuntimeConfig = {
   maxRetryAttempts: 3,
 };
 
-export class ExecutionRuntime {
+export class ExecutionRuntime implements IExecutionRuntime {
   private readonly queryExecutor: QueryExecutor;
   private readonly workflowExecutor: WorkflowExecutor;
 

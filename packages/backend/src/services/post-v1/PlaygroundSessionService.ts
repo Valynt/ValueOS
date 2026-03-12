@@ -12,7 +12,7 @@
  * - Session expiration
  */
 
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 import { createClient, RedisClientType } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -424,6 +424,7 @@ export class PlaygroundSessionService {
         const { data, error } = await supabase
           .from('workflow_artifacts')
           .insert({
+            organization_id: session.organizationId,
             workflow_execution_id: session.workflowExecutionId,
             artifact_type: 'sdui_layout',
             artifact_data: session.currentLayout,
@@ -443,7 +444,7 @@ export class PlaygroundSessionService {
 
         artifactId = data.id;
       } else {
-        // Update existing artifact
+        // Update existing artifact — scoped to tenant to prevent cross-tenant writes
         const { error } = await supabase
           .from('workflow_artifacts')
           .update({
@@ -457,6 +458,7 @@ export class PlaygroundSessionService {
             },
             updated_at: new Date().toISOString(),
           })
+          .eq('organization_id', session.organizationId)
           .eq('id', artifactId);
 
         if (error) {
@@ -469,6 +471,7 @@ export class PlaygroundSessionService {
         await supabase
           .from('workflow_execution_logs')
           .insert({
+            organization_id: session.organizationId,
             workflow_execution_id: session.workflowExecutionId,
             event_type: 'artifact_committed',
             event_data: {
@@ -685,4 +688,6 @@ export function getPlaygroundSessionService(
   return sessionServiceInstance;
 }
 
+export { PlaygroundSessionService };
+/** @deprecated Use named import `PlaygroundSessionService` instead. */
 export default PlaygroundSessionService;

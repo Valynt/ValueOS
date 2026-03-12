@@ -1,5 +1,6 @@
 import { Bell, Menu, Search, Sparkles } from "lucide-react";
-import { KeyboardEvent, useMemo, useState } from "react";
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { TenantSwitcher } from "@/components/tenant/TenantSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +45,8 @@ function getInitials(name: string): string {
 export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const { user } = useAuth();
   const { currentTenant } = useTenant();
@@ -107,19 +110,39 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
     return recentSearches.slice(0, 3);
   }, [recentSearches]);
 
-  const submitSearch = () => {
+  const submitSearch = useCallback(() => {
     const trimmed = query.trim();
     if (!trimmed) return;
 
     trackSearch(trimmed);
     trackFeatureUsage("search");
-  };
+    navigate(`/app/cases?q=${encodeURIComponent(trimmed)}`);
+  }, [query, trackSearch, trackFeatureUsage, navigate]);
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       submitSearch();
+    } else if (event.key === "Escape") {
+      searchRef.current?.blur();
     }
   };
+
+  // Focus search on `/` keypress (when not already in an input)
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (
+        event.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA" &&
+        !(document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   return (
     <header className="h-16 border-b border-zinc-200 bg-white flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4 flex-shrink-0 overflow-x-clip">
@@ -165,15 +188,13 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         >
           <Search className="w-4 h-4 text-zinc-400 flex-shrink-0" />
           <input
+            ref={searchRef}
             type="text"
             placeholder={personalizedPlaceholder}
             value={query}
             className="flex-1 bg-transparent text-[13px] text-zinc-900 placeholder:text-zinc-400 outline-none"
             onFocus={() => setSearchFocused(true)}
-            onBlur={() => {
-              setSearchFocused(false);
-              submitSearch();
-            }}
+            onBlur={() => setSearchFocused(false)}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleSearchKeyDown}
           />

@@ -44,7 +44,7 @@ updates:
 
   # Python dependencies
   - package-ecosystem: "pip"
-    directory: "/blueprint/infra/backend/services"
+    directory: "/ops/codex53-local"
     schedule:
       interval: "weekly"
       day: "monday"

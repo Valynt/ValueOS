@@ -22,8 +22,8 @@ export interface EventStoreRecord {
   event_type: string;
   event_version: string;
   source: string;
-  payload: any;
-  metadata?: any;
+  payload: unknown;
+  metadata?: unknown;
   timestamp: Date;
   created_at: Date;
 }
@@ -32,7 +32,7 @@ export interface Projection {
   id: string;
   projection_type: string;
   projection_key: string;
-  data: any;
+  data: unknown;
   version: number;
   last_event_id: string;
   last_updated: Date;
@@ -58,38 +58,42 @@ export class EventSourcingService {
   /**
    * Store an event in the event store
    */
-  async storeEvent(event: BaseEvent): Promise<void> {
+  async storeEvent(organizationId: string, event: BaseEvent): Promise<void> {
     try {
-      const record: Omit<EventStoreRecord, "id" | "created_at"> = {
-        event_id: event.eventId,
-        correlation_id: event.correlationId,
-        event_type: event.eventType,
-        event_version: event.version,
-        source: event.source,
-        payload: (event as any).payload || {},
+      const record = {
+        organization_id: organizationId,
+        event_id: event.eventId as string,
+        correlation_id: event.correlationId as string,
+        event_type: event.eventType as string,
+        event_version: event.version as string,
+        source: event.source as string,
+        payload: (event as Record<string, unknown>).payload || {},
         metadata: event.metadata,
-        timestamp: event.timestamp,
+        timestamp: event.timestamp as Date,
       };
 
       const { error } = await this.supabase.from("event_store").insert(record);
 
       if (error) {
         logger.error("Failed to store event", error, {
-          eventId: event.eventId,
-          eventType: event.eventType,
+          organizationId,
+          eventId: event.eventId as string,
+          eventType: event.eventType as string,
         });
         throw error;
       }
 
       logger.debug("Event stored successfully", {
-        eventId: event.eventId,
-        eventType: event.eventType,
-        correlationId: event.correlationId,
+        organizationId,
+        eventId: event.eventId as string,
+        eventType: event.eventType as string,
+        correlationId: event.correlationId as string,
       });
     } catch (error) {
       logger.error("Event storage failed", error as Error, {
-        eventId: event.eventId,
-        eventType: event.eventType,
+        organizationId,
+        eventId: event.eventId as string,
+        eventType: event.eventType as string,
       });
       throw error;
     }
@@ -98,16 +102,18 @@ export class EventSourcingService {
   /**
    * Get events by correlation ID
    */
-  async getEventsByCorrelationId(correlationId: string): Promise<EventStoreRecord[]> {
+  async getEventsByCorrelationId(organizationId: string, correlationId: string): Promise<EventStoreRecord[]> {
     try {
       const { data, error } = await this.supabase
         .from("event_store")
         .select("*")
+        .eq("organization_id", organizationId)
         .eq("correlation_id", correlationId)
         .order("timestamp", { ascending: true });
 
       if (error) {
         logger.error("Failed to retrieve events by correlation ID", error, {
+          organizationId,
           correlationId,
         });
         throw error;
@@ -116,6 +122,7 @@ export class EventSourcingService {
       return data || [];
     } catch (error) {
       logger.error("Failed to get events by correlation ID", error as Error, {
+        organizationId,
         correlationId,
       });
       throw error;
@@ -126,6 +133,7 @@ export class EventSourcingService {
    * Get events by event type
    */
   async getEventsByType(
+    organizationId: string,
     eventType: string,
     limit: number = 100,
     offset: number = 0
@@ -134,12 +142,14 @@ export class EventSourcingService {
       const { data, error } = await this.supabase
         .from("event_store")
         .select("*")
+        .eq("organization_id", organizationId)
         .eq("event_type", eventType)
         .order("timestamp", { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (error) {
         logger.error("Failed to retrieve events by type", error, {
+          organizationId,
           eventType,
           limit,
           offset,
@@ -150,6 +160,7 @@ export class EventSourcingService {
       return data || [];
     } catch (error) {
       logger.error("Failed to get events by type", error as Error, {
+        organizationId,
         eventType,
         limit,
         offset,
@@ -162,6 +173,7 @@ export class EventSourcingService {
    * Get events within a time range
    */
   async getEventsByTimeRange(
+    organizationId: string,
     startTime: Date,
     endTime: Date,
     limit: number = 1000
@@ -170,6 +182,7 @@ export class EventSourcingService {
       const { data, error } = await this.supabase
         .from("event_store")
         .select("*")
+        .eq("organization_id", organizationId)
         .gte("timestamp", startTime.toISOString())
         .lte("timestamp", endTime.toISOString())
         .order("timestamp", { ascending: true })
@@ -177,6 +190,7 @@ export class EventSourcingService {
 
       if (error) {
         logger.error("Failed to retrieve events by time range", error, {
+          organizationId,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           limit,
@@ -187,6 +201,7 @@ export class EventSourcingService {
       return data || [];
     } catch (error) {
       logger.error("Failed to get events by time range", error as Error, {
+        organizationId,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         limit,
@@ -199,36 +214,41 @@ export class EventSourcingService {
    * Create or update a projection
    */
   async updateProjection(
+    organizationId: string,
     projectionType: string,
     projectionKey: string,
     event: BaseEvent,
-    updateFunction: (currentData: any, event: Event) => any
+    updateFunction: (currentData: unknown, event: Event) => unknown
   ): Promise<void> {
     try {
       // Get existing projection
-      let projection = await this.getProjection(projectionType, projectionKey);
+      let projection = await this.getProjection(organizationId, projectionType, projectionKey);
 
       if (!projection) {
         // Create new projection
         const initialData = updateFunction(null, event as Event);
         projection = {
-          id: `${projectionType}-${projectionKey}`,
+          id: `${organizationId}-${projectionType}-${projectionKey}`,
           projection_type: projectionType,
           projection_key: projectionKey,
           data: initialData,
           version: 1,
-          last_event_id: event.eventId,
+          last_event_id: event.eventId as string,
           last_updated: new Date(),
           created_at: new Date(),
         };
 
-        const { error } = await this.supabase.from("projections").insert(projection);
+        const { error } = await this.supabase.from("projections").insert({
+          ...projection,
+          organization_id: organizationId,
+        });
 
         if (error) {
           logger.error("Failed to create projection", error, {
+            organizationId,
             projectionType,
             projectionKey,
-            eventId: event.eventId,
+            eventId: event.eventId as string,
           });
           throw error;
         }
@@ -238,7 +258,7 @@ export class EventSourcingService {
         const previousVersion = projection.version;
         projection.data = updatedData;
         projection.version += 1;
-        projection.last_event_id = event.eventId;
+        projection.last_event_id = event.eventId as string;
         projection.last_updated = new Date();
 
         // Use version-based optimistic locking to prevent race conditions
@@ -250,28 +270,31 @@ export class EventSourcingService {
             last_event_id: projection.last_event_id,
             last_updated: projection.last_updated,
           })
+          .eq("organization_id", organizationId)
           .eq("id", projection.id)
           .eq("version", previousVersion) // Only update if version matches (optimistic lock)
           .select();
 
         // Check if update succeeded (row was modified)
         if (!error && (!updateResult || updateResult.length === 0)) {
-          // Version mismatch - another process updated the projection
+          // Version mismatch — another process updated the projection
           logger.warn("Projection update conflict detected, retrying", {
+            organizationId,
             projectionType,
             projectionKey,
             expectedVersion: previousVersion,
           });
           // Invalidate cache and retry
           this.projections.get(projectionType)?.delete(projectionKey);
-          return this.updateProjection(projectionType, projectionKey, event, updateFunction);
+          return this.updateProjection(organizationId, projectionType, projectionKey, event, updateFunction);
         }
 
         if (error) {
           logger.error("Failed to update projection", error, {
+            organizationId,
             projectionType,
             projectionKey,
-            eventId: event.eventId,
+            eventId: event.eventId as string,
           });
           throw error;
         }
@@ -284,16 +307,18 @@ export class EventSourcingService {
       this.projections.get(projectionType)!.set(projectionKey, projection);
 
       logger.debug("Projection updated", {
+        organizationId,
         projectionType,
         projectionKey,
         version: projection.version,
-        eventId: event.eventId,
+        eventId: event.eventId as string,
       });
     } catch (error) {
       logger.error("Projection update failed", error as Error, {
+        organizationId,
         projectionType,
         projectionKey,
-        eventId: event.eventId,
+        eventId: event.eventId as string,
       });
       throw error;
     }
@@ -302,7 +327,7 @@ export class EventSourcingService {
   /**
    * Get a projection
    */
-  async getProjection(projectionType: string, projectionKey: string): Promise<Projection | null> {
+  async getProjection(organizationId: string, projectionType: string, projectionKey: string): Promise<Projection | null> {
     try {
       // Check memory cache first
       const cached = this.projections.get(projectionType)?.get(projectionKey);
@@ -314,6 +339,7 @@ export class EventSourcingService {
       const { data, error } = await this.supabase
         .from("projections")
         .select("*")
+        .eq("organization_id", organizationId)
         .eq("projection_type", projectionType)
         .eq("projection_key", projectionKey)
         .single();
@@ -321,6 +347,7 @@ export class EventSourcingService {
       if (error && error.code !== "PGRST116") {
         // Not found error
         logger.error("Failed to get projection", error, {
+          organizationId,
           projectionType,
           projectionKey,
         });
@@ -338,6 +365,7 @@ export class EventSourcingService {
       return data || null;
     } catch (error) {
       logger.error("Failed to get projection", error as Error, {
+        organizationId,
         projectionType,
         projectionKey,
       });
@@ -348,17 +376,19 @@ export class EventSourcingService {
   /**
    * Get all projections of a type
    */
-  async getProjectionsByType(projectionType: string, limit: number = 100): Promise<Projection[]> {
+  async getProjectionsByType(organizationId: string, projectionType: string, limit: number = 100): Promise<Projection[]> {
     try {
       const { data, error } = await this.supabase
         .from("projections")
         .select("*")
+        .eq("organization_id", organizationId)
         .eq("projection_type", projectionType)
         .order("last_updated", { ascending: false })
         .limit(limit);
 
       if (error) {
         logger.error("Failed to get projections by type", error, {
+          organizationId,
           projectionType,
           limit,
         });
@@ -368,6 +398,7 @@ export class EventSourcingService {
       return data || [];
     } catch (error) {
       logger.error("Failed to get projections by type", error as Error, {
+        organizationId,
         projectionType,
         limit,
       });
@@ -379,15 +410,16 @@ export class EventSourcingService {
    * Rebuild a projection from events
    */
   async rebuildProjection(
+    organizationId: string,
     projectionType: string,
     projectionKey: string,
-    updateFunction: (currentData: any, event: Event) => any,
+    updateFunction: (currentData: unknown, event: Event) => unknown,
     eventFilter?: (event: Event) => boolean
   ): Promise<void> {
     try {
-      // Get all relevant events
-      const events = await this.getEventsByType(`${projectionType}.*`);
-      const filteredEvents = eventFilter ? events.filter((e) => eventFilter(e as any)) : events;
+      // Get all relevant events — scoped to tenant
+      const events = await this.getEventsByType(organizationId, `${projectionType}.*`);
+      const filteredEvents = eventFilter ? events.filter((e) => eventFilter(e as unknown as Event)) : events;
 
       // Sort by timestamp
       filteredEvents.sort(
@@ -395,19 +427,20 @@ export class EventSourcingService {
       );
 
       // Rebuild projection
-      let currentData: any = null;
+      let currentData: unknown = null;
       for (const eventRecord of filteredEvents) {
         const event = {
           ...eventRecord,
           timestamp: new Date(eventRecord.timestamp),
-        } as Event;
+        } as unknown as Event;
 
         currentData = updateFunction(currentData, event);
       }
 
       // Update or create projection
-      const projection: Projection = {
-        id: `${projectionType}-${projectionKey}`,
+      const projection: Projection & { organization_id: string } = {
+        id: `${organizationId}-${projectionType}-${projectionKey}`,
+        organization_id: organizationId,
         projection_type: projectionType,
         projection_key: projectionKey,
         data: currentData,
@@ -423,6 +456,7 @@ export class EventSourcingService {
 
       if (error) {
         logger.error("Failed to rebuild projection", error, {
+          organizationId,
           projectionType,
           projectionKey,
         });
@@ -430,6 +464,7 @@ export class EventSourcingService {
       }
 
       logger.info("Projection rebuilt successfully", {
+        organizationId,
         projectionType,
         projectionKey,
         eventCount: filteredEvents.length,
@@ -437,6 +472,7 @@ export class EventSourcingService {
       });
     } catch (error) {
       logger.error("Projection rebuild failed", error as Error, {
+        organizationId,
         projectionType,
         projectionKey,
       });
@@ -448,24 +484,32 @@ export class EventSourcingService {
    * Create audit trail projection updater
    */
   createAuditProjectionUpdater() {
-    return (currentData: any, event: Event) => {
-      if (!currentData) {
-        currentData = {
-          events: [],
-          summary: {
-            totalEvents: 0,
-            eventTypes: {},
-            sources: {},
-            timeRange: {
-              firstEvent: event.timestamp.toISOString(),
-              lastEvent: event.timestamp.toISOString(),
-            },
-          },
+    return (currentData: unknown, event: Event) => {
+      const data = currentData as {
+        events: unknown[];
+        summary: {
+          totalEvents: number;
+          eventTypes: Record<string, number>;
+          sources: Record<string, number>;
+          timeRange: { firstEvent: string; lastEvent: string };
         };
-      }
+      } | null;
+
+      const result = data ?? {
+        events: [],
+        summary: {
+          totalEvents: 0,
+          eventTypes: {},
+          sources: {},
+          timeRange: {
+            firstEvent: event.timestamp.toISOString(),
+            lastEvent: event.timestamp.toISOString(),
+          },
+        },
+      };
 
       // Add event to trail
-      currentData.events.push({
+      result.events.push({
         eventId: event.eventId,
         eventType: event.eventType,
         correlationId: event.correlationId,
@@ -475,34 +519,34 @@ export class EventSourcingService {
       });
 
       // Update summary
-      currentData.summary.totalEvents += 1;
-      currentData.summary.eventTypes[event.eventType] =
-        (currentData.summary.eventTypes[event.eventType] || 0) + 1;
-      currentData.summary.sources[event.source] =
-        (currentData.summary.sources[event.source] || 0) + 1;
-      currentData.summary.timeRange.lastEvent = event.timestamp.toISOString();
+      result.summary.totalEvents += 1;
+      result.summary.eventTypes[event.eventType] =
+        (result.summary.eventTypes[event.eventType] || 0) + 1;
+      result.summary.sources[event.source] =
+        (result.summary.sources[event.source] || 0) + 1;
+      result.summary.timeRange.lastEvent = event.timestamp.toISOString();
 
       // Keep only last 1000 events in memory
-      if (currentData.events.length > 1000) {
-        currentData.events = currentData.events.slice(-1000);
+      if (result.events.length > 1000) {
+        result.events = result.events.slice(-1000);
       }
 
-      return currentData;
+      return result;
     };
   }
 
   /**
    * Get audit trail for a correlation ID
    */
-  async getAuditTrail(correlationId: string): Promise<any> {
-    return this.getProjection("audit-trail", correlationId);
+  async getAuditTrail(organizationId: string, correlationId: string): Promise<unknown> {
+    return this.getProjection(organizationId, "audit-trail", correlationId);
   }
 
   /**
-   * Get system-wide audit summary
+   * Get system-wide audit summary for an organization
    */
-  async getAuditSummary(): Promise<any> {
-    return this.getProjection("audit-summary", "system");
+  async getAuditSummary(organizationId: string): Promise<unknown> {
+    return this.getProjection(organizationId, "audit-summary", "system");
   }
 }
 

@@ -1,4 +1,4 @@
-import { LifecycleStage, WorkflowDAG, WorkflowStage } from '../types/workflow';
+import { LifecycleStage, WorkflowDAG, WorkflowStage } from '../../types/workflow';
 
 import { AgentRecord, AgentRegistry, RoutingContext } from './AgentRegistry.js'
 import { AgentRoutingScorer, AgentScoreBreakdown } from './AgentRoutingScorer.js'

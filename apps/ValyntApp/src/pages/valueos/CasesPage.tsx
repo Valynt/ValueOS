@@ -16,7 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -202,7 +202,9 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 
 export function CasesPage() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  // Seed from ?q= once on mount; lazy initializer avoids overwriting user edits on re-renders
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");

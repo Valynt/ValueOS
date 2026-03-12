@@ -330,4 +330,6 @@ export function getConflictResolver(): ConflictResolver {
   return conflictResolverInstance;
 }
 
+export { PlaygroundAutoSaveWorker };
+/** @deprecated Use named import `PlaygroundAutoSaveWorker` instead. */
 export default PlaygroundAutoSaveWorker;

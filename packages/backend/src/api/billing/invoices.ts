@@ -7,7 +7,7 @@ import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
 
 import { auditDataExport } from '../../middleware/auditHooks.js'
-import InvoiceService from "../../services/billing/InvoiceService.js";
+import { invoiceService as InvoiceService } from "../../services/billing/InvoiceService.js";
 
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });

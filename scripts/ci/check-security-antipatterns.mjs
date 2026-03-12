@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -19,7 +19,7 @@ const dockerfiles = [
   ...listFiles('.devcontainer/**/Dockerfile'),
   ...listFiles('.devcontainer/**/Dockerfile.*'),
   '.devcontainer/Dockerfile.dev',
-].filter((f, i, arr) => arr.indexOf(f) === i);
+].filter((f, i, arr) => arr.indexOf(f) === i && existsSync(resolve(ROOT, f)));
 
 const composeFiles = [
   ...listFiles('.devcontainer/**/docker-compose*.yml'),

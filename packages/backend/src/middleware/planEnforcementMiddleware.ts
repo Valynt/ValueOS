@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { NextFunction, Request, Response } from 'express';
 
 import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
-import SubscriptionService from '../services/billing/SubscriptionService';
+import { subscriptionService as SubscriptionService } from '../services/billing/SubscriptionService';
 import { llmCostTracker } from '../services/LLMCostTracker.js';
 import GracePeriodService from '../services/metering/GracePeriodService';
 import UsageCache from '../services/metering/UsageCache';

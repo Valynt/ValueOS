@@ -239,6 +239,8 @@ Respond with valid JSON only, no markdown fences:
     const userPrompt = `Query: "${query}"${historicalContext ? `\n\nHistorical matches:\n${historicalContext}` : ''}`;
 
     try {
+      // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+      // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
       const llmResponse = await this.llmGateway.complete({
         messages: [
           { role: 'system', content: systemPrompt },

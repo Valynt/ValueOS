@@ -38,6 +38,12 @@ export interface RemoveUserPayload {
   tenantId: string;
 }
 
+export interface TransferOwnershipPayload {
+  /** The user who will become the new owner. Must be an active member of the tenant. */
+  newOwnerId: string;
+  tenantId: string;
+}
+
 export interface TenantUserRecord {
   id?: string;
   userUuid: string;
@@ -401,11 +407,9 @@ export class AdminUserService {
       action: "admin.user.role_change",
       resourceType: "user",
       resourceId: payload.userId,
-      details: {
-        tenantId: payload.tenantId,
-        before: { role: previousRole },
-        after: { role },
-      },
+      details: { tenantId: payload.tenantId },
+      beforeState: { role: previousRole },
+      afterState: { role },
       status: "success",
     });
 
@@ -455,6 +459,87 @@ export class AdminUserService {
     });
 
     await publishRbacInvalidation({ userId: payload.userId, tenantId: payload.tenantId });
+  }
+
+  /**
+   * Transfer tenant ownership to another active member.
+   *
+   * The actor (current owner) is demoted to admin so the tenant retains at
+   * least one admin after the transfer. The new owner must already be an
+   * active member of the tenant.
+   *
+   * Only a current owner may call this — enforced at the API layer via
+   * requirePermission("owner.transfer").
+   */
+  async transferOwnership(actor: AdminActor, payload: TransferOwnershipPayload): Promise<void> {
+    const { newOwnerId, tenantId } = payload;
+
+    if (newOwnerId === actor.id) {
+      throw new ValidationError("Cannot transfer ownership to yourself.");
+    }
+
+    // Verify the incoming owner is an active member of the tenant.
+    const { data: targetRow, error: targetErr } = await this.getSupabase()
+      .from("user_tenants")
+      .select("role, status")
+      .eq("user_id", newOwnerId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (targetErr) {
+      throw new ValidationError(`Failed to verify target user: ${targetErr.message}`);
+    }
+
+    if (!targetRow || targetRow.status !== "active") {
+      throw new ValidationError("Target user is not an active member of this tenant.");
+    }
+
+    // Promote new owner.
+    const { error: promoteErr } = await this.getSupabase()
+      .from("user_tenants")
+      .update({ role: "owner", updated_at: new Date().toISOString() })
+      .eq("user_id", newOwnerId)
+      .eq("tenant_id", tenantId);
+
+    if (promoteErr) {
+      throw new ValidationError(`Failed to promote new owner: ${promoteErr.message}`);
+    }
+
+    // Demote current owner to admin — keeps at least one admin in the tenant.
+    const { error: demoteErr } = await this.getSupabase()
+      .from("user_tenants")
+      .update({ role: "admin", updated_at: new Date().toISOString() })
+      .eq("user_id", actor.id)
+      .eq("tenant_id", tenantId);
+
+    if (demoteErr) {
+      // Attempt to roll back the promotion before surfacing the error.
+      await this.getSupabase()
+        .from("user_tenants")
+        .update({ role: targetRow.role, updated_at: new Date().toISOString() })
+        .eq("user_id", newOwnerId)
+        .eq("tenant_id", tenantId);
+
+      throw new ValidationError(`Failed to demote current owner: ${demoteErr.message}`);
+    }
+
+    await this.auditLogService.logAudit({
+      userId: actor.id,
+      userName: actor.name,
+      userEmail: actor.email,
+      action: "admin.tenant.ownership_transfer",
+      resourceType: "tenant",
+      resourceId: tenantId,
+      beforeState: { ownerId: actor.id },
+      afterState: { ownerId: newOwnerId },
+      details: { tenantId, newOwnerId },
+      status: "success",
+    });
+
+    await Promise.all([
+      publishRbacInvalidation({ userId: actor.id, tenantId }),
+      publishRbacInvalidation({ userId: newOwnerId, tenantId }),
+    ]);
   }
 }
 

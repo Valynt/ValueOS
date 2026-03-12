@@ -625,18 +625,32 @@ export class LLMCostTracker {
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString());
 
-    if (error || !data) {
-      throw new Error(`Failed to get cost analytics: ${error?.message}`);
+    if (error) {
+      throw new Error(`Failed to get cost analytics: ${error.message}`);
     }
 
-    const analytics = {
-      totalCost: 0,
-      costByModel: {} as Record<string, number>,
-      costByUser: {} as Record<string, number>,
-      costByEndpoint: {} as Record<string, number>,
-      totalTokens: 0,
-      averageCostPerRequest: 0,
-      requestCount: data.length,
+    // If data is null (which shouldn't happen with our RPC unless it fails entirely), return empty.
+    if (!data) {
+      return {
+        totalCost: 0,
+        costByModel: {},
+        costByUser: {},
+        costByEndpoint: {},
+        totalTokens: 0,
+        averageCostPerRequest: 0,
+        requestCount: 0,
+      };
+    }
+
+    // Cast the response to the expected type
+    return data as {
+      totalCost: number;
+      costByModel: Record<string, number>;
+      costByUser: Record<string, number>;
+      costByEndpoint: Record<string, number>;
+      totalTokens: number;
+      averageCostPerRequest: number;
+      requestCount: number;
     };
 
     for (const record of data) {

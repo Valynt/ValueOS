@@ -27,6 +27,7 @@ export POSTGRES_HOST="${POSTGRES_HOST:-localhost}"
 export POSTGRES_PORT="${POSTGRES_PORT:-54323}"
 export POSTGRES_DB="${POSTGRES_DB:-postgres}"
 export POSTGRES_USER="${POSTGRES_USER:-postgres}"
+export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
 
 REPORT_FILE="${1:-/tmp/migration_validation_report.txt}"
 FIX_MODE=false

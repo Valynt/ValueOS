@@ -119,6 +119,9 @@ export class RedTeamAgent {
   async analyze(input: RedTeamInput): Promise<RedTeamOutput> {
     const userPrompt = this.buildPrompt(input);
 
+    // TODO(rule-2): RedTeamAgent must extend BaseAgent and use secureInvoke() to get
+    // circuit breaker and hallucination detection (AGENTS.md rule 2). Migration requires
+    // wiring LLMGateway + MemorySystem via AgentFactory and replacing this.llmGateway.complete().
     const response = await this.llmGateway.complete({
       messages: [
         { role: 'system', content: RED_TEAM_SYSTEM_PROMPT },

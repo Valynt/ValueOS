@@ -97,8 +97,8 @@ export function UsersPage() {
                   </Badge>
                   <Badge className={statusColors[user.status]}>{user.status}</Badge>
                   <span className="text-sm text-muted-foreground w-24">{user.lastActive}</span>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" aria-label="More actions">
+                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </div>

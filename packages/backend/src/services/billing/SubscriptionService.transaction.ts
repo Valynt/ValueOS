@@ -547,4 +547,6 @@ class TransactionalSubscriptionService {
   }
 }
 
+export { TransactionalSubscriptionService };
+/** @deprecated Use named import `TransactionalSubscriptionService` instead. */
 export default TransactionalSubscriptionService;

@@ -251,6 +251,82 @@ spec:
         - name: agent-sidecar-certs
           mountPath: /etc/agent-certs
           readOnly: true
+=======
+        - name: opportunity-agent
+          image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: environment
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: database_url
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: supabase_url
+            - name: SUPABASE_SERVICE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: supabase_service_key
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis_url
+            - name: LLM_PROXY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: llm_proxy_url
+            - name: LOG_LEVEL
+              value: "info"
+            - name: METRICS_ENABLED
+              value: "true"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+>>>>>>> origin/agent-fabric-config-enhancement-13639947832716804927
       terminationGracePeriodSeconds: 30
       volumes:
       - name: agent-sidecar-config

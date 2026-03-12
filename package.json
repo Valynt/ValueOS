@@ -9,7 +9,7 @@
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
-    "check": "tsc --noEmit",
+    "check": "turbo run typecheck",
     "format": "prettier --write .",
     "test": "vitest run",
 
@@ -17,7 +17,8 @@
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
     "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs",
     "check:frontend-bundle-service-role": "node scripts/ci/check-frontend-bundle-service-role.mjs",
-    "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts"
+    "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts",
+    "db:apply-migrations": "bash scripts/db/apply-migrations.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -74,9 +75,9 @@
     "nanoid": "^5.1.5",
     "next-themes": "^0.4.6",
     "openai": "^6.25.0",
-    "react": "^19.2.1",
+    "react": "^18.3.1",
     "react-day-picker": "^9.11.1",
-    "react-dom": "^19.2.1",
+    "react-dom": "^18.3.1",
     "react-hook-form": "^7.64.0",
     "react-resizable-panels": "^3.0.6",
     "recharts": "^2.15.2",
@@ -87,11 +88,11 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
     "wouter": "3.7.1",
-    "zod": "^4.1.12"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@builder.io/vite-plugin-jsx-loc": "^0.1.1",
-    "@supabase/supabase-js": "^2.57.4",
+    "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.2.1",
     "@types/express": "4.17.21",

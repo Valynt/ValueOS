@@ -14,7 +14,7 @@ import {
   validateAtomicAction,
 } from '@sdui/AtomicUIActions';
 import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
-import type { SDUIPageDefinition } from '@sdui/schema';
+import type { SDUIPageDefinition } from '@valueos/sdui';
 
 import { llmConfig } from '../config/llm.js'
 import { CircuitBreaker as AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
@@ -654,4 +654,6 @@ export function getUIRefinementLoop(): UIRefinementLoop {
   return refinementLoopInstance;
 }
 
+export { UIRefinementLoop };
+/** @deprecated Use named import `UIRefinementLoop` instead. */
 export default UIRefinementLoop;

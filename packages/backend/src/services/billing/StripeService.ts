@@ -74,4 +74,6 @@ class StripeService {
   }
 }
 
+export { StripeService };
+/** @deprecated Use named import `StripeService` instead. */
 export default StripeService;

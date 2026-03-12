@@ -6,8 +6,8 @@
 import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
 
-import CustomerService from '../../services/billing/CustomerService.js';
-import StripeService from '../../services/billing/StripeService.js';
+import { customerService as CustomerService } from '../../services/billing/CustomerService.js';
+import { StripeService } from '../../services/billing/StripeService.js';
 
 const router = express.Router();
 const logger = createLogger({ component: 'PaymentMethodsAPI' });

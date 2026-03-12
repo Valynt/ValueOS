@@ -185,6 +185,10 @@ Please provide a specific optimization to fix this issue. Respond in JSON format
 Only suggest safe optimizations that maintain functionality.`;
 }
 
+const VALID_OPT_TYPES = ['performance', 'complexity', 'readability', 'security', 'maintainability'] as const;
+type OptType = typeof VALID_OPT_TYPES[number];
+const isValidOptType = (v: unknown): v is OptType => VALID_OPT_TYPES.includes(v as OptType);
+
 function parseAIResponse(response: string, filePath: string, content: string): Optimization[] {
   try {
     // Extract JSON from response
@@ -196,15 +200,15 @@ function parseAIResponse(response: string, filePath: string, content: string): O
     return optimizations.map((opt: Record<string, unknown>, index: number) => ({
       id: `${filePath}-${Date.now()}-${index}`,
       file: filePath,
-      type: opt.type || 'performance',
-      title: opt.title || 'Code Optimization',
-      description: opt.description || '',
-      severity: getSeverityFromType(opt.type),
-      estimatedGain: opt.estimatedGain || 10,
-      originalCode: opt.originalSnippet || '',
-      suggestedCode: opt.optimizedSnippet || '',
-      lineStart: opt.lineStart || 1,
-      lineEnd: opt.lineEnd || 1,
+      type: isValidOptType(opt.type) ? opt.type : ('performance' as OptType),
+      title: typeof opt.title === 'string' ? opt.title : 'Code Optimization',
+      description: typeof opt.description === 'string' ? opt.description : '',
+      severity: getSeverityFromType(typeof opt.type === 'string' ? opt.type : undefined),
+      estimatedGain: typeof opt.estimatedGain === 'number' ? opt.estimatedGain : 10,
+      originalCode: typeof opt.originalSnippet === 'string' ? opt.originalSnippet : '',
+      suggestedCode: typeof opt.optimizedSnippet === 'string' ? opt.optimizedSnippet : '',
+      lineStart: typeof opt.lineStart === 'number' ? opt.lineStart : 1,
+      lineEnd: typeof opt.lineEnd === 'number' ? opt.lineEnd : 1,
       aiAnalysis: response,
     }));
   } catch (error) {
@@ -223,20 +227,20 @@ function parseIssueSpecificResponse(
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
-    const opt = JSON.parse(jsonMatch[0]);
+    const opt = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
 
     return {
       id: `${filePath}-${issue.rule}-${Date.now()}`,
       file: filePath,
-      type: opt.type || 'performance',
-      title: opt.title || 'Issue Fix',
-      description: opt.description || '',
-      severity: getSeverityFromType(opt.type),
-      estimatedGain: opt.estimatedGain || 10,
-      originalCode: opt.originalSnippet || '',
-      suggestedCode: opt.optimizedSnippet || '',
-      lineStart: opt.lineStart || issue.line,
-      lineEnd: opt.lineEnd || issue.line,
+      type: isValidOptType(opt.type) ? opt.type : ('performance' as OptType),
+      title: typeof opt.title === 'string' ? opt.title : 'Issue Fix',
+      description: typeof opt.description === 'string' ? opt.description : '',
+      severity: getSeverityFromType(typeof opt.type === 'string' ? opt.type : undefined),
+      estimatedGain: typeof opt.estimatedGain === 'number' ? opt.estimatedGain : 10,
+      originalCode: typeof opt.originalSnippet === 'string' ? opt.originalSnippet : '',
+      suggestedCode: typeof opt.optimizedSnippet === 'string' ? opt.optimizedSnippet : '',
+      lineStart: typeof opt.lineStart === 'number' ? opt.lineStart : issue.line,
+      lineEnd: typeof opt.lineEnd === 'number' ? opt.lineEnd : issue.line,
       aiAnalysis: response,
     };
   } catch (error) {
@@ -272,7 +276,7 @@ function getLanguageFromPath(filePath: string): string {
   return languageMap[ext || ''] || 'text';
 }
 
-function getSeverityFromType(type: string): 'low' | 'medium' | 'high' {
+function getSeverityFromType(type: string | undefined): 'low' | 'medium' | 'high' {
   const severityMap: Record<string, 'low' | 'medium' | 'high'> = {
     performance: 'high',
     security: 'high',
@@ -280,5 +284,5 @@ function getSeverityFromType(type: string): 'low' | 'medium' | 'high' {
     readability: 'low',
     maintainability: 'medium',
   };
-  return severityMap[type] || 'medium';
+  return (type !== undefined && severityMap[type]) || 'medium';
 }

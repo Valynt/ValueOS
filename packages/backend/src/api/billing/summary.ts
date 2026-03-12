@@ -6,8 +6,8 @@
 import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
 
-import InvoiceService from '../../services/billing/InvoiceService.js';
-import SubscriptionService from '../../services/billing/SubscriptionService.js';
+import { invoiceService as InvoiceService } from '../../services/billing/InvoiceService.js';
+import { subscriptionService as SubscriptionService } from '../../services/billing/SubscriptionService.js';
 import MetricsCollector from '../../services/metering/MetricsCollector.js';
 
 const router = express.Router();

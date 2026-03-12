@@ -15,7 +15,7 @@ import {
   ReorderComponentsAction,
   UpdateLayoutAction,
 } from "@sdui/AtomicUIActions";
-import { SDUIComponentSection, SDUIPageDefinition } from "@sdui/schema";
+import { SDUIComponentSection, SDUIPageDefinition } from "@valueos/sdui";
 import { generateSOFExpansionPage } from "@sdui/templates/sof-expansion-template";
 import { generateSOFIntegrityPage } from "@sdui/templates/sof-integrity-template";
 import { generateSOFOpportunityPage } from "@sdui/templates/sof-opportunity-template";

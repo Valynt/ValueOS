@@ -93,6 +93,8 @@ export class DefaultWorkflowSimulationService implements WorkflowSimulationServi
     const prompt = `Predict the outcome of workflow stage: ${stage.name}`;
     try {
       const organizationId = String(context.organizationId ?? context.organization_id ?? "");
+      // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+      // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
       const response = await this.llmGateway.complete({
         messages: [{ role: "user", content: `${prompt}\nContext: ${JSON.stringify(context)}` }],
         max_tokens: 500,

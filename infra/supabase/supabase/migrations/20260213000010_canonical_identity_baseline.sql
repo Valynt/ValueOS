@@ -38,8 +38,71 @@
 SET search_path = public, pg_temp;
 
 -- ============================================================================
+-- 1. tenants + user_tenants — created first so security functions can
+--    reference them without forward-reference errors.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.tenants (
+  id         text        NOT NULL,
+  name       text        NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  settings   jsonb       DEFAULT '{}'::jsonb,
+  status     text        DEFAULT 'active',
+  CONSTRAINT tenants_pkey PRIMARY KEY (id),
+  CONSTRAINT tenants_status_check CHECK (status = ANY (ARRAY['active','suspended','deleted']))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenants_status ON public.tenants (status);
+
+-- RLS authority: security.user_has_tenant_access() reads this table.
+-- user_id is TEXT to match auth.uid()::text comparisons throughout.
+CREATE TABLE IF NOT EXISTS public.user_tenants (
+  tenant_id  text        NOT NULL,
+  user_id    text        NOT NULL,
+  role       text        DEFAULT 'member',
+  status     text        DEFAULT 'active',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT user_tenants_pkey PRIMARY KEY (tenant_id, user_id),
+  CONSTRAINT user_tenants_role_check   CHECK (role   = ANY (ARRAY['owner','admin','member','viewer'])),
+  CONSTRAINT user_tenants_status_check CHECK (status = ANY (ARRAY['active','inactive']))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant  ON public.user_tenants (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user    ON public.user_tenants (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tenants_status  ON public.user_tenants (status);
+
+ALTER TABLE public.user_tenants ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS user_tenants_select ON public.user_tenants;
+DROP POLICY IF EXISTS user_tenants_insert ON public.user_tenants;
+DROP POLICY IF EXISTS user_tenants_update ON public.user_tenants;
+DROP POLICY IF EXISTS user_tenants_delete ON public.user_tenants;
+
+CREATE POLICY user_tenants_select ON public.user_tenants
+  FOR SELECT USING (user_id = (auth.uid())::text);
+
+CREATE POLICY user_tenants_insert ON public.user_tenants
+  FOR INSERT WITH CHECK (user_id = (auth.uid())::text);
+
+CREATE POLICY user_tenants_update ON public.user_tenants
+  FOR UPDATE USING (user_id = (auth.uid())::text)
+  WITH CHECK (user_id = (auth.uid())::text);
+
+CREATE POLICY user_tenants_delete ON public.user_tenants
+  FOR DELETE USING (user_id = (auth.uid())::text);
+
+CREATE POLICY user_tenants_service_role ON public.user_tenants
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_tenants TO authenticated;
+GRANT ALL ON public.user_tenants TO service_role;
+
+-- ============================================================================
 -- 0. Security schema and RLS helper functions
---    All active RLS policies call security.user_has_tenant_access().
+--    (ordered after table creation to avoid forward-reference errors in
+--     LANGUAGE sql functions that reference public.user_tenants)
 -- ============================================================================
 
 CREATE SCHEMA IF NOT EXISTS security;
@@ -72,7 +135,6 @@ AS $$
 $$;
 
 -- UUID overload: primary tenant access check.
--- Verifies the authenticated user has an active row in user_tenants.
 CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -92,7 +154,8 @@ AS $$
     );
 $$;
 
--- TEXT overload: casts to UUID and delegates.
+-- TEXT overload: queries user_tenants directly using the TEXT value so it
+-- works for both UUID-shaped and legacy string tenant IDs without a cast.
 CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -100,7 +163,17 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
-  SELECT security.user_has_tenant_access(target_tenant_id::uuid);
+  SELECT
+    auth.uid() IS NOT NULL
+    AND target_tenant_id IS NOT NULL
+    AND target_tenant_id <> ''
+    AND EXISTS (
+      SELECT 1
+      FROM public.user_tenants AS ut
+      WHERE ut.user_id   = (auth.uid())::text
+        AND ut.tenant_id = target_tenant_id
+        AND (ut.status IS NULL OR ut.status = 'active')
+    );
 $$;
 
 REVOKE ALL ON FUNCTION security.user_has_tenant_access(UUID) FROM PUBLIC;
@@ -109,18 +182,23 @@ GRANT EXECUTE ON FUNCTION security.user_has_tenant_access(UUID) TO anon, authent
 GRANT EXECUTE ON FUNCTION security.user_has_tenant_access(TEXT) TO anon, authenticated;
 
 -- app schema helper used by value_commitment_tracking RLS.
+-- Uses plpgsql to defer table resolution until call time (memberships is
+-- created later in this migration).
 CREATE OR REPLACE FUNCTION app.is_active_member(_tenant_id text, _user_id uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
+SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
-  SELECT EXISTS (
+BEGIN
+  RETURN EXISTS (
     SELECT 1 FROM public.memberships m
     WHERE m.tenant_id = _tenant_id
       AND m.user_id   = _user_id
       AND m.status    = 'active'
   );
+END;
 $$;
 
 -- Shared updated_at trigger function used by multiple tables.
@@ -136,72 +214,9 @@ END;
 $$;
 
 -- ============================================================================
--- 1. tenants
---    Root of the tenant hierarchy. tenant_id TEXT is the legacy identifier;
---    newer tables use organization_id UUID. Both reference this table.
+-- (tenants and user_tenants already created above — section kept for
+--  reference only, tables use IF NOT EXISTS guards)
 -- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.tenants (
-  id         text        NOT NULL,
-  name       text        NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  settings   jsonb       DEFAULT '{}'::jsonb,
-  status     text        DEFAULT 'active',
-  CONSTRAINT tenants_pkey PRIMARY KEY (id),
-  CONSTRAINT tenants_status_check CHECK (status = ANY (ARRAY['active','suspended','deleted']))
-);
-
-CREATE INDEX IF NOT EXISTS idx_tenants_status ON public.tenants (status);
-
--- ============================================================================
--- 2. user_tenants
---    RLS authority: security.user_has_tenant_access() reads this table.
---    user_id is TEXT to match auth.uid()::text comparisons throughout.
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.user_tenants (
-  tenant_id  text        NOT NULL,
-  user_id    text        NOT NULL,
-  role       text        DEFAULT 'member',
-  status     text        DEFAULT 'active',
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT user_tenants_pkey PRIMARY KEY (tenant_id, user_id),
-  CONSTRAINT user_tenants_role_check   CHECK (role   = ANY (ARRAY['owner','admin','member','viewer'])),
-  CONSTRAINT user_tenants_status_check CHECK (status = ANY (ARRAY['active','inactive']))
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_tenants_tenant  ON public.user_tenants (tenant_id);
-CREATE INDEX IF NOT EXISTS idx_user_tenants_user    ON public.user_tenants (user_id);
-CREATE INDEX IF NOT EXISTS idx_user_tenants_status  ON public.user_tenants (status);
-
-ALTER TABLE public.user_tenants ENABLE ROW LEVEL SECURITY;
-
--- Users can only see and manage their own membership rows.
-DROP POLICY IF EXISTS user_tenants_select ON public.user_tenants;
-DROP POLICY IF EXISTS user_tenants_insert ON public.user_tenants;
-DROP POLICY IF EXISTS user_tenants_update ON public.user_tenants;
-DROP POLICY IF EXISTS user_tenants_delete ON public.user_tenants;
-
-CREATE POLICY user_tenants_select ON public.user_tenants
-  FOR SELECT USING (user_id = (auth.uid())::text);
-
-CREATE POLICY user_tenants_insert ON public.user_tenants
-  FOR INSERT WITH CHECK (user_id = (auth.uid())::text);
-
-CREATE POLICY user_tenants_update ON public.user_tenants
-  FOR UPDATE USING (user_id = (auth.uid())::text)
-  WITH CHECK (user_id = (auth.uid())::text);
-
-CREATE POLICY user_tenants_delete ON public.user_tenants
-  FOR DELETE USING (user_id = (auth.uid())::text);
-
-CREATE POLICY user_tenants_service_role ON public.user_tenants
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_tenants TO authenticated;
-GRANT ALL ON public.user_tenants TO service_role;
 
 -- ============================================================================
 -- 3. memberships
@@ -484,6 +499,9 @@ CREATE TABLE IF NOT EXISTS public.usage_events (
   quantity         numeric(15,4) NOT NULL DEFAULT 0,
   dimensions       jsonb       DEFAULT '{}'::jsonb,
   idempotency_key  text,
+  request_id       text,
+  agent_uuid       text,
+  workload_identity text,
   recorded_at      timestamptz NOT NULL DEFAULT now(),
   created_at       timestamptz DEFAULT now()
 );

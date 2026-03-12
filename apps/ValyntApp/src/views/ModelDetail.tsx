@@ -23,7 +23,7 @@ const kpis = [
   { id: "KPI-05", name: "Ops Team Reduction", category: "Cost", formula: "current_ops_fte - target_ops_fte", baseline: "24 FTE", target: "12 FTE" },
   { id: "KPI-06", name: "Time to Deploy", category: "Efficiency", formula: "avg_deploy_hours", baseline: "48 hours", target: "2 hours" },
   { id: "KPI-07", name: "Compliance Score", category: "Risk", formula: "compliance_checks_passed / total", baseline: "78%", target: "98%" },
-  { id: "KPI-08", name: "Annual ROI", category: "Financial", formula: "(savings - investment) / investment * 100", baseline: "0%", target: "240%" },
+  { id: "KPI-08", name: "Annual ROI", category: "Financial", formula: "(savings - investment) / investment * 100", baseline: "0%", target: "406%" },
 ];
 
 const tabs = ["Overview", "KPIs", "Scenarios", "History"];

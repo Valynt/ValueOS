@@ -26,8 +26,9 @@ import {
 
 import { TimeoutError } from "./errors.js"
 import type { AgentResponse } from "../types/orchestration.js";
-import { ExecutionRuntime, createExecutionRuntime } from "../runtime/execution-runtime/index.js";
+import { createExecutionRuntime } from "../runtime/execution-runtime/index.js";
 import { ContextStore } from "../runtime/context-store/index.js";
+import type { IExecutionRuntime } from "../../types/execution/IExecutionRuntime.js";
 
 export interface QueryResult {
   sessionId: string;
@@ -63,7 +64,7 @@ export interface QueryOptions {
  */
 export class AgentQueryService {
   private stateRepo: WorkflowStateRepository;
-  private executionRuntime: ExecutionRuntime;
+  private executionRuntime: IExecutionRuntime;
   private contextStore: ContextStore;
 
   constructor(private supabase: SupabaseClient) {

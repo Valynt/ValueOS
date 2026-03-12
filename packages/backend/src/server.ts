@@ -56,7 +56,7 @@ import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
-import projectsRouter from "./api/projects.js";
+import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
 import { usageRouter } from "./api/usage.js";
 import securityMonitoringRouter from "./api/securityMonitoring.js";
@@ -356,6 +356,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(compression());
 app.use(express.json());
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
@@ -418,6 +419,9 @@ app.get("/health/secrets", secretHealthMiddleware());
 app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
 
 // Mount routes
+// Apply standard rate limiting to all API routes by default
+app.use("/api", rateLimiters.standard);
+
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
 apiRouter.use(
@@ -468,7 +472,13 @@ app.use(
 );
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
-app.use("/api/usage", usageRouter);
+app.use(
+  "/api/usage",
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  usageRouter
+);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
