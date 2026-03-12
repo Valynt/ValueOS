@@ -14,7 +14,10 @@
  * Agent-owned code must use BaseAgent.secureInvoke() instead.
  */
 
+import { createLogger } from '../logger.js';
 import type { LLMMessage } from '../agent-fabric/LLMGateway.js';
+
+const logger = createLogger({ component: 'secureLLMComplete' });
 
 /**
  * Minimal interface satisfied by both LLMGateway and LLMGatewayInterface.
@@ -83,6 +86,14 @@ export async function secureLLMComplete(
             `Violations: ${result.violations.map((v) => v.message).join('; ')}`,
         );
       }
+      // low/medium violations: log a warning so the signal is observable.
+      // The request proceeds — callers own remediation for non-blocking severities.
+      logger.warn('secureLLMComplete: low/medium PII or content violations detected', {
+        tenantId,
+        serviceName: options.serviceName,
+        operation: options.operation,
+        violations: result.violations.map((v) => ({ type: v.type, severity: v.severity, message: v.message })),
+      });
     }
   }
 

@@ -84,9 +84,26 @@ function parseHttpStatus(message: string | undefined): number {
 function unwrap<T>(
   response: { success: boolean; data?: T; error?: { code: string; message: string } },
 ): T {
-  if (response.success && response.data !== undefined) {
+  // Use `!= null` (not `!== undefined`) so that a valid `null` body from the
+  // server is returned rather than treated as an error (Fix 5).
+  if (response.success && response.data != null) {
     return response.data;
   }
+  const status = parseHttpStatus(response.error?.message);
+  const code = response.error?.code ?? "UNKNOWN_ERROR";
+  const message = STATUS_MESSAGES[status] ?? response.error?.message ?? "An unexpected error occurred.";
+  throw new CommitmentApiError(status, code, message);
+}
+
+/**
+ * Unwrap a void response (e.g. HTTP 204 DELETE).
+ * `unwrap` requires `data != null`, which is never true for a no-body response.
+ * This variant only inspects `success` (Fix 1).
+ */
+function unwrapVoid(
+  response: { success: boolean; error?: { code: string; message: string } },
+): void {
+  if (response.success) return;
   const status = parseHttpStatus(response.error?.message);
   const code = response.error?.code ?? "UNKNOWN_ERROR";
   const message = STATUS_MESSAGES[status] ?? response.error?.message ?? "An unexpected error occurred.";
@@ -232,9 +249,7 @@ export class ValueCommitmentTrackingService {
     logger.info("Deleting commitment via backend API", { commitmentId });
 
     const response = await apiClient.delete(`${this.base}/${commitmentId}`);
-    if (!response.success) {
-      unwrap(response);
-    }
+    unwrapVoid(response);
   }
 
   // -------------------------------------------------------------------------

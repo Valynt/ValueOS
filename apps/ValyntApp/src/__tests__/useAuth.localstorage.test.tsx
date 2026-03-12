@@ -1,14 +1,13 @@
 /**
  * useAuth — localStorage write guard
  *
- * The hook currently writes the serialized user profile to localStorage under
- * the key "manus-runtime-user-info" on every render. This is a security risk:
- * any script on the page can read the full user object, and the data persists
+ * Verifies that useAuth does NOT write the user profile to localStorage.
+ * Writing the full user object (including role) to localStorage is an XSS
+ * escalation vector — any injected script can read it, and the data persists
  * across sessions.
  *
- * These tests pin the current (broken) behaviour so the regression is visible.
- * When the localStorage.setItem call is removed from useAuth, the "currently
- * writes" assertions should be deleted and replaced with "does NOT write" checks.
+ * The localStorage.setItem call was removed from the useMemo in
+ * client/src/_core/hooks/useAuth.ts. These tests enforce that it stays gone.
  *
  * The hook lives in client/src/_core/hooks/useAuth.ts. Its @/lib/trpc and
  * @/const imports resolve to apps/ValyntApp/src/lib/trpc.ts and
@@ -72,45 +71,42 @@ describe('useAuth — localStorage behaviour', () => {
     mockUseMutation.mockReturnValue(makeMutationResult());
   });
 
-  it('currently writes serialized user profile to localStorage (known bug)', () => {
+  it('does NOT write user profile to localStorage when authenticated', () => {
     mockUseQuery.mockReturnValue(makeQueryResult(FAKE_USER));
 
     renderHook(() => useAuth());
 
-    // Documents the current broken behaviour.
-    // This assertion MUST fail once the localStorage.setItem call is removed.
-    expect(localStorage.setItem).toHaveBeenCalledWith(
+    expect(localStorage.setItem).not.toHaveBeenCalledWith(
       'manus-runtime-user-info',
-      JSON.stringify(FAKE_USER),
+      expect.any(String),
     );
   });
 
-  it('writes serialized null to localStorage when user is unauthenticated (known bug)', () => {
+  it('does NOT write to localStorage when user is unauthenticated', () => {
     mockUseQuery.mockReturnValue(makeQueryResult(null));
 
     renderHook(() => useAuth());
 
-    // Even when unauthenticated the hook writes the string "null".
-    // After the fix, setItem should never be called with this key.
-    expect(localStorage.setItem).toHaveBeenCalledWith(
+    expect(localStorage.setItem).not.toHaveBeenCalledWith(
       'manus-runtime-user-info',
-      'null',
+      expect.any(String),
     );
   });
 
-  it('does NOT call localStorage.removeItem on unmount (stale data persists — known bug)', () => {
+  it('does NOT write to localStorage on re-render', () => {
     mockUseQuery.mockReturnValue(makeQueryResult(FAKE_USER));
 
-    const { unmount } = renderHook(() => useAuth());
-    vi.clearAllMocks(); // clear the setItem call from render
-    unmount();
+    const { rerender } = renderHook(() => useAuth());
+    vi.clearAllMocks();
+    rerender();
 
-    // After unmount the key should be cleared, but currently it is not.
-    // After the fix, removeItem('manus-runtime-user-info') should be called.
-    expect(localStorage.removeItem).not.toHaveBeenCalledWith('manus-runtime-user-info');
+    expect(localStorage.setItem).not.toHaveBeenCalledWith(
+      'manus-runtime-user-info',
+      expect.any(String),
+    );
   });
 
-  it('returns correct auth state regardless of localStorage side-effect', () => {
+  it('returns correct auth state', () => {
     mockUseQuery.mockReturnValue(makeQueryResult(FAKE_USER));
 
     const { result } = renderHook(() => useAuth());

@@ -130,6 +130,9 @@ router.post(
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
+    if (!actorId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
 
     const emailHash = hashEmail(email);
 
@@ -144,7 +147,7 @@ router.post(
       const footprint = await gatherFootprint(supabase, userId, tenantId);
 
       try {
-        await auditDsr(supabase, "export", actorId ?? "unknown", email, tenantId, requestId, {
+        await auditDsr(supabase, "export", actorId, email, tenantId, requestId, {
           tables: Object.keys(footprint),
         });
       } catch (auditErr) {
@@ -188,6 +191,9 @@ router.post(
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
+    if (!actorId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
 
     const emailHash = hashEmail(email);
 
@@ -222,7 +228,7 @@ router.post(
       await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
 
       try {
-        await auditDsr(supabase, "erase", actorId ?? "unknown", email, tenantId, requestId, {
+        await auditDsr(supabase, "erase", actorId, email, tenantId, requestId, {
           anonymized_to: placeholderEmail,
           tables_scrubbed: ["users", "messages", "cases", "agent_memory"],
         });
