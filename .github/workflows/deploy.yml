@@ -152,6 +152,96 @@ jobs:
         run: |
           npx turbo run lint typecheck test
 
+
+  dast-gate:
+    name: DAST Gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
+    env:
+      DAST_TARGET_URL: ${{ vars.DAST_TARGET_URL != '' && vars.DAST_TARGET_URL || 'https://staging.valueos.app' }}
+      DAST_FAIL_ON_HIGH: "0"
+      DAST_FAIL_ON_MEDIUM: "0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          mkdir -p artifacts/dast
+          docker run --rm \
+            -v "${PWD}:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t "${DAST_TARGET_URL}" \
+            -J /zap/wrk/artifacts/dast/zap-report.json \
+            -r /zap/wrk/artifacts/dast/zap-report.html \
+            -w /zap/wrk/artifacts/dast/zap-report.md \
+            -m 5 -d || true
+
+      - name: Enforce DAST severity thresholds
+        run: |
+          python3 - <<'PY2'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          report_path = pathlib.Path("artifacts/dast/zap-report.json")
+          summary_path = pathlib.Path("artifacts/dast/dast-summary.md")
+          if not report_path.exists():
+            summary_path.write_text("# DAST Gate Summary\n\n- status: failed\n- reason: zap-report.json not generated\n", encoding="utf-8")
+            print("Missing ZAP JSON report", file=sys.stderr)
+            sys.exit(1)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          counts = {"high": 0, "medium": 0, "low": 0, "info": 0}
+          severity_map = {"3": "high", "2": "medium", "1": "low", "0": "info"}
+
+          for site in report.get("site", []):
+            for alert in site.get("alerts", []):
+              severity = severity_map.get(str(alert.get("riskcode", "0")), "info")
+              counts[severity] += 1
+
+          max_high = int(os.environ.get("DAST_FAIL_ON_HIGH", "0"))
+          max_medium = int(os.environ.get("DAST_FAIL_ON_MEDIUM", "0"))
+
+          breached = []
+          if counts["high"] > max_high:
+            breached.append(f"high({counts['high']} > {max_high})")
+          if counts["medium"] > max_medium:
+            breached.append(f"medium({counts['medium']} > {max_medium})")
+
+          status = "failed" if breached else "passed"
+          lines = [
+            "# DAST Gate Summary",
+            "",
+            f"- target: {os.environ.get('DAST_TARGET_URL', '')}",
+            f"- status: {status}",
+            f"- thresholds: high<={max_high}, medium<={max_medium}",
+            f"- findings: high={counts['high']}, medium={counts['medium']}, low={counts['low']}, info={counts['info']}",
+          ]
+          if breached:
+            lines.append(f"- breached: {', '.join(breached)}")
+
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          if breached:
+            print(f"DAST threshold breached: {', '.join(breached)}", file=sys.stderr)
+            sys.exit(1)
+          PY2
+
+      - name: Upload DAST artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: deploy-dast-gate-${{ github.run_id }}
+          path: |
+            artifacts/dast/zap-report.json
+            artifacts/dast/zap-report.html
+            artifacts/dast/zap-report.md
+            artifacts/dast/dast-summary.md
+          if-no-files-found: warn
+          retention-days: 30
+
   # Always emit a deployment audit artifact for non-scheduled runs.
   emergency-skip-audit:
     name: Emergency Skip Audit
@@ -236,11 +326,12 @@ jobs:
   build-images:
     name: Build Container Images
     runs-on: ubuntu-latest
-    needs: [quality-gate, emergency-bypass-authorization, emergency-skip-audit]
+    needs: [quality-gate, dast-gate, emergency-bypass-authorization, emergency-skip-audit]
     if: >-
       github.event_name != 'schedule' &&
       always() &&
       (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped') &&
+      (needs.dast-gate.result == 'success' || needs.dast-gate.result == 'skipped') &&
       (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped') &&
       (!inputs.skip_tests || needs.emergency-bypass-authorization.result == 'success')
     outputs:
@@ -624,7 +715,7 @@ jobs:
   preprod-launch-gate:
     name: Pre-Production Launch Gate
     runs-on: ubuntu-latest
-    needs: [deploy-staging, preprod-slo-guard]
+    needs: [deploy-staging, preprod-slo-guard, dast-gate]
     if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v6
@@ -700,7 +791,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, staging-performance-benchmarks, preprod-slo-guard, build-images, verify-supply-chain, stability-seal, emergency-skip-audit]
+    needs: [deploy-staging, staging-performance-benchmarks, preprod-slo-guard, preprod-launch-gate, build-images, verify-supply-chain, stability-seal, emergency-skip-audit]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
