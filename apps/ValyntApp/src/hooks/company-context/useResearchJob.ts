@@ -29,13 +29,52 @@ function getClient() {
 /**
  * Typed API wrapper for endpoints returning { data }.
  */
-async function apiRequest<T>(path: string, init?: { method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH"; body?: unknown }): Promise<T> {
-  const response = await apiClient.request<{ data: T }>({
-    method: init?.method ?? "GET",
-    url: path,
-    data: init?.body,
-  });
+async function apiRequest<T>(
+  path: string,
+  init?: { method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH"; body?: unknown },
+): Promise<T> {
+  const method = init?.method ?? "GET";
 
+  let response:
+    | Awaited<ReturnType<(typeof apiClient)["get"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["post"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["put"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["delete"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["patch"]<{ data: T }>>>;
+
+  switch (method) {
+    case "GET":
+      response = await apiClient.get<{ data: T }>({
+        url: path,
+      });
+      break;
+    case "POST":
+      response = await apiClient.post<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    case "PUT":
+      response = await apiClient.put<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    case "DELETE":
+      response = await apiClient.delete<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    case "PATCH":
+      response = await apiClient.patch<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    default:
+      throw new Error(`Unsupported HTTP method: ${method}`);
+  }
   if (!response.success) {
     throw new Error(response.error?.message ?? "Request failed");
   }
