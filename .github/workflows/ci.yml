@@ -374,6 +374,9 @@ jobs:
           run_install: false
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Critical workflow contracts
         run: |
           mkdir -p artifacts/critical-workflows
@@ -384,7 +387,6 @@ jobs:
             --outputFile.junit=artifacts/critical-workflows/versioning-contract.junit.xml
       - name: Reload durability checks
         run: |
-          pnpm exec playwright install --with-deps chromium
           pnpm exec playwright test \
             tests/e2e/workflows/wf-1.spec.ts \
             tests/e2e/workflows/wf-2.spec.ts \

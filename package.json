@@ -12,7 +12,7 @@
     "check": "turbo run typecheck",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
+    "test:e2e:gate": "pnpm run check:e2e-path && vitest run --config vitest.e2e.config.ts tests/e2e/**/*.test.ts",
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
     "check:no-prod-mocks": "tsx scripts/check-no-prod-mocks.ts",
     "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs",
@@ -21,7 +21,8 @@
     "test:infra-pilot": "vitest run --config tests/vitest.shared.config.ts tests/matrix/infra-mode.pilot.test.ts tests/matrix/infra-mode.matrix.test.ts tests/matrix/runInInfraMode.test.ts",
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
-    "check:message-payload-contracts": "node scripts/ci/check-message-payload-contracts.mjs"
+    "check:message-payload-contracts": "node scripts/ci/check-message-payload-contracts.mjs",
+    "check:e2e-path": "node scripts/ci/guard-deprecated-e2e-path.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
