@@ -22,8 +22,8 @@ import { createClient } from "@supabase/supabase-js";
 
 /** Minimal interface for semantic memory integration */
 interface SemanticMemoryService {
-  getMemoriesByType(type: string, limit: number): Promise<unknown>;
-  searchSimilar(query: string, opts: { limit: number }): Promise<unknown>;
+  getMemoriesByType(type: string, limit: number, organizationId: string): Promise<unknown>;
+  searchSimilar(query: string, opts: { limit: number; organizationId: string }): Promise<unknown>;
 }
 import PQueue from "p-queue";
 
@@ -32,13 +32,13 @@ import { incrementSecurityMetric } from "./security/metrics";
 /**
  * Data source resolver function
  */
-type DataSourceResolver = (binding: DataBinding, context: DataSourceContext) => Promise<any>;
+type DataSourceResolver = (binding: DataBinding, context: DataSourceContext) => Promise<unknown>;
 
 /**
  * Cache entry
  */
 interface CacheEntry {
-  value: any;
+  value: unknown;
   timestamp: number;
   ttl: number;
 }
@@ -278,7 +278,7 @@ export class DataBindingResolver {
     });
 
     // Semantic Memory resolver
-    this.resolvers.set("semantic_memory", async (binding, _context) => {
+    this.resolvers.set("semantic_memory", async (binding, context) => {
       if (!this.semanticMemory) {
         throw new Error("SemanticMemoryService not configured");
       }
@@ -286,13 +286,14 @@ export class DataBindingResolver {
       const params = binding.$params || {};
       const type = params.type;
       const limit = params.limit || 10;
+      const organizationId = context.organizationId;
 
       if (type) {
-        return this.semanticMemory.getMemoriesByType(type, limit);
+        return this.semanticMemory.getMemoriesByType(type, limit, organizationId);
       }
 
       // Default: search by binding path as query
-      return this.semanticMemory.searchSimilar(binding.$bind, { limit });
+      return this.semanticMemory.searchSimilar(binding.$bind, { limit, organizationId });
     });
 
     // Tool Registry resolver
@@ -465,7 +466,7 @@ export class DataBindingResolver {
   /**
    * Resolve all bindings in an object recursively
    */
-  async resolveObject(obj: any, context: DataSourceContext): Promise<any> {
+  async resolveObject(obj: unknown, context: DataSourceContext): Promise<unknown> {
     if (isDataBinding(obj)) {
       const resolved = await this.resolve(obj, context);
       return resolved.value;
@@ -476,7 +477,7 @@ export class DataBindingResolver {
     }
 
     if (typeof obj === "object" && obj !== null) {
-      const resolved: any = {};
+      const resolved: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
         resolved[key] = await this.resolveObject(value, context);
       }
@@ -492,8 +493,8 @@ export class DataBindingResolver {
   private async resolveFromSupabase(
     table: string,
     path: string,
-    filter: Record<string, any>
-  ): Promise<any> {
+    filter: Record<string, unknown>
+  ): Promise<unknown> {
     if (!this.supabaseClient) {
       // In test contexts or when not configured, return undefined instead of throwing.
       // Callers should rely on fallback values when provided.
@@ -529,7 +530,7 @@ export class DataBindingResolver {
    * - Array filters: "loops.filter(status=active)"
    * - Array methods: "loops.length", "values.sum"
    */
-  private extractValueFromPath(data: any, path: string): any {
+  private extractValueFromPath(data: unknown, path: string): unknown {
     if (!path || path === ".") {
       return data;
     }
@@ -547,7 +548,9 @@ export class DataBindingResolver {
       if (arrayMatch) {
         const arrKey = arrayMatch[1]!;
         const arrIdx = arrayMatch[2]!;
-        current = current[arrKey]?.[parseInt(arrIdx, 10)];
+        const obj = current as Record<string, unknown>;
+        const arr = obj[arrKey];
+        current = Array.isArray(arr) ? arr[parseInt(arrIdx, 10)] : undefined;
         continue;
       }
 
@@ -581,7 +584,7 @@ export class DataBindingResolver {
       }
 
       // Simple property access
-      current = current[part];
+      current = (current as Record<string, unknown>)[part];
     }
 
     return current;
@@ -590,7 +593,7 @@ export class DataBindingResolver {
   /**
    * Apply transform function to value
    */
-  private applyTransform(value: any, transform: TransformFunction): any {
+  private applyTransform(value: unknown, transform: TransformFunction): unknown {
     switch (transform) {
       case "currency":
         return this.formatCurrency(value);
@@ -630,7 +633,7 @@ export class DataBindingResolver {
   /**
    * Format as currency
    */
-  private formatCurrency(value: any): string {
+  private formatCurrency(value: unknown): string {
     const num = Number(value) || 0;
     if (num >= 1_000_000) {
       return `$${(num / 1_000_000).toFixed(1)}M`;
@@ -644,7 +647,7 @@ export class DataBindingResolver {
   /**
    * Format as percentage
    */
-  private formatPercentage(value: any): string {
+  private formatPercentage(value: unknown): string {
     const num = Number(value) || 0;
     // If value is between 0 and 1, treat as decimal
     if (num > 0 && num < 1) {
@@ -657,7 +660,7 @@ export class DataBindingResolver {
   /**
    * Format as number
    */
-  private formatNumber(value: any): string {
+  private formatNumber(value: unknown): string {
     const num = Number(value) || 0;
     return num.toLocaleString();
   }
@@ -665,7 +668,7 @@ export class DataBindingResolver {
   /**
    * Format as date
    */
-  private formatDate(value: any): string {
+  private formatDate(value: unknown): string {
     try {
       const date = new Date(value);
       return date.toLocaleDateString("en-US", {
@@ -681,7 +684,7 @@ export class DataBindingResolver {
   /**
    * Format as relative time
    */
-  private formatRelativeTime(value: any): string {
+  private formatRelativeTime(value: unknown): string {
     try {
       const date = new Date(value);
       const now = new Date();
@@ -721,7 +724,7 @@ export class DataBindingResolver {
   /**
    * Get from cache with LRU tracking
    */
-  private getFromCache(key: string): any | null {
+  private getFromCache(key: string): unknown | null {
     const entry = this.cache.get(key);
     if (!entry) {
       this.performanceMetrics.cacheMisses++;
@@ -745,7 +748,7 @@ export class DataBindingResolver {
   /**
    * Set cache with LRU eviction
    */
-  private setCache(key: string, value: any, ttl: number): void {
+  private setCache(key: string, value: unknown, ttl: number): void {
     // Evict least recently used entry if at max size
     if (this.cache.size >= this.MAX_CACHE_SIZE && !this.cache.has(key)) {
       this.evictLRU();
