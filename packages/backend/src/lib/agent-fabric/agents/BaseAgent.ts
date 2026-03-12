@@ -197,14 +197,6 @@ export abstract class BaseAgent {
       const sanitizedPromptResult = llmSanitizer.sanitizePrompt(prompt);
       const sanitizedPrompt = sanitizedPromptResult.content;
 
-      if (sanitizedPromptResult.violations.length > 0) {
-        logger.warn("Prompt sanitizer detected suspicious input", {
-          agent: this.name,
-          session_id: sessionId,
-          violation_count: sanitizedPromptResult.violations.length,
-        });
-      }
-
       const request = {
         messages: [{ role: "user" as const, content: sanitizedPrompt }],
         metadata: {
