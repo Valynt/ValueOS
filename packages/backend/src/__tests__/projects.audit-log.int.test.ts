@@ -3,11 +3,6 @@
  *
  * Asserts that create, update, and delete operations emit audit records with
  * the correct actor, tenant, and action fields.
- *
- * The projects router does NOT currently call auditLogService (known gap).
- * These tests document the expected behaviour and will fail until the router
- * is wired to emit audit events. When the implementation lands, remove the
- * `.skip` markers and the "known gap" comments.
  */
 
 import request from 'supertest';
@@ -35,6 +30,70 @@ vi.mock('../services/ReadThroughCacheService.js', () => ({
     (req: { tenantId?: string }) => req.tenantId ?? undefined,
   ),
 }));
+
+vi.mock('../repositories/ProjectsRepository.js', () => {
+  const byTenant = new Map<string, Map<string, any>>();
+  const getStore = (tenantId: string) => {
+    let store = byTenant.get(tenantId);
+    if (!store) {
+      store = new Map();
+      byTenant.set(tenantId, store);
+    }
+    return store;
+  };
+
+  return {
+    projectsRepository: {
+      findByName: vi.fn(async (organizationId: string, name: string) => {
+        const normalized = name.toLowerCase();
+        return Array.from(getStore(organizationId).values()).find((p) => p.name.toLowerCase() === normalized) ?? null;
+      }),
+      create: vi.fn(async (input: any) => {
+        const now = new Date().toISOString();
+        const project = {
+          id: input.id,
+          organization_id: input.organizationId,
+          name: input.name,
+          description: input.description ?? null,
+          status: input.status,
+          tags: input.tags,
+          owner_id: input.ownerId,
+          created_at: now,
+          updated_at: now,
+        };
+        getStore(input.organizationId).set(project.id, project);
+        return project;
+      }),
+      list: vi.fn(async (organizationId: string, options: any) => {
+        const items = Array.from(getStore(organizationId).values());
+        const filtered = items.filter((project) => {
+          if (options.status && project.status !== options.status) return false;
+          if (!options.search) return true;
+          const search = options.search.toLowerCase();
+          return project.name.toLowerCase().includes(search) || project.description?.toLowerCase().includes(search);
+        });
+        const start = (options.page - 1) * options.pageSize;
+        return { items: filtered.slice(start, start + options.pageSize), total: filtered.length };
+      }),
+      getById: vi.fn(async (organizationId: string, projectId: string) => getStore(organizationId).get(projectId) ?? null),
+      update: vi.fn(async (organizationId: string, projectId: string, input: any) => {
+        const store = getStore(organizationId);
+        const existing = store.get(projectId);
+        if (!existing) return null;
+        const updated = {
+          ...existing,
+          ...input,
+          description: input.description ?? existing.description,
+          updated_at: new Date().toISOString(),
+        };
+        store.set(projectId, updated);
+        return updated;
+      }),
+      delete: vi.fn(async (organizationId: string, projectId: string) => getStore(organizationId).delete(projectId)),
+    },
+    projectStatuses: ['planned', 'active', 'paused', 'completed'],
+  };
+});
 
 vi.mock('../lib/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
@@ -80,6 +139,7 @@ function makeApp(role = 'admin') {
     (req as any).tenantId = TENANT_ID;
     (req as any).user = { id: USER_ID, email: 'actor@example.com', role };
     req.headers.authorization = 'Bearer test-token';
+    req.headers['x-correlation-id'] = 'corr-123';
     next();
   });
   app.use('/projects', projectsRouter);
@@ -96,10 +156,7 @@ describe('Projects API — audit logging', () => {
     mockCreateEntry.mockClear();
   });
 
-  // KNOWN GAP: the projects router does not yet call auditLogService.
-  // Remove `.skip` once audit emission is implemented.
-
-  it.skip('emits an audit record on project create', async () => {
+  it('emits an audit record on project create', async () => {
     const app = makeApp();
     const res = await request(app)
       .post('/projects')
@@ -108,16 +165,16 @@ describe('Projects API — audit logging', () => {
     expect(res.status).toBe(201);
     expect(mockCreateEntry).toHaveBeenCalledOnce();
 
-    const call = mockCreateEntry.mock.calls[0][0] as Record<string, unknown>;
+    const call = mockCreateEntry.mock.calls[0][0] as Record<string, any>;
     expect(call.action).toBe('create');
     expect(call.resourceType).toBe('project');
     expect(call.resourceId).toBe(res.body.data.id);
     expect(call.userId).toBe(USER_ID);
-    // Tenant must be present — no cross-tenant audit leakage
-    expect(call.tenantId ?? (call.details as any)?.tenantId).toBe(TENANT_ID);
+    expect(call.details.tenantId).toBe(TENANT_ID);
+    expect(call.details.correlationId).toBe('corr-123');
   });
 
-  it.skip('emits an audit record on project update', async () => {
+  it('emits an audit record on project update', async () => {
     const app = makeApp();
     const createRes = await request(app)
       .post('/projects')
@@ -133,15 +190,16 @@ describe('Projects API — audit logging', () => {
     expect(res.status).toBe(200);
     expect(mockCreateEntry).toHaveBeenCalledOnce();
 
-    const call = mockCreateEntry.mock.calls[0][0] as Record<string, unknown>;
+    const call = mockCreateEntry.mock.calls[0][0] as Record<string, any>;
     expect(call.action).toBe('update');
     expect(call.resourceType).toBe('project');
     expect(call.resourceId).toBe(projectId);
     expect(call.userId).toBe(USER_ID);
-    expect(call.tenantId ?? (call.details as any)?.tenantId).toBe(TENANT_ID);
+    expect(call.details.tenantId).toBe(TENANT_ID);
+    expect(call.details.correlationId).toBe('corr-123');
   });
 
-  it.skip('emits an audit record on project delete', async () => {
+  it('emits an audit record on project delete', async () => {
     const app = makeApp();
     const createRes = await request(app)
       .post('/projects')
@@ -155,39 +213,12 @@ describe('Projects API — audit logging', () => {
     expect(res.status).toBe(204);
     expect(mockCreateEntry).toHaveBeenCalledOnce();
 
-    const call = mockCreateEntry.mock.calls[0][0] as Record<string, unknown>;
+    const call = mockCreateEntry.mock.calls[0][0] as Record<string, any>;
     expect(call.action).toBe('delete');
     expect(call.resourceType).toBe('project');
     expect(call.resourceId).toBe(projectId);
     expect(call.userId).toBe(USER_ID);
-    expect(call.tenantId ?? (call.details as any)?.tenantId).toBe(TENANT_ID);
-  });
-
-  // ── Passing baseline: audit service is NOT called today ──────────────────
-
-  it('audit service is not called on create (current behaviour — remove when fixed)', async () => {
-    const app = makeApp();
-    await request(app).post('/projects').send({ name: 'No Audit Yet' });
-    expect(mockCreateEntry).not.toHaveBeenCalled();
-  });
-
-  it('audit service is not called on update (current behaviour — remove when fixed)', async () => {
-    const app = makeApp();
-    const createRes = await request(app).post('/projects').send({ name: 'Pre-Update' });
-    const projectId: string = createRes.body.data.id;
-    mockCreateEntry.mockClear();
-
-    await request(app).patch(`/projects/${projectId}`).send({ name: 'Post-Update' });
-    expect(mockCreateEntry).not.toHaveBeenCalled();
-  });
-
-  it('audit service is not called on delete (current behaviour — remove when fixed)', async () => {
-    const app = makeApp();
-    const createRes = await request(app).post('/projects').send({ name: 'Pre-Delete' });
-    const projectId: string = createRes.body.data.id;
-    mockCreateEntry.mockClear();
-
-    await request(app).delete(`/projects/${projectId}`);
-    expect(mockCreateEntry).not.toHaveBeenCalled();
+    expect(call.details.tenantId).toBe(TENANT_ID);
+    expect(call.details.correlationId).toBe('corr-123');
   });
 });
