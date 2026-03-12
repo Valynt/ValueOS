@@ -56,6 +56,10 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
       id: z.string(),
       fromAgentId: z.string(),
       toAgentId: z.string(),
+      tenantContext: z.object({
+        tenantId: z.string().min(1),
+        organizationId: z.string().min(1),
+      }),
       payload: z.any(),
       priority: z.enum(['low', 'normal', 'high', 'urgent']),
       encrypted: z.boolean(),
