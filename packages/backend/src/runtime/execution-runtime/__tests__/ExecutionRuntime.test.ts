@@ -108,19 +108,47 @@ function makeQueueMock() {
   };
 }
 
+function makeContextRepositoryMock(overrides: Partial<{
+  getOpportunity: (organizationId: string, opportunityId: string) => Promise<unknown>;
+  getHypothesis: (organizationId: string, caseId: string) => Promise<unknown>;
+  getBusinessCase: (organizationId: string, caseId: string) => Promise<unknown>;
+}> = {}) {
+  return {
+    getOpportunity: vi.fn().mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      lifecycle_stage: 'drafting',
+      confidence_score: 0.82,
+      value_maturity: 'high',
+    }),
+    getHypothesis: vi.fn().mockResolvedValue({
+      id: '22222222-2222-4222-8222-222222222222',
+      confidence: 'high',
+      confidence_score: 0.82,
+      evidence_count: 3,
+      best_evidence_tier: 'gold',
+    }),
+    getBusinessCase: vi.fn().mockResolvedValue({
+      id: '33333333-3333-4333-8333-333333333333',
+      status: 'draft',
+      assumptions_reviewed: true,
+    }),
+    ...overrides,
+  };
+}
+
 function makeState() {
   return {
     id: 'state-1', workflow_id: '', execution_id: 'exec-1', workspace_id: '',
-    organization_id: 'org-1', lifecycle_stage: 'discovery', current_step: 'discovery',
+    organization_id: '11111111-1111-4111-8111-111111111111', lifecycle_stage: 'discovery', current_step: 'discovery',
     currentStage: 'discovery', status: 'initiated' as const, completed_steps: [],
-    state_data: {}, context: { organizationId: 'org-1', conversationHistory: [] },
+    state_data: {}, context: { organizationId: '11111111-1111-4111-8111-111111111111', conversationHistory: [], opportunityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', valueCaseId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   };
 }
 
 function makeEnvelope() {
   return {
-    intent: 'test', actor: { id: 'user-1' }, organizationId: 'org-1',
+    intent: 'test', actor: { id: 'user-1' }, organizationId: '11111111-1111-4111-8111-111111111111',
     entryPoint: 'api', reason: 'test', timestamps: { requestedAt: new Date().toISOString() },
   };
 }
@@ -194,6 +222,8 @@ describe('QueryExecutor.processQueryAsync', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       queue as never,
+      undefined,
+      makeContextRepositoryMock() as never,
     );
   });
 
@@ -209,7 +239,7 @@ describe('QueryExecutor.processQueryAsync', () => {
     await executor.processQueryAsync(
       makeEnvelope() as never, 'query', makeState() as never, 'user-1', 'session-1',
     );
-    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
   });
 
   it('throws when tenant execution is paused', async () => {
@@ -227,6 +257,7 @@ describe('QueryExecutor.processQueryAsync', () => {
       makeCircuitBreakerMock() as never,
       queue as never,
       { defaultTimeoutMs: 5000, maxAgentInvocationsPerMinute: 1 },
+      makeContextRepositoryMock() as never,
     );
     await limitedExecutor.processQueryAsync(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     await expect(
@@ -252,6 +283,8 @@ describe('QueryExecutor.getAsyncQueryResult', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       queue as never,
+      undefined,
+      makeContextRepositoryMock() as never,
     );
   });
 
@@ -322,6 +355,8 @@ describe('QueryExecutor.processQuery (sync path)', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
+      undefined,
+      makeContextRepositoryMock() as never,
     );
   });
 
@@ -331,7 +366,7 @@ describe('QueryExecutor.processQuery (sync path)', () => {
 
   it('calls assertTenantExecutionAllowed', async () => {
     await executor.processQuery(makeEnvelope() as never, 'query', makeState() as never, 'u', 's');
-    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
   });
 
   it('returns a successful response with updated state', async () => {
@@ -367,6 +402,7 @@ describe('QueryExecutor.processQuery (sync path)', () => {
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
       { defaultTimeoutMs: 5000, maxAgentInvocationsPerMinute: 0 },
+      makeContextRepositoryMock() as never,
     );
     const result = await limited.processQuery(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     expect(result.response?.payload).toMatchObject({ error: true });
@@ -399,6 +435,8 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
       makeRouterMock('opportunity') as never,
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
+      undefined,
+      makeContextRepositoryMock() as never,
     );
 
     const result = await executor.processQuery(
@@ -410,9 +448,113 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
     );
 
     // Agent was invoked directly — no fetch/HTTP call
-    expect(mockCreate).toHaveBeenCalledWith('opportunity', 'org-1');
+    expect(mockCreate).toHaveBeenCalledWith('opportunity', '11111111-1111-4111-8111-111111111111');
     expect(mockExecute).toHaveBeenCalledOnce();
     expect(result.response?.type).toBe('message');
     expect(result.response?.payload.message).toContain('direct invocation works');
+  });
+});
+
+
+describe('QueryExecutor context hydration integration', () => {
+  it('routes using rich hydrated context', async () => {
+    const policy = makePolicyMock();
+    const queue = makeQueueMock();
+    const router = makeRouterMock('financial-modeling');
+    const repo = makeContextRepositoryMock();
+    const executor = new QueryExecutor(
+      policy as never,
+      router as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+      undefined,
+      repo as never,
+    );
+
+    const state = {
+      ...makeState(),
+      context: {
+        ...makeState().context,
+        opportunityId: '11111111-1111-4111-8111-111111111111',
+        valueCaseId: '33333333-3333-4333-8333-333333333333',
+      },
+    };
+
+    await executor.processQueryAsync(makeEnvelope() as never, 'route with rich context', state as never, 'u', 's');
+
+    expect(router.selectAgent).toHaveBeenCalledOnce();
+    expect(queue.queueAgentInvocation).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'financial-modeling' }),
+    );
+  });
+
+  it('downgrades to coordinator when hydrated context is sparse', async () => {
+    const policy = makePolicyMock();
+    const queue = makeQueueMock();
+    const router = makeRouterMock('financial-modeling');
+    const repo = makeContextRepositoryMock({
+      getBusinessCase: async () => null,
+      getHypothesis: async () => null,
+    });
+    const executor = new QueryExecutor(
+      policy as never,
+      router as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+      undefined,
+      repo as never,
+    );
+
+    const state = {
+      ...makeState(),
+      context: {
+        ...makeState().context,
+        opportunityId: '11111111-1111-4111-8111-111111111111',
+        valueCaseId: '33333333-3333-4333-8333-333333333333',
+      },
+    };
+
+    await executor.processQueryAsync(makeEnvelope() as never, 'route with sparse context', state as never, 'u', 's');
+
+    expect(router.selectAgent).not.toHaveBeenCalled();
+    expect(queue.queueAgentInvocation).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'coordinator' }),
+    );
+  });
+
+  it('rejects when hydrated context is missing a valid opportunity', async () => {
+    const policy = makePolicyMock();
+    const queue = makeQueueMock();
+    const router = makeRouterMock('financial-modeling');
+    const repo = makeContextRepositoryMock();
+    const executor = new QueryExecutor(
+      policy as never,
+      router as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+      undefined,
+      repo as never,
+    );
+
+    // No opportunityId/valueCaseId in context should trigger hydration-gating reject mode.
+    const state = {
+      ...makeState(),
+      context: {
+        ...makeState().context,
+      },
+    };
+
+    await expect(
+      executor.processQueryAsync(
+        makeEnvelope() as never,
+        'route with missing opportunity',
+        state as never,
+        'u',
+        's',
+      ),
+    ).rejects.toThrowError();
+
+    expect(router.selectAgent).not.toHaveBeenCalled();
+    expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
   });
 });
