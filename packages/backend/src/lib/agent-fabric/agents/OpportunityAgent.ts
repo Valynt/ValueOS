@@ -400,18 +400,29 @@ Industry benchmarks:
       systemPrompt += `\n\n${domainFragment}\n\nUse the domain pack KPIs and assumptions to ground your hypotheses. Reference specific KPI keys in kpi_targets fields.`;
     }
 
-    const userPrompt = `Analyze this opportunity and generate value hypotheses:
+    const additionalContext = (context.user_inputs?.additional_context as string | undefined) ?? "";
+    const userPrompt = renderTemplate(
+      `Analyze this opportunity and generate value hypotheses:
 
-${query}
+{{query}}
 
-${context.user_inputs?.additional_context ? `Additional context: ${context.user_inputs.additional_context}` : ''}
+{{additionalContextSection}}
 
 Generate a JSON object with:
 - company_summary: Brief summary of the company/opportunity
 - industry_context: Industry dynamics relevant to value creation
 - hypotheses: Array of 3-5 value hypotheses with estimated impact, evidence, assumptions, and KPI targets
 - stakeholder_roles: Key buying committee roles with their concerns
-- recommended_next_steps: 3-5 concrete next actions`;
+- recommended_next_steps: 3-5 concrete next actions`,
+      {
+        query,
+        additionalContextSection: additionalContext ? `Additional context: ${additionalContext}` : "",
+      },
+      {
+        allowedVariables: ["query", "additionalContextSection"],
+        untrustedVariables: ["query", "additionalContextSection"],
+      },
+    );
 
     try {
       const result = await this.secureInvoke<OpportunityAnalysis>(

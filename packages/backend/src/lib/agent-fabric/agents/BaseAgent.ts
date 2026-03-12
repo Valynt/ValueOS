@@ -23,6 +23,7 @@ import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
+import { llmSanitizer } from "../../../services/llm/LLMSanitizer.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -193,8 +194,19 @@ export abstract class BaseAgent {
     } = options;
 
     return this.circuitBreaker.execute(async () => {
+      const sanitizedPromptResult = llmSanitizer.sanitizePrompt(prompt);
+      const sanitizedPrompt = sanitizedPromptResult.content;
+
+      if (sanitizedPromptResult.violations.length > 0) {
+        logger.warn("Prompt sanitizer detected suspicious input", {
+          agent: this.name,
+          session_id: sessionId,
+          violation_count: sanitizedPromptResult.violations.length,
+        });
+      }
+
       const request = {
-        messages: [{ role: "user" as const, content: prompt }],
+        messages: [{ role: "user" as const, content: sanitizedPrompt }],
         metadata: {
           tenantId: this.organizationId,
           sessionId,

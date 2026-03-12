@@ -54,6 +54,10 @@ export class ComplianceAuditorAgent extends BaseAgent {
         counts: JSON.stringify(evidenceBySource),
         observations: JSON.stringify(sampleObservations),
       },
+      {
+        allowedVariables: ["tenantId", "counts", "observations"],
+        untrustedVariables: ["counts", "observations"],
+      },
     );
 
     const llmResult = await this.secureInvoke(
