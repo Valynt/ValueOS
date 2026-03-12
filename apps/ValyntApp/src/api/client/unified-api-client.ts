@@ -173,7 +173,7 @@ export class UnifiedApiClient {
   // Core Request Method
   // ============================================================================
 
-  private async request<T = unknown>(requestConfig: RequestConfig): Promise<ApiResponse<T>> {
+  async request<T = unknown>(requestConfig: RequestConfig): Promise<ApiResponse<T>> {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 

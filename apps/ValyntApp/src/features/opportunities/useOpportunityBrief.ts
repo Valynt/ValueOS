@@ -10,8 +10,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { useTenant } from "@/contexts/TenantContext";
-import { supabase } from "@/lib/supabase";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,27 +91,12 @@ interface RawHypothesisOutput {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (supabase) {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) {
-      headers["Authorization"] = `Bearer ${data.session.access_token}`;
-    }
-  }
-  return headers;
-}
-
-// Raw fetch retained: apiClient.setAuthToken is not yet wired to the Supabase
-// session in app bootstrap, so auth must be attached manually here (see debt.md).
 async function fetchJSON<T>(url: string): Promise<T> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(url, { headers, credentials: "include" });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+  const res = await apiClient.get<T>(url);
+  if (!res.success || !res.data) {
+    throw new Error(res.error?.message ?? "Request failed");
   }
-  return res.json() as Promise<T>;
+  return res.data;
 }
 
 function normaliseConfidence(raw: number | string | undefined): BriefHypothesis["confidence"] {
