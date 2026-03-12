@@ -117,12 +117,29 @@ export type DomainEventName =
   | 'realization.milestone_reached'
   | 'narrative.drafted';
 
-export const NarrativeDraftedPayloadSchema = DomainEventEnvelopeSchema.extend({
-  organization_id: z.string(),
-  value_case_id: z.string().optional(),
-  defense_readiness_score: z.number().min(0).max(1),
-  format: z.string(),
+const NarrativeDraftedNormalizedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  valueCaseId: z.string().min(1).optional(),
+  defenseReadinessScore: z.number().min(0).max(1),
+  format: z.string().min(1),
 });
+
+export const NarrativeDraftedPayloadSchema = z.preprocess((payload) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return payload;
+  }
+
+  const rawPayload = payload as Record<string, unknown>;
+
+  return {
+    ...rawPayload,
+    // Backward compatibility: old publisher used organization_id instead of tenantId.
+    tenantId: rawPayload['tenantId'] ?? rawPayload['organization_id'],
+    // Backward compatibility: old publisher used snake_case field names.
+    valueCaseId: rawPayload['valueCaseId'] ?? rawPayload['value_case_id'],
+    defenseReadinessScore:
+      rawPayload['defenseReadinessScore'] ?? rawPayload['defense_readiness_score'],
+  };
+}, NarrativeDraftedNormalizedPayloadSchema);
 export type NarrativeDraftedPayload = z.infer<typeof NarrativeDraftedPayloadSchema>;
 
 export type DomainEventPayloadMap = {
