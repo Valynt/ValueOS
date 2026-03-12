@@ -552,26 +552,35 @@ export class ValueCommitmentTrackingService {
 
   async validateAgainstGroundTruth(
     commitmentId: string,
-    tenantId: string,
+    _tenantId: string,
   ): Promise<{ isValid: boolean; confidence: number; issues: string[]; recommendations: string[] }> {
-    const progress = await this.calculateProgress(commitmentId, tenantId);
-    const threshold = 0.8;
-    const progressFraction = progress.overall_progress / 100;
-    const isValid = progressFraction >= threshold;
-    const gap = Math.round((threshold - progressFraction) * 100);
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, validation unavailable");
+      return {
+        isValid:         false,
+        confidence:      0,
+        issues:          ["Validation is unavailable while the backend API is disabled"],
+        recommendations: ["Re-enable the backend API to perform ground-truth validation"],
+      };
+    }
 
-    return {
-      isValid,
-      confidence: progressFraction,
-      issues: isValid ? [] : [`Progress ${progress.overall_progress}% is ${gap}pp below the ${threshold * 100}% threshold`],
-      recommendations: isValid
-        ? []
-        : [
-            progress.risk_level === "critical"
-              ? "Address critical risks before the next milestone"
-              : "Review milestone completion and metric targets",
-          ],
-    };
+    try {
+      const response = await apiClient.post<{
+        isValid: boolean;
+        confidence: number;
+        issues: string[];
+        recommendations: string[];
+      }>(`${this.base}/${commitmentId}/validate-progress`, {});
+
+      if (!response.success || !response.data) {
+        throw new CommitmentApiError(500, "VALIDATION_FAILED", "Validation endpoint returned no data");
+      }
+      return response.data;
+    } catch (err) {
+      if (err instanceof CommitmentApiError) throw err;
+      logger.error("validateAgainstGroundTruth failed", { error: err, commitmentId });
+      throw new CommitmentApiError(500, "VALIDATION_FAILED", "Ground-truth validation is unavailable");
+    }
   }
 
   // -------------------------------------------------------------------------

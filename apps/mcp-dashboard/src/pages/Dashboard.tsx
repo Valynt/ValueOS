@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { getDashboardPageData } from "../services/pageDataClient";
+
 import {
   FinancialLineChart,
   MetricCard,
@@ -39,6 +41,9 @@ export default function Dashboard() {
   });
   const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [revenueData, setRevenueData] = useState<Array<{ period: string; value: number }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Subscribe to real-time data
@@ -62,35 +67,20 @@ export default function Dashboard() {
   }, [subscribe, unsubscribe]);
 
   const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      // This would fetch real data from the MCP API
-      setStats({
-        totalRequests: 15420,
-        activeUsers: 47,
-        systemHealth: "healthy",
-        apiUsage: 78,
-      });
-
-      setMarketData([
-        { symbol: "AAPL", price: 175.43, change: 2.15, changePercent: 1.24 },
-        { symbol: "GOOGL", price: 142.56, change: -0.89, changePercent: -0.62 },
-        { symbol: "MSFT", price: 378.85, change: 5.42, changePercent: 1.45 },
-        { symbol: "TSLA", price: 248.42, change: -12.18, changePercent: -4.67 },
-      ]);
+      const payload = await getDashboardPageData();
+      setStats(payload.stats);
+      setMarketData(payload.marketData);
+      setRevenueData(payload.revenueData);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
+      setError("Unable to load dashboard data");
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // Sample chart data (would come from API)
-  const revenueData = [
-    { period: "Q1 2023", value: 125000000 },
-    { period: "Q2 2023", value: 132000000 },
-    { period: "Q3 2023", value: 141000000 },
-    { period: "Q4 2023", value: 158000000 },
-    { period: "Q1 2024", value: 165000000 },
-    { period: "Q2 2024", value: 172000000 },
-  ];
 
   const getHealthIcon = () => {
     switch (stats.systemHealth) {
@@ -142,23 +132,25 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {error && <div className="rounded-md bg-red-50 text-red-700 p-3">{error}</div>}
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Total Requests"
-          value={stats.totalRequests.toLocaleString()}
+          value={isLoading ? "..." : stats.totalRequests.toLocaleString()}
           change={{ value: 12.5, type: "increase" }}
           icon={<Activity className="w-6 h-6" />}
         />
         <MetricCard
           title="Active Users"
-          value={stats.activeUsers}
+          value={isLoading ? "..." : stats.activeUsers}
           change={{ value: 8.2, type: "increase" }}
           icon={<Building2 className="w-6 h-6" />}
         />
         <MetricCard
           title="API Usage"
-          value={`${stats.apiUsage}%`}
+          value={isLoading ? "..." : `${stats.apiUsage}%`}
           change={{ value: -2.1, type: "decrease" }}
           icon={<TrendingUp className="w-6 h-6" />}
           format="percentage"

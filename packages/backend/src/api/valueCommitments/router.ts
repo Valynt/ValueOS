@@ -13,6 +13,7 @@
  *   POST   /:commitmentId/notes                           add note
  *   DELETE /:commitmentId                                 delete (draft only)
  *   GET    /:commitmentId/progress                        computed progress summary
+ *   POST   /:commitmentId/validate-progress               ground-truth validation verdict
  *   POST   /:commitmentId/milestones                      add milestone
  *   PATCH  /:commitmentId/milestones/:milestoneId         update milestone
  *   POST   /:commitmentId/metrics                         add metric
@@ -291,6 +292,29 @@ valueCommitmentsRouter.get(
       res.status(200).json(progress);
     } catch (err) {
       handleError(err, res, 'GET /value-commitments/:id/progress');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:commitmentId/validate-progress — ground-truth validation
+//
+// Applies explicit threshold rules to the live progress snapshot and returns
+// a structured verdict. Replaces the client-side stub in the frontend service.
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.post(
+  '/:commitmentId/validate-progress',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId } = resolveContext(req);
+      const { commitmentId }   = req.params as { commitmentId: string };
+
+      const result = await valueCommitmentBackendService.validateProgress(commitmentId, organizationId);
+      res.status(200).json(result);
+    } catch (err) {
+      handleError(err, res, 'POST /value-commitments/:id/validate-progress');
     }
   },
 );

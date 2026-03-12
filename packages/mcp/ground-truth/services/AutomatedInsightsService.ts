@@ -39,6 +39,28 @@ export interface CompanyInsightsRequest {
   peerCompanies?: string[]; // CIKs or company names
 }
 
+
+
+export interface InsightsDataSourceConfig {
+  secBaseUrl?: string;
+  marketDataBaseUrl?: string;
+  benchmarkBaseUrl?: string;
+  apiKey?: string;
+}
+
+export interface MarketSnapshot {
+  symbol: string;
+  price: number;
+  changePercent: number;
+  asOf: string;
+}
+
+export interface BenchmarkSnapshot {
+  metric: string;
+  value: number;
+  percentile?: number;
+}
+
 export interface ValueDriver {
   name: string;
   category:
@@ -121,10 +143,12 @@ export class AutomatedInsightsService {
   private sentimentService: SentimentAnalysisService;
   private predictiveService: PredictiveModelingService;
   private cache = getCache();
+  private dataSourceConfig: InsightsDataSourceConfig;
 
-  constructor() {
+  constructor(config: InsightsDataSourceConfig = {}) {
     this.sentimentService = new SentimentAnalysisService();
     this.predictiveService = new PredictiveModelingService();
+    this.dataSourceConfig = config;
   }
 
   /**
@@ -256,9 +280,9 @@ export class AutomatedInsightsService {
     const revenueGrowthDriver: ValueDriver = {
       name: "Revenue Growth Acceleration",
       category: "revenue",
-      impact_score: 0.85 + (Math.random() * 0.1 - 0.05),
-      confidence: 0.75 + (Math.random() * 0.1 - 0.05),
-      current_performance: Math.random() > 0.5 ? "average" : "lagging",
+      impact_score: 0.85,
+      confidence: 0.75,
+      current_performance: forecastingData?.status === "fulfilled" ? "average" : "lagging",
       growth_potential: "high",
       priority: "critical",
       rationale:
@@ -277,9 +301,9 @@ export class AutomatedInsightsService {
     const costOptimizationDriver: ValueDriver = {
       name: "Operational Efficiency",
       category: "efficiency",
-      impact_score: 0.7 + (Math.random() * 0.1 - 0.05),
-      confidence: 0.8 + (Math.random() * 0.1 - 0.05),
-      current_performance: Math.random() > 0.5 ? "average" : "leading",
+      impact_score: 0.7,
+      confidence: 0.8,
+      current_performance: "average",
       growth_potential: "medium",
       priority: "high",
       rationale:
@@ -298,9 +322,9 @@ export class AutomatedInsightsService {
     const marketPositionDriver: ValueDriver = {
       name: "Market Share Expansion",
       category: "market",
-      impact_score: 0.6 + (Math.random() * 0.1 - 0.05),
-      confidence: 0.65 + (Math.random() * 0.1 - 0.05),
-      current_performance: Math.random() > 0.5 ? "lagging" : "average",
+      impact_score: 0.6,
+      confidence: 0.65,
+      current_performance: sentimentData?.status === "fulfilled" ? "average" : "lagging",
       growth_potential: "high",
       priority: "high",
       rationale:
@@ -319,8 +343,8 @@ export class AutomatedInsightsService {
     const innovationDriver: ValueDriver = {
       name: "Product Innovation Pipeline",
       category: "strategic",
-      impact_score: 0.5 + (Math.random() * 0.1 - 0.05),
-      confidence: 0.55 + (Math.random() * 0.1 - 0.05),
+      impact_score: 0.5,
+      confidence: 0.55,
       current_performance: "average",
       growth_potential: "medium",
       priority: "medium",
@@ -680,15 +704,30 @@ export class AutomatedInsightsService {
    */
   private async gatherSentimentData(
     request: CompanyInsightsRequest
-  ): Promise<any> {
-    // This would gather sentiment data from various sources
-    // For now, return mock data structure
-    return {
-      earnings_calls: [],
-      sec_filings: [],
-      press_releases: [],
-      analyst_reports: [],
-    };
+  ): Promise<{ filings: SentimentResult[]; source: string }> {
+    if (!request.cik || !this.dataSourceConfig.secBaseUrl) {
+      return { filings: [], source: 'unavailable' };
+    }
+
+    const filingEndpoint = `${this.dataSourceConfig.secBaseUrl}/filings/latest?cik=${encodeURIComponent(request.cik)}`;
+    const filingResponse = await fetch(filingEndpoint, { headers: { Accept: 'application/json' } });
+    if (!filingResponse.ok) {
+      return { filings: [], source: 'sec-unavailable' };
+    }
+
+    const filingPayload = await filingResponse.json() as { documents?: Array<{ content: string; filingType?: string }> };
+    const filings: SentimentResult[] = [];
+
+    for (const document of filingPayload.documents ?? []) {
+      const analysis = await this.sentimentService.analyzeDocument({
+        documentType: document.filingType === '10-K' || document.filingType === '10-Q' ? 'sec_filing' : 'analyst_report',
+        content: document.content,
+        companyName: request.companyName,
+      });
+      filings.push(analysis);
+    }
+
+    return { filings, source: 'sec' };
   }
 
   /**
@@ -696,15 +735,27 @@ export class AutomatedInsightsService {
    */
   private async gatherForecastingData(
     request: CompanyInsightsRequest
-  ): Promise<any> {
-    // This would gather historical financial data for forecasting
-    // For now, return mock data structure
-    return {
-      historical_revenue: [],
-      historical_earnings: [],
-      industry_trends: [],
-      market_data: [],
-    };
+  ): Promise<{ forecast: ForecastingResult | null; trends: TrendAnalysisResult | null; market: MarketSnapshot[] }> {
+    if (!request.cik || !this.dataSourceConfig.marketDataBaseUrl) {
+      return { forecast: null, trends: null, market: [] };
+    }
+
+    const endpoint = `${this.dataSourceConfig.marketDataBaseUrl}/historical?symbol=${encodeURIComponent(request.companyName)}`;
+    const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+    if (!response.ok) {
+      return { forecast: null, trends: null, market: [] };
+    }
+
+    const payload = await response.json() as { periods: string[]; values: number[]; snapshots?: MarketSnapshot[] };
+    if (!payload.values?.length) {
+      return { forecast: null, trends: null, market: payload.snapshots ?? [] };
+    }
+
+    const timeSeries = { periods: payload.periods, values: payload.values, metadata: { company: request.companyName, metric: 'price' } };
+    const forecast = await this.predictiveService.generateForecast({ historicalData: timeSeries, forecastPeriods: 4, modelType: 'auto' });
+    const trends = await this.predictiveService.analyzeTrends({ data: timeSeries, analysisType: 'company' });
+
+    return { forecast, trends, market: payload.snapshots ?? [] };
   }
 
   /**
@@ -712,13 +763,25 @@ export class AutomatedInsightsService {
    */
   private async gatherPeerComparisonData(
     request: CompanyInsightsRequest
-  ): Promise<any> {
-    // This would gather data from peer companies
-    // For now, return mock data structure
-    return {
-      peer_companies:
-        request.peerCompanies?.map((name) => ({ name, data: {} })) || [],
-    };
+  ): Promise<{ peer_companies: Array<{ name: string; benchmarks: BenchmarkSnapshot[] }> }> {
+    if (!request.peerCompanies?.length || !this.dataSourceConfig.benchmarkBaseUrl) {
+      return { peer_companies: [] };
+    }
+
+    const peers = await Promise.all(
+      request.peerCompanies.map(async (name) => {
+        const response = await fetch(`${this.dataSourceConfig.benchmarkBaseUrl}/peers/${encodeURIComponent(name)}`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) {
+          return { name, benchmarks: [] };
+        }
+        const payload = await response.json() as { benchmarks?: BenchmarkSnapshot[] };
+        return { name, benchmarks: payload.benchmarks ?? [] };
+      })
+    );
+
+    return { peer_companies: peers };
   }
 
   /**

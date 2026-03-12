@@ -8,6 +8,7 @@
 import { randomUUID } from "crypto";
 
 import { logger } from "../../lib/logger.js";
+import { getMessageBus } from "../realtime/MessageBus.js";
 
 import { AgentType } from "./agent-types.js";
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
@@ -91,7 +92,9 @@ export class IntelligentCoordinator {
   private activeExecutions: Map<string, { startTime: number; agent: AgentType; traceId: string }> =
     new Map();
   private readonly STALL_TIMEOUT_MS = 30000; // 30 seconds
+  private readonly AGENT_RESET_IDEMPOTENCY_WINDOW_MS = 120000; // 2 minutes
   private stallCheckInterval: NodeJS.Timeout | null = null;
+  private resetDeduplication: Map<string, number> = new Map();
 
   constructor() {
     this.startStallDetection();
@@ -858,21 +861,59 @@ export class IntelligentCoordinator {
     const execution = this.activeExecutions.get(traceId);
     if (!execution) return;
 
-    try {
-      // Remove from active executions
-      this.activeExecutions.delete(traceId);
+    const dedupeKey = `${traceId}:${execution.agent}`;
+    const previousResetAt = this.resetDeduplication.get(dedupeKey);
+    const now = Date.now();
 
-      // Emit AGENT_RESET event (this would integrate with MessageBus)
-      logger.info("AGENT_RESET event triggered for stalled execution", {
+    if (
+      typeof previousResetAt === "number" &&
+      now - previousResetAt < this.AGENT_RESET_IDEMPOTENCY_WINDOW_MS
+    ) {
+      logger.info("Skipping duplicate AGENT_RESET event within idempotency window", {
         traceId,
         agent: execution.agent,
+        dedupeKey,
+        elapsedMs: now - previousResetAt,
+      });
+      return;
+    }
+
+    try {
+      this.resetDeduplication.set(dedupeKey, now);
+
+      // Remove from active executions before emit to avoid reset storms
+      this.activeExecutions.delete(traceId);
+
+      const messageBus = getMessageBus();
+      await messageBus.publishMessage("agent.lifecycle", {
+        event_type: "alert",
+        sender_id: "IntelligentCoordinator",
+        recipient_ids: [execution.agent],
+        recipient_agent: execution.agent,
+        message_type: "AGENT_RESET",
+        correlation_id: traceId,
+        content: "Agent execution stalled and has been reset",
+        tenant_id: "system",
+        payload: {
+          traceId,
+          agent: execution.agent,
+          reason: "stall_timeout",
+          stallTimeoutMs: this.STALL_TIMEOUT_MS,
+          resetTriggeredAt: new Date(now).toISOString(),
+          idempotencyKey: dedupeKey,
+        },
+        metadata: {
+          traceId,
+          idempotencyKey: dedupeKey,
+          source: "IntelligentCoordinator.checkForStalledAgents",
+        },
       });
 
-      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with MessageBus to emit AGENT_RESET event
-      // await messageBus.emit('AGENT_RESET', { traceId, agent: execution.agent });
-
-      // For now, just log the event
-      // In a full implementation, this would notify the agent orchestrator to reset the agent
+      logger.info("AGENT_RESET event emitted for stalled execution", {
+        traceId,
+        agent: execution.agent,
+        dedupeKey,
+      });
     } catch (error) {
       logger.error("Failed to trigger AGENT_RESET", error instanceof Error ? error : undefined, {
         traceId,
@@ -889,6 +930,7 @@ export class IntelligentCoordinator {
       clearInterval(this.stallCheckInterval);
       this.stallCheckInterval = null;
     }
+    this.resetDeduplication.clear();
   }
 }
 

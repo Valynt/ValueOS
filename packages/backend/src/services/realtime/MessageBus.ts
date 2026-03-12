@@ -15,7 +15,7 @@ import type {
   CreateCommunicationEvent,
   MessageHandler,
   MessageStats,
-} from '../types/CommunicationEvent';
+} from '../../types/CommunicationEvent.js';
 
 
 export class MessageBus {
@@ -25,6 +25,10 @@ export class MessageBus {
   private messageHistory: Map<string, CommunicationEvent[]>;
   private redis: any; // Redis client (optional)
   private nats: any; // NATS client (optional)
+  /** Tracks channels with an active Redis subscription to prevent duplicate listeners. */
+  private redisChannels: Set<string>;
+  /** Tracks channels with an active NATS subscription to prevent duplicate listeners. */
+  private natsChannels: Set<string>;
 
   constructor(config?: { redis?: any; nats?: any }) {
     this.subscribers = new Map();
@@ -33,6 +37,8 @@ export class MessageBus {
     this.messageHistory = new Map();
     this.redis = config?.redis;
     this.nats = config?.nats;
+    this.redisChannels = new Set();
+    this.natsChannels = new Set();
 
     // Initialize default channels
     this.initializeDefaultChannels();
@@ -106,11 +112,30 @@ export class MessageBus {
     // Update stats
     this.updateStats(channel, 'subscribe');
 
-    // Subscribe to Redis/NATS if available
-    if (this.redis) {
-      this.subscribeToRedis(channel, handler);
-    } else if (this.nats) {
-      this.subscribeToNATS(channel, handler);
+    // Subscribe to Redis/NATS if available.
+    // Only subscribe once per channel — deliverMessage fans out to all local subscribers.
+    if (this.redis && !this.redisChannels.has(channel)) {
+      this.redisChannels.add(channel);
+      try {
+        this.subscribeToRedis(channel);
+      } catch (error) {
+        this.redisChannels.delete(channel);
+        logger.error(
+          `Failed to subscribe to Redis channel "${channel}"`,
+          error instanceof Error ? error : undefined,
+        );
+      }
+    } else if (this.nats && !this.natsChannels.has(channel)) {
+      this.natsChannels.add(channel);
+      try {
+        this.subscribeToNATS(channel);
+      } catch (error) {
+        this.natsChannels.delete(channel);
+        logger.error(
+          `Failed to subscribe to NATS channel "${channel}"`,
+          error instanceof Error ? error : undefined,
+        );
+      }
     }
 
     // Return unsubscribe function
@@ -293,6 +318,15 @@ export class MessageBus {
     channel: string,
     event: CommunicationEvent
   ): Promise<void> {
+    // Tenant isolation: never deliver an unscoped message to any handler.
+    // This guard applies to both local publishes and messages arriving from
+    // Redis/NATS, which are routed through this method.
+    const tenantId = event.tenant_id ?? (event as unknown as { organization_id?: string }).organization_id;
+    if (!tenantId) {
+      logger.error('MessageBus.deliverMessage: dropping event with missing tenant_id', undefined, { channel, eventId: event.id });
+      return;
+    }
+
     const handlers = this.subscribers.get(channel);
     if (!handlers || handlers.size === 0) return;
 
@@ -345,8 +379,16 @@ export class MessageBus {
     this.messageHistory.set(channel, history);
   }
 
-  private shouldCompress(payload: any): boolean {
+  private shouldCompress(payload: unknown): boolean {
+    if (payload === undefined || payload === null) {
+      return false;
+    }
+
     const jsonString = JSON.stringify(payload);
+    if (!jsonString) {
+      return false;
+    }
+
     return jsonString.length > 1024; // Compress if > 1KB
   }
 
@@ -395,15 +437,16 @@ export class MessageBus {
     }
   }
 
-  private subscribeToRedis(
-    channel: string,
-    handler: (event: CommunicationEvent) => Promise<void>
-  ): void {
+  private subscribeToRedis(channel: string): void {
     if (!this.redis) return;
     try {
       this.redis.subscribe(channel, (message: string) => {
         const event = JSON.parse(message) as CommunicationEvent;
-        handler(event);
+        // Route through deliverMessage so the tenant_id guard and subscriber
+        // filters apply to messages arriving from Redis, not just local publishes.
+        this.deliverMessage(channel, event).catch((error) => {
+          logger.error('Redis message delivery error', error instanceof Error ? error : undefined, { channel });
+        });
       });
     } catch (error) {
       logger.error('Redis subscribe error', error instanceof Error ? error : undefined);
@@ -419,15 +462,16 @@ export class MessageBus {
     }
   }
 
-  private subscribeToNATS(
-    channel: string,
-    handler: (event: CommunicationEvent) => Promise<void>
-  ): void {
+  private subscribeToNATS(channel: string): void {
     if (!this.nats) return;
     try {
       this.nats.subscribe(channel, (message: string) => {
         const event = JSON.parse(message) as CommunicationEvent;
-        handler(event);
+        // Route through deliverMessage so the tenant_id guard and subscriber
+        // filters apply to messages arriving from NATS, not just local publishes.
+        this.deliverMessage(channel, event).catch((error) => {
+          logger.error('NATS message delivery error', error instanceof Error ? error : undefined, { channel });
+        });
       });
     } catch (error) {
       logger.error('NATS subscribe error', error instanceof Error ? error : undefined);

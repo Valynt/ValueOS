@@ -2,14 +2,12 @@
  * Communication Event Types
  */
 
-export interface CommunicationEvent {
-  id: string;
-  event_type: 'message' | 'notification' | 'alert' | 'broadcast';
-  sender_id: string;
-  recipient_ids: string[];
-  content: string;
-  payload?: unknown;
-  compressed?: boolean;
-  metadata?: Record<string, unknown>;
-  timestamp: string;
-}
+export type {
+  ChannelConfig,
+  CommunicationEvent,
+  CommunicationEventCore,
+  CreateCommunicationEvent,
+  MessageHandler,
+  MessageStats,
+  TenantIdentity,
+} from '@valueos/shared/types/communication-event';

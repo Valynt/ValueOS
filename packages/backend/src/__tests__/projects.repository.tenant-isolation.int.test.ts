@@ -4,9 +4,8 @@
  * Verifies that every CRUD operation is scoped to the requesting tenant and
  * that one tenant cannot read, modify, or delete another tenant's projects.
  *
- * The projects router uses an in-process Map partitioned by tenantId derived
- * from req.tenantId (set by verified middleware). These tests exercise the
- * full HTTP layer via supertest.
+ * The projects router uses a tenant-scoped repository abstraction backed by
+ * Supabase in production. These tests exercise the full HTTP layer via supertest.
  */
 
 import request from 'supertest';
@@ -64,6 +63,74 @@ vi.mock('../lib/errors', () => {
 
 // ─── App factory ──────────────────────────────────────────────────────────────
 
+
+vi.mock('../services/AuditLogService.js', () => ({
+  auditLogService: { createEntry: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+}));
+
+vi.mock('../repositories/ProjectRepository.js', () => {
+  const byTenant = new Map<string, Map<string, any>>();
+  const getStore = (tenantId: string) => {
+    let store = byTenant.get(tenantId);
+    if (!store) {
+      store = new Map();
+      byTenant.set(tenantId, store);
+    }
+    return store;
+  };
+
+  return {
+    projectRepository: {
+      findByName: vi.fn(async (organizationId: string, name: string) => {
+        const normalized = name.toLowerCase();
+        return Array.from(getStore(organizationId).values()).find((p) => p.name.toLowerCase() === normalized) ?? null;
+      }),
+      create: vi.fn(async (input: any) => {
+        const now = new Date().toISOString();
+        const project = {
+          id: input.id,
+          organization_id: input.organizationId,
+          name: input.name,
+          description: input.description ?? null,
+          status: input.status,
+          tags: input.tags,
+          owner_id: input.ownerId,
+          created_at: now,
+          updated_at: now,
+        };
+        getStore(input.organizationId).set(project.id, project);
+        return project;
+      }),
+      list: vi.fn(async (organizationId: string, options: any) => {
+        const items = Array.from(getStore(organizationId).values());
+        const filtered = items.filter((project) => {
+          if (options.status && project.status !== options.status) return false;
+          if (!options.search) return true;
+          const search = options.search.toLowerCase();
+          return project.name.toLowerCase().includes(search) || project.description?.toLowerCase().includes(search);
+        });
+        const start = (options.page - 1) * options.pageSize;
+        return { items: filtered.slice(start, start + options.pageSize), total: filtered.length };
+      }),
+      getById: vi.fn(async (organizationId: string, projectId: string) => getStore(organizationId).get(projectId) ?? null),
+      update: vi.fn(async (organizationId: string, projectId: string, input: any) => {
+        const store = getStore(organizationId);
+        const existing = store.get(projectId);
+        if (!existing) return null;
+        const updated = {
+          ...existing,
+          ...input,
+          description: input.description ?? existing.description,
+          updated_at: new Date().toISOString(),
+        };
+        store.set(projectId, updated);
+        return updated;
+      }),
+      delete: vi.fn(async (organizationId: string, projectId: string) => getStore(organizationId).delete(projectId)),
+    },
+    projectStatuses: ['planned', 'active', 'paused', 'completed'],
+  };
+});
 import { projectsRouter } from '../api/projects.js';
 
 function makeApp(tenantId: string, role = 'admin') {
@@ -95,9 +162,6 @@ const TENANT_A = 'tenant-aaaa';
 const TENANT_B = 'tenant-bbbb';
 
 describe('Projects API — tenant isolation', () => {
-  // The in-process projectsByTenant Map persists for the entire test run.
-  // Isolation is achieved by using a unique tenant ID suffix per describe block
-  // so no two groups share a key namespace. Do not reuse tenant ID suffixes.
 
   describe('POST / — create requires tenant context', () => {
     it('returns 401 when no tenant context is present', async () => {

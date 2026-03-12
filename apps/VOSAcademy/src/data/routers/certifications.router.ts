@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
+import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 /**
  * Determine certification tier based on score
@@ -49,6 +50,54 @@ export const certificationsRouter = router({
       expiresAt: null, // Certifications don't expire by default
     }));
   }),
+
+
+
+  /**
+   * Create share payload for a certification and emit audit event
+   */
+  createShareLink: protectedProcedure
+    .input(z.object({
+      certificationId: z.number(),
+      channel: z.enum(['copy', 'linkedin', 'email', 'native']).default('copy'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const certifications = await db.getUserCertifications(ctx.user.id);
+      const cert = certifications.find((item) => item.id === input.certificationId);
+
+      if (!cert) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Certification not found',
+        });
+      }
+
+      const badgeName = cert.badgeName.split(' - ')[0] || 'VOS Certification';
+      const baseUrl = process.env.VOS_ACADEMY_PUBLIC_URL || 'https://academy.valueos.ai';
+      const shareToken = Buffer.from(`${ctx.user.id}:${cert.id}:${cert.awardedAt.getTime()}`).toString('base64url');
+      const shareUrl = `${baseUrl}/certifications/verify?token=${shareToken}`;
+
+      const requestContext = getAuditRequestContext(ctx.req);
+      await logAuditEvent({
+        actor: String(ctx.user.id),
+        tenantId: process.env.SESSION_JWT_TENANT || process.env.VITE_APP_ID || undefined,
+        action: 'certification.share_link.generated',
+        result: 'success',
+        ipAddress: requestContext.ipAddress,
+        userAgent: requestContext.userAgent,
+        details: {
+          certificationId: cert.id,
+          channel: input.channel,
+          badgeName,
+        },
+      });
+
+      return {
+        shareUrl,
+        title: `${badgeName} Certification`,
+        text: `I earned the ${badgeName} certification in VOS Academy.`,
+      };
+    }),
 
   /**
    * Generate certificate PDF

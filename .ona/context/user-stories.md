@@ -31,8 +31,8 @@ Update status when stories are implemented or acceptance criteria change.
 - A new case is created with `status: INITIATED` and the CRM data pre-filled
 - Case is scoped to the VE's `organization_id` (tenant isolation)
 
-**Status:** ✅ Dashboard QuickStart `Go` button → `useCreateCase()` → `/workspace/:caseId` is wired  
-**Gap:** CRM data pre-fill falls back to mock "Acme Corp" data (DEBT-008)
+**Status:** ✅ Release-approved (Must-have) — Dashboard QuickStart path is wired and production CRM path no longer returns mock prefill fallback data.
+**Gap Classification:** Must-have (closed for current release)
 
 ---
 
@@ -133,7 +133,8 @@ Update status when stories are implemented or acceptance criteria change.
 - Subsequent agent runs reference this context automatically
 - Context can be updated without re-running existing cases
 
-**Status:** ⚠️ Partial — `SupabaseMemoryBackend` exists; onboarding UI and ingestion pipeline not built
+**Status:** ⚠️ Deferred from current GA scope — `TenantContextIngestionService` exists, but onboarding UI + `POST /api/v1/tenant/context` endpoint remain scheduled for follow-on sprint.
+**Gap Classification:** Deferred post-GA.
 
 ---
 
@@ -148,7 +149,8 @@ Update status when stories are implemented or acceptance criteria change.
 - VEs can search and select opportunities from the connected CRM
 - Token refresh happens transparently
 
-**Status:** ⚠️ HubSpot implemented; Salesforce adapter is empty stubs (DEBT-008, issue #1349)
+**Status:** ⚠️ Partially release-approved — HubSpot production path is must-have and active; Salesforce OAuth + opportunity fetch and other enterprise adapters are deferred.
+**Gap Classification:** HubSpot path = Must-have (approved); Salesforce/ServiceNow/Slack/SharePoint = Deferred post-GA.
 
 ---
 
@@ -165,8 +167,8 @@ Update status when stories are implemented or acceptance criteria change.
 - `pnpm run test:rls` passes on every PR
 - Cross-tenant access attempts are logged and blocked
 
-**Status:** ✅ RLS policies in place; `test:rls` suite exists  
-**Gap:** Direct-mode `MemorySystem` has `enable_persistence: false` (DEBT-002), which means memory isolation is untested in that path
+**Status:** ✅ Release-approved (Must-have) — RLS policies in place and `test:rls` suite required for release gating.
+**Gap Classification:** Must-have (closed; DEBT-002 resolved, no release blocker).
 
 ---
 
@@ -181,5 +183,20 @@ Update status when stories are implemented or acceptance criteria change.
 - Audit entries include: `actor_id`, `organization_id`, `action`, `resource_id`, `timestamp`
 - Audit log is queryable by tenant admins
 
-**Status:** ✅ `AuditLogger` implemented; `agent_audit_log` is append-only  
-**Gap:** `ValueCommitmentTrackingService` audit entries are TODO stubs (DEBT-007)
+**Status:** ✅ Release-approved (Must-have) — `AuditLogger` implemented, `agent_audit_log` append-only, and ValueCommitmentTrackingService audit stubs resolved.
+**Gap Classification:** Must-have (closed; DEBT-007 resolved).
+
+
+---
+
+## Release Scope Decision Log (GA Packet)
+
+- **Must-have gaps (implemented/approved):**
+  - US-001 CRM prefill production path (mock fallback removed in backend CRM integration service).
+  - US-009 tenant-isolation release gate (`pnpm run test:rls`) and enforcement posture.
+  - US-010 audit-trail coverage for sensitive operations.
+- **Deferred gaps (explicitly out of current release):**
+  - US-008 Salesforce OAuth + opportunity fetch completion.
+  - US-008 ServiceNow, Slack, SharePoint adapter expansion.
+- **Traceability artifact:** `docs/operations/release-acceptance-mapping.md`
+- **Signed release scope artifact:** `docs/operations/release-scope-ga-signoff.md`

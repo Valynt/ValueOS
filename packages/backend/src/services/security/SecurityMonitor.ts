@@ -8,6 +8,7 @@
 import { logger } from "../../lib/logger.js"
 import { AgentAuditLog, getAuditLogger } from "../AgentAuditLogger.js"
 import { getSecureSharedContext } from "../SecureSharedContext.js"
+import { MessageBus } from "../realtime/MessageBus.js"
 
 // ============================================================================
 // Types
@@ -82,8 +83,29 @@ export interface MonitoringConfig {
     compromisedAgents: number; // total
   };
   escalationRules: Partial<Record<SecurityEventType, AlertType[]>>;
+  severityRoutingRules: Partial<Record<SecuritySeverity, AlertType[]>>;
   notificationEmails?: string[];
   retentionPeriod: number; // days
+}
+
+type AlertChannel = Exclude<AlertType, "immediate_notification"> | "immediate_notification";
+type DeliveryStatus = "attempted" | "sent" | "failed" | "skipped_missing_config";
+
+interface AlertDeliveryMetrics {
+  attempted: number;
+  sent: number;
+  failed: number;
+  skipped_missing_config: number;
+}
+
+interface FallbackAlertRecord {
+  queueId: string;
+  alertId: string;
+  channel: AlertChannel;
+  severity: SecuritySeverity;
+  reason: string;
+  createdAt: Date;
+  payload: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -99,6 +121,17 @@ export class SecurityMonitor {
   private config: MonitoringConfig;
   private monitoringInterval: NodeJS.Timeout | null = null;
   private metricsInterval: NodeJS.Timeout | null = null;
+  private fallbackMessageBus = new MessageBus();
+  private fallbackTopic = "security.alerts.delivery-fallback";
+  private fallbackQueue: FallbackAlertRecord[] = [];
+  private deliveryMetrics: Record<AlertChannel, AlertDeliveryMetrics> = {
+    email_alert: { attempted: 0, sent: 0, failed: 0, skipped_missing_config: 0 },
+    slack_notification: { attempted: 0, sent: 0, failed: 0, skipped_missing_config: 0 },
+    pager_duty: { attempted: 0, sent: 0, failed: 0, skipped_missing_config: 0 },
+    security_team_escalation: { attempted: 0, sent: 0, failed: 0, skipped_missing_config: 0 },
+    management_escalation: { attempted: 0, sent: 0, failed: 0, skipped_missing_config: 0 },
+    immediate_notification: { attempted: 0, sent: 0, failed: 0, skipped_missing_config: 0 },
+  };
 
   private readonly DEFAULT_CONFIG: MonitoringConfig = {
     alertThresholds: {
@@ -112,12 +145,24 @@ export class SecurityMonitor {
       agent_compromised: ["immediate_notification", "slack_notification", "pager_duty"],
       circuit_breaker_opened: ["immediate_notification", "security_team_escalation"],
     },
+    severityRoutingRules: {
+      low: ["email_alert"],
+      medium: ["email_alert", "slack_notification"],
+      high: ["immediate_notification", "security_team_escalation"],
+      critical: ["immediate_notification", "pager_duty", "security_team_escalation", "management_escalation"],
+    },
     notificationEmails: process.env.SECURITY_ALERT_EMAIL ? [process.env.SECURITY_ALERT_EMAIL] : ['security@valuecanvas.com'],
     retentionPeriod: 30, // 30 days
   };
 
   private constructor(config: Partial<MonitoringConfig> = {}) {
     this.config = { ...this.DEFAULT_CONFIG, ...config };
+    this.fallbackMessageBus.createChannel({
+      name: this.fallbackTopic,
+      description: "Fallback delivery channel for security alerts",
+      persistent: true,
+      message_retention: 10000,
+    });
     this.startMonitoring();
   }
 
@@ -361,7 +406,9 @@ export class SecurityMonitor {
    * Evaluate if an alert should be triggered
    */
   private evaluateAlerting(event: SecurityEvent): void {
-    const alertTypes = this.config.escalationRules[event.type] || ["immediate_notification"];
+    const eventRules = this.config.escalationRules[event.type] || [];
+    const severityRules = this.config.severityRoutingRules[event.severity] || [];
+    const alertTypes = Array.from(new Set<AlertType>([...eventRules, ...severityRules, "immediate_notification"]));
 
     alertTypes.forEach((alertType) => {
       this.createAlert(event.id, alertType, event.severity);
@@ -437,6 +484,8 @@ export class SecurityMonitor {
       escalationLevel: alert.escalationLevel,
     });
 
+    this.recordDeliveryMetric(alert.type, "attempted", alert);
+
     // In production, integrate with actual notification systems
     switch (alert.type) {
       case "email_alert":
@@ -467,7 +516,7 @@ export class SecurityMonitor {
   private sendEmailAlert(alert: SecurityAlert): void {
     const webhookUrl = process.env["SECURITY_EMAIL_WEBHOOK_URL"];
     if (!webhookUrl) {
-      logger.info("Email alert (no webhook configured)", { alertId: alert.id, severity: alert.severity });
+      this.recordMissingConfig("email_alert", alert, "SECURITY_EMAIL_WEBHOOK_URL is not configured");
       return;
     }
     this.postWebhook(webhookUrl, {
@@ -476,9 +525,11 @@ export class SecurityMonitor {
       severity: alert.severity,
       message: alert.message,
       timestamp: alert.timestamp.toISOString(),
-    }).catch((err: Error) =>
-      logger.error("Email alert webhook failed", { alertId: alert.id, error: err.message }),
-    );
+    })
+      .then(() => this.recordDeliverySuccess("email_alert", alert))
+      .catch((err: Error) =>
+        this.recordDeliveryFailure("email_alert", alert, err, "email webhook failed"),
+      );
   }
 
   /**
@@ -487,7 +538,7 @@ export class SecurityMonitor {
   private sendSlackAlert(alert: SecurityAlert): void {
     const webhookUrl = process.env["SECURITY_SLACK_WEBHOOK_URL"];
     if (!webhookUrl) {
-      logger.info("Slack alert (no webhook configured)", { alertId: alert.id, severity: alert.severity });
+      this.recordMissingConfig("slack_notification", alert, "SECURITY_SLACK_WEBHOOK_URL is not configured");
       return;
     }
     const emoji = alert.severity === "critical" ? "🚨" : alert.severity === "high" ? "⚠️" : "ℹ️";
@@ -504,9 +555,11 @@ export class SecurityMonitor {
           ],
         },
       ],
-    }).catch((err: Error) =>
-      logger.error("Slack alert webhook failed", { alertId: alert.id, error: err.message }),
-    );
+    })
+      .then(() => this.recordDeliverySuccess("slack_notification", alert))
+      .catch((err: Error) =>
+        this.recordDeliveryFailure("slack_notification", alert, err, "slack webhook failed"),
+      );
   }
 
   /**
@@ -515,7 +568,7 @@ export class SecurityMonitor {
   private sendPagerDutyAlert(alert: SecurityAlert): void {
     const routingKey = process.env["SECURITY_PAGERDUTY_ROUTING_KEY"];
     if (!routingKey) {
-      logger.info("PagerDuty alert (no routing key configured)", { alertId: alert.id, severity: alert.severity });
+      this.recordMissingConfig("pager_duty", alert, "SECURITY_PAGERDUTY_ROUTING_KEY is not configured");
       return;
     }
     this.postWebhook("https://events.pagerduty.com/v2/enqueue", {
@@ -533,9 +586,11 @@ export class SecurityMonitor {
           escalation_level: alert.escalationLevel,
         },
       },
-    }).catch((err: Error) =>
-      logger.error("PagerDuty alert failed", { alertId: alert.id, error: err.message }),
-    );
+    })
+      .then(() => this.recordDeliverySuccess("pager_duty", alert))
+      .catch((err: Error) =>
+        this.recordDeliveryFailure("pager_duty", alert, err, "pager duty delivery failed"),
+      );
   }
 
   /**
@@ -546,10 +601,11 @@ export class SecurityMonitor {
     const webhookUrl =
       process.env["SECURITY_TEAM_WEBHOOK_URL"] ?? process.env["SECURITY_SLACK_WEBHOOK_URL"];
     if (!webhookUrl) {
-      logger.warn("Security team escalation (no webhook configured)", {
-        alertId: alert.id,
-        severity: alert.severity,
-      });
+      this.recordMissingConfig(
+        "security_team_escalation",
+        alert,
+        "SECURITY_TEAM_WEBHOOK_URL and SECURITY_SLACK_WEBHOOK_URL are not configured",
+      );
       return;
     }
     this.postWebhook(webhookUrl, {
@@ -563,9 +619,11 @@ export class SecurityMonitor {
           ],
         },
       ],
-    }).catch((err: Error) =>
-      logger.error("Security team escalation webhook failed", { alertId: alert.id, error: err.message }),
-    );
+    })
+      .then(() => this.recordDeliverySuccess("security_team_escalation", alert))
+      .catch((err: Error) =>
+        this.recordDeliveryFailure("security_team_escalation", alert, err, "security team escalation failed"),
+      );
   }
 
   /**
@@ -574,11 +632,7 @@ export class SecurityMonitor {
   private escalateToManagement(alert: SecurityAlert): void {
     const webhookUrl = process.env["SECURITY_MANAGEMENT_WEBHOOK_URL"];
     if (!webhookUrl) {
-      logger.error("Management escalation (no webhook configured)", {
-        alertId: alert.id,
-        severity: alert.severity,
-        message: alert.message,
-      });
+      this.recordMissingConfig("management_escalation", alert, "SECURITY_MANAGEMENT_WEBHOOK_URL is not configured");
       return;
     }
     this.postWebhook(webhookUrl, {
@@ -588,9 +642,11 @@ export class SecurityMonitor {
       message: alert.message,
       escalationLevel: alert.escalationLevel,
       timestamp: alert.timestamp.toISOString(),
-    }).catch((err: Error) =>
-      logger.error("Management escalation webhook failed", { alertId: alert.id, error: err.message }),
-    );
+    })
+      .then(() => this.recordDeliverySuccess("management_escalation", alert))
+      .catch((err: Error) =>
+        this.recordDeliveryFailure("management_escalation", alert, err, "management escalation failed"),
+      );
   }
 
   /**
@@ -598,14 +654,117 @@ export class SecurityMonitor {
    * Used for the highest-priority alerts that need multi-channel delivery.
    */
   private sendImmediateNotification(alert: SecurityAlert): void {
+    let sentChannelCount = 0;
     // Fire all configured channels simultaneously for immediate alerts
-    this.sendEmailAlert(alert);
-    this.sendSlackAlert(alert);
+    if (process.env["SECURITY_EMAIL_WEBHOOK_URL"]) {
+      this.sendEmailAlert(alert);
+      sentChannelCount += 1;
+    }
+    if (process.env["SECURITY_SLACK_WEBHOOK_URL"]) {
+      this.sendSlackAlert(alert);
+      sentChannelCount += 1;
+    }
+
+    if (sentChannelCount === 0) {
+      this.recordMissingConfig(
+        "immediate_notification",
+        alert,
+        "SECURITY_EMAIL_WEBHOOK_URL and SECURITY_SLACK_WEBHOOK_URL are not configured",
+      );
+      return;
+    }
+
+    this.recordDeliverySuccess("immediate_notification", alert);
     logger.warn("Immediate notification dispatched", {
       alertId: alert.id,
       severity: alert.severity,
       message: alert.message,
+      sentChannelCount,
     });
+  }
+
+  private recordDeliveryMetric(channel: AlertChannel, status: DeliveryStatus, alert: SecurityAlert): void {
+    this.deliveryMetrics[channel][status] += 1;
+    logger.info("security_alert_delivery_status", {
+      alertId: alert.id,
+      eventId: alert.eventId,
+      severity: alert.severity,
+      channel,
+      status,
+      metrics: this.deliveryMetrics[channel],
+    });
+  }
+
+  private recordDeliverySuccess(channel: AlertChannel, alert: SecurityAlert): void {
+    this.recordDeliveryMetric(channel, "sent", alert);
+  }
+
+  private recordDeliveryFailure(channel: AlertChannel, alert: SecurityAlert, error: Error, message: string): void {
+    this.recordDeliveryMetric(channel, "failed", alert);
+    logger.error(message, {
+      alertId: alert.id,
+      channel,
+      severity: alert.severity,
+      error: error.message,
+    });
+    this.persistToFallbackChannel(alert, channel, `delivery_failed:${error.message}`);
+  }
+
+  private recordMissingConfig(channel: AlertChannel, alert: SecurityAlert, reason: string): void {
+    this.recordDeliveryMetric(channel, "skipped_missing_config", alert);
+    const eventDetails = {
+      type: "alert_delivery_unavailable",
+      alertId: alert.id,
+      eventId: alert.eventId,
+      severity: alert.severity,
+      channel,
+      reason,
+      timestamp: new Date().toISOString(),
+    };
+    logger.warn("alert_delivery_unavailable", eventDetails);
+    this.persistToFallbackChannel(alert, channel, reason);
+  }
+
+  private persistToFallbackChannel(alert: SecurityAlert, channel: AlertChannel, reason: string): void {
+    const queueRecord: FallbackAlertRecord = {
+      queueId: `fallback_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      alertId: alert.id,
+      channel,
+      severity: alert.severity,
+      reason,
+      createdAt: new Date(),
+      payload: {
+        eventId: alert.eventId,
+        alertType: alert.type,
+        message: alert.message,
+        escalationLevel: alert.escalationLevel,
+        timestamp: alert.timestamp.toISOString(),
+      },
+    };
+
+    this.fallbackQueue.push(queueRecord);
+    void this.fallbackMessageBus.publishMessage(this.fallbackTopic, {
+      event_type: "alert",
+      sender_id: "SecurityMonitor",
+      recipient_ids: ["SecurityDeliveryWorker"],
+      recipient_agent: "SecurityDeliveryWorker",
+      message_type: "event",
+      content: `fallback alert delivery for ${alert.id}`,
+      payload: queueRecord,
+      metadata: {
+        priority: alert.severity === "critical" ? "critical" : "high",
+        requires_ack: true,
+      },
+      organization_id: "system",
+    });
+  }
+
+  getAlertDeliveryMetrics(): Record<AlertChannel, AlertDeliveryMetrics> {
+    return structuredClone(this.deliveryMetrics);
+  }
+
+  getFallbackQueue(): FallbackAlertRecord[] {
+    return [...this.fallbackQueue];
   }
 
   /**

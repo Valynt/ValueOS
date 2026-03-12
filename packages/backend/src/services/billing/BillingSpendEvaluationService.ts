@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { logger } from '../../lib/logger.js';
-import { MessageBus } from '../MessageBus.js';
+import { MessageBus } from '../realtime/MessageBus.js';
 
 import { TenantExecutionStateService } from './TenantExecutionStateService.js';
 
@@ -174,11 +174,18 @@ export class BillingSpendEvaluationService extends EventEmitter {
     this.emit('billing.daily_spend.threshold', event);
 
     await this.messageBus.publishMessage('billing.daily_spend.threshold', {
-      from_agent: 'billing-spend-evaluator',
-      to_agent: 'billing-monitor',
+      event_type: 'alert',
+      sender_id: 'billing-spend-evaluator',
+      recipient_ids: ['billing-monitor'],
+      recipient_agent: 'billing-monitor',
       message_type: 'status_update',
+      tenant_id: organizationId,
+      organization_id: organizationId,
+      content: `Daily spend ${threshold} threshold reached`,
       payload: event,
-      priority: threshold === 'critical' ? 'high' : 'medium',
+      metadata: {
+        priority: threshold === 'critical' ? 'high' : 'medium',
+      },
     });
 
     logger.warn('Billing spend threshold event emitted', event);

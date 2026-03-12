@@ -641,6 +641,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run blocking tenant-isolation hard-gate suites
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "${VITE_SUPABASE_URL}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "Missing required Supabase secrets for blocking tenant-isolation hard-gate suites." >&2
+            exit 1
+          fi
+
+          npx vitest run --config tests/security/vitest.security.config.ts \
+            tests/security/rls-tenant-isolation.test.ts \
+            tests/security/api-tenant-isolation.test.ts \
+            tests/security/supabase-rls-policy-matrix.test.ts \
+            tests/security/agent-invocation-tenant-boundary.test.ts
+
       - name: Run entitlements + billing regression tests
         run: |
           pnpm --filter @valueos/backend exec vitest run \

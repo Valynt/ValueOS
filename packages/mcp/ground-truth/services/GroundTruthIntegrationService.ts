@@ -8,11 +8,35 @@ import { logger } from "../../lib/logger.js";
 import { EDGARModule } from "../modules/EDGARModule.js";
 import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule.js";
 import { XBRLModule } from "../modules/XBRLModule.js";
+import { FinancialMetric, ModuleResponse, ProvenanceInfo } from "../types/index.js";
+
+export interface PersistedSECMetricRecord {
+  cik: string;
+  metric: string;
+  value: FinancialMetric["value"];
+  provenance: ProvenanceInfo;
+  timestamp: string;
+  metadata: {
+    tenant_id: string;
+    period: string;
+  };
+}
+
+export interface SECIngestionAggregateResult {
+  cik: string;
+  period: string;
+  tenantId: string;
+  metricsRequested: string[];
+  metricsPersisted: PersistedSECMetricRecord[];
+  metricFailures: Array<{ metric: string; error: string }>;
+  success: boolean;
+}
 
 export class GroundTruthIntegrationService {
   private edgar: EDGARModule;
   private xbrl: XBRLModule;
   private industry: IndustryBenchmarkModule;
+  private secMetricStore: PersistedSECMetricRecord[] = [];
 
   constructor(edgar: EDGARModule, xbrl: XBRLModule, industry: IndustryBenchmarkModule) {
     this.edgar = edgar;
@@ -28,15 +52,85 @@ export class GroundTruthIntegrationService {
    * @param tenantId Organization/tenant scope
    */
   async ingestSECData(cik: string, period: string, metrics: string[], tenantId: string) {
-    try {
-      const results = await this.edgar.query({ identifier: cik, metric: metrics[0], period });
-      // TODO: Loop over metrics, store with provenance and tenantId
-      logger.info("Ingested SEC data", { cik, period, tenantId, metrics });
-      return results;
-    } catch (error) {
-      logger.error("SEC ingestion failed", { cik, error });
-      throw error;
+    const metricFailures: Array<{ metric: string; error: string }> = [];
+    const metricsPersisted: PersistedSECMetricRecord[] = [];
+
+    for (const metric of metrics) {
+      try {
+        const result = await this.edgar.query({ identifier: cik, metric, period });
+        const persistedRecords = this.persistSECMetricResults(result, {
+          cik,
+          tenantId,
+          period,
+          metric,
+        });
+        metricsPersisted.push(...persistedRecords);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        metricFailures.push({ metric, error: errorMessage });
+        logger.warn("SEC metric ingestion failed", { cik, period, tenantId, metric, error });
+      }
     }
+
+    const aggregateResult: SECIngestionAggregateResult = {
+      cik,
+      period,
+      tenantId,
+      metricsRequested: metrics,
+      metricsPersisted,
+      metricFailures,
+      success: metricFailures.length === 0,
+    };
+
+    logger.info("SEC ingestion completed", {
+      cik,
+      period,
+      tenantId,
+      requested: metrics.length,
+      persisted: metricsPersisted.length,
+      failures: metricFailures.length,
+    });
+
+    return aggregateResult;
+  }
+
+  getPersistedSECMetricRecords(): PersistedSECMetricRecord[] {
+    return [...this.secMetricStore];
+  }
+
+  private persistSECMetricResults(
+    result: ModuleResponse,
+    context: { cik: string; period: string; tenantId: string; metric: string }
+  ): PersistedSECMetricRecord[] {
+    if (!result.success || !result.data) {
+      const message = result.error?.message ?? "No SEC metric data returned";
+      throw new Error(message);
+    }
+
+    const financialMetrics = Array.isArray(result.data) ? result.data : [result.data];
+
+    if (financialMetrics.length === 0) {
+      throw new Error(`No metric records returned for ${context.metric}`);
+    }
+
+    const persistedRecords = financialMetrics.map((financialMetric) => {
+      const record: PersistedSECMetricRecord = {
+        cik: context.cik,
+        metric: financialMetric.metric_name,
+        value: financialMetric.value,
+        provenance: financialMetric.provenance,
+        timestamp: financialMetric.timestamp,
+        metadata: {
+          tenant_id: context.tenantId,
+          period: context.period,
+        },
+      };
+
+      this.secMetricStore.push(record);
+      return record;
+    });
+
+    return persistedRecords;
   }
 
   /**

@@ -786,6 +786,19 @@ export class ValueCommitmentBackendService {
         .neq('status', 'closed'),
     ]);
 
+    if (milestonesRes.error) {
+      logger.error('getProgress milestones query failed', { error: milestonesRes.error.message, commitmentId, organizationId });
+      throw new ServiceError(`getProgress milestones: ${milestonesRes.error.message}`, ErrorCode.SERVER_ERROR);
+    }
+    if (metricsRes.error) {
+      logger.error('getProgress metrics query failed', { error: metricsRes.error.message, commitmentId, organizationId });
+      throw new ServiceError(`getProgress metrics: ${metricsRes.error.message}`, ErrorCode.SERVER_ERROR);
+    }
+    if (risksRes.error) {
+      logger.error('getProgress risks query failed', { error: risksRes.error.message, commitmentId, organizationId });
+      throw new ServiceError(`getProgress risks: ${risksRes.error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
     const milestones = milestonesRes.data ?? [];
     const metrics    = metricsRes.data ?? [];
     const risks      = risksRes.data ?? [];
@@ -824,7 +837,8 @@ export class ValueCommitmentBackendService {
       metric_achievement:   metricAchievement,
       risk_level:           riskLevel,
       days_remaining:       daysRemaining,
-      is_on_track:          overallProgress >= 50 && riskLevel !== 'critical',
+      // Threshold matches validateProgress (80%) so both endpoints give a consistent signal.
+      is_on_track:          overallProgress >= 80 && riskLevel !== 'critical',
     };
   }
 
@@ -845,6 +859,56 @@ export class ValueCommitmentBackendService {
     }
 
     return (data ?? []) as Record<string, unknown>[];
+  }
+
+  // -------------------------------------------------------------------------
+  // Validate progress against ground-truth threshold
+  //
+  // Rules (explicit, not speculative):
+  //   - overall_progress >= 80% → valid
+  //   - risk_level === 'critical' → always invalid regardless of progress
+  //   - days_remaining < 0 → overdue, flagged as issue
+  // -------------------------------------------------------------------------
+
+  async validateProgress(
+    commitmentId: string,
+    organizationId: string,
+  ): Promise<{
+    isValid: boolean;
+    confidence: number;
+    issues: string[];
+    recommendations: string[];
+  }> {
+    const progress = await this.getProgress(commitmentId, organizationId);
+
+    const THRESHOLD = 80;
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+
+    if (progress.risk_level === 'critical') {
+      issues.push(`Risk level is critical — commitment is blocked regardless of progress percentage`);
+      recommendations.push('Address critical risks before the next milestone review');
+    }
+
+    if (progress.overall_progress < THRESHOLD) {
+      const gap = THRESHOLD - progress.overall_progress;
+      issues.push(`Overall progress ${progress.overall_progress}% is ${gap}pp below the ${THRESHOLD}% threshold`);
+      if (progress.milestone_completion < progress.metric_achievement) {
+        recommendations.push('Milestone completion is lagging — review blocked milestones and dependencies');
+      } else {
+        recommendations.push('Metric actuals are lagging — update current values or revise targets');
+      }
+    }
+
+    if (progress.days_remaining < 0) {
+      issues.push(`Commitment is ${Math.abs(progress.days_remaining)} day(s) past the target completion date`);
+      recommendations.push('Update the target completion date or escalate to the commitment owner');
+    }
+
+    const isValid = issues.length === 0;
+    const confidence = progress.overall_progress / 100;
+
+    return { isValid, confidence, issues, recommendations };
   }
 
   // -------------------------------------------------------------------------
