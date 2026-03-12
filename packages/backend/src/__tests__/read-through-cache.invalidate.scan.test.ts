@@ -1,117 +1,140 @@
-/**
- * ReadThroughCacheService.invalidateEndpoint — SCAN vs KEYS
- *
- * invalidateEndpoint currently calls redis.keys() which blocks the Redis
- * event loop on large keyspaces. This test pins the current behaviour and
- * documents the known debt: it asserts that the implementation does NOT use
- * SCAN-based iteration, so that when the fix lands the test can be inverted
- * to assert SCAN is used instead.
- *
- * See: packages/backend/src/lib/redis.ts::deleteCachePattern for the
- * correct SCAN-based pattern that should replace the keys() call.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ─── Redis mock ───────────────────────────────────────────────────────────────
-
-const { mockKeys, mockScan, mockDel, mockGet, mockSet } = vi.hoisted(() => ({
-  mockKeys: vi.fn(),
+const { mockScan, mockDel } = vi.hoisted(() => ({
   mockScan: vi.fn(),
   mockDel: vi.fn(),
-  mockGet: vi.fn(),
-  mockSet: vi.fn(),
 }));
+
+const readCacheEventsTotalInc = vi.hoisted(() => vi.fn());
 
 vi.mock('@shared/lib/redisClient', () => ({
   getRedisClient: vi.fn().mockResolvedValue({
-    keys: mockKeys,
     scan: mockScan,
     del: mockDel,
-    get: mockGet,
-    set: mockSet,
   }),
 }));
 
-// @shared/lib/redisKeys is pure (no I/O) — use the real implementation so
-// key-scoping assertions stay in sync with the actual key format.
-
 vi.mock('../lib/metrics/httpMetrics.js', () => ({
-  readCacheEventsTotal: { inc: vi.fn() },
+  readCacheEventsTotal: { inc: readCacheEventsTotalInc },
 }));
 
 import { ReadThroughCacheService } from '../services/ReadThroughCacheService.js';
 
 const TENANT_A = 'tenant-aaaa-0000-0000-000000000001';
+const TENANT_B = 'tenant-bbbb-0000-0000-000000000002';
 const ENDPOINT = 'api-analytics-summary';
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('ReadThroughCacheService.invalidateEndpoint', () => {
   beforeEach(() => {
-    mockKeys.mockReset();
     mockScan.mockReset();
     mockDel.mockReset();
+    readCacheEventsTotalInc.mockReset();
   });
 
   it('returns 0 and does not call del when no keys match', async () => {
-    mockKeys.mockResolvedValue([]);
+    mockScan.mockResolvedValueOnce(['0', []]);
 
     const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
 
     expect(deleted).toBe(0);
     expect(mockDel).not.toHaveBeenCalled();
+    expect(readCacheEventsTotalInc).not.toHaveBeenCalled();
   });
 
-  it('deletes all matching keys returned by keys()', async () => {
+  it('iterates with SCAN until cursor is exhausted and deletes matching keys', async () => {
     const matchingKeys = [
       `${TENANT_A}:read-cache:${ENDPOINT}:summary:abc123`,
       `${TENANT_A}:read-cache:${ENDPOINT}:summary:def456`,
+      `${TENANT_A}:read-cache:${ENDPOINT}:summary:ghi789`,
     ];
-    mockKeys.mockResolvedValue(matchingKeys);
-    mockDel.mockResolvedValue(2);
+
+    mockScan
+      .mockResolvedValueOnce(['17', matchingKeys.slice(0, 2)])
+      .mockResolvedValueOnce(['0', matchingKeys.slice(2)]);
+
+    mockDel.mockResolvedValueOnce(2).mockResolvedValueOnce(1);
 
     const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
 
-    expect(deleted).toBe(2);
-    expect(mockDel).toHaveBeenCalledWith(matchingKeys);
+    expect(deleted).toBe(3);
+    expect(mockScan).toHaveBeenCalledTimes(2);
+    expect(mockScan).toHaveBeenNthCalledWith(1, '0', {
+      MATCH: `${TENANT_A}:read-cache:${ENDPOINT}*`,
+      COUNT: 100,
+    });
+    expect(mockScan).toHaveBeenNthCalledWith(2, '17', {
+      MATCH: `${TENANT_A}:read-cache:${ENDPOINT}*`,
+      COUNT: 100,
+    });
+    expect(mockDel).toHaveBeenNthCalledWith(1, matchingKeys.slice(0, 2));
+    expect(mockDel).toHaveBeenNthCalledWith(2, matchingKeys.slice(2));
+    expect(readCacheEventsTotalInc).toHaveBeenCalledWith(
+      { endpoint: ENDPOINT, event: 'eviction' },
+      3,
+    );
   });
 
-  it('does not call SCAN — documents current keys() usage (known debt)', async () => {
-    mockKeys.mockResolvedValue([]);
+  it('supports high-cardinality invalidation without using KEYS', async () => {
+    const batchOne = Array.from({ length: 100 }, (_, index) =>
+      `${TENANT_A}:read-cache:${ENDPOINT}:summary:key-${index}`,
+    );
+    const batchTwo = Array.from({ length: 100 }, (_, index) =>
+      `${TENANT_A}:read-cache:${ENDPOINT}:summary:key-${index + 100}`,
+    );
+    const batchThree = Array.from({ length: 57 }, (_, index) =>
+      `${TENANT_A}:read-cache:${ENDPOINT}:summary:key-${index + 200}`,
+    );
+
+    mockScan
+      .mockResolvedValueOnce(['1', batchOne])
+      .mockResolvedValueOnce(['2', batchTwo])
+      .mockResolvedValueOnce(['0', batchThree]);
+
+    mockDel
+      .mockResolvedValueOnce(batchOne.length)
+      .mockResolvedValueOnce(batchTwo.length)
+      .mockResolvedValueOnce(batchThree.length);
+
+    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
+
+    expect(deleted).toBe(257);
+    expect(mockScan).toHaveBeenCalledTimes(3);
+    for (const call of mockScan.mock.calls) {
+      expect(call[1]).toEqual({
+        MATCH: `${TENANT_A}:read-cache:${ENDPOINT}*`,
+        COUNT: 100,
+      });
+    }
+    expect(readCacheEventsTotalInc).toHaveBeenCalledWith(
+      { endpoint: ENDPOINT, event: 'eviction' },
+      257,
+    );
+  });
+
+  it('remains tenant-scoped via MATCH pattern', async () => {
+    mockScan.mockResolvedValueOnce(['0', []]);
 
     await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
 
-    // Current implementation uses KEYS, not SCAN.
-    // When this is fixed to use SCAN, flip these two assertions.
-    expect(mockKeys).toHaveBeenCalledOnce();
-    expect(mockScan).not.toHaveBeenCalled();
+    const options = mockScan.mock.calls[0]?.[1] as { MATCH: string; COUNT: number };
+    expect(options.MATCH).toContain(TENANT_A);
+    expect(options.MATCH).not.toContain(TENANT_B);
+    expect(options.MATCH).toContain(ENDPOINT);
   });
 
-  it('scopes the key pattern to the requesting tenant', async () => {
-    mockKeys.mockResolvedValue([]);
+  it('does not attempt deletion for empty batches from intermediate scan pages', async () => {
+    mockScan
+      .mockResolvedValueOnce(['33', []])
+      .mockResolvedValueOnce(['0', [`${TENANT_A}:read-cache:${ENDPOINT}:summary:abc`]]);
+    mockDel.mockResolvedValueOnce(1);
 
-    await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
+    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
 
-    const pattern: string = mockKeys.mock.calls[0][0] as string;
-    expect(pattern).toContain(TENANT_A);
-    expect(pattern).toContain(ENDPOINT);
-  });
-
-  it('does not invalidate keys belonging to a different tenant', async () => {
-    const TENANT_B = 'tenant-bbbb-0000-0000-000000000002';
-    const tenantBKey = `${TENANT_B}:read-cache:${ENDPOINT}:summary:xyz`;
-
-    // keys() is called with a tenant-scoped pattern; simulate it returning
-    // only tenant-A keys (the real Redis would do the same).
-    mockKeys.mockResolvedValue([
-      `${TENANT_A}:read-cache:${ENDPOINT}:summary:abc`,
-    ]);
-    mockDel.mockResolvedValue(1);
-
-    await ReadThroughCacheService.invalidateEndpoint(TENANT_A, ENDPOINT);
-
-    const deletedKeys: string[] = mockDel.mock.calls[0][0] as string[];
-    expect(deletedKeys).not.toContain(tenantBKey);
+    expect(deleted).toBe(1);
+    expect(mockDel).toHaveBeenCalledTimes(1);
+    expect(readCacheEventsTotalInc).toHaveBeenCalledWith(
+      { endpoint: ENDPOINT, event: 'eviction' },
+      1,
+    );
   });
 });

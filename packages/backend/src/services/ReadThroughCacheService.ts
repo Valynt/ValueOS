@@ -19,6 +19,8 @@ export interface ReadCacheConfig {
 }
 
 export class ReadThroughCacheService {
+  private static readonly INVALIDATION_SCAN_BATCH_SIZE = 100;
+
   private static hashPayload(payload: unknown): string {
     const serialized = JSON.stringify(payload ?? {});
     return crypto.createHash("sha1").update(serialized).digest("hex");
@@ -60,12 +62,27 @@ export class ReadThroughCacheService {
   ): Promise<number> {
     const redis = await getRedisClient();
     const pattern = tenantReadCachePattern({ tenantId, endpoint });
-    const keys = await redis.keys(pattern);
-    if (!keys.length) {
+    let cursor = "0";
+    let deleted = 0;
+
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, {
+        MATCH: pattern,
+        COUNT: this.INVALIDATION_SCAN_BATCH_SIZE,
+      });
+      cursor = nextCursor;
+
+      if (!keys.length) {
+        continue;
+      }
+
+      deleted += await redis.del(keys);
+    } while (cursor !== "0");
+
+    if (!deleted) {
       return 0;
     }
 
-    const deleted = await redis.del(keys);
     readCacheEventsTotal.inc({ endpoint, event: "eviction" }, deleted);
     return deleted;
   }
