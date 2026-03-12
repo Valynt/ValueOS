@@ -10,6 +10,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,8 +55,11 @@ export interface HypothesisOutput {
  * Returns null data (not an error) when no run has been completed yet.
  */
 export function useHypothesisOutput(caseId: string | undefined) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
+
   return useQuery<HypothesisOutput | null>({
-    queryKey: ["hypothesis", caseId],
+    queryKey: ["hypothesis", caseId, tenantId],
     queryFn: async () => {
       const result = await apiClient.get<{ data: HypothesisOutput | null }>(
         `/api/v1/value-cases/${caseId}/hypothesis`,
@@ -63,7 +67,7 @@ export function useHypothesisOutput(caseId: string | undefined) {
       if (!result.success) throw new Error(result.error?.message ?? "Request failed");
       return result.data?.data ?? null;
     },
-    enabled: !!caseId,
+    enabled: !!caseId && !!tenantId,
     staleTime: 30_000,
     retry: (failureCount, error) => {
       if (error instanceof Error && error.message.includes("404")) return false;
@@ -91,6 +95,8 @@ export interface AgentInvokeResponse {
  */
 export function useRunHypothesisAgent(caseId: string | undefined) {
   const queryClient = useQueryClient();
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
 
   return useMutation<AgentInvokeResponse, Error, { companyName?: string; query?: string }>({
     mutationFn: async (input) => {
@@ -110,7 +116,7 @@ export function useRunHypothesisAgent(caseId: string | undefined) {
       return { ...data, runId: data.jobId ?? data.runId };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["hypothesis", caseId] });
+      queryClient.invalidateQueries({ queryKey: ["hypothesis", caseId, tenantId] });
     },
   });
 }
