@@ -24,6 +24,14 @@ import {
   type CreateCommitmentInput,
   type StatusTransitionInput,
   type UpdateCommitmentInput,
+  type AddMilestoneInput,
+  type UpdateMilestoneInput,
+  type AddMetricInput,
+  type UpdateMetricActualInput,
+  type AddRiskInput,
+  type UpdateRiskInput,
+  type AddStakeholderInput,
+  type UpdateStakeholderInput,
 } from '../../api/valueCommitments/schemas.js';
 
 const logger = createLogger({ component: 'ValueCommitmentBackendService' });
@@ -375,6 +383,536 @@ export class ValueCommitmentBackendService {
     organizationId: string,
   ): Promise<Record<string, unknown>> {
     return fetchOwned(commitmentId, organizationId);
+  }
+
+  // -------------------------------------------------------------------------
+  // Milestones
+  // -------------------------------------------------------------------------
+
+  async addMilestone(
+    commitmentId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: AddMilestoneInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const { data, error } = await supabase
+      .from('commitment_milestones')
+      .insert({
+        commitment_id:      commitmentId,
+        organization_id:    organizationId,
+        tenant_id:          organizationId,
+        title:              input.title,
+        description:        input.description ?? null,
+        milestone_type:     input.milestone_type,
+        sequence_order:     input.sequence_order,
+        target_date:        input.target_date,
+        deliverables:       input.deliverables ?? [],
+        success_criteria:   input.success_criteria ?? [],
+        status:             'pending',
+        progress_percentage: 0,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('addMilestone failed', { error: error.message, commitmentId, organizationId });
+      throw new ServiceError(`addMilestone: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
+    const row = data as Record<string, unknown>;
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.milestone_added',
+      resourceId: commitmentId,
+      afterState: { milestone_id: row['id'], title: input.title },
+    });
+
+    return row;
+  }
+
+  async updateMilestone(
+    commitmentId: string,
+    milestoneId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: UpdateMilestoneInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const patch: Record<string, unknown> = {
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('commitment_milestones')
+      .update(patch)
+      .eq('id', milestoneId)
+      .eq('commitment_id', commitmentId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('updateMilestone failed', { error: error.message, milestoneId, commitmentId });
+      throw new ServiceError(`updateMilestone: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+    if (!data) throw new NotFoundError('Milestone');
+
+    const row = data as Record<string, unknown>;
+
+    // Recompute commitment-level progress from milestone averages
+    await this.recomputeProgress(commitmentId, organizationId);
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.milestone_updated',
+      resourceId: commitmentId,
+      afterState: { milestone_id: milestoneId, ...input },
+    });
+
+    return row;
+  }
+
+  // -------------------------------------------------------------------------
+  // Metrics
+  // -------------------------------------------------------------------------
+
+  async addMetric(
+    commitmentId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: AddMetricInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const { data, error } = await supabase
+      .from('commitment_metrics')
+      .insert({
+        commitment_id:   commitmentId,
+        organization_id: organizationId,
+        tenant_id:       organizationId,
+        metric_name:     input.metric_name,
+        baseline_value:  input.baseline_value,
+        target_value:    input.target_value,
+        current_value:   input.baseline_value,
+        unit:            input.unit,
+        is_active:       true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('addMetric failed', { error: error.message, commitmentId, organizationId });
+      throw new ServiceError(`addMetric: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
+    const row = data as Record<string, unknown>;
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.metric_added',
+      resourceId: commitmentId,
+      afterState: { metric_id: row['id'], metric_name: input.metric_name },
+    });
+
+    return row;
+  }
+
+  async updateMetricActual(
+    commitmentId: string,
+    metricId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: UpdateMetricActualInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const { data, error } = await supabase
+      .from('commitment_metrics')
+      .update({
+        current_value:    input.current_value,
+        last_measured_at: new Date().toISOString(),
+        updated_at:       new Date().toISOString(),
+      })
+      .eq('id', metricId)
+      .eq('commitment_id', commitmentId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('updateMetricActual failed', { error: error.message, metricId, commitmentId });
+      throw new ServiceError(`updateMetricActual: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+    if (!data) throw new NotFoundError('Metric');
+
+    const row = data as Record<string, unknown>;
+
+    await this.recomputeProgress(commitmentId, organizationId);
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.metric_updated',
+      resourceId: commitmentId,
+      afterState: { metric_id: metricId, current_value: input.current_value },
+    });
+
+    return row;
+  }
+
+  // -------------------------------------------------------------------------
+  // Risks
+  // -------------------------------------------------------------------------
+
+  async addRisk(
+    commitmentId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: AddRiskInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const { data, error } = await supabase
+      .from('commitment_risks')
+      .insert({
+        commitment_id:    commitmentId,
+        organization_id:  organizationId,
+        tenant_id:        organizationId,
+        risk_title:       input.risk_title,
+        risk_description: input.risk_description,
+        risk_category:    input.risk_category,
+        probability:      input.probability,
+        impact:           input.impact,
+        mitigation_plan:  input.mitigation_plan,
+        contingency_plan: input.contingency_plan,
+        owner_id:         input.owner_id,
+        review_date:      input.review_date,
+        status:           'identified',
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('addRisk failed', { error: error.message, commitmentId, organizationId });
+      throw new ServiceError(`addRisk: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
+    const row = data as Record<string, unknown>;
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.risk_added',
+      resourceId: commitmentId,
+      afterState: { risk_id: row['id'], risk_title: input.risk_title },
+    });
+
+    return row;
+  }
+
+  async updateRisk(
+    commitmentId: string,
+    riskId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: UpdateRiskInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const patch: Record<string, unknown> = {
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('commitment_risks')
+      .update(patch)
+      .eq('id', riskId)
+      .eq('commitment_id', commitmentId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('updateRisk failed', { error: error.message, riskId, commitmentId });
+      throw new ServiceError(`updateRisk: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+    if (!data) throw new NotFoundError('Risk');
+
+    const row = data as Record<string, unknown>;
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.risk_updated',
+      resourceId: commitmentId,
+      afterState: { risk_id: riskId, ...input },
+    });
+
+    return row;
+  }
+
+  // -------------------------------------------------------------------------
+  // Stakeholders
+  // -------------------------------------------------------------------------
+
+  async addStakeholder(
+    commitmentId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: AddStakeholderInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const { data, error } = await supabase
+      .from('commitment_stakeholders')
+      .insert({
+        commitment_id:             commitmentId,
+        organization_id:           organizationId,
+        tenant_id:                 organizationId,
+        user_id:                   input.user_id,
+        role:                      input.role,
+        responsibility:            input.responsibility,
+        accountability_percentage: input.accountability_percentage ?? 50,
+        is_active:                 true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('addStakeholder failed', { error: error.message, commitmentId, organizationId });
+      throw new ServiceError(`addStakeholder: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
+    const row = data as Record<string, unknown>;
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.stakeholder_added',
+      resourceId: commitmentId,
+      afterState: { stakeholder_id: row['id'], user_id: input.user_id, role: input.role },
+    });
+
+    return row;
+  }
+
+  async updateStakeholder(
+    commitmentId: string,
+    stakeholderId: string,
+    organizationId: string,
+    actorUserId: string,
+    input: UpdateStakeholderInput,
+  ): Promise<Record<string, unknown>> {
+    await fetchOwned(commitmentId, organizationId);
+
+    const patch: Record<string, unknown> = {
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('commitment_stakeholders')
+      .update(patch)
+      .eq('id', stakeholderId)
+      .eq('commitment_id', commitmentId)
+      .eq('organization_id', organizationId)
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('updateStakeholder failed', { error: error.message, stakeholderId, commitmentId });
+      throw new ServiceError(`updateStakeholder: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+    if (!data) throw new NotFoundError('Stakeholder');
+
+    const row = data as Record<string, unknown>;
+
+    await this.emitAudit({
+      actorUserId,
+      organizationId,
+      action:     'commitment.stakeholder_updated',
+      resourceId: commitmentId,
+      afterState: { stakeholder_id: stakeholderId, ...input },
+    });
+
+    return row;
+  }
+
+  // -------------------------------------------------------------------------
+  // Progress (computed from live DB rows)
+  // -------------------------------------------------------------------------
+
+  async getProgress(
+    commitmentId: string,
+    organizationId: string,
+  ): Promise<{
+    commitment_id: string;
+    overall_progress: number;
+    milestone_completion: number;
+    metric_achievement: number;
+    risk_level: string;
+    days_remaining: number;
+    is_on_track: boolean;
+  }> {
+    const commitment = await fetchOwned(commitmentId, organizationId);
+
+    const [milestonesRes, metricsRes, risksRes] = await Promise.all([
+      supabase
+        .from('commitment_milestones')
+        .select('progress_percentage, status')
+        .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
+        .neq('status', 'cancelled'),
+      supabase
+        .from('commitment_metrics')
+        .select('current_value, target_value')
+        .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true),
+      supabase
+        .from('commitment_risks')
+        .select('probability')
+        .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
+        .neq('status', 'closed'),
+    ]);
+
+    const milestones = milestonesRes.data ?? [];
+    const metrics    = metricsRes.data ?? [];
+    const risks      = risksRes.data ?? [];
+
+    const milestoneCompletion = milestones.length > 0
+      ? Math.round(milestones.reduce((s, m) => s + (m.progress_percentage ?? 0), 0) / milestones.length)
+      : 0;
+
+    const metricAchievement = metrics.length > 0
+      ? Math.round(
+          metrics.reduce((s, m) => {
+            const pct = (m.target_value ?? 0) > 0
+              ? Math.min(100, ((m.current_value ?? 0) / m.target_value) * 100)
+              : 0;
+            return s + pct;
+          }, 0) / metrics.length,
+        )
+      : 0;
+
+    const highRisks = risks.filter((r) => r.probability === 'high' || r.probability === 'critical').length;
+    const riskLevel = highRisks > 2 ? 'critical' : highRisks > 0 ? 'high' : 'low';
+
+    const targetDate = commitment['target_completion_date']
+      ? new Date(commitment['target_completion_date'] as string)
+      : null;
+    const daysRemaining = targetDate
+      ? Math.ceil((targetDate.getTime() - Date.now()) / 86_400_000)
+      : 0;
+
+    const overallProgress = Math.round(milestoneCompletion * 0.6 + metricAchievement * 0.4);
+
+    return {
+      commitment_id:        commitmentId,
+      overall_progress:     overallProgress,
+      milestone_completion: milestoneCompletion,
+      metric_achievement:   metricAchievement,
+      risk_level:           riskLevel,
+      days_remaining:       daysRemaining,
+      is_on_track:          overallProgress >= 50 && riskLevel !== 'critical',
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Commitment list
+  // -------------------------------------------------------------------------
+
+  async listCommitments(organizationId: string): Promise<Record<string, unknown>[]> {
+    const { data, error } = await supabase
+      .from('value_commitments')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      logger.error('listCommitments failed', { error: error.message, organizationId });
+      throw new ServiceError(`listCommitments: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
+    return (data ?? []) as Record<string, unknown>[];
+  }
+
+  // -------------------------------------------------------------------------
+  // At-risk commitments list
+  // -------------------------------------------------------------------------
+
+  async getAtRiskCommitments(
+    organizationId: string,
+    threshold = 80,
+  ): Promise<Record<string, unknown>[]> {
+    const { data, error } = await supabase
+      .from('value_commitments')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .lt('progress_percentage', threshold)
+      .in('status', ['active', 'at_risk']);
+
+    if (error) {
+      logger.error('getAtRiskCommitments failed', { error: error.message, organizationId });
+      throw new ServiceError(`getAtRiskCommitments: ${error.message}`, ErrorCode.SERVER_ERROR);
+    }
+
+    return (data ?? []) as Record<string, unknown>[];
+  }
+
+  // -------------------------------------------------------------------------
+  // Private: recompute commitment progress_percentage from milestones + metrics
+  // -------------------------------------------------------------------------
+
+  private async recomputeProgress(commitmentId: string, organizationId: string): Promise<void> {
+    const [milestonesRes, metricsRes] = await Promise.all([
+      supabase
+        .from('commitment_milestones')
+        .select('progress_percentage')
+        .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
+        .neq('status', 'cancelled'),
+      supabase
+        .from('commitment_metrics')
+        .select('current_value, target_value')
+        .eq('commitment_id', commitmentId)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true),
+    ]);
+
+    const milestones = milestonesRes.data ?? [];
+    const metrics    = metricsRes.data ?? [];
+
+    const milestoneAvg = milestones.length > 0
+      ? milestones.reduce((s, m) => s + (m.progress_percentage ?? 0), 0) / milestones.length
+      : 0;
+
+    const metricAvg = metrics.length > 0
+      ? metrics.reduce((s, m) => {
+          const pct = (m.target_value ?? 0) > 0
+            ? Math.min(100, ((m.current_value ?? 0) / m.target_value) * 100)
+            : 0;
+          return s + pct;
+        }, 0) / metrics.length
+      : 0;
+
+    const overall = Math.round(milestoneAvg * 0.6 + metricAvg * 0.4);
+
+    await supabase
+      .from('value_commitments')
+      .update({ progress_percentage: overall, updated_at: new Date().toISOString() })
+      .eq('id', commitmentId)
+      .eq('organization_id', organizationId);
   }
 
   // -------------------------------------------------------------------------

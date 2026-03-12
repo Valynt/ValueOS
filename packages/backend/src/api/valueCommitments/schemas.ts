@@ -102,6 +102,96 @@ export const AddNoteSchema = z.object({
 export type AddNoteInput = z.infer<typeof AddNoteSchema>;
 
 // ---------------------------------------------------------------------------
+// Milestone schemas
+// ---------------------------------------------------------------------------
+
+export const AddMilestoneSchema = z.object({
+  title:            shortText(200),
+  description:      optText(1000),
+  milestone_type:   z.enum(['planning', 'execution', 'review', 'completion', 'validation']),
+  sequence_order:   z.number().int().min(1),
+  target_date:      isoDate,
+  deliverables:     z.array(z.string().max(500)).max(20).optional(),
+  success_criteria: z.array(z.string().max(500)).max(20).optional(),
+});
+export type AddMilestoneInput = z.infer<typeof AddMilestoneSchema>;
+
+export const UpdateMilestoneSchema = z.object({
+  title:              shortText(200).optional(),
+  description:        optText(1000),
+  status:             z.enum(['pending', 'in_progress', 'completed', 'delayed', 'cancelled']).optional(),
+  progress_percentage: z.number().int().min(0).max(100).optional(),
+  target_date:        isoDate.optional(),
+  actual_date:        isoDate.optional(),
+  deliverables:       z.array(z.string().max(500)).max(20).optional(),
+  success_criteria:   z.array(z.string().max(500)).max(20).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
+export type UpdateMilestoneInput = z.infer<typeof UpdateMilestoneSchema>;
+
+// ---------------------------------------------------------------------------
+// Metric schemas
+// ---------------------------------------------------------------------------
+
+export const AddMetricSchema = z.object({
+  metric_name:    shortText(100),
+  baseline_value: z.number().finite(),
+  target_value:   z.number().finite(),
+  unit:           shortText(50),
+});
+export type AddMetricInput = z.infer<typeof AddMetricSchema>;
+
+export const UpdateMetricActualSchema = z.object({
+  current_value: z.number().finite(),
+});
+export type UpdateMetricActualInput = z.infer<typeof UpdateMetricActualSchema>;
+
+// ---------------------------------------------------------------------------
+// Risk schemas
+// ---------------------------------------------------------------------------
+
+export const AddRiskSchema = z.object({
+  risk_title:       shortText(200),
+  risk_description: shortText(1000),
+  risk_category:    z.enum(['execution', 'resource', 'market', 'technical', 'regulatory', 'financial']),
+  probability:      z.enum(['low', 'medium', 'high', 'critical']),
+  impact:           z.enum(['low', 'medium', 'high', 'critical']),
+  mitigation_plan:  shortText(2000),
+  contingency_plan: shortText(2000),
+  owner_id:         uuid,
+  review_date:      isoDate,
+});
+export type AddRiskInput = z.infer<typeof AddRiskSchema>;
+
+export const UpdateRiskSchema = z.object({
+  status:       z.enum(['identified', 'mitigating', 'mitigated', 'occurred', 'closed']).optional(),
+  probability:  z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  impact:       z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  mitigated_at: isoDate.optional(),
+  review_date:  isoDate.optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
+export type UpdateRiskInput = z.infer<typeof UpdateRiskSchema>;
+
+// ---------------------------------------------------------------------------
+// Stakeholder schemas
+// ---------------------------------------------------------------------------
+
+export const AddStakeholderSchema = z.object({
+  user_id:                   uuid,
+  role:                      z.enum(['owner', 'contributor', 'approver', 'reviewer', 'observer']),
+  responsibility:            shortText(500),
+  accountability_percentage: z.number().min(0).max(100).optional(),
+});
+export type AddStakeholderInput = z.infer<typeof AddStakeholderSchema>;
+
+export const UpdateStakeholderSchema = z.object({
+  role:                      z.enum(['owner', 'contributor', 'approver', 'reviewer', 'observer']).optional(),
+  responsibility:            shortText(500).optional(),
+  accountability_percentage: z.number().min(0).max(100).optional(),
+  is_active:                 z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
+export type UpdateStakeholderInput = z.infer<typeof UpdateStakeholderSchema>;
+
+// ---------------------------------------------------------------------------
 // Response DTOs — strip internal columns before sending to client
 // ---------------------------------------------------------------------------
 

@@ -105,15 +105,33 @@ Opportunity   Target +    Integrity   Narrative   Expansion  Realization
 | **Agent** | `RealizationAgent.ts` — generates implementation plans and milestones | ✅ |
 | **DB table** | `realization_reports` — migration `20260321000000_back_half_tables.sql` | ✅ |
 | **Repository** | `RealizationReportRepository.ts` — `createOutput`, `getLatestForCase`, `updateRealizationPct` | ✅ |
-| **Service** | `ValueCommitmentTrackingService.ts` — milestones, metrics, risks, stakeholders | ⚠️ 15 TODO stubs (DEBT-007, Sprint 20) |
+| **Service** | `ValueCommitmentTrackingService.ts` (frontend) — all write + read paths via backend API | ✅ |
+| **Service** | `ValueCommitmentBackendService.ts` (backend) — commitment + milestone + metric + risk + stakeholder + progress | ✅ |
+| **DB tables** | `value_commitments`, `commitment_milestones`, `commitment_metrics`, `commitment_risks`, `commitment_stakeholders`, `commitment_notes`, `commitment_audits` — migration `20260718000000_commitment_tracking_tables.sql` | ✅ |
 | **API endpoint** | `GET /api/v1/cases/:caseId/realization` | ✅ |
 | **API endpoint** | `POST /api/v1/cases/:caseId/realization/run` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments` | ✅ |
+| **API endpoint** | `GET /api/v1/value-commitments` (+ `?atRisk=true`) | ✅ |
+| **API endpoint** | `GET /api/v1/value-commitments/:id` | ✅ |
+| **API endpoint** | `PATCH /api/v1/value-commitments/:id` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments/:id/status-transitions` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments/:id/notes` | ✅ |
+| **API endpoint** | `DELETE /api/v1/value-commitments/:id` | ✅ |
+| **API endpoint** | `GET /api/v1/value-commitments/:id/progress` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments/:id/milestones` | ✅ |
+| **API endpoint** | `PATCH /api/v1/value-commitments/:id/milestones/:milestoneId` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments/:id/metrics` | ✅ |
+| **API endpoint** | `PATCH /api/v1/value-commitments/:id/metrics/:metricId/actual` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments/:id/risks` | ✅ |
+| **API endpoint** | `PATCH /api/v1/value-commitments/:id/risks/:riskId` | ✅ |
+| **API endpoint** | `POST /api/v1/value-commitments/:id/stakeholders` | ✅ |
+| **API endpoint** | `PATCH /api/v1/value-commitments/:id/stakeholders/:stakeholderId` | ✅ |
 | **Frontend hook** | `useRealization.ts` — `useRealizationReport`, `useRunRealizationAgent` | ✅ |
 | **UI component** | `RealizationStage.tsx` — wired to real data, empty state, run button | ✅ |
-| **User story** | US-006 | ⚠️ stage wired; commitment tracking stubs remain (Sprint 20) |
-| **Debt ref** | DEBT-004 resolved; DEBT-007 / issue #1348 open (Sprint 20) | |
+| **User story** | US-006 | ✅ |
+| **Debt ref** | DEBT-004 resolved; DEBT-007 resolved Sprint 20 | |
 
-**Stage wired outside sprint cadence.** `ValueCommitmentTrackingService` stubs are the remaining gap — scheduled for Sprint 20.
+**Full stack slice complete as of Sprint 20.** All commitment tracking operations persist to Supabase via the backend API. No stub methods remain in either `ValueCommitmentTrackingService`.
 
 ---
 
