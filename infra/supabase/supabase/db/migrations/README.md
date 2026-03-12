@@ -1,7 +1,9 @@
-# Supabase DB Migrations
+# DO NOT USE FOR RUNTIME MIGRATIONS
 
-This directory contains SQL migration scripts for the Supabase database. Place all new migration scripts here, following the naming convention: `YYYYMMDD_description.sql`.
+This directory is **legacy-only** and is not part of the executable runtime migration workflow.
 
-- Example: `20260208_rls_enforcement.sql`
+Canonical runtime migrations are located in `infra/supabase/supabase/migrations`.
 
-Ensure all migrations are compatible with Supabase/PostgreSQL.
+---
+
+_Original note (historical):_ Place new migration scripts in `infra/supabase/supabase/migrations/` following the naming convention `YYYYMMDDHHMMSS_description.sql`.

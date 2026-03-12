@@ -1,0 +1,7 @@
+{
+  "tables": {
+    "accounts": {
+      "columns": ["id", "tenant_id", "name", "manually_added_column"]
+    }
+  }
+}

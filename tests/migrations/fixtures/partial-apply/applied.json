@@ -1,0 +1,10 @@
+{
+  "applied": [
+    "20260101000000_create_accounts.sql"
+  ],
+  "pending": [
+    "20260102000000_add_status.sql",
+    "20260103000000_add_archived_at.sql"
+  ],
+  "failed": "20260102000000_add_status.sql"
+}

@@ -68,6 +68,7 @@ jobs:
           npx vitest run --coverage --coverage.thresholds.lines=60 --coverage.thresholds.functions=50 --coverage.thresholds.branches=50 --coverage.thresholds.statements=60
           node scripts/ci/check-migration-hygiene.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
+          node scripts/ci/verify-critical-architecture-migrations.mjs
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
