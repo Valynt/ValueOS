@@ -446,7 +446,12 @@ export class WorkflowExecutor {
         `WorkflowExecutor.executeStage.${stage.id}`,
       );
       const orgId = stageContext.organizationId ?? '';
-      const agentContext: AgentContext = { userId: stageContext.userId ?? '', sessionId, metadata: { currentStage: stage.id, organizationId: orgId } };
+      const agentContext: AgentContext = {
+        userId: stageContext.userId ?? '',
+        sessionId,
+        organizationId: orgId,
+        metadata: { currentStage: stage.id, organizationId: orgId },
+      };
 
       let memoryContext: Record<string, unknown> = {};
       try {
