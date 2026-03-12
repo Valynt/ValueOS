@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "override": {
+    "label": "legacy-change-approved",
+    "metadataToken": "[legacy-override]"
+  },
+  "legacyDirectories": [
+    {
+      "path": "infra/legacy",
+      "ownerTeam": "@team/devops",
+      "allowedChangeTypes": [
+        "security-fixes-only",
+        "documentation-only"
+      ],
+      "retirementTargetDate": "2026-12-31",
+      "frozen": true
+    },
+    {
+      "path": "scripts/legacy",
+      "ownerTeam": "@team/devops",
+      "allowedChangeTypes": [
+        "security-fixes-only",
+        "documentation-only"
+      ],
+      "retirementTargetDate": "2026-09-30",
+      "frozen": true
+    }
+  ]
+}
