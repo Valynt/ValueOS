@@ -411,20 +411,6 @@ export class QueryExecutor {
     if (!result.success) throw new Error(result.error || 'Async agent execution failed');
 
     const decisionContextResult = await this.buildDecisionContext(currentState, envelope.organizationId);
-    if (decisionContextResult.mode === 'rejected') {
-      return {
-        response: {
-          type: 'message',
-          payload: {
-            message: `Missing required context for automation: ${decisionContextResult.diagnostics.join('; ')}`,
-            error: true,
-          },
-          metadata: { diagnostics: decisionContextResult.diagnostics },
-        },
-        nextState: currentState,
-        traceId,
-      };
-    }
     const agentType = decisionContextResult.mode === 'downgraded'
       ? 'coordinator'
       : this.router.selectAgent(decisionContextResult.context);
