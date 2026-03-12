@@ -9,3 +9,4 @@ export * from "./events";
 export * from "./billing-events";
 export * from "./referral";
 // export type { Database, Json } from "./database.generated";
+export * from "./communication-event";
