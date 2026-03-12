@@ -95,9 +95,9 @@ export function getTenantIdFromRequest(req: {
   const tenantHeader = req.headers["x-tenant-id"];
   const organizationHeader = req.headers["x-organization-id"];
   const tenant =
+    req.tenantId ||
     (Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader) ||
-    (Array.isArray(organizationHeader) ? organizationHeader[0] : organizationHeader) ||
-    req.tenantId;
+    (Array.isArray(organizationHeader) ? organizationHeader[0] : organizationHeader);
 
   // Return undefined rather than a "public" sentinel so callers can
   // distinguish "no tenant" from a real tenant named "public".
