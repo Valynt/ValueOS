@@ -15,12 +15,13 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-function renderGate() {
+function renderGate(initialPath = "/dashboard") {
   return render(
-    <MemoryRouter initialEntries={["/dashboard"]}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<TenantGate />}>
           <Route path="/dashboard" element={<div>Dashboard Content</div>} />
+          <Route path="/create-org" element={<div>Create Org Page</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -44,8 +45,8 @@ describe("TenantGate", () => {
 
     renderGate();
 
-    expect(screen.getByText("Loading workspace...")).toBeInTheDocument();
-    expect(screen.queryByText("Dashboard Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading workspace...")).toBeTruthy();
+    expect(screen.queryByText("Dashboard Content")).toBeNull();
   });
 
   it("shows error state when tenant fetch fails", () => {
@@ -59,12 +60,12 @@ describe("TenantGate", () => {
 
     renderGate();
 
-    expect(screen.getByText("Unable to load workspace")).toBeInTheDocument();
-    expect(screen.getByText("Network failure")).toBeInTheDocument();
-    expect(screen.getByText("Retry")).toBeInTheDocument();
+    expect(screen.getByText("Unable to load workspace")).toBeTruthy();
+    expect(screen.getByText("Network failure")).toBeTruthy();
+    expect(screen.getByText("Retry")).toBeTruthy();
   });
 
-  it("shows no-workspace state when user has no tenants", () => {
+  it("redirects to create-org when no tenant is available", () => {
     mockUseTenant.mockReturnValue({
       currentTenant: null,
       tenants: [],
@@ -75,8 +76,22 @@ describe("TenantGate", () => {
 
     renderGate();
 
-    expect(screen.getByText("No workspace found")).toBeInTheDocument();
-    expect(screen.queryByText("Dashboard Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Create Org Page")).toBeTruthy();
+    expect(screen.queryByText("Dashboard Content")).toBeNull();
+  });
+
+  it("does not block create-org route even when tenant list is empty", () => {
+    mockUseTenant.mockReturnValue({
+      currentTenant: null,
+      tenants: [],
+      isLoading: false,
+      error: null,
+      refreshTenants: vi.fn(),
+    });
+
+    renderGate("/create-org");
+
+    expect(screen.getByText("Create Org Page")).toBeTruthy();
   });
 
   it("renders child routes when tenant is available", () => {
@@ -90,7 +105,7 @@ describe("TenantGate", () => {
 
     renderGate();
 
-    expect(screen.getByText("Dashboard Content")).toBeInTheDocument();
-    expect(screen.queryByText("Loading workspace...")).not.toBeInTheDocument();
+    expect(screen.getByText("Dashboard Content")).toBeTruthy();
+    expect(screen.queryByText("Loading workspace...")).toBeNull();
   });
 });
