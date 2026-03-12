@@ -1,0 +1,88 @@
+name: Release
+
+# Runs on every push to main. If changesets are present, opens/updates a
+# "Version Packages" PR. When that PR is merged, creates GitHub Releases and
+# tags for each bumped package.
+#
+# Issue: #1149
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Version or Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history is required for changeset version to compute changelogs
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create Release PR or tag & publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # Bump package versions and update changelogs
+          version: pnpm changeset version
+          # Create a git tag for each released package
+          # access:restricted means no npm publish; GitHub Release is the artifact
+          publish: pnpm changeset tag
+          title: "chore: version packages"
+          commit: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Releases for tagged packages
+        if: steps.changesets.outputs.published == 'true'
+        uses: actions/github-script@v8
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        with:
+          script: |
+            const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
+            for (const pkg of publishedPackages) {
+              const tag = `${pkg.name}@${pkg.version}`;
+              try {
+                await github.rest.repos.getReleaseByTag({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag,
+                });
+                console.log(`Release for ${tag} already exists, skipping.`);
+              } catch (err) {
+                if (err.status !== 404) throw err;
+                await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: tag,
+                  name: `${pkg.name} v${pkg.version}`,
+                  generate_release_notes: true,
+                  draft: false,
+                  prerelease: false,
+                });
+                console.log(`Created release for ${tag}`);
+              }
+            }
