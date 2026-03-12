@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.989.0",
+    "@e2b/code-interpreter": "^2.3.3",
     "@mcp/ground-truth": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@sentry/node": "^10.43.0",
