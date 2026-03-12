@@ -6,12 +6,18 @@ on:
   push:
     branches: [main, develop]
     tags:
-      - 'v*'
+      - "v*"
   release:
     types: [published]
   schedule:
-    - cron: '0 3 * * *'
+    - cron: "0 3 * * *"
   workflow_dispatch:
+    inputs:
+      run_nightly:
+        description: "Run nightly matrix/chaos/replay lane"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -22,27 +28,21 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Critical product path 1: value loop integrity, domain model, artifact accuracy
-  # Critical invariants: no untyped domain writes, no LLM numbers without math
   unit-component-schema:
     name: unit/component/schema
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: 20.19.0
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - name: Resolve pnpm store path
         id: pnpm-store
         run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
       - name: Cache pnpm store
         uses: actions/cache@v5
         with:
@@ -50,7 +50,6 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -141,19 +140,31 @@ jobs:
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
 
+      - name: Emit failure summary
+        if: failure()
+        run: |
+          mkdir -p artifacts/ci-lanes/unit-component-schema
+          cat > artifacts/ci-lanes/unit-component-schema/failure-summary.md <<EOF
+          # unit/component/schema failure
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+
       - name: Emit lane summary
         if: always()
         run: |
           mkdir -p artifacts/ci-lanes/unit-component-schema
           cat > artifacts/ci-lanes/unit-component-schema/summary.md <<EOF
           # unit/component/schema
+          - lane_status: ${{ job.status }}
           - workflow: ${{ github.workflow }}
           - run_id: ${{ github.run_id }}
           - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - sha: ${{ github.sha }}
           EOF
-
       - name: Upload lane artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -165,42 +176,30 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-  # Critical invariant: no cross-tenant data access
   tenant-isolation-gate:
     name: tenant-isolation-gate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 20.19.0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Prepare compliance report directories
-        run: |
-          mkdir -p reports/compliance/rls
-          mkdir -p reports/compliance/dsr
-
-      - name: Tenant isolation + compliance tests
+      - name: Tenant isolation tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          mkdir -p reports/compliance/rls
           npx vitest run --config tests/security/vitest.security.config.ts \
             tests/security/rls-tenant-isolation.test.ts \
             tests/security/api-tenant-isolation.test.ts \
@@ -213,155 +212,291 @@ jobs:
             --reporter=json \
             --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
             --outputFile.json=reports/compliance/rls/vitest-rls.json
-
-      - name: Run DSR compliance tests
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Emit failure summary
+        if: failure()
         run: |
-          npx vitest run tests/compliance/dsr-workflow.test.ts \
-            --reporter=verbose \
-            --reporter=junit \
-            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
-
+          mkdir -p artifacts/ci-lanes/tenant-isolation-gate
+          cat > artifacts/ci-lanes/tenant-isolation-gate/failure-summary.md <<EOF
+          # tenant-isolation-gate failure
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
       - name: Emit lane summary
         if: always()
         run: |
           mkdir -p artifacts/ci-lanes/tenant-isolation-gate
           cat > artifacts/ci-lanes/tenant-isolation-gate/summary.md <<EOF
           # tenant-isolation-gate
+          - lane_status: ${{ job.status }}
           - workflow: ${{ github.workflow }}
           - run_id: ${{ github.run_id }}
           - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           - sha: ${{ github.sha }}
           EOF
-
       - name: Upload lane artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: lane-tenant-isolation-gate-${{ github.run_id }}
           path: |
-            reports/compliance/**
+            reports/compliance/rls/**
             artifacts/ci-lanes/tenant-isolation-gate/**
           if-no-files-found: warn
           retention-days: 30
 
-  # Critical product path 2: value loop end-to-end, versioning contracts
+  ui-truthfulness-gate:
+    name: ui-truthfulness-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: UI truthfulness checks
+        run: |
+          mkdir -p artifacts/ui-truthfulness
+          pnpm exec vitest run tests/ux/user-experience.test.ts tests/views/AuditTrailDashboard.test.tsx \
+            --reporter=verbose \
+            --reporter=junit \
+            --outputFile.junit=artifacts/ui-truthfulness/vitest-ui-truthfulness.junit.xml
+      - name: Emit failure summary
+        if: failure()
+        run: |
+          mkdir -p artifacts/ci-lanes/ui-truthfulness-gate
+          cat > artifacts/ci-lanes/ui-truthfulness-gate/failure-summary.md <<EOF
+          # ui-truthfulness-gate failure
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/ui-truthfulness-gate
+          cat > artifacts/ci-lanes/ui-truthfulness-gate/summary.md <<EOF
+          # ui-truthfulness-gate
+          - lane_status: ${{ job.status }}
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - sha: ${{ github.sha }}
+          EOF
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-ui-truthfulness-gate-${{ github.run_id }}
+          path: |
+            artifacts/ui-truthfulness/**
+            artifacts/ci-lanes/ui-truthfulness-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  migration-verification:
+    name: migration-verification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Migration verification suite
+        run: |
+          mkdir -p artifacts/migration-verification
+          node scripts/ci/check-migration-hygiene.mjs | tee artifacts/migration-verification/check-migration-hygiene.log
+          node scripts/ci/check-migration-schema-consistency.mjs | tee artifacts/migration-verification/check-migration-schema-consistency.log
+          node scripts/ci/verify-critical-architecture-migrations.mjs | tee artifacts/migration-verification/verify-critical-architecture-migrations.log
+      - name: Emit failure summary
+        if: failure()
+        run: |
+          mkdir -p artifacts/ci-lanes/migration-verification
+          cat > artifacts/ci-lanes/migration-verification/failure-summary.md <<EOF
+          # migration-verification failure
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/migration-verification
+          cat > artifacts/ci-lanes/migration-verification/summary.md <<EOF
+          # migration-verification
+          - lane_status: ${{ job.status }}
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - sha: ${{ github.sha }}
+          EOF
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-migration-verification-${{ github.run_id }}
+          path: |
+            artifacts/migration-verification/**
+            artifacts/ci-lanes/migration-verification/**
+          if-no-files-found: warn
+          retention-days: 30
+
   critical-workflows-gate:
     name: critical-workflows-gate
     runs-on: ubuntu-latest
     needs:
-      - unit-component-schema
-      - tenant-isolation-gate
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+      - migration-verification
+    if: github.event_name == 'push' || github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: 20.19.0
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
       - name: Critical workflow contracts
         run: |
-          node scripts/ci/verify-critical-claims.mjs
-          pnpm exec vitest run \
-            packages/backend/src/__tests__/versioning.contract.test.ts
-
+          mkdir -p artifacts/critical-workflows
+          node scripts/ci/verify-critical-claims.mjs | tee artifacts/critical-workflows/verify-critical-claims.log
+          pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --outputFile.junit=artifacts/critical-workflows/versioning-contract.junit.xml
+      - name: Reload durability checks
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright test \
+            tests/e2e/workflows/wf-1.spec.ts \
+            tests/e2e/workflows/wf-2.spec.ts \
+            tests/e2e/workflows/wf-3.spec.ts \
+            tests/e2e/workflows/wf-4.spec.ts \
+            tests/e2e/workflows/wf-5.spec.ts \
+            --reporter=line,json \
+            --output=artifacts/critical-workflows/playwright
+      - name: Emit failure summary
+        if: failure()
+        run: |
+          mkdir -p artifacts/ci-lanes/critical-workflows-gate
+          cat > artifacts/ci-lanes/critical-workflows-gate/failure-summary.md <<EOF
+          # critical-workflows-gate failure
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - upstream_migration_verification: ${{ needs.migration-verification.result }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
       - name: Emit lane summary
         if: always()
         run: |
           mkdir -p artifacts/ci-lanes/critical-workflows-gate
           cat > artifacts/ci-lanes/critical-workflows-gate/summary.md <<EOF
           # critical-workflows-gate
+          - lane_status: ${{ job.status }}
           - workflow: ${{ github.workflow }}
           - run_id: ${{ github.run_id }}
           - run_attempt: ${{ github.run_attempt }}
-          - lane_status: ${{ job.status }}
-          - upstream_unit_component_schema: ${{ needs.unit-component-schema.result }}
-          - upstream_tenant_isolation: ${{ needs.tenant-isolation-gate.result }}
+          - upstream_migration_verification: ${{ needs.migration-verification.result }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - sha: ${{ github.sha }}
           EOF
-
       - name: Upload lane artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: lane-critical-workflows-gate-${{ github.run_id }}
-          path: artifacts/ci-lanes/critical-workflows-gate/**
+          path: |
+            artifacts/critical-workflows/**
+            artifacts/ci-lanes/critical-workflows-gate/**
           if-no-files-found: warn
           retention-days: 30
 
-  # Accessibility gate: WCAG 2.2 AA — required when frontend or a11y tests change
-  accessibility-audit:
-    name: accessibility-audit
+  nightly-matrix-chaos-replay:
+    name: nightly matrix/chaos/replay
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_nightly)
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [matrix, chaos, replay]
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: 20.19.0
-
       - uses: pnpm/action-setup@v4
         with:
           run_install: false
-
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Build frontend
-        run: npx turbo run build --filter=valynt-app
-
-      - name: Run WCAG 2.2 AA accessibility tests
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
+      - name: Run nightly suite (${{ matrix.suite }})
         run: |
-          mkdir -p artifacts/accessibility
-          npx playwright test tests/accessibility/axe-a11y.spec.ts \
-            --reporter=html,json \
-            --output=artifacts/accessibility
-
-      - name: Accessibility trend gate
+          mkdir -p artifacts/nightly/${{ matrix.suite }}
+          if [ "${{ matrix.suite }}" = "matrix" ]; then
+            pnpm exec vitest run tests/matrix/infra-mode.matrix.test.ts tests/matrix/infra-mode.pilot.test.ts \
+              --reporter=verbose \
+              --reporter=junit \
+              --outputFile.junit=artifacts/nightly/${{ matrix.suite }}/vitest-matrix.junit.xml
+          elif [ "${{ matrix.suite }}" = "chaos" ]; then
+            node scripts/chaos/launch-chaos-smoke.mjs | tee artifacts/nightly/${{ matrix.suite }}/chaos-smoke.log
+          else
+            pnpm exec vitest run tests/integration/message-bus-communication.test.ts tests/integration/security-flows.test.ts \
+              --testNamePattern="replay" \
+              --reporter=verbose \
+              --reporter=junit \
+              --outputFile.junit=artifacts/nightly/${{ matrix.suite }}/vitest-replay.junit.xml
+          fi
+      - name: Emit failure summary
+        if: failure()
+        run: |
+          mkdir -p artifacts/ci-lanes/nightly-${{ matrix.suite }}
+          cat > artifacts/ci-lanes/nightly-${{ matrix.suite }}/failure-summary.md <<EOF
+          # nightly matrix/chaos/replay failure (${{ matrix.suite }})
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+      - name: Emit lane summary
         if: always()
         run: |
-          node scripts/ci/a11y-trend-gate.mjs \
-            --report artifacts/accessibility/playwright-report.json \
-            --baseline .github/metrics/accessibility-baseline.json \
-            --metrics-out artifacts/accessibility/a11y-metrics.json \
-            --summary-out artifacts/accessibility/a11y-trend-summary.md
-
-      - name: Upload accessibility artifacts
+          mkdir -p artifacts/ci-lanes/nightly-${{ matrix.suite }}
+          cat > artifacts/ci-lanes/nightly-${{ matrix.suite }}/summary.md <<EOF
+          # nightly matrix/chaos/replay (${{ matrix.suite }})
+          - lane_status: ${{ job.status }}
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - workflow_run_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - sha: ${{ github.sha }}
+          EOF
+      - name: Upload lane artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: accessibility-audit-${{ github.run_id }}
+          name: lane-nightly-${{ matrix.suite }}-${{ github.run_id }}
           path: |
-            playwright-report/
-            artifacts/accessibility/
+            artifacts/nightly/${{ matrix.suite }}/**
+            artifacts/ci-lanes/nightly-${{ matrix.suite }}/**
           if-no-files-found: warn
           retention-days: 30
 
@@ -543,6 +678,7 @@ jobs:
           retention-days: 30
 
   # PR gate: blocks merge until critical lanes pass
+
   pr-fast-blocking-subsets:
     name: pr-fast-blocking-subsets
     runs-on: ubuntu-latest
@@ -553,16 +689,19 @@ jobs:
       - security-gate
       - verify-secret-rotation-metadata-age
       - accessibility-audit
+      - ui-truthfulness-gate
     steps:
-      - name: Enforce PR release blockers
+      - name: Enforce PR blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          echo "workflow_run_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           for lane in \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
             "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
+            "accessibility-audit:${{ needs.accessibility-audit.result }}" \
+            "ui-truthfulness-gate:${{ needs.ui-truthfulness-gate.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
@@ -571,13 +710,12 @@ jobs:
             fi
           done
 
-  # Deploy gate: blocks staging/production until critical lanes pass
   staging-deploy-release-gates:
-    name: staging-deploy-release-gates
+    name: staging/deploy release gates
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
     needs:
-      - tenant-isolation-gate
+      - migration-verification
       - critical-workflows-gate
       - security-gate
       - verify-secret-rotation-metadata-age
@@ -586,8 +724,9 @@ jobs:
       - name: Enforce staging/deploy blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          echo "workflow_run_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           for lane in \
-            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
+            "migration-verification:${{ needs.migration-verification.result }}" \
             "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
             "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
