@@ -18,6 +18,7 @@ import {
   ValidationError,
 } from "../base/index.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -78,6 +79,19 @@ interface SharePointConfigCredentials {
   driveId?: string;
 }
 
+interface SharePointAdapterConfig {
+  baseUrl: string;
+  authMode: "oauth2";
+  timeoutMs: number;
+  retryAttempts: number;
+}
+
+const graphSiteSchema = z.object({ id: z.string() }).passthrough();
+const graphListSchema = z.object({ id: z.string() }).passthrough();
+const graphDriveItemSchema = z.object({ id: z.string() }).passthrough();
+const graphCollectionSchema = <T extends z.ZodTypeAny>(itemSchema: T) => z.object({ value: z.array(itemSchema), "@odata.nextLink": z.string().optional() });
+const graphErrorSchema = z.object({ error: z.object({ code: z.string().optional(), message: z.string().optional() }).optional() });
+
 // ---------------------------------------------------------------------------
 // Adapter
 // ---------------------------------------------------------------------------
@@ -88,6 +102,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
   private accessToken: string | null = null;
   private siteId: string | null = null;
   private driveId: string | null = null;
+  private adapterConfig: SharePointAdapterConfig | null = null;
 
   constructor(config: IntegrationConfig) {
     super(config, new RateLimiter({
@@ -102,6 +117,12 @@ export class SharePointAdapter extends EnterpriseAdapter {
 
   protected async doConnect(): Promise<void> {
     const configured = this.readConfiguredCredentials();
+    this.adapterConfig = {
+      baseUrl: this.config.baseUrl ?? GRAPH_API_BASE,
+      authMode: "oauth2",
+      timeoutMs: this.config.timeout ?? DEFAULT_TIMEOUT_MS,
+      retryAttempts: this.config.retryAttempts ?? 1,
+    };
     const token = this.credentials?.accessToken ?? configured.accessToken;
     if (!token) {
       throw new AuthError(this.provider, "SharePoint requires an OAuth2 access token in connect credentials or IntegrationConfig.credentials.");
@@ -115,6 +136,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
     this.accessToken = null;
     this.siteId = null;
     this.driveId = null;
+    this.adapterConfig = null;
   }
 
   // -------------------------------------------------------------------------
@@ -125,7 +147,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
     this.ensureConnected();
     try {
       // Lightweight call: fetch the root site to confirm token works
-      await this.request<GraphSite>("GET", "/sites/root");
+      await this.request("GET", "/sites/root", graphSiteSchema);
       return true;
     } catch (error) {
       if (error instanceof AuthError) return false;
@@ -142,24 +164,20 @@ export class SharePointAdapter extends EnterpriseAdapter {
     const type = this.validateEntityType(entityType);
     const tenantId = this.credentials?.tenantId;
     if (!tenantId) {
-      throw new ValidationError("Missing tenantId in SharePoint credentials for rate limiting");
+      throw new ValidationError(this.provider, "Missing tenantId in SharePoint credentials for rate limiting");
     }
     const top = options?.limit ?? 100;
 
     return this.withRateLimit(tenantId, async () => {
       switch (type) {
         case "site": {
-          const response = await this.request<GraphCollectionResponse<GraphSite>>(
-            "GET", "/sites", { $top: String(top), $search: "*" },
-          );
-          return response.value.map((s) => this.normalizeSite(s));
+          const response = await this.request("GET", "/sites", graphCollectionSchema(graphSiteSchema), { $top: String(top), $search: "*" });
+          return response.value.map((site) => this.normalizeSite(site as GraphSite));
         }
         case "list": {
           const siteId = this.resolveSiteId(options);
-          const response = await this.request<GraphCollectionResponse<GraphList>>(
-            "GET", `/sites/${siteId}/lists`, { $top: String(top) },
-          );
-          return response.value.map((l) => this.normalizeList(l));
+          const response = await this.request("GET", `/sites/${siteId}/lists`, graphCollectionSchema(graphListSchema), { $top: String(top) });
+          return response.value.map((list) => this.normalizeList(list as GraphList));
         }
         case "driveitem": {
           const driveId = this.resolveDriveId(options);
@@ -167,10 +185,8 @@ export class SharePointAdapter extends EnterpriseAdapter {
           const path = folderId
             ? `/drives/${driveId}/items/${folderId}/children`
             : `/drives/${driveId}/root/children`;
-          const response = await this.request<GraphCollectionResponse<GraphDriveItem>>(
-            "GET", path, { $top: String(top) },
-          );
-          return response.value.map((d) => this.normalizeDriveItem(d));
+          const response = await this.request("GET", path, graphCollectionSchema(graphDriveItemSchema), { $top: String(top) });
+          return response.value.map((item) => this.normalizeDriveItem(item as GraphDriveItem));
         }
       }
     });
@@ -189,19 +205,19 @@ export class SharePointAdapter extends EnterpriseAdapter {
       try {
         switch (type) {
           case "site": {
-            const site = await this.request<GraphSite>("GET", `/sites/${externalId}`);
+            const site = await this.request("GET", `/sites/${externalId}`, graphSiteSchema);
             return this.normalizeSite(site);
           }
           case "list": {
             const siteId = this.siteId;
             if (!siteId) throw new ValidationError(this.provider, "siteId is required in credentials to fetch a list by id.");
-            const list = await this.request<GraphList>("GET", `/sites/${siteId}/lists/${externalId}`);
+            const list = await this.request("GET", `/sites/${siteId}/lists/${externalId}`, graphListSchema);
             return this.normalizeList(list);
           }
           case "driveitem": {
             const driveId = this.driveId;
             if (!driveId) throw new ValidationError(this.provider, "driveId is required in credentials to fetch a drive item by id.");
-            const item = await this.request<GraphDriveItem>("GET", `/drives/${driveId}/items/${externalId}`);
+            const item = await this.request("GET", `/drives/${driveId}/items/${externalId}`, graphDriveItemSchema);
             return this.normalizeDriveItem(item);
           }
         }
@@ -230,9 +246,10 @@ export class SharePointAdapter extends EnterpriseAdapter {
     delete fields["listId"];
 
     await this.withRateLimit(tenantId, () =>
-      this.request<Record<string, unknown>>(
+      this.request(
         "PATCH",
         `/sites/${siteId}/lists/${listId}/items/${externalId}/fields`,
+        z.unknown(),
         undefined,
         fields,
       ),
@@ -249,7 +266,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
       externalId: site.id,
       provider: this.provider,
       type: "site",
-      data: site,
+      data: site as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: site.lastModifiedDateTime,
@@ -265,7 +282,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
       externalId: list.id,
       provider: this.provider,
       type: "list",
-      data: list,
+      data: list as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: list.lastModifiedDateTime,
@@ -281,7 +298,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
       externalId: item.id,
       provider: this.provider,
       type: "driveitem",
-      data: item,
+      data: item as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: item.lastModifiedDateTime,
@@ -298,20 +315,21 @@ export class SharePointAdapter extends EnterpriseAdapter {
   private async request<T>(
     method: "GET" | "PATCH" | "POST" | "DELETE",
     path: string,
+    schema: z.ZodType<T>,
     query?: Record<string, string>,
     body?: unknown,
   ): Promise<T> {
-    const url = new URL(`${GRAPH_API_BASE}${path}`);
+    const url = new URL(`${this.adapterConfig?.baseUrl ?? GRAPH_API_BASE}${path}`);
     if (query) {
       for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
     }
 
-    const timeoutMs = this.config.timeout ?? DEFAULT_TIMEOUT_MS;
+    const timeoutMs = this.adapterConfig?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const controller = new AbortController();
     const handle = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url.toString(), {
+      const response = await this.withRetry(async () => fetch(url.toString(), {
         method,
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
@@ -320,11 +338,13 @@ export class SharePointAdapter extends EnterpriseAdapter {
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
-      });
+      }), this.adapterConfig?.retryAttempts ?? 3);
 
       if (response.ok || response.status === 204) {
-        if (response.status === 204) return undefined as unknown as T;
-        return (await response.json()) as T;
+        if (response.status === 204) return schema.parse(undefined);
+        const parsed = schema.safeParse(await response.json());
+        if (!parsed.success) throw new ValidationError(this.provider, `Invalid SharePoint response schema: ${parsed.error.message}`);
+        return parsed.data;
       }
       await this.throwMappedError(response);
       throw new IntegrationError("Unexpected SharePoint error", "UNKNOWN", this.provider, true);
@@ -340,7 +360,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
 
   private async throwMappedError(response: Response): Promise<never> {
     let payload: GraphErrorResponse = {};
-    try { payload = (await response.json()) as GraphErrorResponse; } catch { /* ignore */ }
+    try { payload = graphErrorSchema.parse(await response.json()); } catch { /* ignore */ }
     const message = payload.error?.message ?? `SharePoint request failed with status ${response.status}`;
     const code = payload.error?.code ?? "";
 

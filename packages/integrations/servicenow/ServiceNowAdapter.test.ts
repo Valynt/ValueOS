@@ -248,7 +248,7 @@ describe("ServiceNowAdapter", () => {
       throw new DOMException("Aborted", "AbortError");
     });
 
-    await expect(adapter.validate()).rejects.toMatchObject<Partial<IntegrationError>>({
+    await expect(adapter.validate()).rejects.toMatchObject({
       code: "TIMEOUT",
       retryable: true,
     });
@@ -291,4 +291,25 @@ describe("ServiceNowAdapter", () => {
     const decoded = Buffer.from(authHeader.slice(6), "base64").toString();
     expect(decoded).toBe("admin:secret");
   });
+
+  it("disconnect clears connection state", async () => {
+    const adapter = new ServiceNowAdapter(BASE_CONFIG);
+    await adapter.connect({ accessToken: TOKEN, tenantId: TENANT });
+    await expect(adapter.disconnect()).resolves.toBeUndefined();
+    await expect(adapter.validate()).rejects.toMatchObject({ code: "CONNECTION_ERROR" });
+  });
+
+  it("retries transient 5xx once and then succeeds", async () => {
+    const adapter = new ServiceNowAdapter({ ...BASE_CONFIG, retryAttempts: 2 });
+    await adapter.connect({ accessToken: TOKEN, tenantId: TENANT });
+
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("network reset"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ result: [] }), { status: 200 }));
+
+    const result = await adapter.fetchEntities("incident");
+    expect(result).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
 });

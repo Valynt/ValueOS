@@ -18,6 +18,7 @@ import {
   ValidationError,
 } from "../base/index.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -93,6 +94,19 @@ interface SlackConfigCredentials {
   accessToken?: string;
 }
 
+interface SlackAdapterConfig {
+  baseUrl: string;
+  authMode: "bot_token";
+  timeoutMs: number;
+  retryAttempts: number;
+}
+
+const slackBaseSchema = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+  response_metadata: z.object({ next_cursor: z.string().optional() }).optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Adapter
 // ---------------------------------------------------------------------------
@@ -101,6 +115,7 @@ export class SlackAdapter extends EnterpriseAdapter {
   readonly provider = "slack";
 
   private botToken: string | null = null;
+  private adapterConfig: SlackAdapterConfig | null = null;
 
   constructor(config: IntegrationConfig) {
     super(config, new RateLimiter({
@@ -116,6 +131,12 @@ export class SlackAdapter extends EnterpriseAdapter {
 
   protected async doConnect(): Promise<void> {
     const configured = this.readConfiguredCredentials();
+    this.adapterConfig = {
+      baseUrl: this.config.baseUrl ?? SLACK_API_BASE,
+      authMode: "bot_token",
+      timeoutMs: this.config.timeout ?? DEFAULT_TIMEOUT_MS,
+      retryAttempts: this.config.retryAttempts ?? 1,
+    };
     const token = this.credentials?.accessToken ?? configured.accessToken;
     if (!token) {
       throw new AuthError(this.provider, "Slack bot token (xoxb-*) is required in connect credentials or IntegrationConfig.credentials.");
@@ -125,6 +146,7 @@ export class SlackAdapter extends EnterpriseAdapter {
 
   protected async doDisconnect(): Promise<void> {
     this.botToken = null;
+    this.adapterConfig = null;
   }
 
   // -------------------------------------------------------------------------
@@ -134,7 +156,7 @@ export class SlackAdapter extends EnterpriseAdapter {
   async validate(): Promise<boolean> {
     this.ensureConnected();
     try {
-      const response = await this.call<SlackAuthTestResponse>("auth.test", {});
+      const response = await this.call("auth.test", {}, slackBaseSchema.extend({ user_id: z.string().optional(), team: z.string().optional() }));
       return response.ok;
     } catch (error) {
       if (error instanceof AuthError) return false;
@@ -155,17 +177,17 @@ export class SlackAdapter extends EnterpriseAdapter {
     return this.withRateLimit(tenantId, async () => {
       switch (type) {
         case "channel": {
-          const response = await this.call<SlackChannelListResponse>("conversations.list", {
+          const response = await this.call("conversations.list", {
             limit: String(limit),
             exclude_archived: "true",
-          });
-          return response.channels.map((c) => this.normalizeChannel(c));
+          }, slackBaseSchema.extend({ channels: z.array(z.object({ id: z.string(), name: z.string() }).passthrough()).optional() }));
+          return (response.channels ?? []).map((c) => this.normalizeChannel(c as SlackChannel));
         }
         case "user": {
-          const response = await this.call<SlackUserListResponse>("users.list", {
+          const response = await this.call("users.list", {
             limit: String(limit),
-          });
-          return response.members.map((u) => this.normalizeUser(u));
+          }, slackBaseSchema.extend({ members: z.array(z.object({ id: z.string() }).passthrough()).optional() }));
+          return (response.members ?? []).map((u) => this.normalizeUser(u as SlackUser));
         }
         case "message": {
           // Messages require a channel — use filters.channelId
@@ -175,8 +197,8 @@ export class SlackAdapter extends EnterpriseAdapter {
           }
           const params: Record<string, string> = { channel: channelId, limit: String(limit) };
           if (options?.since) params["oldest"] = String(options.since.getTime() / 1000);
-          const response = await this.call<SlackMessageListResponse>("conversations.history", params);
-          return response.messages.map((m) => this.normalizeMessage(channelId, m));
+          const response = await this.call("conversations.history", params, slackBaseSchema.extend({ messages: z.array(z.object({ ts: z.string() }).passthrough()).optional() }));
+          return (response.messages ?? []).map((m) => this.normalizeMessage(channelId, m as SlackMessage));
         }
       }
     });
@@ -195,12 +217,14 @@ export class SlackAdapter extends EnterpriseAdapter {
       try {
         switch (type) {
           case "channel": {
-            const response = await this.call<{ ok: boolean; channel: SlackChannel }>("conversations.info", { channel: externalId });
-            return this.normalizeChannel(response.channel);
+            const response = await this.call("conversations.info", { channel: externalId }, slackBaseSchema.extend({ channel: z.object({ id: z.string(), name: z.string() }).passthrough().optional() }));
+            if (!response.channel) return null;
+            return this.normalizeChannel(response.channel as SlackChannel);
           }
           case "user": {
-            const response = await this.call<{ ok: boolean; user: SlackUser }>("users.info", { user: externalId });
-            return this.normalizeUser(response.user);
+            const response = await this.call("users.info", { user: externalId }, slackBaseSchema.extend({ user: z.object({ id: z.string() }).passthrough().optional() }));
+            if (!response.user) return null;
+            return this.normalizeUser(response.user as SlackUser);
           }
           case "message":
             // Slack has no single-message fetch by ts without channel context
@@ -231,7 +255,7 @@ export class SlackAdapter extends EnterpriseAdapter {
     if (typeof data["thread_ts"] === "string") params["thread_ts"] = data["thread_ts"];
 
     await this.withRateLimit(tenantId, () =>
-      this.call<SlackPostMessageResponse>("chat.postMessage", params, "POST"),
+      this.call("chat.postMessage", params, slackBaseSchema.extend({ ts: z.string().optional(), channel: z.string().optional() }), "POST"),
     );
   }
 
@@ -245,7 +269,7 @@ export class SlackAdapter extends EnterpriseAdapter {
       externalId: channel.id,
       provider: this.provider,
       type: "channel",
-      data: channel,
+      data: channel as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: channel.updated ? String(channel.updated) : undefined,
@@ -261,7 +285,7 @@ export class SlackAdapter extends EnterpriseAdapter {
       externalId: user.id,
       provider: this.provider,
       type: "user",
-      data: user,
+      data: user as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: user.updated ? String(user.updated) : undefined,
@@ -294,9 +318,10 @@ export class SlackAdapter extends EnterpriseAdapter {
   private async call<T extends SlackBaseResponse>(
     method: string,
     params: Record<string, string>,
+    schema: z.ZodType<T>,
     httpMethod: "GET" | "POST" = "GET",
   ): Promise<T> {
-    const url = new URL(`${SLACK_API_BASE}/${method}`);
+    const url = new URL(`${this.adapterConfig?.baseUrl ?? SLACK_API_BASE}/${method}`);
 
     // GET requests pass params as query string; POST requests send JSON body.
     let body: string | undefined;
@@ -306,12 +331,12 @@ export class SlackAdapter extends EnterpriseAdapter {
       body = JSON.stringify(params);
     }
 
-    const timeoutMs = this.config.timeout ?? DEFAULT_TIMEOUT_MS;
+    const timeoutMs = this.adapterConfig?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const controller = new AbortController();
     const handle = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url.toString(), {
+      const response = await this.withRetry(async () => fetch(url.toString(), {
         method: httpMethod,
         headers: {
           Authorization: `Bearer ${this.botToken}`,
@@ -319,13 +344,17 @@ export class SlackAdapter extends EnterpriseAdapter {
         },
         body,
         signal: controller.signal,
-      });
+      }), this.adapterConfig?.retryAttempts ?? 3);
 
       if (!response.ok) {
         await this.throwHttpError(response);
       }
 
-      const responseBody = (await response.json()) as T;
+      const parsed = schema.safeParse(await response.json());
+      if (!parsed.success) {
+        throw new ValidationError(this.provider, `Invalid Slack response schema: ${parsed.error.message}`);
+      }
+      const responseBody = parsed.data;
       if (!responseBody.ok) {
         this.throwSlackError(responseBody.error ?? "unknown_error");
       }
