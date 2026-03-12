@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { QueryExecutor } from './QueryExecutor.js';
+import { QueryExecutor } from '../QueryExecutor.js';
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -10,12 +10,12 @@ vi.mock('uuid', () => ({
   v4: (() => { let n = 0; return () => `uuid-${++n}`; })(),
 }));
 
-vi.mock('../../lib/logger', () => ({
+vi.mock('../../../lib/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
 const mockSpan = { setAttributes: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), end: vi.fn() };
-vi.mock('../../config/telemetry', () => ({
+vi.mock('../../../config/telemetry', () => ({
   getTracer: vi.fn(() => ({
     // Handle both 2-arg (name, fn) and 3-arg (name, options, fn) overloads.
     startActiveSpan: vi.fn((...args: unknown[]) => {
@@ -26,7 +26,7 @@ vi.mock('../../config/telemetry', () => ({
 }));
 
 // ADR-0014: QueryExecutor now calls AgentFactory directly — no HTTP round-trip.
-vi.mock('../../lib/agent-fabric/AgentFactory', () => ({
+vi.mock('../../../lib/agent-fabric/AgentFactory', () => ({
   createAgentFactory: vi.fn(() => ({
     create: vi.fn(() => ({
       execute: vi.fn().mockResolvedValue({
@@ -43,23 +43,23 @@ vi.mock('../../lib/agent-fabric/AgentFactory', () => ({
   })),
 }));
 
-vi.mock('../../lib/agent-fabric/LLMGateway', () => ({
+vi.mock('../../../lib/agent-fabric/LLMGateway', () => ({
   LLMGateway: vi.fn(() => ({})),
 }));
 
-vi.mock('../../lib/agent-fabric/MemorySystem', () => ({
+vi.mock('../../../lib/agent-fabric/MemorySystem', () => ({
   MemorySystem: vi.fn(() => ({})),
 }));
 
-vi.mock('../../lib/agent-fabric/SupabaseMemoryBackend', () => ({
+vi.mock('../../../lib/agent-fabric/SupabaseMemoryBackend', () => ({
   SupabaseMemoryBackend: vi.fn(() => ({})),
 }));
 
-vi.mock('../../lib/resilience/CircuitBreaker', () => ({
+vi.mock('../../../lib/resilience/CircuitBreaker', () => ({
   CircuitBreaker: vi.fn(() => ({})),
 }));
 
-vi.mock('../../config/featureFlags', () => ({
+vi.mock('../../../config/featureFlags', () => ({
   featureFlags: { ENABLE_ASYNC_AGENT_EXECUTION: false },
 }));
 
@@ -369,7 +369,7 @@ describe('QueryExecutor.processQuery (sync path)', () => {
 
 describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
   it('calls AgentFactory.create().execute() without a network hop', async () => {
-    const { createAgentFactory } = await import('../../lib/agent-fabric/AgentFactory.js');
+    const { createAgentFactory } = await import('../../../lib/agent-fabric/AgentFactory.js');
     const mockExecute = vi.fn().mockResolvedValue({
       status: 'success',
       result: { answer: 'direct invocation works' },
