@@ -10,10 +10,10 @@ import {
 } from "../lib/errors";
 import { asyncHandler } from "../middleware/globalErrorHandler.js";
 import {
+  projectRepository,
   projectStatuses,
-  projectsRepository,
   type ProjectRecord,
-} from "../repositories/ProjectsRepository.js";
+} from "../repositories/ProjectRepository.js";
 import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
@@ -137,13 +137,13 @@ router.post(
     const normalizedName = payload.name.toLowerCase();
 
     const tenantId = getTenantId(req);
-    const existing = await projectsRepository.findByName(tenantId, normalizedName);
+    const existing = await projectRepository.findByName(tenantId, normalizedName);
 
     if (existing) {
       throw new ConflictError("Project name already exists");
     }
 
-    const project = await projectsRepository.create({
+    const project = await projectRepository.create({
       id: `proj_${uuidv4()}`,
       organizationId: tenantId,
       name: payload.name,
@@ -177,7 +177,7 @@ router.get(
         keyPayload: { page, pageSize, status, search },
       },
       async () => {
-        const { items, total } = await projectsRepository.list(tenantId, {
+        const { items, total } = await projectRepository.list(tenantId, {
           page,
           pageSize,
           status,
@@ -213,7 +213,7 @@ router.get(
         tier: "cold",
       },
       async () => {
-        const project = await projectsRepository.getById(tenantId, req.params.projectId);
+        const project = await projectRepository.getById(tenantId, req.params.projectId);
         if (!project) {
           throw new NotFoundError("Project", req.params.projectId);
         }
@@ -233,20 +233,20 @@ router.patch(
     requireWriteRole(req, ["admin", "editor"]);
 
     const tenantId = getTenantId(req);
-    const existing = await projectsRepository.getById(tenantId, req.params.projectId);
+    const existing = await projectRepository.getById(tenantId, req.params.projectId);
     if (!existing) {
       throw new NotFoundError("Project", req.params.projectId);
     }
 
     const payload = projectUpdateSchema.parse(req.body);
     if (payload.name && payload.name.toLowerCase() !== existing.name.toLowerCase()) {
-      const duplicate = await projectsRepository.findByName(tenantId, payload.name.toLowerCase());
+      const duplicate = await projectRepository.findByName(tenantId, payload.name.toLowerCase());
       if (duplicate && duplicate.id !== req.params.projectId) {
         throw new ConflictError("Project name already exists");
       }
     }
 
-    const updated = await projectsRepository.update(tenantId, req.params.projectId, {
+    const updated = await projectRepository.update(tenantId, req.params.projectId, {
       ...payload,
       tags: payload.tags ?? existing.tags,
       description: payload.description ?? existing.description ?? undefined,
@@ -270,12 +270,12 @@ router.delete(
     requireWriteRole(req, ["admin"]);
 
     const tenantId = getTenantId(req);
-    const exists = await projectsRepository.getById(tenantId, req.params.projectId);
+    const exists = await projectRepository.getById(tenantId, req.params.projectId);
     if (!exists) {
       throw new NotFoundError("Project", req.params.projectId);
     }
 
-    await projectsRepository.delete(tenantId, req.params.projectId);
+    await projectRepository.delete(tenantId, req.params.projectId);
     await writeProjectAuditLog(req, "delete", req.params.projectId);
     await invalidateProjectCache(req);
 
