@@ -627,6 +627,38 @@ versionedRegistry.register({
   tags: ["ui", "workflow", "status"],
 });
 
+versionedRegistry.register({
+  component: VerticalSplit,
+  version: 1,
+  description: "Vertical split canvas layout with ratios and responsive stacking",
+  optionalProps: ["ratios", "gap", "stackAt", "dragResize", "minRatio", "slots"],
+  tags: ["ui", "layout", "canvas"],
+});
+
+versionedRegistry.register({
+  component: HorizontalSplit,
+  version: 1,
+  description: "Horizontal split canvas layout with ratios and responsive stacking",
+  optionalProps: ["ratios", "gap", "stackAt", "dragResize", "minRatio", "slots"],
+  tags: ["ui", "layout", "canvas"],
+});
+
+versionedRegistry.register({
+  component: Grid,
+  version: 1,
+  description: "Responsive grid canvas layout with breakpoint-aware columns",
+  optionalProps: ["columns", "rows", "gap", "responsive", "responsiveColumns"],
+  tags: ["ui", "layout", "canvas"],
+});
+
+versionedRegistry.register({
+  component: DashboardPanel,
+  version: 1,
+  description: "Dashboard panel layout container with optional collapsible header",
+  optionalProps: ["title", "collapsible", "defaultCollapsed", "slots"],
+  tags: ["ui", "layout", "canvas", "dashboard"],
+});
+
 // Register fallback components
 versionedRegistry.registerFallback({
   component: UnknownComponentFallback,
@@ -693,6 +725,30 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["intentType", "componentName", "registryEntry", "organizationId"],
     description: "Developer preview tool for ui-registry.json entries with validation.",
+  },
+  VerticalSplit: {
+    component: VerticalSplit,
+    versions: [1],
+    requiredProps: [],
+    description: "Vertical split canvas layout with ratio and slot support.",
+  },
+  HorizontalSplit: {
+    component: HorizontalSplit,
+    versions: [1],
+    requiredProps: [],
+    description: "Horizontal split canvas layout with ratio and slot support.",
+  },
+  Grid: {
+    component: Grid,
+    versions: [1],
+    requiredProps: [],
+    description: "Responsive grid canvas layout with breakpoint columns.",
+  },
+  DashboardPanel: {
+    component: DashboardPanel,
+    versions: [1],
+    requiredProps: [],
+    description: "Dashboard panel container with optional collapsible sections.",
   },
   DiscoveryCard: {
     component: DiscoveryCard,
