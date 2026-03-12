@@ -383,50 +383,157 @@ export const simulationsRouter = router({
     }),
 
   /**
-   * Get personalized recommendations based on user performance
-   * TODO: Implement AI-powered recommendations
+   * Get personalized recommendations based on user performance.
+   * Uses a deterministic data pipeline by default.
+   * Optional AI enrichment can be enabled via SIMULATION_AI_RECOMMENDATIONS_ENABLED=true.
    */
   getRecommendations: protectedProcedure
     .query(async ({ ctx }) => {
       const attempts = await db.getUserSimulationAttempts(ctx.user.id);
       const scenarios = await db.getAllSimulationScenarios();
+      const aiRecommendationsEnabled = process.env.SIMULATION_AI_RECOMMENDATIONS_ENABLED === 'true';
 
-      // Calculate analytics for recommendations
+      const attemptsByScenario = new Map<number, typeof attempts>();
+      for (const attempt of attempts) {
+        const grouped = attemptsByScenario.get(attempt.scenarioId) ?? [];
+        grouped.push(attempt);
+        attemptsByScenario.set(attempt.scenarioId, grouped);
+      }
+
       const totalAttempts = attempts.length;
-      const avgScore = totalAttempts > 0 
+      const avgScore = totalAttempts > 0
         ? Math.round(attempts.reduce((sum, a) => sum + a.overallScore, 0) / totalAttempts)
         : 0;
 
-      // Basic recommendations based on performance
-      const recommendations = [];
+      const recommendations: Array<{
+        type: 'start' | 'review' | 'practice' | 'challenge' | 'mentor';
+        title: string;
+        description: string;
+        scenarioId?: number;
+        confidence: number;
+        source: 'rules' | 'ai';
+      }> = [];
 
-      if (totalAttempts === 0) {
+      const unattemptedScenario = scenarios.find((scenario) => !attemptsByScenario.has(scenario.id));
+      if (totalAttempts === 0 && unattemptedScenario) {
         recommendations.push({
           type: 'start',
           title: 'Start Your First Simulation',
-          description: 'Begin with a business case simulation to practice value engineering',
-          scenarioId: scenarios.find(s => s.type === 'business_case')?.id,
-        });
-      } else if (avgScore < 70) {
-        recommendations.push({
-          type: 'review',
-          title: 'Review Core Concepts',
-          description: 'Revisit pillar content to strengthen foundational knowledge',
-        });
-      } else if (avgScore < 85) {
-        recommendations.push({
-          type: 'practice',
-          title: 'Practice Advanced Scenarios',
-          description: 'Try more challenging simulations to improve your skills',
-        });
-      } else {
-        recommendations.push({
-          type: 'mentor',
-          title: 'Share Your Expertise',
-          description: 'Help others by mentoring or creating content',
+          description: `Begin with ${unattemptedScenario.title} to establish a baseline score.`,
+          scenarioId: unattemptedScenario.id,
+          confidence: 0.92,
+          source: 'rules',
         });
       }
 
-      return recommendations;
+      const lowPerformingScenario = scenarios
+        .map((scenario) => {
+          const scenarioAttempts = attemptsByScenario.get(scenario.id) ?? [];
+          if (scenarioAttempts.length === 0) return null;
+          const scenarioAvg = scenarioAttempts.reduce((sum, a) => sum + a.overallScore, 0) / scenarioAttempts.length;
+          return { scenario, scenarioAvg };
+        })
+        .filter((entry): entry is { scenario: (typeof scenarios)[number]; scenarioAvg: number } => entry !== null)
+        .sort((a, b) => a.scenarioAvg - b.scenarioAvg)[0];
+
+      if (lowPerformingScenario && lowPerformingScenario.scenarioAvg < 80) {
+        recommendations.push({
+          type: 'review',
+          title: 'Target your lowest-scoring scenario',
+          description: `${lowPerformingScenario.scenario.title} is averaging ${Math.round(lowPerformingScenario.scenarioAvg)}%. Re-run this scenario and focus on rubric gaps.`,
+          scenarioId: lowPerformingScenario.scenario.id,
+          confidence: 0.88,
+          source: 'rules',
+        });
+      }
+
+      if (avgScore >= 70 && avgScore < 90) {
+        const nextPractice = unattemptedScenario ?? scenarios.find((s) => s.type !== lowPerformingScenario?.scenario.type);
+        if (nextPractice) {
+          recommendations.push({
+            type: 'practice',
+            title: 'Expand scenario coverage',
+            description: `Practice ${nextPractice.title} to improve cross-category fluency.`,
+            scenarioId: nextPractice.id,
+            confidence: 0.84,
+            source: 'rules',
+          });
+        }
+      }
+
+      if (avgScore >= 90) {
+        recommendations.push({
+          type: 'challenge',
+          title: 'Maintain expert-level performance',
+          description: 'Take a new advanced scenario this week and keep all category scores above 85%.',
+          confidence: 0.8,
+          source: 'rules',
+        });
+        recommendations.push({
+          type: 'mentor',
+          title: 'Mentor peers',
+          description: 'Share your approach and coach lower-scoring learners to reinforce mastery.',
+          confidence: 0.75,
+          source: 'rules',
+        });
+      }
+
+      if (recommendations.length === 0) {
+        recommendations.push({
+          type: 'start',
+          title: 'Build momentum with regular practice',
+          description: 'Complete at least one simulation this week to generate personalized insights.',
+          scenarioId: scenarios[0]?.id,
+          confidence: 0.7,
+          source: 'rules',
+        });
+      }
+
+      if (!aiRecommendationsEnabled) {
+        return recommendations;
+      }
+
+      try {
+        const aiResponse = await safeLLMOperation(
+          () => invokeLLM({
+            messages: [
+              {
+                role: 'system',
+                content: 'You generate short, practical simulation coaching recommendations in valid JSON only.',
+              },
+              {
+                role: 'user',
+                content: JSON.stringify({
+                  avgScore,
+                  totalAttempts,
+                  recommendations,
+                }),
+              },
+            ],
+          }),
+          { maxRetries: 1, timeout: 15000 }
+        );
+
+        const content = aiResponse?.choices?.[0]?.message?.content;
+        if (!content || typeof content !== 'string') {
+          return recommendations;
+        }
+
+        const parsed = JSON.parse(content) as Array<{ title: string; description: string }>;
+        const aiEnhanced = parsed
+          .filter((item) => typeof item.title === 'string' && typeof item.description === 'string')
+          .slice(0, 3)
+          .map((item) => ({
+            type: 'practice' as const,
+            title: item.title,
+            description: item.description,
+            confidence: 0.65,
+            source: 'ai' as const,
+          }));
+
+        return aiEnhanced.length > 0 ? [...recommendations, ...aiEnhanced] : recommendations;
+      } catch {
+        return recommendations;
+      }
     }),
 });

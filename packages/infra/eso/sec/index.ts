@@ -4,6 +4,63 @@ import { DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
+interface MarketDataPoint {
+  symbol: string;
+  price: number;
+  timestamp: string;
+  source: "market-data";
+}
+
+interface MarketDataProviderConfig {
+  websocketUrl?: string;
+  symbolsEndpoint?: string;
+  provider?: "finnhub" | "polygon";
+}
+
+class MarketDataStreamAdapter {
+  private ws?: WebSocket;
+
+  constructor(
+    private readonly providerConfig: MarketDataProviderConfig,
+    private readonly apiKey?: string
+  ) {}
+
+  connect(symbols: string[], onData: (data: MarketDataPoint) => void): WebSocket {
+    const websocketUrl = this.providerConfig.websocketUrl || "wss://ws.finnhub.io";
+    const ws = new WebSocket(`${websocketUrl}?token=${this.apiKey || ""}`);
+
+    ws.onopen = () => {
+      for (const symbol of symbols) {
+        ws.send(JSON.stringify({ type: "subscribe", symbol }));
+      }
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(String(event.data)) as { data?: Array<{ s: string; p: number; t: number }> };
+        parsed.data?.forEach((point) => {
+          onData({
+            symbol: point.s,
+            price: point.p,
+            timestamp: new Date(point.t).toISOString(),
+            source: "market-data",
+          });
+        });
+      } catch (error) {
+        logger.error("Failed to parse market data websocket payload", error as Error);
+      }
+    };
+
+    this.ws = ws;
+    return ws;
+  }
+
+  disconnect(): void {
+    this.ws?.close();
+    this.ws = undefined;
+  }
+}
+
 export class SECAdapter implements DataIngestionAdapter {
   name = "SEC";
   private rateLimiter?: RateLimiter;
@@ -12,14 +69,16 @@ export class SECAdapter implements DataIngestionAdapter {
   private dataCallbacks: Set<(data: any) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
+  private marketDataAdapter: MarketDataStreamAdapter;
 
-  constructor(private config: IngestionConfig) {
+  constructor(private config: IngestionConfig & { marketData?: MarketDataProviderConfig }) {
     if (config.rateLimit) {
-      this.rateLimiter = new RateLimiter(config.rateLimit, 60000); // per minute
+      this.rateLimiter = new RateLimiter(config.rateLimit, 60000);
     }
     if (config.enableCache) {
       this.cache = new Cache(config.cacheTTL);
     }
+    this.marketDataAdapter = new MarketDataStreamAdapter(config.marketData || {}, config.apiKey);
   }
 
   async fetchData(params: { cik?: string; type?: string } = {}): Promise<any> {
@@ -32,10 +91,6 @@ export class SECAdapter implements DataIngestionAdapter {
     if (this.rateLimiter) {
       await this.rateLimiter.waitForToken();
     }
-
-    // SEC EDGAR API example
-    // For company search: https://www.sec.gov/edgar/searchedgar/cik.htm
-    // For filings: https://www.sec.gov/edgar/searchedgar/filings.htm
 
     const url = new URL(this.config.baseUrl);
     if (params.cik) {
@@ -65,10 +120,9 @@ export class SECAdapter implements DataIngestionAdapter {
   }
 
   async transformData(rawData: any): Promise<any> {
-    // Transform SEC data to standardized format
-    // This would depend on the specific endpoint
     return {
-      source: "SEC",
+      source: "SEC-EDGAR",
+      ingestionType: "sec_filing",
       data: rawData,
       timestamp: new Date().toISOString(),
     };
@@ -77,42 +131,22 @@ export class SECAdapter implements DataIngestionAdapter {
   async startStreaming(params: { symbols?: string[] } = {}): Promise<void> {
     if (this.isStreaming) return;
 
-    // For real-time SEC data, we might connect to a financial data WebSocket
-    // This is a placeholder - in reality, you'd connect to a service like Alpha Vantage, IEX, etc.
-    const wsUrl = this.config.baseUrl.replace("https", "wss") + "/stream";
-
-    this.ws = new WebSocket(wsUrl);
+    const symbols = params.symbols?.length ? params.symbols : ["AAPL", "MSFT", "GOOGL"];
+    this.ws = this.marketDataAdapter.connect(symbols, (data) => this.notifyDataCallbacks(data));
 
     this.ws.onopen = () => {
-      logger.info("SEC WebSocket connected");
+      logger.info("Market data websocket connected");
       this.isStreaming = true;
-
-      // Subscribe to specific symbols or general market data
-      const subscription = {
-        type: "subscribe",
-        symbols: params.symbols || ["market-overview"],
-        source: "SEC",
-      };
-      this.ws?.send(JSON.stringify(subscription));
-    };
-
-    this.ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        this.notifyDataCallbacks(data);
-      } catch (error) {
-        console.error("Failed to parse SEC WebSocket data:", error);
-      }
     };
 
     this.ws.onclose = () => {
-      logger.info("SEC WebSocket disconnected");
+      logger.info("Market data websocket disconnected");
       this.isStreaming = false;
-      this.scheduleReconnect();
+      this.scheduleReconnect(symbols);
     };
 
     this.ws.onerror = (error) => {
-      console.error("SEC WebSocket error:", error);
+      logger.error("Market data websocket error", error as Error);
     };
   }
 
@@ -122,10 +156,8 @@ export class SECAdapter implements DataIngestionAdapter {
       this.reconnectTimer = undefined;
     }
 
-    if (this.ws) {
-      this.ws.close();
-      this.ws = undefined;
-    }
+    this.marketDataAdapter.disconnect();
+    this.ws = undefined;
     this.isStreaming = false;
   }
 
@@ -139,17 +171,17 @@ export class SECAdapter implements DataIngestionAdapter {
       try {
         callback(data);
       } catch (error) {
-        console.error("SEC data callback error:", error);
+        logger.error("SEC data callback error", error as Error);
       }
     });
   }
 
-  private scheduleReconnect() {
+  private scheduleReconnect(symbols: string[]) {
     if (this.reconnectTimer) return;
 
     this.reconnectTimer = setTimeout(() => {
-      logger.info("Attempting to reconnect SEC WebSocket...");
-      this.startStreaming();
-    }, 5000); // Reconnect after 5 seconds
+      logger.info("Attempting to reconnect market data websocket...");
+      this.startStreaming({ symbols });
+    }, 5000);
   }
 }

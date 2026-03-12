@@ -1,4 +1,4 @@
-import { Award, Download, Share2 } from "lucide-react";
+import { Award, Copy, Download, Mail, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 
@@ -19,6 +19,8 @@ export default function Certifications() {
     undefined,
     { enabled: !!user }
   );
+
+  const createShareLinkMutation = trpc.certifications.createShareLink.useMutation();
 
   if (authLoading || isLoading) {
     return (
@@ -101,9 +103,19 @@ export default function Certifications() {
     }
   };
 
-  const handleShareCertificate = (certId: number) => {
-    toast.info("Certificate sharing feature coming soon!");
-    // TODO: Implement social sharing
+  const handleShareCertificate = async (certId: number) => {
+    try {
+      const payload = await createShareLinkMutation.mutateAsync({
+        certificationId: certId,
+        channel: 'copy',
+      });
+
+      await navigator.clipboard.writeText(payload.shareUrl);
+      toast.success('Share link copied to clipboard');
+    } catch (error) {
+      console.error('Failed to share certification:', error);
+      toast.error('Unable to create share link');
+    }
   };
 
   return (
@@ -168,10 +180,63 @@ export default function Certifications() {
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => toast.info("Feature coming soon!")}
+                  onClick={async () => {
+                    const cert = certifications?.[0];
+                    if (!cert) {
+                      toast.info('Earn a certification first to share it.');
+                      return;
+                    }
+                    try {
+                      const payload = await createShareLinkMutation.mutateAsync({
+                        certificationId: cert.id,
+                        channel: 'linkedin',
+                      });
+                      const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(payload.shareUrl)}`;
+                      window.open(linkedinUrl, '_blank', 'noopener,noreferrer');
+                    } catch (error) {
+                      console.error('LinkedIn share failed', error);
+                      toast.error('Unable to open LinkedIn share');
+                    }
+                  }}
                 >
                   <Share2 className="h-4 w-4 mr-2" />
                   Share on LinkedIn
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={async () => {
+                    const cert = certifications?.[0];
+                    if (!cert) return;
+                    await handleShareCertificate(cert.id);
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Share Link
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={async () => {
+                    const cert = certifications?.[0];
+                    if (!cert) return;
+                    try {
+                      const payload = await createShareLinkMutation.mutateAsync({
+                        certificationId: cert.id,
+                        channel: 'email',
+                      });
+                      const mailto = `mailto:?subject=${encodeURIComponent(payload.title)}&body=${encodeURIComponent(`${payload.text}
+
+${payload.shareUrl}`)}`;
+                      window.location.href = mailto;
+                    } catch (error) {
+                      console.error('Email share failed', error);
+                      toast.error('Unable to open email composer');
+                    }
+                  }}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Share via Email
                 </Button>
                 <Link href="/dashboard">
                   <Button variant="outline" className="w-full justify-start">

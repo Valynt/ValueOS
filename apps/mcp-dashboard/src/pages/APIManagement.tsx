@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-
+import { getApiManagementPageData } from "../services/pageDataClient";
 import {
   FinancialLineChart,
   MetricCard,
@@ -49,66 +49,37 @@ export default function APIManagement() {
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [usageData, setUsageData] = useState<UsageData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadApiKeys();
-    loadUsageData();
+
   }, []);
 
   const loadApiKeys = async () => {
     try {
-      // This would fetch real API keys from the backend
-      // For now, using mock data
-      const mockKeys: APIKey[] = [
-        {
-          id: "key_1",
-          name: "Production API Key",
-          key: "mcp_prod_abc123def456ghi789",
-          createdAt: new Date("2024-01-15"),
-          lastUsed: new Date("2024-01-20"),
-          usage: {
-            requests: 15420,
-            quota: 50000,
-            resetDate: new Date("2024-02-01"),
-          },
+      const payload = await getApiManagementPageData();
+      const keys: APIKey[] = payload.apiKeys.map((key) => ({
+        ...key,
+        createdAt: new Date(key.createdAt),
+        lastUsed: key.lastUsed ? new Date(key.lastUsed) : undefined,
+        usage: {
+          ...key.usage,
+          resetDate: new Date(key.usage.resetDate),
         },
-        {
-          id: "key_2",
-          name: "Development API Key",
-          key: "mcp_dev_xyz789uvw456rst123",
-          createdAt: new Date("2024-01-10"),
-          lastUsed: new Date("2024-01-19"),
-          usage: {
-            requests: 2340,
-            quota: 10000,
-            resetDate: new Date("2024-02-01"),
-          },
-        },
-      ];
-      setApiKeys(mockKeys);
+      }));
+      setApiKeys(keys);
+      setUsageData(payload.usageData as UsageData[]);
     } catch (error) {
-      console.error("Failed to load API keys:", error);
+      console.error("Failed to load API management data:", error);
+      setError("Unable to load API management data");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const loadUsageData = async () => {
-    try {
-      // Mock usage data
-      const mockUsage: UsageData[] = [
-        { period: "Jan 1", requests: 1200, errors: 12, latency: 245 },
-        { period: "Jan 2", requests: 1350, errors: 8, latency: 238 },
-        { period: "Jan 3", requests: 1180, errors: 15, latency: 252 },
-        { period: "Jan 4", requests: 1420, errors: 6, latency: 231 },
-        { period: "Jan 5", requests: 1380, errors: 10, latency: 239 },
-        { period: "Jan 6", requests: 1290, errors: 9, latency: 244 },
-        { period: "Jan 7", requests: 1450, errors: 7, latency: 228 },
-      ];
-      setUsageData(mockUsage);
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Failed to load usage data:", error);
-      setIsLoading(false);
-    }
+    // Usage data now loads through loadApiKeys/getApiManagementPageData
   };
 
   const createApiKey = async () => {
@@ -201,6 +172,7 @@ export default function APIManagement() {
   return (
     <>
       <div className="space-y-6">
+        {error && <div className="rounded-md bg-red-50 text-red-700 p-3">{error}</div>}
         {/* Header */}
         {/* ...existing code... */}
       </div>

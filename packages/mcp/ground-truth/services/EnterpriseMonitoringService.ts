@@ -15,6 +15,22 @@ import { getCache } from "../core/Cache";
 
 import { getEventBus } from "./EventBus";
 
+
+
+export interface MonitoringDataSourceConfig {
+  logsEndpoint?: string;
+  metricsEndpoint?: string;
+  businessEndpoint?: string;
+  authToken?: string;
+}
+
+export interface MetricsSummaryResponse {
+  totalRequests: number;
+  errorRate: number;
+  avgResponseTime: number;
+  activeUsers: number;
+}
+
 export interface TraceSpan {
   id: string;
   traceId: string;
@@ -130,8 +146,10 @@ export class EnterpriseMonitoringService {
   private metricsBuffer: MetricPoint[] = [];
   private bufferSize = 1000;
   private flushInterval: NodeJS.Timeout | null = null;
+  private dataSourceConfig: MonitoringDataSourceConfig;
 
-  constructor() {
+  constructor(config: MonitoringDataSourceConfig = {}) {
+    this.dataSourceConfig = config;
     this.initializeDefaultAlertRules();
     this.startPeriodicTasks();
   }
@@ -257,17 +275,33 @@ export class EnterpriseMonitoringService {
     logMethod(entry.message, undefined, entry.fields);
   }
 
-  queryLogs(query: {
+  async queryLogs(query: {
     startTime?: Date;
     endTime?: Date;
     level?: LogEntry["level"];
     service?: string;
     tenantId?: string;
     limit?: number;
-  }): LogEntry[] {
-    // This would query a proper logging backend in production
-    // For now, return mock data
-    return [];
+  }): Promise<LogEntry[]> {
+    if (!this.dataSourceConfig.logsEndpoint) {
+      return [];
+    }
+
+    const response = await fetch(this.dataSourceConfig.logsEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.dataSourceConfig.authToken ? { Authorization: `Bearer ${this.dataSourceConfig.authToken}` } : {}),
+      },
+      body: JSON.stringify(query),
+    });
+
+    if (!response.ok) {
+      logger.warn('Failed to query logs endpoint', { status: response.status });
+      return [];
+    }
+
+    return (await response.json()) as LogEntry[];
   }
 
   /**
@@ -451,9 +485,28 @@ export class EnterpriseMonitoringService {
     });
   }
 
-  getBusinessMetrics(period?: string): BusinessMetrics[] {
-    // This would query business metrics in production
-    return [];
+  async getBusinessMetrics(period?: string): Promise<BusinessMetrics[]> {
+    if (!this.dataSourceConfig.businessEndpoint) {
+      return [];
+    }
+
+    const url = new URL(this.dataSourceConfig.businessEndpoint);
+    if (period) {
+      url.searchParams.set('period', period);
+    }
+
+    const response = await fetch(url.toString(), {
+      headers: this.dataSourceConfig.authToken
+        ? { Authorization: `Bearer ${this.dataSourceConfig.authToken}` }
+        : undefined,
+    });
+
+    if (!response.ok) {
+      logger.warn('Failed to load business metrics', { status: response.status });
+      return [];
+    }
+
+    return (await response.json()) as BusinessMetrics[];
   }
 
   /**
@@ -475,15 +528,10 @@ export class EnterpriseMonitoringService {
     return {
       health: this.getHealthStatus(),
       alerts: Array.from(this.activeAlerts.values()),
-      metrics: {
-        totalRequests: 0, // Would calculate from metrics
-        errorRate: 0,
-        avgResponseTime: 0,
-        activeUsers: 0,
-      },
+      metrics: await this.loadMetricsSummary(),
       traces: [], // Would fetch recent traces
-      logs: this.queryLogs({ limit: 50 }),
-      business: this.getBusinessMetrics(),
+      logs: await this.queryLogs({ limit: 50 }),
+      business: await this.getBusinessMetrics(),
     };
   }
 
@@ -709,6 +757,35 @@ export class EnterpriseMonitoringService {
         data: health,
       });
     }
+  }
+
+  private async loadMetricsSummary(): Promise<MetricsSummaryResponse> {
+    if (!this.dataSourceConfig.metricsEndpoint) {
+      return {
+        totalRequests: 0,
+        errorRate: 0,
+        avgResponseTime: 0,
+        activeUsers: 0,
+      };
+    }
+
+    const response = await fetch(this.dataSourceConfig.metricsEndpoint, {
+      headers: this.dataSourceConfig.authToken
+        ? { Authorization: `Bearer ${this.dataSourceConfig.authToken}` }
+        : undefined,
+    });
+
+    if (!response.ok) {
+      logger.warn('Failed to load metrics summary', { status: response.status });
+      return {
+        totalRequests: 0,
+        errorRate: 0,
+        avgResponseTime: 0,
+        activeUsers: 0,
+      };
+    }
+
+    return (await response.json()) as MetricsSummaryResponse;
   }
 
   private initializeDefaultAlertRules(): void {
