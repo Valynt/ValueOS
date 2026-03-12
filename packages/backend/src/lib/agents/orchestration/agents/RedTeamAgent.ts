@@ -65,7 +65,47 @@ export const RedTeamOutputSchema = z.object({
   hasCritical: z.boolean(),
   confidence: z.enum(['low', 'medium', 'high']),
   hallucination_check: z.boolean().optional(),
-  hallucination_details: z.unknown().optional(),
+  hallucination_details: z.object({
+    passed: z.boolean(),
+    signals: z.array(
+      z.object({
+        type: z.enum([
+          'refusal_pattern',
+          'fabricated_data',
+          'self_reference',
+          'confidence_mismatch',
+          'internal_contradiction',
+          'ungrounded_claim',
+        ]),
+        description: z.string(),
+        severity: z.enum(['low', 'medium', 'high']),
+      })
+    ),
+    groundingScore: z.number(),
+    requiresEscalation: z.boolean(),
+    knowledgeFabric: z
+      .object({
+        passed: z.boolean(),
+        confidence: z.number(),
+        contradictions: z.array(
+          z.object({
+            claim: z.string(),
+            existingFact: z.string(),
+            similarity: z.number(),
+            source: z.string(),
+          })
+        ),
+        benchmarkMisalignments: z.array(
+          z.object({
+            metricId: z.string(),
+            claimedValue: z.number(),
+            validation: z.unknown(),
+          })
+        ),
+        method: z.literal('knowledge_fabric'),
+      })
+      .optional(),
+  }).optional(),
   timestamp: z.string(),
 });
 
@@ -202,6 +242,22 @@ export class RedTeamAgent extends BaseAgent {
         },
         idempotencyKey: input.idempotencyKey,
       },
+    );
+
+    await this.memorySystem.storeSemanticMemory(
+      sessionId,
+      this.name,
+      'episodic',
+      `Red team summary: ${result.summary}`,
+      {
+        tenant_id: input.tenantId,
+        organization_id: input.tenantId,
+        value_case_id: input.valueCaseId,
+        idempotency_key: input.idempotencyKey,
+        objection_count: result.objections.length,
+        has_critical: result.hasCritical,
+      },
+      this.organizationId,
     );
 
     return {

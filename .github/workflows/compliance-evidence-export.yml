@@ -3,7 +3,7 @@ name: Compliance Evidence Export
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 1 */3 *'
+    - cron: "0 3 1 */3 *"
 
 permissions:
   contents: read
@@ -44,14 +44,55 @@ jobs:
             "run_attempt": "${{ github.run_attempt }}",
             "ref": "${{ github.ref }}",
             "commit_sha": "${{ github.sha }}",
-            "exported_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            "exported_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "audit_status": "not_run",
+            "audit_level": "high",
+            "tool": "pnpm audit"
           }
           JSON
 
-      - name: Run npm audit security scan
-        continue-on-error: true
+      - name: Run pnpm audit security scan (strict)
+        id: pnpm_audit
         run: |
-          npm audit --json > evidence/security-scans/npm-audit.json
+          set +e
+          pnpm audit --audit-level=high --json > evidence/security-scans/pnpm-audit.json
+          audit_exit_code=$?
+          set -e
+
+          if [ "$audit_exit_code" -eq 0 ]; then
+            audit_status="pass"
+          else
+            audit_status="fail"
+          fi
+
+          python - <<PY
+          import json
+
+          with open("evidence/metadata/run-metadata.json", "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+
+          metadata["audit_status"] = "$audit_status"
+          metadata["audit_level"] = "high"
+          metadata["tool"] = "pnpm audit"
+
+          with open("evidence/metadata/run-metadata.json", "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
+            f.write("\n")
+          PY
+
+          echo "${audit_status}" > evidence/security-scans/pnpm-audit-status.txt
+          exit "$audit_exit_code"
+
+      - name: Collect pnpm audit artifacts
+        if: always()
+        run: |
+          if [ ! -f evidence/security-scans/pnpm-audit.json ]; then
+            echo "pnpm audit output was not generated." > evidence/security-scans/pnpm-audit-missing.txt
+          fi
+
+          if [ ! -f evidence/security-scans/pnpm-audit-status.txt ]; then
+            echo "unknown" > evidence/security-scans/pnpm-audit-status.txt
+          fi
 
       - name: Run Semgrep security scan
         continue-on-error: true

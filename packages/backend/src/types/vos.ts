@@ -210,6 +210,39 @@ export interface ValueFabricQuery {
   persona?: string;
 }
 
+
+export interface ValueCommit {
+  id: string;
+  organization_id: string;
+  value_case_id: string;
+  status: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RealizationReport {
+  id: string;
+  organization_id: string;
+  value_case_id: string;
+  report_date?: string;
+  metrics?: Record<string, unknown>;
+  summary?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ExpansionModel {
+  id: string;
+  organization_id: string;
+  value_case_id: string;
+  model_version?: string;
+  assumptions?: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ValueFabricSnapshot {
   value_case_id: string;
   lifecycle_stage: LifecycleStage;
@@ -218,15 +251,15 @@ export interface ValueFabricSnapshot {
   use_cases: UseCase[];
   value_trees: ValueTree[];
   roi_models: ROIModel[];
-  value_commits: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define ValueCommit
+  value_commits: ValueCommit[];
   telemetry_summary?: {
     total_events: number;
     kpis_tracked: number;
     last_event_timestamp?: string;
     coverage_percentage: number;
   };
-  realization_reports?: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define RealizationReport
-  expansion_models?: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define ExpansionModel
+  realization_reports?: RealizationReport[];
+  expansion_models?: ExpansionModel[];
 }
 
 // ============================================================================
