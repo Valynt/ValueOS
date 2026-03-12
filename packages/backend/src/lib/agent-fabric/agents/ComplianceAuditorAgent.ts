@@ -4,6 +4,7 @@ import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
 
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
@@ -47,8 +48,11 @@ export class ComplianceAuditorAgent extends BaseAgent {
       }
     }
 
+    const promptTemplate = resolvePromptTemplate('compliance_auditor_system');
+    this.setPromptVersionReferences([{ key: promptTemplate.key, version: promptTemplate.version }], [promptTemplate.approval]);
+
     const prompt = renderTemplate(
-      `You are a compliance auditor. Review control evidence counts and observations for tenant {{tenantId}}.\nEvidence counts: {{counts}}\nObservations: {{observations}}\nReturn JSON with summary, control_gaps, control_coverage_score, recommended_actions.`,
+      promptTemplate.template,
       {
         tenantId: this.organizationId,
         counts: JSON.stringify(evidenceBySource),

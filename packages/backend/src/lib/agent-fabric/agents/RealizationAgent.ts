@@ -27,6 +27,8 @@ import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEve
 
 import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -355,22 +357,26 @@ export class RealizationAgent extends BaseAgent {
       ? `\n\nIntegrity validation context:\n${integrityResults.map(r => r.content).join('\n')}`
       : '';
 
-    const systemPrompt = `You are a Value Realization analyst. Your job is to compare committed value targets against actual outcomes and produce proof points.
+    const systemPromptTemplate = resolvePromptTemplate('realization_system');
+    const userPromptTemplate = resolvePromptTemplate('realization_user');
+    this.setPromptVersionReferences(
+      [
+        { key: systemPromptTemplate.key, version: systemPromptTemplate.version },
+        { key: userPromptTemplate.key, version: userPromptTemplate.version },
+      ],
+      [systemPromptTemplate.approval, userPromptTemplate.approval],
+    );
 
-Rules:
-- Each proof point must reference a specific KPI with committed vs realized values.
-- Variance is calculated as (realized - committed) / committed.
-- Direction: "over" if realized > committed * 1.05, "under" if realized < committed * 0.95, "on_target" otherwise.
-- overall_realization_rate is the weighted average of (realized / committed) across all KPIs.
-- Flag interventions for KPIs where realization rate < ${INTERVENTION_THRESHOLD} (${INTERVENTION_THRESHOLD * 100}%).
-- Flag expansion signals for KPIs where realization rate > ${EXPANSION_THRESHOLD} (${EXPANSION_THRESHOLD * 100}%).
-- If no actual telemetry is available for a KPI, estimate based on timeline progress and evidence.
-- Evidence must reference specific data sources, not generic claims.
-- data_quality_assessment should note any gaps in telemetry coverage.
-
-Respond with valid JSON matching the schema. No markdown fences or commentary.`;
-
-    const userPrompt = `Analyze realization status for these committed KPIs:\n\n${kpiContext}${integrityContext}\n\nGenerate proof points comparing committed vs actual values, identify interventions needed, and flag expansion opportunities.`;
+    const systemPrompt = renderTemplate(systemPromptTemplate.template, {
+      interventionThreshold: String(INTERVENTION_THRESHOLD),
+      interventionThresholdPct: String(INTERVENTION_THRESHOLD * 100),
+      expansionThreshold: String(EXPANSION_THRESHOLD),
+      expansionThresholdPct: String(EXPANSION_THRESHOLD * 100),
+    });
+    const userPrompt = renderTemplate(userPromptTemplate.template, {
+      kpiContext,
+      integrityContext,
+    });
 
     try {
       return await this.secureInvoke<RealizationAnalysis>(

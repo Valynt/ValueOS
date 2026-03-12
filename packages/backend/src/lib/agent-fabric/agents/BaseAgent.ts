@@ -17,6 +17,8 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
   LifecycleStage,
+  PromptApprovalMetadata,
+  PromptVersionReference,
 } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
@@ -60,6 +62,8 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
   protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
+  private activePromptReferences: PromptVersionReference[] = [];
+  private activePromptApprovals: PromptApprovalMetadata[] = [];
 
   constructor(
     config: AgentConfig,
@@ -103,6 +107,8 @@ export abstract class BaseAgent {
         execution_time_ms: Date.now() - startTime,
         model_version: this.version,
         timestamp: new Date().toISOString(),
+        prompt_versions: this.activePromptReferences,
+        prompt_approvals: this.activePromptApprovals,
       };
       return {
         agent_id: this.name,
@@ -115,6 +121,15 @@ export abstract class BaseAgent {
         ...(extra || {}),
       };
     }
+
+
+  protected setPromptVersionReferences(
+    references: PromptVersionReference[],
+    approvals: PromptApprovalMetadata[] = [],
+  ): void {
+    this.activePromptReferences = references;
+    this.activePromptApprovals = approvals;
+  }
 
   /**
    * Inject a KnowledgeFabricValidator for hallucination detection.
@@ -193,6 +208,14 @@ export abstract class BaseAgent {
     } = options;
 
     return this.circuitBreaker.execute(async () => {
+      logger.info("prompt.audit", {
+        agent: this.name,
+        tenant_id: this.organizationId,
+        session_id: sessionId,
+        prompt_versions: this.activePromptReferences,
+        prompt_approvals: this.activePromptApprovals,
+      });
+
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
@@ -200,6 +223,7 @@ export abstract class BaseAgent {
           sessionId,
           userId: "system",
           idempotencyKey,
+          prompt_versions: this.activePromptReferences,
           ...context,
         },
       };

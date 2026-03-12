@@ -30,6 +30,7 @@ import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEve
 
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -324,48 +325,34 @@ export class OpportunityAgent extends BaseAgent {
   // LLM Hypothesis Generation
   // -------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // Prompt templates
-  // ---------------------------------------------------------------------------
-
-  private static readonly BASE_PROMPT_TEMPLATE = `You are a Value Engineering analyst. Your job is to identify specific, measurable value hypotheses for a B2B prospect.
-
-Rules:
-- Each hypothesis must have a concrete estimated_impact range (low/high) with units.
-- Evidence must reference specific, verifiable facts — not generic claims.
-- Confidence scores reflect how well-supported the hypothesis is (0.0–1.0).
-- Categories: revenue_growth, cost_reduction, risk_mitigation, operational_efficiency, strategic_advantage.
-- KPI targets should be specific metrics the prospect can track.
-- Stakeholder roles should map to real buying committee positions.
-
-Respond with valid JSON matching the schema. Do not include markdown fences or commentary.`;
-
-  private static readonly GROUNDING_SECTION_TEMPLATE = `
-
-Grounding data for {{ entityName }} ({{ period }}):
-{{ metricsStr }}{{ benchmarksSection }}
-
-Use this data to ground your hypotheses. Reference specific metrics and benchmarks in evidence fields.`;
-
-  private static readonly BENCHMARKS_SECTION_TEMPLATE = `
-
-Industry benchmarks:
-{{ benchStr }}`;
-
   /**
    * Build the system prompt with optional financial grounding context.
    */
   private buildSystemPrompt(financialData: FinancialDataResult | null): string {
     if (!financialData) {
-      return OpportunityAgent.BASE_PROMPT_TEMPLATE;
+      const basePrompt = resolvePromptTemplate('opportunity_base');
+      this.setPromptVersionReferences([
+        { key: basePrompt.key, version: basePrompt.version },
+      ], [basePrompt.approval]);
+      return basePrompt.template;
     }
+
+    const basePrompt = resolvePromptTemplate('opportunity_base');
+    const groundingSection = resolvePromptTemplate('opportunity_grounding_section');
+    const benchmarkSection = resolvePromptTemplate('opportunity_benchmarks_section');
+
+    this.setPromptVersionReferences([
+      { key: basePrompt.key, version: basePrompt.version },
+      { key: groundingSection.key, version: groundingSection.version },
+      { key: benchmarkSection.key, version: benchmarkSection.version },
+    ], [basePrompt.approval, groundingSection.approval, benchmarkSection.approval]);
 
     const metricsStr = Object.entries(financialData.metrics)
       .map(([k, v]) => `  ${k}: ${v.value} ${v.unit} (source: ${v.source}, confidence: ${v.confidence})`)
       .join('\n');
 
     const benchmarksSection = financialData.industryBenchmarks
-      ? renderTemplate(OpportunityAgent.BENCHMARKS_SECTION_TEMPLATE, {
+      ? renderTemplate(benchmarkSection.template, {
           benchStr: Object.entries(financialData.industryBenchmarks)
             .map(([k, v]) => `  ${k}: median=${v.median}, p25=${v.p25}, p75=${v.p75}`)
             .join('\n'),
@@ -373,8 +360,8 @@ Industry benchmarks:
       : '';
 
     return (
-      OpportunityAgent.BASE_PROMPT_TEMPLATE +
-      renderTemplate(OpportunityAgent.GROUNDING_SECTION_TEMPLATE, {
+      basePrompt.template +
+      renderTemplate(groundingSection.template, {
         entityName: financialData.entityName,
         period: financialData.period,
         metricsStr,
