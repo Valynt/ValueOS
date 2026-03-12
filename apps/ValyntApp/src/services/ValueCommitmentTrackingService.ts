@@ -253,17 +253,210 @@ export class ValueCommitmentTrackingService {
   }
 
   // -------------------------------------------------------------------------
-  // Stub methods — not yet migrated; preserve call-site interface
+  // Milestones
   // -------------------------------------------------------------------------
 
-  async addStakeholder(
+  async createMilestone(
+    commitmentId: string,
+    _tenantId: string,
+    _userId: string,
+    data: Partial<CommitmentMilestone>,
+  ): Promise<CommitmentMilestone> {
+    logger.info("Creating milestone via backend API", { commitmentId });
+
+    const response = await apiClient.post<CommitmentMilestone>(
+      `${this.base}/${commitmentId}/milestones`,
+      {
+        title:            data.title ?? "",
+        description:      data.description,
+        milestone_type:   "deliverable",
+        sequence_order:   data.id ? 0 : 0,
+        target_date:      data.due_date ?? new Date().toISOString(),
+        deliverables:     Array.isArray(data.deliverables) ? data.deliverables.map(String) : undefined,
+      },
+    );
+    return unwrap(response);
+  }
+
+  async updateMilestoneProgress(
+    milestoneId: string,
+    _tenantId: string,
+    _userId: string,
+    progressPercentage: number,
+    status?: CommitmentMilestone["status"],
+    actualDate?: string,
+  ): Promise<CommitmentMilestone> {
+    // commitmentId is not available at this call-site; the backend scopes by
+    // milestoneId + commitment_id. We use a placeholder route segment and rely
+    // on the backend to resolve ownership via the milestone row itself.
+    // Callers that have commitmentId should use updateMilestoneProgressForCommitment.
+    logger.info("Updating milestone progress via backend API", { milestoneId });
+
+    const body: Record<string, unknown> = { progress_percentage: progressPercentage };
+    if (status) body["status"] = status;
+    if (actualDate) body["actual_date"] = actualDate;
+
+    const response = await apiClient.patch<CommitmentMilestone>(
+      `${this.base}/milestones/${milestoneId}`,
+      body,
+    );
+    return unwrap(response);
+  }
+
+  async updateMilestoneProgressForCommitment(
+    commitmentId: string,
+    milestoneId: string,
+    progressPercentage: number,
+    status?: CommitmentMilestone["status"],
+    actualDate?: string,
+  ): Promise<CommitmentMilestone> {
+    logger.info("Updating milestone progress via backend API", { commitmentId, milestoneId });
+
+    const body: Record<string, unknown> = { progress_percentage: progressPercentage };
+    if (status) body["status"] = status;
+    if (actualDate) body["actual_date"] = actualDate;
+
+    const response = await apiClient.patch<CommitmentMilestone>(
+      `${this.base}/${commitmentId}/milestones/${milestoneId}`,
+      body,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Metrics
+  // -------------------------------------------------------------------------
+
+  async createMetric(
     _commitmentId: string,
     _tenantId: string,
     _userId: string,
-    _data: Partial<CommitmentStakeholder>,
+    _data: Partial<CommitmentMetric>,
+  ): Promise<CommitmentMetric> {
+    // Metrics are seeded at commitment creation time via CreateCommitmentRequest.metrics.
+    // Post-creation metric creation is not yet exposed by the backend API.
+    // Return a typed empty object so call-sites compile; this will be wired
+    // when the backend adds POST /:commitmentId/metrics.
+    logger.warn("createMetric: post-creation metric creation not yet supported by backend API");
+    return {} as CommitmentMetric;
+  }
+
+  async updateMetricValue(
+    metricId: string,
+    _tenantId: string,
+    _userId: string,
+    currentValue: number,
+    lastMeasuredAt?: string,
+  ): Promise<CommitmentMetric> {
+    // metricId alone is insufficient to route to the correct commitment.
+    // Callers that have commitmentId should use updateMetricValueForCommitment.
+    logger.warn("updateMetricValue: use updateMetricValueForCommitment when commitmentId is available", { metricId });
+    return {} as CommitmentMetric;
+  }
+
+  async updateMetricValueForCommitment(
+    commitmentId: string,
+    metricId: string,
+    currentValue: number,
+    lastMeasuredAt?: string,
+  ): Promise<CommitmentMetric> {
+    logger.info("Updating metric value via backend API", { commitmentId, metricId });
+
+    const body: Record<string, unknown> = { current_value: currentValue };
+    if (lastMeasuredAt) body["last_measured_at"] = lastMeasuredAt;
+
+    const response = await apiClient.patch<CommitmentMetric>(
+      `${this.base}/${commitmentId}/metrics/${metricId}`,
+      body,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Risks
+  // -------------------------------------------------------------------------
+
+  async createRisk(
+    commitmentId: string,
+    _tenantId: string,
+    _userId: string,
+    data: Partial<CommitmentRisk>,
+  ): Promise<CommitmentRisk> {
+    logger.info("Creating risk via backend API", { commitmentId });
+
+    const response = await apiClient.post<CommitmentRisk>(
+      `${this.base}/${commitmentId}/risks`,
+      {
+        risk_title:       data.risk_title ?? "",
+        risk_description: data.risk_description ?? "",
+        risk_category:    data.risk_category ?? "operational",
+        probability:      data.risk_probability ?? "medium",
+        impact:           data.risk_impact ?? "medium",
+        risk_score:       data.risk_score,
+        mitigation_strategy: data.mitigation_strategy ?? "",
+        // Backend schema uses mitigation_plan / contingency_plan
+        mitigation_plan:  data.mitigation_strategy ?? "",
+        contingency_plan: "",
+        owner_id:         data.owner_id ?? "",
+        review_date:      new Date().toISOString(),
+      },
+    );
+    return unwrap(response);
+  }
+
+  async updateRiskStatus(
+    riskId: string,
+    _tenantId: string,
+    _userId: string,
+    status: CommitmentRisk["status"],
+    mitigatedAt?: string,
+  ): Promise<CommitmentRisk> {
+    // riskId alone is insufficient to route to the correct commitment.
+    // Callers that have commitmentId should use updateRiskStatusForCommitment.
+    logger.warn("updateRiskStatus: use updateRiskStatusForCommitment when commitmentId is available", { riskId });
+    return {} as CommitmentRisk;
+  }
+
+  async updateRiskStatusForCommitment(
+    commitmentId: string,
+    riskId: string,
+    status: CommitmentRisk["status"],
+    mitigatedAt?: string,
+  ): Promise<CommitmentRisk> {
+    logger.info("Updating risk status via backend API", { commitmentId, riskId });
+
+    const body: Record<string, unknown> = { status };
+    if (mitigatedAt) body["mitigated_at"] = mitigatedAt;
+
+    const response = await apiClient.patch<CommitmentRisk>(
+      `${this.base}/${commitmentId}/risks/${riskId}/status`,
+      body,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Stakeholders
+  // -------------------------------------------------------------------------
+
+  async addStakeholder(
+    commitmentId: string,
+    _tenantId: string,
+    _userId: string,
+    data: Partial<CommitmentStakeholder>,
   ): Promise<CommitmentStakeholder> {
-    logger.warn("addStakeholder: not yet migrated to backend API");
-    return {} as CommitmentStakeholder;
+    logger.info("Adding stakeholder via backend API", { commitmentId });
+
+    const response = await apiClient.post<CommitmentStakeholder>(
+      `${this.base}/${commitmentId}/stakeholders`,
+      {
+        user_id:                   data.user_id ?? "",
+        role:                      data.role ?? "",
+        responsibility:            data.responsibility ?? "",
+        accountability_percentage: data.accountability_percentage,
+      },
+    );
+    return unwrap(response);
   }
 
   async updateStakeholder(
@@ -272,78 +465,61 @@ export class ValueCommitmentTrackingService {
     _userId: string,
     _updates: Partial<CommitmentStakeholder>,
   ): Promise<CommitmentStakeholder> {
-    logger.warn("updateStakeholder: not yet migrated to backend API");
+    // Stakeholder update endpoint not yet exposed by the backend API.
+    // Stakeholder records are immutable post-creation in the current model.
+    logger.warn("updateStakeholder: not yet supported by backend API");
     return {} as CommitmentStakeholder;
   }
 
-  async createMilestone(
-    _commitmentId: string,
-    _tenantId: string,
-    _userId: string,
-    _data: Partial<CommitmentMilestone>,
-  ): Promise<CommitmentMilestone> {
-    logger.warn("createMilestone: not yet migrated to backend API");
-    return {} as CommitmentMilestone;
-  }
-
-  async updateMilestoneProgress(
-    _milestoneId: string,
-    _tenantId: string,
-    _userId: string,
-    _progressPercentage: number,
-    _status?: CommitmentMilestone["status"],
-    _actualDate?: string,
-  ): Promise<CommitmentMilestone> {
-    logger.warn("updateMilestoneProgress: not yet migrated to backend API");
-    return {} as CommitmentMilestone;
-  }
-
-  async createMetric(
-    _commitmentId: string,
-    _tenantId: string,
-    _userId: string,
-    _data: Partial<CommitmentMetric>,
-  ): Promise<CommitmentMetric> {
-    logger.warn("createMetric: not yet migrated to backend API");
-    return {} as CommitmentMetric;
-  }
-
-  async updateMetricValue(
-    _metricId: string,
-    _tenantId: string,
-    _userId: string,
-    _currentValue: number,
-    _lastMeasuredAt?: string,
-  ): Promise<CommitmentMetric> {
-    logger.warn("updateMetricValue: not yet migrated to backend API");
-    return {} as CommitmentMetric;
-  }
-
-  async createRisk(
-    _commitmentId: string,
-    _tenantId: string,
-    _userId: string,
-    _data: Partial<CommitmentRisk>,
-  ): Promise<CommitmentRisk> {
-    logger.warn("createRisk: not yet migrated to backend API");
-    return {} as CommitmentRisk;
-  }
-
-  async updateRiskStatus(
-    _riskId: string,
-    _tenantId: string,
-    _userId: string,
-    _status: CommitmentRisk["status"],
-    _mitigatedAt?: string,
-  ): Promise<CommitmentRisk> {
-    logger.warn("updateRiskStatus: not yet migrated to backend API");
-    return {} as CommitmentRisk;
-  }
+  // -------------------------------------------------------------------------
+  // Progress and at-risk queries
+  // -------------------------------------------------------------------------
 
   async calculateProgress(
     commitmentId: string,
     _tenantId: string,
   ): Promise<CommitmentProgress> {
+    try {
+      const response = await apiClient.get<CommitmentProgress>(
+        `${this.base}/${commitmentId}/progress`,
+      );
+      if (!response.success || !response.data) {
+        return this.emptyProgress(commitmentId);
+      }
+      return response.data;
+    } catch (error) {
+      logger.error("Failed to calculate progress", { error, commitmentId });
+      return this.emptyProgress(commitmentId);
+    }
+  }
+
+  async getAtRiskCommitments(_tenantId: string): Promise<ValueCommitment[]> {
+    try {
+      const response = await apiClient.get<CommitmentDto[]>(`${this.base}/at-risk`);
+      if (!response.success || !response.data) return [];
+      return response.data.map((dto) => this.dtoToValueCommitment(dto));
+    } catch (error) {
+      logger.error("Failed to get at-risk commitments", { error });
+      return [];
+    }
+  }
+
+  async validateAgainstGroundTruth(
+    commitmentId: string,
+    _tenantId: string,
+  ): Promise<{ isValid: boolean; confidence: number; issues: string[]; recommendations: string[] }> {
+    // Ground-truth validation requires the RealizationAgent and is not yet
+    // exposed as a standalone endpoint. Returns a safe default so call-sites
+    // compile and the UI degrades gracefully.
+    logger.warn("validateAgainstGroundTruth: not yet supported by backend API", { commitmentId });
+    return { isValid: true, confidence: 0, issues: [], recommendations: [] };
+  }
+
+  // -------------------------------------------------------------------------
+  // Private helpers
+  // -------------------------------------------------------------------------
+
+  private emptyProgress(commitmentId: string): CommitmentProgress {
     return {
       commitment_id:        commitmentId,
       overall_progress:     0,
@@ -355,20 +531,33 @@ export class ValueCommitmentTrackingService {
     };
   }
 
-  async getAtRiskCommitments(_tenantId: string): Promise<ValueCommitment[]> {
-    return [];
+  private dtoToValueCommitment(dto: CommitmentDto): ValueCommitment {
+    return {
+      id:                      dto.id,
+      tenant_id:               "",
+      user_id:                 dto.created_by,
+      session_id:              "",
+      organization_id:         dto.organization_id,
+      title:                   dto.title,
+      description:             dto.description ?? "",
+      commitment_type:         dto.commitment_type,
+      priority:                dto.priority,
+      financial_impact:        (dto.financial_impact as ValueCommitment["financial_impact"]) ?? {},
+      currency:                dto.currency,
+      timeframe_months:        dto.timeframe_months,
+      status:                  dto.status as ValueCommitment["status"],
+      progress_percentage:     dto.progress_percentage,
+      confidence_level:        0,
+      committed_at:            dto.created_at,
+      target_completion_date:  dto.target_completion_date,
+      actual_completion_date:  null,
+      ground_truth_references: {},
+      tags:                    dto.tags,
+      metadata:                {},
+      created_at:              dto.created_at,
+      updated_at:              dto.updated_at,
+    };
   }
-
-  async validateAgainstGroundTruth(
-    _commitmentId: string,
-    _tenantId: string,
-  ): Promise<{ isValid: boolean; confidence: number; issues: string[]; recommendations: string[] }> {
-    return { isValid: true, confidence: 0, issues: [], recommendations: [] };
-  }
-
-  // -------------------------------------------------------------------------
-  // Private helpers
-  // -------------------------------------------------------------------------
 
   private stubCommitment(title: string, status: CommitmentDto["status"] = "draft"): CommitmentDto {
     const now = new Date().toISOString();
@@ -394,40 +583,12 @@ export class ValueCommitmentTrackingService {
   }
 
   private dtoToDashboard(dto: CommitmentDto): CommitmentDashboard {
-    // Map the backend DTO to the legacy CommitmentDashboard shape so existing
-    // UI components that consume getCommitment() continue to work unchanged.
-    const commitment: ValueCommitment = {
-      id:                      dto.id,
-      tenant_id:               "",
-      user_id:                 dto.created_by,
-      session_id:              "",
-      organization_id:         dto.organization_id,
-      title:                   dto.title,
-      description:             dto.description ?? "",
-      commitment_type:         dto.commitment_type,
-      priority:                dto.priority,
-      financial_impact:        (dto.financial_impact as ValueCommitment["financial_impact"]) ?? {},
-      currency:                dto.currency,
-      timeframe_months:        dto.timeframe_months,
-      status:                  dto.status as ValueCommitment["status"],
-      progress_percentage:     dto.progress_percentage,
-      confidence_level:        0,
-      committed_at:            dto.created_at,
-      target_completion_date:  dto.target_completion_date,
-      actual_completion_date:  null,
-      ground_truth_references: {},
-      tags:                    dto.tags,
-      metadata:                {},
-      created_at:              dto.created_at,
-      updated_at:              dto.updated_at,
-    };
-
     return {
-      commitment,
-      stakeholders: [],
-      milestones:   [],
-      metrics:      [],
-      risks:        [],
+      commitment:    this.dtoToValueCommitment(dto),
+      stakeholders:  [],
+      milestones:    [],
+      metrics:       [],
+      risks:         [],
       progress: {
         commitment_id:        dto.id,
         overall_progress:     dto.progress_percentage,

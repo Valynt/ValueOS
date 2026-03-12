@@ -29,16 +29,10 @@ Opportunity   Target +    Integrity   Narrative   Expansion  Realization
 | **Service** | `HypothesisOutputService.ts` — upsert/get by `case_id` + `organization_id` | ✅ |
 | **API endpoint** | `GET /api/v1/value-cases/:caseId/hypothesis` | ✅ |
 | **API endpoint** | `POST /api/agents/opportunity/invoke` | ✅ |
-| **Router mount** | `valueCasesRouter` exported but **never imported or mounted in `server.ts`** | ❌ |
+| **Router mount** | `valueCasesRouter` mounted in `server.ts` at `/api/v1/cases` (line 501) and `/api/v1/value-cases` (line 503) | ✅ |
 | **Frontend hook** | `useHypothesisOutput(caseId)` — polls GET, exposes `runAgent()` | ✅ |
 | **UI component** | `HypothesisStage.tsx` — renders hypotheses, triggers agent run | ✅ |
 | **User story** | US-002 | ✅ |
-
-**Confirmed gap:** `valueCasesRouter` is exported from `packages/backend/src/api/valueCases/index.ts` but is not imported or mounted anywhere in `server.ts` (verified by grep across all non-test files). All `/api/v1/value-cases/...` frontend calls return 404. Fix: add to `server.ts`:
-```typescript
-import { valueCasesRouter } from './api/valueCases/index.js';
-app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCasesRouter);
-```
 
 ---
 

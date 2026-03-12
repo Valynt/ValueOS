@@ -24,12 +24,19 @@ import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.j
 import { valueCommitmentBackendService } from '../../services/value/ValueCommitmentBackendService.js';
 import {
   AddNoteSchema,
+  AddStakeholderSchema,
   CreateCommitmentSchema,
+  CreateMilestoneSchema,
+  CreateRiskSchema,
   StatusTransitionSchema,
   UpdateCommitmentSchema,
+  UpdateMetricSchema,
+  UpdateMilestoneSchema,
+  UpdateRiskStatusSchema,
   toCommitmentDto,
   toNoteDto,
 } from './schemas.js';
+import { valueCommitmentTrackingService } from '../../services/ValueCommitmentTrackingService.js';
 
 const logger = createLogger({ component: 'ValueCommitmentsRouter' });
 
@@ -253,6 +260,247 @@ valueCommitmentsRouter.delete(
       res.status(204).send();
     } catch (err) {
       handleError(err, res, 'DELETE /value-commitments/:id');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /at-risk — list at-risk commitments for the tenant
+// Must be registered before /:commitmentId to avoid route shadowing.
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.get(
+  '/at-risk',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId } = resolveContext(req);
+
+      const { data, error } = await (await import('../../lib/supabase.js')).supabase
+        .from('value_commitments')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('status', 'at_risk')
+        .order('updated_at', { ascending: false });
+
+      if (error) throw new Error(error.message);
+
+      res.status(200).json((data ?? []).map(toCommitmentDto));
+    } catch (err) {
+      handleError(err, res, 'GET /value-commitments/at-risk');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// GET /:commitmentId/progress — computed progress summary
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.get(
+  '/:commitmentId/progress',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId } = resolveContext(req);
+      const { commitmentId }   = req.params as { commitmentId: string };
+
+      const report = await valueCommitmentTrackingService.generateProgressReport(
+        commitmentId,
+        organizationId,
+      );
+
+      res.status(200).json(report.summary);
+    } catch (err) {
+      handleError(err, res, 'GET /value-commitments/:id/progress');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:commitmentId/milestones — create milestone
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.post(
+  '/:commitmentId/milestones',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId, actorUserId } = resolveContext(req);
+      const { commitmentId }                = req.params as { commitmentId: string };
+      const input = CreateMilestoneSchema.parse(req.body);
+
+      const row = await valueCommitmentTrackingService.addMilestone({
+        commitment_id:    commitmentId,
+        tenant_id:        organizationId,
+        organization_id:  organizationId,
+        title:            input.title,
+        description:      input.description ?? '',
+        milestone_type:   input.milestone_type,
+        sequence_order:   input.sequence_order,
+        target_date:      input.target_date,
+        deliverables:     input.deliverables,
+        success_criteria: input.success_criteria,
+      });
+
+      logger.info('milestone created', { commitmentId, organizationId, actorUserId });
+      res.status(201).json(row);
+    } catch (err) {
+      handleError(err, res, 'POST /value-commitments/:id/milestones');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PATCH /:commitmentId/milestones/:milestoneId — update milestone progress
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.patch(
+  '/:commitmentId/milestones/:milestoneId',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId, actorUserId } = resolveContext(req);
+      const { commitmentId, milestoneId }   = req.params as { commitmentId: string; milestoneId: string };
+      const input = UpdateMilestoneSchema.parse(req.body);
+
+      const row = await valueCommitmentTrackingService.updateMilestoneProgress({
+        milestone_id:        milestoneId,
+        commitment_id:       commitmentId,
+        organization_id:     organizationId,
+        progress_percentage: input.progress_percentage,
+        status:              input.status,
+        actual_date:         input.actual_date,
+      });
+
+      logger.info('milestone updated', { milestoneId, commitmentId, organizationId, actorUserId });
+      res.status(200).json(row);
+    } catch (err) {
+      handleError(err, res, 'PATCH /value-commitments/:id/milestones/:milestoneId');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PATCH /:commitmentId/metrics/:metricId — record metric actual value
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.patch(
+  '/:commitmentId/metrics/:metricId',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId, actorUserId } = resolveContext(req);
+      const { commitmentId, metricId }      = req.params as { commitmentId: string; metricId: string };
+      const input = UpdateMetricSchema.parse(req.body);
+
+      const row = await valueCommitmentTrackingService.recordMetricActual({
+        metric_id:     metricId,
+        commitment_id: commitmentId,
+        organization_id: organizationId,
+        current_value: input.current_value,
+      });
+
+      logger.info('metric updated', { metricId, commitmentId, organizationId, actorUserId });
+      res.status(200).json(row);
+    } catch (err) {
+      handleError(err, res, 'PATCH /value-commitments/:id/metrics/:metricId');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:commitmentId/risks — create risk
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.post(
+  '/:commitmentId/risks',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId, actorUserId } = resolveContext(req);
+      const { commitmentId }                = req.params as { commitmentId: string };
+      const input = CreateRiskSchema.parse(req.body);
+
+      const row = await valueCommitmentTrackingService.addRisk({
+        commitment_id:    commitmentId,
+        tenant_id:        organizationId,
+        organization_id:  organizationId,
+        risk_title:       input.risk_title,
+        risk_description: input.risk_description,
+        risk_category:    input.risk_category,
+        probability:      input.probability,
+        impact:           input.impact,
+        risk_score:       input.risk_score,
+        mitigation_plan:  input.mitigation_plan,
+        contingency_plan: input.contingency_plan,
+        owner_id:         input.owner_id,
+        review_date:      input.review_date,
+      });
+
+      logger.info('risk created', { commitmentId, organizationId, actorUserId });
+      res.status(201).json(row);
+    } catch (err) {
+      handleError(err, res, 'POST /value-commitments/:id/risks');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PATCH /:commitmentId/risks/:riskId/status — update risk status
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.patch(
+  '/:commitmentId/risks/:riskId/status',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId, actorUserId } = resolveContext(req);
+      const { commitmentId, riskId }        = req.params as { commitmentId: string; riskId: string };
+      const input = UpdateRiskStatusSchema.parse(req.body);
+
+      const row = await valueCommitmentTrackingService.updateRiskStatus({
+        risk_id:       riskId,
+        commitment_id: commitmentId,
+        organization_id: organizationId,
+        status:        input.status,
+        mitigated_at:  input.mitigated_at,
+      });
+
+      logger.info('risk status updated', { riskId, commitmentId, organizationId, actorUserId });
+      res.status(200).json(row);
+    } catch (err) {
+      handleError(err, res, 'PATCH /value-commitments/:id/risks/:riskId/status');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /:commitmentId/stakeholders — add stakeholder
+// ---------------------------------------------------------------------------
+
+valueCommitmentsRouter.post(
+  '/:commitmentId/stakeholders',
+  standardLimiter,
+  async (req: AuthenticatedRequest, res, _next: NextFunction) => {
+    try {
+      const { organizationId, actorUserId } = resolveContext(req);
+      const { commitmentId }                = req.params as { commitmentId: string };
+      const input = AddStakeholderSchema.parse(req.body);
+
+      const row = await valueCommitmentTrackingService.addStakeholder({
+        commitment_id:             commitmentId,
+        tenant_id:                 organizationId,
+        organization_id:           organizationId,
+        user_id:                   input.user_id,
+        role:                      input.role,
+        responsibility:            input.responsibility,
+        accountability_percentage: input.accountability_percentage,
+      });
+
+      logger.info('stakeholder added', { commitmentId, organizationId, actorUserId });
+      res.status(201).json(row);
+    } catch (err) {
+      handleError(err, res, 'POST /value-commitments/:id/stakeholders');
     }
   },
 );
