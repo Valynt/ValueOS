@@ -130,14 +130,60 @@ export const NarrativeDraftedPayloadSchema = z.preprocess((payload) => {
 
   const rawPayload = payload as Record<string, unknown>;
 
+  const tenantId = rawPayload['tenantId'];
+  const organizationId = rawPayload['organization_id'];
+  if (tenantId !== undefined && organizationId !== undefined && tenantId !== organizationId) {
+    throw new z.ZodError([
+      {
+        code: z.ZodIssueCode.custom,
+        message:
+          'Mismatched tenant identifiers: tenantId and organization_id must match when both are present.',
+        path: ['tenantId'],
+      },
+    ]);
+  }
+
+  const valueCaseId = rawPayload['valueCaseId'];
+  const valueCaseIdLegacy = rawPayload['value_case_id'];
+  if (
+    valueCaseId !== undefined &&
+    valueCaseIdLegacy !== undefined &&
+    valueCaseId !== valueCaseIdLegacy
+  ) {
+    throw new z.ZodError([
+      {
+        code: z.ZodIssueCode.custom,
+        message:
+          'Mismatched value case identifiers: valueCaseId and value_case_id must match when both are present.',
+        path: ['valueCaseId'],
+      },
+    ]);
+  }
+
+  const defenseReadinessScore = rawPayload['defenseReadinessScore'];
+  const defenseReadinessScoreLegacy = rawPayload['defense_readiness_score'];
+  if (
+    defenseReadinessScore !== undefined &&
+    defenseReadinessScoreLegacy !== undefined &&
+    defenseReadinessScore !== defenseReadinessScoreLegacy
+  ) {
+    throw new z.ZodError([
+      {
+        code: z.ZodIssueCode.custom,
+        message:
+          'Mismatched defense readiness scores: defenseReadinessScore and defense_readiness_score must match when both are present.',
+        path: ['defenseReadinessScore'],
+      },
+    ]);
+  }
+
   return {
     ...rawPayload,
-    // Backward compatibility: old publisher used organization_id instead of tenantId.
-    tenantId: rawPayload['tenantId'] ?? rawPayload['organization_id'],
+    // Backward compatibility / compat mapping: prefer tenantId but fall back to organization_id.
+    tenantId: tenantId ?? organizationId,
     // Backward compatibility: old publisher used snake_case field names.
-    valueCaseId: rawPayload['valueCaseId'] ?? rawPayload['value_case_id'],
-    defenseReadinessScore:
-      rawPayload['defenseReadinessScore'] ?? rawPayload['defense_readiness_score'],
+    valueCaseId: (valueCaseId ?? valueCaseIdLegacy) as unknown,
+    defenseReadinessScore: (defenseReadinessScore ?? defenseReadinessScoreLegacy) as unknown,
   };
 }, NarrativeDraftedNormalizedPayloadSchema);
 export type NarrativeDraftedPayload = z.infer<typeof NarrativeDraftedPayloadSchema>;
