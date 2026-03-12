@@ -282,12 +282,20 @@ export function useCachedData<T>(
             error
           );
         } else {
-          // Re-throw unexpected storage errors so callers are aware.
-          throw error;
+          // Unexpected storage errors: log and notify, but do not throw from inside useEffect.
+          console.error(
+            `[useCachedData] Unexpected localStorage error while writing cache for key "${key}". Cache write skipped.`,
+            error
+          );
+          if (options.onError) {
+            options.onError(
+              `Unexpected localStorage error while caching data for key "${key}".`
+            );
+          }
         }
       }
     }
-  }, [key, state.data, state.lastUpdated]);
+  }, [key, state.data, state.lastUpdated, options.onError]);
 
   return [state, actions] as const;
 }
