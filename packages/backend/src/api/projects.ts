@@ -9,6 +9,7 @@ import {
   UnauthorizedError,
 } from "../lib/errors";
 import { asyncHandler } from "../middleware/globalErrorHandler.js";
+import { auditLogService } from "../services/AuditLogService.js";
 import {
   projectRepository,
   projectStatuses,
@@ -18,7 +19,6 @@ import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
 } from "../services/ReadThroughCacheService.js";
-import { auditLogService } from "../services/AuditLogService.js";
 
 const router = Router();
 

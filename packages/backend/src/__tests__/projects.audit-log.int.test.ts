@@ -3,6 +3,7 @@
  *
  * Asserts that create, update, and delete operations emit audit records with
  * the correct actor, tenant, and action fields.
+
  */
 
 import request from 'supertest';
@@ -221,4 +222,5 @@ describe('Projects API — audit logging', () => {
     expect(call.details.tenantId).toBe(TENANT_ID);
     expect(call.details.correlationId).toBe('corr-123');
   });
+
 });
