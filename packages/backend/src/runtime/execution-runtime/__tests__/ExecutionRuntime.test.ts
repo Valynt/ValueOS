@@ -117,7 +117,7 @@ function makeState() {
     id: 'state-1', workflow_id: '', execution_id: 'exec-1', workspace_id: '',
     organization_id: ORG_ID, lifecycle_stage: 'discovery', current_step: 'discovery',
     currentStage: 'discovery', status: 'initiated' as const, completed_steps: [],
-    state_data: {}, context: { organizationId: ORG_ID, opportunityId: OPP_ID, conversationHistory: [] },
+    state_data: {}, context: { organizationId: ORG_ID, conversationHistory: [] },
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   };
 }
