@@ -425,6 +425,7 @@ export class PlaygroundSessionService {
           .from('workflow_artifacts')
           .insert({
             workflow_execution_id: session.workflowExecutionId,
+            organization_id: session.organizationId,
             artifact_type: 'sdui_layout',
             artifact_data: session.currentLayout,
             metadata: {
@@ -457,7 +458,8 @@ export class PlaygroundSessionService {
             },
             updated_at: new Date().toISOString(),
           })
-          .eq('id', artifactId);
+          .eq('id', artifactId)
+          .eq('organization_id', session.organizationId);
 
         if (error) {
           throw new Error(`Failed to update artifact: ${error.message}`);
@@ -470,6 +472,7 @@ export class PlaygroundSessionService {
           .from('workflow_execution_logs')
           .insert({
             workflow_execution_id: session.workflowExecutionId,
+            organization_id: session.organizationId,
             event_type: 'artifact_committed',
             event_data: {
               artifactId,

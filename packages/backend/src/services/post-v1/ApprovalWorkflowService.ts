@@ -12,7 +12,7 @@ export interface ApprovalWorkflow {
   description?: string;
   scope: 'organization' | 'team' | 'all';
   scopeId?: string;
-  triggerConditions: Record<string, any>;
+  triggerConditions: Record<string, unknown>;
   approvalLevels: number;
   requiredApprovers: string[];
   timeoutHours: number;
@@ -28,7 +28,7 @@ export interface ApprovalRequest {
   workflowId: string;
   requestedBy: string;
   changeType: string;
-  changeData: Record<string, any>;
+  changeData: Record<string, unknown>;
   justification?: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
   currentLevel: number;
@@ -45,21 +45,19 @@ export class ApprovalWorkflowService extends BaseService {
     super('ApprovalWorkflowService');
   }
 
-  /**
-   * Create approval workflow
-   */
   async createWorkflow(
+    organizationId: string,
     input: Omit<ApprovalWorkflow, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<ApprovalWorkflow> {
     this.validateRequired(input, ['name', 'scope', 'approvalLevels', 'createdBy']);
-
-    this.log('info', 'Creating approval workflow', { name: input.name });
+    this.log('info', 'Creating approval workflow', { name: input.name, organizationId });
 
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
           .from('approval_workflows')
           .insert({
+            organization_id: organizationId,
             name: input.name,
             description: input.description,
             scope: input.scope,
@@ -82,27 +80,27 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
-  /**
-   * Create approval request
-   */
-  async createRequest(input: {
-    workflowId: string;
-    requestedBy: string;
-    changeType: string;
-    changeData: Record<string, any>;
-    justification?: string;
-  }): Promise<ApprovalRequest> {
+  async createRequest(
+    organizationId: string,
+    input: {
+      workflowId: string;
+      requestedBy: string;
+      changeType: string;
+      changeData: Record<string, unknown>;
+      justification?: string;
+    }
+  ): Promise<ApprovalRequest> {
     this.validateRequired(input, ['workflowId', 'requestedBy', 'changeType', 'changeData']);
-
-    this.log('info', 'Creating approval request', { workflowId: input.workflowId });
+    this.log('info', 'Creating approval request', { workflowId: input.workflowId, organizationId });
 
     return this.executeRequest(
       async () => {
-        // Get workflow to determine timeout
+        // Scoped to org to prevent cross-tenant workflow attachment
         const { data: workflow, error: workflowError } = await this.supabase
           .from('approval_workflows')
           .select('*')
           .eq('id', input.workflowId)
+          .eq('organization_id', organizationId)
           .single();
 
         if (workflowError) throw workflowError;
@@ -114,6 +112,7 @@ export class ApprovalWorkflowService extends BaseService {
         const { data, error } = await this.supabase
           .from('approval_requests')
           .insert({
+            organization_id: organizationId,
             workflow_id: input.workflowId,
             requested_by: input.requestedBy,
             change_type: input.changeType,
@@ -131,37 +130,32 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
-  /**
-   * Approve request
-   */
   async approveRequest(
+    organizationId: string,
     requestId: string,
     approverId: string,
     comment?: string
   ): Promise<ApprovalRequest> {
-    this.log('info', 'Approving request', { requestId, approverId });
+    this.log('info', 'Approving request', { requestId, approverId, organizationId });
 
     return this.executeRequest(
       async () => {
-        // Get current request
         const { data: request, error: requestError } = await this.supabase
           .from('approval_requests')
           .select('*')
           .eq('id', requestId)
+          .eq('organization_id', organizationId)
           .single();
 
         if (requestError) throw requestError;
         if (!request) throw new NotFoundError('Approval request');
+        if (request.status !== 'pending') throw new AuthorizationError('Request is not pending');
 
-        if (request.status !== 'pending') {
-          throw new AuthorizationError('Request is not pending');
-        }
-
-        // Check if approver is authorized
         const { data: workflow } = await this.supabase
           .from('approval_workflows')
           .select('*')
           .eq('id', request.workflow_id)
+          .eq('organization_id', organizationId)
           .single();
 
         if (
@@ -172,19 +166,14 @@ export class ApprovalWorkflowService extends BaseService {
           throw new AuthorizationError('User not authorized to approve');
         }
 
-        // Add approval
         const approvals = request.approvals || [];
-        approvals.push({
-          userId: approverId,
-          timestamp: new Date().toISOString(),
-          comment,
-        });
+        approvals.push({ userId: approverId, timestamp: new Date().toISOString(), comment });
 
         const currentLevel = request.current_level || 1;
         const nextLevel = currentLevel + 1;
         const isFullyApproved = nextLevel > (workflow?.approval_levels || 1);
 
-        const updates: any = {
+        const updates: Record<string, unknown> = {
           approvals,
           current_level: isFullyApproved ? currentLevel : nextLevel,
           updated_at: new Date().toISOString(),
@@ -199,11 +188,11 @@ export class ApprovalWorkflowService extends BaseService {
           .from('approval_requests')
           .update(updates)
           .eq('id', requestId)
+          .eq('organization_id', organizationId)
           .select()
           .single();
 
         if (error) throw error;
-
         this.clearCache();
         return this.mapRequest(data);
       },
@@ -211,15 +200,13 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
-  /**
-   * Reject request
-   */
   async rejectRequest(
+    organizationId: string,
     requestId: string,
     rejectorId: string,
     reason: string
   ): Promise<ApprovalRequest> {
-    this.log('info', 'Rejecting request', { requestId, rejectorId });
+    this.log('info', 'Rejecting request', { requestId, rejectorId, organizationId });
 
     return this.executeRequest(
       async () => {
@@ -227,20 +214,14 @@ export class ApprovalWorkflowService extends BaseService {
           .from('approval_requests')
           .select('*')
           .eq('id', requestId)
+          .eq('organization_id', organizationId)
           .single();
 
         if (!request) throw new NotFoundError('Approval request');
-
-        if (request.status !== 'pending') {
-          throw new AuthorizationError('Request is not pending');
-        }
+        if (request.status !== 'pending') throw new AuthorizationError('Request is not pending');
 
         const rejections = request.rejections || [];
-        rejections.push({
-          userId: rejectorId,
-          timestamp: new Date().toISOString(),
-          reason,
-        });
+        rejections.push({ userId: rejectorId, timestamp: new Date().toISOString(), reason });
 
         const { data, error } = await this.supabase
           .from('approval_requests')
@@ -251,11 +232,11 @@ export class ApprovalWorkflowService extends BaseService {
             updated_at: new Date().toISOString(),
           })
           .eq('id', requestId)
+          .eq('organization_id', organizationId)
           .select()
           .single();
 
         if (error) throw error;
-
         this.clearCache();
         return this.mapRequest(data);
       },
@@ -263,56 +244,41 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
-  /**
-   * Get pending requests for a user
-   */
-  async getPendingRequests(userId: string): Promise<ApprovalRequest[]> {
+  async getPendingRequests(organizationId: string, userId: string): Promise<ApprovalRequest[]> {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
           .from('approval_requests')
           .select('*, approval_workflows(*)')
           .eq('status', 'pending')
-          .filter(
-            'approval_workflows.required_approvers',
-            'cs',
-            `{${userId}}`
-          );
+          .eq('organization_id', organizationId)
+          .filter('approval_workflows.required_approvers', 'cs', `{${userId}}`);
 
         if (error) throw error;
         return (data || []).map(this.mapRequest);
       },
-      {
-        deduplicationKey: `pending-requests-${userId}`,
-      }
+      { deduplicationKey: `pending-requests-${organizationId}-${userId}` }
     );
   }
 
-  /**
-   * Cancel request
-   */
-  async cancelRequest(requestId: string, userId: string): Promise<void> {
+  async cancelRequest(organizationId: string, requestId: string, userId: string): Promise<void> {
     return this.executeRequest(
       async () => {
         const { data: request } = await this.supabase
           .from('approval_requests')
           .select('*')
           .eq('id', requestId)
+          .eq('organization_id', organizationId)
           .single();
 
         if (!request) throw new NotFoundError('Approval request');
-
-        if (request.requested_by !== userId) {
-          throw new AuthorizationError('Only requester can cancel');
-        }
+        if (request.requested_by !== userId) throw new AuthorizationError('Only requester can cancel');
 
         const { error } = await this.supabase
           .from('approval_requests')
-          .update({
-            status: 'cancelled',
-            resolved_at: new Date().toISOString(),
-          })
-          .eq('id', requestId);
+          .update({ status: 'cancelled', resolved_at: new Date().toISOString() })
+          .eq('id', requestId)
+          .eq('organization_id', organizationId);
 
         if (error) throw error;
         this.clearCache();
@@ -322,10 +288,11 @@ export class ApprovalWorkflowService extends BaseService {
   }
 
   /**
-   * Check for expired requests and auto-approve if configured
+   * Process expired requests for a single org.
+   * Cron callers must iterate over active orgs and invoke per-org.
    */
-  async processExpiredRequests(): Promise<number> {
-    this.log('info', 'Processing expired requests');
+  async processExpiredRequests(organizationId: string): Promise<number> {
+    this.log('info', 'Processing expired requests', { organizationId });
 
     return this.executeRequest(
       async () => {
@@ -335,6 +302,7 @@ export class ApprovalWorkflowService extends BaseService {
           .from('approval_requests')
           .select('*, approval_workflows(*)')
           .eq('status', 'pending')
+          .eq('organization_id', organizationId)
           .lt('expires_at', now);
 
         if (error) throw error;
@@ -342,25 +310,15 @@ export class ApprovalWorkflowService extends BaseService {
         let processedCount = 0;
 
         for (const request of expiredRequests || []) {
-          const workflow = request.approval_workflows;
+          const newStatus = request.approval_workflows?.auto_approve_after_timeout
+            ? 'approved'
+            : 'expired';
 
-          if (workflow?.auto_approve_after_timeout) {
-            await this.supabase
-              .from('approval_requests')
-              .update({
-                status: 'approved',
-                resolved_at: new Date().toISOString(),
-              })
-              .eq('id', request.id);
-          } else {
-            await this.supabase
-              .from('approval_requests')
-              .update({
-                status: 'expired',
-                resolved_at: new Date().toISOString(),
-              })
-              .eq('id', request.id);
-          }
+          await this.supabase
+            .from('approval_requests')
+            .update({ status: newStatus, resolved_at: new Date().toISOString() })
+            .eq('id', request.id)
+            .eq('organization_id', organizationId);
 
           processedCount++;
         }
@@ -372,41 +330,41 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
-  private mapWorkflow(data: any): ApprovalWorkflow {
+  private mapWorkflow(data: Record<string, unknown>): ApprovalWorkflow {
     return {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      scope: data.scope,
-      scopeId: data.scope_id,
-      triggerConditions: data.trigger_conditions,
-      approvalLevels: data.approval_levels,
-      requiredApprovers: data.required_approvers,
-      timeoutHours: data.timeout_hours,
-      autoApproveAfterTimeout: data.auto_approve_after_timeout,
-      enabled: data.enabled,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      id: data.id as string,
+      name: data.name as string,
+      description: data.description as string | undefined,
+      scope: data.scope as ApprovalWorkflow['scope'],
+      scopeId: data.scope_id as string | undefined,
+      triggerConditions: data.trigger_conditions as Record<string, unknown>,
+      approvalLevels: data.approval_levels as number,
+      requiredApprovers: data.required_approvers as string[],
+      timeoutHours: data.timeout_hours as number,
+      autoApproveAfterTimeout: data.auto_approve_after_timeout as boolean,
+      enabled: data.enabled as boolean,
+      createdBy: data.created_by as string,
+      createdAt: data.created_at as string,
+      updatedAt: data.updated_at as string,
     };
   }
 
-  private mapRequest(data: any): ApprovalRequest {
+  private mapRequest(data: Record<string, unknown>): ApprovalRequest {
     return {
-      id: data.id,
-      workflowId: data.workflow_id,
-      requestedBy: data.requested_by,
-      changeType: data.change_type,
-      changeData: data.change_data,
-      justification: data.justification,
-      status: data.status,
-      currentLevel: data.current_level,
-      approvals: data.approvals || [],
-      rejections: data.rejections || [],
-      expiresAt: data.expires_at,
-      resolvedAt: data.resolved_at,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      id: data.id as string,
+      workflowId: data.workflow_id as string,
+      requestedBy: data.requested_by as string,
+      changeType: data.change_type as string,
+      changeData: data.change_data as Record<string, unknown>,
+      justification: data.justification as string | undefined,
+      status: data.status as ApprovalRequest['status'],
+      currentLevel: data.current_level as number,
+      approvals: (data.approvals as ApprovalRequest['approvals']) || [],
+      rejections: (data.rejections as ApprovalRequest['rejections']) || [],
+      expiresAt: data.expires_at as string | undefined,
+      resolvedAt: data.resolved_at as string | undefined,
+      createdAt: data.created_at as string,
+      updatedAt: data.updated_at as string,
     };
   }
 }

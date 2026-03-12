@@ -58,7 +58,7 @@ export class EventSourcingService {
   /**
    * Store an event in the event store
    */
-  async storeEvent(event: BaseEvent): Promise<void> {
+  async storeEvent(event: BaseEvent, organizationId: string): Promise<void> {
     try {
       const record: Omit<EventStoreRecord, "id" | "created_at"> = {
         event_id: event.eventId,
@@ -66,9 +66,10 @@ export class EventSourcingService {
         event_type: event.eventType,
         event_version: event.version,
         source: event.source,
-        payload: (event as any).payload || {},
+        payload: (event as unknown as Record<string, unknown>)["payload"] as Record<string, unknown> || {},
         metadata: event.metadata,
         timestamp: event.timestamp,
+        organization_id: organizationId,
       };
 
       const { error } = await this.supabase.from("event_store").insert(record);
@@ -98,12 +99,13 @@ export class EventSourcingService {
   /**
    * Get events by correlation ID
    */
-  async getEventsByCorrelationId(correlationId: string): Promise<EventStoreRecord[]> {
+  async getEventsByCorrelationId(correlationId: string, organizationId: string): Promise<EventStoreRecord[]> {
     try {
       const { data, error } = await this.supabase
         .from("event_store")
         .select("*")
         .eq("correlation_id", correlationId)
+        .eq("organization_id", organizationId)
         .order("timestamp", { ascending: true });
 
       if (error) {
@@ -127,6 +129,7 @@ export class EventSourcingService {
    */
   async getEventsByType(
     eventType: string,
+    organizationId: string,
     limit: number = 100,
     offset: number = 0
   ): Promise<EventStoreRecord[]> {
@@ -135,6 +138,7 @@ export class EventSourcingService {
         .from("event_store")
         .select("*")
         .eq("event_type", eventType)
+        .eq("organization_id", organizationId)
         .order("timestamp", { ascending: false })
         .range(offset, offset + limit - 1);
 
@@ -164,6 +168,7 @@ export class EventSourcingService {
   async getEventsByTimeRange(
     startTime: Date,
     endTime: Date,
+    organizationId: string,
     limit: number = 1000
   ): Promise<EventStoreRecord[]> {
     try {
@@ -172,6 +177,7 @@ export class EventSourcingService {
         .select("*")
         .gte("timestamp", startTime.toISOString())
         .lte("timestamp", endTime.toISOString())
+        .eq("organization_id", organizationId)
         .order("timestamp", { ascending: true })
         .limit(limit);
 
@@ -201,12 +207,13 @@ export class EventSourcingService {
   async updateProjection(
     projectionType: string,
     projectionKey: string,
+    organizationId: string,
     event: BaseEvent,
-    updateFunction: (currentData: any, event: Event) => any
+    updateFunction: (currentData: unknown, event: Event) => unknown
   ): Promise<void> {
     try {
       // Get existing projection
-      let projection = await this.getProjection(projectionType, projectionKey);
+      let projection = await this.getProjection(projectionType, projectionKey, organizationId);
 
       if (!projection) {
         // Create new projection
@@ -215,6 +222,7 @@ export class EventSourcingService {
           id: `${projectionType}-${projectionKey}`,
           projection_type: projectionType,
           projection_key: projectionKey,
+          organization_id: organizationId,
           data: initialData,
           version: 1,
           last_event_id: event.eventId,
@@ -302,7 +310,7 @@ export class EventSourcingService {
   /**
    * Get a projection
    */
-  async getProjection(projectionType: string, projectionKey: string): Promise<Projection | null> {
+  async getProjection(projectionType: string, projectionKey: string, organizationId: string): Promise<Projection | null> {
     try {
       // Check memory cache first
       const cached = this.projections.get(projectionType)?.get(projectionKey);
@@ -316,6 +324,7 @@ export class EventSourcingService {
         .select("*")
         .eq("projection_type", projectionType)
         .eq("projection_key", projectionKey)
+        .eq("organization_id", organizationId)
         .single();
 
       if (error && error.code !== "PGRST116") {
@@ -348,12 +357,13 @@ export class EventSourcingService {
   /**
    * Get all projections of a type
    */
-  async getProjectionsByType(projectionType: string, limit: number = 100): Promise<Projection[]> {
+  async getProjectionsByType(projectionType: string, organizationId: string, limit: number = 100): Promise<Projection[]> {
     try {
       const { data, error } = await this.supabase
         .from("projections")
         .select("*")
         .eq("projection_type", projectionType)
+        .eq("organization_id", organizationId)
         .order("last_updated", { ascending: false })
         .limit(limit);
 
@@ -381,13 +391,14 @@ export class EventSourcingService {
   async rebuildProjection(
     projectionType: string,
     projectionKey: string,
-    updateFunction: (currentData: any, event: Event) => any,
+    organizationId: string,
+    updateFunction: (currentData: unknown, event: Event) => unknown,
     eventFilter?: (event: Event) => boolean
   ): Promise<void> {
     try {
-      // Get all relevant events
-      const events = await this.getEventsByType(`${projectionType}.*`);
-      const filteredEvents = eventFilter ? events.filter((e) => eventFilter(e as any)) : events;
+      // Get all relevant events scoped to this tenant
+      const events = await this.getEventsByType(`${projectionType}.*`, organizationId);
+      const filteredEvents = eventFilter ? events.filter((e) => eventFilter(e as unknown as Event)) : events;
 
       // Sort by timestamp
       filteredEvents.sort(
@@ -406,10 +417,11 @@ export class EventSourcingService {
       }
 
       // Update or create projection
-      const projection: Projection = {
+      const projection = {
         id: `${projectionType}-${projectionKey}`,
         projection_type: projectionType,
         projection_key: projectionKey,
+        organization_id: organizationId,
         data: currentData,
         version: filteredEvents.length,
         last_event_id: filteredEvents[filteredEvents.length - 1]?.event_id || "",
@@ -494,15 +506,15 @@ export class EventSourcingService {
   /**
    * Get audit trail for a correlation ID
    */
-  async getAuditTrail(correlationId: string): Promise<any> {
-    return this.getProjection("audit-trail", correlationId);
+  async getAuditTrail(correlationId: string, organizationId: string): Promise<unknown> {
+    return this.getProjection("audit-trail", correlationId, organizationId);
   }
 
   /**
    * Get system-wide audit summary
    */
-  async getAuditSummary(): Promise<any> {
-    return this.getProjection("audit-summary", "system");
+  async getAuditSummary(organizationId: string): Promise<unknown> {
+    return this.getProjection("audit-summary", "system", organizationId);
   }
 }
 
