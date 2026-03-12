@@ -121,7 +121,7 @@ jobs:
           echo "audit_file=${AUDIT_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Upload emergency bypass audit artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: emergency_test_bypass_audit-${{ github.run_id }}
           path: ${{ steps.audit.outputs.audit_file }}
@@ -225,7 +225,7 @@ jobs:
           PY
 
       - name: Upload emergency skip audit artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: emergency-skip-audit-${{ github.run_id }}
           path: emergency-skip-audit-${{ github.run_id }}.json
@@ -396,7 +396,7 @@ jobs:
 
       - name: Upload stability-seal artifact
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stability-seal-${{ github.run_id }}
           path: |
@@ -522,7 +522,7 @@ jobs:
           PY
 
       - name: Upload staging operational verification artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: post-deploy-verification-staging-${{ github.run_id }}
           path: |
@@ -576,7 +576,7 @@ jobs:
           echo "Critical route p95 ${CRITICAL_P95}ms is within threshold."
 
       - name: Upload per-commit benchmark artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: staging-benchmark-${{ github.sha }}-${{ github.run_id }}
           path: |
@@ -671,7 +671,7 @@ jobs:
 
       - name: Upload pre-production launch gate artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: preprod-launch-gate-${{ github.run_id }}
           path: |
@@ -804,7 +804,7 @@ jobs:
           PY
 
       - name: Upload production operational verification artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: post-deploy-verification-production-${{ github.run_id }}
           path: |
@@ -895,7 +895,7 @@ jobs:
           REPORT
 
       - name: Upload reliability report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: weekly-reliability-report-${{ github.run_id }}
           path: weekly-reliability-report.md
