@@ -158,12 +158,17 @@ export function getTenantIdFromRequest(req: {
 }): string | undefined {
   const tenantHeader = req.headers["x-tenant-id"];
   const organizationHeader = req.headers["x-organization-id"];
+
+  // Prioritize headers (from the client/gateway) over internal req properties
   const tenant =
     (Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader) ||
-    (Array.isArray(organizationHeader)
-      ? organizationHeader[0]
-      : organizationHeader) ||
+    (Array.isArray(organizationHeader) ? organizationHeader[0] : organizationHeader) ||
     req.tenantId;
+
+  // Return undefined rather than a "public" sentinel so callers can
+  // distinguish "no tenant" from a real tenant named "public".
+  return tenant || undefined;
+}
 
   // Return undefined rather than a "public" sentinel so callers can
   // distinguish "no tenant" from a real tenant named "public".

@@ -2,9 +2,8 @@
  * Analytics API — tenant header spoofing guard
  *
  * An unauthenticated POST /api/analytics/web-vitals that supplies an
- * x-tenant-id header must NOT trigger cache invalidation for that tenant.
- * getTenantIdFromRequest only reads req.tenantId (set by verified middleware),
- * not raw headers, so the spoofed header must be ignored.
+ * x-tenant-id header must never invalidate tenant-scoped cache buckets.
+ * The route must always invalidate the fixed public telemetry cache scope.
  */
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,10 +19,7 @@ vi.mock('../services/ReadThroughCacheService.js', () => ({
   ReadThroughCacheService: {
     invalidateEndpoint: mockInvalidateEndpoint,
     getOrLoad: mockGetOrLoad,
-  },
-  getTenantIdFromRequest: vi.fn().mockImplementation(
-    (req: { tenantId?: string }) => req.tenantId ?? undefined,
-  ),
+  }
 }));
 
 vi.mock('../lib/logger.js', () => ({
@@ -78,25 +74,26 @@ describe('POST /api/analytics/web-vitals — tenant header spoofing', () => {
     mockInvalidateEndpoint.mockClear();
   });
 
-  it('does not call invalidateEndpoint when x-tenant-id is supplied without auth', async () => {
+  it('invalidates only the public telemetry scope when x-tenant-id is supplied without auth', async () => {
     const res = await request(app)
       .post('/api/analytics/web-vitals')
       .set('x-tenant-id', 'spoofed-tenant-uuid')
       .send({ name: 'LCP', value: 1200 });
 
     expect(res.status).toBe(200);
-    // No authenticated tenantId on req → invalidation must not fire
-    expect(mockInvalidateEndpoint).not.toHaveBeenCalled();
+    expect(mockInvalidateEndpoint).toHaveBeenCalledWith("public-telemetry", "api-analytics-summary");
+    expect(mockInvalidateEndpoint).not.toHaveBeenCalledWith("spoofed-tenant-uuid", "api-analytics-summary");
   });
 
-  it('does not call invalidateEndpoint when x-organization-id is supplied without auth', async () => {
+  it('invalidates only the public telemetry scope when x-organization-id is supplied without auth', async () => {
     const res = await request(app)
       .post('/api/analytics/web-vitals')
       .set('x-organization-id', 'spoofed-org-uuid')
       .send({ name: 'FID', value: 50 });
 
     expect(res.status).toBe(200);
-    expect(mockInvalidateEndpoint).not.toHaveBeenCalled();
+    expect(mockInvalidateEndpoint).toHaveBeenCalledWith("public-telemetry", "api-analytics-summary");
+    expect(mockInvalidateEndpoint).not.toHaveBeenCalledWith("spoofed-org-uuid", "api-analytics-summary");
   });
 
   it('rejects payloads missing required fields regardless of tenant header', async () => {
