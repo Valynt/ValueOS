@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
+
+import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,5 +17,20 @@ interface AppProvidersProps {
 }
 
 export function AppProviders({ children }: AppProvidersProps) {
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const clearQueryCache = () => {
+      queryClient.clear();
+    };
+
+    window.addEventListener(TENANT_CACHE_CLEAR_EVENT, clearQueryCache);
+    return () => {
+      window.removeEventListener(TENANT_CACHE_CLEAR_EVENT, clearQueryCache);
+    };
+  }, []);
+
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
