@@ -585,7 +585,14 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     if (Number.isNaN(parsed)) {
       return null;
     }
-    return Math.floor((Date.now() - parsed) / (1000 * 60 * 60 * 24));
+    const diffMs = Date.now() - parsed;
+    if (diffMs < 0) {
+      logger.warn('IntegrityAgent.calculateAgeInDays encountered future asOfDate', {
+        asOfDate,
+      });
+      return null;
+    }
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
   private detectRangePlausibilityIssue(claim: IntegrityClaim): { severity: 'medium' | 'high'; message: string } | null {
