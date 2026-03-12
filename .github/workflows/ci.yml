@@ -466,6 +466,76 @@ jobs:
           - sha: ${{ github.sha }}
           EOF
 
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-security-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/security-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  verify-secret-rotation-metadata-age:
+    name: Verify secret rotation metadata age
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'release' || github.event.pull_request.head.repo.full_name == github.repository
+    environment: security-compliance
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+
+      - name: Verify secret rotation metadata age
+        env:
+          SECRET_ROTATION_PROVIDERS: ${{ secrets.SECRET_ROTATION_PROVIDERS }}
+          SECRET_ROTATION_MAX_AGE_DAYS: ${{ secrets.SECRET_ROTATION_MAX_AGE_DAYS }}
+          AWS_REGION: ${{ secrets.SECRET_ROTATION_AWS_REGION }}
+          AWS_SECRET_IDS: ${{ secrets.SECRET_ROTATION_AWS_SECRET_IDS }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SECRET_ROTATION_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SECRET_ROTATION_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SECRET_ROTATION_AWS_SESSION_TOKEN }}
+          VAULT_ADDR: ${{ secrets.SECRET_ROTATION_VAULT_ADDR }}
+          VAULT_TOKEN: ${{ secrets.SECRET_ROTATION_VAULT_TOKEN }}
+          VAULT_KV_MOUNT: ${{ secrets.SECRET_ROTATION_VAULT_KV_MOUNT }}
+          VAULT_SECRET_PATHS: ${{ secrets.SECRET_ROTATION_VAULT_SECRET_PATHS }}
+          ROTATION_EVIDENCE_DIR: artifacts/security/rotation
+          ROTATION_EVIDENCE_TIMESTAMP: rotation-evidence-latest
+        run: node scripts/security/verify-secret-rotation.mjs
+
+      - name: Upload secret rotation evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: secret-rotation-evidence-${{ github.run_id }}
+          path: artifacts/security/rotation/rotation-evidence-latest.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/verify-secret-rotation-metadata-age
+          cat > artifacts/ci-lanes/verify-secret-rotation-metadata-age/summary.md <<EOF
+          # verify-secret-rotation-metadata-age
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          - evidence_path: artifacts/security/rotation/rotation-evidence-latest.json
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane-verify-secret-rotation-metadata-age-${{ github.run_id }}
+          path: artifacts/ci-lanes/verify-secret-rotation-metadata-age/**
+          if-no-files-found: warn
+          retention-days: 30
+
   # PR gate: blocks merge until critical lanes pass
   pr-fast-blocking-subsets:
     name: pr-fast-blocking-subsets
@@ -475,6 +545,7 @@ jobs:
       - unit-component-schema
       - tenant-isolation-gate
       - security-gate
+      - verify-secret-rotation-metadata-age
       - accessibility-audit
     steps:
       - name: Enforce PR release blockers
@@ -484,6 +555,7 @@ jobs:
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
+            "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             echo "$lane"
             status="${lane#*:}"
@@ -502,6 +574,7 @@ jobs:
       - tenant-isolation-gate
       - critical-workflows-gate
       - security-gate
+      - verify-secret-rotation-metadata-age
       - accessibility-audit
     steps:
       - name: Enforce staging/deploy blockers
@@ -511,6 +584,7 @@ jobs:
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
+            "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             echo "$lane"
             status="${lane#*:}"
