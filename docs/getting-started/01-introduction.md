@@ -27,7 +27,7 @@
 
 ValueOS uses a Multi-Agent Reinforcement Learning (MARL) loop. Production agent-fabric classes are located in `packages/backend/src/lib/agent-fabric/agents/`.
 
-> **Canonical path note:** The production backend source of truth is `packages/backend/src/lib/agent-fabric/agents/` plus service entrypoints in `packages/backend/src/services/` (especially `packages/backend/src/services/UnifiedAgentOrchestrator.ts` and, when applicable, `packages/backend/src/services/UnifiedAgentAPI.ts`). Frontend examples and docs snippets are illustrative only. The shared agent runtime and orchestration library lives in `packages/agents/` and is imported by `packages/backend`, while production agent implementations themselves live under `packages/backend/src/lib/agent-fabric/agents/`.
+> **Canonical path note:** The production backend source of truth is `packages/backend/src/lib/agent-fabric/agents/` plus runtime service entrypoints in `packages/backend/src/runtime/` (not retired `src/services/UnifiedAgent*` files). Frontend examples and docs snippets are illustrative only. The shared agent runtime and orchestration library lives in `packages/agents/` and is imported by `packages/backend`, while production agent implementations themselves live under `packages/backend/src/lib/agent-fabric/agents/`.
 
 ### Agent Taxonomy
 
@@ -72,7 +72,7 @@ Agents never write directly to the database. They submit a "Commit Proposal" to 
 ---
 
 **Last Updated:** 2026-01-28
-**Related:** `packages/backend/src/lib/agent-fabric/agents/`, `packages/backend/src/services/UnifiedAgentOrchestrator.ts`, `packages/backend/src/services/UnifiedAgentAPI.ts`
+**Related:** `packages/backend/src/lib/agent-fabric/agents/`, `packages/backend/src/runtime/`, `packages/backend/src/runtime/execution-runtime/`
 
 ---
 
