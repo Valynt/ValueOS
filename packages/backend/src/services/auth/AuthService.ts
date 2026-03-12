@@ -30,7 +30,7 @@ import { SessionClaimsSchema } from "../types/auth.js";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
 
 import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
-import { BaseService } from "./BaseService.js"
+import { BaseService } from "../BaseService.js"
 import { clientRateLimit } from "./ClientRateLimit.js"
 import { DeviceFingerprintService, getDeviceFingerprintService } from "./DeviceFingerprintService.js";
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"

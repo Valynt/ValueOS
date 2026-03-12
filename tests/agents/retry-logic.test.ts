@@ -91,7 +91,7 @@ describe('Agent Retry Logic', () => {
 
     it('should succeed before max attempts if operation succeeds', async () => {
       let attempts = 0;
-      const maxAttempt's = 5;
+      const maxAttempts = 5;
 
       const executeWithRetry = async () => {
         while (attempts < maxAttempts) {

@@ -8,7 +8,7 @@
 import { ActionResult, AtomicUIAction } from '@sdui/AtomicUIActions';
 import { SDUIPageDefinition } from '@valueos/sdui';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 import { canvasSchemaService } from './CanvasSchemaService.js'
 import { ComponentMutationService } from './ComponentMutationService.js'

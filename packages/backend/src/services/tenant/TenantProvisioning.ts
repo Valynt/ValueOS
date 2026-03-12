@@ -10,8 +10,8 @@
 
 import { PlanTier, PLANS } from '../config/billing.js'
 import { getConfig } from '../config/environment.js'
-import { logger } from '../lib/logger.js'
-import { createServerSupabaseClient } from '../lib/supabase.js'
+import { logger } from '../../lib/logger.js'
+import { createServerSupabaseClient } from '../../lib/supabase.js'
 
 import { auditLogService } from './AuditLogService.js'
 import { customerService as CustomerService } from './billing/CustomerService.js'

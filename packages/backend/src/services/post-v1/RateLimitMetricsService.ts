@@ -7,7 +7,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-import { log } from '../lib/logger.js'
+import { log } from '../../lib/logger.js'
 
 import { redisCircuitBreaker } from './RedisCircuitBreaker.js'
 import { TenantAwareService } from './TenantAwareService.js'

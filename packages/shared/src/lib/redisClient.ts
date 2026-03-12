@@ -1,39 +1,23 @@
-import { createClient, RedisClientType } from 'redis';
+import { Redis } from 'ioredis';
 
-import { createLogger } from './logger';
+import { createLogger } from './logger.js';
 
 const logger = createLogger({ component: 'redis-client' });
 
-let client: RedisClientType | null = null;
-let connecting: Promise<RedisClientType> | null = null;
+let client: Redis | null = null;
 
-export async function getRedisClient(): Promise<RedisClientType> {
-  if (client?.isOpen) {
-    return client;
-  }
+export function getRedisClient(): Redis {
+  if (!client) {
+    client = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
 
-  if (!connecting) {
-    client = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
-    });
-
-    client.on('error', (err) => {
+    client.on('error', (err: Error) => {
       logger.error('Redis client error', err);
-      connecting = null;
     });
 
-    connecting = client
-      .connect()
-      .then(() => {
-        logger.info('Redis client connected');
-        return client as RedisClientType;
-      })
-      .catch((error) => {
-        logger.error('Failed to connect to Redis', error as Error);
-        connecting = null;
-        throw error;
-      });
+    client.on('connect', () => {
+      logger.info('Redis client connected');
+    });
   }
 
-  return connecting;
+  return client;
 }

@@ -8,7 +8,7 @@
  * ADR-0012: Uses canonical CircuitBreaker from lib/resilience.
  */
 
-import { createLogger } from "../lib/logger.js";
+import { createLogger } from "../../lib/logger.js";
 import {
   CircuitBreaker,
   type CircuitBreakerConfig,

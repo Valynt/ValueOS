@@ -11,7 +11,7 @@
  * @security Level: Critical - Manages system stability
  */
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 
 import { AgentRetryManager } from "./agents/resilience/AgentRetryManager.js";
 import { agentTelemetryService } from "./agents/telemetry/AgentTelemetryService.js";

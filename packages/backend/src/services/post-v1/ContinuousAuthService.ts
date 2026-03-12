@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 
-import { log } from '../lib/logger.js'
+import { log } from '../../lib/logger.js'
 import { sanitizeUser } from '../lib/piiFilter.js'
 
 import { TenantAwareService } from './TenantAwareService.js'

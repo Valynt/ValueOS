@@ -5,7 +5,7 @@
  * system in the ValueCanvas application.
  */
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 import { robustConnectionManager } from './RobustConnectionManager.js'
 import { webSocketManager } from './WebSocketManager.js'

@@ -2,7 +2,7 @@
  * Workflow Lifecycle Integration
  */
 
-import { logger } from '../lib/logger.js';
+import { logger } from '../../lib/logger.js';
 
 export class WorkflowLifecycleIntegration {
   async executeStage(stageId: string, context: unknown): Promise<unknown> {

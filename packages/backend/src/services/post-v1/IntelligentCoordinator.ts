@@ -7,7 +7,7 @@
 
 import { randomUUID } from "crypto";
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 import { getMessageBus } from "../realtime/MessageBus.js";
 
 import { AgentType } from "./agent-types.js";

@@ -2,7 +2,7 @@
  * Lifecycle Compensation Handlers
  */
 
-import { logger } from '../lib/logger.js';
+import { logger } from '../../lib/logger.js';
 
 export class LifecycleCompensationHandlers {
   async compensate(stageId: string, context: any): Promise<void> {

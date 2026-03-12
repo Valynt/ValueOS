@@ -15,7 +15,7 @@ import {
   secureMessageBus,
 } from "../lib/agent-fabric/SecureMessageBus";
 import { AgentIdentity } from "../lib/auth/AgentIdentity";
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
 // ============================================================================
 // Types

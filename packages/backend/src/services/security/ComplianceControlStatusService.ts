@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 
-import { createServerSupabaseClient } from "../lib/supabase.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
 
 export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001";
 export type ControlStatus = "pass" | "warn" | "fail";

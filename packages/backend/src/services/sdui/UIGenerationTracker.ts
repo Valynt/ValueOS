@@ -4,8 +4,8 @@
  * Tracks UI generation trajectories, user interactions, and calculates effectiveness metrics.
  */
 
-import { logger } from '../lib/logger.js'
-import { supabase } from '../lib/supabase.js'
+import { logger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js'
 import type {
   ComponentUsageStats,
   UIGenerationFeedback,

@@ -23,8 +23,8 @@ import { generateSOFRealizationPage } from "@sdui/templates/sof-realization-temp
 import { generateSOFTargetPage } from "@sdui/templates/sof-target-template";
 
 import { hashObject, shortHash } from "../lib/contentHash";
-import { logger } from "../lib/logger.js"
-import { getSupabaseClient } from "../lib/supabase.js"
+import { logger } from "../../lib/logger.js"
+import { getSupabaseClient } from "../../lib/supabase.js"
 import {
   ActionResult,
   ActionType,

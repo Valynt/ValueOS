@@ -35,8 +35,8 @@ vi.mock('../../lib/supabase', () => ({
   supabase: {},
 }));
 
-vi.mock('../../lib/logger', () => {
-  const loggerMock = {
+vi.mock('../../lib/logger', () => ({
+  logger: {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
@@ -47,7 +47,7 @@ vi.mock('../../lib/logger', () => {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  })
+  }),
 }));
 
 vi.mock('../../config/environment', () => ({

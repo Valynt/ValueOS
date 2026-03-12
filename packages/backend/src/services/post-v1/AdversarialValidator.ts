@@ -15,7 +15,7 @@ import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { llmConfig } from '../config/llm.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 
 // ============================================================================

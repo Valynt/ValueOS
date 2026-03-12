@@ -69,7 +69,7 @@ describe('API Error Scenarios', () => {
 
       const { error } = await unauthClient
         .from('workflows')
-        .select'*')
+        .select('*')
         .limit(1);
 
       // Behavior depends on RLS policies
