@@ -10,6 +10,8 @@ import {
 import DashboardLayout from "./components/layout/DashboardLayout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { WebSocketProvider } from "./contexts/WebSocketContext";
+import ForbiddenPage from "./pages/ForbiddenPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 // Layout Components
 
@@ -73,7 +75,7 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   if (user.role !== "admin") {
-    return <Navigate to="/dashboard" replace />;
+    return <ForbiddenPage />;
   }
 
   return <>{children}</>;
@@ -127,10 +129,7 @@ function App() {
               </Route>
 
               {/* Catch all route */}
-              <Route
-                path={catchAllRoute.path}
-                element={<Navigate to={catchAllRoute.redirectTo} replace />}
-              />
+              <Route path={catchAllRoute.path} element={<NotFoundPage />} />
             </Routes>
           </Router>
         </WebSocketProvider>
