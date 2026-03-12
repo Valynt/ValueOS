@@ -2,7 +2,7 @@
 
 **Last Updated**: 2026-02-08
 
-**Total Documents**: 54
+**Total Documents**: 55
 
 ---
 
@@ -131,6 +131,7 @@ This documentation has been consolidated from 328+ source files into 54 comprehe
 
 ## Quick Links
 
+- [Overview Catalog](./overview-catalog.md) — tiered catalog of all high-level overview documents with recommended reading order
 - [Getting Started](./getting-started/README.md)
 - [Architecture](./architecture/README.md)
 - [Engineering](./engineering/README.md)
@@ -142,7 +143,7 @@ This documentation has been consolidated from 328+ source files into 54 comprehe
 ## Statistics
 
 - **Source Files**: 328+
-- **Consolidated Documents**: 54
+- **Consolidated Documents**: 55
 - **Reduction**: 83.5%
 - **Categories**: 10
 
