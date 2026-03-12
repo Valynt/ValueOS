@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { logger } from "../../lib/logger";
 import type { SimulationResult } from "../../types/orchestration.js";
 import { WorkflowDAG, WorkflowStage } from "../../types/workflow";
@@ -93,14 +94,19 @@ export class DefaultWorkflowSimulationService implements WorkflowSimulationServi
     const prompt = `Predict the outcome of workflow stage: ${stage.name}`;
     try {
       const organizationId = String(context.organizationId ?? context.organization_id ?? "");
-      // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-      // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-      const response = await this.llmGateway.complete({
-        messages: [{ role: "user", content: `${prompt}\nContext: ${JSON.stringify(context)}` }],
-        max_tokens: 500,
-        temperature: 0.3,
-        metadata: { tenantId: organizationId, agentType: "workflow_predictor", similarEpisodeCount: similarEpisodes.length },
-      });
+      const response = await secureLLMComplete(
+        this.llmGateway,
+        [{ role: "user", content: `${prompt}\nContext: ${JSON.stringify(context)}` }],
+        {
+          organizationId,
+          max_tokens: 500,
+          temperature: 0.3,
+          agentType: "workflow_predictor",
+          similarEpisodeCount: similarEpisodes.length,
+          serviceName: "WorkflowSimulationService",
+          operation: "predictStageOutcome",
+        },
+      );
       const parsed = JSON.parse(response.content) as Record<string, unknown>;
       return {
         outcome: (parsed.outcome as Record<string, unknown>) || { success: true },

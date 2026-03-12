@@ -90,6 +90,9 @@ jobs:
       - name: TODO metadata guard (no untracked TODOs in production paths)
         run: node .github/scripts/check-todo-metadata.cjs
 
+      - name: Direct LLM call guard
+        run: node scripts/ci/check-direct-llm-calls.mjs
+
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 

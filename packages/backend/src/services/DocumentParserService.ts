@@ -8,6 +8,7 @@
 import { llmConfig } from '../config/llm.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
+import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { logger } from '../lib/logger.js'
 import { supabase } from '../lib/supabase.js'
 
@@ -118,13 +119,22 @@ class DocumentParserService {
     const prompt = this.buildExtractionPrompt(text, fileName);
 
     try {
-      const response = await this.llm.complete([
-        { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
-      ], {
-        temperature: 0.3,
-        max_tokens: 2048,
-      }, taskContext);
+      const organizationId = taskContext?.organization_id ?? taskContext?.workspace_id ?? 'system';
+      const response = await secureLLMComplete(
+        this.llm,
+        [
+          { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
+          { role: 'user', content: prompt },
+        ],
+        {
+          organizationId,
+          temperature: 0.3,
+          max_tokens: 2048,
+          userId: taskContext?.user_id,
+          serviceName: 'DocumentParserService',
+          operation: 'extractInsights',
+        },
+      );
 
       return this.parseInsightsResponse(response.content);
     } catch (error) {

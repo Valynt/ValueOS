@@ -15,6 +15,7 @@ import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
+import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
@@ -93,14 +94,16 @@ function createLLMAdapter(): LLMGatewayInterface {
 
   return {
     async complete(request) {
-      const response = await gateway.complete({
-        messages: request.messages,
-        metadata: request.metadata as any,
+      const tenantId = request.metadata?.tenantId ?? request.metadata?.organizationId;
+      if (!tenantId) {
+        throw new Error('researchWorker LLM adapter requires tenantId in metadata for tenant isolation');
+      }
+      return secureLLMComplete(gateway, request.messages, {
+        tenantId: String(tenantId),
+        serviceName: 'researchWorker',
+        operation: 'processResearchJob',
+        ...request.metadata,
       });
-      return {
-        content: response.content,
-        usage: response.usage,
-      };
     },
   };
 }

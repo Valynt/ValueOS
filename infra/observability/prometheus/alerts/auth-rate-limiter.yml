@@ -1,0 +1,23 @@
+groups:
+  - name: auth_rate_limiter
+    rules:
+      - alert: AuthRateLimiterFallbackActive
+        expr: rate(auth_rate_limiter_fallback_active_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Auth rate limiter operating in degraded mode"
+          description: >
+            The Redis-backed auth rate limiter has fallen back to per-pod
+            in-memory enforcement. Under autoscaling, effective limits are
+            N pods × maxAttempts, creating a brute-force bypass window.
+            Restore Redis connectivity to re-enable distributed enforcement.
+          runbook: >
+            1. Check Redis connectivity: redis-cli -h $REDIS_HOST ping
+            2. Check auth rate limiter logs for "Auth rate limiter Redis operation failed"
+            3. If Redis is healthy, check the circuit breaker reconnect timer
+               (REDIS_RECONNECT_DELAY_MS = 30s, REDIS_FAILURE_THRESHOLD = 3).
+            4. Once Redis reconnects, the store auto-recovers; no restart needed.
+            5. Monitor auth_rate_limiter_fallback_active_total to confirm rate drops to 0.

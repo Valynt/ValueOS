@@ -208,13 +208,21 @@ const baseConfig = {
       },
     ],
 
-    // Disallow direct llmGateway.complete calls (inline styles downgraded to warn)
+    // Disallow direct LLM gateway complete() calls in production code.
+    // All LLM invocations must go through secureLLMComplete (services/workers)
+    // or BaseAgent.secureInvoke (agent-owned paths). This rule catches:
+    //   llmGateway.complete(...)       — bare variable name
+    //   this.llmGateway.complete(...)  — member expression
+    //   this.llm.complete(...)         — aliased as this.llm
+    // Exceptions: LLMGateway.ts itself, secureLLMWrapper.ts, and test files
+    // (excluded via the testOverrides config block below).
     "no-restricted-syntax": [
       "error",
       {
         selector:
-          "CallExpression[callee.property.name='complete'][callee.object.name='llmGateway'], CallExpression[callee.property.name='complete'][callee.object.property.name='llmGateway']",
-        message: "Direct calls to llmGateway.complete are forbidden; use secureInvoke instead.",
+          "CallExpression[callee.property.name='complete'][callee.object.name='llmGateway'], CallExpression[callee.property.name='complete'][callee.object.property.name='llmGateway'], CallExpression[callee.property.name='complete'][callee.object.property.name='llm']",
+        message:
+          "Direct LLM gateway complete() calls are forbidden. Use secureLLMComplete (services/workers) or BaseAgent.secureInvoke (agents). See AGENTS.md rule 2.",
       },
       {
         selector: "AssignmentExpression[left.property.name='innerHTML']",

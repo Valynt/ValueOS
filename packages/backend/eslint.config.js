@@ -10,7 +10,7 @@ export default tseslint.config(
     rules: {
       // Pre-existing baseline issues — warn only until resolved
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "@typescript-eslint/no-require-imports": "warn",
       "@typescript-eslint/ban-ts-comment": "warn",
       "@typescript-eslint/no-unsafe-function-type": "warn",
