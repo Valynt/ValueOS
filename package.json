@@ -20,7 +20,8 @@
     "build:failure-packet": "tsx scripts/build-failure-packet.ts",
     "test:infra-pilot": "vitest run --config tests/vitest.shared.config.ts tests/matrix/infra-mode.pilot.test.ts tests/matrix/infra-mode.matrix.test.ts tests/matrix/runInInfraMode.test.ts",
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts",
-    "db:apply-migrations": "bash scripts/db/apply-migrations.sh"
+    "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
+    "check:message-payload-contracts": "node scripts/ci/check-message-payload-contracts.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
