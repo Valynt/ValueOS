@@ -105,6 +105,9 @@ jobs:
       - name: TODO metadata guard (no untracked TODOs in production paths)
         run: node .github/scripts/check-todo-metadata.cjs
 
+      - name: Critical-path skipped/focused test guard
+        run: node scripts/ci/check-critical-skip-only.mjs
+
       - name: Direct LLM call guard
         run: node scripts/ci/check-direct-llm-calls.mjs
 

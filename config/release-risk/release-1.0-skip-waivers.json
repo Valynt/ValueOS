@@ -1,0 +1,117 @@
+{
+  "release": "1.0",
+  "artifact": "docs/operations/release-1.0/release-risk-skipped-tests.md",
+  "criticalPaths": [
+    "scripts/synthetic-monitors/**/*.spec.ts",
+    "tests/e2e/critical-*.spec.ts",
+    "tests/e2e/auth-*.spec.ts",
+    "tests/test/playwright/critical-*.spec.ts",
+    "tests/test/playwright/workflow-orchestration.spec.ts"
+  ],
+  "waivers": [
+    {
+      "id": "R1-SKIP-001",
+      "file": "scripts/synthetic-monitors/golden-path.spec.ts",
+      "line": 311,
+      "owner": "@team/devops",
+      "expiresOn": "2026-06-30",
+      "reason": "Golden path monitor is intentionally disabled in CI lanes that set SKIP_GOLDEN_PATH=true to avoid false negatives on ephemeral preview environments."
+    },
+    {
+      "id": "R1-SKIP-002",
+      "file": "tests/e2e/critical-user-flow.spec.ts",
+      "line": 149,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "Critical error-handling scenario depends on dedicated API-failure mocking harness not yet wired into Playwright runtime."
+    },
+    {
+      "id": "R1-SKIP-003",
+      "file": "tests/e2e/auth-complete-flow.spec.ts",
+      "line": 259,
+      "owner": "@team/security",
+      "expiresOn": "2026-05-31",
+      "reason": "OAuth redirect integration requires live provider callbacks and test credentials that are not available in default CI."
+    },
+    {
+      "id": "R1-SKIP-004",
+      "file": "tests/e2e/auth-complete-flow.spec.ts",
+      "line": 404,
+      "owner": "@team/security",
+      "expiresOn": "2026-05-31",
+      "reason": "Session-expiry scenario needs deterministic token-expiry injection support in auth test harness."
+    },
+    {
+      "id": "R1-SKIP-005",
+      "file": "tests/e2e/auth-complete-flow.spec.ts",
+      "line": 434,
+      "owner": "@team/security",
+      "expiresOn": "2026-05-31",
+      "reason": "HTTPS enforcement check is production-only and cannot be validated in localhost-only Playwright execution."
+    },
+    {
+      "id": "R1-SKIP-006",
+      "file": "tests/test/playwright/workflow-orchestration.spec.ts",
+      "line": 21,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "Workflow smoke depends on optional UI entry points that vary by feature-flag state in test tenants."
+    },
+    {
+      "id": "R1-SKIP-007",
+      "file": "tests/test/playwright/workflow-orchestration.spec.ts",
+      "line": 40,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "Start workflow control is conditionally rendered; scenario remains waived pending deterministic fixture setup."
+    },
+    {
+      "id": "R1-SKIP-008",
+      "file": "tests/test/playwright/critical-flows.spec.ts",
+      "line": 43,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "New-case trigger depends on seeded sidebar state that is not guaranteed in shared CI environments."
+    },
+    {
+      "id": "R1-SKIP-009",
+      "file": "tests/test/playwright/critical-flows.spec.ts",
+      "line": 59,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "Upload Notes starter card can be hidden by tenant feature toggles in smoke environments."
+    },
+    {
+      "id": "R1-SKIP-010",
+      "file": "tests/test/playwright/critical-flows.spec.ts",
+      "line": 76,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "CRM import starter visibility depends on integration enablement in tenant-level settings."
+    },
+    {
+      "id": "R1-SKIP-011",
+      "file": "tests/test/playwright/critical-flows.spec.ts",
+      "line": 93,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "Case selection smoke requires pre-existing cases; some clean tenants intentionally start empty."
+    },
+    {
+      "id": "R1-SKIP-012",
+      "file": "tests/test/playwright/critical-flows.spec.ts",
+      "line": 97,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "Ask AI action is hidden when assistant features are disabled for the test tenant."
+    },
+    {
+      "id": "R1-SKIP-013",
+      "file": "tests/test/playwright/critical-flows.spec.ts",
+      "line": 110,
+      "owner": "@team/frontend",
+      "expiresOn": "2026-05-31",
+      "reason": "SDUI render indicators are environment-dependent and currently lack a deterministic fixture-backed assertion path."
+    }
+  ]
+}
