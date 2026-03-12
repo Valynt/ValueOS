@@ -26,11 +26,11 @@ import type {
 } from "@valueos/shared/domain";
 import { calculateDefenseReadiness } from "../../domain/business-case/defenseReadiness.js";
 
-import { getAgentAPI } from "../../services/AgentAPI.js";
+import { getAgentAPI } from "../../services/agents/AgentAPI.js";
 import { DefaultWorkflowRenderService } from "../../services/workflows/WorkflowRenderService.js";
 import { DefaultWorkflowSimulationService } from "../../services/workflows/WorkflowSimulationService.js";
 import type { AgentType } from "../../services/agent-types.js";
-import type { AgentContext } from "../../services/AgentAPI.js";
+import type { AgentContext } from "../../services/agents/AgentAPI.js";
 import type { WorkflowContextDTO } from "../../types/workflow/orchestration.js";
 import type {
   AgentResponse,

@@ -332,4 +332,6 @@ export function createGuestPermissionPreset(
 }
 
 // Export singleton instance getter
+export { getGuestPermissionManager };
+/** @deprecated Use named import `getGuestPermissionManager` instead. */
 export default getGuestPermissionManager;

@@ -606,4 +606,6 @@ class SubscriptionService {
   }
 }
 
-export default new SubscriptionService();
+export const subscriptionService = new SubscriptionService();
+/** @deprecated Use named import `subscriptionService` instead. */
+export default subscriptionService;

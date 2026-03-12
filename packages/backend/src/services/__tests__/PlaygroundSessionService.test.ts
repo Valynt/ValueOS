@@ -3,7 +3,7 @@
  */
 
 import { createPropertyUpdate } from '@sdui/AtomicUIActions';
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { PlaygroundSessionService } from '../PlaygroundSessionService.js'
 

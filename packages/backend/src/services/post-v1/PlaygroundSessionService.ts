@@ -12,7 +12,7 @@
  * - Session expiration
  */
 
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 import { createClient, RedisClientType } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -685,4 +685,6 @@ export function getPlaygroundSessionService(
   return sessionServiceInstance;
 }
 
+export { PlaygroundSessionService };
+/** @deprecated Use named import `PlaygroundSessionService` instead. */
 export default PlaygroundSessionService;

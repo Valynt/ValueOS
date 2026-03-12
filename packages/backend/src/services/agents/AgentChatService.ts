@@ -10,7 +10,7 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { SDUIPageDefinition } from "@sdui/schema";
+import { SDUIPageDefinition } from "@valueos/sdui";
 import {
   generateChatSDUIPage,
   hasTemplateForStage,

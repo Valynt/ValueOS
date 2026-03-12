@@ -6,7 +6,7 @@
  */
 
 import { AtomicUIAction } from '@sdui/AtomicUIActions';
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 import { z } from 'zod';
 
 import { ns } from '../lib/redisKeys';

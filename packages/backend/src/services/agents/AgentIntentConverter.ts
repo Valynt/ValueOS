@@ -7,8 +7,8 @@
  * This replaces the hardcoded switch statements in AgentSDUIAdapter.
  */
 
-import { logger } from '../lib/logger.js'
-import { createIntent, Intent } from '../types/intent';
+import { logger } from '../../lib/logger.js'
+import { createIntent, Intent } from '../../types/intent';
 
 /**
  * Generic agent output - any object with agentType

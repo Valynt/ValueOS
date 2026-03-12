@@ -189,4 +189,6 @@ class UsageMeteringService {
   }
 }
 
+export { UsageMeteringService };
+/** @deprecated Use named import `UsageMeteringService` instead. */
 export default UsageMeteringService;

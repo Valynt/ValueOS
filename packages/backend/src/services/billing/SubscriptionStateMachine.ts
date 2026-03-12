@@ -128,4 +128,6 @@ export class InvalidTransitionError extends Error {
   }
 }
 
+export { SubscriptionStateMachine };
+/** @deprecated Use named import `SubscriptionStateMachine` instead. */
 export default SubscriptionStateMachine;

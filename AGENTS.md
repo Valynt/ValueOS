@@ -8,7 +8,7 @@ pnpm monorepo. Frontend apps in `apps/` (ValyntApp, VOSAcademy, mcp-dashboard). 
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
-**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
+**Agent system:** 8-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent, NarrativeAgent, ComplianceAuditorAgent. Orchestration via six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine). Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
 
 ## Non-Negotiable Rules
 
@@ -78,7 +78,7 @@ export class MyAgent extends BaseAgent {
       sessionId, this.name, "episodic", content, metadata, this.organizationId
     );
 
-    return this.prepareOutput(result, "completed");
+    return this.prepareOutput(result, "success");
   }
 }
 ```
@@ -154,6 +154,8 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/lib/agent-fabric/agents/IntegrityAgent.ts` | Claim validation, veto decisions (VALIDATING phase) |
 | `packages/backend/src/lib/agent-fabric/agents/RealizationAgent.ts` | Implementation plans, milestones (REALIZATION phase) |
 | `packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts` | Growth opportunities, expansion strategies (EXPANSION phase) |
+| `packages/backend/src/lib/agent-fabric/agents/NarrativeAgent.ts` | Business narrative generation (COMPOSING phase) |
+| `packages/backend/src/lib/agent-fabric/agents/ComplianceAuditorAgent.ts` | Control evidence review, compliance scoring (INTEGRITY phase, audit sub-role) |
 | `packages/backend/src/lib/agent-fabric/AgentFactory.ts` | Agent instantiation with dependency injection |
 | `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
 | `packages/backend/src/lib/agents/` | Agent core library (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |

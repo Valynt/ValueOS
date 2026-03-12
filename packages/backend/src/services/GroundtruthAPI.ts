@@ -200,4 +200,6 @@ export class GroundtruthAPI {
   }
 }
 
+export { GroundtruthAPI };
+/** @deprecated Use named import `GroundtruthAPI` instead. */
 export default GroundtruthAPI;

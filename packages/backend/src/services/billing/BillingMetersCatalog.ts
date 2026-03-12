@@ -90,4 +90,6 @@ class BillingMetersCatalog {
   }
 }
 
-export default new BillingMetersCatalog();
+export const billingMetersCatalog = new BillingMetersCatalog();
+/** @deprecated Use named import `billingMetersCatalog` instead. */
+export default billingMetersCatalog;

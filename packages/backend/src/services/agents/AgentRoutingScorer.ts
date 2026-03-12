@@ -1,4 +1,4 @@
-import { WorkflowStage } from '../types/workflow';
+import { WorkflowStage } from '../../types/workflow';
 
 import { AgentRecord, RoutingContext } from './AgentRegistry.js'
 
