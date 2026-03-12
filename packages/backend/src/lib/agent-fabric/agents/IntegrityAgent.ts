@@ -422,9 +422,12 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     };
 
     for (const claim of claims) {
-      const normalizedEvidence = claim.evidence.map(e => e.toLowerCase());
+      const stringEvidence = (claim.evidence ?? []).filter(
+        (e): e is string => typeof e === 'string',
+      );
+      const normalizedEvidence = stringEvidence.map(e => e.toLowerCase());
 
-      if (claim.evidence.length === 0 || claim.evidence.every(e => !e.trim())) {
+      if (stringEvidence.length === 0 || stringEvidence.every(e => !e.trim())) {
         addIssue(
           claim.id,
           { type: 'data_integrity', severity: 'high', description: `[${claim.id}] Missing evidence for claim.` },
