@@ -52,12 +52,6 @@ export class DatabaseError extends RepositoryError {
   }
 }
 
-export class NotImplementedError extends RepositoryError {
-  constructor(method: string) {
-    super(`${method} is not yet implemented`, 'NOT_IMPLEMENTED');
-  }
-}
-
 // ============================================================================
 // Repository Interface
 // ============================================================================
@@ -181,6 +175,32 @@ function mapPackRow(row: PackRow, kpis: DomainPackKpi[], assumptions: DomainPack
 export class DomainPacksRepository implements DomainPacksRepositoryInterface {
   constructor(private supabase: SupabaseClient) {}
 
+  private isConflictViolation(error: { code?: string } | null | undefined): boolean {
+    return error?.code === '23505';
+  }
+
+  private async getOwnedPackById(tenantId: string, id: string): Promise<PackRow> {
+    const { data, error } = await this.supabase
+      .from('domain_packs')
+      .select('*')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        throw new NotFoundError('DomainPack', id);
+      }
+      throw new DatabaseError(`Failed to fetch domain pack: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new NotFoundError('DomainPack', id);
+    }
+
+    return data as PackRow;
+  }
+
   async create(tenantId: string, input: CreateDomainPackRequest): Promise<DomainPack> {
     const { data: packRow, error: packError } = await this.supabase
       .from('domain_packs')
@@ -196,6 +216,9 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
       .single();
 
     if (packError || !packRow) {
+      if (this.isConflictViolation(packError)) {
+        throw new ConflictError('A domain pack with this identifier already exists.');
+      }
       throw new DatabaseError(`Failed to create domain pack: ${packError?.message ?? 'no data'}`);
     }
 
@@ -223,6 +246,10 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
 
       if (kpiError) {
         logger.error('Failed to insert KPIs for domain pack', { packId, error: kpiError.message });
+        if (this.isConflictViolation(kpiError)) {
+          throw new ConflictError('Duplicate KPI key in domain pack.');
+        }
+        throw new DatabaseError(`Failed to create domain pack KPIs: ${kpiError.message}`);
       }
       kpis = input.kpis;
     }
@@ -249,6 +276,10 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
 
       if (assError) {
         logger.error('Failed to insert assumptions for domain pack', { packId, error: assError.message });
+        if (this.isConflictViolation(assError)) {
+          throw new ConflictError('Duplicate assumption key in domain pack.');
+        }
+        throw new DatabaseError(`Failed to create domain pack assumptions: ${assError.message}`);
       }
       assumptions = input.assumptions;
     }
@@ -257,7 +288,7 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
   }
 
   async update(tenantId: string, id: string, patch: UpdateDomainPackRequest): Promise<DomainPack> {
-    const existing = await this.getById(tenantId, id);
+    const existing = mapPackRow(await this.getOwnedPackById(tenantId, id), [], []);
     if (existing.status !== 'draft') {
       throw new ConflictError(`Cannot update pack in "${existing.status}" status. Only draft packs are editable.`);
     }
@@ -276,13 +307,19 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
         .eq('tenant_id', tenantId);
 
       if (error) {
+        if (this.isConflictViolation(error)) {
+          throw new ConflictError('A domain pack with these unique fields already exists.');
+        }
         throw new DatabaseError(`Failed to update domain pack: ${error.message}`);
       }
     }
 
     // Replace KPIs if provided
     if (patch.kpis !== undefined) {
-      await this.supabase.from('domain_pack_kpis').delete().eq('domain_pack_id', id);
+      const { error: deleteError } = await this.supabase.from('domain_pack_kpis').delete().eq('domain_pack_id', id);
+      if (deleteError) {
+        throw new DatabaseError(`Failed to replace KPIs: ${deleteError.message}`);
+      }
 
       if (patch.kpis.length > 0) {
         const kpiRows = patch.kpis.map((k, i) => ({
@@ -300,13 +337,21 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
         }));
 
         const { error } = await this.supabase.from('domain_pack_kpis').insert(kpiRows);
-        if (error) throw new DatabaseError(`Failed to update KPIs: ${error.message}`);
+        if (error) {
+          if (this.isConflictViolation(error)) {
+            throw new ConflictError('Duplicate KPI key in domain pack.');
+          }
+          throw new DatabaseError(`Failed to update KPIs: ${error.message}`);
+        }
       }
     }
 
     // Replace assumptions if provided
     if (patch.assumptions !== undefined) {
-      await this.supabase.from('domain_pack_assumptions').delete().eq('domain_pack_id', id);
+      const { error: deleteError } = await this.supabase.from('domain_pack_assumptions').delete().eq('domain_pack_id', id);
+      if (deleteError) {
+        throw new DatabaseError(`Failed to replace assumptions: ${deleteError.message}`);
+      }
 
       if (patch.assumptions.length > 0) {
         const rows = patch.assumptions.map((a) => ({
@@ -324,7 +369,12 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
         }));
 
         const { error } = await this.supabase.from('domain_pack_assumptions').insert(rows);
-        if (error) throw new DatabaseError(`Failed to update assumptions: ${error.message}`);
+        if (error) {
+          if (this.isConflictViolation(error)) {
+            throw new ConflictError('Duplicate assumption key in domain pack.');
+          }
+          throw new DatabaseError(`Failed to update assumptions: ${error.message}`);
+        }
       }
     }
 
@@ -340,6 +390,9 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
       .single();
 
     if (packError || !packRow) {
+      if (packError && packError.code !== 'PGRST116') {
+        throw new DatabaseError(`Failed to get domain pack: ${packError.message}`);
+      }
       throw new NotFoundError('DomainPack', id);
     }
 
@@ -415,6 +468,10 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
   async publish(tenantId: string, id: string): Promise<DomainPack> {
     const pack = await this.getById(tenantId, id);
 
+    if (pack.tenantId !== tenantId) {
+      throw new NotFoundError('DomainPack', id);
+    }
+
     if (pack.status !== 'draft') {
       throw new ConflictError(`Only draft packs can be published. Current status: ${pack.status}`);
     }
@@ -438,6 +495,10 @@ export class DomainPacksRepository implements DomainPacksRepositoryInterface {
 
   async deprecate(tenantId: string, id: string): Promise<DomainPack> {
     const pack = await this.getById(tenantId, id);
+
+    if (pack.tenantId !== tenantId) {
+      throw new NotFoundError('DomainPack', id);
+    }
 
     if (pack.status === 'deprecated') {
       throw new ConflictError('Pack is already deprecated');

@@ -2,9 +2,9 @@
  * Domain Packs API Routes
  *
  * CRUD endpoints for domain pack management.
- * Repository methods are stubbed — routes return 501 until wired.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextFunction, Request, Response, Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { z, ZodError } from 'zod';
@@ -20,7 +20,6 @@ import {
   DatabaseError,
   getDomainPacksRepository,
   NotFoundError,
-  NotImplementedError,
 } from './repository.js';
 import {
   ApiErrorResponse,
@@ -144,15 +143,6 @@ function handleError(
 ): void {
   const requestId = (req as AuthenticatedRequest).correlationId;
 
-  if (err instanceof NotImplementedError) {
-    res.status(501).json({
-      error: 'NOT_IMPLEMENTED',
-      message: err.message,
-      requestId,
-    } satisfies ApiErrorResponse);
-    return;
-  }
-
   if (err instanceof NotFoundError) {
     res.status(404).json({
       error: 'NOT_FOUND',
@@ -203,10 +193,19 @@ function handleError(
 // Route Handlers
 // ============================================================================
 
+
+function getRepositoryForRequest(req: Request) {
+  const supabase = (req as Request & { supabase?: SupabaseClient }).supabase;
+  if (!supabase) {
+    throw new DatabaseError('Request-scoped Supabase client is not available');
+  }
+  return getDomainPacksRepository(supabase);
+}
+
 async function createPack(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   try {
-    const repository = getDomainPacksRepository();
+    const repository = getRepositoryForRequest(req);
     const pack = await repository.create(authReq.tenantId!, req.body);
     res.status(201).json({ data: pack, requestId: authReq.correlationId });
   } catch (err) {
@@ -217,7 +216,7 @@ async function createPack(req: Request, res: Response, next: NextFunction): Prom
 async function listPacks(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   try {
-    const repository = getDomainPacksRepository();
+    const repository = getRepositoryForRequest(req);
     const result = await repository.list(authReq.tenantId!, req.query as unknown as Parameters<typeof repository.list>[1]);
     res.status(200).json({ ...result, requestId: authReq.correlationId });
   } catch (err) {
@@ -228,7 +227,7 @@ async function listPacks(req: Request, res: Response, next: NextFunction): Promi
 async function getPack(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   try {
-    const repository = getDomainPacksRepository();
+    const repository = getRepositoryForRequest(req);
     const pack = await repository.getById(authReq.tenantId!, req.params.packId);
     res.status(200).json({ data: pack, requestId: authReq.correlationId });
   } catch (err) {
@@ -239,7 +238,7 @@ async function getPack(req: Request, res: Response, next: NextFunction): Promise
 async function updatePack(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   try {
-    const repository = getDomainPacksRepository();
+    const repository = getRepositoryForRequest(req);
     const pack = await repository.update(authReq.tenantId!, req.params.packId, req.body);
     res.status(200).json({ data: pack, requestId: authReq.correlationId });
   } catch (err) {
@@ -250,7 +249,7 @@ async function updatePack(req: Request, res: Response, next: NextFunction): Prom
 async function publishPack(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   try {
-    const repository = getDomainPacksRepository();
+    const repository = getRepositoryForRequest(req);
     const pack = await repository.publish(authReq.tenantId!, req.params.packId);
     res.status(200).json({ data: pack, requestId: authReq.correlationId });
   } catch (err) {
@@ -261,7 +260,7 @@ async function publishPack(req: Request, res: Response, next: NextFunction): Pro
 async function deprecatePack(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authReq = req as AuthenticatedRequest;
   try {
-    const repository = getDomainPacksRepository();
+    const repository = getRepositoryForRequest(req);
     const pack = await repository.deprecate(authReq.tenantId!, req.params.packId);
     res.status(200).json({ data: pack, requestId: authReq.correlationId });
   } catch (err) {
