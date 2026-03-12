@@ -254,9 +254,12 @@ export class QueryExecutor {
     if (integrityCheck.reRefine) {
       logger.info('Triggering async RE-REFINE loop due to low confidence', { traceId: result.traceId });
       const stateOrganizationId = String(currentState.context?.organizationId || '');
+      const resultOrganizationId = String(
+        ((result.data as { organizationId?: string } | null | undefined)?.organizationId ?? ''),
+      );
       assertTenantContextMatch({
         expectedOrganizationId: stateOrganizationId,
-        contextOrganizationId: stateOrganizationId,
+        contextOrganizationId: resultOrganizationId,
         source: 'QueryExecutor.getAsyncQueryResult',
       });
       const agentContext = this.buildAgentContext(
