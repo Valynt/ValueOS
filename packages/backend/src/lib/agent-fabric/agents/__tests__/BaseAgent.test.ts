@@ -43,6 +43,7 @@ import type { HallucinationCheckResult } from "../../KnowledgeFabricValidator";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
+import { logger } from "../../../logger.js";
 
 // --- Concrete subclass for testing abstract BaseAgent ---
 
@@ -314,7 +315,7 @@ describe("BaseAgent", () => {
         "session-1",
         "TestAgent",
         "episodic",
-        expect.stringContaining("LLM Response:"),
+        expect.stringContaining("LLM Response Summary:"),
         expect.objectContaining({
           // hallucination_check reflects hallucinationResult.passed (true for clean response)
           hallucination_check: true,
@@ -325,6 +326,28 @@ describe("BaseAgent", () => {
         }),
         "org-456"
       );
+    });
+
+
+    it("redacts sensitive content and stores only summary + hash", async () => {
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse(JSON.stringify({
+          answer: "Contact me at john@example.com or 415-555-1212 with account_id ACCT123456",
+          confidence: 0.8,
+        }))
+      );
+
+      await agent.invokeSecure("session-1", "prompt", responseSchema);
+
+      const memoryContent = mockMemorySystem.storeSemanticMemory.mock.calls[0][3] as string;
+      const metadata = mockMemorySystem.storeSemanticMemory.mock.calls[0][4] as Record<string, unknown>;
+
+      expect(memoryContent).toContain("LLM Response Summary:");
+      expect(memoryContent).toContain("[REDACTED_EMAIL]");
+      expect(memoryContent).toContain("[REDACTED_PHONE]");
+      expect(memoryContent).toContain("[REDACTED_ACCOUNT_ID]");
+      expect(memoryContent).toMatch(/\[hash:[a-f0-9]{64}\]/);
+      expect(typeof metadata.llm_content_hash).toBe("string");
     });
 
     it("skips tracking memory when trackPrediction is false", async () => {
@@ -343,6 +366,26 @@ describe("BaseAgent", () => {
       await expect(
         agent.invokeSecure("session-1", "prompt", responseSchema)
       ).rejects.toThrow();
+    });
+
+
+
+    it("logs redacted summary + hash for invalid JSON", async () => {
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse('{"bad":"john@example.com 415-555-1212 account_id ACCT112233"')
+      );
+
+      await expect(
+        agent.invokeSecure("session-1", "prompt", responseSchema)
+      ).rejects.toThrow();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("[REDACTED_EMAIL]"),
+          content_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+      );
     });
 
     it("throws on Zod validation failure", async () => {
