@@ -473,22 +473,37 @@ export class QueryExecutor {
 
         let agentType: AgentType = 'coordinator';
         await tracer.startActiveSpan('agent.selectAgent', async (selectSpan: Span) => {
-          const decisionContextResult = await this.buildDecisionContext(currentState, envelope.organizationId);
-          if (decisionContextResult.mode === 'rejected') {
-            throw new Error(`Missing required context for automation: ${decisionContextResult.diagnostics.join('; ')}`);
-          }
-          if (decisionContextResult.mode === 'downgraded') {
-            logger.warn('Downgrading automation to coordinator due to missing context fields', {
-              organizationId: envelope.organizationId,
-              diagnostics: decisionContextResult.diagnostics,
+          try {
+            const decisionContextResult = await this.buildDecisionContext(currentState, envelope.organizationId);
+            if (decisionContextResult.mode === 'rejected') {
+              throw new Error(`Missing required context for automation: ${decisionContextResult.diagnostics.join('; ')}`);
+            }
+            if (decisionContextResult.mode === 'downgraded') {
+              logger.warn('Downgrading automation to coordinator due to missing context fields', {
+                organizationId: envelope.organizationId,
+                diagnostics: decisionContextResult.diagnostics,
+              });
+              agentType = 'coordinator';
+            } else {
+              agentType = this.router.selectAgent(decisionContextResult.context);
+            }
+            selectSpan.setAttributes({
+              'agent.selected_type': agentType,
+              'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based',
             });
-            agentType = 'coordinator';
-          } else {
-            agentType = this.router.selectAgent(decisionContextResult.context);
+            selectSpan.setStatus({ code: SpanStatusCode.OK });
+          } catch (error) {
+            selectSpan.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: error instanceof Error ? error.message : String(error),
+            });
+            if (error instanceof Error) {
+              selectSpan.recordException(error);
+            }
+            throw error;
+          } finally {
+            selectSpan.end();
           }
-          selectSpan.setAttributes({ 'agent.selected_type': agentType, 'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based' });
-          selectSpan.setStatus({ code: SpanStatusCode.OK });
-          selectSpan.end();
         });
 
         if (!this.checkAgentRateLimit(agentType)) throw new Error(`Agent ${agentType} rate limit exceeded`);
