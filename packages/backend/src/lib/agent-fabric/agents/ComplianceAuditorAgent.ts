@@ -7,11 +7,21 @@ import { renderTemplate } from '../promptUtils.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
-  control_gaps: z.array(z.string()),
-  control_coverage_score: z.number().min(0).max(1),
   recommended_actions: z.array(z.string()),
   hallucination_check: z.boolean().optional(),
 });
+
+interface DeterministicCoverage {
+  coverageScore: number;
+  controlGaps: string[];
+  traces: Array<{
+    control: string;
+    observed_count: number;
+    required_minimum: number;
+    outcome: 'pass' | 'refine' | 'veto';
+    message: string;
+  }>;
+}
 
 export class ComplianceAuditorAgent extends BaseAgent {
   public readonly lifecycleStage = 'integrity';
@@ -47,11 +57,16 @@ export class ComplianceAuditorAgent extends BaseAgent {
       }
     }
 
+    const deterministicCoverage = this.computeDeterministicCoverage(evidenceBySource);
+
     const prompt = renderTemplate(
-      `You are a compliance auditor. Review control evidence counts and observations for tenant {{tenantId}}.\nEvidence counts: {{counts}}\nObservations: {{observations}}\nReturn JSON with summary, control_gaps, control_coverage_score, recommended_actions.`,
+      `You are a compliance auditor. Summarize deterministic compliance evidence results for tenant {{tenantId}}.\nEvidence counts: {{counts}}\nDeterministic control coverage score: {{coverageScore}}\nControl gaps: {{gaps}}\nPolicy traces: {{traces}}\nObservations: {{observations}}\nReturn JSON with summary and recommended_actions only.`,
       {
         tenantId: this.organizationId,
         counts: JSON.stringify(evidenceBySource),
+        coverageScore: deterministicCoverage.coverageScore.toFixed(2),
+        gaps: JSON.stringify(deterministicCoverage.controlGaps),
+        traces: JSON.stringify(deterministicCoverage.traces),
         observations: JSON.stringify(sampleObservations),
       },
     );
@@ -77,7 +92,9 @@ export class ComplianceAuditorAgent extends BaseAgent {
       `Compliance evidence summary: ${llmResult.summary}`,
       {
         source_counts: evidenceBySource,
-        control_coverage_score: llmResult.control_coverage_score,
+        control_coverage_score: deterministicCoverage.coverageScore,
+        control_gaps: deterministicCoverage.controlGaps,
+        policy_traces: deterministicCoverage.traces,
         tenant_id: this.organizationId,
       },
       this.organizationId,
@@ -86,14 +103,47 @@ export class ComplianceAuditorAgent extends BaseAgent {
     return this.buildOutput(
       {
         summary: llmResult.summary,
-        control_gaps: llmResult.control_gaps,
-        control_coverage_score: llmResult.control_coverage_score,
+        control_gaps: deterministicCoverage.controlGaps,
+        control_coverage_score: deterministicCoverage.coverageScore,
         recommended_actions: llmResult.recommended_actions,
         evidence_by_source: evidenceBySource,
+        policy_traces: deterministicCoverage.traces,
       },
       'success',
-      this.toConfidenceLevel(llmResult.control_coverage_score),
+      this.toConfidenceLevel(deterministicCoverage.coverageScore),
       start,
     );
+  }
+
+  private computeDeterministicCoverage(evidenceBySource: Record<string, number>): DeterministicCoverage {
+    const traces = Object.entries(evidenceBySource).map(([control, observed]) => {
+      const requiredMinimum = control === 'integrity' || control === 'financial-modeling' ? 2 : 1;
+      const outcome: 'pass' | 'refine' | 'veto' = observed >= requiredMinimum
+        ? 'pass'
+        : observed === 0
+          ? 'veto'
+          : 'refine';
+      return {
+        control,
+        observed_count: observed,
+        required_minimum: requiredMinimum,
+        outcome,
+        message: observed >= requiredMinimum
+          ? 'Deterministic coverage threshold met.'
+          : `Control evidence below deterministic threshold (${observed}/${requiredMinimum}).`,
+      };
+    });
+
+    const passCount = traces.filter(trace => trace.outcome === 'pass').length;
+    const coverageScore = traces.length === 0 ? 0 : passCount / traces.length;
+    const controlGaps = traces
+      .filter(trace => trace.outcome !== 'pass')
+      .map(trace => `${trace.control}: ${trace.message}`);
+
+    return {
+      coverageScore,
+      controlGaps,
+      traces,
+    };
   }
 }
