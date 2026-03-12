@@ -9,7 +9,7 @@ vi.mock('../../../utils/logger.js', () => ({
 }));
 
 const mockBroadcastToTenant = vi.fn();
-vi.mock('../../../services/RealtimeBroadcastService.js', () => ({
+vi.mock('../../../services/realtime/RealtimeBroadcastService.js', () => ({
   getRealtimeBroadcastService: () => ({ broadcastToTenant: mockBroadcastToTenant }),
 }));
 

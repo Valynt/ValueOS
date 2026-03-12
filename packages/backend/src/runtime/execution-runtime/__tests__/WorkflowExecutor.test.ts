@@ -3,74 +3,95 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowExecutor } from '../WorkflowExecutor.js';
 
 vi.mock('uuid', () => ({ v4: (() => { let n = 0; return () => `uuid-${++n}`; })() }));
+vi.mock('../../../observability/valueLoopMetrics', () => ({
+  recordAgentInvocation: vi.fn(),
+  recordLoopCompletion: vi.fn(),
+}));
 vi.mock('../../../lib/logger', () => ({ logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
 vi.mock('../../../lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-      single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    })),
+    from: vi.fn(function () {
+      return {
+        select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    }),
   },
 }));
 vi.mock('@opentelemetry/api', () => ({ SpanStatusCode: { OK: 1, ERROR: 2 } }));
 vi.mock('../../../config/telemetry', () => ({
-  getTracer: vi.fn(() => ({
-    startActiveSpan: vi.fn((...args: unknown[]) => {
-      const fn = typeof args[args.length - 1] === 'function' ? args[args.length - 1] as (s: unknown) => unknown : null;
-      const span = { setAttributes: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), end: vi.fn() };
-      return fn ? fn(span) : undefined;
-    }),
-  })),
+  getTracer: vi.fn(function () {
+    return {
+      startActiveSpan: vi.fn(function (...args: unknown[]) {
+        const fn = typeof args[args.length - 1] === 'function' ? args[args.length - 1] as (s: unknown) => unknown : null;
+        const span = { setAttributes: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), end: vi.fn() };
+        return fn ? fn(span) : undefined;
+      }),
+    };
+  }),
 }));
 vi.mock('../../../services/workflows/WorkflowExecutionStore', () => ({
-  WorkflowExecutionStore: vi.fn(() => ({
-    persistExecutionRecord: vi.fn().mockResolvedValue(undefined),
-    updateExecutionStatus: vi.fn().mockResolvedValue(undefined),
-    recordStageRun: vi.fn().mockResolvedValue(undefined),
-    recordWorkflowEvent: vi.fn().mockResolvedValue(undefined),
-  })),
+  WorkflowExecutionStore: vi.fn(function () {
+    return {
+      persistExecutionRecord: vi.fn().mockResolvedValue(undefined),
+      updateExecutionStatus: vi.fn().mockResolvedValue(undefined),
+      recordStageRun: vi.fn().mockResolvedValue(undefined),
+      recordWorkflowEvent: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 vi.mock('../../../services/CircuitBreaker', () => ({
-  CircuitBreakerManager: vi.fn(() => ({ execute: vi.fn((_k: string, fn: () => unknown) => fn()) })),
+  CircuitBreakerManager: vi.fn(function () {
+    return { execute: vi.fn(function (_k: string, fn: () => unknown) { return fn(); }) };
+  }),
 }));
-vi.mock('../../../services/AgentRegistry', () => ({
-  AgentRegistry: vi.fn(() => ({ recordRelease: vi.fn(), markHealthy: vi.fn(), recordFailure: vi.fn() })),
+vi.mock('../../../services/agents/AgentRegistry', () => ({
+  AgentRegistry: vi.fn(function () {
+    return { recordRelease: vi.fn(), markHealthy: vi.fn(), recordFailure: vi.fn() };
+  }),
 }));
-vi.mock('../../../services/AgentMessageBroker', () => ({
-  AgentMessageBroker: vi.fn(() => ({
-    sendToAgent: vi.fn().mockResolvedValue({ success: true, data: { result: 'ok' } }),
-  })),
+vi.mock('../../../services/agents/AgentMessageBroker', () => ({
+  AgentMessageBroker: vi.fn(function () {
+    return { sendToAgent: vi.fn().mockResolvedValue({ success: true, data: { result: 'ok' } }) };
+  }),
 }));
 vi.mock('../../../services/agents/resilience/AgentRetryManager', () => ({
   AgentRetryManager: {
-    getInstance: vi.fn(() => ({
-      executeWithRetry: vi.fn().mockResolvedValue({ success: true, response: { data: { out: 'done' } }, attempts: 1 }),
-    })),
+    getInstance: vi.fn(function () {
+      return {
+        executeWithRetry: vi.fn().mockResolvedValue({ success: true, response: { data: { out: 'done' } }, attempts: 1 }),
+      };
+    }),
   },
 }));
-vi.mock('../../../services/EnhancedParallelExecutor', () => ({
-  getEnhancedParallelExecutor: vi.fn(() => ({
-    executeRunnableTasks: vi.fn(async (
-      tasks: Array<{ id: string; payload: unknown }>,
-      fn: (t: { id: string; payload: unknown }) => Promise<unknown>,
-    ) => {
-      const results = [];
-      for (const task of tasks) {
-        try { results.push({ taskId: task.id, success: true, result: await fn(task) }); }
-        catch (e) { results.push({ taskId: task.id, success: false, error: (e as Error).message }); }
-      }
-      return results;
-    }),
-  })),
+vi.mock('../../../services/post-v1/EnhancedParallelExecutor', () => ({
+  getEnhancedParallelExecutor: vi.fn(function () {
+    return {
+      executeRunnableTasks: vi.fn(async function (
+        tasks: Array<{ id: string; payload: unknown }>,
+        fn: (t: { id: string; payload: unknown }) => Promise<unknown>,
+      ) {
+        const results = [];
+        for (const task of tasks) {
+          try { results.push({ taskId: task.id, success: true, result: await fn(task) }); }
+          catch (e) { results.push({ taskId: task.id, success: false, error: (e as Error).message }); }
+        }
+        return results;
+      }),
+    };
+  }),
 }));
 vi.mock('../../../lib/agent-fabric/MemorySystem', () => ({
-  MemorySystem: vi.fn(() => ({
-    retrieve: vi.fn().mockResolvedValue([]),
-    storeEpisode: vi.fn().mockResolvedValue(undefined),
-    storeEpisodicMemory: vi.fn().mockResolvedValue(undefined),
-  })),
+  MemorySystem: vi.fn(function () {
+    return {
+      retrieve: vi.fn().mockResolvedValue([]),
+      storeEpisode: vi.fn().mockResolvedValue(undefined),
+      storeEpisodicMemory: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -91,8 +112,8 @@ async function makeExecutor(
   rateLimitFn: (t: string) => boolean = () => true,
 ) {
   const { CircuitBreakerManager } = await import('../../../services/CircuitBreaker.js');
-  const { AgentRegistry } = await import('../../../services/AgentRegistry.js');
-  const { AgentMessageBroker } = await import('../../../services/AgentMessageBroker.js');
+  const { AgentRegistry } = await import('../../../services/agents/AgentRegistry.js');
+  const { AgentMessageBroker } = await import('../../../services/agents/AgentMessageBroker.js');
   const { MemorySystem } = await import('../../../lib/agent-fabric/MemorySystem.js');
   return new WorkflowExecutor(
     policy as never,
@@ -170,7 +191,7 @@ describe('WorkflowExecutor.executeWorkflow', () => {
   it('throws when workflow definition is not found', async () => {
     const { supabase } = await import('../../../lib/supabase.js');
     vi.mocked(supabase.from).mockReturnValueOnce({
-      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as never);
     const executor = await makeExecutor();
@@ -180,7 +201,7 @@ describe('WorkflowExecutor.executeWorkflow', () => {
   it('throws when workflow belongs to a different organization', async () => {
     const { supabase } = await import('../../../lib/supabase.js');
     vi.mocked(supabase.from).mockReturnValueOnce({
-      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
         data: { id: 'wf-1', organization_id: 'other-org', dag_schema: makeDAG(), version: '1', name: 'Test', is_active: true },
         error: null,

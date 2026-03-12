@@ -12,6 +12,17 @@ import type { BusinessCase, ValueHypothesis, Assumption, Evidence } from "@value
 // Mocks for ArtifactComposer class tests
 // ---------------------------------------------------------------------------
 
+vi.mock('@valueos/sdui', () => ({
+  SDUIPageDefinition: vi.fn(function () { return {}; }),
+  validateSDUISchema: vi.fn(function () { return { success: true }; }),
+}));
+
+vi.mock('@valueos/core-services', () => ({
+  securityLogger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
+
+
+
 vi.mock('uuid', () => ({
   v4: (() => {
     let n = 0;
@@ -19,23 +30,24 @@ vi.mock('uuid', () => ({
   })(),
 }));
 
-vi.mock('../../../services/AgentAPI', () => ({
-  getAgentAPI: vi.fn(() => ({
-    invokeAgent: vi.fn().mockResolvedValue({ success: true, data: {} }),
-  })),
+vi.mock('../../../services/agents/AgentAPI', () => ({
+  AgentAPI: vi.fn(function () { return { invokeAgent: vi.fn().mockResolvedValue({ success: true, data: {} }) }; }),
+  getAgentAPI: vi.fn(function () { return { invokeAgent: vi.fn().mockResolvedValue({ success: true, data: {} }) }; }),
 }));
 
 vi.mock('../../../services/workflows/WorkflowRenderService', () => ({
-  DefaultWorkflowRenderService: vi.fn(() => ({
-    generateSDUIPage: vi.fn().mockResolvedValue({ type: 'sdui-page', payload: {} }),
-    generateAndRenderPage: vi.fn().mockResolvedValue({ response: { type: 'sdui-page', payload: {} }, rendered: {} }),
-  })),
+  DefaultWorkflowRenderService: vi.fn(function () {
+    return {
+      generateSDUIPage: vi.fn().mockResolvedValue({ type: 'sdui-page', payload: {} }),
+      generateAndRenderPage: vi.fn().mockResolvedValue({ response: { type: 'sdui-page', payload: {} }, rendered: {} }),
+    };
+  }),
 }));
 
 vi.mock('../../../services/workflows/WorkflowSimulationService', () => ({
-  DefaultWorkflowSimulationService: vi.fn(() => ({
-    simulateWorkflow: vi.fn().mockResolvedValue({}),
-  })),
+  DefaultWorkflowSimulationService: vi.fn(function () {
+    return { simulateWorkflow: vi.fn().mockResolvedValue({}) };
+  }),
 }));
 
 function makeComposer(overrides: Partial<ConstructorParameters<typeof ArtifactComposer>[0]> = {}) {
@@ -447,10 +459,12 @@ describe('ArtifactComposer.generateSDUIPage', () => {
   it('delegates to WorkflowRenderService.generateSDUIPage', async () => {
     const { DefaultWorkflowRenderService } = await import('../../../services/workflows/WorkflowRenderService.js');
     const sdui = vi.fn().mockResolvedValue({ type: 'sdui-page', payload: { title: 'Test' } });
-    vi.mocked(DefaultWorkflowRenderService).mockImplementationOnce(() => ({
-      generateSDUIPage: sdui,
-      generateAndRenderPage: vi.fn(),
-    }) as never);
+    vi.mocked(DefaultWorkflowRenderService).mockImplementationOnce(function () {
+      return {
+        generateSDUIPage: sdui,
+        generateAndRenderPage: vi.fn(),
+      } as never;
+    });
 
     const composer = makeComposer();
     const envelope = { intent: 'test', actor: { id: 'u1' }, organizationId: 'org-1', entryPoint: 'api', reason: 'test', timestamps: { requestedAt: new Date().toISOString() } };
@@ -461,10 +475,12 @@ describe('ArtifactComposer.generateSDUIPage', () => {
 
   it('throws when SDUI is disabled', async () => {
     const { DefaultWorkflowRenderService } = await import('../../../services/workflows/WorkflowRenderService.js');
-    vi.mocked(DefaultWorkflowRenderService).mockImplementationOnce(() => ({
-      generateSDUIPage: vi.fn().mockRejectedValue(new Error('SDUI is disabled')),
-      generateAndRenderPage: vi.fn(),
-    }) as never);
+    vi.mocked(DefaultWorkflowRenderService).mockImplementationOnce(function () {
+      return {
+        generateSDUIPage: vi.fn().mockRejectedValue(new Error('SDUI is disabled')),
+        generateAndRenderPage: vi.fn(),
+      } as never;
+    });
 
     const composer = makeComposer({ enableSDUI: false });
     const envelope = { intent: 'test', actor: { id: 'u1' }, organizationId: 'org-1', entryPoint: 'api', reason: 'test', timestamps: { requestedAt: new Date().toISOString() } };
