@@ -4,7 +4,8 @@ import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
-import { ProtectedRoute } from "./route-guards";
+import { PermissionRoute, ProtectedRoute } from "./route-guards";
+import { PERMISSIONS } from "../../lib/permissions";
 
 
 const LandingPage = lazy(() => import("@pages/marketing/LandingPage"));
@@ -143,9 +144,11 @@ export function AppRoutes() {
             <Route path="/billing" element={<BillingPage />} />
 
             {/* Admin */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<UsersPage />} />
-            <Route path="/admin/security" element={<SecurityDashboard />} />
+            <Route element={<PermissionRoute requiredPermissions={[PERMISSIONS.ADMIN_ACCESS]} />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<UsersPage />} />
+              <Route path="/admin/security" element={<SecurityDashboard />} />
+            </Route>
           </Route>
 
           {/* Catch-all */}

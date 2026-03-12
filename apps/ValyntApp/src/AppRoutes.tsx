@@ -8,7 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
-import { ProtectedRoute } from "./app/routes/route-guards";
+import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -128,8 +128,12 @@ export function AppRoutes() {
                                 <Route path="/models/:id" element={<ModelDetail />} />
                                 <Route path="/agents" element={<Agents />} />
                                 <Route path="/agents/:id" element={<AgentDetail />} />
-                                <Route path="/integrations" element={<Integrations />} />
-                                <Route path="/settings" element={<SettingsPage />} />
+                                <Route element={<PermissionRoute requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.INTEGRATIONS} />}>
+                                  <Route path="/integrations" element={<Integrations />} />
+                                </Route>
+                                <Route element={<PermissionRoute requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.SETTINGS} />}>
+                                  <Route path="/settings" element={<SettingsPage />} />
+                                </Route>
                                 <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
                                 <Route path="/company" element={<CompanyKnowledge />} />
                               </Route>
