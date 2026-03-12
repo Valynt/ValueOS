@@ -20,11 +20,88 @@ export interface ValueCommitment {
   committed_at: string;
   target_completion_date: string;
   actual_completion_date: string | null;
-  ground_truth_references: Record<string, any>;
+  ground_truth_references: Record<string, unknown>;
   tags: string[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Shape returned by the backend /api/v1/value-commitments endpoints.
+ * Does not include internal columns (tenant_id, session_id, etc.).
+ */
+export interface CommitmentDto {
+  id: string;
+  organization_id: string;
+  title: string;
+  description: string | null;
+  commitment_type: string;
+  priority: string;
+  owner_user_id: string | null;
+  status: 'draft' | 'active' | 'at_risk' | 'fulfilled' | 'cancelled';
+  progress_percentage: number;
+  target_completion_date: string;
+  timeframe_months: number;
+  financial_impact: Record<string, unknown> | null;
+  currency: string;
+  tags: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteDto {
+  id: string;
+  commitment_id: string;
+  body: string;
+  visibility: 'internal' | 'stakeholder';
+  created_by: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Request shapes for the backend API (no tenant fields — backend derives them)
+// ---------------------------------------------------------------------------
+
+export interface CreateCommitmentRequest {
+  title: string;
+  description?: string;
+  commitment_type: 'financial' | 'operational' | 'strategic' | 'compliance';
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  owner_user_id: string;
+  target_completion_date: string;
+  timeframe_months: number;
+  financial_impact?: Record<string, unknown>;
+  currency?: string;
+  tags?: string[];
+  metrics?: Array<{
+    metric_name: string;
+    baseline_value: number;
+    target_value: number;
+    unit: string;
+  }>;
+}
+
+export interface UpdateCommitmentRequest {
+  title?: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  target_completion_date?: string;
+  timeframe_months?: number;
+  financial_impact?: Record<string, unknown>;
+  tags?: string[];
+}
+
+export interface StatusTransitionRequest {
+  status: 'draft' | 'active' | 'at_risk' | 'fulfilled' | 'cancelled';
+  progress_percentage?: number;
+  reason?: string;
+}
+
+export interface AddNoteRequest {
+  body: string;
+  visibility?: 'internal' | 'stakeholder';
 }
 
 export type ValueCommitmentInsert = Omit<ValueCommitment, 'id' | 'created_at' | 'updated_at'> & { id?: string };
