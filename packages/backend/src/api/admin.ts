@@ -40,7 +40,7 @@ router.post(
   requireAuth,
   async (req: Request, res: Response) => {
     try {
-      const actor = (req as any).user;
+      const actor = req.user;
       if (!actor?.id || !actor?.email) {
         return res.status(401).json({ error: "Authenticated user required" });
       }
@@ -76,7 +76,7 @@ router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
 
 router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant ID required" });
     }
@@ -115,7 +115,7 @@ router.get("/audit-logs", requirePermission("users.read"), async (req: Request, 
 
 router.get("/users", requirePermission("users.read"), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant ID required" });
     }
@@ -134,12 +134,12 @@ router.post(
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -173,12 +173,12 @@ router.patch(
   validateRequest(ValidationSchemas.adminChangeRole),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -214,12 +214,12 @@ router.delete(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -258,7 +258,7 @@ router.post(
   requirePermission("owner.transfer"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
@@ -268,7 +268,7 @@ router.post(
         return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -297,12 +297,12 @@ router.post(
   validateRequest(ValidationSchemas.adminCustomRoleUpsert),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       const role = await adminRoleService.createCustomRole(
@@ -329,12 +329,12 @@ router.patch(
   validateRequest(ValidationSchemas.adminCustomRoleUpsert),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       const role = await adminRoleService.updateCustomRole(
@@ -360,12 +360,12 @@ router.delete(
   requirePermission("roles.assign"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       await adminRoleService.deleteCustomRole(
@@ -384,7 +384,7 @@ router.delete(
 
 router.get("/roles/matrix", requirePermission("users.read"), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant ID required" });
     }
@@ -403,12 +403,12 @@ router.post(
   validateRequest(ValidationSchemas.adminRolePermissionMutation),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       await adminRoleService.assignPermissionsToRole(
@@ -434,12 +434,12 @@ router.delete(
   validateRequest(ValidationSchemas.adminRolePermissionMutation),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId as string | undefined;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant ID required" });
       }
 
-      const actor = (req as any).user;
+      const actor = req.user;
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       await adminRoleService.removePermissionsFromRole(

@@ -35,7 +35,7 @@ const referralPublicLimiter = createRateLimiter("strict", {
  */
 router.post("/generate", requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -54,8 +54,8 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
 
     await auditLogService.logAudit({
       userId,
-      userName: (req as any).user?.user_metadata?.full_name || (req as any).user?.email || "User",
-      userEmail: (req as any).user?.email,
+      userName: req.user?.user_metadata?.full_name || req.user?.email || "User",
+      userEmail: req.user?.email,
       action: "referral.code_generated",
       resourceType: "referral",
       resourceId: result.referral_code?.id,
@@ -72,7 +72,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to generate referral code", error as Error, {
-      userId: sanitizeForLogging((req as any).user?.id),
+      userId: sanitizeForLogging(req.user?.id),
     });
 
     return res.status(500).json({ error: "Internal server error" });
@@ -143,7 +143,7 @@ router.post(
  */
 router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -173,7 +173,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to get referral dashboard", error as Error, {
-      userId: sanitizeForLogging((req as any).user?.id),
+      userId: sanitizeForLogging(req.user?.id),
     });
 
     return res.status(500).json({ error: "Internal server error" });
@@ -186,7 +186,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
  */
 router.get("/stats", requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -209,7 +209,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to get referral stats", error as Error, {
-      userId: sanitizeForLogging((req as any).user?.id),
+      userId: sanitizeForLogging(req.user?.id),
     });
 
     return res.status(500).json({ error: "Internal server error" });
@@ -222,7 +222,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
  */
 router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const limit = parseInt(req.query.limit as string) || 10;
 
     if (!userId) {
@@ -243,7 +243,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to get referral rewards", error as Error, {
-      userId: sanitizeForLogging((req as any).user?.id),
+      userId: sanitizeForLogging(req.user?.id),
     });
 
     return res.status(500).json({ error: "Internal server error" });
@@ -256,7 +256,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
  */
 router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const limit = parseInt(req.query.limit as string) || 10;
 
     if (!userId) {
@@ -277,7 +277,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to get user referrals", error as Error, {
-      userId: sanitizeForLogging((req as any).user?.id),
+      userId: sanitizeForLogging(req.user?.id),
     });
 
     return res.status(500).json({ error: "Internal server error" });
@@ -334,7 +334,7 @@ router.post(
   }),
   async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.user?.id;
       const { referral_id } = req.body;
 
       if (!userId) {
@@ -357,8 +357,8 @@ router.post(
 
       await auditLogService.logAudit({
         userId,
-        userName: (req as any).user?.user_metadata?.full_name || (req as any).user?.email || "User",
-        userEmail: (req as any).user?.email,
+        userName: req.user?.user_metadata?.full_name || req.user?.email || "User",
+        userEmail: req.user?.email,
         action: "referral.completed",
         resourceType: "referral",
         resourceId: referral_id,
@@ -375,7 +375,7 @@ router.post(
     } catch (error) {
       logger.error("Failed to complete referral", error as Error, {
         referral_id: sanitizeForLogging(req.body.referral_id),
-        user_id: sanitizeForLogging((req as any).user?.id),
+        user_id: sanitizeForLogging(req.user?.id),
       });
 
       return res.status(500).json({ error: "Internal server error" });
@@ -389,7 +389,7 @@ router.post(
  */
 router.delete("/deactivate", requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "User not authenticated" });
@@ -407,8 +407,8 @@ router.delete("/deactivate", requireAuth, async (req: Request, res: Response) =>
 
     await auditLogService.logAudit({
       userId,
-      userName: (req as any).user?.user_metadata?.full_name || (req as any).user?.email || "User",
-      userEmail: (req as any).user?.email,
+      userName: req.user?.user_metadata?.full_name || req.user?.email || "User",
+      userEmail: req.user?.email,
       action: "referral.code_deactivated",
       resourceType: "referral",
       resourceId: userId,
@@ -424,7 +424,7 @@ router.delete("/deactivate", requireAuth, async (req: Request, res: Response) =>
     });
   } catch (error) {
     logger.error("Failed to deactivate referral code", error as Error, {
-      userId: sanitizeForLogging((req as any).user?.id),
+      userId: sanitizeForLogging(req.user?.id),
     });
 
     return res.status(500).json({ error: "Internal server error" });

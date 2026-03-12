@@ -70,7 +70,7 @@ Code execution sandbox is scaffolded with placeholder `fetch` calls instead of t
 
 | Module | Count (2026-07-15) | Sprint 31 target |
 |---|---|---|
-| `packages/backend` | 1,654 (production files ~664 after Sprint 26 work) | <400 |
+| `packages/backend` | 810 (re-measured 2026-07-15 after Sprint 28 work; baseline was 893) | <700 by Sprint 31 |
 | `apps/ValyntApp` | 409 (production files ~207 after Sprint 27 work) | <100 |
 | `packages/sdui` | 221 (production files ~50 after Sprint 27 work) | <20 |
 | `apps/VOSAcademy` | 99 | <50 |
@@ -78,10 +78,11 @@ Code execution sandbox is scaffolded with placeholder `fetch` calls instead of t
 
 **Highest-density production files entering Sprint 28:**
 - `apps/ValyntApp/src/mcp-ground-truth/core/IntegratedMCPServer.ts` (39)
-- `packages/backend/src/api/admin.ts` (22), `api/referrals.ts` (20)
+- ~~`packages/backend/src/api/admin.ts` (22), `api/referrals.ts` (20)~~ — cleaned Sprint 28
 - `packages/sdui/src/engine/renderPage.ts` (16), `realtime/WebSocketDataSource.ts` (14), `DataBindingResolver.ts` (14)
-- `packages/backend/src/services/agents/AgentMemoryIntegration.ts` (15)
-- `packages/backend/src/services/sdui/CanvasSchemaService.ts` (13), `services/post-v1/PlaygroundAutoSave.ts` (13), `services/post-v1/OfflineEvaluation.ts` (13), `config/ServiceConfigManager.ts` (13)
+- ~~`packages/backend/src/services/agents/AgentMemoryIntegration.ts` (15)~~ — cleaned Sprint 28
+- ~~`packages/backend/src/services/sdui/CanvasSchemaService.ts` (13), `config/ServiceConfigManager.ts` (13)~~ — cleaned Sprint 28
+- `services/post-v1/PlaygroundAutoSave.ts` (13), `services/post-v1/OfflineEvaluation.ts` (13) — Sprint 30 targets
 - `apps/VOSAcademy/src/lib/icons.tsx` (40), `data/routers.d.ts` (18)
 
 **Rule:** Do not introduce new `any`. Use `unknown` + type guards. Replace `any` in files you touch.
