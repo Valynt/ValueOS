@@ -39,6 +39,9 @@ export class ComplianceAuditorAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: this.organizationId,
+        workspace_id: context.workspace_id,
+        include_cross_workspace: true,
+        cross_workspace_reason: 'Compliance audits require tenant-wide historical control evidence across workspaces.',
       });
 
       evidenceBySource[source] = evidence.length;

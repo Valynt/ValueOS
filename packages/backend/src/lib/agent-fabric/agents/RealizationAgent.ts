@@ -267,6 +267,7 @@ export class RealizationAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 20,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.kpi_id)
@@ -288,6 +289,7 @@ export class RealizationAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.type === 'integrity_validation')

@@ -73,6 +73,60 @@ describe("MemorySystem", () => {
       expect(results).toHaveLength(0);
     });
 
+    it("prevents workspace B from retrieving workspace A memories by default in same tenant", async () => {
+      await ms.store({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-a",
+        content: "workspace A memory",
+        memory_type: "semantic",
+        importance: 0.75,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      const results = await ms.retrieve({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-b",
+      });
+
+      expect(results).toHaveLength(0);
+    });
+
+    it("allows cross-workspace retrieval only when explicitly requested with a reason", async () => {
+      await ms.store({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-a",
+        content: "workspace A memory",
+        memory_type: "semantic",
+        importance: 0.75,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      const results = await ms.retrieve({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-b",
+        include_cross_workspace: true,
+        cross_workspace_reason: "Historical trend review",
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].workspace_id).toBe("ws-a");
+    });
+
+    it("requires a reason when include_cross_workspace is true", async () => {
+      await expect(
+        ms.retrieve({
+          agent_id: "agent-1",
+          organization_id: ORG_ID,
+          workspace_id: "ws-b",
+          include_cross_workspace: true,
+        })
+      ).rejects.toThrow("cross_workspace_reason is required");
+    });
+
     it("throws when organization_id is missing from retrieve", async () => {
       await expect(
         ms.retrieve({ agent_id: "agent-1", organization_id: "" })

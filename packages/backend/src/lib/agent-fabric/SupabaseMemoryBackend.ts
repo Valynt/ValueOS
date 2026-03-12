@@ -85,6 +85,10 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
     }
 
+    if (query.include_cross_workspace && !query.cross_workspace_reason) {
+      throw new Error("cross_workspace_reason is required when include_cross_workspace is true");
+    }
+
     try {
       const results = await this.semanticStore.findByOrganization(
         query.organization_id,
@@ -98,6 +102,9 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
         if (query.agent_id && meta["agentType"] !== query.agent_id) continue;
         if (query.memory_type && meta["agent_memory_type"] !== query.memory_type) continue;
 
+        const workspaceId = String(meta["session_id"] || "");
+        if (!query.include_cross_workspace && query.workspace_id && workspaceId !== query.workspace_id) continue;
+
         const importance =
           typeof meta["importance"] === "number" ? meta["importance"] : 0.5;
 
@@ -107,7 +114,7 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
           id: (meta["agent_memory_id"] as string) || fact.id,
           agent_id: String(meta["agentType"] || ""),
           organization_id: query.organization_id,
-          workspace_id: String(meta["session_id"] || ""),
+          workspace_id: workspaceId,
           content: fact.content,
           memory_type: (meta["agent_memory_type"] as MemoryType) || "episodic",
           importance,

@@ -497,6 +497,9 @@ export abstract class BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: this.organizationId,
+        workspace_id: sessionId,
+        include_cross_workspace: true,
+        cross_workspace_reason: 'Hallucination checks compare prior integrity outcomes across sessions to detect repeated contradictions.',
       });
 
       if (memories.length === 0) return;
