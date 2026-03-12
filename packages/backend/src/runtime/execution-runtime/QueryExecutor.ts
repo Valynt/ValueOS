@@ -154,12 +154,6 @@ export class QueryExecutor {
     sessionId: string,
     metadata?: Record<string, unknown>,
   ): AgentContext {
-    assertTenantContextMatch({
-      expectedOrganizationId: envelopeOrganizationId,
-      contextOrganizationId: envelopeOrganizationId,
-      source: 'QueryExecutor.buildAgentContext',
-    });
-
     return {
       userId: actorUserId,
       sessionId,
