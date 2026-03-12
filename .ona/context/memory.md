@@ -140,6 +140,22 @@ browser to handler: `server.ts mount` + `router path` + `endpoint path`.
 
 ---
 
+## Sprint Planning Anti-Patterns
+
+### ❌ Trusting debt.md assessments without verifying the file
+DEBT-010 claimed `SecurityMonitor` alert channels were TODO stubs. Reading the actual file
+(`SecurityMonitor.ts`) revealed all channels are implemented via webhook URLs with graceful
+no-op fallbacks. Always read the file before scheduling debt work. Debt entries can become
+stale when code is updated without updating the debt register.
+
+### ❌ Using stale `any` counts from debt.md
+The `any` debt table in `debt.md` was last updated 2026-03-11 with counts from early 2026.
+By 2026-07-15 the actual counts had changed significantly (e.g. `packages/mcp` dropped to 0,
+`apps/ValyntApp` production files were ~409 not 839). Always re-measure with grep before
+writing sprint targets. Use: `grep -rn ": any\b\|as any\b\|<any>" <path> --include="*.ts" --include="*.tsx" | wc -l`.
+
+---
+
 ## Recurring Review Checklist
 
 Before submitting any PR that touches agent code, verify:

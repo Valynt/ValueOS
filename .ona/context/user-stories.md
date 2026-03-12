@@ -133,7 +133,7 @@ Update status when stories are implemented or acceptance criteria change.
 - Subsequent agent runs reference this context automatically
 - Context can be updated without re-running existing cases
 
-**Status:** ⚠️ Partial — `SupabaseMemoryBackend` exists; onboarding UI and ingestion pipeline not built
+**Status:** ⚠️ Partial — `TenantContextIngestionService` built (Sprint 27) with Zod-validated interface and tenant-scoped memory storage; onboarding UI and `POST /api/v1/tenant/context` endpoint scheduled for Sprint 29
 
 ---
 
@@ -148,7 +148,7 @@ Update status when stories are implemented or acceptance criteria change.
 - VEs can search and select opportunities from the connected CRM
 - Token refresh happens transparently
 
-**Status:** ⚠️ HubSpot implemented; Salesforce adapter is empty stubs (DEBT-008, issue #1349)
+**Status:** ⚠️ HubSpot implemented; Salesforce OAuth + opportunity fetch scheduled for Sprint 29 (DEBT-008, issue #1349). ServiceNow, Slack, SharePoint remain deferred.
 
 ---
 
