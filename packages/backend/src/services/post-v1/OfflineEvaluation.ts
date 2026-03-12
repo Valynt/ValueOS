@@ -5,17 +5,16 @@
  * Prevents prompt regressions and validates agent performance.
  */
 
-import { createClient } from '@supabase/supabase-js';
-
 import { logger } from '../utils/logger.js'
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 export interface GoldenExample {
   id: string;
   name: string;
   description: string;
   agentType: 'OpportunityAgent' | 'TargetAgent' | 'IntegrityAgent' | 'ReflectionEngine';
-  input: any;
-  expectedOutput: any;
+  input: Record<string, unknown>;
+  expectedOutput: Record<string, unknown>;
   evaluationCriteria: {
     metric: string;
     threshold: number;
@@ -33,7 +32,7 @@ export interface EvaluationResult {
   exampleId: string;
   exampleName: string;
   agentType: string;
-  actualOutput: any;
+  actualOutput: Record<string, unknown> | null;
   scores: {
     metric: string;
     score: number;
@@ -65,13 +64,8 @@ export interface EvaluationRun {
 }
 
 export class OfflineEvaluationService {
-  private supabase: any;
-
-  constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL || '',
-      process.env.SUPABASE_KEY || ''
-    );
+  private get supabase() {
+    return createServerSupabaseClient();
   }
 
   /**
@@ -92,16 +86,16 @@ export class OfflineEvaluationService {
 
       if (error) throw error;
 
-      return (data || []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        agentType: row.agent_type,
-        input: row.input,
-        expectedOutput: row.expected_output,
-        evaluationCriteria: row.evaluation_criteria,
-        metadata: row.metadata,
-        createdAt: new Date(row.created_at),
+      return (data || []).map((row: Record<string, unknown>) => ({
+        id: row['id'] as string,
+        name: row['name'] as string,
+        description: row['description'] as string,
+        agentType: row['agent_type'] as GoldenExample['agentType'],
+        input: row['input'] as Record<string, unknown>,
+        expectedOutput: row['expected_output'] as Record<string, unknown>,
+        evaluationCriteria: row['evaluation_criteria'] as GoldenExample['evaluationCriteria'],
+        metadata: row['metadata'] as GoldenExample['metadata'],
+        createdAt: new Date(row['created_at'] as string),
       }));
     } catch (error) {
       logger.error('Failed to load golden examples', error as Error);
@@ -114,7 +108,7 @@ export class OfflineEvaluationService {
    */
   async evaluateOutput(
     example: GoldenExample,
-    actualOutput: any
+    actualOutput: Record<string, unknown>
   ): Promise<EvaluationResult['scores']> {
     const scores: EvaluationResult['scores'] = [];
 
@@ -136,7 +130,7 @@ export class OfflineEvaluationService {
         case 'contains_keywords':
           score = this.containsKeywords(
             actualOutput,
-            example.expectedOutput.keywords || []
+            (example.expectedOutput['keywords'] as string[] | undefined) ?? []
           );
           break;
 
@@ -147,21 +141,21 @@ export class OfflineEvaluationService {
         case 'numeric_range':
           score = this.numericRange(
             actualOutput,
-            example.expectedOutput.min,
-            example.expectedOutput.max
+            example.expectedOutput['min'] as number,
+            example.expectedOutput['max'] as number
           );
           break;
 
         case 'length_range':
           score = this.lengthRange(
             actualOutput,
-            example.expectedOutput.minLength,
-            example.expectedOutput.maxLength
+            example.expectedOutput['minLength'] as number,
+            example.expectedOutput['maxLength'] as number
           );
           break;
 
         case 'regex_match':
-          score = this.regexMatch(actualOutput, example.expectedOutput.pattern);
+          score = this.regexMatch(actualOutput, example.expectedOutput['pattern'] as string);
           break;
 
         default:
@@ -184,7 +178,7 @@ export class OfflineEvaluationService {
   /**
    * Exact match evaluation
    */
-  private exactMatch(expected: any, actual: any): number {
+  private exactMatch(expected: unknown, actual: unknown): number {
     return JSON.stringify(expected) === JSON.stringify(actual) ? 1.0 : 0.0;
   }
 
@@ -223,8 +217,13 @@ export class OfflineEvaluationService {
       }),
     });
 
-    const data = await response.json();
-    return data.data[0].embedding;
+    if (!response.ok) {
+      throw new Error(`Embedding API error: ${response.status}`);
+    }
+    const data = await response.json() as { data?: Array<{ embedding: number[] }> };
+    const embedding = data.data?.[0]?.embedding;
+    if (!embedding) throw new Error('No embedding returned');
+    return embedding;
   }
 
   /**
@@ -240,7 +239,7 @@ export class OfflineEvaluationService {
   /**
    * Check if output contains required keywords
    */
-  private containsKeywords(output: any, keywords: string[]): number {
+  private containsKeywords(output: unknown, keywords: string[]): number {
     const text = JSON.stringify(output).toLowerCase();
     const matchedKeywords = keywords.filter((kw) =>
       text.includes(kw.toLowerCase())
@@ -251,7 +250,7 @@ export class OfflineEvaluationService {
   /**
    * Check JSON structure match
    */
-  private jsonStructureMatch(expected: any, actual: any): number {
+  private jsonStructureMatch(expected: Record<string, unknown>, actual: Record<string, unknown>): number {
     const expectedKeys = Object.keys(expected).sort();
     const actualKeys = Object.keys(actual).sort();
 
@@ -264,7 +263,7 @@ export class OfflineEvaluationService {
   /**
    * Check numeric value is in range
    */
-  private numericRange(value: any, min: number, max: number): number {
+  private numericRange(value: unknown, min: number, max: number): number {
     const num = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(num)) return 0.0;
     return num >= min && num <= max ? 1.0 : 0.0;
@@ -273,7 +272,7 @@ export class OfflineEvaluationService {
   /**
    * Check text length is in range
    */
-  private lengthRange(text: any, minLength: number, maxLength: number): number {
+  private lengthRange(text: unknown, minLength: number, maxLength: number): number {
     const str = String(text);
     const length = str.length;
     return length >= minLength && length <= maxLength ? 1.0 : 0.0;
@@ -282,9 +281,14 @@ export class OfflineEvaluationService {
   /**
    * Check regex pattern match
    */
-  private regexMatch(text: any, pattern: string): number {
-    const regex = new RegExp(pattern);
-    return regex.test(String(text)) ? 1.0 : 0.0;
+  private regexMatch(text: unknown, pattern: string): number {
+    try {
+      const regex = new RegExp(pattern);
+      return regex.test(String(text)) ? 1.0 : 0.0;
+    } catch {
+      logger.warn('Invalid regex pattern in evaluation criterion', { pattern });
+      return 0.0;
+    }
   }
 
   /**
@@ -292,7 +296,7 @@ export class OfflineEvaluationService {
    */
   async evaluateExample(
     example: GoldenExample,
-    agentFunction: (input: any) => Promise<any>
+    agentFunction: (input: Record<string, unknown>) => Promise<Record<string, unknown>>
   ): Promise<EvaluationResult> {
     const startTime = Date.now();
 
@@ -350,7 +354,7 @@ export class OfflineEvaluationService {
   async runEvaluation(
     name: string,
     agentType: string,
-    agentFunction: (input: any) => Promise<any>,
+    agentFunction: (input: Record<string, unknown>) => Promise<Record<string, unknown>>,
     promptVersion?: string
   ): Promise<EvaluationRun> {
     logger.info('Starting evaluation run', { name, agentType, promptVersion });
@@ -497,14 +501,15 @@ export class OfflineEvaluationService {
 
     if (error || !data) return null;
 
+    const row = data as Record<string, unknown>;
     return {
-      id: data.id,
-      name: data.name,
-      agentType: data.agent_type,
-      promptVersion: data.prompt_version,
-      results: data.results,
-      summary: data.summary,
-      createdAt: new Date(data.created_at),
+      id: row['id'] as string,
+      name: row['name'] as string,
+      agentType: row['agent_type'] as string | undefined,
+      promptVersion: row['prompt_version'] as string | undefined,
+      results: row['results'] as EvaluationResult[],
+      summary: row['summary'] as EvaluationRun['summary'],
+      createdAt: new Date(row['created_at'] as string),
     };
   }
 
@@ -524,14 +529,14 @@ export class OfflineEvaluationService {
 
     if (error) throw error;
 
-    return (data || []).map((row) => ({
-      id: row.id,
-      name: row.name,
-      agentType: row.agent_type,
-      promptVersion: row.prompt_version,
-      results: row.results,
-      summary: row.summary,
-      createdAt: new Date(row.created_at),
+    return (data || []).map((row: Record<string, unknown>) => ({
+      id: row['id'] as string,
+      name: row['name'] as string,
+      agentType: row['agent_type'] as string | undefined,
+      promptVersion: row['prompt_version'] as string | undefined,
+      results: row['results'] as EvaluationResult[],
+      summary: row['summary'] as EvaluationRun['summary'],
+      createdAt: new Date(row['created_at'] as string),
     }));
   }
 }
