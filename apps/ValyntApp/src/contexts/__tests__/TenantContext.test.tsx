@@ -2,13 +2,14 @@
  * TenantContext Tests
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as tenantApi from "../../api/tenant";
 import { AuthProvider } from "../AuthContext";
 import { TenantProvider, useTenant } from "../TenantContext";
+import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 
 vi.mock("../../api/tenant", () => ({
   fetchUserTenants: vi.fn(),
@@ -127,5 +128,57 @@ describe("TenantContext", () => {
 
     expect(result.current.validateTenantAccess("tenant-1")).toBe(true);
     expect(result.current.validateTenantAccess("tenant-2")).toBe(false);
+  });
+
+  it("clears browser caches and emits a cache reset event when switching tenant", async () => {
+    const mockTenants = [
+      {
+        id: "tenant-1",
+        name: "Tenant One",
+        slug: "tenant-one",
+        color: "#18C3A5",
+        role: "admin",
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "tenant-2",
+        name: "Tenant Two",
+        slug: "tenant-two",
+        color: "#18C3A5",
+        role: "admin",
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    localStorage.setItem("cache_cases", JSON.stringify({ id: "stale" }));
+    localStorage.setItem("valueos-state", JSON.stringify({ id: "stale" }));
+    localStorage.setItem("auth_state_persistence", JSON.stringify({ keep: true }));
+
+    const eventHandler = vi.fn();
+    window.addEventListener(TENANT_CACHE_CLEAR_EVENT, eventHandler);
+
+    vi.mocked(tenantApi.fetchUserTenants).mockResolvedValue({
+      data: mockTenants,
+      error: null,
+    });
+
+    const { result } = renderHook(() => useTenant(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.currentTenant?.id).toBe("tenant-1");
+    });
+
+    await act(async () => {
+      await result.current.switchTenant("tenant-2");
+    });
+
+    expect(localStorage.getItem("cache_cases")).toBeNull();
+    expect(localStorage.getItem("valueos-state")).toBeNull();
+    expect(localStorage.getItem("auth_state_persistence")).toBeTruthy();
+    expect(eventHandler).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener(TENANT_CACHE_CLEAR_EVENT, eventHandler);
   });
 });

@@ -22,6 +22,7 @@ import { useLocation } from "react-router-dom";
 import { fetchUserTenants, isTenantApiEnabled, TenantInfo } from "../api/tenant";
 import { analyticsClient } from "../lib/analyticsClient";
 import { createLogger } from "../lib/logger";
+import { clearAndBroadcastTenantCacheReset } from "../lib/tenantCacheIsolation";
 
 import { useAuth } from "./AuthContext";
 
@@ -202,6 +203,8 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
       }
 
       const previousTenant = currentTenant;
+
+      clearAndBroadcastTenantCacheReset();
       setCurrentTenant(targetTenant);
       setStoredTenantId(targetTenant.id);
 
@@ -248,6 +251,7 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
     if (isAuthenticated && user?.id) {
       refreshTenants();
     } else {
+      clearAndBroadcastTenantCacheReset();
       setTenants([]);
       setCurrentTenant(null);
       setIsLoading(false);
