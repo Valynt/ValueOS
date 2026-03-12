@@ -2,6 +2,7 @@
  * useAuth — localStorage write guard
  *
  * Verifies that useAuth does NOT write the user profile to localStorage.
+ * Instead it may persist only a lightweight authentication marker.
  * Writing the full user object (including role) to localStorage is an XSS
  * escalation vector — any injected script can read it, and the data persists
  * across sessions.
@@ -59,6 +60,8 @@ function makeMutationResult(overrides: Record<string, unknown> = {}) {
 }
 
 const FAKE_USER = { id: 'user-123', email: 'alice@example.com', role: 'admin' };
+const AUTH_KEY = 'manus-runtime-is-authenticated';
+const LEGACY_USER_KEY = 'manus-runtime-user-info';
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -77,9 +80,10 @@ describe('useAuth — localStorage behaviour', () => {
     renderHook(() => useAuth());
 
     expect(localStorage.setItem).not.toHaveBeenCalledWith(
-      'manus-runtime-user-info',
+      LEGACY_USER_KEY,
       expect.any(String),
     );
+    expect(localStorage.setItem).toHaveBeenCalledWith(AUTH_KEY, 'true');
   });
 
   it('does NOT write to localStorage when user is unauthenticated', () => {
@@ -88,9 +92,10 @@ describe('useAuth — localStorage behaviour', () => {
     renderHook(() => useAuth());
 
     expect(localStorage.setItem).not.toHaveBeenCalledWith(
-      'manus-runtime-user-info',
+      LEGACY_USER_KEY,
       expect.any(String),
     );
+    expect(localStorage.removeItem).toHaveBeenCalledWith(AUTH_KEY);
   });
 
   it('does NOT write to localStorage on re-render', () => {
@@ -101,9 +106,21 @@ describe('useAuth — localStorage behaviour', () => {
     rerender();
 
     expect(localStorage.setItem).not.toHaveBeenCalledWith(
-      'manus-runtime-user-info',
+      LEGACY_USER_KEY,
       expect.any(String),
     );
+  });
+
+  it('clears auth-related storage keys on logout', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    mockUseMutation.mockReturnValue(makeMutationResult({ mutateAsync }));
+    mockUseQuery.mockReturnValue(makeQueryResult(FAKE_USER));
+
+    const { result } = renderHook(() => useAuth());
+    await result.current.logout();
+
+    expect(localStorage.removeItem).toHaveBeenCalledWith(AUTH_KEY);
+    expect(localStorage.removeItem).toHaveBeenCalledWith(LEGACY_USER_KEY);
   });
 
   it('returns correct auth state', () => {

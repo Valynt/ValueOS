@@ -3,6 +3,9 @@ import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 
+const AUTH_STORAGE_KEY = "manus-runtime-is-authenticated";
+const LEGACY_USER_STORAGE_KEY = "manus-runtime-user-info";
+
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
   redirectPath?: string;
@@ -36,6 +39,10 @@ export function useAuth(options?: UseAuthOptions) {
       }
       throw error;
     } finally {
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+      }
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }
@@ -63,7 +70,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
 
-    window.location.href = redirectPath
+    window.location.href = redirectPath;
   }, [
     redirectOnUnauthenticated,
     redirectPath,
@@ -71,6 +78,17 @@ export function useAuth(options?: UseAuthOptions) {
     meQuery.isLoading,
     state.user,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (state.isAuthenticated) {
+      window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
+      return;
+    }
+
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  }, [state.isAuthenticated]);
 
   return {
     ...state,
