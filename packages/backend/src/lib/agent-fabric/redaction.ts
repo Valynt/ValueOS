@@ -42,7 +42,9 @@ export function summarizeSensitiveContent(content: string, maxLength = DEFAULT_M
   const { redactedText, redactionCount } = redactSensitiveText(content);
   const normalized = redactedText.replace(/\s+/g, " ").trim();
   const truncated = normalized.length > maxLength
-    ? `${normalized.slice(0, maxLength)}...`
+    ? (maxLength > 3
+      ? `${normalized.slice(0, maxLength - 3)}...`
+      : normalized.slice(0, maxLength))
     : normalized;
 
   return {
