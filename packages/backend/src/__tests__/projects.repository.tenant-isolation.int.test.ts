@@ -68,7 +68,7 @@ vi.mock('../services/AuditLogService.js', () => ({
   auditLogService: { createEntry: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
 }));
 
-vi.mock('../repositories/ProjectsRepository.js', () => {
+vi.mock('../repositories/ProjectRepository.js', () => {
   const byTenant = new Map<string, Map<string, any>>();
   const getStore = (tenantId: string) => {
     let store = byTenant.get(tenantId);
@@ -80,7 +80,7 @@ vi.mock('../repositories/ProjectsRepository.js', () => {
   };
 
   return {
-    projectsRepository: {
+    projectRepository: {
       findByName: vi.fn(async (organizationId: string, name: string) => {
         const normalized = name.toLowerCase();
         return Array.from(getStore(organizationId).values()).find((p) => p.name.toLowerCase() === normalized) ?? null;
