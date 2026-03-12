@@ -14,7 +14,7 @@
  * - Full observability and audit logging
  */
 
-import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
+import { SDUIPageDefinition, validateSDUISchema } from "@valueos/sdui";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import { v4 as uuidv4 } from "uuid";
 
@@ -29,7 +29,8 @@ import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
 import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 import { CircuitBreakerManager } from "./CircuitBreaker.js"
 
-import GroundtruthAPI, {
+import {
+  GroundtruthAPI,
   GroundtruthAPIConfig,
   GroundtruthRequestOptions,
   GroundtruthRequestPayload,

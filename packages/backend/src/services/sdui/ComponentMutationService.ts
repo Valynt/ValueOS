@@ -18,7 +18,7 @@ import {
   UpdateLayoutAction,
   validateAtomicAction,
 } from '@sdui/AtomicUIActions';
-import { SDUIComponentSection, SDUIPageDefinition } from '@sdui/schema';
+import { SDUIComponentSection, SDUIPageDefinition } from '@valueos/sdui';
 
 import { logger } from '../lib/logger.js'
 
@@ -590,4 +590,6 @@ export function getComponentMutationService(): ComponentMutationService {
   return mutationServiceInstance;
 }
 
+export { ComponentMutationService };
+/** @deprecated Use named import `ComponentMutationService` instead. */
 export default ComponentMutationService;

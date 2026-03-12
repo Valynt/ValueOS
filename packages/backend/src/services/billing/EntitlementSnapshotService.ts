@@ -186,4 +186,6 @@ class EntitlementSnapshotService {
 
 }
 
+export { EntitlementSnapshotService };
+/** @deprecated Use named import `EntitlementSnapshotService` instead. */
 export default EntitlementSnapshotService;

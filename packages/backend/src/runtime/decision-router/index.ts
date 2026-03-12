@@ -12,9 +12,9 @@
  */
 
 import { AgentType } from '../../services/agent-types.js';
-import { AgentRegistry, RoutingContext } from '../../services/AgentRegistry.js';
-import { AgentRoutingLayer, StageRoute } from '../../services/AgentRoutingLayer.js';
-import { AgentRoutingScorer } from '../../services/AgentRoutingScorer.js';
+import { AgentRegistry, RoutingContext } from '../../services/agents/AgentRegistry.js';
+import { AgentRoutingLayer, StageRoute } from '../../services/agents/AgentRoutingLayer.js';
+import { AgentRoutingScorer } from '../../services/agents/AgentRoutingScorer.js';
 import { WorkflowDAG } from '../../types/workflow.js';
 import { DecisionContext } from '@shared/domain/DecisionContext.js';
 import {

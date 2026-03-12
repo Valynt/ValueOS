@@ -7,10 +7,10 @@
 
 // Re-export types from shared file to maintain backwards compatibility
 export type { AgentType, AgentContext } from './agent-types.js'
-import { SDUIPageDefinition, validateSDUISchema } from '@sdui/schema';
+import { SDUIPageDefinition, validateSDUISchema } from '@valueos/sdui';
 
 import { getConfig } from '../config/environment.js'
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { addServiceIdentityHeader } from '../middleware/serviceIdentityMiddleware.js'
 import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security/index.js'
 
@@ -755,4 +755,6 @@ export function resetAgentAPI(): void {
 /**
  * Default export
  */
+export { AgentAPI };
+/** @deprecated Use named import `AgentAPI` instead. */
 export default AgentAPI;

@@ -263,4 +263,6 @@ class InvoiceService {
   }
 }
 
-export default new InvoiceService();
+export const invoiceService = new InvoiceService();
+/** @deprecated Use named import `invoiceService` instead. */
+export default invoiceService;

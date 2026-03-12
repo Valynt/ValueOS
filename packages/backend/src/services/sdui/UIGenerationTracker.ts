@@ -325,4 +325,6 @@ export function getUIGenerationTracker(): UIGenerationTracker {
   return trackerInstance;
 }
 
+export { UIGenerationTracker };
+/** @deprecated Use named import `UIGenerationTracker` instead. */
 export default UIGenerationTracker;

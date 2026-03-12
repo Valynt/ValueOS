@@ -29,6 +29,7 @@ import { logger } from '../../logger.js';
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -323,11 +324,11 @@ export class OpportunityAgent extends BaseAgent {
   // LLM Hypothesis Generation
   // -------------------------------------------------------------------------
 
-  /**
-   * Build the system prompt with optional financial grounding context.
-   */
-  private buildSystemPrompt(financialData: FinancialDataResult | null): string {
-    let prompt = `You are a Value Engineering analyst. Your job is to identify specific, measurable value hypotheses for a B2B prospect.
+  // ---------------------------------------------------------------------------
+  // Prompt templates
+  // ---------------------------------------------------------------------------
+
+  private static readonly BASE_PROMPT_TEMPLATE = `You are a Value Engineering analyst. Your job is to identify specific, measurable value hypotheses for a B2B prospect.
 
 Rules:
 - Each hypothesis must have a concrete estimated_impact range (low/high) with units.
@@ -339,24 +340,47 @@ Rules:
 
 Respond with valid JSON matching the schema. Do not include markdown fences or commentary.`;
 
-    if (financialData) {
-      const metricsStr = Object.entries(financialData.metrics)
-        .map(([k, v]) => `  ${k}: ${v.value} ${v.unit} (source: ${v.source}, confidence: ${v.confidence})`)
-        .join('\n');
+  private static readonly GROUNDING_SECTION_TEMPLATE = `
 
-      prompt += `\n\nGrounding data for ${financialData.entityName} (${financialData.period}):\n${metricsStr}`;
+Grounding data for {{ entityName }} ({{ period }}):
+{{ metricsStr }}{{ benchmarksSection }}
 
-      if (financialData.industryBenchmarks) {
-        const benchStr = Object.entries(financialData.industryBenchmarks)
-          .map(([k, v]) => `  ${k}: median=${v.median}, p25=${v.p25}, p75=${v.p75}`)
-          .join('\n');
-        prompt += `\n\nIndustry benchmarks:\n${benchStr}`;
-      }
+Use this data to ground your hypotheses. Reference specific metrics and benchmarks in evidence fields.`;
 
-      prompt += '\n\nUse this data to ground your hypotheses. Reference specific metrics and benchmarks in evidence fields.';
+  private static readonly BENCHMARKS_SECTION_TEMPLATE = `
+
+Industry benchmarks:
+{{ benchStr }}`;
+
+  /**
+   * Build the system prompt with optional financial grounding context.
+   */
+  private buildSystemPrompt(financialData: FinancialDataResult | null): string {
+    if (!financialData) {
+      return OpportunityAgent.BASE_PROMPT_TEMPLATE;
     }
 
-    return prompt;
+    const metricsStr = Object.entries(financialData.metrics)
+      .map(([k, v]) => `  ${k}: ${v.value} ${v.unit} (source: ${v.source}, confidence: ${v.confidence})`)
+      .join('\n');
+
+    const benchmarksSection = financialData.industryBenchmarks
+      ? renderTemplate(OpportunityAgent.BENCHMARKS_SECTION_TEMPLATE, {
+          benchStr: Object.entries(financialData.industryBenchmarks)
+            .map(([k, v]) => `  ${k}: median=${v.median}, p25=${v.p25}, p75=${v.p75}`)
+            .join('\n'),
+        })
+      : '';
+
+    return (
+      OpportunityAgent.BASE_PROMPT_TEMPLATE +
+      renderTemplate(OpportunityAgent.GROUNDING_SECTION_TEMPLATE, {
+        entityName: financialData.entityName,
+        period: financialData.period,
+        metricsStr,
+        benchmarksSection,
+      })
+    );
   }
 
   /**

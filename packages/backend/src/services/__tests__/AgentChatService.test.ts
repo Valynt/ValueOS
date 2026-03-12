@@ -121,7 +121,7 @@ vi.mock("@sdui/templates/chat-templates", () => ({
   hasTemplateForStage: vi.fn().mockReturnValue(false),
 }));
 
-vi.mock("@sdui/schema", () => ({
+vi.mock("@valueos/sdui", () => ({
   SDUIPageDefinition: {},
 }));
 

@@ -8,7 +8,7 @@ import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
 
 import { recordStripeWebhook } from '../../metrics/billingMetrics.js';
-import WebhookService from '../../services/billing/WebhookService.js';
+import { webhookService as WebhookService } from '../../services/billing/WebhookService.js';
 
 
 const router = express.Router();

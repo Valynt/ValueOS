@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
@@ -11,13 +12,6 @@ const ComplianceSummarySchema = z.object({
   recommended_actions: z.array(z.string()),
   hallucination_check: z.boolean().optional(),
 });
-
-function renderTemplate(template: string, values: Record<string, string>): string {
-  return Object.entries(values).reduce(
-    (result, [key, value]) => result.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value),
-    template,
-  );
-}
 
 export class ComplianceAuditorAgent extends BaseAgent {
   public readonly lifecycleStage = 'integrity';

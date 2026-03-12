@@ -279,4 +279,6 @@ class CustomerService {
   }
 }
 
-export default new CustomerService();
+export const customerService = new CustomerService();
+/** @deprecated Use named import `customerService` instead. */
+export default customerService;

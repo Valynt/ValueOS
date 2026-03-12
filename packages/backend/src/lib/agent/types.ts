@@ -1,3 +1,7 @@
+/**
+ * @deprecated No active consumers. Canonical agent types live in
+ * `packages/backend/src/types/agent.ts`. Remove this file when confirmed safe.
+ */
 export type AgentState = "idle" | "planning" | "executing" | "waiting" | "completed" | "error";
 
 export interface AgentContext {

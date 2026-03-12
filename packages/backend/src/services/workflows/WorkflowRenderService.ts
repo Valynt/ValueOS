@@ -1,4 +1,4 @@
-import { SDUIPageDefinition } from "@sdui/schema";
+import { SDUIPageDefinition } from "@valueos/sdui";
 
 import { AgentType } from "../agent-types";
 import type { AgentContext, AgentAPI, AgentResponse as APIAgentResponse } from "../AgentAPI";

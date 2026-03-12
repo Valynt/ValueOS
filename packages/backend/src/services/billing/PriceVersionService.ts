@@ -419,4 +419,6 @@ class PriceVersionService {
   }
 }
 
-export default new PriceVersionService();
+export const priceVersionService = new PriceVersionService();
+/** @deprecated Use named import `priceVersionService` instead. */
+export default priceVersionService;
