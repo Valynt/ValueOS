@@ -203,6 +203,7 @@ export class AgentCache extends EventEmitter {
     // Set in L2 cache if enabled
     if (this.config.l2Enabled && isRedisConnected()) {
       const l2Key = `${this.config.l2KeyPrefix}${key}`;
+      const l2Ttl = options.ttl || this.config.l2DefaultTtl;
       const l2Entry: CacheEntry<T> = {
         ...entry,
         ttl: l2Ttl * 1000,
