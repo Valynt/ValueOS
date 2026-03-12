@@ -38,5 +38,6 @@ Any `narrative.drafted` consumer must:
 
 ### Compatibility behavior
 
-- New schema accepts only normalized field names.
-- Legacy snake_case payload fields are rejected by schema validation.
+- New schema defines and requires only the normalized camelCase field names.
+- Payloads that use only legacy snake_case fields fail validation because required camelCase fields are missing.
+- Legacy snake_case fields that appear alongside the normalized fields are ignored/stripped by non-strict schema validation.
