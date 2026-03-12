@@ -1,269 +1,154 @@
 /**
  * Sandboxed Code Execution Service
- * 
- * Secure execution environment for agent-generated code.
- * Uses E2B (https://e2b.dev) for isolated code execution.
- * 
- * Enables Financial Modeling Agent to execute complex calculations
- * (NPV, IRR, Monte Carlo simulations) that LLMs struggle with directly.
+ *
+ * Secure execution environment for agent-generated code using the E2B SDK.
+ * Enables FinancialModelingAgent to run Python calculations (NPV, IRR, Monte Carlo)
+ * that LLMs cannot reliably compute inline.
+ *
+ * Requires E2B_API_KEY environment variable.
  */
 
-import { logger } from '../utils/logger.js'
+import { Sandbox } from '@e2b/code-interpreter';
+import { logger } from '../utils/logger.js';
 
 export interface SandboxConfig {
-  language: 'python' | 'javascript' | 'r';
-  timeout?: number; // milliseconds
-  memory?: string; // e.g., '128MB', '256MB'
-  cpu?: number; // CPU cores
+  language: 'python' | 'javascript';
+  /** Execution timeout in milliseconds. Default: 30 000. */
+  timeout?: number;
   environment?: Record<string, string>;
 }
 
 export interface ExecutionResult {
   success: boolean;
-  output?: any;
+  output?: unknown;
   stdout?: string;
   stderr?: string;
   error?: string;
   duration: number;
-  resourceUsage?: {
-    memory: number;
-    cpu: number;
-  };
 }
 
-/**
- * Sandboxed Executor using E2B
- */
+// ---------------------------------------------------------------------------
+// SandboxedExecutor
+// ---------------------------------------------------------------------------
+
 export class SandboxedExecutor {
-  private apiKey: string;
-  private baseUrl = 'https://api.e2b.dev/v1';
+  private readonly apiKey: string;
 
   constructor() {
-    this.apiKey = process.env.E2B_API_KEY || '';
-    
+    this.apiKey = process.env['E2B_API_KEY'] ?? '';
     if (!this.apiKey) {
-      logger.warn('E2B API key not configured. Sandboxed execution disabled.');
+      logger.warn('E2B_API_KEY not set — sandboxed execution disabled.');
     }
   }
 
-  /**
-   * Execute Python code in sandbox
-   */
-  async executePython(
-    code: string,
-    config: Partial<SandboxConfig> = {}
-  ): Promise<ExecutionResult> {
+  async executePython(code: string, config: Partial<SandboxConfig> = {}): Promise<ExecutionResult> {
     return this.execute(code, { ...config, language: 'python' });
   }
 
-  /**
-   * Execute JavaScript code in sandbox
-   */
-  async executeJavaScript(
-    code: string,
-    config: Partial<SandboxConfig> = {}
-  ): Promise<ExecutionResult> {
+  async executeJavaScript(code: string, config: Partial<SandboxConfig> = {}): Promise<ExecutionResult> {
     return this.execute(code, { ...config, language: 'javascript' });
   }
 
-  /**
-   * Execute code in sandbox
-   */
-  async execute(
-    code: string,
-    config: SandboxConfig
-  ): Promise<ExecutionResult> {
+  async execute(code: string, config: SandboxConfig): Promise<ExecutionResult> {
     if (!this.apiKey) {
-      return {
-        success: false,
-        error: 'E2B API key not configured',
-        duration: 0,
-      };
+      return { success: false, error: 'E2B_API_KEY not configured', duration: 0 };
     }
 
     const startTime = Date.now();
+    const timeoutMs = config.timeout ?? 30_000;
 
+    let sandbox: Sandbox | null = null;
     try {
-      logger.info('Executing code in sandbox', {
-        language: config.language,
-        codeLength: code.length,
+      logger.info('Creating E2B sandbox', { language: config.language });
+
+      sandbox = await Sandbox.create({
+        apiKey: this.apiKey,
+        timeoutMs,
+        envVars: config.environment,
       });
 
-      // Create sandbox session
-      const session = await this.createSession(config);
+      const execution = await sandbox.runCode(code);
 
-      try {
-        // Execute code
-        const result = await this.runCode(session.id, code, config);
-
-        const duration = Date.now() - startTime;
-
-        logger.info('Sandbox execution completed', {
-          success: result.success,
-          duration,
-        });
-
-        return {
-          ...result,
-          duration,
-        };
-      } finally {
-        // Always cleanup session
-        await this.destroySession(session.id);
-      }
-    } catch (error) {
       const duration = Date.now() - startTime;
+      const stdout = execution.logs.stdout.join('');
+      const stderr = execution.logs.stderr.join('');
+      const hasError = execution.error !== null && execution.error !== undefined;
 
-      logger.error('Sandbox execution failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        duration,
-      });
+      logger.info('E2B execution completed', { success: !hasError, duration });
 
       return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        success: !hasError,
+        output: execution.results[0]?.data ?? undefined,
+        stdout: stdout || undefined,
+        stderr: stderr || undefined,
+        error: hasError ? String(execution.error) : undefined,
         duration,
       };
-    }
-  }
-
-  /**
-   * Create sandbox session
-   */
-  private async createSession(config: SandboxConfig): Promise<{ id: string }> {
-    // E2B API call to create session
-    // This is a placeholder - actual implementation would use E2B SDK
-    
-    const response = await fetch(`${this.baseUrl}/sandboxes`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        template: this.getTemplate(config.language),
-        timeout: config.timeout || 30000,
-        memory: config.memory || '256MB',
-        cpu: config.cpu || 1,
-        environment: config.environment || {},
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create sandbox: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return { id: data.sandboxId };
-  }
-
-  /**
-   * Run code in session
-   */
-  private async runCode(
-    sessionId: string,
-    code: string,
-    config: SandboxConfig
-  ): Promise<Omit<ExecutionResult, 'duration'>> {
-    // E2B API call to execute code
-    // This is a placeholder - actual implementation would use E2B SDK
-    
-    const response = await fetch(`${this.baseUrl}/sandboxes/${sessionId}/execute`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        code,
-        language: config.language,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Code execution failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    return {
-      success: data.exitCode === 0,
-      output: data.output,
-      stdout: data.stdout,
-      stderr: data.stderr,
-      error: data.error,
-      resourceUsage: data.resourceUsage,
-    };
-  }
-
-  /**
-   * Destroy sandbox session
-   */
-  private async destroySession(sessionId: string): Promise<void> {
-    try {
-      await fetch(`${this.baseUrl}/sandboxes/${sessionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      });
     } catch (error) {
-      logger.error('Failed to destroy sandbox session', {
-        sessionId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      const duration = Date.now() - startTime;
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('E2B execution failed', { error: message, duration });
+      return { success: false, error: message, duration };
+    } finally {
+      if (sandbox) {
+        await sandbox.kill().catch((err: unknown) => {
+          logger.warn('Failed to kill E2B sandbox', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
     }
   }
 
   /**
-   * Get template for language
-   */
-  private getTemplate(language: string): string {
-    const templates: Record<string, string> = {
-      python: 'python3',
-      javascript: 'nodejs',
-      r: 'r-base',
-    };
-
-    return templates[language] || 'python3';
-  }
-
-  /**
-   * Validate code for security issues
+   * Validate code for dangerous patterns before sending to sandbox.
+   * The sandbox itself is isolated, but this provides an early-exit signal.
    */
   validateCode(code: string, language: string): { safe: boolean; issues: string[] } {
     const issues: string[] = [];
 
-    // Basic security checks
     const dangerousPatterns: Record<string, RegExp[]> = {
       python: [
-        /import\s+os/i,
-        /import\s+subprocess/i,
-        /import\s+sys/i,
-        /eval\s*\(/i,
-        /exec\s*\(/i,
-        /__import__/i,
+        /import\s+os\b/i,
+        /import\s+subprocess\b/i,
+        /import\s+sys\b/i,
+        /\beval\s*\(/i,
+        /\bexec\s*\(/i,
+        /__import__\s*\(/i,
       ],
       javascript: [
         /require\s*\(\s*['"]fs['"]\s*\)/i,
         /require\s*\(\s*['"]child_process['"]\s*\)/i,
-        /eval\s*\(/i,
-        /Function\s*\(/i,
+        /\beval\s*\(/i,
+        /\bFunction\s*\(/i,
       ],
     };
 
-    const patterns = dangerousPatterns[language] || [];
-
-    for (const pattern of patterns) {
+    for (const pattern of dangerousPatterns[language] ?? []) {
       if (pattern.test(code)) {
-        issues.push(`Potentially dangerous pattern detected: ${pattern.source}`);
+        issues.push(`Dangerous pattern: ${pattern.source}`);
       }
     }
 
-    return {
-      safe: issues.length === 0,
-      issues,
-    };
+    return { safe: issues.length === 0, issues };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Input validation helpers
+// ---------------------------------------------------------------------------
+
+function assertFiniteNumber(value: number, name: string): void {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${name} must be a finite number, got ${value}`);
+  }
+}
+
+function assertFiniteArray(values: number[], name: string): void {
+  for (let i = 0; i < values.length; i++) {
+    if (!Number.isFinite(values[i])) {
+      throw new Error(`${name}[${i}] must be a finite number, got ${values[i]}`);
+    }
   }
 }
 
@@ -277,182 +162,98 @@ export class FinancialCalculationTool {
     this.executor = new SandboxedExecutor();
   }
 
-  /**
-   * Calculate Net Present Value (NPV)
-   */
-  async calculateNPV(
-    cashFlows: number[],
-    discountRate: number
-  ): Promise<number> {
+  async calculateNPV(cashFlows: number[], discountRate: number): Promise<number> {
+    assertFiniteArray(cashFlows, 'cashFlows');
+    assertFiniteNumber(discountRate, 'discountRate');
     const code = `
 import numpy as np
-
 cash_flows = ${JSON.stringify(cashFlows)}
 discount_rate = ${discountRate}
-
-# Calculate NPV
 npv = sum([cf / (1 + discount_rate) ** i for i, cf in enumerate(cash_flows)])
-
 print(npv)
 `;
-
-    const result = await this.executor.executePython(code, {
-      timeout: 5000,
-      memory: '128MB',
-    });
-
-    if (!result.success) {
-      throw new Error(`NPV calculation failed: ${result.error}`);
-    }
-
+    const result = await this.executor.executePython(code, { timeout: 5000 });
+    if (!result.success) throw new Error(`NPV calculation failed: ${result.error}`);
     return parseFloat(result.stdout || '0');
   }
 
-  /**
-   * Calculate Internal Rate of Return (IRR)
-   */
   async calculateIRR(cashFlows: number[]): Promise<number> {
+    assertFiniteArray(cashFlows, 'cashFlows');
     const code = `
-import numpy as np
-
 cash_flows = ${JSON.stringify(cashFlows)}
 
-# Calculate IRR using Newton-Raphson method
-def npv(rate, cash_flows):
-    return sum([cf / (1 + rate) ** i for i, cf in enumerate(cash_flows)])
+def npv(rate, cfs):
+    return sum([cf / (1 + rate) ** i for i, cf in enumerate(cfs)])
 
-def npv_derivative(rate, cash_flows):
-    return sum([-i * cf / (1 + rate) ** (i + 1) for i, cf in enumerate(cash_flows)])
+def npv_deriv(rate, cfs):
+    return sum([-i * cf / (1 + rate) ** (i + 1) for i, cf in enumerate(cfs)])
 
-# Newton-Raphson iteration
-rate = 0.1  # Initial guess
+rate = 0.1
 for _ in range(100):
-    npv_val = npv(rate, cash_flows)
-    npv_deriv = npv_derivative(rate, cash_flows)
-    
-    if abs(npv_deriv) < 1e-10:
+    v = npv(rate, cash_flows)
+    d = npv_deriv(rate, cash_flows)
+    if abs(d) < 1e-10 or abs(v) < 1e-10:
         break
-    
-    rate = rate - npv_val / npv_deriv
-    
-    if abs(npv_val) < 1e-10:
-        break
+    rate = rate - v / d
 
 print(rate)
 `;
-
-    const result = await this.executor.executePython(code, {
-      timeout: 5000,
-      memory: '128MB',
-    });
-
-    if (!result.success) {
-      throw new Error(`IRR calculation failed: ${result.error}`);
-    }
-
+    const result = await this.executor.executePython(code, { timeout: 5000 });
+    if (!result.success) throw new Error(`IRR calculation failed: ${result.error}`);
     return parseFloat(result.stdout || '0');
   }
 
-  /**
-   * Run Monte Carlo simulation
-   */
-  async monteCarloSimulation(
-    params: {
-      initialValue: number;
-      expectedReturn: number;
-      volatility: number;
-      periods: number;
-      simulations: number;
-    }
-  ): Promise<{
-    mean: number;
-    median: number;
-    percentile5: number;
-    percentile95: number;
-    results: number[];
-  }> {
+  async monteCarloSimulation(params: {
+    initialValue: number;
+    expectedReturn: number;
+    volatility: number;
+    periods: number;
+    simulations: number;
+  }): Promise<{ mean: number; median: number; percentile5: number; percentile95: number; results: number[] }> {
+    assertFiniteNumber(params.initialValue, 'initialValue');
+    assertFiniteNumber(params.expectedReturn, 'expectedReturn');
+    assertFiniteNumber(params.volatility, 'volatility');
+    assertFiniteNumber(params.periods, 'periods');
+    assertFiniteNumber(params.simulations, 'simulations');
     const code = `
-import numpy as np
-
+import numpy as np, json
 np.random.seed(42)
-
-initial_value = ${params.initialValue}
-expected_return = ${params.expectedReturn}
-volatility = ${params.volatility}
-periods = ${params.periods}
-simulations = ${params.simulations}
-
-# Run Monte Carlo simulation
 results = []
-for _ in range(simulations):
-    value = initial_value
-    for _ in range(periods):
-        shock = np.random.normal(expected_return, volatility)
-        value *= (1 + shock)
-    results.append(value)
-
-results = np.array(results)
-
-# Calculate statistics
-import json
-output = {
-    'mean': float(np.mean(results)),
-    'median': float(np.median(results)),
-    'percentile5': float(np.percentile(results, 5)),
-    'percentile95': float(np.percentile(results, 95)),
-    'results': results.tolist()[:100]  # Return first 100 for visualization
-}
-
-print(json.dumps(output))
+for _ in range(${params.simulations}):
+    v = ${params.initialValue}
+    for _ in range(${params.periods}):
+        v *= (1 + np.random.normal(${params.expectedReturn}, ${params.volatility}))
+    results.append(v)
+a = np.array(results)
+print(json.dumps({'mean': float(np.mean(a)), 'median': float(np.median(a)),
+    'percentile5': float(np.percentile(a, 5)), 'percentile95': float(np.percentile(a, 95)),
+    'results': a.tolist()[:100]}))
 `;
-
-    const result = await this.executor.executePython(code, {
-      timeout: 10000,
-      memory: '256MB',
-    });
-
-    if (!result.success) {
-      throw new Error(`Monte Carlo simulation failed: ${result.error}`);
-    }
-
-    return JSON.parse(result.stdout || '{}');
+    const result = await this.executor.executePython(code, { timeout: 10000 });
+    if (!result.success) throw new Error(`Monte Carlo simulation failed: ${result.error}`);
+    return JSON.parse(result.stdout || '{}') as {
+      mean: number; median: number; percentile5: number; percentile95: number; results: number[];
+    };
   }
 
-  /**
-   * Calculate payback period
-   */
-  async calculatePaybackPeriod(
-    initialInvestment: number,
-    cashFlows: number[]
-  ): Promise<number> {
+  async calculatePaybackPeriod(initialInvestment: number, cashFlows: number[]): Promise<number> {
+    assertFiniteNumber(initialInvestment, 'initialInvestment');
+    assertFiniteArray(cashFlows, 'cashFlows');
     const code = `
 initial_investment = ${initialInvestment}
 cash_flows = ${JSON.stringify(cashFlows)}
-
-# Calculate payback period
 cumulative = 0
 for i, cf in enumerate(cash_flows):
     cumulative += cf
     if cumulative >= initial_investment:
-        # Linear interpolation for fractional period
-        previous_cumulative = cumulative - cf
-        fraction = (initial_investment - previous_cumulative) / cf
-        payback_period = i + fraction
-        print(payback_period)
+        prev = cumulative - cf
+        print(i + (initial_investment - prev) / cf)
         break
 else:
-    print(-1)  # Investment not recovered
+    print(-1)
 `;
-
-    const result = await this.executor.executePython(code, {
-      timeout: 5000,
-      memory: '128MB',
-    });
-
-    if (!result.success) {
-      throw new Error(`Payback period calculation failed: ${result.error}`);
-    }
-
+    const result = await this.executor.executePython(code, { timeout: 5000 });
+    if (!result.success) throw new Error(`Payback period calculation failed: ${result.error}`);
     return parseFloat(result.stdout || '-1');
   }
 }

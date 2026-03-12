@@ -63,6 +63,9 @@ jspm_packages/
 # TypeScript cache
 *.tsbuildinfo
 
+# Turbo build cache
+.turbo/
+
 # Optional npm cache directory
 .npm
 

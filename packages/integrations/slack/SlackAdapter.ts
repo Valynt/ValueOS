@@ -1,21 +1,106 @@
 /**
  * Slack Adapter
  *
- * NOT_IMPLEMENTED — scaffolded for future integration.
- * Salesforce covers the enterprise CRM requirement for beta.
- * See DEBT-008 in .ona/context/debt.md.
+ * Implements the Slack Web API for channel, message, and user entity access.
+ * Uses a bot token (xoxb-*) for authentication.
+ * All entities include tenant isolation via credentials.tenantId.
+ *
+ * Supported entity types: channel, message, user
+ * pushUpdate posts a message to a channel (entityType=channel, externalId=channelId).
  */
 
 import {
+  AuthError,
   EnterpriseAdapter,
-  type FetchOptions,
-  type IntegrationConfig,
-  type NormalizedEntity,
+  IntegrationError,
+  RateLimitError,
   RateLimiter,
+  ValidationError,
 } from "../base/index.js";
+import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const SLACK_API_BASE = "https://slack.com/api";
+const DEFAULT_TIMEOUT_MS = 10_000;
+
+// ---------------------------------------------------------------------------
+// Internal types
+// ---------------------------------------------------------------------------
+
+type SlackEntityType = "channel" | "message" | "user";
+
+interface SlackBaseResponse {
+  ok: boolean;
+  error?: string;
+  response_metadata?: { next_cursor?: string };
+}
+
+interface SlackChannel {
+  id: string;
+  name: string;
+  is_archived?: boolean;
+  is_private?: boolean;
+  created?: number;
+  updated?: number;
+  topic?: { value?: string };
+  purpose?: { value?: string };
+  num_members?: number;
+}
+
+interface SlackMessage {
+  ts: string;
+  user?: string;
+  text?: string;
+  type?: string;
+  subtype?: string;
+}
+
+interface SlackUser {
+  id: string;
+  name?: string;
+  real_name?: string;
+  profile?: { email?: string; display_name?: string };
+  updated?: number;
+  deleted?: boolean;
+}
+
+interface SlackChannelListResponse extends SlackBaseResponse {
+  channels: SlackChannel[];
+}
+
+interface SlackMessageListResponse extends SlackBaseResponse {
+  messages: SlackMessage[];
+}
+
+interface SlackUserListResponse extends SlackBaseResponse {
+  members: SlackUser[];
+}
+
+interface SlackAuthTestResponse extends SlackBaseResponse {
+  user_id?: string;
+  team?: string;
+}
+
+interface SlackPostMessageResponse extends SlackBaseResponse {
+  ts?: string;
+  channel?: string;
+}
+
+interface SlackConfigCredentials {
+  accessToken?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Adapter
+// ---------------------------------------------------------------------------
 
 export class SlackAdapter extends EnterpriseAdapter {
   readonly provider = "slack";
+
+  private botToken: string | null = null;
 
   constructor(config: IntegrationConfig) {
     super(config, new RateLimiter({
@@ -25,22 +110,270 @@ export class SlackAdapter extends EnterpriseAdapter {
     }));
   }
 
+  // -------------------------------------------------------------------------
+  // Connection lifecycle
+  // -------------------------------------------------------------------------
+
   protected async doConnect(): Promise<void> {
-    throw new Error("SlackAdapter: not implemented. See DEBT-008.");
+    const configured = this.readConfiguredCredentials();
+    const token = this.credentials?.accessToken ?? configured.accessToken;
+    if (!token) {
+      throw new AuthError(this.provider, "Slack bot token (xoxb-*) is required in connect credentials or IntegrationConfig.credentials.");
+    }
+    this.botToken = token;
   }
+
   protected async doDisconnect(): Promise<void> {
-    throw new Error("SlackAdapter: not implemented. See DEBT-008.");
+    this.botToken = null;
   }
+
+  // -------------------------------------------------------------------------
+  // Validation
+  // -------------------------------------------------------------------------
+
   async validate(): Promise<boolean> {
-    throw new Error("SlackAdapter: not implemented. See DEBT-008.");
+    this.ensureConnected();
+    try {
+      const response = await this.call<SlackAuthTestResponse>("auth.test", {});
+      return response.ok;
+    } catch (error) {
+      if (error instanceof AuthError) return false;
+      throw error;
+    }
   }
-  async fetchEntities(_entityType: string, _options?: FetchOptions): Promise<NormalizedEntity[]> {
-    throw new Error("SlackAdapter: not implemented. See DEBT-008.");
+
+  // -------------------------------------------------------------------------
+  // fetchEntities
+  // -------------------------------------------------------------------------
+
+  async fetchEntities(entityType: string, options?: FetchOptions): Promise<NormalizedEntity[]> {
+    this.ensureConnected();
+    const type = this.validateEntityType(entityType);
+    const tenantId = this.credentials?.tenantId ?? "default";
+    const limit = options?.limit ?? 100;
+
+    return this.withRateLimit(tenantId, async () => {
+      switch (type) {
+        case "channel": {
+          const response = await this.call<SlackChannelListResponse>("conversations.list", {
+            limit: String(limit),
+            exclude_archived: "true",
+          });
+          return response.channels.map((c) => this.normalizeChannel(c));
+        }
+        case "user": {
+          const response = await this.call<SlackUserListResponse>("users.list", {
+            limit: String(limit),
+          });
+          return response.members.map((u) => this.normalizeUser(u));
+        }
+        case "message": {
+          // Messages require a channel — use filters.channelId
+          const channelId = options?.filters?.["channelId"];
+          if (typeof channelId !== "string") {
+            throw new ValidationError(this.provider, "fetchEntities for 'message' requires options.filters.channelId");
+          }
+          const params: Record<string, string> = { channel: channelId, limit: String(limit) };
+          if (options?.since) params["oldest"] = String(options.since.getTime() / 1000);
+          const response = await this.call<SlackMessageListResponse>("conversations.history", params);
+          return response.messages.map((m) => this.normalizeMessage(channelId, m));
+        }
+      }
+    });
   }
-  async fetchEntity(_entityType: string, _externalId: string): Promise<NormalizedEntity | null> {
-    throw new Error("SlackAdapter: not implemented. See DEBT-008.");
+
+  // -------------------------------------------------------------------------
+  // fetchEntity
+  // -------------------------------------------------------------------------
+
+  async fetchEntity(entityType: string, externalId: string): Promise<NormalizedEntity | null> {
+    this.ensureConnected();
+    const type = this.validateEntityType(entityType);
+    const tenantId = this.credentials?.tenantId ?? "default";
+
+    return this.withRateLimit(tenantId, async () => {
+      try {
+        switch (type) {
+          case "channel": {
+            const response = await this.call<{ ok: boolean; channel: SlackChannel }>("conversations.info", { channel: externalId });
+            return this.normalizeChannel(response.channel);
+          }
+          case "user": {
+            const response = await this.call<{ ok: boolean; user: SlackUser }>("users.info", { user: externalId });
+            return this.normalizeUser(response.user);
+          }
+          case "message":
+            // Slack has no single-message fetch by ts without channel context
+            throw new ValidationError(this.provider, "fetchEntity for 'message' is not supported. Use fetchEntities with filters.channelId.");
+        }
+      } catch (error) {
+        if (error instanceof IntegrationError && error.code === "NOT_FOUND") return null;
+        throw error;
+      }
+    });
   }
-  async pushUpdate(_entityType: string, _externalId: string, _data: Record<string, unknown>): Promise<void> {
-    throw new Error("SlackAdapter: not implemented. See DEBT-008.");
+
+  // -------------------------------------------------------------------------
+  // pushUpdate — posts a message to a channel
+  // -------------------------------------------------------------------------
+
+  async pushUpdate(entityType: string, externalId: string, data: Record<string, unknown>): Promise<void> {
+    this.ensureConnected();
+    this.validateEntityType(entityType);
+    const tenantId = this.credentials?.tenantId ?? "default";
+
+    const text = data["text"];
+    if (typeof text !== "string" || text.trim() === "") {
+      throw new ValidationError(this.provider, "pushUpdate requires data.text (string) to post a Slack message.");
+    }
+
+    const params: Record<string, string> = { channel: externalId, text };
+    if (typeof data["thread_ts"] === "string") params["thread_ts"] = data["thread_ts"];
+
+    await this.withRateLimit(tenantId, () =>
+      this.call<SlackPostMessageResponse>("chat.postMessage", params, "POST"),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Normalisation
+  // -------------------------------------------------------------------------
+
+  private normalizeChannel(channel: SlackChannel): NormalizedEntity {
+    return {
+      id: channel.id,
+      externalId: channel.id,
+      provider: this.provider,
+      type: "channel",
+      data: channel,
+      metadata: {
+        fetchedAt: new Date(),
+        version: channel.updated ? String(channel.updated) : undefined,
+        tenantId: this.credentials?.tenantId,
+        organizationId: this.credentials?.tenantId,
+      },
+    };
+  }
+
+  private normalizeUser(user: SlackUser): NormalizedEntity {
+    return {
+      id: user.id,
+      externalId: user.id,
+      provider: this.provider,
+      type: "user",
+      data: user,
+      metadata: {
+        fetchedAt: new Date(),
+        version: user.updated ? String(user.updated) : undefined,
+        tenantId: this.credentials?.tenantId,
+        organizationId: this.credentials?.tenantId,
+      },
+    };
+  }
+
+  private normalizeMessage(channelId: string, message: SlackMessage): NormalizedEntity {
+    return {
+      id: `${channelId}:${message.ts}`,
+      externalId: message.ts,
+      provider: this.provider,
+      type: "message",
+      data: { ...message, channelId },
+      metadata: {
+        fetchedAt: new Date(),
+        version: message.ts,
+        tenantId: this.credentials?.tenantId,
+        organizationId: this.credentials?.tenantId,
+      },
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // HTTP client
+  // -------------------------------------------------------------------------
+
+  private async call<T extends SlackBaseResponse>(
+    method: string,
+    params: Record<string, string>,
+    httpMethod: "GET" | "POST" = "GET",
+  ): Promise<T> {
+    const url = new URL(`${SLACK_API_BASE}/${method}`);
+
+    // GET requests pass params as query string; POST requests send JSON body.
+    let body: string | undefined;
+    if (httpMethod === "GET") {
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    } else {
+      body = JSON.stringify(params);
+    }
+
+    const timeoutMs = this.config.timeout ?? DEFAULT_TIMEOUT_MS;
+    const controller = new AbortController();
+    const handle = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url.toString(), {
+        method: httpMethod,
+        headers: {
+          Authorization: `Bearer ${this.botToken}`,
+          "Content-Type": httpMethod === "POST" ? "application/json; charset=utf-8" : "application/x-www-form-urlencoded",
+        },
+        body,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        await this.throwHttpError(response);
+      }
+
+      const responseBody = (await response.json()) as T;
+      if (!responseBody.ok) {
+        this.throwSlackError(responseBody.error ?? "unknown_error");
+      }
+      return responseBody;
+    } catch (error) {
+      if (this.isAbortError(error)) {
+        throw new IntegrationError("Slack request timed out", "TIMEOUT", this.provider, true);
+      }
+      throw error;
+    } finally {
+      clearTimeout(handle);
+    }
+  }
+
+  private throwSlackError(errorCode: string): never {
+    if (errorCode === "invalid_auth" || errorCode === "not_authed" || errorCode === "token_revoked") {
+      throw new AuthError(this.provider, `Slack auth error: ${errorCode}`);
+    }
+    if (errorCode === "channel_not_found" || errorCode === "user_not_found") {
+      throw new IntegrationError(`Slack: ${errorCode}`, "NOT_FOUND", this.provider, false);
+    }
+    if (errorCode === "ratelimited") {
+      throw new RateLimitError(this.provider, 1000);
+    }
+    throw new IntegrationError(`Slack API error: ${errorCode}`, "SLACK_API_ERROR", this.provider, true);
+  }
+
+  private async throwHttpError(response: Response): Promise<never> {
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get("retry-after") ?? "1");
+      throw new RateLimitError(this.provider, Number.isFinite(retryAfter) ? retryAfter * 1000 : 1000);
+    }
+    throw new IntegrationError(`Slack HTTP error: ${response.status}`, "HTTP_ERROR", this.provider, response.status >= 500);
+  }
+
+  private isAbortError(error: unknown): boolean {
+    return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError";
+  }
+
+  private validateEntityType(entityType: string): SlackEntityType {
+    const supported: SlackEntityType[] = ["channel", "message", "user"];
+    if (!supported.includes(entityType as SlackEntityType)) {
+      throw new ValidationError(this.provider, `Unsupported entity type: ${entityType}. Supported: ${supported.join(", ")}`);
+    }
+    return entityType as SlackEntityType;
+  }
+
+  private readConfiguredCredentials(): SlackConfigCredentials {
+    return (this.config.credentials ?? {}) as SlackConfigCredentials;
   }
 }

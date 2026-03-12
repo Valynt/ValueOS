@@ -3,8 +3,8 @@
  * Utility for loading and managing educational content from various sources
  */
 
-import { CurriculumModule, getCurriculumForRole } from '../data/curriculum';
-
+import { z } from 'zod';
+import { type CurriculumModule } from '../data/curriculum';
 import { logger } from './logger';
 
 export interface ContentLoaderOptions {
@@ -24,28 +24,109 @@ export interface LoadedContent {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Zod schema for the expected JSON/API payload shape
+// ---------------------------------------------------------------------------
+
+const CurriculumModuleSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  pillarId: z.number(),
+  order: z.number(),
+  requiredMaturityLevel: z.number(),
+  estimatedDuration: z.string(),
+  prerequisites: z.array(z.string()).optional(),
+  skills: z.array(z.string()).optional(),
+  resources: z.array(z.string()).optional(),
+});
+
+const ContentPayloadSchema = z.object({
+  modules: z.array(CurriculumModuleSchema),
+  resources: z.array(z.unknown()).optional(),
+  version: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Loaders
+// ---------------------------------------------------------------------------
+
 /**
- * Load content from JSON file
+ * Load content from a JSON file served at the given URL path.
  *
- * Not implemented — curriculum content source is a product decision.
- * See DEBT-012 in .ona/context/debt.md.
+ * In the browser environment (Vite), `path` should be a URL relative to the
+ * app origin (e.g. `/content/curriculum.json`). The file must be placed in
+ * the `public/` directory so Vite serves it as a static asset.
  */
-export async function loadContentFromJson(_path: string): Promise<LoadedContent> {
-  throw new Error(
-    "loadContentFromJson: not implemented. Curriculum content source is a product decision. See DEBT-012."
-  );
+export async function loadContentFromJson(path: string): Promise<LoadedContent> {
+  logger.debug('loadContentFromJson', { path });
+
+  const response = await fetch(path, {
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load JSON content from "${path}": HTTP ${response.status}`);
+  }
+
+  const raw: unknown = await response.json();
+  const parsed = ContentPayloadSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    throw new Error(`Invalid content JSON at "${path}": ${parsed.error.message}`);
+  }
+
+  return {
+    modules: parsed.data.modules as CurriculumModule[],
+    resources: parsed.data.resources ?? [],
+    metadata: {
+      source: path,
+      loadedAt: new Date(),
+      version: parsed.data.version,
+    },
+  };
 }
 
 /**
- * Load content from API endpoint
+ * Load content from an API endpoint.
  *
- * Not implemented — curriculum content source is a product decision.
- * See DEBT-012 in .ona/context/debt.md.
+ * The endpoint must return a JSON body matching ContentPayloadSchema.
+ * Query parameters `pillarId` and `role` are appended when provided.
  */
-export async function loadContentFromApi(_endpoint: string, _options: Record<string, unknown> = {}): Promise<LoadedContent> {
-  throw new Error(
-    "loadContentFromApi: not implemented. Curriculum content source is a product decision. See DEBT-012."
-  );
+export async function loadContentFromApi(
+  endpoint: string,
+  options: Record<string, unknown> = {}
+): Promise<LoadedContent> {
+  logger.debug('loadContentFromApi', { endpoint, options });
+
+  const url = new URL(endpoint, window.location.origin);
+  if (options['pillarId'] !== undefined) url.searchParams.set('pillarId', String(options['pillarId']));
+  if (options['role'] !== undefined) url.searchParams.set('role', String(options['role']));
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load content from API "${endpoint}": HTTP ${response.status}`);
+  }
+
+  const raw: unknown = await response.json();
+  const parsed = ContentPayloadSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    throw new Error(`Invalid content from API "${endpoint}": ${parsed.error.message}`);
+  }
+
+  return {
+    modules: parsed.data.modules as CurriculumModule[],
+    resources: parsed.data.resources ?? [],
+    metadata: {
+      source: endpoint,
+      loadedAt: new Date(),
+      version: parsed.data.version,
+    },
+  };
 }
 
 /**
