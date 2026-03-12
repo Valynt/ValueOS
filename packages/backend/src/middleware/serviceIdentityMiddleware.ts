@@ -236,6 +236,10 @@ function verifyHmacIdentity(req: Request, config: ServiceIdentityConfig): Resolv
 /**
  * Validates signed service identity assertions (mTLS SPIFFE, JWT SA tokens, or signed HMAC requests).
  * Enforces issuer/subject/audience checks and replay protection using nonce + timestamp.
+ *
+ * In production, the absence of any configured assertion method is a startup misconfiguration —
+ * internal endpoints would be callable without proof-of-service identity. The server must not
+ * start in this state; see validateServiceIdentityConfig() called at startup.
  */
 export function serviceIdentityMiddleware(req: Request, res: Response, next: NextFunction): void {
   const { serviceIdentityToken } = getAutonomyConfig();
@@ -247,6 +251,14 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
   );
 
   if (!configuredAssertions && !serviceIdentityToken) {
+    // In production this path should never be reached — validateServiceIdentityConfig()
+    // must be called at startup to catch this misconfiguration before requests arrive.
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('Service identity middleware reached with no configured assertions in production', {
+        path: req.originalUrl || req.url,
+      });
+      return res.status(503).json({ error: 'Service identity not configured' });
+    }
     return next();
   }
 
@@ -326,6 +338,31 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
     });
     return res.status(500).json({ error: 'Nonce validation failed' });
   });
+}
+
+/**
+ * Validates that service identity is configured before the server accepts traffic.
+ * Call this at startup in production environments. Throws if no assertion method is configured
+ * and no legacy token is present, preventing the open-access misconfiguration.
+ */
+export function validateServiceIdentityConfig(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const { serviceIdentityToken } = getAutonomyConfig();
+  const config = parseServiceIdentityConfig();
+  const configuredAssertions = Boolean(
+    (config.allowedSpiffeIds && config.allowedSpiffeIds.length > 0) ||
+    (config.jwtIssuers && config.jwtIssuers.length > 0) ||
+    (config.hmacKeys && config.hmacKeys.length > 0)
+  );
+
+  if (!configuredAssertions && !serviceIdentityToken) {
+    throw new Error(
+      'FATAL: No service identity assertions configured in production. ' +
+      'Set SERVICE_IDENTITY_CONFIG_JSON with hmacKeys, jwtIssuers, or allowedSpiffeIds. ' +
+      'Internal endpoints are unprotected without this configuration.'
+    );
+  }
 }
 
 /**

@@ -6,10 +6,61 @@
  * Compatible with both browser and server environments.
  */
 
+import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
+
+const scryptAsync = promisify(scrypt);
+
+// Backup code hashing parameters.
+// scrypt N=16384 is the OWASP minimum for interactive logins; backup codes
+// are low-frequency so this is acceptable. keylen=32 gives 256-bit output.
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 32;
+const SALT_BYTES = 16;
+
+/**
+ * Hash a single backup code using scrypt with a random salt.
+ * Returns a string in the format `<hex-salt>:<hex-hash>` for storage.
+ */
+async function hashBackupCode(code: string): Promise<string> {
+  const salt = randomBytes(SALT_BYTES);
+  const hash = await scryptAsync(code, salt, SCRYPT_KEYLEN, {
+    N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P,
+  }) as Buffer;
+  return `${salt.toString('hex')}:${hash.toString('hex')}`;
+}
+
+/**
+ * Verify a candidate backup code against a stored hash.
+ * Uses timing-safe comparison to prevent timing attacks.
+ */
+async function verifyBackupCode(candidate: string, stored: string): Promise<boolean> {
+  const colonIdx = stored.indexOf(':');
+  if (colonIdx === -1) {
+    // Legacy plaintext code — accept for migration but do not store again in plaintext.
+    // Use timingSafeEqual to prevent timing attacks even on the plaintext path.
+    const a = Buffer.from(candidate);
+    const b = Buffer.from(stored);
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+  const salt = Buffer.from(stored.slice(0, colonIdx), 'hex');
+  const expectedHash = Buffer.from(stored.slice(colonIdx + 1), 'hex');
+  try {
+    const candidateHash = await scryptAsync(candidate, salt, SCRYPT_KEYLEN, {
+      N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P,
+    }) as Buffer;
+    return timingSafeEqual(candidateHash, expectedHash);
+  } catch {
+    return false;
+  }
+}
 
 import { BaseService } from "./BaseService.js"
 import { ValidationError } from "./errors.js"
@@ -53,46 +104,19 @@ export class MFAService extends BaseService {
   }
 
   /**
-   * Helper to generate secure random backup codes
+   * Generate cryptographically secure backup codes using node:crypto.
+   * Each code is `length` characters from a Base32-like alphabet (no I, O, 0, 1).
    */
   private generateBackupCodes(count: number = 10, length: number = 8): string[] {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const codes: string[] = [];
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Base32-like (no I, O, 0, 1)
-
-    // Check for crypto support
-    const cryptoObj = globalThis.crypto;
-
-    if (cryptoObj && cryptoObj.getRandomValues) {
-      for (let i = 0; i < count; i++) {
-        const randomValues = new Uint8Array(length);
-        cryptoObj.getRandomValues(randomValues);
-        let code = "";
-        for (let j = 0; j < length; j++) {
-          code += chars[randomValues[j] % chars.length];
-        }
-        codes.push(code);
+    for (let i = 0; i < count; i++) {
+      const randomValues = randomBytes(length);
+      let code = "";
+      for (let j = 0; j < length; j++) {
+        code += chars[randomValues[j] % chars.length];
       }
-    } else {
-      // Fallback for environments without crypto (should be rare in modern node/browsers)
-      // But for security, we should ideally fail or use node crypto.
-      // Assuming Node environment if globalThis.crypto is missing?
-      try {
-        // Dynamic import for Node crypto if needed, but 'crypto' global is available in Node 19+
-        // and usually available in test envs.
-        // If not available, we might have to fallback to less secure or throw error.
-        // For this implementation, we'll fallback to Math.random but log warning,
-        // OR rely on the fact that this app runs in envs with crypto.
-        this.log("warn", "Crypto API not available, using Math.random for backup codes");
-         for (let i = 0; i < count; i++) {
-          let code = "";
-          for (let j = 0; j < length; j++) {
-             code += chars[Math.floor(Math.random() * chars.length)];
-          }
-          codes.push(code);
-        }
-      } catch (e) {
-        // Fallback
-      }
+      codes.push(code);
     }
     return codes;
   }
@@ -122,8 +146,10 @@ export class MFAService extends BaseService {
         const uri = totp.toString();
         const qrCodeUrl = await QRCode.toDataURL(uri);
 
-        // Generate 10 backup codes
+        // Generate 10 backup codes and hash each before storage.
+        // The plaintext codes are returned to the user once and never stored.
         const backupCodes = this.generateBackupCodes(10, 8);
+        const hashedBackupCodes = await Promise.all(backupCodes.map(hashBackupCode));
 
         // Store in DB (pending enablement)
         const { error } = await this.supabase
@@ -132,7 +158,7 @@ export class MFAService extends BaseService {
             {
               user_id: userId,
               secret: secretBase32,
-              backup_codes: backupCodes,
+              backup_codes: hashedBackupCodes,
               enabled: false,
               // enrolled_at will be set upon verification
             },
@@ -146,7 +172,7 @@ export class MFAService extends BaseService {
         return {
           secret: secretBase32,
           qrCodeUrl,
-          backupCodes,
+          backupCodes, // plaintext — shown to user once, never stored again
           manualEntryKey: secretBase32,
         };
       },
@@ -234,11 +260,20 @@ export class MFAService extends BaseService {
           return { verified: true, usedBackupCode: false };
         }
 
-        // 2. Check Backup Codes
-        const backupCodes = data.backup_codes || [];
-        if (backupCodes.includes(token)) {
-          // Consume backup code
-          const newBackupCodes = backupCodes.filter((c: string) => c !== token);
+        // 2. Check Backup Codes — stored as scrypt hashes (salt:hash format).
+        //    Legacy plaintext codes are accepted once and re-hashed on consumption.
+        const backupCodes: string[] = data.backup_codes || [];
+        let matchedIndex = -1;
+        for (let i = 0; i < backupCodes.length; i++) {
+          if (await verifyBackupCode(token, backupCodes[i])) {
+            matchedIndex = i;
+            break;
+          }
+        }
+        if (matchedIndex !== -1) {
+          // Consume the matched code. If it was a legacy plaintext entry, the
+          // remaining codes are left as-is; they will be re-hashed on next match.
+          const newBackupCodes = backupCodes.filter((_, i) => i !== matchedIndex);
           await this.supabase
             .from("mfa_secrets")
             .update({ backup_codes: newBackupCodes })

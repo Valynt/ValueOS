@@ -122,7 +122,7 @@ import {
   requestIdMiddleware,
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler";
-import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js";
+import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
 import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
@@ -492,14 +492,22 @@ if (checkpointMiddleware) {
     createCheckpointRouter(checkpointMiddleware),
   );
 
+  const approvalActionSecret = process.env.APPROVAL_ACTION_SECRET;
+  const approvalWebhookSecret = process.env.APPROVAL_WEBHOOK_SECRET;
+  if (!approvalActionSecret || !approvalWebhookSecret) {
+    throw new Error(
+      "APPROVAL_ACTION_SECRET and APPROVAL_WEBHOOK_SECRET must be set. " +
+      "These secrets protect approval webhook signatures and must not use defaults."
+    );
+  }
   const signer = new NotificationActionSigner({
-    secret: process.env.APPROVAL_ACTION_SECRET || "dev-approval-action-secret",
+    secret: approvalActionSecret,
   });
   const supabaseClient = createServerSupabaseClient();
   const webhookService = new ApprovalWebhookService({
     signer,
     checkpointMiddleware,
-    webhookSigningSecret: process.env.APPROVAL_WEBHOOK_SECRET || "dev-approval-webhook-secret",
+    webhookSigningSecret: approvalWebhookSecret,
     transitionApprovalRequest: async ({ requestId, tenantId, approved, actorId, reason }) => {
       await supabaseClient
         .from("approval_requests")
@@ -575,6 +583,7 @@ async function startServer(): Promise<void> {
 
   // 2. Validate production requirements
   logger.info("[Instrumentation] Validating production requirements");
+  validateServiceIdentityConfig();
   validateProductionMfaStartup();
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
