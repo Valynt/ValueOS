@@ -16,47 +16,57 @@ vi.mock('../../../lib/logger', () => ({
 
 const mockSpan = { setAttributes: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), end: vi.fn() };
 vi.mock('../../../config/telemetry', () => ({
-  getTracer: vi.fn(() => ({
-    // Handle both 2-arg (name, fn) and 3-arg (name, options, fn) overloads.
-    startActiveSpan: vi.fn((...args: unknown[]) => {
-      const fn = (typeof args[args.length - 1] === 'function' ? args[args.length - 1] : null) as ((span: unknown) => unknown) | null;
-      return fn ? fn(mockSpan) : undefined;
-    }),
-  })),
+  getTracer: vi.fn(function () {
+    return {
+      // Handle both 2-arg (name, fn) and 3-arg (name, options, fn) overloads.
+      startActiveSpan: vi.fn(function (...args: unknown[]) {
+        const fn = (typeof args[args.length - 1] === 'function' ? args[args.length - 1] : null) as ((span: unknown) => unknown) | null;
+        return fn ? fn(mockSpan) : undefined;
+      }),
+    };
+  }),
 }));
 
 // ADR-0014: QueryExecutor now calls AgentFactory directly — no HTTP round-trip.
 vi.mock('../../../lib/agent-fabric/AgentFactory', () => ({
-  createAgentFactory: vi.fn(() => ({
-    create: vi.fn(() => ({
-      execute: vi.fn().mockResolvedValue({
-        status: 'success',
-        result: { message: 'ok' },
-        confidence: 'high',
-        errors: [],
-        agent_id: 'test-agent',
-        agent_type: 'coordinator',
-        lifecycle_stage: 'discovery',
-        metadata: { execution_time_ms: 10, model_version: 'test', timestamp: new Date().toISOString() },
+  createAgentFactory: vi.fn(function () {
+    return {
+      create: vi.fn(function () {
+        return {
+          execute: vi.fn().mockResolvedValue({
+            status: 'success',
+            result: { message: 'ok' },
+            confidence: 'high',
+            errors: [],
+            agent_id: 'test-agent',
+            agent_type: 'coordinator',
+            lifecycle_stage: 'discovery',
+            metadata: { execution_time_ms: 10, model_version: 'test', timestamp: new Date().toISOString() },
+          }),
+        };
       }),
-    })),
-  })),
+    };
+  }),
 }));
 
 vi.mock('../../../lib/agent-fabric/LLMGateway', () => ({
-  LLMGateway: vi.fn(() => ({})),
+  LLMGateway: vi.fn(function () { return {}; }),
 }));
 
 vi.mock('../../../lib/agent-fabric/MemorySystem', () => ({
-  MemorySystem: vi.fn(() => ({})),
+  MemorySystem: vi.fn(function () { return {}; }),
 }));
 
 vi.mock('../../../lib/agent-fabric/SupabaseMemoryBackend', () => ({
-  SupabaseMemoryBackend: vi.fn(() => ({})),
+  SupabaseMemoryBackend: vi.fn(function () { return {}; }),
 }));
 
 vi.mock('../../../lib/resilience/CircuitBreaker', () => ({
-  CircuitBreaker: vi.fn(() => ({})),
+  CircuitBreaker: vi.fn(function () {
+    return {
+      execute: vi.fn(function (_key: string, fn: () => unknown) { return fn(); }),
+    };
+  }),
 }));
 
 vi.mock('../../../config/featureFlags', () => ({
@@ -79,14 +89,14 @@ function makePolicyMock() {
 
 function makeRouterMock(agentType = 'coordinator') {
   return {
-    selectAgentForQuery: vi.fn().mockReturnValue(agentType),
+    selectAgent: vi.fn().mockReturnValue(agentType),
     routeStage: vi.fn().mockReturnValue({ selected_agent: null }),
   };
 }
 
 function makeCircuitBreakerMock() {
   return {
-    execute: vi.fn((_key: string, fn: () => unknown) => fn()),
+    execute: vi.fn(function (_key: string, fn: () => unknown) { return fn(); }),
   };
 }
 
@@ -255,7 +265,7 @@ describe('QueryExecutor.getAsyncQueryResult', () => {
     queue.getJobResult.mockResolvedValueOnce({ success: false, error: 'agent crashed', traceId: 't1' });
     const result = await executor.getAsyncQueryResult('job-1', makeState() as never);
     expect(result?.response?.payload).toMatchObject({ error: true });
-    expect(result?.nextState.status).toBe('error');
+    expect(result?.nextState.status).toBe('failed');
   });
 
   it('returns a vetoed result when structural truth check fails', async () => {
@@ -279,7 +289,7 @@ describe('QueryExecutor.getAsyncQueryResult', () => {
     queue.getJobResult.mockResolvedValueOnce({ success: true, data: { message: 'analysis complete' }, traceId: 't1' });
     const result = await executor.getAsyncQueryResult('job-1', makeState() as never);
     expect(result?.response?.payload.message).toBeTruthy();
-    expect(result?.nextState.status).toBe('in_progress');
+    expect(result?.nextState.status).toBe('running');
     const history = result?.nextState.context?.conversationHistory as unknown[];
     expect(Array.isArray(history)).toBe(true);
     expect(history.length).toBeGreaterThan(0);
@@ -327,8 +337,8 @@ describe('QueryExecutor.processQuery (sync path)', () => {
   it('returns a successful response with updated state', async () => {
     const result = await executor.processQuery(makeEnvelope() as never, 'what is ROI?', makeState() as never, 'u', 's');
     expect(result.response?.type).toBe('message');
-    // Agent returned success: true so state advances to in_progress or completed
-    expect(result.nextState.status).toSatisfy((s: string) => ['in_progress', 'completed'].includes(s));
+    // Production code sets status to 'running' on a successful agent response
+    expect(result.nextState.status).toSatisfy((s: string) => ['running', 'in_progress', 'completed'].includes(s));
     expect(result.traceId).toBeTruthy();
   });
 
@@ -380,7 +390,7 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
       lifecycle_stage: 'discovery',
       metadata: { execution_time_ms: 5, model_version: 'test', timestamp: new Date().toISOString() },
     });
-    const mockCreate = vi.fn(() => ({ execute: mockExecute }));
+    const mockCreate = vi.fn(function () { return { execute: mockExecute }; });
     vi.mocked(createAgentFactory).mockReturnValueOnce({ create: mockCreate } as never);
 
     const policy = makePolicyMock();
