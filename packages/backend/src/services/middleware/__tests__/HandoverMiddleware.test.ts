@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AgentMiddlewareContext, AgentResponse } from '../../../types/orchestration.js';
+import { resetAgentPolicyServiceForTests } from '../../policy/AgentPolicyService.js';
 import { HandoverMiddleware } from '../HandoverMiddleware.js';
 
 // ---------------------------------------------------------------------------
@@ -76,6 +81,27 @@ function nextWithoutCapabilityRequest(): () => Promise<AgentResponse> {
 // ---------------------------------------------------------------------------
 
 describe('HandoverMiddleware', () => {
+  beforeEach(() => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'handover-authz-test-'));
+    writeFileSync(
+      path.join(dir, 'default.json'),
+      JSON.stringify({
+        version: 'test-v1',
+        agent: 'default',
+        allowedModels: ['gpt-4o-mini'],
+        allowedTools: ['financial_projection'],
+        maxTokens: 100,
+        maxCostUsd: 1,
+      }),
+    );
+    process.env.AGENT_POLICY_DIR = dir;
+    resetAgentPolicyServiceForTests();
+  });
+
+  afterEach(() => {
+    delete process.env.AGENT_POLICY_DIR;
+    resetAgentPolicyServiceForTests();
+  });
   it('passes through when no CapabilityRequest in response', async () => {
     const deps = mockDeps();
     const mw = new HandoverMiddleware(deps);
@@ -120,6 +146,27 @@ describe('HandoverMiddleware', () => {
       'handover',
       expect.objectContaining({ success: true, toAgent: 'fin-agent-1' }),
     );
+  });
+
+
+  it('blocks tool fallback when unified authorization denies capability', async () => {
+    const deps = mockDeps({
+      toolRegistry: {
+        get: vi.fn().mockReturnValue({ name: 'blocked_capability' }),
+        execute: vi.fn().mockResolvedValue({ success: true, data: { projected: 500 } }),
+      },
+    });
+    const mw = new HandoverMiddleware(deps);
+    const next = nextWithCapabilityRequest({
+      capability: 'blocked_capability',
+      inputData: { revenue: 1000 },
+      mergeKey: 'projection',
+    });
+
+    const result = await mw.execute(makeContext(), next);
+
+    expect(deps.toolRegistry.execute).not.toHaveBeenCalled();
+    expect(result.payload.warnings[0]).toContain('blocked_capability');
   });
 
   it('falls back to tool registry when no agent matches', async () => {

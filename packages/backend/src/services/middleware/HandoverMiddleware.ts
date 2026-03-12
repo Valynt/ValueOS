@@ -16,6 +16,7 @@ import {
 } from '../../types/orchestration.js';
 
 import { CapabilityRequest, HandoverResult } from './types.js';
+import { assertAuthorized } from '../policy/AuthorizationPolicyGateway.js';
 
 // ---------------------------------------------------------------------------
 // Dependency interfaces (duck-typed for testability)
@@ -165,6 +166,17 @@ export class HandoverMiddleware implements AgentMiddleware {
     const tool = this.deps.toolRegistry.get(capReq.capability);
     if (tool) {
       try {
+        const decision = assertAuthorized({
+          domain: 'agent_side_effect',
+          action: 'handover_execute',
+          resource: capReq.capability,
+          agentType: context.agentType,
+          actorId: context.userId,
+          tenantId: context.envelope.organizationId,
+          traceId: context.traceId,
+          invocationId: context.sessionId,
+        });
+
         const result = await this.deps.toolRegistry.execute(
           capReq.capability,
           capReq.inputData,
@@ -172,6 +184,9 @@ export class HandoverMiddleware implements AgentMiddleware {
             userId: context.userId,
             sessionId: context.sessionId,
             traceId: context.traceId,
+            tenantId: context.envelope.organizationId,
+            agentType: context.agentType,
+            metadata: { decisionId: decision.decisionId },
           },
         );
 
