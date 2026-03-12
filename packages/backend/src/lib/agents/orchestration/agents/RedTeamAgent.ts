@@ -8,6 +8,12 @@
 
 import { z } from 'zod';
 
+import { BaseAgent, type HallucinationCheckResult } from '../../../agent-fabric/agents/BaseAgent.js';
+import { CircuitBreaker } from '../../../agent-fabric/CircuitBreaker.js';
+import { type LLMGateway } from '../../../agent-fabric/LLMGateway.js';
+import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
+import type { AgentConfig, LifecycleContext } from '../../../../types/agent.js';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -34,6 +40,9 @@ export interface RedTeamOutput {
   objections: Objection[];
   summary: string;
   hasCritical: boolean;
+  confidence: 'low' | 'medium' | 'high';
+  hallucination_check?: boolean;
+  hallucination_details?: HallucinationCheckResult;
   timestamp: string;
 }
 
@@ -54,7 +63,17 @@ export const RedTeamOutputSchema = z.object({
   objections: z.array(ObjectionSchema),
   summary: z.string(),
   hasCritical: z.boolean(),
+  confidence: z.enum(['low', 'medium', 'high']),
+  hallucination_check: z.boolean().optional(),
+  hallucination_details: z.unknown().optional(),
   timestamp: z.string(),
+});
+
+const RedTeamLLMResponseSchema = RedTeamOutputSchema.omit({
+  hallucination_details: true,
+  timestamp: true,
+}).extend({
+  timestamp: z.string().optional(),
 });
 
 // ============================================================================
@@ -70,6 +89,36 @@ export interface RedTeamLLMGateway {
     usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
   }>;
 }
+
+const RED_TEAM_AGENT_CONFIG: AgentConfig = {
+  id: 'red-team-agent',
+  name: 'RedTeamAgent',
+  type: 'narrative' as AgentConfig['type'],
+  lifecycle_stage: 'integrity' as AgentConfig['lifecycle_stage'],
+  capabilities: ['objection-analysis'],
+  model: {
+    provider: 'openai',
+    model_name: 'gpt-4',
+  },
+  prompts: {
+    system_prompt: 'Red-team analysis',
+    user_prompt_template: '{{input}}',
+  },
+  parameters: {
+    timeout_seconds: 30,
+    max_retries: 2,
+    retry_delay_ms: 500,
+    enable_caching: false,
+    enable_telemetry: true,
+  },
+  constraints: {
+    max_input_tokens: 8000,
+    max_output_tokens: 2000,
+    allowed_actions: ['analyze'],
+    forbidden_actions: [],
+    required_permissions: [],
+  },
+};
 
 // ============================================================================
 // System Prompt
@@ -97,7 +146,9 @@ You MUST respond with valid JSON matching this schema:
     }
   ],
   "summary": "<overall assessment>",
-  "hasCritical": <true if any critical objections>
+  "hasCritical": <true if any critical objections>,
+  "confidence": "low" | "medium" | "high",
+  "hallucination_check": <optional boolean>
 }
 
 Be thorough but fair. Only mark objections as "critical" if they would materially change the business case conclusion.`;
@@ -106,41 +157,61 @@ Be thorough but fair. Only mark objections as "critical" if they would materiall
 // RedTeamAgent
 // ============================================================================
 
-export class RedTeamAgent {
-  private llmGateway: RedTeamLLMGateway;
+export class RedTeamAgent extends BaseAgent {
+  constructor(
+    llmGateway: RedTeamLLMGateway,
+    memorySystem: MemorySystem = new MemorySystem({ max_memories: 100, enable_persistence: false }),
+    circuitBreaker: CircuitBreaker = new CircuitBreaker(),
+    organizationId = 'red-team-default-organization'
+  ) {
+    super(
+      RED_TEAM_AGENT_CONFIG,
+      organizationId,
+      memorySystem,
+      llmGateway as unknown as LLMGateway,
+      circuitBreaker,
+    );
+  }
 
-  constructor(llmGateway: RedTeamLLMGateway) {
-    this.llmGateway = llmGateway;
+  async execute(_context: LifecycleContext) {
+    throw new Error('RedTeamAgent.execute is not implemented. Use analyze() for orchestration flow.');
   }
 
   /**
    * Execute red team analysis on a value case
    */
   async analyze(input: RedTeamInput): Promise<RedTeamOutput> {
-    const userPrompt = this.buildPrompt(input);
+    this.organizationId = input.tenantId;
 
-    // RedTeamAgent uses constructor-injected RedTeamLLMGateway. In production the
-    // injected implementation is RedTeamLLMAdapter (AgentAdapters.ts), which delegates
-    // to secureLLMComplete — satisfying the guardrail requirement. Full BaseAgent
-    // migration (secureInvoke + AgentFactory wiring) is tracked in debt.md.
-    const response = await this.llmGateway.complete({
-      messages: [
-        { role: 'system', content: RED_TEAM_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-      metadata: {
-        tenantId: input.tenantId,
-        agentType: 'red-team',
-        valueCaseId: input.valueCaseId,
+    const userPrompt = this.buildPrompt(input);
+    const sessionId = `red-team:${input.valueCaseId}:${input.idempotencyKey}`;
+
+    const result = await this.secureInvoke(
+      sessionId,
+      `${RED_TEAM_SYSTEM_PROMPT}\n\n${userPrompt}`,
+      RedTeamLLMResponseSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          tenantId: input.tenantId,
+          tenant_id: input.tenantId,
+          agentType: 'red-team',
+          valueCaseId: input.valueCaseId,
+          idempotencyKey: input.idempotencyKey,
+        },
         idempotencyKey: input.idempotencyKey,
       },
-    });
-
-    const parsed = this.parseResponse(response.content);
+    );
 
     return {
-      ...parsed,
-      timestamp: new Date().toISOString(),
+      objections: result.objections,
+      summary: result.summary,
+      hasCritical: result.hasCritical,
+      confidence: result.confidence,
+      hallucination_check: result.hallucination_check,
+      hallucination_details: result.hallucination_details,
+      timestamp: result.timestamp ?? new Date().toISOString(),
     };
   }
 
@@ -182,22 +253,5 @@ export class RedTeamAgent {
       '',
       'Analyze the above value case. Identify all weaknesses, questionable assumptions, data quality issues, math errors, missing evidence, and logical gaps. Respond with JSON only.',
     ].join('\n');
-  }
-
-  private parseResponse(content: string): RedTeamOutput {
-    // Try to extract JSON from the response (handle markdown code blocks)
-    let jsonStr = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1]!;
-    }
-
-    const raw = JSON.parse(jsonStr);
-    const validated = RedTeamOutputSchema.parse({
-      ...raw,
-      timestamp: raw.timestamp ?? new Date().toISOString(),
-    });
-
-    return validated;
   }
 }
