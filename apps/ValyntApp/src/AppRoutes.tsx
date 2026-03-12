@@ -4,6 +4,7 @@
  */
 
 import { lazy, type ReactElement, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { OnboardingGate } from "./app/routes/OnboardingGate";
@@ -66,6 +67,20 @@ const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 
 export function AppRoutes() {
+  const queryClient = useQueryClient();
+
+  const handleTenantSwitch = () => {
+    queryClient
+      .cancelQueries()
+      .then(() => {
+        queryClient.clear();
+      })
+      .catch(() => {
+        // Ensure we still clear even if cancellation rejects
+        queryClient.clear();
+      });
+  };
+
   const publicRouteElements: Record<string, ReactElement> = {
     "/login": <LoginPage />,
     "/signup": <SignupPage />,
@@ -84,7 +99,7 @@ export function AppRoutes() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <TenantProvider>
+          <TenantProvider onTenantSwitch={handleTenantSwitch}>
             <CompanyContextProvider>
               <DrawerProvider>
                 <I18nProvider>
