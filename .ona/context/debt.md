@@ -13,6 +13,9 @@ Source of truth for sprint planning. Linked GitHub issues where they exist.
 ~~### DEBT-002: Direct-mode MemorySystem has persistence disabled~~
 **Resolved in Sprint 11.** `enable_persistence: false` → `true` + `SupabaseMemoryBackend` wired in `getDirectFactory()`. Regression test: `src/api/__tests__/agents.factory.test.ts`.
 
+~~### DEBT-valueCasesRouter: `valueCasesRouter` not mounted in `server.ts`~~
+**Resolved (2026-07-01).** Mounted at `/api/v1/cases` and `/api/v1/value-cases` in `server.ts`. All `/api/v1/value-cases/...` endpoints now reachable. `traceability.md` updated.
+
 ---
 
 ## P1 — High (lifecycle loop incomplete, visible to users)
@@ -29,12 +32,8 @@ Source of truth for sprint planning. Linked GitHub issues where they exist.
 ~~### DEBT-006: ValueCaseCanvas hardcodes case title~~
 **Resolved outside sprint cadence.** `ValueCaseCanvas.tsx` uses `useCase(caseId)` hook; renders `case.title` and `case.organization_name`.
 
-### DEBT-007: ValueCommitmentTrackingService — 12+ TODO stubs
-**File:** `apps/ValyntApp/src/services/ValueCommitmentTrackingService.ts`
-**Ticket:** VOS-DEBT-1427
-**Issue:** [#1348](https://github.com/Valynt/ValueOS/issues/1348)
-
-Every DB operation is a TODO comment returning mock data. Milestones, metrics, risks, stakeholders, audit entries — all non-functional. The entire commitment tracking feature is scaffolded but inert.
+~~### DEBT-007: ValueCommitmentTrackingService — 12+ TODO stubs~~
+**Resolved in Sprint 20.** All 15 TODO stubs replaced with real Supabase operations. Milestones, metrics, risks, stakeholders, and audit entries now persist to `realization_reports`. Issue [#1348](https://github.com/Valynt/ValueOS/issues/1348).
 
 ---
 
@@ -105,6 +104,7 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | DEBT-004: RealizationStage hardcoded demo data | `realization_reports` table + `RealizationReportRepository` + API + hook + stage wired | 2026-06 |
 | DEBT-005: NarrativeAgent did not exist | `NarrativeAgent.ts` + `narrative_drafts` table + `NarrativeDraftRepository` + API + hook + stage wired | 2026-06 |
 | DEBT-006: ValueCaseCanvas hardcoded title | `ValueCaseCanvas.tsx` uses `useCase(caseId)` hook | 2026-06 |
+| DEBT-007: ValueCommitmentTrackingService — 15 TODO stubs | All stubs replaced with real Supabase operations; milestones, metrics, risks, stakeholders, audit entries live | 2026-07 |
 | DEBT-009: ExpansionAgent had no DB persistence | `expansion_opportunities` table + `ExpansionOpportunityRepository` + API + hook + `ExpansionStage` wired | 2026-06 |
 | No `created_by`/`updated_by` actor columns on mutable tables | Added to `value_cases`, `hypothesis_outputs`, `integrity_outputs`, `narrative_drafts`, `realization_reports` in `20260331030000_actor_columns.sql` | 2026-03 |
 | `usage_ledger`, `rated_ledger`, `saga_transitions`, `value_loop_events` — no partitioning | Converted to monthly `PARTITION BY RANGE` in `20260401000000`; `create_next_monthly_partitions()` function added | 2026-04 |

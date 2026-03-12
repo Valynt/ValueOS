@@ -83,7 +83,7 @@ These are established patterns without a formal ADR. They should be promoted to 
 
 `LLMGateway` implements only the `together` provider. The `openai`, `anthropic`, `gemini`, and `custom` branches throw `'Provider not implemented'`. All agent code and factory configuration must use `provider: "together"` until additional providers are implemented.
 
-**Risk:** `getDirectFactory()` in `agents.ts` and `UnifiedAgentOrchestrator.ts` currently hardcode `provider: "openai"` — this is a known bug (see `debt.md`).
+**Note:** `getDirectFactory()` previously hardcoded `provider: "openai"` — resolved in Sprint 11 (DEBT-001). `UnifiedAgentOrchestrator` was deleted in the Sprint 10 architectural refactor.
 
 ### Agent LLM calls: secureInvoke only
 
