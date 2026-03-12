@@ -32,4 +32,25 @@ describe('DomainEventSchemas narrative.drafted compatibility', () => {
       format: 'executive_summary',
     })).toThrow(/Invalid payload for domain event/);
   });
+
+  it('strips legacy snake_case fields when normalized keys are present', () => {
+    const payload = validateDomainEvent('narrative.drafted', {
+      ...envelope,
+      organization_id: envelope.tenantId,
+      valueCaseId: 'case-123',
+      value_case_id: 'legacy-case-ignored',
+      defenseReadinessScore: 0.81,
+      defense_readiness_score: 0.5,
+      format: 'executive_summary',
+    });
+
+    // Normalized fields are preserved
+    expect(payload.valueCaseId).toBe('case-123');
+    expect(payload.defenseReadinessScore).toBe(0.81);
+
+    // Legacy snake_case fields are stripped from the parsed payload
+    expect('organization_id' in payload).toBe(false);
+    expect('value_case_id' in payload).toBe(false);
+    expect('defense_readiness_score' in payload).toBe(false);
+  });
 });
