@@ -50,6 +50,7 @@ export default function CompanyOnboarding() {
   const [contextId, setContextId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [researchJobId, setResearchJobId] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Collected data
   const [phase1Data, setPhase1Data] = useState<OnboardingPhase1Input | null>(null);
@@ -115,6 +116,7 @@ export default function CompanyOnboarding() {
   };
 
   const handleSkip = async () => {
+    setSubmissionError(null);
     try {
       markOnboardingBypassed(tenantId);
 
@@ -149,13 +151,15 @@ export default function CompanyOnboarding() {
         // Invalidate all company-context queries so the gate re-reads
         await queryClient.invalidateQueries({ queryKey: ["company-context"] });
       }
+      navigate("/dashboard");
     } catch (err) {
       console.error("Skip onboarding failed:", err);
+      setSubmissionError("We couldn't skip onboarding right now. Please try again.");
     }
-    navigate("/dashboard");
   };
 
   const handlePhase1 = async (data: OnboardingPhase1Input, jobId?: string, options?: { fastTrack: boolean }) => {
+    setSubmissionError(null);
     setPhase1Data(data);
     if (jobId) setResearchJobId(jobId);
     const shouldFastTrack = options?.fastTrack && !!jobId && researchJob?.status === "completed";
@@ -194,35 +198,54 @@ export default function CompanyOnboarding() {
         setPhase(shouldFastTrack ? 5 : 2);
       }
     } catch {
-      setPhase(shouldFastTrack ? 5 : 2);
+      setSubmissionError("We couldn't save company details. Please retry before continuing.");
     }
   };
 
   const handlePhase2 = async (data: OnboardingPhase2Input) => {
+    setSubmissionError(null);
     setPhase2Data(data);
     if (contextId && data.competitors.length > 0) {
-      try { await addCompetitors.mutateAsync(data); } catch { /* demo fallback */ }
+      try {
+        await addCompetitors.mutateAsync(data);
+      } catch {
+        setSubmissionError("We couldn't save competitors. Please retry before continuing.");
+        return;
+      }
     }
     setPhase(3);
   };
 
   const handlePhase3 = async (data: OnboardingPhase3Input) => {
+    setSubmissionError(null);
     setPhase3Data(data);
     if (contextId && data.personas.length > 0) {
-      try { await addPersonas.mutateAsync(data); } catch { /* demo fallback */ }
+      try {
+        await addPersonas.mutateAsync(data);
+      } catch {
+        setSubmissionError("We couldn't save personas. Please retry before continuing.");
+        return;
+      }
     }
     setPhase(4);
   };
 
   const handlePhase4 = async (data: OnboardingPhase4Input) => {
+    setSubmissionError(null);
     setPhase4Data(data);
     if (contextId && data.claim_governance.length > 0) {
-      try { await addClaimGovernance.mutateAsync(data); } catch { /* demo fallback */ }
+      try {
+        await addClaimGovernance.mutateAsync(data);
+      } catch {
+        setSubmissionError("We couldn't save claim governance. Please retry before continuing.");
+        return;
+      }
     }
     setPhase(5);
   };
 
   const handleConfirm = async () => {
+    setSubmissionError(null);
     setIsSubmitting(true);
     try {
       if (contextId) {
@@ -231,8 +254,7 @@ export default function CompanyOnboarding() {
       clearOnboardingBypass(tenantId);
       navigate("/dashboard");
     } catch {
-      // Demo fallback — navigate anyway
-      navigate("/dashboard");
+      setSubmissionError("We couldn't complete onboarding. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -287,6 +309,12 @@ export default function CompanyOnboarding() {
       {/* Right: phase content */}
       <div className="flex-1 flex justify-center py-10 px-8 overflow-y-auto">
         <div className="w-full max-w-2xl">
+          {submissionError ? (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              {submissionError}
+            </div>
+          ) : null}
+
           {phase === 1 && (
             <Phase1Company
               onNext={handlePhase1}
