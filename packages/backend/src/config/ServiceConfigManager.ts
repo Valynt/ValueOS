@@ -284,7 +284,7 @@ const DEFAULT_CONFIG: ServiceConfiguration = {
 
 export class ServiceConfigManager {
   private config: ServiceConfiguration = DEFAULT_CONFIG;
-  private configWatchers: Map<string, (config: any) => void> = new Map();
+  private configWatchers: Map<string, (config: ServiceConfiguration[keyof ServiceConfiguration]) => void> = new Map();
   private hotReloadEnabled = false;
 
   constructor() {
@@ -345,7 +345,7 @@ export class ServiceConfigManager {
             agentResponses: env.KAFKA_TOPIC_AGENT_RESPONSES,
           }),
         },
-      } as any,
+      } as Partial<ServiceConfiguration["eventExecutor"]["kafka"]>,
       circuitBreaker: {
         ...(env.EXECUTOR_CB_FAILURE_THRESHOLD && {
           failureThreshold: parseInt(env.EXECUTOR_CB_FAILURE_THRESHOLD),
@@ -353,7 +353,7 @@ export class ServiceConfigManager {
         ...(env.EXECUTOR_CB_RESET_TIMEOUT && {
           resetTimeout: parseInt(env.EXECUTOR_CB_RESET_TIMEOUT),
         }),
-      } as any,
+      } as Partial<ServiceConfiguration["eventExecutor"]["circuitBreaker"]>,
     };
 
     const agentMessageQueueEnv: Partial<
@@ -362,7 +362,7 @@ export class ServiceConfigManager {
       enabled: env.AGENT_QUEUE_ENABLED !== "false",
       redis: {
         ...(env.AGENT_QUEUE_REDIS_URL && { url: env.AGENT_QUEUE_REDIS_URL }),
-      } as any,
+      } as Partial<ServiceConfiguration["agentMessageQueue"]["redis"]>,
       queue: {
         ...(env.AGENT_QUEUE_CONCURRENCY && {
           concurrency: parseInt(env.AGENT_QUEUE_CONCURRENCY),
@@ -370,14 +370,14 @@ export class ServiceConfigManager {
         ...(env.AGENT_QUEUE_RATE_LIMIT_MAX && {
           rateLimitMax: parseInt(env.AGENT_QUEUE_RATE_LIMIT_MAX),
         }),
-      } as any,
+      } as Partial<ServiceConfiguration["agentMessageQueue"]["queue"]>,
     };
 
     const rateLimiterEnv: Partial<ServiceConfiguration["rateLimiter"]> = {
       redis: {
         enabled: env.RATE_LIMITER_REDIS_ENABLED === "true",
         ...(env.RATE_LIMITER_REDIS_URL && { url: env.RATE_LIMITER_REDIS_URL }),
-      } as any,
+      } as Partial<ServiceConfiguration["rateLimiter"]["redis"]>,
     };
 
     const eventSourcingEnv: Partial<ServiceConfiguration["eventSourcing"]> = {
@@ -386,15 +386,15 @@ export class ServiceConfigManager {
         ...(env.EVENT_SOURCING_MAX_CONNECTIONS && {
           maxConnections: parseInt(env.EVENT_SOURCING_MAX_CONNECTIONS),
         }),
-      } as any,
+      } as Partial<ServiceConfiguration["eventSourcing"]["database"]>,
     };
 
     return {
-      agentAPI: agentAPIEnv as any,
-      eventExecutor: eventExecutorEnv as any,
-      agentMessageQueue: agentMessageQueueEnv as any,
-      rateLimiter: rateLimiterEnv as any,
-      eventSourcing: eventSourcingEnv as any,
+      agentAPI: agentAPIEnv as Partial<ServiceConfiguration["agentAPI"]>,
+      eventExecutor: eventExecutorEnv as Partial<ServiceConfiguration["eventExecutor"]>,
+      agentMessageQueue: agentMessageQueueEnv as Partial<ServiceConfiguration["agentMessageQueue"]>,
+      rateLimiter: rateLimiterEnv as Partial<ServiceConfiguration["rateLimiter"]>,
+      eventSourcing: eventSourcingEnv as Partial<ServiceConfiguration["eventSourcing"]>,
     };
   }
 
@@ -460,7 +460,7 @@ export class ServiceConfigManager {
     service: T,
     callback: (config: ServiceConfiguration[T]) => void
   ): void {
-    this.configWatchers.set(service, callback as (config: any) => void);
+    this.configWatchers.set(service, callback as (config: ServiceConfiguration[keyof ServiceConfiguration]) => void);
   }
 
   /**

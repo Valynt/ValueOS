@@ -5,7 +5,6 @@
  * Stores episodes and retrieves similar past experiences for context.
  */
 
-import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend';
 import { logger } from '../../lib/logger.js'
@@ -23,11 +22,19 @@ export interface MemoryEnhancedRequest extends AgentRequest {
   memoryLimit?: number;
 }
 
-export interface MemoryEnhancedResponse<T = any> extends AgentResponse<T> {
+export interface EpisodeSummary {
+  task_intent: string;
+  success: boolean;
+  reward_score: number;
+  summary?: string;
+  created_at: string;
+}
+
+export interface MemoryEnhancedResponse<T = unknown> extends AgentResponse<T> {
   /** Episode ID if memory was stored */
   episodeId?: string;
   /** Retrieved similar episodes */
-  similarEpisodes?: any[];
+  similarEpisodes?: EpisodeSummary[];
   /** Memory stats */
   memoryStats?: {
     episodesRetrieved: number;
@@ -42,11 +49,9 @@ export interface MemoryEnhancedResponse<T = any> extends AgentResponse<T> {
 export class AgentMemoryIntegration {
   private agentAPI: AgentAPI;
   private memorySystem: MemorySystem;
-  private llmGateway: LLMGateway;
 
   constructor() {
     this.agentAPI = new AgentAPI();
-    this.llmGateway = new LLMGateway(supabase as any);
     this.memorySystem = new MemorySystem(
       { max_memories: 1000, enable_persistence: true },
       new SupabaseMemoryBackend(),
@@ -63,7 +68,7 @@ export class AgentMemoryIntegration {
    * 4. Store new episode
    * 5. Return response with memory metadata
    */
-  async invokeWithMemory<T = any>(
+  async invokeWithMemory<T = unknown>(
     request: MemoryEnhancedRequest
   ): Promise<MemoryEnhancedResponse<T>> {
     const startTime = Date.now();
@@ -72,7 +77,7 @@ export class AgentMemoryIntegration {
     const memoryLimit = request.memoryLimit || 5;
 
     try {
-      let similarEpisodes: any[] = [];
+      let similarEpisodes: EpisodeSummary[] = [];
       let enhancedContext = { ...request.context };
 
       // Step 1: Retrieve similar episodes if memory enabled
@@ -150,7 +155,7 @@ export class AgentMemoryIntegration {
     request: MemoryEnhancedRequest,
     limit: number,
     organizationId?: string
-  ): Promise<any[]> {
+  ): Promise<EpisodeSummary[]> {
     try {
       const context = {
         agent: request.agent,
@@ -160,8 +165,8 @@ export class AgentMemoryIntegration {
 
       const episodes = await this.memorySystem.retrieveSimilarEpisodes(
         context,
-        limit,
-        organizationId
+        organizationId ?? "",
+        limit
       );
 
       return episodes;
@@ -177,9 +182,9 @@ export class AgentMemoryIntegration {
    * Enhance request context with memory
    */
   private enhanceContextWithMemory(
-    context: Record<string, any>,
-    similarEpisodes: any[]
-  ): Record<string, any> {
+    context: Record<string, unknown>,
+    similarEpisodes: EpisodeSummary[]
+  ): Record<string, unknown> {
     const memoryContext = similarEpisodes.map((episode) => ({
       taskIntent: episode.task_intent,
       success: episode.success,
@@ -202,30 +207,35 @@ export class AgentMemoryIntegration {
   private async storeEpisode(
     sessionId: string,
     request: MemoryEnhancedRequest,
-    response: AgentResponse<any>
+    response: AgentResponse<unknown>
   ): Promise<string> {
     try {
-      const episodeId = await this.memorySystem.storeEpisode({
-        sessionId,
-        agentId: request.agent,
-        episodeType: 'agent_invocation',
-        taskIntent: request.query,
-        context: request.context || {},
-        initialState: {
-          query: request.query,
-          parameters: request.parameters,
+      const tokens = response.metadata?.tokens;
+      const orgId = request.context?.organizationId ?? "";
+      const episodeId = await this.memorySystem.storeEpisode(
+        {
+          sessionId,
+          agentId: request.agent,
+          episodeType: 'agent_invocation',
+          taskIntent: request.query,
+          context: request.context || {},
+          initialState: {
+            query: request.query,
+            parameters: request.parameters,
+          },
+          finalState: {
+            result: response.data,
+            tokens,
+          },
+          success: response.success,
+          rewardScore: this.calculateRewardScore(response),
+          // tokens.total is the closest available proxy for duration; replace with wall-clock when available
+          durationSeconds: (tokens?.total ?? 0) / 1000,
         },
-        finalState: {
-          result: response.data,
-          tokens: (response as any).tokenUsage,
-        },
-        success: response.success,
-        rewardScore: this.calculateRewardScore(response),
-        durationSeconds: ((response as any).tokenUsage?.totalTokens || 0) / 1000, // Rough estimate
-      });
+        orgId
+      );
 
       // Store episodic memory for quick retrieval
-      const orgId = (request.context as any)?.organizationId;
       await this.memorySystem.storeEpisodicMemory(
         sessionId,
         request.agent,
@@ -251,7 +261,7 @@ export class AgentMemoryIntegration {
   /**
    * Calculate reward score based on response quality
    */
-  private calculateRewardScore(response: AgentResponse<any>): number {
+  private calculateRewardScore(response: AgentResponse<unknown>): number {
     let score = 0.5; // Base score
 
     // Success bonus
@@ -260,8 +270,8 @@ export class AgentMemoryIntegration {
     }
 
     // Token efficiency bonus (fewer tokens = better)
-    if ((response as any).tokenUsage) {
-      const totalTokens = (response as any).tokenUsage.totalTokens || 0;
+    const totalTokens = response.metadata?.tokens?.total ?? 0;
+    if (totalTokens > 0) {
       if (totalTokens < 500) {
         score += 0.2;
       } else if (totalTokens < 1000) {
@@ -283,22 +293,23 @@ export class AgentMemoryIntegration {
   /**
    * Get memory stats for a session
    */
-  async getSessionMemoryStats(sessionId: string): Promise<{
+  async getSessionMemoryStats(sessionId: string, organizationId: string): Promise<{
     episodeCount: number;
     totalReward: number;
     averageReward: number;
   }> {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('episodes')
         .select('reward_score')
-        .eq('session_id', sessionId);
+        .eq('session_id', sessionId)
+        .eq('organization_id', organizationId);
 
       if (error) throw error;
 
-      const episodes = data || [];
+      const episodes = (data ?? []) as Array<{ reward_score: number | null }>;
       const totalReward = episodes.reduce(
-        (sum: number, ep: any) => sum + (ep.reward_score || 0),
+        (sum, ep) => sum + (ep.reward_score ?? 0),
         0
       );
 
@@ -322,21 +333,23 @@ export class AgentMemoryIntegration {
   /**
    * Clear memory for a session (useful for testing)
    */
-  async clearSessionMemory(sessionId: string): Promise<void> {
+  async clearSessionMemory(sessionId: string, organizationId: string): Promise<void> {
     try {
       // Delete all episodes for this session
-      await (supabase as any)
+      await supabase
         .from('episodes')
         .delete()
-        .eq('session_id', sessionId);
+        .eq('session_id', sessionId)
+        .eq('organization_id', organizationId);
 
       // Delete all episodic memories
-      await (supabase as any)
+      await supabase
         .from('agent_memory')
         .delete()
-        .eq('session_id', sessionId);
+        .eq('session_id', sessionId)
+        .eq('organization_id', organizationId);
 
-      logger.info('Cleared session memory', { sessionId });
+      logger.info('Cleared session memory', { sessionId, organizationId });
     } catch (error) {
       logger.error('Failed to clear session memory', error instanceof Error ? error : new Error(String(error)), {
         sessionId,

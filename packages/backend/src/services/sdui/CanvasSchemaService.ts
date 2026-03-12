@@ -15,7 +15,7 @@ import {
   ReorderComponentsAction,
   UpdateLayoutAction,
 } from "@sdui/AtomicUIActions";
-import { SDUIComponentSection, SDUIPageDefinition } from "@valueos/sdui";
+import { SDUIComponentSection, SDUILayoutDirective, SDUIPageDefinition } from "@valueos/sdui";
 import { generateSOFExpansionPage } from "@sdui/templates/sof-expansion-template";
 import { generateSOFIntegrityPage } from "@sdui/templates/sof-integrity-template";
 import { generateSOFOpportunityPage } from "@sdui/templates/sof-opportunity-template";
@@ -37,7 +37,7 @@ import {
 import { OutcomeHypothesis } from "../types/sof";
 import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../types/structural-data";
 import { VMRTAssumption } from "../types/vmrt";
-import { ManifestoValidationResult } from "../types/vos";
+import { FormulaResult, ManifestoValidationResult } from "../types/vos";
 import { ROIModel, ROIModelCalculation } from "../types/vos";
 import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
 import { LifecycleStage } from "../types/workflow";
@@ -523,7 +523,7 @@ export class CanvasSchemaService {
   /**
    * Fetch workspace data from Value Fabric
    */
-  private async fetchWorkspaceData(state: WorkspaceState): Promise<any> {
+  private async fetchWorkspaceData(state: WorkspaceState): Promise<WorkspaceData> {
     try {
       logger.debug("Fetching workspace data", {
         workspaceId: state.workspaceId,
@@ -1086,7 +1086,7 @@ export class CanvasSchemaService {
   private async fetchROI(workspaceId: string): Promise<{
     model: ROIModel;
     calculations: ROIModelCalculation[];
-    results: any;
+    results: Record<string, FormulaResult>;
   } | null> {
     try {
       const supabase = getSupabaseClient();
@@ -1160,7 +1160,7 @@ export class CanvasSchemaService {
       const results: ManifestoValidationResult[] = [];
 
       // Helper to process artifacts
-      const collectResults = (artifacts: any[]) => {
+      const collectResults = (artifacts: Array<{ compliance_metadata?: { results?: ManifestoValidationResult[] } }>) => {
         if (!artifacts) return;
         artifacts.forEach((artifact) => {
           if (
@@ -1182,7 +1182,7 @@ export class CanvasSchemaService {
 
       // 2. Fetch ROI Models (linked via Value Trees)
       if (valueTrees && valueTrees.length > 0) {
-        const valueTreeIds = valueTrees.map((vt: any) => vt.id);
+        const valueTreeIds = valueTrees.map((vt) => vt.id);
         const { data: roiModels } = await supabase
           .from("roi_models")
           .select("id, compliance_metadata")
@@ -1235,7 +1235,7 @@ export class CanvasSchemaService {
    */
   private async fetchAssumptions(
     workspaceId: string,
-    businessCase?: any
+    businessCase?: Record<string, unknown>
   ): Promise<VMRTAssumption[]> {
     try {
       // 1. Try to fetch from database models first
@@ -1350,7 +1350,11 @@ export class CanvasSchemaService {
   /**
    * Fetch realization metrics
    */
-  private async fetchRealizationMetrics(workspaceId: string): Promise<any> {
+  private async fetchRealizationMetrics(workspaceId: string): Promise<{
+    implementationStatus: string;
+    observedChanges: unknown[];
+    kpiMeasurements: Record<string, unknown>[];
+  } | null> {
     try {
       const supabase = getSupabaseClient();
 
@@ -1364,7 +1368,7 @@ export class CanvasSchemaService {
         .maybeSingle();
 
       let implementationStatus = "planning";
-      let kpiMeasurements: any[] = [];
+      let kpiMeasurements: Record<string, unknown>[] = [];
 
       if (report) {
         // Map status
@@ -1420,7 +1424,7 @@ export class CanvasSchemaService {
    */
   private async generateSchemaFromTemplate(
     template: LifecycleStage,
-    data: any,
+    data: WorkspaceData,
     state: WorkspaceState
   ): Promise<SDUIPageDefinition> {
     switch (template) {
@@ -1472,7 +1476,7 @@ export class CanvasSchemaService {
    */
   private async applyAtomicActions(
     schema: SDUIPageDefinition,
-    actions: any[]
+    actions: AtomicUIAction[]
   ): Promise<SDUIPageDefinition> {
     // Deep clone schema to avoid mutation side effects on the input
     // Using JSON parse/stringify is safe for SDUI definitions as they are JSON-serializable
@@ -1542,12 +1546,12 @@ export class CanvasSchemaService {
       if (section.type !== "component") continue;
 
       for (const mutation of action.mutations) {
-        this.applyPropertyMutation(section, mutation);
+        this.applyPropertyMutation(section as unknown as Record<string, unknown>, mutation);
       }
     }
   }
 
-  private applyPropertyMutation(obj: any, mutation: PropertyMutation): void {
+  private applyPropertyMutation(obj: Record<string, unknown>, mutation: PropertyMutation): void {
     const { path, operation, value } = mutation;
 
     // Parse path: props.data[0].value -> ['props', 'data', '0', 'value']
@@ -1699,18 +1703,18 @@ export class CanvasSchemaService {
     // Handling IDs (strings)
     else if (typeof order[0] === "string") {
       const ids = order as string[];
-      const sectionsById = new Map<string, any>();
-      const sectionsWithoutId: any[] = [];
+      const sectionsById = new Map<string, SDUIComponentSection>();
+      const sectionsWithoutId: SDUIComponentSection[] = [];
 
       existingSections.forEach((s) => {
         if (s.type === "component" && s.props?.id) {
-          sectionsById.set(s.props.id, s);
+          sectionsById.set(s.props.id as string, s as SDUIComponentSection);
         } else {
-          sectionsWithoutId.push(s);
+          sectionsWithoutId.push(s as SDUIComponentSection);
         }
       });
 
-      const reorderedWithIds: any[] = [];
+      const reorderedWithIds: SDUIComponentSection[] = [];
       ids.forEach((id) => {
         const s = sectionsById.get(id);
         if (s) {
@@ -1737,7 +1741,8 @@ export class CanvasSchemaService {
     if (layoutIndex !== -1) {
       const section = schema.sections[layoutIndex];
       if (section.type === "layout.directive") {
-        section.layout = action.layout as any;
+        // action.layout is string; cast to the enum type defined in SDUILayoutDirective
+        section.layout = action.layout as SDUILayoutDirective["layout"];
       }
     }
   }

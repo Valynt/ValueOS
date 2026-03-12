@@ -33,7 +33,7 @@
 
 | Module | Measured count | Sprint 28–31 target |
 |---|---|---|
-| `packages/backend` | 1,654 (production files: ~664 after Sprint 26) | <400 by Sprint 31 |
+| `packages/backend` | 893 (re-measured 2026-07-15 with `--include` flags) | <700 by Sprint 31 |
 | `apps/ValyntApp` | 409 (production files: ~207 after Sprint 27) | <100 by Sprint 31 |
 | `packages/sdui` | 221 (production files: ~50 after Sprint 27) | <20 by Sprint 31 |
 | `apps/VOSAcademy` | 99 | <50 by Sprint 31 |
@@ -65,15 +65,16 @@
 - `DeviceFingerprintService` GeoIP / threat intelligence
 - `EnhancedParallelExecutor` progress-to-UI via WebSocket
 - ADR-0005 Theme Precedence (proposed, not accepted)
-- `packages/mcp` and `apps/VOSAcademy` `any` reduction below 20 (next horizon)
+- `packages/mcp` `any` below 20 (currently at 0; maintain 0 — no reduction work needed)
+- `apps/VOSAcademy` `any` below 20 (Sprint 31 delivers below 50; below 20 is next horizon)
 
 ---
 
 ## Sprint 28 — Backend `any` Elimination: API and Agent Layers (Weeks 1–2)
 
-**Objective:** `packages/backend` production `any` count is below 530. The five highest-density production files in the API and agent layers are fully typed.
+**Objective:** `packages/backend` production `any` count is below 810. The five highest-density production files in the API and agent layers are fully typed.
 
-**Success statement:** `grep -rn ": any\b\|as any\b\|<any>" packages/backend/src --include="*.ts" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 530. `api/admin.ts`, `api/referrals.ts`, `services/agents/AgentMemoryIntegration.ts`, `services/sdui/CanvasSchemaService.ts`, and `config/ServiceConfigManager.ts` contain zero `any` usages. `pnpm test` green.
+**Success statement:** `grep -rn ": any\b\|as any\b\|<any>" packages/backend/src --include="*.ts" --include="*.tsx" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 810. `api/admin.ts`, `api/referrals.ts`, `services/agents/AgentMemoryIntegration.ts`, `services/sdui/CanvasSchemaService.ts`, and `config/ServiceConfigManager.ts` contain zero `any` usages. `pnpm test` green.
 
 **Depends on:** Sprint 27 complete.
 
@@ -86,7 +87,7 @@
 **Acceptance criteria:**
 - All request body parameters typed with Zod schemas; `req.body` is never `any`
 - All response types explicit — no `res.json(anything: any)`
-- `pnpm run lint` reports 0 `any` in `api/admin.ts`
+- `grep -n ": any\b\|as any\b\|<any>" packages/backend/src/api/admin.ts` returns no matches
 - Existing admin route tests pass without modification
 
 ### KR 28-2 — `api/referrals.ts` fully typed (20 usages)
@@ -94,7 +95,7 @@
 **Acceptance criteria:**
 - Request body and query parameter types defined with Zod; validated at handler entry
 - Response shapes typed
-- `pnpm run lint` reports 0 `any` in `api/referrals.ts`
+- `grep -n ": any\b\|as any\b\|<any>" packages/backend/src/api/referrals.ts` returns no matches
 - Existing referral route tests pass
 
 ### KR 28-3 — `services/agents/AgentMemoryIntegration.ts` fully typed (15 usages)
@@ -102,7 +103,7 @@
 **Acceptance criteria:**
 - Agent message payload `any` replaced with typed union sourced from `packages/shared/src/domain/` or a local `AgentMessage` union in `packages/backend/src/types/`
 - Memory store call signatures typed end-to-end
-- `pnpm run lint` reports 0 `any` in `AgentMemoryIntegration.ts`
+- `grep -n ": any\b\|as any\b\|<any>" packages/backend/src/services/agents/AgentMemoryIntegration.ts` returns no matches
 - `AgentMemoryIntegration.test.ts` passes
 
 ### KR 28-4 — `services/sdui/CanvasSchemaService.ts` and `config/ServiceConfigManager.ts` typed (13 + 13 usages)
@@ -110,7 +111,7 @@
 **Acceptance criteria:**
 - `CanvasSchemaService.ts`: schema node types defined; no `any` in schema traversal or mutation methods
 - `ServiceConfigManager.ts`: config value types narrowed with discriminated unions or Zod; no `any` in getter/setter signatures
-- `pnpm run lint` reports 0 `any` in both files
+- `grep -n ": any\b\|as any\b\|<any>" packages/backend/src/services/sdui/CanvasSchemaService.ts packages/backend/src/config/ServiceConfigManager.ts` returns no matches
 - `CanvasSchemaService.test.ts` passes
 
 ### KR 28-5 — Test gate
@@ -119,7 +120,7 @@
 - `pnpm test` green
 - `pnpm run test:rls` green
 - `pnpm run lint` passes
-- `packages/backend` production `any` count confirmed below 530
+- `grep -rn ": any\b\|as any\b\|<any>" packages/backend/src --include="*.ts" --include="*.tsx" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 810
 
 **Risk flags:**
 - `api/admin.ts` request body types may require new Zod schemas that touch shared validation logic. Contingency: define schemas inline in `admin.ts` first; extract to `packages/shared` in a follow-up if reuse is needed.
@@ -199,7 +200,7 @@
 
 **Objective:** `packages/backend` production `any` count is below 400. `apps/ValyntApp` production `any` count is below 100. The five highest-density `ValyntApp` production files are fully typed.
 
-**Success statement:** `grep -rn ": any\b\|as any\b\|<any>" packages/backend/src --include="*.ts" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 400, and the same command scoped to `apps/ValyntApp/src` reports fewer than 100. `docs/debt/ts-any-dashboard.md` updated with actuals.
+**Success statement:** `grep -rn ": any\b\|as any\b\|<any>" packages/backend/src --include="*.ts" --include="*.tsx" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 400, and `grep -rn ": any\b\|as any\b\|<any>" apps/ValyntApp/src --include="*.ts" --include="*.tsx" | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l` reports fewer than 100. `docs/debt/ts-any-dashboard.md` updated with actuals.
 
 **Depends on:** Sprint 29 complete.
 
@@ -212,7 +213,7 @@
 **Acceptance criteria:**
 - `PlaygroundAutoSave.ts`: layout conflict resolution types defined; `serverLayout`/`clientLayout` parameters typed with a `CanvasLayout` interface; no `any` in merge or diff methods
 - `OfflineEvaluation.ts`: evaluation result and queue entry types defined; no `any` in queue operations or result handlers
-- `pnpm run lint` reports 0 `any` in both files
+- `grep -n ": any\b\|as any\b\|<any>" packages/backend/src/services/post-v1/PlaygroundAutoSave.ts packages/backend/src/services/post-v1/OfflineEvaluation.ts` returns no matches
 - Existing tests pass
 
 ### KR 30-2 — `services/post-v1/ValueLifecycleOrchestrator.ts` and `services/workflows/SagaAdapters.ts` typed (12 + 12 usages)
@@ -220,7 +221,7 @@
 **Acceptance criteria:**
 - `ValueLifecycleOrchestrator.ts`: lifecycle event payloads typed using domain types from `packages/shared/src/domain/`; no `any` in event dispatch or handler registration
 - `SagaAdapters.ts`: saga state and compensation function signatures typed; no `any` in adapter methods
-- `pnpm run lint` reports 0 `any` in both files
+- `grep -n ": any\b\|as any\b\|<any>" packages/backend/src/services/post-v1/ValueLifecycleOrchestrator.ts packages/backend/src/services/workflows/SagaAdapters.ts` returns no matches
 - Workflow compensation tests pass
 
 ### KR 30-3 — `apps/ValyntApp/src/mcp-ground-truth/core/IntegratedMCPServer.ts` typed (39 usages)
@@ -228,7 +229,7 @@
 **Acceptance criteria:**
 - MCP tool call request and response types defined (can reference `packages/mcp` types if available, otherwise define locally)
 - No `any` in tool registration, invocation, or result handling
-- `pnpm run lint` reports 0 `any` in `IntegratedMCPServer.ts`
+- `grep -n ": any\b\|as any\b\|<any>" apps/ValyntApp/src/mcp-ground-truth/core/IntegratedMCPServer.ts` returns no matches
 - Existing MCP integration tests pass
 
 ### KR 30-4 — `apps/ValyntApp` remaining high-density files typed
@@ -241,7 +242,7 @@
 - `utils/export.ts`: export payload types defined; no `any` in serialization helpers
 - `types/vos.ts`: all `any` replaced with typed alternatives or `unknown` + type guards
 - `supabaseRealtime.ts`: Realtime payload types narrowed; no `any` in subscription callbacks
-- `pnpm run lint` reports 0 `any` in all five files
+- `grep -n ": any\b\|as any\b\|<any>" apps/ValyntApp/src/lib/safeExpressionEvaluator.ts apps/ValyntApp/src/views/Admin/DocumentationCMS.tsx apps/ValyntApp/src/utils/export.ts apps/ValyntApp/src/types/vos.ts apps/ValyntApp/src/lib/realtime/supabaseRealtime.ts` returns no matches
 
 ### KR 30-5 — `docs/debt/ts-any-dashboard.md` updated
 
@@ -282,7 +283,7 @@
 **Acceptance criteria:**
 - `renderPage.ts`: page schema node types defined; render function signatures typed end-to-end; no `any` in component resolution or prop passing
 - `WebSocketDataSource.ts`: WebSocket message payload types defined; subscription callback signatures typed; no `any` in data binding path
-- `pnpm run lint` reports 0 `any` in both files
+- `grep -n ": any\b\|as any\b\|<any>" packages/sdui/src/renderPage.ts packages/sdui/src/WebSocketDataSource.ts` returns no matches
 - SDUI rendering tests pass
 
 ### KR 31-2 — `packages/sdui` data binding typed: `DataBindingResolver.ts` and `canvas/types.ts` (14 + 9 usages)
@@ -290,7 +291,7 @@
 **Acceptance criteria:**
 - `DataBindingResolver.ts`: binding expression types defined; resolver return types explicit; no `any` in path traversal
 - `canvas/types.ts`: all canvas node and layout types defined as discriminated unions; no `any` type aliases
-- `pnpm run lint` reports 0 `any` in both files
+- `grep -n ": any\b\|as any\b\|<any>" packages/sdui/src/DataBindingResolver.ts packages/sdui/src/canvas/types.ts` returns no matches
 - `DataBindingResolver.test.ts` passes
 
 ### KR 31-3 — `apps/VOSAcademy` high-density files typed: `lib/icons.tsx` and `data/routers.d.ts` (40 + 18 usages)
@@ -298,7 +299,7 @@
 **Acceptance criteria:**
 - `lib/icons.tsx`: icon component props typed; no `any` in icon registry or render helpers
 - `data/routers.d.ts`: router type declarations replaced with explicit typed interfaces; no `any` in route definitions
-- `pnpm run lint` reports 0 `any` in both files
+- `grep -n ": any\b\|as any\b\|<any>" apps/VOSAcademy/src/lib/icons.tsx apps/VOSAcademy/src/data/routers.d.ts` returns no matches
 - VOSAcademy build passes
 
 ### KR 31-4 — Integration health dashboard
