@@ -1,28 +1,28 @@
 # Code owners for ValueOS
 
 # Agents and memory
-src/lib/agent-fabric/agents/ @team/agents
-src/lib/agent-fabric/MemorySystem.ts @team/agents
+packages/backend/src/lib/agent-fabric/agents/ @team/agents
+packages/backend/src/lib/agent-fabric/MemorySystem.ts @team/agents
 
 # Orchestration and messaging
-src/services/WorkflowOrchestrator.ts @team/orchestration
-src/services/MessageBus.ts @team/orchestration
+packages/backend/src/runtime/ @team/orchestration
+packages/backend/src/services/realtime/MessageBus.ts @team/orchestration
 
 # Security & Auth
-src/security/ @team/security
-src/lib/supabase.ts @team/security
+packages/backend/src/security/ @team/security
+packages/backend/src/lib/supabase.ts @team/security
 
 # Billing & Metering
-src/services/metering/ @team/billing
-src/middleware/planEnforcementMiddleware.ts @team/billing
-src/middleware/usageTrackingMiddleware.ts @team/billing
+packages/backend/src/services/metering/ @team/billing
+packages/backend/src/middleware/planEnforcementMiddleware.ts @team/billing
+packages/backend/src/middleware/usageTrackingMiddleware.ts @team/billing
 
 # Backend services
-src/services/ @team/backend
+packages/backend/src/services/ @team/backend
 
 # Frontend / SDUI / Components
-src/sdui/ @team/frontend
-src/components/ @team/frontend
+packages/backend/src/services/sdui/ @team/frontend
+apps/ValyntApp/src/components/ @team/frontend
 
 # CI / DevOps
 
