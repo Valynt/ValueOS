@@ -1,10 +1,109 @@
 /**
  * Secure LLM Wrapper
- * 
- * Security wrapper for LLM requests with input/output sanitization,
- * PII detection, and content filtering.
+ *
+ * Two exports:
+ *
+ * 1. `secureLLMComplete` — the approved service/worker/middleware invocation
+ *    path. Delegates to LLMGateway.complete() with PII sanitization and
+ *    enforces tenant metadata presence. Use this instead of calling
+ *    gateway.complete() directly from non-agent code.
+ *
+ * 2. `SecureLLMWrapper` — input/output validation class used by the wrapper
+ *    and available for standalone validation.
+ *
+ * Agent-owned code must use BaseAgent.secureInvoke() instead.
  */
 
+import type { LLMMessage } from '../agent-fabric/LLMGateway.js';
+
+/**
+ * Minimal interface satisfied by both LLMGateway and LLMGatewayInterface.
+ * Allows secureLLMComplete to be used from services that hold either type.
+ */
+export interface LLMCompletable {
+  complete(request: {
+    messages: LLMMessage[];
+    model?: string;
+    temperature?: number;
+    max_tokens?: number;
+    metadata: { organizationId?: string; tenantId?: string; [key: string]: unknown };
+  }): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }>;
+}
+
+export interface SecureLLMCompleteOptions {
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  /** Tenant identifier — required for tenant isolation. */
+  organizationId?: string;
+  tenantId?: string;
+  userId?: string;
+  serviceName?: string;
+  operation?: string;
+  /** Arbitrary extra metadata forwarded to LLMGateway. */
+  [key: string]: unknown;
+}
+
+/**
+ * Approved service-layer LLM invocation path.
+ *
+ * Enforces tenant metadata presence, runs PII detection on the outbound
+ * prompt, and delegates to LLMGateway.complete(). Throws if no tenant
+ * identifier is provided (tenant isolation requirement).
+ */
+export async function secureLLMComplete(
+  gateway: LLMCompletable,
+  messages: LLMMessage[],
+  options: SecureLLMCompleteOptions = {},
+): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+  const tenantId = options.organizationId ?? options.tenantId;
+  if (!tenantId) {
+    throw new Error(
+      'secureLLMComplete requires a tenant identifier (organizationId or tenantId). ' +
+        'Pass it in the options object to satisfy tenant isolation requirements.',
+    );
+  }
+
+  // PII check on outbound content (non-blocking warn; callers own remediation).
+  const wrapper = new SecureLLMWrapper({
+    enable_pii_detection: true,
+    enable_content_filtering: true,
+    enable_rate_limiting: false,
+    max_tokens_per_request: options.max_tokens ?? 4096,
+  });
+
+  for (const msg of messages) {
+    const result = await wrapper.validateInput(msg.content);
+    if (!result.is_safe) {
+      const severities = result.violations.map((v) => v.severity);
+      const hasCritical = severities.includes('critical') || severities.includes('high');
+      if (hasCritical) {
+        throw new Error(
+          `secureLLMComplete blocked request: high/critical PII or content violation detected. ` +
+            `Violations: ${result.violations.map((v) => v.message).join('; ')}`,
+        );
+      }
+    }
+  }
+
+  // Omit tenant alias fields from rest — tenantId is passed explicitly below.
+  // serviceName/operation remain in rest for observability consumers.
+  const { userId, model, temperature, max_tokens, ...rawRest } = options;
+  const { organizationId: _o, tenantId: _t, ...rest } = rawRest;
+
+  return gateway.complete({
+    messages,
+    model,
+    temperature,
+    max_tokens,
+    metadata: {
+      organizationId: tenantId,
+      tenantId,
+      userId: userId ?? 'system',
+      ...rest,
+    },
+  });
+}
 
 export interface SecureLLMConfig {
   enable_pii_detection: boolean;
@@ -137,8 +236,4 @@ export class SecureLLMWrapper {
 
 export function createSecureLLMWrapper(config: SecureLLMConfig): SecureLLMWrapper {
   return new SecureLLMWrapper(config);
-}
-
-export async function secureLLMComplete(prompt: string, _options?: Record<string, unknown>): Promise<string> {
-  return prompt;
 }

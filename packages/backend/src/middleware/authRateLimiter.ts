@@ -24,6 +24,14 @@ import { createCounter } from "../lib/observability/index.js";
 
 const logger = createLogger({ component: "AuthRateLimiter" });
 
+// Incremented on every request handled in degraded (in-memory) mode.
+// A non-zero rate means distributed rate limiting is not enforced across pods.
+// Alert rule: auth_rate_limiter_fallback_active_total rate > 0 over 5m → warning.
+const authRateLimiterFallbackCounter = createCounter(
+  "auth_rate_limiter_fallback_active_total",
+  "Requests handled by in-memory fallback when Redis is unavailable"
+);
+
 const authRateLimit429Counter = createCounter(
   "auth_rate_limit_429_total",
   "Auth-specific 429 responses"
@@ -256,6 +264,7 @@ export class AuthRateLimitStore {
         this.onRedisError(err);
       }
     }
+    authRateLimiterFallbackCounter.inc();
     return this.incrementInMemory(ip, email, config);
   }
 
@@ -300,6 +309,7 @@ export class AuthRateLimitStore {
         this.onRedisError(err);
       }
     }
+    authRateLimiterFallbackCounter.inc();
     this.recordFailureInMemory(ip, email, config);
   }
 
@@ -317,6 +327,7 @@ export class AuthRateLimitStore {
         this.onRedisError(err);
       }
     }
+    authRateLimiterFallbackCounter.inc();
     return this.isLockedInMemory(ip, email);
   }
 
@@ -598,4 +609,4 @@ export function recordAuthFailure(req: Request, action?: string): void {
 
 /** Exposed for testing */
 export const authRateLimitStore = store;
-export { AUTH_CONFIGS };
+export { AUTH_CONFIGS, authRateLimiterFallbackCounter };

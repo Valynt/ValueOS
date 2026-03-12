@@ -132,6 +132,35 @@ if (declaredTotal !== null && declaredTotal !== expectedDocs.length) {
   });
 }
 
+// Validate migration file paths referenced in evidence-index.md.
+// The "Migration lineage" column contains backtick-quoted paths like
+// `infra/supabase/supabase/migrations/...`. Each path must exist on disk.
+const evidenceIndexPath = 'docs/security-compliance/evidence-index.md';
+const evidenceIndexAbsolute = path.resolve(repoRoot, evidenceIndexPath);
+if (existsSync(evidenceIndexAbsolute)) {
+  const evidenceContent = readFileSync(evidenceIndexAbsolute, 'utf8');
+  // Match backtick-quoted paths that look like migration file references.
+  const migrationPathRegex = /`(infra\/supabase\/supabase\/migrations\/[^`]+\.sql)`/g;
+  const migrationRefs = [];
+
+  for (const match of evidenceContent.matchAll(migrationPathRegex)) {
+    migrationRefs.push(match[1]);
+  }
+
+  for (const ref of migrationRefs) {
+    const resolved = path.resolve(repoRoot, ref);
+    if (!existsSync(resolved)) {
+      errors.push({
+        type: 'missing-migration-ref',
+        sourceFile: evidenceIndexPath,
+        ref,
+      });
+    } else {
+      checks.push({ sourceFile: evidenceIndexPath, link: ref, resolved: ref });
+    }
+  }
+}
+
 if (errors.length > 0) {
   console.error('❌ Docs integrity check failed.');
 
@@ -152,6 +181,12 @@ if (errors.length > 0) {
     if (error.type === 'count-mismatch') {
       console.error(
         ` - [${error.readme}] **Total Documents** declares ${error.declaredTotal}, but found ${error.actualTotal} markdown document(s).`,
+      );
+    }
+
+    if (error.type === 'missing-migration-ref') {
+      console.error(
+        ` - [${error.sourceFile}] Migration lineage reference not found on disk: \`${error.ref}\``,
       );
     }
   }

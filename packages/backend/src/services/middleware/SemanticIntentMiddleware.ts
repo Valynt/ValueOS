@@ -9,6 +9,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import type { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
+import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js';
 import { supabase } from '../../lib/supabase.js';
 import type { IntentCategory } from '../../types/intent.js';
@@ -239,17 +240,21 @@ Respond with valid JSON only, no markdown fences:
     const userPrompt = `Query: "${query}"${historicalContext ? `\n\nHistorical matches:\n${historicalContext}` : ''}`;
 
     try {
-      // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-      // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-      const llmResponse = await this.llmGateway.complete({
-        messages: [
+      const llmResponse = await secureLLMComplete(
+        this.llmGateway,
+        [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.1,
-        max_tokens: 512,
-        metadata: { tenantId: organizationId, agentType: 'semantic_intent' } as any,
-      });
+        {
+          organizationId,
+          temperature: 0.1,
+          max_tokens: 512,
+          agentType: 'semantic_intent',
+          serviceName: 'SemanticIntentMiddleware',
+          operation: 'classifyIntent',
+        },
+      );
 
       const parsed = JSON.parse(llmResponse.content);
 
