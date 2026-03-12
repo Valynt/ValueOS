@@ -116,6 +116,9 @@ jobs:
       - name: Critical-path skipped/focused test guard
         run: node scripts/ci/check-critical-skip-only.mjs
 
+      - name: Release-critical focused-test guard
+        run: pnpm check:release-critical-focused-tests
+
       - name: Direct LLM call guard
         run: node scripts/ci/check-direct-llm-calls.mjs
 
