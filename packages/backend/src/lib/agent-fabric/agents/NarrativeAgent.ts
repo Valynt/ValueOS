@@ -217,9 +217,8 @@ export class NarrativeAgent extends BaseAgent {
           tenantId: context.organization_id,
           actorId: context.user_id,
         }),
-        organization_id: context.organization_id,
-        value_case_id: valueCaseId,
-        defense_readiness_score: narrativeOutput.defense_readiness_score,
+        valueCaseId,
+        defenseReadinessScore: narrativeOutput.defense_readiness_score,
         format,
       });
     } catch (err) {
