@@ -45,6 +45,7 @@ import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
 import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
 import crmRouter from "./api/crm.js";
 import { valueCasesRouter } from "./api/valueCases/index.js";
+import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
 import complianceRouter from "./api/compliance.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
@@ -500,6 +501,7 @@ app.use("/api/v1/domain-packs", domainPacksRouter);
 app.use("/api/v1/cases", valueCasesRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
+app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 // Mount checkpoint HITL endpoints
