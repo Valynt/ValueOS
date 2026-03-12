@@ -222,6 +222,15 @@ export class MemorySystem {
       throw new Error("cross_workspace_reason is required when include_cross_workspace is true");
     }
 
+    if (query.include_cross_workspace) {
+      logger.info("Cross-workspace memory retrieval requested", {
+        agent_id: query.agent_id,
+        organization_id: query.organization_id,
+        requester_workspace_id: query.workspace_id ?? null,
+        include_cross_workspace: query.include_cross_workspace,
+        cross_workspace_reason: query.cross_workspace_reason,
+      });
+    }
     // Try persistent backend first for cross-session recall
     if (this.backend && this.config.enable_persistence) {
       try {
