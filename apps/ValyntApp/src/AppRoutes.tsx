@@ -74,18 +74,31 @@ function buildTenantPath(tenantSlugOrId: string, leafPath: string): string {
 }
 
 function TenantAwareRedirect({ leafPath }: { leafPath: string }) {
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading } = useTenant();
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
   if (!currentTenant) {
     return <Navigate to="/create-org" replace />;
   }
 
-  return <Navigate to={buildTenantPath(currentTenant.slug || currentTenant.id, leafPath)} replace />;
+  return (
+    <Navigate
+      to={buildTenantPath(currentTenant.slug || currentTenant.id, leafPath)}
+      replace
+    />
+  );
 }
 
 function LegacyTenantRouteBridge() {
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading } = useTenant();
   const location = useLocation();
 
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
   if (!currentTenant) {
     return <Navigate to="/create-org" replace />;
   }
