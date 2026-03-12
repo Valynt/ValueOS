@@ -142,8 +142,7 @@ describe("HumanCheckpoint", () => {
     const publishedPayload = broker.publishCheckpointEvent.mock.calls[0]?.[0];
     expect(publishedPayload?.tenantId).toBe("tenant-1");
     expect(publishedPayload?.sessionId).toBe("session-1");
-    expect(publishedPayload?.idempotencyKey).toBeTypeOf("string");
-    expect(publishedPayload?.idempotencyKey).not.toBe("checkpoint-1");
+    expect(publishedPayload?.idempotencyKey).toBe("checkpoint-1:approved");
     expect(publishedPayload?.checkpointIdempotencyKey).toBe("checkpoint-1");
     expect(publishedPayload?.actionData).toMatchObject({ actionId: "checkpoint-1", approved: true });
     expect(onApproval).toHaveBeenCalledWith(true, undefined);
@@ -175,6 +174,7 @@ describe("HumanCheckpoint", () => {
       approved: false,
       reason: "Insufficient evidence",
     });
+    expect(publishedPayload?.idempotencyKey).toBe("checkpoint-1:rejected");
     expect(onApproval).toHaveBeenCalledWith(false, "Insufficient evidence");
 
     promptSpy.mockRestore();
