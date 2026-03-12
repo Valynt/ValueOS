@@ -267,6 +267,7 @@ jobs:
       - name: Critical workflow contracts
         run: |
           node scripts/ci/verify-critical-claims.mjs
+          pnpm run test:e2e:gate
           pnpm exec vitest run \
             packages/backend/src/__tests__/versioning.contract.test.ts
 
