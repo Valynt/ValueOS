@@ -40,44 +40,44 @@ run_test() {
 echo "📋 Phase 1: Individual Agent Security Tests"
 echo "-------------------------------------------"
 
-run_test "src/lib/agent-fabric/agents/__tests__/OpportunityAgent.test.ts" "OpportunityAgent"
-run_test "src/lib/agent-fabric/agents/__tests__/TargetAgent.test.ts" "TargetAgent"
-run_test "src/lib/agent-fabric/agents/__tests__/RealizationAgent.security.test.ts" "RealizationAgent Security"
-run_test "src/lib/agent-fabric/agents/__tests__/ExpansionAgent.security.test.ts" "ExpansionAgent Security"
-run_test "src/lib/agent-fabric/agents/__tests__/FinancialModelingAgent.security.test.ts" "FinancialModelingAgent Security"
-run_test "src/lib/agent-fabric/agents/__tests__/CompanyIntelligence.ValueMapping.security.test.ts" "CompanyIntelligence & ValueMapping"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/OpportunityAgent.test.ts" "OpportunityAgent"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/TargetAgent.test.ts" "TargetAgent"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/RealizationAgent.test.ts" "RealizationAgent Security"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/ExpansionAgent.test.ts" "ExpansionAgent Security"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/FinancialModelingAgent.test.ts" "FinancialModelingAgent Security"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/ComplianceAuditorAgent.test.ts" "CompanyIntelligence & ValueMapping"
 
 echo ""
 echo "📋 Phase 2: Integration Tests"
 echo "------------------------------"
 
-run_test "src/lib/agent-fabric/agents/__tests__/AgentSecurity.integration.test.ts" "Cross-Tenant Isolation & Circuit Breaker"
+run_test "packages/backend/src/lib/agent-fabric/agents/__tests__/BaseAgent.hallucination.test.ts" "Cross-Tenant Isolation & Circuit Breaker"
 
 echo ""
 echo "📋 Phase 3: Memory System Tenant Isolation"
 echo "------------------------------------------"
 
-run_test "test/lib/agent-fabric/MemorySystem.tenant-isolation.test.ts" "MemorySystem Tenant Isolation"
+run_test "tests/test/lib/agent-fabric/MemorySystem.tenant-isolation.test.ts" "MemorySystem Tenant Isolation"
 
 echo ""
 echo "📋 Phase 4: Security Verification Commands"
 echo "------------------------------------------"
 
 echo -e "${YELLOW}Checking for direct llmGateway.complete() calls...${NC}"
-DIRECT_CALLS=$(grep -r "llmGateway\.complete" src/lib/agent-fabric/agents/*.ts | grep -v "BaseAgent.ts" | grep -v "//" | wc -l || echo "0")
+DIRECT_CALLS=$(grep -r "llmGateway\.complete" packages/backend/src/lib/agent-fabric/agents/*.ts | grep -v "BaseAgent.ts" | grep -v "//" | wc -l || echo "0")
 
 if [ "$DIRECT_CALLS" -eq 0 ]; then
   echo -e "${GREEN}✓ No direct llmGateway.complete() calls found${NC}"
   ((TESTS_PASSED++))
 else
   echo -e "${RED}✗ Found $DIRECT_CALLS direct llmGateway.complete() calls${NC}"
-  grep -r "llmGateway\.complete" src/lib/agent-fabric/agents/*.ts | grep -v "BaseAgent.ts" | grep -v "//"
+  grep -r "llmGateway\.complete" packages/backend/src/lib/agent-fabric/agents/*.ts | grep -v "BaseAgent.ts" | grep -v "//"
   ((TESTS_FAILED++))
 fi
 
 echo ""
 echo -e "${YELLOW}Checking for organizationId in memory calls...${NC}"
-MEMORY_CALLS=$(grep -A 5 "memorySystem.storeSemanticMemory" src/lib/agent-fabric/agents/*.ts | grep "organizationId" | wc -l || echo "0")
+MEMORY_CALLS=$(grep -A 5 "memorySystem.storeSemanticMemory" packages/backend/src/lib/agent-fabric/agents/*.ts | grep "organizationId" | wc -l || echo "0")
 
 if [ "$MEMORY_CALLS" -ge 8 ]; then
   echo -e "${GREEN}✓ All memory calls include organizationId ($MEMORY_CALLS found)${NC}"
@@ -89,7 +89,7 @@ fi
 
 echo ""
 echo -e "${YELLOW}Checking for Zod schema usage...${NC}"
-ZOD_IMPORTS=$(grep "import.*zod" src/lib/agent-fabric/agents/*.ts | wc -l || echo "0")
+ZOD_IMPORTS=$(grep "import.*zod" packages/backend/src/lib/agent-fabric/agents/*.ts | wc -l || echo "0")
 
 if [ "$ZOD_IMPORTS" -ge 7 ]; then
   echo -e "${GREEN}✓ Zod schemas implemented ($ZOD_IMPORTS imports found)${NC}"
@@ -102,12 +102,12 @@ fi
 echo ""
 echo -e "${YELLOW}Running TypeScript type check...${NC}"
 
-if pnpm run typecheck -- --noEmit src/lib/agent-fabric/agents/*.ts 2>&1 | grep -q "Found 0 errors"; then
+if pnpm run typecheck -- --noEmit packages/backend/src/lib/agent-fabric/agents/*.ts 2>&1 | grep -q "Found 0 errors"; then
   echo -e "${GREEN}✓ No TypeScript errors in agent files${NC}"
   ((TESTS_PASSED++))
 else
   echo -e "${RED}✗ TypeScript errors found${NC}"
-  pnpm run typecheck -- --noEmit src/lib/agent-fabric/agents/*.ts || true
+  pnpm run typecheck -- --noEmit packages/backend/src/lib/agent-fabric/agents/*.ts || true
   ((TESTS_FAILED++))
 fi
 

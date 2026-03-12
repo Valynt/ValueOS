@@ -76,6 +76,12 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Doc path guard
+        run: bash scripts/check-doc-paths.sh
+
+      - name: Legacy path import guard
+        run: bash scripts/ci/check-legacy-path-imports.sh
+
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
 
