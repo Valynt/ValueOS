@@ -9,7 +9,7 @@ import {
   UnauthorizedError,
 } from "../lib/errors";
 import { asyncHandler } from "../middleware/globalErrorHandler.js";
-import { auditLogService } from "../services/AuditLogService.js";
+import { auditLogService } from "../services/security/index.js";
 import {
   projectRepository,
   projectStatuses,
