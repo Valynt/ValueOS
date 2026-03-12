@@ -129,7 +129,7 @@ export interface Benchmark {
   company_size?: string;
   region?: string;
   created_at?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BenchmarkComparison {
@@ -210,6 +210,7 @@ export interface ValueFabricQuery {
   persona?: string;
 }
 
+<<<<<<< HEAD
 
 export interface ValueCommit {
   id: string;
@@ -219,10 +220,26 @@ export interface ValueCommit {
   metadata?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
+=======
+export interface ValueCommit {
+  id: string;
+  tenant_id?: string;
+  value_tree_id: string;
+  value_case_id: string;
+  committed_by?: string;
+  committed_by_name?: string;
+  status: "active" | "achieved" | "at_risk" | "missed" | "cancelled";
+  date_committed: string;
+  target_date?: string;
+  notes?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+>>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
 }
 
 export interface RealizationReport {
   id: string;
+<<<<<<< HEAD
   organization_id: string;
   value_case_id: string;
   report_date?: string;
@@ -230,10 +247,23 @@ export interface RealizationReport {
   summary?: string;
   created_at?: string;
   updated_at?: string;
+=======
+  value_commit_id: string;
+  value_case_id: string;
+  report_period_start: string;
+  report_period_end: string;
+  overall_status?: "on_track" | "at_risk" | "achieved" | "missed";
+  executive_summary?: string;
+  generated_at: string;
+  generated_by?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+>>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
 }
 
 export interface ExpansionModel {
   id: string;
+<<<<<<< HEAD
   organization_id: string;
   value_case_id: string;
   model_version?: string;
@@ -241,6 +271,26 @@ export interface ExpansionModel {
   outputs?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
+=======
+  value_case_id: string;
+  value_tree_id?: string;
+  realization_report_id?: string;
+  name: string;
+  executive_summary?: string;
+  opportunity_type: "upsell" | "cross_sell" | "optimization" | "expansion";
+  estimated_value?: number;
+  confidence_score?: number;
+  status: "proposed" | "under_review" | "approved" | "rejected" | "implemented";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TelemetrySummary {
+  total_events: number;
+  kpis_tracked: number;
+  last_event_timestamp?: string;
+  coverage_percentage: number;
+>>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
 }
 
 export interface ValueFabricSnapshot {
@@ -252,12 +302,16 @@ export interface ValueFabricSnapshot {
   value_trees: ValueTree[];
   roi_models: ROIModel[];
   value_commits: ValueCommit[];
+<<<<<<< HEAD
   telemetry_summary?: {
     total_events: number;
     kpis_tracked: number;
     last_event_timestamp?: string;
     coverage_percentage: number;
   };
+=======
+  telemetry_summary?: TelemetrySummary;
+>>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
   realization_reports?: RealizationReport[];
   expansion_models?: ExpansionModel[];
 }
@@ -359,7 +413,7 @@ export interface VMRTTrace {
     step: number;
     logic: string;
     formula?: string;
-    variables: Record<string, any>;
+    variables: Record<string, unknown>;
     outcome: string;
   }[];
   outcome_category: string;
