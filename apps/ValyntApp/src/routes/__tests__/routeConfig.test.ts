@@ -17,12 +17,15 @@ describe("ValyntApp route config", () => {
     ]);
   });
 
-  it("has no protected or admin routes wired yet", () => {
+  it("keeps protected/admin route declarations explicit", () => {
     expect(protectedRoutePaths).toEqual([]);
     expect(adminRoutePaths).toEqual([]);
   });
 
-  it("redirects the root path to login", () => {
-    expect(redirectRoutes).toEqual([{ path: "/", to: "/login" }]);
+  it("matches root and home redirects used by AppRoutes", () => {
+    expect(redirectRoutes).toEqual([
+      { path: "/", to: "/dashboard" },
+      { path: "/home", to: "/dashboard" },
+    ]);
   });
 });

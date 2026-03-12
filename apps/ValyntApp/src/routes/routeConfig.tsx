@@ -8,4 +8,7 @@ export const publicRoutePaths = [
 export const protectedRoutePaths: string[] = [];
 export const adminRoutePaths: string[] = [];
 
-export const redirectRoutes = [{ path: "/", to: "/login" }];
+export const redirectRoutes = [
+  { path: "/", to: "/dashboard" },
+  { path: "/home", to: "/dashboard" },
+];
