@@ -20,24 +20,14 @@ Source of truth for sprint planning. Linked GitHub issues where they exist.
 ~~### DEBT-003: IntegrityStage renders hardcoded demo data~~
 **Resolved in Sprint 11.** Migration `20260325000000_integrity_outputs.sql`, `IntegrityOutputRepository`, `GET /api/v1/cases/:caseId/integrity`, `useIntegrityOutput` hook, `IntegrityStage` wired to real data.
 
-### DEBT-004: RealizationStage renders hardcoded demo data
-**File:** `apps/ValyntApp/src/` (RealizationStage component)
-**Issue:** [#1345](https://github.com/Valynt/ValueOS/issues/1345)
+~~### DEBT-004: RealizationStage renders hardcoded demo data~~
+**Resolved outside sprint cadence.** `realization_reports` table (migration `20260321000000_back_half_tables.sql`), `RealizationReportRepository`, `GET /api/v1/cases/:caseId/realization`, `useRealization` hook, `RealizationStage` wired to real data.
 
-Same pattern as DEBT-003. No `realization_outputs` table, no repository, no endpoint.
+~~### DEBT-005: NarrativeAgent does not exist~~
+**Resolved outside sprint cadence.** `NarrativeAgent.ts` implemented in agent-fabric, `narrative_drafts` table (migration `20260321000000_back_half_tables.sql`), `NarrativeDraftRepository`, `GET /api/v1/cases/:caseId/narrative` + `POST .../narrative/run`, `useNarrative` hook, `NarrativeStage` wired to real data.
 
-### DEBT-005: NarrativeAgent does not exist
-**Issue:** [#1346](https://github.com/Valynt/ValueOS/issues/1346)
-
-`NarrativeStage` UI exists but there is no `NarrativeAgent.ts` in `packages/backend/src/lib/agent-fabric/agents/`. Only an `AgentServiceAdapter` wrapper exists. The stage has no backend.
-
-### DEBT-006: ValueCaseCanvas hardcodes case title
-**File:** `apps/ValyntApp/src/` (ValueCaseCanvas)
-**Issue:** [#1347](https://github.com/Valynt/ValueOS/issues/1347)
-
-Canvas header always shows "Acme Corp — Enterprise Platform Migration" regardless of the actual case.
-
-**Fix:** Replace with `useCase(caseId)` hook, render `case.title` and `case.organization_name`.
+~~### DEBT-006: ValueCaseCanvas hardcodes case title~~
+**Resolved outside sprint cadence.** `ValueCaseCanvas.tsx` uses `useCase(caseId)` hook; renders `case.title` and `case.organization_name`.
 
 ### DEBT-007: ValueCommitmentTrackingService — 12+ TODO stubs
 **File:** `apps/ValyntApp/src/services/ValueCommitmentTrackingService.ts`
@@ -56,8 +46,8 @@ Every DB operation is a TODO comment returning mock data. Milestones, metrics, r
 
 HubSpot and Salesforce are the only active adapters. ServiceNow, Slack, and SharePoint are scaffolded but all methods throw `Error("... not implemented")` and are excluded from the package's public exports. They are not wired into any production path. Implement when integration depth becomes a product priority post-GA.
 
-### DEBT-009: ExpansionAgent has no DB persistence
-Same pattern as DEBT-003/004. No `expansion_outputs` table, no repository, no endpoint.
+~~### DEBT-009: ExpansionAgent has no DB persistence~~
+**Resolved outside sprint cadence.** `expansion_opportunities` table (migration `20260322000000_persistent_memory_tables.sql`), `ExpansionOpportunityRepository`, `GET /api/v1/cases/:caseId/expansion` + `POST .../expansion/run`, `useExpansion` hook, `ExpansionStage` wired to real data, registered in `LifecycleStageNav`.
 
 ### DEBT-010: SecurityMonitor alert channels are stubs
 **File:** `packages/backend/src/services/security/SecurityMonitor.ts:470-502`
@@ -112,6 +102,10 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | `pnpm run test:rls` was a no-op (documented but not wired) | Script wired in `package.json` | 2026-03 |
 | `value_cases` queries used `tenant_id` only, missing rows with only `organization_id` set | `ValueCaseService.ts` queries updated to `.or(tenant_id,organization_id)` | 2026-03 |
 | `semantic_memory` had no `embedding_model` column — stale vectors undetectable after model change | Column + index added in `20260331040000_semantic_memory_embedding_model.sql` | 2026-03 |
+| DEBT-004: RealizationStage hardcoded demo data | `realization_reports` table + `RealizationReportRepository` + API + hook + stage wired | 2026-06 |
+| DEBT-005: NarrativeAgent did not exist | `NarrativeAgent.ts` + `narrative_drafts` table + `NarrativeDraftRepository` + API + hook + stage wired | 2026-06 |
+| DEBT-006: ValueCaseCanvas hardcoded title | `ValueCaseCanvas.tsx` uses `useCase(caseId)` hook | 2026-06 |
+| DEBT-009: ExpansionAgent had no DB persistence | `expansion_opportunities` table + `ExpansionOpportunityRepository` + API + hook + `ExpansionStage` wired | 2026-06 |
 | No `created_by`/`updated_by` actor columns on mutable tables | Added to `value_cases`, `hypothesis_outputs`, `integrity_outputs`, `narrative_drafts`, `realization_reports` in `20260331030000_actor_columns.sql` | 2026-03 |
 | `usage_ledger`, `rated_ledger`, `saga_transitions`, `value_loop_events` — no partitioning | Converted to monthly `PARTITION BY RANGE` in `20260401000000`; `create_next_monthly_partitions()` function added | 2026-04 |
 | `claims`, `kpis`, `milestones`, `risks` buried in jsonb — unindexable for aggregation | Scalar count columns promoted on `integrity_outputs` and `realization_reports` in `20260401010000` | 2026-04 |

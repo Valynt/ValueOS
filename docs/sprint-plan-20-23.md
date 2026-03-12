@@ -1,8 +1,8 @@
 # Sprint Plan — Sprints 20–23: Product Completeness and Platform Hardening
 
 **Author:** Ona (AI Engineering Agent)
-**Date:** 2026-06-10
-**Baseline:** Post-Sprint 19 (billing E2E complete; data observability foundation live; six lifecycle stages partially real)
+**Date:** 2026-06-17 (revised)
+**Baseline:** Post-Sprint 19 + significant pre-work completed outside sprint cadence
 
 ---
 
@@ -11,35 +11,54 @@
 ### Current sprint: 20 (first sprint in this horizon)
 
 ### What is complete (✅ full traceability)
-- Stage 1 Hypothesis — full stack slice live (OpportunityAgent → `hypothesis_outputs` → API → `useHypothesisOutput` → `HypothesisStage`)
-- Stage 2 Model — full stack slice live (TargetAgent + FinancialModelingAgent → `value_tree_nodes` + `financial_model_snapshots` → API → `useValueTree` + `useModelSnapshot` → `ModelStage`)
-- Stage 3 Integrity — full stack slice live (IntegrityAgent → `integrity_outputs` → API → `useIntegrityOutput` → `IntegrityStage`)
-- Six runtime services wired: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine
-- Billing backend complete (Phases 0–2): subscription lifecycle, entitlements, invoice math, Stripe webhooks, usage aggregation, enforcement middleware
-- RLS on all tenant tables; `pnpm run test:rls` suite wired
-- AuditLogger append-only; `agent_audit_log` table live
-- `valueCasesRouter` mounted in `server.ts` (resolved in Sprint 15)
-- Data observability foundation: `data-asset-inventory.md`, freshness/volume monitoring, BullMQ queue metrics, schema drift detection, lineage registry, incident runbooks, SecurityMonitor alert channels
-- Billing frontend wired: `useSubscription`, `useUsageSummary`, `useInvoices`, usage ledger endpoint, metering on agent/tool paths, enforcement middleware applied, invoice generation job, self-serve plan/payment controls, reconciliation export, custom pricing per tenant
 
-### What is broken / P0 (must appear in Sprint 20)
-- **`valueCasesRouter` mount** — confirmed gap in traceability.md Stage 1; all `/api/v1/value-cases/...` return 404. Fix: import and mount in `server.ts`. *(Note: listed as resolved in sprint-plan-15-18 KR 15-1 — verify in code before Sprint 20 begins; if still open, KR 20-1 resolves it.)*
+- Stage 1 Hypothesis — full stack slice live
+- Stage 2 Model — full stack slice live
+- Stage 3 Integrity — full stack slice live (resolved Sprint 11)
+- Stage 4 Narrative — **fully implemented outside sprint cadence**:
+  - `NarrativeAgent.ts` ✅ exists in agent-fabric
+  - `narrative_drafts` table ✅ (migration `20260321000000_back_half_tables.sql`)
+  - `NarrativeDraftRepository.ts` ✅
+  - `GET /api/v1/cases/:id/narrative` + `POST /api/v1/cases/:id/narrative/run` ✅ (`backHalf.ts`)
+  - `useNarrative.ts` hook ✅; `NarrativeStage.tsx` wired to real data ✅
+  - DEBT-005 / issue #1346 resolved
+- Stage 5 Realization — **fully implemented outside sprint cadence**:
+  - `RealizationAgent.ts` ✅
+  - `realization_reports` table ✅ (migration `20260321000000_back_half_tables.sql`)
+  - `RealizationReportRepository.ts` ✅
+  - `GET /api/v1/cases/:id/realization` + `POST /api/v1/cases/:id/realization/run` ✅
+  - `useRealization.ts` hook ✅; `RealizationStage.tsx` wired to real data ✅
+  - DEBT-004 / issue #1345 resolved
+- Stage 6 Expansion — **fully implemented outside sprint cadence**:
+  - `ExpansionAgent.ts` ✅
+  - `expansion_opportunities` table ✅ (migration `20260322000000_persistent_memory_tables.sql`)
+  - `ExpansionOpportunityRepository.ts` ✅
+  - `GET /api/v1/cases/:id/expansion` + `POST /api/v1/cases/:id/expansion/run` ✅
+  - `useExpansion.ts` hook ✅; `ExpansionStage.tsx` wired to real data ✅; registered in `LifecycleStageNav` ✅
+  - DEBT-009 resolved
+- `ValueCaseCanvas.tsx` title — uses `useCase(caseId)` hook; DEBT-006 / issue #1347 resolved
+- Six runtime services wired: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine
+- `RecommendationEngine` subscribes to `realization.milestone_reached` and emits expansion recommendations
+- Billing backend + frontend complete (Phases 0–2)
+- RLS on all tenant tables; `pnpm run test:rls` suite wired
+- RBAC invalidation degraded-mode test exists (`rbacInvalidation.test.ts`)
+- High-volume table partitioning live (`usage_ledger`, `rated_ledger`, `saga_transitions`, `value_loop_events`)
+
+### What is broken / P0
+
+None. No P0 items remain open.
 
 ### What is incomplete / P1 (sequenced across sprints)
-- **DEBT-004 / #1345** — `RealizationStage` renders hardcoded Acme Corp demo data; no `realization_outputs` table, no repository, no endpoint
-- **DEBT-005 / #1346** — `NarrativeAgent.ts` does not exist; `NarrativeStage` has no backend
-- **DEBT-006 / #1347** — `ValueCaseCanvas` hardcodes case title ("Acme Corp — Enterprise Platform Migration")
-- **DEBT-007 / #1348** — `ValueCommitmentTrackingService` has 12+ TODO stubs returning mock data
-- **DEBT-009** — `expansion_outputs` table and `ExpansionOutputRepository` missing; Stage 6 has no persistence
-- Stage 4 Narrative — agent, DB table, repository, API endpoints, frontend hook all ❌
-- Stage 5 Realization — DB table, repository, API endpoint, frontend hook all ❌ (agent exists)
-- Stage 6 Expansion — DB table, repository, API endpoint, frontend hook all ❌ (agent exists)
-- `ValueCaseCanvas` title hardcoded (DEBT-006)
-- US-005 (executive narrative) ❌; US-006 (realization tracking) ❌
+
+- **DEBT-007 / #1348** — `ValueCommitmentTrackingService` has 15 TODO stubs; all DB operations return mock data. Milestones, metrics, risks, stakeholders, audit entries are inert.
+- **TypeScript `any` debt** — `packages/backend` ~759 usages; `apps/ValyntApp` ~257 usages. Highest-density files: `InputValidator.ts` (21), `AgentCollaborationService.ts` (17), `IntegratedMCPServer.ts` (19), `unified-api-client.ts` (11).
+- **Partition scheduler** — `create_next_monthly_partitions()` function exists in DB but no cron job calls it. Without it, new rows fall into `_p_default` and are never pruned.
+- **RBAC runbook** — `rbac_redis_unavailable_total` counter and test exist; `docs/runbooks/rbac-redis-unavailable.md` does not.
 
 ### What is deferred (post-Sprint 23)
+
 - DEBT-008 — ServiceNow, Slack, SharePoint integrations (product decision pending)
-- DEBT-010 — SecurityMonitor alert channels (resolved in Sprint 16 per sprint-plan-15-18)
+- DEBT-010 — SecurityMonitor alert channels (resolved Sprint 16)
 - DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
 - DEBT-012 — VOSAcademy content loader (content strategy pending)
 - PPTX export
@@ -47,337 +66,312 @@
 - Grafana alerting rules wired to incident runbooks
 - `DeviceFingerprintService` GeoIP / threat intelligence
 - `EnhancedParallelExecutor` progress-to-UI via WebSocket
-- Checklist §25 maturity review — quarterly observability gap review
 - US-007 tenant onboarding UI and ingestion pipeline
 - US-008 Salesforce adapter (HubSpot complete; Salesforce stubs)
+- `expansion.opportunities_identified` CloudEvent subscription in RecommendationEngine (currently uses `realization.milestone_reached` as the expansion trigger — adequate for MVP)
 
 ---
 
-## Sprint 20 — Complete the Narrative Stage (Weeks 1–2)
+## Sprint 20 — Commitment Tracking: Replace Stubs with Real DB (Weeks 1–2)
 
-**Objective:** The Narrative stage has a real backend agent and persists output. `NarrativeStage` reads from a real API.
+**Objective:** `ValueCommitmentTrackingService` operates against real Supabase data. No TODO stubs remain.
 
-**Success statement:** A VE can run the Narrative agent on a completed Integrity stage, receive an AI-generated executive summary and value story, and reload the page to find the same narrative. No hardcoded content remains in `NarrativeStage`.
+**Success statement:** A VE can create milestones linked to a closed value case, record actual metric values, and see realization % calculated against committed targets. All commitment data survives page refresh. Audit entries include real actor IDs.
 
-**Depends on:** Sprint 19 complete. `narrative_drafts` table referenced in prior plans — verify migration exists before sprint begins; create if absent.
+**Depends on:** Sprint 19 complete. `realization_reports` table live (confirmed).
 
-**Architectural rationale:** Narrative is the only missing lifecycle agent (DEBT-005). It blocks US-005 and is the last gap before the six-stage canvas is fully real. It must land before Realization (Sprint 21) because the narrative output is an input to the realization plan in the domain model. This sprint also fixes DEBT-006 (canvas title) as a low-effort co-located change.
+**Architectural rationale:** All six lifecycle stages are now real. The only remaining P1 gap is `ValueCommitmentTrackingService` (DEBT-007), which is the post-deal commitment tracking layer. It shares the `realization_reports` table with `RealizationStage` — the two must be consistent. This sprint resolves the last user-visible stub before the platform can be considered production-safe for post-deal workflows.
 
-**Competitor context:** Mediafly's content generation is presentation-layer only. A persistent, agent-generated executive narrative tied to a validated financial model is a differentiated capability — but only once it is real and not demo data.
+**Competitor context:** Gainsight tracks health scores and CS workflows post-deal. ValueOS's commitment tracking — tied to the original value hypothesis and financial model — is a differentiated post-sale capability. It is only differentiated once it is real.
 
-### KR 20-1 — `NarrativeAgent.ts` implemented and registered
+### KR 20-1 — Commitment and milestone write paths
 
-**Debt ref:** DEBT-005 / issue #1346  
+**Debt ref:** DEBT-007 / issue #1348
+
 **Acceptance criteria:**
-- `packages/backend/src/lib/agent-fabric/agents/NarrativeAgent.ts` extends `BaseAgent`
-- `lifecycleStage = "composing"`, `version = "1.0.0"`, `name = "NarrativeAgent"`
-- Zod response schema includes: `executive_summary: z.string()`, `value_story: z.string()`, `key_proof_points: z.array(z.string()).min(3).max(5)`, `buyer_persona: z.string()`, `confidence: z.enum(["high","medium","low"])`, `reasoning: z.string()`, `hallucination_check: z.boolean().optional()`
-- All LLM calls via `this.secureInvoke()` — no direct `llmGateway.complete()` calls
-- Confidence threshold: 0.6 (low) – 0.85 (high) per AGENTS.md composing-stage guidance
-- Handlebars prompt template (no string concatenation)
-- Memory stored with `this.organizationId` (tenant isolation)
-- Registered in `AgentFactory.ts`
-- Unit test: mock `LLMGateway` + `MemorySystem`; assert output shape and memory write
-- `pnpm test` green
+- `createCommitment()` inserts into `realization_reports` scoped to `organization_id`; returns the created row
+- `createMilestone()` appends to the `milestones` jsonb array on the relevant `realization_reports` row
+- `updateMilestoneStatus()` updates the milestone entry in-place within the jsonb array
+- All writes include `organization_id` filter — no cross-tenant writes possible
+- Audit entries use real `actor_id` from request context; no hardcoded `"Unknown"`
+- Unit test: each write method inserts/updates and reads back correctly; cross-tenant write returns error
 
-### KR 20-2 — `narrative_drafts` migration and `NarrativeDraftRepository`
+### KR 20-2 — Commitment and metric read paths
 
-**Debt ref:** Stage 4 Narrative — DB table ❌, repository ❌  
+**Debt ref:** DEBT-007 / issue #1348
+
 **Acceptance criteria:**
-- Migration `20260620000000_narrative_drafts.sql`: `id`, `organization_id`, `case_id`, `session_id`, `executive_summary text`, `value_story text`, `key_proof_points jsonb`, `buyer_persona text`, `confidence text`, `reasoning text`, `source_agent text`, `created_at`, `updated_at`; RLS via `security.user_has_tenant_access()`
-- Paired rollback file
-- `NarrativeDraftRepository.ts`: `createDraft(caseId, orgId, payload)`, `getLatestForCase(caseId, orgId)`
-- `NarrativeAgent` wired to persist via repository after `secureInvoke`
-- `pnpm run test:rls` green for `narrative_drafts`
+- `getCommitmentsForCase(caseId, orgId)` queries `realization_reports` with both `case_id` and `organization_id` filters
+- `getMetricsForCommitment(commitmentId, orgId)` returns the `metrics` jsonb array for the matching row
+- `getStakeholdersForCommitment(commitmentId, orgId)` returns the `stakeholders` jsonb array
+- All reads return empty arrays (not mock data) when no rows exist
+- Cross-tenant read returns empty — not another tenant's data
+- Unit test: write then read back; cross-tenant read returns empty
 
-### KR 20-3 — API endpoints and `useNarrativeOutput` hook
+### KR 20-3 — Realization % calculation
 
-**Debt ref:** Stage 4 Narrative — API endpoints ❌, frontend hook ❌  
+**Debt ref:** DEBT-007 / issue #1348
+
 **Acceptance criteria:**
-- `GET /api/v1/value-cases/:caseId/narrative` — returns latest `narrative_drafts` row or `{ data: null }`; tenant-scoped
-- `POST /api/v1/value-cases/:caseId/narrative/run` — invokes `NarrativeAgent` directly (no Kafka dependency); returns `{ status: "completed", data: NarrativeDraft }`
-- Both endpoints behind `requireAuth` + `tenantContextMiddleware()`
-- `apps/ValyntApp/src/hooks/useNarrativeOutput.ts` — `useNarrativeOutput(caseId)` fetches GET; exposes `runAgent()` that POSTs to `/run`
-- On `runAgent()` completion, invalidates the GET query
+- `calculateRealizationPct(commitmentId, orgId)` computes `realized_value / committed_value` from the `metrics` jsonb array
+- Result written to `realization_pct` column on the `realization_reports` row
+- Called automatically after `updateMetricActual()` — no manual trigger required
+- Returns `null` when no metrics exist (not `0`)
+- Unit test: known metric values → expected pct; no metrics → null
 
-### KR 20-4 — `NarrativeStage` wired to real data; `ValueCaseCanvas` title fixed
+### KR 20-4 — Risk and at-risk commitment queries
 
-**Debt refs:** Stage 4 Narrative — UI ⚠️; DEBT-006 / issue #1347  
+**Debt ref:** DEBT-007 / issue #1348
+
 **Acceptance criteria:**
-- `NarrativeStage.tsx` replaces all hardcoded content with `useNarrativeOutput(caseId)` data
-- Empty state: "Run the Narrative agent to generate an executive summary" when `data` is null
-- `ValueCaseCanvas.tsx` header replaced with `useCase(caseId)` hook rendering `case.title` and `case.organization_name`
-- No "Acme Corp" or "Enterprise Platform Migration" literal anywhere in canvas components
-- `pnpm test` green
+- `createRisk()` appends to the `risks` jsonb array on the relevant row
+- `updateRisk()` updates the risk entry in-place
+- `getAtRiskCommitments(orgId)` queries `realization_reports` where `realization_pct < 0.8` and `organization_id = orgId`
+- `validateAgainstBenchmarks(commitmentId, orgId)` reads the commitment row and compares `realization_pct` against a configurable threshold (default 0.8); returns `{ onTrack: boolean, variance: number }`
+- Unit test: at-risk query returns only rows below threshold for the correct tenant
 
 ### KR 20-5 — Test gate
 
 **Acceptance criteria:**
 - `pnpm test` green
-- `pnpm run test:rls` green for `narrative_drafts`
+- `pnpm run test:rls` green
 - `pnpm run typecheck` passes
+- No TODO comments remain in `ValueCommitmentTrackingService.ts`
+- US-006 acceptance criteria met: milestones creatable, actual values recordable, realization % calculated
 
 **Risk flags:**
-- `narrative_drafts` table may already exist from a prior migration. Contingency: check `infra/supabase/supabase/migrations/` before creating; if it exists, skip the migration KR and wire the repository to the existing schema.
-- Together.ai token limits may truncate long narrative outputs. Contingency: split executive summary and value story into two `secureInvoke` calls if combined prompt exceeds context window; log token usage at INFO level.
+- `realization_reports` uses jsonb arrays for milestones/metrics/risks/stakeholders. Concurrent writes could cause lost updates. Contingency: use `jsonb_set` with optimistic locking (check `updated_at` before write); return 409 on conflict and let the client retry. Flag for Sprint 21 if contention is observed in staging.
+- `ValueCommitmentTrackingService` is in `apps/ValyntApp/src/services/` — a frontend service making direct Supabase calls. This is the existing pattern; do not move it to the backend in this sprint. Flag as architectural debt for a future sprint.
 
 ---
 
-## Sprint 21 — Realization Stage: Persistence and Real Data (Weeks 3–4)
+## Sprint 21 — TypeScript `any` Reduction: Backend (Weeks 3–4)
 
-**Objective:** `RealizationStage` reads from a real API. `ValueCommitmentTrackingService` stubs are replaced with real DB operations.
+**Objective:** `packages/backend` `any` count is reduced by ≥100 usages. The four highest-density files are clean.
 
-**Success statement:** A VE can view a realization plan generated by `RealizationAgent`, create milestones, record actual metric values, and see realization % calculated against committed targets. No hardcoded Acme Corp data remains in `RealizationStage`.
+**Success statement:** `pnpm run lint` reports fewer than 660 `any` usages in `packages/backend` (down from ~759). No new `any` is introduced in any PR touching the backend.
 
-**Depends on:** Sprint 20 complete. `realization_outputs` table may have been created in Sprint 17 (data observability plan) — verify before sprint begins.
+**Depends on:** Sprint 20 complete (no new backend files being actively written that would introduce `any`).
 
-**Architectural rationale:** Realization persistence (DEBT-004, DEBT-007) is the largest remaining product gap. `RealizationAgent` exists and is invocable but its output is never persisted. `ValueCommitmentTrackingService` is entirely inert. These two items share the same DB table (`realization_outputs`) and must land together. Realization must precede Expansion (Sprint 22) because expansion signals are derived from realization milestone data.
+**Architectural rationale:** With all six stages real and commitment tracking live, Sprint 21 is the first sprint with no new feature work in the backend. The four target files (`InputValidator.ts`, `AgentCollaborationService.ts`, `referrals.ts`, `admin.ts`) account for ~79 usages and are self-contained — changes do not ripple across the system.
 
-**Competitor context:** Gainsight tracks health scores and CS workflows post-deal. ValueOS's realization tracking — tied to the original value hypothesis and financial model — is a differentiated post-sale capability. It is only differentiated once it is real.
+### KR 21-1 — `InputValidator.ts` clean
 
-### KR 21-1 — `realization_outputs` migration and `RealizationOutputRepository`
+**Debt ref:** Ongoing TypeScript `any` debt; `config/secrets/InputValidator.ts` (21 usages)
 
-**Debt refs:** DEBT-004 / issue #1345; Stage 5 Realization — DB table ❌, repository ❌  
 **Acceptance criteria:**
-- Migration `20260704000000_realization_outputs.sql`: `id`, `organization_id`, `case_id`, `session_id`, `milestones jsonb`, `metrics jsonb`, `risks jsonb`, `stakeholders jsonb`, `realization_pct numeric`, `source_agent text`, `created_at`, `updated_at`; RLS via `security.user_has_tenant_access()`
-- Scalar count columns: `milestone_count int`, `risk_count int` (for aggregation without jsonb parsing)
-- Paired rollback file
-- `RealizationOutputRepository.ts`: `createOutput(caseId, orgId, payload)`, `getLatestForCase(caseId, orgId)`, `updateRealizationPct(id, orgId, pct)`
-- `RealizationAgent` wired to persist via repository after `secureInvoke`
-- `pnpm run test:rls` green
+- All 21 `any` usages replaced with Zod schemas or typed alternatives
+- No `any` remains in the file
+- Existing validation behaviour is unchanged (tests pass)
+- `pnpm run typecheck` passes
 
-### KR 21-2 — `ValueCommitmentTrackingService` stubs resolved
+### KR 21-2 — `AgentCollaborationService.ts` clean
 
-**Debt ref:** DEBT-007 / issue #1348  
+**Debt ref:** Ongoing TypeScript `any` debt; `services/collaboration/AgentCollaborationService.ts` (17 usages)
+
 **Acceptance criteria:**
-- All 12+ TODO stubs in `apps/ValyntApp/src/services/ValueCommitmentTrackingService.ts` replaced with real Supabase queries scoped to `organization_id`
-- Milestones, metrics, risks, stakeholders write to and read from `realization_outputs`
-- Audit entries include real `actor_id` from request context — no hardcoded `"Unknown"`
-- Unit test: each method writes and reads back correctly; cross-tenant read returns empty
+- Agent message payload `any` types replaced with typed union derived from `packages/shared/src/domain/`
+- No `any` remains in the file
+- `pnpm run typecheck` passes
 
-### KR 21-3 — API endpoints and `useRealizationOutput` hook
+### KR 21-3 — `referrals.ts` and `admin.ts` clean
 
-**Debt ref:** Stage 5 Realization — API endpoint ❌, frontend hook ❌  
+**Debt ref:** Ongoing TypeScript `any` debt; `api/referrals.ts` (21 usages), `api/admin.ts` (22 usages)
+
 **Acceptance criteria:**
-- `GET /api/v1/value-cases/:caseId/realization` — returns latest `realization_outputs` row or `{ data: null }`; tenant-scoped
-- `POST /api/agents/realization/invoke` already exists — verify it persists via `RealizationOutputRepository` (KR 21-1)
-- `apps/ValyntApp/src/hooks/useRealizationOutput.ts` — fetches GET; exposes `runAgent()` that POSTs to invoke endpoint
-- On `runAgent()` completion, invalidates the GET query
+- Request body types added to both files using Zod schemas
+- No `any` remains in either file
+- `pnpm run typecheck` passes
 
-### KR 21-4 — `RealizationStage` wired to real data
+### KR 21-4 — `any` reduction: `apps/ValyntApp` highest-density files
 
-**Debt ref:** DEBT-004 / issue #1345; Stage 5 Realization — UI ⚠️  
+**Debt ref:** Ongoing TypeScript `any` debt; `apps/ValyntApp` ~257 usages
+
 **Acceptance criteria:**
-- `RealizationStage.tsx` replaces all hardcoded Acme Corp demo data with `useRealizationOutput(caseId)` data
-- Milestones, metrics, risks, and stakeholders rendered from real API response
-- Realization % displayed from `realization_pct` field
-- Empty state: "Run the Realization agent to generate an implementation plan" when `data` is null
-- No hardcoded arrays or demo constants remain in the component
-- `pnpm test` green
+- Run `grep -rn ": any" apps/ValyntApp/src --include="*.ts" --include="*.tsx" | sed 's/:.*//' | sort | uniq -c | sort -rn | head -5` to identify the five highest-density files
+- Replace `any` in the top 3 files (≥30 usages removed from `apps/ValyntApp`)
+- `pnpm run typecheck` passes
 
 ### KR 21-5 — Test gate
 
 **Acceptance criteria:**
 - `pnpm test` green
-- `pnpm run test:rls` green for `realization_outputs`
+- `pnpm run lint` passes
 - `pnpm run typecheck` passes
-- US-006 acceptance criteria met: milestones creatable, actual values recordable, realization % calculated
+- Net `any` reduction in `packages/backend`: ≥100 usages removed from baseline (~759)
+- No new `any` introduced in any file touched this sprint
 
 **Risk flags:**
-- `realization_outputs` may already exist from Sprint 17 (data observability plan KR 17-4). Contingency: check migrations directory; if table exists, skip migration and wire repository to existing schema.
-- `ValueCommitmentTrackingService` stub resolution may surface unexpected data shape mismatches with `realization_outputs` schema. Contingency: add a Zod transform layer in the service to map between the service's internal types and the DB schema; do not change the service's public interface.
+- `AgentCollaborationService.ts` message payload types may not have a canonical definition in `packages/shared`. Contingency: define an `AgentMessage` union type in `packages/backend/src/types/` scoped to the service; do not block on a shared package change.
+- Replacing `any` in `InputValidator.ts` may surface latent type errors in callers. Contingency: fix caller type errors in the same PR; do not use `as unknown as X` casts to paper over them.
 
 ---
 
-## Sprint 22 — Expansion Stage: Persistence and UI (Weeks 5–6)
+## Sprint 22 — Partition Scheduler and RBAC Runbook (Weeks 5–6)
 
-**Objective:** `ExpansionAgent` output is persisted. The Expansion stage has a real frontend surface.
+**Objective:** The monthly partition creation cron job is wired and tested. The RBAC degraded-security runbook exists and is linked from the alert.
 
-**Success statement:** After a value case reaches the Realization stage, the Expansion agent can be run to identify growth opportunities. Output is persisted, loadable on refresh, and visible in a dedicated `ExpansionStage` component.
+**Success statement:** `create_next_monthly_partitions()` is called on a monthly schedule before the first month boundary after deployment. The `rbac_redis_unavailable_total` alert has a linked runbook with diagnosis and remediation steps.
 
-**Depends on:** Sprint 21 complete (`realization_outputs` live; realization milestone data available as expansion signal input).
+**Depends on:** Sprint 21 complete. No new feature work in this sprint.
 
-**Architectural rationale:** Expansion is the final lifecycle stage. It depends on realization data as input signal (expansion opportunities are derived from realized value patterns). The agent exists and is invocable but has no persistence layer (DEBT-009). This sprint completes the six-stage canvas end-to-end. After this sprint, all six stages are real.
+**Architectural rationale:** The partition scheduler gap (documented in `decisions.md`) is a data integrity risk: without it, new rows fall into `_p_default` and are never pruned. The RBAC runbook gap means the `rbac_redis_unavailable_total` alert fires with no documented response path. Both are pre-production safety items with no feature dependency.
 
-**Competitor context:** Vivun's pipeline influence and deal room features operate pre-sale. ValueOS's expansion signal detection — grounded in post-sale realization data — is a post-sale growth capability with no direct Vivun equivalent.
+### KR 22-1 — Partition scheduler wired
 
-### KR 22-1 — `expansion_outputs` migration and `ExpansionOutputRepository`
-
-**Debt ref:** DEBT-009; Stage 6 Expansion — DB table ❌, repository ❌  
-**Acceptance criteria:**
-- Migration `20260718000000_expansion_outputs.sql`: `id`, `organization_id`, `case_id`, `session_id`, `opportunities jsonb`, `gap_analysis jsonb`, `expansion_seeds jsonb`, `source_agent text`, `created_at`; RLS via `security.user_has_tenant_access()`
-- Paired rollback file
-- `ExpansionOutputRepository.ts`: `createOutput(caseId, orgId, payload)`, `getLatestForCase(caseId, orgId)`
-- `ExpansionAgent` wired to persist via repository after `secureInvoke`
-- `pnpm run test:rls` green
-
-### KR 22-2 — API endpoints and `useExpansionOutput` hook
-
-**Debt ref:** Stage 6 Expansion — API endpoint ❌, frontend hook ❌  
-**Acceptance criteria:**
-- `GET /api/v1/value-cases/:caseId/expansion` — returns latest `expansion_outputs` row or `{ data: null }`; tenant-scoped
-- `POST /api/agents/expansion/invoke` already exists — verify it persists via `ExpansionOutputRepository` (KR 22-1)
-- `apps/ValyntApp/src/hooks/useExpansionOutput.ts` — fetches GET; exposes `runAgent()`
-- On `runAgent()` completion, invalidates the GET query
-
-### KR 22-3 — `ExpansionStage` component
-
-**Debt ref:** Stage 6 Expansion — UI component ❌  
-**Acceptance criteria:**
-- `apps/ValyntApp/src/views/canvas/ExpansionStage.tsx` — named export, functional component
-- Renders: expansion opportunities list, gap analysis summary, expansion seeds
-- Empty state: "Run the Expansion agent to identify growth opportunities" when `data` is null
-- "Run Expansion" button calls `runAgent()` from `useExpansionOutput`
-- Registered in `LifecycleStageNav` and `ValueCaseCanvas` stage switcher
-- No hardcoded data
-
-### KR 22-4 — RecommendationEngine wired to Expansion events
+**Debt ref:** `decisions.md` — High-volume table partitioning; scheduler requirement
 
 **Acceptance criteria:**
-- `RecommendationEngine` subscribes to `expansion.opportunities_identified` CloudEvent (emitted by `ExpansionAgent` after persist)
-- Pushes a next-best-action recommendation to the UI: "Review expansion opportunities for [case name]"
-- Recommendation includes `caseId`, `opportunityCount`, and a deep link to `ExpansionStage`
-- Unit test: mock `MessageBus`; assert recommendation emitted on event receipt
+- Migration `20260718000000_pg_cron_partition_scheduler.sql` registers the cron job:
+  ```sql
+  SELECT cron.schedule('partition-monthly', '0 0 1 * *',
+    $$SELECT public.create_next_monthly_partitions()$$);
+  ```
+- Paired rollback: `SELECT cron.unschedule('partition-monthly');`
+- Migration applies cleanly against local Supabase with `pg_cron` enabled
+- `docs/runbooks/partition-maintenance.md` documents: how to verify the job ran, how to manually trigger it, what to do if `_p_default` grows
+- `decisions.md` updated: scheduler requirement marked as resolved
 
-### KR 22-5 — Test gate
+### KR 22-2 — RBAC degraded-security runbook
+
+**Debt ref:** `decisions.md` — RBAC invalidation degraded-security mode
+
+**Acceptance criteria:**
+- `docs/runbooks/rbac-redis-unavailable.md` created with:
+  - Detection: `rbac_redis_unavailable_total` counter; alert fires after 5 minutes of sustained increments
+  - Diagnosis: check Redis connectivity, check `rbacInvalidation.ts` logs for `warn`/`error` entries
+  - Impact: stale permissions possible for up to `RBAC_CACHE_TTL_SECONDS` (default 300s) in multi-instance deployments
+  - Remediation option A: restore Redis connectivity
+  - Remediation option B: set `RBAC_CACHE_TTL_SECONDS=0` to force DB check on every request (performance cost documented)
+  - Escalation: if neither option resolves within 15 minutes, restart affected instances to flush in-process caches
+- `RBAC_CACHE_TTL_SECONDS` env var documented in the runbook and in `.env.example` (or equivalent)
+- Alert annotation updated to link to the runbook URL (if `infra/k8s/monitoring/rbac-alerts.yaml` exists; otherwise add link as comment in `rbacInvalidation.ts`)
+
+### KR 22-3 — `any` reduction: `apps/ValyntApp` continued
+
+**Debt ref:** Ongoing TypeScript `any` debt; `apps/ValyntApp` remaining usages
+
+**Acceptance criteria:**
+- Continue from Sprint 21 KR 21-4: clean the next 3 highest-density files in `apps/ValyntApp`
+- ≥30 additional `any` usages removed from `apps/ValyntApp`
+- `pnpm run typecheck` passes
+
+### KR 22-4 — Test gate
 
 **Acceptance criteria:**
 - `pnpm test` green
-- `pnpm run test:rls` green for `expansion_outputs`
-- All six lifecycle stages render real data (no hardcoded arrays in any stage component)
+- `pnpm run test:rls` green
 - `pnpm run typecheck` passes
-
-**Risk flags:**
-- `LifecycleStageNav` may not have a slot for a sixth stage. Contingency: check the nav component's stage array; add `expansion` entry following the same pattern as existing stages.
-- `ExpansionAgent` may not emit a CloudEvent after persist. Contingency: add `MessageBus.publish()` call in the agent's `execute()` method after the repository write; follow the pattern in `RealizationAgent`.
-
----
-
-## Sprint 23 — TypeScript `any` Reduction and Platform Hardening (Weeks 7–8)
-
-**Objective:** The `any` debt baseline is cut by 30% across the highest-density files. The cron job for monthly partition creation is wired. The RBAC degraded-security mode is documented and tested.
-
-**Success statement:** `pnpm run lint` reports fewer than 1,400 `any` usages (down from ~1,977 baseline). The `create_next_monthly_partitions()` scheduler is wired and tested. No new `any` is introduced in any PR touching the codebase.
-
-**Depends on:** Sprint 22 complete (all six stages real; no new stage work to introduce `any` debt).
-
-**Architectural rationale:** After Sprint 22, the six-stage canvas is complete. Sprint 23 is a hardening sprint — no new features. The `any` debt (1,977 usages at baseline, ~1,700 estimated remaining) is the largest ongoing code quality risk. The partition scheduler gap (documented in `decisions.md`) is a data integrity risk: without it, new rows fall into `_p_default` and are never pruned. These two items are the highest-value non-feature work before the product is considered production-safe.
-
-### KR 23-1 — `any` reduction: highest-density backend files
-
-**Debt ref:** Ongoing TypeScript `any` debt; `packages/backend` ~680 usages  
-**Acceptance criteria:**
-- `config/secrets/InputValidator.ts` (21 `any`) — replace all with Zod schemas; no `any` remains
-- `api/referrals.ts` (20 `any`) — add request body types; no `any` remains
-- `api/admin.ts` (20 `any`) — add request body types; no `any` remains
-- `services/collaboration/AgentCollaborationService.ts` (17 `any`) — replace agent message payload `any` with typed union; no `any` remains
-- Net reduction in `packages/backend`: ≥ 78 `any` usages removed
-- `pnpm run lint` passes; `pnpm run typecheck` passes
-
-### KR 23-2 — `any` reduction: `apps/ValyntApp` highest-density files
-
-**Debt ref:** `apps/ValyntApp` 839 `any` usages (largest module)  
-**Acceptance criteria:**
-- Identify the 5 highest-density files in `apps/ValyntApp` via `grep -rn ": any" apps/ValyntApp/src --include="*.ts" --include="*.tsx" | sort | uniq -c | sort -rn | head -20`
-- Replace `any` in those 5 files with `unknown` + type guards or explicit typed interfaces
-- Net reduction in `apps/ValyntApp`: ≥ 100 `any` usages removed
-- No new `any` introduced in any file touched during Sprints 20–23
 - `pnpm run lint` passes
 
-### KR 23-3 — Monthly partition scheduler wired
+**Risk flags:**
+- `pg_cron` may not be enabled on the Supabase project. Contingency: implement the scheduler as a BullMQ repeatable job in `packages/backend/src/jobs/` that calls `SELECT public.create_next_monthly_partitions()` via the service role client; document this as the fallback in the runbook.
+- `infra/k8s/monitoring/rbac-alerts.yaml` may not exist if the Kubernetes monitoring stack is not deployed. Contingency: add the runbook link as a comment in `rbacInvalidation.ts` instead; note the gap in the runbook itself.
 
-**Debt ref:** `decisions.md` — "Scheduler requirement: A cron job must call `SELECT public.create_next_monthly_partitions()` monthly"  
+---
+
+## Sprint 23 — TypeScript `any` Reduction: Frontend + Final Hardening (Weeks 7–8)
+
+**Objective:** Total `any` count across the codebase is below 900 (down from ~1,016 combined backend + ValyntApp baseline at sprint start). No new `any` is introduced in any PR.
+
+**Success statement:** `pnpm run lint` reports fewer than 900 combined `any` usages. The `any` reduction dashboard in `docs/debt/ts-any-dashboard.md` is updated with the new baseline.
+
+**Depends on:** Sprint 22 complete.
+
+**Architectural rationale:** After Sprint 22, all P1 debt items are resolved and the platform is production-safe. Sprint 23 is a pure quality sprint. Reducing `any` below 900 combined (from ~1,016) is a meaningful milestone — it brings the codebase within reach of the <100 target over the next two quarters without requiring a dedicated refactor sprint.
+
+### KR 23-1 — `apps/ValyntApp` `any` reduction: remaining high-density files
+
+**Debt ref:** Ongoing TypeScript `any` debt; `apps/ValyntApp` ~257 usages at sprint start
+
 **Acceptance criteria:**
-- `packages/backend/src/jobs/maintenance/createMonthlyPartitions.ts` — BullMQ repeatable job, cron `0 0 1 * *` (1st of each month)
-- Calls `supabase.rpc('create_next_monthly_partitions')` using `service_role` client (cron job is an approved `service_role` use case per AGENTS.md)
-- On success: logs `{ partitionsCreated, tables: ['usage_ledger','rated_ledger','saga_transitions','value_loop_events'] }` at INFO
-- On failure: logs ERROR with full error detail; emits `partition_creation_failed_total` Prometheus counter
-- Job registered in the BullMQ scheduler on server startup
-- Unit test: mock Supabase RPC; assert job calls `create_next_monthly_partitions` and logs correctly
+- Clean the remaining highest-density files not addressed in Sprints 21–22
+- Target: ≥60 additional `any` usages removed from `apps/ValyntApp`
+- Priority order: `IntegratedMCPServer.ts` (19), `unified-api-client.ts` (11), `performance.ts` (10), `logger.ts` (10)
+- `pnpm run typecheck` passes
 
-### KR 23-4 — RBAC degraded-security mode: test coverage and runbook
+### KR 23-2 — `packages/sdui` and `packages/mcp` `any` reduction
 
-**Debt ref:** `decisions.md` — RBAC invalidation degraded-security mode when Redis unavailable  
+**Debt ref:** Ongoing TypeScript `any` debt; `packages/sdui` ~133 usages, `packages/mcp` ~96 usages
+
 **Acceptance criteria:**
-- `packages/backend/src/lib/rbacInvalidation.ts` has a co-located test: simulate Redis unavailable → assert `rbac_redis_unavailable_total` counter increments; assert in-process cache invalidation still fires; assert no throw
-- `docs/runbooks/rbac-redis-unavailable.md` — runbook: detection signal (`rbac_redis_unavailable_total` alert), diagnosis steps, remediation (restore Redis or reduce cache TTL to 0), escalation path
-- `PermissionService` cache TTL is configurable via `RBAC_CACHE_TTL_SECONDS` env var (default 300); documented in runbook
-- `pnpm test` green
+- Identify the 3 highest-density files in each package
+- Remove ≥20 `any` usages from `packages/sdui`
+- Remove ≥15 `any` usages from `packages/mcp`
+- `pnpm run typecheck` passes for both packages
 
-### KR 23-5 — Test gate and `any` dashboard update
+### KR 23-3 — `any` dashboard updated
+
+**Debt ref:** Ongoing TypeScript `any` debt
+
+**Acceptance criteria:**
+- `docs/debt/ts-any-dashboard.md` updated with per-module counts measured at end of Sprint 23
+- Monthly targets revised based on actual reduction velocity from Sprints 21–23
+- Combined total confirmed below 900
+
+### KR 23-4 — Test gate
 
 **Acceptance criteria:**
 - `pnpm test` green
 - `pnpm run test:rls` green
-- `pnpm run typecheck` passes with 0 errors
-- `docs/debt/ts-any-dashboard.md` updated with new per-module counts and monthly targets
-- Total `any` count ≤ 1,400 (verified by `grep -rn ": any" --include="*.ts" --include="*.tsx" | wc -l`)
+- `pnpm run typecheck` passes
+- `pnpm run lint` passes
+- No new `any` introduced in any file touched across Sprints 21–23
 
 **Risk flags:**
-- Replacing `any` in `AgentCollaborationService.ts` may require defining a new union type for agent message payloads. Contingency: introduce a `AgentMessage` discriminated union in `packages/backend/src/types/`; do not inline the type in the service file.
-- The partition scheduler job may conflict with an existing BullMQ job registration pattern. Contingency: follow the exact registration pattern used by `generateMonthlyInvoices.ts` (Sprint 17); do not invent a new pattern.
+- `IntegratedMCPServer.ts` is in `apps/ValyntApp/src/mcp-ground-truth/` — a non-standard location. Contingency: if the file is generated or auto-synced, do not edit it directly; add a lint rule to block `any` in that path and fix the generator.
+- Removing `any` from `packages/sdui` may require updating SDUI component prop interfaces. Contingency: update `config/ui-registry.json` and `packages/sdui/src/registry.tsx` in the same PR if prop interfaces change (per AGENTS.md SDUI registration rule).
 
 ---
 
 ## Cross-Sprint Invariants
 
-These rules apply to every PR across all four sprints. Source: `AGENTS.md`.
+These rules apply to every PR across all four sprints. Sourced from `AGENTS.md`.
 
-| Rule | Applies to |
+| Rule | Enforcement |
 |---|---|
-| Every DB query includes `organization_id` or `tenant_id` | All new repositories, services, and observability queries |
-| All agent LLM calls use `this.secureInvoke()` | NarrativeAgent (Sprint 20) |
-| `service_role` only in AuthService, tenant provisioning, cron jobs | Partition scheduler (Sprint 23 KR 23-3) |
-| TypeScript strict mode — no `any`, use `unknown` + type guards | All new files; `any` reduction work (Sprint 23) |
-| Named exports only — no default exports | All new files |
-| New agents: extend `BaseAgent`, Zod schema with `hallucination_check`, Handlebars prompts, confidence thresholds by risk tier | NarrativeAgent (Sprint 20 KR 20-1) |
-| SDUI components registered in both `config/ui-registry.json` and `packages/sdui/src/registry.tsx` | Any new SDUI component |
-| Tools implement `Tool<TInput, TOutput>` and register statically in `ToolRegistry.ts` | Any new tool |
-| Workflows are DAGs — cycles forbidden; every state mutation needs a compensation function | Any new workflow node |
-| `pnpm run test:rls` must pass on every PR touching a DB table | All migration PRs |
+| Every DB query on a tenant table includes `organization_id` or `tenant_id` | Code review + `pnpm run test:rls` |
+| Every vector/memory query filters on `tenant_id` in metadata | Code review |
+| All agent LLM calls use `this.secureInvoke()` — no direct `llmGateway.complete()` | Code review |
+| `service_role` used only in AuthService, tenant provisioning, cron jobs | Code review |
+| No cross-tenant data transfer | Code review + RLS |
+| No new `any` introduced | `pnpm run lint` |
+| Named exports only — no default exports | `pnpm run lint` |
+| Zod schemas for all LLM responses; include `hallucination_check: boolean` | Code review |
+| Saga pattern: every state mutation has a compensation function | Code review |
+| `WorkflowState` persisted to Supabase after every node transition | Code review |
 
 ---
 
-## Cross-Sprint Milestones
+## Deferred Items
 
-| Milestone | Reached when |
+| Item | Reason |
 |---|---|
-| Six-stage canvas fully real (no hardcoded data in any stage) | Sprint 22 KR 22-5 complete |
-| All lifecycle agents implemented and registered | Sprint 20 KR 20-1 complete |
-| All lifecycle stage DB tables exist with RLS | Sprint 22 KR 22-1 complete |
-| `ValueCommitmentTrackingService` functional | Sprint 21 KR 21-2 complete |
-| `any` debt below 1,400 | Sprint 23 KR 23-5 complete |
-| Monthly partition scheduler wired | Sprint 23 KR 23-3 complete |
-
----
-
-## Deferred (Post-Sprint 23)
-
-- DEBT-008 — ServiceNow, Slack, SharePoint integrations (product decision pending)
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
-- PPTX export
-- Kafka rollout
-- Grafana alerting rules wired to incident runbooks
-- `DeviceFingerprintService` GeoIP / threat intelligence
-- `EnhancedParallelExecutor` progress-to-UI via WebSocket
-- US-007 — Tenant onboarding UI and context ingestion pipeline (`SupabaseMemoryBackend` exists; UI not built)
-- US-008 — Salesforce adapter (HubSpot complete; Salesforce stubs remain)
-- ADR-0005 — Theme precedence and token governance (proposed, not accepted)
-- `any` debt below 100 (target from debt.md; Sprint 23 reaches ~1,400; sustained monthly reduction continues)
-- Grafana alerting rules (dashboard in Sprint 13; alert rules post-beta)
-- Checklist §25 maturity review — quarterly observability gap review process
+| DEBT-008 — ServiceNow, Slack, SharePoint | Product decision pending |
+| DEBT-011 — SandboxedExecutor E2B SDK | Product decision pending |
+| DEBT-012 — VOSAcademy content loader | Content strategy pending |
+| PPTX export | No traceability row; product decision pending |
+| Kafka rollout | Infrastructure decision pending |
+| Grafana alerting rules → incident runbooks | Requires Grafana deployment |
+| `DeviceFingerprintService` GeoIP / threat intelligence | Post-GA |
+| `EnhancedParallelExecutor` WebSocket progress | Post-GA |
+| US-007 tenant onboarding UI + ingestion pipeline | Post-GA |
+| US-008 Salesforce adapter | Post-GA |
+| `expansion.opportunities_identified` CloudEvent subscription | Deferred; `realization.milestone_reached` is adequate for MVP |
+| SOC 2 evidence collection | Requires complete product |
+| Performance SLOs and load testing | Requires complete product |
+| Quarterly observability gap review (§25) | Scheduled post-Sprint 23 |
 
 ---
 
 ## Sprint Dependency Chain
 
 ```
-Sprint 20: NarrativeAgent + narrative_drafts + NarrativeStage wired
-    ↓ (narrative output available as realization plan input)
-Sprint 21: realization_outputs + ValueCommitmentTrackingService + RealizationStage wired
-    ↓ (realization milestone data available as expansion signal)
-Sprint 22: expansion_outputs + ExpansionStage + RecommendationEngine wired
-    ↓ (all six stages real; no new stage work to introduce any debt)
-Sprint 23: any reduction + partition scheduler + RBAC runbook
+Sprint 20: ValueCommitmentTrackingService stubs → real DB (last P1 debt item)
+    ↓ (no new backend files being written; safe to clean existing ones)
+Sprint 21: packages/backend any reduction (4 highest-density files)
+    ↓ (backend clean; no new feature work)
+Sprint 22: partition scheduler + RBAC runbook + ValyntApp any continued
+    ↓ (all P1 debt resolved; all safety items addressed)
+Sprint 23: ValyntApp + sdui + mcp any reduction; dashboard updated
 ```

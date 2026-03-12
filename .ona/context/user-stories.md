@@ -98,8 +98,8 @@ Update status when stories are implemented or acceptance criteria change.
 - Output is persisted and loadable on refresh
 - VE can edit the narrative inline
 
-**Status:** ❌ `NarrativeStage` has no backend agent (DEBT-005, issue #1346)  
-**Gap:** `NarrativeAgent.ts` does not exist in the fabric
+**Status:** ✅ Implemented outside sprint cadence  
+**Delivered:** `NarrativeAgent.ts` in agent-fabric, `narrative_drafts` table + RLS, `NarrativeDraftRepository`, `GET /api/v1/cases/:caseId/narrative` + `POST .../narrative/run`, `useNarrative` hook, `NarrativeStage` wired to real data with empty state and run button. DEBT-005 resolved.
 
 ---
 
@@ -115,8 +115,9 @@ Update status when stories are implemented or acceptance criteria change.
 - Risks and stakeholders can be tracked per commitment
 - Progress report can be generated on demand
 
-**Status:** ❌ `RealizationStage` renders hardcoded demo data (DEBT-004, issue #1345)  
-**Gap:** No `realization_outputs` table; `ValueCommitmentTrackingService` is all stubs (DEBT-007)
+**Status:** ⚠️ Stage wired; commitment tracking stubs remain  
+**Delivered:** `realization_reports` table + RLS, `RealizationReportRepository`, `GET /api/v1/cases/:caseId/realization` + `POST .../realization/run`, `useRealization` hook, `RealizationStage` wired to real data. DEBT-004 resolved.  
+**Gap:** `ValueCommitmentTrackingService` has 15 TODO stubs — milestones, metrics, risks, stakeholders not persisted (DEBT-007, Sprint 20)
 
 ---
 
