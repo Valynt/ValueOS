@@ -267,9 +267,10 @@ export function useCachedData<T>(
       // Skip caching payloads that are likely to exceed the ~5 MB localStorage quota.
       // 4 MB leaves headroom for other stored keys.
       const MAX_CACHE_BYTES = 4 * 1024 * 1024;
-      if (payload.length > MAX_CACHE_BYTES) {
+      const payloadBytes = new TextEncoder().encode(payload).length;
+      if (payloadBytes > MAX_CACHE_BYTES) {
         console.warn(
-          `[useCachedData] Skipping cache write for key "${key}": payload size ${payload.length} bytes exceeds limit.`
+          `[useCachedData] Skipping cache write for key "${key}": payload size ${payloadBytes} bytes exceeds limit.`
         );
         return;
       }
