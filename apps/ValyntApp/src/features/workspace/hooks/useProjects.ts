@@ -1,26 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { useAuth } from "../../../contexts/AuthContext";
+import { apiClient } from "@/api/client/unified-api-client";
 import type { Project } from "../types";
 
 export function useProjects(workspaceId?: string) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { session } = useAuth();
-
-  // Raw fetch retained throughout this hook: apiClient.setAuthToken is not yet
-  // wired to the Supabase session in app bootstrap, so auth must be attached
-  // manually here (see debt.md).
-  const getHeaders = useCallback(() => {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    }
-    return headers;
-  }, [session?.access_token]);
 
   const fetchProjects = useCallback(async () => {
     if (!workspaceId) return;
@@ -28,22 +14,17 @@ export function useProjects(workspaceId?: string) {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/projects`, {
-        headers: getHeaders(),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch projects: ${res.statusText}`);
+      const response = await apiClient.get<{ projects: Project[] }>(`/api/workspaces/${workspaceId}/projects`);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message ?? "Failed to fetch projects");
       }
-
-      const data = await res.json();
-      setProjects(data.projects);
+      setProjects(response.data.projects);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch projects");
     } finally {
       setIsLoading(false);
     }
-  }, [workspaceId, getHeaders]);
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchProjects();
@@ -53,18 +34,12 @@ export function useProjects(workspaceId?: string) {
     if (!workspaceId) return null;
 
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/projects`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to create project: ${res.statusText}`);
+      const response = await apiClient.post<Project>(`/api/workspaces/${workspaceId}/projects`, data);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message ?? "Failed to create project");
       }
 
-      const newProject = await res.json();
+      const newProject = response.data;
       // Prepend new project as we sort by newest first in backend
       setProjects((prev) => [newProject, ...prev]);
       return newProject;
@@ -79,17 +54,13 @@ export function useProjects(workspaceId?: string) {
     if (!workspaceId) return;
 
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/projects/${projectId}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify(updates),
-      });
+      const response = await apiClient.put<Project>(`/api/workspaces/${workspaceId}/projects/${projectId}`, updates);
 
-      if (!res.ok) {
-        throw new Error(`Failed to update project: ${res.statusText}`);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message ?? "Failed to update project");
       }
 
-      const updatedProject = await res.json();
+      const updatedProject = response.data;
       setProjects((prev) =>
         prev.map((p) => (p.id === projectId ? updatedProject : p))
       );
@@ -102,13 +73,10 @@ export function useProjects(workspaceId?: string) {
     if (!workspaceId) return;
 
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/projects/${projectId}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      });
+      const response = await apiClient.delete(`/api/workspaces/${workspaceId}/projects/${projectId}`);
 
-      if (!res.ok) {
-        throw new Error(`Failed to delete project: ${res.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error?.message ?? "Failed to delete project");
       }
 
       setProjects((prev) => prev.filter((p) => p.id !== projectId));

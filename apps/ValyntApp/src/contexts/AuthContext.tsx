@@ -6,6 +6,8 @@
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
+import { apiClient } from "@/api/client/unified-api-client";
+
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
@@ -149,6 +151,16 @@ const useAuthState = () => {
 
     initAuth();
   }, []);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    if (session?.access_token) {
+      apiClient.setAuthToken(session.access_token);
+      return;
+    }
+
+    apiClient.clearAuthToken();
+  }, [session]);
 
   // Listen for auth state changes
   useEffect(() => {
