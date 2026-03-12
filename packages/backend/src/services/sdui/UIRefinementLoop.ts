@@ -20,7 +20,7 @@ import { llmConfig } from '../config/llm.js'
 import { CircuitBreaker as AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import type { Subgoal } from '../types/Subgoal';
 
 import { ComponentMutationService } from './ComponentMutationService.js'

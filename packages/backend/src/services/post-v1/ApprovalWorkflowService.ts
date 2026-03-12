@@ -3,7 +3,7 @@
  * Multi-level approval system for sensitive configuration changes
  */
 
-import { BaseService } from './BaseService.js'
+import { BaseService } from '../BaseService.js'
 import { AuthorizationError, NotFoundError } from './errors.js'
 
 export interface ApprovalWorkflow {

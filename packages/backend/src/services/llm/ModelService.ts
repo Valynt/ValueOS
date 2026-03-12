@@ -2,7 +2,7 @@
  * Service for managing Value Models, Business Cases, and their related artifacts.
  * This service encapsulates business logic and uses repositories for data access.
  */
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { KpiTargetRepository } from "../repositories/KpiTargetRepository";
 import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculationRepository";
 import { RoiModelRepository } from "../repositories/RoiModelRepository";

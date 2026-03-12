@@ -5,7 +5,7 @@
  * Prevents data loss and enables recovery from crashes.
  */
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 import { PlaygroundSessionService } from './PlaygroundSessionService.js'
 

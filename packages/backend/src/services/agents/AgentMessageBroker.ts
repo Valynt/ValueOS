@@ -15,7 +15,7 @@ import {
   secureMessageBus,
 } from "../lib/agent-fabric/SecureMessageBus";
 import { AgentIdentity } from "../lib/auth/AgentIdentity";
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
 // ============================================================================
 // Types
@@ -145,10 +145,15 @@ export class AgentMessageBroker {
         request.toAgentId,
         request.payload,
         {
+          tenantContext: {
+            tenantId: sender.identity.organization_id,
+            organizationId: sender.identity.organization_id,
+          },
           priority: request.priority || "normal",
           encrypted: request.encrypted || false,
           correlationId,
           replyTo: request.fromAgentId,
+          senderIdentity: sender.identity,
         }
       );
 

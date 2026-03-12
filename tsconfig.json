@@ -1,13 +1,16 @@
 {
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "packages/services/**"],
-  "compilerOptions": {
-    "module": "ESNext",
-    "strict": true,
-    "lib": ["esnext", "dom", "dom.iterable"],
-    "jsx": "preserve",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "types": ["node"]
-  }
+  "files": [],
+  "references": [
+    { "path": "./apps/ValyntApp" },
+    { "path": "./apps/VOSAcademy" },
+    { "path": "./apps/mcp-dashboard" },
+    { "path": "./packages/backend" },
+    { "path": "./packages/shared" },
+    { "path": "./packages/sdui" },
+    { "path": "./packages/memory" },
+    { "path": "./packages/mcp" },
+    { "path": "./packages/infra" },
+    { "path": "./packages/integrations" },
+    { "path": "./packages/core-services" }
+  ]
 }

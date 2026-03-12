@@ -14,7 +14,7 @@ import { getSupabaseClient } from '@shared/lib/supabase';
 
 import { getSessionStore, SessionMetadata } from '../security/RedisSessionStore.js';
 
-import { BaseService } from './BaseService.js';
+import { BaseService } from '../BaseService.js';
 import { emailService } from './EmailService.js';
 import { securityLogger } from './SecurityLogger.js';
 

@@ -7,7 +7,7 @@ import type {
   LLMStreamCallback,
   LLMTool,
 } from "../lib/agent-fabric/llm-types";
-import { supabase } from "../lib/supabase.js"
+import { supabase } from "../../lib/supabase.js"
 import { sanitizeLLMContent } from "../utils/security.js"
 
 import { llmSanitizer } from "./LLMSanitizer.js"

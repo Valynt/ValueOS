@@ -9,7 +9,7 @@ import {
   createAddAction,
 } from '@sdui/AtomicUIActions';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { ManifestoCheckResult } from '../types/sdui-integration';
 
 /**

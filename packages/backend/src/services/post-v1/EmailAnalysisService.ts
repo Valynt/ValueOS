@@ -9,7 +9,7 @@ import { llmConfig } from '../config/llm.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 // ============================================================================
 // Types

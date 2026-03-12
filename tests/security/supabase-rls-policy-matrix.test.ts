@@ -19,6 +19,17 @@ const EXPECTED_SEMANTICS: Record<"read" | "write", CrossTenantExpectation> = {
   write: "forbidden",
 };
 
+const bootstrapTargetRecord = async (
+  fixture: TenantIsolationFixture,
+  target: RlsTarget
+): Promise<void> => {
+  const { error: insertError } = await fixture.adminClient
+    .from(target.table)
+    .insert(target.createPayload(fixture.tenantOne.tenantId));
+
+  expect(insertError).toBeNull();
+};
+
 const assertCrossTenantRead = (rows: unknown[] | null) => {
   expect(EXPECTED_SEMANTICS.read).toBe("not_found");
   expect(rows ?? []).toEqual([]);
@@ -77,10 +88,7 @@ describe("Supabase RLS policy matrix hard gate", () => {
 
   for (const target of targets) {
     it(`enforces standardized cross-tenant semantics on ${target.table}`, async () => {
-      const { error: insertError } = await fixture.adminClient
-        .from(target.table)
-        .insert(target.createPayload(fixture.tenantOne.tenantId));
-      expect(insertError).toBeNull();
+      await bootstrapTargetRecord(fixture, target);
 
       try {
         const { data: readData, error: readError } =

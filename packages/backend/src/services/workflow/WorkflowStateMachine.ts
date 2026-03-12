@@ -5,7 +5,7 @@
  * to prevent invalid state transitions and ensure workflow consistency.
  */
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
 export class WorkflowStateMachine {
   private validTransitions: Map<string, string[]> = new Map([

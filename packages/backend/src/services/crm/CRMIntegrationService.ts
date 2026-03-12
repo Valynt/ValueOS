@@ -8,9 +8,9 @@
 import { HubSpotModule } from "@mcp/crm/modules/HubSpotModule";
 import { CRMDeal } from "@mcp/crm/types";
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
-import { integrationControlService } from "./IntegrationControlService.js"
+import { integrationControlService } from "../IntegrationControlService.js"
 
 // Create a singleton instance for now, assuming connection management is handled globally or we pass it
 const crmModule = new HubSpotModule();
@@ -34,51 +34,9 @@ export class CRMIntegrationService {
     // Check connection status
     const isConnected = crmModule.isConnected();
 
-    const devMocksEnabled =
-      process.env.DEV_MOCKS_ENABLED === "true" ||
-      process.env.DEV_MOCKS_ENABLED === "1";
-
-    // MOCK: Return mock data if allowed in dev AND not connected
-    // This allows testing real integration in dev if configured/connected
-    if (devMocksEnabled && process.env.NODE_ENV !== "production" && !isConnected) {
-      logger.info("[MOCK] Fetching CRM deals (Dev mode & Not Connected)");
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      return [
-        {
-          id: 'deal-1',
-          externalId: 'HS-001',
-          provider: 'hubspot',
-          name: 'Acme Corp - Enterprise License',
-          amount: 250000,
-          currency: 'USD',
-          stage: 'Proposal',
-          probability: 75,
-          closeDate: new Date('2026-03-15'),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ownerName: 'Sarah Johnson',
-          companyName: 'Acme Corp',
-          properties: {}
-        },
-        {
-          id: 'deal-2',
-          externalId: 'HS-002',
-          provider: 'hubspot',
-          name: 'TechStart Inc - Growth Plan',
-          amount: 85000,
-          currency: 'USD',
-          stage: 'Discovery',
-          probability: 40,
-          closeDate: new Date('2026-04-01'),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ownerName: 'Mike Chen',
-          companyName: 'TechStart Inc',
-          properties: {}
-        }
-      ];
+    if (!isConnected) {
+      logger.warn("CRM deal fetch blocked: provider not connected", { tenantId });
+      throw new Error("CRM provider is not connected");
     }
 
     try {
@@ -120,25 +78,15 @@ export class CRMIntegrationService {
       // For the demo, we assume the user just imported from CRM and has a session.
       // If not connected, this will fail or we mock it.
 
-      let success = false;
-
-      const devMocksEnabled =
-        process.env.DEV_MOCKS_ENABLED === "true" ||
-        process.env.DEV_MOCKS_ENABLED === "1";
-
-      // MOCK: Check if we are in a mock/demo environment
-      if (
-        devMocksEnabled &&
-        process.env.NODE_ENV !== "production" &&
-        !dealId.startsWith("deal_")
-      ) {
-        logger.info("[MOCK] Pushing to CRM", { noteBody });
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Fake network lag
-        success = true;
-      } else {
-        // Real Call
-        success = await crmModule.addDealNote(dealId, noteBody);
+      if (!crmModule.isConnected()) {
+        logger.warn("CRM sync blocked: provider not connected", { dealId, tenantId });
+        return {
+          success: false,
+          message: "Failed to write to HubSpot. Please check connection.",
+        };
       }
+
+      const success = await crmModule.addDealNote(dealId, noteBody);
 
       if (success) {
         return {

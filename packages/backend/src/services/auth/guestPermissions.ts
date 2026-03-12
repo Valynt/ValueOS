@@ -4,7 +4,7 @@
  * Manages permission checks and access control for guest users
  */
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 
 import { GuestPermissions } from "./GuestAccessService.js"
 

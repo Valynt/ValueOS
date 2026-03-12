@@ -9,7 +9,7 @@ import { llmConfig } from '../config/llm.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { LabSuccessCriterion, QuizQuestion } from '../types/academy.js'
 
 // Lab message type (also defined in LabPanel)

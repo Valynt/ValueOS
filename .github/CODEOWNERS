@@ -25,6 +25,10 @@ src/sdui/ @team/frontend
 src/components/ @team/frontend
 
 # CI / DevOps
+
+# Explicit legacy ownership
+infra/legacy/ @team/devops @team/owners
+scripts/legacy/ @team/devops @team/owners
 .github/workflows/ @team/devops
 scripts/ @team/devops
 

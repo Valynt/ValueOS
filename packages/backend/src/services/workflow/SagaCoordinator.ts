@@ -8,7 +8,7 @@
 import { EVENT_TOPICS } from "@shared/types/events";
 import { v4 as uuidv4 } from "uuid";
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
 import { EventProducer, getEventProducer } from "./EventProducer.js"
 

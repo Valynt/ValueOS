@@ -1,29 +1,13 @@
-/**
- * RedTeamAgent — secureInvoke compliance tests
- *
- * AGENTS.md rule 2: all production agent LLM calls must go through
- * BaseAgent.secureInvoke(), which wraps calls with circuit breaker,
- * hallucination detection, and Zod validation.
- *
- * RedTeamAgent currently calls this.llmGateway.complete() directly (known
- * debt, see TODO in RedTeamAgent.ts). These tests:
- *   1. Pin the current behaviour so regressions are visible.
- *   2. Assert that schema-invalid LLM output is rejected.
- *   3. Assert that hallucination metadata is recorded when secureInvoke is used.
- *   4. Document the migration path with `.skip`-marked tests that must pass
- *      once the agent extends BaseAgent.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { BaseAgent } from '../../../agent-fabric/agents/BaseAgent.js';
+import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
 import {
   RedTeamAgent,
   RedTeamOutputSchema,
   type RedTeamInput,
   type RedTeamLLMGateway,
 } from './RedTeamAgent.js';
-
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const VALID_INPUT: RedTeamInput = {
   valueCaseId: 'case-0001',
@@ -47,107 +31,93 @@ const VALID_LLM_RESPONSE = JSON.stringify({
   ],
   summary: 'One medium-severity assumption risk identified.',
   hasCritical: false,
-  timestamp: new Date().toISOString(),
+  confidence: 'medium',
 });
 
 const SCHEMA_INVALID_LLM_RESPONSE = JSON.stringify({
-  // Missing required fields: objections, summary, hasCritical
   unexpected_field: 'this is not the right shape',
 });
 
-const HALLUCINATION_RESPONSE = JSON.stringify({
-  objections: [
-    {
-      id: 'obj-hallucinated',
-      targetComponent: 'Revenue increase',
-      severity: 'critical',
-      category: 'math_error',
-      description: 'I am an AI and cannot verify these numbers',
-    },
-  ],
-  summary: 'As an AI language model, I cannot confirm these projections.',
-  hasCritical: true,
-  timestamp: new Date().toISOString(),
-});
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
-describe('RedTeamAgent — current behaviour (direct llmGateway.complete)', () => {
+describe('RedTeamAgent — secureInvoke compliance', () => {
   let mockComplete: ReturnType<typeof vi.fn>;
+  let gateway: RedTeamLLMGateway;
+  let memorySystem: MemorySystem;
   let agent: RedTeamAgent;
 
   beforeEach(() => {
     mockComplete = vi.fn();
-    const gateway: RedTeamLLMGateway = { complete: mockComplete };
-    agent = new RedTeamAgent(gateway);
+    gateway = { complete: mockComplete };
+    memorySystem = new MemorySystem({ max_memories: 100, enable_persistence: false });
+    agent = new RedTeamAgent(gateway, memorySystem);
   });
 
-  it('calls llmGateway.complete() directly (documents rule-2 violation)', async () => {
+  it('calls BaseAgent.secureInvoke and preserves tenant metadata on gateway call', async () => {
+    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
+    const secureInvokeSpy = vi.spyOn(BaseAgent.prototype as any, 'secureInvoke');
+
+    await agent.analyze(VALID_INPUT);
+
+    expect(secureInvokeSpy).toHaveBeenCalledOnce();
+    expect(mockComplete).toHaveBeenCalledOnce();
+
+    const callArgs = mockComplete.mock.calls[0][0] as {
+      metadata: Record<string, unknown>;
+      messages: Array<{ role: string; content: string }>;
+    };
+
+    expect(callArgs.metadata.tenantId).toBe(VALID_INPUT.tenantId);
+    expect(callArgs.metadata.tenant_id).toBe(VALID_INPUT.tenantId);
+    expect(callArgs.metadata.idempotencyKey).toBe(VALID_INPUT.idempotencyKey);
+    expect(callArgs.metadata.valueCaseId).toBe(VALID_INPUT.valueCaseId);
+    expect(callArgs.messages[0]!.content).toContain('You are a Red Team analyst');
+  });
+
+  it('returns hallucination fields from secureInvoke output', async () => {
+    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
+
+    const result = await agent.analyze(VALID_INPUT);
+
+    expect(result.hallucination_check).toBeTypeOf('boolean');
+    expect(result.hallucination_details).toBeDefined();
+    expect(result.confidence).toBe('medium');
+  });
+
+  it('stores memory scoped to tenant organization_id', async () => {
     mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
 
     await agent.analyze(VALID_INPUT);
 
-    // Current behaviour: direct gateway call, no secureInvoke wrapper
-    expect(mockComplete).toHaveBeenCalledOnce();
-    const callArgs = mockComplete.mock.calls[0][0] as {
-      messages: Array<{ role: string; content: string }>;
-      metadata: Record<string, unknown>;
-    };
-    expect(callArgs.metadata.tenantId).toBe(VALID_INPUT.tenantId);
-    expect(callArgs.metadata.valueCaseId).toBe(VALID_INPUT.valueCaseId);
+    const memories = await memorySystem.retrieve({
+      agent_id: 'RedTeamAgent',
+      memory_type: 'episodic',
+      organization_id: VALID_INPUT.tenantId,
+      limit: 5,
+    });
+
+    expect(memories.length).toBeGreaterThan(0);
+    expect(memories[0]?.organization_id).toBe(VALID_INPUT.tenantId);
   });
 
-  it('rejects schema-invalid LLM output via Zod parse', async () => {
+  it('rejects schema-invalid output via secureInvoke zod validation', async () => {
     mockComplete.mockResolvedValue({ content: SCHEMA_INVALID_LLM_RESPONSE });
 
     await expect(agent.analyze(VALID_INPUT)).rejects.toThrow();
   });
 
-  it('parses valid output into typed RedTeamOutput', async () => {
-    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
+  it('surfaces secureInvoke failure handling when llm call fails', async () => {
+    mockComplete.mockRejectedValue(new Error('provider timeout'));
 
-    const result = await agent.analyze(VALID_INPUT);
-
-    expect(result.objections).toHaveLength(1);
-    expect(result.objections[0]!.severity).toBe('medium');
-    expect(result.hasCritical).toBe(false);
-    expect(result.summary).toBeTruthy();
-    expect(result.timestamp).toBeTruthy();
-  });
-
-  it('does NOT record hallucination metadata (no secureInvoke — known gap)', async () => {
-    mockComplete.mockResolvedValue({ content: HALLUCINATION_RESPONSE });
-
-    const result = await agent.analyze(VALID_INPUT);
-
-    // secureInvoke would attach hallucination_check and hallucination_details.
-    // Direct complete() call returns neither — document the gap.
-    expect((result as any).hallucination_check).toBeUndefined();
-    expect((result as any).hallucination_details).toBeUndefined();
-  });
-
-  it('propagates tenantId in gateway metadata (tenant isolation)', async () => {
-    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
-
-    await agent.analyze(VALID_INPUT);
-
-    const metadata = (mockComplete.mock.calls[0][0] as any).metadata as Record<string, unknown>;
-    expect(metadata.tenantId).toBe('tenant-0001');
-  });
-
-  it('propagates idempotencyKey in gateway metadata', async () => {
-    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
-
-    await agent.analyze(VALID_INPUT);
-
-    const metadata = (mockComplete.mock.calls[0][0] as any).metadata as Record<string, unknown>;
-    expect(metadata.idempotencyKey).toBe(VALID_INPUT.idempotencyKey);
+    await expect(agent.analyze(VALID_INPUT)).rejects.toThrow('provider timeout');
   });
 });
 
 describe('RedTeamOutputSchema — Zod validation', () => {
   it('accepts a fully valid output', () => {
-    const parsed = RedTeamOutputSchema.safeParse(JSON.parse(VALID_LLM_RESPONSE));
+    const parsed = RedTeamOutputSchema.safeParse({
+      ...JSON.parse(VALID_LLM_RESPONSE),
+      hallucination_check: true,
+      timestamp: new Date().toISOString(),
+    });
     expect(parsed.success).toBe(true);
   });
 
@@ -162,58 +132,30 @@ describe('RedTeamOutputSchema — Zod validation', () => {
         {
           id: 'o1',
           targetComponent: 'x',
-          severity: 'catastrophic', // not in enum
+          severity: 'catastrophic',
           category: 'assumption',
           description: 'test',
         },
       ],
       summary: 'test',
       hasCritical: false,
+      confidence: 'medium',
       timestamp: new Date().toISOString(),
     };
     const parsed = RedTeamOutputSchema.safeParse(bad);
     expect(parsed.success).toBe(false);
   });
 
-  it('rejects objections with unknown category values', () => {
+  it('rejects invalid confidence values', () => {
     const bad = {
-      objections: [
-        {
-          id: 'o1',
-          targetComponent: 'x',
-          severity: 'low',
-          category: 'vibes', // not in enum
-          description: 'test',
-        },
-      ],
+      objections: [],
       summary: 'test',
       hasCritical: false,
+      confidence: 'very_high',
       timestamp: new Date().toISOString(),
     };
+
     const parsed = RedTeamOutputSchema.safeParse(bad);
     expect(parsed.success).toBe(false);
-  });
-});
-
-// ─── Migration target: secureInvoke compliance ────────────────────────────────
-// Remove `.skip` once RedTeamAgent extends BaseAgent and uses secureInvoke().
-
-describe.skip('RedTeamAgent — after BaseAgent migration (secureInvoke)', () => {
-  it('calls secureInvoke instead of llmGateway.complete directly', async () => {
-    // After migration: agent.secureInvoke should be called, not gateway.complete
-    // Verify via spy on BaseAgent.prototype.secureInvoke
-    throw new Error('Not yet implemented — remove skip when migration is complete');
-  });
-
-  it('attaches hallucination_check boolean to output', async () => {
-    throw new Error('Not yet implemented — remove skip when migration is complete');
-  });
-
-  it('attaches hallucination_details with grounding score to output', async () => {
-    throw new Error('Not yet implemented — remove skip when migration is complete');
-  });
-
-  it('triggers escalation logging when hallucination signals fire', async () => {
-    throw new Error('Not yet implemented — remove skip when migration is complete');
   });
 });

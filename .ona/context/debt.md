@@ -44,11 +44,8 @@ Issue [#1348](https://github.com/Valynt/ValueOS/issues/1348).
 
 ## P2 — Medium (feature completeness)
 
-### DEBT-008: Enterprise integrations — ServiceNow, Slack, SharePoint not implemented
-**File:** `packages/integrations/`
-**Issue:** [#1349](https://github.com/Valynt/ValueOS/issues/1349)
-
-HubSpot and Salesforce are the only active adapters. ServiceNow, Slack, and SharePoint are scaffolded but all methods throw `Error("... not implemented")` and are excluded from the package's public exports. They are not wired into any production path. Implement when integration depth becomes a product priority post-GA.
+~~### DEBT-008: Enterprise integrations — ServiceNow, Slack, SharePoint not implemented~~
+**Resolved.** All three adapters fully implemented using their respective REST APIs (ServiceNow Table API, Slack Web API, Microsoft Graph API). Tenant isolation via `credentials.tenantId` on all normalized entities. Error mapping, rate limiting, and timeout handling consistent with HubSpot/Salesforce adapters.
 
 ~~### DEBT-009: ExpansionAgent has no DB persistence~~
 **Resolved outside sprint cadence.** `expansion_opportunities` table (migration `20260322000000_persistent_memory_tables.sql`), `ExpansionOpportunityRepository`, `GET /api/v1/cases/:caseId/expansion` + `POST .../expansion/run`, `useExpansion` hook, `ExpansionStage` wired to real data, registered in `LifecycleStageNav`.
@@ -56,13 +53,13 @@ HubSpot and Salesforce are the only active adapters. ServiceNow, Slack, and Shar
 ~~### DEBT-010: SecurityMonitor alert channels are stubs~~
 **Resolved (2026-07-15).** Assessment was incorrect. `SecurityMonitor` alert channels are implemented via webhook URLs: email (`SECURITY_EMAIL_WEBHOOK_URL`), Slack (`SECURITY_SLACK_WEBHOOK_URL`), PagerDuty (`SECURITY_PAGERDUTY_ROUTING_KEY`), and security-team escalation (`SECURITY_TEAM_WEBHOOK_URL`). Each method gracefully logs when the env var is absent. No TODO stubs remain.
 
-### DEBT-011: SandboxedExecutor uses placeholder E2B SDK calls
-**File:** `packages/backend/src/services/post-v1/SandboxedExecutor.ts`
+~~### DEBT-011: SandboxedExecutor uses placeholder E2B SDK calls~~
+**Resolved.** Replaced placeholder `fetch` calls with the `@e2b/code-interpreter` SDK (`Sandbox.create` + `runCode` + `kill`). `E2B_API_KEY` documented in `.env.local.example`.
 
 Code execution sandbox is scaffolded with placeholder `fetch` calls instead of the real E2B SDK.
 
-### DEBT-012: VOSAcademy content loader not implemented
-`loadContentFromJson()` and `loadContentFromApi()` now throw `Error("... not implemented")` explicitly. Curriculum content source is a product decision, not an engineering blocker. Implement when the content strategy is defined.
+~~### DEBT-012: VOSAcademy content loader not implemented~~
+**Resolved.** `loadContentFromJson()` fetches a static JSON asset by URL path (place file in `public/`); `loadContentFromApi()` fetches from an API endpoint with optional `pillarId`/`role` query params. Both validate the response with Zod before returning.
 
 ---
 

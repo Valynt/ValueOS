@@ -7,7 +7,7 @@
 
 import { SDUIPageDefinition } from '@valueos/sdui';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { LifecycleStage } from '../types/workflow';
 import {
   StageCompletionEvent,

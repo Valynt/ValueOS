@@ -1,4 +1,4 @@
-import { createLogger } from '../lib/logger.js'
+import { createLogger } from '../../lib/logger.js'
 
 import { TenantAwareService } from './TenantAwareService.js'
 

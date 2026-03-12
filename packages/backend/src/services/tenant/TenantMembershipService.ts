@@ -5,8 +5,8 @@
  * Implements OWASP-compliant seat provisioning with race condition prevention.
  */
 
-import { logger } from '../lib/logger.js'
-import { supabase } from '../lib/supabase.js';
+import { logger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js';
 
 import { AuditLogService } from './AuditLogService.js'
 import { ValidationError } from './errors.js'

@@ -64,7 +64,7 @@ export class SessionContextLedger {
     this.ttlSeconds = options.ttlSeconds ?? DEFAULT_TTL_SECONDS;
     this.redisPromise = options.redis
       ? Promise.resolve(options.redis)
-      : (getRedisClient() as Promise<RedisLike>);
+      : Promise.resolve(getRedisClient() as unknown as RedisLike);
   }
 
   async appendMessage(scope: SessionScope, message: Omit<TokenHistoryMessage, 'createdAt'>): Promise<SessionContextData> {

@@ -70,7 +70,17 @@ export class FabricMonitor {
         messageId: id,
         payload,
       },
-      { priority: "urgent" }
+      {
+        tenantContext: {
+          tenantId: payload?.tenantId ?? "system",
+          organizationId: payload?.organizationId ?? payload?.tenantId ?? "system",
+        },
+        priority: "urgent",
+        metadata: {
+          tenant_id: payload?.tenantId,
+          organization_id: payload?.organizationId,
+        },
+      }
     );
   }
 }

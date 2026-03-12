@@ -10,9 +10,9 @@
  * - Security monitoring
  */
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 
-import { BaseService } from "./BaseService.js"
+import { BaseService } from "../BaseService.js"
 import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export interface TrustedDevice {

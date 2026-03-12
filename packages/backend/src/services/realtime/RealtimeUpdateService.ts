@@ -5,7 +5,7 @@
  * Handles push notifications, conflict resolution, and state synchronization.
  */
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { SDUIUpdate, WorkspaceState } from '../types/sdui-integration';
 
 import { WebSocketManager, WebSocketMessage } from './WebSocketManager.js'

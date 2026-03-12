@@ -37,7 +37,7 @@ interface AgentResponseEvent extends BaseEvent {
 }
 import { AgentType } from "./agent-types.js"
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 
 export class AgentExecutorService {

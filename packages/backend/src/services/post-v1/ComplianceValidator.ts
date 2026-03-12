@@ -6,7 +6,7 @@
  */
 
 import { ComplianceMetadata, ComplianceRule } from '../components/Compliance/ComplianceStamp';
-import { supabase } from '../lib/supabase.js'
+import { supabase } from '../../lib/supabase.js'
 
 export interface ValidationContext {
   reportId: string;

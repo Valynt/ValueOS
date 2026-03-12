@@ -21,6 +21,85 @@ import { trpc } from '../lib/trpc';
 
 import { useAuth } from '@/hooks/useAuth';
 
+type UserProgressRow = {
+  pillarId: number;
+  status: string;
+  completionPercentage: number | null;
+};
+
+type QuizResultRow = {
+  pillarId: number;
+  score: number;
+  passed: number | null;
+};
+
+function deriveModuleProgress(
+  modules: CurriculumModule[],
+  progressData: UserProgressRow[] | undefined,
+  quizResults: QuizResultRow[] | undefined
+): { completed: string[]; inProgress: string[] } {
+  if (!modules.length) {
+    return { completed: [], inProgress: [] };
+  }
+
+  const modulesByPillar = new Map<number, CurriculumModule[]>();
+  modules.forEach((module) => {
+    const existing = modulesByPillar.get(module.pillarId) ?? [];
+    existing.push(module);
+    modulesByPillar.set(module.pillarId, existing);
+  });
+
+  for (const groupedModules of modulesByPillar.values()) {
+    groupedModules.sort((a, b) => a.order - b.order);
+  }
+
+  const completed = new Set<string>();
+  const inProgress = new Set<string>();
+
+  const progressByPillar = new Map<number, UserProgressRow>();
+  progressData?.forEach((progress) => {
+    progressByPillar.set(progress.pillarId, progress);
+  });
+
+  const passedPillars = new Set<number>();
+  quizResults?.forEach((result) => {
+    if (result.passed === 1 || result.score >= 80) {
+      passedPillars.add(result.pillarId);
+    }
+  });
+
+  modulesByPillar.forEach((pillarModules, pillarId) => {
+    if (passedPillars.has(pillarId)) {
+      pillarModules.forEach((module) => completed.add(module.id));
+      return;
+    }
+
+    const progress = progressByPillar.get(pillarId);
+    if (!progress) {
+      return;
+    }
+
+    if (progress.status === 'completed' || (progress.completionPercentage ?? 0) >= 100) {
+      pillarModules.forEach((module) => completed.add(module.id));
+      return;
+    }
+
+    const completionPercentage = Math.max(0, Math.min(progress.completionPercentage ?? 0, 100));
+    const completedCount = Math.floor((completionPercentage / 100) * pillarModules.length);
+
+    pillarModules.slice(0, completedCount).forEach((module) => completed.add(module.id));
+
+    if (progress.status === 'in_progress' && completedCount < pillarModules.length) {
+      inProgress.add(pillarModules[completedCount].id);
+    }
+  });
+
+  return {
+    completed: [...completed],
+    inProgress: [...inProgress].filter((id) => !completed.has(id)),
+  };
+}
+
 /**
  * Hook to get user's curriculum based on their role
  */
@@ -60,6 +139,10 @@ export function useProgress(): {
 } {
   const { user, loading: authLoading } = useAuth();
   const { curriculum } = useCurriculum();
+  const modules = useMemo(
+    () => curriculum?.pillars.flatMap((pillar) => pillar.modules) ?? [],
+    [curriculum]
+  );
 
   // Get real progress data from database
   const { data: progressData, isLoading: progressLoading } = trpc.progress.getUserProgress.useQuery(
@@ -73,28 +156,13 @@ export function useProgress(): {
     { enabled: !!user }
   );
 
-  const completedModules = useMemo(() => {
-    if (!progressData || !quizResults) return [];
+  const derivedProgress = useMemo(
+    () => deriveModuleProgress(modules, progressData, quizResults),
+    [modules, progressData, quizResults]
+  );
 
-    const completedFromProgress = progressData
-      .filter(p => p.status === 'completed')
-      .map(p => `pillar-${p.pillarId}-module-${p.completionPercentage}`); // This needs better mapping
-
-    // For now, assume modules are completed when quizzes are passed
-    const completedFromQuizzes = quizResults
-      .filter(result => result.score >= 80) // 80% pass threshold
-      .map(result => `pillar-${result.pillarId}`); // This is simplified
-
-    return [...new Set([...completedFromProgress, ...completedFromQuizzes])];
-  }, [progressData, quizResults]);
-
-  const inProgressModules = useMemo(() => {
-    if (!progressData) return [];
-
-    return progressData
-      .filter(p => p.status === 'in_progress')
-      .map(p => `pillar-${p.pillarId}`); // Simplified mapping
-  }, [progressData]);
+  const completedModules = derivedProgress.completed;
+  const inProgressModules = derivedProgress.inProgress;
 
   const progressStats = useMemo(() => {
     if (!curriculum || !user) return null;
@@ -136,6 +204,7 @@ export function useModuleStatus(moduleId: string): {
 } {
   const { user, loading } = useAuth();
   const { curriculum } = useCurriculum();
+  const { completedModules, inProgressModules, isLoading: progressLoading } = useProgress();
 
   const status = useMemo(() => {
     if (!curriculum || !user) return 'locked';
@@ -146,24 +215,20 @@ export function useModuleStatus(moduleId: string): {
 
     if (!module) return 'locked';
 
-    // TODO: Get actual progress data
-    const completedModules: string[] = [];
-    const inProgressModules: string[] = [];
-
     return getModuleStatus(
       module,
       user.maturityLevel || 0,
       completedModules,
       inProgressModules
     );
-  }, [curriculum, user, moduleId]);
+  }, [completedModules, curriculum, inProgressModules, user, moduleId]);
 
   const canAccess = status !== 'locked';
 
   return {
     status,
     canAccess,
-    isLoading: loading
+    isLoading: loading || progressLoading
   };
 }
 
@@ -176,13 +241,10 @@ export function usePillarAccess(pillarId: number): {
   isLoading: boolean;
 } {
   const { user, loading } = useAuth();
+  const { completedModules, inProgressModules, isLoading: progressLoading } = useProgress();
 
   const pillarStatus = useMemo(() => {
     if (!user?.vosRole) return { canAccess: false, status: 'locked' as const };
-
-    // TODO: Get actual progress data
-    const completedModules: string[] = [];
-    const inProgressModules: string[] = [];
 
     const status = getPillarStatus(
       pillarId,
@@ -196,10 +258,10 @@ export function usePillarAccess(pillarId: number): {
       canAccess: status.status !== 'locked',
       status: status.status
     };
-  }, [user, pillarId]);
+  }, [completedModules, inProgressModules, user, pillarId]);
 
   return {
     ...pillarStatus,
-    isLoading: loading
+    isLoading: loading || progressLoading
   };
 }

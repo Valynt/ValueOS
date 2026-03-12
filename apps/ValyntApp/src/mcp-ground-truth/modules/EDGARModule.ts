@@ -454,11 +454,48 @@ export class EDGARModule extends BaseModule {
     accessionNumber: string,
     keywords: string[]
   ): Promise<EDGARExtraction> {
-    // Implementation would search filing for keyword occurrences
-    // This is a placeholder for the full implementation
-    throw new GroundTruthError(
-      ErrorCodes.INVALID_REQUEST,
-      'Keyword extraction not yet implemented'
-    );
+    await this.enforceRateLimit();
+
+    if (!Array.isArray(keywords) || keywords.length === 0) {
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "At least one keyword is required");
+    }
+
+    const normalizedKeywords = [...new Set(
+      keywords.map((keyword) => keyword.trim().toLowerCase()).filter((keyword) => keyword.length >= 2)
+    )];
+
+    const fileUrl = accessionNumber.startsWith("http") ? accessionNumber : undefined;
+    if (!fileUrl) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "Accession number must be a filing URL for keyword extraction"
+      );
+    }
+
+    const response = await fetch(fileUrl, { headers: { "User-Agent": this.userAgent } });
+    if (!response.ok) {
+      throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch filing: ${response.status}`);
+    }
+
+    const text = (await response.text()).replace(/\s+/g, " ").toLowerCase();
+    const counts = normalizedKeywords.map((keyword) => {
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b${escaped}\\b`, "gi");
+      const matches = text.match(regex);
+      return { keyword, count: matches?.length ?? 0 };
+    });
+
+    const keywordsFound = counts.filter((entry) => entry.count > 0).sort((a, b) => b.count - a.count).map((entry) => entry.keyword);
+
+    return {
+      section: "keywords",
+      content: counts
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20)
+        .map((entry) => `${entry.keyword}:${entry.count}`)
+        .join(", "),
+      keywords_found: keywordsFound,
+    };
   }
+
 }

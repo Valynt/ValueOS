@@ -4,7 +4,7 @@ import express, { Router } from "express";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { getTenantIdFromRequest, ReadThroughCacheService } from "../services/ReadThroughCacheService.js";
+import { ReadThroughCacheService } from "../services/ReadThroughCacheService.js";
 import {
   ValueLoopAnalytics,
   RecordEventInputSchema,
@@ -12,6 +12,10 @@ import {
 
 const logger = createLogger({ component: "analytics-api" });
 const analyticsRouter: Router = express.Router();
+const publicTelemetryRouter: Router = express.Router();
+const tenantAnalyticsRouter: Router = express.Router();
+
+const PUBLIC_ANALYTICS_CACHE_SCOPE = "public-telemetry";
 
 const analyticsLimiter = createRateLimiter("standard", {
   message: "Too many analytics requests. Please slow down.",
@@ -19,17 +23,16 @@ const analyticsLimiter = createRateLimiter("standard", {
 
 analyticsRouter.use(optionalAuth);
 analyticsRouter.use(analyticsLimiter);
+analyticsRouter.use(publicTelemetryRouter);
+analyticsRouter.use("/value-loop", requireAuth, tenantContextMiddleware(), tenantAnalyticsRouter);
 
-analyticsRouter.get("/summary", async (req, res) => {
+publicTelemetryRouter.get("/summary", async (req, res) => {
   try {
-    // Use a fixed prefix that cannot collide with real UUID tenant IDs so
-    // unauthenticated callers never share a cache bucket with real tenants.
-    const tenantId = getTenantIdFromRequest(req as any) ?? "__anon__";
     const payload = await ReadThroughCacheService.getOrLoad(
       {
-        tenantId,
+        tenantId: PUBLIC_ANALYTICS_CACHE_SCOPE,
         endpoint: "api-analytics-summary",
-        scope: "summary",
+        scope: PUBLIC_ANALYTICS_CACHE_SCOPE,
         tier: "warm",
         keyPayload: req.query,
       },
@@ -53,7 +56,7 @@ analyticsRouter.get("/summary", async (req, res) => {
   }
 });
 
-analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
+publicTelemetryRouter.post("/web-vitals", express.json(), async (req, res) => {
   try {
     const { name, value, rating, delta, userAgent, url, timestamp } = req.body;
 
@@ -75,10 +78,7 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
       ip: req.ip,
     });
 
-    const tenantId = getTenantIdFromRequest(req as any);
-    if (tenantId) {
-      await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
-    }
+    await ReadThroughCacheService.invalidateEndpoint(PUBLIC_ANALYTICS_CACHE_SCOPE, "api-analytics-summary");
 
     res.status(200).json({ success: true });
     return;
@@ -89,7 +89,7 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
   }
 });
 
-analyticsRouter.post("/performance", express.json(), async (req, res) => {
+publicTelemetryRouter.post("/performance", express.json(), async (req, res) => {
   try {
     const { type, data, timestamp } = req.body;
 
@@ -100,10 +100,7 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
       ip: req.ip,
     });
 
-    const tenantId = getTenantIdFromRequest(req as any);
-    if (tenantId) {
-      await ReadThroughCacheService.invalidateEndpoint(tenantId, "api-analytics-summary");
-    }
+    await ReadThroughCacheService.invalidateEndpoint(PUBLIC_ANALYTICS_CACHE_SCOPE, "api-analytics-summary");
 
     res.status(200).json({ success: true });
     return;
@@ -117,16 +114,19 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
 // ─── Value loop analytics ─────────────────────────────────────────────────────
 
 // POST /api/analytics/value-loop/events — record a single value loop event
-analyticsRouter.post(
-  "/value-loop/events",
-  requireAuth,
-  tenantContextMiddleware(),
+tenantAnalyticsRouter.post(
+  "/events",
   express.json(),
   async (req, res) => {
     const tenantId = (req as any).tenantId as string | undefined;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }
+    const requestedOrganizationId = req.body?.organizationId as string | undefined;
+    if (requestedOrganizationId && requestedOrganizationId !== tenantId) {
+      return res.status(403).json({ error: "Tenant context mismatch" });
+    }
+
     const parsed = RecordEventInputSchema.safeParse({
       ...req.body,
       organizationId: tenantId,
@@ -142,10 +142,8 @@ analyticsRouter.post(
 );
 
 // GET /api/analytics/value-loop/insights — aggregated insights for the tenant
-analyticsRouter.get(
-  "/value-loop/insights",
-  requireAuth,
-  tenantContextMiddleware(),
+tenantAnalyticsRouter.get(
+  "/insights",
   async (req, res) => {
     const tenantId = (req as any).tenantId as string | undefined;
     if (!tenantId) {

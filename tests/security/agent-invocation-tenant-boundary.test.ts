@@ -22,6 +22,11 @@ vi.mock("@shared/lib/tenantVerification", () => ({
 
 const encoder = new TextEncoder();
 
+const CROSS_TENANT_SEMANTICS = {
+  read: 404,
+  write: 403,
+} as const;
+
 const signContext = async (payload: TCTPayload): Promise<string> =>
   new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
@@ -109,7 +114,7 @@ describe("Agent invocation tenant boundary hard gate", () => {
         body: JSON.stringify({ operation: "run" }),
       });
 
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(CROSS_TENANT_SEMANTICS.write);
       const payload = (await response.json()) as { error: string };
       expect(payload.error).toBe("tenant_mismatch");
     });
@@ -161,7 +166,7 @@ describe("Agent invocation tenant boundary hard gate", () => {
         body: JSON.stringify({ operation: "read" }),
       });
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(CROSS_TENANT_SEMANTICS.read);
     });
   });
 });

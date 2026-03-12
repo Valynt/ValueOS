@@ -6,7 +6,7 @@
  * and fallback strategies.
  */
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../../lib/logger.js";
 
 import { FallbackAIService } from "./FallbackAIService.js";
 import { LLMCostTracker } from "./LLMCostTracker.js";

@@ -7,7 +7,7 @@
  * NEVER log raw user objects, request bodies, or configuration.
  */
 
-import { isDevelopment } from "../config/environment";
+import { isDevelopment } from "../config/environment.js";
 
 /**
  * Sensitive field patterns to redact

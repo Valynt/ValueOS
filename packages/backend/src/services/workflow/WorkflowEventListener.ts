@@ -7,7 +7,7 @@
  */
 
 import { ServiceMessageBusAdapter } from "../lib/agent-fabric/ServiceMessageBusAdapter";
-import { logger } from "../lib/logger.js"
+import { logger } from "../../lib/logger.js"
 import { StageStatus } from "../types/workflow";
 import { StageCompletionEvent, WorkflowProgress } from "../types/workflow-sdui";
 

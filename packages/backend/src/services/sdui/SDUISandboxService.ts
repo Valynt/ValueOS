@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 import { SDUISanitizer } from '../lib/security/SDUISanitizer';
 
 export interface ComponentValidationResult {

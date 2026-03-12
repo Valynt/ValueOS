@@ -5,7 +5,7 @@
  * Implements rule-based responses and cached analysis patterns.
  */
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 import { AIResponseSchema } from './AgentChatService.js'
 

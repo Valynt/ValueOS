@@ -16,8 +16,8 @@ import { SDUIPageDefinition } from '@valueos/sdui';
 import { createClient, RedisClientType } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 
-import { logger } from '../lib/logger.js'
-import { supabase } from '../lib/supabase.js'
+import { logger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js'
 
 import {
   AutoSaveCheckpoint,

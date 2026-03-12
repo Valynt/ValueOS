@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 
-import { logger } from '../lib/logger.js'
+import { logger } from '../../lib/logger.js'
 
 import { tenantCache } from './cache/TenantCache.js'
 import { AuthorizationError, NotFoundError, ValidationError } from './errors.js'
