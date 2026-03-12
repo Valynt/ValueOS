@@ -88,17 +88,17 @@ app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCase
 
 | Layer | Artifact | Status |
 |---|---|---|
-| **Agent** | `NarrativeAgent.ts` | ❌ does not exist |
-| **DB table** | `narrative_outputs` | ❌ does not exist |
-| **Repository** | `NarrativeOutputRepository.ts` | ❌ |
-| **API endpoint** | `GET /api/v1/value-cases/:caseId/narrative` | ❌ |
-| **API endpoint** | `POST /api/v1/value-cases/:caseId/narrative/run` | ❌ |
-| **Frontend hook** | `useNarrativeOutput(caseId)` | ❌ |
-| **UI component** | `NarrativeStage.tsx` — exists, no data source | ⚠️ |
-| **User story** | US-005 | ❌ |
-| **Debt ref** | DEBT-005, issue #1346 | |
+| **Agent** | `NarrativeAgent.ts` — generates executive summary, value story, key proof points | ✅ |
+| **DB table** | `narrative_drafts` — migration `20260321000000_back_half_tables.sql` | ✅ |
+| **Repository** | `NarrativeDraftRepository.ts` — `createDraft`, `getLatestForCase` | ✅ |
+| **API endpoint** | `GET /api/v1/cases/:caseId/narrative` | ✅ |
+| **API endpoint** | `POST /api/v1/cases/:caseId/narrative/run` | ✅ |
+| **Frontend hook** | `useNarrative.ts` — `useNarrativeDraft`, `useRunNarrativeAgent` | ✅ |
+| **UI component** | `NarrativeStage.tsx` — wired to real data, empty state, run button | ✅ |
+| **User story** | US-005 | ✅ |
+| **Debt ref** | DEBT-005, issue #1346 — resolved outside sprint cadence | |
 
-**Note:** An `AgentServiceAdapter` wrapper exists but there is no `NarrativeAgent.ts` in `packages/backend/src/lib/agent-fabric/agents/`. This is the only missing lifecycle agent.
+**Implemented outside sprint cadence.** Full stack slice complete. All endpoints in `packages/backend/src/api/valueCases/backHalf.ts`.
 
 ---
 
@@ -107,15 +107,17 @@ app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCase
 | Layer | Artifact | Status |
 |---|---|---|
 | **Agent** | `RealizationAgent.ts` — generates implementation plans and milestones | ✅ |
-| **DB table** | `realization_outputs` | ❌ does not exist |
-| **Repository** | `RealizationOutputRepository.ts` | ❌ |
-| **Service** | `ValueCommitmentTrackingService.ts` — milestones, metrics, risks, stakeholders | ⚠️ all DB ops are TODO stubs |
-| **API endpoint** | `GET /api/v1/value-cases/:caseId/realization` | ❌ |
-| **API endpoint** | `POST /api/agents/realization/invoke` | ✅ (agent invocable) |
-| **Frontend hook** | `useRealizationOutput(caseId)` | ❌ |
-| **UI component** | `RealizationStage.tsx` — renders **hardcoded Acme Corp demo data** | ⚠️ |
-| **User story** | US-006 | ❌ |
-| **Debt ref** | DEBT-004 + DEBT-007, issues #1345 + #1348 | |
+| **DB table** | `realization_reports` — migration `20260321000000_back_half_tables.sql` | ✅ |
+| **Repository** | `RealizationReportRepository.ts` — `createOutput`, `getLatestForCase`, `updateRealizationPct` | ✅ |
+| **Service** | `ValueCommitmentTrackingService.ts` — milestones, metrics, risks, stakeholders | ⚠️ 15 TODO stubs (DEBT-007, Sprint 20) |
+| **API endpoint** | `GET /api/v1/cases/:caseId/realization` | ✅ |
+| **API endpoint** | `POST /api/v1/cases/:caseId/realization/run` | ✅ |
+| **Frontend hook** | `useRealization.ts` — `useRealizationReport`, `useRunRealizationAgent` | ✅ |
+| **UI component** | `RealizationStage.tsx` — wired to real data, empty state, run button | ✅ |
+| **User story** | US-006 | ⚠️ stage wired; commitment tracking stubs remain (Sprint 20) |
+| **Debt ref** | DEBT-004 resolved; DEBT-007 / issue #1348 open (Sprint 20) | |
+
+**Stage wired outside sprint cadence.** `ValueCommitmentTrackingService` stubs are the remaining gap — scheduled for Sprint 20.
 
 ---
 
@@ -124,13 +126,15 @@ app.use('/api/v1/value-cases', requireAuth, tenantContextMiddleware(), valueCase
 | Layer | Artifact | Status |
 |---|---|---|
 | **Agent** | `ExpansionAgent.ts` — growth opportunities, expansion strategies | ✅ |
-| **DB table** | `expansion_outputs` | ❌ does not exist |
-| **Repository** | `ExpansionOutputRepository.ts` | ❌ |
-| **API endpoint** | `GET /api/v1/value-cases/:caseId/expansion` | ❌ |
-| **API endpoint** | `POST /api/agents/expansion/invoke` | ✅ (agent invocable) |
-| **Frontend hook** | — | ❌ |
-| **UI component** | — (no dedicated stage yet) | ❌ |
-| **Debt ref** | DEBT-009 | |
+| **DB table** | `expansion_opportunities` — migration `20260322000000_persistent_memory_tables.sql` | ✅ |
+| **Repository** | `ExpansionOpportunityRepository.ts` — `createOutput`, `getLatestRunForCase` | ✅ |
+| **API endpoint** | `GET /api/v1/cases/:caseId/expansion` | ✅ |
+| **API endpoint** | `POST /api/v1/cases/:caseId/expansion/run` | ✅ |
+| **Frontend hook** | `useExpansion.ts` — `useExpansionOpportunities`, `useRunExpansionAgent` | ✅ |
+| **UI component** | `ExpansionStage.tsx` — wired to real data, empty state, run button; registered in `LifecycleStageNav` | ✅ |
+| **Debt ref** | DEBT-009 — resolved outside sprint cadence | |
+
+**Implemented outside sprint cadence.** Full stack slice complete. All endpoints in `packages/backend/src/api/valueCases/backHalf.ts`.
 
 ---
 
