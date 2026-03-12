@@ -270,7 +270,7 @@ export class WorkflowExecutor {
             rule_id: hitlDecision?.check.details.rule_id,
             confidence_score: hitlDecision?.check.details.confidence_score,
             traceId,
-          }, 'failed');
+          }, 'completed');
           await this._recordWorkflowEvent(executionId, organizationId, 'stage_hitl_pending_approval', stage.id, {
             reason: 'hitl_required',
             rule_id: hitlDecision?.check.details.rule_id,
