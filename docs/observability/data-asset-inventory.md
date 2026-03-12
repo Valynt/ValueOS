@@ -85,3 +85,23 @@ Update this table when ownership is transferred.
 
 *Last updated: Sprint 15. Update when new tables, queues, or memory partitions are added.*
 *Linked from: `AGENTS.md` Key File Pointers*
+
+## Observability Metric Label Contract (Tenant Isolation)
+
+On-call, audit, and compliance workflows treat metric labels as part of the tenant-isolation control surface.
+
+- Canonical tenant label key for value-loop metrics: `organization_id` (stable tenant/org identifier only).
+- Never attach per-session or user-level identifiers (for example `session_id`, `user_id`, email) to counters or histograms.
+- Tenant-scoped queries and alerts MUST include `organization_id` filtering or grouping.
+
+### Value-loop metric dimension contract
+
+| Metric | Required labels | Optional labels | Cardinality notes |
+| --- | --- | --- | --- |
+| `value_loop_stage_transition_seconds` | `organization_id` | `from_stage`, `to_stage` | Stage values are fixed enum; safe bounded dimensions. |
+| `value_loop_agent_invocations_total` | `organization_id` | `agent`, `stage`, `outcome` | Agent/stage/outcome are bounded enums in code paths. |
+| `value_loop_hypothesis_confidence` | `organization_id` | `agent` | Do not add prompt/session labels. |
+| `value_loop_financial_calculations_total` | `organization_id` | `type`, `validated` | `type` must remain a controlled taxonomy (no free-form user input). |
+| `value_loop_e2e_duration_seconds` | `organization_id` | `stages` | `stages` comes from bounded lifecycle stage set. |
+| `value_loop_usage_events_total` | `organization_id` | `metric` | `metric` must be a static usage metric identifier. |
+

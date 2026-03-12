@@ -57,3 +57,14 @@ Reference workflows:
 
 - [Vendor Risk Review Workflow](./vendor-risk-review-workflow.md)
 - [Risk Register Process](../processes/risk-register-process.md)
+
+
+## Release evidence bundle chain (GA v1.0.0)
+
+For GA release `v1.0.0`, include the following governance records in the release evidence bundle so approver traceability is auditable end-to-end:
+
+- `docs/security-compliance/threat-model.md` (Review and Approver Record row for `v1.0.0`; no accepted exceptions).
+- `docs/operations/launch-readiness.md` (Go/No-Go checklist references for release tag `v1.0.0`).
+- `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Design scope approval for `v1.0.0`).
+
+Bundle these documents alongside CI compliance artifacts (`compliance-evidence-run-<GITHUB_RUN_ID>-attempt-<GITHUB_RUN_ATTEMPT>`) when preparing audit packets.
