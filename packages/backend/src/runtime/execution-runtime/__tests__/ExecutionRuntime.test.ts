@@ -521,4 +521,40 @@ describe('QueryExecutor context hydration integration', () => {
       expect.objectContaining({ agent: 'coordinator' }),
     );
   });
+
+  it('rejects when hydrated context is missing a valid opportunity', async () => {
+    const policy = makePolicyMock();
+    const queue = makeQueueMock();
+    const router = makeRouterMock('financial-modeling');
+    const repo = makeContextRepositoryMock();
+    const executor = new QueryExecutor(
+      policy as never,
+      router as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+      undefined,
+      repo as never,
+    );
+
+    // No opportunityId/valueCaseId in context should trigger hydration-gating reject mode.
+    const state = {
+      ...makeState(),
+      context: {
+        ...makeState().context,
+      },
+    };
+
+    await expect(
+      executor.processQueryAsync(
+        makeEnvelope() as never,
+        'route with missing opportunity',
+        state as never,
+        'u',
+        's',
+      ),
+    ).rejects.toThrowError();
+
+    expect(router.selectAgent).not.toHaveBeenCalled();
+    expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
+  });
 });
