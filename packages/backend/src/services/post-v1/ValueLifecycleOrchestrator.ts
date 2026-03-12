@@ -132,7 +132,8 @@ import {
 } from "../lib/agents/core/index.js";
 import {
   HypothesisLoop,
-  RedTeamAgent
+  RedTeamAgent,
+  type RedTeamAnalyzer
 } from "../lib/agents/orchestration/index.js";
 
 import {
@@ -201,7 +202,7 @@ export class ValueLifecycleOrchestrator {
     const idempotencyGuard = new IdempotencyGuard(new RedisIdempotencyStore());
     const dlq = new DeadLetterQueue(new RedisDLQStore(), new DomainDLQEventEmitter());
 
-    const redTeamAgent = new RedTeamAgent(new RedTeamLLMAdapter(this.llmGateway));
+    const redTeamAgent: RedTeamAnalyzer = new RedTeamAgent(new RedTeamLLMAdapter(this.llmGateway));
     const agentAdapter = new AgentServiceAdapter(this.llmGateway);
 
     this.hypothesisLoop = new HypothesisLoop({
