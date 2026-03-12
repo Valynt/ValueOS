@@ -5,10 +5,11 @@
  * Provides RBAC checks and audit logging for all BFA operations.
  */
 
-import { logger } from "../../lib/logger.js"
+import { logger } from "../../lib/logger.js";
 
-import { toolRegistry } from "./registry.js"
-import { AgentContext, AuthorizationError } from "./types.js"
+import { authorizationPolicyGateway } from "../policy/AuthorizationPolicyGateway.js";
+import { toolRegistry } from "./registry.js";
+import { AgentContext, AuthorizationError } from "./types.js";
 
 /**
  * Authorization guard for enforcing access control
@@ -20,30 +21,42 @@ export class AuthGuard {
   static async canExecute(
     toolId: string,
     context: AgentContext
-  ): Promise<void> {
+  ): Promise<{ decisionId: string }> {
     const tool = toolRegistry.get(toolId);
     if (!tool) {
       throw new AuthorizationError(`Tool '${toolId}' not found`, []);
     }
 
-    // Check basic permissions
-    if (!toolRegistry.canUse(toolId, context)) {
-      logger.warn("Authorization denied for tool execution", {
-        toolId,
-        userId: context.userId,
-        tenantId: context.tenantId,
-        requiredPermissions: tool.policy.requiredPermissions || [],
-        userPermissions: context.permissions,
-      });
-
-      throw new AuthorizationError(
-        `Insufficient permissions for tool '${toolId}'`,
-        tool.policy.requiredPermissions || []
-      );
-    }
+    const decision = authorizationPolicyGateway.authorize(
+      {
+        channel: "bfa_auth_guard",
+        action: tool.policy.action || "execute",
+        resource: toolId,
+        mode: "custom",
+        policyVersion: "bfa-v1",
+        subject: {
+          userId: context.userId,
+          tenantId: context.tenantId,
+          sessionId: context.sessionId,
+        },
+        metadata: {
+          bfaResource: tool.policy.resource,
+          requestTime: context.requestTime.toISOString(),
+        },
+      },
+      () => {
+        if (!toolRegistry.canUse(toolId, context)) {
+          throw new AuthorizationError(
+            `Insufficient permissions for tool '${toolId}'`,
+            tool.policy.requiredPermissions || []
+          );
+        }
+      }
+    );
 
     // Additional business logic checks can be added here
     await this.performBusinessLogicChecks(toolId, context);
+    return { decisionId: decision.decisionId };
   }
 
   /**
@@ -55,7 +68,7 @@ export class AuthGuard {
     context: AgentContext
   ): Promise<TOutput> {
     // Pre-execution authorization check
-    await this.canExecute(toolId, context);
+    const { decisionId } = await this.canExecute(toolId, context);
 
     const tool = toolRegistry.get<TInput, TOutput>(toolId);
     if (!tool) {
@@ -69,6 +82,7 @@ export class AuthGuard {
       tenantId: context.tenantId,
       resource: tool.policy.resource,
       action: tool.policy.action,
+      decisionId,
     });
 
     try {
@@ -140,7 +154,7 @@ export class AuthGuard {
     permissions: string[],
     context: AgentContext
   ): boolean {
-    return permissions.some((permission) =>
+    return permissions.some(permission =>
       context.permissions.includes(permission)
     );
   }
@@ -152,7 +166,7 @@ export class AuthGuard {
     permissions: string[],
     context: AgentContext
   ): boolean {
-    return permissions.every((permission) =>
+    return permissions.every(permission =>
       context.permissions.includes(permission)
     );
   }

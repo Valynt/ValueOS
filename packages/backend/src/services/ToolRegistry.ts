@@ -1,23 +1,20 @@
 /**
  * Tool Registry with MCP-Compatible Interface
- * 
+ *
  * Implements Model Context Protocol (MCP) compatible tool interface
  * for hot-swappable tools without orchestrator refactoring.
- * 
+ *
  * Based on:
  * - Anthropic's Model Context Protocol (MCP)
  * - OpenAI Function Calling specification
  * - Industry standard tool interfaces
  */
 
-import { logger } from '../utils/logger.js'
+import { logger } from "../utils/logger.js";
 
-import {
-  enforceToolPolicy,
-  PolicyEnforcementError,
-  recordPolicyAuditEvent,
-} from './policy/PolicyEnforcement.js';
-import { getMetricsCollector } from './MetricsCollector.js';
+import { PolicyEnforcementError } from "./policy/PolicyEnforcement.js";
+import { authorizationPolicyGateway } from "./policy/AuthorizationPolicyGateway.js";
+import { getMetricsCollector } from "./MetricsCollector.js";
 
 /**
  * JSON Schema for tool parameters
@@ -38,19 +35,22 @@ export interface JSONSchema {
 export interface MCPTool {
   /** Unique tool identifier */
   name: string;
-  
+
   /** Human-readable description of what the tool does */
   description: string;
-  
+
   /** JSON Schema defining the tool's parameters */
   parameters: JSONSchema;
-  
+
   /** Execute the tool with given parameters */
-  execute(params: Record<string, unknown>, context?: ToolExecutionContext): Promise<ToolResult>;
-  
+  execute(
+    params: Record<string, unknown>,
+    context?: ToolExecutionContext
+  ): Promise<ToolResult>;
+
   /** Optional: Validate parameters before execution */
   validate?(params: Record<string, unknown>): Promise<ValidationResult>;
-  
+
   /** Optional: Tool metadata */
   metadata?: {
     version?: string;
@@ -75,6 +75,7 @@ export interface ToolExecutionContext {
   workflowId?: string;
   agentType?: string;
   traceId?: string;
+  requestId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -107,7 +108,7 @@ export interface ValidationResult {
 
 /**
  * Tool Registry
- * 
+ *
  * Central registry for all tools with hot-swap capability
  */
 export class ToolRegistry {
@@ -120,7 +121,9 @@ export class ToolRegistry {
    */
   register(tool: MCPTool): void {
     if (this.tools.has(tool.name)) {
-      logger.warn('Tool already registered, replacing', { toolName: tool.name });
+      logger.warn("Tool already registered, replacing", {
+        toolName: tool.name,
+      });
     }
 
     // Validate tool interface
@@ -128,7 +131,7 @@ export class ToolRegistry {
 
     this.tools.set(tool.name, tool);
 
-    logger.info('Tool registered', {
+    logger.info("Tool registered", {
       name: tool.name,
       category: tool.metadata?.category,
       version: tool.metadata?.version,
@@ -140,9 +143,9 @@ export class ToolRegistry {
    */
   unregister(toolName: string): boolean {
     const removed = this.tools.delete(toolName);
-    
+
     if (removed) {
-      logger.info('Tool unregistered', { toolName });
+      logger.info("Tool unregistered", { toolName });
     }
 
     return removed;
@@ -160,11 +163,11 @@ export class ToolRegistry {
    */
   list(category?: string): MCPTool[] {
     const tools = Array.from(this.tools.values());
-    
+
     if (category) {
       return tools.filter(t => t.metadata?.category === category);
     }
-    
+
     return tools;
   }
 
@@ -182,7 +185,7 @@ export class ToolRegistry {
       return {
         success: false,
         error: {
-          code: 'TOOL_NOT_FOUND',
+          code: "TOOL_NOT_FOUND",
           message: `Tool not found: ${toolName}`,
         },
       };
@@ -194,8 +197,8 @@ export class ToolRegistry {
       return {
         success: false,
         error: {
-          code: 'RATE_LIMIT_EXCEEDED',
-          message: rateLimitResult.message || 'Rate limit exceeded',
+          code: "RATE_LIMIT_EXCEEDED",
+          message: rateLimitResult.message || "Rate limit exceeded",
           details: { retryAfter: rateLimitResult.retryAfter },
         },
       };
@@ -208,8 +211,8 @@ export class ToolRegistry {
         return {
           success: false,
           error: {
-            code: 'INVALID_PARAMETERS',
-            message: 'Parameter validation failed',
+            code: "INVALID_PARAMETERS",
+            message: "Parameter validation failed",
             details: { errors: validation.errors },
           },
         };
@@ -221,13 +224,31 @@ export class ToolRegistry {
     const agentType = context?.agentType;
 
     try {
-      const { policyVersion } = enforceToolPolicy(agentType, toolName);
+      const decision = authorizationPolicyGateway.authorize({
+        channel: "tool_registry",
+        action: "execute",
+        resource: toolName,
+        subject: {
+          userId: context?.userId,
+          tenantId: context?.tenantId,
+          sessionId: context?.sessionId,
+          agentType,
+        },
+        metadata: {
+          traceId: context?.traceId,
+          requestId: context?.requestId,
+          workflowId: context?.workflowId,
+        },
+      });
 
-      logger.info('Executing tool', {
+      const policyVersion = decision.policyVersion;
+
+      logger.info("Executing tool", {
         toolName,
         userId: context?.userId,
         workflowId: context?.workflowId,
         policyVersion,
+        decisionId: decision.decisionId,
       });
 
       const result = await tool.execute(params, context);
@@ -241,24 +262,25 @@ export class ToolRegistry {
       // Failed calls are not billed (per billing-v2 spec).
       if (result.success && context?.tenantId) {
         try {
-          const idempotencyKey =
-            context?.requestId
-              ? `${context.requestId}:${toolName}`
-              : context?.sessionId
-                ? `${context.sessionId}:${toolName}`
-                : undefined;
+          const idempotencyKey = context?.requestId
+            ? `${context.requestId}:${toolName}`
+            : context?.sessionId
+              ? `${context.sessionId}:${toolName}`
+              : undefined;
 
           getMetricsCollector().recordUsage({
             tenantId: context.tenantId,
-            metric: 'api_calls',
+            metric: "api_calls",
             quantity: 1,
             path: `/tools/${toolName}`,
             idempotencyKey,
           });
-        } catch { /* metering is non-fatal */ }
+        } catch {
+          /* metering is non-fatal */
+        }
       }
 
-      logger.info('Tool execution completed', {
+      logger.info("Tool execution completed", {
         toolName,
         success: result.success,
         duration,
@@ -270,32 +292,27 @@ export class ToolRegistry {
           ...result.metadata,
           duration,
           policyVersion,
+          decisionId: decision.decisionId,
         },
       };
     } catch (error) {
       const duration = Date.now() - startTime;
 
       if (error instanceof PolicyEnforcementError) {
-        recordPolicyAuditEvent({
-          eventType: 'tool_denied',
-          agentType: agentType ?? 'default',
-          policyVersion: String(error.details.policyVersion ?? 'unknown'),
-          metadata: { toolName, duration, code: error.code },
-        });
         throw error;
       }
 
-      logger.error('Tool execution failed', {
+      logger.error("Tool execution failed", {
         toolName,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         duration,
       });
 
       return {
         success: false,
         error: {
-          code: 'EXECUTION_ERROR',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          code: "EXECUTION_ERROR",
+          message: error instanceof Error ? error.message : "Unknown error",
         },
         metadata: {
           duration,
@@ -308,20 +325,20 @@ export class ToolRegistry {
    * Validate tool interface
    */
   private validateToolInterface(tool: MCPTool): void {
-    if (!tool.name || typeof tool.name !== 'string') {
-      throw new Error('Tool must have a valid name');
+    if (!tool.name || typeof tool.name !== "string") {
+      throw new Error("Tool must have a valid name");
     }
 
-    if (!tool.description || typeof tool.description !== 'string') {
-      throw new Error('Tool must have a description');
+    if (!tool.description || typeof tool.description !== "string") {
+      throw new Error("Tool must have a description");
     }
 
-    if (!tool.parameters || typeof tool.parameters !== 'object') {
-      throw new Error('Tool must have parameters schema');
+    if (!tool.parameters || typeof tool.parameters !== "object") {
+      throw new Error("Tool must have parameters schema");
     }
 
-    if (typeof tool.execute !== 'function') {
-      throw new Error('Tool must have an execute function');
+    if (typeof tool.execute !== "function") {
+      throw new Error("Tool must have an execute function");
     }
   }
 
@@ -336,7 +353,7 @@ export class ToolRegistry {
       return { allowed: true };
     }
 
-    const key = `${tool.name}:${userId || 'anonymous'}`;
+    const key = `${tool.name}:${userId || "anonymous"}`;
     const now = Date.now();
     const window = tool.metadata.rateLimit.windowMs;
     const maxCalls = tool.metadata.rateLimit.maxCalls;
@@ -370,7 +387,7 @@ export class ToolRegistry {
    * Track tool execution
    */
   private trackExecution(toolName: string, userId?: string): void {
-    const key = `${toolName}:${userId || 'anonymous'}`;
+    const key = `${toolName}:${userId || "anonymous"}`;
     const count = this.executionHistory.get(key) || 0;
     this.executionHistory.set(key, count + 1);
   }
@@ -386,8 +403,8 @@ export class ToolRegistry {
     const byTool: Record<string, number> = {};
 
     for (const [key, count] of this.executionHistory.entries()) {
-      const [tool] = key.split(':');
-      
+      const [tool] = key.split(":");
+
       if (toolName && tool !== toolName) continue;
 
       totalExecutions += count;
@@ -400,7 +417,11 @@ export class ToolRegistry {
   /**
    * Convert tools to OpenAI function format
    */
-  toOpenAIFunctions(): Array<{ name: string; description: string; parameters: JSONSchema }> {
+  toOpenAIFunctions(): Array<{
+    name: string;
+    description: string;
+    parameters: JSONSchema;
+  }> {
     return Array.from(this.tools.values()).map(tool => ({
       name: tool.name,
       description: tool.description,
@@ -411,7 +432,11 @@ export class ToolRegistry {
   /**
    * Convert tools to Anthropic tool format
    */
-  toAnthropicTools(): Array<{ name: string; description: string; input_schema: JSONSchema }> {
+  toAnthropicTools(): Array<{
+    name: string;
+    description: string;
+    input_schema: JSONSchema;
+  }> {
     return Array.from(this.tools.values()).map(tool => ({
       name: tool.name,
       description: tool.description,
@@ -426,7 +451,7 @@ export class ToolRegistry {
     this.tools.clear();
     this.executionHistory.clear();
     this.rateLimitWindows.clear();
-    logger.info('Tool registry cleared');
+    logger.info("Tool registry cleared");
   }
 }
 
@@ -437,9 +462,12 @@ export abstract class BaseTool implements MCPTool {
   abstract name: string;
   abstract description: string;
   abstract parameters: JSONSchema;
-  abstract execute(params: Record<string, unknown>, context?: ToolExecutionContext): Promise<ToolResult>;
+  abstract execute(
+    params: Record<string, unknown>,
+    context?: ToolExecutionContext
+  ): Promise<ToolResult>;
 
-  metadata?: MCPTool['metadata'];
+  metadata?: MCPTool["metadata"];
 
   async validate(params: Record<string, unknown>): Promise<ValidationResult> {
     // Basic validation against JSON schema
