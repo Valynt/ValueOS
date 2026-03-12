@@ -146,3 +146,9 @@ K8S_CLUSTER_CONTEXT=... \
 ```
 
 The script exits non-zero if any gate fails.
+
+
+## Release Scope Packet
+
+- Signed scope artifact: `docs/operations/release-scope-ga-signoff.md`
+- Acceptance criteria mapping: `docs/operations/release-acceptance-mapping.md`
