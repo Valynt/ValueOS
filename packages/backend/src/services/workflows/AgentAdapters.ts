@@ -201,7 +201,10 @@ export class AgentServiceAdapter implements
     query: string,
     context?: { organizationId?: string; userId?: string; sessionId?: string }
   ) {
-    const tenantId = context?.organizationId ?? 'system';
+    const tenantId = context?.organizationId;
+    if (!tenantId) {
+      throw new Error('AgentServiceAdapter.analyzeOpportunities requires context.organizationId for tenant isolation');
+    }
     logger.info('AgentServiceAdapter: analyzeOpportunities', { query, tenantId });
 
     const response = await secureLLMComplete(
@@ -228,7 +231,10 @@ export class AgentServiceAdapter implements
     context?: { organizationId?: string; userId?: string; sessionId?: string },
     idempotencyKey?: string
   ) {
-    const tenantId = context?.organizationId ?? 'system';
+    const tenantId = context?.organizationId;
+    if (!tenantId) {
+      throw new Error('AgentServiceAdapter.analyzeFinancialModels requires context.organizationId for tenant isolation');
+    }
     logger.info('AgentServiceAdapter: analyzeFinancialModels', { query, tenantId });
 
     const response = await secureLLMComplete(
@@ -256,7 +262,10 @@ export class AgentServiceAdapter implements
     context?: { organizationId?: string; userId?: string; sessionId?: string },
     idempotencyKey?: string
   ) {
-    const tenantId = context?.organizationId ?? 'system';
+    const tenantId = context?.organizationId;
+    if (!tenantId) {
+      throw new Error('AgentServiceAdapter.analyzeGroundtruth requires context.organizationId for tenant isolation');
+    }
     logger.info('AgentServiceAdapter: analyzeGroundtruth', { query, tenantId });
 
     const response = await secureLLMComplete(
@@ -284,7 +293,10 @@ export class AgentServiceAdapter implements
     context?: { organizationId?: string; userId?: string; sessionId?: string },
     idempotencyKey?: string
   ) {
-    const tenantId = context?.organizationId ?? 'system';
+    const tenantId = context?.organizationId;
+    if (!tenantId) {
+      throw new Error('AgentServiceAdapter.analyzeNarrative requires context.organizationId for tenant isolation');
+    }
     logger.info('AgentServiceAdapter: analyzeNarrative', { query, tenantId });
 
     const response = await secureLLMComplete(

@@ -291,6 +291,15 @@ describe('ValueCommitmentTrackingService', () => {
       expect(mockDelete).toHaveBeenCalledWith(`/api/v1/value-commitments/${COMMIT_ID}`);
     });
 
+    it('resolves without error when server returns 204 (no data field)', async () => {
+      // HTTP 204 responses have no body — apiClient returns { success: true }
+      // with no `data` property. The old unwrap() would throw because data===undefined.
+      mockDelete.mockResolvedValue({ success: true });
+      const svc = makeService();
+
+      await expect(svc.deleteCommitment(COMMIT_ID, TENANT_ID, USER_ID)).resolves.toBeUndefined();
+    });
+
     it('throws CommitmentApiError on failure', async () => {
       mockDelete.mockResolvedValue({ success: false, error: { code: 'CONFLICT', message: 'not draft' } });
       const svc = makeService();
@@ -407,6 +416,23 @@ describe('ValueCommitmentTrackingService', () => {
 
       expect(err).toBeInstanceOf(CommitmentApiError);
       expect((err as CommitmentApiError).status).toBe(500);
+    });
+
+    it('does not throw when success=true and data is null (Fix 5: null vs undefined guard)', async () => {
+      // Some endpoints may return { success: true, data: null }. The old guard
+      // `data !== undefined` would treat null as a failure and throw a 500 error.
+      mockPost.mockResolvedValue({ success: true, data: null });
+      const svc = makeService();
+
+      // createCommitment returns CommitmentDto; null is not a valid CommitmentDto,
+      // but the point is that unwrap must not throw — it should return null.
+      const result = await svc.createCommitment(TENANT_ID, USER_ID, SESSION_ID, {
+        title: 'x', commitment_type: 'strategic', owner_user_id: USER_ID,
+        target_completion_date: '2027-01-01T00:00:00.000Z', timeframe_months: 1,
+      }).catch((e: unknown) => e);
+
+      // Should not be a CommitmentApiError
+      expect(result).not.toBeInstanceOf(CommitmentApiError);
     });
   });
 });
