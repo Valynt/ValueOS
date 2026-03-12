@@ -1,6 +1,6 @@
 # GA Release Scope Sign-off (Product / Engineering / Design)
 
-**Release:** ValueOS GA Scope Packet  
+**Release:** ValueOS GA Scope Packet (`v1.0.0`)  
 **Date:** 2026-03-12  
 **Decision:** Approved with explicit deferred scope
 
@@ -25,4 +25,5 @@
 ## Linked evidence
 
 - Acceptance mapping: `docs/operations/release-acceptance-mapping.md`
-- Launch checklist link target: `docs/operations/launch-readiness.md`
+- Launch checklist link target: `docs/operations/launch-readiness.md` (Release `v1.0.0`)
+- Threat model review record: `docs/security-compliance/threat-model.md` (Release `v1.0.0`).
