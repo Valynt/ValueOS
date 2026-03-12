@@ -20,6 +20,7 @@ import { NarrativeStage } from "./canvas/NarrativeStage";
 import { RealizationStage } from "./canvas/RealizationStage";
 
 import type { AgentJobResult } from "@/hooks/useAgentJob";
+import { useCase } from "@/hooks/useCases";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,13 @@ export default function ValueCaseCanvas() {
     setActiveDirectResult(direct ?? null);
   };
   const { data: merged } = useMergedContext(caseId);
+  const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
+
+  const caseTitle = caseLoading
+    ? null
+    : valueCase
+      ? [valueCase.company_profiles?.company_name, valueCase.name].filter(Boolean).join(" — ")
+      : caseId ?? "Value Case";
 
   const stageContent: Record<string, React.ReactNode> = {
     hypothesis: <HypothesisStage onRunStarted={handleRunStarted} />,
@@ -71,7 +79,7 @@ export default function ValueCaseCanvas() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-[15px] font-black text-zinc-950 tracking-tight truncate">
-              Acme Corp — Enterprise Platform Migration
+              {caseTitle ?? <span className="inline-block w-48 h-4 bg-zinc-100 rounded animate-pulse" />}
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 flex-shrink-0">
               Running

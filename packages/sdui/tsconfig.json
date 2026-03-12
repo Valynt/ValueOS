@@ -28,7 +28,8 @@
       "@agents/*": ["../agents/*"],
       "@integrations/*": ["../integrations/*"],
       "@mcp/*": ["../mcp/*"],
-      "@sdui/*": ["./src/*"]
+      "@sdui/*": ["./src/*"],
+      "@valueos/sdui-types": ["../sdui-types/index.ts"]
     }
   },
   "include": ["src/**/*"],

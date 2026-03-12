@@ -552,6 +552,22 @@ const appModuleBoundaryOverrides = {
 
 const backendModuleBoundaryOverrides = {
   files: ["packages/backend/src/**/*.{ts,tsx,js,jsx}"],
+  ignores: [
+    // Allowlisted modules that legitimately use service_role:
+    // AuthService, tenant provisioning, billing workers, cron jobs, security audit.
+    "packages/backend/src/services/auth/AuthService.ts",
+    "packages/backend/src/services/auth/AdminUserService.ts",
+    "packages/backend/src/services/auth/AdminRoleService.ts",
+    "packages/backend/src/services/tenant/TenantProvisioning.ts",
+    "packages/backend/src/services/tenant/TenantDeletionService.ts",
+    "packages/backend/src/workers/**",
+    "packages/backend/src/services/post-v1/SecurityAuditService.ts",
+    "packages/backend/src/analytics/ValueLoopAnalytics.ts",
+    // Repositories use service_role intentionally — tracked as tech debt.
+    "packages/backend/src/repositories/**",
+    // The supabase module itself defines the clients.
+    "packages/backend/src/lib/supabase.ts",
+  ],
   rules: {
     "no-restricted-imports": [
       "error",
@@ -576,10 +592,79 @@ const backendModuleBoundaryOverrides = {
               "Use @valueos/agents package APIs directly instead of backend-local agent-fabric entrypoints.",
           },
         ],
+        // Restrict createServerSupabaseClient (service_role) to the allowlisted modules
+        // declared in the ignores list above. All other API paths must use
+        // createUserSupabaseClient() so RLS is enforced.
+        paths: [
+          {
+            name: "../lib/supabase.js",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
+              "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
+          },
+          {
+            name: "../../lib/supabase.js",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
+              "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
+          },
+          {
+            name: "../../../lib/supabase.js",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
+              "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
+          },
+        ],
       },
     ],
   },
 };
+// Block raw fetch() in backend — all outbound requests must go through egressFetch().
+// Existing call sites are listed in ignores as tracked debt; remove entries as they
+// are migrated to egressFetch().
+const backendEgressEnforcement = {
+  files: ["packages/backend/src/**/*.{ts,tsx,js,jsx}"],
+  ignores: [
+    // The egress client itself wraps fetch — it is the only allowed call site.
+    "packages/backend/src/lib/egressClient.ts",
+    // Existing call sites — tracked debt, migrate to egressFetch() incrementally.
+    "packages/backend/src/workers/crmWorker.ts",
+    "packages/backend/src/services/post-v1/NetworkSegmentation.ts",
+    "packages/backend/src/services/post-v1/WebScraperService.ts",
+    "packages/backend/src/services/post-v1/RobustConnectionManager.ts",
+    "packages/backend/src/services/post-v1/WorkerSandbox.ts",
+    "packages/backend/src/services/post-v1/OfflineEvaluation.ts",
+    "packages/backend/src/services/post-v1/SandboxedExecutor.ts",
+    "packages/backend/src/services/GroundtruthAPI.ts",
+    "packages/backend/src/services/UnifiedAgentAPI.ts",
+    "packages/backend/src/services/onboarding/WebCrawler.ts",
+    "packages/backend/src/services/MCPGroundTruthService.ts",
+    "packages/backend/src/services/billing/AlertingService.ts",
+    "packages/backend/src/services/crm/CRMOAuthService.ts",
+    "packages/backend/src/services/crm/HubSpotProvider.ts",
+    "packages/backend/src/services/crm/SalesforceProvider.ts",
+    "packages/backend/src/services/crm/AgentPrefetchService.ts",
+    "packages/backend/src/services/agents/AgentQueryService.ts",
+    "packages/backend/src/services/approvals/NotificationAdapterService.ts",
+    "packages/backend/src/services/llm/LLMCostTracker.ts",
+    "packages/backend/src/services/llm/GeminiProxyService.ts",
+  ],
+  rules: {
+    "no-restricted-globals": [
+      "error",
+      {
+        name: "fetch",
+        message:
+          "Use egressFetch() from @backend/lib/egressClient instead of the global fetch(). " +
+          "egressFetch enforces the production egress allowlist and blocks SSRF targets.",
+      },
+    ],
+  },
+};
+
 // Config files override - disable type-aware rules and project
 const configOverrides = {
   files: [
@@ -640,6 +725,7 @@ export default [
   moduleBoundaryOverrides,
   appModuleBoundaryOverrides,
   backendModuleBoundaryOverrides,
+  backendEgressEnforcement,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],
 ];

@@ -130,10 +130,33 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
   {
     key: "REDIS_URL",
     required: true,
-    description: "Redis cache connection URL",
-    pattern: /^redis:\/\/[^:]+:\d+$/,
+    description: "Redis cache connection URL. Must use rediss:// (TLS) in staging/production.",
+    // Pattern accepts both redis:// (dev/test) and rediss:// (staging/prod).
+    // The transport-security check in validateEnv.ts enforces rediss:// in non-dev
+    // environments — this pattern only validates basic URL structure.
+    pattern: /^rediss?:\/\/.+:\d+/,
     category: "infrastructure",
     critical: false, // Can run without Redis (degraded mode)
+  },
+
+  // Approval webhook signing secrets — static defaults are forbidden (see server.ts)
+  {
+    key: "APPROVAL_ACTION_SECRET",
+    required: false,
+    requiredIf: (env) => env.ENABLE_CHECKPOINTS === "true",
+    description: "HMAC signing secret for approval action tokens",
+    minLength: 32,
+    category: "security",
+    critical: false,
+  },
+  {
+    key: "APPROVAL_WEBHOOK_SECRET",
+    required: false,
+    requiredIf: (env) => env.ENABLE_CHECKPOINTS === "true",
+    description: "HMAC signing secret for inbound approval webhooks",
+    minLength: 32,
+    category: "security",
+    critical: false,
   },
 
   // Billing Secrets
@@ -349,6 +372,13 @@ export class SecretValidator {
   ): string | null {
     const { pattern, minLength, key } = secretDef;
     const isNonDev = !["development", "test"].includes(this.environment);
+
+    // Redis URL must use TLS (rediss://) in non-development environments.
+    // This mirrors the transport-security check in validateEnv.ts and ensures
+    // both validators agree on the requirement.
+    if (key === "REDIS_URL" && isNonDev && value.startsWith("redis://")) {
+      return `In ${this.environment}, REDIS_URL must use TLS (rediss://...). Plain redis:// is not allowed.`;
+    }
 
     // Check minimum length
     if (minLength && value.length < minLength) {

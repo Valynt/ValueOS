@@ -2,6 +2,33 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 import { getValidatedSupabaseRuntimeConfig } from "./env";
 
+/**
+ * Creates a Supabase client authenticated as the calling user via their JWT.
+ * RLS policies are enforced — use this for all normal API request paths.
+ *
+ * @param userAccessToken - The user's JWT from the Authorization header.
+ */
+export const createUserSupabaseClient = (userAccessToken: string): SupabaseClient => {
+  const { url, anonKey } = getValidatedSupabaseRuntimeConfig();
+  return createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${userAccessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+};
+
+/**
+ * Creates a Supabase client using the service_role key, which bypasses RLS.
+ *
+ * RESTRICTED USE — allowed only in:
+ *   - AuthService / AdminUserService / AdminRoleService
+ *   - TenantProvisioning / TenantDeletionService
+ *   - Background workers and cron jobs
+ *   - SecurityAuditService
+ *
+ * All other call sites must use createUserSupabaseClient() so that RLS is
+ * enforced. Violations are caught by the ESLint no-restricted-imports rule
+ * in eslint.config.js (backendModuleBoundaryOverrides).
+ */
 export const createServerSupabaseClient = () => {
   const { url, serviceRoleKey } = getValidatedSupabaseRuntimeConfig();
   return createClient(url, serviceRoleKey);

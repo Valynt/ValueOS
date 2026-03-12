@@ -18,10 +18,13 @@ export {
 export interface RuntimeSupabaseConfig {
   url: string;
   serviceRoleKey: string;
+  /** Anon key — safe for user-scoped clients; RLS is enforced when used with a user JWT. */
+  anonKey: string;
 }
 
 const SUPABASE_URL_VARS = ['SUPABASE_URL', 'VITE_SUPABASE_URL'] as const;
 const SUPABASE_SERVICE_KEY_VARS = ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY'] as const;
+const SUPABASE_ANON_KEY_VARS = ['SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY'] as const;
 
 function getFirstSetEnvVar(candidates: readonly string[]): string | undefined {
   for (const key of candidates) {
@@ -40,6 +43,7 @@ function formatMissingMessage(candidates: readonly string[]): string {
 export function getValidatedSupabaseRuntimeConfig(): RuntimeSupabaseConfig {
   const url = getFirstSetEnvVar(SUPABASE_URL_VARS);
   const serviceRoleKey = getFirstSetEnvVar(SUPABASE_SERVICE_KEY_VARS);
+  const anonKey = getFirstSetEnvVar(SUPABASE_ANON_KEY_VARS);
   const missing: string[] = [];
 
   if (!url) {
@@ -50,6 +54,10 @@ export function getValidatedSupabaseRuntimeConfig(): RuntimeSupabaseConfig {
     missing.push(formatMissingMessage(SUPABASE_SERVICE_KEY_VARS));
   }
 
+  if (!anonKey) {
+    missing.push(formatMissingMessage(SUPABASE_ANON_KEY_VARS));
+  }
+
   if (missing.length > 0) {
     const environment = process.env.NODE_ENV || 'development';
     // In test environments the Supabase client is always mocked at the module
@@ -58,7 +66,11 @@ export function getValidatedSupabaseRuntimeConfig(): RuntimeSupabaseConfig {
     // VITEST is always set by the vitest runner; NODE_ENV may remain 'development'
     // depending on the shell. Never stub in production regardless of VITEST.
     if (environment !== 'production' && (environment === 'test' || process.env.VITEST)) {
-      return { url: 'http://localhost:54321', serviceRoleKey: 'test-service-role-key' };
+      return {
+        url: 'http://localhost:54321',
+        serviceRoleKey: 'test-service-role-key',
+        anonKey: 'test-anon-key',
+      };
     }
     throw new Error(
       `[config] Missing required Supabase runtime configuration: ${missing.join(', ')}. ` +
@@ -67,13 +79,14 @@ export function getValidatedSupabaseRuntimeConfig(): RuntimeSupabaseConfig {
   }
 
   try {
-    new URL(url);
+    new URL(url!);
   } catch {
     throw new Error(`[config] Invalid Supabase runtime configuration: ${SUPABASE_URL_VARS.join(' or ')} must be a valid URL.`);
   }
 
   return {
-    url,
-    serviceRoleKey,
+    url: url!,
+    serviceRoleKey: serviceRoleKey!,
+    anonKey: anonKey!,
   };
 }
