@@ -79,7 +79,7 @@ async function apiRequest<T>(
     throw new Error(response.error?.message ?? "Request failed");
   }
 
-  if (!response.data) {
+  if (response.data === undefined || response.data === null) {
     throw new Error("No data returned from API");
   }
 
