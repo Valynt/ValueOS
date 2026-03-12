@@ -149,7 +149,7 @@ export class NarrativeAgent extends BaseAgent {
           confidenceThresholds: { low: 0.6, high: 0.85 },
           context: {
             agent: 'NarrativeAgent',
-                value_case_id: valueCaseId,
+            value_case_id: valueCaseId,
           },
         },
       );
