@@ -8,6 +8,7 @@
 import { getClientConfig } from "@valueos/shared/config/client-config";
 
 import { toast } from "../../components/ui/use-toast";
+import { sanitizeInput } from "../../security/InputSanitizer";
 
 // ============================================================================
 // Types
@@ -271,7 +272,7 @@ export class UnifiedApiClient {
     const baseUrl = this.config.baseUrl.endsWith("/")
       ? this.config.baseUrl.slice(0, -1)
       : this.config.baseUrl;
-    const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+    const cleanPath = this.sanitizePath(path);
 
     let url = `${baseUrl}/${cleanPath}`;
 
@@ -279,7 +280,9 @@ export class UnifiedApiClient {
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          searchParams.append(key, String(value));
+          const sanitizedKey = sanitizeInput(String(key), { allowHtml: false, maxLength: 128 });
+          const sanitizedValue = sanitizeInput(String(value), { allowHtml: false, maxLength: 2048 });
+          searchParams.append(sanitizedKey, sanitizedValue);
         }
       });
       const queryString = searchParams.toString();
@@ -289,6 +292,14 @@ export class UnifiedApiClient {
     }
 
     return url;
+  }
+
+  private sanitizePath(path: string): string {
+    const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
+    return normalizedPath
+      .split("/")
+      .map((segment) => sanitizeInput(segment, { allowHtml: false, maxLength: 256 }))
+      .join("/");
   }
 
   private async makeRequestWithRetry(config: RequestInit & { url: string }): Promise<Response> {

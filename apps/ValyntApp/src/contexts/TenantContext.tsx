@@ -121,7 +121,7 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
     setError(null);
 
     try {
-      const { data, error: fetchError } = await fetchUserTenants(user.id);
+      const { data, error: fetchError } = await fetchUserTenants({ expectedUserId: user.id });
 
       if (fetchError) {
         setError(fetchError);
