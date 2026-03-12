@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('lz-string', () => ({
+  compress: (value: string) => value,
+  decompress: (value: string) => value,
+}));
+
 import { BillingExecutionControlService } from '../../BillingExecutionControlService.js';
 import { BillingSpendEvaluationService } from '../../BillingSpendEvaluationService.js';
 import { TenantExecutionStateService } from '../../TenantExecutionStateService.js';
+import { MessageBus } from '../../../realtime/MessageBus.js';
 
 vi.mock('../../../AuditLogService.js', () => ({
   auditLogService: {
@@ -167,12 +173,25 @@ describe('Spend pause integration', () => {
       { tenant_id: organizationId, amount: 60, rated_at: new Date().toISOString() },
     ];
 
+    const publishSpy = vi.spyOn(MessageBus.prototype, 'publishMessage').mockResolvedValue('msg-1');
+
     const executionStateService = new TenantExecutionStateService(db as never);
     const evaluator = new BillingSpendEvaluationService(db as never, executionStateService);
 
-    const events = await evaluator.evaluateAllTenantsDailySpend();
-    expect(events).toHaveLength(1);
-    expect(events[0].threshold).toBe('critical');
+    const event = await evaluator.evaluateTenantDailySpend(organizationId);
+    expect(event).not.toBeNull();
+    expect(event?.threshold).toBe('critical');
+    expect(event?.tenant_id).toBe(organizationId);
+    expect(event?.organization_id).toBe(organizationId);
+    expect(publishSpy).toHaveBeenCalledWith('billing.daily_spend.threshold', expect.objectContaining({
+      sender_id: 'billing-spend-evaluator',
+      recipient_ids: ['billing-monitor'],
+      message_type: 'billing.daily_spend.threshold',
+      tenant_id: organizationId,
+      organization_id: organizationId,
+    }));
+
+    publishSpy.mockRestore();
 
     const pausedState = await executionStateService.getActiveState(organizationId);
     expect(pausedState?.is_paused).toBe(true);

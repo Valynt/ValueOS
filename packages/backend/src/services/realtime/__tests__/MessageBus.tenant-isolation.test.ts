@@ -10,6 +10,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('lz-string', () => ({
+  compress: (value: string) => value,
+  decompress: (value: string) => value,
+}));
+
 import { MessageBus } from '../MessageBus.js';
 import type { CommunicationEvent, CreateCommunicationEvent } from '../../../types/CommunicationEvent.js';
 
@@ -22,7 +27,8 @@ function makePayload(tenantId: string, overrides: Partial<CreateCommunicationEve
     tenant_id: tenantId,
     event_type: 'message',
     sender_id: 'agent-a',
-    recipient_ids: [],
+    recipient_ids: ['agent-listener'],
+    message_type: 'tenant_test_message',
     content: `message for ${tenantId}`,
     ...overrides,
   };
@@ -133,7 +139,8 @@ describe('MessageBus — tenant isolation', () => {
       tenant_id: '',
       event_type: 'message',
       sender_id: 'rogue-agent',
-      recipient_ids: [],
+      recipient_ids: ['agent-x'],
+      message_type: 'tenant_test_message',
       content: 'should not be delivered',
       timestamp: new Date().toISOString(),
     } as unknown as CommunicationEvent;
@@ -159,7 +166,8 @@ describe('MessageBus — tenant isolation', () => {
       id: 'evt-no-tenant',
       event_type: 'message',
       sender_id: 'rogue-agent',
-      recipient_ids: [],
+      recipient_ids: ['agent-x'],
+      message_type: 'tenant_test_message',
       content: 'should not be delivered',
       timestamp: new Date().toISOString(),
     } as unknown as CommunicationEvent;

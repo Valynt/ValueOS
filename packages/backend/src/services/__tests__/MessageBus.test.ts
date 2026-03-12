@@ -146,6 +146,39 @@ describe('MessageBus', () => {
       expect(response.correlation_id).toBeTruthy();
     });
 
+    
+
+    it('rejects publish payloads that do not include tenant identity', async () => {
+      const bus = new MessageBusCtor();
+
+      await expect(
+        bus.publishMessage('tasks', {
+          event_type: 'message',
+          sender_id: 'coordinator',
+          recipient_ids: ['target-agent'],
+          message_type: 'task_assignment',
+          content: 'Run target stage',
+          payload: { stage: 'target' },
+        } as unknown as CreateCommunicationEvent),
+      ).rejects.toThrow(/tenant_id or organization_id/);
+    });
+
+    it('rejects legacy publish payload field variants', async () => {
+      const bus = new MessageBusCtor();
+
+      await expect(
+        bus.publishMessage('tasks', {
+          event_type: 'message',
+          sender_id: 'coordinator',
+          recipient_ids: ['target-agent'],
+          message_type: 'task_assignment',
+          content: 'Run target stage',
+          tenant_id: 'tenant-1',
+          from_agent: 'coordinator',
+        } as unknown as CreateCommunicationEvent),
+      ).rejects.toThrow(/legacy field "from_agent"/);
+    });
+
     it('keeps type-level contracts aligned with runtime payloads', () => {
       type TenantPayload = {
         event_type: 'message';

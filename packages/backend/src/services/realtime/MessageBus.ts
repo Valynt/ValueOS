@@ -7,6 +7,7 @@
 
 import { compress, decompress } from 'lz-string';
 import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js'
 import type {
@@ -30,6 +31,33 @@ export class MessageBus {
   /** Tracks channels with an active NATS subscription to prevent duplicate listeners. */
   private natsChannels: Set<string>;
 
+
+  private static readonly publishPayloadSchema = z.object({
+    event_type: z.enum(['message', 'notification', 'alert', 'broadcast']),
+    sender_id: z.string().min(1, 'sender_id is required'),
+    recipient_ids: z.array(z.string().min(1)).min(1, 'recipient_ids must include at least one recipient'),
+    recipient_agent: z.string().min(1).optional(),
+    message_type: z.string().min(1, 'message_type is required'),
+    correlation_id: z.string().min(1).optional(),
+    reply_to: z.string().min(1).optional(),
+    content: z.string().min(1),
+    payload: z.unknown().optional(),
+    compressed: z.boolean().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    tenant_id: z.string().min(1).optional(),
+    organization_id: z.string().min(1).optional(),
+  }).superRefine((value, ctx) => {
+    if (!value.tenant_id && !value.organization_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'payload must include tenant_id or organization_id',
+        path: ['tenant_id'],
+      });
+    }
+  });
+
+  private static readonly legacyFieldNames = ['from_agent', 'to_agent', 'priority'] as const;
+
   constructor(config?: { redis?: any; nats?: any }) {
     this.subscribers = new Map();
     this.channels = new Map();
@@ -51,6 +79,21 @@ export class MessageBus {
     channel: string,
     payload: CreateCommunicationEvent
   ): Promise<string> {
+    for (const fieldName of MessageBus.legacyFieldNames) {
+      if (fieldName in (payload as Record<string, unknown>)) {
+        throw new Error(
+          `Invalid MessageBus payload: legacy field "${fieldName}" is not supported. `
+          + 'Use sender_id, recipient_ids, message_type, and tenant_id/organization_id.',
+        );
+      }
+    }
+
+    const validation = MessageBus.publishPayloadSchema.safeParse(payload);
+    if (!validation.success) {
+      const issues = validation.error.issues.map((issue) => issue.message).join('; ');
+      throw new Error(`Invalid MessageBus payload for channel "${channel}": ${issues}`);
+    }
+
     const messageId = uuidv4();
 
     const event: CommunicationEvent = {
@@ -275,6 +318,7 @@ export class MessageBus {
     await this.publishMessage('broadcast', {
       ...payload,
       message_type: 'broadcast',
+      recipient_ids: payload.recipient_ids.length > 0 ? payload.recipient_ids : ['*'],
     });
   }
 
