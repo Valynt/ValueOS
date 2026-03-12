@@ -177,11 +177,17 @@ describe("FinancialModelingAgent", () => {
   });
 
   describe("execute — successful modeling", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("produces financial models and returns success", async () => {
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("success");
-      expect(result.agent_type).toBe("financial_modeling");
+      expect(result.agent_type).toBe("modeling");
       expect(result.lifecycle_stage).toBe("modeling");
       expect(result.result.models_count).toBe(2);
     });

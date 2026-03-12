@@ -227,6 +227,12 @@ describe("IntegrityAgent", () => {
   });
 
   describe("execute — pass scenario", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("validates claims and returns success when all supported", async () => {
       const result = await agent.execute(makeContext());
 

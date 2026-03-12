@@ -266,6 +266,12 @@ describe("TargetAgent", () => {
   });
 
   describe("execute", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("generates KPI targets from hypotheses and returns structured output", async () => {
       const result = await agent.execute(makeContext());
 

@@ -212,6 +212,12 @@ describe("RealizationAgent", () => {
   });
 
   describe("execute — on-target scenario", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("produces proof points and returns success", async () => {
       const result = await agent.execute(makeContext());
 
