@@ -794,10 +794,10 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Get audit log statistics
+   * Get audit log statistics. organizationId is required for tenant isolation.
    */
   async getStats(
-    filters: Omit<AuditLogFilters, "limit" | "offset" | "sortOrder"> = {}
+    filters: Omit<AuditLogFilters, "limit" | "offset" | "sortOrder"> & { organizationId: string }
   ): Promise<AuditLogStats> {
     const logs = await this.query({ ...filters, limit: 10000 });
 

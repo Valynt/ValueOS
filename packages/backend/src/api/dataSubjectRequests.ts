@@ -5,6 +5,8 @@
  * Restricted to admin users with the `users.delete` permission.
  */
 
+import { createHash } from "crypto";
+
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
@@ -30,6 +32,11 @@ const PII_TABLES: Array<{ table: string; userColumn: string }> = [
 ];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/** One-way hash for PII identifiers used in logs and audit records. */
+function hashEmail(email: string): string {
+  return createHash("sha256").update(email).digest("hex").slice(0, 16);
+}
 
 async function resolveUserId(
   supabase: ReturnType<typeof createServerSupabaseClient>,
@@ -72,17 +79,34 @@ async function auditDsr(
   action: string,
   actorId: string,
   targetEmail: string,
+  tenantId: string,
+  requestId: string,
   details: Record<string, unknown> = {},
 ) {
-  await supabase.from("security_audit_log").insert({
+  const eventData = {
+    target_email_hash: hashEmail(targetEmail),
+    ...details,
+  };
+  // Immutable checksum over the canonical event fields for forensic integrity.
+  const checksum = createHash("sha256")
+    .update(JSON.stringify({ action, actorId, tenantId, requestId, eventData }))
+    .digest("hex");
+
+  const { error: insertError } = await supabase.from("security_audit_log").insert({
     event_type: `dsr_${action}`,
     actor: actorId,
     action,
     resource: "dsr",
     request_path: "/api/dsr",
     severity: "high",
-    event_data: { target_email: targetEmail, ...details },
+    tenant_id: tenantId,
+    request_id: requestId,
+    event_data: { ...eventData, checksum },
   });
+
+  if (insertError) {
+    throw new Error(`DSR audit insert failed: ${insertError.message} (code: ${insertError.code})`);
+  }
 }
 
 // ── routes ───────────────────────────────────────────────────────────────────
@@ -98,6 +122,7 @@ router.post(
     const { email } = req.body ?? {};
     const tenantId = (req as any).tenantId as string | undefined;
     const actorId = (req as any).userId as string | undefined;
+    const requestId = (req as any).requestId as string | undefined ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -105,6 +130,8 @@ router.post(
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
+
+    const emailHash = hashEmail(email);
 
     try {
       const supabase = createServerSupabaseClient();
@@ -115,11 +142,19 @@ router.post(
       }
 
       const footprint = await gatherFootprint(supabase, userId, tenantId);
-      await auditDsr(supabase, "export", actorId ?? "unknown", email, {
-        tables: Object.keys(footprint),
-      });
 
-      logger.info("DSR export completed", { email, tenantId });
+      try {
+        await auditDsr(supabase, "export", actorId ?? "unknown", email, tenantId, requestId, {
+          tables: Object.keys(footprint),
+        });
+      } catch (auditErr) {
+        // Audit failure must not suppress a completed operation. Log for out-of-band remediation.
+        logger.error("DSR audit write failed", auditErr instanceof Error ? auditErr : undefined, {
+          emailHash, tenantId, requestId, action: "export",
+        });
+      }
+
+      logger.info("DSR export completed", { emailHash, tenantId });
 
       return res.json({
         request_type: "export",
@@ -128,7 +163,7 @@ router.post(
         data: footprint,
       });
     } catch (err) {
-      logger.error("DSR export failed", err instanceof Error ? err : undefined, { email });
+      logger.error("DSR export failed", err instanceof Error ? err : undefined, { emailHash });
       return res.status(500).json({ error: "Export failed" });
     }
   },
@@ -145,6 +180,7 @@ router.post(
     const { email } = req.body ?? {};
     const tenantId = (req as any).tenantId as string | undefined;
     const actorId = (req as any).userId as string | undefined;
+    const requestId = (req as any).requestId as string | undefined ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -152,6 +188,8 @@ router.post(
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
+
+    const emailHash = hashEmail(email);
 
     try {
       const supabase = createServerSupabaseClient();
@@ -183,12 +221,19 @@ router.post(
       await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
       await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
 
-      await auditDsr(supabase, "erase", actorId ?? "unknown", email, {
-        anonymized_to: placeholderEmail,
-        tables_scrubbed: ["users", "messages", "cases", "agent_memory"],
-      });
+      try {
+        await auditDsr(supabase, "erase", actorId ?? "unknown", email, tenantId, requestId, {
+          anonymized_to: placeholderEmail,
+          tables_scrubbed: ["users", "messages", "cases", "agent_memory"],
+        });
+      } catch (auditErr) {
+        // Audit failure must not suppress a completed operation. Log for out-of-band remediation.
+        logger.error("DSR audit write failed", auditErr instanceof Error ? auditErr : undefined, {
+          emailHash, tenantId, requestId, action: "erase",
+        });
+      }
 
-      logger.info("DSR erasure completed", { email, tenantId });
+      logger.info("DSR erasure completed", { emailHash, tenantId });
 
       return res.json({
         request_type: "erase",
@@ -197,7 +242,7 @@ router.post(
         erased_at: redactedTs,
       });
     } catch (err) {
-      logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { email });
+      logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { emailHash });
       return res.status(500).json({ error: "Erasure failed" });
     }
   },
@@ -221,6 +266,8 @@ router.post(
       return res.status(400).json({ error: "Tenant context required" });
     }
 
+    const emailHash = hashEmail(email);
+
     try {
       const supabase = createServerSupabaseClient();
       const userId = await resolveUserId(supabase, email, tenantId);
@@ -236,7 +283,7 @@ router.post(
 
       return res.json({ email, user_id: userId, record_counts: summary });
     } catch (err) {
-      logger.error("DSR status failed", err instanceof Error ? err : undefined, { email });
+      logger.error("DSR status failed", err instanceof Error ? err : undefined, { emailHash });
       return res.status(500).json({ error: "Status check failed" });
     }
   },
