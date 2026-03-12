@@ -80,6 +80,7 @@ export function recordStageTransition(opts: {
 }): void {
   const { fromStage, toStage, organizationId, durationMs } = opts;
   stageTransitionLatency.record(durationMs / 1000, {
+    organization_id: organizationId,
     from_stage: fromStage,
     to_stage: toStage,
   });
@@ -103,6 +104,7 @@ export function recordAgentInvocation(opts: {
 }): void {
   const { agentName, stage, outcome, organizationId, durationMs } = opts;
   agentInvocations.add(1, {
+    organization_id: organizationId,
     agent: agentName,
     stage,
     outcome,
@@ -127,7 +129,10 @@ export function recordHypothesisConfidence(opts: {
   organizationId: string;
 }): void {
   const { agentName, confidence, organizationId } = opts;
-  hypothesisConfidence.record(confidence, { agent: agentName });
+  hypothesisConfidence.record(confidence, {
+    organization_id: organizationId,
+    agent: agentName,
+  });
   if (confidence < 0.5) {
     logger.warn("Low-confidence hypothesis", { agentName, confidence, organizationId });
   }
@@ -143,6 +148,7 @@ export function recordFinancialCalculation(opts: {
 }): void {
   const { calculationType, validated, organizationId } = opts;
   financialCalculations.add(1, {
+    organization_id: organizationId,
     type: calculationType,
     validated: validated ? "true" : "false",
   });
@@ -165,7 +171,7 @@ export function recordUsageEvent(opts: {
   quantity?: number;
 }): void {
   const { tenantId, metric, quantity = 1 } = opts;
-  usageEvents.add(quantity, { metric, tenant: tenantId });
+  usageEvents.add(quantity, { metric, organization_id: tenantId });
 }
 
 /**
@@ -179,6 +185,7 @@ export function recordLoopCompletion(opts: {
 }): void {
   const { organizationId, sessionId, durationMs, completedStages } = opts;
   loopDuration.record(durationMs / 1000, {
+    organization_id: organizationId,
     stages: completedStages.join(","),
   });
   logger.info("Value loop completed", {
