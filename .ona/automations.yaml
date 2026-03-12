@@ -31,8 +31,6 @@ tasks:
       if ! command -v tsx &> /dev/null; then
         pnpm add -g tsx
       fi
-    triggeredBy:
-      - postDevcontainerStart
     dependsOn:
       - installDeps
 
@@ -77,8 +75,6 @@ tasks:
       fi
 
       echo "Environment validation passed."
-    triggeredBy:
-      - postDevcontainerStart
     dependsOn:
       - setupTools
 
@@ -103,6 +99,7 @@ tasks:
       - postDevcontainerStart
     dependsOn:
       - validateEnvironment
+      - applyMigrations
 
   applyMigrations:
     name: Apply database migrations
@@ -168,7 +165,11 @@ tasks:
       _skipped=0
       _applied=0
 
-      # POSIX-compatible loop — avoids bash-only mapfile and process substitution.
+      # Write sorted migration paths to a temp file to avoid heredoc indentation
+      # issues in YAML block scalars (unindented EOF terminates the block).
+      _migration_list="$(mktemp)"
+      find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort > "$_migration_list"
+
       while IFS= read -r _file; do
         _migration_count=$((_migration_count + 1))
         _name="$(basename "$_file")"
@@ -190,11 +191,11 @@ tasks:
           _applied=$((_applied + 1))
         else
           echo "FAIL: $_name"
+          rm -f "$_migration_list"
           exit 1
         fi
-      done << EOF
-$(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort)
-EOF
+      done < "$_migration_list"
+      rm -f "$_migration_list"
 
       if [ "$_migration_count" -eq 0 ]; then
         echo "No migration files found — nothing to apply."
