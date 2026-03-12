@@ -23,6 +23,7 @@ import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
+import { sanitizeLogPayload, summarizeSensitiveContent } from "../redaction.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -178,6 +179,7 @@ export abstract class BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      storeRawModelOutputInMemory?: boolean;
     } = {}
   ): Promise<T & {
     hallucination_check?: boolean;
@@ -190,6 +192,7 @@ export abstract class BaseAgent {
       confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
+      storeRawModelOutputInMemory = true,
     } = options;
 
     return this.circuitBreaker.execute(async () => {
@@ -211,15 +214,18 @@ export abstract class BaseAgent {
 
       // Validate response with Zod (fails fast on bad JSON)
       let parsedJson: unknown;
+      const responseSummary = summarizeSensitiveContent(response.content);
       try {
         parsedJson = JSON.parse(response.content);
       } catch (err) {
-        logger.error("Failed to parse LLM response as JSON", {
+        logger.error("Failed to parse LLM response as JSON", sanitizeLogPayload({
           agent: this.name,
           session_id: sessionId,
           error: (err as Error).message,
-          content: response.content,
-        });
+          content_summary: responseSummary.summary,
+          content_hash: responseSummary.hash,
+          redaction_count: responseSummary.redactionCount,
+        }));
         throw new Error("LLM response was not valid JSON: " + (err as Error).message);
       }
       const parsed = zodSchema.parse(parsedJson);
@@ -250,7 +256,9 @@ export abstract class BaseAgent {
           sessionId,
           this.name,
           "episodic",
-          `LLM Response: ${response.content.substring(0, 200)}...`,
+          storeRawModelOutputInMemory
+            ? `LLM Response: ${response.content}`
+            : `LLM Response Summary: ${responseSummary.summary}`,
           {
             confidence: hallucinationResult.groundingScore,
             hallucination_check: hallucinationResult.passed,
@@ -259,18 +267,21 @@ export abstract class BaseAgent {
             validation_method: kfResult.method,
             contradiction_count: kfResult.contradictions.length,
             benchmark_misalignment_count: kfResult.benchmarkMisalignments.length,
+            response_hash: responseSummary.hash,
+            response_redaction_count: responseSummary.redactionCount,
+            raw_model_output: storeRawModelOutputInMemory,
           },
           this.organizationId
         );
       }
 
       if (hallucinationResult.requiresEscalation) {
-        logger.warn("Hallucination escalation triggered", {
+        logger.warn("Hallucination escalation triggered", sanitizeLogPayload({
           agent: this.name,
           session_id: sessionId,
           signals: hallucinationResult.signals.map(s => s.type),
           grounding_score: hallucinationResult.groundingScore,
-        });
+        }));
       }
 
       // Surface token counts so the API layer can emit usage events without
@@ -314,10 +325,10 @@ export abstract class BaseAgent {
         this.name
       );
     } catch (err) {
-      logger.error("Knowledge Fabric validation failed, defaulting to fail", {
+      logger.error("Knowledge Fabric validation failed, defaulting to fail", sanitizeLogPayload({
         agent_id: this.name,
         error: (err as Error).message,
-      });
+      }));
       return {
         passed: false,
         confidence: 0.5,
@@ -515,11 +526,11 @@ export abstract class BaseAgent {
         }
       }
     } catch (err) {
-      logger.warn('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
+      logger.warn('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', sanitizeLogPayload({
         agent: this.name,
         organizationId: this.organizationId,
         error: (err as Error).message,
-      });
+      }));
       if (err && typeof err.message === 'string' && err.message.includes('tenant')) {
         throw new Error(`Tenant isolation violation in crossReferenceMemory: ${err.message}`);
       }

@@ -525,6 +525,47 @@ describe("MemorySystem", () => {
 // (the old location). After the B3 refactor moved organization_id to a
 // top-level field, memories stored without metadata.organization_id were
 // silently skipped — consolidation was a no-op for all tenants.
+  describe("redaction and high-trust mode", () => {
+    it("redacts email, phone number, and account identifiers in stored memory", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+      await ms.storeSemanticMemory(
+        "session-1",
+        "agent-1",
+        "semantic",
+        "Contact jane.doe@valueos.ai at +1 (415) 555-2671 about account ACCT-778899.",
+        { importance: 0.9 },
+        ORG_ID,
+      );
+
+      const [stored] = await ms.retrieve({ agent_id: "agent-1", organization_id: ORG_ID, memory_type: "semantic" });
+      expect(stored.content).toContain("[REDACTED_EMAIL]");
+      expect(stored.content).toContain("[REDACTED_PHONE]");
+      expect(stored.content).toContain("[REDACTED_ACCOUNT_ID]");
+      expect(stored.content).not.toContain("jane.doe@valueos.ai");
+      expect(stored.content).not.toContain("555-2671");
+      expect(stored.content).not.toContain("ACCT-778899");
+    });
+
+    it("suppresses raw model output when high_trust_mode is enabled", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false, high_trust_mode: true });
+
+      await ms.storeSemanticMemory(
+        "session-1",
+        "agent-1",
+        "episodic",
+        "Raw model output with secret token sk_live_abcdef123456 and user test@valueos.ai",
+        { raw_model_output: true },
+        ORG_ID,
+      );
+
+      const [stored] = await ms.retrieve({ agent_id: "agent-1", organization_id: ORG_ID, memory_type: "episodic" });
+      expect(stored.content).toContain("[HIGH_TRUST_MODE] raw model output omitted");
+      expect(stored.content).not.toContain("sk_live_abcdef123456");
+      expect(stored.content).not.toContain("test@valueos.ai");
+    });
+  });
+
 
 describe("MemorySystem.consolidate() tenant isolation (BUG-1 regression)", () => {
   const ORG_A = "org-a-111";

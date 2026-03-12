@@ -11,6 +11,7 @@
  */
 
 import { logger } from "../logger.js";
+import { redactSensitiveText, sanitizeLogPayload, summarizeSensitiveContent } from "./redaction.js";
 
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 
@@ -19,6 +20,7 @@ export interface MemorySystemConfig {
   ttl_seconds?: number;
   enable_persistence: boolean;
   vector_search_enabled?: boolean;
+  high_trust_mode?: boolean;
 }
 
 export interface Memory {
@@ -170,8 +172,18 @@ export class MemorySystem {
     memory: Omit<Memory, "id" | "created_at" | "accessed_at" | "access_count">
   ): Promise<string> {
     const memoryId = `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const shouldSuppressRawModelOutput =
+      this.config.high_trust_mode === true
+      && (memory.memory_type === "episodic" || memory.memory_type === "semantic")
+      && memory.metadata?.raw_model_output === true;
+
+    const storedContent = shouldSuppressRawModelOutput
+      ? `[HIGH_TRUST_MODE] raw model output omitted; hash=${summarizeSensitiveContent(memory.content).hash}`
+      : redactSensitiveText(memory.content).redactedText;
+
     const fullMemory: Memory = {
       ...memory,
+      content: storedContent,
       id: memoryId,
       created_at: new Date().toISOString(),
       accessed_at: new Date().toISOString(),
@@ -193,11 +205,11 @@ export class MemorySystem {
       try {
         await this.backend.store(fullMemory);
       } catch (error) {
-        logger.warn("Persistent memory store failed, using local cache only", {
+        logger.warn("Persistent memory store failed, using local cache only", sanitizeLogPayload({
           memory_id: memoryId,
           agent_id: memory.agent_id,
           error: (error as Error).message,
-        });
+        }));
       }
     }
 
@@ -225,10 +237,10 @@ export class MemorySystem {
         }
         // Fall through to local cache if backend returned empty
       } catch (error) {
-        logger.warn("Persistent memory retrieval failed, falling back to local cache", {
+        logger.warn("Persistent memory retrieval failed, falling back to local cache", sanitizeLogPayload({
           agent_id: query.agent_id,
           error: (error as Error).message,
-        });
+        }));
       }
     }
 

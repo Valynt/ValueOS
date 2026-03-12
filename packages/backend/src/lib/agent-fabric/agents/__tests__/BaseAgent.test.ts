@@ -43,6 +43,7 @@ import type { HallucinationCheckResult } from "../../KnowledgeFabricValidator";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
+import { logger } from "../../../logger";
 
 // --- Concrete subclass for testing abstract BaseAgent ---
 
@@ -65,6 +66,7 @@ class TestAgent extends BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      storeRawModelOutputInMemory?: boolean;
     }
   ) {
     return this.secureInvoke(sessionId, prompt, schema, options);
@@ -364,6 +366,49 @@ describe("BaseAgent", () => {
       await expect(
         agent.invokeSecure("session-1", "prompt", responseSchema)
       ).rejects.toThrow("LLM service unavailable");
+    });
+
+
+    it("logs redacted summary and content hash when JSON parsing fails", async () => {
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse("Contact jane.doe@valueos.ai at +1 (415) 555-2671 for account ACCT-778899")
+      );
+
+      await expect(
+        agent.invokeSecure("session-1", "prompt", responseSchema)
+      ).rejects.toThrow("LLM response was not valid JSON");
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("[REDACTED_EMAIL]"),
+          content_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        })
+      );
+      expect(logger.error).not.toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("jane.doe@valueos.ai"),
+        })
+      );
+    });
+
+    it("stores summarized output when raw model storage is disabled", async () => {
+      await agent.invokeSecure("session-1", "prompt", responseSchema, {
+        storeRawModelOutputInMemory: false,
+      });
+
+      expect(mockMemorySystem.storeSemanticMemory).toHaveBeenCalledWith(
+        "session-1",
+        "TestAgent",
+        "episodic",
+        expect.stringContaining("LLM Response Summary:"),
+        expect.objectContaining({
+          raw_model_output: false,
+          response_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+        "org-456"
+      );
     });
   });
 
