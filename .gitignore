@@ -28,6 +28,9 @@ infra/docker/overlays/prod/secrets/*.txt
 # OS generated files
 .DS_Store
 .DS_Store?
+
+# Accidentally committed Windows paths
+c:/
 ._*
 .Spotlight-V100
 .Trashes

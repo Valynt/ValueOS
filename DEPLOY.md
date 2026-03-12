@@ -10,15 +10,23 @@
 - A Supabase project (or self-hosted Supabase instance)
 - A domain with DNS pointing to your server
 
+> **Canonical compose location:** `ops/compose/compose.yml`. The root `docker-compose.yml` and
+> `docker-compose.deps.yml` are thin backward-compatibility wrappers that include `ops/compose/compose.yml`.
+> Always reference `ops/compose/` directly for production deployments.
+
 ## Required Environment Variables
+
+All compose files under `ops/compose/` use `${VAR:?error message}` syntax for credentials — Docker Compose
+will refuse to start if any required variable is unset. Populate `ops/env/.env.local` before running
+`docker compose up`.
 
 Start from the production template and then fill in the values for your environment:
 
 ```bash
-cp ops/env/.env.production.template .env.production
+cp ops/env/.env.production.template ops/env/.env.local
 ```
 
-Create a `.env.production` file (or set these in your hosting platform):
+Create `ops/env/.env.local` (or set these in your hosting platform):
 
 ```bash
 # Domain
@@ -35,6 +43,16 @@ REDIS_URL=rediss://redis.yourdomain.internal:6379
 REDIS_TLS_REJECT_UNAUTHORIZED=true
 REDIS_TLS_CA_CERT_PATH=/run/secrets/redis-ca.crt
 REDIS_TLS_SERVERNAME=redis.yourdomain.internal
+
+# CORS — two variables are read by different parts of the backend; set both.
+# CORS_ALLOWED_ORIGINS: read by securityConfig.ts and settings.ts (security middleware)
+# CORS_ORIGINS: read by environment.ts (getConfig() used by the main Express CORS setup)
+# Both must be an explicit comma-separated origin list — wildcards are rejected when credentials are enabled.
+CORS_ALLOWED_ORIGINS=https://app.yourdomain.com,https://admin.yourdomain.com
+CORS_ORIGINS=https://app.yourdomain.com,https://admin.yourdomain.com
+
+# MFA — must be true in production
+MFA_ENABLED=true
 
 # Secrets (create files in infra/secrets/)
 # infra/secrets/supabase_service_key.txt  — Supabase service_role key

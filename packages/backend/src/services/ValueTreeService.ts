@@ -1,7 +1,10 @@
 /**
- * Value Tree Service with Atomic Updates
- * 
- * Manages value tree operations with optimistic locking and impact analysis.
+ * ValueTreeService — optimistic-locking tree mutations and impact analysis.
+ *
+ * Distinct from `services/value/ValueTreeService` which is a read-only domain
+ * adapter that fetches value drivers from the DB and maps them to a ValueTree.
+ * This service owns write operations (atomic RPC updates, cache invalidation,
+ * realtime broadcast) and is used by ActionRouter for agent-driven tree edits.
  */
 
 import { createClient } from '@supabase/supabase-js';

@@ -1,3 +1,11 @@
+/**
+ * ValueTreeService (domain read adapter) — fetches value drivers from the DB
+ * and maps them to a ValueTree via the domain adapter.
+ *
+ * Distinct from `services/ValueTreeService` which owns write operations
+ * (optimistic locking, atomic RPC updates, realtime broadcast).
+ * This service is used by the customer portal API for read-only access.
+ */
 import { createClient } from '@supabase/supabase-js';
 
 import { fromValueDrivers } from '../../domain/value/adapters/valueTree.adapter';
