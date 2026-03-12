@@ -27,6 +27,11 @@ type ResourceRecord = {
   payload: string;
 };
 
+const CROSS_TENANT_SEMANTICS = {
+  read: 404,
+  write: 403,
+} as const;
+
 const resources = new Map<string, ResourceRecord>();
 const encoder = new TextEncoder();
 
@@ -151,7 +156,7 @@ describe("API Tenant Isolation hard gate", () => {
           headers: { "x-tenant-context": tenantTwoToken },
         }
       );
-      expect(crossTenantRead.status).toBe(404);
+      expect(crossTenantRead.status).toBe(CROSS_TENANT_SEMANTICS.read);
     });
   });
 
@@ -190,7 +195,7 @@ describe("API Tenant Isolation hard gate", () => {
         }
       );
 
-      expect(crossTenantWrite.status).toBe(403);
+      expect(crossTenantWrite.status).toBe(CROSS_TENANT_SEMANTICS.write);
     });
   });
 
@@ -216,7 +221,7 @@ describe("API Tenant Isolation hard gate", () => {
           headers: { "x-tenant-context": tenantTwoToken },
         }
       );
-      expect(crossTenantRead.status).toBe(404);
+      expect(crossTenantRead.status).toBe(CROSS_TENANT_SEMANTICS.read);
     });
   });
 });
