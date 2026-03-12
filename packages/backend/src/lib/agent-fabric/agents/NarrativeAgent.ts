@@ -17,7 +17,7 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-import { getDomainEventBus } from '../../../events/DomainEventBus.js';
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -210,7 +210,13 @@ export class NarrativeAgent extends BaseAgent {
 
     // Step 6: Publish domain event
     try {
+      const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
       await getDomainEventBus().publish('narrative.drafted', {
+        ...buildEventEnvelope({
+          traceId,
+          tenantId: context.organization_id,
+          actorId: context.user_id,
+        }),
         organization_id: context.organization_id,
         value_case_id: valueCaseId,
         defense_readiness_score: narrativeOutput.defense_readiness_score,

@@ -34,6 +34,106 @@ function makePayload(tenantId: string, overrides: Partial<CreateCommunicationEve
   };
 }
 
+const TENANT_A = crypto.randomUUID();
+const TENANT_B = crypto.randomUUID();
+
+function makeEvent(overrides: Partial<CreateCommunicationEvent> = {}): CreateCommunicationEvent {
+  return {
+    tenant_id: TENANT_A,
+    event_type: 'notification',
+    sender_id: 'agent-001',
+    recipient_ids: ['agent-002'],
+    content: 'test message',
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// publishMessage — tenant_id validation
+// ---------------------------------------------------------------------------
+
+describe('MessageBus.publishMessage — tenant isolation', () => {
+  it('rejects an event with no tenant_id', async () => {
+    const bus = new MessageBus();
+    const event = makeEvent({ tenant_id: '' });
+
+    await expect(bus.publishMessage('test.channel', event)).rejects.toThrow(
+      'CommunicationEvent missing tenant_id',
+    );
+  });
+
+  it('accepts an event with a valid tenant_id', async () => {
+    const bus = new MessageBus();
+    const event = makeEvent({ tenant_id: TENANT_A });
+
+    const id = await bus.publishMessage('test.channel', event);
+    expect(typeof id).toBe('string');
+    expect(id.length).toBeGreaterThan(0);
+  });
+
+  it('delivers only to subscribers on the same channel', async () => {
+    const bus = new MessageBus();
+    const received: string[] = [];
+
+    bus.subscribe('channel.a', 'test-agent', async (e) => {
+      received.push(e.tenant_id);
+    });
+
+    await bus.publishMessage('channel.a', makeEvent({ tenant_id: TENANT_A }));
+    await bus.publishMessage('channel.b', makeEvent({ tenant_id: TENANT_B }));
+
+    expect(received).toEqual([TENANT_A]);
+    expect(received).not.toContain(TENANT_B);
+  });
+
+  it('preserves tenant_id on the delivered event', async () => {
+    const bus = new MessageBus();
+    let deliveredTenantId: string | undefined;
+
+    bus.subscribe('tenant.check', 'test-agent', async (e) => {
+      deliveredTenantId = e.tenant_id;
+    });
+
+    await bus.publishMessage('tenant.check', makeEvent({ tenant_id: TENANT_B }));
+
+    expect(deliveredTenantId).toBe(TENANT_B);
+  });
+
+  it('assigns a unique id and timestamp to each published event', async () => {
+    const bus = new MessageBus();
+    const ids: string[] = [];
+
+    bus.subscribe('id.check', 'test-agent', async (e) => {
+      ids.push(e.id);
+    });
+
+    await bus.publishMessage('id.check', makeEvent());
+    await bus.publishMessage('id.check', makeEvent());
+
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("two tenants publishing to the same channel do not receive each other's events", async () => {
+    const bus = new MessageBus();
+    const tenantAReceived: string[] = [];
+    const tenantBReceived: string[] = [];
+
+    bus.subscribe('shared.channel', 'agent-tenant-a', async (e) => {
+      if (e.tenant_id === TENANT_A) tenantAReceived.push(e.content);
+    });
+    bus.subscribe('shared.channel', 'agent-tenant-b', async (e) => {
+      if (e.tenant_id === TENANT_B) tenantBReceived.push(e.content);
+    });
+
+    await bus.publishMessage('shared.channel', makeEvent({ tenant_id: TENANT_A, content: 'msg-a' }));
+    await bus.publishMessage('shared.channel', makeEvent({ tenant_id: TENANT_B, content: 'msg-b' }));
+
+    expect(tenantAReceived).toEqual(['msg-a']);
+    expect(tenantBReceived).toEqual(['msg-b']);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -45,14 +145,12 @@ describe('MessageBus — tenant isolation', () => {
     bus = new MessageBus();
   });
 
-  // ── Cross-tenant delivery isolation ──────────────────────────────────────
-
   it('does not deliver tenant-A messages to a tenant-B handler', async () => {
     const tenantAHandler = vi.fn<[CommunicationEvent], Promise<void>>().mockResolvedValue(undefined);
     const tenantBHandler = vi.fn<[CommunicationEvent], Promise<void>>().mockResolvedValue(undefined);
 
-    bus.subscribe('tasks', 'agent-tenant-a', tenantAHandler, (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-a');
-    bus.subscribe('tasks', 'agent-tenant-b', tenantBHandler, (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-b');
+    bus.subscribe('tasks', 'agent-tenant-a', tenantAHandler, (e) => e.tenant_id === 'tenant-a');
+    bus.subscribe('tasks', 'agent-tenant-b', tenantBHandler, (e) => e.tenant_id === 'tenant-b');
 
     await bus.publishMessage('tasks', makePayload('tenant-a'));
 
@@ -64,8 +162,8 @@ describe('MessageBus — tenant isolation', () => {
     const tenantAHandler = vi.fn<[CommunicationEvent], Promise<void>>().mockResolvedValue(undefined);
     const tenantBHandler = vi.fn<[CommunicationEvent], Promise<void>>().mockResolvedValue(undefined);
 
-    bus.subscribe('tasks', 'agent-tenant-a', tenantAHandler, (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-a');
-    bus.subscribe('tasks', 'agent-tenant-b', tenantBHandler, (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-b');
+    bus.subscribe('tasks', 'agent-tenant-a', tenantAHandler, (e) => e.tenant_id === 'tenant-a');
+    bus.subscribe('tasks', 'agent-tenant-b', tenantBHandler, (e) => e.tenant_id === 'tenant-b');
 
     await bus.publishMessage('tasks', makePayload('tenant-b'));
 
@@ -79,13 +177,13 @@ describe('MessageBus — tenant isolation', () => {
 
     bus.subscribe(
       'tasks', 'agent-tenant-a',
-      async (e) => { receivedByA.push(e.tenant_id ?? (e as any).organization_id); },
-      (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-a',
+      async (e) => { receivedByA.push(e.tenant_id); },
+      (e) => e.tenant_id === 'tenant-a',
     );
     bus.subscribe(
       'tasks', 'agent-tenant-b',
-      async (e) => { receivedByB.push(e.tenant_id ?? (e as any).organization_id); },
-      (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-b',
+      async (e) => { receivedByB.push(e.tenant_id); },
+      (e) => e.tenant_id === 'tenant-b',
     );
 
     await Promise.all([
@@ -100,14 +198,12 @@ describe('MessageBus — tenant isolation', () => {
     expect(receivedByB[0]).toBe('tenant-b');
   });
 
-  // ── Unsubscribe does not affect other tenants ─────────────────────────────
-
   it('unsubscribing one tenant handler does not affect the other', async () => {
     const tenantAHandler = vi.fn<[CommunicationEvent], Promise<void>>().mockResolvedValue(undefined);
     const tenantBHandler = vi.fn<[CommunicationEvent], Promise<void>>().mockResolvedValue(undefined);
 
-    const unsubA = bus.subscribe('tasks', 'agent-tenant-a', tenantAHandler, (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-a');
-    bus.subscribe('tasks', 'agent-tenant-b', tenantBHandler, (e) => (e.tenant_id ?? (e as any).organization_id) === 'tenant-b');
+    const unsubA = bus.subscribe('tasks', 'agent-tenant-a', tenantAHandler, (e) => e.tenant_id === 'tenant-a');
+    bus.subscribe('tasks', 'agent-tenant-b', tenantBHandler, (e) => e.tenant_id === 'tenant-b');
 
     unsubA();
 
@@ -117,10 +213,6 @@ describe('MessageBus — tenant isolation', () => {
     expect(tenantAHandler).not.toHaveBeenCalled();
     expect(tenantBHandler).toHaveBeenCalledOnce();
   });
-
-  // ── Delivery-time guard (defence-in-depth) ────────────────────────────────
-  // These tests bypass publishMessage and invoke deliverMessage directly via
-  // a TestableMessageBus subclass to verify the guard independently.
 
   it('deliverMessage drops an event with empty tenant_id before reaching any handler', async () => {
     class TestableMessageBus extends MessageBus {
