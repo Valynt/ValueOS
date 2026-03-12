@@ -1,4 +1,5 @@
 import { createHash, createHmac, createPublicKey, randomBytes, timingSafeEqual } from "node:crypto";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
@@ -95,8 +96,18 @@ function verifyOAuthState(signed: string): OAuthStatePayload | null {
   }
 }
 
-function buildRedirectUri(req: any): string {
-  const host = req.headers?.["x-forwarded-host"] || req.headers?.host || "localhost:5173";
+function buildRedirectUri(req: IncomingMessage): string {
+  // x-forwarded-host is attacker-controlled in many proxy configurations.
+  // Validate against an allowlist before using it to construct the redirect_uri.
+  const ALLOWED_HOSTS = (process.env.OAUTH_ALLOWED_HOSTS || "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  const rawHost = req.headers?.["x-forwarded-host"] || req.headers?.host || "";
+  const host =
+    ALLOWED_HOSTS.length > 0 && ALLOWED_HOSTS.includes(rawHost as string)
+      ? (rawHost as string)
+      : process.env.OAUTH_REDIRECT_HOST || "localhost:5173";
   const forwardedProto = req.headers?.["x-forwarded-proto"];
   const protocol = forwardedProto || (req.socket?.encrypted ? "https" : "http");
   return `${protocol}://${host}/api/oauth/callback`;
@@ -114,7 +125,7 @@ function buildCodeChallenge(codeVerifier: string): string {
   return base64UrlEncode(digest);
 }
 
-function buildCookie(value: string, req: any, maxAgeSeconds: number): string {
+function buildCookie(value: string, req: IncomingMessage, maxAgeSeconds: number): string {
   const options = getSessionCookieOptions(req);
   return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(value)}; Path=${options.path || "/"}; Max-Age=${maxAgeSeconds}; HttpOnly; ${options.secure ? "Secure;" : ""} ${options.sameSite ? `SameSite=${options.sameSite};` : ""}`;
 }
@@ -279,7 +290,7 @@ async function exchangeCodeForUserInfo(code: string, codeVerifier: string, redir
   }
 }
 
-export async function handleOAuthLogin(req: any, res: any): Promise<{ success: boolean; redirectUrl: string }> {
+export async function handleOAuthLogin(req: IncomingMessage, res: ServerResponse): Promise<{ success: boolean; redirectUrl: string }> {
   try {
     const oauthPortalUrl = process.env.VITE_OAUTH_PORTAL_URL;
     const appId = process.env.VITE_APP_ID;
@@ -333,8 +344,8 @@ export async function handleOAuthLogin(req: any, res: any): Promise<{ success: b
 export async function handleOAuthCallback(
   code: string,
   state: string,
-  req: any,
-  res: any
+  req: IncomingMessage,
+  res: ServerResponse
 ): Promise<{ success: boolean; redirectUrl: string }> {
   const requestContext = getAuditRequestContext(req);
   const tenantId = process.env.SESSION_JWT_TENANT || process.env.VITE_APP_ID || undefined;

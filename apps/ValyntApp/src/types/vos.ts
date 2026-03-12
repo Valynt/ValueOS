@@ -121,7 +121,7 @@ export interface ValueTreeNode {
   label: string;
   type: ValueTreeNodeType;
   reference_id?: string;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   position_x?: number;
   position_y?: number;
   created_at: string;
@@ -133,7 +133,7 @@ export interface ValueTreeLink {
   child_id: string;
   link_type: string;
   weight: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ROIModel {
@@ -161,7 +161,7 @@ export interface ROIModelCalculation {
   result_type: ROICalculationType;
   unit?: string;
   input_variables?: Array<{ name: string; source?: string; description?: string }>;
-  source_references?: Record<string, any>;
+  source_references?: Record<string, unknown>;
   reasoning_trace?: string;
   created_at: string;
 }
@@ -195,7 +195,7 @@ export interface ValueCommit {
   date_committed: string;
   target_date?: string;
   notes?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
 }
 
@@ -211,7 +211,7 @@ export interface LifecycleArtifactLink {
   relationship_type: string;
   reasoning_trace?: string;
   chain_depth?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_by?: string;
   created_at?: string;
 }
@@ -224,10 +224,10 @@ export interface ProvenanceAuditEntry {
   artifact_id: string;
   action: string;
   reasoning_trace?: string;
-  artifact_data?: Record<string, any>;
-  input_variables?: Record<string, any>;
-  output_snapshot?: Record<string, any>;
-  metadata?: Record<string, any>;
+  artifact_data?: Record<string, unknown>;
+  input_variables?: Record<string, unknown>;
+  output_snapshot?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   created_at?: string;
 }
 
@@ -259,7 +259,7 @@ export interface TelemetryEvent {
   value: number;
   unit: string;
   source?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   ingested_at: string;
 }
 
@@ -273,7 +273,7 @@ export interface RealizationReport {
   executive_summary?: string;
   generated_at: string;
   generated_by?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface RealizationResult {
@@ -399,7 +399,7 @@ export interface ManifestoValidationResult {
   rule_name: string;
   passed: boolean;
   message: string;
-  evidence?: any[];
+  evidence?: unknown[];
 }
 
 export interface ManifestoComplianceReport {
@@ -505,7 +505,7 @@ export interface ExpansionOpportunityListProps {
 
 export interface AssumptionTraceViewProps {
   assumption: string;
-  evidence: any[];
+  evidence: unknown[];
   source?: string;
   confidenceLevel: ConfidenceLevel;
   relatedItems?: Array<{
@@ -536,17 +536,17 @@ export interface OpportunityAgentInput {
   /** Optional identifier to link generated artifacts back to a value case */
   valueCaseId?: string;
   /** Basic customer profile context for LLM prompts */
-  customerProfile?: Record<string, any>;
+  customerProfile?: Record<string, unknown>;
   /** Discovery transcripts, notes, and supporting evidence */
   discoveryData: string[];
   /** Additional structured context passed through orchestration */
-  additionalContext?: Record<string, any>;
+  additionalContext?: Record<string, unknown>;
 }
 
 export interface OpportunityAgentOutput {
   opportunitySummary: string;
-  personaFit: any;
-  initialValueModel: any;
+  personaFit: Record<string, unknown>;
+  initialValueModel: Record<string, unknown>;
   businessObjectives: BusinessObjective[];
   recommendedCapabilities: Capability[];
 }
@@ -624,18 +624,18 @@ export interface ResearchAgentInput {
   /** Specific research questions or focus areas */
   focusAreas?: string[];
   /** Additional context for research */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface ResearchAgentOutput {
   research: {
     summary: string;
-    findings: any[];
-    sources: any[];
+    findings: unknown[];
+    sources: unknown[];
     confidence: ConfidenceLevel;
   };
   confidence: ConfidenceLevel;
-  evidence: any[];
+  evidence: unknown[];
   processingTime: number;
   insights: string[];
 }
@@ -650,7 +650,7 @@ export interface VOSApiResponse<T> {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   metadata?: {
     timestamp: string;
