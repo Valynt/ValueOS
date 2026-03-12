@@ -157,7 +157,7 @@ app.get("/dashboard", (req, res) => {
                     let hasOptimizations = false;
                     for (const repo of repositories) {
                         try {
-                            const optimizations = await fetchData(`/api/repositories/${repo.owner.login}/${repo.name}/optimizations`);
+                            const optimizations = await fetchData('/api/repositories/' + repo.owner.login + '/' + repo.name + '/optimizations');
                             if (optimizations.length > 0) {
                                 hasOptimizations = true;
                                 optimizations.slice(0, 5).forEach(opt => {

@@ -87,6 +87,9 @@ jobs:
       - name: Hardcoded port mismatch guard
         run: node scripts/ci/check-hardcoded-port-mismatches.mjs
 
+      - name: TODO metadata guard (no untracked TODOs in production paths)
+        run: node .github/scripts/check-todo-metadata.cjs
+
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
@@ -266,6 +269,179 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  # Accessibility gate: WCAG 2.2 AA — required when frontend or a11y tests change
+  accessibility-audit:
+    name: accessibility-audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npx turbo run build --filter=valynt-app
+
+      - name: Run WCAG 2.2 AA accessibility tests
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
+        run: |
+          mkdir -p artifacts/accessibility
+          npx playwright test tests/accessibility/axe-a11y.spec.ts \
+            --reporter=html,json \
+            --output=artifacts/accessibility
+
+      - name: Accessibility trend gate
+        if: always()
+        run: |
+          node scripts/ci/a11y-trend-gate.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --baseline .github/metrics/accessibility-baseline.json \
+            --metrics-out artifacts/accessibility/a11y-metrics.json \
+            --summary-out artifacts/accessibility/a11y-trend-summary.md
+
+      - name: Upload accessibility artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-audit-${{ github.run_id }}
+          path: |
+            playwright-report/
+            artifacts/accessibility/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/accessibility-audit
+          cat > artifacts/ci-lanes/accessibility-audit/summary.md <<EOF
+          # accessibility-audit
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
+
+  # Security gate: SAST, SCA, secret scan, SBOM — required on every PR
+  security-gate:
+    name: security-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: SCA — pnpm audit (fail on high/critical)
+        run: pnpm audit --audit-level=high --json > npm-audit-report.json || (cat npm-audit-report.json && exit 1)
+
+      - name: Secret scan — gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: SAST — Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      - name: SBOM — generate CycloneDX
+        run: |
+          npm install -g @cyclonedx/cyclonedx-npm@latest --silent
+          cyclonedx-npm --output-format json --output-file sbom.json
+        continue-on-error: true
+
+      - name: Upload security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-gate-${{ github.run_id }}
+          path: |
+            npm-audit-report.json
+            semgrep.sarif
+            sbom.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/security-gate
+          cat > artifacts/ci-lanes/security-gate/summary.md <<EOF
+          # security-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
+
   # PR gate: blocks merge until critical lanes pass
   pr-fast-blocking-subsets:
     name: pr-fast-blocking-subsets
@@ -274,13 +450,17 @@ jobs:
     needs:
       - unit-component-schema
       - tenant-isolation-gate
+      - security-gate
+      - accessibility-audit
     steps:
       - name: Enforce PR release blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
           for lane in \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
-            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}"; do
+            "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
+            "security-gate:${{ needs.security-gate.result }}" \
+            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
@@ -297,13 +477,17 @@ jobs:
     needs:
       - tenant-isolation-gate
       - critical-workflows-gate
+      - security-gate
+      - accessibility-audit
     steps:
       - name: Enforce staging/deploy blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
           for lane in \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
-            "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}"; do
+            "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
+            "security-gate:${{ needs.security-gate.result }}" \
+            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

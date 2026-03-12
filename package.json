@@ -9,7 +9,7 @@
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
-    "check": "tsc --noEmit",
+    "check": "turbo run typecheck",
     "format": "prettier --write .",
     "test": "vitest run",
 
