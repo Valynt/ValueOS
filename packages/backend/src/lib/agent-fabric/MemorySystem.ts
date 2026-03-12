@@ -165,11 +165,12 @@ export class MemorySystem {
   }
 
   private sanitizeMemoryContent(content: string, memoryType: MemoryType): string {
-    const redacted = redactSensitiveText(content);
     if (this.shouldProtectRawOutput(memoryType)) {
-      return buildProtectedMemoryContent(redacted);
+      // In high-trust mode, let buildProtectedMemoryContent handle redaction and wrapping once.
+      return buildProtectedMemoryContent(content);
     }
-    return redacted;
+    // In non-high-trust mode, perform standard redaction only.
+    return redactSensitiveText(content);
   }
 
   private sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> | undefined {
