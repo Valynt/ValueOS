@@ -14,6 +14,74 @@ vi.mock('../../services/ReadThroughCacheService.js', async (importOriginal) => {
   };
 });
 
+
+vi.mock('../../services/AuditLogService.js', () => ({
+  auditLogService: { createEntry: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+}));
+
+vi.mock('../../repositories/ProjectsRepository.js', () => {
+  const byTenant = new Map<string, Map<string, any>>();
+  const getStore = (tenantId: string) => {
+    let store = byTenant.get(tenantId);
+    if (!store) {
+      store = new Map();
+      byTenant.set(tenantId, store);
+    }
+    return store;
+  };
+
+  return {
+    projectsRepository: {
+      findByName: vi.fn(async (organizationId: string, name: string) => {
+        const normalized = name.toLowerCase();
+        return Array.from(getStore(organizationId).values()).find((p) => p.name.toLowerCase() === normalized) ?? null;
+      }),
+      create: vi.fn(async (input: any) => {
+        const now = new Date().toISOString();
+        const project = {
+          id: input.id,
+          organization_id: input.organizationId,
+          name: input.name,
+          description: input.description ?? null,
+          status: input.status,
+          tags: input.tags,
+          owner_id: input.ownerId,
+          created_at: now,
+          updated_at: now,
+        };
+        getStore(input.organizationId).set(project.id, project);
+        return project;
+      }),
+      list: vi.fn(async (organizationId: string, options: any) => {
+        const items = Array.from(getStore(organizationId).values());
+        const filtered = items.filter((project) => {
+          if (options.status && project.status !== options.status) return false;
+          if (!options.search) return true;
+          const search = options.search.toLowerCase();
+          return project.name.toLowerCase().includes(search) || project.description?.toLowerCase().includes(search);
+        });
+        const start = (options.page - 1) * options.pageSize;
+        return { items: filtered.slice(start, start + options.pageSize), total: filtered.length };
+      }),
+      getById: vi.fn(async (organizationId: string, projectId: string) => getStore(organizationId).get(projectId) ?? null),
+      update: vi.fn(async (organizationId: string, projectId: string, input: any) => {
+        const store = getStore(organizationId);
+        const existing = store.get(projectId);
+        if (!existing) return null;
+        const updated = {
+          ...existing,
+          ...input,
+          description: input.description ?? existing.description,
+          updated_at: new Date().toISOString(),
+        };
+        store.set(projectId, updated);
+        return updated;
+      }),
+      delete: vi.fn(async (organizationId: string, projectId: string) => getStore(organizationId).delete(projectId)),
+    },
+    projectStatuses: ['planned', 'active', 'paused', 'completed'],
+  };
+});
 import { projectsRouter } from '../projects.js';
 
 const authHeader = { Authorization: 'Bearer test-token' };
