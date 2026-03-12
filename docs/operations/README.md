@@ -34,6 +34,7 @@ status: active
 - [Caddy Configuration](./caddy-configuration.md)
 - [Environment and Startup Unification](./env-startup-unification.md)
 - [Ci Cd Pipeline](./ci-cd-pipeline.md)
+- [Dependency Upgrade Triage Runbook](./dependency-upgrade-triage-runbook.md)
 - [Monitoring Observability](./monitoring-observability.md)
 - [Query Plan Baselines](./query-plan-baselines.md)
 - [Performance Tuning](./performance-tuning.md)
