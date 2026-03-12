@@ -969,4 +969,6 @@ export async function logAgentResponse(
 /**
  * Default export
  */
+export { AgentAuditLogger };
+/** @deprecated Use named import `AgentAuditLogger` instead. */
 export default AgentAuditLogger;

@@ -176,11 +176,12 @@ export class RealizationFeedbackLoop {
 
   private async deleteFeedback(feedbackId: string, organizationId: string): Promise<void> {
     logger.info("Compensating: deleting feedback", { feedbackId, organizationId });
+    // organizationId guard prevents accidental cross-tenant deletion if feedbackId is ever reused
     await this.supabase
       .from("feedback_loops")
       .delete()
-      .eq("id", feedbackId)
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .eq("id", feedbackId);
   }
 
   private calculateVariance(predicted: number, actual: number): VarianceAnalysis {

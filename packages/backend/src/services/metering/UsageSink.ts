@@ -5,7 +5,7 @@
 
 import { createLogger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js';
-import UsageMeteringService from '../billing/UsageMeteringService.js'
+import { UsageMeteringService } from '../billing/UsageMeteringService.js'
 
 const logger = createLogger({ component: 'UsageSink' });
 

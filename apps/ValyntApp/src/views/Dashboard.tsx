@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { useCreateCase } from "@/hooks/useCases";
 import { cn } from "@/lib/utils";
 
@@ -202,7 +203,7 @@ function IntegrityQueue() {
 // -- Recent iterations (what changed) --
 function RecentIterations() {
   const iterations = [
-    { action: "Revised ROI from 180% to 240% after server consolidation data", case: "Acme Corp", time: "25m ago", type: "revision" },
+    { action: "Revised ROI from 180% to 406% after server consolidation data", case: "Acme Corp", time: "25m ago", type: "revision" },
     { action: "Integrity veto resolved: swapped to Gartner benchmark", case: "TechStart", time: "1h ago", type: "integrity" },
     { action: "Executive summary generated for board presentation", case: "Global Logistics", time: "2h ago", type: "narrative" },
     { action: "Added 3 new KPIs from customer interview data", case: "FinServ Partners", time: "3h ago", type: "model" },
@@ -273,8 +274,21 @@ function AgentStrip() {
   );
 }
 
+function useGreeting() {
+  const { user } = useAuth();
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const firstName =
+    (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ??
+    user?.email?.split("@")[0] ??
+    null;
+  return firstName ? `${timeOfDay}, ${firstName}` : timeOfDay;
+}
+
 // -- Dashboard Page --
 export default function Dashboard() {
+  const greeting = useGreeting();
+
   const activeCases = [
     { id: "VC-1024", opp: "Acme Corp — Platform Migration", stage: "Target", status: "needs-input", confidence: 87, nextAction: "Review 3 assumptions flagged by Integrity Agent", lastActivity: "Model updated 25m ago", value: "$4.2M" },
     { id: "VC-1019", opp: "TechStart — Cloud Modernization", stage: "Discovery", status: "running", confidence: 62, nextAction: "Agent researching competitive landscape — ETA 2m", lastActivity: "Discovery started 8m ago", value: "$1.5M" },
@@ -287,7 +301,7 @@ export default function Dashboard() {
       {/* Header — personal, not org-level */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-zinc-950 tracking-[-0.05em]">My Work</h1>
+          <h1 className="text-2xl font-black text-zinc-950 tracking-[-0.05em]">{greeting}</h1>
           <p className="text-[13px] text-zinc-400 mt-0.5">
             {activeCases.length} active cases &middot; {activeCases.filter(c => c.status === "needs-input").length} need your input
           </p>

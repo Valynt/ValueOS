@@ -1,7 +1,10 @@
 /**
  * Agent Output Types
- * 
- * Standardized output structures from agent executions
+ *
+ * @deprecated This file defines a legacy AgentOutput shape used by AgentSDUIAdapter
+ * and related services. New agent-fabric agents (BaseAgent subclasses) use the
+ * canonical AgentOutput from `../types/agent`. Do not add new consumers here;
+ * migrate existing ones to `../types/agent` when touching them.
  */
 
 export interface AgentOutput {

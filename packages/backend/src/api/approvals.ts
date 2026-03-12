@@ -26,7 +26,7 @@ const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
  * POST /api/approvals/request
  * Create a new approval request
  */
-router.post('/request', async (req: Request, res: Response) => {
+router.post('/request', requirePermission('approvals:create'), async (req: Request, res: Response) => {
   try {
     const {
       agentName,
@@ -235,7 +235,7 @@ router.post('/:requestId/reject', requirePermission('approvals:manage'), async (
  * GET /api/approvals/:requestId
  * Get details of a specific approval request
  */
-router.get('/:requestId', async (req: Request, res: Response) => {
+router.get('/:requestId', requirePermission('approvals:view'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const tenantId = (req as any).tenantId;
@@ -270,9 +270,9 @@ router.get('/:requestId', async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/approvals/:requestId
- * Cancel a pending approval request
+ * Cancel a pending approval request (requester only; enforced by tenant + requester_id filter in DB)
  */
-router.delete('/:requestId', auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
+router.delete('/:requestId', requirePermission('approvals:create'), auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const tenantId = (req as any).tenantId;

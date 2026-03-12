@@ -7,7 +7,7 @@
 
 import { randomUUID } from "crypto";
 
-import { SDUIPageDefinition } from "@sdui/schema";
+import { SDUIPageDefinition } from "@valueos/sdui";
 import {
   ActionContext,
   ActionHandler,
@@ -43,7 +43,8 @@ import { AuditLogService } from "./AuditLogService.js";
 import { canvasSchemaService } from "./CanvasSchemaService.js";
 import { ComponentMutationService } from "./ComponentMutationService.js";
 import { manifestoEnforcer } from "./ManifestoEnforcer.js";
-import { ExecutionRuntime, createExecutionRuntime } from "../runtime/execution-runtime/index.js";
+import { createExecutionRuntime } from "../runtime/execution-runtime/index.js";
+import type { IExecutionRuntime } from "../../types/execution/IExecutionRuntime.js";
 import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "./ValueTreeService.js";
 import { workspaceStateService } from "./WorkspaceStateService.js";
 
@@ -55,7 +56,7 @@ import { workspaceStateService } from "./WorkspaceStateService.js";
 export class ActionRouter {
   private handlers: Map<string, ActionHandler>;
   private auditLogService: AuditLogService;
-  private executionRuntime: ExecutionRuntime;
+  private executionRuntime: IExecutionRuntime;
   private agentAPI: AgentAPI;
   private valueTreeService: ValueTreeService | undefined;
 

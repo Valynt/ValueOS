@@ -38,6 +38,9 @@ export const USER_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.COMMITMENTS_VIEW,
     PERMISSIONS.COMMITMENTS_CREATE,
     PERMISSIONS.AGENTS_VIEW,
+    // Members can create and view approval requests (e.g. agent-triggered actions)
+    PERMISSIONS.APPROVALS_VIEW,
+    PERMISSIONS.APPROVALS_CREATE,
   ],
 
   [USER_ROLES.VIEWER]: [
@@ -48,6 +51,8 @@ export const USER_ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.INTEGRATIONS_VIEW,
     PERMISSIONS.VALUE_TREES_VIEW,
     PERMISSIONS.COMMITMENTS_VIEW,
+    // Viewers can see approval requests but not create or manage them
+    PERMISSIONS.APPROVALS_VIEW,
   ],
 };
 

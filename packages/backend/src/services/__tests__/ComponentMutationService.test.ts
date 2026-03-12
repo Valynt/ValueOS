@@ -10,7 +10,7 @@ import {
   createRemoveAction,
   validateAtomicAction,
 } from '@sdui/AtomicUIActions';
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { ComponentMutationService } from '../ComponentMutationService.js'
 

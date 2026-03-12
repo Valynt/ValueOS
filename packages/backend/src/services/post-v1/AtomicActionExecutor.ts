@@ -6,7 +6,7 @@
  */
 
 import { ActionResult, AtomicUIAction } from '@sdui/AtomicUIActions';
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { logger } from '../lib/logger.js'
 

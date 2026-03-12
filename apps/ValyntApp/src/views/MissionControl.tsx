@@ -315,6 +315,32 @@ export default function MissionControl() {
   );
 }
 
+const ActionCard = ({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex flex-col items-start p-6 text-left bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-all hover:shadow-md group h-full"
+  >
+    <div className="mb-4 text-teal-500 group-hover:text-teal-400 transition-colors">
+      {icon}
+    </div>
+    <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-teal-400 transition-colors">
+      {title}
+    </h3>
+    <p className="text-sm text-text-muted leading-relaxed">{subtitle}</p>
+  </button>
+);
+
 const QuickActionButton = ({
   icon,
   label,

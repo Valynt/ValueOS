@@ -30,6 +30,7 @@ const SENSITIVE_PATTERNS = [
   "session",
   "cookie",
   "csrf",
+  "otp",
 
   // Personal Information
   "email",
@@ -92,6 +93,11 @@ function isSensitiveValue(value: unknown): boolean {
 
   // Check for JWT tokens
   if (/^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(value)) {
+    return true;
+  }
+
+  // Check for Bearer tokens
+  if (/^Bearer\s+eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(value)) {
     return true;
   }
 

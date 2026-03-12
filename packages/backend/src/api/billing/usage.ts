@@ -11,7 +11,7 @@ import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.j
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js';
 import { EntitlementsService } from '../../services/billing/EntitlementsService.js';
 import { InvoiceMathEngine } from '../../services/billing/InvoiceMathEngine.js';
-import PriceVersionService from '../../services/billing/PriceVersionService.js';
+import { priceVersionService as PriceVersionService } from '../../services/billing/PriceVersionService.js';
 import MetricsCollector from '../../services/metering/MetricsCollector.js';
 
 const router = express.Router();

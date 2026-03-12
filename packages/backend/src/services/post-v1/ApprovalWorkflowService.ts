@@ -8,6 +8,7 @@ import { AuthorizationError, NotFoundError } from './errors.js'
 
 export interface ApprovalWorkflow {
   id: string;
+  organizationId: string;
   name: string;
   description?: string;
   scope: 'organization' | 'team' | 'all';
@@ -25,6 +26,7 @@ export interface ApprovalWorkflow {
 
 export interface ApprovalRequest {
   id: string;
+  organizationId: string;
   workflowId: string;
   requestedBy: string;
   changeType: string;
@@ -45,12 +47,16 @@ export class ApprovalWorkflowService extends BaseService {
     super('ApprovalWorkflowService');
   }
 
+  /**
+   * Create approval workflow
+   */
   async createWorkflow(
     organizationId: string,
-    input: Omit<ApprovalWorkflow, 'id' | 'createdAt' | 'updatedAt'>
+    input: Omit<ApprovalWorkflow, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>
   ): Promise<ApprovalWorkflow> {
     this.validateRequired(input, ['name', 'scope', 'approvalLevels', 'createdBy']);
-    this.log('info', 'Creating approval workflow', { name: input.name, organizationId });
+
+    this.log('info', 'Creating approval workflow', { organizationId, name: input.name });
 
     return this.executeRequest(
       async () => {
@@ -80,6 +86,9 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
+  /**
+   * Create approval request
+   */
   async createRequest(
     organizationId: string,
     input: {
@@ -91,16 +100,17 @@ export class ApprovalWorkflowService extends BaseService {
     }
   ): Promise<ApprovalRequest> {
     this.validateRequired(input, ['workflowId', 'requestedBy', 'changeType', 'changeData']);
-    this.log('info', 'Creating approval request', { workflowId: input.workflowId, organizationId });
+
+    this.log('info', 'Creating approval request', { organizationId, workflowId: input.workflowId });
 
     return this.executeRequest(
       async () => {
-        // Scoped to org to prevent cross-tenant workflow attachment
+        // Get workflow — scoped to tenant to prevent cross-tenant workflow hijacking
         const { data: workflow, error: workflowError } = await this.supabase
           .from('approval_workflows')
           .select('*')
-          .eq('id', input.workflowId)
           .eq('organization_id', organizationId)
+          .eq('id', input.workflowId)
           .single();
 
         if (workflowError) throw workflowError;
@@ -130,32 +140,40 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
+  /**
+   * Approve request
+   */
   async approveRequest(
     organizationId: string,
     requestId: string,
     approverId: string,
     comment?: string
   ): Promise<ApprovalRequest> {
-    this.log('info', 'Approving request', { requestId, approverId, organizationId });
+    this.log('info', 'Approving request', { organizationId, requestId, approverId });
 
     return this.executeRequest(
       async () => {
+        // Get current request — scoped to tenant
         const { data: request, error: requestError } = await this.supabase
           .from('approval_requests')
           .select('*')
-          .eq('id', requestId)
           .eq('organization_id', organizationId)
+          .eq('id', requestId)
           .single();
 
         if (requestError) throw requestError;
         if (!request) throw new NotFoundError('Approval request');
-        if (request.status !== 'pending') throw new AuthorizationError('Request is not pending');
 
+        if (request.status !== 'pending') {
+          throw new AuthorizationError('Request is not pending');
+        }
+
+        // Check if approver is authorized — workflow also scoped to tenant
         const { data: workflow } = await this.supabase
           .from('approval_workflows')
           .select('*')
-          .eq('id', request.workflow_id)
           .eq('organization_id', organizationId)
+          .eq('id', request.workflow_id)
           .single();
 
         if (
@@ -166,8 +184,13 @@ export class ApprovalWorkflowService extends BaseService {
           throw new AuthorizationError('User not authorized to approve');
         }
 
+        // Add approval
         const approvals = request.approvals || [];
-        approvals.push({ userId: approverId, timestamp: new Date().toISOString(), comment });
+        approvals.push({
+          userId: approverId,
+          timestamp: new Date().toISOString(),
+          comment,
+        });
 
         const currentLevel = request.current_level || 1;
         const nextLevel = currentLevel + 1;
@@ -187,12 +210,13 @@ export class ApprovalWorkflowService extends BaseService {
         const { data, error } = await this.supabase
           .from('approval_requests')
           .update(updates)
-          .eq('id', requestId)
           .eq('organization_id', organizationId)
+          .eq('id', requestId)
           .select()
           .single();
 
         if (error) throw error;
+
         this.clearCache();
         return this.mapRequest(data);
       },
@@ -200,28 +224,38 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
+  /**
+   * Reject request
+   */
   async rejectRequest(
     organizationId: string,
     requestId: string,
     rejectorId: string,
     reason: string
   ): Promise<ApprovalRequest> {
-    this.log('info', 'Rejecting request', { requestId, rejectorId, organizationId });
+    this.log('info', 'Rejecting request', { organizationId, requestId, rejectorId });
 
     return this.executeRequest(
       async () => {
         const { data: request } = await this.supabase
           .from('approval_requests')
           .select('*')
-          .eq('id', requestId)
           .eq('organization_id', organizationId)
+          .eq('id', requestId)
           .single();
 
         if (!request) throw new NotFoundError('Approval request');
-        if (request.status !== 'pending') throw new AuthorizationError('Request is not pending');
+
+        if (request.status !== 'pending') {
+          throw new AuthorizationError('Request is not pending');
+        }
 
         const rejections = request.rejections || [];
-        rejections.push({ userId: rejectorId, timestamp: new Date().toISOString(), reason });
+        rejections.push({
+          userId: rejectorId,
+          timestamp: new Date().toISOString(),
+          reason,
+        });
 
         const { data, error } = await this.supabase
           .from('approval_requests')
@@ -231,12 +265,13 @@ export class ApprovalWorkflowService extends BaseService {
             resolved_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', requestId)
           .eq('organization_id', organizationId)
+          .eq('id', requestId)
           .select()
           .single();
 
         if (error) throw error;
+
         this.clearCache();
         return this.mapRequest(data);
       },
@@ -244,41 +279,59 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
+  /**
+   * Get pending requests for a user within an organization
+   */
   async getPendingRequests(organizationId: string, userId: string): Promise<ApprovalRequest[]> {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
           .from('approval_requests')
           .select('*, approval_workflows(*)')
-          .eq('status', 'pending')
           .eq('organization_id', organizationId)
-          .filter('approval_workflows.required_approvers', 'cs', `{${userId}}`);
+          .eq('status', 'pending')
+          .filter(
+            'approval_workflows.required_approvers',
+            'cs',
+            `{${userId}}`
+          );
 
         if (error) throw error;
         return (data || []).map(this.mapRequest);
       },
-      { deduplicationKey: `pending-requests-${organizationId}-${userId}` }
+      {
+        deduplicationKey: `pending-requests-${organizationId}-${userId}`,
+      }
     );
   }
 
+  /**
+   * Cancel request
+   */
   async cancelRequest(organizationId: string, requestId: string, userId: string): Promise<void> {
     return this.executeRequest(
       async () => {
         const { data: request } = await this.supabase
           .from('approval_requests')
           .select('*')
-          .eq('id', requestId)
           .eq('organization_id', organizationId)
+          .eq('id', requestId)
           .single();
 
         if (!request) throw new NotFoundError('Approval request');
-        if (request.requested_by !== userId) throw new AuthorizationError('Only requester can cancel');
+
+        if (request.requested_by !== userId) {
+          throw new AuthorizationError('Only requester can cancel');
+        }
 
         const { error } = await this.supabase
           .from('approval_requests')
-          .update({ status: 'cancelled', resolved_at: new Date().toISOString() })
-          .eq('id', requestId)
-          .eq('organization_id', organizationId);
+          .update({
+            status: 'cancelled',
+            resolved_at: new Date().toISOString(),
+          })
+          .eq('organization_id', organizationId)
+          .eq('id', requestId);
 
         if (error) throw error;
         this.clearCache();
@@ -288,8 +341,10 @@ export class ApprovalWorkflowService extends BaseService {
   }
 
   /**
-   * Process expired requests for a single org.
-   * Cron callers must iterate over active orgs and invoke per-org.
+   * Check for expired requests and auto-approve if configured.
+   * Must be called with an organizationId — this job must never run globally
+   * across all tenants, as it would auto-approve or expire requests for orgs
+   * the caller has no authority over.
    */
   async processExpiredRequests(organizationId: string): Promise<number> {
     this.log('info', 'Processing expired requests', { organizationId });
@@ -301,8 +356,8 @@ export class ApprovalWorkflowService extends BaseService {
         const { data: expiredRequests, error } = await this.supabase
           .from('approval_requests')
           .select('*, approval_workflows(*)')
-          .eq('status', 'pending')
           .eq('organization_id', organizationId)
+          .eq('status', 'pending')
           .lt('expires_at', now);
 
         if (error) throw error;
@@ -310,15 +365,27 @@ export class ApprovalWorkflowService extends BaseService {
         let processedCount = 0;
 
         for (const request of expiredRequests || []) {
-          const newStatus = request.approval_workflows?.auto_approve_after_timeout
-            ? 'approved'
-            : 'expired';
+          const workflow = request.approval_workflows;
 
-          await this.supabase
-            .from('approval_requests')
-            .update({ status: newStatus, resolved_at: new Date().toISOString() })
-            .eq('id', request.id)
-            .eq('organization_id', organizationId);
+          if (workflow?.auto_approve_after_timeout) {
+            await this.supabase
+              .from('approval_requests')
+              .update({
+                status: 'approved',
+                resolved_at: new Date().toISOString(),
+              })
+              .eq('organization_id', organizationId)
+              .eq('id', request.id);
+          } else {
+            await this.supabase
+              .from('approval_requests')
+              .update({
+                status: 'expired',
+                resolved_at: new Date().toISOString(),
+              })
+              .eq('organization_id', organizationId)
+              .eq('id', request.id);
+          }
 
           processedCount++;
         }
@@ -333,6 +400,7 @@ export class ApprovalWorkflowService extends BaseService {
   private mapWorkflow(data: Record<string, unknown>): ApprovalWorkflow {
     return {
       id: data.id as string,
+      organizationId: data.organization_id as string,
       name: data.name as string,
       description: data.description as string | undefined,
       scope: data.scope as ApprovalWorkflow['scope'],
@@ -352,6 +420,7 @@ export class ApprovalWorkflowService extends BaseService {
   private mapRequest(data: Record<string, unknown>): ApprovalRequest {
     return {
       id: data.id as string,
+      organizationId: data.organization_id as string,
       workflowId: data.workflow_id as string,
       requestedBy: data.requested_by as string,
       changeType: data.change_type as string,

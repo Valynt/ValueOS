@@ -22,7 +22,7 @@ vi.mock('../../../lib/logger', () => ({
 import { canvasSchemaService } from '../../services/CanvasSchemaService.js'
 import sduiRouter from '../sdui.js'
 
-import { SDUI_VERSION } from '@sdui/schema';
+import { SDUI_VERSION } from '@valueos/sdui';
 
 // Create Express app for testing
 const app = express();

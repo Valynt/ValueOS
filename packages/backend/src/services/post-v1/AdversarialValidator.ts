@@ -11,7 +11,7 @@
  * - Provide confidence-reasoning mismatch detection
  */
 
-import { SDUIPageDefinition } from '@sdui/schema';
+import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { llmConfig } from '../config/llm.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
@@ -91,7 +91,7 @@ export class AdversarialValidator {
   private challengePrompts: Map<ChallengeType, ChallengePrompt[]>;
 
   constructor() {
-    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.llm = createLLMGateway();
     this.initializeChallengePrompts();
   }
 

@@ -11,11 +11,11 @@ import {
   AgentRecord as CanonicalAgentRecord,
   AgentRegistration as CanonicalAgentRegistration,
   LifecycleStage 
-} from '../types/agent';
-import { WorkflowStage } from '../types/workflow';
+} from '../../types/agent';
+import { WorkflowStage } from '../../types/workflow';
 
 // Re-export canonical types for backward compatibility
-export type { AgentHealthStatus } from '../types/agent';
+export type { AgentHealthStatus } from '../../types/agent';
 
 /**
  * Agent registration interface (uses canonical types with snake_case for DB compat)

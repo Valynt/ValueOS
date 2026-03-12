@@ -13,7 +13,7 @@ import { getTracer } from '../../config/telemetry.js';
 import { featureFlags } from '../../config/featureFlags.js';
 import { logger } from '../../lib/logger.js';
 import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
-import { AgentMessageQueue } from '../../services/AgentMessageQueue.js';
+import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
 import type { AgentType } from '../../services/agent-types.js';
 import { createAgentFactory } from '../../lib/agent-fabric/AgentFactory.js';
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';

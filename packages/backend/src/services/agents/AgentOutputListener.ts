@@ -7,8 +7,8 @@
 
 import { EventEmitter } from 'events';
 
-import { logger } from '../lib/logger.js'
-import { AgentOutput } from '../types/agent-output';
+import { logger } from '../../lib/logger.js'
+import { AgentOutput } from '../../types/agent-output';
 
 import { agentSDUIAdapter } from './AgentSDUIAdapter.js'
 import { canvasSchemaService } from './CanvasSchemaService.js'

@@ -72,6 +72,8 @@ ${secSnippet}
 Generate up to 5 grounded value hypotheses.
 `;
 
+    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
     const response = await llmGateway.complete({
       messages: [
         { role: 'system', content: systemPrompt },

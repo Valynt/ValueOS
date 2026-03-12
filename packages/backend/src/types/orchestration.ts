@@ -10,7 +10,7 @@ import * as z from "zod";
 import type { AgentType } from "../services/agent-types.js";
 import type { AgentResponsePayload } from "../types/workflow/orchestration.js";
 import type { WorkflowState, WorkflowStatus } from "../repositories/WorkflowStateRepository.js";
-import type { SDUIPageDefinition } from "@sdui/schema";
+import type { SDUIPageDefinition } from "@valueos/sdui";
 
 // ============================================================================
 // Execution envelope

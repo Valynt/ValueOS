@@ -245,4 +245,6 @@ class WebhookRetryService {
   }
 }
 
-export default new WebhookRetryService();
+export const webhookRetryService = new WebhookRetryService();
+/** @deprecated Use named import `webhookRetryService` instead. */
+export default webhookRetryService;

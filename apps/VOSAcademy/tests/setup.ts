@@ -11,19 +11,21 @@ afterEach(() => {
 })
 
 // Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: (query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => {},
-  }),
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => {},
+    }),
+  })
+}
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
@@ -37,7 +39,7 @@ global.IntersectionObserver = class IntersectionObserver {
   unobserve() {
     return null
   }
-}
+} as any
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
@@ -51,7 +53,7 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {
     return null
   }
-}
+} as any
 
 // Mock localStorage
 const localStorageMock = {
@@ -59,7 +61,7 @@ const localStorageMock = {
   setItem: (key: string, value: string) => null,
   removeItem: (key: string) => null,
   clear: () => null,
-}
+} as any
 global.localStorage = localStorageMock
 
 // Mock sessionStorage
@@ -68,14 +70,14 @@ const sessionStorageMock = {
   setItem: (key: string, value: string) => null,
   removeItem: (key: string) => null,
   clear: () => null,
-}
+} as any
 global.sessionStorage = sessionStorageMock
 
 // Mock fetch
-global.fetch = () =>
+global.fetch = (() =>
   Promise.resolve({
     json: () => Promise.resolve({}),
     text: () => Promise.resolve(''),
     ok: true,
     status: 200,
-  } as Response)
+  } as Response)) as any

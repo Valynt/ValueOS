@@ -27,6 +27,8 @@ export class RedTeamLLMAdapter implements RedTeamLLMGateway {
       throw new Error("RedTeamLLMAdapter requires tenantId in metadata for tenant isolation");
     }
 
+    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
     const response = await this.llmGateway.complete({
       messages: request.messages as any,
       metadata: request.metadata as any,
@@ -202,6 +204,8 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeOpportunities', { query, tenantId });
 
+    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
     const response = await this.llmGateway.complete({
       messages: [
         { role: 'system', content: OPPORTUNITY_SYSTEM_PROMPT },
@@ -226,6 +230,8 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeFinancialModels', { query, tenantId });
 
+    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
     const response = await this.llmGateway.complete({
       messages: [
         { role: 'system', content: FINANCIAL_MODELING_SYSTEM_PROMPT },
@@ -251,6 +257,8 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeGroundtruth', { query, tenantId });
 
+    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
     const response = await this.llmGateway.complete({
       messages: [
         { role: 'system', content: GROUNDTRUTH_SYSTEM_PROMPT },
@@ -276,6 +284,8 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeNarrative', { query, tenantId });
 
+    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
+    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
     const response = await this.llmGateway.complete({
       messages: [
         { role: 'system', content: NARRATIVE_SYSTEM_PROMPT },

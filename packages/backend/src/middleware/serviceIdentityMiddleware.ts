@@ -247,6 +247,13 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
   );
 
   if (!configuredAssertions && !serviceIdentityToken) {
+    // Fail closed when strict mode is enabled — prevents silent bypass on misconfigured envs.
+    if (process.env.SERVICE_IDENTITY_REQUIRED === 'true') {
+      logger.error('Service identity required but no assertions configured', {
+        path: req.originalUrl || req.url,
+      });
+      return res.status(503).json({ error: 'Service identity is not configured' });
+    }
     return next();
   }
 

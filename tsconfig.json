@@ -1,5 +1,5 @@
 {
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "packages/services/**"],
   "compilerOptions": {
     "module": "ESNext",
     "strict": true,

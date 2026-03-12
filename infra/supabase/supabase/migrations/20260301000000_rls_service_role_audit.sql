@@ -7,69 +7,69 @@
 SET search_path = public, pg_temp;
 
 -- ============================================================================
--- 1. billing_customers
+-- 1. billing_customers  (tenant_id is TEXT)
 -- ============================================================================
 
 ALTER TABLE public.billing_customers ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY billing_customers_tenant_select ON public.billing_customers
     FOR SELECT TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY billing_customers_tenant_insert ON public.billing_customers
     FOR INSERT TO authenticated
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY billing_customers_tenant_update ON public.billing_customers
     FOR UPDATE TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id))
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 GRANT SELECT, INSERT, UPDATE ON public.billing_customers TO authenticated;
 GRANT ALL ON public.billing_customers TO service_role;
 
 -- ============================================================================
--- 2. subscriptions
+-- 2. subscriptions  (tenant_id is TEXT)
 -- ============================================================================
 
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY subscriptions_tenant_select ON public.subscriptions
     FOR SELECT TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY subscriptions_tenant_update ON public.subscriptions
     FOR UPDATE TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id))
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 GRANT SELECT, UPDATE ON public.subscriptions TO authenticated;
 GRANT ALL ON public.subscriptions TO service_role;
 
 -- ============================================================================
--- 3. invoices
+-- 3. invoices  (tenant_id is TEXT)
 -- ============================================================================
 
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY invoices_tenant_select ON public.invoices
     FOR SELECT TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY invoices_tenant_insert ON public.invoices
     FOR INSERT TO authenticated
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY invoices_tenant_update ON public.invoices
     FOR UPDATE TO authenticated
-    USING (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+    USING (security.user_has_tenant_access(tenant_id))
+    WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 GRANT SELECT, INSERT, UPDATE ON public.invoices TO authenticated;
 GRANT ALL ON public.invoices TO service_role;
 
 -- ============================================================================
--- 4. usage_events
+-- 4. usage_events  (tenant_id is UUID)
 -- ============================================================================
 
 ALTER TABLE public.usage_events ENABLE ROW LEVEL SECURITY;
@@ -86,7 +86,7 @@ GRANT SELECT, INSERT ON public.usage_events TO authenticated;
 GRANT ALL ON public.usage_events TO service_role;
 
 -- ============================================================================
--- 5. usage_aggregates
+-- 5. usage_aggregates  (tenant_id is UUID)
 -- ============================================================================
 
 ALTER TABLE public.usage_aggregates ENABLE ROW LEVEL SECURITY;
@@ -99,7 +99,7 @@ GRANT SELECT ON public.usage_aggregates TO authenticated;
 GRANT ALL ON public.usage_aggregates TO service_role;
 
 -- ============================================================================
--- 6. usage_quotas
+-- 6. usage_quotas  (tenant_id is UUID)
 -- ============================================================================
 
 ALTER TABLE public.usage_quotas ENABLE ROW LEVEL SECURITY;
@@ -272,14 +272,15 @@ DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_tenants' AND policyname = 'user_tenants_tenant_select_v2') THEN
             ALTER TABLE public.user_tenants ENABLE ROW LEVEL SECURITY;
 
+            -- tenant_id is TEXT in user_tenants; compare directly without uuid cast
             EXECUTE 'CREATE POLICY user_tenants_tenant_select_v2 ON public.user_tenants
                 FOR SELECT TO authenticated
-                USING (tenant_id = (auth.jwt() ->> ''tenant_id'')::uuid)';
+                USING (tenant_id = (auth.jwt() ->> ''tenant_id''))';
 
             EXECUTE 'CREATE POLICY user_tenants_tenant_update_v2 ON public.user_tenants
                 FOR UPDATE TO authenticated
-                USING (tenant_id = (auth.jwt() ->> ''tenant_id'')::uuid)
-                WITH CHECK (tenant_id = (auth.jwt() ->> ''tenant_id'')::uuid)';
+                USING (tenant_id = (auth.jwt() ->> ''tenant_id'') AND user_id = auth.uid()::text)
+                WITH CHECK (tenant_id = (auth.jwt() ->> ''tenant_id'') AND user_id = auth.uid()::text)';
 
             EXECUTE 'GRANT SELECT, UPDATE ON public.user_tenants TO authenticated';
             EXECUTE 'GRANT ALL ON public.user_tenants TO service_role';

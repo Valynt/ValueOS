@@ -34,6 +34,10 @@ function encodeRoleName(tenantId: string, roleName: string): string {
   return `${CUSTOM_ROLE_PREFIX}${tenantId}:${roleName.trim().toLowerCase()}`;
 }
 
+function toSlug(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 /**
  * Decode a stored role name back to the human-readable role name.
  *
@@ -153,7 +157,14 @@ export class AdminRoleService {
 
     const { data: role, error } = await this.supabase
       .from("roles")
-      .insert({ name: encodedName, description: input.description || null, permissions: [] })
+      .insert({
+        name: encodedName,
+        description: input.description || null,
+        permissions: [],
+        tenant_id: input.tenantId,
+        slug: toSlug(input.name),
+        is_system_role: false,
+      })
       .select("id,name,description,created_at")
       .single();
 
@@ -223,11 +234,9 @@ export class AdminRoleService {
       action: "rbac.role.update",
       resourceType: "role",
       resourceId: roleId,
-      details: {
-        tenantId: input.tenantId,
-        before: { name: previousName, description: previousDescription },
-        after: { name: input.name, description: input.description ?? null },
-      },
+      details: { tenantId: input.tenantId },
+      beforeState: { name: previousName, description: previousDescription },
+      afterState: { name: input.name, description: input.description ?? null },
     });
 
     await publishRbacInvalidation({ roleId, tenantId: input.tenantId });
@@ -404,7 +413,7 @@ export class AdminRoleService {
     }
 
     return (roles || [])
-      .filter((role: any) => role.name.startsWith(`${CUSTOM_ROLE_PREFIX}${tenantId}:`))
+      .filter((role: any) => role.tenant_id === tenantId || role.name.startsWith(`${CUSTOM_ROLE_PREFIX}${tenantId}:`))
       .map((role: any) => ({
         id: role.id,
         name: decodeRoleName(role.name, tenantId),
