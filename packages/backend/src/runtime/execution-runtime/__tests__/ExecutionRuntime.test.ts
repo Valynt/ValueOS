@@ -84,6 +84,7 @@ function makePolicyMock() {
     evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
     performReRefine: vi.fn().mockResolvedValue({ success: false, attempts: 2 }),
     checkAutonomyGuardrails: vi.fn().mockResolvedValue(undefined),
+    checkHITL: vi.fn().mockReturnValue({ allowed: true, hitl_required: false, details: { rule_id: 'HITL-01', is_external_artifact_action: false } }),
   };
 }
 
@@ -414,5 +415,52 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
     expect(mockExecute).toHaveBeenCalledOnce();
     expect(result.response?.type).toBe('message');
     expect(result.response?.payload.message).toContain('direct invocation works');
+  });
+});
+
+describe('QueryExecutor HITL gating', () => {
+  it('returns pending_approval and does not execute agent when HITL is required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.42, is_external_artifact_action: true },
+    });
+
+    const executor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('narrative') as never,
+      makeCircuitBreakerMock() as never,
+      makeQueueMock() as never,
+    );
+
+    const result = await executor.processQuery(makeEnvelope() as never, 'draft customer deck', makeState() as never, 'u', 's');
+
+    expect(result.nextState.status).toBe('pending_approval');
+    expect(result.response.payload).toMatchObject({ hitl_required: true, rule_id: 'HITL-01' });
+  });
+
+  it('blocks async queueing when HITL is required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.4, is_external_artifact_action: true },
+    });
+    const queue = makeQueueMock();
+
+    const executor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('narrative') as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+    );
+
+    await expect(
+      executor.processQueryAsync(makeEnvelope() as never, 'draft customer deck', makeState() as never, 'u', 's'),
+    ).rejects.toThrow('Human approval required');
+    expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
   });
 });

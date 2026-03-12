@@ -33,6 +33,7 @@ import type {
 } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
+import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import type {
   AgentCapability,
   AgentConfiguration,
@@ -44,6 +45,7 @@ import type {
   ValidationResult,
 } from '../../services/agents/core/IAgent.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
+import { extractOpportunityConfidence, isExternalArtifactActionForStage } from './externalArtifactPolicy.js';
 
 // ============================================================================
 // Internal types
@@ -56,6 +58,13 @@ interface StageLifecycleRecord {
   startedAt: string;
   completedAt: string;
   summary?: string;
+}
+
+
+interface StageHITLDecision {
+  blocked: boolean;
+  check: ReturnType<PolicyEngine['checkHITL']>;
+  decisionContext: DecisionContext;
 }
 
 // ============================================================================
@@ -187,6 +196,7 @@ export class WorkflowExecutor {
     const stageStartTimes = new Map<string, Date>();
     const executor = getEnhancedParallelExecutor();
     let integrityVetoed = false;
+    let hitlBlocked = false;
 
     for (const stage of dag.stages) dependencies.set(stage.id, new Set());
     for (const t of dag.transitions) {
@@ -224,8 +234,21 @@ export class WorkflowExecutor {
 
       const results = await executor.executeRunnableTasks(tasks, async (task) => {
         const { stage, route, context } = task.payload;
+        const hitlDecision = this.evaluateStageHITL(stage, context, organizationId);
+
+        if (hitlDecision.blocked) {
+          return {
+            stage,
+            stageResult: {
+              status: 'pending_approval',
+              error: hitlDecision.check.hitl_reason ?? 'Human approval required before external artifact execution.',
+            },
+            hitlDecision,
+          };
+        }
+
         const stageResult = await this.executeStageWithRetry(executionId, stage, context, route as StageRouteDTO, traceId);
-        return { stage, stageResult };
+        return { stage, stageResult, hitlDecision };
       }, cap);
 
       for (const result of results) {
@@ -235,6 +258,28 @@ export class WorkflowExecutor {
         const stageStart = startedAt ?? stageStartTimes.get(stage.id) ?? new Date();
         const stageCompleted = new Date();
         inProgress.delete(stage.id);
+
+        if (result.success && result.result?.stageResult.status === 'pending_approval') {
+          const hitlDecision = result.result.hitlDecision;
+          hitlBlocked = true;
+          const pendingReason = result.result.stageResult.error ?? 'Human approval required before external artifact execution.';
+          failed.set(stage.id, pendingReason);
+          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, {
+            status: 'pending_approval',
+            reason: pendingReason,
+            rule_id: hitlDecision?.check.details.rule_id,
+            confidence_score: hitlDecision?.check.details.confidence_score,
+            traceId,
+          }, 'failed');
+          await this._recordWorkflowEvent(executionId, organizationId, 'stage_hitl_pending_approval', stage.id, {
+            reason: 'hitl_required',
+            rule_id: hitlDecision?.check.details.rule_id,
+            confidence_score: hitlDecision?.check.details.confidence_score,
+            traceId,
+          });
+          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'pending_approval', stage.id);
+          continue;
+        }
 
         if (result.success && result.result?.stageResult.status === 'completed') {
           const stageOutput = result.result.stageResult.output ?? {};
@@ -274,12 +319,19 @@ export class WorkflowExecutor {
         await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'in_progress', stage.id);
       }
 
-      if (integrityVetoed) break;
+      if (integrityVetoed || hitlBlocked) break;
     }
 
-    // Mark blocked stages as failed
-    for (const stage of dag.stages) {
-      if (!completed.has(stage.id) && !failed.has(stage.id)) failed.set(stage.id, 'Blocked by unmet dependencies');
+    // Mark blocked stages as failed when execution actually failed.
+    if (!hitlBlocked) {
+      for (const stage of dag.stages) {
+        if (!completed.has(stage.id) && !failed.has(stage.id)) failed.set(stage.id, 'Blocked by unmet dependencies');
+      }
+    }
+
+    if (hitlBlocked) {
+      await this._updateStatus(executionId, organizationId, 'pending_approval', null, recordSnapshot);
+      return;
     }
 
     if (failed.size > 0) {
@@ -450,6 +502,36 @@ export class WorkflowExecutor {
   // Private helpers
   // --------------------------------------------------------------------------
 
+  private evaluateStageHITL(
+    stage: WorkflowStage,
+    context: WorkflowStageContextDTO,
+    organizationId: string,
+  ): StageHITLDecision {
+    const contextRecord = context as unknown as Record<string, unknown>;
+    const lifecycleStageValue = contextRecord.lifecycle_stage;
+    const lifecycleStage = typeof lifecycleStageValue === 'string'
+      ? lifecycleStageValue
+      : stage.agent_type;
+
+    const decisionContext: DecisionContext = {
+      organization_id: organizationId,
+      opportunity: {
+        id: String(contextRecord.opportunity_id ?? contextRecord.opportunityId ?? stage.id),
+        lifecycle_stage: lifecycleStage,
+        confidence_score: extractOpportunityConfidence(contextRecord) ?? 0.5,
+        value_maturity: 'low',
+      },
+      is_external_artifact_action: isExternalArtifactActionForStage(stage),
+    };
+
+    const check = this.policy.checkHITL(decisionContext);
+    return {
+      blocked: check.hitl_required,
+      check,
+      decisionContext,
+    };
+  }
+
   private _appendStageRecord(
     snapshot: WorkflowExecutionRecord,
     stage: WorkflowStage,
@@ -478,7 +560,7 @@ export class WorkflowExecutor {
     await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
   }
 
-  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
+  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_hitl_pending_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
     await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
   }
 
