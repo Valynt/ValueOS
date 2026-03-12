@@ -38,4 +38,11 @@ describe("SecureTokenManager", () => {
 
     expect(manager.verifyToken(expiredToken)).toBeNull();
   });
+
+  it("rejects stale token replay when jti replay protection is enabled", () => {
+    const token = manager.generateToken({ sub: "user-1", jti: "session-rotation-1" });
+
+    expect(manager.verifyToken(token, { rejectReplay: true })).not.toBeNull();
+    expect(manager.verifyToken(token, { rejectReplay: true })).toBeNull();
+  });
 });

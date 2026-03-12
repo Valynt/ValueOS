@@ -85,6 +85,20 @@ jobs:
       - name: Env/port drift guard
         run: node scripts/ci/check-env-port-drift.mjs
 
+      - name: Supabase security controls
+        run: node scripts/ci/check-supabase-security-controls.mjs
+
+      - name: Upload security controls summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: security-controls-summary-${{ github.sha }}
+          path: ci-artifacts/security-controls-summary.json
+          if-no-files-found: error
+
+      - name: i18n key integrity
+        run: node scripts/ci/check-i18n-keys.mjs
+
       - name: Hardcoded port mismatch guard
         run: node scripts/ci/check-hardcoded-port-mismatches.mjs
 
