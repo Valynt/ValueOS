@@ -51,7 +51,22 @@ interface ProjectRecord {
   updatedAt: string;
 }
 
-const projects = new Map<string, ProjectRecord>();
+// Temporary in-process store partitioned by tenant. Replace with a durable
+// Supabase-backed repository (projects table + organization_id filter) before GA.
+const projectsByTenant = new Map<string, Map<string, ProjectRecord>>();
+
+function getTenantStore(req: Request): Map<string, ProjectRecord> {
+  const tenantId = getTenantIdFromRequest(req as any);
+  if (!tenantId) {
+    throw new UnauthorizedError("Tenant context required");
+  }
+  let store = projectsByTenant.get(tenantId);
+  if (!store) {
+    store = new Map<string, ProjectRecord>();
+    projectsByTenant.set(tenantId, store);
+  }
+  return store;
+}
 
 function requireBearerToken(req: Request): string {
   const authHeader = req.headers.authorization;
@@ -68,21 +83,24 @@ function requireBearerToken(req: Request): string {
 }
 
 function requireWriteRole(req: Request, allowedRoles: string[]): void {
-  const roleHeader = req.headers["x-user-role"];
-  const role = Array.isArray(roleHeader) ? roleHeader[0] : roleHeader;
+  // Role must come from verified JWT claims, not client-supplied headers.
+  const user = (req as any).user as Record<string, unknown> | undefined;
+  const role =
+    (user?.role as string | undefined) ??
+    (user?.app_metadata as Record<string, unknown> | undefined)?.role as string | undefined;
   if (!role || !allowedRoles.includes(role)) {
     throw new ForbiddenError("Insufficient permissions for this action");
   }
 }
 
 function deriveOwnerId(req: Request): string {
-  const ownerHeader = req.headers["x-user-id"];
-  const ownerId = Array.isArray(ownerHeader) ? ownerHeader[0] : ownerHeader;
-  return ownerId?.trim() || "unknown-user";
+  // Owner is the authenticated user's ID from JWT claims, never a header.
+  return ((req as any).user?.id as string | undefined) ?? "unknown-user";
 }
 
 async function invalidateProjectCache(req: Request): Promise<void> {
   const tenantId = getTenantIdFromRequest(req as any);
+  if (!tenantId) return;
   await Promise.all([
     ReadThroughCacheService.invalidateEndpoint(tenantId, "api-projects-list"),
     ReadThroughCacheService.invalidateEndpoint(tenantId, "api-projects-detail"),
@@ -98,7 +116,8 @@ router.post(
     const payload = projectCreateSchema.parse(req.body);
     const normalizedName = payload.name.toLowerCase();
 
-    const existing = Array.from(projects.values()).find(
+    const tenantStore = getTenantStore(req);
+    const existing = Array.from(tenantStore.values()).find(
       (project) => project.name.toLowerCase() === normalizedName
     );
 
@@ -118,7 +137,7 @@ router.post(
       updatedAt: now,
     };
 
-    projects.set(project.id, project);
+    tenantStore.set(project.id, project);
     await invalidateProjectCache(req);
 
     res.status(201).json({ data: project });
@@ -131,7 +150,10 @@ router.get(
     requireBearerToken(req);
 
     const { page, pageSize, status, search } = listQuerySchema.parse(req.query);
-    const tenantId = getTenantIdFromRequest(req as any);
+    // getTenantStore throws UnauthorizedError when tenant is absent, guaranteeing
+    // a non-undefined tenantId for the cache key before getOrLoad is called.
+    const tenantStore = getTenantStore(req);
+    const tenantId = getTenantIdFromRequest(req as any) as string;
 
     const payload = await ReadThroughCacheService.getOrLoad(
       {
@@ -142,7 +164,7 @@ router.get(
         keyPayload: { page, pageSize, status, search },
       },
       async () => {
-        const allProjects = Array.from(projects.values());
+        const allProjects = Array.from(tenantStore.values());
         const filtered = allProjects.filter((project) => {
           if (status && project.status !== status) {
             return false;
@@ -182,7 +204,10 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     requireBearerToken(req);
 
-    const tenantId = getTenantIdFromRequest(req as any);
+    // getTenantStore throws UnauthorizedError when tenant is absent, guaranteeing
+    // a non-undefined tenantId for the cache key before getOrLoad is called.
+    const tenantStore = getTenantStore(req);
+    const tenantId = getTenantIdFromRequest(req as any) as string;
     const payload = await ReadThroughCacheService.getOrLoad(
       {
         tenantId,
@@ -191,7 +216,7 @@ router.get(
         tier: "cold",
       },
       async () => {
-        const project = projects.get(req.params.projectId);
+        const project = tenantStore.get(req.params.projectId);
         if (!project) {
           throw new NotFoundError("Project", req.params.projectId);
         }
@@ -210,7 +235,8 @@ router.patch(
     requireBearerToken(req);
     requireWriteRole(req, ["admin", "editor"]);
 
-    const existing = projects.get(req.params.projectId);
+    const tenantStore = getTenantStore(req);
+    const existing = tenantStore.get(req.params.projectId);
     if (!existing) {
       throw new NotFoundError("Project", req.params.projectId);
     }
@@ -223,7 +249,7 @@ router.patch(
       updatedAt: new Date().toISOString(),
     };
 
-    projects.set(updated.id, updated);
+    tenantStore.set(updated.id, updated);
     await invalidateProjectCache(req);
 
     res.json({ data: updated });
@@ -236,16 +262,17 @@ router.delete(
     requireBearerToken(req);
     requireWriteRole(req, ["admin"]);
 
-    const exists = projects.has(req.params.projectId);
+    const tenantStore = getTenantStore(req);
+    const exists = tenantStore.has(req.params.projectId);
     if (!exists) {
       throw new NotFoundError("Project", req.params.projectId);
     }
 
-    projects.delete(req.params.projectId);
+    tenantStore.delete(req.params.projectId);
     await invalidateProjectCache(req);
 
     res.status(204).send();
   })
 );
 
-export default router;
+export { router as projectsRouter };
