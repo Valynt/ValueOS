@@ -435,4 +435,310 @@ describe('ValueCommitmentTrackingService', () => {
       expect(result).not.toBeInstanceOf(CommitmentApiError);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Milestones
+  // -------------------------------------------------------------------------
+
+  describe('createMilestone', () => {
+    it('POSTs to /api/v1/value-commitments/:id/milestones', async () => {
+      const milestone = { id: 'ms-1', commitment_id: COMMIT_ID, title: 'Phase 1' };
+      mockPost.mockResolvedValue(ok(milestone));
+      const svc = makeService();
+
+      const result = await svc.createMilestone(COMMIT_ID, TENANT_ID, USER_ID, {
+        title: 'Phase 1',
+        milestone_type: 'execution',
+        sequence_order: 1,
+        target_date: '2027-03-01T00:00:00.000Z',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/milestones`,
+        expect.objectContaining({ title: 'Phase 1' }),
+      );
+      expect(result).toEqual(milestone);
+    });
+
+    it('returns stub without calling apiClient when flag is false', async () => {
+      const svc = makeService('false');
+      await svc.createMilestone(COMMIT_ID, TENANT_ID, USER_ID, {
+        title: 'x', milestone_type: 'execution', sequence_order: 1,
+        target_date: '2027-03-01T00:00:00.000Z',
+      });
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateMilestone', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/milestones/:milestoneId', async () => {
+      const updated = { id: 'ms-1', commitment_id: COMMIT_ID, progress_percentage: 50 };
+      mockPatch.mockResolvedValue(ok(updated));
+      const svc = makeService();
+
+      const result = await svc.updateMilestone(COMMIT_ID, 'ms-1', { progress_percentage: 50 });
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/milestones/ms-1`,
+        expect.objectContaining({ progress_percentage: 50 }),
+      );
+      expect(result).toEqual(updated);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Metrics
+  // -------------------------------------------------------------------------
+
+  describe('createMetric', () => {
+    it('POSTs to /api/v1/value-commitments/:id/metrics', async () => {
+      const metric = { id: 'met-1', commitment_id: COMMIT_ID, metric_name: 'ARR' };
+      mockPost.mockResolvedValue(ok(metric));
+      const svc = makeService();
+
+      const result = await svc.createMetric(COMMIT_ID, TENANT_ID, USER_ID, {
+        metric_name: 'ARR', baseline_value: 1_000_000, target_value: 1_200_000, unit: 'USD',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/metrics`,
+        expect.objectContaining({ metric_name: 'ARR' }),
+      );
+      expect(result).toEqual(metric);
+    });
+
+    it('returns stub without calling apiClient when flag is false', async () => {
+      const svc = makeService('false');
+      await svc.createMetric(COMMIT_ID, TENANT_ID, USER_ID, {
+        metric_name: 'ARR', baseline_value: 0, target_value: 1, unit: 'USD',
+      });
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateMetricActual', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/metrics/:metricId/actual', async () => {
+      const updated = { id: 'met-1', current_value: 1_100_000 };
+      mockPatch.mockResolvedValue(ok(updated));
+      const svc = makeService();
+
+      const result = await svc.updateMetricActual(COMMIT_ID, 'met-1', 1_100_000);
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/metrics/met-1/actual`,
+        { current_value: 1_100_000 },
+      );
+      expect(result).toEqual(updated);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Risks
+  // -------------------------------------------------------------------------
+
+  describe('createRisk', () => {
+    it('POSTs to /api/v1/value-commitments/:id/risks', async () => {
+      const risk = { id: 'risk-1', commitment_id: COMMIT_ID, risk_title: 'Budget cut' };
+      mockPost.mockResolvedValue(ok(risk));
+      const svc = makeService();
+
+      const result = await svc.createRisk(COMMIT_ID, TENANT_ID, USER_ID, {
+        risk_title: 'Budget cut',
+        risk_description: 'Q3 budget may be reduced',
+        risk_category: 'financial',
+        probability: 'medium',
+        impact: 'high',
+        mitigation_plan: 'Secure exec sponsorship',
+        contingency_plan: 'Reduce scope',
+        owner_id: USER_ID,
+        review_date: '2027-06-01T00:00:00.000Z',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/risks`,
+        expect.objectContaining({ risk_title: 'Budget cut' }),
+      );
+      expect(result).toEqual(risk);
+    });
+
+    it('returns stub without calling apiClient when flag is false', async () => {
+      const svc = makeService('false');
+      await svc.createRisk(COMMIT_ID, TENANT_ID, USER_ID, {
+        risk_title: 'x', risk_description: 'x', risk_category: 'financial',
+        probability: 'low', impact: 'low', mitigation_plan: 'x',
+        contingency_plan: 'x', owner_id: USER_ID, review_date: '2027-01-01T00:00:00.000Z',
+      });
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateRisk', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/risks/:riskId', async () => {
+      const updated = { id: 'risk-1', status: 'mitigated' };
+      mockPatch.mockResolvedValue(ok(updated));
+      const svc = makeService();
+
+      const result = await svc.updateRisk(COMMIT_ID, 'risk-1', { status: 'mitigated' });
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/risks/risk-1`,
+        expect.objectContaining({ status: 'mitigated' }),
+      );
+      expect(result).toEqual(updated);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Stakeholders
+  // -------------------------------------------------------------------------
+
+  describe('addStakeholder', () => {
+    it('POSTs to /api/v1/value-commitments/:id/stakeholders', async () => {
+      const stakeholder = { id: 'sh-1', commitment_id: COMMIT_ID, user_id: USER_ID };
+      mockPost.mockResolvedValue(ok(stakeholder));
+      const svc = makeService();
+
+      const result = await svc.addStakeholder(COMMIT_ID, TENANT_ID, USER_ID, {
+        user_id: USER_ID,
+        role: 'contributor',
+        responsibility: 'Owns metric collection',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/stakeholders`,
+        expect.objectContaining({ user_id: USER_ID, role: 'contributor' }),
+      );
+      expect(result).toEqual(stakeholder);
+    });
+
+    it('returns stub without calling apiClient when flag is false', async () => {
+      const svc = makeService('false');
+      await svc.addStakeholder(COMMIT_ID, TENANT_ID, USER_ID, {
+        user_id: USER_ID, role: 'observer', responsibility: 'x',
+      });
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateStakeholderForCommitment', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/stakeholders/:stakeholderId', async () => {
+      const updated = { id: 'sh-1', role: 'approver' };
+      mockPatch.mockResolvedValue(ok(updated));
+      const svc = makeService();
+
+      const result = await svc.updateStakeholderForCommitment(COMMIT_ID, 'sh-1', { role: 'approver' });
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/stakeholders/sh-1`,
+        expect.objectContaining({ role: 'approver' }),
+      );
+      expect(result).toEqual(updated);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // calculateProgress
+  // -------------------------------------------------------------------------
+
+  describe('calculateProgress', () => {
+    it('GETs /api/v1/value-commitments/:id/progress and returns real data', async () => {
+      const progress = {
+        commitment_id: COMMIT_ID, overall_progress: 65,
+        milestone_completion: 70, metric_achievement: 58,
+        risk_level: 'low', days_remaining: 90, is_on_track: true,
+      };
+      mockGet.mockResolvedValue(ok(progress));
+      const svc = makeService();
+
+      const result = await svc.calculateProgress(COMMIT_ID, TENANT_ID);
+
+      expect(mockGet).toHaveBeenCalledWith(`/api/v1/value-commitments/${COMMIT_ID}/progress`);
+      expect(result.overall_progress).toBe(65);
+      expect(result.is_on_track).toBe(true);
+    });
+
+    it('returns zero-progress fallback when API call fails', async () => {
+      mockGet.mockRejectedValue(new Error('network error'));
+      const svc = makeService();
+
+      const result = await svc.calculateProgress(COMMIT_ID, TENANT_ID);
+
+      expect(result.overall_progress).toBe(0);
+      expect(result.is_on_track).toBe(false);
+    });
+
+    it('returns zero-progress fallback when flag is false', async () => {
+      const svc = makeService('false');
+      const result = await svc.calculateProgress(COMMIT_ID, TENANT_ID);
+      expect(mockGet).not.toHaveBeenCalled();
+      expect(result.overall_progress).toBe(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getAtRiskCommitments
+  // -------------------------------------------------------------------------
+
+  describe('getAtRiskCommitments', () => {
+    it('GETs /api/v1/value-commitments?atRisk=true and maps to ValueCommitment[]', async () => {
+      mockGet.mockResolvedValue(ok([commitmentDto]));
+      const svc = makeService();
+
+      const result = await svc.getAtRiskCommitments(TENANT_ID);
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/value-commitments?atRisk=true');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe(COMMIT_ID);
+    });
+
+    it('returns empty array when API call fails', async () => {
+      mockGet.mockRejectedValue(new Error('network error'));
+      const svc = makeService();
+
+      const result = await svc.getAtRiskCommitments(TENANT_ID);
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when flag is false', async () => {
+      const svc = makeService('false');
+      const result = await svc.getAtRiskCommitments(TENANT_ID);
+      expect(mockGet).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // validateAgainstGroundTruth
+  // -------------------------------------------------------------------------
+
+  describe('validateAgainstGroundTruth', () => {
+    it('returns isValid true when progress >= 80%', async () => {
+      mockGet.mockResolvedValue(ok({
+        commitment_id: COMMIT_ID, overall_progress: 85,
+        milestone_completion: 90, metric_achievement: 78,
+        risk_level: 'low', days_remaining: 30, is_on_track: true,
+      }));
+      const svc = makeService();
+
+      const result = await svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID);
+
+      expect(result.isValid).toBe(true);
+      expect(result.issues).toHaveLength(0);
+    });
+
+    it('returns isValid false with issue when progress < 80%', async () => {
+      mockGet.mockResolvedValue(ok({
+        commitment_id: COMMIT_ID, overall_progress: 60,
+        milestone_completion: 55, metric_achievement: 67,
+        risk_level: 'high', days_remaining: 10, is_on_track: false,
+      }));
+      const svc = makeService();
+
+      const result = await svc.validateAgainstGroundTruth(COMMIT_ID, TENANT_ID);
+
+      expect(result.isValid).toBe(false);
+      expect(result.issues.length).toBeGreaterThan(0);
+      expect(result.recommendations.length).toBeGreaterThan(0);
+    });
+  });
 });

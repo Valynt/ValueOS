@@ -106,6 +106,76 @@ export interface AddNoteRequest {
 
 export type ValueCommitmentInsert = Omit<ValueCommitment, 'id' | 'created_at' | 'updated_at'> & { id?: string };
 
+// ---------------------------------------------------------------------------
+// Sub-resource request shapes (no tenant fields — backend derives them)
+// ---------------------------------------------------------------------------
+
+export interface AddMilestoneRequest {
+  title: string;
+  description?: string;
+  milestone_type: 'planning' | 'execution' | 'review' | 'completion' | 'validation';
+  sequence_order: number;
+  target_date: string;
+  deliverables?: string[];
+  success_criteria?: string[];
+}
+
+export interface UpdateMilestoneRequest {
+  title?: string;
+  description?: string;
+  status?: 'pending' | 'in_progress' | 'completed' | 'delayed' | 'cancelled';
+  progress_percentage?: number;
+  target_date?: string;
+  actual_date?: string;
+  deliverables?: string[];
+  success_criteria?: string[];
+}
+
+export interface AddMetricRequest {
+  metric_name: string;
+  baseline_value: number;
+  target_value: number;
+  unit: string;
+}
+
+export interface UpdateMetricActualRequest {
+  current_value: number;
+}
+
+export interface AddRiskRequest {
+  risk_title: string;
+  risk_description: string;
+  risk_category: 'execution' | 'resource' | 'market' | 'technical' | 'regulatory' | 'financial';
+  probability: 'low' | 'medium' | 'high' | 'critical';
+  impact: 'low' | 'medium' | 'high' | 'critical';
+  mitigation_plan: string;
+  contingency_plan: string;
+  owner_id: string;
+  review_date: string;
+}
+
+export interface UpdateRiskRequest {
+  status?: 'identified' | 'mitigating' | 'mitigated' | 'occurred' | 'closed';
+  probability?: 'low' | 'medium' | 'high' | 'critical';
+  impact?: 'low' | 'medium' | 'high' | 'critical';
+  mitigated_at?: string;
+  review_date?: string;
+}
+
+export interface AddStakeholderRequest {
+  user_id: string;
+  role: 'owner' | 'contributor' | 'approver' | 'reviewer' | 'observer';
+  responsibility: string;
+  accountability_percentage?: number;
+}
+
+export interface UpdateStakeholderRequest {
+  role?: 'owner' | 'contributor' | 'approver' | 'reviewer' | 'observer';
+  responsibility?: string;
+  accountability_percentage?: number;
+  is_active?: boolean;
+}
+
 export interface CommitmentStakeholder {
   id: string;
   commitment_id: string;

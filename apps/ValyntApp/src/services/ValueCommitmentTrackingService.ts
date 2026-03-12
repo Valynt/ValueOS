@@ -33,6 +33,14 @@ import type {
   CommitmentMetric,
   CommitmentRisk,
   ValueCommitment,
+  AddMilestoneRequest,
+  UpdateMilestoneRequest,
+  AddMetricRequest,
+  UpdateMetricActualRequest,
+  AddRiskRequest,
+  UpdateRiskRequest,
+  AddStakeholderRequest,
+  UpdateStakeholderRequest,
 } from "../types/value-commitment-tracking.js";
 
 // ---------------------------------------------------------------------------
@@ -268,39 +276,28 @@ export class ValueCommitmentTrackingService {
   }
 
   // -------------------------------------------------------------------------
-  // Stub methods — not yet migrated; preserve call-site interface
+  // Milestones
   // -------------------------------------------------------------------------
 
-  async addStakeholder(
-    _commitmentId: string,
-    _tenantId: string,
-    _userId: string,
-    _data: Partial<CommitmentStakeholder>,
-  ): Promise<CommitmentStakeholder> {
-    logger.warn("addStakeholder: not yet migrated to backend API");
-    return {} as CommitmentStakeholder;
-  }
-
-  async updateStakeholder(
-    _stakeholderId: string,
-    _tenantId: string,
-    _userId: string,
-    _updates: Partial<CommitmentStakeholder>,
-  ): Promise<CommitmentStakeholder> {
-    logger.warn("updateStakeholder: not yet migrated to backend API");
-    return {} as CommitmentStakeholder;
-  }
-
   async createMilestone(
-    _commitmentId: string,
+    commitmentId: string,
     _tenantId: string,
     _userId: string,
-    _data: Partial<CommitmentMilestone>,
+    data: AddMilestoneRequest,
   ): Promise<CommitmentMilestone> {
-    logger.warn("createMilestone: not yet migrated to backend API");
-    return {} as CommitmentMilestone;
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentMilestone;
+    }
+
+    const response = await apiClient.post<CommitmentMilestone>(
+      `${this.base}/${commitmentId}/milestones`,
+      data,
+    );
+    return unwrap(response);
   }
 
+  /** @deprecated Use updateMilestone(commitmentId, milestoneId, updates) instead. */
   async updateMilestoneProgress(
     _milestoneId: string,
     _tenantId: string,
@@ -309,41 +306,102 @@ export class ValueCommitmentTrackingService {
     _status?: CommitmentMilestone["status"],
     _actualDate?: string,
   ): Promise<CommitmentMilestone> {
-    logger.warn("updateMilestoneProgress: not yet migrated to backend API");
-    return {} as CommitmentMilestone;
+    throw new Error(
+      "updateMilestoneProgress is deprecated. Use updateMilestone(commitmentId, milestoneId, updates) instead.",
+    );
   }
+
+  async updateMilestone(
+    commitmentId: string,
+    milestoneId: string,
+    updates: UpdateMilestoneRequest,
+  ): Promise<CommitmentMilestone> {
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentMilestone;
+    }
+
+    const response = await apiClient.patch<CommitmentMilestone>(
+      `${this.base}/${commitmentId}/milestones/${milestoneId}`,
+      updates,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Metrics
+  // -------------------------------------------------------------------------
 
   async createMetric(
-    _commitmentId: string,
+    commitmentId: string,
     _tenantId: string,
     _userId: string,
-    _data: Partial<CommitmentMetric>,
+    data: AddMetricRequest,
   ): Promise<CommitmentMetric> {
-    logger.warn("createMetric: not yet migrated to backend API");
-    return {} as CommitmentMetric;
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentMetric;
+    }
+
+    const response = await apiClient.post<CommitmentMetric>(
+      `${this.base}/${commitmentId}/metrics`,
+      data,
+    );
+    return unwrap(response);
   }
 
+  /** @deprecated Use updateMetricActual(commitmentId, metricId, currentValue) instead. */
   async updateMetricValue(
     _metricId: string,
     _tenantId: string,
     _userId: string,
     _currentValue: number,
-    _lastMeasuredAt?: string,
   ): Promise<CommitmentMetric> {
-    logger.warn("updateMetricValue: not yet migrated to backend API");
-    return {} as CommitmentMetric;
+    throw new Error(
+      "updateMetricValue is deprecated. Use updateMetricActual(commitmentId, metricId, currentValue) instead.",
+    );
   }
+
+  async updateMetricActual(
+    commitmentId: string,
+    metricId: string,
+    currentValue: number,
+  ): Promise<CommitmentMetric> {
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentMetric;
+    }
+
+    const response = await apiClient.patch<CommitmentMetric>(
+      `${this.base}/${commitmentId}/metrics/${metricId}/actual`,
+      { current_value: currentValue } satisfies UpdateMetricActualRequest,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Risks
+  // -------------------------------------------------------------------------
 
   async createRisk(
-    _commitmentId: string,
+    commitmentId: string,
     _tenantId: string,
     _userId: string,
-    _data: Partial<CommitmentRisk>,
+    data: AddRiskRequest,
   ): Promise<CommitmentRisk> {
-    logger.warn("createRisk: not yet migrated to backend API");
-    return {} as CommitmentRisk;
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentRisk;
+    }
+
+    const response = await apiClient.post<CommitmentRisk>(
+      `${this.base}/${commitmentId}/risks`,
+      data,
+    );
+    return unwrap(response);
   }
 
+  /** @deprecated Use updateRisk(commitmentId, riskId, updates) instead. */
   async updateRiskStatus(
     _riskId: string,
     _tenantId: string,
@@ -351,34 +409,169 @@ export class ValueCommitmentTrackingService {
     _status: CommitmentRisk["status"],
     _mitigatedAt?: string,
   ): Promise<CommitmentRisk> {
-    logger.warn("updateRiskStatus: not yet migrated to backend API");
-    return {} as CommitmentRisk;
+    throw new Error(
+      "updateRiskStatus is deprecated. Use updateRisk(commitmentId, riskId, updates) instead.",
+    );
   }
+
+  async updateRisk(
+    commitmentId: string,
+    riskId: string,
+    updates: UpdateRiskRequest,
+  ): Promise<CommitmentRisk> {
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentRisk;
+    }
+
+    const response = await apiClient.patch<CommitmentRisk>(
+      `${this.base}/${commitmentId}/risks/${riskId}`,
+      updates,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Stakeholders
+  // -------------------------------------------------------------------------
+
+  async addStakeholder(
+    commitmentId: string,
+    _tenantId: string,
+    _userId: string,
+    data: AddStakeholderRequest,
+  ): Promise<CommitmentStakeholder> {
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentStakeholder;
+    }
+
+    const response = await apiClient.post<CommitmentStakeholder>(
+      `${this.base}/${commitmentId}/stakeholders`,
+      data,
+    );
+    return unwrap(response);
+  }
+
+  /** @deprecated Use updateStakeholderForCommitment(commitmentId, stakeholderId, updates) instead. */
+  async updateStakeholder(
+    _stakeholderId: string,
+    _tenantId: string,
+    _userId: string,
+    _updates: UpdateStakeholderRequest,
+  ): Promise<CommitmentStakeholder> {
+    throw new Error(
+      "updateStakeholder is deprecated. Use updateStakeholderForCommitment(commitmentId, stakeholderId, updates) instead.",
+    );
+  }
+
+  async updateStakeholderForCommitment(
+    commitmentId: string,
+    stakeholderId: string,
+    updates: UpdateStakeholderRequest,
+  ): Promise<CommitmentStakeholder> {
+    if (!useBackendApi()) {
+      logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
+      return {} as CommitmentStakeholder;
+    }
+
+    const response = await apiClient.patch<CommitmentStakeholder>(
+      `${this.base}/${commitmentId}/stakeholders/${stakeholderId}`,
+      updates,
+    );
+    return unwrap(response);
+  }
+
+  // -------------------------------------------------------------------------
+  // Progress and at-risk reads
+  // -------------------------------------------------------------------------
 
   async calculateProgress(
     commitmentId: string,
     _tenantId: string,
   ): Promise<CommitmentProgress> {
-    return {
-      commitment_id:        commitmentId,
-      overall_progress:     0,
-      milestone_completion: 0,
-      metric_achievement:   0,
-      risk_level:           "low",
-      days_remaining:       0,
-      is_on_track:          false,
-    };
+    if (!useBackendApi()) {
+      return {
+        commitment_id:        commitmentId,
+        overall_progress:     0,
+        milestone_completion: 0,
+        metric_achievement:   0,
+        risk_level:           "low",
+        days_remaining:       0,
+        is_on_track:          false,
+      };
+    }
+
+    try {
+      const response = await apiClient.get<CommitmentProgress>(
+        `${this.base}/${commitmentId}/progress`,
+      );
+      if (!response.success || !response.data) {
+        return {
+          commitment_id:        commitmentId,
+          overall_progress:     0,
+          milestone_completion: 0,
+          metric_achievement:   0,
+          risk_level:           "low",
+          days_remaining:       0,
+          is_on_track:          false,
+        };
+      }
+      return response.data;
+    } catch (error) {
+      logger.error("calculateProgress failed", { error, commitmentId });
+      return {
+        commitment_id:        commitmentId,
+        overall_progress:     0,
+        milestone_completion: 0,
+        metric_achievement:   0,
+        risk_level:           "low",
+        days_remaining:       0,
+        is_on_track:          false,
+      };
+    }
   }
 
   async getAtRiskCommitments(_tenantId: string): Promise<ValueCommitment[]> {
-    return [];
+    if (!useBackendApi()) {
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get<CommitmentDto[]>(
+        `${this.base}?atRisk=true`,
+      );
+      if (!response.success || !response.data) return [];
+      // Map CommitmentDto → ValueCommitment for backward compatibility
+      return response.data.map((dto) => this.dtoToValueCommitment(dto));
+    } catch (error) {
+      logger.error("getAtRiskCommitments failed", { error });
+      return [];
+    }
   }
 
   async validateAgainstGroundTruth(
-    _commitmentId: string,
-    _tenantId: string,
+    commitmentId: string,
+    tenantId: string,
   ): Promise<{ isValid: boolean; confidence: number; issues: string[]; recommendations: string[] }> {
-    return { isValid: true, confidence: 0, issues: [], recommendations: [] };
+    const progress = await this.calculateProgress(commitmentId, tenantId);
+    const threshold = 0.8;
+    const progressFraction = progress.overall_progress / 100;
+    const isValid = progressFraction >= threshold;
+    const gap = Math.round((threshold - progressFraction) * 100);
+
+    return {
+      isValid,
+      confidence: progressFraction,
+      issues: isValid ? [] : [`Progress ${progress.overall_progress}% is ${gap}pp below the ${threshold * 100}% threshold`],
+      recommendations: isValid
+        ? []
+        : [
+            progress.risk_level === "critical"
+              ? "Address critical risks before the next milestone"
+              : "Review milestone completion and metric targets",
+          ],
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -405,6 +598,34 @@ export class ValueCommitmentTrackingService {
       created_by:             "",
       created_at:             now,
       updated_at:             now,
+    };
+  }
+
+  private dtoToValueCommitment(dto: CommitmentDto): ValueCommitment {
+    return {
+      id:                      dto.id,
+      tenant_id:               "",
+      user_id:                 dto.created_by,
+      session_id:              "",
+      organization_id:         dto.organization_id,
+      title:                   dto.title,
+      description:             dto.description ?? "",
+      commitment_type:         dto.commitment_type,
+      priority:                dto.priority,
+      financial_impact:        (dto.financial_impact as ValueCommitment["financial_impact"]) ?? {},
+      currency:                dto.currency,
+      timeframe_months:        dto.timeframe_months,
+      status:                  dto.status as ValueCommitment["status"],
+      progress_percentage:     dto.progress_percentage,
+      confidence_level:        0,
+      committed_at:            dto.created_at,
+      target_completion_date:  dto.target_completion_date,
+      actual_completion_date:  null,
+      ground_truth_references: {},
+      tags:                    dto.tags,
+      metadata:                {},
+      created_at:              dto.created_at,
+      updated_at:              dto.updated_at,
     };
   }
 

@@ -115,9 +115,8 @@ Update status when stories are implemented or acceptance criteria change.
 - Risks and stakeholders can be tracked per commitment
 - Progress report can be generated on demand
 
-**Status:** ⚠️ Stage wired; commitment tracking stubs remain  
-**Delivered:** `realization_reports` table + RLS, `RealizationReportRepository`, `GET /api/v1/cases/:caseId/realization` + `POST .../realization/run`, `useRealization` hook, `RealizationStage` wired to real data. DEBT-004 resolved.  
-**Gap:** `ValueCommitmentTrackingService` has 15 TODO stubs — milestones, metrics, risks, stakeholders not persisted (DEBT-007, Sprint 20)
+**Status:** ✅ Fully implemented as of Sprint 20  
+**Delivered:** `realization_reports` table + RLS, `RealizationReportRepository`, `GET /api/v1/cases/:caseId/realization` + `POST .../realization/run`, `useRealization` hook, `RealizationStage` wired to real data. DEBT-004 resolved. `ValueCommitmentTrackingService` (frontend + backend) fully migrated — milestones, metrics, risks, stakeholders, progress all persist via `/api/v1/value-commitments` sub-resource endpoints. DEBT-007 resolved Sprint 20.
 
 ---
 
