@@ -184,7 +184,7 @@ describe("ComplianceAuditorAgent", () => {
     it("rejects context with mismatched organization_id", async () => {
       await expect(
         agent.execute(makeContext({ organization_id: "org-WRONG" })),
-      ).rejects.toThrow("Tenant mismatch");
+      ).rejects.toThrow(/tenant context mismatch/i);
     });
   });
 
@@ -203,4 +203,11 @@ describe("ComplianceAuditorAgent", () => {
       await expect(agent.execute(makeContext())).rejects.toThrow();
     });
   });
+
+  it("rejects execution when context organization does not match agent tenant", async () => {
+    await expect(
+      agent.execute(makeContext({ organization_id: "org-mismatch" }))
+    ).rejects.toThrow(/tenant context mismatch/i);
+  });
+
 });

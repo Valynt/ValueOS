@@ -35,6 +35,7 @@ import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 
 // ============================================================================
 // QueryExecutor
@@ -147,6 +148,26 @@ export class QueryExecutor {
     return true;
   }
 
+  private buildAgentContext(
+    envelopeOrganizationId: string,
+    actorUserId: string,
+    sessionId: string,
+    metadata?: Record<string, unknown>,
+  ): AgentContext {
+    assertTenantContextMatch({
+      expectedOrganizationId: envelopeOrganizationId,
+      contextOrganizationId: envelopeOrganizationId,
+      source: 'QueryExecutor.buildAgentContext',
+    });
+
+    return {
+      userId: actorUserId,
+      sessionId,
+      organizationId: envelopeOrganizationId,
+      metadata,
+    };
+  }
+
   // --------------------------------------------------------------------------
   // Async query path
   // --------------------------------------------------------------------------
@@ -159,11 +180,12 @@ export class QueryExecutor {
     sessionId: string,
     traceId: string = uuidv4(),
   ): Promise<{ jobId: string; traceId: string }> {
-    if (
-      currentState.context?.organizationId &&
-      currentState.context.organizationId !== envelope.organizationId
-    ) {
-      throw new Error('Execution envelope organization does not match workflow state');
+    if (currentState.context?.organizationId) {
+      assertTenantContextMatch({
+        expectedOrganizationId: envelope.organizationId,
+        contextOrganizationId: String(currentState.context.organizationId),
+        source: 'QueryExecutor.processQueryAsync',
+      });
     }
 
     await this.policy.assertTenantExecutionAllowed(envelope.organizationId);
@@ -181,15 +203,15 @@ export class QueryExecutor {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
     }
 
-    const agentContext: AgentContext = {
-      userId: envelope.actor.id || userId,
+    const agentContext = this.buildAgentContext(
+      envelope.organizationId,
+      envelope.actor.id || userId,
       sessionId,
-      organizationId: envelope.organizationId,
-      metadata: {
+      {
         companyProfile: currentState.context?.companyProfile,
         currentStage: currentState.currentStage,
       },
-    };
+    );
 
     const jobId = await this.agentMessageQueue.queueAgentInvocation({
       agent: agentType,
@@ -237,12 +259,18 @@ export class QueryExecutor {
 
     if (integrityCheck.reRefine) {
       logger.info('Triggering async RE-REFINE loop due to low confidence', { traceId: result.traceId });
-      const agentContext: AgentContext = {
-        userId: String(currentState.context?.requestedBy || currentState.context?.requester || 'system'),
-        sessionId: String(currentState.context?.sessionId || ''),
-        organizationId: String(currentState.context?.organizationId || ''),
-        metadata: { currentStage: currentState.currentStage },
-      };
+      const stateOrganizationId = String(currentState.context?.organizationId || '');
+      assertTenantContextMatch({
+        expectedOrganizationId: stateOrganizationId,
+        contextOrganizationId: stateOrganizationId,
+        source: 'QueryExecutor.getAsyncQueryResult',
+      });
+      const agentContext = this.buildAgentContext(
+        stateOrganizationId,
+        String(currentState.context?.requestedBy || currentState.context?.requester || 'system'),
+        String(currentState.context?.sessionId || ''),
+        { currentStage: currentState.currentStage },
+      );
       const re = await this.policy.performReRefine(
         'coordinator',
         `Refine based on prior async output: ${JSON.stringify(result.data).slice(0, 1000)}`,
@@ -298,6 +326,14 @@ export class QueryExecutor {
     sessionId: string,
     traceId: string = uuidv4(),
   ): Promise<ProcessQueryResult> {
+    if (currentState.context?.organizationId) {
+      assertTenantContextMatch({
+        expectedOrganizationId: envelope.organizationId,
+        contextOrganizationId: String(currentState.context.organizationId),
+        source: 'QueryExecutor.processQuery',
+      });
+    }
+
     await this.policy.assertTenantExecutionAllowed(envelope.organizationId);
 
     if (featureFlags.ENABLE_ASYNC_AGENT_EXECUTION) {
@@ -323,7 +359,7 @@ export class QueryExecutor {
 
     const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
     const agentType = this.router.selectAgent(decisionContext);
-    const agentContext: AgentContext = { userId: envelope.actor.id || userId, sessionId, organizationId: envelope.organizationId };
+    const agentContext = this.buildAgentContext(envelope.organizationId, envelope.actor.id || userId, sessionId);
 
     const structuralCheck = await this.policy.evaluateStructuralTruthVeto(result.data, { traceId, agentType, query, context: agentContext });
     if (structuralCheck.vetoed) {
@@ -380,12 +416,12 @@ export class QueryExecutor {
 
         logger.debug('Agent selected', { traceId, agentType, currentStage: currentState.currentStage });
 
-        const agentContext: AgentContext = {
-          userId: envelope.actor.id || userId,
+        const agentContext = this.buildAgentContext(
+          envelope.organizationId,
+          envelope.actor.id || userId,
           sessionId,
-          organizationId: envelope.organizationId,
-          metadata: { companyProfile: currentState.context?.companyProfile, currentStage: currentState.currentStage },
-        };
+          { companyProfile: currentState.context?.companyProfile, currentStage: currentState.currentStage },
+        );
 
         // ADR-0014: invoke agent directly via AgentFactory — no HTTP round-trip.
         const lifecycleCtx: LifecycleContext = {

@@ -23,6 +23,7 @@ import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
+import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -136,6 +137,13 @@ export abstract class BaseAgent {
       });
       return false;
     }
+
+    assertTenantContextMatch({
+      expectedOrganizationId: this.organizationId,
+      contextOrganizationId: context.organization_id,
+      source: `${this.name}.validateInput`,
+    });
+
     // organizationId is set in constructor; do not mutate here
     return true;
   }

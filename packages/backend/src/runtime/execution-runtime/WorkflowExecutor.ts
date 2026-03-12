@@ -44,6 +44,7 @@ import type {
   ValidationResult,
 } from '../../services/agents/core/IAgent.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
+import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 
 // ============================================================================
 // Internal types
@@ -102,6 +103,13 @@ export class WorkflowExecutor {
     _userId?: string,
   ): Promise<WorkflowExecutionResult> {
     if (!this.config.enableWorkflows) throw new Error('Workflow execution is disabled');
+    if (context.organizationId) {
+      assertTenantContextMatch({
+        expectedOrganizationId: envelope.organizationId,
+        contextOrganizationId: String(context.organizationId),
+        source: 'WorkflowExecutor.executeWorkflow',
+      });
+    }
     await this.policy.assertTenantExecutionAllowed(envelope.organizationId);
 
     const traceId = uuidv4();
@@ -204,7 +212,12 @@ export class WorkflowExecutor {
     const total = dag.stages.length;
 
     while (completed.size + failed.size < total) {
-      const orgId = String(executionContext.organizationId ?? executionContext.tenantId ?? '');
+      const orgId = String(executionContext.organizationId ?? organizationId);
+      assertTenantContextMatch({
+        expectedOrganizationId: organizationId,
+        contextOrganizationId: orgId,
+        source: 'WorkflowExecutor.executeDAGAsync',
+      });
       if (orgId) await this.policy.assertTenantExecutionAllowed(orgId);
 
       const ready = dag.stages.filter((s) => !completed.has(s.id) && !failed.has(s.id) && !inProgress.has(s.id) && depsMet(s.id));
@@ -406,7 +419,12 @@ export class WorkflowExecutor {
       const start = Date.now();
       const agentType = stage.agent_type as AgentType;
       const sessionId = context.sessionId ?? `session_${Date.now()}`;
-      const orgId = context.organizationId ?? context.tenantId ?? '';
+      const orgId = context.organizationId ?? '';
+      assertTenantContextMatch({
+        expectedOrganizationId: orgId,
+        contextOrganizationId: orgId,
+        source: 'WorkflowExecutor.executeStage',
+      });
       const agentContext: AgentContext = { userId: context.userId ?? '', sessionId, metadata: { currentStage: stage.id } };
 
       let memoryContext: Record<string, unknown> = {};
