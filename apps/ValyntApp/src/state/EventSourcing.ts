@@ -25,7 +25,7 @@ export interface StateEvent {
   aggregateId: string;
   aggregateType: AggregateType;
   eventType: string;
-  eventData: Record<string, any>;
+  eventData: Record<string, unknown>;
   version: number;
   timestamp: Date;
   causationId?: string;
@@ -76,7 +76,7 @@ export enum ConflictType {
 export interface ConflictResolution {
   strategy: ResolutionStrategy;
   resolvedEvents: StateEvent[];
-  mergedState?: Record<string, any>;
+  mergedState?: Record<string, unknown>;
 }
 
 export enum ResolutionStrategy {
@@ -88,9 +88,9 @@ export enum ResolutionStrategy {
 
 export interface EventStore {
   append(event: StateEvent): Promise<void>;
-  getEvents(aggregateId: string, fromVersion?: number): Promise<StateEvent[]>;
-  getEvent(eventId: string): Promise<StateEvent | null>;
-  getVersion(aggregateId: string): Promise<number>;
+  getEvents(aggregateId: string, tenantId: string, fromVersion?: number): Promise<StateEvent[]>;
+  getEvent(eventId: string, tenantId: string): Promise<StateEvent | null>;
+  getVersion(aggregateId: string, tenantId: string): Promise<number>;
 }
 
 // ============================================================================
@@ -118,13 +118,13 @@ export class EventSourcingManager {
     aggregateId: string,
     aggregateType: AggregateType,
     eventType: string,
-    eventData: Record<string, any>,
+    eventData: Record<string, unknown>,
     expectedVersion: number,
     metadata: EventMetadata
   ): Promise<OptimisticLockResult> {
     try {
       // Check current version
-      const currentVersion = await this.eventStore.getVersion(aggregateId);
+      const currentVersion = await this.eventStore.getVersion(aggregateId, metadata.tenantId);
 
       if (currentVersion !== expectedVersion) {
         // Version conflict detected
@@ -132,7 +132,8 @@ export class EventSourcingManager {
           aggregateId,
           aggregateType,
           expectedVersion,
-          currentVersion
+          currentVersion,
+          metadata.tenantId
         );
 
         return {
@@ -164,7 +165,7 @@ export class EventSourcingManager {
       await this.applyEvent(event);
 
       // Update snapshot if needed
-      await this.updateSnapshot(aggregateId, aggregateType);
+      await this.updateSnapshot(aggregateId, aggregateType, metadata.tenantId);
 
       logger.info('Event appended successfully', {
         eventId: event.id,
@@ -191,8 +192,9 @@ export class EventSourcingManager {
   async replayEvents(
     aggregateId: string,
     aggregateType: AggregateType,
+    tenantId: string,
     fromVersion?: number
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     try {
       // Check for recent snapshot
       const snapshot = await this.getSnapshot(aggregateId, fromVersion);
@@ -201,7 +203,7 @@ export class EventSourcingManager {
       let startVersion = snapshot?.version || 0;
 
       // Get events from snapshot version or fromVersion
-      const events = await this.eventStore.getEvents(aggregateId, startVersion);
+      const events = await this.eventStore.getEvents(aggregateId, tenantId, startVersion);
 
       // Apply events in order
       for (const event of events) {
@@ -229,13 +231,13 @@ export class EventSourcingManager {
   async handleConcurrentUpdate(
     aggregateId: string,
     aggregateType: AggregateType,
-    updates: Record<string, any>,
+    updates: Record<string, unknown>,
     metadata: EventMetadata
   ): Promise<OptimisticLockResult> {
     try {
       // Get current state
-      const currentState = await this.replayEvents(aggregateId, aggregateType);
-      const currentVersion = await this.eventStore.getVersion(aggregateId);
+      const currentState = await this.replayEvents(aggregateId, aggregateType, metadata.tenantId);
+      const currentVersion = await this.eventStore.getVersion(aggregateId, metadata.tenantId);
 
       // Check for business rule violations
       const validationResult = await this.validateBusinessRules(
@@ -282,9 +284,10 @@ export class EventSourcingManager {
    */
   async getCurrentState(
     aggregateId: string,
-    aggregateType: AggregateType
-  ): Promise<Record<string, any>> {
-    return await this.replayEvents(aggregateId, aggregateType);
+    aggregateType: AggregateType,
+    tenantId: string
+  ): Promise<Record<string, unknown>> {
+    return await this.replayEvents(aggregateId, aggregateType, tenantId);
   }
 
   /**
@@ -292,10 +295,11 @@ export class EventSourcingManager {
    */
   async getEventHistory(
     aggregateId: string,
+    tenantId: string,
     limit?: number,
     offset?: number
   ): Promise<StateEvent[]> {
-    const events = await this.eventStore.getEvents(aggregateId);
+    const events = await this.eventStore.getEvents(aggregateId, tenantId);
 
     let sortedEvents = events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
@@ -318,12 +322,14 @@ export class EventSourcingManager {
     aggregateId: string,
     aggregateType: AggregateType,
     expectedVersion: number,
-    actualVersion: number
+    actualVersion: number,
+    tenantId: string
   ): Promise<ConflictError> {
     try {
       // Get conflicting events
       const conflictingEvents = await this.eventStore.getEvents(
         aggregateId,
+        tenantId,
         expectedVersion
       );
 
@@ -388,9 +394,9 @@ export class EventSourcingManager {
   }
 
   private async applyEventToState(
-    currentState: Record<string, any>,
+    currentState: Record<string, unknown>,
     event: StateEvent
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const handler = this.eventHandlers.get(event.eventType);
     if (handler) {
       return await handler.applyToState(currentState, event);
@@ -401,8 +407,8 @@ export class EventSourcingManager {
 
   private async validateBusinessRules(
     aggregateType: AggregateType,
-    currentState: Record<string, any>,
-    updates: Record<string, any>
+    currentState: Record<string, unknown>,
+    updates: Record<string, unknown>
   ): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
@@ -436,7 +442,7 @@ export class EventSourcingManager {
     };
   }
 
-  private getInitialState(aggregateType: AggregateType): Record<string, any> {
+  private getInitialState(aggregateType: AggregateType): Record<string, unknown> {
     const initialStates = {
       [AggregateType.WORKFLOW_STATE]: {
         currentStage: 'opportunity',
@@ -485,13 +491,14 @@ export class EventSourcingManager {
 
   private async updateSnapshot(
     aggregateId: string,
-    aggregateType: AggregateType
+    aggregateType: AggregateType,
+    tenantId: string
   ): Promise<void> {
     // Create snapshot every 10 events
-    const version = await this.eventStore.getVersion(aggregateId);
+    const version = await this.eventStore.getVersion(aggregateId, tenantId);
 
     if (version % 10 === 0) {
-      const currentState = await this.replayEvents(aggregateId, aggregateType);
+      const currentState = await this.replayEvents(aggregateId, aggregateType, tenantId);
 
       const snapshot: StateSnapshot = {
         aggregateId,
@@ -573,7 +580,7 @@ interface StateSnapshot {
   aggregateId: string;
   aggregateType: AggregateType;
   version: number;
-  state: Record<string, any>;
+  state: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -589,7 +596,7 @@ interface ConflictResolver {
 interface EventHandler {
   validate(event: StateEvent): Promise<void>;
   apply(event: StateEvent): Promise<void>;
-  applyToState(state: Record<string, any>, event: StateEvent): Promise<Record<string, any>>;
+  applyToState(state: Record<string, unknown>, event: StateEvent): Promise<Record<string, unknown>>;
 }
 
 class WorkflowStateConflictResolver implements ConflictResolver {
@@ -655,9 +662,9 @@ class WorkflowStateEventHandler implements EventHandler {
   }
 
   async applyToState(
-    state: Record<string, any>,
+    state: Record<string, unknown>,
     event: StateEvent
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     return {
       ...state,
       ...event.eventData,
@@ -682,9 +689,9 @@ class CanvasStateEventHandler implements EventHandler {
   }
 
   async applyToState(
-    state: Record<string, any>,
+    state: Record<string, unknown>,
     event: StateEvent
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const { eventType, eventData } = event;
 
     switch (eventType) {
@@ -732,6 +739,7 @@ class SupabaseEventStore implements EventStore {
       .from('state_events')
       .insert({
         id: event.id,
+        tenant_id: event.metadata.tenantId,
         aggregate_id: event.aggregateId,
         aggregate_type: event.aggregateType,
         event_type: event.eventType,
@@ -748,10 +756,11 @@ class SupabaseEventStore implements EventStore {
     }
   }
 
-  async getEvents(aggregateId: string, fromVersion?: number): Promise<StateEvent[]> {
+  async getEvents(aggregateId: string, tenantId: string, fromVersion?: number): Promise<StateEvent[]> {
     let query = this.supabase
       .from('state_events')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('aggregate_id', aggregateId)
       .order('version', { ascending: true });
 
@@ -768,10 +777,11 @@ class SupabaseEventStore implements EventStore {
     return (data || []).map(this.mapDatabaseRecord);
   }
 
-  async getEvent(eventId: string): Promise<StateEvent | null> {
+  async getEvent(eventId: string, tenantId: string): Promise<StateEvent | null> {
     const { data, error } = await this.supabase
       .from('state_events')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('id', eventId)
       .single();
 
@@ -785,10 +795,11 @@ class SupabaseEventStore implements EventStore {
     return this.mapDatabaseRecord(data);
   }
 
-  async getVersion(aggregateId: string): Promise<number> {
+  async getVersion(aggregateId: string, tenantId: string): Promise<number> {
     const { data, error } = await this.supabase
       .from('state_events')
       .select('version')
+      .eq('tenant_id', tenantId)
       .eq('aggregate_id', aggregateId)
       .order('version', { ascending: false })
       .limit(1)

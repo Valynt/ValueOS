@@ -32,7 +32,6 @@ const ALLOWED_FUNCTIONS = new Set([
   "max",
   "min",
   "pow",
-  "random",
   "round",
   "sign",
   "sin",
@@ -186,7 +185,7 @@ function parseTokens(tokens: string[]): any {
       }
       index++;
 
-      const args: any[] = [];
+      const args: unknown[] = [];
       if (index < tokens.length && tokens[index] !== ")") {
         args.push(parseExpression());
         while (index < tokens.length && tokens[index] === ",") {
