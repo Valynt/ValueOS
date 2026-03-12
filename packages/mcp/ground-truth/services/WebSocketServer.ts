@@ -13,10 +13,12 @@
 
 import { Server as HTTPServer } from "http";
 import { Server as HTTPSServer } from "https";
+import { createSecretKey } from "crypto";
 
 import { parseCorsAllowlist } from "../../../shared/src/config/cors";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
+import { createRemoteJWKSet, JWTPayload, jwtVerify } from "jose";
 import { Server, Socket } from "socket.io";
 
 import { logger } from "../../lib/logger";
@@ -32,6 +34,38 @@ export interface StreamingClient {
   connectedAt: Date;
   lastActivity: Date;
 }
+
+interface AuthenticatedUser {
+  userId: string;
+  organizationId: string;
+  permissions: string[];
+}
+
+interface AuthFailure {
+  code: number;
+  reason: string;
+  logKey: string;
+}
+
+class WebSocketAuthError extends Error {
+  readonly closeCode: number;
+  readonly closeReason: string;
+
+  constructor(message: string, closeCode: number, closeReason: string) {
+    super(message);
+    this.name = "WebSocketAuthError";
+    this.closeCode = closeCode;
+    this.closeReason = closeReason;
+  }
+}
+
+const WS_CLOSE_CODES = {
+  invalidPayload: 1002,
+  policyViolation: 1008,
+} as const;
+
+const AUTH_FAILURE_LOG_WINDOW_MS = 60_000;
+const AUTH_FAILURE_LOG_LIMIT = 5;
 
 export interface SubscriptionMessage {
   type: "subscribe" | "unsubscribe";
@@ -66,6 +100,8 @@ export class WebSocketServer {
   private clients: Map<string, StreamingClient> = new Map();
   private channels: Map<string, Set<string>> = new Map(); // channel -> client IDs
   private cache = getCache();
+  private authFailureLogWindow: Map<string, { windowStart: number; count: number }> =
+    new Map();
 
   constructor(httpServer: HTTPServer | HTTPSServer) {
     const corsOrigins = parseCorsAllowlist(
@@ -138,16 +174,12 @@ export class WebSocketServer {
           return next();
         }
 
-        // Validate token (would integrate with your auth system)
         const userData = await this.validateAuthToken(token);
-
-        if (!userData) {
-          return next(new Error("Authentication failed"));
-        }
 
         socket.data.authenticated = true;
         socket.data.userId = userData.userId;
-        socket.data.permissions = userData.permissions || ["basic"];
+        socket.data.organizationId = userData.organizationId;
+        socket.data.permissions = userData.permissions;
 
         logger.info("WebSocket client authenticated", {
           socketId: socket.id,
@@ -156,11 +188,30 @@ export class WebSocketServer {
 
         next();
       } catch (error) {
-        logger.error(
-          "WebSocket authentication error",
-          error instanceof Error ? error : undefined
-        );
-        next(new Error("Authentication error"));
+        if (error instanceof WebSocketAuthError) {
+          const authError = new Error(error.message) as Error & {
+            data?: { closeCode: number; reason: string };
+          };
+          authError.data = {
+            closeCode: error.closeCode,
+            reason: error.closeReason,
+          };
+          return next(authError);
+        }
+
+        logger.error("WebSocket authentication error", {
+          socketId: socket.id,
+          error: error instanceof Error ? error.message : "unknown",
+        });
+
+        const authError = new Error("Authentication error") as Error & {
+          data?: { closeCode: number; reason: string };
+        };
+        authError.data = {
+          closeCode: WS_CLOSE_CODES.policyViolation,
+          reason: "Authentication error",
+        };
+        next(authError);
       }
     });
   }
@@ -474,19 +525,289 @@ export class WebSocketServer {
   /**
    * Validate authentication token
    */
-  private async validateAuthToken(
-    token: string
-  ): Promise<{ userId: string; permissions: string[] } | null> {
-    try {
-      // This would integrate with your authentication system
-      // For now, return mock data
-      return {
-        userId: "user_" + token.substring(0, 8),
-        permissions: ["basic", "premium"],
-      };
-    } catch (error) {
-      return null;
+  private async validateAuthToken(token: string): Promise<AuthenticatedUser> {
+    if (typeof token !== "string" || token.trim().length === 0) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.invalidPayload,
+        reason: "Malformed authentication token",
+        logKey: "token.malformed",
+      });
     }
+
+    const claims = await this.verifyTokenClaims(token);
+
+    const organizationId = this.extractTenantId(claims);
+    if (!organizationId) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Token missing tenant/org claim",
+        logKey: "token.missing_tenant",
+      });
+    }
+
+    const authProfile = await this.fetchAuthoritativeAuthProfile(token);
+    if (!authProfile.active || authProfile.revoked) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Token revoked",
+        logKey: "token.revoked",
+      });
+    }
+
+    const userId =
+      this.getStringValue(authProfile.user?.id) ??
+      this.getStringValue(claims.sub) ??
+      "";
+
+    if (!userId) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Token missing subject",
+        logKey: "token.missing_subject",
+      });
+    }
+
+    const permissions = this.derivePermissions(
+      authProfile.user?.app_metadata,
+      authProfile.user?.user_metadata
+    );
+
+    return {
+      userId,
+      organizationId,
+      permissions,
+    };
+  }
+
+  private async verifyTokenClaims(token: string): Promise<JWTPayload> {
+    const expectedIssuer = process.env.WS_AUTH_ISSUER ?? process.env.SUPABASE_URL;
+    const expectedAudience = process.env.WS_AUTH_AUDIENCE ?? "authenticated";
+
+    if (!expectedIssuer) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Auth issuer is not configured",
+        logKey: "auth.issuer_missing",
+      });
+    }
+
+    const jwtSecret = process.env.WS_AUTH_JWT_SECRET;
+    const jwksUrl = process.env.WS_AUTH_JWKS_URL;
+
+    try {
+      if (jwtSecret) {
+        const { payload } = await jwtVerify(token, createSecretKey(Buffer.from(jwtSecret)), {
+          issuer: expectedIssuer,
+          audience: expectedAudience,
+        });
+        return payload;
+      }
+
+      if (jwksUrl) {
+        const jwks = createRemoteJWKSet(new URL(jwksUrl));
+        const { payload } = await jwtVerify(token, jwks, {
+          issuer: expectedIssuer,
+          audience: expectedAudience,
+        });
+        return payload;
+      }
+
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Auth key material is not configured",
+        logKey: "auth.key_missing",
+      });
+    } catch (error) {
+      if (error instanceof WebSocketAuthError) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : "Unknown token validation error";
+
+      const authFailure: AuthFailure =
+        /\baud\b/i.test(message)
+          ? {
+              code: WS_CLOSE_CODES.policyViolation,
+              reason: "Token audience mismatch",
+              logKey: "token.bad_audience",
+            }
+          : /\bexp\b/i.test(message) || /expired/i.test(message)
+            ? {
+                code: WS_CLOSE_CODES.policyViolation,
+                reason: "Token expired",
+                logKey: "token.expired",
+              }
+            : {
+                code: WS_CLOSE_CODES.policyViolation,
+                reason: "Token signature/issuer validation failed",
+                logKey: "token.invalid_signature_or_issuer",
+              };
+
+      throw this.createAuthError(authFailure, {
+        detail: message,
+      });
+    }
+  }
+
+  private async fetchAuthoritativeAuthProfile(token: string): Promise<{
+    active: boolean;
+    revoked: boolean;
+    user?: {
+      id?: unknown;
+      app_metadata?: Record<string, unknown>;
+      user_metadata?: Record<string, unknown>;
+    };
+  }> {
+    const providerUrl = process.env.WS_AUTH_PROVIDER_URL ?? process.env.SUPABASE_URL;
+    if (!providerUrl) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Auth provider URL is not configured",
+        logKey: "auth.provider_missing",
+      });
+    }
+
+    const endpoint = new URL("/auth/v1/user", providerUrl).toString();
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey:
+          process.env.WS_AUTH_PROVIDER_API_KEY ??
+          process.env.SUPABASE_ANON_KEY ??
+          process.env.SUPABASE_SERVICE_ROLE_KEY ??
+          "",
+      },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      throw this.createAuthError({
+        code: WS_CLOSE_CODES.policyViolation,
+        reason: "Token revoked",
+        logKey: "token.revoked",
+      });
+    }
+
+    if (!response.ok) {
+      throw this.createAuthError(
+        {
+          code: WS_CLOSE_CODES.policyViolation,
+          reason: "Auth provider verification failed",
+          logKey: "auth.provider_error",
+        },
+        { status: response.status }
+      );
+    }
+
+    const user = (await response.json()) as {
+      id?: unknown;
+      app_metadata?: Record<string, unknown>;
+      user_metadata?: Record<string, unknown>;
+      revoked?: unknown;
+    };
+
+    return {
+      active: true,
+      revoked: user.revoked === true,
+      user,
+    };
+  }
+
+  private derivePermissions(
+    appMetadata?: Record<string, unknown>,
+    userMetadata?: Record<string, unknown>
+  ): string[] {
+    const roles = this.readStringArray(appMetadata?.roles);
+    const entitlements = this.readStringArray(
+      appMetadata?.entitlements ?? userMetadata?.entitlements
+    );
+
+    const permissions = new Set<string>(["basic"]);
+
+    for (const role of roles) {
+      permissions.add(`role:${role}`);
+      if (role === "admin") {
+        permissions.add("admin");
+      }
+      if (role === "premium" || role === "pro") {
+        permissions.add("premium");
+      }
+    }
+
+    for (const entitlement of entitlements) {
+      permissions.add(entitlement);
+      if (entitlement === "stream:premium") {
+        permissions.add("premium");
+      }
+      if (entitlement === "stream:admin") {
+        permissions.add("admin");
+      }
+    }
+
+    return Array.from(permissions);
+  }
+
+  private extractTenantId(claims: JWTPayload): string | null {
+    const directTenantId = this.getStringValue(claims.tenant_id ?? claims.organization_id);
+    if (directTenantId) {
+      return directTenantId;
+    }
+
+    const metadata = claims.user_metadata as Record<string, unknown> | undefined;
+    const metadataTenantId = this.getStringValue(metadata?.tenant_id ?? metadata?.organization_id);
+    return metadataTenantId ?? null;
+  }
+
+  private readStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
+  }
+
+  private getStringValue(value: unknown): string | null {
+    return typeof value === "string" && value.length > 0 ? value : null;
+  }
+
+  private createAuthError(failure: AuthFailure, context?: Record<string, unknown>): WebSocketAuthError {
+    this.logAuthFailure(failure.logKey, {
+      reason: failure.reason,
+      ...context,
+    });
+    return new WebSocketAuthError(failure.reason, failure.code, failure.reason);
+  }
+
+  private logAuthFailure(key: string, context: Record<string, unknown>): void {
+    const now = Date.now();
+    const currentWindow = this.authFailureLogWindow.get(key);
+
+    if (!currentWindow || now - currentWindow.windowStart > AUTH_FAILURE_LOG_WINDOW_MS) {
+      this.authFailureLogWindow.set(key, { windowStart: now, count: 1 });
+      logger.warn("WebSocket authentication failure", { key, ...context });
+      return;
+    }
+
+    if (currentWindow.count < AUTH_FAILURE_LOG_LIMIT) {
+      currentWindow.count += 1;
+      logger.warn("WebSocket authentication failure", {
+        key,
+        rateLimited: false,
+        ...context,
+      });
+      return;
+    }
+
+    if (currentWindow.count === AUTH_FAILURE_LOG_LIMIT) {
+      currentWindow.count += 1;
+      logger.warn("WebSocket authentication failure logs suppressed", {
+        key,
+        rateLimited: true,
+      });
+      return;
+    }
+
+    currentWindow.count += 1;
   }
 
   /**
