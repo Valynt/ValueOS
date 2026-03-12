@@ -17,6 +17,7 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
   LifecycleStage,
+  PromptVersionReference,
 } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
@@ -97,12 +98,18 @@ export abstract class BaseAgent {
       status: AgentOutput['status'],
       confidence: ConfidenceLevel,
       startTime: number,
-      extra?: { reasoning?: string; suggested_next_actions?: string[]; warnings?: string[] },
+      extra?: {
+        reasoning?: string;
+        suggested_next_actions?: string[];
+        warnings?: string[];
+        prompt_version_refs?: PromptVersionReference[];
+      },
     ): AgentOutput {
       const metadata: AgentOutputMetadata = {
         execution_time_ms: Date.now() - startTime,
         model_version: this.version,
         timestamp: new Date().toISOString(),
+        prompt_version_refs: extra?.prompt_version_refs,
       };
       return {
         agent_id: this.name,
