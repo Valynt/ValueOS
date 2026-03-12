@@ -201,7 +201,7 @@ export class OpportunityAgent extends BaseAgent {
 
     return this.buildOutput(result, "success", confidenceLevel, startTime, {
       reasoning:
-        `Generated ${analysis.hypotheses.length} value hypotheses for "${escapePromptInterpolation(query)}"` +
+        `Generated ${analysis.hypotheses.length} value hypotheses for "${query}"` +
         (financialData
           ? ` with financial grounding from ${financialData.sources.join(", ")}`
           : ""),
