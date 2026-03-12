@@ -4212,3 +4212,38 @@ Use this checklist for multi-agent SWAT team review of a multitenant enterprise 
 - When in doubt, release in **multiple deploys** with feature flags.
 
 ---
+
+---
+
+## Canonical Migration Lifecycle Governance
+
+The canonical migration lifecycle for ValueOS lives under `infra/supabase/supabase/migrations` and `infra/supabase/supabase/rollbacks`.
+
+### States
+
+1. **Active**
+   - Forward migrations in `infra/supabase/supabase/migrations/` root.
+   - Must use timestamped filenames (`YYYYMMDDHHMMSS_description.sql`).
+   - Must have rollback pairing (`.rollback.sql` in migrations root or matching rollback file in `rollbacks/`).
+
+2. **Deferred**
+   - Forward migrations moved to `infra/supabase/supabase/migrations/_deferred/`.
+   - Deferred files are still “live” governance scope (they are **not** archival) and are checked for duplicate intent/path drift.
+
+3. **Archived (approved archive folders)**
+   - Historical migrations live under archive paths such as `_deferred_archived/` or `_archived_*`.
+   - Archive folders are immutable historical record and are excluded from active-path conflict enforcement.
+
+4. **Rollback pairing**
+   - Every rollback SQL file must map to a forward migration intent.
+   - Orphan rollback files (no corresponding forward migration) are governance violations and should be removed or paired.
+
+### CI Governance Checks
+
+Use `scripts/ci/check-migration-governance.mjs` to emit a machine-readable report (`ci-artifacts/migration-governance-report.json`) containing:
+
+- duplicate and near-duplicate migration intents (keyword block similarity),
+- rollback files missing forward migration pairing,
+- schema concerns spread across multiple non-archived active paths.
+
+The check fails CI when unresolved duplicate intents are **introduced** in the branch (for example, a newly added migration duplicates an existing concern without consolidation).
