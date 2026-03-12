@@ -292,7 +292,13 @@ export function resolvePromptTemplate(key: string, explicitVersion?: string): Re
       throw new Error(`Blocked non-activated prompt version in production for ${key}: ${selectedVersion}`);
     }
     const approval = activation.approval;
-    if (!approval.owner || !approval.ticket || !approval.risk_class || !approval.approved_at) {
+    if (
+      !approval ||
+      !approval.owner ||
+      !approval.ticket ||
+      !approval.risk_class ||
+      !approval.approved_at
+    ) {
       throw new Error(`Blocked prompt activation without required approval metadata for ${key}`);
     }
   }
