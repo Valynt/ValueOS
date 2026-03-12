@@ -5,6 +5,7 @@
  * grounding product capabilities in the company's own stated risks and goals from 10-K filings.
  */
 
+import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js';
 import { semanticMemory } from '../SemanticMemory.js';
 
@@ -72,18 +73,19 @@ ${secSnippet}
 Generate up to 5 grounded value hypotheses.
 `;
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await llmGateway.complete({
-      messages: [
+    const response = await secureLLMComplete(
+      llmGateway,
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      metadata: {
-        tenantId,
+      {
+        organizationId: tenantId,
         agentType: 'value-hypothesis-generator',
+        serviceName: 'ValueHypothesisGenerator',
+        operation: 'generateHypotheses',
       },
-    });
+    );
 
     const content = response.content.trim();
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];

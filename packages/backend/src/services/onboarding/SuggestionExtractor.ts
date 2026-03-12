@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 
+import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js';
 import { semanticMemory } from '../SemanticMemory.js';
 
@@ -224,19 +225,20 @@ ${truncatedText ? `ADDITIONAL CONTEXT:\n${truncatedText}\n\n` : ''}
 Please extract ${entityType} entities from the context provided above.
 `;
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await llmGateway.complete({
-      messages: [
+    const response = await secureLLMComplete(
+      llmGateway,
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      metadata: {
-        tenantId,
+      {
+        organizationId: tenantId,
         agentType: 'onboarding-research',
         entityType,
+        serviceName: 'SuggestionExtractor',
+        operation: 'extractEntityType',
       },
-    });
+    );
 
     const parsed = parseResponse(response.content, entityType);
     const sourceUrls = pages.map((p) => p.url);

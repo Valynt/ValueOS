@@ -8,6 +8,7 @@ import { RedTeamLLMGateway } from "../../lib/agents/orchestration/agents/RedTeam
 import { z } from "zod";
 
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { logger } from "../../lib/logger.js";
 
 /**
@@ -27,12 +28,11 @@ export class RedTeamLLMAdapter implements RedTeamLLMGateway {
       throw new Error("RedTeamLLMAdapter requires tenantId in metadata for tenant isolation");
     }
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await this.llmGateway.complete({
-      messages: request.messages as any,
-      metadata: request.metadata as any,
-    });
+    const response = await secureLLMComplete(
+      this.llmGateway,
+      request.messages,
+      { tenantId: request.metadata.tenantId as string, serviceName: 'RedTeamLLMAdapter', ...request.metadata },
+    );
 
     return {
       content: response.content,
@@ -204,20 +204,21 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeOpportunities', { query, tenantId });
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await this.llmGateway.complete({
-      messages: [
+    const response = await secureLLMComplete(
+      this.llmGateway,
+      [
         { role: 'system', content: OPPORTUNITY_SYSTEM_PROMPT },
         { role: 'user', content: `Identify value drivers and opportunities for: ${query}` },
       ],
-      metadata: {
-        tenantId,
+      {
+        organizationId: tenantId,
         agentType: 'opportunity',
         userId: context?.userId ?? 'system',
         sessionId: context?.sessionId,
+        serviceName: 'AgentServiceAdapter',
+        operation: 'analyzeOpportunities',
       },
-    });
+    );
 
     return OpportunityResponseSchema.parse(parseJSON(response.content));
   }
@@ -230,21 +231,22 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeFinancialModels', { query, tenantId });
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await this.llmGateway.complete({
-      messages: [
+    const response = await secureLLMComplete(
+      this.llmGateway,
+      [
         { role: 'system', content: FINANCIAL_MODELING_SYSTEM_PROMPT },
         { role: 'user', content: `Build financial models for: ${query}` },
       ],
-      metadata: {
-        tenantId,
+      {
+        organizationId: tenantId,
         agentType: 'financial-modeling',
         userId: context?.userId ?? 'system',
         sessionId: context?.sessionId,
         idempotencyKey,
+        serviceName: 'AgentServiceAdapter',
+        operation: 'analyzeFinancialModels',
       },
-    });
+    );
 
     return FinancialModelResponseSchema.parse(parseJSON(response.content));
   }
@@ -257,21 +259,22 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeGroundtruth', { query, tenantId });
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await this.llmGateway.complete({
-      messages: [
+    const response = await secureLLMComplete(
+      this.llmGateway,
+      [
         { role: 'system', content: GROUNDTRUTH_SYSTEM_PROMPT },
         { role: 'user', content: `Retrieve and verify evidence for: ${query}` },
       ],
-      metadata: {
-        tenantId,
+      {
+        organizationId: tenantId,
         agentType: 'groundtruth',
         userId: context?.userId ?? 'system',
         sessionId: context?.sessionId,
         idempotencyKey,
+        serviceName: 'AgentServiceAdapter',
+        operation: 'analyzeGroundtruth',
       },
-    });
+    );
 
     return GroundtruthResponseSchema.parse(parseJSON(response.content));
   }
@@ -284,21 +287,22 @@ export class AgentServiceAdapter implements
     const tenantId = context?.organizationId ?? 'system';
     logger.info('AgentServiceAdapter: analyzeNarrative', { query, tenantId });
 
-    // TODO(rule-2): Migrate to BaseAgent.secureInvoke() — direct llmGateway.complete()
-    // bypasses circuit breaker and hallucination detection (AGENTS.md rule 2).
-    const response = await this.llmGateway.complete({
-      messages: [
+    const response = await secureLLMComplete(
+      this.llmGateway,
+      [
         { role: 'system', content: NARRATIVE_SYSTEM_PROMPT },
         { role: 'user', content: `Construct a business narrative for: ${query}` },
       ],
-      metadata: {
-        tenantId,
+      {
+        organizationId: tenantId,
         agentType: 'narrative',
         userId: context?.userId ?? 'system',
         sessionId: context?.sessionId,
         idempotencyKey,
+        serviceName: 'AgentServiceAdapter',
+        operation: 'analyzeNarrative',
       },
-    });
+    );
 
     return NarrativeResponseSchema.parse(parseJSON(response.content));
   }
