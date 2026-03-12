@@ -10,6 +10,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,8 +56,11 @@ export interface ValueTreeNodeUpdate {
  * Fetch all value tree nodes for a case.
  */
 export function useValueTree(caseId: string | undefined) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
+
   return useQuery<ValueTreeNode[]>({
-    queryKey: ["value-tree", caseId],
+    queryKey: ["value-tree", caseId, tenantId],
     queryFn: async () => {
       const result = await apiClient.get<{ data: ValueTreeNode[] }>(
         `/api/v1/value-cases/${caseId}/value-tree`,
@@ -64,7 +68,7 @@ export function useValueTree(caseId: string | undefined) {
       if (!result.success) throw new Error(result.error?.message ?? "Request failed");
       return result.data?.data ?? [];
     },
-    enabled: !!caseId,
+    enabled: !!caseId && !!tenantId,
     staleTime: 30_000,
   });
 }
@@ -75,7 +79,9 @@ export function useValueTree(caseId: string | undefined) {
  */
 export function useUpsertValueTreeNode(caseId: string | undefined) {
   const queryClient = useQueryClient();
-  const queryKey = ["value-tree", caseId];
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
+  const queryKey = ["value-tree", caseId, tenantId];
 
   return useMutation<ValueTreeNode, Error, ValueTreeNodeUpdate>({
     mutationFn: async (node) => {
@@ -122,6 +128,8 @@ export function useUpsertValueTreeNode(caseId: string | undefined) {
  */
 export function useRunTargetAgent(caseId: string | undefined) {
   const queryClient = useQueryClient();
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
 
   return useMutation<{ jobId: string }, Error, { query?: string }>({
     mutationFn: async (input) => {
@@ -133,7 +141,7 @@ export function useRunTargetAgent(caseId: string | undefined) {
       return { jobId: res.data?.data?.jobId ?? "" };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["value-tree", caseId] });
+      queryClient.invalidateQueries({ queryKey: ["value-tree", caseId, tenantId] });
     },
   });
 }
@@ -143,6 +151,8 @@ export function useRunTargetAgent(caseId: string | undefined) {
  */
 export function useReplaceValueTree(caseId: string | undefined) {
   const queryClient = useQueryClient();
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
 
   return useMutation<ValueTreeNode[], Error, Omit<ValueTreeNodeUpdate, "id">[]>({
     mutationFn: async (nodes) => {
@@ -154,7 +164,7 @@ export function useReplaceValueTree(caseId: string | undefined) {
       return result.data?.data ?? [];
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["value-tree", caseId], data);
+      queryClient.setQueryData(["value-tree", caseId, tenantId], data);
     },
   });
 }
