@@ -17,7 +17,7 @@ import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
 import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
 import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
 import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
-import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/EnhancedParallelExecutor.js';
+import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import type { AgentType } from '../../services/agent-types.js';

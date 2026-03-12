@@ -752,9 +752,5 @@ export function resetAgentAPI(): void {
   agentAPIInstance = null;
 }
 
-/**
- * Default export
- */
-export { AgentAPI };
 /** @deprecated Use named import `AgentAPI` instead. */
 export default AgentAPI;

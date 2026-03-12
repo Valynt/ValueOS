@@ -20,7 +20,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getAutonomyConfig } from "../../config/autonomy.js";
 import { logger } from "../../lib/logger.js";
 import { AgentRegistry } from "../../services/agents/AgentRegistry.js";
-import { complianceEvidenceService } from "../../services/ComplianceEvidenceService.js";
+import { complianceEvidenceService } from "../../services/security/ComplianceEvidenceService.js";
 import { securityLogger } from "@valueos/core-services";
 import { TenantExecutionStateService } from "../../services/billing/TenantExecutionStateService.js";
 import {
