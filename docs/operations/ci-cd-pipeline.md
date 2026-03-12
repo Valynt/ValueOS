@@ -8,7 +8,7 @@ status: active
 
 # Ci Cd Pipeline
 
-**Last Updated**: 2026-02-13
+**Last Updated**: 2026-03-12
 
 **Consolidated from 1 source documents**
 
@@ -22,6 +22,7 @@ For regulated workloads (including HIPAA in-scope tenants), CI and governance ch
 - **Per PR / Merge**:
   - Preserve lint/typecheck/test/build outputs from `pnpm run ci:verify`.
   - Preserve RLS and smoke-test artifacts (`test-results/`, `playwright-report/`) when present.
+  - Preserve security artifacts from `security-gate` and `dast-gate`, including ZAP JSON/HTML/Markdown reports and DAST summary markdown.
   - Ensure audit-relevant change context is traceable to commit SHA and workflow run ID.
 - **Monthly checkpoint**:
   - Export CI pass/fail trends, security scan summaries, and exception approvals for compliance review packets.
@@ -71,6 +72,8 @@ Detailed test stages (within or adjacent to `ci:verify`):
 4. Build: `pnpm run build` — production build validation
 5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
 6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
+7. Security gate lanes in `.github/workflows/ci.yml`: `security-gate` + `dast-gate` (OWASP ZAP baseline against deterministic staging target) are required blockers for both PR and staging/deploy gate jobs.
+8. Deployment promotion checks in `.github/workflows/deploy.yml`: `dast-gate` must pass before `build-images`, is required by `preprod-launch-gate`, and is therefore a pre-production blocker before `deploy-production`.
 
 Architecture & operational notes:
 

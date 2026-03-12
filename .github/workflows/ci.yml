@@ -690,6 +690,111 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  # DAST gate: OWASP ZAP baseline scan against deterministic staging target
+  dast-gate:
+    name: dast-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    env:
+      DAST_TARGET_URL: ${{ vars.DAST_TARGET_URL != '' && vars.DAST_TARGET_URL || 'https://staging.valueos.app' }}
+      DAST_FAIL_ON_HIGH: "0"
+      DAST_FAIL_ON_MEDIUM: "0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          mkdir -p artifacts/dast
+          docker run --rm \
+            -v "${PWD}:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t "${DAST_TARGET_URL}" \
+            -J /zap/wrk/artifacts/dast/zap-report.json \
+            -r /zap/wrk/artifacts/dast/zap-report.html \
+            -w /zap/wrk/artifacts/dast/zap-report.md \
+            -m 5 -d || true
+
+      - name: Enforce DAST severity thresholds
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          report_path = pathlib.Path("artifacts/dast/zap-report.json")
+          summary_path = pathlib.Path("artifacts/dast/dast-summary.md")
+          if not report_path.exists():
+            summary_path.write_text("# DAST Gate Summary\n\n- status: failed\n- reason: zap-report.json not generated\n", encoding="utf-8")
+            print("Missing ZAP JSON report", file=sys.stderr)
+            sys.exit(1)
+
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          sites = report.get("site", [])
+          counts = {"high": 0, "medium": 0, "low": 0, "info": 0}
+          severity_map = {"3": "high", "2": "medium", "1": "low", "0": "info"}
+
+          for site in sites:
+            for alert in site.get("alerts", []):
+              severity = severity_map.get(str(alert.get("riskcode", "0")), "info")
+              counts[severity] += 1
+
+          max_high = int(os.environ.get("DAST_FAIL_ON_HIGH", "0"))
+          max_medium = int(os.environ.get("DAST_FAIL_ON_MEDIUM", "0"))
+
+          breached = []
+          if counts["high"] > max_high:
+            breached.append(f"high({counts['high']} > {max_high})")
+          if counts["medium"] > max_medium:
+            breached.append(f"medium({counts['medium']} > {max_medium})")
+
+          status = "failed" if breached else "passed"
+          lines = [
+            "# DAST Gate Summary",
+            "",
+            f"- target: {os.environ.get('DAST_TARGET_URL', '')}",
+            f"- status: {status}",
+            f"- thresholds: high<={max_high}, medium<={max_medium}",
+            f"- findings: high={counts['high']}, medium={counts['medium']}, low={counts['low']}, info={counts['info']}",
+          ]
+          if breached:
+            lines.append(f"- breached: {', '.join(breached)}")
+
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          if breached:
+            print(f"DAST threshold breached: {', '.join(breached)}", file=sys.stderr)
+            sys.exit(1)
+          PY
+
+      - name: Upload DAST artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dast-gate-${{ github.run_id }}
+          path: |
+            artifacts/dast/zap-report.json
+            artifacts/dast/zap-report.html
+            artifacts/dast/zap-report.md
+            artifacts/dast/dast-summary.md
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/dast-gate
+          cat > artifacts/ci-lanes/dast-gate/summary.md <<EOF
+          # dast-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          - target: ${{ env.DAST_TARGET_URL }}
+          EOF
+
   # PR gate: blocks merge until critical lanes pass
 
   pr-fast-blocking-subsets:
@@ -700,6 +805,7 @@ jobs:
       - unit-component-schema
       - tenant-isolation-gate
       - security-gate
+      - dast-gate
       - verify-secret-rotation-metadata-age
       - accessibility-audit
       - ui-truthfulness-gate
@@ -712,6 +818,7 @@ jobs:
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
+            "dast-gate:${{ needs.dast-gate.result }}" \
             "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}" \
             "ui-truthfulness-gate:${{ needs.ui-truthfulness-gate.result }}"; do
@@ -731,6 +838,7 @@ jobs:
       - migration-verification
       - critical-workflows-gate
       - security-gate
+      - dast-gate
       - verify-secret-rotation-metadata-age
       - accessibility-audit
     steps:
@@ -742,6 +850,7 @@ jobs:
             "migration-verification:${{ needs.migration-verification.result }}" \
             "critical-workflows-gate:${{ needs.critical-workflows-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
+            "dast-gate:${{ needs.dast-gate.result }}" \
             "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
             echo "$lane"
