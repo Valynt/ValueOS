@@ -84,5 +84,4 @@ For every release, approvers MUST verify:
 
 | Release | Last reviewed date | Security approver | Engineering approver | Notes |
 |---|---|---|---|---|
-| `<release-tag>` | `<YYYY-MM-DD>` | `<name>` | `<name>` | `<risk notes / exceptions>` |
-
+| `v1.0.0` | `2026-03-12` | `Security Engineering (team-security)` | `Priya Raman` | `No accepted security exceptions for this release.` |

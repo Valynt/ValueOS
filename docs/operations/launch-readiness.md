@@ -8,7 +8,7 @@ status: active
 
 # Launch Readiness
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-03-12
 
 **Consolidated from 1 source documents**
 
@@ -84,7 +84,8 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
-- [ ] GA release scope sign-off attached: `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Design approvals) with acceptance mapping `docs/operations/release-acceptance-mapping.md`.
+- [ ] GA release scope sign-off attached: `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Design approvals, release tag `v1.0.0`) with acceptance mapping `docs/operations/release-acceptance-mapping.md`.
+- [ ] Threat model review record attached: `docs/security-compliance/threat-model.md` (Review and Approver Record for release tag `v1.0.0`).
 - [ ] **Hard Go/No-Go**: `docs/security-compliance/threat-model.md` reviewed for this release, with approvers and date recorded in the document.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
