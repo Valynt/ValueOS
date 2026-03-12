@@ -516,7 +516,7 @@ router.post(
 /**
  * GET /api/crm/deals
  * Returns open deals from the connected CRM for the authenticated tenant.
- * Supports optional ?q= search filter applied client-side on name/company.
+ * Supports optional ?q= search filter on name/company, applied in this handler.
  * Falls back to empty array when no CRM is connected.
  */
 router.get(
