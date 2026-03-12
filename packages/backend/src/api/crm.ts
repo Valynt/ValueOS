@@ -25,6 +25,7 @@ import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { auditLogService } from '../services/AuditLogService.js';
 import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
 import { crmHealthService } from '../services/crm/CrmHealthService.js';
+import { crmIntegrationService } from '../services/crm/CRMIntegrationService.js';
 import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
 import { consumeOAuthState } from '../services/crm/OAuthStateStore.js';
 import { CrmProviderSchema } from '../services/crm/types.js';
@@ -347,6 +348,85 @@ router.post(
       logger.error('Webhook ingestion failed', error instanceof Error ? error : undefined);
       // Return 200 to prevent CRM from retrying on our errors
       return res.status(200).json({ ok: false });
+    }
+  },
+);
+
+
+
+const dealSearchSchema = z.object({
+  q: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
+  tenantId: z.string().min(1).optional(),
+  valueCaseId: z.string().min(1).optional(),
+  company: z.string().optional(),
+});
+
+function mapStage(stage?: string): 'prospecting' | 'qualification' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost' {
+  const normalized = (stage ?? '').toLowerCase();
+  if (normalized.includes('won')) return 'closed_won';
+  if (normalized.includes('lost')) return 'closed_lost';
+  if (normalized.includes('negoti')) return 'negotiation';
+  if (normalized.includes('proposal')) return 'proposal';
+  if (normalized.includes('qualif')) return 'qualification';
+  return 'prospecting';
+}
+
+router.get(
+  '/deals/search',
+  ...authMiddleware,
+  requirePermission('integrations:view'),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const parsed = dealSearchSchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid search params', details: parsed.error.flatten() });
+      }
+
+      const { q, page, pageSize, company } = parsed.data;
+      const requestedTenantId = parsed.data.tenantId;
+      if (requestedTenantId && requestedTenantId !== tenantId) {
+        return res.status(403).json({ error: 'Tenant scope mismatch' });
+      }
+
+      const deals = await crmIntegrationService.fetchDeals(tenantId);
+      const query = (q ?? '').toLowerCase();
+      const companyFilter = (company ?? '').toLowerCase();
+
+      const filtered = deals.filter((deal) => {
+        const name = (deal.name ?? '').toLowerCase();
+        const companyName = (deal.companyName ?? '').toLowerCase();
+        const queryMatch = !query || name.includes(query) || companyName.includes(query);
+        const companyMatch = !companyFilter || companyName.includes(companyFilter);
+        return queryMatch && companyMatch;
+      });
+
+      const start = (page - 1) * pageSize;
+      const paged = filtered.slice(start, start + pageSize).map((deal) => ({
+        id: deal.id,
+        name: deal.name,
+        company: deal.companyName ?? 'Unknown company',
+        stage: mapStage(deal.stage),
+        amount: deal.amount ?? undefined,
+        closeDate: deal.closeDate?.toISOString(),
+        crmId: deal.externalId ?? deal.id,
+        crmSource: deal.provider === 'salesforce' ? 'salesforce' : 'hubspot',
+        owner: deal.ownerName ?? undefined,
+        lastActivity: deal.updatedAt?.toISOString(),
+      }));
+
+      return res.json({
+        deals: paged,
+        total: filtered.length,
+        hasMore: start + pageSize < filtered.length,
+        page,
+        pageSize,
+      });
+    } catch (error) {
+      logger.error('Deal search failed', error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: 'Failed to search deals' });
     }
   },
 );
