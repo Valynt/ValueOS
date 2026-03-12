@@ -389,6 +389,9 @@ jobs:
             --reporter=junit \
             --outputFile.junit=artifacts/critical-workflows/versioning-contract.junit.xml
       - name: Reload durability checks
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           pnpm exec playwright test \
             tests/e2e/workflows/wf-1.spec.ts \
@@ -457,7 +460,12 @@ jobs:
         run: |
           mkdir -p artifacts/nightly/${{ matrix.suite }}
           if [ "${{ matrix.suite }}" = "matrix" ]; then
-            pnpm exec vitest run tests/matrix/infra-mode.matrix.test.ts tests/matrix/infra-mode.pilot.test.ts \
+            pnpm exec vitest run \
+              --config tests/vitest.shared.config.ts \
+              tests/matrix/infra-mode.matrix.test.ts \
+              tests/matrix/infra-mode.pilot.test.ts \
+              tests/matrix/messaging-mode.pilot.test.ts \
+              tests/matrix/kafka-streaming-combinations.test.ts \
               --reporter=verbose \
               --reporter=junit \
               --outputFile.junit=artifacts/nightly/${{ matrix.suite }}/vitest-matrix.junit.xml

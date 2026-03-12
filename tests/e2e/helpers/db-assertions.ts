@@ -1,5 +1,7 @@
 import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { pollForRow } from './db-query';
 import type { WorkflowFixture } from './workflow-fixtures';
 
 const EXECUTE_ENDPOINTS = ['/api/workflows/execute', '/api/workflow/execute'];
@@ -51,28 +53,71 @@ export async function runWorkflowRequest(
   };
 }
 
-export async function assertWorkflowPersistenceBoundary(
+/**
+ * Asserts that the API response contains the submitted runId and a non-error
+ * status. Replaces assertSessionSeeded as the post-submission step.
+ */
+export function assertBackendHasRecord(
   boundaryResponse: WorkflowBoundaryResponse,
   workflow: WorkflowFixture,
-  expectedRunId: string,
-): Promise<void> {
+  runId: string,
+): void {
   const { response, body } = boundaryResponse;
 
   expect(
     response.status(),
-    `Workflow ${workflow.id} should hit a real backend boundary (non-5xx expected).`,
+    `Workflow ${workflow.id}: expected non-5xx from backend`,
   ).toBeLessThan(500);
 
   expect(body).toBeTruthy();
 
   if (typeof body === 'object' && body !== null) {
-    const bodyRecord = body as Record<string, unknown>;
-    const serialized = JSON.stringify(bodyRecord);
+    const serialized = JSON.stringify(body as Record<string, unknown>);
     expect(
-      serialized.includes(expectedRunId) || serialized.includes(workflow.workflowDefinitionId),
-      `Workflow ${workflow.id} response should include workflow context for traceability`,
+      serialized.includes(runId) || serialized.includes(workflow.workflowDefinitionId),
+      `Workflow ${workflow.id}: response should include run_id or workflowDefinitionId`,
     ).toBeTruthy();
   }
+}
+
+/**
+ * Per-workflow DB table and filter configuration.
+ */
+const DB_TARGETS: Record<
+  WorkflowFixture['id'],
+  { table: string; filterKeys: Array<'organization_id' | 'run_id' | 'execution_id'> }
+> = {
+  'WF-1': { table: 'hypothesis_outputs', filterKeys: ['organization_id', 'run_id'] },
+  'WF-2': { table: 'workflow_runs', filterKeys: ['organization_id', 'run_id'] },
+  'WF-3': { table: 'workflow_checkpoints', filterKeys: ['execution_id'] },
+  'WF-4': { table: 'financial_model_snapshots', filterKeys: ['organization_id', 'run_id'] },
+  'WF-5': { table: 'workflow_runs', filterKeys: ['organization_id', 'run_id'] },
+};
+
+/**
+ * Polls the DB until the expected row exists for the given workflow execution.
+ * Returns the row for downstream UI comparison via assertUIMatchesDB.
+ */
+export async function assertDBPersistence(
+  supabase: SupabaseClient,
+  workflow: WorkflowFixture,
+  runId: string,
+  organizationId: string,
+  executionId?: string,
+): Promise<Record<string, unknown>> {
+  const target = DB_TARGETS[workflow.id];
+
+  const filter: Record<string, string> = {};
+  for (const key of target.filterKeys) {
+    if (key === 'organization_id') filter[key] = organizationId;
+    else if (key === 'run_id') filter[key] = runId;
+    else if (key === 'execution_id') {
+      if (!executionId) throw new Error(`WF-3 assertDBPersistence requires executionId`);
+      filter[key] = executionId;
+    }
+  }
+
+  return pollForRow(supabase, target.table, filter);
 }
 
 async function safeJson(response: APIResponse): Promise<unknown> {

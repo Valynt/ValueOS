@@ -6,6 +6,7 @@ export default defineConfig({
     include: [
       "tests/shared/*.test.ts",
       "tests/matrix/*.test.ts",
+      "tests/chaos/*.test.ts",
       "scripts/*.test.ts",
     ],
   },
