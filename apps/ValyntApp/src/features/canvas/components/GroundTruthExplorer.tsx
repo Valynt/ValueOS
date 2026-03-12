@@ -2,6 +2,7 @@ import React, { useState } from "react";
 
 import type { ESOIndustry } from "../../../types/eso";
 import { useGroundTruth } from "../hooks/useGroundTruth";
+import type { GroundTruthMetric } from "../services/GroundTruthService";
 
 import { ConfidenceBadge } from "./ConfidenceBadge";
 
@@ -15,7 +16,7 @@ export const GroundTruthExplorer: React.FC = () => {
   const { fetchMetricBenchmark, isLoading, error } = useGroundTruth();
   const [metricId, setMetricId] = useState("revenue_per_employee");
   const [industry, setIndustry] = useState<ESOIndustry>("Software");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<GroundTruthMetric | null>(null);
 
   const handleExplore = async () => {
     const data = await fetchMetricBenchmark(metricId, industry);
