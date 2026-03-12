@@ -155,6 +155,9 @@
 - [x] **Remove or gate auth bypass** in `SignupPage.tsx` and `LoginPage.tsx` — hardcoded credentials removed, bypass gated behind `import.meta.env.DEV` (fixed 2026-02-28)
 - [x] **Enable MFA** — `mfaEnabled` now reads `process.env.MFA_ENABLED === 'true'`; set `MFA_ENABLED=true` in production env (fixed 2026-02-28)
 - [x] **Fix CORS default** — removed `*` fallback from `environment.ts:68` and `WebSocketServer.ts:72`; empty default triggers runtime guard (fixed 2026-02-28)
+- [x] **CORS origin validation gate** — confirm `CORS_ORIGINS` is set to an explicit allowlist (no `*`) before launch. Documented in `.env.example`. `parseCorsAllowlist` rejects wildcards at startup when `credentials: true`.
+- [x] **Docker Compose credential enforcement** — all compose files under `ops/compose/` use `${VAR:?...}` syntax; no hardcoded credentials. Verified in `ops/compose/compose.yml`, `profiles/studio.yml`, `profiles/supabase.yml`.
+- [x] **Frontend bundle service-role check** — CI step `Guard frontend bundle service-role identifiers` runs on every PR via `pnpm check:frontend-bundle-service-role`. Blocks `SUPABASE_SERVICE_ROLE_KEY` and `createServerSupabaseClient` in the bundle.
 - [ ] **Fix DATABASE_URL fallback** — remove `postgres:postgres` inline default in `compose.yml:31`
 - [ ] **Add tenant filter** to `ValueFabricService.ts` frontend queries (`getBenchmarks`, `getOntologyStats`)
 - [ ] **Audit `service_role` in browser bundle** — verify `UsageTrackingService.ts` server-only require is not resolved by Vite

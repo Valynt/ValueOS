@@ -58,4 +58,26 @@ describe("API versioning compatibility contracts", () => {
     expect(response.headers.get("api-version")).toBe("v1");
     expect(body.error).toBe("unsupported_version");
   });
+
+  it("sets API-Deprecated-Versions header on supported deprecated version", async () => {
+    const app = express();
+    const versioned = createVersionedApiRouter({ _deprecatedVersionsOverride: ["v1"] });
+    versioned.get("/health", (_req, res) => res.json({ ok: true }));
+    app.use(versioned);
+
+    const { response } = await call(app, "/v1/health");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("api-deprecated-versions")).toBe("v1");
+  });
+
+  it("sets API-Deprecated-Versions header on unsupported version response", async () => {
+    const app = express();
+    const versioned = createVersionedApiRouter({ _deprecatedVersionsOverride: ["v1"] });
+    versioned.get("/health", (_req, res) => res.json({ ok: true }));
+    app.use(versioned);
+
+    const { response } = await call(app, "/v2/health");
+    expect(response.status).toBe(426);
+    expect(response.headers.get("api-deprecated-versions")).toBe("v1");
+  });
 });
