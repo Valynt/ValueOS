@@ -200,9 +200,22 @@ export class EventSourcingManager {
       const snapshot = await this.getSnapshot(aggregateId, fromVersion);
 
       let currentState = snapshot?.state || this.getInitialState(aggregateType);
-      let startVersion = snapshot?.version || 0;
+      let startVersion: number;
 
-      // Get events from snapshot version or fromVersion
+      if (snapshot) {
+        // Start from the first event AFTER the snapshot version to avoid double-applying
+        startVersion = snapshot.version + 1;
+
+        // If caller requested a later starting version, honor that
+        if (fromVersion !== undefined && fromVersion > startVersion) {
+          startVersion = fromVersion;
+        }
+      } else {
+        // No snapshot: start from requested version or from the beginning
+        startVersion = fromVersion ?? 0;
+      }
+
+      // Get events from computed start version
       const events = await this.eventStore.getEvents(aggregateId, tenantId, startVersion);
 
       // Apply events in order
