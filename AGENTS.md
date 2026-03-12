@@ -191,11 +191,7 @@ Full policy-as-code: `.windsurf/rules/global.md`
 1. **Debt entries:** Read the referenced file before treating a debt item as open. If the code no longer matches the description (e.g. methods are implemented, TODOs are gone), mark the item resolved in `debt.md` rather than scheduling it.
 2. **`any` counts:** Re-measure with grep before writing sprint targets or claiming a reduction. Do not trust the table values as current.
    ```bash
-   grep -rn ": any\b\|as any\b\|<any>" <path> --include="*.ts" --include="*.tsx" | wc -l
-   ```
-   Exclude test files when reporting production counts:
-   ```bash
-   grep -rn ": any\b\|as any\b\|<any>" <path> --include="*.ts" --include="*.tsx" \
+   grep -rnE ":[[:space:]]*\<any\>|as[[:space:]]+\<any\>|<any>" <path> --include="*.ts" --include="*.tsx" | wc -l
      | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l
    ```
 
