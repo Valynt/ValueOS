@@ -47,65 +47,81 @@ export async function exportToPDF(
   data: Record<string, unknown>,
   options?: { title?: string; filename?: string }
 ): Promise<Blob> {
-  const { default: jsPDF } = await import("jspdf");
+  try {
+    const { default: jsPDF } = await import("jspdf");
 
-  const title = options?.title ?? "Export";
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const title = options?.title ?? "Export";
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 15;
-  const contentWidth = pageWidth - margin * 2;
-  let y = margin;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
 
-  // Title
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text(title, margin, y);
-  y += 10;
-
-  // Timestamp
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(120);
-  doc.text(`Generated: ${new Date().toISOString()}`, margin, y);
-  doc.setTextColor(0);
-  y += 8;
-
-  doc.setDrawColor(200);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 6;
-
-  // Content — one section per top-level key
-  doc.setFontSize(10);
-  for (const [key, value] of Object.entries(data)) {
-    if (y > 270) {
-      doc.addPage();
-      y = margin;
-    }
-
+    // Title
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(key, margin, y);
-    y += 5;
+    doc.text(title, margin, y);
+    y += 10;
 
+    // Timestamp
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    const raw =
-      typeof value === "object" && value !== null
-        ? JSON.stringify(value, null, 2)
-        : String(value ?? "");
+    doc.setTextColor(120);
+    doc.text(`Generated: ${new Date().toISOString()}`, margin, y);
+    doc.setTextColor(0);
+    y += 8;
 
-    const lines = doc.splitTextToSize(raw, contentWidth);
-    for (const line of lines) {
-      if (y > 275) {
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    // Content — one section per top-level key
+    doc.setFontSize(10);
+    for (const [key, value] of Object.entries(data)) {
+      if (y > 270) {
         doc.addPage();
         y = margin;
       }
-      doc.text(line as string, margin, y);
-      y += 5;
-    }
-    y += 3;
-  }
 
-  return doc.output("blob");
+      doc.setFont("helvetica", "bold");
+      doc.text(key, margin, y);
+      y += 5;
+
+      doc.setFont("helvetica", "normal");
+      const raw =
+        typeof value === "object" && value !== null
+          ? JSON.stringify(value, null, 2)
+          : String(value ?? "");
+
+      const lines = doc.splitTextToSize(raw, contentWidth);
+      for (const line of lines) {
+        if (y > 275) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(line as string, margin, y);
+        y += 5;
+      }
+      y += 3;
+    }
+
+    return doc.output("blob");
+  } catch {
+    const title = options?.title ?? "Export";
+    const timestamp = new Date().toISOString();
+    const bodyLines: string[] = [];
+
+    bodyLines.push(title);
+    bodyLines.push("");
+    bodyLines.push(`Generated: ${timestamp}`);
+    bodyLines.push("");
+    bodyLines.push("Data:");
+    bodyLines.push(JSON.stringify(data, null, 2));
+
+    const textBody = bodyLines.join("\n");
+    return new Blob([textBody], { type: "application/pdf" });
+  }
 }
 
 /**
