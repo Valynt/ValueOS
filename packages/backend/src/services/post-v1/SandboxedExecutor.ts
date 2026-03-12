@@ -1,21 +1,13 @@
-/**
- * Sandboxed Code Execution Service
- *
- * Secure execution environment for agent-generated code using the E2B SDK.
- * Enables FinancialModelingAgent to run Python calculations (NPV, IRR, Monte Carlo)
- * that LLMs cannot reliably compute inline.
- *
- * Requires E2B_API_KEY environment variable.
- */
-
-import { Sandbox } from '@e2b/code-interpreter';
-import { logger } from '../utils/logger.js';
+import {
+  SandboxedExecutor as CoreSandboxedExecutor,
+  type SandboxedExecutionResult,
+} from "../SandboxedExecutor.js";
 
 export interface SandboxConfig {
-  language: 'python' | 'javascript';
-  /** Execution timeout in milliseconds. Default: 30 000. */
+  language: "python" | "javascript";
   timeout?: number;
   environment?: Record<string, string>;
+  tenantId?: string;
 }
 
 export interface ExecutionResult {
@@ -25,118 +17,46 @@ export interface ExecutionResult {
   stderr?: string;
   error?: string;
   duration: number;
+  exitCode?: number | null;
+  status: SandboxedExecutionResult["status"];
 }
 
-// ---------------------------------------------------------------------------
-// SandboxedExecutor
-// ---------------------------------------------------------------------------
-
 export class SandboxedExecutor {
-  private readonly apiKey: string;
+  private readonly executor: CoreSandboxedExecutor;
 
-  constructor() {
-    this.apiKey = process.env['E2B_API_KEY'] ?? '';
-    if (!this.apiKey) {
-      logger.warn('E2B_API_KEY not set — sandboxed execution disabled.');
-    }
+  constructor(executor: CoreSandboxedExecutor = new CoreSandboxedExecutor()) {
+    this.executor = executor;
   }
 
   async executePython(code: string, config: Partial<SandboxConfig> = {}): Promise<ExecutionResult> {
-    return this.execute(code, { ...config, language: 'python' });
+    return this.execute(code, { ...config, language: "python" });
   }
 
   async executeJavaScript(code: string, config: Partial<SandboxConfig> = {}): Promise<ExecutionResult> {
-    return this.execute(code, { ...config, language: 'javascript' });
+    return this.execute(code, { ...config, language: "javascript" });
   }
 
   async execute(code: string, config: SandboxConfig): Promise<ExecutionResult> {
-    if (!this.apiKey) {
-      return { success: false, error: 'E2B_API_KEY not configured', duration: 0 };
-    }
+    const result = await this.executor.execute({
+      code,
+      language: config.language,
+      timeoutMs: config.timeout,
+      environment: config.environment,
+      tenantId: config.tenantId ?? "system",
+    });
 
-    const startTime = Date.now();
-    const timeoutMs = config.timeout ?? 30_000;
-
-    let sandbox: Sandbox | null = null;
-    try {
-      logger.info('Creating E2B sandbox', { language: config.language });
-
-      sandbox = await Sandbox.create({
-        apiKey: this.apiKey,
-        timeoutMs,
-        envVars: config.environment,
-      });
-
-      const execution = await sandbox.runCode(code);
-
-      const duration = Date.now() - startTime;
-      const stdout = execution.logs.stdout.join('');
-      const stderr = execution.logs.stderr.join('');
-      const hasError = execution.error !== null && execution.error !== undefined;
-
-      logger.info('E2B execution completed', { success: !hasError, duration });
-
-      return {
-        success: !hasError,
-        output: execution.results[0]?.data ?? undefined,
-        stdout: stdout || undefined,
-        stderr: stderr || undefined,
-        error: hasError ? String(execution.error) : undefined,
-        duration,
-      };
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('E2B execution failed', { error: message, duration });
-      return { success: false, error: message, duration };
-    } finally {
-      if (sandbox) {
-        await sandbox.kill().catch((err: unknown) => {
-          logger.warn('Failed to kill E2B sandbox', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
-      }
-    }
-  }
-
-  /**
-   * Validate code for dangerous patterns before sending to sandbox.
-   * The sandbox itself is isolated, but this provides an early-exit signal.
-   */
-  validateCode(code: string, language: string): { safe: boolean; issues: string[] } {
-    const issues: string[] = [];
-
-    const dangerousPatterns: Record<string, RegExp[]> = {
-      python: [
-        /import\s+os\b/i,
-        /import\s+subprocess\b/i,
-        /import\s+sys\b/i,
-        /\beval\s*\(/i,
-        /\bexec\s*\(/i,
-        /__import__\s*\(/i,
-      ],
-      javascript: [
-        /require\s*\(\s*['"]fs['"]\s*\)/i,
-        /require\s*\(\s*['"]child_process['"]\s*\)/i,
-        /\beval\s*\(/i,
-        /\bFunction\s*\(/i,
-      ],
+    return {
+      success: result.status === "completed",
+      output: undefined,
+      stdout: result.stdout || undefined,
+      stderr: result.stderr || undefined,
+      error: result.error,
+      duration: result.durationMs,
+      exitCode: result.exitCode,
+      status: result.status,
     };
-
-    for (const pattern of dangerousPatterns[language] ?? []) {
-      if (pattern.test(code)) {
-        issues.push(`Dangerous pattern: ${pattern.source}`);
-      }
-    }
-
-    return { safe: issues.length === 0, issues };
   }
 }
-
-// ---------------------------------------------------------------------------
-// Input validation helpers
-// ---------------------------------------------------------------------------
 
 function assertFiniteNumber(value: number, name: string): void {
   if (!Number.isFinite(value)) {
@@ -152,9 +72,6 @@ function assertFiniteArray(values: number[], name: string): void {
   }
 }
 
-/**
- * Financial Calculation Tool using Sandboxed Execution
- */
 export class FinancialCalculationTool {
   private executor: SandboxedExecutor;
 
@@ -163,8 +80,8 @@ export class FinancialCalculationTool {
   }
 
   async calculateNPV(cashFlows: number[], discountRate: number): Promise<number> {
-    assertFiniteArray(cashFlows, 'cashFlows');
-    assertFiniteNumber(discountRate, 'discountRate');
+    assertFiniteArray(cashFlows, "cashFlows");
+    assertFiniteNumber(discountRate, "discountRate");
     const code = `
 import numpy as np
 cash_flows = ${JSON.stringify(cashFlows)}
@@ -174,11 +91,11 @@ print(npv)
 `;
     const result = await this.executor.executePython(code, { timeout: 5000 });
     if (!result.success) throw new Error(`NPV calculation failed: ${result.error}`);
-    return parseFloat(result.stdout || '0');
+    return parseFloat(result.stdout || "0");
   }
 
   async calculateIRR(cashFlows: number[]): Promise<number> {
-    assertFiniteArray(cashFlows, 'cashFlows');
+    assertFiniteArray(cashFlows, "cashFlows");
     const code = `
 cash_flows = ${JSON.stringify(cashFlows)}
 
@@ -200,7 +117,7 @@ print(rate)
 `;
     const result = await this.executor.executePython(code, { timeout: 5000 });
     if (!result.success) throw new Error(`IRR calculation failed: ${result.error}`);
-    return parseFloat(result.stdout || '0');
+    return parseFloat(result.stdout || "0");
   }
 
   async monteCarloSimulation(params: {
@@ -210,11 +127,11 @@ print(rate)
     periods: number;
     simulations: number;
   }): Promise<{ mean: number; median: number; percentile5: number; percentile95: number; results: number[] }> {
-    assertFiniteNumber(params.initialValue, 'initialValue');
-    assertFiniteNumber(params.expectedReturn, 'expectedReturn');
-    assertFiniteNumber(params.volatility, 'volatility');
-    assertFiniteNumber(params.periods, 'periods');
-    assertFiniteNumber(params.simulations, 'simulations');
+    assertFiniteNumber(params.initialValue, "initialValue");
+    assertFiniteNumber(params.expectedReturn, "expectedReturn");
+    assertFiniteNumber(params.volatility, "volatility");
+    assertFiniteNumber(params.periods, "periods");
+    assertFiniteNumber(params.simulations, "simulations");
     const code = `
 import numpy as np, json
 np.random.seed(42)
@@ -231,14 +148,18 @@ print(json.dumps({'mean': float(np.mean(a)), 'median': float(np.median(a)),
 `;
     const result = await this.executor.executePython(code, { timeout: 10000 });
     if (!result.success) throw new Error(`Monte Carlo simulation failed: ${result.error}`);
-    return JSON.parse(result.stdout || '{}') as {
-      mean: number; median: number; percentile5: number; percentile95: number; results: number[];
+    return JSON.parse(result.stdout || "{}") as {
+      mean: number;
+      median: number;
+      percentile5: number;
+      percentile95: number;
+      results: number[];
     };
   }
 
   async calculatePaybackPeriod(initialInvestment: number, cashFlows: number[]): Promise<number> {
-    assertFiniteNumber(initialInvestment, 'initialInvestment');
-    assertFiniteArray(cashFlows, 'cashFlows');
+    assertFiniteNumber(initialInvestment, "initialInvestment");
+    assertFiniteArray(cashFlows, "cashFlows");
     const code = `
 initial_investment = ${initialInvestment}
 cash_flows = ${JSON.stringify(cashFlows)}
@@ -254,10 +175,9 @@ else:
 `;
     const result = await this.executor.executePython(code, { timeout: 5000 });
     if (!result.success) throw new Error(`Payback period calculation failed: ${result.error}`);
-    return parseFloat(result.stdout || '-1');
+    return parseFloat(result.stdout || "-1");
   }
 }
 
-// Export singleton instances
 export const sandboxedExecutor = new SandboxedExecutor();
 export const financialCalculator = new FinancialCalculationTool();
