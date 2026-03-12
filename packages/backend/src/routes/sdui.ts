@@ -19,6 +19,7 @@ import { Request, Response, Router } from "express";
 import { migrateSchema, migrationRunner } from "../../../sdui/src/migrations.js";
 import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from "../../../sdui/src/schema.js";
 import logger from "../../../shared/src/lib/logger.js";
+import { getUnifiedAgentAPI } from "../services/UnifiedAgentAPI.js";
 import { canvasSchemaService } from "../services/CanvasSchemaService.js";
 
 const router: Router = Router();
@@ -71,7 +72,26 @@ function parseVersion(versionHeader: string | undefined): number | null {
 async function generateSchemaForAgent(agentId: string): Promise<SDUIPageDefinition> {
   logger.info("Generating schema for agent", { agentId });
 
-  // Basic schema for agent view
+  const unifiedApi = getUnifiedAgentAPI();
+  const agentRecord = unifiedApi.getAgent(agentId);
+  const agents = agentRecord
+    ? [
+        {
+          id: agentRecord.id,
+          name: agentRecord.name,
+          status: agentRecord.status,
+          role: agentRecord.lifecycle_stage,
+        },
+      ]
+    : [
+        {
+          id: agentId,
+          name: agentId,
+          status: "offline",
+          role: "unknown",
+        },
+      ];
+
   return {
     type: "page",
     version: SDUI_VERSION,
@@ -81,10 +101,7 @@ async function generateSchemaForAgent(agentId: string): Promise<SDUIPageDefiniti
         component: "AgentWorkflowPanel",
         version: 1,
         props: {
-          agents: [
-            // Minimal mock data for now
-            { id: agentId, name: agentId, status: "active", role: "assistant" },
-          ],
+          agents,
         },
       },
     ],

@@ -15,10 +15,8 @@ import { createHash } from "node:crypto";
 
 import { logger } from "@shared/lib/logger";
 
+import { getSemanticThreshold, semanticMemoryConfig } from "../config/llm.js";
 import { supabase } from "../lib/supabase";
-// TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Create llm config or import from shared
-const semanticMemoryConfig = { cosine_threshold: 0.7, max_results: 10 };
-const getSemanticThreshold = (_type?: string) => 0.7;
 
 // ============================================================================
 // Types
@@ -82,7 +80,7 @@ export class VectorSearchService {
     const {
       type,
       threshold,
-      limit = 10,
+      limit = semanticMemoryConfig.maxResults,
       filters = {},
       useCache = true,
       requireLineage = true,
@@ -98,7 +96,7 @@ export class VectorSearchService {
 
       // Determine threshold
       const effectiveThreshold =
-        threshold || (type ? getSemanticThreshold(type) : semanticMemoryConfig.cosine_threshold);
+        threshold || (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
 
       // Build filter clause
       const filterClause = this.buildFilterClause(type, filters, requireLineage);
