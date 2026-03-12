@@ -11,7 +11,7 @@ export interface PerformanceMetric {
   value: number;
   unit: "ms" | "bytes" | "count";
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PerformanceBenchmark {
@@ -129,11 +129,11 @@ class PerformanceMonitor {
     try {
       const lcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1] as any;
+        const lastEntry = entries[entries.length - 1] as PerformanceEntry & { renderTime?: number; loadTime?: number };
 
         this.recordMetric({
           name: "web-vitals.lcp",
-          value: lastEntry.renderTime || lastEntry.loadTime,
+          value: lastEntry.renderTime ?? lastEntry.loadTime ?? 0,
           unit: "ms",
           timestamp: Date.now(),
         });
@@ -149,10 +149,11 @@ class PerformanceMonitor {
     try {
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
+        entries.forEach((entry) => {
+          const e = entry as PerformanceEntry & { processingStart: number };
           this.recordMetric({
             name: "web-vitals.fid",
-            value: entry.processingStart - entry.startTime,
+            value: e.processingStart - e.startTime,
             unit: "ms",
             timestamp: Date.now(),
           });
@@ -170,9 +171,10 @@ class PerformanceMonitor {
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
-          if (!entry.hadRecentInput) {
-            clsValue += entry.value;
+        entries.forEach((entry) => {
+          const e = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+          if (!e.hadRecentInput) {
+            clsValue += e.value ?? 0;
           }
         });
 
@@ -212,8 +214,9 @@ class PerformanceMonitor {
     try {
       const inpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
-          const duration = entry.processingEnd - entry.startTime;
+        entries.forEach((entry) => {
+          const e = entry as PerformanceEntry & { processingEnd: number; target?: unknown };
+          const duration = e.processingEnd - e.startTime;
 
           this.recordMetric({
             name: "web-vitals.inp",
@@ -221,8 +224,8 @@ class PerformanceMonitor {
             unit: "ms",
             timestamp: Date.now(),
             metadata: {
-              interactionType: entry.name,
-              target: entry.target,
+              interactionType: e.name,
+              target: e.target,
             },
           });
         });
@@ -246,7 +249,7 @@ class PerformanceMonitor {
     try {
       const fcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
+        entries.forEach((entry) => {
           this.recordMetric({
             name: "web-vitals.fcp",
             value: entry.startTime,
@@ -276,7 +279,7 @@ class PerformanceMonitor {
       let tbtValue = 0;
       const tbtObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        entries.forEach((entry: any) => {
+        entries.forEach((entry) => {
           if (entry.duration > 50) {
             tbtValue += entry.duration - 50;
           }
@@ -304,14 +307,13 @@ class PerformanceMonitor {
     metric: PerformanceMetric,
     severity: "warning" | "critical"
   ): void {
-    if (typeof window !== "undefined" && (window as any).analytics) {
-      (window as any).analytics.track("Performance Issue", {
-        metric: metric.name,
-        value: metric.value,
-        unit: metric.unit,
-        severity,
-        timestamp: metric.timestamp,
-      });
+    if (typeof window === "undefined") return;
+    const analytics = (window as Record<string, unknown>)["analytics"];
+    if (analytics && typeof analytics === "object" && "track" in analytics) {
+      (analytics as { track: (event: string, props: Record<string, unknown>) => void }).track(
+        "Performance Issue",
+        { metric: metric.name, value: metric.value, unit: metric.unit, severity, timestamp: metric.timestamp }
+      );
     }
   }
 
@@ -324,7 +326,7 @@ class PerformanceMonitor {
   } {
     const metricNames = [...new Set(this.metrics.map((m) => m.name))];
 
-    const summary: Record<string, any> = {};
+    const summary: Record<string, { avg: number; p50: number; p95: number; p99: number }> = {};
     const issues: Array<{ name: string; severity: string; value: number }> = [];
 
     metricNames.forEach((name) => {
@@ -428,11 +430,13 @@ class PerformanceMonitor {
    * Track memory usage (if available)
    */
   trackMemoryUsage(): void {
-    if (typeof window === "undefined" || !(performance as any).memory) {
+    type MemoryInfo = { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number };
+    const perf = performance as Performance & { memory?: MemoryInfo };
+    if (typeof window === "undefined" || !perf.memory) {
       return;
     }
 
-    const memory = (performance as any).memory;
+    const memory = perf.memory;
 
     this.recordMetric({
       name: "memory.used",
@@ -505,16 +509,16 @@ export const usePerformanceMonitor = (name: string) => {
 /**
  * Debounce function with performance tracking
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: Parameters<T>) => ReturnType<T>>(
   func: T,
   wait: number,
   options: { leading?: boolean; trailing?: boolean; maxWait?: number } = {}
 ): T & { cancel: () => void; flush: () => void } {
   let timeoutId: NodeJS.Timeout | undefined;
   let maxTimeoutId: NodeJS.Timeout | undefined;
-  let lastArgs: any[] | undefined;
-  let lastThis: any;
-  let result: any;
+  let lastArgs: Parameters<T> | undefined;
+  let lastThis: unknown;
+  let result: ReturnType<T> | undefined;
   let lastCallTime: number | undefined;
   let lastInvokeTime = 0;
 
@@ -599,7 +603,7 @@ export function debounce<T extends (...args: any[]) => any>(
     return timeoutId === undefined ? result : trailingEdge(Date.now());
   }
 
-  function debounced(this: any, ...args: any[]) {
+  function debounced(this: unknown, ...args: Parameters<T>) {
     const time = Date.now();
     const isInvoking = shouldInvoke(time);
 
@@ -625,5 +629,5 @@ export function debounce<T extends (...args: any[]) => any>(
   debounced.cancel = cancel;
   debounced.flush = flush;
 
-  return debounced as any;
+  return debounced as unknown as T & { cancel: () => void; flush: () => void };
 }

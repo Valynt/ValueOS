@@ -5,8 +5,19 @@
  * Includes context tracking, log levels, and automatic PII filtering.
  */
 
+import type { NextFunction, Request, Response } from 'express';
 import winston from 'winston';
 import CloudWatchTransport from 'winston-cloudwatch';
+
+// Augment Express Request to include middleware-attached properties
+declare global {
+  namespace Express {
+    interface Request {
+      requestId?: string;
+      logger?: Logger;
+    }
+  }
+}
 
 // Log levels
 export enum LogLevel {
@@ -27,7 +38,7 @@ export interface LogContext {
   method?: string;
   statusCode?: number;
   duration?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // PII patterns to filter
@@ -63,7 +74,7 @@ const logFormat = winston.format.combine(
     const filteredMessage = typeof message === 'string' ? filterPII(message) : message;
     
     // Build log entry
-    const logEntry: any = {
+    const logEntry: Record<string, unknown> = {
       timestamp,
       level,
       message: filteredMessage,
@@ -167,7 +178,7 @@ export class Logger {
   /**
    * Log error
    */
-  error(message: string, error?: Error, meta?: any): void {
+  error(message: string, error?: Error, meta?: LogContext): void {
     winstonLogger.error(message, {
       ...this.context,
       ...meta,
@@ -182,7 +193,7 @@ export class Logger {
   /**
    * Log warning
    */
-  warn(message: string, meta?: any): void {
+  warn(message: string, meta?: LogContext): void {
     winstonLogger.warn(message, {
       ...this.context,
       ...meta
@@ -192,7 +203,7 @@ export class Logger {
   /**
    * Log info
    */
-  info(message: string, meta?: any): void {
+  info(message: string, meta?: LogContext): void {
     winstonLogger.info(message, {
       ...this.context,
       ...meta
@@ -202,7 +213,7 @@ export class Logger {
   /**
    * Log HTTP request
    */
-  http(message: string, meta?: any): void {
+  http(message: string, meta?: LogContext): void {
     winstonLogger.http(message, {
       ...this.context,
       ...meta
@@ -212,7 +223,7 @@ export class Logger {
   /**
    * Log debug
    */
-  debug(message: string, meta?: any): void {
+  debug(message: string, meta?: LogContext): void {
     winstonLogger.debug(message, {
       ...this.context,
       ...meta
@@ -256,7 +267,7 @@ export class Logger {
   /**
    * Log cache operation
    */
-  cache(operation: 'hit' | 'miss' | 'set' | 'delete', key: string, meta?: any): void {
+  cache(operation: 'hit' | 'miss' | 'set' | 'delete', key: string, meta?: LogContext): void {
     this.debug(`Cache ${operation}: ${key}`, {
       category: 'cache',
       ...meta
@@ -270,7 +281,7 @@ export const logger = new Logger();
 /**
  * Express middleware for request logging
  */
-export function requestLogger(req: any, res: any, next: any): void {
+export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const startTime = Date.now();
   const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
@@ -313,7 +324,7 @@ export function requestLogger(req: any, res: any, next: any): void {
 /**
  * Error logging middleware
  */
-export function errorLogger(err: Error, req: any, res: any, next: any): void {
+export function errorLogger(err: Error, req: Request, res: Response, next: NextFunction): void {
   const logger = req.logger || new Logger();
   
   logger.error('Request error', err, {

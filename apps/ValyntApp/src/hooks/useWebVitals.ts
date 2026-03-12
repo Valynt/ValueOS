@@ -19,7 +19,6 @@ export const useWebVitals = () => {
       logger.info("FID:", metric);
       sendToAnalytics("FID", metric);
     });
-    */
 
     onFCP((metric) => {
       logger.info("FCP:", metric);

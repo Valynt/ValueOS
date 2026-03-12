@@ -70,11 +70,11 @@ export interface ContributionMetrics {
 export interface SharedContext {
   sessionId: string;
   objective: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   history: ContextEntry[];
   artifacts: Artifact[];
   constraints: Constraint[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ContextEntry {
@@ -92,7 +92,7 @@ export interface Artifact {
   type: "report" | "analysis" | "recommendation" | "model" | "data";
   name: string;
   description: string;
-  content: any;
+  content: unknown;
   createdBy: string;
   createdAt: number;
   version: number;
@@ -124,12 +124,12 @@ export interface CollaborationTask {
   type: TaskType;
   assignedTo: string[];
   dependencies: string[];
-  input: any;
-  output: any;
+  input: unknown;
+  output: unknown;
   status: TaskStatus;
   priority: TaskPriority;
   deadline?: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ConflictResolution {
@@ -199,7 +199,7 @@ export type ConsensusType = "unanimous" | "majority" | "supermajority" | "weight
 
 export class AgentCollaborationService extends EventEmitter {
   private messageBroker: AgentMessageBroker;
-  private performanceMonitor: any;
+  private performanceMonitor: ReturnType<typeof getAgentPerformanceMonitor>;
   private teams = new Map<string, AgentTeam>();
   private activeCollaborations = new Map<string, CollaborationTask>();
   private conflicts = new Map<string, ConflictResolution>();
@@ -277,7 +277,7 @@ export class AgentCollaborationService extends EventEmitter {
   /**
    * Execute a collaborative task
    */
-  async executeCollaborativeTask(teamId: string, task: CollaborationTask): Promise<any> {
+  async executeCollaborativeTask(teamId: string, task: CollaborationTask): Promise<unknown> {
     const team = this.teams.get(teamId);
     if (!team) {
       throw new Error(`Team ${teamId} not found`);
@@ -292,7 +292,7 @@ export class AgentCollaborationService extends EventEmitter {
       team.lastActivity = Date.now();
 
       // Execute based on collaboration pattern
-      let result: any;
+      let result: unknown;
 
       switch (team.collaborationPattern) {
         case "sequential":
@@ -510,19 +510,20 @@ export class AgentCollaborationService extends EventEmitter {
 
   private setupMessageHandlers(): void {
     // Handle incoming collaboration messages
-    this.messageBroker.on("message", (message: any) => {
+    this.messageBroker.on("message", (message: unknown) => {
       this.handleCollaborationMessage(message);
     });
   }
 
-  private handleCollaborationMessage(message: any): void {
-    // Process collaboration-specific messages
-    if (message.type === "collaboration_request") {
-      this.handleCollaborationRequest(message);
-    } else if (message.type === "conflict_notification") {
-      this.handleConflictNotification(message);
-    } else if (message.type === "consensus_request") {
-      this.handleConsensusRequest(message);
+  private handleCollaborationMessage(message: unknown): void {
+    if (typeof message !== "object" || message === null) return;
+    const msg = message as Record<string, unknown>;
+    if (msg["type"] === "collaboration_request") {
+      this.handleCollaborationRequest(msg);
+    } else if (msg["type"] === "conflict_notification") {
+      this.handleConflictNotification(msg);
+    } else if (msg["type"] === "consensus_request") {
+      this.handleConsensusRequest(msg);
     }
   }
 
@@ -558,7 +559,7 @@ export class AgentCollaborationService extends EventEmitter {
     return members;
   }
 
-  private async findAgentsByRole(role: TeamRole): Promise<any[]> {
+  private async findAgentsByRole(role: TeamRole): Promise<{ id: string; type: string }[]> {
     // In practice, this would query the agent registry
     // For now, return mock agents
     return [{ id: `agent-${role.type}`, type: role.type }];
@@ -606,7 +607,7 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeSequentialCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     const results: unknown[] = [];
 
     for (const agentId of task.assignedTo) {
@@ -626,7 +627,7 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeParallelCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     const promises = task.assignedTo.map((agentId) => this.assignTaskToAgent(agentId, task));
 
     const results = await Promise.all(promises);
@@ -636,8 +637,8 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeIterativeCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
-    let currentResult = task.input;
+  ): Promise<unknown> {
+    let currentResult: unknown = task.input;
     let iterations = 0;
     const maxIterations = 5;
 
@@ -647,8 +648,7 @@ export class AgentCollaborationService extends EventEmitter {
         input: currentResult,
       };
 
-      const results = await this.executeParallelCollaboration(team, iterationTask);
-      const synthesized = this.synthesizeResults(results);
+      const synthesized = await this.executeParallelCollaboration(team, iterationTask);
 
       // Check for convergence
       if (this.hasConverged(currentResult, synthesized)) {
@@ -665,9 +665,9 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeAdaptiveCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Start with parallel execution
-    let result = await this.executeParallelCollaboration(team, task);
+    let result: unknown = await this.executeParallelCollaboration(team, task);
 
     // Adapt based on results and team performance
     if (this.shouldSwitchToSequential(team, task, result)) {
@@ -679,15 +679,14 @@ export class AgentCollaborationService extends EventEmitter {
     return result;
   }
 
-  private async assignTaskToAgent(agentId: string, task: CollaborationTask): Promise<any> {
+  private async assignTaskToAgent(agentId: string, task: CollaborationTask): Promise<unknown> {
     return await this.messageBroker.sendToAgent("collaboration_service", agentId, {
       type: "task_assignment",
       task,
     });
   }
 
-  private synthesizeResults(results: any[]): any {
-    // Simple synthesis - in practice would use more sophisticated methods
+  private synthesizeResults(results: unknown[]): { combinedResults: unknown[]; synthesisTime: number; confidence: number } {
     return {
       combinedResults: results,
       synthesisTime: Date.now(),
@@ -695,29 +694,33 @@ export class AgentCollaborationService extends EventEmitter {
     };
   }
 
-  private calculateSynthesisConfidence(results: any[]): number {
+  private calculateSynthesisConfidence(results: unknown[]): number {
     if (results.length === 0) return 0;
 
     const avgConfidence =
-      results.reduce((sum: number, result: any) => sum + (result.confidence || 0.5), 0) /
-      results.length;
+      results.reduce((sum: number, result: unknown) => {
+        const confidence = typeof result === "object" && result !== null && "confidence" in result
+          ? (result as { confidence: unknown }).confidence
+          : undefined;
+        return sum + (typeof confidence === "number" ? confidence : 0.5);
+      }, 0) / results.length;
 
     return avgConfidence;
   }
 
-  private hasConverged(previous: any, current: any): boolean {
-    // Simple convergence check
+  private hasConverged(previous: unknown, current: unknown): boolean {
     return JSON.stringify(previous) === JSON.stringify(current);
   }
 
-  private shouldSwitchToSequential(team: AgentTeam, task: CollaborationTask, result: any): boolean {
-    // Decision logic for switching to sequential
+  private shouldSwitchToSequential(_team: AgentTeam, task: CollaborationTask, _result: unknown): boolean {
     return task.dependencies.length > 0;
   }
 
-  private shouldSwitchToIterative(team: AgentTeam, task: CollaborationTask, result: any): boolean {
-    // Decision logic for switching to iterative
-    return (result.confidence || 0) < 0.8;
+  private shouldSwitchToIterative(_team: AgentTeam, _task: CollaborationTask, result: unknown): boolean {
+    const confidence = typeof result === "object" && result !== null && "confidence" in result
+      ? (result as { confidence: unknown }).confidence
+      : undefined;
+    return (typeof confidence === "number" ? confidence : 0) < 0.8;
   }
 
   private async updateTeamContext(team: AgentTeam, entry: ContextEntry): Promise<void> {
@@ -764,16 +767,21 @@ export class AgentCollaborationService extends EventEmitter {
       consensusType,
     });
 
+    const data = response.data as Record<string, unknown> | undefined;
+    const vote = data?.["vote"];
+    const reasoning = data?.["reasoning"];
+    const confidence = data?.["confidence"];
+
     return {
       agentId,
-      vote: response.vote || "abstain",
-      reasoning: response.reasoning || "No reasoning provided",
-      confidence: response.confidence || 0.5,
+      vote: (vote === "approve" || vote === "reject" || vote === "abstain") ? vote : "abstain",
+      reasoning: typeof reasoning === "string" ? reasoning : "No reasoning provided",
+      confidence: typeof confidence === "number" ? confidence : 0.5,
       timestamp: Date.now(),
     };
   }
 
-  private analyzeVotes(votes: VotingRecord[], consensusType: ConsensusType, options?: any): string {
+  private analyzeVotes(votes: VotingRecord[], consensusType: ConsensusType, _options?: Record<string, unknown>): string {
     const approveVotes = votes.filter((v) => v.vote === "approve").length;
     const rejectVotes = votes.filter((v) => v.vote === "reject").length;
     const totalVotes = votes.length;
@@ -819,22 +827,19 @@ export class AgentCollaborationService extends EventEmitter {
     };
   }
 
-  private handleCollaborationRequest(message: any): void {
-    // Handle incoming collaboration requests
-    logger.info("Collaboration request received", { from: message.from, type: message.type });
+  private handleCollaborationRequest(message: Record<string, unknown>): void {
+    logger.info("Collaboration request received", { from: message["from"], type: message["type"] });
   }
 
-  private handleConflictNotification(message: any): void {
-    // Handle conflict notifications
+  private handleConflictNotification(message: Record<string, unknown>): void {
     logger.info("Conflict notification received", {
-      from: message.from,
-      conflict: message.conflict,
+      from: message["from"],
+      conflict: message["conflict"],
     });
   }
 
-  private handleConsensusRequest(message: any): void {
-    // Handle consensus requests
-    logger.info("Consensus request received", { from: message.from, topic: message.topic });
+  private handleConsensusRequest(message: Record<string, unknown>): void {
+    logger.info("Consensus request received", { from: message["from"], topic: message["topic"] });
   }
 }
 

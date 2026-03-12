@@ -20,7 +20,7 @@ export class ValidationError extends Error {
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
-  sanitizedValue?: any;
+  sanitizedValue?: unknown;
 }
 
 /**
@@ -146,35 +146,35 @@ export class InputValidator {
   /**
    * Validate tenant ID
    */
-  static validateTenantId(value: any): ValidationResult {
+  static validateTenantId(value: unknown): ValidationResult {
     return this.validateString(value, ValidationRules.tenantId, "tenantId");
   }
 
   /**
    * Validate secret key
    */
-  static validateSecretKey(value: any): ValidationResult {
+  static validateSecretKey(value: unknown): ValidationResult {
     return this.validateString(value, ValidationRules.secretKey, "secretKey");
   }
 
   /**
    * Validate user ID
    */
-  static validateUserId(value: any): ValidationResult {
+  static validateUserId(value: unknown): ValidationResult {
     return this.validateString(value, ValidationRules.userId, "userId");
   }
 
   /**
    * Validate version
    */
-  static validateVersion(value: any): ValidationResult {
+  static validateVersion(value: unknown): ValidationResult {
     return this.validateString(value, ValidationRules.version, "version");
   }
 
   /**
    * Validate environment
    */
-  static validateEnvironment(value: any): ValidationResult {
+  static validateEnvironment(value: unknown): ValidationResult {
     return this.validateString(
       value,
       ValidationRules.environment,
@@ -185,35 +185,35 @@ export class InputValidator {
   /**
    * Validate URL
    */
-  static validateUrl(value: any): ValidationResult {
+  static validateUrl(value: unknown): ValidationResult {
     return this.validateString(value, ValidationRules.url, "url");
   }
 
   /**
    * Validate AWS region
    */
-  static validateAwsRegion(value: any): ValidationResult {
+  static validateAwsRegion(value: unknown): ValidationResult {
     return this.validateString(value, ValidationRules.awsRegion, "awsRegion");
   }
 
   /**
    * Validate port number
    */
-  static validatePort(value: any): ValidationResult {
+  static validatePort(value: unknown): ValidationResult {
     return this.validateNumber(value, ValidationRules.port, "port");
   }
 
   /**
    * Validate timeout
    */
-  static validateTimeout(value: any): ValidationResult {
+  static validateTimeout(value: unknown): ValidationResult {
     return this.validateNumber(value, ValidationRules.timeout, "timeout");
   }
 
   /**
    * Validate retry count
    */
-  static validateRetryCount(value: any): ValidationResult {
+  static validateRetryCount(value: unknown): ValidationResult {
     return this.validateNumber(value, ValidationRules.retryCount, "retryCount");
   }
 
@@ -221,7 +221,7 @@ export class InputValidator {
    * Generic string validation
    */
   private static validateString(
-    value: any,
+    value: unknown,
     rules: {
       pattern?: RegExp;
       maxLength?: number;
@@ -271,7 +271,7 @@ export class InputValidator {
    * Generic number validation
    */
   private static validateNumber(
-    value: any,
+    value: unknown,
     rules: { min?: number; max?: number; description: string },
     fieldName: string
   ): ValidationResult {
@@ -282,7 +282,12 @@ export class InputValidator {
       return { isValid: false, errors };
     }
 
-    const num = typeof value === "string" ? parseInt(value, 10) : value;
+    const num =
+      typeof value === "string"
+        ? parseInt(value, 10)
+        : typeof value === "number"
+          ? value
+          : NaN;
 
     if (isNaN(num) || !Number.isInteger(num)) {
       errors.push(`${fieldName} must be an integer`);
@@ -307,7 +312,7 @@ export class InputValidator {
   /**
    * Validate secret value (basic checks)
    */
-  static validateSecretValue(value: any): ValidationResult {
+  static validateSecretValue(value: unknown): ValidationResult {
     const errors: string[] = [];
 
     if (value === null || value === undefined) {
@@ -340,8 +345,8 @@ export class InputValidator {
    * Validate and sanitize input, throw on failure
    */
   static validateOrThrow<T>(
-    value: any,
-    validator: (val: any) => ValidationResult,
+    value: unknown,
+    validator: (val: unknown) => ValidationResult,
     fieldName: string
   ): T {
     const result = validator(value);
@@ -360,7 +365,8 @@ export class InputValidator {
       throw error;
     }
 
-    return result.sanitizedValue;
+    // Caller is responsible for T matching the validator's output type.
+    return result.sanitizedValue as T;
   }
 }
 
@@ -373,7 +379,7 @@ export class EnvValidator {
    */
   static getValidatedString(
     key: string,
-    validator: (val: any) => ValidationResult,
+    validator: (val: unknown) => ValidationResult,
     defaultValue?: string
   ): string {
     const value = process.env[key] || defaultValue;
@@ -391,7 +397,7 @@ export class EnvValidator {
    */
   static getValidatedNumber(
     key: string,
-    validator: (val: any) => ValidationResult,
+    validator: (val: unknown) => ValidationResult,
     defaultValue?: number
   ): number {
     const value = process.env[key];
@@ -410,10 +416,10 @@ export class EnvValidator {
    */
   static getOptionalValidated(
     key: string,
-    validator?: (val: any) => ValidationResult,
-    defaultValue?: any
-  ): any {
-    const value = process.env[key] || defaultValue;
+    validator?: (val: unknown) => ValidationResult,
+    defaultValue?: unknown
+  ): unknown {
+    const value: unknown = process.env[key] ?? defaultValue;
 
     if (value === undefined) {
       return undefined;
@@ -424,7 +430,10 @@ export class EnvValidator {
         return InputValidator.validateOrThrow(value, validator, key);
       } catch (error) {
         logger.warn(`Invalid environment variable ${key}, using default`, {
-          value: value.substring ? value.substring(0, 50) : typeof value,
+          value:
+            typeof value === "string"
+              ? value.substring(0, 50)
+              : typeof value,
           error: error instanceof Error ? error.message : "Unknown error",
         });
         return defaultValue;
