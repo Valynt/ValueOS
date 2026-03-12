@@ -31,5 +31,5 @@ export const adminRoutes: RouteConfig[] = [
   { path: "admin", element: <AdminPanel /> },
 ];
 
-export const catchAllRoute = { path: "*", redirectTo: "/dashboard" };
+export const catchAllRoute = { path: "*" };
 export const protectedIndexRedirect = "/dashboard";
