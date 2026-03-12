@@ -153,10 +153,13 @@ export class IntegrityAgent extends BaseAgent {
     // Step 7: Build SDUI sections
     const sduiSections = this.buildSDUISections(finalAnalysis, integrityResult, vetoDecision);
 
-    const validated = !vetoDecision.veto && !vetoDecision.reRefine;
-    const status: AgentOutput['status'] = vetoDecision.veto
-      ? 'failure'
-      : validated ? 'success' : 'partial_success';
+    const validated = !vetoDecision.veto && !vetoDecision.reRefine && integrityResult.isValid;
+    const status: AgentOutput['status'] =
+      vetoDecision.veto || !integrityResult.isValid
+        ? 'failure'
+        : validated
+          ? 'success'
+          : 'partial_success';
 
     const supported = finalAnalysis.claim_validations.filter(c => c.verdict === 'supported').length;
     const total = finalAnalysis.claim_validations.length;
