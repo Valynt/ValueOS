@@ -1,0 +1,75 @@
+{
+  "$schema": "./docs-deprecated-token-allowlist.schema.json",
+  "allowlist": [
+    {
+      "file": ".windsurf/plans/*.md",
+      "tokens": ["legacy-src-agents-root", "legacy-backend-root", "obsolete-compose-reference", "obsolete-compose-root-reference", "retired-runtime-path", "retired-unified-api-path"],
+      "reason": "Historical planning artifacts are retained for context and may reference pre-runtime migration paths."
+    },
+    {
+      "file": ".windsurf/skills/**/*.md",
+      "tokens": ["legacy-src-agents-root", "legacy-backend-root"],
+      "reason": "Skill docs contain historical source examples retained for migration context."
+    },
+    {
+      "file": ".vscode-extension/**/*.md",
+      "tokens": ["legacy-backend-root"],
+      "reason": "VS Code extension codemap docs mirror historical source snippets."
+    },
+    {
+      "file": "scripts/bin/.windsurfrules.md",
+      "tokens": ["legacy-backend-root"],
+      "reason": "Legacy tooling guidance retained for compatibility until rules are migrated."
+    },
+    {
+      "file": "docs/processes/project-management.md",
+      "tokens": ["legacy-backend-root", "obsolete-compose-reference"],
+      "reason": "Long-form historical program log intentionally preserves prior path references."
+    },
+    {
+      "file": "docs/sprint-plan-*.md",
+      "tokens": ["obsolete-compose-root-reference"],
+      "reason": "Sprint planning docs preserve historical migration notes."
+    },
+    {
+      "file": "docs/operations/deployment-guide.md",
+      "tokens": ["obsolete-compose-reference"],
+      "reason": "Deployment migration guide includes historical compose lineage and transitional commands."
+    },
+    {
+      "file": "docs/operations/caddy-configuration.md",
+      "tokens": ["obsolete-compose-reference"],
+      "reason": "Caddy migration notes reference retired compose files for rollback context."
+    },
+    {
+      "file": "docs/environments/*.md",
+      "tokens": ["obsolete-compose-reference"],
+      "reason": "Environment history docs retain legacy compose topology references."
+    },
+    {
+      "file": "docs/developer-experience/dx-workflows.md",
+      "tokens": ["obsolete-compose-reference"],
+      "reason": "DX workflow doc preserves migration references to pre-unification compose files."
+    },
+    {
+      "file": "docs/architecture/infrastructure-architecture.md",
+      "tokens": ["obsolete-compose-reference"],
+      "reason": "Infrastructure architecture includes historical compose references during migration period."
+    },
+    {
+      "file": "infra/README.md",
+      "tokens": ["obsolete-compose-reference", "obsolete-compose-root-reference"],
+      "reason": "Infra readme tracks deprecated compose files explicitly for inventory/history."
+    },
+    {
+      "file": "docs/backend-service-duplication-map.md",
+      "tokens": ["retired-runtime-path", "retired-unified-api-path"],
+      "reason": "Duplication map documents retired files as migration outcomes."
+    },
+    {
+      "file": "apps/ValyntApp/BACKEND_WIRING_IMPLEMENTATION.md",
+      "tokens": ["retired-runtime-path"],
+      "reason": "Implementation postmortem references previous orchestrator location for traceability."
+    }
+  ]
+}
