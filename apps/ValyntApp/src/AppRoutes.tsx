@@ -70,8 +70,15 @@ export function AppRoutes() {
   const queryClient = useQueryClient();
 
   const handleTenantSwitch = () => {
-    void queryClient.cancelQueries();
-    queryClient.clear();
+    queryClient
+      .cancelQueries()
+      .then(() => {
+        queryClient.clear();
+      })
+      .catch(() => {
+        // Ensure we still clear even if cancellation rejects
+        queryClient.clear();
+      });
   };
 
   const publicRouteElements: Record<string, ReactElement> = {
