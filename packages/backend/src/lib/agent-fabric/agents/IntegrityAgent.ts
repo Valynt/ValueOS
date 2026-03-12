@@ -525,14 +525,36 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     }
 
     const supported = claimValidations.filter(cv => cv.verdict === 'supported').length;
+
+    const vetoCount = policyTrace.filter(trace => trace.status === 'veto').length;
+    const refineCount = policyTrace.filter(trace => trace.status === 'refine').length;
+    const passCount = policyTrace.filter(trace =>
+      trace.status !== 'veto' && trace.status !== 'refine',
+    ).length;
+
     const dataQualityScore = this.roundScore(this.scoreByTrace(policyTrace, 'source_freshness'));
-    const logicalConsistencyScore = this.roundScore(this.scoreByTrace(policyTrace, 'range_plausibility', 'contradiction_detection'));
-    const evidenceCoverageScore = this.roundScore(this.scoreByTrace(policyTrace, 'evidence_presence'));
+    const logicalConsistencyScore = this.roundScore(
+      this.scoreByTrace(policyTrace, 'range_plausibility', 'contradiction_detection'),
+    );
+    const evidenceCoverageScore = this.roundScore(
+      this.scoreByTrace(policyTrace, 'evidence_presence'),
+    );
+
+    let overallAssessment: string;
+    if (vetoCount === 0 && refineCount === 0) {
+      overallAssessment =
+        `Deterministic integrity policy validated ${supported}/${claimValidations.length} ` +
+        'claims without violations requiring veto.';
+    } else {
+      overallAssessment =
+        `Deterministic integrity policy evaluated ${supported}/${claimValidations.length} claims. ` +
+        `Policy trace summary: ${passCount} pass, ${refineCount} refine, ${vetoCount} veto.`;
+    }
 
     return {
       claimValidations,
       policyTrace,
-      overallAssessment: `Deterministic integrity policy validated ${supported}/${claimValidations.length} claims without violations requiring veto.`,
+      overallAssessment,
       dataQualityScore,
       logicalConsistencyScore,
       evidenceCoverageScore,
