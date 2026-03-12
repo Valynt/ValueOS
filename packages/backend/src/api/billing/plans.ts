@@ -13,7 +13,40 @@ const logger = createLogger({ component: 'BillingPlansAPI' });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: req.requestId || res.locals.requestId,
+  ...meta,
 });
+
+
+interface PlanResponse {
+  id: string;
+  name: string;
+  tier: PlanTier;
+  description: string;
+  price: number | null;
+  currency: string;
+  interval: string;
+  features: string[];
+  limits: {
+    users: number;
+    ai_tokens: number;
+    api_calls: number;
+    storage_gb: number;
+  };
+  custom_pricing?: boolean;
+}
+
+function getEligiblePlans(req: Request): PlanResponse[] {
+  const roles = Array.isArray(req.user?.roles) ? req.user?.roles : [];
+  const canAccessEnterprise = roles.includes('admin') || roles.includes('billing:enterprise');
+
+  return AVAILABLE_PLANS.filter((plan) => {
+    if (plan.tier !== 'enterprise') {
+      return true;
+    }
+
+    return canAccessEnterprise;
+  });
+}
 
 // Available plans configuration
 const AVAILABLE_PLANS = [
@@ -120,11 +153,10 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // TODO: Filter plans based on tenant eligibility (e.g., enterprise plans may require approval)
-    // For now, return all plans
+    const eligiblePlans = getEligiblePlans(req);
 
     res.json({
-      plans: AVAILABLE_PLANS,
+      plans: eligiblePlans,
       current_tenant_id: tenantId
     });
   } catch (error) {
@@ -148,9 +180,11 @@ router.get('/:planId', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const plan = AVAILABLE_PLANS.find(p => p.id === planId);
+    const eligiblePlans = getEligiblePlans(req);
+    const plan = eligiblePlans.find(p => p.id === planId);
 
     if (!plan) {
+      logger.warn('Plan not found or not eligible for tenant', withRequestContext(req, res, { planId, tenantId }));
       res.status(404).json({ error: 'Plan not found' });
       return;
     }
