@@ -12,7 +12,7 @@ const baseEnv = {
   VITE_SUPABASE_ANON_KEY: "vite-anon-key-1234567890",
   JWT_SECRET: "jwt-secret-123456789012345678901234",
   ENCRYPTION_KEY: "encryption-key-1234567890123456789",
-  REDIS_URL: "redis://localhost:6379",
+  REDIS_URL: "rediss://localhost:6380",
   STRIPE_WEBHOOK_SECRET: "whsec_test_secret",
   VITE_STRIPE_PUBLISHABLE_KEY: "pk_test_publishable",
 };

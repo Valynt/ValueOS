@@ -122,14 +122,10 @@ describe("authRateLimiter", () => {
   it("locks out IP after repeated failures", async () => {
     const config = AUTH_CONFIGS.login;
 
-    // Record enough failures to trigger lockout
+    // Call store.recordFailure directly (awaited) to avoid relying on
+    // fire-and-forget timing in recordAuthFailure.
     for (let i = 0; i < config.lockoutThreshold; i++) {
-      const req = mockReq({
-        ip: "10.0.0.50",
-        body: { email: "victim@test.com" },
-        path: "/login",
-      });
-      recordAuthFailure(req, "login");
+      await authRateLimitStore.recordFailure("10.0.0.50", "victim@test.com", config);
     }
 
     // Subsequent request should be locked out
@@ -152,14 +148,9 @@ describe("authRateLimiter", () => {
   it("locks out email after repeated failures", async () => {
     const config = AUTH_CONFIGS.login;
 
-    // Record failures from different IPs but same email
+    // Record failures from different IPs but same email, awaited directly.
     for (let i = 0; i < config.lockoutThreshold; i++) {
-      const req = mockReq({
-        ip: `10.0.${i}.1`,
-        body: { email: "locked@test.com" },
-        path: "/login",
-      });
-      recordAuthFailure(req, "login");
+      await authRateLimitStore.recordFailure(`10.0.${i}.1`, "locked@test.com", config);
     }
 
     // Request from new IP but same email should be locked
@@ -213,34 +204,32 @@ describe("authRateLimiter", () => {
     expect(AUTH_CONFIGS.verifyResend.maxAttempts).toBe(3);
   });
 
-  it("applies progressive delay after failures", () => {
+  it("applies progressive delay after failures", async () => {
     const config = AUTH_CONFIGS.login;
     const ip = "10.0.0.77";
     const email = "delay@test.com";
 
-    // Record 3 failures
+    // Await store.recordFailure directly — no timing assumptions.
     for (let i = 0; i < 3; i++) {
-      const req = mockReq({ ip, body: { email }, path: "/login" });
-      recordAuthFailure(req, "login");
+      await authRateLimitStore.recordFailure(ip, email, config);
     }
 
-    const delay = authRateLimitStore.getProgressiveDelay(ip, email, config);
+    const delay = await authRateLimitStore.getProgressiveDelay(ip, email, config);
     // 3 failures => (3-1) * 500 = 1000ms
     expect(delay).toBe(1000);
   });
 
-  it("caps progressive delay at maxDelayMs", () => {
+  it("caps progressive delay at maxDelayMs", async () => {
     const config = AUTH_CONFIGS.login;
     const ip = "10.0.0.88";
     const email = "maxdelay@test.com";
 
-    // Record many failures (but below lockout threshold)
+    // Record many failures (but below lockout threshold), awaited directly.
     for (let i = 0; i < config.lockoutThreshold - 1; i++) {
-      const req = mockReq({ ip, body: { email }, path: "/login" });
-      recordAuthFailure(req, "login");
+      await authRateLimitStore.recordFailure(ip, email, config);
     }
 
-    const delay = authRateLimitStore.getProgressiveDelay(ip, email, config);
+    const delay = await authRateLimitStore.getProgressiveDelay(ip, email, config);
     expect(delay).toBeLessThanOrEqual(config.maxDelayMs);
   });
 });
