@@ -184,6 +184,17 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `.ona/context/memory.md` | Lessons learned, anti-patterns, migration history, pre-PR checklist | Before submitting a PR that touches agent code, DB queries, or UI components |
 | `.ona/context/tools.md` | Both tool systems (MCP + BFA Semantic), interfaces, registration pattern, current inventory | Before adding a new tool or calling an existing one from agent code |
 
+### Context file staleness — verify before acting
+
+`debt.md` and the `any` dashboard in `docs/debt/ts-any-dashboard.md` are manually maintained and can lag behind the codebase. Before scheduling work based on either file:
+
+1. **Debt entries:** Read the referenced file before treating a debt item as open. If the code no longer matches the description (e.g. methods are implemented, TODOs are gone), mark the item resolved in `debt.md` rather than scheduling it.
+2. **`any` counts:** Re-measure with grep before writing sprint targets or claiming a reduction. Do not trust the table values as current.
+   ```bash
+   grep -rnE ":[[:space:]]*\<any\>|as[[:space:]]+\<any\>|<any>" <path> --include="*.ts" --include="*.tsx" | wc -l
+     | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l
+   ```
+
 ### When to update these files
 
 - **`decisions.md`** — after a new ADR is accepted, or when an undocumented decision is made that future agents need to know about.
