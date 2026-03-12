@@ -1,7 +1,6 @@
-import { test } from '@playwright/test';
+import { test } from '../fixtures';
+import { executeWF3Fixture } from '../helpers/workflow-fixtures';
 
-import { executeWorkflowFixture, getWorkflowFixture } from '../helpers/workflow-fixtures';
-
-test('WF-3: realization tracking persists across reload', async ({ page, request }) => {
-  await executeWorkflowFixture(page, request, getWorkflowFixture('WF-3'));
+test('WF-3: human checkpoint approval persists to DB and survives reload', async ({ page, request, supabase }) => {
+  await executeWF3Fixture(page, request, supabase);
 });
