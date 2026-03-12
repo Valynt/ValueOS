@@ -1,11 +1,12 @@
 /**
  * Secret Provider Interface
- * 
+ *
  * Provider-agnostic interface for secrets management.
- * Supports multiple backends: AWS Secrets Manager, HashiCorp Vault, Azure Key Vault
- * 
- * Sprint 2: Provider Abstraction
- * Created: 2024-11-29
+ * Supported backends: AWS Secrets Manager, HashiCorp Vault.
+ *
+ * Azure Key Vault was planned but never implemented. Use AWS or Vault instead.
+ * If Azure support is needed, implement AzureSecretProvider extending ISecretProvider
+ * and register it in ProviderFactory before adding 'azure' back to ProviderConfig.
  */
 
 /**
@@ -54,7 +55,7 @@ export type AuditResult = 'SUCCESS' | 'FAILURE';
  * Provider-agnostic secret manager interface
  * 
  * All secret providers must implement this interface to ensure
- * consistent behavior across AWS, Vault, Azure, etc.
+ * consistent behavior across AWS, Vault, etc.
  */
 export interface ISecretProvider {
   /**
@@ -195,11 +196,10 @@ export interface ISecretProvider {
  * Provider factory configuration
  */
 export interface ProviderConfig {
-  provider: 'aws' | 'vault' | 'azure';
+  provider: 'aws' | 'vault';
   region?: string;
   vaultAddress?: string;
   vaultNamespace?: string;
-  azureKeyVaultName?: string;
   cacheTTL?: number;
   auditEnabled?: boolean;
 }
