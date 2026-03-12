@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { WorkflowExecutor } from './WorkflowExecutor.js';
+import { WorkflowExecutor } from '../WorkflowExecutor.js';
 
 vi.mock('uuid', () => ({ v4: (() => { let n = 0; return () => `uuid-${++n}`; })() }));
-vi.mock('../../lib/logger', () => ({ logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
-vi.mock('../../lib/supabase', () => ({
+vi.mock('../../../lib/logger', () => ({ logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() } }));
+vi.mock('../../../lib/supabase', () => ({
   supabase: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(), insert: vi.fn().mockReturnThis(),
@@ -15,7 +15,7 @@ vi.mock('../../lib/supabase', () => ({
   },
 }));
 vi.mock('@opentelemetry/api', () => ({ SpanStatusCode: { OK: 1, ERROR: 2 } }));
-vi.mock('../../config/telemetry', () => ({
+vi.mock('../../../config/telemetry', () => ({
   getTracer: vi.fn(() => ({
     startActiveSpan: vi.fn((...args: unknown[]) => {
       const fn = typeof args[args.length - 1] === 'function' ? args[args.length - 1] as (s: unknown) => unknown : null;
@@ -24,7 +24,7 @@ vi.mock('../../config/telemetry', () => ({
     }),
   })),
 }));
-vi.mock('../../services/workflows/WorkflowExecutionStore', () => ({
+vi.mock('../../../services/workflows/WorkflowExecutionStore', () => ({
   WorkflowExecutionStore: vi.fn(() => ({
     persistExecutionRecord: vi.fn().mockResolvedValue(undefined),
     updateExecutionStatus: vi.fn().mockResolvedValue(undefined),
@@ -32,25 +32,25 @@ vi.mock('../../services/workflows/WorkflowExecutionStore', () => ({
     recordWorkflowEvent: vi.fn().mockResolvedValue(undefined),
   })),
 }));
-vi.mock('../../services/CircuitBreaker', () => ({
+vi.mock('../../../services/CircuitBreaker', () => ({
   CircuitBreakerManager: vi.fn(() => ({ execute: vi.fn((_k: string, fn: () => unknown) => fn()) })),
 }));
-vi.mock('../../services/AgentRegistry', () => ({
+vi.mock('../../../services/AgentRegistry', () => ({
   AgentRegistry: vi.fn(() => ({ recordRelease: vi.fn(), markHealthy: vi.fn(), recordFailure: vi.fn() })),
 }));
-vi.mock('../../services/AgentMessageBroker', () => ({
+vi.mock('../../../services/AgentMessageBroker', () => ({
   AgentMessageBroker: vi.fn(() => ({
     sendToAgent: vi.fn().mockResolvedValue({ success: true, data: { result: 'ok' } }),
   })),
 }));
-vi.mock('../../services/agents/resilience/AgentRetryManager', () => ({
+vi.mock('../../../services/agents/resilience/AgentRetryManager', () => ({
   AgentRetryManager: {
     getInstance: vi.fn(() => ({
       executeWithRetry: vi.fn().mockResolvedValue({ success: true, response: { data: { out: 'done' } }, attempts: 1 }),
     })),
   },
 }));
-vi.mock('../../services/EnhancedParallelExecutor', () => ({
+vi.mock('../../../services/EnhancedParallelExecutor', () => ({
   getEnhancedParallelExecutor: vi.fn(() => ({
     executeRunnableTasks: vi.fn(async (
       tasks: Array<{ id: string; payload: unknown }>,
@@ -65,7 +65,7 @@ vi.mock('../../services/EnhancedParallelExecutor', () => ({
     }),
   })),
 }));
-vi.mock('../../lib/agent-fabric/MemorySystem', () => ({
+vi.mock('../../../lib/agent-fabric/MemorySystem', () => ({
   MemorySystem: vi.fn(() => ({
     retrieve: vi.fn().mockResolvedValue([]),
     storeEpisode: vi.fn().mockResolvedValue(undefined),
@@ -90,10 +90,10 @@ async function makeExecutor(
   cfg: Partial<{ enableWorkflows: boolean; maxRetryAttempts: number; maxAgentInvocationsPerMinute: number }> = {},
   rateLimitFn: (t: string) => boolean = () => true,
 ) {
-  const { CircuitBreakerManager } = await import('../../services/CircuitBreaker.js');
-  const { AgentRegistry } = await import('../../services/AgentRegistry.js');
-  const { AgentMessageBroker } = await import('../../services/AgentMessageBroker.js');
-  const { MemorySystem } = await import('../../lib/agent-fabric/MemorySystem.js');
+  const { CircuitBreakerManager } = await import('../../../services/CircuitBreaker.js');
+  const { AgentRegistry } = await import('../../../services/AgentRegistry.js');
+  const { AgentMessageBroker } = await import('../../../services/AgentMessageBroker.js');
+  const { MemorySystem } = await import('../../../lib/agent-fabric/MemorySystem.js');
   return new WorkflowExecutor(
     policy as never,
     { routeStage: vi.fn().mockReturnValue({ selected_agent: { id: 'agent-1' } }) } as never,
@@ -168,7 +168,7 @@ describe('WorkflowExecutor.executeWorkflow', () => {
   });
 
   it('throws when workflow definition is not found', async () => {
-    const { supabase } = await import('../../lib/supabase.js');
+    const { supabase } = await import('../../../lib/supabase.js');
     vi.mocked(supabase.from).mockReturnValueOnce({
       select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -178,7 +178,7 @@ describe('WorkflowExecutor.executeWorkflow', () => {
   });
 
   it('throws when workflow belongs to a different organization', async () => {
-    const { supabase } = await import('../../lib/supabase.js');
+    const { supabase } = await import('../../../lib/supabase.js');
     vi.mocked(supabase.from).mockReturnValueOnce({
       select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
