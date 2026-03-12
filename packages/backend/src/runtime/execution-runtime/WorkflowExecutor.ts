@@ -22,6 +22,7 @@ import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecuti
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { AgentContext } from '../../services/agents/AgentAPI.js';
+import { securityLogger } from '@valueos/core-services';
 import type { WorkflowDAG, WorkflowEvent, WorkflowStage } from '../../types/workflow.js';
 import type { WorkflowContextDTO } from '../../types/workflow/orchestration.js';
 import type { StageExecutionResultDTO, StageRouteDTO, WorkflowStageContextDTO } from '../../types/workflow/runner.js';
@@ -44,6 +45,7 @@ import type {
   ValidationResult,
 } from '../../services/agents/core/IAgent.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
+import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
 
 // ============================================================================
 // Internal types
@@ -236,6 +238,18 @@ export class WorkflowExecutor {
         const stageCompleted = new Date();
         inProgress.delete(stage.id);
 
+        if (result.success && result.result?.stageResult.status === 'pending_approval') {
+          const hitlMetadata = result.result.stageResult.output ?? {};
+          recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, hitlMetadata, 'pending_approval');
+          await this._recordWorkflowEvent(executionId, organizationId, 'stage_waiting_for_approval', stage.id, {
+            reason: 'hitl_required',
+            ...hitlMetadata,
+            traceId,
+          });
+          await this._persistAndUpdate(executionId, organizationId, recordSnapshot, 'pending_approval', stage.id);
+          return;
+        }
+
         if (result.success && result.result?.stageResult.status === 'completed') {
           const stageOutput = result.result.stageResult.output ?? {};
 
@@ -318,6 +332,33 @@ export class WorkflowExecutor {
     }, async (span: Span) => {
       const start = Date.now();
       const cbKey = `${executionId}-${stage.id}`;
+      const hitlResult = this.policy.checkHITL(this._buildStageDecisionContext(stage, context));
+      if (hitlResult.hitl_required) {
+        const output = {
+          rule_id: hitlResult.details.rule_id,
+          confidence_score: hitlResult.details.confidence_score,
+          traceId,
+          reason: hitlResult.hitl_reason,
+          stageId: stage.id,
+          organizationId: context.organizationId ?? context.organization_id ?? context.tenantId,
+        };
+
+        securityLogger.log({
+          category: 'autonomy',
+          action: 'hitl_pending_approval',
+          severity: 'warning',
+          metadata: output,
+        });
+
+        span.setAttributes({ 'agent.retry_count': 0, 'agent.latency_ms': Date.now() - start });
+        span.setStatus({ code: SpanStatusCode.OK });
+        span.end();
+        return {
+          status: 'pending_approval',
+          output,
+        };
+      }
+
       const rc = {
         max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
         initial_delay_ms: stage.retry_config?.initial_delay_ms ?? 1000,
@@ -456,7 +497,7 @@ export class WorkflowExecutor {
     startedAt: Date,
     completedAt: Date,
     payload: Record<string, unknown>,
-    status: 'completed' | 'failed',
+    status: 'completed' | 'failed' | 'pending_approval',
   ): WorkflowExecutionRecord {
     const lifecycle: StageLifecycleRecord = { stageId: stage.id, lifecycleStage: stage.agent_type, status, startedAt: startedAt.toISOString(), completedAt: completedAt.toISOString(), summary: stage.description };
     const prevOutputs = (snapshot.io && typeof snapshot.io === 'object' && 'outputs' in snapshot.io) ? (snapshot.io as Record<string, unknown>).outputs as Record<string, unknown> : {};
@@ -469,6 +510,28 @@ export class WorkflowExecutor {
     };
   }
 
+  private _buildStageDecisionContext(stage: WorkflowStage, context: WorkflowStageContextDTO): import('@shared/domain/DecisionContext.js').DecisionContext {
+    const confidence = typeof context.opportunity_confidence_score === 'number'
+      ? context.opportunity_confidence_score
+      : typeof context.confidence_score === 'number'
+        ? context.confidence_score
+        : 0.5;
+
+    const organizationId = String(context.organizationId ?? context.organization_id ?? context.tenantId ?? '');
+    const opportunityId = String(context.opportunityId ?? context.opportunity_id ?? '00000000-0000-0000-0000-000000000000');
+
+    return {
+      organization_id: organizationId,
+      opportunity: {
+        id: opportunityId,
+        lifecycle_stage: stage.agent_type,
+        confidence_score: confidence,
+        value_maturity: 'low',
+      },
+      is_external_artifact_action: isExternalArtifactWorkflowStage(stage),
+    };
+  }
+
   private async _persistAndUpdate(executionId: string, organizationId: string, record: WorkflowExecutionRecord, status: WorkflowStatus, stageId: string | null): Promise<void> {
     await this.executionStore.persistExecutionRecord(executionId, organizationId, record);
     await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
@@ -478,7 +541,7 @@ export class WorkflowExecutor {
     await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
   }
 
-  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
+  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_waiting_for_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
     await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
   }
 

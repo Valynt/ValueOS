@@ -103,6 +103,7 @@ function makePolicyMock() {
     assertTenantExecutionAllowed: vi.fn().mockResolvedValue(undefined),
     evaluateIntegrityVeto: vi.fn().mockResolvedValue({ vetoed: false }),
     evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
+    checkHITL: vi.fn().mockReturnValue({ allowed: true, hitl_required: false, details: { rule_id: 'HITL-01', is_external_artifact_action: false } }),
   };
 }
 
@@ -291,6 +292,29 @@ describe('WorkflowExecutor.executeStageWithRetry', () => {
     expect(result.status).toBe('failed');
     expect(result.error).toContain('rate limit exceeded');
   });
+
+  it('returns pending_approval without retry execution when HITL is required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Approval required before external artifact generation',
+      details: { rule_id: 'HITL-01', confidence_score: 0.45, is_external_artifact_action: true },
+    });
+    const guarded = await makeExecutor(policy);
+
+    const result = await guarded.executeStageWithRetry(
+      'exec-1',
+      makeStage({ id: 'narrative', name: 'Narrative', description: 'Generate customer-facing narrative', agent_type: 'composing' }) as never,
+      { ...makeCtx(), confidence_score: 0.45 } as never,
+      { selected_agent: { id: 'a1' } } as never,
+      'trace-1',
+    );
+
+    expect(result.status).toBe('pending_approval');
+    expect((guarded as never).retryManager.executeWithRetry).not.toHaveBeenCalled();
+    expect(result.output).toMatchObject({ rule_id: 'HITL-01', traceId: 'trace-1' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -344,5 +368,27 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
     expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+  });
+
+  it('marks execution pending_approval and halts when stage HITL is required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.4, is_external_artifact_action: true },
+    });
+    const executor = await makeExecutor(policy);
+
+    await executor.executeDAGAsync(
+      'exec-1',
+      'org-1',
+      makeDAG({ stages: [makeStage({ id: 'narrative', name: 'Narrative', description: 'customer narrative', agent_type: 'composing' })] }) as never,
+      { ...makeCtx(), confidence_score: 0.4 } as never,
+      'trace-1',
+    );
+
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_approval' }));
+    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'stage_waiting_for_approval' }));
   });
 });

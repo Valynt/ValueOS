@@ -20,6 +20,7 @@ import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
 import { CircuitBreaker } from '../../lib/resilience/CircuitBreaker.js';
+import { securityLogger } from '@valueos/core-services';
 import type { LifecycleContext } from '../../types/agent.js';
 
 // AgentContext shape used for direct factory invocation (ADR-0014)
@@ -35,6 +36,7 @@ import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
 import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+import { isExternalArtifactAgentAction } from './externalArtifactPolicy.js';
 
 // ============================================================================
 // QueryExecutor
@@ -95,6 +97,7 @@ export class QueryExecutor {
   private buildDecisionContext(
     state: WorkflowState,
     organizationId: string,
+    isExternalArtifactAction: boolean,
   ): DecisionContext {
     const rawStage = state.currentStage ?? state.lifecycle_stage ?? 'discovery';
     const stageParseResult = OpportunityLifecycleStageSchema.safeParse(rawStage);
@@ -112,7 +115,7 @@ export class QueryExecutor {
             value_maturity: 'low',
           }
         : undefined,
-      is_external_artifact_action: false,
+      is_external_artifact_action: isExternalArtifactAction,
     };
   }
 
@@ -174,8 +177,31 @@ export class QueryExecutor {
       queryLength: query.length,
     });
 
-    const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
-    const agentType = this.router.selectAgent(decisionContext);
+    const baseDecisionContext = this.buildDecisionContext(currentState, envelope.organizationId, false);
+    const agentType = this.router.selectAgent(baseDecisionContext);
+    const decisionContext = this.buildDecisionContext(
+      currentState,
+      envelope.organizationId,
+      isExternalArtifactAgentAction(agentType, query),
+    );
+    const hitl = this.policy.checkHITL(decisionContext);
+    if (hitl.hitl_required) {
+      securityLogger.log({
+        category: 'autonomy',
+        action: 'hitl_pending_approval',
+        severity: 'warning',
+        metadata: {
+          traceId,
+          organizationId: envelope.organizationId,
+          rule_id: hitl.details.rule_id,
+          confidence_score: hitl.details.confidence_score,
+          reason: hitl.hitl_reason,
+          execution_mode: 'query_async',
+        },
+      });
+
+      throw new Error(hitl.hitl_reason ?? 'Human approval is required before continuing.');
+    }
 
     if (!this.checkAgentRateLimit(agentType)) {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -321,8 +347,43 @@ export class QueryExecutor {
 
     if (!result.success) throw new Error(result.error || 'Async agent execution failed');
 
-    const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
-    const agentType = this.router.selectAgent(decisionContext);
+    const baseDecisionContext = this.buildDecisionContext(currentState, envelope.organizationId, false);
+    const agentType = this.router.selectAgent(baseDecisionContext);
+    const decisionContext = this.buildDecisionContext(
+      currentState,
+      envelope.organizationId,
+      isExternalArtifactAgentAction(agentType, query),
+    );
+    const hitl = this.policy.checkHITL(decisionContext);
+    if (hitl.hitl_required) {
+      securityLogger.log({
+        category: 'autonomy',
+        action: 'hitl_pending_approval',
+        severity: 'warning',
+        metadata: {
+          traceId,
+          organizationId: envelope.organizationId,
+          rule_id: hitl.details.rule_id,
+          confidence_score: hitl.details.confidence_score,
+          reason: hitl.hitl_reason,
+          execution_mode: 'query_async_wait',
+        },
+      });
+
+      return {
+        response: {
+          type: 'message',
+          payload: {
+            message: hitl.hitl_reason ?? 'Human approval is required before continuing.',
+            hitl_required: true,
+            rule_id: hitl.details.rule_id,
+            confidence_score: hitl.details.confidence_score,
+          },
+        },
+        nextState: { ...currentState, status: 'pending_approval' },
+        traceId,
+      };
+    }
     const agentContext: AgentContext = { userId: envelope.actor.id || userId, sessionId, organizationId: envelope.organizationId };
 
     const structuralCheck = await this.policy.evaluateStructuralTruthVeto(result.data, { traceId, agentType, query, context: agentContext });
@@ -368,13 +429,52 @@ export class QueryExecutor {
 
         let agentType: AgentType;
         tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
-          const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
+          const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId, false);
           agentType = this.router.selectAgent(decisionContext);
           selectSpan.setAttributes({ 'agent.selected_type': agentType, 'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based' });
           selectSpan.setStatus({ code: SpanStatusCode.OK });
           selectSpan.end();
         });
         agentType ??= 'coordinator' as AgentType;
+
+        const hitlContext = this.buildDecisionContext(
+          currentState,
+          envelope.organizationId,
+          isExternalArtifactAgentAction(agentType, query),
+        );
+        const hitl = this.policy.checkHITL(hitlContext);
+        if (hitl.hitl_required) {
+          securityLogger.log({
+            category: 'autonomy',
+            action: 'hitl_pending_approval',
+            severity: 'warning',
+            metadata: {
+              traceId,
+              organizationId: envelope.organizationId,
+              rule_id: hitl.details.rule_id,
+              confidence_score: hitl.details.confidence_score,
+              reason: hitl.hitl_reason,
+              execution_mode: 'query_sync',
+            },
+          });
+
+          rootSpan.setAttributes({ 'agent.latency_ms': Date.now() - start });
+          rootSpan.setStatus({ code: SpanStatusCode.OK });
+          rootSpan.end();
+          return {
+            response: {
+              type: 'message',
+              payload: {
+                message: hitl.hitl_reason ?? 'Human approval is required before continuing.',
+                hitl_required: true,
+                rule_id: hitl.details.rule_id,
+                confidence_score: hitl.details.confidence_score,
+              },
+            },
+            nextState: { ...currentState, status: 'pending_approval' },
+            traceId,
+          };
+        }
 
         if (!this.checkAgentRateLimit(agentType)) throw new Error(`Agent ${agentType} rate limit exceeded`);
 

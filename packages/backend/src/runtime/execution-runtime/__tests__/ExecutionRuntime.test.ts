@@ -82,6 +82,7 @@ function makePolicyMock() {
     assertTenantExecutionAllowed: vi.fn().mockResolvedValue(undefined),
     evaluateIntegrityVeto: vi.fn().mockResolvedValue({ vetoed: false }),
     evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
+    checkHITL: vi.fn().mockReturnValue({ allowed: true, hitl_required: false, details: { rule_id: 'HITL-01', is_external_artifact_action: false } }),
     performReRefine: vi.fn().mockResolvedValue({ success: false, attempts: 2 }),
     checkAutonomyGuardrails: vi.fn().mockResolvedValue(undefined),
   };
@@ -370,6 +371,41 @@ describe('QueryExecutor.processQuery (sync path)', () => {
     );
     const result = await limited.processQuery(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     expect(result.response?.payload).toMatchObject({ error: true });
+  });
+
+  it('returns pending_approval and does not invoke agent when HITL is required', async () => {
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.4, is_external_artifact_action: true },
+    });
+
+    const result = await executor.processQuery(makeEnvelope() as never, 'generate customer proposal', makeState() as never, 'u', 's');
+    expect(result.nextState.status).toBe('pending_approval');
+    expect(result.response.payload).toMatchObject({ hitl_required: true, rule_id: 'HITL-01' });
+  });
+});
+
+describe('QueryExecutor HITL async gating', () => {
+  it('blocks queueing when HITL is required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.35, is_external_artifact_action: true },
+    });
+    const queue = makeQueueMock();
+    const executor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('narrative') as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+    );
+
+    await expect(executor.processQueryAsync(makeEnvelope() as never, 'customer narrative', makeState() as never, 'u', 's')).rejects.toThrow('Human approval required');
+    expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
   });
 });
 
