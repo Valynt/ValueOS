@@ -4,18 +4,33 @@ function buildBypassKey(tenantId: string | undefined) {
   return `${ONBOARDING_BYPASS_PREFIX}:${tenantId ?? "default"}`;
 }
 
+function getStorage() {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage;
+}
+
 export function markOnboardingBypassed(tenantId: string | undefined): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(buildBypassKey(tenantId), "1");
+  getStorage()?.setItem(buildBypassKey(tenantId), "1");
 }
 
 export function clearOnboardingBypass(tenantId: string | undefined): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(buildBypassKey(tenantId));
+  const key = buildBypassKey(tenantId);
+  getStorage()?.removeItem(key);
+
+  // Defensive cleanup for legacy persisted bypass keys.
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(key);
+  }
 }
 
 export function isOnboardingBypassed(tenantId: string | undefined): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(buildBypassKey(tenantId)) === "1";
-}
+  const key = buildBypassKey(tenantId);
+  const bypassed = getStorage()?.getItem(key) === "1";
 
+  // Ensure older localStorage bypass values cannot keep suppressing the gate.
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(key);
+  }
+
+  return bypassed;
+}
