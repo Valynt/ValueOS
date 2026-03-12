@@ -570,7 +570,7 @@ export class WorkflowExecutor {
     await this.executionStore.updateExecutionStatus({ executionId, organizationId, status, currentStage: stageId, executionRecord: record });
   }
 
-  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'] | 'workflow_initiated' | 'stage_hitl_pending_approval', stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
+  private async _recordWorkflowEvent(executionId: string, organizationId: string, eventType: WorkflowEvent['event_type'], stageId: string | null, metadata: Record<string, unknown>): Promise<void> {
     await this.executionStore.recordWorkflowEvent({ executionId, organizationId, eventType, stageId, metadata });
   }
 
