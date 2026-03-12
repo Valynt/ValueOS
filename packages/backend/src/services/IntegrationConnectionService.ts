@@ -6,13 +6,15 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
+import { Counter, metrics } from "@opentelemetry/api";
+import { HubSpotAdapter, SalesforceAdapter, ServiceNowAdapter, SharePointAdapter, SlackAdapter } from "../../../integrations/index.ts";
 
 import { AuthorizationError, NotFoundError, ValidationError } from "./errors.js";
 import { TenantAwareService } from "./TenantAwareService.js";
 
 const logger = createLogger({ component: "IntegrationConnectionService" });
 
-export type IntegrationProvider = "hubspot" | "salesforce" | "dynamics";
+export type IntegrationProvider = "hubspot" | "salesforce" | "dynamics" | "servicenow" | "sharepoint" | "slack";
 export type IntegrationStatus = "active" | "expired" | "revoked" | "error";
 
 export interface IntegrationConnection {
@@ -44,17 +46,42 @@ export interface IntegrationTestResult {
   message: string;
 }
 
-const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce"];
+const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce", "servicenow", "sharepoint", "slack"];
 
 const PROVIDER_REQUIREMENTS: Record<IntegrationProvider, { requiresInstanceUrl: boolean }> = {
   hubspot: { requiresInstanceUrl: false },
   salesforce: { requiresInstanceUrl: true },
   dynamics: { requiresInstanceUrl: true },
+  servicenow: { requiresInstanceUrl: true },
+  sharepoint: { requiresInstanceUrl: false },
+  slack: { requiresInstanceUrl: false },
 };
 
 const DEFAULT_TEST_TIMEOUT_MS = 8000;
 
+
+interface TenantIntegrationRow {
+  id: string;
+  tenant_id: string;
+  provider: IntegrationProvider;
+  status: IntegrationStatus;
+  access_token?: string | null;
+  refresh_token?: string | null;
+  token_expires_at?: string | null;
+  instance_url?: string | null;
+  scopes?: string[] | null;
+  connected_at?: string | null;
+  last_used_at?: string | null;
+  last_refreshed_at?: string | null;
+  error_message?: string | null;
+}
+
 export class IntegrationConnectionService extends TenantAwareService {
+  private meter = metrics.getMeter("integration-connections");
+  private adapterCounter: Counter = this.meter.createCounter("integration_adapter_test_total", {
+    description: "Count of adapter-backed integration connection tests",
+  });
+
   constructor() {
     super("IntegrationConnectionService");
   }
@@ -248,7 +275,7 @@ export class IntegrationConnectionService extends TenantAwareService {
       throw new ValidationError("Integration is disconnected");
     }
 
-    const provider = integration.provider as IntegrationProvider;
+    const provider = integration.provider;
     this.assertProvider(provider);
 
     if (!integration.access_token) {
@@ -259,34 +286,47 @@ export class IntegrationConnectionService extends TenantAwareService {
     let message = "Unknown error";
 
     try {
-      if (provider === "hubspot") {
-        const response = await this.fetchWithTimeout(
-          "https://api.hubapi.com/integrations/v1/me",
-          {
+      const adapterBackedEnabled = process.env.ENABLE_INTEGRATION_ADAPTER_TESTS === "true";
+      if (adapterBackedEnabled && provider !== "dynamics") {
+        const adapter = this.createAdapter(provider, integration);
+        await adapter.connect({
+          accessToken: integration.access_token,
+          tenantId,
+        });
+        ok = await adapter.validate();
+        await adapter.disconnect();
+        message = ok ? `${provider} connection verified` : `${provider} authorization failed`;
+        this.adapterCounter.add(1, { provider, outcome: ok ? "success" : "auth_failed" });
+      } else {
+        if (provider === "hubspot") {
+          const response = await this.fetchWithTimeout(
+            "https://api.hubapi.com/integrations/v1/me",
+            {
+              headers: {
+                Authorization: `Bearer ${integration.access_token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          ok = response.ok;
+          message = response.ok ? "HubSpot connection verified" : `HubSpot responded ${response.status}`;
+        }
+
+        if (provider === "salesforce") {
+          if (!integration.instance_url) {
+            throw new ValidationError("Salesforce instance URL is required");
+          }
+
+          const instanceUrl = integration.instance_url.replace(/\/+$/, "");
+          const response = await this.fetchWithTimeout(`${instanceUrl}/services/data`, {
             headers: {
               Authorization: `Bearer ${integration.access_token}`,
               "Content-Type": "application/json",
             },
-          }
-        );
-        ok = response.ok;
-        message = response.ok ? "HubSpot connection verified" : `HubSpot responded ${response.status}`;
-      }
-
-      if (provider === "salesforce") {
-        if (!integration.instance_url) {
-          throw new ValidationError("Salesforce instance URL is required");
+          });
+          ok = response.ok;
+          message = response.ok ? "Salesforce connection verified" : `Salesforce responded ${response.status}`;
         }
-
-        const instanceUrl = integration.instance_url.replace(/\/+$/, "");
-        const response = await this.fetchWithTimeout(`${instanceUrl}/services/data`, {
-          headers: {
-            Authorization: `Bearer ${integration.access_token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        ok = response.ok;
-        message = response.ok ? "Salesforce connection verified" : `Salesforce responded ${response.status}`;
       }
     } catch (error) {
       ok = false;
@@ -314,6 +354,21 @@ export class IntegrationConnectionService extends TenantAwareService {
       status,
       message,
     };
+  }
+
+  private createAdapter(provider: Exclude<IntegrationProvider, "dynamics">, integration: TenantIntegrationRow) {
+    switch (provider) {
+      case "hubspot":
+        return new HubSpotAdapter({ provider: "hubspot" });
+      case "salesforce":
+        return new SalesforceAdapter({ provider: "salesforce", baseUrl: integration.instance_url ?? undefined });
+      case "servicenow":
+        return new ServiceNowAdapter({ provider: "servicenow", baseUrl: integration.instance_url ?? undefined });
+      case "sharepoint":
+        return new SharePointAdapter({ provider: "sharepoint" });
+      case "slack":
+        return new SlackAdapter({ provider: "slack" });
+    }
   }
 
   private assertProvider(provider: string): asserts provider is IntegrationProvider {
@@ -351,7 +406,7 @@ export class IntegrationConnectionService extends TenantAwareService {
   private async fetchIntegrationById(
     integrationId: string,
     includeSecrets = false
-  ): Promise<any> {
+  ): Promise<TenantIntegrationRow> {
     const fields = includeSecrets
       ? [
           "id",
@@ -396,7 +451,7 @@ export class IntegrationConnectionService extends TenantAwareService {
     return data;
   }
 
-  private toConnection(row: any): IntegrationConnection {
+  private toConnection(row: TenantIntegrationRow): IntegrationConnection {
     return {
       id: row.id,
       tenantId: row.tenant_id,

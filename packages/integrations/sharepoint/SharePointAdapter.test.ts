@@ -292,7 +292,7 @@ describe("SharePointAdapter", () => {
       throw new DOMException("Aborted", "AbortError");
     });
 
-    await expect(adapter.validate()).rejects.toMatchObject<Partial<IntegrationError>>({
+    await expect(adapter.validate()).rejects.toMatchObject({
       code: "TIMEOUT",
       retryable: true,
     });
@@ -309,4 +309,25 @@ describe("SharePointAdapter", () => {
     await expect(adapter.fetchEntities("document")).rejects.toBeInstanceOf(ValidationError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("disconnect clears connection state", async () => {
+    const adapter = new SharePointAdapter(BASE_CONFIG);
+    await adapter.connect({ accessToken: TOKEN, tenantId: TENANT });
+    await expect(adapter.disconnect()).resolves.toBeUndefined();
+    await expect(adapter.validate()).rejects.toMatchObject({ code: "CONNECTION_ERROR" });
+  });
+
+  it("retries transient 5xx once and then succeeds", async () => {
+    const adapter = new SharePointAdapter({ ...BASE_CONFIG, retryAttempts: 2 });
+    await adapter.connect({ accessToken: TOKEN, tenantId: TENANT });
+
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("network reset"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ value: [] }), { status: 200 }));
+
+    const result = await adapter.fetchEntities("site");
+    expect(result).toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
 });

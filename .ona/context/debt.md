@@ -45,7 +45,7 @@ Issue [#1348](https://github.com/Valynt/ValueOS/issues/1348).
 ## P2 — Medium (feature completeness)
 
 ~~### DEBT-008: Enterprise integrations — ServiceNow, Slack, SharePoint not implemented~~
-**Resolved.** All three adapters fully implemented using their respective REST APIs (ServiceNow Table API, Slack Web API, Microsoft Graph API). Tenant isolation via `credentials.tenantId` on all normalized entities. Error mapping, rate limiting, and timeout handling consistent with HubSpot/Salesforce adapters.
+**Resolved (2026-03-12).** All three adapters are now implemented and exported in production builds with typed per-adapter config, Zod request/response validation, explicit 4xx/5xx/transport error mapping, retry-aware HTTP transport, and integration tests that cover connect/disconnect/validate/fetchEntities/fetchEntity/pushUpdate success + auth failure + transient retry paths. `IntegrationConnectionService.testConnection()` now supports adapter-backed verification behind `ENABLE_INTEGRATION_ADAPTER_TESTS=true` with OpenTelemetry counter instrumentation (`integration_adapter_test_total`).
 
 ~~### DEBT-009: ExpansionAgent has no DB persistence~~
 **Resolved outside sprint cadence.** `expansion_opportunities` table (migration `20260322000000_persistent_memory_tables.sql`), `ExpansionOpportunityRepository`, `GET /api/v1/cases/:caseId/expansion` + `POST .../expansion/run`, `useExpansion` hook, `ExpansionStage` wired to real data, registered in `LifecycleStageNav`.
