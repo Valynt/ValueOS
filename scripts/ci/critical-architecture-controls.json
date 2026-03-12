@@ -1,34 +1,72 @@
 {
+  "_comment": "Required control migrations that must be present in every environment baseline. These represent non-negotiable architectural invariants: tenant isolation, canonical identity, and RLS hardening.",
   "requiredControls": [
     {
       "id": "ARCH-001",
-      "name": "tenant_scope_rls",
-      "migration": "20260213000001_academy_tenant_scope_rls.sql"
+      "name": "initial_release_baseline",
+      "migration": "00000000000000_initial_release_baseline.sql",
+      "rationale": "Foundation schema including security schema bootstrap and core billing tables."
     },
     {
-      "id": "ARCH-006",
-      "name": "baseline_schema",
-      "migration": "20260213000002_baseline_schema.sql"
+      "id": "ARCH-002",
+      "name": "canonical_identity_baseline",
+      "migration": "20260213000010_canonical_identity_baseline.sql",
+      "rationale": "Defines security.user_has_tenant_access() — the RLS function all tenant-scoped policies depend on."
     },
     {
-      "id": "ARCH-007",
-      "name": "tenant_uuid_canonicalization",
-      "migration": "20260213000004_tenant_uuid_canonicalization.sql"
+      "id": "ARCH-003",
+      "name": "rls_service_role_audit",
+      "migration": "20260301000000_rls_service_role_audit.sql",
+      "rationale": "Adds tenant-scoped RLS to billing/metering tables; closes service_role bypass gap."
+    },
+    {
+      "id": "ARCH-004",
+      "name": "harden_provision_tenant_function",
+      "migration": "20260306000000_harden_provision_tenant_function.sql",
+      "rationale": "Restricts provision_tenant() to backend-controlled callers only."
+    },
+    {
+      "id": "ARCH-005",
+      "name": "patch_compute_portfolio_value",
+      "migration": "20260328000000_patch_compute_portfolio_value.sql",
+      "rationale": "Removes SECURITY DEFINER from compute_portfolio_value() to close cross-tenant data exposure."
     }
   ],
   "baselineEnvironments": {
     "local": {
       "appliedMigrations": [
-        "20260213000001_academy_tenant_scope_rls.sql",
-        "20260213000002_baseline_schema.sql",
-        "20260213000004_tenant_uuid_canonicalization.sql"
+        "00000000000000_initial_release_baseline.sql",
+        "20260213000010_canonical_identity_baseline.sql",
+        "20260301000000_rls_service_role_audit.sql",
+        "20260306000000_harden_provision_tenant_function.sql",
+        "20260328000000_patch_compute_portfolio_value.sql"
       ]
     },
     "ci": {
       "appliedMigrations": [
-        "20260213000001_academy_tenant_scope_rls.sql",
-        "20260213000002_baseline_schema.sql",
-        "20260213000004_tenant_uuid_canonicalization.sql"
+        "00000000000000_initial_release_baseline.sql",
+        "20260213000010_canonical_identity_baseline.sql",
+        "20260301000000_rls_service_role_audit.sql",
+        "20260306000000_harden_provision_tenant_function.sql",
+        "20260328000000_patch_compute_portfolio_value.sql"
+      ]
+    },
+    "staging": {
+      "appliedMigrations": [
+        "00000000000000_initial_release_baseline.sql",
+        "20260213000010_canonical_identity_baseline.sql",
+        "20260301000000_rls_service_role_audit.sql",
+        "20260306000000_harden_provision_tenant_function.sql",
+        "20260328000000_patch_compute_portfolio_value.sql"
+      ]
+    },
+    "production": {
+      "appliedMigrations": [
+        "00000000000000_initial_release_baseline.sql",
+        "20260213000010_canonical_identity_baseline.sql",
+        "20260301000000_rls_service_role_audit.sql",
+        "20260306000000_harden_provision_tenant_function.sql",
+        "20260328000000_patch_compute_portfolio_value.sql"
       ]
     }
   }
