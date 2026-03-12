@@ -57,6 +57,9 @@ jobs:
       - name: Check runtime sentinels
         run: pnpm check:runtime-sentinels
 
+      - name: Legacy surface freeze guard
+        run: node scripts/ci/check-legacy-surface-freeze.mjs
+
       - name: Lint
         run: npx turbo run lint
 
