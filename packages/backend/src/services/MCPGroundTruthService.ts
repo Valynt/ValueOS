@@ -528,16 +528,19 @@ class MCPGroundTruthService {
     }
 
     const dataPoints: string[] = [];
+    const entityResults = await Promise.allSettled(
+      entities.slice(0, 3).map(entityId => // Limit to 3 entities
+        this.getFinancialData({
+          entityId,
+          metrics: ['revenue', 'netIncome', 'operatingMargin', 'totalAssets'],
+          includeIndustryBenchmarks: true,
+        })
+      )
+    );
 
-    for (const entityId of entities.slice(0, 3)) { // Limit to 3 entities
-      const data = await this.getFinancialData({
-        entityId,
-        metrics: ['revenue', 'netIncome', 'operatingMargin', 'totalAssets'],
-        includeIndustryBenchmarks: true,
-      });
-
-      if (data) {
-        dataPoints.push(this.formatDataForContext(data));
+    for (const result of entityResults) {
+      if (result.status === 'fulfilled' && result.value) {
+        dataPoints.push(this.formatDataForContext(result.value));
       }
     }
 
