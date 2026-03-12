@@ -2,7 +2,7 @@
  * TenantContext Tests
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -99,6 +99,60 @@ describe("TenantContext", () => {
 
     expect(result.current.error).toBeTruthy();
     expect(result.current.tenants).toHaveLength(0);
+  });
+
+
+
+  it("should call onTenantSwitch callback when switching tenants", async () => {
+    const mockTenants = [
+      {
+        id: "tenant-1",
+        name: "Tenant One",
+        slug: "tenant-one",
+        color: "#18C3A5",
+        role: "admin",
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "tenant-2",
+        name: "Tenant Two",
+        slug: "tenant-two",
+        color: "#A55DFF",
+        role: "admin",
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    vi.mocked(tenantApi.fetchUserTenants).mockResolvedValue({
+      data: mockTenants,
+      error: null,
+    });
+
+    const onTenantSwitch = vi.fn();
+
+    const callbackWrapper = ({ children }: { children: React.ReactNode }) => (
+      <BrowserRouter>
+        <AuthProvider>
+          <TenantProvider onTenantSwitch={onTenantSwitch}>{children}</TenantProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    );
+
+    const { result } = renderHook(() => useTenant(), { wrapper: callbackWrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.switchTenant("tenant-2");
+    });
+
+    expect(onTenantSwitch).toHaveBeenCalledTimes(1);
+    expect(onTenantSwitch).toHaveBeenCalledWith(mockTenants[0], mockTenants[1]);
+    expect(result.current.currentTenant?.id).toBe("tenant-2");
   });
 
   it("should validate tenant access", async () => {
