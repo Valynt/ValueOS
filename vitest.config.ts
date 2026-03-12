@@ -17,8 +17,8 @@ export default defineConfig({
     include: [
       "server/**/*.test.ts",
       "server/**/*.spec.ts",
-      "packages/memory/**/*.test.ts",
-      "packages/memory/**/*.spec.ts",
+      "packages/memory/tests/**/*.test.ts",
+      "packages/memory/tests/**/*.spec.ts",
     ],
   },
 });
