@@ -153,6 +153,17 @@ describe("ComplianceAuditorAgent", () => {
       }
     });
 
+    it("flags tenant-wide cross-workspace retrieval with explicit reason metadata", async () => {
+      await agent.execute(makeContext());
+
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allow_cross_workspace: true,
+          cross_workspace_reason: "compliance_audit_tenant_wide_sampling",
+        }),
+      );
+    });
+
     it("stores the compliance summary in memory with tenant isolation", async () => {
       await agent.execute(makeContext());
 

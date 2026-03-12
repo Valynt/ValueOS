@@ -365,10 +365,10 @@ describe("RealizationAgent", () => {
       await agent.execute(makeContext());
 
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "target", organization_id: "org-456" }),
+        expect.objectContaining({ agent_id: "target", organization_id: "org-456", workspace_id: "ws-123" }),
       );
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "integrity", organization_id: "org-456" }),
+        expect.objectContaining({ agent_id: "integrity", organization_id: "org-456", workspace_id: "ws-123" }),
       );
     });
   });

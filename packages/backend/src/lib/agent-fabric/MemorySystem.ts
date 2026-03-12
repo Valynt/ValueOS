@@ -41,6 +41,8 @@ export type MemoryType = "episodic" | "semantic" | "procedural" | "working";
 export interface MemoryQuery {
   agent_id: string;
   workspace_id?: string;
+  allow_cross_workspace?: boolean;
+  cross_workspace_reason?: string;
   query_text?: string;
   memory_type?: MemoryType;
   limit?: number;
@@ -214,6 +216,12 @@ export class MemorySystem {
   async retrieve(query: MemoryQuery): Promise<Memory[]> {
     if (!query.organization_id) {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
+    }
+
+    if (!query.workspace_id && query.allow_cross_workspace && !query.cross_workspace_reason) {
+      throw new Error(
+        "cross_workspace_reason is required when allow_cross_workspace is true",
+      );
     }
 
     // Try persistent backend first for cross-session recall
