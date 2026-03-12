@@ -77,6 +77,7 @@ export * from "./RetryService.js";
 export * from "./VectorSearchService.js";
 export * from "./VersionHistoryService.js";
 export * from "./WorkspaceStateService.js";
+export * from "./SandboxedExecutor.js";
 export * from "./CaseValueTreeService.js";
 export * from "./DemoAnalyticsService.js";
 export * from "./kafkaConfig.js";
