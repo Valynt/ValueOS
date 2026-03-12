@@ -18,9 +18,44 @@ import { parseCorsAllowlist } from "../../../shared/src/config/cors";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
 import { Server, Socket } from "socket.io";
+import { createSecretKey } from "crypto";
+import { jwtVerify, type JWTPayload } from "jose";
 
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
+
+/**
+ * Derive a permissions array from a Supabase JWT payload.
+ *
+ * Supabase stores custom roles in `app_metadata.roles` (string[]) and
+ * the built-in role in the top-level `role` claim (e.g. "authenticated").
+ * We map "authenticated" → "basic" so downstream channel checks remain
+ * stable regardless of which auth provider issued the token.
+ */
+function extractPermissions(payload: JWTPayload): string[] {
+  const permissions: string[] = [];
+
+  // app_metadata.roles — set by Supabase custom claims / hooks
+  const appMeta = payload["app_metadata"];
+  if (appMeta && typeof appMeta === "object" && !Array.isArray(appMeta)) {
+    const roles = (appMeta as Record<string, unknown>)["roles"];
+    if (Array.isArray(roles)) {
+      for (const r of roles) {
+        if (typeof r === "string") permissions.push(r);
+      }
+    }
+  }
+
+  // Top-level role claim ("authenticated", "anon", "service_role", etc.)
+  const role = payload["role"];
+  if (typeof role === "string") {
+    // Normalise Supabase's built-in role names to the values the channel
+    // permission checks already expect.
+    permissions.push(role === "authenticated" ? "basic" : role);
+  }
+
+  return permissions.length > 0 ? permissions : ["public"];
+}
 
 export interface StreamingClient {
   id: string;
@@ -472,19 +507,46 @@ export class WebSocketServer {
   }
 
   /**
-   * Validate authentication token
+   * Validate a Supabase JWT using SUPABASE_JWT_SECRET (HS256).
+   *
+   * Extracts userId from the `sub` claim and permissions from
+   * `app_metadata.roles` (array) or the top-level `role` string,
+   * matching the claim shape produced by Supabase Auth.
+   *
+   * Returns null on any verification failure so the caller can
+   * reject the connection without leaking error details to the client.
    */
   private async validateAuthToken(
     token: string
   ): Promise<{ userId: string; permissions: string[] } | null> {
+    const secret = process.env.SUPABASE_JWT_SECRET ?? process.env.JWT_SECRET;
+    if (!secret) {
+      logger.error(
+        "WebSocketServer: SUPABASE_JWT_SECRET is not set — cannot validate tokens"
+      );
+      return null;
+    }
+
     try {
-      // This would integrate with your authentication system
-      // For now, return mock data
-      return {
-        userId: "user_" + token.substring(0, 8),
-        permissions: ["basic", "premium"],
-      };
+      const secretKey = createSecretKey(Buffer.from(secret, "utf8"));
+      const { payload } = await jwtVerify(token, secretKey, {
+        algorithms: ["HS256"],
+      });
+
+      const userId = payload.sub;
+      if (!userId) {
+        logger.warn("WebSocketServer: JWT missing sub claim");
+        return null;
+      }
+
+      const permissions = extractPermissions(payload);
+
+      return { userId, permissions };
     } catch (error) {
+      // Log at debug level — failed auth attempts are expected noise
+      logger.debug("WebSocketServer: JWT verification failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }

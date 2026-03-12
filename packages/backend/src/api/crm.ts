@@ -25,6 +25,7 @@ import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { auditLogService } from '../services/AuditLogService.js';
 import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
 import { crmHealthService } from '../services/crm/CrmHealthService.js';
+import { crmIntegrationService } from '../services/crm/CRMIntegrationService.js';
 import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
 import { consumeOAuthState } from '../services/crm/OAuthStateStore.js';
 import { CrmProviderSchema } from '../services/crm/types.js';
@@ -425,6 +426,42 @@ router.post(
     } catch (error) {
       logger.error('Sync trigger failed', error instanceof Error ? error : undefined);
       return res.status(500).json({ error: 'Failed to trigger sync' });
+    }
+  },
+);
+
+// ============================================================================
+// Deal Search
+// ============================================================================
+
+/**
+ * GET /api/crm/deals
+ * Returns open deals from the connected CRM for the authenticated tenant.
+ * Supports optional ?q= search filter applied client-side on name/company.
+ * Falls back to empty array when no CRM is connected.
+ */
+router.get(
+  '/deals',
+  ...authMiddleware,
+  requirePermission('integrations:view'),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const deals = await crmIntegrationService.fetchDeals(tenantId);
+
+      const q = typeof req.query.q === 'string' ? req.query.q.toLowerCase() : '';
+      const filtered = q
+        ? deals.filter(
+            (d) =>
+              d.name.toLowerCase().includes(q) ||
+              (d.companyName ?? '').toLowerCase().includes(q),
+          )
+        : deals;
+
+      return res.json({ deals: filtered });
+    } catch (error) {
+      logger.error('Failed to fetch CRM deals', error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: 'Failed to fetch deals' });
     }
   },
 );

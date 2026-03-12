@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { Deal } from './DealStatusCapsule';
 
+import { apiClient } from '@/api/client/unified-api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +34,45 @@ export interface CRMDeal extends Deal {
   company: string;
   owner?: string;
   lastActivity?: Date;
+}
+
+/** Shape returned by GET /api/crm/deals */
+interface ApiCRMDeal {
+  id: string;
+  externalId: string;
+  provider: string;
+  name: string;
+  amount?: number;
+  stage: string;
+  closeDate?: string;
+  ownerName?: string;
+  companyName?: string;
+}
+
+const VALID_STAGES = new Set<Deal['stage']>([
+  'prospecting', 'qualification', 'proposal',
+  'negotiation', 'closed_won', 'closed_lost',
+]);
+
+function toLocalStage(raw: string): Deal['stage'] {
+  const normalised = raw.toLowerCase().replace(/\s+/g, '_') as Deal['stage'];
+  return VALID_STAGES.has(normalised) ? normalised : 'prospecting';
+}
+
+function mapApiDeal(d: ApiCRMDeal): CRMDeal {
+  return {
+    id: d.id,
+    name: d.name,
+    stage: toLocalStage(d.stage),
+    amount: d.amount,
+    closeDate: d.closeDate ? new Date(d.closeDate) : undefined,
+    crmId: d.externalId,
+    crmSource: (d.provider === 'salesforce' || d.provider === 'hubspot' || d.provider === 'pipedrive')
+      ? d.provider
+      : undefined,
+    company: d.companyName ?? '',
+    owner: d.ownerName,
+  };
 }
 
 export interface DealLinkModalProps {
@@ -84,57 +124,7 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-// Mock CRM deals for development
-const MOCK_CRM_DEALS: CRMDeal[] = [
-  {
-    id: 'deal-1',
-    name: 'Acme Corp Q2 Expansion',
-    company: 'Acme Corporation',
-    stage: 'negotiation',
-    amount: 2_100_000,
-    closeDate: new Date('2026-03-31'),
-    crmId: 'sf-001',
-    crmSource: 'salesforce',
-    owner: 'John Smith',
-    lastActivity: new Date('2026-01-15'),
-  },
-  {
-    id: 'deal-2',
-    name: 'TechStart Platform License',
-    company: 'TechStart Inc',
-    stage: 'proposal',
-    amount: 450_000,
-    closeDate: new Date('2026-02-28'),
-    crmId: 'sf-002',
-    crmSource: 'salesforce',
-    owner: 'Jane Doe',
-    lastActivity: new Date('2026-01-14'),
-  },
-  {
-    id: 'deal-3',
-    name: 'Global Retail Digital Transformation',
-    company: 'Global Retail Co',
-    stage: 'qualification',
-    amount: 3_500_000,
-    closeDate: new Date('2026-06-30'),
-    crmId: 'hs-001',
-    crmSource: 'hubspot',
-    owner: 'Mike Johnson',
-    lastActivity: new Date('2026-01-10'),
-  },
-  {
-    id: 'deal-4',
-    name: 'FinServ Compliance Suite',
-    company: 'FinServ Partners',
-    stage: 'prospecting',
-    amount: 800_000,
-    closeDate: new Date('2026-04-15'),
-    crmId: 'hs-002',
-    crmSource: 'hubspot',
-    owner: 'Sarah Wilson',
-    lastActivity: new Date('2026-01-12'),
-  },
-];
+
 
 export function DealLinkModal({
   open,
@@ -148,23 +138,17 @@ export function DealLinkModal({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDeal, setSelectedDeal] = useState<CRMDeal | null>(null);
 
-  // Simulate CRM search
   const searchDeals = useCallback(async (query: string) => {
     setIsLoading(true);
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const filtered = MOCK_CRM_DEALS.filter(deal => {
-      const searchLower = query.toLowerCase();
-      return (
-        deal.name.toLowerCase().includes(searchLower) ||
-        deal.company.toLowerCase().includes(searchLower)
-      );
-    });
-
-    setDeals(filtered);
-    setIsLoading(false);
+    try {
+      const params = query ? { q: query } : undefined;
+      const res = await apiClient.get<{ deals: ApiCRMDeal[] }>('/api/crm/deals', params);
+      setDeals((res.data?.deals ?? []).map(mapApiDeal));
+    } catch {
+      setDeals([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {

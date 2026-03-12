@@ -12,7 +12,6 @@
     "check": "turbo run typecheck",
     "format": "prettier --write .",
     "test": "vitest run",
-
     "test:e2e:gate": "vitest run --config vitest.e2e.config.ts",
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
     "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs",
@@ -63,8 +62,8 @@
     "cookie": "^1.0.2",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",
-
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "framer-motion": "^12.23.22",
@@ -103,7 +102,6 @@
     "@vitejs/plugin-react": "^5.0.4",
     "add": "^2.0.6",
     "autoprefixer": "^10.4.20",
-
     "esbuild": "^0.27.3",
     "pnpm": "^10.31.0",
     "postcss": "^8.4.47",
