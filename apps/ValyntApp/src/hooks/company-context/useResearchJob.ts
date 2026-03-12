@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ResearchJob, ResearchSuggestion, SuggestionEntityType } from "./types";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { supabase } from "@/lib/supabase";
 
 const RESEARCH_KEY = "research-job";
@@ -25,39 +26,64 @@ function getClient() {
   return supabase;
 }
 
-/** Get the current session's access token for backend API calls. */
-async function getAccessToken(): Promise<string> {
-  const sb = getClient();
-  const { data } = await sb.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("Not authenticated");
-  return token;
-}
-
 /**
- * Typed fetch wrapper that hits the backend API with auth.
- * Not migrated to apiClient: apiClient.setAuthToken is not yet wired to the
- * Supabase session in app bootstrap, so this file must attach the token manually
- * until that wiring is in place (see debt.md).
+ * Typed API wrapper for endpoints returning { data }.
  */
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const res = await fetch(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
-    },
-  });
+async function apiRequest<T>(
+  path: string,
+  init?: { method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH"; body?: unknown },
+): Promise<T> {
+  const method = init?.method ?? "GET";
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error ?? `API error ${res.status}`);
+  let response:
+    | Awaited<ReturnType<(typeof apiClient)["get"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["post"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["put"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["delete"]<{ data: T }>>>
+    | Awaited<ReturnType<(typeof apiClient)["patch"]<{ data: T }>>>;
+
+  switch (method) {
+    case "GET":
+      response = await apiClient.get<{ data: T }>({
+        url: path,
+      });
+      break;
+    case "POST":
+      response = await apiClient.post<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    case "PUT":
+      response = await apiClient.put<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    case "DELETE":
+      response = await apiClient.delete<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    case "PATCH":
+      response = await apiClient.patch<{ data: T }>({
+        url: path,
+        data: init?.body,
+      });
+      break;
+    default:
+      throw new Error(`Unsupported HTTP method: ${method}`);
+  }
+  if (!response.success) {
+    throw new Error(response.error?.message ?? "Request failed");
   }
 
-  const json = await res.json();
-  return json.data as T;
+  if (response.data === undefined || response.data === null) {
+    throw new Error("No data returned from API");
+  }
+
+  return response.data.data;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,9 +101,9 @@ export function useCreateResearchJob(tenantId: string) {
       companySize?: string;
       salesMotion?: string;
     }) => {
-      return apiFetch<ResearchJob>("/api/onboarding/research", {
+      return apiRequest<ResearchJob>("/api/onboarding/research", {
         method: "POST",
-        body: JSON.stringify(input),
+        body: input,
       });
     },
     onSuccess: () => {
@@ -161,13 +187,10 @@ export function useAcceptSuggestion(_tenantId: string) {
       entityType: string;
       payload: Record<string, unknown>;
     }) => {
-      return apiFetch<ResearchSuggestion>(
-        `/api/onboarding/suggestions/${input.suggestionId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ status: "accepted" }),
-        },
-      );
+      return apiRequest<ResearchSuggestion>(`/api/onboarding/suggestions/${input.suggestionId}`, {
+        method: "PATCH",
+        body: { status: "accepted" },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SUGGESTIONS_KEY] });
@@ -185,13 +208,10 @@ export function useRejectSuggestion(_tenantId: string) {
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      return apiFetch<ResearchSuggestion>(
-        `/api/onboarding/suggestions/${suggestionId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ status: "rejected" }),
-        },
-      );
+      return apiRequest<ResearchSuggestion>(`/api/onboarding/suggestions/${suggestionId}`, {
+        method: "PATCH",
+        body: { status: "rejected" },
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SUGGESTIONS_KEY] });
@@ -216,12 +236,9 @@ export function useBulkAcceptSuggestions(_tenantId: string) {
       }>,
     ) => {
       const ids = suggestions.map((s) => s.id);
-      return apiFetch<{ results: Array<{ id: string; success: boolean }>; accepted: number; total: number }>(
+      return apiRequest<{ results: Array<{ id: string; success: boolean }>; accepted: number; total: number }>(
         "/api/onboarding/suggestions/bulk-accept",
-        {
-          method: "POST",
-          body: JSON.stringify({ ids }),
-        },
+        { method: "POST", body: { ids } },
       );
     },
     onSuccess: () => {
