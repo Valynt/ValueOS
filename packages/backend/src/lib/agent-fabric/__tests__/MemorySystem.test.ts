@@ -337,6 +337,54 @@ describe("MemorySystem", () => {
       expect(stored.memory_type).toBe("episodic");
       expect(stored.metadata?.organization_id).toBe(ORG_ID);
     });
+
+    it("redacts PII in memory content and metadata", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+      await ms.storeSemanticMemory(
+        "session-1",
+        "OpportunityAgent",
+        "episodic",
+        "Email john@example.com phone 415-555-1212 account_id ACCT998877",
+        { contact: "john@example.com", account: "account_id ACCT998877" },
+        ORG_ID,
+      );
+
+      const results = await ms.retrieve({
+        agent_id: "OpportunityAgent",
+        organization_id: ORG_ID,
+        memory_type: "episodic",
+      });
+
+      expect(results[0].content).toContain("[REDACTED_EMAIL]");
+      expect(results[0].content).toContain("[REDACTED_PHONE]");
+      expect(results[0].content).toContain("[REDACTED_ACCOUNT_ID]");
+      expect(results[0].metadata?.contact).toBe("[REDACTED_EMAIL]");
+      expect(String(results[0].metadata?.account)).toContain("[REDACTED_ACCOUNT_ID]");
+    });
+
+    it("uses protected summary for episodic/semantic content in high-trust mode", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false, high_trust_mode: true });
+
+      await ms.storeSemanticMemory(
+        "session-1",
+        "OpportunityAgent",
+        "episodic",
+        "Reach me at john@example.com for account_id ACCT123456",
+        {},
+        ORG_ID,
+      );
+
+      const results = await ms.retrieve({
+        agent_id: "OpportunityAgent",
+        organization_id: ORG_ID,
+        memory_type: "episodic",
+      });
+
+      expect(results[0].content).toContain("[HIGH_TRUST_SUMMARY]");
+      expect(results[0].content).toContain("[REDACTED_EMAIL]");
+      expect(results[0].content).toMatch(/\[HASH:[a-f0-9]{64}\]/);
+    });
   });
 
   // ── storeEpisodicMemory ──────────────────────────────────────────
