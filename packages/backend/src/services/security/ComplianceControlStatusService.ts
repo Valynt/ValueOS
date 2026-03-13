@@ -55,8 +55,13 @@ export class ComplianceControlStatusService {
 
   /**
    * MFA coverage: percentage of tenant users with MFA enabled.
-   * Queries user_organizations → mfa_secrets join.
-   * Returns null when the query fails so the caller can skip this control.
+   *
+   * Primary path: Supabase `!inner` join from user_organizations → mfa_secrets.
+   * Fallback path: two-step query (fetch user IDs, then count enabled rows in
+   * mfa_secrets) used when the join fails due to schema version differences.
+   *
+   * Returns null when both paths fail so the caller omits this control rather
+   * than emitting a fabricated value.
    */
   private async measureMfaCoverage(tenantId: string): Promise<number | null> {
     try {
@@ -68,16 +73,41 @@ export class ComplianceControlStatusService {
 
       if (totalErr || totalCount === null || totalCount === 0) return null;
 
-      // Users with MFA enabled — join via user_organizations
-      const { data: mfaRows, error: mfaErr } = await this.supabase
+      // Primary: join via Supabase FK syntax
+      const { data: mfaRows, error: joinErr } = await this.supabase
         .from("user_organizations")
         .select("user_id, mfa_secrets!inner(enabled)")
         .eq("organization_id", tenantId)
         .eq("mfa_secrets.enabled", true);
 
-      if (mfaErr) return null;
+      if (!joinErr) {
+        const enabledCount = mfaRows?.length ?? 0;
+        return Number(((enabledCount / totalCount) * 100).toFixed(2));
+      }
 
-      const enabledCount = mfaRows?.length ?? 0;
+      // Fallback: two-step query when the FK join is unavailable
+      logger.warn("ComplianceControlStatusService: MFA join failed, using two-step fallback", {
+        tenantId,
+        error: joinErr.message,
+      });
+
+      const { data: userRows, error: userErr } = await this.supabase
+        .from("user_organizations")
+        .select("user_id")
+        .eq("organization_id", tenantId);
+
+      if (userErr || !userRows || userRows.length === 0) return null;
+
+      const userIds = userRows.map((r) => (r as { user_id: string }).user_id);
+
+      const { count: enabledCount, error: mfaErr } = await this.supabase
+        .from("mfa_secrets")
+        .select("user_id", { count: "exact", head: true })
+        .in("user_id", userIds)
+        .eq("enabled", true);
+
+      if (mfaErr || enabledCount === null) return null;
+
       return Number(((enabledCount / totalCount) * 100).toFixed(2));
     } catch (err) {
       logger.warn("ComplianceControlStatusService: MFA coverage query failed", {
@@ -98,6 +128,28 @@ export class ComplianceControlStatusService {
   }
 
   /**
+   * Action names that indicate a successful key or secret rotation.
+   * Covers the patterns used by RotationService, APIKeyRotationService,
+   * SecretRotationScheduler, and SecureTokenManager. Add new values here
+   * when onboarding additional rotation tooling.
+   */
+  private static readonly KEY_ROTATION_ACTIONS = [
+    // RotationService (dual-user credential rotation)
+    "secret.rotate",
+    // APIKeyRotationService
+    "api_key.rotate",
+    // SecretRotationScheduler
+    "secret.rotate.scheduled",
+    // SecureTokenManager (refresh token rotation)
+    "refresh_token_rotated",
+    // Legacy / external tooling variants
+    "secret.rotated",
+    "key.rotated",
+    "api_key.rotated",
+    "key_rotation.completed",
+  ];
+
+  /**
    * Key rotation freshness: hours since the most recent key/secret rotation
    * event recorded in audit_logs for this tenant.
    * Returns null when no rotation event is found (treated as stale).
@@ -108,7 +160,7 @@ export class ComplianceControlStatusService {
         .from("audit_logs")
         .select("created_at")
         .eq("organization_id", tenantId)
-        .in("action", ["secret.rotated", "key.rotated", "api_key.rotated"])
+        .in("action", ComplianceControlStatusService.KEY_ROTATION_ACTIONS)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
