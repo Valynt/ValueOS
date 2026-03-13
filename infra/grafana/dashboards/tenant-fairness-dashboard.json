@@ -1,0 +1,89 @@
+{
+  "dashboard": {
+    "title": "Tenant Fairness Dashboard",
+    "tags": ["tenant", "fairness", "quota", "saturation"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Resource Share Distribution (Requests)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "topk(10, tenant:request_share_ratio:5m)",
+            "legendFormat": "{{tenant_id}}",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+      },
+      {
+        "id": 2,
+        "title": "Quota Utilization by Tenant Tier",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(valueos_quota_utilization_ratio{tenant_id!=\"\"}) by (tenant_tier)",
+            "legendFormat": "{{tenant_tier}}",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+      },
+      {
+        "id": 3,
+        "title": "Throttling Events by Tenant",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(increase(valueos_throttling_events_total{tenant_id!=\"\"}[15m])) by (tenant_id, reason)",
+            "legendFormat": "{{tenant_id}} / {{reason}}",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "fieldConfig": { "defaults": { "min": 0 } }
+      },
+      {
+        "id": 4,
+        "title": "Saturation by Tenant Tier",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "sum(valueos_tenant_saturation_index{tenant_id!=\"\"}) by (tenant_tier)",
+            "legendFormat": "{{tenant_tier}}",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+      },
+      {
+        "id": 5,
+        "title": "Recommendation Throughput by Tenant",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "tenant:recommendation_throughput:5m",
+            "legendFormat": "{{tenant_id}}",
+            "datasource": { "type": "prometheus", "uid": "prometheus" }
+          }
+        ],
+        "fieldConfig": { "defaults": { "min": 0 } }
+      }
+    ]
+  },
+  "folderId": 0,
+  "overwrite": true
+}
