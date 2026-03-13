@@ -3,6 +3,8 @@ export * from "./AgentSecurityService.js";
 export * from "./AuditLogService.js";
 export * from "./AuditTrailService.js";
 export * from "./ComplianceControlStatusService.js";
+export * from "./ComplianceControlMappingRegistry.js";
+export * from "./ComplianceReportGeneratorService.js";
 export * from "./ComplianceEvidenceService.js";
 export * from "./InputValidation.js";
 export * from "./SecurityMiddleware.js";
