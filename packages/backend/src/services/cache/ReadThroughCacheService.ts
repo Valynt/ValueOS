@@ -115,6 +115,14 @@ export class ReadThroughCacheService {
 
     readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "miss" });
     const loaded = await loader();
+
+    // If the loader returns undefined, skip caching to avoid calling
+    // JSON.stringify(undefined), which returns undefined (not a string)
+    // and would cause redis.set to fail at runtime.
+    if (loaded === undefined) {
+      return loaded as T;
+    }
+
     const ttl = CACHE_TTL_TIERS_SECONDS[config.tier];
     await redis.set(key, JSON.stringify(loaded), { EX: ttl });
     return loaded;
