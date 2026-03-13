@@ -95,11 +95,13 @@ let latencyMetricsMiddleware = null;
 let metricsMiddleware = null;
 let getMetricsRegistry = null;
 let getLatencySnapshot = null;
+let telemetrySdk: { shutdown?: () => Promise<void> } | null = null;
 
 if (process.env.ENABLE_TELEMETRY !== "false") {
   try {
     const telemetryModule = await import("./config/telemetry");
     tracingMiddleware = telemetryModule.tracingMiddleware;
+    telemetrySdk = await telemetryModule.initializeTelemetry();
 
     const latencyModule = await import("./middleware/latencyMetricsMiddleware");
     latencyMetricsMiddleware = latencyModule.latencyMetricsMiddleware;
@@ -732,6 +734,14 @@ function registerGracefulShutdown(): void {
 
     // 3. Tear down Redis pub/sub for WebSocket broadcasts
     getBroadcastAdapter().shutdown().catch(() => {});
+
+    // 3.5 Flush OpenTelemetry buffers
+    telemetrySdk?.shutdown?.().catch((error) => {
+      logger.warn("OpenTelemetry shutdown failed", {
+        event: "telemetry.shutdown",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     // 4. Close WebSocket connections
     wss.clients.forEach((client) => {

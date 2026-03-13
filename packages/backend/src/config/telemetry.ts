@@ -12,6 +12,7 @@
 const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 // Browser imports - use dynamic imports to avoid bundling issues
+import type { NextFunction, Request, Response } from "express";
 import type { Span as SpanType } from "@opentelemetry/api";
 let trace: any, context: any, SpanStatusCode: any, Span: any;
 
@@ -433,39 +434,58 @@ export const metrics = {
 /**
  * Middleware to add tracing to Express routes
  */
+function getHeaderValue(input: string | string[] | undefined): string | undefined {
+  if (!input) return undefined;
+  return Array.isArray(input) ? input[0] : input;
+}
+
 export function tracingMiddleware() {
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const tracer = getTracer();
     const span = tracer.startSpan(`http.${req.method} ${req.path}`);
+
+    const tenantId =
+      getHeaderValue(req.headers["x-tenant-id"]) ??
+      getHeaderValue(req.headers["x-organization-id"]) ??
+      (typeof req.tenantId === "string" ? req.tenantId : undefined) ??
+      "unknown";
+
+    const incomingTraceId = getHeaderValue(req.headers["x-trace-id"]);
 
     span.setAttributes({
       'http.method': req.method,
       'http.url': req.url,
       'http.target': req.path,
-      'http.user_agent': req.get('user-agent') || 'unknown'
+      'http.user_agent': req.get('user-agent') || 'unknown',
+      'tenant_id': tenantId,
+      'trace_id': incomingTraceId ?? 'unknown',
     });
 
-    // Add trace context to request
-    req.traceContext = getCurrentTraceContext();
+    const activeCtx = trace.setSpan(context.active(), span);
+    context.with(activeCtx, () => {
+      req.traceContext = {
+        traceId: span.spanContext().traceId,
+        spanId: span.spanContext().spanId,
+      };
 
-    // End span when response finishes
-    res.on('finish', () => {
-      span.setAttributes({
-        'http.status_code': res.statusCode
+      res.on('finish', () => {
+        span.setAttributes({
+          'http.status_code': res.statusCode,
+        });
+
+        if (res.statusCode >= 400) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: `HTTP ${res.statusCode}`,
+          });
+        } else {
+          span.setStatus({ code: SpanStatusCode.OK });
+        }
+
+        span.end();
       });
 
-      if (res.statusCode >= 400) {
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: `HTTP ${res.statusCode}`
-        });
-      } else {
-        span.setStatus({ code: SpanStatusCode.OK });
-      }
-
-      span.end();
+      next();
     });
-
-    next();
   };
 }

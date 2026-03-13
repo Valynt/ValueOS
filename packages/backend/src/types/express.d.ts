@@ -46,6 +46,10 @@ declare global {
         timestamp: string;
       };
       organizationId?: string;
+      traceContext?: {
+        traceId: string;
+        spanId: string;
+      };
       _auditMiddlewareAttached?: boolean;
     }
   }

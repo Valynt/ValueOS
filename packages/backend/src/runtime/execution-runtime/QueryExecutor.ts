@@ -223,6 +223,8 @@ export class QueryExecutor {
       metadata: {
         companyProfile: currentState.context?.companyProfile,
         currentStage: currentState.currentStage,
+        trace_id: traceId,
+        tenant_id: envelope.organizationId,
       },
       source: 'QueryExecutor.processQueryAsync',
     });
@@ -437,6 +439,8 @@ export class QueryExecutor {
           metadata: {
             companyProfile: currentState.context?.companyProfile,
             currentStage: currentState.currentStage,
+            trace_id: traceId,
+            tenant_id: envelope.organizationId,
           },
           source: 'QueryExecutor._processQuerySync',
         });

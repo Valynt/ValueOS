@@ -1,124 +1,136 @@
 /* eslint-disable no-console */
-/**
- * Structured JSON Logger
- *
- * Production-grade logging with correlation IDs and safe metadata.
- * Automatically injects trace_id and span_id from the active OTel span
- * to enable Loki → Tempo correlation.
- */
+import { context, trace } from "@opentelemetry/api";
+import { structuredLogSchema, type StructuredLogSeverity } from "@shared/observability/logSchema";
 
 import { redactSensitiveData } from "./redaction.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
-interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
+type LogOutcome = "success" | "failure" | "unknown";
+
+interface LoggerMeta {
+  tenant_id?: string;
+  trace_id?: string;
+  span_id?: string;
+  event?: string;
+  outcome?: LogOutcome;
   [key: string]: unknown;
 }
 
-/**
- * Attempt to get trace context from OTel. Returns empty object if unavailable.
- * Uses dynamic import to avoid hard dependency on telemetry module.
- */
-function getTraceContext(): Record<string, string> {
-  try {
-    // Inline require-style access to avoid circular dependency with telemetry.ts
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const api = require("@opentelemetry/api");
-    const span = api.trace.getActiveSpan?.();
-    if (!span) return {};
-    const ctx = span.spanContext();
-    if (!ctx || ctx.traceId === "00000000000000000000000000000000") return {};
-    return { traceId: ctx.traceId, spanId: ctx.spanId };
-  } catch {
-    return {};
-  }
+function levelToSeverity(level: LogLevel): StructuredLogSeverity {
+  if (level === "debug") return "DEBUG";
+  if (level === "info") return "INFO";
+  if (level === "warn") return "WARN";
+  return "ERROR";
 }
 
-/**
- * Create a log entry
- */
-function createEntry(level: LogLevel, message: string, meta?: Record<string, unknown>): LogEntry {
-  const traceCtx = getTraceContext();
-  return {
+function getTraceContext(): { trace_id?: string; span_id?: string } {
+  const span = trace.getSpan(context.active());
+  if (!span) return {};
+  const spanContext = span.spanContext();
+  if (!spanContext || spanContext.traceId === "00000000000000000000000000000000") return {};
+  return { trace_id: spanContext.traceId, span_id: spanContext.spanId };
+}
+
+function createEntry(level: LogLevel, event: string, meta?: LoggerMeta): Record<string, unknown> {
+  const sanitizedMeta = meta ? (redactSensitiveData(meta) as LoggerMeta) : {};
+  const traceContext = getTraceContext();
+  const tenantId = typeof sanitizedMeta.tenant_id === "string" ? sanitizedMeta.tenant_id : "unknown";
+
+  const entry = {
     timestamp: new Date().toISOString(),
-    level,
-    message,
-    ...traceCtx,
-    ...(meta ? (redactSensitiveData(meta) as Record<string, unknown>) : {}),
+    severity: levelToSeverity(level),
+    service: process.env.OTEL_SERVICE_NAME || "valueos-backend",
+    env: process.env.NODE_ENV || "development",
+    tenant_id: tenantId,
+    trace_id: (typeof sanitizedMeta.trace_id === "string" ? sanitizedMeta.trace_id : traceContext.trace_id) ?? "unknown",
+    span_id: (typeof sanitizedMeta.span_id === "string" ? sanitizedMeta.span_id : traceContext.span_id) ?? "unknown",
+    event,
+    outcome: sanitizedMeta.outcome ?? (level === "error" ? "failure" : "unknown"),
+    ...sanitizedMeta,
   };
-}
 
-/**
- * Output log entry
- */
-function output(entry: LogEntry): void {
-  const json = JSON.stringify(entry);
-
-  if (entry.level === "error") {
-    console.error(json);
-  } else if (entry.level === "warn") {
-    console.warn(json);
-  } else {
-    console.log(json);
+  const parsed = structuredLogSchema.safeParse(entry);
+  if (!parsed.success) {
+    return {
+      timestamp: new Date().toISOString(),
+      severity: "ERROR",
+      service: process.env.OTEL_SERVICE_NAME || "valueos-backend",
+      env: process.env.NODE_ENV || "development",
+      tenant_id: tenantId,
+      trace_id: traceContext.trace_id ?? "unknown",
+      span_id: traceContext.span_id ?? "unknown",
+      event: "logger.schema_validation_failed",
+      outcome: "failure",
+      schema_issues: parsed.error.issues.map((issue) => issue.message),
+      original_event: event,
+      original_meta: sanitizedMeta,
+    };
   }
+
+  return parsed.data;
 }
 
-/**
- * Logger instance
- */
+function output(level: LogLevel, event: string, meta?: LoggerMeta): void {
+  const json = JSON.stringify(createEntry(level, event, meta));
+  if (level === "error") {
+    console.error(json);
+    return;
+  }
+  if (level === "warn") {
+    console.warn(json);
+    return;
+  }
+  console.log(json);
+}
+
 export const logger = {
-  debug(message: string, meta?: Record<string, unknown>): void {
+  debug(event: string, meta?: LoggerMeta): void {
     if (process.env.LOG_LEVEL === "debug") {
-      output(createEntry("debug", message, meta));
+      output("debug", event, meta);
     }
   },
 
-  info(message: string, meta?: Record<string, unknown>): void {
-    output(createEntry("info", message, meta));
+  info(event: string, meta?: LoggerMeta): void {
+    output("info", event, meta);
   },
 
-  warn(message: string, meta?: Record<string, unknown>): void {
-    output(createEntry("warn", message, meta));
+  warn(event: string, meta?: LoggerMeta): void {
+    output("warn", event, meta);
   },
 
-  error(message: string, error?: unknown, meta?: Record<string, unknown>): void {
+  error(event: string, error?: unknown, meta?: LoggerMeta): void {
     const errorMeta =
       error instanceof Error
-        ? { errorType: error.name, errorMessage: error.message, stack: error.stack }
+        ? { error_name: error.name, error_message: error.message, stack: error.stack }
         : error
           ? { error: String(error) }
           : {};
-
-    output(createEntry("error", message, { ...errorMeta, ...meta }));
+    output("error", event, { ...errorMeta, ...meta, outcome: "failure" });
   },
 
-  cache(operation: string, key: string, meta?: Record<string, unknown>): void {
-    output(createEntry("debug", `cache:${operation}`, { cacheKey: key, ...meta }));
+  cache(operation: string, key: string, meta?: LoggerMeta): void {
+    output("debug", `cache.${operation}`, { cache_key: key, ...meta });
   },
 };
 
-/**
- * Create a component-specific logger
- */
 export function createLogger(options: { component: string }) {
   return {
-    debug(message: string, meta?: Record<string, unknown>): void {
-      logger.debug(message, { component: options.component, ...meta });
+    debug(event: string, meta?: LoggerMeta): void {
+      logger.debug(event, { component: options.component, ...meta });
     },
-    info(message: string, meta?: Record<string, unknown>): void {
-      logger.info(message, { component: options.component, ...meta });
+    info(event: string, meta?: LoggerMeta): void {
+      logger.info(event, { component: options.component, ...meta });
     },
-    warn(message: string, meta?: Record<string, unknown>): void {
-      logger.warn(message, { component: options.component, ...meta });
+    warn(event: string, meta?: LoggerMeta): void {
+      logger.warn(event, { component: options.component, ...meta });
     },
-    error(message: string, error?: unknown, meta?: Record<string, unknown>): void {
-      logger.error(message, error, { component: options.component, ...meta });
+    error(event: string, error?: unknown, meta?: LoggerMeta): void {
+      logger.error(event, error, { component: options.component, ...meta });
     },
   };
 }
 
 export { logger as log };
+
 export default logger;

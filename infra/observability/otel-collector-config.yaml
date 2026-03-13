@@ -1,6 +1,5 @@
 # OTel Collector configuration
-# Routes traces to Tempo, exposes metrics for Prometheus scraping.
-# Logs are handled by Promtail (not the collector).
+# Single aggregation backend for logs and traces is Loki/Tempo via collector.
 
 receivers:
   otlp:
@@ -25,16 +24,20 @@ extensions:
     endpoint: 0.0.0.0:13133
 
 exporters:
-  # Traces → Tempo via OTLP gRPC
   otlp/tempo:
     endpoint: tempo:4317
     tls:
       insecure: true
 
-  # Metrics → exposed for Prometheus scraping on :8889
   prometheus:
     endpoint: 0.0.0.0:8889
     namespace: otel
+
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
 
 service:
   extensions: [health_check]
@@ -47,3 +50,7 @@ service:
       receivers: [otlp]
       processors: [memory_limiter, batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [loki]
