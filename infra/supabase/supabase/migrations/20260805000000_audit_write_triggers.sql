@@ -21,8 +21,26 @@ BEGIN
     ELSE 'data.update'
   END;
 
-  tenant_ref := COALESCE(NEW.organization_id, OLD.organization_id);
-  org_ref := COALESCE(NEW.organization_id, OLD.organization_id);
+  -- Derive tenant / organization reference per table schema.
+  IF TG_TABLE_NAME = 'memberships' THEN
+    -- memberships uses tenant_id (TEXT) instead of organization_id (UUID).
+    BEGIN
+      tenant_ref := COALESCE(
+        NULLIF(NEW.tenant_id, '')::uuid,
+        NULLIF(OLD.tenant_id, '')::uuid
+      );
+    EXCEPTION
+      WHEN invalid_text_representation THEN
+        -- If tenant_id is not a valid UUID, avoid failing the write; record audit without tenant linkage.
+        tenant_ref := NULL;
+    END;
+    org_ref := tenant_ref;
+  ELSE
+    -- Default path for tables that use organization_id (UUID).
+    tenant_ref := COALESCE(NEW.organization_id, OLD.organization_id);
+    org_ref := COALESCE(NEW.organization_id, OLD.organization_id);
+  END IF;
+
   actor_id := auth.uid();
   actor_email := COALESCE((auth.jwt() ->> 'email'), 'system@internal');
 
