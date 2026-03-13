@@ -79,7 +79,7 @@ case "$ENVIRONMENT" in
 esac
 
 log "Capturing pre-backup state"
-PRE_COUNTS=$($DB_QUERY_CMD "
+PRE_COUNTS_RAW=$($DB_QUERY_CMD "
   SELECT json_build_object(
     'organizations', (SELECT count(*) FROM public.organizations),
     'cases',         (SELECT count(*) FROM public.cases),
@@ -87,7 +87,19 @@ PRE_COUNTS=$($DB_QUERY_CMD "
     'agents',        (SELECT count(*) FROM public.agents),
     'kpis',          (SELECT count(*) FROM public.kpis)
   );
-" 2>/dev/null | tr -d '[:space:]' || echo '{}')
+" | tr -d '[:space:]')
+
+if [[ -z "${PRE_COUNTS_RAW:-}" ]]; then
+  fail "Failed to capture pre-backup state: empty result from database query"
+  exit 1
+fi
+
+if ! echo "$PRE_COUNTS_RAW" | jq -e . >/dev/null 2>&1; then
+  fail "Failed to capture pre-backup state: invalid JSON returned from database query"
+  exit 1
+fi
+
+PRE_COUNTS="$PRE_COUNTS_RAW"
 
 BACKUP_FILE="$BACKUP_DIR/${ENVIRONMENT}_dr_${TIMESTAMP}.sql"
 BACKUP_START=$(date +%s%N)
