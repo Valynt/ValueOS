@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,25 +74,25 @@ export function TenantContextPage() {
     };
 
     setSubmitting(true);
-    try {
-      const res = await apiClient.post<IngestResponse>(
-        "/api/v1/tenant/context",
-        payload
-      );
-      toast({
-        title: "Company context saved",
-        description: `${res.memoryEntries} memory entries updated.`,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "An error occurred";
+    const res = await apiClient.post<IngestResponse>(
+      "/api/v1/tenant/context",
+      payload
+    );
+    setSubmitting(false);
+
+    if (!res.success || !res.data) {
       toast({
         title: "Failed to save context",
-        description: message,
+        description: res.error?.message ?? "An error occurred",
         variant: "destructive",
       });
-    } finally {
-      setSubmitting(false);
+      return;
     }
+
+    toast({
+      title: "Company context saved",
+      description: `${res.data.memoryEntries} memory entries updated.`,
+    });
   }
 
   return (

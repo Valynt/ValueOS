@@ -236,7 +236,7 @@ function CompanyContextTab() {
     e.preventDefault();
     setStatus("saving");
     try {
-      await fetch("/api/v1/tenant/context", {
+      const response = await fetch("/api/v1/tenant/context", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -247,7 +247,7 @@ function CompanyContextTab() {
           websiteUrl: form.websiteUrl || undefined,
         }),
       });
-      setStatus("saved");
+      setStatus(response.ok ? "saved" : "error");
     } catch {
       setStatus("error");
     }
