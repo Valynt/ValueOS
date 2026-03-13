@@ -56,17 +56,17 @@ export interface RequestConfig {
 }
 
 interface PendingRequest {
-  promise: Promise<any>;
+  promise: Promise<unknown>;
   timestamp: number;
 }
 
 export abstract class BaseService {
   protected supabase = createSupabaseProxy();
   protected serviceName: string;
-  protected logger;
+  protected logger: ReturnType<typeof createLogger>;
 
   private pendingRequests: Map<string, PendingRequest> = new Map();
-  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly DEDUP_TIMEOUT = 1000; // 1 second
 
@@ -96,7 +96,7 @@ export abstract class BaseService {
       const pending = this.pendingRequests.get(deduplicationKey);
       if (pending && Date.now() - pending.timestamp < this.DEDUP_TIMEOUT) {
         this.log("debug", `Deduplicating request: ${deduplicationKey}`);
-        return pending.promise;
+        return pending.promise as Promise<T>;
       }
     }
 
@@ -105,7 +105,7 @@ export abstract class BaseService {
       const cached = this.cache.get(deduplicationKey);
       if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
         this.log("debug", `Cache hit: ${deduplicationKey}`);
-        return cached.data;
+        return cached.data as T;
       }
     }
 
@@ -136,7 +136,7 @@ export abstract class BaseService {
       }
 
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       throw handleServiceError(error);
     }
   }
@@ -157,7 +157,7 @@ export abstract class BaseService {
           return await this.withTimeout(operation(), timeout);
         }
         return await operation();
-      } catch (error) {
+      } catch (error: unknown) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on certain errors
@@ -231,7 +231,7 @@ export abstract class BaseService {
   /**
    * Logging utility
    */
-  protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: any): void {
+  protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: Record<string, unknown>): void {
     switch (level) {
       case "debug":
         this.logger.debug(message, data);
@@ -257,7 +257,7 @@ export abstract class BaseService {
   /**
    * Validate required fields
    */
-  protected validateRequired<T extends Record<string, any>>(data: T, fields: (keyof T)[]): void {
+  protected validateRequired<T extends Record<string, unknown>>(data: T, fields: (keyof T)[]): void {
     const missing = fields.filter((field) => !data[field]);
     if (missing.length > 0) {
       throw new ServiceError(

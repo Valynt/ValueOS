@@ -33,7 +33,7 @@ import { getDatabaseUrl } from './database.js'
  * Secret cache entry with expiration
  */
 interface SecretCache {
-  value: any;
+  value: SecretsConfig;
   expiresAt: number;
   tenantId: string;
 }
@@ -76,7 +76,7 @@ interface AuditLogEntry {
   result: 'SUCCESS' | 'FAILURE';
   error?: string;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -86,6 +86,8 @@ interface PermissionCheck {
   allowed: boolean;
   reason?: string;
 }
+
+type SecretPermission = 'secrets:read' | 'secrets:write' | 'secrets:delete' | 'secrets:rotate';
 
 /**
  * Multi-tenant secrets manager with RBAC and audit logging
@@ -203,7 +205,7 @@ export class MultiTenantSecretsManager {
           { userId, tenantId }
         );
       } else {
-        const roles = (userRoles ?? []).map((ur: any) => ur.role).filter(Boolean);
+        const roles = (userRoles ?? []).map((ur: { role?: string | null }) => ur.role).filter((r): r is string => Boolean(r));
 
         if (roles.length > 0) {
           const rbacUser: RbacUser = {
@@ -223,7 +225,7 @@ export class MultiTenantSecretsManager {
           };
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error(
         'Unexpected error during RBAC check',
         err instanceof Error ? err : new Error(String(err)),
@@ -237,7 +239,7 @@ export class MultiTenantSecretsManager {
         let supabase;
         try {
           supabase = createServerSupabaseClient();
-        } catch (e) {
+        } catch (e: unknown) {
           logger.warn('Failed to create Supabase client for permission check', { error: e });
           return {
             allowed: false,
@@ -260,7 +262,7 @@ export class MultiTenantSecretsManager {
           return { allowed: false, reason: 'User not found or database error' };
         }
 
-        if ((user as any).organization_id === tenantId) {
+        if ((user as { organization_id?: string }).organization_id === tenantId) {
           return { allowed: true };
         }
 
@@ -268,7 +270,7 @@ export class MultiTenantSecretsManager {
           allowed: false,
           reason: `User ${this.maskUserId(userId)} does not belong to tenant ${tenantId}`,
         };
-      } catch (err) {
+      } catch (err: unknown) {
         logger.error(
           'Unexpected error verifying user tenant membership',
           err instanceof Error ? err : new Error(String(err))
@@ -308,7 +310,7 @@ export class MultiTenantSecretsManager {
       let secretPath: string | undefined;
       try {
         secretPath = this.getTenantSecretPath(entry.tenantId, 'config');
-      } catch (e) {
+      } catch (e: unknown) {
         secretPath = `invalid_path_generation: ${e instanceof Error ? e.message : String(e)}`;
       }
 
@@ -326,7 +328,7 @@ export class MultiTenantSecretsManager {
         metadata: entry.metadata || {},
         timestamp: entry.timestamp || new Date().toISOString(),
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         'Failed to write to secret_audit_logs database',
         error instanceof Error ? error : new Error(String(error)),
@@ -432,7 +434,7 @@ export class MultiTenantSecretsManager {
       });
 
       return secrets;
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditLog({
         tenantId,
         userId,
@@ -542,7 +544,7 @@ export class MultiTenantSecretsManager {
         tenantId,
         keysUpdated: Object.keys(updates).length,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditLog({
         tenantId,
         userId,
@@ -601,7 +603,7 @@ export class MultiTenantSecretsManager {
       });
 
       logger.info('Secret rotation initiated', { tenantId });
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditLog({
         tenantId,
         userId,
@@ -636,7 +638,7 @@ export class MultiTenantSecretsManager {
   /**
    * Validate that all required secrets are present for a tenant
    */
-  async validateSecrets(tenantId: string, userId?: string): Promise<{ valid: boolean; missing: string[] }> {
+  async validateSecrets(tenantId: string, userId?: string): Promise<{ valid: boolean; missing: (keyof SecretsConfig)[] }> {
     const secrets = await this.getSecrets(tenantId, userId);
 
     const required: (keyof SecretsConfig)[] = [
@@ -679,7 +681,7 @@ export async function initializeTenantsSecrets(tenantId: string, userId?: string
     } else {
       logger.info('All required secrets loaded successfully for tenant', { tenantId });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error(
       'Failed to initialize secrets for tenant',
       error instanceof Error ? error : new Error(String(error)),

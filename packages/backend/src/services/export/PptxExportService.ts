@@ -80,6 +80,7 @@ interface HypothesisItem {
     high?: number;
     unit?: string;
     timeframe_months?: number;
+    value?: number;
   };
   confidence?: number;
 }
@@ -182,7 +183,7 @@ export class PptxExportService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pptx: any = new PptxGenJS();
+    const pptx: InstanceType<typeof PptxGenJS> = new PptxGenJS();
     pptx.layout = 'LAYOUT_WIDE'; // 13.33" × 7.5"
     pptx.author = 'ValueOS';
     pptx.company = 'ValueOS';
@@ -200,7 +201,7 @@ export class PptxExportService {
 
   // Slide 1: Cover
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addCoverSlide(pptx: any, title: string, ownerName: string | undefined, createdAt: string): void {
+  private addCoverSlide(pptx: InstanceType<any>, title: string, ownerName: string | undefined, createdAt: string): void {
     const slide = pptx.addSlide();
 
     // Dark background
@@ -250,7 +251,7 @@ export class PptxExportService {
 
   // Slide 2: Executive Summary
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addExecutiveSummarySlide(pptx: any, content: string | null): void {
+  private addExecutiveSummarySlide(pptx: InstanceType<any>, content: string | null): void {
     const slide = pptx.addSlide();
 
     // Light background
@@ -290,7 +291,7 @@ export class PptxExportService {
 
   // Slide 3: Financial Model
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addFinancialSlide(pptx: any, roi: number | null, npv: number | null, paybackMonths: number | null): void {
+  private addFinancialSlide(pptx: InstanceType<any>, roi: number | null, npv: number | null, paybackMonths: number | null): void {
     const slide = pptx.addSlide();
 
     slide.addShape(pptx.ShapeType.rect, {
@@ -380,7 +381,7 @@ export class PptxExportService {
   // in the `hypotheses` array are shown as-is; there is currently no concept of a separate
   // “validated” subset or low–high value ranges. Impact is rendered as a single expected value.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addHypothesesSlide(pptx: any, hypotheses: HypothesisItem[]): void {
+  private addHypothesesSlide(pptx: InstanceType<any>, hypotheses: HypothesisItem[]): void {
     const slide = pptx.addSlide();
 
     slide.addShape(pptx.ShapeType.rect, {

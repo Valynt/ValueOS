@@ -20,7 +20,7 @@ export interface ConversationMessage {
   agentName?: string;
   confidence?: number;
   reasoning?: string[];
-  sduiPage?: any;
+  sduiPage?: unknown;
   metadata?: Record<string, unknown>;
 }
 
@@ -83,7 +83,7 @@ class ConversationHistoryService {
 
       conversationCache.set(caseId, history);
       return history;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error fetching conversation history', error instanceof Error ? error : undefined);
       return null;
     }
@@ -122,12 +122,12 @@ class ConversationHistoryService {
       conversationCache.set(caseId, history);
 
       // Persist to database (fire and forget, don't block)
-      this.persistHistory(history).catch(err => {
+      this.persistHistory(history).catch((err: unknown) => {
         logger.warn('Failed to persist conversation history', { error: err });
       });
 
       return newMessage;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error adding message', error instanceof Error ? error : undefined);
       throw error;
     }
@@ -166,7 +166,7 @@ class ConversationHistoryService {
           throw error;
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error persisting conversation history', error instanceof Error ? error : undefined);
       throw error;
     }
@@ -202,7 +202,7 @@ class ConversationHistoryService {
         .from(this.tableName)
         .delete()
         .eq('case_id', caseId);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn('Failed to clear conversation history from database', { error });
     }
   }

@@ -27,7 +27,7 @@ export interface RealtimeDataBinding extends DataBinding {
   /**
    * Filter function for incoming messages
    */
-  $filter?: (data: any) => boolean;
+  $filter?: (data: unknown) => boolean;
 
   /**
    * Debounce interval in milliseconds
@@ -46,7 +46,7 @@ export interface RealtimeDataBinding extends DataBinding {
 interface SubscriptionState {
   channel: string;
   unsubscribe: () => void;
-  buffer: any[];
+  buffer: unknown[];
   lastUpdate: string;
   updateCount: number;
 }
@@ -57,7 +57,7 @@ interface SubscriptionState {
 export class WebSocketDataSource {
   private wsManager: WebSocketManager;
   private subscriptions: Map<string, SubscriptionState> = new Map();
-  private callbacks: Map<string, Set<(data: any) => void>> = new Map();
+  private callbacks: Map<string, Set<(data: unknown) => void>> = new Map();
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(wsManager: WebSocketManager) {
@@ -70,7 +70,7 @@ export class WebSocketDataSource {
   public async resolve(
     binding: RealtimeDataBinding,
     context: DataSourceContext,
-    onUpdate: (data: any) => void
+    onUpdate: (data: unknown) => void
   ): Promise<ResolvedBinding> {
     try {
       // Ensure WebSocket is connected
@@ -103,7 +103,7 @@ export class WebSocketDataSource {
         source: "realtime_stream",
         cached: false,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         value: binding.$fallback,
         success: false,
@@ -127,7 +127,7 @@ export class WebSocketDataSource {
 
     const unsubscribe = this.wsManager.subscribe(
       channel,
-      (data) => this.handleMessage(subscriptionKey, binding, data),
+      (data: unknown) => this.handleMessage(subscriptionKey, binding, data),
       binding.$filter
     );
 
@@ -143,7 +143,7 @@ export class WebSocketDataSource {
   /**
    * Handle incoming message
    */
-  private handleMessage(subscriptionKey: string, binding: RealtimeDataBinding, data: any): void {
+  private handleMessage(subscriptionKey: string, binding: RealtimeDataBinding, data: unknown): void {
     const subscription = this.subscriptions.get(subscriptionKey);
     if (!subscription) return;
 
@@ -168,15 +168,21 @@ export class WebSocketDataSource {
   /**
    * Extract value from data using path
    */
-  private extractValue(data: any, path: string): any {
+  private extractValue(data: unknown, path: string): unknown {
+    if (data === null || data === undefined) return undefined;
     const parts = path.split(".");
-    let value = data;
+    let value: unknown = data;
 
     for (const part of parts) {
-      if (value === null || value === undefined) {
+      if (
+        value === null ||
+        value === undefined ||
+        typeof value !== "object" ||
+        !(part in (value as Record<string, unknown>))
+      ) {
         return undefined;
       }
-      value = value[part];
+      value = (value as Record<string, unknown>)[part];
     }
 
     return value;
@@ -185,7 +191,7 @@ export class WebSocketDataSource {
   /**
    * Update buffer
    */
-  private updateBuffer(subscription: SubscriptionState, value: any, bufferSize: number = 1): void {
+  private updateBuffer(subscription: SubscriptionState, value: unknown, bufferSize: number = 1): void {
     subscription.buffer.push(value);
     if (subscription.buffer.length > bufferSize) {
       subscription.buffer.shift();
@@ -195,7 +201,7 @@ export class WebSocketDataSource {
   /**
    * Get current value
    */
-  private getCurrentValue(subscription: SubscriptionState, binding: RealtimeDataBinding): any {
+  private getCurrentValue(subscription: SubscriptionState, binding: RealtimeDataBinding): unknown {
     if (subscription.buffer.length === 0) {
       return binding.$fallback;
     }
@@ -211,7 +217,7 @@ export class WebSocketDataSource {
   /**
    * Debounce notify
    */
-  private debounceNotify(subscriptionKey: string, debounceMs: number, value: any): void {
+  private debounceNotify(subscriptionKey: string, debounceMs: number, value: unknown): void {
     // Clear existing timer
     const existingTimer = this.debounceTimers.get(subscriptionKey);
     if (existingTimer) {
@@ -230,7 +236,7 @@ export class WebSocketDataSource {
   /**
    * Notify callbacks
    */
-  private notifyCallbacks(subscriptionKey: string, value: any): void {
+  private notifyCallbacks(subscriptionKey: string, value: unknown): void {
     const callbacks = this.callbacks.get(subscriptionKey);
     if (callbacks) {
       callbacks.forEach((callback) => callback(value));
@@ -243,7 +249,7 @@ export class WebSocketDataSource {
   public unsubscribe(
     binding: RealtimeDataBinding,
     context: DataSourceContext,
-    callback: (data: any) => void
+    callback: (data: unknown) => void
   ): void {
     const subscriptionKey = this.createSubscriptionKey(binding, context);
     const callbacks = this.callbacks.get(subscriptionKey);
@@ -282,7 +288,7 @@ export class WebSocketDataSource {
    */
   private buildChannelName(binding: RealtimeDataBinding, context: DataSourceContext): string {
     // Include tenant/org in channel name for isolation
-    const tenantId = context.metadata?.tenantId || context.organizationId;
+    const tenantId = context.metadata?.tenantId ?? context.organizationId;
     return `${tenantId}:${binding.$channel}`;
   }
 
@@ -329,12 +335,12 @@ export function useRealtimeBinding(
   context: DataSourceContext,
   wsDataSource: WebSocketDataSource
 ): {
-  value: any;
+  value: unknown;
   loading: boolean;
   error: Error | null;
   lastUpdate: string | null;
 } {
-  const [value, setValue] = React.useState<any>(binding.$fallback);
+  const [value, setValue] = React.useState<unknown>(binding.$fallback);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = React.useState<string | null>(null);
@@ -342,7 +348,7 @@ export function useRealtimeBinding(
   React.useEffect(() => {
     let mounted = true;
 
-    const handleUpdate = (newValue: any) => {
+    const handleUpdate = (newValue: unknown) => {
       if (mounted) {
         setValue(newValue);
         setLastUpdate(new Date().toISOString());
@@ -363,9 +369,9 @@ export function useRealtimeBinding(
           setLoading(false);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (mounted) {
-          setError(err);
+          setError(err instanceof Error ? err : new Error(String(err)));
           setLoading(false);
         }
       });

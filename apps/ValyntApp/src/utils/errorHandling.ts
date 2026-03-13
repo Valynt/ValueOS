@@ -31,7 +31,7 @@ export class AppError extends Error {
     public type: ErrorType,
     public userMessage: string,
     public originalError?: Error,
-    public metadata?: Record<string, any>
+    public metadata?: Record<string, unknown>
   ) {
     super(userMessage);
     this.name = 'AppError';
@@ -71,7 +71,7 @@ export function toUserFriendlyError(
   // HTTP errors
   if (error && typeof error === 'object' && 'status' in error) {
     const httpError = error as { status: number; message?: string };
-    
+
     if (httpError.status === 429) {
       return {
         type: ErrorType.RATE_LIMIT,
@@ -80,7 +80,7 @@ export function toUserFriendlyError(
         duration: 30000,
       };
     }
-    
+
     if (httpError.status === 401 || httpError.status === 403) {
       return {
         type: ErrorType.AUTH,
@@ -89,7 +89,7 @@ export function toUserFriendlyError(
         duration: 0,
       };
     }
-    
+
     if (httpError.status >= 500) {
       return {
         type: ErrorType.DATABASE,
@@ -106,7 +106,7 @@ export function toUserFriendlyError(
     return {
       type: ErrorType.FILE_UPLOAD,
       title: 'File Upload Failed',
-      message: getFileErrorMessage(error),
+      message: getFileErrorMessage(error as FileErrorLike),
       action: retryAction ? { label: 'Try Another File', onClick: retryAction } : undefined,
       duration: 0,
     };
@@ -146,22 +146,29 @@ function getErrorTitle(type: ErrorType): string {
   }
 }
 
-function getFileErrorMessage(error: any): string {
+interface FileErrorLike {
+  code?: string;
+  fileType?: string;
+  maxSize?: string;
+  name?: string;
+}
+
+function getFileErrorMessage(error: FileErrorLike): string {
   const fileType = error.fileType || 'file';
   const maxSize = error.maxSize || '10MB';
-  
+
   if (error.code === 'FILE_TOO_LARGE') {
     return `File is too large. Maximum size is ${maxSize}`;
   }
-  
+
   if (error.code === 'INVALID_TYPE') {
     return `File type not supported. Please upload PDF, DOC, or TXT files`;
   }
-  
+
   if (error.code === 'PARSE_FAILED') {
     return `Could not read ${fileType}. Please try a different file`;
   }
-  
+
   return 'File upload failed. Please try again';
 }
 

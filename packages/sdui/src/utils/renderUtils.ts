@@ -89,8 +89,8 @@ export function calculatePerformanceMetrics(
 /**
  * Merge multiple data objects, with later objects taking precedence
  */
-export function mergeData(...sources: Array<Record<string, any> | null>): Record<string, any> {
-  return sources.reduce<Record<string, any>>((acc, source) => {
+export function mergeData(...sources: Array<Record<string, unknown> | null>): Record<string, unknown> {
+  return sources.reduce<Record<string, unknown>>((acc, source) => {
     if (source && typeof source === "object") {
       return { ...acc, ...source };
     }
@@ -107,17 +107,17 @@ export function deepClone<T>(obj: T): T {
   }
 
   if (obj instanceof Date) {
-    return new Date(obj.getTime()) as any;
+    return new Date(obj.getTime()) as unknown as T;
   }
 
-  if (obj instanceof Array) {
-    return obj.map((item) => deepClone(item)) as any;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => deepClone(item)) as unknown as T;
   }
 
   if (obj instanceof Object) {
     const cloned = {} as T;
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         cloned[key] = deepClone(obj[key]);
       }
     }
@@ -151,7 +151,7 @@ export const sanitizeProps = stripInternalProps;
  * Validate that required props are present
  */
 export function validateRequiredProps(
-  props: Record<string, any>,
+  props: Record<string, unknown>,
   requiredProps: string[]
 ): { valid: boolean; missing: string[] } {
   const missing = requiredProps.filter((prop) => !(prop in props));
@@ -209,7 +209,7 @@ export function normalizeEndpoint(endpoint: string, baseUrl?: string): string {
 /**
  * Debounce function for performance optimization
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -232,7 +232,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle function for performance optimization
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -262,8 +262,8 @@ export async function retryWithBackoff<T>(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await fn();
-    } catch (error) {
-      lastError = error as Error;
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error : new Error(String(error));
 
       // Don't wait after the last attempt
       if (attempt < maxAttempts - 1) {
@@ -273,7 +273,8 @@ export async function retryWithBackoff<T>(
     }
   }
 
-  throw lastError;
+  if (lastError) throw lastError;
+  throw new Error("Unknown error in retryWithBackoff");
 }
 
 /**
@@ -345,7 +346,7 @@ export function isDevelopment(): boolean {
 /**
  * Log message only in development mode
  */
-export function devLog(message: string, ...args: any[]): void {
+export function devLog(message: string, ...args: unknown[]): void {
   if (isDevelopment()) {
     logger.debug(`[SDUI] ${message}`, ...args);
   }
@@ -354,7 +355,7 @@ export function devLog(message: string, ...args: any[]): void {
 /**
  * Log warning only in development mode
  */
-export function devWarn(message: string, ...args: any[]): void {
+export function devWarn(message: string, ...args: unknown[]): void {
   if (isDevelopment()) {
     logger.warn(`[SDUI] ${message}`, ...args);
   }
@@ -363,6 +364,6 @@ export function devWarn(message: string, ...args: any[]): void {
 /**
  * Log error (always logged)
  */
-export function logError(message: string, error?: Error, ...args: any[]): void {
+export function logError(message: string, error?: Error, ...args: unknown[]): void {
   logger.error(`[SDUI] ${message}`, error, ...args);
 }

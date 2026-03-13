@@ -12,13 +12,13 @@ import type { SDUIPageDefinition } from "../schema";
  * Generate SOF-enhanced Expansion page
  */
 export function generateSOFExpansionPage(data: {
-  businessCase: any;
+  businessCase: Record<string, unknown>;
   systemMap: SystemMap;
   interventionPoint: InterventionPoint;
   feedbackLoops: FeedbackLoop[];
   expansionData?: {
-    targetContexts: any[];
-    scalingFactors?: any[];
+    targetContexts: Record<string, unknown>[];
+    scalingFactors?: Record<string, unknown>[];
     replicationReadiness?: number;
   };
 }): SDUIPageDefinition {
@@ -273,7 +273,7 @@ export function generateSOFExpansionPage(data: {
                           props: {
                             title: "Adaptation Requirements",
                             description: "How to adapt intervention for each context",
-                            children: data.expansionData.targetContexts.map((context) => ({
+                            children: data.expansionData.targetContexts.map((context: Record<string, unknown>) => ({
                               type: "component",
                               component: "AdaptationPlan",
                               version: 1,
@@ -285,7 +285,7 @@ export function generateSOFExpansionPage(data: {
                             })),
                           },
                         },
-                    ].filter(Boolean) as any[],
+                    ].filter(Boolean) as SDUIPageDefinition["sections"],
                   },
                 },
               ],
@@ -449,7 +449,7 @@ export function generateSOFExpansionPage(data: {
         ],
       },
     },
-  ].filter(Boolean) as any[];
+  ].filter(Boolean) as SDUIPageDefinition["sections"];
 
   return {
     type: "page",

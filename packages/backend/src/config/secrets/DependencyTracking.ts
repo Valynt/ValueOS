@@ -371,7 +371,7 @@ export class DependencyTracking {
    * Export dependencies (for backup)
    */
   exportDependencies(): string {
-    const data: any = {};
+    const data: Record<string, SecretDependency[]> = {};
 
     for (const [key, deps] of this.dependencies.entries()) {
       data[key] = Array.from(deps);
@@ -385,12 +385,12 @@ export class DependencyTracking {
    */
   importDependencies(json: string): void {
     try {
-      const data = JSON.parse(json);
+      const data: Record<string, SecretDependency[]> = JSON.parse(json);
 
       for (const [key, deps] of Object.entries(data)) {
         const depSet = new Set<SecretDependency>();
         
-        for (const dep of deps as any[]) {
+        for (const dep of deps) {
           depSet.add({
             ...dep,
             lastAccess: new Date(dep.lastAccess)
@@ -403,7 +403,7 @@ export class DependencyTracking {
       logger.info('Dependencies imported', {
         count: this.dependencies.size
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to import dependencies', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -431,7 +431,7 @@ export function createDependencyTrackingMiddleware(
         serviceId,
         serviceName,
         serviceType,
-        environment: (process.env.NODE_ENV as any) || 'development'
+        environment: (process.env.NODE_ENV as unknown as 'production' | 'staging' | 'development') || 'development'
       });
 
       // Record access

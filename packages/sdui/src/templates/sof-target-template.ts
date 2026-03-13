@@ -12,11 +12,11 @@ import type { SDUIPageDefinition } from "../schema";
  * Generate SOF-enhanced Target page
  */
 export function generateSOFTargetPage(data: {
-  businessCase: any;
+  businessCase: Record<string, unknown> | undefined;
   systemMap: SystemMap;
   interventionPoints?: InterventionPoint[];
   outcomeHypotheses?: OutcomeHypothesis[];
-  kpis?: any[];
+  kpis?: Record<string, unknown>[];
 }): SDUIPageDefinition {
   const sections: SDUIPageDefinition["sections"] = [
     // Header
@@ -30,7 +30,7 @@ export function generateSOFTargetPage(data: {
         breadcrumbs: [
           { label: "Home", href: "/" },
           { label: "Opportunities", href: "/opportunities" },
-          { label: data.businessCase?.name || "Business Case" },
+          { label: (data.businessCase?.name as string) ?? "Business Case" },
           { label: "Target" },
         ],
       },
@@ -165,7 +165,7 @@ export function generateSOFTargetPage(data: {
                             ],
                           },
                         },
-                    ].filter(Boolean) as any[],
+                    ].filter(Boolean) as SDUIPageDefinition["sections"],
                   },
                 },
               ],
@@ -255,7 +255,7 @@ export function generateSOFTargetPage(data: {
                             ],
                           },
                         },
-                    ].filter(Boolean) as any[],
+                    ].filter(Boolean) as SDUIPageDefinition["sections"],
                   },
                 },
               ],

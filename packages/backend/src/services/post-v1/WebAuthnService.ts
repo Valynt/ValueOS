@@ -46,10 +46,18 @@ export interface WebAuthnRegistrationOptions {
   challenge: string;
   rp: { name: string; id: string };
   user: { id: string; name: string; displayName: string };
-  pubKeyCredParams: any[];
+  pubKeyCredParams: ReadonlyArray<{
+    type: string;
+    alg: number;
+  }>;
   timeout: number;
   attestation: string;
-  authenticatorSelection: any;
+  authenticatorSelection: {
+    residentKey?: "required" | "preferred" | "discouraged";
+    userVerification?: "required" | "preferred" | "discouraged";
+    authenticatorAttachment?: "platform" | "cross-platform";
+    requireResidentKey?: boolean;
+  };
 }
 
 // WebAuthn configuration
@@ -69,7 +77,7 @@ export class WebAuthnService extends BaseService {
     userId: string,
     userEmail: string,
     userName: string
-  ): Promise<any> {
+  ): Promise<ReturnType<typeof generateRegistrationOptions>> {
     this.log("info", "Generating WebAuthn registration options", { userId });
 
     return this.executeRequest(
@@ -80,7 +88,7 @@ export class WebAuthnService extends BaseService {
           .select("credential_id")
           .eq("user_id", userId);
 
-        const excludeCredentials = (existingCredentials || []).map((cred) => ({
+        const excludeCredentials = (existingCredentials ?? []).map((cred) => ({
           id: cred.credential_id,
           type: "public-key" as const,
         }));
@@ -174,7 +182,7 @@ export class WebAuthnService extends BaseService {
           deviceType: data.device_type,
         });
 
-        return data;
+        return data as WebAuthnCredential;
       },
       { skipCache: true }
     );
@@ -183,12 +191,18 @@ export class WebAuthnService extends BaseService {
   /**
    * Generate authentication options for login
    */
-  async generateAuthenticationOptions(userId?: string): Promise<any> {
+  async generateAuthenticationOptions(userId?: string): Promise<
+    ReturnType<typeof generateAuthenticationOptions>
+  > {
     this.log("info", "Generating WebAuthn authentication options", { userId });
 
     return this.executeRequest(
       async () => {
-        let allowCredentials: any[] = [];
+        let allowCredentials: Array<{
+          id: ArrayBuffer;
+          type: "public-key";
+          transports?: string[] | undefined;
+        }> = [];
 
         // If userId provided, get their credentials
         if (userId) {
@@ -197,7 +211,7 @@ export class WebAuthnService extends BaseService {
             .select("credential_id, transports")
             .eq("user_id", userId);
 
-          allowCredentials = (credentials || []).map((cred) => ({
+          allowCredentials = (credentials ?? []).map((cred) => ({
             id: Buffer.from(cred.credential_id, "base64"),
             type: "public-key" as const,
             transports: cred.transports,
@@ -317,7 +331,7 @@ export class WebAuthnService extends BaseService {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        return data || [];
+        return (data as WebAuthnCredential[]) ?? [];
       },
       { deduplicationKey: `webauthn-credentials-${userId}` }
     );

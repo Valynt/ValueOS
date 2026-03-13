@@ -12,12 +12,12 @@ export function sanitizeString(input: string): string {
     .trim();
 }
 
-export function sanitizeObject(obj: any): any {
+export function sanitizeObject(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'string') return sanitizeString(obj);
   if (typeof obj !== 'object') return obj;
 
-  const sanitized: any = Array.isArray(obj) ? [] : {};
+  const sanitized: unknown[] | Record<string, unknown> = Array.isArray(obj) ? [] : {};
 
   for (const [key, value] of Object.entries(obj)) {
     const sanitizedKey = sanitizeString(key);
@@ -25,13 +25,13 @@ export function sanitizeObject(obj: any): any {
     if (Array.isArray(sanitized)) {
       sanitized.push(sanitizedValue);
     } else {
-      sanitized[sanitizedKey] = sanitizedValue;
+      (sanitized as Record<string, unknown>)[sanitizedKey] = sanitizedValue;
     }
   }
 
   return sanitized;
 }
 
-export function sanitizeInput(input: any): any {
+export function sanitizeInput(input: unknown): unknown {
   return sanitizeObject(input);
 }

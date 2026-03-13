@@ -11,9 +11,9 @@ import { robustConnectionManager } from './RobustConnectionManager.js'
 import { webSocketManager } from './WebSocketManager.js'
 
 // Local helper types for the usage guide
-type WSMessage = { type?: string; payload?: any; strategy?: string; [key: string]: any };
+type WSMessage = { type?: string; payload?: Record<string, unknown>; strategy?: string; [key: string]: unknown };
 type StateChange = { from: string; to: string };
-type ConnectionHealth = { isHealthy: boolean; strategy?: string; details?: any; [key: string]: any };
+type ConnectionHealth = { isHealthy: boolean; strategy?: string; details?: Record<string, unknown>; [key: string]: unknown };
 
 /**
  * Basic WebSocket Manager Usage
@@ -137,8 +137,8 @@ export function useWebSocketConnection() {
     isConnected,
     connectionState,
     health,
-    sendMessage: (message: WSMessage) => robustConnectionManager.send(message as any),
-    forceReconnect: (strategy: string) => robustConnectionManager.forceReconnect(strategy as any),
+    sendMessage: (message: WSMessage) => robustConnectionManager.send(message as unknown as Record<string, unknown>),
+    forceReconnect: (strategy: string) => robustConnectionManager.forceReconnect(strategy as unknown as string),
   };
 }
 

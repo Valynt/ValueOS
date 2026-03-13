@@ -20,11 +20,11 @@
 import { SDUIPageDefinition, SDUISection } from "./schema";
 
 export type SchemaPatchOperation =
-  | { op: "replace"; path: string; value: any }
+  | { op: "replace"; path: string; value: unknown }
   | { op: "add_section"; section: SDUISection; index?: number }
   | { op: "remove_section"; index: number }
   | { op: "update_section"; index: number; section: Partial<SDUISection> }
-  | { op: "update_metadata"; metadata: Record<string, any> };
+  | { op: "update_metadata"; metadata: Record<string, unknown> };
 
 export interface SchemaDelta {
   operations: SchemaPatchOperation[];
@@ -87,14 +87,14 @@ export class SchemaPatcher {
   private static applyReplace(
     schema: SDUIPageDefinition,
     path: string,
-    value: any
+    value: unknown
   ): SDUIPageDefinition {
     const parts = path.split("/").filter(Boolean);
     if (parts.length === 0) {
-      return value; // Replace entire schema
+      return value as SDUIPageDefinition; // Replace entire schema
     }
 
-    const updateNested = (obj: any, keys: string[]): any => {
+    const updateNested = (obj: unknown, keys: string[]): unknown => {
       if (keys.length === 0) return value;
       const [head, ...tail] = keys;
       if (Array.isArray(obj)) {
@@ -102,16 +102,16 @@ export class SchemaPatcher {
         if (isNaN(index)) return obj;
         return obj.map((item, i) => (i === index ? updateNested(item, tail) : item));
       }
-      if (obj && typeof obj === "object") {
+      if (obj && typeof obj === "object" && obj !== null) {
         return {
-          ...obj,
-          [head]: updateNested(obj[head], tail),
+          ...(obj as Record<string, unknown>),
+          [head]: updateNested((obj as Record<string, unknown>)[head], tail),
         };
       }
       return obj;
     };
 
-    return updateNested(schema, parts);
+    return updateNested(schema, parts) as SDUIPageDefinition;
   }
 
   private static applyAddSection(
@@ -155,7 +155,7 @@ export class SchemaPatcher {
 
   private static applyUpdateMetadata(
     schema: SDUIPageDefinition,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): SDUIPageDefinition {
     return {
       ...schema,

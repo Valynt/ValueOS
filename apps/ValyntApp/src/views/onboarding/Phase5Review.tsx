@@ -22,6 +22,7 @@ import type {
 } from "@/hooks/company-context/types";
 import { useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface Props {
   phase1: OnboardingPhase1Input;
@@ -65,7 +66,7 @@ function SectionCard({
   );
 }
 
-function ProvenanceBadge({ suggestion }: { suggestion?: ResearchSuggestion | undefined }) {
+function ProvenanceBadge({ suggestion }: { suggestion?: ResearchSuggestion }) {
   const [showSources, setShowSources] = useState(false);
 
   if (!suggestion || (suggestion.status !== "accepted" && suggestion.status !== "edited")) return null;
@@ -209,12 +210,14 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
             >
               <div className="space-y-3">
                 {pendingCapabilities.map((s) => {
-                  const p = s.payload as any;
+                  const p = s.payload as Record<string, unknown>;
+                  const capability = typeof p.capability === "string" ? p.capability : "";
+                  const operational_change = typeof p.operational_change === "string" ? p.operational_change : "";
                   return (
                     <div key={s.id} className="p-3 rounded-xl border border-blue-100 bg-blue-50/20 flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="text-[12px] font-semibold text-zinc-900">{p.capability}</p>
-                        <p className="text-[11px] text-zinc-500 mt-1">{p.operational_change}</p>
+                        <p className="text-[12px] font-semibold text-zinc-900">{capability}</p>
+                        <p className="text-[11px] text-zinc-500 mt-1">{operational_change}</p>
                       </div>
                       <button
                         onClick={() => acceptMutation.mutate({
@@ -245,17 +248,25 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
             >
               <div className="space-y-3">
                 {pendingPatterns.map((s) => {
-                  const p = s.payload as any;
+                  const p = s.payload as Record<string, unknown>;
+                  const pattern_name = typeof p.pattern_name === "string" ? p.pattern_name : "";
+                  const typical_kpis = Array.isArray(p.typical_kpis) ? p.typical_kpis : [];
                   return (
                     <div key={s.id} className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/20 flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="text-[12px] font-semibold text-zinc-900">{p.pattern_name}</p>
+                        <p className="text-[12px] font-semibold text-zinc-900">{pattern_name}</p>
                         <div className="flex gap-2 mt-1">
-                          {p.typical_kpis?.slice(0, 2).map((k: any, idx: number) => (
-                            <span key={idx} className="text-[10px] text-emerald-600 font-medium">
-                              • {k.name}
-                            </span>
-                          ))}
+                          {typical_kpis.slice(0, 2).map((k: unknown, idx: number) => {
+                            if (typeof k === "object" && k !== null) {
+                              const kObj = k as { name?: string };
+                              return kObj.name ? (
+                                <span key={idx} className="text-[10px] text-emerald-600 font-medium">
+                                  • {kObj.name}
+                                </span>
+                              ) : null;
+                            }
+                            return null;
+                          })}
                         </div>
                       </div>
                       <button
@@ -317,7 +328,7 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
         <SectionCard icon={Shield} title="Claim Governance" count={phase4.claim_governance.length} color="text-amber-600">
           <div className="space-y-2">
             {phase4.claim_governance.map((c, i) => {
-              const riskColors = {
+              const riskColors: Record<string, string> = {
                 safe: "bg-emerald-50 text-emerald-700 border-emerald-200",
                 conditional: "bg-amber-50 text-amber-700 border-amber-200",
                 high_risk: "bg-red-50 text-red-700 border-red-200",

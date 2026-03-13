@@ -90,21 +90,29 @@ class DocumentParserService {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to parse document');
+        const error: Record<string, unknown> = await response.json();
+        throw new Error((typeof error.error === 'string' ? error.error : 'Failed to parse document'));
       }
 
-      const result = await response.json();
+      const result: unknown = await response.json();
       
-      if (!result.success) {
-        throw new Error(result.error || 'Document parsing failed');
+      if (
+        typeof result !== 'object' ||
+        result === null ||
+        !('success' in result) ||
+        !('text' in result) ||
+        !('metadata' in result) ||
+        !(result as any).success
+      ) {
+        const res = result as Record<string, unknown>;
+        throw new Error((typeof res.error === 'string' ? res.error : 'Document parsing failed'));
       }
 
       return {
-        text: result.text,
-        metadata: result.metadata,
+        text: (result as { text: string }).text,
+        metadata: (result as { metadata: ParsedDocument['metadata'] }).metadata,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Document parse error', error instanceof Error ? error : undefined);
       
       // Fallback: try basic text extraction
@@ -137,7 +145,7 @@ class DocumentParserService {
       );
 
       return this.parseInsightsResponse(response.content);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('LLM extraction error', error instanceof Error ? error : undefined);
       
       // Fallback to basic extraction
@@ -155,9 +163,9 @@ class DocumentParserService {
     const document = await this.parseDocument(file);
     const { data: { session } } = await supabase.auth.getSession();
     const taskContext: TaskContext | undefined = session ? {
-      sessionId: (session as any).id,
-      userId: (session as any).user.id,
-      organizationId: (session as any).user.raw_user_meta_data?.tenant_id || (session as any).user.raw_user_meta_data?.organization_id
+      sessionId: (session as unknown as { id?: string }).id,
+      userId: (session as unknown as { user?: { id?: string } }).user?.id,
+      organizationId: (session as unknown as { user?: { raw_user_meta_data?: { tenant_id?: string; organization_id?: string }}}).user?.raw_user_meta_data?.tenant_id || (session as unknown as { user?: { raw_user_meta_data?: { tenant_id?: string; organization_id?: string }}}).user?.raw_user_meta_data?.organization_id
     } : undefined;
 
     const insights = await this.extractInsights(document.text, document.metadata.fileName, taskContext);

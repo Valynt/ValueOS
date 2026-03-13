@@ -22,6 +22,9 @@ export interface AgentConfig {
   metadata?: Record<string, unknown>;
 }
 
+// Canonical AgentType — matches packages/backend/src/services/agent-types.ts.
+// Kept as a local union (not a re-export) because ValyntApp does not
+// directly depend on @valueos/backend at compile time.
 export type AgentType =
   | 'opportunity'
   | 'target'
@@ -29,8 +32,22 @@ export type AgentType =
   | 'expansion'
   | 'integrity'
   | 'orchestrator'
-  | 'specialist';
+  | 'specialist'
+  | 'company-intelligence'
+  | 'financial-modeling'
+  | 'value-mapping'
+  | 'system-mapper'
+  | 'intervention-designer'
+  | 'outcome-engineer'
+  | 'coordinator'
+  | 'value-eval'
+  | 'communicator'
+  | 'research'
+  | 'benchmark'
+  | 'narrative'
+  | 'groundtruth';
 
+// Canonical LifecycleStage — matches @valueos/shared OpportunityLifecycleStage.
 export type LifecycleStage =
   | 'opportunity'
   | 'target'
@@ -148,6 +165,15 @@ export interface AgentOutputMetadata {
   timestamp: string;
   correlation_id?: string;
   retry_count?: number;
+  prompt_version_refs?: PromptVersionReference[];
+}
+
+export interface PromptVersionReference {
+  prompt_key: string;
+  version: string;
+  owner?: string;
+  ticket?: string;
+  risk_class?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface TokenUsage {
@@ -198,11 +224,23 @@ export interface HealthIssue {
 
 export interface AgentRegistration {
   agent_id: string;
+  id?: string;
+  name?: string;
   config: AgentConfig;
   status: 'active' | 'inactive' | 'deprecated';
   version: string;
   registered_at: string;
   last_updated: string;
+  lifecycleStage?: string;
+  capabilities?: string[];
+  region?: string;
+  endpoint?: string;
+  priority?: number;
+}
+
+export interface AgentRecord extends AgentRegistration {
+  health?: AgentHealthStatus;
+  metrics?: Record<string, unknown>;
 }
 
 // ============================================================================

@@ -21,7 +21,7 @@ export interface LazyLoadConfig {
   /**
    * Import function
    */
-  loader: () => Promise<{ default: ComponentType<any> }>;
+  loader: () => Promise<{ default: ComponentType<unknown> }>;
 
   /**
    * Loading fallback component
@@ -52,7 +52,7 @@ export interface LazyLoadConfig {
 /**
  * Lazy component cache
  */
-const lazyComponentCache = new Map<string, React.LazyExoticComponent<ComponentType<any>>>();
+const lazyComponentCache = new Map<string, React.LazyExoticComponent<ComponentType<unknown>>>();
 
 /**
  * Preload cache
@@ -62,14 +62,14 @@ const preloadCache = new Set<string>();
 /**
  * Create lazy component with retry logic
  */
-function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<ComponentType<any>> {
+function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<ComponentType<unknown>> {
   // Check cache
   if (lazyComponentCache.has(config.name)) {
     return lazyComponentCache.get(config.name)!;
   }
 
   // Create loader with retry logic
-  const loaderWithRetry = async () => {
+  const loaderWithRetry = async (): Promise<{ default: ComponentType<unknown> }> => {
     const { retryAttempts = 3, retryDelay = 1000 } = config;
     let lastError: Error | null = null;
 
@@ -81,7 +81,7 @@ function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<
         console.warn(`[LazyLoader] Failed to load ${config.name} (attempt ${attempt + 1}/${retryAttempts})`);
 
         if (attempt < retryAttempts - 1) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
+          await new Promise<void>((resolve) => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
         }
       }
     }
@@ -107,7 +107,7 @@ export function preloadComponent(config: LazyLoadConfig): void {
   }
 
   preloadCache.add(config.name);
-  config.loader().catch((error) => {
+  config.loader().catch((error: unknown) => {
     console.error(`[LazyLoader] Failed to preload ${config.name}:`, error);
     preloadCache.delete(config.name);
   });
@@ -124,7 +124,7 @@ class LazyComponentErrorBoundary extends React.Component<
   },
   { hasError: boolean; error: Error | null }
 > {
-  constructor(props: any) {
+  constructor(props: { children: React.ReactNode; fallback?: React.ComponentType<{ error: Error; retry: () => void }>; componentName: string }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -218,7 +218,7 @@ class LazyComponentErrorBoundary extends React.Component<
  */
 export const LazyComponent: React.FC<
   LazyLoadConfig & {
-    props?: any;
+    props?: Record<string, unknown>;
     onMouseEnter?: () => void;
   }
 > = ({ name, loader, fallback, errorFallback, preloadOnHover, props, onMouseEnter, ...config }) => {

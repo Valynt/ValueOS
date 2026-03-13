@@ -10,6 +10,36 @@ import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'UsageAggregator' });
 
+interface UsageEvent {
+  id: string;
+  tenant_id: string;
+  metric: string;
+  amount: string | number;
+  timestamp: string;
+  idempotency_key?: string;
+  metadata?: Record<string, unknown>;
+  processed?: boolean;
+}
+
+interface Subscription {
+  id: string;
+}
+
+interface SubscriptionItem {
+  id: string;
+}
+
+interface Aggregate {
+  id: string;
+  metadata?: {
+    event_ids?: string[];
+    [key: string]: unknown;
+  };
+  event_count: number;
+  source_hash: string;
+  evidence_chain?: unknown[];
+}
+
 class UsageAggregator {
   private supabase: SupabaseClient;
 
@@ -41,7 +71,7 @@ class UsageAggregator {
       logger.info(`Aggregating ${events.length} events`);
 
       // Group events by tenant and metric
-      const groups = this.groupEvents(events);
+      const groups = this.groupEvents(events as UsageEvent[]);
 
       // Create aggregates
       let aggregated = 0;
@@ -66,8 +96,8 @@ class UsageAggregator {
   /**
    * Group events by tenant and metric
    */
-  private groupEvents(events: any[]): Record<string, any[]> {
-    const groups: Record<string, any[]> = {};
+  private groupEvents(events: UsageEvent[]): Record<string, UsageEvent[]> {
+    const groups: Record<string, UsageEvent[]> = {};
 
     events.forEach(event => {
       const key = `${event.tenant_id}:${event.metric}`;
@@ -83,7 +113,7 @@ class UsageAggregator {
   /**
    * Create aggregate from group with source hash and evidence chain
    */
-  private async createAggregate(events: any[]): Promise<void> {
+  private async createAggregate(events: UsageEvent[]): Promise<void> {
     if (events.length === 0) return;
 
     const firstEvent = events[0];
@@ -91,7 +121,7 @@ class UsageAggregator {
     const metric = firstEvent.metric as BillingMetric;
 
     // Calculate totals
-    const totalAmount = events.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const totalAmount = events.reduce((sum, e) => sum + parseFloat(String(e.amount)), 0);
     const eventCount = events.length;
     const periodStart = events[0].timestamp;
     const periodEnd = events[events.length - 1].timestamp;
@@ -120,7 +150,7 @@ class UsageAggregator {
       return;
     }
 
-    const subscriptionIds = subscriptions.map((s: any) => s.id);
+    const subscriptionIds = (subscriptions as Subscription[]).map((s) => s.id);
 
     // Find a subscription_item for these subscriptions and metric
     const { data: subItems, error: subItemsErr } = await this.supabase
@@ -132,7 +162,7 @@ class UsageAggregator {
 
     if (subItemsErr) throw subItemsErr;
 
-    const subscriptionItem = subItems && subItems.length > 0 ? subItems[0] : null;
+    const subscriptionItem = subItems && subItems.length > 0 ? (subItems[0] as SubscriptionItem) : null;
 
     if (!subscriptionItem) {
       logger.warn('No subscription item found', { tenantId, metric });
@@ -200,9 +230,10 @@ class UsageAggregator {
   /**
    * Generate source hash for evidence chain
    */
-  private async generateSourceHash(events: any[]): Promise<string> {
+  private async generateSourceHash(events: UsageEvent[]): Promise<string> {
     // Create canonical representation of events for hashing
     const canonicalEvents = events
+      .slice()
       .sort((a, b) => a.id.localeCompare(b.id)) // Sort by ID for determinism
       .map(event => ({
         id: event.id,
@@ -224,8 +255,8 @@ class UsageAggregator {
   /**
    * Build evidence chain for aggregate
    */
-  private async buildEvidenceChain(events: any[], sourceHash: string): Promise<any[]> {
-    const evidenceChain: unknown[] = [];
+  private async buildEvidenceChain(events: UsageEvent[], sourceHash: string): Promise<Record<string, unknown>[]> {
+    const evidenceChain: Record<string, unknown>[] = [];
 
     // Add source evidence
     evidenceChain.push({
@@ -235,7 +266,7 @@ class UsageAggregator {
       event_count: events.length,
       tenant_id: events[0]?.tenant_id,
       metric: events[0]?.metric,
-      total_amount: events.reduce((sum, e) => sum + parseFloat(e.amount), 0),
+      total_amount: events.reduce((sum, e) => sum + parseFloat(String(e.amount)), 0),
       period_start: events[0]?.timestamp,
       period_end: events[events.length - 1]?.timestamp
     });
@@ -267,12 +298,22 @@ class UsageAggregator {
   }
 
   /**
+   * Mark events as processed helper
+   */
+  private async markEventsProcessed(eventIds: string[]): Promise<void> {
+    await this.supabase
+      .from('usage_events')
+      .update({ processed: true })
+      .in('id', eventIds);
+  }
+
+  /**
    * Verify aggregate integrity using evidence chain
    */
   async verifyAggregateIntegrity(aggregateId: string): Promise<{
     valid: boolean;
     issues: string[];
-    evidence_chain: any[];
+    evidence_chain: unknown[];
   }> {
     try {
       // Get aggregate
@@ -290,23 +331,24 @@ class UsageAggregator {
         };
       }
 
+      const typedAggregate = aggregate as Aggregate;
       const issues: string[] = [];
 
       // Verify source events still exist and match hash
-      if (aggregate.metadata?.event_ids) {
+      if (typedAggregate.metadata?.event_ids) {
         const { data: events, error: eventsError } = await this.supabase
           .from('usage_events')
           .select('*')
-          .in('id', aggregate.metadata.event_ids);
+          .in('id', typedAggregate.metadata.event_ids);
 
         if (eventsError) {
           issues.push('Could not retrieve source events');
-        } else if (!events || events.length !== aggregate.event_count) {
+        } else if (!events || events.length !== typedAggregate.event_count) {
           issues.push('Source event count mismatch');
         } else {
           // Recalculate hash and compare
-          const recalculatedHash = await this.generateSourceHash(events);
-          if (recalculatedHash !== aggregate.source_hash) {
+          const recalculatedHash = await this.generateSourceHash(events as UsageEvent[]);
+          if (recalculatedHash !== typedAggregate.source_hash) {
             issues.push('Source hash mismatch - data tampering detected');
           }
         }
@@ -315,16 +357,16 @@ class UsageAggregator {
       }
 
       // Check evidence chain consistency
-      if (!aggregate.evidence_chain || aggregate.evidence_chain.length === 0) {
+      if (!typedAggregate.evidence_chain || typedAggregate.evidence_chain.length === 0) {
         issues.push('Missing evidence chain');
       } else {
         // Verify chain integrity
-        const chain = aggregate.evidence_chain;
+        const chain = typedAggregate.evidence_chain as Array<Record<string, unknown>>;
         const sourceEvidence = chain.find(e => e.type === 'source_events');
         if (!sourceEvidence) {
           issues.push('Missing source evidence in chain');
         }
-        if (sourceEvidence && sourceEvidence.hash !== aggregate.source_hash) {
+        if (sourceEvidence && sourceEvidence['hash'] !== typedAggregate.source_hash) {
           issues.push('Evidence chain source hash mismatch');
         }
       }
@@ -332,7 +374,7 @@ class UsageAggregator {
       return {
         valid: issues.length === 0,
         issues,
-        evidence_chain: aggregate.evidence_chain || []
+        evidence_chain: typedAggregate.evidence_chain || []
       };
     } catch (error) {
       logger.error('Error verifying aggregate integrity', error as Error, { aggregateId });

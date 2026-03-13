@@ -72,8 +72,8 @@ export interface ReasoningStep {
   id: string;
   type: 'analysis' | 'inference' | 'evaluation' | 'decision';
   description: string;
-  inputs: Record<string, any>;
-  outputs: Record<string, any>;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
   confidence: number;
   evidence: string[];
   timestamp: string;
@@ -144,7 +144,7 @@ export class ReasoningEngine {
 
       return result;
 
-    } catch (error) {
+    } catch (error: unknown) {
       const errorStep: ReasoningStep = {
         id: `error-${Date.now()}`,
         type: 'evaluation',
@@ -506,7 +506,7 @@ export class ReasoningEngine {
       action: BusinessAction;
       score: number;
       breakdown: Record<string, number>;
-      impact: any;
+      impact: { confidence: number; impact: Record<string, {p50: number}>; timeCurve: {timeToFirstImpact: number} };
     }> = [];
 
     for (const action of candidates) {
@@ -559,7 +559,7 @@ export class ReasoningEngine {
         breakdown: c.breakdown
       })),
       topCandidate: topCandidates[0]?.action,
-      averageScore: scored.reduce((sum, c) => sum + c.score, 0) / scored.length
+      averageScore: scored.length > 0 ? scored.reduce((sum, c) => sum + c.score, 0) / scored.length : 0
     };
 
     step.evidence = topCandidates.map(c => 
@@ -666,18 +666,18 @@ export class ReasoningEngine {
     alternatives: Alternative[]
   ): Promise<ReasoningResult> {
     const evaluationStep = this.reasoningChain[this.reasoningChain.length - 2]; // Get evaluation step
-    const rankedCandidates = evaluationStep.outputs.rankedCandidates as Array<{action: BusinessAction, score: number, breakdown: any, impact: any}>;
+    const rankedCandidates = evaluationStep.outputs.rankedCandidates as Array<{action: BusinessAction, score: number, breakdown: Record<string, number>, impact?: unknown}>;
 
     // Convert to recommended actions
-    const recommendedActions: RecommendedAction[] = rankedCandidates.slice(0, 3).map((candidate, _index) => {
-      const impact = candidate.impact;
-      const isQuickWin = impact.timeCurve.timeToFirstImpact <= 30;
+    const recommendedActions: RecommendedAction[] = rankedCandidates.slice(0, 3).map((candidate) => {
+      const impact = candidate.impact as { timeCurve: { timeToFirstImpact: number }; confidence: number } | undefined;
+      const isQuickWin = impact ? impact.timeCurve.timeToFirstImpact <= 30 : false;
       
       return {
         action: candidate.action,
         description: this.getActionDescription(candidate.action),
-        expectedImpact: this.formatImpact(impact),
-        confidence: impact.confidence,
+        expectedImpact: impact ? this.formatImpact(impact) : '',
+        confidence: impact?.confidence ?? 0,
         effort: this.estimateEffort(candidate.action),
         quickWin: isQuickWin,
         prerequisites: this.getPrerequisites(candidate.action),
@@ -687,7 +687,7 @@ export class ReasoningEngine {
     });
 
     // Calculate overall confidence
-    const avgConfidence = recommendedActions.reduce((sum, a) => sum + a.confidence, 0) / recommendedActions.length;
+    const avgConfidence = recommendedActions.length > 0 ? recommendedActions.reduce((sum, a) => sum + a.confidence, 0) / recommendedActions.length : 0;
 
     // Compile evidence
     const evidence: Evidence[] = this.compileEvidence();
@@ -806,9 +806,9 @@ export class ReasoningEngine {
   // HELPER METHODS
   // ============================================================================
 
-  private estimateROI(impact: any, request: ReasoningRequest): number {
+  private estimateROI(impact: { impact: Record<string, {p50: number}>; }, request: ReasoningRequest): number {
     // Simplified ROI estimation
-    const totalImpact = Object.values(impact.impact).reduce((sum: number, dist: any) => sum + dist.p50, 0);
+    const totalImpact = Object.values(impact.impact).reduce((sum: number, dist: {p50: number}) => sum + dist.p50, 0);
     const annualRevenue = request.currentKPIs['saas_arr'] || request.currentKPIs['arr'] || request.currentKPIs['revenue'] || 1000000;
     
     // Assume costs are 20% of impact for estimation
@@ -870,15 +870,15 @@ export class ReasoningEngine {
     return action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
-  private formatImpact(impact: any): string {
-    const total = Object.values(impact.impact).reduce((sum: number, dist: any) => sum + dist.p50, 0);
+  private formatImpact(impact: { impact: Record<string, {p50: number}>; confidence: number }): string {
+    const total = Object.values(impact.impact).reduce((sum: number, dist: {p50: number}) => sum + dist.p50, 0);
     const confidence = impact.confidence;
     return `${(total * 100).toFixed(1)}% impact with ${(confidence * 100).toFixed(0)}% confidence`;
   }
 
   private estimateEffort(action: BusinessAction): 'low' | 'medium' | 'high' {
-    const highEffort = ['increase_sales_team_20pct', 'double_marketing_spend', 'automate_manual_processes', 'implement_usage_based_pricing', 'expand_to_new_vertical'];
-    const mediumEffort = ['launch_abm_campaign', 'implement_lead_scoring', 'launch_new_feature_category', 'increase_csm_ratio_2x'];
+    const highEffort: BusinessAction[] = ['increase_sales_team_20pct', 'double_marketing_spend', 'automate_manual_processes', 'implement_usage_based_pricing', 'expand_to_new_vertical'];
+    const mediumEffort: BusinessAction[] = ['launch_abm_campaign', 'implement_lead_scoring', 'launch_new_feature_category', 'increase_csm_ratio_2x'];
     
     if (highEffort.includes(action)) return 'high';
     if (mediumEffort.includes(action)) return 'medium';

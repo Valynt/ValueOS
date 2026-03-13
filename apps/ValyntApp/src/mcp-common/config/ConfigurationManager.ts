@@ -140,34 +140,55 @@ export class ConfigurationValidator {
   /**
    * Validate base MCP configuration
    */
-  static validateBase(config: any): MCPBaseConfig {
+  static validateBase(config: unknown): MCPBaseConfig {
     const errors: string[] = [];
 
     if (
-      !config.environment ||
-      !["development", "staging", "production"].includes(config.environment)
+      !config ||
+      typeof config !== "object" ||
+      config === null
+    ) {
+      throw new Error("Invalid configuration object");
+    }
+
+    const configObj = config as Record<string, unknown>;
+
+    if (
+      !configObj.environment ||
+      typeof configObj.environment !== "string" ||
+      !["development", "staging", "production"].includes(configObj.environment)
     ) {
       errors.push("Invalid environment. Must be: development, staging, production");
     }
 
-    if (typeof config.debug !== "boolean") {
+    if (typeof configObj.debug !== "boolean") {
       errors.push("debug must be a boolean");
     }
 
-    if (!config.logLevel || !["error", "warn", "info", "debug"].includes(config.logLevel)) {
+    if (
+      !configObj.logLevel ||
+      typeof configObj.logLevel !== "string" ||
+      !["error", "warn", "info", "debug"].includes(configObj.logLevel)
+    ) {
       errors.push("Invalid logLevel. Must be: error, warn, info, debug");
     }
 
-    if (!config.timeout || typeof config.timeout !== "object") {
+    if (
+      !configObj.timeout ||
+      typeof configObj.timeout !== "object" ||
+      configObj.timeout === null
+    ) {
       errors.push("timeout configuration is required");
     } else {
-      if (typeof config.timeout.default !== "number" || config.timeout.default <= 0) {
+      const timeout = configObj.timeout as Record<string, unknown>;
+
+      if (typeof timeout.default !== "number" || timeout.default <= 0) {
         errors.push("timeout.default must be a positive number");
       }
-      if (typeof config.timeout.external !== "number" || config.timeout.external <= 0) {
+      if (typeof timeout.external !== "number" || timeout.external <= 0) {
         errors.push("timeout.external must be a positive number");
       }
-      if (typeof config.timeout.database !== "number" || config.timeout.database <= 0) {
+      if (typeof timeout.database !== "number" || timeout.database <= 0) {
         errors.push("timeout.database must be a positive number");
       }
     }
@@ -182,31 +203,45 @@ export class ConfigurationValidator {
   /**
    * Validate CRM configuration
    */
-  static validateCRM(config: any): MCPCRMServerConfig {
+  static validateCRM(config: unknown): MCPCRMServerConfig {
     const baseConfig = this.validateBase(config);
 
-    if (!config.crm) {
+    const configObj = config as Record<string, unknown>;
+
+    if (!configObj.crm || typeof configObj.crm !== "object" || configObj.crm === null) {
       throw new Error("CRM configuration is required");
     }
 
-    if (!Array.isArray(config.crm.providers) || config.crm.providers.length === 0) {
+    const crm = configObj.crm as Record<string, unknown>;
+
+    if (!Array.isArray(crm.providers) || crm.providers.length === 0) {
       throw new Error("At least one CRM provider must be configured");
     }
 
     // Validate each provider
-    config.crm.providers.forEach((provider: any, index: number) => {
+    crm.providers.forEach((provider: unknown, index: number) => {
       const providerErrors: string[] = [];
 
-      if (!["hubspot", "salesforce", "dynamics"].includes(provider.provider)) {
-        providerErrors.push(`Invalid provider at index ${index}`);
-      }
+      if (
+        !provider ||
+        typeof provider !== "object" ||
+        provider === null
+      ) {
+        providerErrors.push(`Invalid provider object at index ${index}`);
+      } else {
+        const p = provider as Record<string, unknown>;
 
-      if (typeof provider.enabled !== "boolean") {
-        providerErrors.push(`enabled must be boolean for provider at index ${index}`);
-      }
+        if (!p.provider || typeof p.provider !== "string" || !["hubspot", "salesforce", "dynamics"].includes(p.provider)) {
+          providerErrors.push(`Invalid provider at index ${index}`);
+        }
 
-      if (!provider.fieldMappings || typeof provider.fieldMappings !== "object") {
-        providerErrors.push(`fieldMappings is required for provider at index ${index}`);
+        if (typeof p.enabled !== "boolean") {
+          providerErrors.push(`enabled must be boolean for provider at index ${index}`);
+        }
+
+        if (!p.fieldMappings || typeof p.fieldMappings !== "object" || p.fieldMappings === null) {
+          providerErrors.push(`fieldMappings is required for provider at index ${index}`);
+        }
       }
 
       if (providerErrors.length > 0) {
@@ -220,17 +255,25 @@ export class ConfigurationValidator {
   /**
    * Validate Financial server configuration
    */
-  static validateFinancial(config: any): MCPFinancialServerConfig {
+  static validateFinancial(config: unknown): MCPFinancialServerConfig {
     const baseConfig = this.validateBase(config);
 
-    if (!config.financial) {
+    const configObj = config as Record<string, unknown>;
+
+    if (!configObj.financial || typeof configObj.financial !== "object" || configObj.financial === null) {
       throw new Error("Financial configuration is required");
     }
 
+    const financial = configObj.financial as Record<string, unknown>;
+
     // Validate modules
     const requiredModules = ["edgar", "xbrl", "marketData", "privateCompany", "industryBenchmark"];
+    if (!financial.modules || typeof financial.modules !== "object" || financial.modules === null) {
+      throw new Error("financial.modules configuration is required");
+    }
+    const modules = financial.modules as Record<string, unknown>;
     requiredModules.forEach((module) => {
-      if (!config.financial.modules[module]) {
+      if (!modules[module]) {
         throw new Error(`${module} module configuration is required`);
       }
     });
@@ -317,7 +360,7 @@ export class ConfigurationManager {
       });
 
       return validatedConfig;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Failed to load configuration`, {
         serverType,
         environment: env,
@@ -339,11 +382,11 @@ export class ConfigurationManager {
   /**
    * Load configuration file
    */
-  private loadConfigFile(configPath: string): any {
+  private loadConfigFile(configPath: string): unknown {
     try {
       const content = readFileSync(configPath, "utf-8");
-      return JSON.parse(content);
-    } catch (error) {
+      return JSON.parse(content) as unknown;
+    } catch (error: unknown) {
       if (error instanceof SyntaxError) {
         throw new Error(`Invalid JSON in configuration file: ${configPath}`);
       }
@@ -357,7 +400,7 @@ export class ConfigurationManager {
   private setupFileWatcher(
     configPath: string,
     cacheKey: string,
-    serverType: string,
+    serverType: "crm" | "financial" | "integrated",
     environment: string
   ): void {
     this.fileWatchers.set(cacheKey, true);
@@ -374,13 +417,13 @@ export class ConfigurationManager {
         this.configCache.delete(cacheKey);
 
         // Reload configuration
-        await this.loadConfig(serverType as any, environment);
+        await this.loadConfig(serverType, environment);
 
         logger.info(`Configuration reloaded successfully`, {
           serverType,
           environment,
         });
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error(`Failed to reload configuration`, {
           serverType,
           environment,
@@ -411,13 +454,13 @@ export class ConfigurationManager {
   ): T | undefined {
     const env = environment || process.env.NODE_ENV || "development";
     const cacheKey = `${serverType}-${env}`;
-    return this.configCache.get(cacheKey) as T;
+    return this.configCache.get(cacheKey) as T | undefined;
   }
 
   /**
    * Validate configuration without loading
    */
-  validateConfig(serverType: "crm" | "financial" | "integrated", config: any): boolean {
+  validateConfig(serverType: "crm" | "financial" | "integrated", config: unknown): boolean {
     try {
       switch (serverType) {
         case "crm":

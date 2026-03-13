@@ -371,7 +371,7 @@ export class DependencyTracking {
    * Export dependencies (for backup)
    */
   exportDependencies(): string {
-    const data: any = {};
+    const data: Record<string, SecretDependency[]> = {};
 
     for (const [key, deps] of this.dependencies.entries()) {
       data[key] = Array.from(deps);
@@ -385,16 +385,21 @@ export class DependencyTracking {
    */
   importDependencies(json: string): void {
     try {
-      const data = JSON.parse(json);
+      const data: Record<string, Array<Record<string, unknown>>> = JSON.parse(json);
 
       for (const [key, deps] of Object.entries(data)) {
         const depSet = new Set<SecretDependency>();
         
-        for (const dep of deps as any[]) {
-          depSet.add({
-            ...dep,
-            lastAccess: new Date(dep.lastAccess)
-          });
+        for (const dep of deps) {
+          const depTyped: SecretDependency = {
+            serviceId: typeof dep.serviceId === 'string' ? dep.serviceId : '',
+            serviceName: typeof dep.serviceName === 'string' ? dep.serviceName : '',
+            serviceType: dep.serviceType === 'api' || dep.serviceType === 'worker' || dep.serviceType === 'cron' || dep.serviceType === 'function' ? dep.serviceType : 'api',
+            environment: dep.environment === 'production' || dep.environment === 'staging' || dep.environment === 'development' ? dep.environment : 'development',
+            lastAccess: dep.lastAccess instanceof Date ? dep.lastAccess : new Date(String(dep.lastAccess)),
+            accessCount: typeof dep.accessCount === 'number' ? dep.accessCount : 0
+          };
+          depSet.add(depTyped);
         }
 
         this.dependencies.set(key, depSet);
@@ -403,7 +408,7 @@ export class DependencyTracking {
       logger.info('Dependencies imported', {
         count: this.dependencies.size
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to import dependencies', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -431,7 +436,7 @@ export function createDependencyTrackingMiddleware(
         serviceId,
         serviceName,
         serviceType,
-        environment: (process.env.NODE_ENV as any) || 'development'
+        environment: (process.env.NODE_ENV as unknown as 'production' | 'staging' | 'development') || 'development'
       });
 
       // Record access

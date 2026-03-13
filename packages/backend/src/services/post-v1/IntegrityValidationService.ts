@@ -34,7 +34,7 @@ export interface IntegrityValidationRequest {
   content: IntegrityContent;
   contentType: ContentType;
   agentType: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   traceId: string;
   validationLevel: ValidationLevel;
 }
@@ -58,7 +58,7 @@ export interface IntegrityContent {
   workflowState?: WorkflowState;
   reasoning?: string[];
   metrics?: Record<string, number>;
-  memoryData?: any;
+  memoryData?: unknown;
   confidence?: number;
   sources?: SourceReference[];
 }
@@ -86,7 +86,7 @@ export interface IntegrityCheck {
   status: "pass" | "fail" | "warning";
   score: number;
   details: string;
-  evidence?: any;
+  evidence?: unknown;
 }
 
 export enum CheckType {
@@ -106,7 +106,7 @@ export interface IntegrityViolation {
   description: string;
   impact: string;
   remediation: string;
-  evidence?: any;
+  evidence?: unknown;
 }
 
 // ============================================================================
@@ -185,7 +185,7 @@ export class IntegrityValidationService {
       });
 
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to parse structural response", "Parse error", {
         traceId: request.traceId,
         error: error instanceof Error ? error.message : "Unknown error",
@@ -197,7 +197,7 @@ export class IntegrityValidationService {
         confidence: 0.5,
         recommendations: ["Retry validation", "Check system logs"],
         validatedAt: new Date(),
-      };
+      } as unknown as IntegrityValidationResult; // fallback, but cannot type properly here
     }
   }
 
@@ -442,7 +442,7 @@ export class IntegrityValidationService {
     // Get related memories from agent memory service
     try {
       const relatedMemories = await this.agentMemoryService.queryMemories({
-        caseId: request.context.caseId,
+        caseId: (request.context.caseId as string) ?? "",
         agentType: request.agentType,
         limit: 10,
       });
@@ -469,7 +469,7 @@ export class IntegrityValidationService {
           evidence: consistency.inconsistencies,
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn(
         "Could not check cross-agent consistency",
         error instanceof Error ? error : undefined
@@ -562,8 +562,8 @@ export class IntegrityValidationService {
       const adversarialRequest = {
         originalResponse: request.content.sduiPage,
         agentType: request.agentType,
-        confidence: request.content.confidence || 0.5,
-        reasoning: request.content.reasoning || [],
+        confidence: request.content.confidence ?? 0.5,
+        reasoning: request.content.reasoning ?? [],
         context: request.context,
         traceId: request.traceId,
       };
@@ -797,7 +797,7 @@ class ConsistencyChecker {
 
   async checkContextAlignment(
     content: IntegrityContent,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): Promise<{
     aligned: boolean;
     score: number;
@@ -815,7 +815,7 @@ class ConsistencyChecker {
 
   async checkCrossAgentConsistency(
     content: IntegrityContent,
-    memories: any[]
+    memories: unknown[]
   ): Promise<{
     consistent: boolean;
     score: number;
@@ -833,7 +833,7 @@ class ConsistencyChecker {
 
   async checkMetricAccuracy(
     metrics: Record<string, number>,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): Promise<{
     accurate: boolean;
     score: number;

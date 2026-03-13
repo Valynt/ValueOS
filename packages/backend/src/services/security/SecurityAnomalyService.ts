@@ -90,7 +90,20 @@ export class SecurityAnomalyService {
     status?: "open" | "acknowledged" | "suppressed";
     limit?: number;
   }): Promise<SecurityAnomalyAlert[]> {
-    let query = (this.supabase as any)
+    let query = (this.supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          not: (col: string, op: string, val: null) => {
+            order: (col: string, opts: { ascending: boolean }) => {
+              limit: (count: number) => unknown;
+              eq: (col: string, val: unknown) => unknown;
+              neq: (col: string, val: unknown) => unknown;
+              maybeSingle?: () => Promise<{ data: unknown; error: Error | null }>;
+            };
+          };
+        };
+      };
+    })
       .from("security_anomaly_alerts")
       .select("*")
       .not("tenant_id", "is", null)
@@ -98,15 +111,15 @@ export class SecurityAnomalyService {
       .limit(options.limit ?? 100);
 
     if (options.tenantId) {
-      query = query.eq("tenant_id", options.tenantId);
+      query = (query as any).eq("tenant_id", options.tenantId);
     }
     if (options.status) {
-      query = query.eq("status", options.status);
+      query = (query as any).eq("status", options.status);
     } else if (!options.includeSuppressed) {
-      query = query.neq("status", "suppressed");
+      query = (query as any).neq("status", "suppressed");
     }
 
-    const { data, error } = await query;
+    const { data, error } = await (query as Promise<{ data: SecurityAnomalyAlert[] | null; error: Error | null }>);
     if (error) throw error;
     return (data ?? []) as SecurityAnomalyAlert[];
   }
@@ -117,7 +130,19 @@ export class SecurityAnomalyService {
     reason: string;
   }): Promise<SecurityAnomalyAlert | null> {
     const nowIso = new Date().toISOString();
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        update: (values: Partial<SecurityAnomalyAlert>) => {
+          eq: (col: string, val: unknown) => {
+            not: (col: string, op: string, val: null) => {
+              select: (columns: string) => {
+                maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+              };
+            };
+          };
+        };
+      };
+    })
       .from("security_anomaly_alerts")
       .update({
         status: "acknowledged",
@@ -132,7 +157,7 @@ export class SecurityAnomalyService {
       .maybeSingle();
 
     if (error) throw error;
-    return (data as SecurityAnomalyAlert | null) ?? null;
+    return data ?? null;
   }
 
   async suppressAlert(params: {
@@ -142,7 +167,19 @@ export class SecurityAnomalyService {
     suppressUntil: string;
   }): Promise<SecurityAnomalyAlert | null> {
     const nowIso = new Date().toISOString();
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        update: (values: Partial<SecurityAnomalyAlert>) => {
+          eq: (col: string, val: unknown) => {
+            not: (col: string, op: string, val: null) => {
+              select: (columns: string) => {
+                maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+              };
+            };
+          };
+        };
+      };
+    })
       .from("security_anomaly_alerts")
       .update({
         status: "suppressed",
@@ -157,26 +194,40 @@ export class SecurityAnomalyService {
       .maybeSingle();
 
     if (error) throw error;
-    const alert = (data as SecurityAnomalyAlert | null) ?? null;
+    const alert = data ?? null;
     if (!alert) return null;
 
-    const { error: suppressionError } = await (this.supabase as any)
-      .from("security_anomaly_suppressions")
-      .insert({
-        tenant_id: alert.tenant_id,
-        anomaly_type: alert.anomaly_type,
-        actor_id: alert.actor_id,
-        suppression_until: params.suppressUntil,
-        reason: params.reason,
-        created_by: params.actorId,
-      });
+    const { error: suppressionError } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        insert: (values: Record<string, unknown>) => { error: Error | null };
+      };
+    }).from("security_anomaly_suppressions").insert({
+      tenant_id: alert.tenant_id,
+      anomaly_type: alert.anomaly_type,
+      actor_id: alert.actor_id,
+      suppression_until: params.suppressUntil,
+      reason: params.reason,
+      created_by: params.actorId,
+    });
 
     if (suppressionError) throw suppressionError;
     return alert;
   }
 
   private async fetchActiveTenantIds(windowStart: Date, windowEnd: Date): Promise<string[]> {
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          not: (col: string, op: string, val: null) => {
+            gte: (col: string, val: string) => {
+              lte: (col: string, val: string) => {
+                limit: (count: number) => Promise<{ data: { tenant_id: string }[] | null; error: Error | null }>;
+              };
+            };
+          };
+        };
+      };
+    })
       .from("audit_logs")
       .select("tenant_id")
       .not("tenant_id", "is", null)
@@ -186,7 +237,7 @@ export class SecurityAnomalyService {
 
     if (error) throw error;
 
-    return Array.from(new Set((data ?? []).map((row: { tenant_id: string }) => row.tenant_id)));
+    return Array.from(new Set((data ?? []).map((row) => row.tenant_id)));
   }
 
   private async fetchTenantLogs(
@@ -194,7 +245,21 @@ export class SecurityAnomalyService {
     windowStart: Date,
     windowEnd: Date
   ): Promise<AuditLogRow[]> {
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (col: string, val: string) => {
+            gte: (col: string, val: string) => {
+              lte: (col: string, val: string) => {
+                order: (col: string, opts: { ascending: boolean }) => {
+                  limit: (count: number) => Promise<{ data: AuditLogRow[] | null; error: Error | null }>;
+                };
+              };
+            };
+          };
+        };
+      };
+    })
       .from("audit_logs")
       .select("id, tenant_id, organization_id, user_id, action, status, details, timestamp")
       .eq("tenant_id", tenantId)
@@ -204,7 +269,7 @@ export class SecurityAnomalyService {
       .limit(5000);
 
     if (error) throw error;
-    return (data ?? []) as AuditLogRow[];
+    return data ?? [];
   }
 
   private async calculateTenantBaseline(
@@ -213,7 +278,21 @@ export class SecurityAnomalyService {
     windowEnd: Date
   ): Promise<TenantBaseline> {
     const baselineStart = new Date(windowStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const { data, error } = await (this.supabase as any)
+    const { data, error } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (col: string, val: string) => {
+            gte: (col: string, val: string) => {
+              lt: (col: string, val: string) => {
+                order: (col: string, opts: { ascending: boolean }) => {
+                  limit: (count: number) => Promise<{ data: AuditLogRow[] | null; error: Error | null }>;
+                };
+              };
+            };
+          };
+        };
+      };
+    })
       .from("audit_logs")
       .select("id, user_id, action, status, details, timestamp, resource_type")
       .eq("tenant_id", tenantId)
@@ -230,7 +309,7 @@ export class SecurityAnomalyService {
       return DEFAULT_BASELINE;
     }
 
-    const logs = (data ?? []) as AuditLogRow[];
+    const logs = data ?? [];
     if (logs.length === 0) return DEFAULT_BASELINE;
 
     const exportEvents = logs.filter((log) => this.isBulkExport(log)).length;
@@ -413,8 +492,15 @@ export class SecurityAnomalyService {
       status: "open",
     };
 
-    const { data, error } = await (this.supabase as any)
-      .from("security_anomaly_alerts")
+    const { data, error } = await (this.supabase as unknown as {
+      from: (table: string) => {
+        insert: (values: typeof payload) => {
+          select: (columns: string) => {
+            single: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+          };
+        };
+      };
+    }).from("security_anomaly_alerts")
       .insert(payload)
       .select("*")
       .single();
@@ -450,7 +536,28 @@ export class SecurityAnomalyService {
     windowStart: Date,
     windowEnd: Date
   ): Promise<SecurityAnomalyAlert | null> {
-    let query = (this.supabase as any)
+    let query = (this.supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (col: string, val: unknown) => {
+            gte: (col: string, val: string) => {
+              lte: (col: string, val: string) => {
+                neq: (col: string, val: unknown) => {
+                  limit: (count: number) => {
+                    eq: (col: string, val: unknown) => {
+                      maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+                    };
+                    is: (col: string, val: null) => {
+                      maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+                    };
+                  };
+                };
+              };
+            };
+          };
+        };
+      };
+    })
       .from("security_anomaly_alerts")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -460,11 +567,11 @@ export class SecurityAnomalyService {
       .neq("status", "suppressed")
       .limit(1);
 
-    query = actorId ? query.eq("actor_id", actorId) : query.is("actor_id", null);
+    query = actorId ? (query as any).eq("actor_id", actorId) : (query as any).is("actor_id", null);
 
-    const { data, error } = await query.maybeSingle();
+    const { data, error } = await (query as Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>).maybeSingle();
     if (error) throw error;
-    return (data as SecurityAnomalyAlert | null) ?? null;
+    return data ?? null;
   }
 
   private async findActiveSuppression(
@@ -473,7 +580,20 @@ export class SecurityAnomalyService {
     actorId: string | null
   ): Promise<boolean> {
     const nowIso = new Date().toISOString();
-    let query = (this.supabase as any)
+    let query = (this.supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          eq: (col: string, val: unknown) => {
+            gt: (col: string, val: string) => {
+              limit: (count: number) => {
+                eq: (col: string, val: unknown) => Promise<{ data: unknown[] | null; error: Error | null }>;
+                is: (col: string, val: null) => Promise<{ data: unknown[] | null; error: Error | null }>;
+              };
+            };
+          };
+        };
+      };
+    })
       .from("security_anomaly_suppressions")
       .select("id")
       .eq("tenant_id", tenantId)
@@ -481,9 +601,9 @@ export class SecurityAnomalyService {
       .gt("suppression_until", nowIso)
       .limit(1);
 
-    query = actorId ? query.eq("actor_id", actorId) : query.is("actor_id", null);
+    query = actorId ? (query as any).eq("actor_id", actorId) : (query as any).is("actor_id", null);
 
-    const { data, error } = await query;
+    const { data, error } = await (query as Promise<{ data: unknown[] | null; error: Error | null }>);
     if (error) throw error;
     return (data ?? []).length > 0;
   }
@@ -508,7 +628,6 @@ export class SecurityAnomalyService {
     const hour = new Date(log.timestamp).getUTCHours();
     return hour < 6 || hour > 20;
   }
-
 
   private isCrossTenantAccessAttempt(log: AuditLogRow, tenantId: string): boolean {
     const requestedTenantId = typeof log.details?.requested_tenant_id === "string"

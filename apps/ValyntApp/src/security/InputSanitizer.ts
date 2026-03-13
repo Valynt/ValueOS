@@ -181,7 +181,7 @@ export function sanitizeString(
   const config = getSecurityConfig().inputValidation;
   const errors: string[] = [];
   const warnings: string[] = [];
-  const maxLength = options.maxLength || config.maxStringLength;
+  const maxLength = options.maxLength ?? config.maxStringLength;
 
   // Check length
   if (input.length > maxLength) {
@@ -253,7 +253,7 @@ export function sanitizeUrl(url: string): ValidationResult {
       errors,
       warnings,
     };
-  } catch (error) {
+  } catch (_error: unknown) {
     return {
       valid: false,
       sanitized: '',
@@ -361,7 +361,7 @@ export function sanitizeJson(json: string): ValidationResult {
 
   try {
     // Parse JSON
-    const parsed = JSON.parse(json);
+    const parsed: unknown = JSON.parse(json);
 
     // Check depth
     const depth = getObjectDepth(parsed);
@@ -384,7 +384,7 @@ export function sanitizeJson(json: string): ValidationResult {
       errors,
       warnings,
     };
-  } catch (error) {
+  } catch (_error: unknown) {
     return {
       valid: false,
       sanitized: '',
@@ -397,15 +397,15 @@ export function sanitizeJson(json: string): ValidationResult {
 /**
  * Get object depth
  */
-function getObjectDepth(obj: any, currentDepth: number = 0): number {
+function getObjectDepth(obj: unknown, currentDepth: number = 0): number {
   if (obj === null || typeof obj !== 'object') {
     return currentDepth;
   }
 
   let maxDepth = currentDepth;
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      const depth = getObjectDepth(obj[key], currentDepth + 1);
+  for (const key in obj as Record<string, unknown>) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const depth = getObjectDepth((obj as Record<string, unknown>)[key], currentDepth + 1);
       maxDepth = Math.max(maxDepth, depth);
     }
   }
@@ -416,7 +416,7 @@ function getObjectDepth(obj: any, currentDepth: number = 0): number {
 /**
  * Check array lengths recursively
  */
-function checkArrayLengths(obj: any, maxLength: number): boolean {
+function checkArrayLengths(obj: unknown, maxLength: number): boolean {
   if (Array.isArray(obj)) {
     if (obj.length > maxLength) {
       return true;
@@ -427,9 +427,9 @@ function checkArrayLengths(obj: any, maxLength: number): boolean {
       }
     }
   } else if (obj !== null && typeof obj === 'object') {
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        if (checkArrayLengths(obj[key], maxLength)) {
+    for (const key in obj as Record<string, unknown>) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        if (checkArrayLengths((obj as Record<string, unknown>)[key], maxLength)) {
           return true;
         }
       }
@@ -442,16 +442,16 @@ function checkArrayLengths(obj: any, maxLength: number): boolean {
 /**
  * Sanitize JSON values recursively
  */
-function sanitizeJsonValues(obj: any): any {
+function sanitizeJsonValues(obj: unknown): unknown {
   if (typeof obj === 'string') {
     return sanitizeHtml(obj, { allowHtml: false });
   } else if (Array.isArray(obj)) {
     return obj.map(item => sanitizeJsonValues(item));
   } else if (obj !== null && typeof obj === 'object') {
-    const sanitized: any = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        sanitized[key] = sanitizeJsonValues(obj[key]);
+    const sanitized: Record<string, unknown> = {};
+    for (const key in obj as Record<string, unknown>) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        sanitized[key] = sanitizeJsonValues((obj as Record<string, unknown>)[key]);
       }
     }
     return sanitized;
@@ -472,8 +472,8 @@ export function validateFileUpload(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const types = allowedTypes || config.allowedFileTypes;
-  const size = maxSize || config.maxFileSize;
+  const types = allowedTypes ?? config.allowedFileTypes;
+  const size = maxSize ?? config.maxFileSize;
 
   // Check file type
   if (!types.includes(file.type)) {
@@ -502,16 +502,16 @@ export function validateFileUpload(
 /**
  * Sanitize object recursively
  */
-export function sanitizeObject(obj: any, options: SanitizeOptions = {}): any {
+export function sanitizeObject(obj: unknown, options: SanitizeOptions = {}): unknown {
   if (typeof obj === 'string') {
     return sanitizeString(obj, options).sanitized;
   } else if (Array.isArray(obj)) {
     return obj.map(item => sanitizeObject(item, options));
   } else if (obj !== null && typeof obj === 'object') {
-    const sanitized: any = {};
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        sanitized[key] = sanitizeObject(obj[key], options);
+    const sanitized: Record<string, unknown> = {};
+    for (const key in obj as Record<string, unknown>) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key], options);
       }
     }
     return sanitized;

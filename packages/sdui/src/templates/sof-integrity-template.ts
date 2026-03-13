@@ -12,13 +12,13 @@ import type { SDUIPageDefinition } from '../schema';
  * Generate SOF-enhanced Integrity page
  */
 export function generateSOFIntegrityPage(data: {
-  businessCase: any;
+  businessCase: Record<string, unknown>;
   systemMap: SystemMap;
   interventionPoint: InterventionPoint;
   feedbackLoops: FeedbackLoop[];
   integrityData?: {
-    governanceControls: any[];
-    auditTrail: any[];
+    governanceControls: Record<string, unknown>[];
+    auditTrail: Record<string, unknown>[];
     systemHealthScore?: number;
     complianceStatus?: 'compliant' | 'at-risk' | 'non-compliant';
   };
@@ -466,7 +466,7 @@ export function generateSOFIntegrityPage(data: {
   return {
     type: 'page',
     version: 1,
-    sections: components as any, // Should be SDUIPageDefinition['sections']
+    sections: components as SDUIPageDefinition['sections'], // added proper cast here
     metadata: {
       lifecycle_stage: 'integrity',
       sofEnabled: true,

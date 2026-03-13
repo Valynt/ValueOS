@@ -160,12 +160,12 @@ export class RateLimitKeyService {
       return context.tenantId;
     }
 
-    const reqTenantId = req.tenantId;
+    const reqTenantId = (req as unknown as { tenantId?: string }).tenantId;
     if (reqTenantId) {
       return reqTenantId;
     }
 
-    const serviceIdentityVerified = Boolean(req.serviceIdentityVerified);
+    const serviceIdentityVerified = Boolean((req as unknown as { serviceIdentityVerified?: boolean }).serviceIdentityVerified);
     if (serviceIdentityVerified) {
       const headerTenant = req.headers['x-tenant-id'];
       if (Array.isArray(headerTenant)) {
@@ -186,7 +186,7 @@ export class RateLimitKeyService {
   ): string | undefined {
     // Priority: context > request > undefined
     return context?.userId ||
-           req.user?.id ||
+           (req as unknown as { user?: { id?: string } }).user?.id ||
            undefined;
   }
 

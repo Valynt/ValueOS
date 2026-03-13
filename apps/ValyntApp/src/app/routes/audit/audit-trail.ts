@@ -165,8 +165,8 @@ export class AuditTrailManager {
       category: entry.category,
       component: entry.component,
       operation: entry.operation,
-      inputs: this.sanitizeData(entry.inputs),
-      outputs: this.sanitizeData(entry.outputs),
+      inputs: this.sanitizeData(entry.inputs) as Record<string, unknown>,
+      outputs: this.sanitizeData(entry.outputs) as Record<string, unknown>,
       confidence: Math.max(0, Math.min(1, entry.confidence)),
       reasoning: entry.reasoning,
       evidence: entry.evidence || [],
@@ -345,7 +345,7 @@ export class AuditTrailManager {
         violations.push({
           type: 'MISSING_DATA',
           severity: 'medium',
-          description: `Validation failed: ${(entry.outputs.errors || []).join(', ')}`,
+          description: `Validation failed: ${(Array.isArray(entry.outputs.errors) ? entry.outputs.errors : []).join(', ')}`,
           entryId: entry.id,
           timestamp: entry.timestamp,
           mitigation: 'Provide missing data or adjust constraints'
@@ -519,26 +519,30 @@ export class AuditTrailManager {
   // PRIVATE HELPER METHODS
   // ============================================================================
 
-  private calculateHash(data: any): string {
+  private calculateHash(data: string | Record<string, unknown>): string {
     const hash = createHash('sha256');
-    hash.update(JSON.stringify(data));
+    if (typeof data === 'string') {
+      hash.update(data);
+    } else {
+      hash.update(JSON.stringify(data));
+    }
     return hash.digest('hex');
   }
 
-  private sanitizeData(data: any): any {
+  private sanitizeData(data: unknown): unknown {
     if (data === null || data === undefined) return {};
 
     // Remove sensitive data
     const sensitiveKeys = ['password', 'token', 'secret', 'apiKey', 'privateKey'];
 
-    const sanitize = (obj: any): any => {
+    const sanitize = (obj: unknown): unknown => {
       if (typeof obj !== 'object' || obj === null) return obj;
 
       if (Array.isArray(obj)) {
         return obj.map(sanitize);
       }
 
-      const result: unknown = {};
+      const result: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
         if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
           result[key] = '***REDACTED***';
@@ -596,7 +600,7 @@ export class AuditTrailManager {
 
       const line = JSON.stringify(entry) + '\n';
       fs.appendFileSync(filepath, line);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to persist audit entry:', error);
     }
   }
@@ -616,10 +620,10 @@ export function AuditTrail(
     category?: AuditCategory;
     includeInputs?: boolean;
     includeOutputs?: boolean;
-    confidence?: (result: any) => number;
+    confidence?: (result: unknown) => number;
   } = {}
 ) {
-  return function (_target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (_target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
     const audit = AuditTrailManager.getInstance();
 
@@ -647,7 +651,7 @@ export function AuditTrail(
         });
 
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         const duration = Date.now() - startTime;
 
         audit.log({

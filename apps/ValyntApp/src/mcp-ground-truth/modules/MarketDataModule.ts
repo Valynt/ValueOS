@@ -45,7 +45,7 @@ export class MarketDataModule extends BaseModule {
   private rateLimit: number = 5; // Requests per minute
   private cacheTTL: number = 300; // 5 minutes default
   private lastRequestTime: number = 0;
-  private quoteCache: Map<string, { data: any; timestamp: number }> = new Map();
+  private quoteCache: Map<string, { data: unknown; timestamp: number }> = new Map();
 
   // Provider-specific base URLs
   private readonly PROVIDER_URLS = {
@@ -54,7 +54,7 @@ export class MarketDataModule extends BaseModule {
     tiingo: 'https://api.tiingo.com',
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
     
     const marketConfig = config as MarketDataConfig;
@@ -190,12 +190,19 @@ export class MarketDataModule extends BaseModule {
     const fundamentals = await this.getFundamentals(ticker);
     
     // Extract multiples from fundamentals
+    const metadata = fundamentals.metadata as Record<string, unknown> | undefined;
+
+    const pe_ratio = typeof metadata?.pe_ratio === 'number' ? metadata.pe_ratio : undefined;
+    const ev_ebitda = typeof metadata?.ev_ebitda === 'number' ? metadata.ev_ebitda : undefined;
+    const price_to_book = typeof metadata?.price_to_book === 'number' ? metadata.price_to_book : undefined;
+    const price_to_sales = typeof metadata?.price_to_sales === 'number' ? metadata.price_to_sales : undefined;
+
     const multiplesData = {
       ticker,
-      pe_ratio: (fundamentals.metadata as any).pe_ratio,
-      ev_ebitda: (fundamentals.metadata as any).ev_ebitda,
-      price_to_book: (fundamentals.metadata as any).price_to_book,
-      price_to_sales: (fundamentals.metadata as any).price_to_sales,
+      pe_ratio,
+      ev_ebitda,
+      price_to_book,
+      price_to_sales,
     };
 
     return this.createMetric(
@@ -263,7 +270,7 @@ export class MarketDataModule extends BaseModule {
         volume: parseInt(quote['06. volume']),
         timestamp: new Date().toISOString(),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GroundTruthError) {
         throw error;
       }
@@ -307,7 +314,7 @@ export class MarketDataModule extends BaseModule {
         fifty_two_week_low: parseFloat(data['52WeekLow']) || undefined,
         ebitda: parseFloat(data.EBITDA) || undefined,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GroundTruthError) {
         throw error;
       }
@@ -354,7 +361,7 @@ export class MarketDataModule extends BaseModule {
         volume: result.v,
         timestamp: new Date(result.t).toISOString(),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GroundTruthError) {
         throw error;
       }
@@ -387,7 +394,7 @@ export class MarketDataModule extends BaseModule {
         );
       }
 
-      const results = data.results;
+      const results = data.results as { market_cap?: number };
 
       return {
         ticker,
@@ -395,7 +402,7 @@ export class MarketDataModule extends BaseModule {
         // Polygon provides limited fundamentals in basic tier
         // Would need additional endpoints for full fundamental data
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GroundTruthError) {
         throw error;
       }
@@ -425,14 +432,19 @@ export class MarketDataModule extends BaseModule {
 
       const data = await response.json();
 
-      if (!data || data.length === 0) {
+      if (!data || !Array.isArray(data) || data.length === 0) {
         throw new GroundTruthError(
           ErrorCodes.NO_DATA_FOUND,
           `No quote data for ${ticker}`
         );
       }
 
-      const latest = data[0];
+      const latest = data[0] as {
+        close: number;
+        open: number;
+        volume: number;
+        date: string;
+      };
 
       return {
         ticker,
@@ -442,7 +454,7 @@ export class MarketDataModule extends BaseModule {
         volume: latest.volume,
         timestamp: latest.date,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GroundTruthError) {
         throw error;
       }
@@ -500,7 +512,7 @@ export class MarketDataModule extends BaseModule {
     );
   }
 
-  private getCachedData(ticker: string, type: string): any | null {
+  private getCachedData(ticker: string, type: string): unknown | null {
     const key = `${ticker}:${type}`;
     const cached = this.quoteCache.get(key);
 
@@ -517,7 +529,7 @@ export class MarketDataModule extends BaseModule {
     return cached.data;
   }
 
-  private setCachedData(ticker: string, type: string, data: any): void {
+  private setCachedData(ticker: string, type: string, data: unknown): void {
     const key = `${ticker}:${type}`;
     this.quoteCache.set(key, {
       data,
