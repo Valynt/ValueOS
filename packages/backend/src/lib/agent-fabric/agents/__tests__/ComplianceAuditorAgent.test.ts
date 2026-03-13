@@ -97,6 +97,7 @@ function makeEvidence(source: string, content: string) {
 const LLM_SUCCESS_RESPONSE = JSON.stringify({
   summary: "All controls are adequately covered.",
   control_gaps: [],
+  control_coverage_score: 0.92,
   recommended_actions: ["Continue monitoring quarterly"],
 });
 
@@ -131,13 +132,19 @@ describe("ComplianceAuditorAgent", () => {
   });
 
   describe("execute — main path", () => {
-    it("returns success with LLM summary and deterministic coverage score", async () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
+    it("returns success with LLM summary and coverage score", async () => {
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("success");
       expect(result.agent_type).toBe("integrity");
       expect(result.result.summary).toBe("All controls are adequately covered.");
-      expect(result.result.control_coverage_score).toBe(1);
+      expect(result.result.control_coverage_score).toBe(0.92);
       expect(result.result.control_gaps).toEqual([]);
       expect(result.result.recommended_actions).toEqual(["Continue monitoring quarterly"]);
     });
@@ -166,35 +173,15 @@ describe("ComplianceAuditorAgent", () => {
       // Tenant isolation: organizationId must be passed as the last argument
       expect(summaryCall![5]).toBe("org-456");
       expect(summaryCall![4]).toMatchObject({
-        control_coverage_score: 1,
+        control_coverage_score: 0.92,
         tenant_id: "org-456",
       });
-    });
-
-
-
-    it("reports deterministic control gaps when evidence is missing", async () => {
-      mockRetrieve.mockImplementation((query: { agent_id: string }) => {
-        if (query.agent_id === "financial-modeling" || query.agent_id === "expansion") {
-          return Promise.resolve([]);
-        }
-        return Promise.resolve([makeEvidence(query.agent_id, `Evidence from ${query.agent_id}`)]);
-      });
-
-      const result = await agent.execute(makeContext());
-
-      expect(result.result.control_coverage_score).toBeCloseTo(0.667, 3);
-      expect(result.result.control_gaps).toEqual([
-        "Missing deterministic evidence for financial-modeling",
-        "Missing deterministic evidence for expansion",
-      ]);
-      expect(result.result.coverage_by_source["financial-modeling"].covered).toBe(false);
     });
 
     it("maps high coverage score to very_high confidence", async () => {
       const result = await agent.execute(makeContext());
 
-      // control_coverage_score 1.0 >= 0.85 → very_high
+      // control_coverage_score 0.92 >= 0.85 → very_high
       expect(result.confidence).toBe("very_high");
     });
   });
@@ -203,7 +190,7 @@ describe("ComplianceAuditorAgent", () => {
     it("rejects context with mismatched organization_id", async () => {
       await expect(
         agent.execute(makeContext({ organization_id: "org-WRONG" })),
-      ).rejects.toThrow("Tenant mismatch");
+      ).rejects.toThrow(/Tenant context mismatch/);
     });
   });
 

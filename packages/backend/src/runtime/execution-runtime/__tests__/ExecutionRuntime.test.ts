@@ -356,6 +356,17 @@ describe('QueryExecutor.processQuery (sync path)', () => {
     ).rejects.toThrow('Tenant execution is paused');
   });
 
+
+  it('returns an error payload when sync execution tenant context mismatches envelope tenant', async () => {
+    const state = makeState();
+    state.organization_id = 'org-2';
+
+    const result = await executor.processQuery(makeEnvelope() as never, 'query', state as never, 'u', 's');
+
+    expect(result.response?.payload).toMatchObject({ error: true });
+    expect(String(result.nextState.context?.lastError ?? '')).toContain('Tenant context mismatch');
+  });
+
   it('returns vetoed response when integrity check fails', async () => {
     // The veto check returns early from inside the span with an error payload.
     policy.evaluateIntegrityVeto.mockResolvedValueOnce({ vetoed: true, metadata: { integrityVeto: true } });
@@ -363,6 +374,16 @@ describe('QueryExecutor.processQuery (sync path)', () => {
     expect(result.response?.payload).toMatchObject({ error: true });
     // The veto message or a generic error — either is acceptable; the key is error: true.
     expect(typeof result.response?.payload.message).toBe('string');
+  });
+
+
+  it('rejects async queueing when workflow state tenant mismatches envelope tenant', async () => {
+    const state = makeState();
+    state.organization_id = 'org-2';
+
+    await expect(
+      executor.processQueryAsync(makeEnvelope() as never, 'query', state as never, 'u', 's', 'trace-1'),
+    ).rejects.toThrow(/Tenant context mismatch/);
   });
 
   it('returns error when rate limit is exceeded', async () => {

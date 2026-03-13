@@ -1,25 +1,30 @@
-export interface TenantContextMatchInput {
-  expectedOrganizationId: string;
-  contextOrganizationId: string;
+interface AssertTenantContextMatchParams {
+  expectedTenantId: string;
+  actualTenantId: string | null | undefined;
   source: string;
 }
 
 /**
- * Hard guard against cross-tenant execution by ensuring context tenant identity
- * matches the authoritative tenant identity from the execution entrypoint.
+ * Enforces tenant context consistency across execution boundaries.
+ * Throws when a context carries a tenant that does not match the
+ * authoritative tenant for the current execution.
  */
 export function assertTenantContextMatch({
-  expectedOrganizationId,
-  contextOrganizationId,
+  expectedTenantId,
+  actualTenantId,
   source,
-}: TenantContextMatchInput): void {
-  if (!expectedOrganizationId || !contextOrganizationId) {
-    throw new Error(`${source}: missing tenant identity for execution context`);
+}: AssertTenantContextMatchParams): void {
+  if (!expectedTenantId) {
+    throw new Error(`Missing authoritative tenant id in ${source}`);
   }
 
-  if (expectedOrganizationId !== contextOrganizationId) {
+  if (!actualTenantId) {
+    return;
+  }
+
+  if (actualTenantId !== expectedTenantId) {
     throw new Error(
-      `${source}: tenant context mismatch (expected ${expectedOrganizationId}, got ${contextOrganizationId})`,
+      `Tenant context mismatch in ${source}: expected ${expectedTenantId}, received ${actualTenantId}`,
     );
   }
 }

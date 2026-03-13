@@ -9,6 +9,7 @@
 import { z } from "zod";
 
 import type { AgentType } from "../../../services/agent-types.js";
+import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 import type {
   AgentConfig,
   AgentOutput,
@@ -143,6 +144,13 @@ export abstract class BaseAgent {
       });
       return false;
     }
+
+    assertTenantContextMatch({
+      expectedTenantId: this.organizationId,
+      actualTenantId: context.organization_id,
+      source: `${this.name}.validateInput`,
+    });
+
     // organizationId is set in constructor; do not mutate here
     return true;
   }

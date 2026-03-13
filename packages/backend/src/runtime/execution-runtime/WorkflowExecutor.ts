@@ -20,6 +20,7 @@ import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryMa
 import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
 import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
+import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { AgentContext } from '../../services/agents/AgentAPI.js';
 import { securityLogger } from '@valueos/core-services';
@@ -91,6 +92,35 @@ export class WorkflowExecutor {
     private readonly config: WorkflowExecutorConfig = DEFAULT_CONFIG,
   ) {
     this.executionStore = new WorkflowExecutionStore(supabase);
+  }
+
+  private buildStageContext(
+    authoritativeOrganizationId: string,
+    context: WorkflowStageContextDTO,
+    source: string,
+  ): WorkflowStageContextDTO {
+    assertTenantContextMatch({
+      expectedTenantId: authoritativeOrganizationId,
+      actualTenantId: context.organizationId,
+      source: `${source}.organizationId`,
+    });
+    assertTenantContextMatch({
+      expectedTenantId: authoritativeOrganizationId,
+      actualTenantId: context.organization_id,
+      source: `${source}.organization_id`,
+    });
+    assertTenantContextMatch({
+      expectedTenantId: authoritativeOrganizationId,
+      actualTenantId: context.tenantId,
+      source: `${source}.tenantId`,
+    });
+
+    return {
+      ...context,
+      organizationId: authoritativeOrganizationId,
+      organization_id: authoritativeOrganizationId,
+      tenantId: authoritativeOrganizationId,
+    };
   }
 
   // --------------------------------------------------------------------------
@@ -171,7 +201,7 @@ export class WorkflowExecutor {
     traceId: string,
     executionRecord?: WorkflowExecutionRecord,
   ): Promise<void> {
-    let executionContext = { ...initialContext, organizationId };
+    let executionContext = this.buildStageContext(organizationId, initialContext, 'WorkflowExecutor.executeDAGAsync.initialContext');
     const defaultRecord: WorkflowExecutionRecord = executionRecord ?? {
       id: executionId, workflow_id: dag.id ?? '', workspace_id: '', organization_id: organizationId,
       status: 'running', started_at: new Date().toISOString(), context: initialContext, lifecycle: [], outputs: [],
@@ -218,7 +248,7 @@ export class WorkflowExecutor {
           const startedAt = new Date();
           stageStartTimes.set(stage.id, startedAt);
           inProgress.add(stage.id);
-          return { id: stage.id, priority: 'high', payload: { stage, route, context: { ...executionContext }, startedAt } };
+          return { id: stage.id, priority: 'high', payload: { stage, route, context: this.buildStageContext(organizationId, executionContext, `WorkflowExecutor.executeDAGAsync.stage.${stage.id}`), startedAt } };
         });
 
       const taskLookup = new Map(tasks.map((t) => [t.id, t]));
@@ -275,7 +305,11 @@ export class WorkflowExecutor {
             continue;
           }
 
-          executionContext = { ...executionContext, ...stageOutput };
+          executionContext = this.buildStageContext(
+            organizationId,
+            { ...executionContext, ...stageOutput },
+            `WorkflowExecutor.executeDAGAsync.output.${stage.id}`,
+          );
           recordSnapshot = this._appendStageRecord(recordSnapshot, stage, stageStart, stageCompleted, stageOutput, 'completed');
           await this.executionStore.recordStageRun({ executionId, organizationId, stage, executionRecord: recordSnapshot, startedAt: stageStart, completedAt: stageCompleted, output: stageOutput });
           completed.add(stage.id);
@@ -447,8 +481,18 @@ export class WorkflowExecutor {
       const start = Date.now();
       const agentType = stage.agent_type as AgentType;
       const sessionId = context.sessionId ?? `session_${Date.now()}`;
-      const orgId = context.organizationId ?? context.tenantId ?? '';
-      const agentContext: AgentContext = { userId: context.userId ?? '', sessionId, metadata: { currentStage: stage.id } };
+      const stageContext = this.buildStageContext(
+        context.organizationId ?? context.organization_id ?? context.tenantId ?? '',
+        context,
+        `WorkflowExecutor.executeStage.${stage.id}`,
+      );
+      const orgId = stageContext.organizationId ?? '';
+      const agentContext: AgentContext = {
+        userId: stageContext.userId ?? '',
+        sessionId,
+        organizationId: orgId,
+        metadata: { currentStage: stage.id, organizationId: orgId },
+      };
 
       let memoryContext: Record<string, unknown> = {};
       try {
@@ -465,7 +509,7 @@ export class WorkflowExecutor {
         const durationMs = Date.now() - start;
         recordAgentInvocation({ agentName: agentType, stage: 'hypothesis', outcome: 'success', organizationId: orgId, durationMs });
         try {
-          await this.memorySystem.storeEpisode({ sessionId, agentId: agentType, episodeType: 'stage_execution', taskIntent: stage.description ?? stage.id, context: { organizationId: orgId, stageId: stage.id }, initialState: context, finalState: messageResult.data as Record<string, unknown> ?? {}, success: true, rewardScore: 0.8, durationSeconds: durationMs / 1000 });
+          await this.memorySystem.storeEpisode({ sessionId, agentId: agentType, episodeType: 'stage_execution', taskIntent: stage.description ?? stage.id, context: { organizationId: orgId, stageId: stage.id }, initialState: stageContext, finalState: messageResult.data as Record<string, unknown> ?? {}, success: true, rewardScore: 0.8, durationSeconds: durationMs / 1000 });
           await this.memorySystem.storeEpisodicMemory(sessionId, agentType, `Executed stage ${stage.id}: ${stage.description ?? stage.agent_type}`, { success: true, durationMs }, orgId);
         } catch { /* memory failures must not mask execution result */ }
 
@@ -477,7 +521,7 @@ export class WorkflowExecutor {
         const durationMs = Date.now() - start;
         const isTimeout = err instanceof Error && err.message.toLowerCase().includes('timeout');
         recordAgentInvocation({ agentName: agentType, stage: 'hypothesis', outcome: isTimeout ? 'timeout' : 'error', organizationId: orgId, durationMs });
-        try { await this.memorySystem.storeEpisode({ sessionId, agentId: agentType, episodeType: 'stage_execution', taskIntent: stage.description ?? stage.id, context: { organizationId: orgId, stageId: stage.id }, initialState: context, finalState: { error: err instanceof Error ? err.message : String(err) }, success: false, rewardScore: 0.1, durationSeconds: durationMs / 1000 }); } catch { /* ignore */ }
+        try { await this.memorySystem.storeEpisode({ sessionId, agentId: agentType, episodeType: 'stage_execution', taskIntent: stage.description ?? stage.id, context: { organizationId: orgId, stageId: stage.id }, initialState: stageContext, finalState: { error: err instanceof Error ? err.message : String(err) }, success: false, rewardScore: 0.1, durationSeconds: durationMs / 1000 }); } catch { /* ignore */ }
         span.setAttributes({ 'agent.latency_ms': durationMs });
         span.setStatus({ code: SpanStatusCode.ERROR, message: err instanceof Error ? err.message : String(err) });
         if (err instanceof Error) span.recordException(err);

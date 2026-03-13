@@ -157,6 +157,12 @@ describe("NarrativeAgent", () => {
   }
 
   describe("execute", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("returns success output with narrative content", async () => {
       mockComplete.mockResolvedValue(llmResponse(VALID_LLM_RESPONSE));
 

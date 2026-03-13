@@ -221,6 +221,15 @@ describe('WorkflowExecutor.executeStage', () => {
   let executor: WorkflowExecutor;
   beforeEach(async () => { executor = await makeExecutor(); });
 
+
+  it('rejects stage execution when context tenant mismatches', async () => {
+    const executor = await makeExecutor();
+
+    await expect(
+      executor.executeStage(makeStage() as never, { ...makeCtx(), organizationId: 'org-1', tenantId: 'org-2' } as never, { selected_agent: null } as never),
+    ).rejects.toThrow(/Tenant context mismatch/);
+  });
+
   it('returns stage output on success', async () => {
     (executor as never).messageBroker.sendToAgent.mockResolvedValueOnce({ success: true, data: { value: 42 } });
     const result = await executor.executeStage(makeStage() as never, makeCtx(), { selected_agent: null } as never);
@@ -343,6 +352,15 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
     expect(policy.evaluateIntegrityVeto).toHaveBeenCalled();
     expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
+
+  it('rejects DAG execution when stage context tenant mismatches authoritative tenant', async () => {
+    const executor = await makeExecutor();
+
+    await expect(
+      executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, { ...makeCtx(), organizationId: 'org-2' } as never, 'trace-1'),
+    ).rejects.toThrow(/Tenant context mismatch/);
   });
 
   it('marks execution completed when all stages pass', async () => {
