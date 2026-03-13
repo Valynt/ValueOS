@@ -14,7 +14,7 @@ import { createBillingAccessEnforcement } from '../middleware/billingAccessEnfor
 import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
-} from "../services/ReadThroughCacheService.js"
+} from "../services/cache/ReadThroughCacheService.js"
 import { createExecutionRuntime } from '../runtime/execution-runtime/index.js';
 
 const router = Router();

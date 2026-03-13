@@ -17,7 +17,7 @@ import { validateRequest, ValidationSchemas } from "../middleware/inputValidatio
 import { requirePermission } from "../middleware/rbac.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { tenantContextMiddleware } from "../middleware/tenantContext.js"
-import { adminUserService } from "../services/AdminUserService.js"
+import { adminUserService } from "../services/auth/AdminUserService.js"
 
 const logger = createLogger({ component: "TeamsAPI" });
 const router = createSecureRouter("strict");

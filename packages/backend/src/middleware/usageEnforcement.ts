@@ -9,7 +9,7 @@ import { BillingMetric } from '../config/billing.js';
 import { createLogger } from '../lib/logger.js';
 import { supabase } from '../lib/supabase.js';
 import { EntitlementsService } from '../services/billing/EntitlementsService.js';
-import { getMetricsCollector } from '../services/MetricsCollector.js';
+import { getMetricsCollector } from '../services/monitoring/MetricsCollector.js';
 
 const logger = createLogger({ component: 'UsageEnforcementMiddleware' });
 

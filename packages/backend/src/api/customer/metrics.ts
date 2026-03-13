@@ -8,7 +8,7 @@ import { supabase } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
-import { customerAccessService } from '../../services/CustomerAccessService';
+import { customerAccessService } from '../../services/tenant/CustomerAccessService';
 
 // Request validation schema
 const MetricsRequestSchema = z.object({

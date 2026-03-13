@@ -434,6 +434,22 @@ export class UnifiedApiClient {
   clearAuthToken(): void {
     this.config.authToken = undefined;
   }
+
+  /**
+   * Fetch a URL with auth headers applied, returning the raw Response.
+   * Use this only when the response body requires streaming or blob handling
+   * (e.g. file downloads). For JSON APIs, use get/post/patch/delete instead.
+   */
+  async fetchRaw(url: string, init: RequestInit = {}): Promise<Response> {
+    const headers: Record<string, string> = {
+      ...(this.config.defaultHeaders as Record<string, string>),
+      ...(init.headers as Record<string, string>),
+    };
+    if (this.config.authToken) {
+      headers["Authorization"] = `Bearer ${this.config.authToken}`;
+    }
+    return fetch(url, { ...init, headers });
+  }
 }
 
 // ============================================================================

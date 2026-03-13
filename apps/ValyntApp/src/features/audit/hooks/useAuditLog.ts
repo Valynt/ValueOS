@@ -124,14 +124,10 @@ export function useAuditLog() {
         format,
       });
 
-      // Raw fetch retained: export needs blob/streaming response handling that
-      // apiClient does not expose. Migrate when apiClient supports raw Response.
-      const response = await fetch(`/api/admin/audit-logs/export?${queryParams.toString()}`, {
-        method: "GET",
-        headers: {
-          Accept: format === "json" ? "application/json" : "text/csv",
-        },
-      });
+      const response = await apiClient.fetchRaw(
+        `/api/admin/audit-logs/export?${queryParams.toString()}`,
+        { method: "GET", headers: { Accept: format === "json" ? "application/json" : "text/csv" } },
+      );
 
       if (!response.ok) {
         throw new Error(`Export failed with status ${response.status}`);

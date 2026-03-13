@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { onCLS, onFCP, onFID, onLCP, onTTFB } from "web-vitals";
 
+import { apiClient } from "../api/client/unified-api-client";
 import { logger } from "../lib/logger";
 
 /**
@@ -40,24 +41,17 @@ export const useWebVitals = () => {
 /**
  * Send metrics to analytics service
  */
-function sendToAnalytics(name: string, metric: any) {
-  // Send to custom analytics endpoint
-  fetch("/api/analytics/web-vitals", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name: metric.name,
-      value: metric.value,
-      rating: metric.rating,
-      delta: metric.delta,
-      entries: metric.entries,
-      url: window.location.href,
-      userAgent: navigator.userAgent,
-      timestamp: new Date().toISOString(),
-    }),
-  }).catch((error) => {
+function sendToAnalytics(name: string, metric: { name: string; value: number; rating: string; delta: number; entries: unknown[] }) {
+  apiClient.post("/api/analytics/web-vitals", {
+    name: metric.name,
+    value: metric.value,
+    rating: metric.rating,
+    delta: metric.delta,
+    entries: metric.entries,
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    timestamp: new Date().toISOString(),
+  }).catch((error: unknown) => {
     console.warn("Failed to send web vitals to analytics:", error);
   });
 

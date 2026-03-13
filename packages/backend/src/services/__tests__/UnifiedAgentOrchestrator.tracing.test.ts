@@ -96,7 +96,7 @@ vi.mock('@opentelemetry/api', () => ({
 }));
 
 // Mock CostAwareRouter
-vi.mock('../../services/CostAwareRouter.js', () => ({
+vi.mock('../../services/post-v1/CostAwareRouter.js', () => ({
   CostAwareRouter: class {
     async routeRequest() {
       return { fallbackToBasic: false };

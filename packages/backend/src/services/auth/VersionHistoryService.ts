@@ -3,8 +3,8 @@
  * Tracks all configuration changes with rollback capabilities
  */
 
-import { BaseService } from './BaseService.js'
-import { NotFoundError } from './errors.js'
+import { BaseService } from '../utils/BaseService.js'
+import { NotFoundError } from '../errors.js'
 
 export interface SettingsVersion {
   id: string;

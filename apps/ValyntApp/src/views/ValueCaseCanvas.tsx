@@ -7,7 +7,7 @@ import {
   RotateCcw,
   Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 
@@ -25,6 +25,7 @@ import { useCase } from "@/hooks/useCases";
 import { usePptxExport } from "@/hooks/useCaseExport";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 
 // Workflow stages — the core loop
 const stages = [
@@ -53,6 +54,17 @@ export default function ValueCaseCanvas() {
   const { data: merged } = useMergedContext(caseId);
   const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
   const pptxExport = usePptxExport(caseId);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (pptxExport.isError) {
+      toast({
+        title: "Export failed",
+        description: pptxExport.error?.message ?? "Could not generate PPTX. Try again.",
+        variant: "destructive",
+      });
+    }
+  }, [pptxExport.isError, pptxExport.error, toast]);
 
   const caseTitle = caseLoading
     ? null

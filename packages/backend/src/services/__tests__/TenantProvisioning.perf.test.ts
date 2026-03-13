@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { emailService } from './EmailService';
-import { deprovisionTenant } from './TenantProvisioning';
+import { emailService } from '../EmailService.js';
+import { deprovisionTenant } from '../tenant/TenantProvisioning.js';
 
 // Mock dependencies
 vi.mock('./EmailService', () => ({
