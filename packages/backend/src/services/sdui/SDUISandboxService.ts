@@ -7,7 +7,7 @@ export interface ComponentValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];
-  sanitizedPayload?: any;
+  sanitizedPayload?: unknown;
 }
 
 export interface SandboxExecutionResult {
@@ -26,7 +26,7 @@ export class SDUISandboxService {
    */
   async validateComponent(
     intentType: string,
-    payload: any,
+    payload: unknown,
     organizationId: string
   ): Promise<ComponentValidationResult> {
     const errors: string[] = [];
@@ -79,7 +79,7 @@ export class SDUISandboxService {
    */
   async executeInSandbox(
     componentName: string,
-    props: any,
+    props: unknown,
     organizationId: string
   ): Promise<SandboxExecutionResult> {
     const startTime = Date.now();
@@ -152,7 +152,7 @@ export class SDUISandboxService {
   /**
    * Detect potentially malicious patterns in payload
    */
-  private detectMaliciousPatterns(payload: any): string[] {
+  private detectMaliciousPatterns(payload: unknown): string[] {
     const patterns = [
       /<script/i,
       /javascript:/i,
@@ -162,7 +162,7 @@ export class SDUISandboxService {
     ];
 
     const malicious: string[] = [];
-    const checkValue = (value: any): void => {
+    const checkValue = (value: unknown): void => {
       if (typeof value === 'string') {
         patterns.forEach(pattern => {
           if (pattern.test(value)) {
@@ -184,7 +184,7 @@ export class SDUISandboxService {
   private async validateOrganizationRules(
     organizationId: string,
     intentType: string,
-    payload: any
+    payload: unknown
   ): Promise<{ errors: string[]; warnings: string[] }> {
     // In real implementation, this would check organization-specific rules from database
     const errors: string[] = [];
@@ -220,7 +220,7 @@ export class SDUISandboxService {
    */
   private async simulateRender(
     componentName: string,
-    props: any
+    props: unknown
   ): Promise<{ success: boolean; output?: string; errors: string[] }> {
     // In real implementation, this would use React's test renderer or a headless browser
     // For now, we'll do basic validation
