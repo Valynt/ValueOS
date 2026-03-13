@@ -25,6 +25,7 @@ import { checkAllT1TableFreshness } from "../../observability/dataFreshness.js"
 import { getQueueHealth } from "../../observability/queueMetrics.js"
 import { getCrmSyncQueue, getCrmWebhookQueue, getPrefetchQueue } from "../../workers/crmWorker.js"
 import { getResearchQueue } from "../../workers/researchWorker.js"
+import { validateEnv } from "../../config/validateEnv.js"
 
 
 
@@ -83,6 +84,7 @@ export interface HealthCheckResult {
   version: string;
   uptime: number;
   checks: { [key: string]: HealthStatus };
+  warnings?: string[];
   metrics?: {
     memoryUsage: NodeJS.MemoryUsage;
     cpuUsage: NodeJS.CpuUsage;
@@ -394,12 +396,16 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
   // Record health snapshot for trend analysis
   healthMetrics.recordHealthSnapshot(overallStatus, checks);
 
+  // Surface env-level warnings (e.g. MFA disabled in production) in the health response
+  const { warnings: envWarnings } = validateEnv();
+
   const result: HealthCheckResult = {
     status: overallStatus,
     timestamp: new Date().toISOString(),
     version: process.env.APP_VERSION || "1.0.0",
     uptime: process.uptime(),
     checks,
+    warnings: envWarnings.length > 0 ? envWarnings : undefined,
     // Only expose detailed metrics when authenticated or when explicitly requested
     metrics: req.headers.authorization
       ? {
