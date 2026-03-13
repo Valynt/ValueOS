@@ -10,6 +10,8 @@
 import { logger } from "../../lib/logger.js";
 import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../../types/eso-data";
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ============================================================================
 // Types
@@ -160,7 +162,17 @@ export function exportJSONMetrics(): object {
 }
 
 // Console summary for quick checks
-if (require.main === module) {
+const isDirectRun =
+  // CommonJS: require.main is defined
+  (typeof require !== "undefined" && require.main === module) ||
+  // ESM: compare this module's file path to the entrypoint argv
+  (typeof import.meta !== "undefined" &&
+    typeof process !== "undefined" &&
+    process.argv[1] &&
+    path.resolve(process.argv[1]) ===
+      path.resolve(fileURLToPath(import.meta.url)));
+
+if (isDirectRun) {
   logger.info("=== VOS Ground Truth Metrics ===");
   logger.info(exportPrometheusMetrics());
   logger.info("\n=== JSON Export ===");
