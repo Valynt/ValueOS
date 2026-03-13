@@ -1,0 +1,22 @@
+groups:
+  - name: security-audit-archive
+    rules:
+      - alert: SecurityAuditArchiveIntegrityJobFailed
+        expr: increase(kube_job_status_failed{namespace="valynt",job_name=~"security-audit-archive-integrity.*"}[30m]) > 0
+        for: 10m
+        labels:
+          severity: critical
+          service: compliance
+        annotations:
+          summary: "Security audit archive integrity verification job is failing"
+          description: "Hash-chain + manifest verification job failed in the last 30m; investigate missing archive segments or checksum mismatch."
+
+      - alert: SecurityAuditRetentionPipelineFailed
+        expr: increase(kube_job_status_failed{namespace="valynt",job_name=~"security-audit-retention.*"}[30m]) > 0
+        for: 10m
+        labels:
+          severity: critical
+          service: compliance
+        annotations:
+          summary: "Security audit retention archival pipeline failed"
+          description: "Retention pipeline did not complete successfully; operational DB pruning may be out of policy."

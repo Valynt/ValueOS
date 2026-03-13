@@ -1577,3 +1577,12 @@ npm run security-scan
 - [E] Backup & Recovery Test Results
 
 ---
+
+
+## Security audit retention and immutable archive (v1)
+- The retention source of truth is now versioned at `infra/retention/security-audit-retention-policy.v1.json` and exposed via `/api/admin/compliance/retention`.
+- Retention is framework-specific (SOC2/GDPR/HIPAA/ISO27001/NIST/PCI-DSS) per data class rather than a single 180-day global rule.
+- `rotate_security_audit_logs` now stages immutable archive segments with hash-chain checksums in `security_audit_archive_segment`, while preserving an operational query window in the primary DB.
+- Long-term archive exports are written to object storage with object-lock + legal-hold semantics (WORM), with a SHA-256 manifest per batch.
+- Integrity verification runs on schedule and raises alerts on checksum mismatch or missing archive metadata.
+- Auditor restore/discovery workflow is documented in `infra/logging-retention.md`.

@@ -1,13 +1,49 @@
 # Logging retention and rotation
 
-## Database archival
-- `supabase/migrations/20250601110000_audit_request_retention.sql` adds request metadata columns to `security_audit_log`, an immutable archive table, and the `rotate_security_audit_logs(retention_days)` helper so we can prune primary tables while keeping long-term history.
-- Rotation uses the `app.allow_audit_gc` flag to allow controlled deletes during maintenance windows and keeps copies in `security_audit_log_archive` for auditability.
+## Versioned retention policy source of truth
+- Retention windows are defined in `infra/retention/security-audit-retention-policy.v1.json` and consumed by `/api/admin/compliance/retention`.
+- Policy includes per-data-class controls for:
+  - Security audit events
+  - Security alert evidence
+  - Compliance control evidence
+- Each class has framework-specific operational windows (SOC2/GDPR/HIPAA/ISO27001/NIST/PCI-DSS), long-term archive years, legal-hold requirement, and WORM lock mode.
 
-## Kubernetes CronJob
-- `infra/infra/k8s/security-audit-retention-cronjob.yaml` runs daily at 02:30 UTC using a Postgres client container to call `SELECT public.rotate_security_audit_logs(180);` with database credentials pulled from the `valuecanvas-database` secret.
-- The CronJob uses the `audit-ops` service account and restarts on failure to keep the retention lane isolated from application pods.
+## Database rotation + staged archive
+- Migration `infra/supabase/supabase/migrations/20260804000000_security_audit_worm_archive.sql` introduces:
+  - `security_audit_archive_batch` (batch metadata)
+  - `security_audit_archive_segment` (immutable payload + hash chain)
+  - `security_audit_archive_alert` (integrity alerts)
+  - `rotate_security_audit_logs(retention_policy, max_rows)`
+  - `verify_security_audit_archive_integrity(lookback_days)`
+- Rotation copies old rows from `security_audit_log` into archive segments and deletes only beyond the operational window so primary DB remains queryable for active operations.
 
-## Object storage lifecycle
-- Database backups already ship to S3 with server-side encryption via `scripts/backup-database.sh`; ensure the S3 bucket lifecycle rules expire backups older than 90 days to align with the rotation window.
-- For log exports, mirror the same lifecycle policy on the `database-backups` prefix so archive growth is bounded and retained according to compliance requirements.
+## Cloud object-storage archival (WORM)
+- `infra/scripts/export-security-audit-archive.sh` performs:
+  1. DB rotation call
+  2. NDJSON segment export
+  3. SHA-256 manifest generation per batch
+  4. Upload to object storage with object-lock mode `COMPLIANCE`
+  5. Legal-hold set on `manifest.json`
+  6. Batch metadata update + integrity verification
+- Immutable bucket controls are captured in `infra/security/audit-archive-bucket-policy.json` (deny delete/overwrite, enforce object lock, block governance bypass).
+
+## Kubernetes jobs
+- `infra/k8s/security-audit-retention-cronjob.yaml`
+  - `security-audit-retention` daily archival/export run.
+  - `security-audit-archive-integrity` six-hour integrity verification run.
+- Job environments expose framework windows for SOC2/GDPR/HIPAA and reference policy version `security-audit-retention-v1`.
+
+## Alerting
+- `infra/prometheus/alerts/security-audit-archive-alerts.yml` raises critical alerts for:
+  - Retention pipeline failures
+  - Integrity verification failures (hash-chain or manifest gaps)
+
+## Auditor restore and discovery workflow
+1. **Find batch metadata:** query `security_audit_archive_batch` by time range/policy.
+2. **Locate immutable objects:** use `object_store_uri` path (`segments.ndjson`, `manifest.json`).
+3. **Verify integrity before restore:**
+   - Compare manifest checksum with DB `export_checksum_sha256`.
+   - Run `SELECT public.verify_security_audit_archive_integrity(45);`.
+4. **Retrieve scoped evidence:** pull only required segments and filter by tenant/event window in SQL or downstream tooling.
+5. **Prepare evidence package:** include `manifest.json`, checksum outputs, and query transcript for auditor traceability.
+6. **Legal hold handling:** if a case is under hold, preserve objects and reference hold records in the audit workbook before any lifecycle updates.
