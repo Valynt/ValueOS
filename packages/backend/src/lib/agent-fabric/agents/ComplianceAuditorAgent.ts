@@ -40,6 +40,8 @@ export class ComplianceAuditorAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: this.organizationId,
+        allow_cross_workspace: true,
+        cross_workspace_reason: 'compliance_audit_tenant_wide_sampling',
       });
 
       evidenceBySource[source] = evidence.length;

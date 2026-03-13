@@ -469,6 +469,17 @@ describe("IntegrityAgent", () => {
       expect(result.result.claims_checked).toBe(1);
     });
 
+    it("scopes KPI and hypothesis retrieval to the active workspace", async () => {
+      await agent.execute(makeContext());
+
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({ agent_id: "target", organization_id: "org-456", workspace_id: "ws-123" }),
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456", workspace_id: "ws-123" }),
+      );
+    });
+
     it("handles memory retrieval failure gracefully", async () => {
       mockRetrieve.mockRejectedValue(new Error("Memory unavailable"));
 

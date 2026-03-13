@@ -530,6 +530,7 @@ export abstract class BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: this.organizationId,
+        workspace_id: sessionId,
       });
 
       if (memories.length === 0) return;
