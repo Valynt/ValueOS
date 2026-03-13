@@ -692,6 +692,28 @@ const backendEgressEnforcement = {
   },
 };
 
+// Block raw fetch() in ValyntApp — all API calls must go through apiClient (unified-api-client).
+// apiClient centralises auth headers, retry logic, and error normalisation.
+// Existing call sites are listed in ignores as tracked debt; remove entries as they are migrated.
+const frontendFetchEnforcement = {
+  files: ["apps/ValyntApp/src/**/*.{ts,tsx}"],
+  ignores: [
+    // apiClient itself wraps fetch — it is the only allowed call site.
+    "apps/ValyntApp/src/api/client/unified-api-client.ts",
+  ],
+  rules: {
+    "no-restricted-globals": [
+      "error",
+      {
+        name: "fetch",
+        message:
+          "Use apiClient from @/api/client/unified-api-client instead of the global fetch(). " +
+          "apiClient centralises auth headers, retry logic, and error normalisation.",
+      },
+    ],
+  },
+};
+
 // Config files override - disable type-aware rules and project
 const configOverrides = {
   files: [
@@ -781,6 +803,7 @@ export default [
   appModuleBoundaryOverrides,
   backendModuleBoundaryOverrides,
   backendEgressEnforcement,
+  frontendFetchEnforcement,
   legacyRootDirBan,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import SubscriptionService from '../../services/billing/SubscriptionService';
-import { llmCostTracker } from '../../services/LLMCostTracker.js';
+import { llmCostTracker } from '../../services/llm/LLMCostTracker.js';
 import GracePeriodService from '../../services/metering/GracePeriodService';
 import UsageCache from '../../services/metering/UsageCache';
 import { createPlanEnforcement } from '../planEnforcementMiddleware.js'

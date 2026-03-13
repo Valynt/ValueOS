@@ -18,7 +18,7 @@ import {
 } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
 import { consentRegistry } from '../services/consentRegistry.js'
-import { llmQueue } from '../services/MessageQueue.js'
+import { llmQueue } from '../services/realtime/MessageQueue.js'
 import { logger } from '../utils/logger.js'
 import { sanitizeAgentInput } from '../utils/security.js'
 

@@ -129,13 +129,15 @@ export function validateEnv(): ValidationResult {
     );
   }
 
-  // Production: ENCRYPTION_KEY must be present and in a format that encryption.ts
+  // Production: an encryption key must be present and in a format that encryption.ts
   // can parse: hex (64 chars), base64 (44 chars), or pbkdf2:<iterations>:<salt>:<passphrase>.
-  // A missing or malformed key causes runtime failures when encrypted data is first accessed.
+  // encryption.ts reads APP_ENCRYPTION_KEY first, falling back to ENCRYPTION_KEY, so mirror
+  // that precedence here to avoid false-positive startup failures when only APP_ENCRYPTION_KEY
+  // is set.
   if (nodeEnv === "production") {
-    const encryptionKey = process.env.ENCRYPTION_KEY;
+    const encryptionKey = process.env.APP_ENCRYPTION_KEY ?? process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-      errors.push("ENCRYPTION_KEY is required in production");
+      errors.push("APP_ENCRYPTION_KEY (or ENCRYPTION_KEY) is required in production");
     } else if (
       !encryptionKey.startsWith("pbkdf2:") &&
       !encryptionKey.startsWith("hex:") &&
@@ -143,7 +145,7 @@ export function validateEnv(): ValidationResult {
       encryptionKey.length < 44 // minimum for a raw base64-encoded 32-byte key
     ) {
       errors.push(
-        "ENCRYPTION_KEY is too short. Use one of: hex (64 chars, generate with: openssl rand -hex 32), " +
+        "APP_ENCRYPTION_KEY is too short. Use one of: hex (64 chars, generate with: openssl rand -hex 32), " +
         "base64 (44 chars, generate with: openssl rand -base64 32), " +
         "or pbkdf2:<iterations>:<salt>:<passphrase>"
       );

@@ -11,7 +11,7 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { SettingsSection } from "../../components/settings";
 
@@ -30,9 +30,9 @@ interface OrganizationUser {
   deviceListReference: string;
   department?: string;
 }
+import { apiClient } from "../../api/client/unified-api-client";
 import { useAuth } from "../../contexts/AuthContext";
 import { analyticsClient } from "../../lib/analyticsClient";
-import { addCSRFHeader } from "../../security/CSRFProtection";
 
 const PAGE_SIZE = 10;
 const ROLE_OPTIONS = [
@@ -62,23 +62,6 @@ export const OrganizationUsers: React.FC = () => {
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const { session } = useAuth();
 
-  // Raw fetch retained throughout this component: apiClient.setAuthToken is not
-  // yet wired to the Supabase session in app bootstrap, and CSRF headers must
-  // also be injected manually here (see debt.md).
-  const buildHeaders = useCallback(
-    (includeJson?: boolean) => {
-      const headers: Record<string, string> = {};
-      if (includeJson) {
-        headers["Content-Type"] = "application/json";
-      }
-      if (session?.access_token) {
-        headers.Authorization = `Bearer ${session.access_token}`;
-      }
-      return addCSRFHeader(headers) as Record<string, string>;
-    },
-    [session?.access_token]
-  );
-
   useEffect(() => {
     const fetchUsers = async () => {
       if (!session?.access_token) {
@@ -90,15 +73,11 @@ export const OrganizationUsers: React.FC = () => {
       setLoadError(null);
 
       try {
-        const response = await fetch("/api/admin/users", {
-          headers: buildHeaders(),
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-          throw new Error(payload?.error || "Failed to load users");
+        const response = await apiClient.get<{ users: OrganizationUser[] }>("/api/admin/users");
+        if (!response.success) {
+          throw new Error(response.error?.message || "Failed to load users");
         }
-
-        setUsers((payload.users || []) as OrganizationUser[]);
+        setUsers(response.data?.users ?? []);
       } catch (error) {
         setLoadError(error instanceof Error ? error.message : "Failed to load users");
       } finally {
@@ -107,7 +86,7 @@ export const OrganizationUsers: React.FC = () => {
     };
 
     fetchUsers();
-  }, [buildHeaders, session?.access_token]);
+  }, [session?.access_token]);
 
   const filteredAndSortedUsers = useMemo(() => {
     const result = users.filter((user) => {
@@ -175,21 +154,18 @@ export const OrganizationUsers: React.FC = () => {
     if (!inviteEmail) return;
 
     try {
-      const response = await fetch("/api/admin/users/invite", {
-        method: "POST",
-        headers: buildHeaders(true),
-        body: JSON.stringify({
-          email: inviteEmail,
-          role: inviteRole,
-        }),
+      const response = await apiClient.post<{ user: OrganizationUser }>("/api/admin/users/invite", {
+        email: inviteEmail,
+        role: inviteRole,
       });
 
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || "Invite failed");
+      if (!response.success) {
+        throw new Error(response.error?.message || "Invite failed");
       }
 
-      setUsers((current) => [payload.user, ...current]);
+      if (response.data?.user) {
+        setUsers((current) => [response.data!.user, ...current]);
+      }
       setInviteStatus(`Invitation sent to ${inviteEmail}`);
       analyticsClient.trackWorkflowEvent("teammate_invited", "team_invite", {
         email: inviteEmail,
@@ -204,17 +180,10 @@ export const OrganizationUsers: React.FC = () => {
 
   const handleRoleChange = async (userId: string, role: TenantRoleValue) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
-        method: "PATCH",
-        headers: buildHeaders(true),
-        body: JSON.stringify({ role }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || "Role update failed");
+      const response = await apiClient.patch(`/api/admin/users/${userId}/role`, { role });
+      if (!response.success) {
+        throw new Error(response.error?.message || "Role update failed");
       }
-
       setUsers((current) =>
         current.map((user) => (user.userUuid === userId ? { ...user, role } : user))
       );
@@ -225,16 +194,10 @@ export const OrganizationUsers: React.FC = () => {
 
   const handleRemoveUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: "DELETE",
-        headers: buildHeaders(),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.error || "Removal failed");
+      const response = await apiClient.delete(`/api/admin/users/${userId}`);
+      if (!response.success) {
+        throw new Error(response.error?.message || "Removal failed");
       }
-
       setUsers((current) => current.filter((user) => user.userUuid !== userId));
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Failed to remove user");

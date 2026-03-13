@@ -490,12 +490,18 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.0.0
         version: 5.90.21(react@18.3.1)
+      '@valueos/components':
+        specifier: workspace:*
+        version: link:../../packages/components
       '@valueos/core-services':
         specifier: workspace:*
         version: link:../../packages/core-services
       '@valueos/infra':
         specifier: file:../../packages/infra
         version: link:../../packages/infra
+      '@valueos/sdui':
+        specifier: workspace:*
+        version: link:../../packages/sdui
       '@valueos/shared':
         specifier: ^1.0.0
         version: link:../../packages/shared
@@ -14044,7 +14050,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.18
+      vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.15)(@vitest/ui@4.0.18)(jiti@2.6.1)(jsdom@23.2.0)(lightningcss@1.31.1)(tsx@4.21.0)
 
   '@vitest/utils@3.2.4':
     dependencies:

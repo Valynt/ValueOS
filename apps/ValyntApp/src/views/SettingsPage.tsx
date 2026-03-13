@@ -12,6 +12,7 @@ const tabs = [
   { key: "api-keys", label: "API Keys", icon: Key },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "security", label: "Security", icon: Shield },
+  { key: "company-context", label: "Company Context", icon: BookOpen },
 ];
 
 // -- Organization Tab --
@@ -235,14 +236,19 @@ function CompanyContextTab() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("saving");
-    const res = await apiClient.post("/api/v1/tenant/context", {
-      products: form.products.split(",").map(s => s.trim()).filter(Boolean),
-      icps: form.icps.split(",").map(s => s.trim()).filter(Boolean),
-      competitors: form.competitors.split(",").map(s => s.trim()).filter(Boolean),
-      personas: form.personas.split(",").map(s => s.trim()).filter(Boolean),
-      websiteUrl: form.websiteUrl || undefined,
-    });
-    setStatus(res.success ? "saved" : "error");
+
+    try {
+      const response = await apiClient.post("/api/v1/tenant/context", {
+        products: form.products.split(",").map(s => s.trim()).filter(Boolean),
+        icps: form.icps.split(",").map(s => s.trim()).filter(Boolean),
+        competitors: form.competitors.split(",").map(s => s.trim()).filter(Boolean),
+        personas: form.personas.split(",").map(s => s.trim()).filter(Boolean),
+        websiteUrl: form.websiteUrl || undefined,
+      });
+      setStatus(response.success ? "saved" : "error");
+    } catch {
+      setStatus("error");
+    }
   };
 
   const fields: { name: keyof typeof form; label: string; placeholder: string; type?: string }[] = [

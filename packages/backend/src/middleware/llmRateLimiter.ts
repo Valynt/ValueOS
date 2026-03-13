@@ -11,8 +11,8 @@ import { NextFunction, Request, RequestHandler, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 
-import { RateLimitKeyService } from '../services/RateLimitKeyService';
-import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
+import { RateLimitKeyService } from '../services/llm/RateLimitKeyService';
+import { redisCircuitBreaker } from '../services/agents/resilience/RedisCircuitBreaker';
 
 
 // Extended Request interface for rate limiting

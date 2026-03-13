@@ -4,7 +4,7 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requireMFA } from "../middleware/mfa.js";
-import { mfaService } from "../services/MFAService.js";
+import { mfaService } from "../services/auth/MFAService.js";
 
 function createMfaSupabase(secretBase32: string) {
   const maybeSingle = vi.fn().mockResolvedValue({ data: { enabled: true }, error: null });

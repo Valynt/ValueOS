@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const logRequestEventMock = vi.fn(async () => undefined);
 
-vi.mock('../../services/SecurityAuditService.js', () => ({
+vi.mock('../../services/security/SecurityAuditService.js', () => ({
   securityAuditService: {
     logRequestEvent: logRequestEventMock,
   },

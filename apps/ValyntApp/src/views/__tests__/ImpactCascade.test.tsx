@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ImpactCascade from '../ImpactCascade';
 
 // Mock dependencies
-vi.mock('../../components/Layout/Header', () => ({
+vi.mock('../../components/common/Header', () => ({
   default: ({ title, breadcrumbs }: { title: string; breadcrumbs: string[] }) => (
     <div data-testid="header">
       <h1>{title}</h1>

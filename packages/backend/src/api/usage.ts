@@ -6,7 +6,7 @@ import { auditOperation } from "../middleware/auditHooks.js";
 import { AUDIT_ACTION } from "../types/audit.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
-import { persistTenantUsage } from "../services/UsagePersistenceService.js";
+import { persistTenantUsage } from "../services/billing/UsagePersistenceService.js";
 
 const UsagePersistSchema = z.object({
   organization_id: z.string().uuid(),

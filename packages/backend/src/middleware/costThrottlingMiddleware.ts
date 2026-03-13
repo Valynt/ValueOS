@@ -8,8 +8,8 @@
 import { NextFunction, Request, Response } from "express";
 
 import { logger } from "../lib/logger.js";
-import { FallbackAIService } from "../services/FallbackAIService.js";
-import { LLMCostTracker } from "../services/LLMCostTracker.js";
+import { FallbackAIService } from "../services/llm/FallbackAIService.js";
+import { LLMCostTracker } from "../services/llm/LLMCostTracker.js";
 
 interface ExtendedRequest extends Request {
   tenantId?: string;

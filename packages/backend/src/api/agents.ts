@@ -44,11 +44,11 @@ const agentCache = {
     _agentResponseCache.set(key, { value, expiresAt: Date.now() + AGENT_CACHE_TTL_MS });
   },
 };
-import { getEventProducer } from "../services/EventProducer.js"
-import { getEventSourcingService } from "../services/EventSourcingService.js"
+import { getEventProducer } from "../services/realtime/EventProducer.js"
+import { getEventSourcingService } from "../services/post-v1/EventSourcingService.js"
 import { isKafkaEnabled } from "../services/kafkaConfig.js"
-import { getMetricsCollector } from "../services/MetricsCollector.js"
-import { modelCardService } from "../services/ModelCardService.js"
+import { getMetricsCollector } from "../services/monitoring/MetricsCollector.js"
+import { modelCardService } from "../services/llm/ModelCardService.js"
 
 import type { LifecycleContext, LifecycleStage } from "../types/agent.js"
 import { sanitizeAgentInput } from "../utils/security.js"

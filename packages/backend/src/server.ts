@@ -86,7 +86,7 @@ const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
-import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
+import { getBroadcastAdapter, initBroadcastAdapter } from "./services/realtime/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
 
 // Conditionally import telemetry modules
@@ -141,10 +141,10 @@ import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
-import { securityAuditService } from "./services/SecurityAuditService.js";
+import { securityAuditService } from "./services/security/SecurityAuditService.js";
 import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
-import { TenantContextResolver } from "./services/TenantContextResolver.js";
+import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 

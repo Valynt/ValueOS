@@ -18,7 +18,7 @@ interface PlanRequest extends AuthenticatedRequest {
 
 import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
 import { subscriptionService as SubscriptionService } from '../services/billing/SubscriptionService';
-import { llmCostTracker } from '../services/LLMCostTracker.js';
+import { llmCostTracker } from '../services/llm/LLMCostTracker.js';
 import GracePeriodService from '../services/metering/GracePeriodService';
 import UsageCache from '../services/metering/UsageCache';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';

@@ -416,7 +416,7 @@ export abstract class BaseAgent {
 
     // 2. Self-reference patterns
     const selfRefPatterns = [
-      /as a language model/i,
+      /as an? (?:AI )?language model/i,
       /as an AI assistant/i,
       /my training data/i,
       /I was trained/i,

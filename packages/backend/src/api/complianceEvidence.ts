@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
 import { tenantContextMiddleware } from '../middleware/tenantContext.js';
-import { complianceEvidenceService } from '../services/ComplianceEvidenceService.js';
+import { complianceEvidenceService } from '../services/security/ComplianceEvidenceService.js';
 
 export const complianceEvidenceRouter = Router();
 complianceEvidenceRouter.use(requireAuth, tenantContextMiddleware());

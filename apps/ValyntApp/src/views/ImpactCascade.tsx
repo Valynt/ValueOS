@@ -4,7 +4,7 @@ import { useState } from 'react';
 import AgentBadge from '../components/Agents/AgentBadge';
 import ChallengeCard from '../components/Agents/ChallengeCard';
 import ConfidenceIndicator from '../components/Agents/ConfidenceIndicator';
-import Header from '../components/Layout/Header';
+import Header from '../components/common/Header';
 import { Challenge } from '../types/agents';
 
 const drivers = [

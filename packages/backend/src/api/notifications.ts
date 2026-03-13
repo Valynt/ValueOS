@@ -15,7 +15,7 @@ import { z, ZodError } from "zod";
 import { logger } from "../lib/logger.js";
 import { AuthenticatedRequest, requireAuth } from "../middleware/auth.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { getNotificationService } from "../services/NotificationService.js";
+import { getNotificationService } from "../services/messaging/NotificationService.js";
 
 const router = Router();
 
