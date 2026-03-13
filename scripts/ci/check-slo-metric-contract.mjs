@@ -23,14 +23,32 @@ function readFile(path) {
 }
 
 function extractBackendMetricNames(content) {
+  // First, collect the names of Histogram metrics so we only add *_bucket/*_count/*_sum
+  // for those, and avoid whitelisting the unsuffixed histogram name (prom-client only
+  // exports the suffixed series for Histograms).
+  const histogramNames = new Set(
+    Array.from(
+      content.matchAll(
+        /Histogram\(\{\s*name:\s*"([a-zA-Z_:][a-zA-Z0-9_:]*)"/g,
+      ),
+      (match) => match[1],
+    ),
+  );
+
   const matches = content.matchAll(/name:\s*"([a-zA-Z_:][a-zA-Z0-9_:]*)"/g);
   const metrics = new Set();
   for (const match of matches) {
     const metricName = match[1];
-    metrics.add(metricName);
-    metrics.add(`${metricName}_bucket`);
-    metrics.add(`${metricName}_count`);
-    metrics.add(`${metricName}_sum`);
+
+    if (histogramNames.has(metricName)) {
+      // Histograms: prom-client exports only the *_bucket/*_count/*_sum series.
+      metrics.add(`${metricName}_bucket`);
+      metrics.add(`${metricName}_count`);
+      metrics.add(`${metricName}_sum`);
+    } else {
+      // Counters/Gauges/etc.: export only the base series.
+      metrics.add(metricName);
+    }
   }
 
   return metrics;
