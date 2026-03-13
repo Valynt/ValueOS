@@ -1,0 +1,9 @@
+# Authoritative non-backend-registry metric list used by SLO rules.
+# These metrics are expected from OTEL/collector exports or adjacent services.
+metrics:
+  - auth_attempts_total
+  - queue_depth
+  - queue_oldest_message_age_seconds
+  - agent_enqueue_to_ready_seconds_bucket
+  - agent_enqueue_to_ready_seconds_count
+  - valuecanvas_incident_mttr_minutes
