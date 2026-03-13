@@ -13,6 +13,7 @@ groups:
         annotations:
           summary: "High 5xx error rate"
           description: "5xx error rate > 5% over the last 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
 
       - alert: HighP95Latency
         expr: |
@@ -26,6 +27,7 @@ groups:
         annotations:
           summary: "High p95 latency on critical APIs"
           description: "p95 latency > 1s on /api/llm or /api/billing routes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
 
       - alert: ApiScrapeDown
         expr: up{job="valuecanvas-api"} == 0
@@ -35,6 +37,7 @@ groups:
         annotations:
           summary: "valuecanvas-api Prometheus target is down"
           description: "No scrape data from valuecanvas-api for 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-poddown"
 
       - alert: PostgresScrapeDown
         expr: up{job="postgresql"} == 0
@@ -44,6 +47,7 @@ groups:
         annotations:
           summary: "PostgreSQL Prometheus target is down"
           description: "No scrape data from postgresql job for 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-databaseconnectionpoolexhausted"
 
       - alert: RedisScrapeDown
         expr: up{job="redis"} == 0
@@ -53,6 +57,7 @@ groups:
         annotations:
           summary: "Redis Prometheus target is down"
           description: "No scrape data from redis job for 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highrequestrate"
 
       - alert: HighValueCaseGetP95Latency
         expr: |
@@ -66,3 +71,4 @@ groups:
         annotations:
           summary: "High latency for value-cases endpoint (P95 > 200ms)"
           description: "P95 latency for /api/value-cases is above 200ms for more than 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
