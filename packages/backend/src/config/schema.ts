@@ -7,17 +7,15 @@
 
 import { z } from 'zod';
 
-// Import environment writing functions
+// NodeJS process may not exist in all environments (e.g. browser bundles)
+const nodeProcess = (globalThis as { process?: NodeJS.Process }).process;
+
 function writeStdout(message: string) {
-  if (typeof process !== 'undefined' && process.stdout) {
-    process.stdout.write(`${message}\n`);
-  }
+  nodeProcess?.stdout?.write(`${message}\n`);
 }
 
 function writeStderr(message: string) {
-  if (typeof process !== 'undefined' && process.stderr) {
-    process.stderr.write(`${message}\n`);
-  }
+  nodeProcess?.stderr?.write(`${message}\n`);
 }
 
 /**
@@ -452,15 +450,14 @@ export function getValidatedConfig(): z.infer<typeof ConfigSchema> {
     writeStderr('  npm run config:validate');
     writeStderr('  npm run config:diff');
 
-    if (typeof process !== 'undefined') {
-      process.exit(1);
+    if (nodeProcess) {
+      nodeProcess.exit(1);
     } else {
       throw new Error('Configuration validation failed');
     }
   }
 
-  // result.config is non-null when success is true
-  return result.config!;
+  return result.config;
 }
 
 /**

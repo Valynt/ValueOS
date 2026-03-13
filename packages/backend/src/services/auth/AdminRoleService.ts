@@ -129,7 +129,7 @@ export class AdminRoleService {
       throw new ValidationError(`Failed to resolve permissions: ${error.message}`);
     }
 
-    const found = new Map((data || []).map((p: any) => [p.key, p.id]));
+    const found = new Map((data || []).map((p: Record<string, unknown>) => [p.key as string, p.id as string]));
     const missing = permissionKeys.filter((key) => !found.has(key));
     if (missing.length > 0) {
       throw new ValidationError(`Unknown permissions: ${missing.join(", ")}`);
@@ -363,7 +363,7 @@ export class AdminRoleService {
       throw new ValidationError(`Failed to fetch tenant memberships: ${membershipError.message}`);
     }
 
-    const membershipIds = (tenantMemberships || []).map((m: any) => m.id);
+    const membershipIds = (tenantMemberships || []).map((m: Record<string, unknown>) => m.id as string);
     if (membershipIds.length === 0) {
       return [];
     }
@@ -377,7 +377,7 @@ export class AdminRoleService {
       throw new ValidationError(`Failed to fetch membership roles: ${membershipRolesError.message}`);
     }
 
-    const roleIds = Array.from(new Set((membershipRoles || []).map((mr: any) => mr.role_id)));
+    const roleIds = Array.from(new Set((membershipRoles || []).map((mr: Record<string, unknown>) => mr.role_id as string)));
     if (roleIds.length === 0) {
       return [];
     }
@@ -402,9 +402,9 @@ export class AdminRoleService {
 
     for (const row of rolePermissions || []) {
       const current = permissionsByRole.get(row.role_id) || [];
-      const permission = Array.isArray((row as any).permissions)
-        ? (row as any).permissions[0]
-        : (row as any).permissions;
+      const permission = Array.isArray((row as Record<string, unknown>).permissions)
+        ? (row as Record<string, unknown>).permissions[0]
+        : (row as Record<string, unknown>).permissions;
 
       if (permission?.key) {
         current.push({ key: permission.key, description: permission.description || undefined });
@@ -413,8 +413,8 @@ export class AdminRoleService {
     }
 
     return (roles || [])
-      .filter((role: any) => role.tenant_id === tenantId || role.name.startsWith(`${CUSTOM_ROLE_PREFIX}${tenantId}:`))
-      .map((role: any) => ({
+      .filter((role: Record<string, unknown>) => role.tenant_id === tenantId || role.name.startsWith(`${CUSTOM_ROLE_PREFIX}${tenantId}:`))
+      .map((role: Record<string, unknown>) => ({
         id: role.id,
         name: decodeRoleName(role.name, tenantId),
         description: role.description,

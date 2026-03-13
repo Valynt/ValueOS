@@ -30,7 +30,7 @@ export type WorkflowEventType =
 /**
  * Workflow event callback
  */
-export type WorkflowEventCallback = (event: any) => void | Promise<void>;
+export type WorkflowEventCallback = (event: unknown) => void | Promise<void>;
 
 /**
  * Workflow Event Listener Service
@@ -81,7 +81,7 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
   async handleWorkflowStarted(
     workflowId: string,
     executionId: string,
-    context: any
+    context: unknown
   ): Promise<void> {
     if (!this.enabled) return;
 
@@ -122,7 +122,7 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
     workflowId: string,
     fromStage: string | null,
     toStage: string,
-    context: any
+    context: unknown
   ): Promise<void> {
     if (!this.enabled) return;
 
@@ -186,7 +186,7 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
     stageId: string,
     status: StageStatus,
     duration: number,
-    output?: any
+    output?: unknown
   ): Promise<void> {
     if (!this.enabled) return;
 
@@ -290,7 +290,7 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
   async handleWorkflowCompleted(
     workflowId: string,
     executionId: string,
-    context: any
+    context: unknown
   ): Promise<void> {
     if (!this.enabled) return;
 
@@ -338,7 +338,7 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
     workflowId: string,
     executionId: string,
     error: Error,
-    context: any
+    context: unknown
   ): Promise<void> {
     if (!this.enabled) return;
 
@@ -381,7 +381,7 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
   /**
    * Trigger SDUI update for workflow
    */
-  private async triggerSDUIUpdate(_workflowId: string, context: any): Promise<void> {
+  private async triggerSDUIUpdate(_workflowId: string, context: unknown): Promise<void> {
     const workspaceId = context.workspaceId || context.workspace_id;
     if (workspaceId) {
       canvasSchemaService.invalidateCache(workspaceId);

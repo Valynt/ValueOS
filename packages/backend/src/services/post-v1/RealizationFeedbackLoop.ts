@@ -94,7 +94,7 @@ export class RealizationFeedbackLoop {
       );
 
       // Step 3: Record feedback
-      const { data: feedback, error } = await (this.supabase as any)
+      const { data: feedback, error } = await (this.supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
         .from("feedback_loops")
         .insert({
           value_commit_id: valueCommitId,
@@ -112,7 +112,7 @@ export class RealizationFeedbackLoop {
 
       if (error) throw error;
 
-      this.compensations.get(loopId)!.push(() => this.deleteFeedback((feedback as any).id, context.organizationId));
+      this.compensations.get(loopId)!.push(() => this.deleteFeedback((feedback as Record<string, unknown>).id, context.organizationId));
 
       // Step 4: Update agent accuracy metrics
       await this.updateAgentAccuracy(valueCommit.agent_type, variance, context);
@@ -129,7 +129,7 @@ export class RealizationFeedbackLoop {
 
       return {
         success: true,
-        feedbackId: (feedback as any).id,
+        feedbackId: (feedback as Record<string, unknown>).id,
         variance,
         accuracy: this.calculateAccuracy(variance),
         recommendations: await this.generateRecommendations(variance, valueCommit),
@@ -212,7 +212,7 @@ export class RealizationFeedbackLoop {
       variance: variance.percentage,
     });
 
-    await (this.supabase as any).from("agent_accuracy_metrics").insert({
+    await (this.supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>).from("agent_accuracy_metrics").insert({
       agent_type: agentType,
       variance_percentage: variance.percentage,
       variance_absolute: variance.absolute,
@@ -222,7 +222,7 @@ export class RealizationFeedbackLoop {
   }
 
   private async shouldRetrain(agentType: LifecycleStage, organizationId: string): Promise<boolean> {
-    const { data: recentFeedback } = await (this.supabase as any)
+    const { data: recentFeedback } = await (this.supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>)
       .from("feedback_loops")
       .select("variance_percentage")
       .eq("organization_id", organizationId)
@@ -237,7 +237,7 @@ export class RealizationFeedbackLoop {
 
     // Calculate average accuracy
     const avgVariance =
-      recentFeedback.reduce((sum: number, f: any) => sum + Math.abs(f.variance_percentage), 0) /
+      recentFeedback.reduce((sum: number, f: Record<string, unknown>) => sum + Math.abs(f.variance_percentage), 0) /
       recentFeedback.length;
 
     // Retrain if average variance > 25%
@@ -250,7 +250,7 @@ export class RealizationFeedbackLoop {
       organizationId,
     });
 
-    await (this.supabase as any).from("agent_retraining_queue").insert({
+    await (this.supabase as ReturnType<typeof import("@supabase/supabase-js").createClient>).from("agent_retraining_queue").insert({
       agent_type: agentType,
       organization_id: organizationId,
       scheduled_at: new Date().toISOString(),

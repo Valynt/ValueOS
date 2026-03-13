@@ -149,6 +149,7 @@ export interface AgentMiddlewareContext {
   traceId: string;
   agentType: AgentType;
   payload?: unknown;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AgentMiddleware {

@@ -243,14 +243,13 @@ export class AgentAPI {
   /**
    * Sanitize outbound agent payloads to guard against prompt injection and XSS.
    */
-  private sanitizeRequestBody(body: Record<string, unknown>): Record<string, unknown> {
-    const rawQuery = body.query;
-    const sanitizedQuery = rawQuery
+  private sanitizeRequestBody(body: unknown): unknown {
+    const sanitizedQuery = body.query
       ? sanitizeString(
-          llmSanitizer.sanitizePrompt(String(rawQuery), { maxLength: 4000 }).content,
+          llmSanitizer.sanitizePrompt(String(body.query), { maxLength: 4000 }).content,
           { maxLength: 4000, stripScripts: true }
         ).sanitized
-      : rawQuery;
+      : body.query;
 
     return sanitizeObject({
       ...body,
@@ -261,7 +260,7 @@ export class AgentAPI {
   /**
    * Normalize token counts to a safe ceiling to prevent overflow and abuse.
    */
-  private normalizeTokenUsage(tokens?: Record<string, number>): { prompt?: number; completion?: number; total?: number } | undefined {
+  private normalizeTokenUsage(tokens?: unknown): { prompt?: number; completion?: number; total?: number } | undefined {
     if (!tokens) return undefined;
 
     const clamp = (value: number | undefined, max = 20000) =>
@@ -309,7 +308,7 @@ export class AgentAPI {
   private async executeRequest<T>(
     agent: AgentType,
     endpoint: string,
-    body: Record<string, unknown>
+    body: unknown
   ): Promise<AgentResponse<T>> {
     const startTime = Date.now();
     const circuitBreaker = this.getCircuitBreaker(agent);
@@ -560,7 +559,7 @@ export class AgentAPI {
     context?: AgentContext
   ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('integrity', '/integrity/validate', {
-      artifact: artifact as Record<string, unknown>,
+      artifact,
       context,
     });
   }
@@ -666,7 +665,7 @@ export class AgentAPI {
   /**
    * Invoke an agent (alias for invokeAgent)
    */
-  async invoke<T = unknown>(
+  async invoke<T = any>(
     request: AgentRequest
   ): Promise<AgentResponse<T>> {
     return this.invokeAgent<T>(request);
@@ -675,7 +674,7 @@ export class AgentAPI {
   /**
    * Generic agent invocation
    */
-  async invokeAgent<T = unknown>(
+  async invokeAgent<T = any>(
     request: AgentRequest
   ): Promise<AgentResponse<T>> {
     const endpoint = `/${request.agent}/invoke`;

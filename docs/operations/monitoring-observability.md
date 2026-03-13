@@ -463,6 +463,7 @@ SLO evaluation is computed per `service`, `tenant_tier`, and `region` labels to 
 | `SLO-API-LAT` | Backend API | Same segment grid as above | p95 latency ≤ `450ms` | Rolling 30 days | Grafana panel `prod-slo-overview:api-p95-latency-by-segment`, PromQL `histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le,tenant_tier,region))` |
 | `SLO-API-ERR` | Backend API | Same segment grid as above | Error rate ≤ `0.5%` | Rolling 30 days | Grafana panel `prod-slo-overview:api-error-rate-by-segment`, PromQL `sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m])) by (tenant_tier,region) / sum(rate(valuecanvas_http_requests_total[5m])) by (tenant_tier,region)` |
 | `SLO-WORKER-AVAIL` | Queue workers (`worker`, `bullmq`) | `tenant_tier` × `region` | Job success ratio ≥ `99.5%` | Rolling 30 days | Grafana panel `prod-slo-overview:worker-success-by-segment`, PromQL `sum(rate(job_completed_total{service="worker"}[5m])) by (tenant_tier,region) / (sum(rate(job_completed_total{service="worker"}[5m])) by (tenant_tier,region) + sum(rate(job_failed_total{service="worker"}[5m])) by (tenant_tier,region))` |
+| `SLO-AGENT-SUCCESS` | Agent Fabric (all 8 agents) | `agent` × `organization_id` | Invocation success rate ≥ `95%` | Rolling 30 days | PromQL `sum(rate(value_loop_agent_invocations_total{status="success"}[5m])) by (agent,organization_id) / sum(rate(value_loop_agent_invocations_total[5m])) by (agent,organization_id)` |
 
 > **Tenant isolation requirement:** all SLO metrics and exemplars must carry `organization_id` and/or `tenant_id` dimensions in upstream telemetry and derived recording rules.
 
@@ -495,6 +496,8 @@ Use `organization_id` as the canonical tenant label key for value-loop dashboard
 | `alert-slo-burnrate-api-fast` | Critical | `burn_rate_1h > 14.4` and `burn_rate_5m > 14.4` for any evaluated SLO segment | Grafana managed alert (`uid: slo-api-fast-burn`) on `SLO-API-AVAIL` | Page Release Captain + On-Call SRE; assess rollback within 10 minutes. |
 | `alert-slo-burnrate-api-slow` | High | `burn_rate_6h > 6` and `burn_rate_30m > 6` | Grafana managed alert (`uid: slo-api-slow-burn`) | Stop progressive rollout; open incident channel. |
 | `alert-slo-burnrate-worker` | High | `burn_rate_6h > 4` and failed jobs concentrated in any segment | Grafana managed alert (`uid: slo-worker-burn`) | Pause queue-consuming deploys; divert traffic if region-specific. |
+| `AgentSuccessRateSLOBurnRateTooHigh` | Critical | `slo:agent_success_rate:error_budget_burn_rate5m > 14.4` and `1h > 14.4` | Prometheus alert in `prometheus-slo-rules.yaml` | Check agent logs and LLM gateway health; assess circuit-breaker state. |
+| `AgentSuccessRateSLOBurnRateWarning` | Warning | `slo:agent_success_rate:error_budget_burn_rate5m > 6` and `1h > 6` for 15m | Prometheus alert in `prometheus-slo-rules.yaml` | Investigate before budget exhaustion; review recent agent deployments. |
 
 Burn-rate recording rules in Prometheus are defined in `infra/k8s/monitoring/prometheus-slo-rules.yaml` (for example, `slo:api_availability:error_budget_burn_rate5m/1h`).
 

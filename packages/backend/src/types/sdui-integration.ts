@@ -78,7 +78,7 @@ export interface ComponentValidation {
 
 export interface ValidationRule {
   type: string;
-  value: any;
+  value: unknown;
   message: string;
 }
 
@@ -124,32 +124,32 @@ export interface OpportunityData {
   problem_statement?: string;
   stakeholders?: string[];
   initial_metrics?: Record<string, any>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface TargetData {
   goals?: string[];
   kpis?: Array<{ name: string; target: number; unit: string }>;
   timeline?: { start: string; end: string };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface RealizationData {
   implementation_plan?: string;
   milestones?: Array<{ name: string; date: string; status: string }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ExpansionData {
   scaling_strategy?: string;
   new_opportunities?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface IntegrityData {
   validation_results?: ManifestoCheckResult[];
   audit_trail?: Array<{ timestamp: string; action: string; user: string }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface UIState {

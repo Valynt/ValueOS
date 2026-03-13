@@ -287,7 +287,7 @@ export async function createOrganization(config: TenantConfig): Promise<string> 
   // Map tiers: starter -> professional
   let dbTier = config.tier;
   if (config.tier === 'starter') {
-    dbTier = 'professional' as any;
+    dbTier = 'professional' as unknown;
   }
 
   // Calculate default limits and features (merged from Main branch)
@@ -1024,7 +1024,7 @@ async function revokeAllAccess(organizationId: string): Promise<void> {
         logger.warn('Failed to update membership status with extended fields, trying basic status', updateError);
         await supabase
             .from('user_tenants')
-            .update({ status: 'inactive' } as any) // force cast if types don't align
+            .update({ status: 'inactive' } as unknown) // Supabase generated type mismatch
             .eq('tenant_id', organizationId);
     }
 
@@ -1077,21 +1077,21 @@ async function revokeAllAccess(organizationId: string): Promise<void> {
       // Try revoked_at
       const { error: revokedAtError } = await supabase
         .from('api_keys')
-        .update({ revoked_at: new Date().toISOString() } as any)
+        .update({ revoked_at: new Date().toISOString() } as unknown)
         .eq('tenant_id', organizationId); // Assuming tenant_id column based on archive tables
 
       if (revokedAtError) {
           // Try status
           const { error: statusError } = await supabase
             .from('api_keys')
-            .update({ status: 'revoked' } as any)
+            .update({ status: 'revoked' } as unknown)
             .eq('tenant_id', organizationId);
 
           if (statusError) {
               // Try is_active
               const { error: isActiveError } = await supabase
                 .from('api_keys')
-                .update({ is_active: false } as any)
+                .update({ is_active: false } as unknown)
                 .eq('tenant_id', organizationId);
 
               if (isActiveError) {
@@ -1143,7 +1143,7 @@ async function updateTenantStatus(
   const { error } = await supabase
     .from('organizations')
     .update({
-      status: status as any, // Cast to any to bypass potential missing type definition
+      status: status as unknown, // Cast to any to bypass potential missing type definition
       updated_at: new Date().toISOString()
     })
     .eq('id', organizationId);

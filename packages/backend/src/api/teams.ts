@@ -9,8 +9,9 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
+import type { AuthenticatedRequest } from "../middleware/auth.js";
+
 import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks.js"
-import { AUDIT_ACTION } from "../types/audit.js"
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requirePermission } from "../middleware/rbac.js"
@@ -32,7 +33,7 @@ router.get(
   requirePermission("users.read"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId!;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
 
       const users = await adminUserService.listTenantUsers(tenantId);
 
@@ -78,12 +79,12 @@ router.post(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.invite"),
-  auditOperation(AUDIT_ACTION.DATA_CREATE, "team_member", (req) => req.params.tenantId),
+  auditOperation("user_invite", "team_member", (req) => req.params.tenantId),
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId!;
-      const actor = req.user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -137,8 +138,8 @@ router.patch(
   validateRequest(ValidationSchemas.adminChangeRole),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId!;
-      const actor = req.user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -181,8 +182,8 @@ router.delete(
   auditBulkDelete("team_member"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId!;
-      const actor = req.user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -221,11 +222,11 @@ router.delete(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.delete"),
-  auditOperation(AUDIT_ACTION.DATA_DELETE, "team_invite", (req) => req.params.userId),
+  auditOperation("invite_cancel", "team_invite", (req) => req.params.userId),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId!;
-      const actor = req.user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||

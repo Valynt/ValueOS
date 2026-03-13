@@ -13,8 +13,8 @@ import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)
 interface MCPServer {
-  executeTool(toolName: string, args: Record<string, any>): Promise<{
-    content: Array<{ type: string; text?: string; resource?: any }>;
+  executeTool(toolName: string, args: Record<string, unknown>): Promise<{
+    content: Array<{ type: string; text?: string; resource?: unknown }>;
     isError?: boolean;
   }>;
 }
@@ -113,7 +113,7 @@ class MCPGroundTruthService {
   /**
    * Parse MCP tool result (content contains JSON string)
    */
-  private parseToolResult(result: { content: Array<{ text?: string }>; isError?: boolean }): any {
+  private parseToolResult(result: { content: Array<{ text?: string }>; isError?: boolean }): unknown {
     if (result.isError) return null;
     const textContent = result.content.find(c => c.text);
     if (!textContent?.text) return null;
@@ -225,24 +225,24 @@ class MCPGroundTruthService {
     operation: 'financialsMcp' | 'verifyMcp' | 'benchmarksMcp',
     toolName: string,
     args: Record<string, unknown>,
-    transform: (data: any) => T | null
+    transform: (data: unknown) => T | null
   ): Promise<T | null> {
     await this.initialize();
     
     if (!this.server) {
       // Fallback to HTTP if server not available and it's a known tool
       if (toolName === 'get_authoritative_financials') {
-        return this.callGroundtruthApi<any>('financialsApi', {
+        return this.callGroundtruthApi<T>('financialsApi', {
           entityId: args.entity_id,
           metrics: args.metrics,
           period: args.period
-        }) as any;
+        });
       }
       if (toolName === 'resolve_ticker_from_domain') {
-        return this.resolveTickerFromDomain(args as { domain: string }) as any;
+        return this.resolveTickerFromDomain(args as { domain: string }) as unknown as T;
       }
       if (toolName === 'get_filing_sections') {
-        return this.getFilingSections(args as any) as any;
+        return this.getFilingSections(args as { identifier: string; filingType?: '10-K' | '10-Q'; sections: string[] }) as unknown as T;
       }
 
       logger.warn('MCP server not available and no HTTP fallback for tool, returning null', { operation, toolName });
@@ -560,7 +560,7 @@ Use these verified figures in your analysis. Do not hallucinate different number
   // Private Helpers
   // ============================================================================
 
-  private transformResult(data: any, request: FinancialDataRequest): FinancialDataResult {
+  private transformResult(data: unknown, request: FinancialDataRequest): FinancialDataResult {
     return {
       entityName: data.entity_name || request.entityId,
       entityId: request.entityId,

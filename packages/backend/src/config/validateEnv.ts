@@ -121,6 +121,14 @@ export function validateEnv(): ValidationResult {
     errors.push("TOGETHER_API_KEY is required in production");
   }
 
+  // Production: MFA must be enabled. A disabled MFA flag in production is a
+  // security misconfiguration — warn loudly so it surfaces in logs and health checks.
+  if (nodeEnv === "production" && process.env.MFA_ENABLED !== "true") {
+    warnings.push(
+      "MFA_ENABLED is not set to 'true' in production. Set MFA_ENABLED=true to enforce multi-factor authentication for all users."
+    );
+  }
+
 
   // Canonical DB precedence: DATABASE_URL first, with explicit DB_URL fallback only for legacy compatibility.
   if (process.env.DB_URL && !process.env.DATABASE_URL) {

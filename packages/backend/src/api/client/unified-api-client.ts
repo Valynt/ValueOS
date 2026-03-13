@@ -19,7 +19,7 @@ export interface ApiClientConfig {
   defaultHeaders?: Record<string, string>;
 }
 
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: ApiError;
@@ -29,7 +29,7 @@ export interface ApiResponse<T = unknown> {
 export interface ApiError {
   code: string;
   message: string;
-  details?: Record<string, unknown>;
+  details?: Record<string, any>;
   stack?: string;
 }
 
@@ -44,7 +44,7 @@ export interface RequestConfig {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   url: string;
   data?: unknown;
-  params?: Record<string, unknown>;
+  params?: Record<string, any>;
   headers?: Record<string, string>;
   timeout?: number;
   retryAttempts?: number;
@@ -105,9 +105,9 @@ export class UnifiedApiClient {
   // HTTP Methods
   // ============================================================================
 
-  async get<T = unknown>(
+  async get<T = any>(
     url: string,
-    params?: Record<string, unknown>,
+    params?: Record<string, any>,
     config?: Partial<RequestConfig>
   ): Promise<ApiResponse<T>> {
     return this.request<T>({
@@ -118,7 +118,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async post<T = unknown>(
+  async post<T = any>(
     url: string,
     data?: unknown,
     config?: Partial<RequestConfig>
@@ -131,7 +131,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async put<T = unknown>(
+  async put<T = any>(
     url: string,
     data?: unknown,
     config?: Partial<RequestConfig>
@@ -144,7 +144,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async patch<T = unknown>(
+  async patch<T = any>(
     url: string,
     data?: unknown,
     config?: Partial<RequestConfig>
@@ -157,7 +157,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async delete<T = unknown>(url: string, config?: Partial<RequestConfig>): Promise<ApiResponse<T>> {
+  async delete<T = any>(url: string, config?: Partial<RequestConfig>): Promise<ApiResponse<T>> {
     return this.request<T>({
       method: "DELETE",
       url,
@@ -169,7 +169,7 @@ export class UnifiedApiClient {
   // Core Request Method
   // ============================================================================
 
-  private async request<T = unknown>(requestConfig: RequestConfig): Promise<ApiResponse<T>> {
+  private async request<T = any>(requestConfig: RequestConfig): Promise<ApiResponse<T>> {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 
@@ -264,7 +264,7 @@ export class UnifiedApiClient {
     };
   }
 
-  private buildUrl(path: string, params?: Record<string, unknown>): string {
+  private buildUrl(path: string, params?: Record<string, any>): string {
     const baseUrl = this.config.baseUrl.endsWith("/")
       ? this.config.baseUrl.slice(0, -1)
       : this.config.baseUrl;
@@ -338,11 +338,11 @@ export class UnifiedApiClient {
   private async parseResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const contentType = response.headers.get("content-type");
 
-    let data: T;
+    let data: unknown;
     if (contentType && contentType.includes("application/json")) {
-      data = (await response.json()) as T;
+      data = await response.json();
     } else {
-      data = (await response.text()) as T;
+      data = await response.text();
     }
 
     return {
@@ -418,9 +418,9 @@ export const apiClient = new UnifiedApiClient();
 
 export const api = {
   // Value Cases
-  getValueCases: (params?: Record<string, unknown>) => apiClient.get("/api/cases", params),
+  getValueCases: (params?: Record<string, any>) => apiClient.get("/api/cases", params),
 
-  createValueCase: (data: unknown) => apiClient.post("/api/cases", data),
+  createValueCase: ( data: unknown) => apiClient.post("/api/cases", data),
 
   updateValueCase: (id: string, data: unknown) => apiClient.put(`/api/cases/${id}`, data),
 
@@ -432,19 +432,19 @@ export const api = {
   getAgentStatus: (id: string) => apiClient.get(`/api/agents/${id}/status`),
 
   // Workflows
-  executeWorkflow: (data: unknown) => apiClient.post("/api/workflows/execute", data),
+  executeWorkflow: ( data: unknown) => apiClient.post("/api/workflows/execute", data),
 
   getWorkflowStatus: (id: string) => apiClient.get(`/api/workflows/${id}/status`),
 
   // Integrations
   getIntegrations: () => apiClient.get("/api/integrations"),
 
-  createIntegration: (data: unknown) => apiClient.post("/api/integrations", data),
+  createIntegration: ( data: unknown) => apiClient.post("/api/integrations", data),
 
   testIntegration: (id: string) => apiClient.post(`/api/integrations/${id}/test`),
 
   // User Management
   getCurrentUser: () => apiClient.get("/api/user/me"),
 
-  updateProfile: (data: unknown) => apiClient.put("/api/user/profile", data),
+  updateProfile: ( data: unknown) => apiClient.put("/api/user/profile", data),
 };

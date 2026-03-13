@@ -88,13 +88,13 @@ export function auditDataExport(resourceType: string) {
     };
 
     // Override send
-    res.send = function (data: any) {
+    res.send = function (data: unknown) {
       logExport(res.statusCode < 400, data?.length);
       return originalSend.call(this, data);
     };
 
     // Override json
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       logExport(res.statusCode < 400, data?.length || data?.count);
       return originalJson.call(this, data);
     };
@@ -115,7 +115,7 @@ export function auditAPIKeyOperation(operation: "view" | "create" | "rotate" | "
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
@@ -159,7 +159,7 @@ export function auditBulkDelete(resourceType: string) {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
@@ -205,7 +205,7 @@ export function auditPermissionChange() {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
@@ -251,7 +251,7 @@ export function auditRoleAssignment() {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
@@ -297,7 +297,7 @@ export function auditTenantProvisioning(
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
@@ -348,7 +348,7 @@ export function auditSettingsChange(settingsType: string) {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
@@ -395,7 +395,7 @@ export function auditOperation(
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
