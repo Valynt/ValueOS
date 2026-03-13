@@ -77,7 +77,7 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     const requestId = (req.requestId as string | undefined) || getRequestId(req);
     res.locals.requestId = requestId;
     req.requestId = requestId;
-    res.setHeader("X-Request-Id", requestId);
+    res.setHeader("X-Request-ID", requestId);
 
     const requestPath = req.originalUrl || req.path;
     if (ignoredPaths.some((path) => requestPath.startsWith(path)) || !requestPath.startsWith("/api/")) {
