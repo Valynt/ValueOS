@@ -13,10 +13,10 @@
 import { logger } from '../utils/logger.js'
 
 import {
-  enforceToolPolicy,
   PolicyEnforcementError,
   recordPolicyAuditEvent,
 } from './policy/PolicyEnforcement.js';
+import { assertAuthorized } from './policy/AuthorizationPolicyGateway.js';
 import { getMetricsCollector } from './MetricsCollector.js';
 
 /**
@@ -75,6 +75,7 @@ export interface ToolExecutionContext {
   workflowId?: string;
   agentType?: string;
   traceId?: string;
+  requestId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -221,13 +222,24 @@ export class ToolRegistry {
     const agentType = context?.agentType;
 
     try {
-      const { policyVersion } = enforceToolPolicy(agentType, toolName);
+      const decision = assertAuthorized({
+        domain: 'tool_execution',
+        action: 'execute',
+        resource: toolName,
+        agentType,
+        actorId: context?.userId,
+        tenantId: context?.tenantId,
+        traceId: context?.traceId,
+        invocationId: context?.sessionId,
+      });
+      const { policyVersion, decisionId } = decision;
 
       logger.info('Executing tool', {
         toolName,
         userId: context?.userId,
         workflowId: context?.workflowId,
         policyVersion,
+        decisionId,
       });
 
       const result = await tool.execute(params, context);
@@ -270,6 +282,7 @@ export class ToolRegistry {
           ...result.metadata,
           duration,
           policyVersion,
+          decisionId,
         },
       };
     } catch (error) {
@@ -280,7 +293,12 @@ export class ToolRegistry {
           eventType: 'tool_denied',
           agentType: agentType ?? 'default',
           policyVersion: String(error.details.policyVersion ?? 'unknown'),
-          metadata: { toolName, duration, code: error.code },
+          metadata: {
+            toolName,
+            duration,
+            code: error.code,
+            decisionId: String(error.details.decisionId ?? 'unknown'),
+          },
         });
         throw error;
       }

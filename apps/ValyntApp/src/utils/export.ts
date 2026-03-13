@@ -186,7 +186,7 @@ export async function exportToPNG(
  * - Object key sanitization to prevent prototype pollution
  */
 export async function exportToExcel(
-  data: any[],
+  data: Record<string, unknown>[],
   options: ExportOptions & { sheetName?: string; columns?: string[] } = {
     format: "excel",
   },
@@ -260,7 +260,7 @@ export async function exportToExcel(
  * Export data to CSV
  */
 export async function exportToCSV(
-  data: any[],
+  data: Record<string, unknown>[],
   options: ExportOptions & { columns?: string[] } = {
     format: "excel", // Reusing excel format logic conceptually
   },
@@ -319,7 +319,7 @@ export async function exportToCSV(
 }
 
 // Helper to validate and sanitize data
-async function prepareDataForExport(data: any[], columns?: string[]): Promise<any[]> {
+async function prepareDataForExport(data: Record<string, unknown>[], columns?: string[]): Promise<Record<string, unknown>[]> {
     if (!data || data.length === 0) {
       throw new Error("No data to export");
     }
@@ -341,7 +341,7 @@ async function prepareDataForExport(data: any[], columns?: string[]): Promise<an
       return key.slice(0, 100);
     };
 
-    const sanitizeValue = (value: any): any => {
+    const sanitizeValue = (value: unknown): unknown => {
       if (value === null || value === undefined) return value;
       if (typeof value === "string") {
         // Limit string length to prevent issues
@@ -358,10 +358,10 @@ async function prepareDataForExport(data: any[], columns?: string[]): Promise<an
     let exportData = data;
     if (columns) {
       exportData = data.map((row) => {
-        const filtered: any = {};
+        const filtered: Record<string, unknown> = {};
         columns.forEach((col) => {
           const safeKey = sanitizeKey(col);
-          if (row.hasOwnProperty(col)) {
+          if (Object.prototype.hasOwnProperty.call(row, col)) {
             filtered[safeKey] = sanitizeValue(row[col]);
           }
         });
@@ -370,7 +370,7 @@ async function prepareDataForExport(data: any[], columns?: string[]): Promise<an
     } else {
       // Sanitize all data
       exportData = data.map((row) => {
-        const sanitized: any = {};
+        const sanitized: Record<string, unknown> = {};
         Object.keys(row).forEach((key) => {
           const safeKey = sanitizeKey(key);
           sanitized[safeKey] = sanitizeValue(row[key]);
@@ -382,7 +382,13 @@ async function prepareDataForExport(data: any[], columns?: string[]): Promise<an
     return exportData;
 }
 
-function addHeadersAndRows(worksheet: any, exportData: any[]) {
+type WorksheetLike = {
+  columns: Array<{ header: string; key: string; width: number }>;
+  addRow: (row: Record<string, unknown>) => void;
+  getRow: (n: number) => { font: Record<string, unknown>; fill: Record<string, unknown> };
+};
+
+function addHeadersAndRows(worksheet: WorksheetLike, exportData: Record<string, unknown>[]) {
     // Add headers
     if (exportData.length > 0) {
       const headers = Object.keys(exportData[0]);
@@ -456,7 +462,7 @@ export function useExport() {
   };
 
   const exportData = async (
-    data: any[],
+    data: Record<string, unknown>[],
     filename?: string,
     options?: { sheetName?: string; columns?: string[]; format?: "excel" | "csv" }
   ) => {

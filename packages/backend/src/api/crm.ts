@@ -509,4 +509,40 @@ router.post(
   },
 );
 
+// ============================================================================
+// Deal Search
+// ============================================================================
+
+/**
+ * GET /api/crm/deals
+ * Returns open deals from the connected CRM for the authenticated tenant.
+ * Supports optional ?q= search filter on name/company, applied in this handler.
+ * Falls back to empty array when no CRM is connected.
+ */
+router.get(
+  '/deals',
+  ...authMiddleware,
+  requirePermission('integrations:view'),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const deals = await crmIntegrationService.fetchDeals(tenantId);
+
+      const q = typeof req.query.q === 'string' ? req.query.q.toLowerCase() : '';
+      const filtered = q
+        ? deals.filter(
+            (d) =>
+              d.name.toLowerCase().includes(q) ||
+              (d.companyName ?? '').toLowerCase().includes(q),
+          )
+        : deals;
+
+      return res.json({ deals: filtered });
+    } catch (error) {
+      logger.error('Failed to fetch CRM deals', error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: 'Failed to fetch deals' });
+    }
+  },
+);
+
 export default router;

@@ -340,6 +340,273 @@ describe('ValueCommitmentTrackingService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // createMilestone
+  // -------------------------------------------------------------------------
+
+  describe('createMilestone', () => {
+    it('POSTs to /api/v1/value-commitments/:id/milestones', async () => {
+      const milestone = { id: 'm1', commitment_id: COMMIT_ID, title: 'Phase 1', status: 'pending' };
+      mockPost.mockResolvedValue(ok(milestone));
+      const svc = makeService();
+
+      const result = await svc.createMilestone(COMMIT_ID, TENANT_ID, USER_ID, {
+        title: 'Phase 1',
+        due_date: '2027-06-01T00:00:00.000Z',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/milestones`,
+        expect.objectContaining({ title: 'Phase 1' }),
+      );
+      expect(result).toEqual(milestone);
+    });
+
+    it('throws CommitmentApiError on backend failure', async () => {
+      mockPost.mockResolvedValue({ success: false, error: { code: 'VALIDATION_ERROR', message: 'bad input' } });
+      const svc = makeService();
+
+      await expect(
+        svc.createMilestone(COMMIT_ID, TENANT_ID, USER_ID, { title: 'x', due_date: '2027-01-01T00:00:00.000Z' }),
+      ).rejects.toBeInstanceOf(CommitmentApiError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updateMilestoneProgressForCommitment
+  // -------------------------------------------------------------------------
+
+  describe('updateMilestoneProgressForCommitment', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/milestones/:milestoneId', async () => {
+      const milestone = { id: 'ms1', progress_percentage: 50, status: 'in_progress' };
+      mockPatch.mockResolvedValue(ok(milestone));
+      const svc = makeService();
+
+      const result = await svc.updateMilestoneProgressForCommitment(COMMIT_ID, 'ms1', 50, 'in_progress');
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/milestones/ms1`,
+        { progress_percentage: 50, status: 'in_progress' },
+      );
+      expect(result).toEqual(milestone);
+    });
+
+    it('omits optional fields when not provided', async () => {
+      mockPatch.mockResolvedValue(ok({ id: 'ms1', progress_percentage: 100 }));
+      const svc = makeService();
+
+      await svc.updateMilestoneProgressForCommitment(COMMIT_ID, 'ms1', 100);
+
+      const body = mockPatch.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(body['status']).toBeUndefined();
+      expect(body['actual_date']).toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updateMetricValueForCommitment
+  // -------------------------------------------------------------------------
+
+  describe('updateMetricValueForCommitment', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/metrics/:metricId', async () => {
+      const metric = { id: 'met1', current_value: 42 };
+      mockPatch.mockResolvedValue(ok(metric));
+      const svc = makeService();
+
+      const result = await svc.updateMetricValueForCommitment(COMMIT_ID, 'met1', 42);
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/metrics/met1`,
+        { current_value: 42 },
+      );
+      expect(result).toEqual(metric);
+    });
+
+    it('includes last_measured_at when provided', async () => {
+      mockPatch.mockResolvedValue(ok({ id: 'met1', current_value: 10 }));
+      const svc = makeService();
+
+      await svc.updateMetricValueForCommitment(COMMIT_ID, 'met1', 10, '2027-01-01T00:00:00.000Z');
+
+      const body = mockPatch.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(body['last_measured_at']).toBe('2027-01-01T00:00:00.000Z');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // createRisk
+  // -------------------------------------------------------------------------
+
+  describe('createRisk', () => {
+    it('POSTs to /api/v1/value-commitments/:id/risks', async () => {
+      const risk = { id: 'r1', commitment_id: COMMIT_ID, risk_title: 'Budget overrun' };
+      mockPost.mockResolvedValue(ok(risk));
+      const svc = makeService();
+
+      const result = await svc.createRisk(COMMIT_ID, TENANT_ID, USER_ID, {
+        risk_title: 'Budget overrun',
+        risk_probability: 'high',
+        risk_impact: 'high',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/risks`,
+        expect.objectContaining({ risk_title: 'Budget overrun' }),
+      );
+      expect(result).toEqual(risk);
+    });
+
+    it('throws CommitmentApiError on backend failure', async () => {
+      mockPost.mockResolvedValue({ success: false, error: { code: 'VALIDATION_ERROR', message: 'bad' } });
+      const svc = makeService();
+
+      await expect(
+        svc.createRisk(COMMIT_ID, TENANT_ID, USER_ID, { risk_title: 'x' }),
+      ).rejects.toBeInstanceOf(CommitmentApiError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updateRiskStatusForCommitment
+  // -------------------------------------------------------------------------
+
+  describe('updateRiskStatusForCommitment', () => {
+    it('PATCHes to /api/v1/value-commitments/:id/risks/:riskId/status', async () => {
+      const risk = { id: 'r1', status: 'mitigated' };
+      mockPatch.mockResolvedValue(ok(risk));
+      const svc = makeService();
+
+      const result = await svc.updateRiskStatusForCommitment(
+        COMMIT_ID, 'r1', 'mitigated', '2027-01-01T00:00:00.000Z',
+      );
+
+      expect(mockPatch).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/risks/r1/status`,
+        { status: 'mitigated', mitigated_at: '2027-01-01T00:00:00.000Z' },
+      );
+      expect(result).toEqual(risk);
+    });
+
+    it('omits mitigated_at when not provided', async () => {
+      mockPatch.mockResolvedValue(ok({ id: 'r1', status: 'accepted' }));
+      const svc = makeService();
+
+      await svc.updateRiskStatusForCommitment(COMMIT_ID, 'r1', 'accepted');
+
+      const body = mockPatch.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(body['mitigated_at']).toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // addStakeholder
+  // -------------------------------------------------------------------------
+
+  describe('addStakeholder', () => {
+    it('POSTs to /api/v1/value-commitments/:id/stakeholders', async () => {
+      const stakeholder = { id: 's1', commitment_id: COMMIT_ID, user_id: USER_ID, role: 'sponsor' };
+      mockPost.mockResolvedValue(ok(stakeholder));
+      const svc = makeService();
+
+      const result = await svc.addStakeholder(COMMIT_ID, TENANT_ID, USER_ID, {
+        user_id: USER_ID,
+        role: 'sponsor',
+        responsibility: 'Executive sign-off',
+      });
+
+      expect(mockPost).toHaveBeenCalledWith(
+        `/api/v1/value-commitments/${COMMIT_ID}/stakeholders`,
+        expect.objectContaining({ user_id: USER_ID, role: 'sponsor' }),
+      );
+      expect(result).toEqual(stakeholder);
+    });
+
+    it('throws CommitmentApiError on backend failure', async () => {
+      mockPost.mockResolvedValue({ success: false, error: { code: 'NOT_FOUND', message: 'commitment not found' } });
+      const svc = makeService();
+
+      await expect(
+        svc.addStakeholder(COMMIT_ID, TENANT_ID, USER_ID, { user_id: USER_ID, role: 'owner', responsibility: 'x' }),
+      ).rejects.toBeInstanceOf(CommitmentApiError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // calculateProgress
+  // -------------------------------------------------------------------------
+
+  describe('calculateProgress', () => {
+    it('GETs /api/v1/value-commitments/:id/progress and returns CommitmentProgress', async () => {
+      const progress = {
+        commitment_id: COMMIT_ID, overall_progress: 60,
+        milestone_completion: 75, metric_achievement: 40,
+        risk_level: 'low', days_remaining: 90, is_on_track: true,
+      };
+      mockGet.mockResolvedValue(ok(progress));
+      const svc = makeService();
+
+      const result = await svc.calculateProgress(COMMIT_ID, TENANT_ID);
+
+      expect(mockGet).toHaveBeenCalledWith(`/api/v1/value-commitments/${COMMIT_ID}/progress`);
+      expect(result.overall_progress).toBe(60);
+      expect(result.is_on_track).toBe(true);
+    });
+
+    it('returns empty progress on error without throwing', async () => {
+      mockGet.mockRejectedValue(new Error('network error'));
+      const svc = makeService();
+
+      const result = await svc.calculateProgress(COMMIT_ID, TENANT_ID);
+
+      expect(result.commitment_id).toBe(COMMIT_ID);
+      expect(result.overall_progress).toBe(0);
+    });
+
+    it('returns empty progress when backend returns no data', async () => {
+      mockGet.mockResolvedValue({ success: false, data: undefined });
+      const svc = makeService();
+
+      const result = await svc.calculateProgress(COMMIT_ID, TENANT_ID);
+
+      expect(result.overall_progress).toBe(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getAtRiskCommitments
+  // -------------------------------------------------------------------------
+
+  describe('getAtRiskCommitments', () => {
+    it('GETs /api/v1/value-commitments/at-risk and maps to ValueCommitment[]', async () => {
+      mockGet.mockResolvedValue(ok([commitmentDto]));
+      const svc = makeService();
+
+      const result = await svc.getAtRiskCommitments(TENANT_ID);
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/value-commitments/at-risk');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe(COMMIT_ID);
+    });
+
+    it('returns empty array on error without throwing', async () => {
+      mockGet.mockRejectedValue(new Error('network error'));
+      const svc = makeService();
+
+      const result = await svc.getAtRiskCommitments(TENANT_ID);
+
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when backend returns no data', async () => {
+      mockGet.mockResolvedValue({ success: false, data: undefined });
+      const svc = makeService();
+
+      const result = await svc.getAtRiskCommitments(TENANT_ID);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // CommitmentApiError shape
   // -------------------------------------------------------------------------
 

@@ -7,6 +7,7 @@
 
 import { logger } from "../../lib/logger.js"
 
+import { assertAuthorized } from '../policy/AuthorizationPolicyGateway.js';
 import { toolRegistry } from "./registry.js"
 import { AgentContext, AuthorizationError } from "./types.js"
 
@@ -26,14 +27,40 @@ export class AuthGuard {
       throw new AuthorizationError(`Tool '${toolId}' not found`, []);
     }
 
-    // Check basic permissions
-    if (!toolRegistry.canUse(toolId, context)) {
+    // Unified authorization policy gateway (canonical auth path)
+    try {
+      const decision = assertAuthorized({
+        domain: 'bfa_tool_execution',
+        action: tool.policy.action,
+        resource: tool.policy.resource,
+        agentType: 'default',
+        actorId: context.userId,
+        actorPermissions: context.permissions,
+        requiredPermissions: tool.policy.requiredPermissions || [],
+        tenantId: context.tenantId,
+        traceId: context.sessionId,
+        invocationId: `${context.userId}:${toolId}:${context.requestTime.getTime()}`,
+        metadata: { toolId },
+      });
+
+      logger.info("Authorization allowed for tool execution", {
+        toolId,
+        userId: context.userId,
+        tenantId: context.tenantId,
+        decisionId: decision.decisionId,
+        policyVersion: decision.policyVersion,
+      });
+    } catch (error) {
       logger.warn("Authorization denied for tool execution", {
         toolId,
         userId: context.userId,
         tenantId: context.tenantId,
         requiredPermissions: tool.policy.requiredPermissions || [],
         userPermissions: context.permissions,
+        decisionId:
+          error instanceof Error && 'details' in error
+            ? (error as { details?: Record<string, unknown> }).details?.decisionId
+            : undefined,
       });
 
       throw new AuthorizationError(

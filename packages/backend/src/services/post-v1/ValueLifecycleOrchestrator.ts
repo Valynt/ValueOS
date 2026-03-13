@@ -45,18 +45,16 @@ export interface LifecycleContext {
   organizationId?: string;
   sessionId?: string;
   idempotencyKey?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
-export interface StageInput {
-  [key: string]: any;
-}
+export type StageInput = Record<string, unknown>;
 
 export interface StageResult {
   success: boolean;
-  data: any;
+  data: Record<string, unknown> | null;
   confidence?: string;
-  assumptions?: any[];
+  assumptions?: unknown[];
   error?: string;
   stageExecutionId?: string;
   lineage?: StageLineage;
@@ -71,8 +69,8 @@ export interface StageLineage {
 }
 
 export interface StageDelta {
-  before: any;
-  after: any;
+  before: unknown;
+  after: unknown;
 }
 
 export interface CompensationOutcome {
@@ -236,7 +234,7 @@ export class ValueLifecycleOrchestrator {
         return await agent.execute(context.sessionId, input);
       });
 
-      const previousResult = (context.metadata as any)?.previousResult as StageResult | undefined;
+      const previousResult = (context.metadata?.['previousResult']) as StageResult | undefined;
       const stageExecutionId = uuidv4();
       const enrichedResult: StageResult = {
         ...result,
@@ -293,7 +291,7 @@ export class ValueLifecycleOrchestrator {
 
   private registerStageCompensations(
     stage: LifecycleStage,
-    persistedResult: any,
+    persistedResult: Record<string, unknown> | null,
     enrichedResult: StageResult,
     input: StageInput,
     context: LifecycleContext
@@ -303,7 +301,7 @@ export class ValueLifecycleOrchestrator {
       this.registerCompensation(context, {
         name: `${stage}_delete_results`,
         handler: async () => {
-          await this.deleteStageResults(String(persistedId));
+          await this.deleteStageResults(stage, String(persistedId));
         },
         metadata: {
           stage,
@@ -783,9 +781,9 @@ export class ValueLifecycleOrchestrator {
 
   private async persistStageResults(
     stage: LifecycleStage,
-    result: any,
+    result: StageResult,
     context: LifecycleContext
-  ): Promise<any> {
+  ): Promise<Record<string, unknown> | null> {
     const tableName = `${stage}_results`;
 
     const { data, error } = await this.supabase
@@ -805,9 +803,16 @@ export class ValueLifecycleOrchestrator {
     return data;
   }
 
-  private async deleteStageResults(resultId: string): Promise<void> {
-    logger.info("Compensating: deleting stage results", { resultId });
-    // Implementation would delete the persisted results
+  private async deleteStageResults(stage: LifecycleStage, resultId: string): Promise<void> {
+    logger.info("Compensating: deleting stage results", { stage, resultId });
+    const tableName = `${stage}_results`;
+    const { error } = await this.supabase
+      .from(tableName)
+      .delete()
+      .eq("id", resultId);
+    if (error) {
+      throw new Error(`Compensation failed for ${stage} result ${resultId}: ${error.message}`);
+    }
   }
 
   private ensureWorkflowActive(context: LifecycleContext): void {
@@ -829,11 +834,11 @@ export class ValueLifecycleOrchestrator {
     return DESTRUCTIVE_STAGES.has(stage);
   }
 
-  private captureDelta(before: any, after: any): StageDelta {
+  private captureDelta(before: unknown, after: unknown): StageDelta {
     return { before: before ?? null, after };
   }
 
-  private async updateValueTree(persistedData: any, context: LifecycleContext): Promise<void> {
+  private async updateValueTree(persistedData: Record<string, unknown> | null, context: LifecycleContext): Promise<void> {
     logger.info("Updating value tree", { persistedData, context });
     // Implementation would update the value tree
   }
@@ -958,7 +963,7 @@ export class ValueLifecycleOrchestrator {
 
   private async scheduleNextStage(
     currentStage: LifecycleStage,
-    persistedData: any,
+    persistedData: Record<string, unknown> | null,
     context: LifecycleContext
   ): Promise<void> {
     logger.info("Scheduling next stage", { currentStage, persistedData });

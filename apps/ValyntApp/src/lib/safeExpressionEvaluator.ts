@@ -112,17 +112,30 @@ function tokenizeExpression(expression: string): string[] {
   return tokens;
 }
 
+// ---------------------------------------------------------------------------
+// AST node types for the expression parser
+// ---------------------------------------------------------------------------
+
+interface NumberNode   { type: "number";   value: number }
+interface ConstantNode { type: "constant"; name: string }
+interface VariableNode { type: "variable"; name: string }
+interface UnaryNode    { type: "unary";    operator: string; argument: ASTNode }
+interface BinaryNode   { type: "binary";   operator: string; left: ASTNode; right: ASTNode }
+interface FunctionNode { type: "function"; name: string; args: ASTNode[] }
+
+type ASTNode = NumberNode | ConstantNode | VariableNode | UnaryNode | BinaryNode | FunctionNode;
+
 /**
  * Parses tokens into an Abstract Syntax Tree (AST)
  */
-function parseTokens(tokens: string[]): any {
+function parseTokens(tokens: string[]): ASTNode {
   let index = 0;
 
-  function parseExpression(): any {
+  function parseExpression(): ASTNode {
     return parseBinaryExpression(0);
   }
 
-  function parseBinaryExpression(minPrecedence: number): any {
+  function parseBinaryExpression(minPrecedence: number): ASTNode {
     let left = parseUnaryExpression();
 
     while (index < tokens.length) {
@@ -141,7 +154,7 @@ function parseTokens(tokens: string[]): any {
     return left;
   }
 
-  function parseUnaryExpression(): any {
+  function parseUnaryExpression(): ASTNode {
     const token = tokens[index];
     if (!token) throw new Error("Unexpected end of expression");
 
@@ -154,7 +167,7 @@ function parseTokens(tokens: string[]): any {
     return parsePrimaryExpression();
   }
 
-  function parsePrimaryExpression(): any {
+  function parsePrimaryExpression(): ASTNode {
     const token = tokens[index];
     if (!token) throw new Error("Unexpected end of expression");
 
@@ -185,7 +198,7 @@ function parseTokens(tokens: string[]): any {
       }
       index++;
 
-      const args: unknown[] = [];
+      const args: ASTNode[] = [];
       if (index < tokens.length && tokens[index] !== ")") {
         args.push(parseExpression());
         while (index < tokens.length && tokens[index] === ",") {
@@ -249,78 +262,67 @@ function getOperatorPrecedence(operator: string): number {
 /**
  * Evaluates an AST node with the given variables
  */
-function evaluateAST(node: any, vars: Record<string, number>): number {
+function evaluateAST(node: ASTNode, vars: Record<string, number>): number {
   switch (node.type) {
     case "number":
       return node.value;
 
     case "constant":
-      return (Math as any)[node.name];
+      return (Math as Record<string, unknown>)[node.name] as number;
 
     case "variable":
-      if (vars.hasOwnProperty(node.name)) {
-        return vars[node.name];
+      if (Object.prototype.hasOwnProperty.call(vars, node.name)) {
+        return vars[node.name] as number;
       }
       throw new Error(`Unknown variable: ${node.name}`);
 
-    case "unary":
+    case "unary": {
       const arg = evaluateAST(node.argument, vars);
       if (node.operator === "!") {
         return arg ? 0 : 1;
       }
       return node.operator === "-" ? -arg : arg;
+    }
 
-    case "binary":
+    case "binary": {
       const left = evaluateAST(node.left, vars);
       const right = evaluateAST(node.right, vars);
 
       switch (node.operator) {
-        case "+":
-          return left + right;
-        case "-":
-          return left - right;
-        case "*":
-          return left * right;
+        case "+":  return left + right;
+        case "-":  return left - right;
+        case "*":  return left * right;
         case "/":
           if (right === 0) throw new Error("Division by zero");
           return left / right;
-        case "^":
-          return Math.pow(left, right);
-        case "==":
-          return left === right ? 1 : 0;
-        case "!=":
-          return left !== right ? 1 : 0;
-        case "<":
-          return left < right ? 1 : 0;
-        case "<=":
-          return left <= right ? 1 : 0;
-        case ">":
-          return left > right ? 1 : 0;
-        case ">=":
-          return left >= right ? 1 : 0;
-        case "&&":
-          return left && right ? 1 : 0;
-        case "||":
-          return left || right ? 1 : 0;
-        default:
-          throw new Error(`Unknown operator: ${node.operator}`);
+        case "^":  return Math.pow(left, right);
+        case "==": return left === right ? 1 : 0;
+        case "!=": return left !== right ? 1 : 0;
+        case "<":  return left < right ? 1 : 0;
+        case "<=": return left <= right ? 1 : 0;
+        case ">":  return left > right ? 1 : 0;
+        case ">=": return left >= right ? 1 : 0;
+        case "&&": return left && right ? 1 : 0;
+        case "||": return left || right ? 1 : 0;
+        default:   throw new Error(`Unknown operator: ${node.operator}`);
       }
+    }
 
-    case "function":
-      const func = (Math as any)[node.name];
+    case "function": {
+      const func = (Math as Record<string, unknown>)[node.name];
       if (typeof func !== "function") {
         throw new Error(`Unknown function: ${node.name}`);
       }
-
-      const evaluatedArgs = node.args.map((arg: any) => evaluateAST(arg, vars));
-      const result = func(...evaluatedArgs);
+      const evaluatedArgs = node.args.map((arg) => evaluateAST(arg, vars));
+      const result = (func as (...a: number[]) => number)(...evaluatedArgs);
       if (typeof result !== "number" || isNaN(result)) {
         throw new Error(`Function ${node.name} returned invalid result`);
       }
       return result;
+    }
 
     default:
-      throw new Error(`Unknown node type: ${node.type}`);
+      throw new Error(`Unknown node type: ${(node as ASTNode).type}`);
   }
 }
 

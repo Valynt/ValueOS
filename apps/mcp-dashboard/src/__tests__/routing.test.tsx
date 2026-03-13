@@ -55,6 +55,14 @@ vi.mock("../pages/Login", () => ({
   default: () => <div>Login Page</div>,
 }));
 
+vi.mock("../pages/ForbiddenPage", () => ({
+  default: () => <div>Forbidden Page</div>,
+}));
+
+vi.mock("../pages/NotFoundPage", () => ({
+  default: () => <div>Not Found Page</div>,
+}));
+
 describe("mcp-dashboard routing", () => {
   beforeEach(() => {
     mockUseAuth.mockReset();
@@ -70,7 +78,7 @@ describe("mcp-dashboard routing", () => {
     expect(await screen.findByText("Login Page")).toBeInTheDocument();
   });
 
-  it("blocks non-admin users from /admin and routes them to /dashboard", async () => {
+  it("blocks non-admin users from /admin and shows a 403 page", async () => {
     window.history.pushState({}, "Test", "/admin");
     mockUseAuth.mockReturnValue({
       user: { id: "1", role: "user" },
@@ -79,17 +87,19 @@ describe("mcp-dashboard routing", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Dashboard Page")).toBeInTheDocument();
+    expect(await screen.findByText("Forbidden Page")).toBeInTheDocument();
     expect(screen.queryByText("Admin Panel")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dashboard Page")).not.toBeInTheDocument();
   });
 
-  it("routes unknown paths through the catch-all redirect without rendering protected content", async () => {
+  it("shows a 404 page for unknown paths without rendering protected content", async () => {
     window.history.pushState({}, "Test", "/unknown");
     mockUseAuth.mockReturnValue({ user: null, loading: false });
 
     render(<App />);
 
-    expect(await screen.findByText("Login Page")).toBeInTheDocument();
+    expect(await screen.findByText("Not Found Page")).toBeInTheDocument();
+    expect(screen.queryByText("Login Page")).not.toBeInTheDocument();
   });
 
   it("exposes only the intended route paths", () => {
@@ -103,6 +113,6 @@ describe("mcp-dashboard routing", () => {
       "api-management",
     ]);
     expect(adminRoutes.map((route) => route.path)).toEqual(["admin"]);
-    expect(catchAllRoute).toEqual({ path: "*", redirectTo: "/dashboard" });
+    expect(catchAllRoute).toEqual({ path: "*" });
   });
 });

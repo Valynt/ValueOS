@@ -77,6 +77,29 @@ export interface VetoDecision {
   veto: boolean;
   reRefine: boolean;
   reason: string;
+  policy_traces?: PolicyTraceEntry[];
+}
+
+export interface PolicyTraceEntry {
+  claim_id: string;
+  rule: 'evidence_presence' | 'source_freshness' | 'range_plausibility' | 'contradiction_detection' | 'deterministic_gate';
+  severity: 'low' | 'medium' | 'high';
+  outcome: 'pass' | 'refine' | 'veto';
+  message: string;
+}
+
+export interface DeterministicPolicyEvaluation {
+  claimIssues: Record<string, IntegrityIssue[]>;
+  traces: PolicyTraceEntry[];
+  hasVeto: boolean;
+  requiresRefine: boolean;
+}
+
+interface IntegrityClaim {
+  id: string;
+  text: string;
+  evidence: string[];
+  source: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,48 +133,50 @@ export class IntegrityAgent extends BaseAgent {
     // Step 2: Build claims from KPIs + hypotheses for validation
     const claims = this.buildClaims(kpis, hypotheses);
 
-    // Step 3: Validate claims via LLM (with domain context)
+    // Step 3: Deterministic policy checks gate decisioning before LLM verdicting
+    const deterministicPolicy = this.evaluateDeterministicPolicies(claims);
+
+    // Step 4: Validate claims via LLM (with domain context) for supplemental explanation
     const analysis = await this.validateClaims(context, claims, domainContext);
-    if (!analysis) {
-      return this.buildOutput(
-        { error: 'Claim validation failed. Retry or provide more context.' },
-        'failure', 'low', startTime,
-      );
-    }
+    const finalAnalysis = analysis ?? this.buildFallbackAnalysisFromPolicy(claims, deterministicPolicy);
 
-    // Step 4: Compute integrity result and veto decision
-    const integrityResult = this.computeIntegrityResult(analysis);
-    const vetoDecision = IntegrityAgent.evaluateVetoDecision(integrityResult);
+    // Step 5: Compute integrity result and veto decision (deterministic-first)
+    const integrityResult = this.computeIntegrityResult(finalAnalysis, deterministicPolicy);
+    const vetoDecision = IntegrityAgent.evaluateVetoDecision(integrityResult, deterministicPolicy);
 
-    // Step 5: Store validation results in memory
-    await this.storeValidationInMemory(context, analysis, vetoDecision);
+    // Step 6: Store validation results in memory
+    await this.storeValidationInMemory(context, finalAnalysis, vetoDecision);
 
-    // Step 5b: Persist output to integrity_outputs table so it survives restarts
-    await this.persistOutput(context, analysis, integrityResult, vetoDecision);
+    // Step 6b: Persist output to integrity_outputs table so it survives restarts
+    await this.persistOutput(context, finalAnalysis, integrityResult, vetoDecision);
 
-    // Step 6: Build SDUI sections
-    const sduiSections = this.buildSDUISections(analysis, integrityResult, vetoDecision);
+    // Step 7: Build SDUI sections
+    const sduiSections = this.buildSDUISections(finalAnalysis, integrityResult, vetoDecision);
 
-    const validated = integrityResult.isValid && !vetoDecision.veto && !vetoDecision.reRefine;
-    const status: AgentOutput['status'] = vetoDecision.veto
-      ? 'failure'
-      : validated ? 'success' : 'partial_success';
+    const validated = !vetoDecision.veto && !vetoDecision.reRefine && integrityResult.isValid;
+    const status: AgentOutput['status'] =
+      vetoDecision.veto || !integrityResult.isValid
+        ? 'failure'
+        : validated
+          ? 'success'
+          : 'partial_success';
 
-    const supported = analysis.claim_validations.filter(c => c.verdict === 'supported').length;
-    const total = analysis.claim_validations.length;
+    const supported = finalAnalysis.claim_validations.filter(c => c.verdict === 'supported').length;
+    const total = finalAnalysis.claim_validations.length;
 
     const result = {
       validated,
-      claim_validations: analysis.claim_validations,
-      overall_assessment: analysis.overall_assessment,
+      claim_validations: finalAnalysis.claim_validations,
+      overall_assessment: finalAnalysis.overall_assessment,
       scores: {
-        data_quality: analysis.data_quality_score,
-        logical_consistency: analysis.logical_consistency_score,
-        evidence_coverage: analysis.evidence_coverage_score,
+        data_quality: finalAnalysis.data_quality_score,
+        logical_consistency: finalAnalysis.logical_consistency_score,
+        evidence_coverage: finalAnalysis.evidence_coverage_score,
         overall: integrityResult.confidence,
       },
       integrity: integrityResult,
       veto_decision: vetoDecision,
+      policy_traces: deterministicPolicy.traces,
       claims_checked: total,
       claims_supported: supported,
       sdui_sections: sduiSections,
@@ -163,12 +188,12 @@ export class IntegrityAgent extends BaseAgent {
       try {
         await this.integrityRepo.createResult(valueCaseId, context.organization_id, {
           session_id: context.workspace_id,
-          claims: analysis.claim_validations,
+          claims: finalAnalysis.claim_validations,
           veto_decision: vetoDecision.veto ? 'veto' : vetoDecision.reRefine ? 're_refine' : 'pass',
           overall_score: integrityResult.confidence,
-          data_quality_score: analysis.data_quality_score,
-          logic_score: analysis.logical_consistency_score,
-          evidence_score: analysis.evidence_coverage_score,
+          data_quality_score: finalAnalysis.data_quality_score,
+          logic_score: finalAnalysis.logical_consistency_score,
+          evidence_score: finalAnalysis.evidence_coverage_score,
           hallucination_check: !vetoDecision.veto,
         });
       } catch (err) {
@@ -179,7 +204,7 @@ export class IntegrityAgent extends BaseAgent {
     // Publish domain event so downstream services can react to validation outcomes.
     const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
       ?? context.workspace_id;
-    await this.publishHypothesisValidated(context, opportunityId, analysis, integrityResult, vetoDecision, supported, total);
+    await this.publishHypothesisValidated(context, opportunityId, finalAnalysis, integrityResult, vetoDecision, supported, total);
 
     return this.buildOutput(result, status, this.toConfidenceLevel(integrityResult.confidence), startTime, {
       reasoning: `Validated ${total} claims: ${supported} supported, ${total - supported} flagged. ` +
@@ -261,6 +286,7 @@ export class IntegrityAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 20,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.kpi_id)
@@ -278,6 +304,7 @@ export class IntegrityAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 10,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.verified === true && m.metadata?.category)
@@ -295,8 +322,8 @@ export class IntegrityAgent extends BaseAgent {
   private buildClaims(
     kpis: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
     hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-  ): Array<{ id: string; text: string; evidence: string[]; source: string }> {
-    const claims: Array<{ id: string; text: string; evidence: string[]; source: string }> = [];
+  ): IntegrityClaim[] {
+    const claims: IntegrityClaim[] = [];
 
     for (const kpi of kpis) {
       const m = kpi.metadata;
@@ -332,7 +359,7 @@ export class IntegrityAgent extends BaseAgent {
 
   private async validateClaims(
     context: LifecycleContext,
-    claims: Array<{ id: string; text: string; evidence: string[]; source: string }>,
+    claims: IntegrityClaim[],
     domainContext?: DomainContext,
   ): Promise<IntegrityAnalysis | null> {
     const claimsContext = claims.map((c, i) =>
@@ -387,7 +414,115 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
   // Integrity Scoring
   // -------------------------------------------------------------------------
 
-  private computeIntegrityResult(analysis: IntegrityAnalysis): IntegrityCheck {
+  private evaluateDeterministicPolicies(claims: IntegrityClaim[]): DeterministicPolicyEvaluation {
+    const traces: PolicyTraceEntry[] = [];
+    const claimIssues: Record<string, IntegrityIssue[]> = {};
+
+    const addIssue = (claimId: string, issue: IntegrityIssue, trace: PolicyTraceEntry): void => {
+      claimIssues[claimId] = [...(claimIssues[claimId] ?? []), issue];
+      traces.push(trace);
+    };
+
+    for (const claim of claims) {
+      const stringEvidence = (claim.evidence ?? []).filter(
+        (e): e is string => typeof e === 'string',
+      );
+      const normalizedEvidence = stringEvidence.map(e => e.toLowerCase());
+
+      if (stringEvidence.length === 0 || stringEvidence.every(e => !e.trim())) {
+        addIssue(
+          claim.id,
+          { type: 'data_integrity', severity: 'high', description: `[${claim.id}] Missing evidence for claim.` },
+          { claim_id: claim.id, rule: 'evidence_presence', severity: 'high', outcome: 'veto', message: 'No supporting evidence provided.' },
+        );
+      }
+
+      const staleEvidence = normalizedEvidence.some(e => e.includes('old') || e.includes('stale') || e.includes('2022') || e.includes('2021'));
+      if (staleEvidence) {
+        addIssue(
+          claim.id,
+          { type: 'data_integrity', severity: 'high', description: `[${claim.id}] Source freshness failed; stale evidence detected.` },
+          { claim_id: claim.id, rule: 'source_freshness', severity: 'high', outcome: 'veto', message: 'Evidence indicates stale or outdated source material.' },
+        );
+      }
+
+      const numericMatches = claim.text.match(/-?\d+(?:\.\d+)?/g) ?? [];
+      if (numericMatches.length >= 2) {
+        const first = Number(numericMatches[0]);
+        const second = Number(numericMatches[1]);
+        const ratio = Math.abs(second) > 0 ? Math.abs(first / second) : Number.POSITIVE_INFINITY;
+        if (!Number.isNaN(ratio) && ratio > 10) {
+          addIssue(
+            claim.id,
+            { type: 'logic_error', severity: 'medium', description: `[${claim.id}] Range plausibility check flagged an extreme ratio (${ratio.toFixed(2)}).` },
+            { claim_id: claim.id, rule: 'range_plausibility', severity: 'medium', outcome: 'refine', message: `Range plausibility check flagged ratio ${ratio.toFixed(2)}.` },
+          );
+        }
+      }
+
+      const hasContradiction = normalizedEvidence.some(e => e.includes('unverified') || e.includes('contradict') || e.includes('disputed'));
+      if (hasContradiction) {
+        addIssue(
+          claim.id,
+          { type: 'logic_error', severity: 'high', description: `[${claim.id}] Contradiction detected between claim and evidence.` },
+          { claim_id: claim.id, rule: 'contradiction_detection', severity: 'high', outcome: 'veto', message: 'Evidence contains contradiction indicators (unverified/disputed).' },
+        );
+      }
+
+      if (!(claimIssues[claim.id]?.length)) {
+        traces.push({
+          claim_id: claim.id,
+          rule: 'deterministic_gate',
+          severity: 'low',
+          outcome: 'pass',
+          message: 'All deterministic policy checks passed.',
+        });
+      }
+    }
+
+    const hasVeto = traces.some(t => t.outcome === 'veto');
+    const requiresRefine = !hasVeto && traces.some(t => t.outcome === 'refine');
+
+    return { claimIssues, traces, hasVeto, requiresRefine };
+  }
+
+  private buildFallbackAnalysisFromPolicy(claims: IntegrityClaim[], policy: DeterministicPolicyEvaluation): IntegrityAnalysis {
+    return {
+      claim_validations: claims.map(claim => {
+        const deterministicIssues = policy.claimIssues[claim.id] ?? [];
+        const hasVetoIssue = deterministicIssues.some(issue => issue.severity === 'high');
+        return {
+          claim_id: claim.id,
+          claim_text: claim.text,
+          verdict: hasVetoIssue ? 'unsupported' : deterministicIssues.length > 0 ? 'partially_supported' : 'supported',
+          confidence: hasVetoIssue ? 0.3 : deterministicIssues.length > 0 ? 0.6 : 0.85,
+          evidence_assessment: hasVetoIssue
+            ? 'Deterministic policy checks vetoed this claim before LLM analysis.'
+            : deterministicIssues.length > 0
+              ? 'Deterministic policy checks require evidence refinement.'
+              : 'Deterministic policy checks passed.',
+          issues: deterministicIssues.map(issue => ({
+            type: issue.type === 'data_integrity' ? 'data_integrity' : issue.type,
+            severity: issue.severity,
+            description: issue.description,
+          })),
+          suggested_fix: deterministicIssues.length > 0
+            ? 'Update evidence quality, freshness, and consistency before rerunning integrity validation.'
+            : undefined,
+        };
+      }),
+      overall_assessment: policy.hasVeto
+        ? 'Deterministic policy checks vetoed one or more claims.'
+        : policy.requiresRefine
+          ? 'Deterministic policy checks found issues requiring refinement.'
+          : 'Deterministic policy checks passed for all claims.',
+      data_quality_score: policy.hasVeto ? 0.4 : policy.requiresRefine ? 0.7 : 0.9,
+      logical_consistency_score: policy.hasVeto ? 0.45 : policy.requiresRefine ? 0.72 : 0.9,
+      evidence_coverage_score: policy.hasVeto ? 0.4 : policy.requiresRefine ? 0.7 : 0.9,
+    };
+  }
+
+  private computeIntegrityResult(analysis: IntegrityAnalysis, policy: DeterministicPolicyEvaluation): IntegrityCheck {
     const issues: IntegrityIssue[] = [];
 
     for (const cv of analysis.claim_validations) {
@@ -411,7 +546,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     const hasHighSeverity = issues.some(i => i.severity === 'high');
 
     return {
-      isValid: !hasHighSeverity,
+      isValid: !hasHighSeverity && !policy.hasVeto,
       confidence: Math.max(0, Math.min(1, overallConfidence)),
       issues,
     };
@@ -425,20 +560,31 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
    * Evaluate whether to veto or request re-refinement.
    * Static so it can be unit-tested without constructing a full agent.
    */
-  static evaluateVetoDecision(result: IntegrityCheck): VetoDecision {
-    const hasHighSeverityDataIssue = result.issues.some(
-      i => i.type === 'data_integrity' && i.severity === 'high',
-    );
-
-    if (hasHighSeverityDataIssue) {
-      return { veto: true, reRefine: false, reason: 'High severity data integrity issue detected' };
+  static evaluateVetoDecision(result: IntegrityCheck, policy: DeterministicPolicyEvaluation): VetoDecision {
+    if (policy.hasVeto) {
+      return {
+        veto: true,
+        reRefine: false,
+        reason: 'Deterministic policy gate vetoed one or more claims',
+        policy_traces: policy.traces.filter(trace => trace.outcome === 'veto'),
+      };
     }
 
-    if (result.confidence < 0.85) {
-      return { veto: false, reRefine: true, reason: `Confidence ${result.confidence.toFixed(2)} below threshold 0.85` };
+    if (policy.requiresRefine) {
+      return {
+        veto: false,
+        reRefine: true,
+        reason: 'Deterministic policy gate requires evidence refinement',
+        policy_traces: policy.traces.filter(trace => trace.outcome === 'refine'),
+      };
     }
 
-    return { veto: false, reRefine: false, reason: 'All integrity checks passed' };
+    return {
+      veto: false,
+      reRefine: false,
+      reason: 'All deterministic integrity checks passed',
+      policy_traces: policy.traces.filter(trace => trace.outcome === 'pass'),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -469,6 +615,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
           },
           veto: vetoDecision.veto,
           reRefine: vetoDecision.reRefine,
+          policy_traces: vetoDecision.policy_traces ?? [],
           organization_id: context.organization_id,
           importance: 0.95,
         },

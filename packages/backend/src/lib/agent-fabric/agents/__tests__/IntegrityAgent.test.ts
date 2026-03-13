@@ -319,6 +319,29 @@ describe("IntegrityAgent", () => {
 
   describe("execute — veto scenario", () => {
     beforeEach(() => {
+      mockRetrieve.mockImplementation((query: any) => {
+        if (query.agent_id === "target") {
+          return Promise.resolve([{
+            ...STORED_KPIS[0],
+            metadata: {
+              ...STORED_KPIS[0].metadata,
+              baseline: { value: 45.5, source: "Legacy report 2021", as_of_date: "2021-01-31" },
+              causal_verified: false,
+            },
+          }]);
+        }
+        if (query.agent_id === "opportunity") {
+          return Promise.resolve([{
+            ...STORED_HYPOTHESES[0],
+            metadata: {
+              ...STORED_HYPOTHESES[0].metadata,
+              evidence: ["This estimate is disputed by finance and unverified"],
+            },
+          }]);
+        }
+        return Promise.resolve([]);
+      });
+
       mockComplete.mockResolvedValue({
         id: "resp-2", model: "test-model",
         content: VETO_RESPONSE, finish_reason: "stop",
@@ -331,7 +354,7 @@ describe("IntegrityAgent", () => {
       expect(result.status).toBe("failure");
       expect(result.result.validated).toBe(false);
       expect(result.result.veto_decision.veto).toBe(true);
-      expect(result.result.veto_decision.reason).toContain("data integrity");
+      expect(result.result.veto_decision.reason).toContain("Deterministic policy gate");
     });
 
     it("includes IntegrityVetoPanel in SDUI when issues exist", async () => {
@@ -371,6 +394,21 @@ describe("IntegrityAgent", () => {
 
   describe("execute — re-refine scenario", () => {
     beforeEach(() => {
+      mockRetrieve.mockImplementation((query: any) => {
+        if (query.agent_id === "target") {
+          return Promise.resolve([{
+            ...STORED_KPIS[0],
+            metadata: {
+              ...STORED_KPIS[0].metadata,
+              baseline: { value: 1000, source: "ERP system Q4 2024", as_of_date: "2024-12-31" },
+              target: { value: 10, timeframe_months: 12, confidence: 0.7 },
+            },
+          }]);
+        }
+        if (query.agent_id === "opportunity") return Promise.resolve(STORED_HYPOTHESES);
+        return Promise.resolve([]);
+      });
+
       mockComplete.mockResolvedValue({
         id: "resp-3", model: "test-model",
         content: REREFINE_RESPONSE, finish_reason: "stop",
@@ -442,39 +480,39 @@ describe("IntegrityAgent", () => {
   });
 
   describe("LLM failure handling", () => {
-    it("fails gracefully when LLM returns invalid JSON", async () => {
+    it("falls back to deterministic output when LLM returns invalid JSON", async () => {
       mockComplete.mockResolvedValue({
         id: "resp-5", model: "test-model", content: "not json", finish_reason: "stop",
       });
 
       const result = await agent.execute(makeContext());
 
-      expect(result.status).toBe("failure");
-      expect(result.result.error).toContain("failed");
+      expect(result.status).toBe("success");
+      expect(result.result.overall_assessment).toContain("Deterministic policy checks passed");
     });
 
-    it("fails gracefully when LLM throws", async () => {
+    it("falls back to deterministic output when LLM throws", async () => {
       mockComplete.mockRejectedValue(new Error("LLM unavailable"));
 
       const result = await agent.execute(makeContext());
 
-      expect(result.status).toBe("failure");
+      expect(result.status).toBe("success");
     });
   });
 
   describe("evaluateVetoDecision (static)", () => {
-    it("passes when confidence >= 0.85 and no high-severity issues", () => {
+    it("passes when deterministic policy has no veto or refine traces", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: true, confidence: 0.9, issues: [],
-      });
+      }, { claimIssues: {}, traces: [], hasVeto: false, requiresRefine: false });
       expect(decision.veto).toBe(false);
       expect(decision.reRefine).toBe(false);
     });
 
-    it("requests re-refine when confidence < 0.85", () => {
+    it("requests re-refine when deterministic policy requires it", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: true, confidence: 0.6, issues: [],
-      });
+      }, { claimIssues: {}, traces: [{ claim_id: "c1", rule: "range_plausibility", severity: "medium", outcome: "refine", message: "refine" }], hasVeto: false, requiresRefine: true });
       expect(decision.veto).toBe(false);
       expect(decision.reRefine).toBe(true);
     });
@@ -483,7 +521,7 @@ describe("IntegrityAgent", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: false, confidence: 0.95,
         issues: [{ type: "data_integrity", severity: "high", description: "bad data" }],
-      });
+      }, { claimIssues: {}, traces: [{ claim_id: "c1", rule: "evidence_presence", severity: "high", outcome: "veto", message: "missing" }], hasVeto: true, requiresRefine: false });
       expect(decision.veto).toBe(true);
     });
 
@@ -491,9 +529,25 @@ describe("IntegrityAgent", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: true, confidence: 0.6,
         issues: [{ type: "data_integrity", severity: "medium", description: "minor issue" }],
-      });
+      }, { claimIssues: {}, traces: [{ claim_id: "c1", rule: "range_plausibility", severity: "medium", outcome: "refine", message: "minor" }], hasVeto: false, requiresRefine: true });
       expect(decision.veto).toBe(false);
       expect(decision.reRefine).toBe(true);
+    });
+
+    it("returns veto traces when deterministic policy vetoes", () => {
+      const decision = IntegrityAgent.evaluateVetoDecision(
+        { isValid: false, confidence: 0.9, issues: [] },
+        {
+          claimIssues: {},
+          traces: [{ claim_id: "claim-1", rule: "contradiction_detection", severity: "high", outcome: "veto", message: "contradiction" }],
+          hasVeto: true,
+          requiresRefine: false,
+        },
+      );
+
+      expect(decision.policy_traces).toEqual([
+        { claim_id: "claim-1", rule: "contradiction_detection", severity: "high", outcome: "veto", message: "contradiction" },
+      ]);
     });
   });
 });

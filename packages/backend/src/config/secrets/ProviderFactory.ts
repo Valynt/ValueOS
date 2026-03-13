@@ -1,11 +1,11 @@
 /**
  * Secret Provider Factory
  *
- * Factory for creating secret provider instances based on configuration
- * Supports AWS Secrets Manager, HashiCorp Vault, and Azure Key Vault
+ * Factory for creating secret provider instances based on configuration.
+ * Supported backends: AWS Secrets Manager, HashiCorp Vault.
  *
- * Sprint 2: Provider Abstraction
- * Created: 2024-11-29
+ * Azure Key Vault was planned but never implemented and has been removed.
+ * See ISecretProvider.ts for the migration path if Azure support is needed.
  */
 
 import { logger } from "../../lib/logger.js"
@@ -64,11 +64,6 @@ export class ProviderFactory implements IProviderFactory {
       case "vault":
         provider = this.createVaultProvider(config);
         break;
-
-      case "azure":
-        throw new Error(
-          "Azure Key Vault provider not yet implemented (Sprint 4)"
-        );
 
       default:
         throw new Error(`Unknown provider: ${config.provider}`);
@@ -142,8 +137,6 @@ export class ProviderFactory implements IProviderFactory {
         return `aws:${config.region || "us-east-1"}`;
       case "vault":
         return `vault:${config.vaultAddress}`;
-      case "azure":
-        return `azure:${config.azureKeyVaultName}`;
       default:
         return config.provider;
     }
@@ -153,7 +146,7 @@ export class ProviderFactory implements IProviderFactory {
    * Get list of available providers
    */
   getAvailableProviders(): string[] {
-    return ["aws", "vault", "azure (coming soon)"];
+    return ["aws", "vault"];
   }
 
   /**
@@ -180,7 +173,7 @@ export class ProviderFactory implements IProviderFactory {
  */
 export function createProviderFromEnv(): ISecretProvider {
   const primaryProviderType =
-    (process.env.SECRETS_PROVIDER as "aws" | "vault" | "azure") || "aws";
+    (process.env.SECRETS_PROVIDER as "aws" | "vault") || "aws";
   const enableFallback = process.env.SECRETS_FALLBACK_ENABLED !== "false";
 
   const config: ProviderConfig = {
@@ -188,7 +181,6 @@ export function createProviderFromEnv(): ISecretProvider {
     region: process.env.AWS_REGION,
     vaultAddress: process.env.VAULT_ADDR,
     vaultNamespace: process.env.VAULT_NAMESPACE,
-    azureKeyVaultName: process.env.AZURE_KEY_VAULT_NAME,
     cacheTTL: parseInt(process.env.SECRETS_CACHE_TTL || "300000", 10),
     auditEnabled: process.env.AUDIT_LOG_ENABLED !== "false",
   };

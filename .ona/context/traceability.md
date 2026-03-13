@@ -36,6 +36,7 @@ Opportunity   Target +    Integrity   Narrative   Expansion  Realization
 
 **Resolved.** `valueCasesRouter` is mounted at both `/api/v1/cases` and `/api/v1/value-cases` in `server.ts` (verified 2026-07-01).
 
+
 ---
 
 ## Stage 2: Model (DRAFTING)

@@ -13,10 +13,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input, SearchInput } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
-  MOCK_VALUE_DRIVERS,
   PERSONA_TAG_LABELS,
   VALUE_DRIVER_TYPE_LABELS,
   ValueDriver,
+  useValueDrivers,
 } from "@/types/valueDriver";
 import { evaluateFormula } from "@/utils/formulas";
 
@@ -50,9 +50,10 @@ export function ValueDriverSelector({
 }: ValueDriverSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDriver, setExpandedDriver] = useState<string | null>(null);
+  const { drivers: allDrivers, loading: driversLoading } = useValueDrivers();
 
   // Only show published drivers
-  const availableDrivers = MOCK_VALUE_DRIVERS.filter((d) => {
+  const availableDrivers = allDrivers.filter((d) => {
     if (d.status !== "published") return false;
     if (personaFilter && !d.personaTags.includes(personaFilter as any)) return false;
     if (searchQuery) {
@@ -99,6 +100,9 @@ export function ValueDriverSelector({
 
       {/* Available Drivers */}
       <div className="space-y-2">
+        {driversLoading && (
+          <p className="text-sm text-muted-foreground text-center py-4">Loading drivers…</p>
+        )}
         {availableDrivers.map((driver) => {
           const isSelected = selectedIds.includes(driver.id);
           const selectedData = selectedDrivers.find((s) => s.driver.id === driver.id);

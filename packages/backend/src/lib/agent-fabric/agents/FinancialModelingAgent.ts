@@ -197,6 +197,7 @@ export class FinancialModelingAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 15,
         organization_id: context.organization_id,
+        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.verified === true && m.metadata?.category)

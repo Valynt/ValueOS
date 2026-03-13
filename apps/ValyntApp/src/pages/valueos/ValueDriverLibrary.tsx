@@ -14,7 +14,7 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,11 +25,11 @@ import { ValueDriverEditor } from "@/components/value-drivers/ValueDriverEditor"
 import { cn } from "@/lib/utils";
 import {
   DriverStatus,
-  MOCK_VALUE_DRIVERS,
   PERSONA_TAG_LABELS,
   VALUE_DRIVER_TYPE_LABELS,
   ValueDriver,
   ValueDriverType,
+  useValueDrivers,
 } from "@/types/valueDriver";
 
 const TYPE_COLORS: Record<ValueDriverType, string> = {
@@ -61,8 +61,14 @@ const STATUS_OPTIONS = [
 ];
 
 export function ValueDriverLibrary() {
-  const [drivers, setDrivers] = useState<ValueDriver[]>(MOCK_VALUE_DRIVERS);
+  const { drivers: fetchedDrivers, loading: driversLoading } = useValueDrivers();
+  const [drivers, setDrivers] = useState<ValueDriver[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync fetched drivers into local state so edits/creates can be applied optimistically
+  useEffect(() => {
+    setDrivers(fetchedDrivers);
+  }, [fetchedDrivers]);
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDriver, setSelectedDriver] = useState<ValueDriver | null>(null);
@@ -232,6 +238,16 @@ export function ValueDriverLibrary() {
 
           {/* Table Body */}
           <div className="divide-y">
+            {driversLoading && (
+              <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+                Loading value drivers…
+              </div>
+            )}
+            {!driversLoading && filteredDrivers.length === 0 && (
+              <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+                No value drivers found.
+              </div>
+            )}
             {filteredDrivers.map((driver) => (
               <div
                 key={driver.id}

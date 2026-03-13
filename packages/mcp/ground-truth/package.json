@@ -8,5 +8,8 @@
   "exports": {
     ".": "./index.ts",
     "./*": "./*"
+  },
+  "dependencies": {
+    "jose": "6.1.0"
   }
 }

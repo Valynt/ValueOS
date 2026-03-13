@@ -1,4 +1,10 @@
-import { infraModeMatrix, type InfraMode, type InfraModeCase } from "./infra-mode.matrix";
+import {
+  infraModeMatrix,
+  messagingModeMatrix,
+  type InfraMode,
+  type InfraModeCase,
+  type MessagingModeCase,
+} from "./infra-mode.matrix";
 
 export interface InfraModeContext {
   mode: InfraMode;
@@ -42,3 +48,27 @@ export const runInInfraMode = async <T>(
 
 export const enabledInfraModes = (): InfraModeCase[] =>
   infraModeMatrix.filter((mode) => mode.enabled);
+
+// ---------------------------------------------------------------------------
+// Messaging mode runner
+// ---------------------------------------------------------------------------
+
+export interface MessagingModeContext {
+  id: MessagingModeCase["id"];
+  kafkaEnabled: boolean;
+  streamingEnabled: boolean;
+}
+
+export const runInMessagingMode = async <T>(
+  messagingMode: MessagingModeCase,
+  fn: (context: MessagingModeContext) => Promise<T> | T,
+): Promise<T> =>
+  withTempEnv(messagingMode.env, () =>
+    fn({
+      id: messagingMode.id,
+      kafkaEnabled: messagingMode.kafkaEnabled,
+      streamingEnabled: messagingMode.streamingEnabled,
+    }),
+  );
+
+export const allMessagingModes = (): MessagingModeCase[] => messagingModeMatrix;

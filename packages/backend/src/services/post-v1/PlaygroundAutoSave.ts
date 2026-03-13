@@ -13,7 +13,7 @@ import { PlaygroundSessionService } from './PlaygroundSessionService.js'
  * Auto-save worker
  */
 export class PlaygroundAutoSaveWorker {
-  private service: PlaygroundSessionService;
+  readonly service: PlaygroundSessionService;
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private running: boolean = false;
 
@@ -133,6 +133,23 @@ export type ConflictStrategy =
   | 'manual';        // Require manual resolution
 
 /**
+ * A canvas layout — an opaque record of section data.
+ * Typed as a structured object rather than `any` to preserve type safety
+ * while remaining flexible for different layout shapes.
+ */
+export interface CanvasLayout {
+  sections?: CanvasSection[];
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface CanvasSection {
+  id?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Conflict resolution result
  */
 export interface ConflictResolution {
@@ -149,15 +166,15 @@ export interface ConflictResolution {
   /**
    * Resolved layout (if resolved)
    */
-  layout?: any;
+  layout?: CanvasLayout;
 
   /**
    * Conflicts that require manual resolution
    */
   conflicts?: Array<{
     path: string;
-    serverValue: any;
-    clientValue: any;
+    serverValue: unknown;
+    clientValue: unknown;
     description: string;
   }>;
 
@@ -175,8 +192,8 @@ export class ConflictResolver {
    * Resolve conflict between server and client versions
    */
   async resolve(
-    serverLayout: any,
-    clientLayout: any,
+    serverLayout: CanvasLayout,
+    clientLayout: CanvasLayout,
     strategy: ConflictStrategy = 'merge'
   ): Promise<ConflictResolution> {
     try {
@@ -220,13 +237,13 @@ export class ConflictResolver {
   /**
    * Merge two layouts
    */
-  private mergeLayouts(serverLayout: any, clientLayout: any): ConflictResolution {
+  private mergeLayouts(serverLayout: CanvasLayout, clientLayout: CanvasLayout): ConflictResolution {
     // Simple merge strategy: use client layout but preserve server metadata
-    const merged = {
+    const merged: CanvasLayout = {
       ...clientLayout,
       metadata: {
-        ...clientLayout.metadata,
-        ...serverLayout.metadata,
+        ...(clientLayout.metadata ?? {}),
+        ...(serverLayout.metadata ?? {}),
         mergedAt: new Date().toISOString(),
       },
     };
@@ -252,18 +269,18 @@ export class ConflictResolver {
    * Detect conflicts between layouts
    */
   private detectConflicts(
-    serverLayout: any,
-    clientLayout: any
+    serverLayout: CanvasLayout,
+    clientLayout: CanvasLayout
   ): Array<{
     path: string;
-    serverValue: any;
-    clientValue: any;
+    serverValue: unknown;
+    clientValue: unknown;
     description: string;
   }> {
     const conflicts: Array<{
       path: string;
-      serverValue: any;
-      clientValue: any;
+      serverValue: unknown;
+      clientValue: unknown;
       description: string;
     }> = [];
 
@@ -305,7 +322,7 @@ export class ConflictResolver {
   /**
    * Check if layouts have conflicts
    */
-  hasConflicts(serverLayout: any, clientLayout: any): boolean {
+  hasConflicts(serverLayout: CanvasLayout, clientLayout: CanvasLayout): boolean {
     return this.detectConflicts(serverLayout, clientLayout).length > 0;
   }
 }
@@ -319,6 +336,13 @@ export function getAutoSaveWorker(
 ): PlaygroundAutoSaveWorker {
   if (!autoSaveWorkerInstance) {
     autoSaveWorkerInstance = new PlaygroundAutoSaveWorker(service);
+  } else if (autoSaveWorkerInstance.service !== service) {
+    // The singleton was already initialised with a different service instance.
+    // Callers that need a distinct worker should instantiate PlaygroundAutoSaveWorker directly.
+    logger.warn(
+      "getAutoSaveWorker called with a different service instance — returning existing worker",
+      { hint: "Instantiate PlaygroundAutoSaveWorker directly if you need a separate worker" }
+    );
   }
   return autoSaveWorkerInstance;
 }

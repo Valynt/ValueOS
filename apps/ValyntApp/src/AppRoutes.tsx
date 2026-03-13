@@ -4,11 +4,12 @@
  */
 
 import { lazy, type ReactElement, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
-import { ProtectedRoute } from "./app/routes/route-guards";
+import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -66,6 +67,20 @@ const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 
 export function AppRoutes() {
+  const queryClient = useQueryClient();
+
+  const handleTenantSwitch = () => {
+    queryClient
+      .cancelQueries()
+      .then(() => {
+        queryClient.clear();
+      })
+      .catch(() => {
+        // Ensure we still clear even if cancellation rejects
+        queryClient.clear();
+      });
+  };
+
   const publicRouteElements: Record<string, ReactElement> = {
     "/login": <LoginPage />,
     "/signup": <SignupPage />,
@@ -84,7 +99,7 @@ export function AppRoutes() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <TenantProvider>
+          <TenantProvider onTenantSwitch={handleTenantSwitch}>
             <CompanyContextProvider>
               <DrawerProvider>
                 <I18nProvider>
@@ -128,8 +143,12 @@ export function AppRoutes() {
                                 <Route path="/models/:id" element={<ModelDetail />} />
                                 <Route path="/agents" element={<Agents />} />
                                 <Route path="/agents/:id" element={<AgentDetail />} />
-                                <Route path="/integrations" element={<Integrations />} />
-                                <Route path="/settings" element={<SettingsPage />} />
+                                <Route element={<PermissionRoute requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.INTEGRATIONS} />}>
+                                  <Route path="/integrations" element={<Integrations />} />
+                                </Route>
+                                <Route element={<PermissionRoute requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.SETTINGS} />}>
+                                  <Route path="/settings" element={<SettingsPage />} />
+                                </Route>
                                 <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
                                 <Route path="/company" element={<CompanyKnowledge />} />
                               </Route>

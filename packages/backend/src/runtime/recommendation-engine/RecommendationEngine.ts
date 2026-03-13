@@ -23,7 +23,7 @@ import type {
   RealizationMilestoneReachedPayload,
 } from '../../events/DomainEventSchemas.js';
 import { DecisionRouter } from '../decision-router/index.js';
-import { getRealtimeBroadcastService } from '../../services/RealtimeBroadcastService.js';
+import { getRealtimeBroadcastService } from '../../services/realtime/RealtimeBroadcastService.js';
 import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
 

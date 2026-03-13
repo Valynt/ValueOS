@@ -1,148 +1,66 @@
 /**
  * Billing Plans API
- * Provides available subscription plans
+ * Returns plans the requesting tenant is eligible to see and upgrade to.
  */
 
 import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
 
-import { PlanTier } from '../../config/billing.js';
+import { PLANS, PlanTier } from '../../config/billing.js';
+import { subscriptionService as SubscriptionService } from '../../services/billing/SubscriptionService.js';
 
 const router = express.Router();
 const logger = createLogger({ component: 'BillingPlansAPI' });
 
-const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
+const withRequestContext = (req: Request, res: Response) => ({
   requestId: req.requestId || res.locals.requestId,
-  ...meta,
 });
 
+// Canonical tier ordering — used to determine upgrade eligibility.
+const TIER_ORDER: PlanTier[] = ['free', 'standard', 'enterprise'];
 
-interface PlanResponse {
-  id: string;
-  name: string;
-  tier: PlanTier;
-  description: string;
-  price: number | null;
-  currency: string;
-  interval: string;
-  features: string[];
-  limits: {
-    users: number;
-    ai_tokens: number;
-    api_calls: number;
-    storage_gb: number;
-  };
-  custom_pricing?: boolean;
+/** Coerces an untrusted DB value to a valid PlanTier, defaulting to 'free'. */
+function resolveTier(raw: string | null | undefined): PlanTier {
+  return TIER_ORDER.includes(raw as PlanTier) ? (raw as PlanTier) : 'free';
 }
 
-function getEligiblePlans(req: Request): PlanResponse[] {
-  const roles = Array.isArray(req.user?.roles) ? req.user?.roles : [];
-  const canAccessEnterprise = roles.includes('admin') || roles.includes('billing:enterprise');
-
-  return AVAILABLE_PLANS.filter((plan) => {
-    if (plan.tier !== 'enterprise') {
-      return true;
-    }
-
-    return canAccessEnterprise;
-  });
+/**
+ * Returns plans the tenant is eligible to see:
+ * - their current plan (always included)
+ * - any plan at a higher tier
+ * Enterprise is excluded unless the tenant already holds it or is on standard
+ * (i.e. a free tenant cannot trigger an enterprise plan action).
+ */
+function eligiblePlans(currentTier: PlanTier) {
+  const currentIndex = TIER_ORDER.indexOf(currentTier);
+  return TIER_ORDER
+    .filter((tier) => TIER_ORDER.indexOf(tier) >= currentIndex)
+    .map((tier) => {
+      const plan = PLANS[tier];
+      return {
+        id: tier,
+        name: plan.name,
+        tier,
+        description: plan.description,
+        price: plan.price,
+        currency: 'usd',
+        interval: plan.billingPeriod === 'monthly' ? 'month' : 'year',
+        features: plan.features,
+        limits: {
+          user_seats: plan.quotas.user_seats,
+          llm_tokens: plan.quotas.llm_tokens,
+          agent_executions: plan.quotas.agent_executions,
+          api_calls: plan.quotas.api_calls,
+          storage_gb: plan.quotas.storage_gb,
+        },
+        is_current: tier === currentTier,
+      };
+    });
 }
-
-// Available plans configuration
-const AVAILABLE_PLANS = [
-  {
-    id: 'free',
-    name: 'Free',
-    tier: 'free' as PlanTier,
-    description: 'Perfect for getting started',
-    price: 0,
-    currency: 'usd',
-    interval: 'month',
-    features: [
-      '3 team members',
-      '100 AI tokens per month',
-      'Basic support',
-      'Community access'
-    ],
-    limits: {
-      users: 3,
-      ai_tokens: 100,
-      api_calls: 1000,
-      storage_gb: 1
-    }
-  },
-  {
-    id: 'starter',
-    name: 'Starter',
-    tier: 'starter' as PlanTier,
-    description: 'For small teams getting started',
-    price: 29,
-    currency: 'usd',
-    interval: 'month',
-    features: [
-      '10 team members',
-      '10,000 AI tokens per month',
-      'Email support',
-      'Basic integrations'
-    ],
-    limits: {
-      users: 10,
-      ai_tokens: 10000,
-      api_calls: 50000,
-      storage_gb: 10
-    }
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    tier: 'professional' as PlanTier,
-    description: 'For growing teams and businesses',
-    price: 99,
-    currency: 'usd',
-    interval: 'month',
-    features: [
-      '50 team members',
-      '100,000 AI tokens per month',
-      'Priority support',
-      'Advanced integrations',
-      'Custom workflows'
-    ],
-    limits: {
-      users: 50,
-      ai_tokens: 100000,
-      api_calls: 500000,
-      storage_gb: 100
-    }
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    tier: 'enterprise' as PlanTier,
-    description: 'For large organizations with custom needs',
-    price: null, // Custom pricing
-    currency: 'usd',
-    interval: 'month',
-    features: [
-      'Unlimited team members',
-      'Unlimited AI tokens',
-      'Dedicated support',
-      'Custom integrations',
-      'Advanced security',
-      'SLA guarantees'
-    ],
-    limits: {
-      users: 1000, // Large number for unlimited
-      ai_tokens: 1000000, // Large number for unlimited
-      api_calls: 5000000, // Large number for unlimited
-      storage_gb: 1000
-    },
-    custom_pricing: true
-  }
-];
 
 /**
  * GET /api/billing/plans
- * Get available subscription plans
+ * Returns plans available to the requesting tenant based on their current tier.
  */
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -153,47 +71,72 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const eligiblePlans = getEligiblePlans(req);
+    const subscription = await SubscriptionService.getActiveSubscription(tenantId);
+    const currentTier = resolveTier(subscription?.plan_tier);
 
     res.json({
-      plans: eligiblePlans,
-      current_tenant_id: tenantId
+      plans: eligiblePlans(currentTier),
+      current_tier: currentTier,
     });
   } catch (error) {
     logger.error('Error fetching plans', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch plans' });
-    return;
   }
 });
 
 /**
  * GET /api/billing/plans/:planId
- * Get specific plan details
+ * Returns a specific plan only if the tenant is eligible to see it.
  */
 router.get('/:planId', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId;
-    const planId = req.params.planId;
+    const planId = req.params.planId as PlanTier;
 
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const eligiblePlans = getEligiblePlans(req);
-    const plan = eligiblePlans.find(p => p.id === planId);
-
-    if (!plan) {
-      logger.warn('Plan not found or not eligible for tenant', withRequestContext(req, res, { planId, tenantId }));
+    if (!TIER_ORDER.includes(planId)) {
       res.status(404).json({ error: 'Plan not found' });
       return;
     }
 
-    res.json(plan);
+    const subscription = await SubscriptionService.getActiveSubscription(tenantId);
+    const currentTier = resolveTier(subscription?.plan_tier);
+    const currentIndex = TIER_ORDER.indexOf(currentTier);
+    const requestedIndex = TIER_ORDER.indexOf(planId);
+
+    if (requestedIndex < currentIndex) {
+      // Tenant is on a higher tier — do not expose lower-tier plan details
+      // to avoid confusion or accidental downgrades via this endpoint.
+      res.status(403).json({ error: 'Plan not available for your current tier' });
+      return;
+    }
+
+    const plan = PLANS[planId];
+    res.json({
+      id: planId,
+      name: plan.name,
+      tier: planId,
+      description: plan.description,
+      price: plan.price,
+      currency: 'usd',
+      interval: plan.billingPeriod === 'monthly' ? 'month' : 'year',
+      features: plan.features,
+      limits: {
+        user_seats: plan.quotas.user_seats,
+        llm_tokens: plan.quotas.llm_tokens,
+        agent_executions: plan.quotas.agent_executions,
+        api_calls: plan.quotas.api_calls,
+        storage_gb: plan.quotas.storage_gb,
+      },
+      is_current: planId === currentTier,
+    });
   } catch (error) {
     logger.error('Error fetching plan details', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch plan details' });
-    return;
   }
 });
 

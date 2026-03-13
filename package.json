@@ -22,7 +22,8 @@
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "check:message-payload-contracts": "node scripts/ci/check-message-payload-contracts.mjs",
-    "check:e2e-path": "node scripts/ci/guard-deprecated-e2e-path.mjs"
+    "check:e2e-path": "node scripts/ci/guard-deprecated-e2e-path.mjs",
+    "check:release-critical-focused-tests": "node scripts/ci/check-release-critical-focused-tests.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -68,6 +69,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.2",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "framer-motion": "^12.23.22",

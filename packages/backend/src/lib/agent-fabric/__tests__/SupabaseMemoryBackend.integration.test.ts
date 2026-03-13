@@ -2,9 +2,9 @@
  * SupabaseMemoryBackend — integration tests
  *
  * Validates real Supabase round-trips:
- *   1. Cross-session retrieval: memory stored in session A is visible in session B
- *      (simulates pod restart / new MemorySystem instance).
- *   2. Tenant isolation: retrieval with a different organization_id returns empty.
+ *   1. Workspace-scoped retrieval: memory stored in session A is NOT visible in session B by default.
+ *   2. Explicit cross-workspace retrieval: session B can request historical session A memory with a reason.
+ *   3. Tenant isolation: retrieval with a different organization_id returns empty.
  *
  * Skips automatically when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are absent
  * (CI without a local Supabase instance). Run locally with `pnpm run dx` first.
@@ -95,33 +95,52 @@ describeIntegration("SupabaseMemoryBackend (integration)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 1. Cross-session retrieval
+  // 1. Workspace isolation (same tenant)
   // -------------------------------------------------------------------------
 
-  it("stores a memory in session 1 and retrieves it in session 2 (cross-session)", async () => {
+  it("does not return session 1 memory when session 2 queries by default", async () => {
     const memory = makeMemory({ workspace_id: SESSION_1 });
 
-    // Store via backendA (session 1)
     const storedId = await backendA.store(memory);
     storedIds.push(storedId);
 
-    // Retrieve via backendB (session 2) — different instance, same org
     const results = await backendB.retrieve({
       agent_id: "OpportunityAgent",
       organization_id: ORG_A,
-      workspace_id: SESSION_2, // different session — should still find it
+      workspace_id: SESSION_2,
+      limit: 10,
+    });
+
+    const found = results.find((m) => m.content === memory.content);
+    expect(found).toBeUndefined();
+  }, 15_000);
+
+  // -------------------------------------------------------------------------
+  // 2. Explicit cross-workspace retrieval
+  // -------------------------------------------------------------------------
+
+  it("returns session 1 memory to session 2 only when include_cross_workspace is set", async () => {
+    const memory = makeMemory({ workspace_id: SESSION_1 });
+
+    const storedId = await backendA.store(memory);
+    storedIds.push(storedId);
+
+    const results = await backendB.retrieve({
+      agent_id: "OpportunityAgent",
+      organization_id: ORG_A,
+      workspace_id: SESSION_2,
+      include_cross_workspace: true,
+      cross_workspace_reason: "Historical recall for tenant-wide continuity",
       limit: 10,
     });
 
     const found = results.find((m) => m.content === memory.content);
     expect(found).toBeDefined();
-    expect(found?.agent_id).toBe("OpportunityAgent");
-    expect(found?.memory_type).toBe("episodic");
-    expect(found?.importance).toBeCloseTo(0.75, 1);
+    expect(found?.workspace_id).toBe(SESSION_1);
   }, 15_000);
 
   // -------------------------------------------------------------------------
-  // 2. Tenant isolation
+  // 3. Tenant isolation
   // -------------------------------------------------------------------------
 
   it("returns empty results when retrieving with a different organization_id", async () => {
@@ -143,7 +162,7 @@ describeIntegration("SupabaseMemoryBackend (integration)", () => {
   }, 15_000);
 
   // -------------------------------------------------------------------------
-  // 3. store() rejects missing organization_id (guard at persistence boundary)
+  // 4. store() rejects missing organization_id (guard at persistence boundary)
   // -------------------------------------------------------------------------
 
   it("throws when organization_id is missing", async () => {
@@ -153,7 +172,7 @@ describeIntegration("SupabaseMemoryBackend (integration)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 4. retrieve() rejects missing organization_id
+  // 5. retrieve() rejects missing organization_id
   // -------------------------------------------------------------------------
 
   it("throws when retrieve() is called without organization_id", async () => {
@@ -162,8 +181,19 @@ describeIntegration("SupabaseMemoryBackend (integration)", () => {
     ).rejects.toThrow("organization_id is required");
   });
 
+  it("throws when include_cross_workspace is set without cross_workspace_reason", async () => {
+    await expect(
+      backendA.retrieve({
+        agent_id: "OpportunityAgent",
+        organization_id: ORG_A,
+        workspace_id: SESSION_2,
+        include_cross_workspace: true,
+      }),
+    ).rejects.toThrow("cross_workspace_reason is required");
+  });
+
   // -------------------------------------------------------------------------
-  // 5. Multiple memories — importance ordering
+  // 6. Multiple memories — importance ordering
   // -------------------------------------------------------------------------
 
   it("returns memories ordered by importance descending", async () => {

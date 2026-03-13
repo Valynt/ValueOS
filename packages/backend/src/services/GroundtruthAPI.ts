@@ -8,7 +8,7 @@
 import { getGroundtruthConfig } from '../lib/env';
 import { logger } from '../lib/logger.js'
 
-import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
+import { ExternalCircuitBreaker } from './post-v1/ExternalCircuitBreaker.js';
 
 export interface GroundtruthAPIConfig {
   baseUrl?: string;
@@ -42,7 +42,7 @@ function getDefaultConfig(): Required<GroundtruthAPIConfig> {
   const envConfig = getGroundtruthConfig();
 
   return {
-    baseUrl: envConfig.apiUrl || '',
+    baseUrl: envConfig.baseUrl || '',
     apiKey: envConfig.apiKey || '',
     timeoutMs: envConfig.timeout,
     headers: {},
@@ -90,7 +90,7 @@ export class GroundtruthAPI {
             headers: this.buildHeaders(),
             body: JSON.stringify(payload),
           },
-          options.timeout ?? this.config.timeout
+          options.timeoutMs ?? this.config.timeoutMs
         );
 
         const contentType = response.headers.get('content-type') || '';
@@ -200,6 +200,5 @@ export class GroundtruthAPI {
   }
 }
 
-export { GroundtruthAPI };
 /** @deprecated Use named import `GroundtruthAPI` instead. */
 export default GroundtruthAPI;

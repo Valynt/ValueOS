@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InMemoryRefreshTokenStore, SecureTokenManager } from "./SecureTokenManager";
 
@@ -121,5 +121,53 @@ describe("SecureTokenManager", () => {
 
     const afterDeviceRevocation = await manager.rotateRefreshToken(sessionTwo);
     expect(afterDeviceRevocation?.replayDetected).toBe(true);
+  });
+
+  describe("seenJtis eviction", () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it("evicts expired JTIs so the map does not grow unboundedly", () => {
+      // Issue a token that expires in 1 second
+      const shortManager = new SecureTokenManager({
+        secret: "test-secure-token-secret",
+        issuer: "valueos.tests",
+        audience: "valueos.test-clients",
+        expiresIn: "1s",
+      });
+
+      const token = jwt.sign(
+        { sub: "user-evict", jti: "evict-me" },
+        "test-secure-token-secret",
+        {
+          algorithm: "HS256",
+          issuer: "valueos.tests",
+          audience: "valueos.test-clients",
+          expiresIn: 1,
+        },
+      );
+
+      // First verify — JTI is stored
+      shortManager.verifyToken(token, { rejectReplay: true });
+
+      // Advance past token expiry
+      vi.advanceTimersByTime(2000);
+
+      // Issue a fresh token with the same jti — the old entry should have been
+      // pruned, so this is treated as a new (valid) first use.
+      const freshToken = jwt.sign(
+        { sub: "user-evict", jti: "evict-me" },
+        "test-secure-token-secret",
+        {
+          algorithm: "HS256",
+          issuer: "valueos.tests",
+          audience: "valueos.test-clients",
+          expiresIn: "1h",
+        },
+      );
+
+      // The expired entry was pruned; the fresh token with the same jti is accepted.
+      expect(shortManager.verifyToken(freshToken, { rejectReplay: true })).not.toBeNull();
+    });
   });
 });

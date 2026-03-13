@@ -96,8 +96,6 @@ function makeEvidence(source: string, content: string) {
 
 const LLM_SUCCESS_RESPONSE = JSON.stringify({
   summary: "All controls are adequately covered.",
-  control_gaps: [],
-  control_coverage_score: 0.92,
   recommended_actions: ["Continue monitoring quarterly"],
 });
 
@@ -138,8 +136,11 @@ describe("ComplianceAuditorAgent", () => {
       expect(result.status).toBe("success");
       expect(result.agent_type).toBe("integrity");
       expect(result.result.summary).toBe("All controls are adequately covered.");
-      expect(result.result.control_coverage_score).toBe(0.92);
-      expect(result.result.control_gaps).toEqual([]);
+      expect(result.result.control_coverage_score).toBeCloseTo(4 / 6, 3);
+      expect(result.result.control_gaps).toEqual([
+        "financial-modeling: Control evidence below deterministic threshold (1/2).",
+        "integrity: Control evidence below deterministic threshold (1/2).",
+      ]);
       expect(result.result.recommended_actions).toEqual(["Continue monitoring quarterly"]);
     });
 
@@ -167,16 +168,24 @@ describe("ComplianceAuditorAgent", () => {
       // Tenant isolation: organizationId must be passed as the last argument
       expect(summaryCall![5]).toBe("org-456");
       expect(summaryCall![4]).toMatchObject({
-        control_coverage_score: 0.92,
+        control_coverage_score: 4 / 6,
         tenant_id: "org-456",
       });
     });
 
-    it("maps high coverage score to very_high confidence", async () => {
+    it("maps deterministic coverage score to medium confidence", async () => {
       const result = await agent.execute(makeContext());
 
-      // control_coverage_score 0.92 >= 0.85 → very_high
-      expect(result.confidence).toBe("very_high");
+      // 4/6 coverage = 0.666... -> medium
+      expect(result.confidence).toBe("medium");
+    });
+
+    it("emits deterministic policy traces", async () => {
+      const result = await agent.execute(makeContext());
+
+      const traces = result.result.policy_traces as Array<Record<string, unknown>>;
+      expect(traces).toHaveLength(6);
+      expect(traces.some(trace => trace.outcome === "refine")).toBe(true);
     });
   });
 

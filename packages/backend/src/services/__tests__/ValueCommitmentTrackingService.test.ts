@@ -281,5 +281,74 @@ describe('ValueCommitmentTrackingService', () => {
       expect(report.summary.risk_level).toBe('critical');
       expect(report.summary.is_on_track).toBe(false);
     });
+
+    it('is_on_track requires >= 80% overall progress (not 50%)', async () => {
+      // 2/2 milestones complete = 100% milestone, 0 metrics = 0% metric
+      // overallProgress = 100*0.6 + 0*0.4 = 60 — below 80 threshold
+      const commitment = { id: COMMITMENT_ID, organization_id: ORG_ID, target_completion_date: null };
+      const milestones = [
+        { id: 'ms-1', status: 'completed', progress_percentage: 100 },
+        { id: 'ms-2', status: 'completed', progress_percentage: 100 },
+      ];
+
+      mockFrom
+        .mockReturnValueOnce(makeChain({ data: commitment, error: null }))
+        .mockReturnValueOnce(makeChain({ data: milestones, error: null }))
+        .mockReturnValueOnce(makeChain({ data: [], error: null }))
+        .mockReturnValueOnce(makeChain({ data: [], error: null }));
+
+      const report = await service.generateProgressReport(COMMITMENT_ID, ORG_ID);
+
+      // overallProgress = 60, which is >= 50 (old threshold) but < 80 (new threshold)
+      expect(report.summary.overall_progress).toBe(60);
+      expect(report.summary.is_on_track).toBe(false);
+    });
+
+    it('is_on_track is true when overall progress >= 80% and no critical risks', async () => {
+      const commitment = { id: COMMITMENT_ID, organization_id: ORG_ID, target_completion_date: null };
+      // 100% milestones + 100% metrics → overallProgress = 100
+      const milestones = [{ id: 'ms-1', status: 'completed', progress_percentage: 100 }];
+      const metrics = [{ id: 'met-1', target_value: 100, current_value: 100, is_active: true }];
+
+      mockFrom
+        .mockReturnValueOnce(makeChain({ data: commitment, error: null }))
+        .mockReturnValueOnce(makeChain({ data: milestones, error: null }))
+        .mockReturnValueOnce(makeChain({ data: metrics, error: null }))
+        .mockReturnValueOnce(makeChain({ data: [], error: null }));
+
+      const report = await service.generateProgressReport(COMMITMENT_ID, ORG_ID);
+
+      expect(report.summary.overall_progress).toBe(100);
+      expect(report.summary.is_on_track).toBe(true);
+    });
+
+    it('sub-queries include organization_id filter', async () => {
+      const commitment = { id: COMMITMENT_ID, organization_id: ORG_ID, target_completion_date: null };
+      const eqCalls: [string, string][] = [];
+
+      // Capture all .eq() calls across all chains
+      mockFrom.mockImplementation(() => {
+        const chain: Record<string, unknown> = {};
+        chain['select'] = vi.fn().mockReturnValue(chain);
+        chain['eq'] = vi.fn().mockImplementation((col: string, val: string) => {
+          eqCalls.push([col, val]);
+          return chain;
+        });
+        chain['neq'] = vi.fn().mockReturnValue(chain);
+        chain['order'] = vi.fn().mockReturnValue(chain);
+        chain['single'] = vi.fn().mockResolvedValue({ data: commitment, error: null });
+        chain['then'] = (res: (v: unknown) => void, rej: (e: unknown) => void) =>
+          Promise.resolve({ data: [], error: null }).then(res, rej);
+        return chain;
+      });
+
+      await service.generateProgressReport(COMMITMENT_ID, ORG_ID).catch(() => {
+        // may throw due to simplified mock — we only care about eq calls
+      });
+
+      const orgFilters = eqCalls.filter(([col, val]) => col === 'organization_id' && val === ORG_ID);
+      // Expect at least 3 org filters: milestones, metrics, risks
+      expect(orgFilters.length).toBeGreaterThanOrEqual(3);
+    });
   });
 });

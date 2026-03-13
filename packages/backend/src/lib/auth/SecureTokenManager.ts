@@ -154,6 +154,9 @@ export class SecureTokenManager {
   private readonly expiresIn: SignOptions["expiresIn"];
   private readonly refreshExpiresIn: SignOptions["expiresIn"];
   private readonly refreshTokenStore: RefreshTokenStore;
+  // Maps jti → expiry timestamp (ms). Entries are pruned on each verify call
+  // to prevent unbounded growth over the process lifetime.
+  private readonly seenJtis = new Map<string, number>();
 
   constructor(config: SecureTokenManagerConfig = {}) {
     this.secret = config.secret ?? process.env.SECURE_TOKEN_SECRET ?? process.env.JWT_SECRET;
@@ -190,9 +193,19 @@ export class SecureTokenManager {
       }) as SecureTokenClaims;
 
       if (options.rejectReplay && typeof claims.jti === "string") {
-        logger.warn("rejectReplay is deprecated; use refresh token rotation for replay protection", {
-          tokenId: claims.jti,
-        });
+        // Prune expired entries before checking to bound Map size.
+        const now = Date.now();
+        for (const [jti, exp] of this.seenJtis) {
+          if (exp <= now) this.seenJtis.delete(jti);
+        }
+
+        if (this.seenJtis.has(claims.jti)) {
+          return null;
+        }
+        // Store with the token's own expiry so it is pruned once it can no
+        // longer be replayed anyway.
+        const expMs = typeof claims.exp === "number" ? claims.exp * 1000 : now + 3600_000;
+        this.seenJtis.set(claims.jti, expMs);
       }
 
       return claims;

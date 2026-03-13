@@ -8,10 +8,9 @@ import { sessionManager } from "./sessionManager";
 
 interface PersistedAuthState {
   user: {
+    // Only the opaque user ID is persisted. PII (email, name, role) is not
+    // stored in localStorage to limit exposure to XSS and browser extensions.
     id: string;
-    email: string;
-    name?: string;
-    role?: string;
   };
   session: {
     expiresAt: number;
@@ -36,13 +35,10 @@ class AuthPersistence {
     return data.session.isActive && data.session.expiresAt > Date.now();
   }
 
-  async persistAuthState(user: any, session: any): Promise<void> {
+  async persistAuthState(user: { id: string }, session: { expires_at?: number }): Promise<void> {
     const authState: PersistedAuthState = {
       user: {
         id: user.id,
-        email: user.email,
-        name: user.name || user.user_metadata?.full_name,
-        role: user.role || user.user_metadata?.roles?.[0],
       },
       session: {
         expiresAt: session.expires_at || Date.now() + 60 * 60 * 1000,
@@ -102,7 +98,6 @@ class AuthPersistence {
   async getAuthStateSummary(): Promise<{
     isAuthenticated: boolean;
     userId?: string;
-    email?: string;
     expiresAt?: number;
     loginMethod?: string;
   }> {
@@ -115,7 +110,6 @@ class AuthPersistence {
     return {
       isAuthenticated: true,
       userId: state.user.id,
-      email: state.user.email,
       expiresAt: state.session.expiresAt,
       loginMethod: "session-cookie",
     };

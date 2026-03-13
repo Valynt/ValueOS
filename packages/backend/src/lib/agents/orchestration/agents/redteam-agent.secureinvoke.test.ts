@@ -1,3 +1,7 @@
+/**
+ * RedTeamAgent — secureInvoke compliance tests
+ */
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BaseAgent } from '../../../agent-fabric/agents/BaseAgent.js';
@@ -36,6 +40,21 @@ const VALID_LLM_RESPONSE = JSON.stringify({
 
 const SCHEMA_INVALID_LLM_RESPONSE = JSON.stringify({
   unexpected_field: 'this is not the right shape',
+});
+
+const HALLUCINATION_RESPONSE = JSON.stringify({
+  objections: [
+    {
+      id: 'obj-hallucinated',
+      targetComponent: 'Revenue increase',
+      severity: 'critical',
+      category: 'math_error',
+      description: 'I am an AI and cannot verify these numbers',
+    },
+  ],
+  summary: 'As an AI language model, I cannot confirm these projections.',
+  hasCritical: true,
+  timestamp: new Date().toISOString(),
 });
 
 describe('RedTeamAgent — secureInvoke compliance', () => {
@@ -108,6 +127,43 @@ describe('RedTeamAgent — secureInvoke compliance', () => {
     mockComplete.mockRejectedValue(new Error('provider timeout'));
 
     await expect(agent.analyze(VALID_INPUT)).rejects.toThrow('provider timeout');
+  });
+
+  it('attaches hallucination_check boolean to output', async () => {
+    mockComplete.mockResolvedValue({ content: HALLUCINATION_RESPONSE });
+
+    const result = await agent.analyze(VALID_INPUT);
+
+    expect(typeof result.hallucination_check).toBe('boolean');
+    expect(result.hallucination_check).toBe(true);
+  });
+
+  it('attaches hallucination_details with grounding score to output', async () => {
+    mockComplete.mockResolvedValue({ content: HALLUCINATION_RESPONSE });
+
+    const result = await agent.analyze(VALID_INPUT);
+
+    expect(result.hallucination_details).toBeDefined();
+    expect(result.hallucination_details?.grounding_score).toBeLessThan(1);
+    expect(result.hallucination_details?.matched_signals.length).toBeGreaterThan(0);
+  });
+
+  it('propagates tenantId in gateway metadata (tenant isolation)', async () => {
+    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
+
+    await agent.analyze(VALID_INPUT);
+
+    const metadata = (mockComplete.mock.calls[0][0] as { metadata: Record<string, unknown> }).metadata;
+    expect(metadata.tenantId).toBe('tenant-0001');
+  });
+
+  it('propagates idempotencyKey in gateway metadata', async () => {
+    mockComplete.mockResolvedValue({ content: VALID_LLM_RESPONSE });
+
+    await agent.analyze(VALID_INPUT);
+
+    const metadata = (mockComplete.mock.calls[0][0] as { metadata: Record<string, unknown> }).metadata;
+    expect(metadata.idempotencyKey).toBe(VALID_INPUT.idempotencyKey);
   });
 });
 

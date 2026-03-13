@@ -13,12 +13,14 @@
 import { logger } from "../logger.js";
 
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
+import { buildProtectedMemoryContent, redactSensitiveText, redactSensitiveValue } from "./redaction.js";
 
 export interface MemorySystemConfig {
   max_memories: number;
   ttl_seconds?: number;
   enable_persistence: boolean;
   vector_search_enabled?: boolean;
+  high_trust_mode?: boolean;
 }
 
 export interface Memory {
@@ -41,6 +43,8 @@ export type MemoryType = "episodic" | "semantic" | "procedural" | "working";
 export interface MemoryQuery {
   agent_id: string;
   workspace_id?: string;
+  include_cross_workspace?: boolean;
+  cross_workspace_reason?: string;
   query_text?: string;
   memory_type?: MemoryType;
   limit?: number;
@@ -158,6 +162,24 @@ export class MemorySystem {
     this.episodeIndex.get(key)?.delete(episodeId);
   }
 
+  private shouldProtectRawOutput(memoryType: MemoryType): boolean {
+    return this.config.high_trust_mode === true && (memoryType === "episodic" || memoryType === "semantic");
+  }
+
+  private sanitizeMemoryContent(content: string, memoryType: MemoryType): string {
+    if (this.shouldProtectRawOutput(memoryType)) {
+      // In high-trust mode, let buildProtectedMemoryContent handle redaction and wrapping once.
+      return buildProtectedMemoryContent(content);
+    }
+    // In non-high-trust mode, perform standard redaction only.
+    return redactSensitiveText(content);
+  }
+
+  private sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, unknown> | undefined {
+    if (!metadata) return undefined;
+    return redactSensitiveValue(metadata) as Record<string, unknown>;
+  }
+
   /**
    * Attach a persistence backend after construction.
    * Useful when the backend isn't available at MemorySystem creation time.
@@ -172,6 +194,8 @@ export class MemorySystem {
     const memoryId = `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const fullMemory: Memory = {
       ...memory,
+      content: this.sanitizeMemoryContent(memory.content, memory.memory_type),
+      metadata: this.sanitizeMetadata(memory.metadata),
       id: memoryId,
       created_at: new Date().toISOString(),
       accessed_at: new Date().toISOString(),
@@ -193,11 +217,11 @@ export class MemorySystem {
       try {
         await this.backend.store(fullMemory);
       } catch (error) {
-        logger.warn("Persistent memory store failed, using local cache only", {
+        logger.warn("Persistent memory store failed, using local cache only", redactSensitiveValue({
           memory_id: memoryId,
           agent_id: memory.agent_id,
           error: (error as Error).message,
-        });
+        }) as Record<string, unknown>);
       }
     }
 
@@ -216,6 +240,19 @@ export class MemorySystem {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
     }
 
+    if (query.include_cross_workspace && !query.cross_workspace_reason) {
+      throw new Error("cross_workspace_reason is required when include_cross_workspace is true");
+    }
+
+    if (query.include_cross_workspace) {
+      logger.info("Cross-workspace memory retrieval requested", {
+        agent_id: query.agent_id,
+        organization_id: query.organization_id,
+        requester_workspace_id: query.workspace_id ?? null,
+        include_cross_workspace: query.include_cross_workspace,
+        cross_workspace_reason: query.cross_workspace_reason,
+      });
+    }
     // Try persistent backend first for cross-session recall
     if (this.backend && this.config.enable_persistence) {
       try {
@@ -225,10 +262,10 @@ export class MemorySystem {
         }
         // Fall through to local cache if backend returned empty
       } catch (error) {
-        logger.warn("Persistent memory retrieval failed, falling back to local cache", {
+        logger.warn("Persistent memory retrieval failed, falling back to local cache", redactSensitiveValue({
           agent_id: query.agent_id,
           error: (error as Error).message,
-        });
+        }) as Record<string, unknown>);
       }
     }
 
@@ -260,7 +297,7 @@ export class MemorySystem {
     for (const id of candidateIds) {
       const memory = this.memories.get(id);
       if (!memory) continue;
-      if (query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
+      if (!query.include_cross_workspace && query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
       if (query.min_importance && memory.importance < query.min_importance) continue;
 
       memory.accessed_at = new Date().toISOString();
@@ -524,10 +561,10 @@ export class MemorySystem {
       try {
         await this.backend.clear(agentId, organizationId, workspaceId);
       } catch (error) {
-        logger.warn("Persistent memory clear failed", {
+        logger.warn("Persistent memory clear failed", redactSensitiveValue({
           agent_id: agentId,
           error: (error as Error).message,
-        });
+        }) as Record<string, unknown>);
       }
     }
 

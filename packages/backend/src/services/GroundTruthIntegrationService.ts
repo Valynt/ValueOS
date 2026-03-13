@@ -60,6 +60,7 @@ export class GroundTruthIntegrationService {
   private static instance: GroundTruthIntegrationService;
   private esoModule: ESOModule;
   private initialized = false;
+  private initializationPromise: Promise<void> | null = null;
 
   private kpiIndex: Map<string, ESOKPINode>;
   private vmrtIndex: Map<string, Partial<VMRT>>;
@@ -79,24 +80,46 @@ export class GroundTruthIntegrationService {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
-
-    await this.esoModule.initialize();
-
-    // Build indices
-    for (const kpi of ALL_ESO_KPIS) {
-      this.kpiIndex.set(kpi.id, kpi);
+    if (this.initialized) {
+      return;
     }
-    for (const vmrt of ALL_VMRT_SEEDS) {
-      if (vmrt.traceId) {
-        this.vmrtIndex.set(vmrt.traceId, vmrt);
+
+    if (!this.initializationPromise) {
+      this.initializationPromise = (async () => {
+        await this.esoModule.initialize();
+
+        // Build indices
+        this.kpiIndex.clear();
+        this.vmrtIndex.clear();
+        for (const kpi of ALL_ESO_KPIS) {
+          this.kpiIndex.set(kpi.id, kpi);
+        }
+        for (const vmrt of ALL_VMRT_SEEDS) {
+          if (vmrt.traceId) {
+            this.vmrtIndex.set(vmrt.traceId, vmrt);
+          }
+        }
+
+        this.initialized = true;
+        logger.info(
+          `GroundTruthIntegrationService initialized: ${this.kpiIndex.size} KPIs, ${this.vmrtIndex.size} traces`
+        );
+      })();
+    }
+
+    try {
+      await this.initializationPromise;
+    } finally {
+      if (this.initialized) {
+        this.initializationPromise = null;
       }
     }
+  }
 
-    this.initialized = true;
-    logger.info(
-      `GroundTruthIntegrationService initialized: ${this.kpiIndex.size} KPIs, ${this.vmrtIndex.size} traces`
-    );
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
   }
 
   // ============================================================================
@@ -110,6 +133,8 @@ export class GroundTruthIntegrationService {
     metricId: string,
     percentile: "p25" | "p50" | "p75" = "p50"
   ): Promise<BenchmarkResult> {
+    await this.ensureInitialized();
+
     const kpi = this.kpiIndex.get(metricId);
     if (!kpi) {
       throw new Error(`Unknown metric: ${metricId}`);
@@ -133,6 +158,8 @@ export class GroundTruthIntegrationService {
     metricId: string,
     claimedValue: number
   ): Promise<ValidationResult> {
+    await this.ensureInitialized();
+
     const result = checkBenchmarkAlignment(metricId, claimedValue);
     const kpi = this.kpiIndex.get(metricId);
 
@@ -153,6 +180,8 @@ export class GroundTruthIntegrationService {
     kpis: BenchmarkResult[];
     financialDriver: FinancialDriver;
   }> {
+    await this.ensureInitialized();
+
     const personaMap = EXTENDED_PERSONA_MAPS.find((p) => p.persona === persona);
     if (!personaMap) {
       return { kpis: [], financialDriver: "cost_reduction" };
@@ -185,7 +214,9 @@ export class GroundTruthIntegrationService {
     },
     limit = 5
   ): Promise<ReasoningReference[]> {
-    const filtered = ALL_VMRT_SEEDS.filter((trace) => {
+    await this.ensureInitialized();
+
+    const filtered = Array.from(this.vmrtIndex.values()).filter((trace) => {
       if (
         filters.industry &&
         trace.context?.organization?.industry !== filters.industry
@@ -223,6 +254,8 @@ export class GroundTruthIntegrationService {
     validations: Record<string, ValidationResult>;
     overallConfidence: number;
   }> {
+    await this.ensureInitialized();
+
     const benchmarks: Record<string, BenchmarkResult> = {};
     const validations: Record<string, ValidationResult> = {};
 
@@ -260,6 +293,8 @@ export class GroundTruthIntegrationService {
    * Verify if a source ID exists in the ground truth database
    */
   async verifySourceId(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+
     // Check KPIs
     if (this.kpiIndex.has(id)) return true;
 
@@ -279,12 +314,14 @@ export class GroundTruthIntegrationService {
   /**
    * Get coverage statistics
    */
-  getStats(): {
+  async getStats(): Promise<{
     kpiCount: number;
     vmrtCount: number;
     industries: string[];
     personas: string[];
-  } {
+  }> {
+    await this.ensureInitialized();
+
     const industries = new Set<string>();
     const personas = new Set<string>();
 

@@ -222,11 +222,12 @@ export class AgentFabricService {
     return components;
   }
 
-  async getValueCaseById(valueCaseId: string): Promise<AgentFabricResult | null> {
+  async getValueCaseById(valueCaseId: string, organizationId: string): Promise<AgentFabricResult | null> {
     const { data: valueCase } = await supabase
       .from('value_cases')
       .select('*')
       .eq('id', valueCaseId)
+      .eq('organization_id', organizationId)
       .single();
 
     if (!valueCase) return null;

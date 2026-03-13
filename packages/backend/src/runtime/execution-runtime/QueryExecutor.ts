@@ -33,8 +33,130 @@ import type { WorkflowState } from '../../repositories/WorkflowStateRepository.j
 import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
-import type { DecisionContext } from '@shared/domain/DecisionContext.js';
+import {
+  DecisionContextSchema,
+  type DecisionContext,
+} from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+
+interface HydratedOpportunityState {
+  id: string;
+  lifecycle_stage: NonNullable<NonNullable<DecisionContext['opportunity']>['lifecycle_stage']>;
+  confidence_score: number;
+  value_maturity: NonNullable<NonNullable<DecisionContext['opportunity']>['value_maturity']>;
+}
+
+interface HydratedHypothesisState {
+  id: string;
+  confidence: NonNullable<NonNullable<DecisionContext['hypothesis']>['confidence']>;
+  confidence_score?: number;
+  evidence_count: number;
+  best_evidence_tier?: NonNullable<NonNullable<DecisionContext['hypothesis']>['best_evidence_tier']>;
+}
+
+interface HydratedBusinessCaseState {
+  id: string;
+  status: NonNullable<NonNullable<DecisionContext['business_case']>['status']>;
+  assumptions_reviewed: boolean;
+}
+
+interface DecisionContextHydrationDiagnostics {
+  missing_required_fields: string[];
+  parse_errors: string[];
+}
+
+type AutomationResolution = 'full' | 'downgraded' | 'reject';
+
+interface HydratedDecisionContext {
+  context: DecisionContext;
+  diagnostics: DecisionContextHydrationDiagnostics;
+  automation: AutomationResolution;
+}
+
+interface DecisionContextRepository {
+  getOpportunity(organizationId: string, opportunityId: string): Promise<HydratedOpportunityState | null>;
+  getHypothesis(organizationId: string, caseId: string): Promise<HydratedHypothesisState | null>;
+  getBusinessCase(organizationId: string, caseId: string): Promise<HydratedBusinessCaseState | null>;
+}
+
+class SupabaseDecisionContextRepository implements DecisionContextRepository {
+  async getOpportunity(organizationId: string, opportunityId: string): Promise<HydratedOpportunityState | null> {
+    const { data, error } = await defaultSupabase
+      .from('opportunities')
+      .select('id,lifecycle_stage,confidence_score,value_maturity,tenant_id')
+      .eq('id', opportunityId)
+      .eq('tenant_id', organizationId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    const stage = OpportunityLifecycleStageSchema.safeParse(data.lifecycle_stage);
+    if (!stage.success) return null;
+
+    const confidence = Number(data.confidence_score);
+    const maturity = data.value_maturity;
+    if (!Number.isFinite(confidence) || !['low', 'medium', 'high'].includes(String(maturity))) return null;
+
+    return {
+      id: String(data.id),
+      lifecycle_stage: stage.data,
+      confidence_score: confidence,
+      value_maturity: maturity,
+    };
+  }
+
+  async getHypothesis(organizationId: string, caseId: string): Promise<HydratedHypothesisState | null> {
+    const { data, error } = await defaultSupabase
+      .from('hypothesis_outputs')
+      .select('id,hypotheses,confidence,organization_id')
+      .eq('case_id', caseId)
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    const first = Array.isArray(data.hypotheses) ? data.hypotheses[0] : null;
+    if (!first || typeof first !== 'object') return null;
+    const hypothesis = first as Record<string, unknown>;
+
+    const confidence = typeof hypothesis.confidence === 'string'
+      ? hypothesis.confidence
+      : typeof data.confidence === 'string'
+        ? data.confidence
+        : 'medium';
+
+    if (!['low', 'medium', 'high'].includes(confidence)) return null;
+
+    return {
+      id: typeof hypothesis.id === 'string' ? hypothesis.id : String(data.id),
+      confidence,
+      confidence_score: typeof hypothesis.confidence_score === 'number' ? hypothesis.confidence_score : undefined,
+      evidence_count: typeof hypothesis.evidence_count === 'number' ? hypothesis.evidence_count : 0,
+      best_evidence_tier: typeof hypothesis.best_evidence_tier === 'string'
+        ? hypothesis.best_evidence_tier as HydratedHypothesisState['best_evidence_tier']
+        : undefined,
+    };
+  }
+
+  async getBusinessCase(organizationId: string, caseId: string): Promise<HydratedBusinessCaseState | null> {
+    const { data, error } = await defaultSupabase
+      .from('value_cases')
+      .select('id,status,metadata,tenant_id')
+      .eq('id', caseId)
+      .eq('tenant_id', organizationId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    const metadata = (data.metadata ?? {}) as Record<string, unknown>;
+
+    return {
+      id: String(data.id),
+      status: String(data.status) as HydratedBusinessCaseState['status'],
+      assumptions_reviewed: metadata.assumptions_reviewed === true,
+    };
+  }
+}
 
 // ============================================================================
 // QueryExecutor
@@ -76,6 +198,7 @@ export class QueryExecutor {
     private readonly circuitBreakers: CircuitBreakerManager,
     private readonly agentMessageQueue: AgentMessageQueue,
     private readonly config: QueryExecutorConfig = DEFAULT_CONFIG,
+    private readonly contextRepository: DecisionContextRepository = new SupabaseDecisionContextRepository(),
   ) {}
 
   // --------------------------------------------------------------------------
@@ -92,28 +215,81 @@ export class QueryExecutor {
    * BusinessCase) is deferred to the ContextStore Sprint 5 target. Until
    * then, only the fields derivable from WorkflowState are populated.
    */
-  private buildDecisionContext(
+  private async buildDecisionContext(
     state: WorkflowState,
     organizationId: string,
-  ): DecisionContext {
-    const rawStage = state.currentStage ?? state.lifecycle_stage ?? 'discovery';
-    const stageParseResult = OpportunityLifecycleStageSchema.safeParse(rawStage);
-    const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
-
+  ): Promise<HydratedDecisionContext> {
     const opportunityId = state.context?.opportunityId ?? state.context?.opportunity_id;
+    const caseId = state.context?.valueCaseId
+      ?? state.context?.value_case_id
+      ?? state.context?.caseId
+      ?? state.context?.case_id
+      ?? state.context?.business_case_id;
 
-    return {
+    const diagnostics: DecisionContextHydrationDiagnostics = {
+      missing_required_fields: [],
+      parse_errors: [],
+    };
+
+    const context: DecisionContext = {
       organization_id: organizationId,
-      opportunity: opportunityId
-        ? {
-            id: String(opportunityId),
-            lifecycle_stage,
-            confidence_score: 0.5,
-            value_maturity: 'low',
-          }
-        : undefined,
       is_external_artifact_action: false,
     };
+
+    if (typeof opportunityId === 'string') {
+      const opportunity = await this.contextRepository.getOpportunity(organizationId, opportunityId);
+      if (opportunity) {
+        context.opportunity = opportunity;
+      } else {
+        diagnostics.missing_required_fields.push('opportunity');
+      }
+    } else {
+      diagnostics.missing_required_fields.push('opportunity_id');
+    }
+
+    if (typeof caseId === 'string') {
+      const [hypothesis, businessCase] = await Promise.all([
+        this.contextRepository.getHypothesis(organizationId, caseId),
+        this.contextRepository.getBusinessCase(organizationId, caseId),
+      ]);
+
+      if (hypothesis) {
+        context.hypothesis = hypothesis;
+      } else {
+        diagnostics.missing_required_fields.push('hypothesis');
+      }
+
+      if (businessCase) {
+        context.business_case = businessCase;
+      } else {
+        diagnostics.missing_required_fields.push('business_case');
+      }
+    } else {
+      diagnostics.missing_required_fields.push('case_id');
+    }
+
+    const schemaResult = DecisionContextSchema.safeParse(context);
+    if (!schemaResult.success) {
+      diagnostics.parse_errors = schemaResult.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`);
+    }
+
+    const missingOpportunity = diagnostics.missing_required_fields.includes('opportunity')
+      || diagnostics.missing_required_fields.includes('opportunity_id');
+    const automation: AutomationResolution = missingOpportunity
+      ? 'reject'
+      : diagnostics.missing_required_fields.length > 0 || diagnostics.parse_errors.length > 0
+        ? 'downgraded'
+        : 'full';
+
+    if (automation !== 'full') {
+      logger.warn('Decision context hydration diagnostics', {
+        organizationId,
+        automation,
+        diagnostics,
+      });
+    }
+
+    return { context, diagnostics, automation };
   }
 
   // --------------------------------------------------------------------------
@@ -174,8 +350,13 @@ export class QueryExecutor {
       queryLength: query.length,
     });
 
-    const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
-    const agentType = this.router.selectAgent(decisionContext);
+    const hydrated = await this.buildDecisionContext(currentState, envelope.organizationId);
+    if (hydrated.automation === 'reject') {
+      throw new Error(`Insufficient decision context for automation: ${hydrated.diagnostics.missing_required_fields.join(', ')}`);
+    }
+    const agentType = hydrated.automation === 'downgraded'
+      ? 'coordinator'
+      : this.router.selectAgent(hydrated.context);
 
     if (!this.checkAgentRateLimit(agentType)) {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -321,8 +502,21 @@ export class QueryExecutor {
 
     if (!result.success) throw new Error(result.error || 'Async agent execution failed');
 
-    const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
-    const agentType = this.router.selectAgent(decisionContext);
+    const hydrated = await this.buildDecisionContext(currentState, envelope.organizationId);
+    if (hydrated.automation === 'reject') {
+      return {
+        response: {
+          type: 'message',
+          payload: { message: 'Insufficient routing context to execute automation.', error: true },
+          metadata: { routing_diagnostics: hydrated.diagnostics },
+        },
+        nextState: currentState,
+        traceId,
+      };
+    }
+    const agentType = hydrated.automation === 'downgraded'
+      ? 'coordinator'
+      : this.router.selectAgent(hydrated.context);
     const agentContext: AgentContext = { userId: envelope.actor.id || userId, sessionId, organizationId: envelope.organizationId };
 
     const structuralCheck = await this.policy.evaluateStructuralTruthVeto(result.data, { traceId, agentType, query, context: agentContext });
@@ -366,15 +560,41 @@ export class QueryExecutor {
       try {
         const nextState: WorkflowState = { ...currentState, context: { ...(currentState.context ?? {}) }, completed_steps: [...currentState.completed_steps] };
 
-        let agentType: AgentType;
+        let agentType: AgentType = 'coordinator';
+        const hydrated = await this.buildDecisionContext(currentState, envelope.organizationId);
         tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
-          const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
-          agentType = this.router.selectAgent(decisionContext);
-          selectSpan.setAttributes({ 'agent.selected_type': agentType, 'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based' });
+          if (hydrated.automation === 'reject') {
+            selectSpan.setStatus({ code: SpanStatusCode.ERROR, message: 'insufficient routing context' });
+            selectSpan.end();
+            return;
+          }
+
+          agentType = hydrated.automation === 'downgraded'
+            ? 'coordinator'
+            : this.router.selectAgent(hydrated.context);
+          selectSpan.setAttributes({
+            'agent.selected_type': agentType,
+            'agent.routing_strategy': hydrated.automation === 'downgraded'
+              ? 'downgraded-context'
+              : currentState.currentStage
+                ? 'stage-based'
+                : 'intent-based',
+          });
           selectSpan.setStatus({ code: SpanStatusCode.OK });
           selectSpan.end();
         });
-        agentType ??= 'coordinator' as AgentType;
+
+        if (hydrated.automation === 'reject') {
+          return {
+            response: {
+              type: 'message',
+              payload: { message: 'Insufficient routing context to execute automation.', error: true },
+              metadata: { routing_diagnostics: hydrated.diagnostics },
+            },
+            nextState: currentState,
+            traceId,
+          };
+        }
 
         if (!this.checkAgentRateLimit(agentType)) throw new Error(`Agent ${agentType} rate limit exceeded`);
 

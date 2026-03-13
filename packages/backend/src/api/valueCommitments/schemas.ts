@@ -257,3 +257,71 @@ export function toNoteDto(row: Record<string, unknown>): NoteDto {
     created_at:    row['created_at'] as string,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Milestone schemas
+// ---------------------------------------------------------------------------
+
+export const CreateMilestoneSchema = z.object({
+  title:            shortText(200),
+  description:      optText(2000),
+  milestone_type:   z.string().min(1).max(50).default('deliverable'),
+  sequence_order:   z.number().int().min(0).default(0),
+  target_date:      isoDate,
+  deliverables:     z.array(z.string().max(500)).max(50).optional(),
+  success_criteria: z.array(z.string().max(500)).max(50).optional(),
+});
+export type CreateMilestoneInput = z.infer<typeof CreateMilestoneSchema>;
+
+export const UpdateMilestoneSchema = z.object({
+  progress_percentage: z.number().int().min(0).max(100),
+  status:              z.enum(['pending', 'in_progress', 'completed', 'delayed', 'skipped']).optional(),
+  actual_date:         isoDate.optional(),
+});
+export type UpdateMilestoneInput = z.infer<typeof UpdateMilestoneSchema>;
+
+// ---------------------------------------------------------------------------
+// Metric schemas
+// ---------------------------------------------------------------------------
+
+export const UpdateMetricSchema = z.object({
+  current_value:    z.number().finite(),
+  last_measured_at: isoDate.optional(),
+});
+export type UpdateMetricInput = z.infer<typeof UpdateMetricSchema>;
+
+// ---------------------------------------------------------------------------
+// Risk schemas
+// ---------------------------------------------------------------------------
+
+export const CreateRiskSchema = z.object({
+  risk_title:        shortText(200),
+  risk_description:  z.string().min(1).max(2000).trim(),
+  risk_category:     z.string().min(1).max(100).trim(),
+  probability:       z.enum(['low', 'medium', 'high', 'critical']),
+  impact:            z.enum(['low', 'medium', 'high', 'critical']),
+  risk_score:        z.number().min(0).max(100).optional(),
+  mitigation_plan:   z.string().min(1).max(2000).trim(),
+  contingency_plan:  z.string().min(1).max(2000).trim(),
+  owner_id:          uuid,
+  review_date:       isoDate,
+});
+export type CreateRiskInput = z.infer<typeof CreateRiskSchema>;
+
+export const UpdateRiskStatusSchema = z.object({
+  status:       z.enum(['identified', 'active', 'mitigated', 'accepted', 'occurred']),
+  mitigated_at: isoDate.optional(),
+});
+export type UpdateRiskStatusInput = z.infer<typeof UpdateRiskStatusSchema>;
+
+// ---------------------------------------------------------------------------
+// Stakeholder schemas
+// ---------------------------------------------------------------------------
+
+export const AddStakeholderSchema = z.object({
+  user_id:                   uuid,
+  role:                      shortText(100),
+  responsibility:            z.string().min(1).max(1000).trim(),
+  accountability_percentage: z.number().int().min(0).max(100).optional(),
+});
+export type AddStakeholderInput = z.infer<typeof AddStakeholderSchema>;

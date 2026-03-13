@@ -124,19 +124,19 @@ export class LLMCache {
       
       const entry: LLMCacheEntry = JSON.parse(cached);
 
-      // Increment hit count and update stats hash atomically
-      entry.hitCount++;
+      // Update aggregate stats atomically. We do NOT write the entry back with
+      // an incremented hitCount — that read-modify-write is racy under concurrent
+      // requests and would cause lost updates. totalHits in the stats hash is the
+      // authoritative hit counter; entry.hitCount is intentionally not mutated.
       const statsKey = `${this.config.keyPrefix}stats`;
       const tx = this.client.multi();
-      tx.set(key, JSON.stringify(entry), { EX: this.config.ttl });
       tx.hIncrBy(statsKey, 'totalHits', 1);
       tx.hIncrByFloat(statsKey, 'totalCostSaved', entry.cost);
       await tx.exec();
 
       logger.cache('hit', key, {
         model,
-        hitCount: entry.hitCount,
-        cost: entry.cost
+        cost: entry.cost,
       });
 
       return entry;
