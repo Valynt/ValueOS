@@ -169,11 +169,28 @@ router.post("/reports/:reportId/download", requirePermission("users.read"), asyn
     return res.status(400).json({ error: "Tenant ID required" });
   }
 
-  await complianceReportGeneratorService.auditDownloadAccess(tenantId, req.params.reportId, getActorId(req));
-  return res.status(202).json({
-    report_id: req.params.reportId,
-    download_audit_logged: true,
-  });
+  try {
+    const report = await complianceReportGeneratorService.getReportById(req.params.reportId);
+
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+
+    if ((report as { tenant_id?: string; tenantId?: string }).tenant_id !== tenantId &&
+        (report as { tenant_id?: string; tenantId?: string }).tenantId !== tenantId) {
+      return res.status(403).json({ error: "Forbidden: report does not belong to this tenant" });
+    }
+
+    await complianceReportGeneratorService.auditDownloadAccess(tenantId, req.params.reportId, getActorId(req));
+    return res.status(202).json({
+      report_id: req.params.reportId,
+      download_audit_logged: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to log report download",
+    });
+  }
 });
 
 router.get("/stream", requirePermission("users.read"), async (req: Request, res: Response) => {
