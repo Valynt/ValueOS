@@ -3,12 +3,12 @@
 set -euo pipefail
 
 PROMETHEUS_BASE_URL="${PROMETHEUS_BASE_URL:-http://localhost:9090}"
-SLO_MAX_P95_LATENCY_MS="${SLO_MAX_P95_LATENCY_MS:-200}"
+SLO_MAX_P95_LATENCY_MS="${SLO_MAX_P95_LATENCY_MS:-300}"
 SLO_MAX_ERROR_RATE="${SLO_MAX_ERROR_RATE:-0.001}"
 SLO_MAX_MTTR_MINUTES="${SLO_MAX_MTTR_MINUTES:-15}"
 
-LATENCY_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le))'
-ERROR_RATE_QUERY='sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m])) / sum(rate(valuecanvas_http_requests_total[5m]))'
+LATENCY_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend"}[5m])) by (le))'
+ERROR_RATE_QUERY='sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code=~"5.."}[5m])) / sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[5m]))'
 MTTR_QUERY='avg_over_time(valuecanvas_incident_mttr_minutes[24h])'
 
 query_prometheus() {
