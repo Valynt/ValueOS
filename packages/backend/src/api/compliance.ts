@@ -119,7 +119,7 @@ router.get("/mode", requirePermission("users.read"), async (req: Request, res: R
     return res.status(400).json({ error: "Tenant ID required" });
   }
 
-  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "control-status" });
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "mode" });
   return res.json({
     tenant_id: tenantId,
     active_modes: ["SOC2", "GDPR"],
