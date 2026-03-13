@@ -75,6 +75,9 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Critical service observability link policy
+        run: node scripts/ci/check-critical-service-observability-links.mjs
+
       - name: Doc path guard
         run: bash scripts/check-doc-paths.sh
 
