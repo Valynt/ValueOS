@@ -73,21 +73,6 @@ vi.mock('../../../config/featureFlags', () => ({
   featureFlags: { ENABLE_ASYNC_AGENT_EXECUTION: false },
 }));
 
-// Regression: defaultSupabase import was accidentally removed in d85ed5142.
-// Mock it so SupabaseDecisionContextRepository (used when no repo arg is passed)
-// doesn't throw a ReferenceError at construction time.
-vi.mock('../../../lib/supabase', () => ({
-  supabase: {
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    }),
-  },
-}));
-
 // ---------------------------------------------------------------------------
 // Shared mock factories
 // ---------------------------------------------------------------------------
@@ -99,6 +84,7 @@ function makePolicyMock() {
     evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
     performReRefine: vi.fn().mockResolvedValue({ success: false, attempts: 2 }),
     checkAutonomyGuardrails: vi.fn().mockResolvedValue(undefined),
+    checkHITL: vi.fn().mockReturnValue({ allowed: true, hitl_required: false, details: { rule_id: 'HITL-01', is_external_artifact_action: false } }),
   };
 }
 
@@ -123,47 +109,19 @@ function makeQueueMock() {
   };
 }
 
-function makeContextRepositoryMock(overrides: Partial<{
-  getOpportunity: (organizationId: string, opportunityId: string) => Promise<unknown>;
-  getHypothesis: (organizationId: string, caseId: string) => Promise<unknown>;
-  getBusinessCase: (organizationId: string, caseId: string) => Promise<unknown>;
-}> = {}) {
-  return {
-    getOpportunity: vi.fn().mockResolvedValue({
-      id: '11111111-1111-4111-8111-111111111111',
-      lifecycle_stage: 'drafting',
-      confidence_score: 0.82,
-      value_maturity: 'high',
-    }),
-    getHypothesis: vi.fn().mockResolvedValue({
-      id: '22222222-2222-4222-8222-222222222222',
-      confidence: 'high',
-      confidence_score: 0.82,
-      evidence_count: 3,
-      best_evidence_tier: 'gold',
-    }),
-    getBusinessCase: vi.fn().mockResolvedValue({
-      id: '33333333-3333-4333-8333-333333333333',
-      status: 'draft',
-      assumptions_reviewed: true,
-    }),
-    ...overrides,
-  };
-}
-
 function makeState() {
   return {
     id: 'state-1', workflow_id: '', execution_id: 'exec-1', workspace_id: '',
-    organization_id: '11111111-1111-4111-8111-111111111111', lifecycle_stage: 'discovery', current_step: 'discovery',
+    organization_id: 'org-1', lifecycle_stage: 'discovery', current_step: 'discovery',
     currentStage: 'discovery', status: 'initiated' as const, completed_steps: [],
-    state_data: {}, context: { organizationId: '11111111-1111-4111-8111-111111111111', conversationHistory: [], opportunityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', valueCaseId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+    state_data: {}, context: { organizationId: 'org-1', conversationHistory: [] },
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   };
 }
 
 function makeEnvelope() {
   return {
-    intent: 'test', actor: { id: 'user-1' }, organizationId: '11111111-1111-4111-8111-111111111111',
+    intent: 'test', actor: { id: 'user-1' }, organizationId: 'org-1',
     entryPoint: 'api', reason: 'test', timestamps: { requestedAt: new Date().toISOString() },
   };
 }
@@ -237,8 +195,6 @@ describe('QueryExecutor.processQueryAsync', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       queue as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
   });
 
@@ -254,7 +210,7 @@ describe('QueryExecutor.processQueryAsync', () => {
     await executor.processQueryAsync(
       makeEnvelope() as never, 'query', makeState() as never, 'user-1', 'session-1',
     );
-    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
   });
 
   it('throws when tenant execution is paused', async () => {
@@ -272,7 +228,6 @@ describe('QueryExecutor.processQueryAsync', () => {
       makeCircuitBreakerMock() as never,
       queue as never,
       { defaultTimeoutMs: 5000, maxAgentInvocationsPerMinute: 1 },
-      makeContextRepositoryMock() as never,
     );
     await limitedExecutor.processQueryAsync(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     await expect(
@@ -298,8 +253,6 @@ describe('QueryExecutor.getAsyncQueryResult', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       queue as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
   });
 
@@ -370,8 +323,6 @@ describe('QueryExecutor.processQuery (sync path)', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
   });
 
@@ -381,7 +332,7 @@ describe('QueryExecutor.processQuery (sync path)', () => {
 
   it('calls assertTenantExecutionAllowed', async () => {
     await executor.processQuery(makeEnvelope() as never, 'query', makeState() as never, 'u', 's');
-    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
   });
 
   it('returns a successful response with updated state', async () => {
@@ -417,7 +368,6 @@ describe('QueryExecutor.processQuery (sync path)', () => {
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
       { defaultTimeoutMs: 5000, maxAgentInvocationsPerMinute: 0 },
-      makeContextRepositoryMock() as never,
     );
     const result = await limited.processQuery(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     expect(result.response?.payload).toMatchObject({ error: true });
@@ -450,8 +400,6 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
       makeRouterMock('opportunity') as never,
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
 
     const result = await executor.processQuery(
@@ -463,130 +411,56 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
     );
 
     // Agent was invoked directly — no fetch/HTTP call
-    expect(mockCreate).toHaveBeenCalledWith('opportunity', '11111111-1111-4111-8111-111111111111');
+    expect(mockCreate).toHaveBeenCalledWith('opportunity', 'org-1');
     expect(mockExecute).toHaveBeenCalledOnce();
     expect(result.response?.type).toBe('message');
     expect(result.response?.payload.message).toContain('direct invocation works');
   });
 });
 
-
-describe('QueryExecutor context hydration integration', () => {
-  it('routes using rich hydrated context', async () => {
+describe('QueryExecutor HITL gating', () => {
+  it('returns pending_approval and does not execute agent when HITL is required', async () => {
     const policy = makePolicyMock();
-    const queue = makeQueueMock();
-    const router = makeRouterMock('financial-modeling');
-    const repo = makeContextRepositoryMock();
-    const executor = new QueryExecutor(
-      policy as never,
-      router as never,
-      makeCircuitBreakerMock() as never,
-      queue as never,
-      undefined,
-      repo as never,
-    );
-
-    const state = {
-      ...makeState(),
-      context: {
-        ...makeState().context,
-        opportunityId: '11111111-1111-4111-8111-111111111111',
-        valueCaseId: '33333333-3333-4333-8333-333333333333',
-      },
-    };
-
-    await executor.processQueryAsync(makeEnvelope() as never, 'route with rich context', state as never, 'u', 's');
-
-    expect(router.selectAgent).toHaveBeenCalledOnce();
-    expect(queue.queueAgentInvocation).toHaveBeenCalledWith(
-      expect.objectContaining({ agent: 'financial-modeling' }),
-    );
-  });
-
-  it('downgrades to coordinator when hydrated context is sparse', async () => {
-    const policy = makePolicyMock();
-    const queue = makeQueueMock();
-    const router = makeRouterMock('financial-modeling');
-    const repo = makeContextRepositoryMock({
-      getBusinessCase: async () => null,
-      getHypothesis: async () => null,
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.42, is_external_artifact_action: true },
     });
+
     const executor = new QueryExecutor(
       policy as never,
-      router as never,
+      makeRouterMock('narrative') as never,
       makeCircuitBreakerMock() as never,
-      queue as never,
-      undefined,
-      repo as never,
+      makeQueueMock() as never,
     );
 
-    const state = {
-      ...makeState(),
-      context: {
-        ...makeState().context,
-        opportunityId: '11111111-1111-4111-8111-111111111111',
-        valueCaseId: '33333333-3333-4333-8333-333333333333',
-      },
-    };
+    const result = await executor.processQuery(makeEnvelope() as never, 'draft customer deck', makeState() as never, 'u', 's');
 
-    await executor.processQueryAsync(makeEnvelope() as never, 'route with sparse context', state as never, 'u', 's');
-
-    expect(router.selectAgent).not.toHaveBeenCalled();
-    expect(queue.queueAgentInvocation).toHaveBeenCalledWith(
-      expect.objectContaining({ agent: 'coordinator' }),
-    );
+    expect(result.nextState.status).toBe('pending_approval');
+    expect(result.response.payload).toMatchObject({ hitl_required: true, rule_id: 'HITL-01' });
   });
 
-  it('rejects when hydrated context is missing a valid opportunity', async () => {
+  it('blocks async queueing when HITL is required', async () => {
     const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.4, is_external_artifact_action: true },
+    });
     const queue = makeQueueMock();
-    const router = makeRouterMock('financial-modeling');
-    const repo = makeContextRepositoryMock();
+
     const executor = new QueryExecutor(
       policy as never,
-      router as never,
+      makeRouterMock('narrative') as never,
       makeCircuitBreakerMock() as never,
       queue as never,
-      undefined,
-      repo as never,
     );
-
-    // No opportunityId/valueCaseId in context should trigger hydration-gating reject mode.
-    const state = {
-      ...makeState(),
-      context: {
-        ...makeState().context,
-      },
-    };
 
     await expect(
-      executor.processQueryAsync(
-        makeEnvelope() as never,
-        'route with missing opportunity',
-        state as never,
-        'u',
-        's',
-      ),
-    ).rejects.toThrowError();
-
-    expect(router.selectAgent).not.toHaveBeenCalled();
+      executor.processQueryAsync(makeEnvelope() as never, 'draft customer deck', makeState() as never, 'u', 's'),
+    ).rejects.toThrow('Human approval required');
     expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
-  });
-});
-
-// Regression: import { supabase as defaultSupabase } was removed in d85ed5142,
-// causing a ReferenceError when SupabaseDecisionContextRepository methods are
-// called. Verify QueryExecutor can be constructed without an explicit repo arg
-// (which triggers the default SupabaseDecisionContextRepository path).
-describe('QueryExecutor default repo construction (supabase import regression)', () => {
-  it('constructs without throwing when no contextRepository is provided', () => {
-    expect(() =>
-      new QueryExecutor(
-        makePolicyMock() as never,
-        makeRouterMock() as never,
-        makeCircuitBreakerMock() as never,
-        makeQueueMock() as never,
-      ),
-    ).not.toThrow();
   });
 });

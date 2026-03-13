@@ -103,6 +103,7 @@ function makePolicyMock() {
     assertTenantExecutionAllowed: vi.fn().mockResolvedValue(undefined),
     evaluateIntegrityVeto: vi.fn().mockResolvedValue({ vetoed: false }),
     evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
+    checkHITL: vi.fn().mockReturnValue({ allowed: true, hitl_required: false, details: { rule_id: 'HITL-01', is_external_artifact_action: false } }),
   };
 }
 
@@ -344,5 +345,45 @@ describe('WorkflowExecutor.executeDAGAsync', () => {
 
     await executor.executeDAGAsync('exec-1', 'org-1', makeDAG() as never, makeCtx(), 'trace-1');
     expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('org-1');
+  });
+});
+
+describe('WorkflowExecutor HITL integration', () => {
+  it('persists pending_approval and emits audit event when stage is blocked by HITL', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Approval required before external artifact generation',
+      details: { rule_id: 'HITL-01', confidence_score: 0.45, is_external_artifact_action: true },
+    });
+
+    const executor = await makeExecutor(policy);
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG({ stages: [makeStage({ agent_type: 'narrative' })] }) as never, makeCtx(), 'trace-1');
+
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending_approval' }));
+    expect((executor as never).executionStore.recordWorkflowEvent).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'stage_hitl_pending_approval',
+      metadata: expect.objectContaining({ rule_id: 'HITL-01', confidence_score: 0.45, traceId: 'trace-1' }),
+    }));
+    expect((executor as never).retryManager.executeWithRetry).not.toHaveBeenCalled();
+  });
+
+  it('executes stage autonomously when HITL is not required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValue({
+      allowed: true,
+      hitl_required: false,
+      details: { rule_id: 'HITL-01', confidence_score: 0.9, is_external_artifact_action: true },
+    });
+
+    const executor = await makeExecutor(policy);
+    (executor as never).retryManager.executeWithRetry.mockResolvedValue({ success: true, response: { data: { output: 'ok' } }, attempts: 1 });
+
+    await executor.executeDAGAsync('exec-1', 'org-1', makeDAG({ stages: [makeStage({ agent_type: 'narrative' })] }) as never, makeCtx(), 'trace-1');
+
+    expect((executor as never).executionStore.updateExecutionStatus).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
+    expect((executor as never).retryManager.executeWithRetry).toHaveBeenCalled();
   });
 });
