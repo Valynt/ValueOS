@@ -24,7 +24,7 @@ import type {
 import { logger } from '../../logger.js';
 import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
 import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
-import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { ProvenanceTracker } from '@memory/provenance/index.js';
 import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import { createServerSupabaseClient } from '../../supabase.js';
 
@@ -119,10 +119,7 @@ function getProvenanceTracker(): ProvenanceTracker {
   if (!_provenanceTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = createServerSupabaseClient() as any;
-    // SupabaseProvenanceStore from SagaAdapters uses a local ProvenanceRecord type
-    // that is structurally compatible with the packages/memory ProvenanceStore interface.
-    // The cast is safe: both types share the same DB table and field names.
-    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    const store = new SupabaseProvenanceStore(client);
     _provenanceTracker = new ProvenanceTracker(store);
   }
   return _provenanceTracker;
