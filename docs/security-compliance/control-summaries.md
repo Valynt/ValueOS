@@ -25,6 +25,7 @@ This document provides a high-level summary of ValueOS security and compliance c
 - Centralized audit logging for security-relevant actions.
 - Monitoring and alerting workflows for suspicious activity and platform health.
 - Documented incident response and disaster recovery runbooks.
+- Detailed observability control mapping and evidence workflow documented in `docs/security-compliance/observability-controls-and-evidence.md`.
 
 ## Secure Development and Change Management
 
