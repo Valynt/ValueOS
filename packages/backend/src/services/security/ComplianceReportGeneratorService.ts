@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomUUID } from "crypto";
 
-import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { createUserSupabaseClient } from "../../lib/supabase.js";
 
 import {
   complianceControlMappingRegistry,
@@ -63,7 +63,7 @@ export class MissingEvidenceError extends Error {
 
 export class ComplianceReportGeneratorService {
   constructor(
-    private readonly client: QueryableClient = createServerSupabaseClient() as unknown as QueryableClient,
+    private readonly client: QueryableClient = createUserSupabaseClient() as unknown as QueryableClient,
     private readonly controlStatusSource: {
       getLatestControlStatus(tenantId: string): Promise<ControlStatusRecord[]>;
     } = complianceControlStatusService,
