@@ -616,7 +616,7 @@ export class TargetAgent extends BaseAgent {
       // Record provenance for each node so downstream agents and the UI can
       // trace every value tree entry back to the TargetAgent run that produced it.
       const tracker = getProvenanceTracker();
-      await Promise.allSettled(
+      const provenanceResults = await Promise.allSettled(
         nodes.map((node) =>
           tracker.record({
             valueCaseId: caseId,
@@ -629,6 +629,22 @@ export class TargetAgent extends BaseAgent {
           }),
         ),
       );
+
+      const failedProvenance = provenanceResults.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      );
+
+      if (failedProvenance.length > 0) {
+        logger.warn('TargetAgent: failed to record provenance for some value tree nodes', {
+          case_id: caseId,
+          organization_id: organizationId,
+          node_count: nodes.length,
+          failed_count: failedProvenance.length,
+          sample_errors: failedProvenance.slice(0, 3).map((r) =>
+            r.reason instanceof Error ? r.reason.message : String(r.reason),
+          ),
+        });
+      }
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
       logger.error('TargetAgent: failed to persist value tree', {
