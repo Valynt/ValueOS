@@ -14,7 +14,7 @@ const router = express.Router();
 const logger = createLogger({ component: 'BillingSummaryAPI' });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: req.requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -24,7 +24,7 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  */
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized' });

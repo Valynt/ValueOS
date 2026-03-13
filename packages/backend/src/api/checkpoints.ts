@@ -51,7 +51,7 @@ export function createCheckpointRouter(
    */
   router.post('/:checkpointId/approve', requirePermission('approvals:manage'), (req: Request, res: Response) => {
     const { checkpointId } = req.params;
-    const resolvedBy = (req as any).user?.id ?? req.body?.resolvedBy ?? 'unknown';
+    const resolvedBy = req.user?.id ?? req.body?.resolvedBy ?? 'unknown';
 
     logger.info('Checkpoint approve request', { checkpointId, resolvedBy });
 
@@ -73,7 +73,7 @@ export function createCheckpointRouter(
   router.post('/:checkpointId/reject', requirePermission('approvals:manage'), (req: Request, res: Response) => {
     const { checkpointId } = req.params;
     const reason = req.body?.reason ?? 'Rejected by reviewer';
-    const resolvedBy = (req as any).user?.id ?? req.body?.resolvedBy ?? 'unknown';
+    const resolvedBy = req.user?.id ?? req.body?.resolvedBy ?? 'unknown';
 
     logger.info('Checkpoint reject request', { checkpointId, resolvedBy, reason });
 

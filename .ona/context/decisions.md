@@ -13,6 +13,30 @@ Full records: `docs/engineering/adr/`. Update this file when a new ADR is accept
 
 ---
 
+## ADR-0017 — Service De-duplication Strategy (Accepted, 2026-07-15)
+
+**Decision:** Verify before consolidating — two files with the same name may be intentionally distinct. Canonical locations: domain types in `packages/shared/src/domain/`, tenant limits in `services/tenant/TenantLimits.ts`, pure transformation logic in extracted `*Applier.ts` / `*Types.ts` modules. Files >1000 lines are split by cohesion, not size. Legacy root directories (`client/`, `server/`, `shared/`) are removed and banned by ESLint. Resolved debt is recorded in `debt.md`.
+
+**Consequence for agents:** Before treating two same-named files as duplicates, read both. If distinct, document the distinction in each file's header. Do not consolidate. When extracting, re-export from the original file for backward compatibility.
+
+---
+
+## ADR-0016 — CI Security Gate Model (Accepted, 2026-07-15)
+
+**Decision:** CI has a dedicated security gate after unit tests: (1) RLS policy tests (`pnpm run test:rls`), (2) agent security suite (`scripts/test-agent-security.sh`), (3) TypeScript `any` threshold enforced via coverage thresholds (lines=75%, functions=70%, branches=70%), (4) Playwright E2E critical paths with waiver tracking in `config/release-risk/release-1.0-skip-waivers.json`. ESLint enforces structural rules at PR time.
+
+**Consequence for agents:** New tenant-scoped tables require an RLS test before merging. New agents must pass the agent security suite. Skip waivers require an owner and expiry date or they fail CI.
+
+---
+
+## ADR-0015 — Agent Fabric Design (Accepted, 2026-07-15)
+
+**Decision:** Eight domain agents extend `BaseAgent` in `packages/backend/src/lib/agent-fabric/agents/`. All LLM calls go through `BaseAgent.secureInvoke()` (circuit breaker + hallucination detection + Zod validation). Six runtime services replace `UnifiedAgentOrchestrator`. Inter-agent messaging via `MessageBus` (CloudEvents) with `trace_id` propagation. Memory is tenant-scoped; all queries include `tenant_id`. Confidence thresholds are risk-tiered.
+
+**Consequence for agents:** Never call `llmGateway.complete()` directly. Use `secureInvoke`. Every memory store/query must include `this.organizationId`. New lifecycle stages require one agent class + one DAG node + `AgentFactory` registration.
+
+---
+
 ## ADR-0014 — Direct Agent Invocation Rule (Accepted, 2026-06-10)
 
 **Decision:** Server-side orchestration calls `AgentFactory.create(agentType, orgId).execute(context)` directly. `AgentAPI` (HTTP client) is for external/frontend callers only. `QueryExecutor` no longer makes an HTTP round-trip to itself.

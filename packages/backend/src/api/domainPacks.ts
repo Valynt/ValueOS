@@ -30,7 +30,7 @@ const service = new DomainPackService(supabase);
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }
@@ -68,7 +68,7 @@ const SetPackSchema = z.object({
 
 router.post("/value-cases/:caseId/set-pack", async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }
@@ -93,7 +93,7 @@ router.post("/value-cases/:caseId/set-pack", async (req: Request, res: Response)
 
 router.get("/value-cases/:caseId/merged-context", async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }
@@ -119,7 +119,7 @@ const HardenKPISchema = z.object({
 
 router.post("/value-cases/:caseId/harden-kpi", async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }
@@ -148,7 +148,7 @@ router.post("/value-cases/:caseId/harden-kpi", async (req: Request, res: Respons
 
 router.post("/value-cases/:caseId/harden-all-kpis", async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }

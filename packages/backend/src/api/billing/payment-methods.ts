@@ -13,7 +13,7 @@ const router = express.Router();
 const logger = createLogger({ component: 'PaymentMethodsAPI' });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: req.requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -64,7 +64,7 @@ interface UpdatePaymentMethodRequest {
  */
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -111,7 +111,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const { type, card, billing_details }: CreatePaymentMethodRequest = req.body;
 
     if (!tenantId) {
@@ -181,7 +181,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  */
 router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const paymentMethodId = req.params.id ?? "";
     const { billing_details }: UpdatePaymentMethodRequest = req.body;
 
@@ -219,7 +219,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
  */
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const paymentMethodId = req.params.id ?? "";
 
     if (!tenantId) {
@@ -249,7 +249,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
  */
 router.put('/:id/default', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const paymentMethodId = req.params.id ?? "";
 
     if (!tenantId) {

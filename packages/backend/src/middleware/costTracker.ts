@@ -93,7 +93,7 @@ export function costTrackerMiddleware(req: Request, _res: Response, next: NextFu
 
     const logContext = {
       requestId: req.headers['x-request-id'],
-      tenantId: (req as any).tenantId,
+      tenantId: req.tenantId,
       agentType: usage.agentType,
       model: estimate.model,
       tokens: estimate.tokens,
@@ -168,7 +168,7 @@ export const sessionCostAccumulator = new SessionCostAccumulator();
  * Express middleware to track session-level costs
  */
 export function sessionCostTracker(req: Request, _res: Response, next: NextFunction) {
-  const sessionId = (req as any).sessionId || req.headers['x-session-id'] as string;
+  const sessionId = req.sessionId || req.headers['x-session-id'] as string;
   
   if (sessionId) {
     // Override trackLLMCost to also accumulate session costs

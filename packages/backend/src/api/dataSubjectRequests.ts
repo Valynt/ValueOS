@@ -120,9 +120,9 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = (req as any).tenantId as string | undefined;
-    const actorId = (req as any).userId as string | undefined;
-    const requestId = (req as any).requestId as string | undefined ?? "unknown";
+    const tenantId = req.tenantId;
+    const actorId = req.userId;
+    const requestId = req.requestId as string | undefined ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -181,9 +181,9 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = (req as any).tenantId as string | undefined;
-    const actorId = (req as any).userId as string | undefined;
-    const requestId = (req as any).requestId as string | undefined ?? "unknown";
+    const tenantId = req.tenantId;
+    const actorId = req.userId;
+    const requestId = req.requestId as string | undefined ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -263,7 +263,7 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });

@@ -16,13 +16,15 @@ import {
 } from "../../metrics/billingMetrics";
 import { securityAuditService } from "../SecurityAuditService.js";
 
+import Stripe from "stripe";
+
 import InvoiceService from "./InvoiceService.js"
 import StripeService from "./StripeService.js"
 
 const logger = createLogger({ component: "WebhookService" });
 
 class WebhookService {
-  private stripe: any;
+  private stripe: Stripe | null;
 
   /**
    * Listeners for billing domain events emitted during webhook processing.
@@ -114,10 +116,13 @@ class WebhookService {
   /**
    * Verify webhook signature
    */
-  verifySignature(payload: string | Buffer, signature: string): any {
+  verifySignature(payload: string | Buffer, signature: string): Stripe.Event {
     try {
       if (!STRIPE_CONFIG.webhookSecret) {
         throw new Error("STRIPE_WEBHOOK_SECRET not configured");
+      }
+      if (!this.stripe) {
+        throw new Error("Stripe client not initialized");
       }
 
       const event = this.stripe.webhooks.constructEvent(
@@ -136,7 +141,7 @@ class WebhookService {
   /**
    * Process webhook event
    */
-  async processEvent(event: any): Promise<void> {
+  async processEvent(event: Stripe.Event): Promise<void> {
     if (!supabase) {
       throw new Error("Supabase billing not configured");
     }
@@ -254,11 +259,11 @@ class WebhookService {
         .eq("stripe_event_id", eventId)
         .single();
 
-      if (fetchErr && (fetchErr as any).code !== "PGRST116") {
+      if (fetchErr && (fetchErr as { code?: string }).code !== "PGRST116") {
         throw fetchErr;
       }
 
-      const current = (existing && (existing as any).retry_count) || 0;
+      const current = (existing && (existing as { retry_count?: number }).retry_count) || 0;
       const newCount = Number(current) + 1;
 
       await supabase
@@ -278,8 +283,8 @@ class WebhookService {
   /**
    * Handle invoice events
    */
-  private async handleInvoiceEvent(event: any): Promise<void> {
-    const invoice = event.data.object;
+  private async handleInvoiceEvent(event: Stripe.Event): Promise<void> {
+    const invoice = event.data.object as Stripe.Invoice;
     await InvoiceService.storeInvoice(invoice);
     logger.info("Invoice event processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
@@ -288,8 +293,8 @@ class WebhookService {
   /**
    * Handle payment succeeded
    */
-  private async handlePaymentSucceeded(event: any): Promise<void> {
-    const invoice = event.data.object;
+  private async handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
+    const invoice = event.data.object as Stripe.Invoice;
 
     // Update invoice status
     await InvoiceService.updateInvoiceWithCustomerStatus(invoice, "active");
@@ -330,8 +335,8 @@ class WebhookService {
   /**
    * Handle payment failed
    */
-  private async handlePaymentFailed(event: any): Promise<void> {
-    const invoice = event.data.object;
+  private async handlePaymentFailed(event: Stripe.Event): Promise<void> {
+    const invoice = event.data.object as Stripe.Invoice;
 
     // Update invoice
     await InvoiceService.updateInvoice(invoice);
@@ -395,8 +400,8 @@ class WebhookService {
   /**
    * Handle subscription updated
    */
-  private async handleSubscriptionUpdated(event: any): Promise<void> {
-    const subscription = event.data.object;
+  private async handleSubscriptionUpdated(event: Stripe.Event): Promise<void> {
+    const subscription = event.data.object as Stripe.Subscription;
 
     // Fetch previous state before updating
     const { data: prevSub } = await supabase
@@ -483,8 +488,8 @@ class WebhookService {
   /**
    * Handle subscription deleted
    */
-  private async handleSubscriptionDeleted(event: any): Promise<void> {
-    const subscription = event.data.object;
+  private async handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
+    const subscription = event.data.object as Stripe.Subscription;
 
     // Update subscription status
     await supabase
@@ -528,15 +533,17 @@ class WebhookService {
   /**
    * Handle charge succeeded
    */
-  private async handleChargeSucceeded(event: any): Promise<void> {
-    logger.info("Charge succeeded", { chargeId: event.data.object.id });
+  private async handleChargeSucceeded(event: Stripe.Event): Promise<void> {
+    const charge = event.data.object as Stripe.Charge;
+    logger.info("Charge succeeded", { chargeId: charge.id });
   }
 
   /**
    * Handle charge failed
    */
-  private async handleChargeFailed(event: any): Promise<void> {
-    logger.warn("Charge failed", { chargeId: event.data.object.id });
+  private async handleChargeFailed(event: Stripe.Event): Promise<void> {
+    const charge = event.data.object as Stripe.Charge;
+    logger.warn("Charge failed", { chargeId: charge.id });
   }
 
   /**

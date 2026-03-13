@@ -30,8 +30,8 @@ async function auditDecision(
 ): Promise<void> {
   await securityAuditService.logRequestEvent({
     requestId: (req as any).id ?? `billing-enforcement-${Date.now()}`,
-    userId: (req as any).user?.id,
-    actor: (req as any).user?.id ?? "system",
+    userId: req.user?.id,
+    actor: req.user?.id ?? "system",
     action: `billing_access_${decision}`,
     resource: "tenant_billing_enforcement",
     requestPath: req.originalUrl,
@@ -57,7 +57,7 @@ export function createBillingAccessEnforcement(
       return next();
     }
 
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId || !supabase) {
       return next();
     }

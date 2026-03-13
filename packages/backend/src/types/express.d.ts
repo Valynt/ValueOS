@@ -1,4 +1,5 @@
 import "express";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 declare global {
   namespace Express {
@@ -8,12 +9,35 @@ declare global {
         email?: string;
         roles?: string[];
         tenant_id?: string;
+        organization_id?: string;
+        sub?: string;
+        auth0_sub?: string;
+        subscription_tier?: string;
+        plan_tier?: string;
+        planTier?: string;
+        app_metadata?: { roles?: unknown; tier?: string };
+        user_metadata?: { full_name?: string; name?: string };
         [key: string]: unknown;
       };
       tenantId?: string;
+      tenantSource?: string;
+      tenantContext?: unknown;
+      tenantSettings?: {
+        billing?: { planTier?: string };
+        [key: string]: unknown;
+      };
       sessionId?: string;
+      session?: {
+        expires_at?: number;
+        expires_in?: number | string;
+        [key: string]: unknown;
+      };
       userId?: string;
       requestId?: string;
+      serviceIdentityVerified?: boolean;
+      useFallbackModel?: boolean;
+      supabase?: SupabaseClient;
+      supabaseUser?: unknown;
       usageContext?: {
         tenantId: string;
         userId?: string;
@@ -21,6 +45,8 @@ declare global {
         entitlementCheck: unknown;
         timestamp: string;
       };
+      organizationId?: string;
+      _auditMiddlewareAttached?: boolean;
     }
   }
 }

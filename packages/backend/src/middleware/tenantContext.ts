@@ -69,8 +69,8 @@ const buildRequestContext = (
   req: Request,
   userId?: string | null
 ): TCTPayload => {
-  const user = (req as any).user;
-  const session = (req as any).session;
+  const user = req.user;
+  const session = req.session;
   const roles = resolveRoles(user);
   const exp =
     (session?.expires_at as number | undefined) ??
@@ -97,7 +97,7 @@ export const tenantContextMiddleware = (enforce = true) => {
 
   return async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers["x-tenant-context"];
-    const userId = (req as any).user?.id as string | undefined;
+    const userId = req.user?.id;
     let tenantSource: TenantCandidateSource = "none";
     let resolvedTenantId: string | null = null;
     let tctPayload: TCTPayload | null = null;
@@ -107,7 +107,7 @@ export const tenantContextMiddleware = (enforce = true) => {
 
       try {
         tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as unknown as TCTPayload;
-        const requestTenantId = (req as any).tenantId as string | undefined;
+        const requestTenantId = req.tenantId;
 
         if (requestTenantId && tctPayload.tid !== requestTenantId) {
           logger.warn("Tenant context tenant mismatch", {
@@ -139,7 +139,7 @@ export const tenantContextMiddleware = (enforce = true) => {
     if (!resolvedTenantId) {
       const tenantHeader = req.header("x-tenant-id");
       if (tenantHeader) {
-        if (!(req as any).serviceIdentityVerified) {
+        if (!req.serviceIdentityVerified) {
           logger.warn("Blocked external tenant header usage", {
             userId,
             path: req.path,
@@ -154,7 +154,7 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
-    const claimTenantId = (req as any).user?.tenant_id || (req as any).user?.organization_id;
+    const claimTenantId = req.user?.tenant_id || req.user?.organization_id;
     if (!resolvedTenantId && claimTenantId) {
       resolvedTenantId = claimTenantId;
       tenantSource = "user-claim";
@@ -238,8 +238,8 @@ export const tenantContextMiddleware = (enforce = true) => {
     }
 
     const attachContext = () => {
-      (req as any).tenantId = resolvedTenantId;
-      (req as any).tenantSource = tenantSource;
+      req.tenantId = resolvedTenantId ?? undefined;
+      req.tenantSource = tenantSource;
       next();
     };
 
@@ -251,7 +251,7 @@ export const tenantContextMiddleware = (enforce = true) => {
     const sharedContext = { ...existingContext, tenantId: resolvedTenantId };
 
     tenantContextStorage.run(contextPayload, () => {
-      (req as any).tenantContext = contextPayload;
+      req.tenantContext = contextPayload;
       runWithContext(sharedContext, attachContext);
     });
   };
