@@ -192,11 +192,11 @@ Frontend hook
 
 | Integration | Status | Adapter location |
 |---|---|---|
-| HubSpot | ✅ implemented | `packages/integrations/src/hubspot/` |
-| Salesforce | ❌ empty stubs | `packages/integrations/src/salesforce/` |
-| ServiceNow | ❌ empty stubs | `packages/integrations/src/servicenow/` |
-| Slack | ❌ empty stubs | `packages/integrations/src/slack/` |
-| SharePoint | ❌ empty stubs | `packages/integrations/src/sharepoint/` |
+| HubSpot | ✅ implemented | `packages/integrations/hubspot/HubSpotAdapter.ts` |
+| Salesforce | ✅ implemented | `packages/integrations/salesforce/SalesforceAdapter.ts` — `SalesforceAdapter extends EnterpriseAdapter` |
+| ServiceNow | ❌ not started | — |
+| Slack | ✅ implemented | `packages/integrations/slack/SlackAdapter.ts` — `SlackAdapter extends EnterpriseAdapter` |
+| SharePoint | ✅ implemented | `packages/integrations/sharepoint/SharePointAdapter.ts` — `SharePointAdapter extends EnterpriseAdapter` |
 
 API: `GET|POST /api/integrations` → `integrationsRouter` (mounted in server.ts)  
 CRM: `GET|POST /api/crm` → `crmRouter` (mounted in server.ts)
@@ -214,6 +214,17 @@ CRM: `GET|POST /api/crm` → `crmRouter` (mounted in server.ts)
 `crm_connections` has a `token_key_version` column (indexed) that the re-encryption job filters on. After rotating `CRM_TOKEN_KEY_VERSION`, call the admin endpoint to re-encrypt existing rows. The job is idempotent and processes in batches of 50.
 
 ---
+
+## Cross-cutting: Tenant Context
+
+| Layer | File | Notes |
+|---|---|---|
+| API endpoint | `POST /api/v1/tenant/context` | `tenantContextRouter` mounted in `server.ts` (Sprint 34) |
+| Router | `packages/backend/src/api/tenantContext.ts` | Zod-validated, tenant-scoped, `admin:settings` permission required |
+| Settings page | `apps/ValyntApp/src/pages/settings/TenantContextPage.tsx` | Form: products, ICPs, competitors, personas, websiteUrl |
+| Settings nav | `apps/ValyntApp/src/pages/settings/SettingsLayout.tsx` | "Company Context" tab added Sprint 34 |
+| Route | `apps/ValyntApp/src/app/routes/index.tsx` | `/settings/tenant-context` (lazy, both route trees) |
+| User story | US-007 | ✅ delivered Sprint 34 |
 
 ## Frontend Component → Route Map
 

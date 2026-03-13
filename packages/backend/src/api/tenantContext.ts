@@ -79,4 +79,4 @@ router.get(
   },
 );
 
-export default router;
+export { router as tenantContextRouter };

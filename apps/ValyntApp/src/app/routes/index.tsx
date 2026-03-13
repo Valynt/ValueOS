@@ -41,6 +41,7 @@ const TeamSettings = lazy(() => import("@pages/settings/TeamSettings"));
 const BillingSettings = lazy(() => import("@pages/settings/BillingSettings"));
 const IntegrationsPage = lazy(() => import("@pages/settings/IntegrationsPage"));
 const BrandingPage = lazy(() => import("@pages/settings/BrandingPage"));
+const TenantContextPage = lazy(() => import("@pages/settings/TenantContextPage").then((m) => ({ default: m.TenantContextPage })));
 
 // Billing
 const BillingPage = lazy(() => import("@pages/billing/BillingPage"));
@@ -112,6 +113,7 @@ export function AppRoutes() {
               <Route path="team" element={<TeamSettings />} />
               <Route path="branding" element={<BrandingPage />} />
               <Route path="integrations" element={<IntegrationsPage />} />
+              <Route path="tenant-context" element={<TenantContextPage />} />
             </Route>
             <Route path="settings" element={<ValueOSHome />} />
           </Route>
@@ -138,6 +140,7 @@ export function AppRoutes() {
               <Route path="team" element={<TeamSettings />} />
               <Route path="branding" element={<BrandingPage />} />
               <Route path="integrations" element={<IntegrationsPage />} />
+              <Route path="tenant-context" element={<TenantContextPage />} />
             </Route>
 
             {/* Billing */}
