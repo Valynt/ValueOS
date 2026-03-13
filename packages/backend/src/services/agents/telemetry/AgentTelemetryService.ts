@@ -8,13 +8,50 @@ type TelemetrySeverity = "debug" | "info" | "warning" | "error";
 type TelemetryEvent = {
   type: string;
   agentType: AgentType;
+  organizationId?: string;
   sessionId?: string;
   userId?: string;
   data?: Record<string, unknown>;
   severity?: TelemetrySeverity;
 };
 
-class AgentTelemetryService {
+type MetricOutcome = "success" | "failure" | "timeout" | "fallback" | "retry" | "unknown";
+
+type MetricAttributes = Record<string, string>;
+
+const AGENT_TYPE_ALLOWLIST = new Set<string>([...AgentType, "system", "unknown"]);
+
+const EVENT_TYPE_ALLOWLIST = new Set<string>([
+  "agent_execution_complete",
+  "agent_execution_error",
+  "agent_execution_timeout",
+  "agent_retry_success",
+  "agent_retry_failure",
+  "agent_fallback_success",
+  "agent_fallback_parallel_success",
+  "agent_security_violation",
+  "agent_fabric_global_rate_limit",
+]);
+
+const SEVERITY_ALLOWLIST = new Set<TelemetrySeverity | "unknown">([
+  "debug",
+  "info",
+  "warning",
+  "error",
+  "unknown",
+]);
+
+const OUTCOME_ALLOWLIST = new Set<MetricOutcome>([
+  "success",
+  "failure",
+  "timeout",
+  "fallback",
+  "retry",
+  "unknown",
+]);
+
+export class AgentTelemetryService {
+  private static readonly TENANT_BUCKET_COUNT = 64;
   private meter = metrics.getMeter("agent-fabric");
   private executionSuccessCounter: Counter = this.meter.createCounter(
     "agent_fabric_execution_success_total",
@@ -72,9 +109,10 @@ class AgentTelemetryService {
   }
 
   private recordMetrics(event: TelemetryEvent): void {
+    const attributes = this.buildMetricAttributes(event);
     const durationSeconds = this.getDurationSeconds(event.data);
     if (durationSeconds !== undefined) {
-      this.executionDurationHistogram.record(durationSeconds);
+      this.executionDurationHistogram.record(durationSeconds, attributes);
     }
 
     const successEventTypes = new Set([
@@ -90,25 +128,25 @@ class AgentTelemetryService {
     ]);
 
     if (successEventTypes.has(event.type)) {
-      this.executionSuccessCounter.add(1);
+      this.executionSuccessCounter.add(1, attributes);
     }
 
     if (failureEventTypes.has(event.type)) {
-      this.executionFailureCounter.add(1);
+      this.executionFailureCounter.add(1, attributes);
     }
 
     if (event.type.includes("security") || event.type === "agent_security_violation") {
-      this.securityEventsCounter.add(1);
+      this.securityEventsCounter.add(1, attributes);
     }
 
     const tokenUsage = this.getNumber(event.data, ["tokenUsage", "tokens", "tokenCount"]);
     if (tokenUsage !== undefined) {
-      this.tokenUsageCounter.add(tokenUsage);
+      this.tokenUsageCounter.add(tokenUsage, attributes);
     }
 
     const costUsd = this.getNumber(event.data, ["costUsd", "cost", "costUSD"]);
     if (costUsd !== undefined) {
-      this.costCounter.add(costUsd);
+      this.costCounter.add(costUsd, attributes);
     }
 
     const valueGeneratedUsd = this.getNumber(event.data, [
@@ -117,8 +155,86 @@ class AgentTelemetryService {
       "valueGenerated",
     ]);
     if (valueGeneratedUsd !== undefined) {
-      this.valueGeneratedCounter.add(valueGeneratedUsd);
+      this.valueGeneratedCounter.add(valueGeneratedUsd, attributes);
     }
+  }
+
+  private buildMetricAttributes(event: TelemetryEvent): MetricAttributes {
+    const eventType = EVENT_TYPE_ALLOWLIST.has(event.type) ? event.type : "other";
+    const agentType = AGENT_TYPE_ALLOWLIST.has(event.agentType) ? event.agentType : "unknown";
+    const severity = SEVERITY_ALLOWLIST.has(event.severity ?? "unknown")
+      ? (event.severity ?? "unknown")
+      : "unknown";
+    const outcome = this.getOutcome(eventType);
+
+    const attributes: MetricAttributes = {
+      agent_type: agentType,
+      event_type: eventType,
+      severity,
+      outcome,
+    };
+
+    const organizationId = this.getOrganizationId(event);
+    if (organizationId) {
+      if (event.data?.allowOrgIdDimension === true) {
+        attributes.organization_id = this.sanitizeOrganizationId(organizationId);
+      } else {
+        attributes.tenant_bucket = this.toTenantBucket(organizationId);
+      }
+    }
+
+    return attributes;
+  }
+
+  private getOutcome(eventType: string): MetricOutcome {
+    if (eventType.includes("timeout")) {
+      return "timeout";
+    }
+    if (eventType.includes("failure") || eventType.includes("error")) {
+      return "failure";
+    }
+    if (eventType.includes("fallback")) {
+      return "fallback";
+    }
+    if (eventType.includes("retry")) {
+      return "retry";
+    }
+    if (eventType.includes("complete") || eventType.includes("success")) {
+      return "success";
+    }
+    return OUTCOME_ALLOWLIST.has("unknown") ? "unknown" : "failure";
+  }
+
+  private getOrganizationId(event: TelemetryEvent): string | undefined {
+    if (typeof event.organizationId === "string" && event.organizationId.length > 0) {
+      return event.organizationId;
+    }
+
+    const metadataOrganizationId = event.data?.organizationId;
+    if (typeof metadataOrganizationId === "string" && metadataOrganizationId.length > 0) {
+      return metadataOrganizationId;
+    }
+
+    const metadataTenantId = event.data?.tenantId;
+    if (typeof metadataTenantId === "string" && metadataTenantId.length > 0) {
+      return metadataTenantId;
+    }
+
+    return undefined;
+  }
+
+  private sanitizeOrganizationId(organizationId: string): string {
+    return /^[a-zA-Z0-9_-]{1,64}$/.test(organizationId) ? organizationId : "redacted";
+  }
+
+  private toTenantBucket(organizationId: string): string {
+    let hash = 0;
+    for (let i = 0; i < organizationId.length; i++) {
+      hash = (hash * 31 + organizationId.charCodeAt(i)) | 0;
+    }
+
+    const bucket = Math.abs(hash) % AgentTelemetryService.TENANT_BUCKET_COUNT;
+    return `tb_${bucket.toString().padStart(2, "0")}`;
   }
 
   private getDurationSeconds(data?: Record<string, unknown>): number | undefined {
