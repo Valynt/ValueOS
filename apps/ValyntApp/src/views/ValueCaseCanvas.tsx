@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Clock,
+  Download,
   Layers,
   Play,
   RotateCcw,
@@ -21,6 +22,7 @@ import { RealizationStage } from "./canvas/RealizationStage";
 
 import type { AgentJobResult } from "@/hooks/useAgentJob";
 import { useCase } from "@/hooks/useCases";
+import { usePptxExport } from "@/hooks/useCaseExport";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +52,7 @@ export default function ValueCaseCanvas() {
   };
   const { data: merged } = useMergedContext(caseId);
   const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
+  const pptxExport = usePptxExport(caseId);
 
   const caseTitle = caseLoading
     ? null
@@ -116,6 +119,17 @@ export default function ValueCaseCanvas() {
         >
           <Shield className="w-3.5 h-3.5" />
           Evidence
+        </button>
+
+        {/* Export PPTX */}
+        <button
+          onClick={() => pptxExport.mutate({ title: caseTitle ?? undefined })}
+          disabled={pptxExport.isPending}
+          className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded-xl text-[12px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Export as PowerPoint"
+        >
+          <Download className="w-3.5 h-3.5" />
+          {pptxExport.isPending ? "Exporting…" : "Export"}
         </button>
 
         {/* Run stage */}

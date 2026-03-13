@@ -27,6 +27,9 @@ import {
   toDecimalArray,
 } from '../../../domain/economic-kernel/economic_kernel.js';
 import { FinancialModelSnapshotRepository } from '../../../repositories/FinancialModelSnapshotRepository.js';
+import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
+import { createServerSupabaseClient } from '../../supabase.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -115,6 +118,18 @@ interface ComputedModel {
 // ---------------------------------------------------------------------------
 // Agent
 // ---------------------------------------------------------------------------
+
+// Module-level singleton — per ADR-0011.
+let _provenanceTracker: ProvenanceTracker | null = null;
+function getProvenanceTracker(): ProvenanceTracker {
+  if (!_provenanceTracker) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = createServerSupabaseClient() as any;
+    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    _provenanceTracker = new ProvenanceTracker(store);
+  }
+  return _provenanceTracker;
+}
 
 export class FinancialModelingAgent extends BaseAgent {
   async execute(context: LifecycleContext): Promise<AgentOutput> {
@@ -624,6 +639,24 @@ export class FinancialModelingAgent extends BaseAgent {
         organization_id: organizationId,
         model_count: models.length,
       });
+
+      // Record provenance for each financial model so the UI can trace every
+      // ROI/NPV figure back to the FinancialModelingAgent run that produced it.
+      const tracker = getProvenanceTracker();
+      await Promise.allSettled(
+        models.map((model) =>
+          tracker.record({
+            valueCaseId: caseId,
+            claimId: model.hypothesis_id,
+            dataSource: 'FinancialModelingAgent:financial_model_snapshot',
+            evidenceTier: 2, // Internal analysis — Tier 2 per EvidenceTiering classification
+            formula: `ROI=${model.roi?.toFixed(2)};NPV=${model.npv?.toFixed(0)};IRR=${model.irr?.toFixed(2) ?? 'n/a'}`,
+            agentId: this.name,
+            agentVersion: this.version,
+            confidenceScore: model.confidence,
+          }),
+        ),
+      );
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
       logger.error('FinancialModelingAgent: failed to persist snapshot', {

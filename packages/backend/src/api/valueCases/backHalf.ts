@@ -30,6 +30,17 @@ import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepos
 import { RealizationReportRepository } from '../../repositories/RealizationReportRepository.js';
 import { ExpansionOpportunityRepository } from '../../repositories/ExpansionOpportunityRepository.js';
 import { getPdfExportService } from '../../services/PdfExportService.js';
+import { getPptxExportService } from '../../services/export/PptxExportService.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { LLMGateway as FabricLLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
+import { MemorySystem as FabricMemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
+import { AuditLogger } from '../../lib/agent-fabric/AuditLogger.js';
+import {
+  ValueLifecycleOrchestrator,
+  type LifecycleContext as OrchestratorLifecycleContext,
+} from '../../services/post-v1/ValueLifecycleOrchestrator.js';
+import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { SupabaseProvenanceStore } from '../../services/workflows/SagaAdapters.js';
 import type { LifecycleContext, LifecycleStage } from '../../types/agent.js';
 
 // ---------------------------------------------------------------------------
@@ -357,5 +368,173 @@ backHalfRouter.post('/:id/export/pdf', ...auth, async (req: Request, res: Respon
     }
 
     return res.status(500).json({ success: false, error: 'PDF export failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/export/pptx — generate PowerPoint deck for a value case
+// ---------------------------------------------------------------------------
+
+const PptxExportBodySchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  ownerName: z.string().max(255).optional(),
+}).strict();
+
+backHalfRouter.post('/:id/export/pptx', ...auth, async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  const caseId = getCaseId(req);
+
+  if (!tenantId) {
+    return res.status(401).json({ success: false, error: 'Tenant context required' });
+  }
+  if (!caseId) {
+    return res.status(400).json({ success: false, error: 'Case ID required' });
+  }
+
+  const parsed = PptxExportBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, error: parsed.error.message });
+  }
+
+  const { title, ownerName } = parsed.data;
+
+  try {
+    const result = await getPptxExportService().exportValueCase({
+      organizationId: tenantId,
+      caseId,
+      title: title ?? `Value Case ${caseId}`,
+      ownerName,
+    });
+
+    logger.info('PPTX export completed', { caseId, tenantId, sizeBytes: result.sizeBytes });
+
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('PPTX export failed', { caseId, tenantId, error: message });
+
+    if (message.includes('pptxgenjs is not installed')) {
+      return res.status(501).json({
+        success: false,
+        error: 'PPTX generation not available in this environment',
+      });
+    }
+
+    return res.status(500).json({ success: false, error: 'PPTX export failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/provenance/:claimId — claim lineage chain
+// ---------------------------------------------------------------------------
+
+let _provenanceTracker: ProvenanceTracker | null = null;
+function getBackHalfProvenanceTracker(): ProvenanceTracker {
+  if (!_provenanceTracker) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = createServerSupabaseClient() as any;
+    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    _provenanceTracker = new ProvenanceTracker(store);
+  }
+  return _provenanceTracker;
+}
+
+backHalfRouter.get('/:id/provenance/:claimId', ...auth, async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  const caseId = getCaseId(req);
+  const { claimId } = req.params as { claimId: string };
+
+  if (!tenantId) {
+    return res.status(401).json({ success: false, error: 'Tenant context required' });
+  }
+  if (!caseId || !claimId) {
+    return res.status(400).json({ success: false, error: 'Case ID and claim ID required' });
+  }
+
+  try {
+    const tracker = getBackHalfProvenanceTracker();
+    const chains = await tracker.getLineage(caseId, claimId);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        caseId,
+        claimId,
+        chains,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('provenance lookup failed', { caseId, claimId, tenantId, error: message });
+    return res.status(500).json({ success: false, error: 'Provenance lookup failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/run-loop — trigger the hypothesis-first core loop
+// ---------------------------------------------------------------------------
+
+let _orchestrator: ValueLifecycleOrchestrator | null = null;
+function getOrchestrator(): ValueLifecycleOrchestrator {
+  if (!_orchestrator) {
+    _orchestrator = new ValueLifecycleOrchestrator(
+      createServerSupabaseClient(),
+      new FabricLLMGateway({ provider: 'openai', model: 'gpt-4o-mini' }),
+      new FabricMemorySystem(
+        { max_memories: 1000, enable_persistence: true },
+        new SupabaseMemoryBackend(),
+      ),
+      new AuditLogger(),
+    );
+  }
+  return _orchestrator;
+}
+
+backHalfRouter.post('/:id/run-loop', ...auth, async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  const caseId = getCaseId(req);
+  const userId = (req as AuthenticatedRequest).user?.id ?? 'unknown';
+  const sessionId = uuidv4();
+
+  if (!tenantId) {
+    return res.status(401).json({ success: false, error: 'Tenant context required' });
+  }
+  if (!caseId) {
+    return res.status(400).json({ success: false, error: 'Case ID required' });
+  }
+
+  const context: OrchestratorLifecycleContext = {
+    sessionId,
+    organizationId: tenantId,
+    tenantId,
+    userId,
+    metadata: { caseId },
+  };
+
+  logger.info('run-loop triggered', { caseId, tenantId, userId, sessionId });
+
+  try {
+    const result = await getOrchestrator().runHypothesisLoop(caseId, context);
+
+    logger.info('run-loop completed', {
+      caseId,
+      tenantId,
+      success: result.success,
+      finalState: result.finalState,
+    });
+
+    return res.status(result.success ? 200 : 422).json({
+      success: result.success,
+      data: {
+        caseId,
+        finalState: result.finalState,
+        sessionId,
+      },
+      error: result.error,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('run-loop fatal error', { caseId, tenantId, error: message });
+    return res.status(500).json({ success: false, error: 'Hypothesis loop failed' });
   }
 });
