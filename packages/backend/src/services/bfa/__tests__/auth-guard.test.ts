@@ -1,71 +1,66 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
+import { AuthGuard } from "../auth-guard.js";
+import { toolRegistry } from "../registry.js";
+import {
+  AuthorizationError,
+  type AgentContext,
+  type SemanticTool,
+} from "../types.js";
 
-import { resetAgentPolicyServiceForTests } from '../../policy/AgentPolicyService.js';
-import { AuthorizationError, type AgentContext, type SemanticTool } from '../types.js';
-import { toolRegistry } from '../registry.js';
-import { AuthGuard } from '../auth-guard.js';
-
-function setupPolicies() {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'bfa-auth-guard-test-'));
-  writeFileSync(
-    path.join(dir, 'default.json'),
-    JSON.stringify({
-      version: 'test-v1',
-      agent: 'default',
-      allowedModels: ['gpt-4o-mini'],
-      allowedTools: ['allowed_tool'],
-      maxTokens: 100,
-      maxCostUsd: 1,
-    }),
-  );
-  process.env.AGENT_POLICY_DIR = dir;
-  resetAgentPolicyServiceForTests();
+interface TestInput {
+  value: string;
+}
+interface TestOutput {
+  ok: boolean;
 }
 
-describe('AuthGuard', () => {
+const baseContext: AgentContext = {
+  userId: "user-1",
+  tenantId: "tenant-1",
+  sessionId: "session-1",
+  permissions: [],
+  requestTime: new Date(),
+};
+
+describe("AuthGuard negative authorization paths", () => {
   beforeEach(() => {
-    setupPolicies();
+    (
+      toolRegistry as unknown as {
+        tools: Map<string, unknown>;
+        toolMetadata: Map<string, unknown>;
+      }
+    ).tools.clear();
+    (
+      toolRegistry as unknown as {
+        tools: Map<string, unknown>;
+        toolMetadata: Map<string, unknown>;
+      }
+    ).toolMetadata.clear();
   });
 
-  afterEach(() => {
-    delete process.env.AGENT_POLICY_DIR;
-    resetAgentPolicyServiceForTests();
-    vi.restoreAllMocks();
-  });
+  it("blocks unauthorized execution before tool side effects run", async () => {
+    const executeSpy = vi
+      .fn<SemanticTool<TestInput, TestOutput>["execute"]>()
+      .mockResolvedValue({ ok: true });
 
-  it('blocks unauthorized tool execution before business logic runs', async () => {
-    const executeBusinessLogic = vi.fn().mockResolvedValue({ ok: true });
-    const tool: SemanticTool<{ input: string }, { ok: boolean }> = {
-      id: `activate_customer_${Date.now()}`,
-      description: 'activates customer',
-      inputSchema: z.object({ input: z.string() }),
-      outputSchema: z.object({ ok: z.boolean() }),
+    toolRegistry.register<TestInput, TestOutput>({
+      id: "secure-tool",
+      description: "secure",
+      inputSchema: { parse: (input: TestInput) => input } as never,
+      outputSchema: { parse: (output: TestOutput) => output } as never,
       policy: {
-        resource: 'customer',
-        action: 'activate',
-        requiredPermissions: ['customer:activate'],
+        resource: "secure_resource",
+        action: "execute",
+        requiredPermissions: ["tool:execute:secure"],
       },
-      execute: executeBusinessLogic,
-    };
+      execute: executeSpy,
+    });
 
-    toolRegistry.register(tool);
-    const toolId = tool.id;
+    await expect(
+      AuthGuard.executeWithAuth("secure-tool", { value: "test" }, baseContext)
+    ).rejects.toBeInstanceOf(AuthorizationError);
 
-    const context: AgentContext = {
-      userId: 'user-1',
-      tenantId: 'tenant-1',
-      permissions: [],
-      requestTime: new Date(),
-    };
-
-    await expect(AuthGuard.executeWithAuth(toolId, { input: 'x' }, context)).rejects.toBeInstanceOf(
-      AuthorizationError,
-    );
-    expect(executeBusinessLogic).not.toHaveBeenCalled();
+    expect(executeSpy).not.toHaveBeenCalled();
   });
 });

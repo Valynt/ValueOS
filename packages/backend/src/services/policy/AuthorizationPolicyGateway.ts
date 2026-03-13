@@ -1,187 +1,187 @@
-import { createHash } from 'node:crypto';
+import { createHash } from "node:crypto";
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
-import { getAgentPolicyService } from './AgentPolicyService.js';
-import { PolicyEnforcementError, type PolicyErrorCode } from './PolicyEnforcement.js';
+import {
+  enforceToolPolicy,
+  PolicyEnforcementError,
+  recordPolicyAuditEvent,
+} from "./PolicyEnforcement.js";
 
-export type AuthorizationDomain = 'tool_execution' | 'bfa_tool_execution' | 'agent_side_effect';
+export type AuthorizationChannel =
+  | "tool_registry"
+  | "bfa_auth_guard"
+  | "runtime_orchestration";
 
-export interface AuthorizationRequest {
-  domain: AuthorizationDomain;
-  action: string;
-  resource: string;
-  agentType?: string;
-  actorId?: string;
-  actorPermissions?: readonly string[];
-  requiredPermissions?: readonly string[];
+export interface AuthorizationSubject {
+  userId?: string;
   tenantId?: string;
-  traceId?: string;
-  invocationId?: string;
-  metadata?: Record<string, unknown>;
+  organizationId?: string;
+  sessionId?: string;
+  agentType?: string;
 }
 
 export interface AuthorizationDecision {
-  decisionId: string;
   allowed: boolean;
-  reason: string;
+  decisionId: string;
   policyVersion: string;
-  code?: PolicyErrorCode;
+  reason?: string;
 }
 
-export interface AuthorizationPolicyGateway {
-  authorize(request: AuthorizationRequest): AuthorizationDecision;
+export interface AuthorizationRequest {
+  channel: AuthorizationChannel;
+  action: string;
+  resource: string;
+  subject: AuthorizationSubject;
+  mode?: "tool_policy" | "custom";
+  policyVersion?: string;
+  metadata?: Record<string, unknown>;
 }
 
-class DefaultAuthorizationPolicyGateway implements AuthorizationPolicyGateway {
-  authorize(request: AuthorizationRequest): AuthorizationDecision {
-    const policyVersion = getAgentPolicyService().getPolicyVersion(request.agentType);
-    const decisionId = this.createDecisionId(request);
+interface DecisionContext {
+  request: AuthorizationRequest;
+  policyVersion: string;
+}
 
-    if (request.domain === 'bfa_tool_execution') {
-      return this.evaluatePermissionDecision(request, policyVersion, decisionId);
+export type DecisionValidator = (context: DecisionContext) => void;
+
+export class AuthorizationPolicyGateway {
+  authorize(
+    request: AuthorizationRequest,
+    validator?: DecisionValidator
+  ): AuthorizationDecision {
+    const policyVersion =
+      request.mode === "custom"
+        ? (request.policyVersion ?? "custom")
+        : enforceToolPolicy(request.subject.agentType, request.resource)
+            .policyVersion;
+    const decisionId = this.createDecisionId(request, policyVersion);
+
+    try {
+      validator?.({ request, policyVersion });
+
+      const decision: AuthorizationDecision = {
+        allowed: true,
+        decisionId,
+        policyVersion,
+      };
+
+      this.logDecision("policy.decision.allowed", decision, request);
+      return decision;
+    } catch (error) {
+      if (error instanceof PolicyEnforcementError) {
+        this.logDeniedDecision(
+          decisionId,
+          request,
+          policyVersion,
+          error.code,
+          error.message
+        );
+      }
+      throw error;
     }
-
-    return this.evaluateAgentPolicyDecision(request, policyVersion, decisionId);
   }
 
-  private evaluatePermissionDecision(
+  deny(
     request: AuthorizationRequest,
     policyVersion: string,
-    decisionId: string,
-  ): AuthorizationDecision {
-    const requiredPermissions = request.requiredPermissions ?? [];
-    const actorPermissions = new Set(request.actorPermissions ?? []);
-    const missingPermissions = requiredPermissions.filter((permission) => !actorPermissions.has(permission));
-
-    if (missingPermissions.length > 0) {
-      const decision: AuthorizationDecision = {
-        decisionId,
-        allowed: false,
-        reason: `Missing required permissions: ${missingPermissions.join(', ')}`,
-        policyVersion,
-        code: 'TOOL_DENIED',
-      };
-      this.logDecision(request, decision, { missingPermissions });
-      return decision;
-    }
-
-    const decision: AuthorizationDecision = {
+    reason: string,
+    details?: Record<string, unknown>
+  ): never {
+    const decisionId = this.createDecisionId(request, policyVersion);
+    this.logDeniedDecision(
       decisionId,
-      allowed: true,
-      reason: 'Allowed by permission policy',
+      request,
       policyVersion,
-    };
-    this.logDecision(request, decision);
-    return decision;
+      "TOOL_DENIED",
+      reason,
+      details
+    );
+    throw new PolicyEnforcementError("TOOL_DENIED", reason, {
+      ...details,
+      decisionId,
+      policyVersion,
+      channel: request.channel,
+      action: request.action,
+      resource: request.resource,
+    });
   }
 
-  private evaluateAgentPolicyDecision(
+  private logDeniedDecision(
+    decisionId: string,
     request: AuthorizationRequest,
     policyVersion: string,
-    decisionId: string,
-  ): AuthorizationDecision {
-    const policy = getAgentPolicyService().getPolicy(request.agentType);
-
-    if (!policy.allowedTools.includes(request.resource)) {
-      const decision: AuthorizationDecision = {
-        decisionId,
-        allowed: false,
-        reason: `Resource '${request.resource}' is not permitted for agent '${request.agentType ?? 'default'}'`,
-        policyVersion,
-        code: 'TOOL_DENIED',
-      };
-      this.logDecision(request, decision, { allowedTools: policy.allowedTools });
-      return decision;
-    }
-
-    const decision: AuthorizationDecision = {
+    code: string,
+    reason: string,
+    details?: Record<string, unknown>
+  ): void {
+    const metadata = {
+      ...request.metadata,
+      ...details,
       decisionId,
-      allowed: true,
-      reason: 'Allowed by agent policy',
-      policyVersion,
+      action: request.action,
+      resource: request.resource,
+      channel: request.channel,
+      reason,
+      code,
     };
-    this.logDecision(request, decision);
-    return decision;
-  }
 
-  private createDecisionId(request: AuthorizationRequest): string {
-    const material = [
-      request.invocationId ?? '',
-      request.traceId ?? '',
-      request.domain,
-      request.action,
-      request.resource,
-      request.agentType ?? 'default',
-      request.actorId ?? 'anonymous',
-      request.tenantId ?? 'unknown-tenant',
-    ].join('|');
+    recordPolicyAuditEvent({
+      eventType: "tool_denied",
+      agentType: request.subject.agentType ?? "default",
+      policyVersion,
+      metadata,
+    });
 
-    return createHash('sha256').update(material).digest('hex').slice(0, 16);
+    logger.warn("policy.decision.denied", {
+      decisionId,
+      channel: request.channel,
+      action: request.action,
+      resource: request.resource,
+      reason,
+      code,
+      policyVersion,
+      subject: request.subject,
+      metadata: request.metadata,
+    });
   }
 
   private logDecision(
-    request: AuthorizationRequest,
+    event: string,
     decision: AuthorizationDecision,
-    extra: Record<string, unknown> = {},
+    request: AuthorizationRequest
   ): void {
-    const payload = {
+    logger.info(event, {
       decisionId: decision.decisionId,
-      allowed: decision.allowed,
-      domain: request.domain,
+      policyVersion: decision.policyVersion,
+      channel: request.channel,
       action: request.action,
       resource: request.resource,
-      agentType: request.agentType ?? 'default',
-      actorId: request.actorId,
-      tenantId: request.tenantId,
-      policyVersion: decision.policyVersion,
-      reason: decision.reason,
-      traceId: request.traceId,
-      ...extra,
-      ...(request.metadata ?? {}),
-    };
-
-    if (decision.allowed) {
-      logger.info('policy.decision', payload);
-      return;
-    }
-
-    logger.warn('policy.decision', payload);
+      subject: request.subject,
+      metadata: request.metadata,
+    });
   }
-}
 
-let authorizationPolicyGateway: AuthorizationPolicyGateway = new DefaultAuthorizationPolicyGateway();
-
-export function getAuthorizationPolicyGateway(): AuthorizationPolicyGateway {
-  return authorizationPolicyGateway;
-}
-
-export function setAuthorizationPolicyGatewayForTests(gateway: AuthorizationPolicyGateway): void {
-  authorizationPolicyGateway = gateway;
-}
-
-export function resetAuthorizationPolicyGatewayForTests(): void {
-  authorizationPolicyGateway = new DefaultAuthorizationPolicyGateway();
-}
-
-export function assertAuthorized(request: AuthorizationRequest): AuthorizationDecision {
-  const decision = getAuthorizationPolicyGateway().authorize(request);
-
-  if (!decision.allowed) {
-    throw new PolicyEnforcementError(
-      decision.code ?? 'TOOL_DENIED',
-      decision.reason,
-      {
-        decisionId: decision.decisionId,
-        policyVersion: decision.policyVersion,
-        domain: request.domain,
+  private createDecisionId(
+    request: AuthorizationRequest,
+    policyVersion: string
+  ): string {
+    const hash = createHash("sha256");
+    hash.update(
+      JSON.stringify({
+        channel: request.channel,
         action: request.action,
         resource: request.resource,
-        agentType: request.agentType,
-        traceId: request.traceId,
-      },
+        subject: request.subject,
+        policyVersion,
+        traceId: request.metadata?.traceId,
+        requestId: request.metadata?.requestId,
+        sessionId: request.subject.sessionId,
+      })
     );
-  }
 
-  return decision;
+    return `dec_${hash.digest("hex").slice(0, 16)}`;
+  }
 }
+
+export const authorizationPolicyGateway = new AuthorizationPolicyGateway();
