@@ -68,16 +68,16 @@ data:
             expr: |
               (1 - slo:api_availability:ratio_rate1h) / (1 - slo:target:api_availability)
 
-          # API latency SLI (P95 under 300ms)
+          # API latency SLI (P95 under 0.2s)
           - record: slo:api_latency:good_rate5m
             expr: |
-              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[5m]))
+              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.2"}[5m]))
               /
               sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[5m]))
 
           - record: slo:api_latency:good_rate1h
             expr: |
-              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[1h]))
+              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.2"}[1h]))
               /
               sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[1h]))
 

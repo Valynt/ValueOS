@@ -14,7 +14,7 @@ groups:
           slo: availability
         annotations:
           summary: "Fast burn: API availability SLO breach"
-          description: "5xx error ratio is above 1% for 10m, consuming error budget too quickly."
+          description: "5xx error ratio is above 1.00% for 10m, consuming error budget too quickly."
 
       - alert: APIAvailabilitySlowBurn
         expr: |
@@ -28,7 +28,7 @@ groups:
           slo: availability
         annotations:
           summary: "Slow burn: API availability SLO at risk"
-          description: "5xx error ratio is above 0.1% for 1h (below 99.9% availability objective)."
+          description: "5xx error ratio is above 0.10% for 1h (below 99.9% availability objective)."
 
   - name: api-slo-latency
     rules:
