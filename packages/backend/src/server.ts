@@ -56,7 +56,10 @@ import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
-import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
+import {
+  mcpDiscoveryRouter,
+  serveMcpCapabilitiesDocument,
+} from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
@@ -84,16 +87,17 @@ import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
-import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
-import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
-import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
+import {
+  assertDevRoutesConfiguration,
+  registerDevRoutes,
+} from "./routes/devRoutes.js";
+import { getAgentPolicyService } from "./services/policy/AgentPolicyService.js";
+import {
+  getBroadcastAdapter,
+  initBroadcastAdapter,
+} from "./services/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
-import { getSecurityAnomalyScheduler } from "./services/security/SecurityAnomalyService.js";
-
-// Bootstrap OTel SDK before any instrumented libraries are imported.
-// startTracing() is a no-op when ENABLE_TELEMETRY=false or on failure.
-import { startTracing, stopTracing } from "./observability/tracing.js";
-await startTracing();
+import { markReleaseHealth } from "./observability/apm.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -115,9 +119,12 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
     metricsMiddleware = metricsModule.metricsMiddleware;
     getMetricsRegistry = metricsModule.getMetricsRegistry;
   } catch (error) {
-    logger.warn("Telemetry modules not available, running without observability", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn(
+      "Telemetry modules not available, running without observability",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      }
+    );
   }
 }
 
@@ -131,10 +138,19 @@ import {
   requestIdMiddleware,
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler";
-import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
-import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
+import {
+  serviceIdentityMiddleware,
+  validateServiceIdentityConfig,
+} from "./middleware/serviceIdentityMiddleware.js";
+import {
+  cspReportHandler,
+  securityHeadersMiddleware,
+} from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
-import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
+import {
+  csrfProtectionMiddleware,
+  csrfTokenMiddleware,
+} from "./middleware/securityMiddleware.js";
 import {
   extractTenantId,
   requireAuth,
@@ -154,41 +170,20 @@ import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 
 getAgentPolicyService();
-logger.info('[Instrumentation] Agent policy validation passed');
+logger.info("[Instrumentation] Agent policy validation passed");
 
 const app = express();
-// Security anomaly scheduler is started once the HTTP server begins listening.
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
 // Using `true` trusts all X-Forwarded-* headers, allowing IP spoofing.
 app.set("trust proxy", 1);
 
 const server = createServer(app);
-
-let securityAnomalyInterval: ReturnType<typeof setInterval> | null = null;
-
-server.once("listening", () => {
-  const scheduler = getSecurityAnomalyScheduler();
-  securityAnomalyInterval = scheduler.start();
-  if (securityAnomalyInterval && typeof (securityAnomalyInterval as unknown as { unref?: () => void }).unref === "function") {
-    (securityAnomalyInterval as unknown as { unref?: () => void }).unref!();
-  }
-});
-
-server.on("close", () => {
-  const scheduler = getSecurityAnomalyScheduler();
-  scheduler.stop();
-  if (securityAnomalyInterval) {
-    clearInterval(securityAnomalyInterval);
-    securityAnomalyInterval = null;
-  }
-});
-
 const wss = new WebSocketServer({ server, path: "/ws/sdui" });
 const PORT = settings.API_PORT;
 const apiRouter = createVersionedApiRouter();
 const agentExecutionLimiter = createRateLimiter("strict", {
   message: "Too many agent calls. Please wait before trying again.",
-  skip: (req) => req.method === "GET",
+  skip: req => req.method === "GET",
 });
 
 const billingAccessEnforcement = createBillingAccessEnforcement();
@@ -198,24 +193,30 @@ const agentsConcurrencyGuard = createConcurrencyBackpressure("/api/agents", {
   queueTimeoutMs: 12000,
   retryAfterSeconds: 2,
 });
-const groundtruthConcurrencyGuard = createConcurrencyBackpressure("/api/groundtruth", {
-  maxInFlight: 12,
-  maxQueueDepth: 60,
-  queueTimeoutMs: 10000,
-  retryAfterSeconds: 2,
-});
+const groundtruthConcurrencyGuard = createConcurrencyBackpressure(
+  "/api/groundtruth",
+  {
+    maxInFlight: 12,
+    maxQueueDepth: 60,
+    queueTimeoutMs: 10000,
+    retryAfterSeconds: 2,
+  }
+);
 const llmConcurrencyGuard = createConcurrencyBackpressure("/api/llm", {
   maxInFlight: 16,
   maxQueueDepth: 64,
   queueTimeoutMs: 8000,
   retryAfterSeconds: 1,
 });
-const onboardingConcurrencyGuard = createConcurrencyBackpressure("/api/onboarding", {
-  maxInFlight: 10,
-  maxQueueDepth: 40,
-  queueTimeoutMs: 15000,
-  retryAfterSeconds: 3,
-});
+const onboardingConcurrencyGuard = createConcurrencyBackpressure(
+  "/api/onboarding",
+  {
+    maxInFlight: 10,
+    maxQueueDepth: 40,
+    queueTimeoutMs: 15000,
+    retryAfterSeconds: 3,
+  }
+);
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -249,7 +250,10 @@ function getRequestedTenantId(req: IncomingMessage): string | null {
   );
 }
 
-async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promise<void> {
+async function authenticateWebSocket(
+  ws: WebSocket,
+  req: IncomingMessage
+): Promise<void> {
   const clientIp = req.socket.remoteAddress;
   const token = getWebSocketToken(req);
 
@@ -281,7 +285,10 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   if (!tenantId) {
     const requestedTenantId = getRequestedTenantId(req);
     if (requestedTenantId) {
-      const hasAccess = await tenantResolver.hasTenantAccess(userId, requestedTenantId);
+      const hasAccess = await tenantResolver.hasTenantAccess(
+        userId,
+        requestedTenantId
+      );
       if (!hasAccess) {
         logger.warn("WebSocket authentication failed: tenant access denied", {
           clientIp,
@@ -321,7 +328,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
       switch (message.type) {
         case "sdui_update": {
           const senderTenantId = authedSocket.tenantId;
-          wss.clients.forEach((client) => {
+          wss.clients.forEach(client => {
             const recipient = client as AuthenticatedWebSocket;
             if (
               client !== ws &&
@@ -353,7 +360,10 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
           logger.warn("Unknown WebSocket message type", { type: message.type });
       }
     } catch (error) {
-      logger.error("Error handling WebSocket message", error instanceof Error ? error : undefined);
+      logger.error(
+        "Error handling WebSocket message",
+        error instanceof Error ? error : undefined
+      );
     }
   });
 
@@ -365,7 +375,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
     });
   });
 
-  ws.on("error", (error) => {
+  ws.on("error", error => {
     logger.error("WebSocket error", error instanceof Error ? error : undefined);
   });
 }
@@ -376,11 +386,14 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 // Middleware
-const corsOrigins = parseCorsAllowlist(settings.security.corsOrigins.join(","), {
-  source: "settings.security.corsOrigins",
-  credentials: true,
-  requireNonEmpty: true,
-});
+const corsOrigins = parseCorsAllowlist(
+  settings.security.corsOrigins.join(","),
+  {
+    source: "settings.security.corsOrigins",
+    credentials: true,
+    requireNonEmpty: true,
+  }
+);
 app.use(
   cors({
     origin: corsOrigins,
@@ -391,7 +404,10 @@ app.use(compression());
 // Preserve the raw body buffer for Stripe webhook signature verification.
 // All other routes receive the normal JSON-parsed body.
 // Parsers are instantiated once and reused across requests.
-const stripeRawParser = express.raw({ type: "application/json", limit: "256kb" });
+const stripeRawParser = express.raw({
+  type: "application/json",
+  limit: "256kb",
+});
 const jsonParser = express.json();
 app.use((req, _res, next) => {
   if (req.path.startsWith("/api/billing/webhooks")) {
@@ -424,7 +440,7 @@ if (latencyMetricsMiddleware) {
   app.use(latencyMetricsMiddleware());
 }
 
-app.use("/api", requestAuditMiddleware());
+app.use(requestAuditMiddleware());
 
 // Health check
 app.use(healthRouter);
@@ -452,7 +468,11 @@ if (typeof getLatencySnapshot === "function") {
   });
 }
 // CSP Reporting Endpoint
-app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
+app.post(
+  "/api/csp-report",
+  express.json({ type: "application/csp-report" }),
+  cspReportHandler
+);
 
 // Secret Health Check Endpoint
 app.get("/health/secrets", secretHealthMiddleware());
@@ -465,7 +485,12 @@ app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
 app.use("/api", rateLimiters.standard);
 
 apiRouter.use("/billing", billingRouter);
-apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
+apiRouter.use(
+  "/projects",
+  requireAuth,
+  tenantContextMiddleware(),
+  projectsRouter
+);
 apiRouter.use(
   "/initiatives",
   requireAuth,
@@ -534,7 +559,12 @@ app.use("/api/v1/cases", valueCasesRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
-app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
+app.use(
+  "/api/compliance/evidence",
+  requireAuth,
+  tenantContextMiddleware(),
+  complianceEvidenceRouter
+);
 
 // Mount checkpoint HITL endpoints
 // getCheckpointMiddleware() always returned null in the UAO facade; preserve that behaviour.
@@ -544,7 +574,7 @@ if (checkpointMiddleware) {
     "/api/checkpoints",
     requireAuth,
     tenantContextMiddleware(),
-    createCheckpointRouter(checkpointMiddleware),
+    createCheckpointRouter(checkpointMiddleware)
   );
 
   const approvalActionSecret = process.env.APPROVAL_ACTION_SECRET;
@@ -552,7 +582,7 @@ if (checkpointMiddleware) {
   if (!approvalActionSecret || !approvalWebhookSecret) {
     throw new Error(
       "APPROVAL_ACTION_SECRET and APPROVAL_WEBHOOK_SECRET must be set. " +
-      "These secrets protect approval webhook signatures and must not use defaults."
+        "These secrets protect approval webhook signatures and must not use defaults."
     );
   }
   const signer = new NotificationActionSigner({
@@ -563,7 +593,13 @@ if (checkpointMiddleware) {
     signer,
     checkpointMiddleware,
     webhookSigningSecret: approvalWebhookSecret,
-    transitionApprovalRequest: async ({ requestId, tenantId, approved, actorId, reason }) => {
+    transitionApprovalRequest: async ({
+      requestId,
+      tenantId,
+      approved,
+      actorId,
+      reason,
+    }) => {
       await supabaseClient
         .from("approval_requests")
         .update({
@@ -583,7 +619,10 @@ if (checkpointMiddleware) {
     },
   });
 
-  app.use("/api/approvals/webhooks", createApprovalWebhookRouter(webhookService));
+  app.use(
+    "/api/approvals/webhooks",
+    createApprovalWebhookRouter(webhookService)
+  );
 }
 
 await registerDevRoutes(app);
@@ -649,12 +688,18 @@ async function startServer(): Promise<void> {
   // 2.5. Initialise Sentry error tracking (no-op when DSN is absent)
   const sentryDsn = settings.VITE_SENTRY_DSN ?? process.env.SENTRY_DSN;
   if (sentryDsn) {
+    const releaseVersion =
+      process.env.VITE_RELEASE ??
+      process.env.GIT_SHA ??
+      process.env.npm_package_version ??
+      "dev";
     const { initSentry } = await import("./lib/sentry.js");
     initSentry({
       dsn: sentryDsn,
       environment: settings.NODE_ENV,
-      release: process.env.npm_package_version,
+      release: releaseVersion,
     });
+    markReleaseHealth(releaseVersion, settings.NODE_ENV);
   }
 
   // 3. Initialize infrastructure
@@ -663,7 +708,7 @@ async function startServer(): Promise<void> {
   await initializeSecretVolumeWatcher();
 
   if (secretVolumeWatcher) {
-    secretVolumeWatcher.on("reload-required", (event) => {
+    secretVolumeWatcher.on("reload-required", event => {
       logger.warn("Graceful shutdown initiated due to secret change", {
         secretKey: event.secretKey,
       });
@@ -701,28 +746,41 @@ async function startServer(): Promise<void> {
   if (settings.NODE_ENV === "development") {
     try {
       initResearchWorker();
-      logger.info("[Instrumentation] Research worker initialized (in-process, dev only)");
+      logger.info(
+        "[Instrumentation] Research worker initialized (in-process, dev only)"
+      );
     } catch (workerErr) {
-      logger.warn("[Instrumentation] Research worker failed to start:", { error: workerErr });
+      logger.warn("[Instrumentation] Research worker failed to start:", {
+        error: workerErr,
+      });
     }
 
     try {
       initCrmWorkers();
-      logger.info("[Instrumentation] CRM workers initialized (in-process, dev only)");
+      logger.info(
+        "[Instrumentation] CRM workers initialized (in-process, dev only)"
+      );
     } catch (workerErr) {
-      logger.warn("[Instrumentation] CRM workers failed to start:", { error: workerErr });
+      logger.warn("[Instrumentation] CRM workers failed to start:", {
+        error: workerErr,
+      });
     }
   } else {
-    logger.info("[Instrumentation] Workers run as separate process; skipping in-process init");
+    logger.info(
+      "[Instrumentation] Workers run as separate process; skipping in-process init"
+    );
   }
 
   server.listen(PORT, () => {
     logger.info(`[Instrumentation] Server listening on port ${PORT}`);
-    logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
-      url: `http://localhost:${PORT}`,
-      webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
-      healthCheck: `http://localhost:${PORT}/health`,
-    });
+    logger.info(
+      `Billing API server with WebSocket support running on port ${PORT}`,
+      {
+        url: `http://localhost:${PORT}`,
+        webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
+        healthCheck: `http://localhost:${PORT}/health`,
+      }
+    );
   });
 
   // 6. Start audit log DLQ retry loop
@@ -730,8 +788,10 @@ async function startServer(): Promise<void> {
 
   // 7. Start agent fabric DLQ monitor
   const fabricMonitor = new FabricMonitor();
-  fabricMonitor.startMonitoring().catch((err) => {
-    logger.warn("[Instrumentation] FabricMonitor failed to start", { error: err });
+  fabricMonitor.startMonitoring().catch(err => {
+    logger.warn("[Instrumentation] FabricMonitor failed to start", {
+      error: err,
+    });
   });
 
   // 7. Register graceful shutdown handlers
@@ -755,10 +815,7 @@ function registerGracefulShutdown(): void {
     // 1. Tell health check to return 503 so the load balancer stops sending traffic
     markAsShuttingDown();
 
-    // 2. Flush and shut down OTel SDK (best-effort, non-blocking)
-    stopTracing().catch(() => {});
-
-    // 2.1. Stop audit DLQ retry loop
+    // 2. Stop audit DLQ retry loop
     securityAuditService.stopRetryLoop();
 
     // 2.5. Stop RecommendationEngine subscriptions
@@ -768,10 +825,12 @@ function registerGracefulShutdown(): void {
     permissionService.destroy().catch(() => {});
 
     // 3. Tear down Redis pub/sub for WebSocket broadcasts
-    getBroadcastAdapter().shutdown().catch(() => {});
+    getBroadcastAdapter()
+      .shutdown()
+      .catch(() => {});
 
     // 4. Close WebSocket connections
-    wss.clients.forEach((client) => {
+    wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.close(1001, "Server shutting down");
       }
@@ -795,7 +854,9 @@ function registerGracefulShutdown(): void {
 }
 
 const isMainModule =
-  typeof require !== "undefined" && typeof module !== "undefined" && require.main === module;
+  typeof require !== "undefined" &&
+  typeof module !== "undefined" &&
+  require.main === module;
 
 // Start server when executed directly (or when running via tsx watch in development)
 if (isMainModule || settings.NODE_ENV === "development") {
@@ -824,9 +885,12 @@ function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
     getBroadcastAdapter().broadcast(tenantId, message);
   } catch {
     // Adapter not yet initialised (e.g. during tests) — fall back to local.
-    wss.clients.forEach((client) => {
+    wss.clients.forEach(client => {
       const authed = client as AuthenticatedWebSocket;
-      if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+      if (
+        authed.tenantId === tenantId &&
+        client.readyState === WebSocket.OPEN
+      ) {
         client.send(message);
       }
     });

@@ -4,4 +4,10 @@
  * Logging, metrics, tracing infrastructure.
  */
 
-export {};
+export const observabilityAssets = {
+  serviceDependencyMap:
+    "packages/infra/observability/serviceDependencyMap.json",
+  alerts: "packages/infra/observability/alerts.json",
+  releaseHealthDashboard:
+    "packages/infra/observability/releaseHealthDashboard.json",
+} as const;
