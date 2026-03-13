@@ -6,6 +6,7 @@
 import { logger } from "../../lib/logger";
 
 import { getConfig, loadConfig } from "@/app/config/env";
+import { trackFrontendFlow } from "@/lib/observability";
 
 export interface BootstrapResult {
   success: boolean;
@@ -34,14 +35,23 @@ export async function bootstrap(
 
   logger.info("🚀 Bootstrapping ValyntApp...");
 
+  const traceId = `bootstrap-${Date.now()}`;
+
   // Step 1: Load environment configuration
   onProgress?.("Loading configuration...");
   try {
-    loadConfig();
-    const config = getConfig();
-    logger.info("✅ Configuration loaded", {
-      environment: config.env,
-      apiUrl: config.apiBaseUrl,
+    await trackFrontendFlow("bootstrap.load_config", {
+      service: "valynt-app",
+      env: import.meta.env.MODE || "development",
+      tenant_id: "anonymous",
+      trace_id: traceId,
+    }, async () => {
+      loadConfig();
+      const config = getConfig();
+      logger.info("✅ Configuration loaded", {
+        environment: config.env,
+        apiUrl: config.apiBaseUrl,
+      });
     });
   } catch (error) {
     const errorMsg = `Failed to load configuration: ${error instanceof Error ? error.message : "Unknown error"}`;
@@ -66,8 +76,15 @@ export async function bootstrap(
   onProgress?.("Initializing analytics...");
   if (import.meta.env.VITE_ANALYTICS_ENABLED === "true") {
     try {
-      // Analytics initialization would go here
-      logger.info("✅ Analytics initialized");
+      await trackFrontendFlow("bootstrap.analytics", {
+        service: "valynt-app",
+        env: import.meta.env.MODE || "development",
+        tenant_id: "anonymous",
+        trace_id: traceId,
+      }, async () => {
+        // Analytics initialization would go here
+        logger.info("✅ Analytics initialized");
+      });
     } catch (error) {
       const warningMsg = `Analytics initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(warningMsg);
@@ -79,8 +96,15 @@ export async function bootstrap(
   onProgress?.("Initializing error tracking...");
   if (import.meta.env.VITE_SENTRY_DSN) {
     try {
-      // Sentry initialization would go here
-      logger.info("✅ Error tracking initialized");
+      await trackFrontendFlow("bootstrap.error_tracking", {
+        service: "valynt-app",
+        env: import.meta.env.MODE || "development",
+        tenant_id: "anonymous",
+        trace_id: traceId,
+      }, async () => {
+        // Sentry initialization would go here
+        logger.info("✅ Error tracking initialized");
+      });
     } catch (error) {
       const warningMsg = `Error tracking initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(warningMsg);

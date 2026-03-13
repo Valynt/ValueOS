@@ -1,0 +1,22 @@
+groups:
+  - name: runtime-services-observability
+    rules:
+      - alert: RuntimeServiceSpanErrorsHigh
+        expr: sum(rate(traces_spanmetrics_calls_total{service=~"decision-router|policy-engine|context-store|recommendation-engine|artifact-composer|execution-runtime|agent-fabric|valynt-app",status_code="STATUS_CODE_ERROR"}[10m])) by (service) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          team: platform-observability
+        annotations:
+          summary: "High runtime span error rate for {{ $labels.service }}"
+          description: "Runtime service {{ $labels.service }} is breaching span error budget."
+
+      - alert: RuntimeServiceSpanMissingTenantTag
+        expr: sum(rate(traces_spanmetrics_calls_total{service=~"decision-router|policy-engine|context-store|recommendation-engine|artifact-composer|execution-runtime|agent-fabric|valynt-app",tenant_id=""}[10m])) by (service) > 0
+        for: 10m
+        labels:
+          severity: critical
+          team: platform-observability
+        annotations:
+          summary: "Missing tenant_id tag in runtime telemetry for {{ $labels.service }}"
+          description: "Spans are arriving without tenant_id tag for {{ $labels.service }}."

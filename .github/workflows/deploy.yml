@@ -152,6 +152,11 @@ jobs:
         run: |
           npx turbo run lint typecheck test
 
+      - name: Observability deployment gates
+        run: |
+          pnpm check:telemetry-completeness
+          pnpm check:observability-deployment-gates
+
 
   dast-gate:
     name: DAST Gate

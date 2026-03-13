@@ -24,7 +24,8 @@
     "check:message-payload-contracts": "node scripts/ci/check-message-payload-contracts.mjs",
     "check:e2e-path": "node scripts/ci/guard-deprecated-e2e-path.mjs",
     "check:release-critical-focused-tests": "node scripts/ci/check-release-critical-focused-tests.mjs",
-    "check:slo-threshold-consistency": "node scripts/ci/check-slo-threshold-consistency.mjs"
+    "check:telemetry-completeness": "node scripts/ci/check-telemetry-completeness.mjs",
+    "check:observability-deployment-gates": "node scripts/ci/check-observability-deployment-gates.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

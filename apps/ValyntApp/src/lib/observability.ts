@@ -1,48 +1,58 @@
-export interface FrontendObservabilityConfig {
-  appName: string;
-  release: string;
-  environment: string;
+import { context, trace, type Span } from "@opentelemetry/api";
+
+import { captureException } from "./sentry";
+
+export interface ObservabilityTags {
+  service: string;
+  env: string;
+  tenant_id: string;
+  trace_id: string;
+  [key: string]: string;
 }
 
-export interface SpanHandle {
-  end: () => void;
+const DEFAULT_SERVICE = "valynt-app";
+const DEFAULT_ENV = import.meta.env.MODE || "development";
+
+export function recordMetric(name: string, value: number, tags: ObservabilityTags): void {
+  console.debug("[observability.metric]", { name, value, ...tags });
 }
 
-export function initFrontendObservability(config: FrontendObservabilityConfig): void {
-  const releaseMarker = `release:${config.appName}:${config.release}:${config.environment}`;
-  window.dispatchEvent(new CustomEvent("valueos:release-marker", { detail: releaseMarker }));
-
-  window.addEventListener("error", (event) => {
-    console.error("[Observability] uncaught exception", {
-      app: config.appName,
-      release: config.release,
-      message: event.message,
-      source: event.filename,
-      line: event.lineno,
-      column: event.colno,
-    });
+export function startSpan(name: string, tags: ObservabilityTags): { end: () => void; span: Span } {
+  const tracer = trace.getTracer(DEFAULT_SERVICE);
+  const span = tracer.startSpan(name, {
+    attributes: tags,
   });
-
-  window.addEventListener("unhandledrejection", (event) => {
-    console.error("[Observability] unhandled rejection", {
-      app: config.appName,
-      release: config.release,
-      reason: String(event.reason),
-    });
-  });
-}
-
-export function recordMetric(name: string, value: number, tags?: Record<string, string>): void {
-  // Intentionally left without console logging to comply with no-console rule.
-}
-
-export function startSpan(name: string, tags?: Record<string, string>): SpanHandle {
-  const startedAt = performance.now();
-
   return {
+    span,
     end: () => {
-      const durationMs = performance.now() - startedAt;
-      // Duration is computed but not logged to comply with no-console rule.
+      span.end();
     },
   };
+}
+
+export async function trackFrontendFlow<T>(
+  flowName: string,
+  tags: Partial<ObservabilityTags>,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const spanTags: ObservabilityTags = {
+    service: tags.service || DEFAULT_SERVICE,
+    env: tags.env || DEFAULT_ENV,
+    tenant_id: tags.tenant_id || "anonymous",
+    trace_id: tags.trace_id || `frontend-${flowName}-${Date.now()}`,
+  };
+
+  const { span, end } = startSpan(`frontend.${flowName}`, spanTags);
+  recordMetric("frontend_flow_started", 1, spanTags);
+
+  try {
+    return await context.with(trace.setSpan(context.active(), span), operation);
+  } catch (error) {
+    captureException(error);
+    recordMetric("frontend_flow_failed", 1, spanTags);
+    throw error;
+  } finally {
+    recordMetric("frontend_flow_completed", 1, spanTags);
+    end();
+  }
 }

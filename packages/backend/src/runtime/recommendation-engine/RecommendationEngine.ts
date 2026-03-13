@@ -13,20 +13,20 @@
  * clients authenticated for that tenant.
  */
 
-import { logger } from "../../utils/logger.js";
-import { getDomainEventBus } from "../../events/DomainEventBus.js";
+import { logger } from '../../utils/logger.js';
+import { getDomainEventBus } from '../../events/DomainEventBus.js';
 import type {
   DomainEventName,
   EvidenceAttachedPayload,
   HypothesisValidatedPayload,
   OpportunityUpdatedPayload,
   RealizationMilestoneReachedPayload,
-} from "../../events/DomainEventSchemas.js";
-import { DecisionRouter } from "../decision-router/index.js";
-import { getRealtimeBroadcastService } from "../../services/realtime/RealtimeBroadcastService.js";
-import type { DecisionContext } from "@shared/domain/DecisionContext.js";
-import { OpportunityLifecycleStageSchema } from "@shared/domain/Opportunity.js";
-import { withBusinessTransaction } from "../../observability/apm.js";
+} from '../../events/DomainEventSchemas.js';
+import { DecisionRouter } from '../decision-router/index.js';
+import { getRealtimeBroadcastService } from '../../services/realtime/RealtimeBroadcastService.js';
+import type { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 
 // ---------------------------------------------------------------------------
 // Recommendation shape pushed to the UI
@@ -52,7 +52,7 @@ export interface Recommendation {
   /** Confidence in the recommendation (0–1) */
   confidence: number;
   /** Priority for UI ordering */
-  priority: "low" | "medium" | "high" | "critical";
+  priority: 'low' | 'medium' | 'high' | 'critical';
 }
 
 // ---------------------------------------------------------------------------
@@ -79,15 +79,13 @@ export class RecommendationEngine {
     const bus = getDomainEventBus();
 
     this.unsubscribeFns.push(
-      bus.subscribe("opportunity.updated", p => this.onOpportunityUpdated(p)),
-      bus.subscribe("hypothesis.validated", p => this.onHypothesisValidated(p)),
-      bus.subscribe("evidence.attached", p => this.onEvidenceAttached(p)),
-      bus.subscribe("realization.milestone_reached", p =>
-        this.onMilestoneReached(p)
-      )
+      bus.subscribe('opportunity.updated', (p) => this.onOpportunityUpdated(p)),
+      bus.subscribe('hypothesis.validated', (p) => this.onHypothesisValidated(p)),
+      bus.subscribe('evidence.attached', (p) => this.onEvidenceAttached(p)),
+      bus.subscribe('realization.milestone_reached', (p) => this.onMilestoneReached(p)),
     );
 
-    logger.info("RecommendationEngine started", { subscriptions: 4 });
+    logger.info('RecommendationEngine started', { subscriptions: 4 });
   }
 
   /** Detach all subscriptions. */
@@ -95,7 +93,7 @@ export class RecommendationEngine {
     for (const unsub of this.unsubscribeFns) unsub();
     this.unsubscribeFns.length = 0;
     this.started = false;
-    logger.info("RecommendationEngine stopped");
+    logger.info('RecommendationEngine stopped');
   }
 
   // ---------------------------------------------------------------------------
@@ -106,294 +104,218 @@ export class RecommendationEngine {
    * When an opportunity is updated, re-evaluate the next-best-action via
    * DecisionRouter and push the result to the UI.
    */
-  private async onOpportunityUpdated(
-    payload: OpportunityUpdatedPayload
-  ): Promise<void> {
+  private async onOpportunityUpdated(payload: OpportunityUpdatedPayload): Promise<void> {
     if (!payload.tenantId) {
-      logger.error("RecommendationEngine: event missing tenantId", {
-        sourceEvent: "opportunity.updated",
-      });
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'opportunity.updated' });
       return;
     }
 
-    await withBusinessTransaction(
-      {
-        transactionName: "recommendation.emission",
+    await runInTelemetrySpanAsync('runtime.recommendation_engine.opportunity_updated', {
+      service: 'recommendation-engine',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: payload.tenantId,
+      trace_id: payload.traceId,
+      attributes: { source_event: 'opportunity.updated' },
+    }, async () => {
+      logger.info('RecommendationEngine: opportunity.updated received', {
+        opportunityId: payload.opportunityId,
         tenantId: payload.tenantId,
-        workflowId: payload.opportunityId,
         traceId: payload.traceId,
-        attributes: {
-          source_event: "opportunity.updated",
+      });
+
+      const stageParseResult = OpportunityLifecycleStageSchema.safeParse(payload.lifecycleStage);
+      const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
+
+      const decisionContext: DecisionContext = {
+        organization_id: payload.tenantId,
+        opportunity: {
+          id: payload.opportunityId,
+          lifecycle_stage,
+          confidence_score: payload.averageConfidence,
+          value_maturity: payload.averageConfidence >= 0.7 ? 'high' : payload.averageConfidence >= 0.4 ? 'medium' : 'low',
         },
-      },
-      async () => {
-        logger.info("RecommendationEngine: opportunity.updated received", {
-          opportunityId: payload.opportunityId,
-          tenantId: payload.tenantId,
-          traceId: payload.traceId,
-        });
+        is_external_artifact_action: false,
+      };
+      const nextAgent = this.router.selectAgent(decisionContext);
 
-        const stageParseResult = OpportunityLifecycleStageSchema.safeParse(
-          payload.lifecycleStage
-        );
-        const lifecycle_stage = stageParseResult.success
-          ? stageParseResult.data
-          : "discovery";
+      const confidence = payload.averageConfidence;
+      const priority = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
 
-        const decisionContext: DecisionContext = {
-          organization_id: payload.tenantId,
-          opportunity: {
-            id: payload.opportunityId,
-            lifecycle_stage,
-            confidence_score: payload.averageConfidence,
-            value_maturity:
-              payload.averageConfidence >= 0.7
-                ? "high"
-                : payload.averageConfidence >= 0.4
-                  ? "medium"
-                  : "low",
-          },
-          is_external_artifact_action: false,
-        };
-        const nextAgent = this.router.selectAgent(decisionContext);
+      const recommendation: Recommendation = {
+        id: `rec-opp-${payload.id}`,
+        generatedAt: new Date().toISOString(),
+        sourceEvent: 'opportunity.updated',
+        tenantId: payload.tenantId,
+        workspaceId: payload.workspaceId,
+        title: 'Opportunity analysis complete — review hypotheses',
+        description:
+          `${payload.hypothesisCount} value hypotheses generated with an average confidence of ` +
+          `${(confidence * 100).toFixed(0)}%. ` +
+          (payload.recommendedNextSteps.length > 0
+            ? `Suggested next steps: ${payload.recommendedNextSteps.slice(0, 2).join('; ')}.`
+            : ''),
+        nextAction: nextAgent,
+        confidence,
+        priority: priority as Recommendation['priority'],
+      };
 
-        const confidence = payload.averageConfidence;
-        const priority =
-          confidence >= 0.7 ? "high" : confidence >= 0.4 ? "medium" : "low";
-
-        const recommendation: Recommendation = {
-          id: `rec-opp-${payload.id}`,
-          generatedAt: new Date().toISOString(),
-          sourceEvent: "opportunity.updated",
-          tenantId: payload.tenantId,
-          workspaceId: payload.workspaceId,
-          title: "Opportunity analysis complete — review hypotheses",
-          description:
-            `${payload.hypothesisCount} value hypotheses generated with an average confidence of ` +
-            `${(confidence * 100).toFixed(0)}%. ` +
-            (payload.recommendedNextSteps.length > 0
-              ? `Suggested next steps: ${payload.recommendedNextSteps.slice(0, 2).join("; ")}.`
-              : ""),
-          nextAction: nextAgent,
-          confidence,
-          priority: priority as Recommendation["priority"],
-        };
-
-        this.broadcast(payload.tenantId, recommendation);
-      }
-    );
+      this.broadcast(payload.tenantId, recommendation);
+    });
   }
 
   /**
    * When hypotheses are validated, recommend whether to proceed, re-refine,
    * or escalate based on the integrity outcome.
    */
-  private async onHypothesisValidated(
-    payload: HypothesisValidatedPayload
-  ): Promise<void> {
+  private async onHypothesisValidated(payload: HypothesisValidatedPayload): Promise<void> {
     if (!payload.tenantId) {
-      logger.error("RecommendationEngine: event missing tenantId", {
-        sourceEvent: "hypothesis.validated",
-      });
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'hypothesis.validated' });
       return;
     }
 
-    await withBusinessTransaction(
-      {
-        transactionName: "recommendation.emission",
-        tenantId: payload.tenantId,
-        workflowId: payload.opportunityId,
-        traceId: payload.traceId,
-        attributes: { source_event: "hypothesis.validated" },
-      },
-      async () => {
-        logger.info("RecommendationEngine: hypothesis.validated received", {
-          opportunityId: payload.opportunityId,
-          tenantId: payload.tenantId,
-          vetoed: payload.vetoed,
-        });
+    logger.info('RecommendationEngine: hypothesis.validated received', {
+      opportunityId: payload.opportunityId,
+      tenantId: payload.tenantId,
+      vetoed: payload.vetoed,
+    });
 
-        let title: string;
-        let description: string;
-        let nextAction: string;
-        let priority: Recommendation["priority"];
+    let title: string;
+    let description: string;
+    let nextAction: string;
+    let priority: Recommendation['priority'];
 
-        if (payload.vetoed) {
-          title = "Integrity veto — address data quality issues";
-          description =
-            `${payload.totalClaimCount - payload.supportedClaimCount} of ${payload.totalClaimCount} claims failed validation ` +
-            `(integrity score: ${(payload.integrityScore * 100).toFixed(0)}%). ` +
-            "Correct the flagged claims before proceeding.";
-          nextAction = "integrity";
-          priority = "critical";
-        } else if (payload.reRefineRequested) {
-          title = "Re-refinement requested — strengthen evidence";
-          description =
-            `${payload.supportedClaimCount} of ${payload.totalClaimCount} claims supported. ` +
-            "Some claims need stronger evidence before the business case can be composed.";
-          nextAction = "opportunity";
-          priority = "high";
-        } else {
-          title = "Validation passed — ready for business case composition";
-          description =
-            `All ${payload.supportedClaimCount} claims validated with an integrity score of ` +
-            `${(payload.integrityScore * 100).toFixed(0)}%.`;
-          nextAction = "narrative";
-          priority = "medium";
-        }
+    if (payload.vetoed) {
+      title = 'Integrity veto — address data quality issues';
+      description =
+        `${payload.totalClaimCount - payload.supportedClaimCount} of ${payload.totalClaimCount} claims failed validation ` +
+        `(integrity score: ${(payload.integrityScore * 100).toFixed(0)}%). ` +
+        'Correct the flagged claims before proceeding.';
+      nextAction = 'integrity';
+      priority = 'critical';
+    } else if (payload.reRefineRequested) {
+      title = 'Re-refinement requested — strengthen evidence';
+      description =
+        `${payload.supportedClaimCount} of ${payload.totalClaimCount} claims supported. ` +
+        'Some claims need stronger evidence before the business case can be composed.';
+      nextAction = 'opportunity';
+      priority = 'high';
+    } else {
+      title = 'Validation passed — ready for business case composition';
+      description =
+        `All ${payload.supportedClaimCount} claims validated with an integrity score of ` +
+        `${(payload.integrityScore * 100).toFixed(0)}%.`;
+      nextAction = 'narrative';
+      priority = 'medium';
+    }
 
-        const recommendation: Recommendation = {
-          id: `rec-hyp-${payload.id}`,
-          generatedAt: new Date().toISOString(),
-          sourceEvent: "hypothesis.validated",
-          tenantId: payload.tenantId,
-          workspaceId: payload.workspaceId,
-          title,
-          description,
-          nextAction,
-          confidence: payload.integrityScore,
-          priority,
-        };
+    const recommendation: Recommendation = {
+      id: `rec-hyp-${payload.id}`,
+      generatedAt: new Date().toISOString(),
+      sourceEvent: 'hypothesis.validated',
+      tenantId: payload.tenantId,
+      workspaceId: payload.workspaceId,
+      title,
+      description,
+      nextAction,
+      confidence: payload.integrityScore,
+      priority,
+    };
 
-        this.broadcast(payload.tenantId, recommendation);
-      }
-    );
+    this.broadcast(payload.tenantId, recommendation);
   }
 
   /**
    * When evidence is attached, surface a low-priority confirmation so the
    * user knows grounding data has been incorporated.
    */
-  private async onEvidenceAttached(
-    payload: EvidenceAttachedPayload
-  ): Promise<void> {
+  private async onEvidenceAttached(payload: EvidenceAttachedPayload): Promise<void> {
     if (!payload.tenantId) {
-      logger.error("RecommendationEngine: event missing tenantId", {
-        sourceEvent: "evidence.attached",
-      });
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'evidence.attached' });
       return;
     }
 
-    await withBusinessTransaction(
-      {
-        transactionName: "recommendation.emission",
-        tenantId: payload.tenantId,
-        workflowId: payload.opportunityId,
-        traceId: payload.traceId,
-        attributes: { source_event: "evidence.attached" },
-      },
-      async () => {
-        logger.info("RecommendationEngine: evidence.attached received", {
-          opportunityId: payload.opportunityId,
-          tenantId: payload.tenantId,
-          evidenceType: payload.evidenceType,
-        });
+    logger.info('RecommendationEngine: evidence.attached received', {
+      opportunityId: payload.opportunityId,
+      tenantId: payload.tenantId,
+      evidenceType: payload.evidenceType,
+    });
 
-        const recommendation: Recommendation = {
-          id: `rec-ev-${payload.id}`,
-          generatedAt: new Date().toISOString(),
-          sourceEvent: "evidence.attached",
-          tenantId: payload.tenantId,
-          workspaceId: payload.workspaceId,
-          title: `Evidence attached — ${payload.evidenceType.replace(/_/g, " ")}`,
-          description:
-            `New ${payload.evidenceType.replace(/_/g, " ")} evidence from "${payload.source}" ` +
-            `attached to hypothesis "${payload.hypothesisId}". ` +
-            `Confidence contribution: +${(payload.confidenceDelta * 100).toFixed(0)}%.`,
-          nextAction: "opportunity",
-          confidence: payload.confidenceDelta,
-          priority: "low",
-        };
+    const recommendation: Recommendation = {
+      id: `rec-ev-${payload.id}`,
+      generatedAt: new Date().toISOString(),
+      sourceEvent: 'evidence.attached',
+      tenantId: payload.tenantId,
+      workspaceId: payload.workspaceId,
+      title: `Evidence attached — ${payload.evidenceType.replace(/_/g, ' ')}`,
+      description:
+        `New ${payload.evidenceType.replace(/_/g, ' ')} evidence from "${payload.source}" ` +
+        `attached to hypothesis "${payload.hypothesisId}". ` +
+        `Confidence contribution: +${(payload.confidenceDelta * 100).toFixed(0)}%.`,
+      nextAction: 'opportunity',
+      confidence: payload.confidenceDelta,
+      priority: 'low',
+    };
 
-        this.broadcast(payload.tenantId, recommendation);
-      }
-    );
+    this.broadcast(payload.tenantId, recommendation);
   }
 
   /**
    * When a realization milestone is reached, recommend expansion or
    * intervention based on the KPI direction.
    */
-  private async onMilestoneReached(
-    payload: RealizationMilestoneReachedPayload
-  ): Promise<void> {
+  private async onMilestoneReached(payload: RealizationMilestoneReachedPayload): Promise<void> {
     if (!payload.tenantId) {
-      logger.error("RecommendationEngine: event missing tenantId", {
-        sourceEvent: "realization.milestone_reached",
-      });
+      logger.error('RecommendationEngine: event missing tenantId', { sourceEvent: 'realization.milestone_reached' });
       return;
     }
 
-    await withBusinessTransaction(
-      {
-        transactionName: "recommendation.emission",
-        tenantId: payload.tenantId,
-        workflowId: payload.opportunityId,
-        traceId: payload.traceId,
-        attributes: { source_event: "realization.milestone_reached" },
-      },
-      async () => {
-        logger.info(
-          "RecommendationEngine: realization.milestone_reached received",
-          {
-            opportunityId: payload.opportunityId,
-            tenantId: payload.tenantId,
-            kpiId: payload.kpiId,
-            direction: payload.direction,
-          }
-        );
+    logger.info('RecommendationEngine: realization.milestone_reached received', {
+      opportunityId: payload.opportunityId,
+      tenantId: payload.tenantId,
+      kpiId: payload.kpiId,
+      direction: payload.direction,
+    });
 
-        const isOver = payload.direction === "over";
-        const isUnder = payload.direction === "under";
+    const isOver = payload.direction === 'over';
+    const isUnder = payload.direction === 'under';
 
-        const title = isOver
-          ? `KPI exceeded — expansion opportunity detected`
-          : isUnder
-            ? `KPI under target — intervention recommended`
-            : `KPI on target`;
+    const title = isOver
+      ? `KPI exceeded — expansion opportunity detected`
+      : isUnder
+        ? `KPI under target — intervention recommended`
+        : `KPI on target`;
 
-        const description = isOver
-          ? `"${payload.kpiName}" delivered ${payload.realizedValue} ${payload.unit} against a commitment of ` +
-            `${payload.committedValue} ${payload.unit} (+${payload.variancePercentage.toFixed(1)}%). ` +
-            `${payload.expansionSignalCount} expansion signal(s) detected.`
-          : isUnder
-            ? `"${payload.kpiName}" delivered ${payload.realizedValue} ${payload.unit} against a commitment of ` +
-              `${payload.committedValue} ${payload.unit} (${payload.variancePercentage.toFixed(1)}%). ` +
-              "Review assumptions and consider reallocating resources."
-            : `"${payload.kpiName}" is on target at ${payload.realizedValue} ${payload.unit}.`;
+    const description = isOver
+      ? `"${payload.kpiName}" delivered ${payload.realizedValue} ${payload.unit} against a commitment of ` +
+        `${payload.committedValue} ${payload.unit} (+${payload.variancePercentage.toFixed(1)}%). ` +
+        `${payload.expansionSignalCount} expansion signal(s) detected.`
+      : isUnder
+        ? `"${payload.kpiName}" delivered ${payload.realizedValue} ${payload.unit} against a commitment of ` +
+          `${payload.committedValue} ${payload.unit} (${payload.variancePercentage.toFixed(1)}%). ` +
+          'Review assumptions and consider reallocating resources.'
+        : `"${payload.kpiName}" is on target at ${payload.realizedValue} ${payload.unit}.`;
 
-        const nextAction = isOver
-          ? "expansion"
-          : isUnder
-            ? "realization"
-            : "realization";
-        const priority: Recommendation["priority"] = isUnder
-          ? payload.variancePercentage < -20
-            ? "critical"
-            : "high"
-          : isOver
-            ? "medium"
-            : "low";
+    const nextAction = isOver ? 'expansion' : isUnder ? 'realization' : 'realization';
+    const priority: Recommendation['priority'] = isUnder
+      ? payload.variancePercentage < -20 ? 'critical' : 'high'
+      : isOver
+        ? 'medium'
+        : 'low';
 
-        const recommendation: Recommendation = {
-          id: `rec-ms-${payload.id}`,
-          generatedAt: new Date().toISOString(),
-          sourceEvent: "realization.milestone_reached",
-          tenantId: payload.tenantId,
-          workspaceId: payload.workspaceId,
-          title,
-          description,
-          nextAction,
-          confidence:
-            payload.overallRealizationRate > 1
-              ? 1
-              : payload.overallRealizationRate,
-          priority,
-        };
+    const recommendation: Recommendation = {
+      id: `rec-ms-${payload.id}`,
+      generatedAt: new Date().toISOString(),
+      sourceEvent: 'realization.milestone_reached',
+      tenantId: payload.tenantId,
+      workspaceId: payload.workspaceId,
+      title,
+      description,
+      nextAction,
+      confidence: payload.overallRealizationRate > 1 ? 1 : payload.overallRealizationRate,
+      priority,
+    };
 
-        this.broadcast(payload.tenantId, recommendation);
-      }
-    );
+    this.broadcast(payload.tenantId, recommendation);
   }
 
   // ---------------------------------------------------------------------------
@@ -404,11 +326,11 @@ export class RecommendationEngine {
     try {
       getRealtimeBroadcastService().broadcastToTenant(
         tenantId,
-        "recommendation.new",
-        recommendation
+        'recommendation.new',
+        recommendation,
       );
 
-      logger.info("RecommendationEngine: recommendation broadcast", {
+      logger.info('RecommendationEngine: recommendation broadcast', {
         id: recommendation.id,
         tenantId,
         sourceEvent: recommendation.sourceEvent,
@@ -416,9 +338,9 @@ export class RecommendationEngine {
       });
     } catch (err) {
       logger.error(
-        "RecommendationEngine: broadcast failed",
+        'RecommendationEngine: broadcast failed',
         err instanceof Error ? err : undefined,
-        { tenantId, recommendationId: recommendation.id }
+        { tenantId, recommendationId: recommendation.id },
       );
     }
   }
@@ -430,9 +352,7 @@ export class RecommendationEngine {
 
 let instance: RecommendationEngine | null = null;
 
-export function getRecommendationEngine(
-  router?: DecisionRouter
-): RecommendationEngine {
+export function getRecommendationEngine(router?: DecisionRouter): RecommendationEngine {
   if (!instance) {
     instance = new RecommendationEngine(router);
   }
