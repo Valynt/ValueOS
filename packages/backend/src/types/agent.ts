@@ -133,6 +133,18 @@ export interface AgentError {
   context?: Record<string, unknown>;
 }
 
+export interface PromptVersionReference {
+  key: string;
+  version: string;
+}
+
+export interface PromptApprovalMetadata {
+  owner: string;
+  ticket: string;
+  risk_class: 'low' | 'medium' | 'high' | 'critical';
+  approved_at: string;
+}
+
 export interface AgentOutputMetadata {
   execution_time_ms: number;
   token_usage?: TokenUsage;
@@ -140,6 +152,8 @@ export interface AgentOutputMetadata {
   timestamp: string;
   correlation_id?: string;
   retry_count?: number;
+  prompt_versions?: PromptVersionReference[];
+  prompt_approvals?: PromptApprovalMetadata[];
 }
 
 export interface TokenUsage {

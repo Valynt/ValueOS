@@ -27,6 +27,8 @@ import { logger } from '../../logger.js';
 import { ExpansionOpportunityRepository } from '../../../repositories/ExpansionOpportunityRepository.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -314,21 +316,23 @@ export class ExpansionAgent extends BaseAgent {
       ? `\n\nOriginal hypotheses:\n${hypotheses.map(h => `- ${h.content} (category: ${h.metadata.category})`).join('\n')}`
       : '';
 
-    const systemPrompt = `You are a Value Expansion analyst. Your job is to identify growth opportunities from realized value data and recommend new value cycles.
+    const systemPromptTemplate = resolvePromptTemplate('expansion_system');
+    const userPromptTemplate = resolvePromptTemplate('expansion_user');
+    this.setPromptVersionReferences(
+      [
+        { key: systemPromptTemplate.key, version: systemPromptTemplate.version },
+        { key: userPromptTemplate.key, version: userPromptTemplate.version },
+      ],
+      [systemPromptTemplate.approval, userPromptTemplate.approval],
+    );
 
-Rules:
-- Analyze proof points to find KPIs that exceeded targets — these indicate expansion potential.
-- Analyze underperforming KPIs for gap analysis — identify root causes and remediation.
-- Each expansion opportunity must have a concrete estimated_additional_value range.
-- Types: upsell (more of the same), cross_sell (adjacent solutions), new_use_case (novel application), geographic_expansion, deeper_adoption.
-- New cycle recommendations should include a seed_query that OpportunityAgent can use to start a new discovery cycle.
-- Evidence must reference specific proof points or signals, not generic claims.
-- total_expansion_potential aggregates across all identified opportunities.
-- Gap analysis should be actionable with clear root causes and recommended actions.
-
-Respond with valid JSON matching the schema. No markdown fences or commentary.`;
-
-    const userPrompt = `Analyze expansion potential from these realized outcomes:\n\n${proofContext}${signalContext}${varianceContext}${hypothesisContext}\n\nIdentify expansion opportunities, perform gap analysis on underperforming areas, and recommend new value cycles.`;
+    const systemPrompt = systemPromptTemplate.template;
+    const userPrompt = renderTemplate(userPromptTemplate.template, {
+      proofContext,
+      signalContext,
+      varianceContext,
+      hypothesisContext,
+    });
 
     try {
       return await this.secureInvoke<ExpansionAnalysis>(

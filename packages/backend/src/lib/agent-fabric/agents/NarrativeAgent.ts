@@ -20,6 +20,8 @@ import { logger } from '../../logger.js';
 import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schema for LLM output
@@ -62,35 +64,16 @@ function buildNarrativePrompt(params: {
     .map(k => `- ${String(k.name ?? '')}: ${String(k.target ?? '')} ${String(k.unit ?? '')} (${String(k.timeframe ?? '')})`)
     .join('\n');
 
-  return `You are a senior value engineering consultant composing an executive business case narrative.
-
-## Context
-Organization: ${params.organizationId}
-Value Case: ${params.valueCaseId}
-
-## Validated Claims
-${claimLines || '(none)'}
-
-## Integrity Assessment
-Overall Score: ${params.integrityScore}
-Veto Decision: ${params.vetoDecision}
-
-## KPI Targets
-${kpiLines || '(none)'}
-
-## Financial Summary
-${params.financialSummary}
-
-## Task
-Compose a defensible executive narrative for this business case. The narrative must:
-1. Open with a clear value proposition grounded in the validated claims
-2. Present 3-7 concrete proof points with evidence references
-3. Address the top risks with mitigations
-4. Close with a clear call to action
-5. Include audience-specific talking points for executive, technical, financial, and procurement stakeholders
-6. Assign a defense_readiness_score (0-1) reflecting how well the case can withstand scrutiny
-
-Return valid JSON matching the schema. Set hallucination_check to true only if all claims are grounded in the provided evidence.`;
+  const promptTemplate = resolvePromptTemplate('narrative_system');
+  return renderTemplate(promptTemplate.template, {
+    organizationId: params.organizationId,
+    valueCaseId: params.valueCaseId,
+    claimLines: claimLines || '(none)',
+    integrityScore: String(params.integrityScore),
+    vetoDecision: params.vetoDecision,
+    kpiLines: kpiLines || '(none)',
+    financialSummary: params.financialSummary,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +110,8 @@ export class NarrativeAgent extends BaseAgent {
     const financialSummary = (financialData?.summary as string | undefined) ?? 'No financial model available.';
 
     // Step 2: Build prompt
+    const promptTemplate = resolvePromptTemplate('narrative_system');
+    this.setPromptVersionReferences([{ key: promptTemplate.key, version: promptTemplate.version }], [promptTemplate.approval]);
     const prompt = buildNarrativePrompt({
       organizationId: context.organization_id,
       valueCaseId: valueCaseId ?? 'unknown',

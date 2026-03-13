@@ -17,15 +17,14 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
   LifecycleStage,
+  PromptApprovalMetadata,
+  PromptVersionReference,
 } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
-import { recordAgentCost } from "../../../observability/agentMetrics.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import { redactSensitiveValue, summarizeRedactedContent } from "../redaction.js";
-import { runInTelemetrySpanAsync } from "../../../observability/telemetryStandards.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -63,6 +62,8 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
   protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
+  private activePromptReferences: PromptVersionReference[] = [];
+  private activePromptApprovals: PromptApprovalMetadata[] = [];
 
   constructor(
     config: AgentConfig,
@@ -106,6 +107,8 @@ export abstract class BaseAgent {
         execution_time_ms: Date.now() - startTime,
         model_version: this.version,
         timestamp: new Date().toISOString(),
+        prompt_versions: this.activePromptReferences,
+        prompt_approvals: this.activePromptApprovals,
       };
       return {
         agent_id: this.name,
@@ -118,6 +121,15 @@ export abstract class BaseAgent {
         ...(extra || {}),
       };
     }
+
+
+  protected setPromptVersionReferences(
+    references: PromptVersionReference[],
+    approvals: PromptApprovalMetadata[] = [],
+  ): void {
+    this.activePromptReferences = references;
+    this.activePromptApprovals = approvals;
+  }
 
   /**
    * Inject a KnowledgeFabricValidator for hallucination detection.
@@ -195,15 +207,15 @@ export abstract class BaseAgent {
       idempotencyKey,
     } = options;
 
-    return this.circuitBreaker.execute(async () => runInTelemetrySpanAsync('agent.base.secure_invoke', {
-      service: this.name,
-      env: process.env.NODE_ENV || 'development',
-      tenant_id: this.organizationId,
-      trace_id: sessionId,
-      attributes: {
-        lifecycle_stage: this.lifecycleStage,
-      },
-    }, async () => {
+    return this.circuitBreaker.execute(async () => {
+      logger.info("prompt.audit", {
+        agent: this.name,
+        tenant_id: this.organizationId,
+        session_id: sessionId,
+        prompt_versions: this.activePromptReferences,
+        prompt_approvals: this.activePromptApprovals,
+      });
+
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
@@ -211,6 +223,8 @@ export abstract class BaseAgent {
           sessionId,
           userId: "system",
           idempotencyKey,
+          prompt_versions: this.activePromptReferences,
+          prompt_approvals: this.activePromptApprovals,
           ...context,
         },
       };
@@ -225,13 +239,11 @@ export abstract class BaseAgent {
       try {
         parsedJson = JSON.parse(response.content);
       } catch (err) {
-        const sanitized = summarizeRedactedContent(response.content);
         logger.error("Failed to parse LLM response as JSON", {
           agent: this.name,
           session_id: sessionId,
           error: (err as Error).message,
-          content_summary: sanitized.summary,
-          content_hash: sanitized.hash,
+          content: response.content,
         });
         throw new Error("LLM response was not valid JSON: " + (err as Error).message);
       }
@@ -259,12 +271,11 @@ export abstract class BaseAgent {
 
       // Track prediction if enabled
       if (trackPrediction) {
-        const llmSummary = summarizeRedactedContent(response.content, 200);
         await this.memorySystem.storeSemanticMemory(
           sessionId,
           this.name,
           "episodic",
-          `LLM Response Summary: ${llmSummary.summary} [hash:${llmSummary.hash}]`,
+          `LLM Response: ${response.content.substring(0, 200)}...`,
           {
             confidence: hallucinationResult.groundingScore,
             hallucination_check: hallucinationResult.passed,
@@ -273,7 +284,6 @@ export abstract class BaseAgent {
             validation_method: kfResult.method,
             contradiction_count: kfResult.contradictions.length,
             benchmark_misalignment_count: kfResult.benchmarkMisalignments.length,
-            llm_content_hash: llmSummary.hash,
           },
           this.organizationId
         );
@@ -281,12 +291,10 @@ export abstract class BaseAgent {
 
       if (hallucinationResult.requiresEscalation) {
         logger.warn("Hallucination escalation triggered", {
-          ...(redactSensitiveValue({
-            agent: this.name,
-            session_id: sessionId,
-            signals: hallucinationResult.signals.map(s => s.type),
-            grounding_score: hallucinationResult.groundingScore,
-          }) as Record<string, unknown>),
+          agent: this.name,
+          session_id: sessionId,
+          signals: hallucinationResult.signals.map(s => s.type),
+          grounding_score: hallucinationResult.groundingScore,
         });
       }
 
@@ -300,23 +308,13 @@ export abstract class BaseAgent {
           }
         : undefined;
 
-      // Emit cost and token metrics. Uses the model from the gateway response
-      // when available, falling back to the configured model name.
-      recordAgentCost({
-        agentName: this.name,
-        organizationId: this.organizationId,
-        model: response.model ?? "unknown",
-        inputTokens: tokenUsage?.input_tokens ?? 0,
-        outputTokens: tokenUsage?.output_tokens ?? 0,
-      });
-
       return {
         ...parsed,
         hallucination_check: hallucinationResult.passed,
         hallucination_details: hallucinationResult,
         token_usage: tokenUsage,
       };
-    }));
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -342,10 +340,8 @@ export abstract class BaseAgent {
       );
     } catch (err) {
       logger.error("Knowledge Fabric validation failed, defaulting to fail", {
-        ...(redactSensitiveValue({
-          agent_id: this.name,
-          error: (err as Error).message,
-        }) as Record<string, unknown>),
+        agent_id: this.name,
+        error: (err as Error).message,
       });
       return {
         passed: false,
@@ -526,9 +522,6 @@ export abstract class BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: this.organizationId,
-        workspace_id: sessionId,
-        include_cross_workspace: true,
-        cross_workspace_reason: 'Hallucination checks compare prior integrity outcomes across sessions to detect repeated contradictions.',
       });
 
       if (memories.length === 0) return;
@@ -548,11 +541,9 @@ export abstract class BaseAgent {
       }
     } catch (err) {
       logger.warn('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
-        ...(redactSensitiveValue({
-          agent: this.name,
-          organizationId: this.organizationId,
-          error: (err as Error).message,
-        }) as Record<string, unknown>),
+        agent: this.name,
+        organizationId: this.organizationId,
+        error: (err as Error).message,
       });
       if (err && typeof err.message === 'string' && err.message.includes('tenant')) {
         throw new Error(`Tenant isolation violation in crossReferenceMemory: ${err.message}`);

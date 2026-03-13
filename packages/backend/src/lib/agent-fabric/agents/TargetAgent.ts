@@ -25,6 +25,8 @@ import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.j
 import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -253,25 +255,8 @@ export class TargetAgent extends BaseAgent {
    Evidence: ${(m.evidence || []).join('; ')}`;
     }).join('\n\n');
 
-    return `You are a Value Engineering analyst specializing in KPI definition and financial modeling.
-
-Given the following value hypotheses from the Opportunity stage, generate:
-1. Measurable KPI definitions with baselines, targets, and measurement methods
-2. A value driver tree showing how KPIs roll up to business outcomes
-3. Financial model inputs for ROI calculation
-4. A measurement plan
-5. Key risks
-
-Rules:
-- Each KPI must link to a specific hypothesis via hypothesis_id
-- Baselines must be realistic and sourced
-- Targets must be achievable within the stated timeframe
-- Value driver tree uses root/branch/leaf hierarchy
-- Financial model inputs must include sensitivity variables
-- Respond with valid JSON matching the schema. No markdown fences.
-
-Hypotheses:
-${hypothesisContext}`;
+    const systemPrompt = resolvePromptTemplate('target_system');
+    return renderTemplate(systemPrompt.template, { hypothesisContext });
   }
 
   /**
@@ -282,21 +267,20 @@ ${hypothesisContext}`;
     hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
     query?: string,
   ): Promise<TargetAnalysis | null> {
+    const systemPromptTemplate = resolvePromptTemplate('target_system');
+    const userPromptTemplate = resolvePromptTemplate('target_user');
+    this.setPromptVersionReferences([
+      { key: systemPromptTemplate.key, version: systemPromptTemplate.version },
+      { key: userPromptTemplate.key, version: userPromptTemplate.version },
+    ], [systemPromptTemplate.approval, userPromptTemplate.approval]);
+
     const systemPrompt = this.buildSystemPrompt(hypotheses);
 
     const hypothesisIds = hypotheses.map((h, i) => `"hyp-${i + 1}" (${h.metadata.category})`).join(', ');
-    const userPrompt = `Generate KPI targets and financial model inputs for these hypotheses.
-
-Hypothesis IDs to reference: ${hypothesisIds}
-
-${query ? `Additional context: ${query}` : ''}
-
-Generate a JSON object with:
-- kpi_definitions: Array of KPI definitions with baselines and targets
-- value_driver_tree: Hierarchical tree of value drivers (root → branch → leaf)
-- financial_model_inputs: Array of model inputs for ROI calculation
-- measurement_plan: How to track and verify these KPIs
-- risks: Key risks to achieving targets`;
+    const userPrompt = renderTemplate(userPromptTemplate.template, {
+      hypothesisIds,
+      additionalContext: query ? `Additional context: ${query}` : '',
+    });
 
     try {
       const result = await this.secureInvoke<TargetAnalysis>(

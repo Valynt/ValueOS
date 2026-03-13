@@ -36,6 +36,8 @@ import type {
 import { logger } from '../../logger.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -249,27 +251,18 @@ export class FinancialModelingAgent extends BaseAgent {
    ${impact ? `Estimated impact: ${impact.low}-${impact.high} ${impact.unit}` : ''}`;
     }).join('\n\n');
 
-    const systemPrompt = `You are a Financial Modeling analyst for a Value Engineering platform. Build cash flow projections from confirmed hypotheses.
+    const systemPromptTemplate = resolvePromptTemplate('financial_modeling_system');
+    const userPromptTemplate = resolvePromptTemplate('financial_modeling_user');
+    this.setPromptVersionReferences(
+      [
+        { key: systemPromptTemplate.key, version: systemPromptTemplate.version },
+        { key: userPromptTemplate.key, version: userPromptTemplate.version },
+      ],
+      [systemPromptTemplate.approval, userPromptTemplate.approval],
+    );
 
-Rules:
-- Each hypothesis gets one cash flow projection.
-- cash_flows[0] is the initial investment (negative number).
-- cash_flows[1..n] are projected returns per period.
-- discount_rate should reflect the risk level (0.08-0.15 typical range).
-- total_investment = absolute value of cash_flows[0].
-- total_benefit = sum of cash_flows[1..n].
-- confidence reflects data quality and assumption reliability (0.0-1.0).
-- assumptions must be specific and falsifiable, not generic.
-- risk_factors should identify what could invalidate the projection.
-- data_sources should reference where the numbers come from.
-- sensitivity_parameters: pick 2-3 key variables to test (e.g., discount_rate, revenue_growth, cost_savings).
-  Each perturbation array should contain multipliers like [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3].
-
-Domain context: ${domainContext}
-
-Respond with valid JSON matching the schema. No markdown fences or commentary.`;
-
-    const userPrompt = `Build financial models for these confirmed hypotheses:\n\n${hypothesisContext}`;
+    const systemPrompt = renderTemplate(systemPromptTemplate.template, { domainContext });
+    const userPrompt = renderTemplate(userPromptTemplate.template, { hypothesisContext });
 
     try {
       return await this.secureInvoke<FinancialModelingOutput>(
