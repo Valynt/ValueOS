@@ -5,6 +5,7 @@
  *   - LLM invocations (secureInvoke start/end, model, latency)
  *   - Memory store operations (table, tenant, key)
  *   - Veto decisions (agent, case ID, claim ID, reason)
+ *   - Generic agent lifecycle events (execute, compensate, etc.)
  *
  * BaseAgent wires this — no agent subclass changes required.
  * All entries include tenantId per the 2026-08-04 audit_logs decision.
@@ -46,6 +47,20 @@ export interface VetoDecisionAuditParams {
   confidence: number;
 }
 
+/**
+ * Generic agent lifecycle event — used by ValueLifecycleOrchestrator to record
+ * execute/compensate outcomes without requiring a typed params interface.
+ */
+export interface AgentAuditEvent {
+  agentName: string;
+  action: string;
+  organizationId: string;
+  sessionId: string;
+  userId: string;
+  status: "success" | "failed";
+  details?: Record<string, unknown>;
+}
+
 export class AuditLogger {
   private readonly auditLogService: AuditLogService;
 
@@ -75,7 +90,6 @@ export class AuditLogger {
         correlationId: params.sessionId,
       });
     } catch (err) {
-      // Audit failures must not break agent execution.
       logger.warn("AuditLogger: failed to log LLM invocation", {
         agent: params.agentName,
         session_id: params.sessionId,
@@ -136,6 +150,38 @@ export class AuditLogger {
         agent: params.agentName,
         session_id: params.sessionId,
         err,
+      });
+    }
+  }
+
+  /**
+   * Record a generic agent lifecycle event (execute, compensate, etc.).
+   * Used by ValueLifecycleOrchestrator. Failures are swallowed — audit must
+   * not interrupt orchestration.
+   */
+  async logAgentEvent(event: AgentAuditEvent): Promise<void> {
+    try {
+      await this.auditLogService.logAudit({
+        userId: event.userId,
+        userName: event.agentName,
+        userEmail: `agent:${event.agentName.toLowerCase()}@valueos.internal`,
+        action: `agent.${event.action}`,
+        resourceType: "agent",
+        resourceId: event.agentName,
+        tenantId: event.organizationId,
+        status: event.status,
+        details: {
+          session_id: event.sessionId,
+          organization_id: event.organizationId,
+          ...event.details,
+        },
+        correlationId: event.sessionId,
+      });
+    } catch (err) {
+      logger.warn("AuditLogger: failed to log agent event", {
+        agentName: event.agentName,
+        action: event.action,
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }

@@ -344,6 +344,7 @@ export class ExpansionAgent extends BaseAgent {
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },
+          userId: context.user_id,
           context: {
             agent: 'expansion',
             organization_id: context.organization_id,
