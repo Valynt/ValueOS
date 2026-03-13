@@ -64,7 +64,7 @@ type TenantDbContext = {
 
 export function tenantDbContextMiddleware(enforce = true) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       if (enforce) {
         return res.status(403).json({

@@ -15,7 +15,7 @@ export function requireConsent(
       });
     }
 
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(400).json({
         error: 'Bad Request',

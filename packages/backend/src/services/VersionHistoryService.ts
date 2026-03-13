@@ -9,8 +9,8 @@ import { NotFoundError } from './errors.js'
 export interface SettingsVersion {
   id: string;
   settingKey: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
   changedBy: string;
@@ -26,8 +26,8 @@ export interface SettingsVersion {
 
 export interface VersionCreateInput {
   settingKey: string;
-  oldValue?: any;
-  newValue: any;
+  oldValue?: unknown;
+  newValue: unknown;
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
   changedBy: string;
@@ -218,24 +218,26 @@ export class VersionHistoryService extends BaseService {
   ): Promise<{
     version1: SettingsVersion;
     version2: SettingsVersion;
-    differences: Array<{ field: string; value1: any; value2: any }>;
+    differences: Array<{ field: string; value1: unknown; value2: unknown }>;
   }> {
     const [version1, version2] = await Promise.all([
       this.getVersion(versionId1),
       this.getVersion(versionId2),
     ]);
 
-    const differences: Array<{ field: string; value1: any; value2: any }> = [];
+    const differences: Array<{ field: string; value1: unknown; value2: unknown }> = [];
 
     // Deep compare values
+    const v1 = version1.newValue as Record<string, unknown> | null | undefined;
+    const v2 = version2.newValue as Record<string, unknown> | null | undefined;
     const keys = new Set([
-      ...Object.keys(version1.newValue || {}),
-      ...Object.keys(version2.newValue || {}),
+      ...Object.keys(v1 || {}),
+      ...Object.keys(v2 || {}),
     ]);
 
     keys.forEach((key) => {
-      const val1 = version1.newValue?.[key];
-      const val2 = version2.newValue?.[key];
+      const val1 = v1?.[key];
+      const val2 = v2?.[key];
 
       if (JSON.stringify(val1) !== JSON.stringify(val2)) {
         differences.push({ field: key, value1: val1, value2: val2 });
@@ -250,8 +252,8 @@ export class VersionHistoryService extends BaseService {
    */
   async getRollbackPreview(versionId: string): Promise<{
     version: SettingsVersion;
-    currentValue: any;
-    rollbackValue: any;
+    currentValue: unknown;
+    rollbackValue: unknown;
     affectedSettings: string[];
   }> {
     const version = await this.getVersion(versionId);
@@ -260,14 +262,14 @@ export class VersionHistoryService extends BaseService {
       version,
       currentValue: version.newValue,
       rollbackValue: version.oldValue,
-      affectedSettings: Object.keys(version.oldValue || {}),
+      affectedSettings: Object.keys((version.oldValue as Record<string, unknown>) || {}),
     };
   }
 
   /**
    * Map database record to SettingsVersion
    */
-  private mapVersion(data: any): SettingsVersion {
+  private mapVersion(data: Record<string, unknown>): SettingsVersion {
     return {
       id: data.id,
       settingKey: data.setting_key,

@@ -31,7 +31,7 @@ router.get(
   requirePermission("users.read"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
+      const tenantId = req.tenantId!;
 
       const users = await adminUserService.listTenantUsers(tenantId);
 
@@ -81,8 +81,8 @@ router.post(
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = req.tenantId!;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -136,8 +136,8 @@ router.patch(
   validateRequest(ValidationSchemas.adminChangeRole),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = req.tenantId!;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -180,8 +180,8 @@ router.delete(
   auditBulkDelete("team_member"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = req.tenantId!;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -223,8 +223,8 @@ router.delete(
   auditOperation("invite_cancel", "team_invite", (req) => req.params.userId),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = req.tenantId!;
+      const actor = req.user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||

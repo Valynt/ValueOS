@@ -132,8 +132,8 @@ The ValueOS platform has strong foundational security and CI controls but carrie
 4. Remove the `test.skip()` call and remove R1-SKIP-002 from `config/release-risk/release-1.0-skip-waivers.json`.
 
 **Acceptance criteria:**
-- [ ] `TEST-E2E-CRITICAL-003` runs and passes in CI without external dependencies.
-- [ ] R1-SKIP-002 entry removed from the waiver file.
+- [x] `TEST-E2E-CRITICAL-003` runs and passes in CI without external dependencies.
+- [x] R1-SKIP-002 entry removed from the waiver file.
 - [ ] Remaining waivers (R1-SKIP-003 through R1-SKIP-013) have confirmed owners and non-expired expiry dates.
 
 ---

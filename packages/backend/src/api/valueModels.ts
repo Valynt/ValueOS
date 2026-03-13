@@ -33,7 +33,7 @@ interface StoredScenario {
 const scenarioStore = new Map<string, StoredScenario[]>();
 
 function getTenantId(req: Request): string {
-  const tenantId = (req as any).tenantId as string | undefined;
+  const tenantId = req.tenantId;
   if (!tenantId) throw new Error("Tenant context required");
   return tenantId;
 }

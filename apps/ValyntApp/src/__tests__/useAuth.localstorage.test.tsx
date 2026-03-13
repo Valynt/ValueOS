@@ -8,11 +8,11 @@
  * across sessions.
  *
  * The localStorage.setItem call was removed from the useMemo in
- * client/src/_core/hooks/useAuth.ts. These tests enforce that it stays gone.
+ * apps/ValyntApp/src/features/auth/hooks/useAuth.ts. These tests enforce that it stays gone.
  *
- * The hook lives in client/src/_core/hooks/useAuth.ts. Its @/lib/trpc and
- * @/const imports resolve to apps/ValyntApp/src/lib/trpc.ts and
- * apps/ValyntApp/src/const.ts (stubs), both of which are mocked below.
+ * The hook lives in apps/ValyntApp/src/features/auth/hooks/useAuth.ts. Its
+ * @/lib/trpc and @/const imports resolve to apps/ValyntApp/src/lib/trpc.ts
+ * and apps/ValyntApp/src/const.ts (stubs), both of which are mocked below.
  *
  * Note: the test setup file (src/test/setup.ts) replaces window.localStorage
  * with vi.fn() mocks, so assertions use spy calls rather than getItem().
@@ -47,7 +47,7 @@ vi.mock('@/const', () => ({
 
 // ─── Import hook after mocks ──────────────────────────────────────────────────
 
-import { useAuth } from '../../../../client/src/_core/hooks/useAuth';
+import { useAuth } from '../features/auth/hooks/useAuth';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
