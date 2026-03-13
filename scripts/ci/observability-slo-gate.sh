@@ -7,6 +7,10 @@ PROMETHEUS_BEARER_TOKEN="${PROMETHEUS_BEARER_TOKEN:-}"
 FAST_BURN_THRESHOLD="${SLO_FAST_BURN_THRESHOLD:-14.4}"
 SLOW_BURN_THRESHOLD="${SLO_SLOW_BURN_THRESHOLD:-6}"
 GATE_OUTPUT_DIR="${SLO_GATE_OUTPUT_DIR:-artifacts/slo-gate}"
+PROMETHEUS_CONNECT_TIMEOUT="${PROMETHEUS_CONNECT_TIMEOUT:-5}"
+PROMETHEUS_MAX_TIME="${PROMETHEUS_MAX_TIME:-30}"
+PROMETHEUS_RETRIES="${PROMETHEUS_RETRIES:-3}"
+PROMETHEUS_RETRY_DELAY="${PROMETHEUS_RETRY_DELAY:-2}"
 
 mkdir -p "$GATE_OUTPUT_DIR"
 REPORT_JSON="$GATE_OUTPUT_DIR/slo-gate-report.json"
@@ -31,6 +35,10 @@ query_prometheus() {
   fi
 
   curl --silent --show-error --fail --get \
+    --connect-timeout "$PROMETHEUS_CONNECT_TIMEOUT" \
+    --max-time "$PROMETHEUS_MAX_TIME" \
+    --retry "$PROMETHEUS_RETRIES" \
+    --retry-delay "$PROMETHEUS_RETRY_DELAY" \
     "${auth[@]}" \
     --data-urlencode "query=${query}" \
     "${PROMETHEUS_BASE_URL%/}/api/v1/query"
