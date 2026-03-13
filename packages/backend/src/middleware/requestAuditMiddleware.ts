@@ -7,8 +7,7 @@ import { NextFunction, Request, Response } from "express";
 
 import { getTraceContextForLogging } from "../config/telemetry.js";
 import { securityAuditService } from "../services/SecurityAuditService.js";
-
-
+import { AUDIT_ACTION, AuditAction } from "../types/audit.js";
 
 const DEFAULT_IGNORED_PATHS = ["/health", "/metrics"];
 
@@ -21,7 +20,7 @@ function getRequestId(req: Request): string {
 }
 
 function getActor(req: Request): { id?: string; label: string } {
-  const anyReq = req as any;
+  const anyReq = req as Request & { user?: { id?: string; email?: string; name?: string } };
   const user = anyReq.user || {};
   const headerActor = (req.headers["x-user-email"] as string) || (req.headers["x-actor"] as string);
   const label = user.email || user.name || headerActor || "anonymous";
@@ -32,63 +31,72 @@ function getActor(req: Request): { id?: string; label: string } {
   };
 }
 
+export async function emitRequestAuditEvent(
+  req: Request,
+  res: Response,
+  action: AuditAction,
+  eventType: string,
+  eventData?: Record<string, unknown>
+): Promise<void> {
+  const actor = getActor(req);
+  await securityAuditService.logRequestEvent({
+    requestId: (res.locals.requestId as string) || (req.requestId as string) || getRequestId(req),
+    userId: actor.id,
+    actor: actor.label,
+    action,
+    resource: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
+    requestPath: sanitizeForLogging(req.path || req.originalUrl) as string,
+    ipAddress: req.ip || req.socket.remoteAddress || undefined,
+    userAgent: req.get("user-agent") || undefined,
+    statusCode: res.statusCode,
+    severity: res.statusCode >= 500 ? "high" : "medium",
+    eventType,
+    eventData: {
+      method: req.method,
+      org: sanitizeForLogging(
+        (req.headers["x-organization-id"] as string) || (req as Request & { organizationId?: string }).organizationId
+      ),
+      tenantId: sanitizeForLogging(req.tenantId),
+      routeParams: sanitizeForLogging(req.params),
+      query: sanitizeForLogging(req.query),
+      ...eventData,
+    },
+  });
+}
+
 export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
   const ignoredPaths = options?.ignoredPaths || DEFAULT_IGNORED_PATHS;
 
   return (req: Request, res: Response, next: NextFunction) => {
-    if ((req as any)._auditMiddlewareAttached) {
+    if ((req as Request & { _auditMiddlewareAttached?: boolean })._auditMiddlewareAttached) {
       return next();
     }
 
-    (req as any)._auditMiddlewareAttached = true;
-
-    if (ignoredPaths.some((path) => req.path.startsWith(path))) {
-      const ignoredRequestId = getRequestId(req);
-      res.locals.requestId = ignoredRequestId;
-      (req as any).requestId = ignoredRequestId;
-      res.setHeader("X-Request-Id", ignoredRequestId);
-      return next();
-    }
+    (req as Request & { _auditMiddlewareAttached?: boolean })._auditMiddlewareAttached = true;
 
     const requestId = getRequestId(req);
-    const startedAt = Date.now();
-
     res.locals.requestId = requestId;
-    (req as any).requestId = requestId;
+    req.requestId = requestId;
     res.setHeader("X-Request-Id", requestId);
 
-    // Prepare context
+    const requestPath = req.originalUrl || req.path;
+    if (ignoredPaths.some((path) => requestPath.startsWith(path)) || !requestPath.startsWith("/api/")) {
+      return next();
+    }
+
+    const startedAt = Date.now();
+
     const context = {
       requestId,
-      userId: (req as any).user?.id,
+      userId: req.user?.id,
       ...getTraceContextForLogging(),
     };
 
     runWithContext(context, () => {
       res.on("finish", async () => {
-        const actor = getActor(req);
         try {
-          await securityAuditService.logRequestEvent({
-            requestId,
-            userId: actor.id,
-            actor: actor.label,
-            action: req.method.toLowerCase(),
-            // Avoid persisting raw URLs that may include sensitive query strings.
-            resource: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
-            requestPath: sanitizeForLogging(req.path || req.originalUrl) as string,
-            ipAddress: req.ip || req.socket.remoteAddress || undefined,
-            userAgent: req.get("user-agent") || undefined,
-            statusCode: res.statusCode,
-            severity: res.statusCode >= 500 ? "high" : "medium",
-            eventData: {
-              duration_ms: Date.now() - startedAt,
-              org: sanitizeForLogging(
-                (req.headers["x-organization-id"] as string) || (req as any).organizationId
-              ),
-              tenantId: sanitizeForLogging((req as any).tenantId),
-              routeParams: sanitizeForLogging(req.params),
-              query: sanitizeForLogging(req.query),
-            },
+          await emitRequestAuditEvent(req, res, AUDIT_ACTION.API_REQUEST, "api.request", {
+            duration_ms: Date.now() - startedAt,
           });
         } catch (error) {
           logger.error("Failed to write request audit event", error as Error, {
