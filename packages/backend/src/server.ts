@@ -89,6 +89,11 @@ import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
 
+// Bootstrap OTel SDK before any instrumented libraries are imported.
+// startTracing() is a no-op when ENABLE_TELEMETRY=false or on failure.
+import { startTracing, stopTracing } from "./observability/tracing.js";
+await startTracing();
+
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
 let latencyMetricsMiddleware = null;
@@ -728,7 +733,10 @@ function registerGracefulShutdown(): void {
     // 1. Tell health check to return 503 so the load balancer stops sending traffic
     markAsShuttingDown();
 
-    // 2. Stop audit DLQ retry loop
+    // 2. Flush and shut down OTel SDK (best-effort, non-blocking)
+    stopTracing().catch(() => {});
+
+    // 2.1. Stop audit DLQ retry loop
     securityAuditService.stopRetryLoop();
 
     // 2.5. Stop RecommendationEngine subscriptions

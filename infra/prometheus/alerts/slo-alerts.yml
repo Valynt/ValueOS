@@ -7,7 +7,7 @@ groups:
           sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m]))
           /
           sum(rate(valuecanvas_http_requests_total[5m]))
-          > 0.01
+          > ${SLO_AVAILABILITY_FAST_BURN_ERROR_RATE_THRESHOLD}
         for: 10m
         labels:
           severity: critical
@@ -21,7 +21,7 @@ groups:
           sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[30m]))
           /
           sum(rate(valuecanvas_http_requests_total[30m]))
-          > 0.001
+          > ${SLO_AVAILABILITY_SLOW_BURN_ERROR_RATE_THRESHOLD}
         for: 1h
         labels:
           severity: warning
@@ -32,31 +32,31 @@ groups:
 
   - name: api-slo-latency
     rules:
-      # API latency SLO: p95 under 200ms
+      # API latency SLO: p95 under ${SLO_MAX_P95_LATENCY_MS}ms
       - alert: APILatencyP95High
         expr: |
           histogram_quantile(
             0.95,
             sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le)
-          ) > 200
+          ) > ${SLO_MAX_P95_LATENCY_MS}
         for: 10m
         labels:
           severity: warning
           slo: latency
         annotations:
           summary: "High p95 latency"
-          description: "P95 API latency has exceeded 200ms for at least 10m."
+          description: "P95 API latency has exceeded ${SLO_MAX_P95_LATENCY_MS}ms for at least 10m."
 
   - name: api-slo-mttr
     rules:
-      # MTTR SLO: incidents should resolve in <= 15 minutes
+      # MTTR SLO: incidents should resolve in <= ${SLO_MAX_MTTR_MINUTES} minutes
       - alert: APIMTTRHigh
         expr: |
-          avg_over_time(valuecanvas_incident_mttr_minutes[24h]) > 15
+          avg_over_time(valuecanvas_incident_mttr_minutes[24h]) > ${SLO_MAX_MTTR_MINUTES}
         for: 15m
         labels:
           severity: critical
           slo: mttr
         annotations:
           summary: "MTTR SLO breach"
-          description: "Average incident MTTR over 24h exceeds 15 minutes."
+          description: "Average incident MTTR over 24h exceeds ${SLO_MAX_MTTR_MINUTES} minutes."

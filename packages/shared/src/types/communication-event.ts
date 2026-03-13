@@ -20,6 +20,9 @@ export interface CommunicationEventCore {
   message_type?: string;
   correlation_id?: string;
   reply_to?: string;
+  trace_id?: string;
+  span_id?: string;
+  parent_span_id?: string;
   content: string;
   payload?: unknown;
   compressed?: boolean;

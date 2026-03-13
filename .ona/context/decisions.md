@@ -13,6 +13,30 @@ Full records: `docs/engineering/adr/`. Update this file when a new ADR is accept
 
 ---
 
+## ADR-0017 — Service De-duplication Strategy (Accepted, 2026-07-15)
+
+**Decision:** Verify before consolidating — two files with the same name may be intentionally distinct. Canonical locations: domain types in `packages/shared/src/domain/`, tenant limits in `services/tenant/TenantLimits.ts`, pure transformation logic in extracted `*Applier.ts` / `*Types.ts` modules. Files >1000 lines are split by cohesion, not size. Legacy root directories (`client/`, `server/`, `shared/`) are removed and banned by ESLint. Resolved debt is recorded in `debt.md`.
+
+**Consequence for agents:** Before treating two same-named files as duplicates, read both. If distinct, document the distinction in each file's header. Do not consolidate. When extracting, re-export from the original file for backward compatibility.
+
+---
+
+## ADR-0016 — CI Security Gate Model (Accepted, 2026-07-15)
+
+**Decision:** CI has a dedicated security gate after unit tests: (1) RLS policy tests (`pnpm run test:rls`), (2) agent security suite (`scripts/test-agent-security.sh`), (3) TypeScript `any` threshold enforced via coverage thresholds (lines=75%, functions=70%, branches=70%), (4) Playwright E2E critical paths with waiver tracking in `config/release-risk/release-1.0-skip-waivers.json`. ESLint enforces structural rules at PR time.
+
+**Consequence for agents:** New tenant-scoped tables require an RLS test before merging. New agents must pass the agent security suite. Skip waivers require an owner and expiry date or they fail CI.
+
+---
+
+## ADR-0015 — Agent Fabric Design (Accepted, 2026-07-15)
+
+**Decision:** Eight domain agents extend `BaseAgent` in `packages/backend/src/lib/agent-fabric/agents/`. All LLM calls go through `BaseAgent.secureInvoke()` (circuit breaker + hallucination detection + Zod validation). Six runtime services replace `UnifiedAgentOrchestrator`. Inter-agent messaging via `MessageBus` (CloudEvents) with `trace_id` propagation. Memory is tenant-scoped; all queries include `tenant_id`. Confidence thresholds are risk-tiered.
+
+**Consequence for agents:** Never call `llmGateway.complete()` directly. Use `secureInvoke`. Every memory store/query must include `this.organizationId`. New lifecycle stages require one agent class + one DAG node + `AgentFactory` registration.
+
+---
+
 ## ADR-0014 — Direct Agent Invocation Rule (Accepted, 2026-06-10)
 
 **Decision:** Server-side orchestration calls `AgentFactory.create(agentType, orgId).execute(context)` directly. `AgentAPI` (HTTP client) is for external/frontend callers only. `QueryExecutor` no longer makes an HTTP round-trip to itself.
@@ -147,3 +171,28 @@ Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRe
 ### RecommendationEngine is the sixth runtime service
 
 `packages/backend/src/runtime/recommendation-engine/RecommendationEngine.ts` is a fully wired runtime service alongside the five originally documented ones (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). It subscribes to four domain events (`opportunity.updated`, `hypothesis.validated`, `evidence.attached`, `realization.milestone_reached`) and pushes next-best-action `Recommendation` objects to UI clients via `RealtimeBroadcastService`. It is started in `server.ts` and has its own test suite. All references to "five runtime services" in documentation were incorrect — there are six.
+
+---
+
+### audit_logs.tenant_id — optional field, backward-compatible (2026-08-04)
+
+`AuditLogCreateInput.tenantId` is optional. Callers that omit it write `null` to the nullable `tenant_id` column, which is the pre-existing behavior. The `audit_logs` RLS SELECT policy accepts both `tenant_id` and `organization_id` as valid access paths, so rows with `null` tenant_id are still readable by service_role and by authenticated users whose token matches `organization_id`.
+
+**Why optional:** ~40 existing call sites do not have a `tenantId` in scope (auth routes, billing, referrals). Making the field required would break all of them. The field is optional so new callers can supply it without forcing a mass update of existing callers.
+
+**New callers must supply `tenantId`:** Any new `logAudit` / `createEntry` call added after 2026-08-04 must pass `tenantId` if the request context carries one. Omitting it on a new call site is a code-review finding.
+
+**Callers updated (2026-08-04):** `api/projects.ts` (all audit writes), `api/crm.ts` (oauth_started, crm_connected, crm_disconnected, crm_sync_triggered). `tenantId` removed from `details` payload in these callers — it is now a first-class column, not a detail field.
+
+**Files:** `packages/backend/src/services/security/AuditLogService.ts`, `packages/backend/src/api/projects.ts`, `packages/backend/src/api/crm.ts`
+
+---
+
+### state_events table — event-sourcing store for optimistic-lock state changes (2026-08-04)
+
+`EventSourcingManager` (`apps/ValyntApp/src/state/EventSourcing.ts`) writes to a `state_events` table that had no migration. Migration `20260804000000_state_events.sql` creates the table with:
+- `tenant_id NOT NULL` — every event is tenant-scoped; no cross-tenant reads possible
+- Unique constraint on `(tenant_id, aggregate_id, version)` — enforces optimistic-lock semantics at the DB layer
+- RLS: authenticated users SELECT/INSERT only within their tenant; service_role has full access
+
+**Consequence for agents:** Do not query `state_events` without a `tenant_id` filter. The unique constraint means a version conflict on `append()` surfaces as a Postgres unique-violation error — callers must handle this as a `ConflictType.VERSION_CONFLICT`.

@@ -66,7 +66,7 @@ router.post(
   rateLimiters.standard,
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId;
       if (!tenantId) {
         return res.status(401).json({ error: 'Tenant context required' });
       }
@@ -153,7 +153,7 @@ router.get(
   rateLimiters.loose,
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId;
       if (!tenantId) {
         return res.status(401).json({ error: 'Tenant context required' });
       }
@@ -188,7 +188,7 @@ router.get(
   rateLimiters.loose,
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId;
       if (!tenantId) {
         return res.status(401).json({ error: 'Tenant context required' });
       }
@@ -237,7 +237,7 @@ router.patch(
   rateLimiters.standard,
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId;
       if (!tenantId) {
         return res.status(401).json({ error: 'Tenant context required' });
       }
@@ -320,7 +320,7 @@ router.post(
   rateLimiters.standard,
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string | undefined;
+      const tenantId = req.tenantId;
       if (!tenantId) {
         return res.status(401).json({ error: 'Tenant context required' });
       }

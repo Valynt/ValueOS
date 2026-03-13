@@ -14,211 +14,32 @@ import { AgentType } from "../../agent-types.js";
 import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent.js";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService.js";
 
-// ============================================================================
-// Retry Types
-// ============================================================================
-
-export interface RetryOptions {
-  /** Maximum number of retry attempts */
-  maxRetries: number;
-  /** Retry strategy */
-  strategy: RetryStrategy;
-  /** Base delay in milliseconds */
-  baseDelay: number;
-  /** Maximum delay in milliseconds */
-  maxDelay: number;
-  /** Backoff multiplier */
-  backoffMultiplier: number;
-  /** Jitter factor */
-  jitterFactor: number;
-  /** Retryable error types */
-  retryableErrors: string[];
-  /** Non-retryable error types */
-  nonRetryableErrors: string[];
-  /** Fallback agent types */
-  fallbackAgents: AgentType[];
-  /** Fallback strategy */
-  fallbackStrategy: FallbackStrategy;
-  /** Timeout per attempt */
-  attemptTimeout: number;
-  /** Overall timeout */
-  overallTimeout: number;
-  /** Retry context */
-  context?: RetryContext;
-}
-
-export type RetryStrategy =
-  | "exponential_backoff"
-  | "linear_backoff"
-  | "fixed_delay"
-  | "adaptive"
-  | "custom";
-
-export type FallbackStrategy = "none" | "sequential" | "parallel" | "best_effort" | "custom";
-
-export interface RetryContext {
-  /** Request ID */
-  requestId: string;
-  /** Session ID */
-  sessionId?: string;
-  /** User ID */
-  userId?: string;
-  /** Organization ID */
-  organizationId?: string;
-  /** Request priority */
-  priority: "low" | "medium" | "high" | "critical";
-  /** Request source */
-  source: string;
-  /** Custom metadata */
-  metadata?: Record<string, unknown>;
-}
-
-export interface RetryAttempt {
-  /** Attempt number */
-  attempt: number;
-  /** Start time */
-  startTime: Date;
-  /** End time */
-  endTime?: Date;
-  /** Duration */
-  duration?: number;
-  /** Success status */
-  success: boolean;
-  /** Error if failed */
-  error?: RetryError;
-  /** Agent type used */
-  agentType: AgentType;
-  /** Response if successful */
-  response?: AgentResponse;
-  /** Retry delay before this attempt */
-  delay: number;
-}
-
-export interface RetryError {
-  /** Error type */
-  type: string;
-  /** Error message */
-  message: string;
-  /** Error code */
-  code?: string;
-  /** Stack trace */
-  stack?: string;
-  /** Whether error is retryable */
-  retryable: boolean;
-  /** Error severity */
-  severity: "low" | "medium" | "high" | "critical";
-  /** Error context */
-  context?: Record<string, unknown>;
-  /** Timestamp */
-  timestamp: Date;
-}
-
-export interface RetryResult {
-  /** Request ID */
-  requestId: string;
-  /** Overall success status */
-  success: boolean;
-  /** Final response */
-  response?: AgentResponse;
-  /** Final error */
-  error?: RetryError;
-  /** Total attempts */
-  totalAttempts: number;
-  /** Retry attempts */
-  attempts: RetryAttempt[];
-  /** Total duration */
-  totalDuration: number;
-  /** Agent type that succeeded */
-  successfulAgentType?: AgentType;
-  /** Fallback used */
-  fallbackUsed: boolean;
-  /** Retry strategy used */
-  strategy: RetryStrategy;
-  /** Retry statistics */
-  statistics: RetryStatistics;
-}
-
-export interface RetryStatistics {
-  /** Average attempt duration */
-  avgAttemptDuration: number;
-  /** Total retry delay */
-  totalRetryDelay: number;
-  /** Success rate by attempt */
-  successRateByAttempt: Record<number, number>;
-  /** Error distribution */
-  errorDistribution: Record<string, number>;
-  /** Agent performance */
-  agentPerformance: Record<
-    AgentType,
-    {
-      attempts: number;
-      successes: number;
-      avgDuration: number;
-      successRate: number;
-    }
-  >;
-}
-
-export interface FallbackAgent {
-  /** Agent type */
-  agentType: AgentType;
-  /** Agent instance */
-  agent: IAgent;
-  /** Priority */
-  priority: number;
-  /** Success rate */
-  successRate: number;
-  /** Average response time */
-  avgResponseTime: number;
-  /** Last used */
-  lastUsed?: Date;
-  /** Health status */
-  health: "healthy" | "degraded" | "unhealthy";
-}
-
-export interface RetryPolicy {
-  /** Policy ID */
-  id: string;
-  /** Policy name */
-  name: string;
-  /** Policy description */
-  description: string;
-  /** Agent types this policy applies to */
-  agentTypes: AgentType[];
-  /** Default retry options */
-  defaultOptions: RetryOptions;
-  /** Error type mappings */
-  errorMappings: Record<
-    string,
-    {
-      retryable: boolean;
-      maxRetries?: number;
-      backoffMultiplier?: number;
-      fallbackAgents?: AgentType[];
-    }
-  >;
-  /** Policy conditions */
-  conditions: RetryPolicyCondition[];
-  /** Enabled status */
-  enabled: boolean;
-}
-
-export interface RetryPolicyCondition {
-  /** Condition ID */
-  id: string;
-  /** Condition type */
-  type: "time_of_day" | "load_level" | "error_rate" | "priority" | "custom";
-  /** Condition parameters */
-  parameters: Record<string, unknown>;
-  /** Override options */
-  overrideOptions: Partial<RetryOptions>;
-  /** Enabled status */
-  enabled: boolean;
-}
-
-// ============================================================================
-// Retry Manager Implementation
-// ============================================================================
+export type {
+  FallbackAgent,
+  FallbackStrategy,
+  RetryAttempt,
+  RetryContext,
+  RetryError,
+  RetryOptions,
+  RetryPolicy,
+  RetryPolicyCondition,
+  RetryResult,
+  RetryStatistics,
+  RetryStrategy,
+} from "./AgentRetryTypes.js";
+import type {
+  FallbackAgent,
+  FallbackStrategy,
+  RetryAttempt,
+  RetryContext,
+  RetryError,
+  RetryOptions,
+  RetryPolicy,
+  RetryPolicyCondition,
+  RetryResult,
+  RetryStatistics,
+  RetryStrategy,
+} from "./AgentRetryTypes.js";
 
 /**
  * Agent Retry Manager
@@ -727,6 +548,7 @@ export class AgentRetryManager {
       agentTelemetryService.recordTelemetryEvent({
         type: "agent_retry_success",
         agentType,
+        organizationId: context.organizationId,
         sessionId: context.sessionId,
         userId: context.userId,
         data: {
@@ -752,6 +574,7 @@ export class AgentRetryManager {
       agentTelemetryService.recordTelemetryEvent({
         type: "agent_retry_failure",
         agentType,
+        organizationId: context.organizationId,
         sessionId: context.sessionId,
         userId: context.userId,
         data: {
@@ -887,6 +710,7 @@ export class AgentRetryManager {
           agentTelemetryService.recordTelemetryEvent({
             type: "agent_fallback_success",
             agentType: fallbackAgent.agentType,
+            organizationId: context.organizationId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
@@ -980,6 +804,7 @@ export class AgentRetryManager {
       agentTelemetryService.recordTelemetryEvent({
         type: "agent_fallback_parallel_success",
         agentType: bestResult.agentType,
+        organizationId: context.organizationId,
         sessionId: context.sessionId,
         userId: context.userId,
         data: {

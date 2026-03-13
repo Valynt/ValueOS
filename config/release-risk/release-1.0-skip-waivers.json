@@ -18,14 +18,6 @@
       "reason": "Golden path monitor is intentionally disabled in CI lanes that set SKIP_GOLDEN_PATH=true to avoid false negatives on ephemeral preview environments."
     },
     {
-      "id": "R1-SKIP-002",
-      "file": "tests/e2e/critical-user-flow.spec.ts",
-      "line": 149,
-      "owner": "@team/frontend",
-      "expiresOn": "2026-05-31",
-      "reason": "Critical error-handling scenario depends on dedicated API-failure mocking harness not yet wired into Playwright runtime."
-    },
-    {
       "id": "R1-SKIP-003",
       "file": "tests/e2e/auth-complete-flow.spec.ts",
       "line": 259,

@@ -341,7 +341,7 @@ export function validateRequest(
           path: sanitizeForLogging(req.path),
           method: req.method,
           ip: sanitizeForLogging(req.ip),
-          requestId: (req as any).requestId ?? res.locals.requestId
+          requestId: req.requestId ?? res.locals.requestId
         });
 
         res.status(400).json({

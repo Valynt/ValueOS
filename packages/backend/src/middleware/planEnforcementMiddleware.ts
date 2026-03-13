@@ -29,15 +29,15 @@ function isPlanTier(value: unknown): value is PlanTier {
 }
 
 async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier> {
-  const userTier = (req as any)?.user?.subscription_tier
-    ?? (req as any)?.user?.plan_tier
-    ?? (req as any)?.user?.planTier;
+  const userTier = req.user?.subscription_tier
+    ?? req.user?.plan_tier
+    ?? req.user?.planTier;
 
   if (isPlanTier(userTier)) {
     return userTier;
   }
 
-  const tenantSettingsTier = (req as any)?.tenantSettings?.billing?.planTier;
+  const tenantSettingsTier = req.tenantSettings?.billing?.planTier;
   if (isPlanTier(tenantSettingsTier)) {
     return tenantSettingsTier;
   }
@@ -90,7 +90,7 @@ async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier
 export function createPlanEnforcement(config: EnforcementConfig) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const tenantId = (req as any).tenantId;
+      const tenantId = req.tenantId;
 
       if (!tenantId) {
         // No tenant - skip enforcement (public endpoint)
@@ -115,7 +115,7 @@ export function createPlanEnforcement(config: EnforcementConfig) {
 
       // Monthly token budgets should downgrade to fallback when exceeded.
       if (metric === 'llm_tokens' && monthlyTokens !== null && quota > 0 && monthlyTokens >= quota) {
-        (req as any).useFallbackModel = true;
+        req.useFallbackModel = true;
         res.setHeader('X-LLM-Fallback', 'true');
 
         // Notify user via UI
@@ -146,8 +146,8 @@ export function createPlanEnforcement(config: EnforcementConfig) {
           const audit = getAuditTrailService();
           void audit.logImmediate({
             eventType: 'security_event',
-            actorId: (req as any).user?.id || 'system',
-            auth0Sub: (req as any).user?.sub || (req as any).user?.auth0_sub || (req as any).user?.id || 'system',
+            actorId: req.user?.id || 'system',
+            auth0Sub: req.user?.sub || req.user?.auth0_sub || req.user?.id || 'system',
             actorType: 'service',
             resourceId: tenantId,
             resourceType: 'data',
@@ -161,8 +161,8 @@ export function createPlanEnforcement(config: EnforcementConfig) {
             ipAddress: 'system',
             userAgent: 'system',
             timestamp: Date.now(),
-            sessionId: (req as any).sessionId || 'unknown',
-            correlationId: (req as any).requestId || 'llm-fallback',
+            sessionId: req.sessionId || 'unknown',
+            correlationId: req.requestId || 'llm-fallback',
             riskScore: 0,
             complianceFlags: [],
             tenantId,

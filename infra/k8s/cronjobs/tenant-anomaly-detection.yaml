@@ -1,0 +1,99 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tenant-baseline-anomaly-detection
+  labels:
+    app: valueos
+    component: observability
+    job-type: tenant-anomaly
+spec:
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: valueos
+            component: observability
+            job-type: tenant-anomaly
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: baseline-vs-current
+              image: ghcr.io/valynt/valueos-backend:latest
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl -fsS -X POST "http://valueos-backend.monitoring.svc.cluster.local:3000/internal/ops/anomaly/tenant-baseline" \
+                    -H "Authorization: Bearer ${OPS_AUTOMATION_TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    -d '{"window_minutes":15,"baseline_days":7}'
+              env:
+                - name: OPS_AUTOMATION_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: observability-ops-secrets
+                      key: automation-token
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tenant-noisy-neighbor-detection
+  labels:
+    app: valueos
+    component: observability
+    job-type: noisy-neighbor
+spec:
+  schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: valueos
+            component: observability
+            job-type: noisy-neighbor
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: noisy-neighbor
+              image: ghcr.io/valynt/valueos-backend:latest
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl -fsS -X POST "http://valueos-backend.monitoring.svc.cluster.local:3000/internal/ops/anomaly/noisy-neighbor" \
+                    -H "Authorization: Bearer ${OPS_AUTOMATION_TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    -d '{"resource_share_threshold":0.40,"peer_degradation_threshold":0.30}'
+              env:
+                - name: OPS_AUTOMATION_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: observability-ops-secrets
+                      key: automation-token
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"

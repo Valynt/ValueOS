@@ -212,7 +212,7 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
 router.post("/reset-metrics", async (req: Request, res: Response) => {
   try {
     metricsCollector.reset();
-    logger.info("Security metrics reset by admin", { userId: (req as any).user?.id });
+    logger.info("Security metrics reset by admin", { userId: req.user?.id });
 
     res.json({
       success: true,

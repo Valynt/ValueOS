@@ -192,7 +192,7 @@ router.get(
   validateRequest(workflowExplainParamsSchema, 'params'),
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const db = (req as any).db as { query?: (query: string, params?: unknown[]) => Promise<{ rows?: Array<{ output_data?: unknown }> }> } | undefined;
 
     if (!tenantId) {

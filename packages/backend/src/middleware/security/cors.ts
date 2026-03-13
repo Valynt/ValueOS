@@ -223,7 +223,7 @@ export function createCorsMiddleware(options: CorsOptions = {}) {
           error: {
             code: 'CORS_ORIGIN_NOT_ALLOWED',
             message: 'Origin not allowed',
-            requestId: (req as any).requestId,
+            requestId: req.requestId,
           },
         });
         return;
@@ -258,7 +258,7 @@ export function createCorsMiddleware(options: CorsOptions = {}) {
             error: {
               code: 'CORS_METHOD_NOT_ALLOWED',
               message: `Method ${requestedMethod} not allowed`,
-              requestId: (req as any).requestId,
+              requestId: req.requestId,
             },
           });
           return;
