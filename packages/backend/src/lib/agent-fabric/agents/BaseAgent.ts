@@ -73,7 +73,10 @@ export abstract class BaseAgent {
     circuitBreaker: CircuitBreaker
   ) {
     this.lifecycleStage = config.lifecycle_stage;
-    this.version = "1.0.0";
+    // Read version from config metadata so AgentFactory can inject per-agent versions.
+    // Subclasses may also override via `public override readonly version = "x.y.z"`.
+    // The subclass field initializer runs after super(), so it takes precedence.
+    this.version = (config.metadata?.version as string | undefined) ?? "1.0.0";
     this.name = config.name;
     this.organizationId = organizationId;
     this.memorySystem = memorySystem;
