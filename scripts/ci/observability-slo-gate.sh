@@ -11,6 +11,8 @@ LATENCY_QUERY='histogram_quantile(0.95, sum(rate(valuecanvas_http_request_durati
 ERROR_RATE_QUERY='sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code=~"5.."}[5m])) / sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[5m]))'
 MTTR_QUERY='avg_over_time(valuecanvas_incident_mttr_minutes[24h])'
 
+node scripts/ci/check-slo-threshold-consistency.mjs
+
 query_prometheus() {
   local query="$1"
 

@@ -14,8 +14,7 @@ groups:
           slo: availability
         annotations:
           summary: "Fast burn: API availability SLO breach"
-          description: "5xx error ratio is above 1% for 10m, consuming error budget too quickly."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
+          description: "5xx error ratio is above 1.00% for 10m, consuming error budget too quickly."
 
       - alert: APIAvailabilitySlowBurn
         expr: |
@@ -29,8 +28,7 @@ groups:
           slo: availability
         annotations:
           summary: "Slow burn: API availability SLO at risk"
-          description: "5xx error ratio is above 0.1% for 1h (below 99.9% availability objective)."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
+          description: "5xx error ratio is above 0.10% for 1h (below 99.9% availability objective)."
 
   - name: api-slo-latency
     rules:
@@ -48,7 +46,6 @@ groups:
         annotations:
           summary: "High p95 latency"
           description: "P95 API latency has exceeded 200ms for at least 10m."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
 
   - name: api-slo-mttr
     rules:
@@ -63,4 +60,3 @@ groups:
         annotations:
           summary: "MTTR SLO breach"
           description: "Average incident MTTR over 24h exceeds 15 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
