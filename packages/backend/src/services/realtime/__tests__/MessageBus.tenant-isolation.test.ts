@@ -57,9 +57,7 @@ describe('MessageBus.publishMessage — tenant isolation', () => {
     const bus = new MessageBus();
     const event = makeEvent({ tenant_id: '' });
 
-    await expect(bus.publishMessage('test.channel', event)).rejects.toThrow(
-      'CommunicationEvent missing tenant_id',
-    );
+    await expect(bus.publishMessage('test.channel', event)).rejects.toThrow(/tenant_id or organization_id/);
   });
 
   it('accepts an event with a valid tenant_id', async () => {
@@ -99,6 +97,73 @@ describe('MessageBus.publishMessage — tenant isolation', () => {
     expect(deliveredTenantId).toBe(TENANT_B);
   });
 
+
+  it('defaults trace_id when publish payload omits tracing fields', async () => {
+    const bus = new MessageBus();
+    let deliveredEvent: CommunicationEvent | undefined;
+
+    bus.subscribe('trace.check', 'test-agent', async (event) => {
+      deliveredEvent = event;
+    });
+
+    await bus.publishMessage('trace.check', makeEvent({ tenant_id: TENANT_A }));
+
+    expect(deliveredEvent?.trace_id).toBeTypeOf('string');
+    expect((deliveredEvent?.trace_id ?? '').length).toBeGreaterThan(0);
+  });
+
+  it('preserves provided trace fields through compression/decompression', async () => {
+    const bus = new MessageBus();
+    let deliveredEvent: CommunicationEvent | undefined;
+
+    bus.subscribe('trace.compressed', 'test-agent', async (event) => {
+      deliveredEvent = event;
+    });
+
+    await bus.publishMessage('trace.compressed', makeEvent({
+      tenant_id: TENANT_A,
+      trace_id: 'trace-explicit',
+      span_id: 'span-explicit',
+      parent_span_id: 'span-parent',
+      compressed: true,
+      payload: { foo: 'bar', nested: { value: 1 } },
+    }));
+
+    expect(deliveredEvent?.trace_id).toBe('trace-explicit');
+    expect(deliveredEvent?.span_id).toBe('span-explicit');
+    expect(deliveredEvent?.parent_span_id).toBe('span-parent');
+    expect(deliveredEvent?.payload).toEqual({ foo: 'bar', nested: { value: 1 } });
+  });
+
+  it('preserves trace_id across request/reply publish flow', async () => {
+    const bus = new MessageBus();
+
+    bus.subscribe('trace.request', 'responder', async (event) => {
+      await bus.publishMessage(event.reply_to ?? 'trace.request.reply.fallback', {
+        event_type: 'message',
+        sender_id: 'responder',
+        recipient_ids: [event.sender_id],
+        tenant_id: event.tenant_id ?? TENANT_A,
+        organization_id: event.organization_id,
+        content: 'ack',
+        message_type: 'response',
+        correlation_id: event.correlation_id,
+        trace_id: event.trace_id,
+      });
+    });
+
+    const response = await bus.request('trace.request', {
+      event_type: 'message',
+      sender_id: 'requester',
+      recipient_ids: ['responder'],
+      tenant_id: TENANT_A,
+      content: 'ping',
+      message_type: 'request',
+      trace_id: 'trace-request-1',
+    });
+
+    expect(response.trace_id).toBe('trace-request-1');
+  });
   it('assigns a unique id and timestamp to each published event', async () => {
     const bus = new MessageBus();
     const ids: string[] = [];

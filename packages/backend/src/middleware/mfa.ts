@@ -13,7 +13,7 @@ const logger = createLogger({ component: "MFAMiddleware" });
  */
 export async function requireMFA(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const user = (req as any).user;
+    const user = req.user;
 
     if (!user) {
       res.status(401).json({ error: "Authentication required" });

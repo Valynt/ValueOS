@@ -42,6 +42,23 @@ All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSche
 
 Block any operation that copies, moves, or exports data between tenants.
 
+### 5. Express request properties — no `(req as any)` casts
+
+`packages/backend/src/types/express.d.ts` augments `Express.Request` with all backend-specific properties. Access them directly — never cast to `any` to reach them.
+
+```typescript
+// ✅
+const tenantId = req.tenantId;
+const userId   = req.user?.id;
+const session  = req.session;
+req.useFallbackModel = true;
+
+// ❌ Unnecessary cast — the property is already typed
+const tenantId = (req as any).tenantId;
+```
+
+Declared properties: `user`, `tenantId`, `tenantSource`, `tenantContext`, `tenantSettings`, `session`, `sessionId`, `userId`, `requestId`, `organizationId`, `serviceIdentityVerified`, `useFallbackModel`, `supabase`, `supabaseUser`, `usageContext`, `_auditMiddlewareAttached`. Add new properties to `express.d.ts` rather than casting.
+
 ## Agent Development
 
 Location: `packages/backend/src/lib/agent-fabric/agents/` — one class per file, named `XAgent.ts`.
@@ -107,6 +124,18 @@ export class MyAgent extends BaseAgent {
 - **SDUI components:** register in both `config/ui-registry.json` and `packages/sdui/src/registry.tsx`.
 - **Tools:** implement `Tool<TInput, TOutput>` interface, register statically in `ToolRegistry.ts`. Dynamic creation forbidden.
 
+### Service de-duplication
+
+Before treating two same-named files as duplicates, read both. If they serve different concerns, document the distinction in each file's header and in `debt.md` — do not consolidate. See ADR-0017.
+
+When a service file exceeds ~1000 lines, extract cohesive sub-concerns into separate files. The original file re-exports everything so callers need no import changes. Extraction criterion is cohesion, not line count alone.
+
+Canonical locations for extracted modules:
+- Tenant tier limits and feature flags → `packages/backend/src/services/tenant/TenantLimits.ts`
+- SDUI atomic action application → `packages/backend/src/services/sdui/CanvasActionApplier.ts`
+- Agent retry/resilience types → `packages/backend/src/services/agents/resilience/AgentRetryTypes.ts`
+- Domain types shared across packages → `packages/shared/src/domain/` (Zod schemas)
+
 ## Dev Commands
 
 ```bash
@@ -168,6 +197,9 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `docs/observability/data-asset-inventory.md` | T1/T2/T3 data asset inventory — tables, queues, owners, freshness SLAs, downstream dependency map |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
+| `packages/backend/src/services/tenant/TenantLimits.ts` | Canonical tenant tier limits (`TIER_LIMITS`, `TIER_FEATURES`) and helper functions (`getTenantLimits`, `hasFeature`, `isWithinLimits`). Re-exported from `TenantProvisioning.ts`. |
+| `packages/backend/src/services/sdui/CanvasActionApplier.ts` | Pure functions for applying `AtomicUIAction`s to an `SDUIPageDefinition`. Extracted from `CanvasSchemaService`. |
+| `packages/backend/src/types/express.d.ts` | Express `Request` type augmentation — all backend-specific request properties. Extend here instead of casting `req as any`. |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
 | `.github/CODEOWNERS` | Review routing by team |
 

@@ -18,7 +18,7 @@ const router = createSecureRouter("strict");
 router.use(requireAuth, tenantContextMiddleware());
 
 const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId,
+  requestId: req.requestId,
   ...meta,
 });
 
@@ -80,7 +80,7 @@ router.post('/request', requirePermission('approvals:create'), async (req: Reque
  */
 router.get('/pending', requirePermission('approvals:manage'), async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(400).json({ error: 'Tenant ID required' });
     }
@@ -112,8 +112,8 @@ router.get('/pending', requirePermission('approvals:manage'), async (req: Reques
  */
 router.get('/my-requests', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
-    const tenantId = (req as any).tenantId;
+    const userId = req.user?.id;
+    const tenantId = req.tenantId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -238,7 +238,7 @@ router.post('/:requestId/reject', requirePermission('approvals:manage'), async (
 router.get('/:requestId', requirePermission('approvals:view'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       return res.status(400).json({ error: 'Tenant ID required' });
@@ -275,7 +275,7 @@ router.get('/:requestId', requirePermission('approvals:view'), async (req: Reque
 router.delete('/:requestId', requirePermission('approvals:create'), auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       return res.status(400).json({ error: 'Tenant ID required' });

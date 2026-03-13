@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # ts-any-ratchet.sh — Enforce declining explicit-any count in CI.
 #
-# Counts `: any` occurrences in .ts/.tsx source files (excluding tests,
-# node_modules, dist, and .d.ts). Fails if global or per-package counts exceed
-# baselines stored in ts-any-baseline.json. Also tracks monthly reduction
-# targets per package for debt burn-down reporting.
+# Counts explicit `any` occurrences in .ts/.tsx source files using the
+# canonical debt-policy pattern: `:\s*any`, `as any`, and `<any>` (excluding
+# tests, node_modules, dist, and .d.ts). Fails if global or per-package counts
+# exceed baselines stored in ts-any-baseline.json. Also tracks monthly
+# reduction targets per package for debt burn-down reporting.
 #
 # Usage:
 #   bash scripts/ts-any-ratchet.sh                 # check mode (CI)
@@ -27,7 +28,7 @@ import re
 from collections import Counter
 
 root = pathlib.Path('.')
-pattern = re.compile(r':\s*any\b')
+pattern = re.compile(r':\s*any\b|as\s+any\b|<\s*any\s*>')
 counts = Counter()
 total = 0
 
@@ -117,6 +118,12 @@ lines.append(f"- Current: **{counts.get('total', 0)}**")
 lines.append(f"- Long-term target: **<{baseline.get('target', 100)}**")
 lines.append(f"- Baseline updated: **{updated_at or 'unknown'}**")
 lines.append(f"- Months elapsed since baseline month: **{months_elapsed}**")
+lines.append("")
+lines.append("## Generation notes")
+lines.append("")
+lines.append("- Canonical explicit-`any` pattern: `:\\s*any`, `as any`, `<any>`")
+lines.append("- Included files: `apps/**`, `packages/**`, `src/**` with `.ts`/`.tsx` suffixes")
+lines.append("- Excluded paths/files: `node_modules`, `dist`, `__tests__`, `*.test.*`, `*.spec.*`, `*.d.ts`")
 lines.append("")
 lines.append("## Module burn-down")
 lines.append("")

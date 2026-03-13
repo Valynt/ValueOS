@@ -226,8 +226,8 @@ export async function sessionTimeoutMiddleware(
           tenant_id: tenantId,
         };
 
-    (req as any).user = userWithTenant;
-    (req as any).tenantId = tenantId;
+    req.user = userWithTenant;
+    req.tenantId = tenantId;
 
     // Add session info to response headers
     res.setHeader('X-Session-Expires-In', String(expiresAt - now));

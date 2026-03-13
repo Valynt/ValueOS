@@ -703,6 +703,33 @@ const configOverrides = {
   },
 };
 
+// Ban imports from deleted legacy root directories (client/, server/, shared/).
+// These directories were removed in QUAL-003. This rule prevents re-introduction.
+const legacyRootDirBan = {
+  files: ["apps/**/*.{ts,tsx,js,jsx}", "packages/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["**/../../client/**", "**/../../../client/**", "../../../../client/**"],
+            message: "The root client/ directory has been removed. Import from apps/ValyntApp/src/ instead.",
+          },
+          {
+            group: ["**/../../server/**", "**/../../../server/**", "../../../../server/**"],
+            message: "The root server/ directory has been removed. Tests belong in packages/backend/src/__tests__/.",
+          },
+          {
+            group: ["**/../../shared/**", "**/../../../shared/**", "../../../../shared/**"],
+            message: "The root shared/ directory has been removed. Import from packages/shared/src/ or use @shared/* alias.",
+          },
+        ],
+      },
+    ],
+  },
+};
+
 // TestCafe overrides
 const testcafeOverrides = {
   files: ["**/testcafe/**/*.js", "**/testcafe/**/*.ts"],
@@ -734,6 +761,7 @@ export default [
   appModuleBoundaryOverrides,
   backendModuleBoundaryOverrides,
   backendEgressEnforcement,
+  legacyRootDirBan,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],
 ];

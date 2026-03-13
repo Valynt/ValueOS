@@ -315,7 +315,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       return res.status(401).json({ error: 'Replay detected' });
     }
 
-    (req as any).serviceIdentityVerified = true;
+    req.serviceIdentityVerified = true;
     (req as any).requestNonce = nonce;
     (req as any).servicePrincipal = resolvedIdentity.principal;
     (req as any).serviceIssuer = resolvedIdentity.issuer;

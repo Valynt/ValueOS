@@ -47,7 +47,7 @@ const webhookBodyLimit = express.json({ limit: '512kb' });
 // ============================================================================
 
 function getActor(req: Request) {
-  const user = (req as any).user;
+  const user = req.user;
   return {
     id: (user?.id as string) || '',
     email: (user?.email as string) || '',
@@ -56,7 +56,7 @@ function getActor(req: Request) {
 }
 
 function getTenantId(req: Request): string {
-  const tenantId = (req as any).tenantId as string | undefined;
+  const tenantId = req.tenantId;
   if (!tenantId) throw new Error('Tenant context required');
   return tenantId;
 }

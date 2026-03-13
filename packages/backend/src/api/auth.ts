@@ -349,10 +349,10 @@ router.post(
     await authService.updatePassword(newPassword);
 
     logger.info("Password updated successfully", {
-      userId: String(sanitizeForLogging((req as any).user?.id)),
+      userId: String(sanitizeForLogging(req.user?.id)),
     });
 
-    const actor = resolveActor((req as any).user);
+    const actor = resolveActor(req.user);
     if (actor.id) {
       await auditLogService.logAudit({
         userId: actor.id,
@@ -393,7 +393,7 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
 
     logger.info("User logout successful");
 
-    const actor = resolveActor((req as any).user);
+    const actor = resolveActor(req.user);
     if (actor.id) {
       await auditLogService.logAudit({
         userId: actor.id,
