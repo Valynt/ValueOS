@@ -80,6 +80,8 @@ export default defineConfig({
       "@types": path.resolve(__dirname, "./src/types"),
       "@assets": path.resolve(__dirname, "./src/assets"),
       "@valueos/shared": path.resolve(__dirname, "../../packages/shared/src"),
+      "@valueos/sdui": path.resolve(__dirname, "../../packages/sdui/src"),
+      "@valueos/components": path.resolve(__dirname, "../../packages/components"),
       "@shared": path.resolve(__dirname, "../../packages/shared/src"),
     },
   },

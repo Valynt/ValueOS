@@ -1,5 +1,5 @@
 import {
-  Building2, Copy, CreditCard, ExternalLink, Eye, EyeOff, Key, Plus, Shield, Trash2, Users,
+  BookOpen, Building2, Copy, CreditCard, ExternalLink, Eye, EyeOff, Key, Plus, Shield, Trash2, Users,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -222,6 +222,77 @@ function SecurityTab() {
   );
 }
 
+// -- Company Context Tab --
+function CompanyContextTab() {
+  const [form, setForm] = useState({ products: "", icps: "", competitors: "", personas: "", websiteUrl: "" });
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus("saving");
+    try {
+      const response = await fetch("/api/v1/tenant/context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          products: form.products.split(",").map(s => s.trim()).filter(Boolean),
+          icps: form.icps.split(",").map(s => s.trim()).filter(Boolean),
+          competitors: form.competitors.split(",").map(s => s.trim()).filter(Boolean),
+          personas: form.personas.split(",").map(s => s.trim()).filter(Boolean),
+          websiteUrl: form.websiteUrl || undefined,
+        }),
+      });
+      setStatus(response.ok ? "saved" : "error");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  const fields: { name: keyof typeof form; label: string; placeholder: string; type?: string }[] = [
+    { name: "products", label: "Products / Services", placeholder: "e.g. CRM Software, Analytics Platform" },
+    { name: "icps", label: "Ideal Customer Profiles", placeholder: "e.g. Mid-market SaaS, Enterprise Finance" },
+    { name: "competitors", label: "Competitors", placeholder: "e.g. Salesforce, HubSpot" },
+    { name: "personas", label: "Buyer Personas", placeholder: "e.g. VP Sales, CFO, IT Director" },
+    { name: "websiteUrl", label: "Website URL", placeholder: "https://example.com", type: "url" },
+  ];
+
+  return (
+    <div className="max-w-lg space-y-5">
+      <p className="text-[13px] text-zinc-500">
+        Configure company context to help AI agents generate more relevant insights. Separate multiple values with commas.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {fields.map(({ name, label, placeholder, type }) => (
+          <div key={name}>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 block mb-2">{label}</label>
+            <input
+              name={name}
+              type={type ?? "text"}
+              value={form[name]}
+              onChange={handleChange}
+              placeholder={placeholder}
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] bg-white focus:border-zinc-400 outline-none"
+            />
+          </div>
+        ))}
+        {status === "saved" && <p className="text-[12px] text-green-600">Saved.</p>}
+        {status === "error" && <p className="text-[12px] text-red-600">Failed to save. Please try again.</p>}
+        <button
+          type="submit"
+          disabled={status === "saving"}
+          className="px-4 py-2.5 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50"
+        >
+          {status === "saving" ? "Saving…" : "Save Changes"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // -- Settings Page --
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("org");
@@ -232,6 +303,7 @@ export default function SettingsPage() {
     "api-keys": <ApiKeysTab />,
     billing: <BillingTab />,
     security: <SecurityTab />,
+    "company-context": <CompanyContextTab />,
   };
 
   return (

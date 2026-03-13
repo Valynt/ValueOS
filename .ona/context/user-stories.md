@@ -133,8 +133,7 @@ Update status when stories are implemented or acceptance criteria change.
 - Subsequent agent runs reference this context automatically
 - Context can be updated without re-running existing cases
 
-**Status:** ⚠️ Deferred from current GA scope — `TenantContextIngestionService` exists, but onboarding UI + `POST /api/v1/tenant/context` endpoint remain scheduled for follow-on sprint.
-**Gap Classification:** Deferred post-GA.
+**Status:** ✅ Delivered Sprint 34 — `POST /api/v1/tenant/context` endpoint mounted (`tenantContextRouter`), `TenantContextPage` settings UI wired at `/settings/tenant-context`, "Company Context" tab added to `SettingsLayout`.
 
 ---
 

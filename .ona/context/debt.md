@@ -66,24 +66,37 @@ Code execution sandbox is scaffolded with placeholder `fetch` calls instead of t
 ## Ongoing — TypeScript `any` debt
 
 **Baseline (2026-02-13):** 1,977 `any` usages across the codebase. Target: <100.
-**Updated (2026-07-15):** Measured actuals post-Sprint 27 (grep `: any\b|as any\b|<any>` --include="*.ts" --include="*.tsx").
+**Updated (2026-07-15, Sprint 33):** Re-measured actuals (grep `: any\b|as any\b|<any>` --include="*.ts" --include="*.tsx", production files only).
 
-| Module | Count (2026-07-15) | Sprint 31 target |
+| Module | Count (Sprint 33, 2026-07-15) | Next target |
 |---|---|---|
-| `packages/backend` | 810 (re-measured 2026-07-15 after Sprint 28 work; baseline was 893) | <700 by Sprint 31 |
-| `apps/ValyntApp` | 409 (production files ~207 after Sprint 27 work) | <100 |
-| `packages/sdui` | 221 (production files ~50 after Sprint 27 work) | <20 |
-| `apps/VOSAcademy` | 99 | <50 |
+| `packages/backend` | **446** (was 546 entering Sprint 33; reduced 100 in Sprint 33) | <400 by Sprint 35 |
+| `apps/ValyntApp` | **251** (was ~207 per stale debt.md; re-measured) | <200 |
+| `packages/sdui` | **175** (was ~50 per stale debt.md; re-measured) | <150 |
+| `apps/VOSAcademy` | 99 | <50 (deferred post-GA) |
 | `packages/mcp` | 0 | maintain 0 |
 
-**Highest-density production files entering Sprint 28:**
-- `apps/ValyntApp/src/mcp-ground-truth/core/IntegratedMCPServer.ts` (39)
-- ~~`packages/backend/src/api/admin.ts` (22), `api/referrals.ts` (20)~~ — cleaned Sprint 28
-- `packages/sdui/src/engine/renderPage.ts` (16), `realtime/WebSocketDataSource.ts` (14), `DataBindingResolver.ts` (14)
-- ~~`packages/backend/src/services/agents/AgentMemoryIntegration.ts` (15)~~ — cleaned Sprint 28
-- ~~`packages/backend/src/services/sdui/CanvasSchemaService.ts` (13), `config/ServiceConfigManager.ts` (13)~~ — cleaned Sprint 28
-- `services/post-v1/PlaygroundAutoSave.ts` (13), `services/post-v1/OfflineEvaluation.ts` (13) — Sprint 30 targets
-- `apps/VOSAcademy/src/lib/icons.tsx` (40), `data/routers.d.ts` (18)
+**Sprint 33 reductions (backend, 100 removed):**
+- `TenantIsolationService.ts` 11→0 (typed `TenantQuery` interface)
+- `InputValidation.ts` 9→0 (`unknown` + AJV typed boundary)
+- `AgentAuditLogger.ts` 9→0 (`unknown` for serializable data params)
+- `security/index.ts` 9→0 (removed dead `as any` emit calls)
+- `auditHooks.ts` 9→0 (`unknown` for Express response overrides)
+- `RealtimeUpdateService.ts` 8→0 (`unknown` for WS event payloads)
+- `AdminRoleService.ts` 8→0 (typed Supabase row interfaces)
+- `MCPGroundTruthService.ts` 8→0 (`unknown` at JSON parse boundary)
+- `ReflectionEngine.ts` 8→0 (`unknown` for agent output params)
+- `vmrt.ts` 7→0 (`[key: string]: unknown` index signatures)
+- `WorkflowEventListener.ts` 7→0 (`Record<string, unknown>` for context)
+- `SDUISandboxService.ts` 7→0 (`unknown` for SDUI payload params)
+
+**Highest-density production files entering Sprint 34 (backend):**
+- `services/utils/mockSupabaseClient.ts` (10) — test utility, lower priority
+- `services/post-v1/RealizationFeedbackLoop.ts` (7)
+- `services/auth/SettingsService.ts` (7)
+- `services/AssumptionService.ts` (7)
+- `types/sdui-integration.ts` (6)
+- `services/tenant/TenantProvisioning.ts` (6)
 
 **Rule:** Do not introduce new `any`. Use `unknown` + type guards. Replace `any` in files you touch.
 Dashboard: `docs/debt/ts-any-dashboard.md`
@@ -131,3 +144,5 @@ Dashboard: `docs/debt/ts-any-dashboard.md`
 | QUAL-002: Duplicate ValueTreeService — not a duplicate | `services/ValueTreeService.ts` (write/optimistic-lock, used by ActionRouter) and `services/value/ValueTreeService.ts` (read-only domain adapter, used by customer portal) are intentionally distinct. Both files document the distinction in their headers. No consolidation needed. | 2026-07 |
 | QUAL-003: Legacy root directories client/, server/, shared/ | Removed all three. `useAuth.ts` migrated to `apps/ValyntApp/src/features/auth/hooks/`. `server/` tests moved to `packages/backend/src/__tests__/`. Root `vitest.config.ts` updated. ESLint `legacyRootDirBan` rule added to prevent re-introduction. | 2026-07 |
 | QUAL-006: Oversized files refactored | `CanvasSchemaService` 1818→1522 lines (action applier extracted to `CanvasActionApplier.ts`). `TenantProvisioning` 1437→1308 lines (limits/features extracted to `TenantLimits.ts`). `AgentRetryManager` 1389→1210 lines (types extracted to `AgentRetryTypes.ts`). All original public APIs preserved via re-exports. | 2026-07 |
+| US-007: Tenant context UI deferred post-GA | `POST /api/v1/tenant/context` endpoint + `TenantContextPage` settings UI delivered. `tenantContextRouter` mounted in `server.ts`. "Company Context" tab added to `SettingsLayout`. | 2026-Sprint-34 |
+| Integration adapter traceability stale (Salesforce/Slack/SharePoint marked as stubs) | `traceability.md` updated: all three adapters confirmed implemented (`EnterpriseAdapter` subclasses with full CRUD). Paths corrected (no `src/` subdirectory). | 2026-Sprint-34 |

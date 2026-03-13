@@ -57,12 +57,20 @@ Secrets are stored in AWS Secrets Manager (staging) and HashiCorp Vault (product
    aws s3 cp s3://valynt-backups/daily/latest.sql.gz ./restore.sql.gz
    gunzip restore.sql.gz
 
-   # Restore to new instance
+   # Restore to new instance.
+   # audit_logs_archive is non-critical for service recovery; if needed, handle it
+   # separately after the service is back online (e.g., via a targeted dump/restore).
    psql "$NEW_DATABASE_URL" < restore.sql
 
    # Apply WAL replay if available
    # (Handled by PostgreSQL point-in-time recovery configuration)
    ```
+   # (Handled by PostgreSQL point-in-time recovery configuration)
+   ```
+   > **Local fallback (if S3 backup unavailable):** Take a `pg_dump` of the current
+   > instance immediately before the restore procedure, then use that as the source.
+   > Document the fallback in the incident record.
+
 5. **Update connection strings**: Rotate `DATABASE_URL` in Vault/Secrets Manager
 6. **Verify**: Run `bash scripts/dr-validate.sh staging` to confirm data integrity
 7. **Notify stakeholders**: Post in `#incidents` with RTO achieved and data loss window
