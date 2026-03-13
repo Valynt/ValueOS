@@ -287,6 +287,7 @@ export class FinancialModelingAgent extends BaseAgent {
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
+          userId: context.user_id,
           context: {
             agent: 'financial_modeling',
             organization_id: context.organization_id,

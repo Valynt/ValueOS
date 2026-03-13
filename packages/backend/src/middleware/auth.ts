@@ -42,7 +42,11 @@ const AUTH_FALLBACK_EMERGENCY_TTL_UNTIL = 'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL';
 const AUTH_FALLBACK_ALERT_THRESHOLD = 'AUTH_FALLBACK_ALERT_THRESHOLD';
 const AUTH_FALLBACK_ALERT_WINDOW_SECONDS = 'AUTH_FALLBACK_ALERT_WINDOW_SECONDS';
 
+// In-process fallback: used only when Redis is unavailable.
+// Accurate only within a single process instance — do not rely on this for
+// multi-instance deployments. Redis-backed counting is the primary path.
 const fallbackActivations: number[] = [];
+const FALLBACK_COUNTER_REDIS_KEY = 'auth:fallback:activations';
 
 type VerificationContext = {
   route?: string;
@@ -212,21 +216,54 @@ async function isTokenRevoked(token: string, claims: JwtPayload): Promise<boolea
   }
 }
 
-function recordFallbackActivation(alertContext: Record<string, unknown>) {
+async function recordFallbackActivation(alertContext: Record<string, unknown>): Promise<void> {
   const now = Date.now();
   const threshold = Number(getEnvVar(AUTH_FALLBACK_ALERT_THRESHOLD) || '5');
-  const windowMs = Number(getEnvVar(AUTH_FALLBACK_ALERT_WINDOW_SECONDS) || '300') * 1000;
+  const windowSeconds = Number(getEnvVar(AUTH_FALLBACK_ALERT_WINDOW_SECONDS) || '300');
+  const windowMs = windowSeconds * 1000;
 
-  fallbackActivations.push(now);
-  while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
-    fallbackActivations.shift();
+  let activationsInWindow: number;
+
+  try {
+    const redis = getRedisClient();
+    if (redis) {
+      // Use a sorted set keyed by timestamp. Each activation is a member scored
+      // by its epoch-ms timestamp. ZREMRANGEBYSCORE prunes entries outside the
+      // window, then ZADD adds the new one, then ZCARD counts the survivors.
+      // The key expires automatically after the window so it self-cleans.
+      // ioredis API: zadd(key, score, member), zremrangebyscore, zcard, expireat.
+      const member = `${now}:${Math.random().toString(36).slice(2)}`;
+      const expireAtSeconds = Math.floor(now / 1000) + windowSeconds + 1;
+
+      await redis.zremrangebyscore(FALLBACK_COUNTER_REDIS_KEY, '-inf', now - windowMs);
+      await redis.zadd(FALLBACK_COUNTER_REDIS_KEY, now, member);
+      await redis.expireat(FALLBACK_COUNTER_REDIS_KEY, expireAtSeconds);
+      activationsInWindow = await redis.zcard(FALLBACK_COUNTER_REDIS_KEY);
+    } else {
+      // Redis unavailable — fall back to in-process array (single-instance only).
+      fallbackActivations.push(now);
+      while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
+        fallbackActivations.shift();
+      }
+      activationsInWindow = fallbackActivations.length;
+    }
+  } catch (err) {
+    // Redis error — degrade to in-process counter rather than dropping the alert.
+    logger.warn('recordFallbackActivation: Redis error, using in-process counter', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    fallbackActivations.push(now);
+    while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
+      fallbackActivations.shift();
+    }
+    activationsInWindow = fallbackActivations.length;
   }
 
-  if (fallbackActivations.length >= threshold) {
+  if (activationsInWindow >= threshold) {
     logger.error('High-severity alert: JWT fallback usage spike detected', undefined, {
       severity: 'critical',
       threshold,
-      activationsInWindow: fallbackActivations.length,
+      activationsInWindow,
       windowMs,
       ...alertContext,
     });
@@ -249,7 +286,7 @@ async function emitFallbackAuditEvent(context: {
   };
 
   logger.error('Emergency JWT fallback activated', undefined, details);
-  recordFallbackActivation(details);
+  await recordFallbackActivation(details);
 
   try {
     await auditLogService.logAudit({

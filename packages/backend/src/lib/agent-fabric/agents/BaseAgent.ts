@@ -206,6 +206,12 @@ export abstract class BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      /**
+       * The authenticated user who triggered this agent run.
+       * Pass `context.user_id` from LifecycleContext here.
+       * Defaults to "system" only for background/cron invocations.
+       */
+      userId?: string;
     } = {}
   ): Promise<T & {
     hallucination_check?: boolean;
@@ -218,7 +224,16 @@ export abstract class BaseAgent {
       confidenceThresholds: _confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
+      userId,
     } = options;
+
+    // Resolve userId: explicit option > context.user_id > "system" fallback.
+    // "system" is only correct for cron/background jobs — agent execute() methods
+    // must pass context.user_id so cost tracking and abuse investigation work.
+    const resolvedUserId =
+      userId ??
+      (typeof context.user_id === "string" ? context.user_id : undefined) ??
+      "system";
 
     // Reset per-invocation state so refs from a prior execute() call don't
     // bleed into this one when the agent instance is reused.
@@ -236,9 +251,12 @@ export abstract class BaseAgent {
           tenantId: this.organizationId,
           tenant_id: this.organizationId,
           sessionId,
-          userId: "system",
+          userId: resolvedUserId,
           trace_id: traceId,
           idempotencyKey,
+          // agentType drives policy lookup in LLMGateway — always set from
+          // this.name so the correct per-agent policy file is applied.
+          agentType: this.name,
           ...context,
         },
       };

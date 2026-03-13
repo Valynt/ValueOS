@@ -53,6 +53,18 @@ export interface MemoryQuery {
   organization_id: string;
 }
 
+/**
+ * Agents permitted to read memory across workspace boundaries within the same
+ * tenant. Cross-workspace reads are an elevated privilege — only agents with
+ * an audit or compliance role should need them.
+ *
+ * To grant a new agent cross-workspace access, add its factory key here and
+ * document the justification in decisions.md.
+ */
+const CROSS_WORKSPACE_ALLOWED_AGENTS = new Set<string>([
+  "compliance-auditor",
+]);
+
 export interface Episode {
   id: string;
   session_id: string;
@@ -230,10 +242,31 @@ export class MemorySystem {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
     }
 
-    if (!query.workspace_id && query.allow_cross_workspace && !query.cross_workspace_reason) {
-      throw new Error(
-        "cross_workspace_reason is required when allow_cross_workspace is true",
-      );
+    if (query.allow_cross_workspace) {
+      if (!query.cross_workspace_reason) {
+        throw new Error(
+          "cross_workspace_reason is required when allow_cross_workspace is true",
+        );
+      }
+
+      // Enforce agent-level allowlist — a reason string alone is not sufficient.
+      if (!CROSS_WORKSPACE_ALLOWED_AGENTS.has(query.agent_id)) {
+        logger.error("Cross-workspace memory read blocked: agent not in allowlist", {
+          agent_id: query.agent_id,
+          organization_id: query.organization_id,
+          reason: query.cross_workspace_reason,
+        });
+        throw new Error(
+          `Agent "${query.agent_id}" is not permitted to perform cross-workspace memory reads. ` +
+          `Add it to CROSS_WORKSPACE_ALLOWED_AGENTS with documented justification.`,
+        );
+      }
+
+      logger.info("Cross-workspace memory read authorised", {
+        agent_id: query.agent_id,
+        organization_id: query.organization_id,
+        reason: query.cross_workspace_reason,
+      });
     }
 
     // Try persistent backend first for cross-session recall

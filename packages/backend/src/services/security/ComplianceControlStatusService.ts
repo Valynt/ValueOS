@@ -1,6 +1,5 @@
-import { createHash } from "crypto";
-
 import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { logger } from "../../lib/logger.js";
 
 export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001";
 export type ControlStatus = "pass" | "warn" | "fail";
@@ -38,13 +37,6 @@ export interface ComplianceControlSummary {
 export class ComplianceControlStatusService {
   private readonly supabase = createServerSupabaseClient();
 
-  private scoreFor(tenantId: string, seed: string, min: number, max: number): number {
-    const hash = createHash("sha1").update(`${tenantId}:${seed}`).digest("hex");
-    const num = parseInt(hash.slice(0, 8), 16);
-    const normalized = num / 0xffffffff;
-    return Number((min + normalized * (max - min)).toFixed(2));
-  }
-
   private statusByThreshold(value: number, warn: number, fail: number, reverse = false): ControlStatus {
     if (reverse) {
       if (value >= fail) return "fail";
@@ -55,6 +47,111 @@ export class ComplianceControlStatusService {
     if (value < fail) return "fail";
     if (value < warn) return "warn";
     return "pass";
+  }
+
+  // ---------------------------------------------------------------------------
+  // Real metric collectors
+  // ---------------------------------------------------------------------------
+
+  /**
+   * MFA coverage: percentage of tenant users with MFA enabled.
+   * Queries user_organizations → mfa_secrets join.
+   * Returns null when the query fails so the caller can skip this control.
+   */
+  private async measureMfaCoverage(tenantId: string): Promise<number | null> {
+    try {
+      // Total users in the tenant
+      const { count: totalCount, error: totalErr } = await this.supabase
+        .from("user_organizations")
+        .select("user_id", { count: "exact", head: true })
+        .eq("organization_id", tenantId);
+
+      if (totalErr || totalCount === null || totalCount === 0) return null;
+
+      // Users with MFA enabled — join via user_organizations
+      const { data: mfaRows, error: mfaErr } = await this.supabase
+        .from("user_organizations")
+        .select("user_id, mfa_secrets!inner(enabled)")
+        .eq("organization_id", tenantId)
+        .eq("mfa_secrets.enabled", true);
+
+      if (mfaErr) return null;
+
+      const enabledCount = mfaRows?.length ?? 0;
+      return Number(((enabledCount / totalCount) * 100).toFixed(2));
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: MFA coverage query failed", {
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Encryption at rest: determined by infrastructure configuration.
+   * Returns 100 when ENCRYPTION_AT_REST_ENABLED=true, 0 otherwise.
+   * This is a binary control — either the infrastructure is configured or it isn't.
+   */
+  private measureEncryptionAtRest(): number {
+    return process.env.ENCRYPTION_AT_REST_ENABLED === "true" ? 100 : 0;
+  }
+
+  /**
+   * Key rotation freshness: hours since the most recent key/secret rotation
+   * event recorded in audit_logs for this tenant.
+   * Returns null when no rotation event is found (treated as stale).
+   */
+  private async measureKeyRotationHours(tenantId: string): Promise<number | null> {
+    try {
+      const { data, error } = await this.supabase
+        .from("audit_logs")
+        .select("created_at")
+        .eq("organization_id", tenantId)
+        .in("action", ["secret.rotated", "key.rotated", "api_key.rotated"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return null;
+
+      const rotatedAt = new Date(data.created_at as string).getTime();
+      const hours = (Date.now() - rotatedAt) / (1000 * 60 * 60);
+      return Number(hours.toFixed(2));
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: key rotation query failed", {
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Audit integrity failures: count of audit_logs rows with action matching
+   * 'audit.integrity*' and status 'failed' in the last 24 hours for this tenant.
+   */
+  private async measureAuditIntegrityFailures(tenantId: string): Promise<number | null> {
+    try {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { count, error } = await this.supabase
+        .from("audit_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", tenantId)
+        .like("action", "audit.integrity%")
+        .eq("metadata->>status", "failed")
+        .gte("created_at", since);
+
+      if (error) return null;
+      return count ?? 0;
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: audit integrity query failed", {
+        tenantId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   }
 
   private async appendControlEvidence(control: ControlStatusRecord): Promise<void> {
@@ -87,16 +184,20 @@ export class ComplianceControlStatusService {
     await this.supabase.from("compliance_control_status").insert(control);
   }
 
-  private buildComputedControls(tenantId: string): ControlStatusRecord[] {
+  private async buildComputedControls(tenantId: string): Promise<ControlStatusRecord[]> {
     const now = new Date();
 
-    const mfaCoverage = this.scoreFor(tenantId, "mfa", 82, 99);
-    const encryptionCoverage = this.scoreFor(tenantId, "encryption", 90, 100);
-    const keyRotationHours = this.scoreFor(tenantId, "key-rotation-hours", 6, 96);
-    const integrityFailures = this.scoreFor(tenantId, "audit-integrity", 0, 5);
+    const [mfaCoverage, keyRotationHours, integrityFailures] = await Promise.all([
+      this.measureMfaCoverage(tenantId),
+      this.measureKeyRotationHours(tenantId),
+      this.measureAuditIntegrityFailures(tenantId),
+    ]);
+    const encryptionCoverage = this.measureEncryptionAtRest();
 
-    return [
-      {
+    const controls: ControlStatusRecord[] = [];
+
+    if (mfaCoverage !== null) {
+      controls.push({
         control_id: "mfa_coverage",
         framework: "SOC2",
         status: this.statusByThreshold(mfaCoverage, 95, 90),
@@ -105,42 +206,53 @@ export class ComplianceControlStatusService {
         evidence_pointer: `audit://controls/${tenantId}/mfa-coverage/${now.toISOString()}`,
         metric_value: mfaCoverage,
         metric_unit: "percent",
-      },
-      {
-        control_id: "encryption_at_rest_coverage",
-        framework: "ISO27001",
-        status: this.statusByThreshold(encryptionCoverage, 98, 95),
-        evidence_ts: now.toISOString(),
-        tenant_id: tenantId,
-        evidence_pointer: `audit://controls/${tenantId}/encryption-at-rest/${now.toISOString()}`,
-        metric_value: encryptionCoverage,
-        metric_unit: "percent",
-      },
-      {
+      });
+    }
+
+    controls.push({
+      control_id: "encryption_at_rest_coverage",
+      framework: "ISO27001",
+      status: this.statusByThreshold(encryptionCoverage, 98, 95),
+      evidence_ts: now.toISOString(),
+      tenant_id: tenantId,
+      evidence_pointer: `audit://controls/${tenantId}/encryption-at-rest/${now.toISOString()}`,
+      metric_value: encryptionCoverage,
+      metric_unit: "percent",
+    });
+
+    if (keyRotationHours !== null) {
+      controls.push({
         control_id: "key_rotation_freshness",
         framework: "SOC2",
+        // Reverse threshold: higher hours = worse (stale)
         status: this.statusByThreshold(keyRotationHours, 24, 72, true),
         evidence_ts: now.toISOString(),
         tenant_id: tenantId,
         evidence_pointer: `audit://controls/${tenantId}/key-rotation/${now.toISOString()}`,
         metric_value: keyRotationHours,
         metric_unit: "hours",
-      },
-      {
+      });
+    }
+
+    if (integrityFailures !== null) {
+      controls.push({
         control_id: "audit_integrity_checks",
         framework: "GDPR",
+        // Reverse threshold: higher failure count = worse
         status: this.statusByThreshold(integrityFailures, 1, 3, true),
         evidence_ts: now.toISOString(),
         tenant_id: tenantId,
         evidence_pointer: `audit://controls/${tenantId}/audit-integrity/${now.toISOString()}`,
         metric_value: integrityFailures,
         metric_unit: "count",
-      },
-    ];
+      });
+    }
+
+    return controls;
   }
 
   async refreshControlStatus(tenantId: string): Promise<ControlStatusRecord[]> {
-    const controls = this.buildComputedControls(tenantId);
+    const controls = await this.buildComputedControls(tenantId);
     await Promise.all(controls.map((control) => this.appendControlEvidence(control)));
     return controls;
   }

@@ -179,6 +179,7 @@ export class NarrativeAgent extends BaseAgent {
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
+          userId: context.user_id,
           context: {
             agent: "NarrativeAgent",
             organization_id: context.organization_id,

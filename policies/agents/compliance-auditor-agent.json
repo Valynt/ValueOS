@@ -1,11 +1,11 @@
 {
   "version": "2026-02-14",
-  "agent": "integrity",
+  "agent": "compliance-auditor",
   "allowedModels": [
     "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
     "Qwen/Qwen2.5-72B-Instruct-Turbo"
   ],
-  "allowedTools": ["document_lookup", "calculator"],
+  "allowedTools": ["document_lookup"],
   "maxTokens": 4000,
   "maxCostUsd": 0.75
 }

@@ -419,6 +419,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },
+          userId: context.user_id,
           context: { agent: 'integrity', organization_id: context.organization_id, claim_count: claims.length },
         },
       );
