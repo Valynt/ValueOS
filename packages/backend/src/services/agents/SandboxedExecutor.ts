@@ -193,12 +193,19 @@ export class SandboxedExecutor {
     startedAtEpoch: number,
     startedAt: string
   ): Promise<SandboxedExecutionResult> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     try {
+      const timeoutPromise = new Promise<ProviderExecutionResult>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new SandboxProviderError("Execution timed out", "timeout")),
+          request.timeoutMs
+        );
+      });
+
       const providerExecution = await Promise.race([
         this.provider.execute(request),
-        new Promise<ProviderExecutionResult>((_, reject) => {
-          setTimeout(() => reject(new SandboxProviderError("Execution timed out", "timeout")), request.timeoutMs);
-        }),
+        timeoutPromise,
       ]);
 
       const endedAtEpoch = Date.now();
@@ -242,6 +249,10 @@ export class SandboxedExecutor {
         provider: "e2b",
         tenantId: request.tenantId,
       };
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 
