@@ -9,8 +9,7 @@ export interface WorkflowExecutionRecord {
   workflowVersion?: number;
   workspace_id: string;
   organization_id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
-  | 'pending_approval';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'pending_approval';
   started_at: string;
   completed_at?: string;
   context: Record<string, unknown>;

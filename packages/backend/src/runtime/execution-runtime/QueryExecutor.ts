@@ -20,6 +20,7 @@ import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
 import { CircuitBreaker } from '../../lib/resilience/CircuitBreaker.js';
+import { securityLogger } from '@valueos/core-services';
 import type { LifecycleContext } from '../../types/agent.js';
 
 // AgentContext shape used for direct factory invocation (ADR-0014)
@@ -33,13 +34,9 @@ import type { WorkflowState } from '../../repositories/WorkflowStateRepository.j
 import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
-import { DecisionContextSchema, type DecisionContext } from '@shared/domain/DecisionContext.js';
+import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
-import {
-  SupabaseDecisionContextRepository,
-  type DecisionContextRepository,
-  type DecisionContextSnapshot,
-} from './DecisionContextRepository.js';
+import { isExternalArtifactAgentAction } from './externalArtifactPolicy.js';
 
 // ============================================================================
 // QueryExecutor
@@ -81,7 +78,6 @@ export class QueryExecutor {
     private readonly circuitBreakers: CircuitBreakerManager,
     private readonly agentMessageQueue: AgentMessageQueue,
     private readonly config: QueryExecutorConfig = DEFAULT_CONFIG,
-    private readonly decisionContextRepository: DecisionContextRepository = new SupabaseDecisionContextRepository(),
   ) {}
 
   // --------------------------------------------------------------------------
@@ -98,102 +94,29 @@ export class QueryExecutor {
    * BusinessCase) is deferred to the ContextStore Sprint 5 target. Until
    * then, only the fields derivable from WorkflowState are populated.
    */
-  private async buildDecisionContext(
+  private buildDecisionContext(
     state: WorkflowState,
     organizationId: string,
-  ): Promise<{ context: DecisionContext; diagnostics: string[]; mode: 'full' | 'downgraded' | 'rejected' }> {
+    isExternalArtifactAction: boolean,
+  ): DecisionContext {
     const rawStage = state.currentStage ?? state.lifecycle_stage ?? 'discovery';
     const stageParseResult = OpportunityLifecycleStageSchema.safeParse(rawStage);
     const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
 
     const opportunityId = state.context?.opportunityId ?? state.context?.opportunity_id;
-    const diagnostics: string[] = [];
 
-    if (!opportunityId) {
-      diagnostics.push('Missing required context field: opportunity_id');
-      return {
-        context: {
-          organization_id: organizationId,
-          is_external_artifact_action: false,
-        },
-        diagnostics,
-        mode: 'rejected',
-      };
-    }
-
-    let snapshot: DecisionContextSnapshot;
-    try {
-      snapshot = await this.decisionContextRepository.getSnapshot(String(opportunityId), organizationId);
-    } catch (error) {
-      diagnostics.push(`Failed to hydrate decision context: ${error instanceof Error ? error.message : String(error)}`);
-      return {
-        context: {
-          organization_id: organizationId,
-          is_external_artifact_action: false,
-        },
-        diagnostics,
-        mode: 'downgraded',
-      };
-    }
-
-    const context: DecisionContext = {
+    return {
       organization_id: organizationId,
-      opportunity: snapshot.opportunity
+      opportunity: opportunityId
         ? {
-            id: snapshot.opportunity.id,
-            lifecycle_stage: (OpportunityLifecycleStageSchema.safeParse(snapshot.opportunity.lifecycle_stage).success
-              ? snapshot.opportunity.lifecycle_stage
-              : lifecycle_stage) as NonNullable<DecisionContext['opportunity']>['lifecycle_stage'],
-            confidence_score: snapshot.opportunity.confidence_score ?? 0,
-            value_maturity: snapshot.opportunity.value_maturity ?? 'low',
+            id: String(opportunityId),
+            lifecycle_stage,
+            confidence_score: 0.5,
+            value_maturity: 'low',
           }
         : undefined,
-      hypothesis: snapshot.hypothesis
-        ? {
-            id: snapshot.hypothesis.id,
-            confidence: snapshot.hypothesis.confidence ?? 'low',
-            confidence_score: snapshot.hypothesis.confidence_score,
-            evidence_count: snapshot.hypothesis.evidence_count ?? 0,
-            best_evidence_tier: snapshot.hypothesis.best_evidence_tier,
-          }
-        : undefined,
-      business_case: snapshot.businessCase
-        ? {
-            id: snapshot.businessCase.id,
-            status: snapshot.businessCase.status ?? 'draft',
-            assumptions_reviewed: snapshot.businessCase.assumptions_reviewed ?? false,
-          }
-        : undefined,
-      is_external_artifact_action: false,
+      is_external_artifact_action: isExternalArtifactAction,
     };
-
-    if (!snapshot.opportunity) {
-      diagnostics.push('Missing required context field: opportunity');
-    } else {
-      if (snapshot.opportunity.lifecycle_stage === undefined) diagnostics.push('Missing required context field: opportunity.lifecycle_stage');
-      if (snapshot.opportunity.confidence_score === undefined) diagnostics.push('Missing required context field: opportunity.confidence_score');
-      if (snapshot.opportunity.value_maturity === undefined) diagnostics.push('Missing required context field: opportunity.value_maturity');
-    }
-
-    const schemaResult = DecisionContextSchema.safeParse(context);
-    if (!schemaResult.success) {
-      for (const issue of schemaResult.error.issues) {
-        diagnostics.push(`DecisionContext schema validation failed at ${issue.path.join('.') || 'root'}: ${issue.message}`);
-      }
-    }
-
-    if (diagnostics.length > 0) {
-      return {
-        context: {
-          organization_id: organizationId,
-          is_external_artifact_action: false,
-        },
-        diagnostics,
-        mode: 'downgraded',
-      };
-    }
-
-    return { context, diagnostics, mode: 'full' };
   }
 
   // --------------------------------------------------------------------------
@@ -254,17 +177,31 @@ export class QueryExecutor {
       queryLength: query.length,
     });
 
-    const decisionContextResult = await this.buildDecisionContext(currentState, envelope.organizationId);
-    if (decisionContextResult.mode === 'rejected') {
-      logger.warn('Rejecting automation due to missing routing context', {
-        organizationId: envelope.organizationId,
-        diagnostics: decisionContextResult.diagnostics,
+    const baseDecisionContext = this.buildDecisionContext(currentState, envelope.organizationId, false);
+    const agentType = this.router.selectAgent(baseDecisionContext);
+    const decisionContext = this.buildDecisionContext(
+      currentState,
+      envelope.organizationId,
+      isExternalArtifactAgentAction(agentType, query),
+    );
+    const hitl = this.policy.checkHITL(decisionContext);
+    if (hitl.hitl_required) {
+      securityLogger.log({
+        category: 'autonomy',
+        action: 'hitl_pending_approval',
+        severity: 'warning',
+        metadata: {
+          traceId,
+          organizationId: envelope.organizationId,
+          rule_id: hitl.details.rule_id,
+          confidence_score: hitl.details.confidence_score,
+          reason: hitl.hitl_reason,
+          execution_mode: 'query_async',
+        },
       });
-      throw new Error(`Cannot route automatically: ${decisionContextResult.diagnostics.join('; ')}`);
+
+      throw new Error(hitl.hitl_reason ?? 'Human approval is required before continuing.');
     }
-    const agentType = decisionContextResult.mode === 'downgraded'
-      ? 'coordinator'
-      : this.router.selectAgent(decisionContextResult.context);
 
     if (!this.checkAgentRateLimit(agentType)) {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -410,10 +347,43 @@ export class QueryExecutor {
 
     if (!result.success) throw new Error(result.error || 'Async agent execution failed');
 
-    const decisionContextResult = await this.buildDecisionContext(currentState, envelope.organizationId);
-    const agentType = decisionContextResult.mode === 'downgraded'
-      ? 'coordinator'
-      : this.router.selectAgent(decisionContextResult.context);
+    const baseDecisionContext = this.buildDecisionContext(currentState, envelope.organizationId, false);
+    const agentType = this.router.selectAgent(baseDecisionContext);
+    const decisionContext = this.buildDecisionContext(
+      currentState,
+      envelope.organizationId,
+      isExternalArtifactAgentAction(agentType, query),
+    );
+    const hitl = this.policy.checkHITL(decisionContext);
+    if (hitl.hitl_required) {
+      securityLogger.log({
+        category: 'autonomy',
+        action: 'hitl_pending_approval',
+        severity: 'warning',
+        metadata: {
+          traceId,
+          organizationId: envelope.organizationId,
+          rule_id: hitl.details.rule_id,
+          confidence_score: hitl.details.confidence_score,
+          reason: hitl.hitl_reason,
+          execution_mode: 'query_async_wait',
+        },
+      });
+
+      return {
+        response: {
+          type: 'message',
+          payload: {
+            message: hitl.hitl_reason ?? 'Human approval is required before continuing.',
+            hitl_required: true,
+            rule_id: hitl.details.rule_id,
+            confidence_score: hitl.details.confidence_score,
+          },
+        },
+        nextState: { ...currentState, status: 'pending_approval' },
+        traceId,
+      };
+    }
     const agentContext: AgentContext = { userId: envelope.actor.id || userId, sessionId, organizationId: envelope.organizationId };
 
     const structuralCheck = await this.policy.evaluateStructuralTruthVeto(result.data, { traceId, agentType, query, context: agentContext });
@@ -457,40 +427,54 @@ export class QueryExecutor {
       try {
         const nextState: WorkflowState = { ...currentState, context: { ...(currentState.context ?? {}) }, completed_steps: [...currentState.completed_steps] };
 
-        let agentType: AgentType = 'coordinator';
-        await tracer.startActiveSpan('agent.selectAgent', async (selectSpan: Span) => {
-          try {
-            const decisionContextResult = await this.buildDecisionContext(currentState, envelope.organizationId);
-            if (decisionContextResult.mode === 'rejected') {
-              throw new Error(`Missing required context for automation: ${decisionContextResult.diagnostics.join('; ')}`);
-            }
-            if (decisionContextResult.mode === 'downgraded') {
-              logger.warn('Downgrading automation to coordinator due to missing context fields', {
-                organizationId: envelope.organizationId,
-                diagnostics: decisionContextResult.diagnostics,
-              });
-              agentType = 'coordinator';
-            } else {
-              agentType = this.router.selectAgent(decisionContextResult.context);
-            }
-            selectSpan.setAttributes({
-              'agent.selected_type': agentType,
-              'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based',
-            });
-            selectSpan.setStatus({ code: SpanStatusCode.OK });
-          } catch (error) {
-            selectSpan.setStatus({
-              code: SpanStatusCode.ERROR,
-              message: error instanceof Error ? error.message : String(error),
-            });
-            if (error instanceof Error) {
-              selectSpan.recordException(error);
-            }
-            throw error;
-          } finally {
-            selectSpan.end();
-          }
+        let agentType: AgentType;
+        tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
+          const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId, false);
+          agentType = this.router.selectAgent(decisionContext);
+          selectSpan.setAttributes({ 'agent.selected_type': agentType, 'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based' });
+          selectSpan.setStatus({ code: SpanStatusCode.OK });
+          selectSpan.end();
         });
+        agentType ??= 'coordinator' as AgentType;
+
+        const hitlContext = this.buildDecisionContext(
+          currentState,
+          envelope.organizationId,
+          isExternalArtifactAgentAction(agentType, query),
+        );
+        const hitl = this.policy.checkHITL(hitlContext);
+        if (hitl.hitl_required) {
+          securityLogger.log({
+            category: 'autonomy',
+            action: 'hitl_pending_approval',
+            severity: 'warning',
+            metadata: {
+              traceId,
+              organizationId: envelope.organizationId,
+              rule_id: hitl.details.rule_id,
+              confidence_score: hitl.details.confidence_score,
+              reason: hitl.hitl_reason,
+              execution_mode: 'query_sync',
+            },
+          });
+
+          rootSpan.setAttributes({ 'agent.latency_ms': Date.now() - start });
+          rootSpan.setStatus({ code: SpanStatusCode.OK });
+          rootSpan.end();
+          return {
+            response: {
+              type: 'message',
+              payload: {
+                message: hitl.hitl_reason ?? 'Human approval is required before continuing.',
+                hitl_required: true,
+                rule_id: hitl.details.rule_id,
+                confidence_score: hitl.details.confidence_score,
+              },
+            },
+            nextState: { ...currentState, status: 'pending_approval' },
+            traceId,
+          };
+        }
 
         if (!this.checkAgentRateLimit(agentType)) throw new Error(`Agent ${agentType} rate limit exceeded`);
 
