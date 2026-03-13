@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ResearchJob, ResearchSuggestion, SuggestionEntityType } from "./types";
 
-import { apiClient } from "@/api/client/unified-api-client";
+import { apiClient, type ApiResponse, type RequestConfig } from "@/api/client/unified-api-client";
 import { supabase } from "@/lib/supabase";
 
 const RESEARCH_KEY = "research-job";
@@ -35,42 +35,24 @@ async function apiRequest<T>(
 ): Promise<T> {
   const method = init?.method ?? "GET";
 
-  let response:
-    | Awaited<ReturnType<(typeof apiClient)["get"]<{ data: T }>>>
-    | Awaited<ReturnType<(typeof apiClient)["post"]<{ data: T }>>>
-    | Awaited<ReturnType<(typeof apiClient)["put"]<{ data: T }>>>
-    | Awaited<ReturnType<(typeof apiClient)["delete"]<{ data: T }>>>
-    | Awaited<ReturnType<(typeof apiClient)["patch"]<{ data: T }>>>;
+  let response: ApiResponse<{ data: T }>;
 
   switch (method) {
     case "GET":
-      response = await apiClient.get<{ data: T }>({
-        url: path,
-      });
+      response = await apiClient.get<{ data: T }>(path);
       break;
     case "POST":
-      response = await apiClient.post<{ data: T }>({
-        url: path,
-        data: init?.body,
-      });
+      response = await apiClient.post<{ data: T }>(path, init?.body);
       break;
     case "PUT":
-      response = await apiClient.put<{ data: T }>({
-        url: path,
-        data: init?.body,
-      });
+      response = await apiClient.put<{ data: T }>(path, init?.body);
       break;
     case "DELETE":
-      response = await apiClient.delete<{ data: T }>({
-        url: path,
-        data: init?.body,
-      });
+      // apiClient.delete has no data parameter; pass body via config spread
+      response = await apiClient.delete<{ data: T }>(path, { data: init?.body } as Partial<RequestConfig>);
       break;
     case "PATCH":
-      response = await apiClient.patch<{ data: T }>({
-        url: path,
-        data: init?.body,
-      });
+      response = await apiClient.patch<{ data: T }>(path, init?.body);
       break;
     default:
       throw new Error(`Unsupported HTTP method: ${method}`);
