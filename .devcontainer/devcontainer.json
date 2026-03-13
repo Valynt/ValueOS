@@ -41,7 +41,8 @@
   "containerEnv": {
     "NODE_ENV": "development",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
-    "PNPM_HOME": "/home/vscode/.local/share/pnpm"
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
+    "ENCRYPTION_AT_REST_ENABLED": "false"
   },
   "remoteEnv": {
     "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"
