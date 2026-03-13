@@ -9,6 +9,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js"
 import { getSupabaseClient } from "../../lib/supabase.js"
+import { siemExportForwarderService } from "./SiemExportForwarderService.js";
 
 // ============================================================================
 // Types
@@ -141,6 +142,14 @@ export class AuditTrailService {
         return null;
       }
 
+      void siemExportForwarderService.forward({
+        id: data?.id ?? crypto.randomUUID(),
+        source: "security_audit_log",
+        tenantId: event.tenantId,
+        timestamp: new Date(event.timestamp).toISOString(),
+        payload: this.mapEventToRow(event),
+      });
+
       return data?.id || null;
     } catch (error) {
       logger.error(
@@ -176,6 +185,15 @@ export class AuditTrailService {
         }
       } else {
         logger.debug("Flushed audit events", { count: eventsToFlush.length });
+        for (const event of eventsToFlush) {
+          void siemExportForwarderService.forward({
+            id: crypto.randomUUID(),
+            source: "security_audit_log",
+            tenantId: event.tenantId,
+            timestamp: new Date(event.timestamp).toISOString(),
+            payload: this.mapEventToRow(event),
+          });
+        }
       }
     } catch (error) {
       logger.error(

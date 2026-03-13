@@ -85,6 +85,9 @@ export const PERMISSIONS = {
   APPROVALS_CREATE: "approvals:create" as Permission,
   APPROVALS_MANAGE: "approvals:manage" as Permission,
 
+  AUDIT_READ: "audit.read" as Permission,
+  COMPLIANCE_READ: "compliance.read" as Permission,
+
   // Tenant ownership transfer — restricted to the current owner only.
   OWNER_TRANSFER: "owner.transfer" as Permission,
 } as const;

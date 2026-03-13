@@ -29,8 +29,10 @@ The required blocking governance gate is `pnpm run typecheck:signal --verify`. T
 `pnpm run ci:verify` is expected to run linting, type checks, governance verification, legacy route checks, tests, workflow governance self-checking, and build steps in a consistent order. Do not downgrade governance enforcement to summary-only telemetry (for example `typecheck:signal:summary`) in protected CI paths.
 
 To prevent accidental regressions, CI includes `pnpm run ci:governance:self-check`, which validates that:
-- `ci:verify` still contains `pnpm run typecheck:signal --verify`, and
-- critical workflows (`ci-cd.yml`, `ci-tests.yml`, `pr-validation.yml`, `ci-bootstrap.yml`, `ci.yml`) include either `pnpm run ci:verify` or the direct governance command.
+- if `ci:verify` is present, it still contains `pnpm run typecheck:signal --verify`, and
+- the authoritative protected workflow (`ci.yml`) includes either `pnpm run ci:verify` or the direct governance command.
+
+Optional workflows (`test.yml`, `deploy.yml`, `release.yml`) are checked only when present and may be absent without failing the governance self-check.
 
 ## Workflows
 

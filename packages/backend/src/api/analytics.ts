@@ -118,7 +118,7 @@ tenantAnalyticsRouter.post(
   "/events",
   express.json(),
   async (req, res) => {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }
@@ -145,7 +145,7 @@ tenantAnalyticsRouter.post(
 tenantAnalyticsRouter.get(
   "/insights",
   async (req, res) => {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Tenant context required" });
     }

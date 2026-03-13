@@ -29,8 +29,8 @@ declare global {
  */
 export function featureFlagContext() {
   return async (req: Request, _res: Response, next: NextFunction) => {
-    const userId = (req as any).user?.id || 'anonymous';
-    const userTier = (req as any).user?.tier;
+    const userId = req.user?.id || 'anonymous';
+    const userTier = req.user?.tier;
     const country = req.headers['cf-ipcountry'] as string; // Cloudflare header
 
     req.featureFlags = {
@@ -90,7 +90,7 @@ export function requireFeatureFlag(flagKey: string) {
       if (!enabled) {
         logger.warn('Feature flag not enabled', {
           flagKey,
-          userId: (req as any).user?.id,
+          userId: req.user?.id,
           path: req.path
         });
 

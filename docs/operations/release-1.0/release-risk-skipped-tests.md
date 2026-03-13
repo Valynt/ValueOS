@@ -11,7 +11,7 @@ This artifact is the Release 1.0 skipped-test exception register. It is referenc
 | `scripts/synthetic-monitors/golden-path.spec.ts:311` | **Release-critical** | Waived as `R1-SKIP-001` (owner `@team/devops`, expires `2026-06-30`). |
 | `docs/sprint-plan-24-27.md:193` | Non-critical | Documentation mention only; no executable test skip. |
 | `tests/e2e/CrossComponentIntegration.test.ts:15` | Non-critical | Environment-gated integration suite (`describeMaybe`). |
-| `tests/e2e/critical-user-flow.spec.ts:149` | **Release-critical** | Waived as `R1-SKIP-002` (owner `@team/frontend`, expires `2026-05-31`). |
+| `tests/e2e/critical-user-flow.spec.ts:149` | **Resolved** | R1-SKIP-002 waiver lifted. Test implemented using Playwright `page.route()` API mocking (no external dependencies). |
 | `tests/e2e/ValueJourney.test.ts:18` | Non-critical | Environment-gated integration suite (`describeMaybe`). |
 | `tests/e2e/auth-complete-flow.spec.ts:259` | **Release-critical** | Waived as `R1-SKIP-003` (owner `@team/security`, expires `2026-05-31`). |
 | `tests/e2e/auth-complete-flow.spec.ts:404` | **Release-critical** | Waived as `R1-SKIP-004` (owner `@team/security`, expires `2026-05-31`). |

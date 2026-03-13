@@ -15,7 +15,7 @@ const router = express.Router();
 const logger = createLogger({ component: 'PlanChangeAPI' });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: req.requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -31,7 +31,7 @@ interface PlanChangeRequest {
  */
 router.post('/preview', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const { new_plan_tier, effective_date }: PlanChangeRequest = req.body;
 
     if (!tenantId) {
@@ -89,8 +89,8 @@ router.post('/preview', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/submit', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
-    const userId = (req as any).userId;
+    const tenantId = req.tenantId;
+    const userId = req.userId;
     const { new_plan_tier, effective_date, justification }: PlanChangeRequest = req.body;
 
     if (!tenantId || !userId) {

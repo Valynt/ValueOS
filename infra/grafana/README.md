@@ -33,6 +33,16 @@ Measures prediction accuracy:
 - Error percentages
 - Accuracy by prediction type
 
+### 4. Tenant Fairness Dashboard
+**File:** `dashboards/tenant-fairness-dashboard.json`
+
+Tracks multi-tenant fairness and capacity signals:
+- Resource share distribution by tenant
+- Quota utilization by tenant tier
+- Throttling events by tenant and reason
+- Saturation trends by tenant tier
+- Recommendation throughput by tenant
+
 ## Setup
 
 ### Prerequisites

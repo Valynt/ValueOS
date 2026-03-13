@@ -1,21 +1,17 @@
-declare let supabase: any;
+import { SupabaseClient } from "@supabase/supabase-js";
+
+declare let supabase: SupabaseClient | null;
 export { supabase };
-export declare function getSupabaseClient(): any;
-export declare function createRequestSupabaseClient(req: {
-    headers?: {
-        authorization?: string | string[];
-    };
-    supabase?: any;
-    supabaseUser?: any;
-    user?: any;
-}): import("@supabase/supabase-js").SupabaseClient<any, "public", "public", any, any>;
-export declare function getRequestSupabaseClient(req: {
-    headers?: {
-        authorization?: string | string[];
-    };
-    supabase?: any;
-    supabaseUser?: any;
-    user?: any;
-}): any;
-export declare function createServerSupabaseClient(serviceKey?: string): import("@supabase/supabase-js").SupabaseClient<any, "public", "public", any, any>;
+export declare function getSupabaseClient(): SupabaseClient;
+
+interface RequestWithSupabase {
+  headers?: { authorization?: string | string[] };
+  supabase?: SupabaseClient;
+  supabaseUser?: unknown;
+  user?: unknown;
+}
+
+export declare function createRequestSupabaseClient(req: RequestWithSupabase): SupabaseClient;
+export declare function getRequestSupabaseClient(req: RequestWithSupabase): SupabaseClient;
+export declare function createServerSupabaseClient(serviceKey?: string): SupabaseClient;
 //# sourceMappingURL=supabase.d.ts.map

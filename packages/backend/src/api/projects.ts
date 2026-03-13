@@ -110,6 +110,7 @@ async function writeProjectAuditLog(
   const user = (req as unknown as { user?: Record<string, unknown> }).user;
   const tenantId = getTenantId(req);
   await auditLogService.createEntry({
+    tenantId,
     userId: ((user?.id as string | undefined) ?? "unknown-user"),
     userName: ((user?.name as string | undefined) ?? "unknown-user"),
     userEmail: ((user?.email as string | undefined) ?? "unknown@example.com"),
@@ -117,7 +118,6 @@ async function writeProjectAuditLog(
     resourceType: "project",
     resourceId: projectId,
     details: {
-      tenantId,
       actorId: (user?.id as string | undefined) ?? "unknown-user",
       correlationId: req.header("x-correlation-id") ?? req.header("x-request-id") ?? null,
       traceId: req.header("x-trace-id") ?? null,

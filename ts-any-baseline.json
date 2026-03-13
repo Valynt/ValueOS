@@ -1,51 +1,39 @@
 {
-  "baseline": 1955,
-  "updated_at": "2026-02-13T22:09:46Z",
+  "baseline": 1522,
+  "updated_at": "2026-03-13T06:49:48Z",
   "target": 100,
   "monthly_target_strategy": "3% reduction per package per month (minimum 1)",
   "packages": {
     "apps/VOSAcademy": {
-      "baseline": 67,
+      "baseline": 81,
       "monthly_reduction": 3
     },
     "apps/ValyntApp": {
-      "baseline": 839,
-      "monthly_reduction": 26
-    },
-    "apps/mcp-dashboard": {
-      "baseline": 2,
-      "monthly_reduction": 1
-    },
-    "packages/agent-fabric": {
-      "baseline": 2,
-      "monthly_reduction": 1
+      "baseline": 251,
+      "monthly_reduction": 8
     },
     "packages/backend": {
-      "baseline": 712,
-      "monthly_reduction": 22
+      "baseline": 747,
+      "monthly_reduction": 23
     },
     "packages/components": {
-      "baseline": 28,
+      "baseline": 31,
       "monthly_reduction": 1
     },
     "packages/infra": {
-      "baseline": 17,
+      "baseline": 21,
       "monthly_reduction": 1
     },
     "packages/mcp": {
-      "baseline": 96,
-      "monthly_reduction": 3
+      "baseline": 158,
+      "monthly_reduction": 5
     },
     "packages/sdui": {
-      "baseline": 133,
-      "monthly_reduction": 4
-    },
-    "packages/services": {
-      "baseline": 23,
-      "monthly_reduction": 1
+      "baseline": 179,
+      "monthly_reduction": 6
     },
     "packages/shared": {
-      "baseline": 36,
+      "baseline": 54,
       "monthly_reduction": 2
     }
   },

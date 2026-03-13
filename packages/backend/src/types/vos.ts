@@ -210,17 +210,6 @@ export interface ValueFabricQuery {
   persona?: string;
 }
 
-<<<<<<< HEAD
-
-export interface ValueCommit {
-  id: string;
-  organization_id: string;
-  value_case_id: string;
-  status: string;
-  metadata?: Record<string, unknown>;
-  created_at?: string;
-  updated_at?: string;
-=======
 export interface ValueCommit {
   id: string;
   tenant_id?: string;
@@ -234,20 +223,10 @@ export interface ValueCommit {
   notes?: string;
   metadata: Record<string, unknown>;
   created_at: string;
->>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
 }
 
 export interface RealizationReport {
   id: string;
-<<<<<<< HEAD
-  organization_id: string;
-  value_case_id: string;
-  report_date?: string;
-  metrics?: Record<string, unknown>;
-  summary?: string;
-  created_at?: string;
-  updated_at?: string;
-=======
   value_commit_id: string;
   value_case_id: string;
   report_period_start: string;
@@ -258,20 +237,10 @@ export interface RealizationReport {
   generated_by?: string;
   metadata: Record<string, unknown>;
   created_at: string;
->>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
 }
 
 export interface ExpansionModel {
   id: string;
-<<<<<<< HEAD
-  organization_id: string;
-  value_case_id: string;
-  model_version?: string;
-  assumptions?: Record<string, unknown>;
-  outputs?: Record<string, unknown>;
-  created_at?: string;
-  updated_at?: string;
-=======
   value_case_id: string;
   value_tree_id?: string;
   realization_report_id?: string;
@@ -290,7 +259,6 @@ export interface TelemetrySummary {
   kpis_tracked: number;
   last_event_timestamp?: string;
   coverage_percentage: number;
->>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
 }
 
 export interface ValueFabricSnapshot {
@@ -302,16 +270,7 @@ export interface ValueFabricSnapshot {
   value_trees: ValueTree[];
   roi_models: ROIModel[];
   value_commits: ValueCommit[];
-<<<<<<< HEAD
-  telemetry_summary?: {
-    total_events: number;
-    kpis_tracked: number;
-    last_event_timestamp?: string;
-    coverage_percentage: number;
-  };
-=======
   telemetry_summary?: TelemetrySummary;
->>>>>>> e27c0a619 (fix: type safety, billing eligibility filter, and ground truth metrics loop)
   realization_reports?: RealizationReport[];
   expansion_models?: ExpansionModel[];
 }

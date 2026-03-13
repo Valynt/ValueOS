@@ -37,7 +37,7 @@ router.use(requireAuth);
 router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: req.requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -103,9 +103,9 @@ router.post(
     }
 
     // Get user info from auth middleware (assumed to be set)
-    const userId = (req as any).user?.id || 'anonymous';
-    const sessionId = (req as any).sessionId;
-    const tenantId = (req as any).tenantId;
+    const userId = req.user?.id || 'anonymous';
+    const sessionId = req.sessionId;
+    const tenantId = req.tenantId;
     
     logger.info(
       'LLM chat request received',
@@ -119,7 +119,7 @@ router.post(
       })
     );
 
-    const useFallbackModel = Boolean((req as any).useFallbackModel);
+    const useFallbackModel = Boolean(req.useFallbackModel);
 
     // If plan enforcement downgraded this request, route to fallback immediately.
     if (useFallbackModel) {
@@ -310,7 +310,7 @@ router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTime
     logger.info(
       'Circuit breakers reset by admin',
       withRequestContext(req, res, {
-        userId: (req as any).user?.id,
+        userId: req.user?.id,
       })
     );
     
