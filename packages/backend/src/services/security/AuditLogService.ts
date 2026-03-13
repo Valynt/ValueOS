@@ -281,15 +281,23 @@ export class AuditLogService extends BaseService {
                 ...detailsWithoutStatus
               } = sanitizedDetails;
 
+              // Canonicalize details to match what is persisted and what integrity verification uses
+              const detailsForHash: Record<string, unknown> = {
+                ...detailsWithoutStatus,
+                request_path: requiredContract.request_path,
+                outcome: requiredContract.outcome,
+                status_code: requiredContract.status_code,
+                correlation_id: requiredContract.correlation_id,
+              };
+
               // Calculate integrity hash (using secure SHA-256)
               const hash = await this.calculateHash({
                 userId: input.userId,
                 action: requiredContract.action_type,
                 resourceType: requiredContract.resource_type,
                 resourceId: requiredContract.resource_id,
-                details: detailsWithoutStatus,
+                details: detailsForHash,
                 previousHash: this.lastHash,
-                correlationId: requiredContract.correlation_id,
               });
 
               const logEntry = {
@@ -299,13 +307,7 @@ export class AuditLogService extends BaseService {
                 action: requiredContract.action_type,
                 resource_type: requiredContract.resource_type,
                 resource_id: requiredContract.resource_id,
-                details: {
-                  ...detailsWithoutStatus,
-                  request_path: requiredContract.request_path,
-                  outcome: requiredContract.outcome,
-                  status_code: requiredContract.status_code,
-                  correlation_id: requiredContract.correlation_id,
-                },
+                details: detailsForHash,
                 ip_address: requiredContract.ip_address,
                 user_agent: requiredContract.user_agent,
                 status: requiredContract.outcome,
