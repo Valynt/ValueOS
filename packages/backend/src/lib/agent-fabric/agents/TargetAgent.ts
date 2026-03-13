@@ -126,6 +126,8 @@ function getProvenanceTracker(): ProvenanceTracker {
 }
 
 export class TargetAgent extends BaseAgent {
+  public override readonly version = "1.0.0";
+
   private causalEngine = getAdvancedCausalEngine();
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {

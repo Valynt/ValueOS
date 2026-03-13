@@ -6,30 +6,45 @@ export interface UserClaims {
   org_id: string;
 }
 
-/**
- * Normalize role names to a canonical uppercase form.
- *
- * The backend JWT uses lowercase ("admin", "owner") while some auth providers
- * prefix roles with "ROLE_" (e.g. "ROLE_ADMIN"). Normalizing before comparison
- * prevents admins from falling through to read-only permissions.
- */
+// Backend canonical roles: "admin" | "member" | "viewer"
+// Legacy aliases handled:
+// - "owner"  -> "admin"
+// - "editor" -> "member"
+// - "reader" -> "viewer"
+// Also supports auth-provider variants like "ROLE_ADMIN".
+const ROLE_MAP: Record<string, string> = {
+  admin: "admin",
+  owner: "admin",
+
+  member: "member",
+  editor: "member",
+  analyst: "member",
+
+  viewer: "viewer",
+  reader: "viewer",
+};
+
 function normalizeRole(role: string): string {
-  return role.replace(/^ROLE_/i, "").toUpperCase();
+  const normalized = role.replace(/^ROLE_/i, "").trim().toLowerCase();
+  return ROLE_MAP[normalized] ?? normalized;
 }
 
 export function computePermissions(roles: string[]): string[] {
   const normalized = roles.map(normalizeRole);
-  const permissions: string[] = [];
+  const permissions = new Set<string>();
 
-  if (normalized.includes("OWNER") || normalized.includes("ADMIN")) {
-    permissions.push("admin", "read", "write", "delete");
-  } else if (normalized.includes("ANALYST") || normalized.includes("MEMBER")) {
-    permissions.push("read", "write");
-  } else if (normalized.includes("VIEWER")) {
-    permissions.push("read");
+  if (normalized.includes("admin")) {
+    permissions.add("admin");
+    permissions.add("read");
+    permissions.add("write");
+    permissions.add("delete");
+  } else if (normalized.includes("member")) {
+    permissions.add("read");
+    permissions.add("write");
   } else {
-    permissions.push("read");
+    // viewer or unknown -> read-only
+    permissions.add("read");
   }
 
-  return permissions;
+  return Array.from(permissions);
 }

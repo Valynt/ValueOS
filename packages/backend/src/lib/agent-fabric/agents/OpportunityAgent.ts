@@ -85,6 +85,8 @@ type ValueHypothesis = z.infer<typeof ValueHypothesisSchema>;
 // ---------------------------------------------------------------------------
 
 export class OpportunityAgent extends BaseAgent {
+  public override readonly version = "1.0.0";
+
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
@@ -256,6 +258,14 @@ export class OpportunityAgent extends BaseAgent {
     const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
 
     if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) {
+      // Warn so operators know hypotheses will be generated without firm-specific context.
+      // Set ENABLE_DOMAIN_PACK_CONTEXT=true and attach a domain pack to the value case
+      // to ground hypotheses in tenant-specific KPIs and assumptions.
+      logger.warn('OpportunityAgent: domain pack context disabled (ENABLE_DOMAIN_PACK_CONTEXT=false). Hypotheses will not reference tenant-specific KPIs or assumptions.', {
+        tenant_id: context.organization_id,
+        organization_id: context.organization_id,
+        value_case_id: context.user_inputs?.value_case_id,
+      });
       return empty;
     }
 

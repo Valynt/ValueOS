@@ -122,6 +122,8 @@ export interface VetoDecision {
 // ---------------------------------------------------------------------------
 
 export class IntegrityAgent extends BaseAgent {
+  public override readonly version = "1.0.0";
+
   private readonly integrityRepo = new IntegrityResultRepository();
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {

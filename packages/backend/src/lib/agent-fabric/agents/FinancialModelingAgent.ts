@@ -132,6 +132,8 @@ function getProvenanceTracker(): ProvenanceTracker {
 }
 
 export class FinancialModelingAgent extends BaseAgent {
+  public override readonly version = "1.0.0";
+
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);

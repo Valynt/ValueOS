@@ -38,11 +38,12 @@ const getUserRoles = (user: User): string[] => {
   if (
     user?.user_metadata?.roles &&
     Array.isArray(user.user_metadata.roles) &&
-    user.user_metadata.roles.every((role: any) => typeof role === "string")
+    user.user_metadata.roles.every((role: unknown) => typeof role === "string")
   ) {
-    return user.user_metadata.roles;
+    return user.user_metadata.roles as string[];
   }
-  return ["ANALYST"];
+  // Default to "member" — aligns with backend canonical role model (admin | member | viewer)
+  return ["member"];
 };
 
 const getUserOrgId = (user: User): string => {
