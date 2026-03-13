@@ -11,7 +11,7 @@ export function initFrontendObservability(
   window.dispatchEvent(
     new CustomEvent("valueos:release-marker", { detail: releaseMarker })
   );
-  console.info("[Observability] release marker", { releaseMarker });
+  console.warn("[Observability] release marker", { releaseMarker });
 
   window.addEventListener("error", event => {
     console.error("[Observability] uncaught exception", {
