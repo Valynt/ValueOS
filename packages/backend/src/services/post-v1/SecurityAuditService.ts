@@ -2,20 +2,28 @@ import { logger } from "../../lib/logger.js"
 import { sanitizeForLogging } from "../lib/piiFilter.js"
 import { captureMessage } from "../lib/sentry";
 import { createServerSupabaseClient } from "../../lib/supabase.js"
+import {
+  RequiredAuditPayload,
+  mapAuditPayloadToLegacyShape,
+  requiredAuditPayloadSchema,
+} from "../security/auditPayloadContract.js";
 
 import { BaseService } from "../BaseService.js"
 
 
 export interface RequestAuditEvent {
-  requestId: string;
+  correlation_id: string;
   userId?: string;
-  actor?: string;
-  action: string;
-  resource: string;
-  requestPath: string;
-  ipAddress?: string;
-  userAgent?: string;
-  statusCode?: number;
+  actor: string;
+  action_type: string;
+  resource_type: string;
+  resource_id: string;
+  request_path: string;
+  ip_address: string;
+  user_agent: string;
+  outcome: "success" | "failed";
+  status_code: number;
+  timestamp: string;
   severity?: "low" | "medium" | "high" | "critical";
   eventType?: string;
   eventData?: Record<string, unknown>;
@@ -92,23 +100,49 @@ class SecurityAuditService extends BaseService {
   }
 
   async logRequestEvent(event: RequestAuditEvent): Promise<void> {
+    const contractPayload: RequiredAuditPayload = requiredAuditPayloadSchema.parse({
+      actor: event.actor,
+      action_type: event.action_type,
+      resource_type: event.resource_type,
+      resource_id: event.resource_id,
+      request_path: event.request_path,
+      ip_address: event.ip_address,
+      user_agent: event.user_agent,
+      outcome: event.outcome,
+      status_code: event.status_code,
+      timestamp: event.timestamp,
+      correlation_id: event.correlation_id,
+    });
+
     const sanitizedDetails = event.eventData
       ? (sanitizeForLogging(event.eventData) as Record<string, unknown>)
       : {};
+    const {
+      ip_address: _ignoreIpAddress,
+      user_agent: _ignoreUserAgent,
+      request_path: _ignoreRequestPath,
+      status_code: _ignoreStatusCode,
+      outcome: _ignoreOutcome,
+      correlation_id: _ignoreCorrelationId,
+      ...detailsWithoutCanonicalDuplicates
+    } = sanitizedDetails;
 
     const payload: AuditPayload = {
-      request_id: event.requestId,
+      request_id: contractPayload.correlation_id,
       user_id: event.userId || null,
-      actor: event.actor || "anonymous",
-      action: event.action,
-      resource: event.resource,
-      request_path: event.requestPath,
+      actor: contractPayload.actor,
+      action: contractPayload.action_type,
+      resource: contractPayload.resource_type,
+      request_path: contractPayload.request_path,
       event_type: event.eventType || "http_request",
-      event_data: sanitizedDetails,
-      ip_address: event.ipAddress || null,
-      user_agent: event.userAgent || null,
+      event_data: {
+        ...detailsWithoutCanonicalDuplicates,
+        legacy: mapAuditPayloadToLegacyShape(contractPayload),
+      },
+      ip_address: contractPayload.ip_address,
+      user_agent: contractPayload.user_agent,
       severity: event.severity || "medium",
-      status_code: event.statusCode || null,
+      status_code: contractPayload.status_code,
     };
 
     try {
