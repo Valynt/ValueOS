@@ -18,6 +18,7 @@ import { logger } from "../../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import type { AuditLogEntry } from "../types";
+import { siemExportForwarderService } from "./SiemExportForwarderService.js";
 
 import { BaseService } from "../BaseService.js";
 
@@ -290,6 +291,13 @@ export class AuditLogService extends BaseService {
               }
 
               this.lastHash = hash;
+              void siemExportForwarderService.forward({
+                id: data.id,
+                source: "audit_logs",
+                tenantId: (data.tenant_id as string | undefined) ?? undefined,
+                timestamp: data.timestamp as string,
+                payload: data as Record<string, unknown>,
+              });
               return data as AuditLogEntry;
             },
             { skipCache: true }

@@ -74,7 +74,7 @@ router.post(
 
 router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
 
-router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {
+router.get("/audit-logs", requirePermission("audit.read"), async (req: Request, res: Response) => {
   try {
     const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
@@ -104,6 +104,20 @@ router.get("/audit-logs", requirePermission("users.read"), async (req: Request, 
       status: status as "success" | "failed",
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
+    });
+
+    await auditLogService.logAudit({
+      userId: req.user.id,
+      userName: req.user.email ?? "unknown",
+      userEmail: req.user.email ?? "",
+      action: "audit.logs.query",
+      resourceType: "audit_logs",
+      resourceId: tenantId,
+      details: {
+        endpoint: "/api/admin/audit-logs",
+        filters: { userId, action, resourceType, resourceId, startDate, endDate, status, limit, offset },
+      },
+      status: "success",
     });
 
     return res.json({ logs });

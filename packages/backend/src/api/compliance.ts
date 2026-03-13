@@ -17,7 +17,7 @@ function getTenantId(req: Request): string | null {
   return tenantId ?? null;
 }
 
-router.get("/control-status", requirePermission("users.read"), async (req: Request, res: Response) => {
+router.get("/control-status", requirePermission("compliance.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -37,7 +37,7 @@ router.get("/control-status", requirePermission("users.read"), async (req: Reque
   });
 });
 
-router.get("/stream", requirePermission("users.read"), async (req: Request, res: Response) => {
+router.get("/stream", requirePermission("compliance.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -68,7 +68,7 @@ router.get("/stream", requirePermission("users.read"), async (req: Request, res:
   });
 });
 
-router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {
+router.get("/audit-logs", requirePermission("audit.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -76,10 +76,24 @@ router.get("/audit-logs", requirePermission("users.read"), async (req: Request, 
 
   const limit = Number(req.query.limit ?? 25);
   const logs = await auditLogService.query({ tenantId, limit });
+  const actor = req.user;
+  await auditLogService.logAudit({
+    userId: actor.id,
+    userName: actor.email ?? "unknown",
+    userEmail: actor.email ?? "",
+    action: "compliance.audit_logs.query",
+    resourceType: "audit_logs",
+    resourceId: tenantId,
+    details: {
+      endpoint: "/api/admin/compliance/audit-logs",
+      limit,
+    },
+    status: "success",
+  });
   return res.json({ logs });
 });
 
-router.get("/policy-history", requirePermission("users.read"), async (req: Request, res: Response) => {
+router.get("/policy-history", requirePermission("compliance.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -89,7 +103,7 @@ router.get("/policy-history", requirePermission("users.read"), async (req: Reque
   return res.json({ history });
 });
 
-router.get("/retention", requirePermission("users.read"), (_req: Request, res: Response) => {
+router.get("/retention", requirePermission("compliance.read"), (_req: Request, res: Response) => {
   return res.json({
     rules: [
       { id: "logs", data_class: "Audit Logs", retention_days: 2555, legal_hold: true, last_reviewed_at: new Date().toISOString() },
@@ -99,7 +113,7 @@ router.get("/retention", requirePermission("users.read"), (_req: Request, res: R
   });
 });
 
-router.get("/dsr", requirePermission("users.read"), (_req: Request, res: Response) => {
+router.get("/dsr", requirePermission("compliance.read"), (_req: Request, res: Response) => {
   return res.json({
     queue: [
       { id: "dsr-001", request_type: "access", subject_ref: "subject:hashed:28fd", status: "in_progress", submitted_at: new Date(Date.now() - 2 * 86400000).toISOString(), due_at: new Date(Date.now() + 28 * 86400000).toISOString() },
@@ -108,7 +122,7 @@ router.get("/dsr", requirePermission("users.read"), (_req: Request, res: Respons
   });
 });
 
-router.get("/mode", requirePermission("users.read"), async (req: Request, res: Response) => {
+router.get("/mode", requirePermission("compliance.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
