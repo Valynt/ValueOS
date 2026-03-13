@@ -7,6 +7,7 @@
 
 import { compress, decompress } from 'lz-string';
 import { v4 as uuidv4 } from 'uuid';
+import { context, trace } from '@opentelemetry/api';
 import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js'
@@ -44,6 +45,9 @@ export class MessageBus {
     payload: z.unknown().optional(),
     compressed: z.boolean().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
+    trace_id: z.string().min(1, 'trace_id is required'),
+    span_id: z.string().min(1).optional(),
+    parent_span_id: z.string().min(1).optional(),
     tenant_id: z.string().min(1).optional(),
     organization_id: z.string().min(1).optional(),
   }).superRefine((value, ctx) => {
@@ -92,7 +96,9 @@ export class MessageBus {
       }
     }
 
-    const validation = MessageBus.publishPayloadSchema.safeParse(payload);
+    const payloadWithTracing = this.applyTraceContext(payload);
+
+    const validation = MessageBus.publishPayloadSchema.safeParse(payloadWithTracing);
     if (!validation.success) {
       const issues = validation.error.issues.map((issue) => issue.message).join('; ');
       throw new Error(`Invalid MessageBus payload for channel "${channel}": ${issues}`);
@@ -102,7 +108,7 @@ export class MessageBus {
 
     const event: CommunicationEvent = {
       id: messageId,
-      ...payload,
+      ...payloadWithTracing,
       timestamp: new Date().toISOString(),
     };
 
@@ -314,6 +320,9 @@ export class MessageBus {
         ...payload,
         correlation_id: correlationId,
         reply_to: replyChannel,
+        trace_id: payload.trace_id,
+        span_id: payload.span_id,
+        parent_span_id: payload.parent_span_id,
       }).catch((error) => {
         clearTimeout(timeoutId);
         unsubscribe();
@@ -442,6 +451,29 @@ export class MessageBus {
     }
 
     this.messageHistory.set(channel, history);
+  }
+
+
+  private applyTraceContext(payload: CreateCommunicationEvent): CreateCommunicationEvent {
+    if (payload.trace_id && payload.trace_id.trim().length > 0) {
+      return payload;
+    }
+
+    const span = trace.getSpan(context.active());
+    if (!span) {
+      return {
+        ...payload,
+        trace_id: uuidv4(),
+      };
+    }
+
+    const spanContext = span.spanContext();
+    return {
+      ...payload,
+      trace_id: payload.trace_id ?? spanContext.traceId,
+      span_id: payload.span_id ?? spanContext.spanId,
+      parent_span_id: payload.parent_span_id,
+    };
   }
 
   private shouldCompress(payload: unknown): boolean {
