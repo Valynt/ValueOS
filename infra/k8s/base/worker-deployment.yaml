@@ -64,6 +64,16 @@ spec:
                 configMapKeyRef:
                   name: valynt-config
                   key: redis-url
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: otel-exporter-otlp-endpoint
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: otel-service-name
             - name: TOGETHER_API_KEY
               valueFrom:
                 secretKeyRef:
