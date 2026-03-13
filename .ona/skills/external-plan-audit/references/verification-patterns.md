@@ -40,7 +40,7 @@ claim matches a resolved item, classify immediately as "Already resolved."
 
 ```bash
 # List all resolved items (grep the Resolved section directly)
-awk '/^## Resolved/,/^## [^R]/' .ona/context/debt.md | grep "^|"
+awk '/^## Resolved debt/,/^## [^R]/' .ona/context/debt.md | grep "^|"
 
 # Check if a specific debt ID is resolved
 grep -n "DEBT-007\|QUAL-003\|SEC-02" .ona/context/debt.md
