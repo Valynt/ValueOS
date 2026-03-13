@@ -548,6 +548,7 @@ export class AgentRetryManager {
       agentTelemetryService.recordTelemetryEvent({
         type: "agent_retry_success",
         agentType,
+        organizationId: context.organizationId,
         sessionId: context.sessionId,
         userId: context.userId,
         data: {
@@ -573,6 +574,7 @@ export class AgentRetryManager {
       agentTelemetryService.recordTelemetryEvent({
         type: "agent_retry_failure",
         agentType,
+        organizationId: context.organizationId,
         sessionId: context.sessionId,
         userId: context.userId,
         data: {
@@ -708,6 +710,7 @@ export class AgentRetryManager {
           agentTelemetryService.recordTelemetryEvent({
             type: "agent_fallback_success",
             agentType: fallbackAgent.agentType,
+            organizationId: context.organizationId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
@@ -801,6 +804,7 @@ export class AgentRetryManager {
       agentTelemetryService.recordTelemetryEvent({
         type: "agent_fallback_parallel_success",
         agentType: bestResult.agentType,
+        organizationId: context.organizationId,
         sessionId: context.sessionId,
         userId: context.userId,
         data: {

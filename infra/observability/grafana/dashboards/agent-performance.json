@@ -29,20 +29,36 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 0.8 },
-              { "color": "green", "value": 0.95 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
             ]
           },
           "unit": "percentunit"
         }
       },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "options": {
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -70,20 +86,36 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 0.9 },
-              { "color": "green", "value": 0.98 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.98
+              }
             ]
           },
           "unit": "percentunit"
         }
       },
-      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
       "id": 2,
       "options": {
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         }
@@ -135,12 +167,22 @@
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }]
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
           },
           "unit": "s"
         }
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "id": 3,
       "options": {
         "legend": {
@@ -154,19 +196,21 @@
       },
       "targets": [
         {
-          "expr": "avg by(agent_id) (agent_reasoning_duration_seconds)",
-          "legendFormat": "{{agent_id}}",
+          "expr": "histogram_quantile(0.95, sum by (le, agent_type) (rate(agent_fabric_execution_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{agent_type}}",
           "refId": "A"
         }
       ],
-      "title": "Average Reasoning Duration",
+      "title": "P95 Agent Execution Duration by Agent Type",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "axisLabel": "Violations/sec",
             "drawStyle": "bars",
@@ -175,35 +219,50 @@
           "unit": "short"
         }
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "id": 4,
       "targets": [
         {
-          "expr": "rate(agent_safety_violations_total[5m]) by (severity)",
-          "legendFormat": "{{severity}}",
+          "expr": "sum by (agent_type, severity) (rate(agent_fabric_execution_failure_total[5m]))",
+          "legendFormat": "{{agent_type}}/{{severity}}",
           "refId": "A"
         }
       ],
-      "title": "Safety Violations",
+      "title": "Agent Errors by Type and Severity",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "id": 5,
       "targets": [
         {
-          "expr": "rate(agent_memory_inconsistencies_total[5m]) by (type)",
-          "legendFormat": "{{type}}",
+          "expr": "sum by (agent_type, event_type, severity) (rate(agent_fabric_security_events_total[5m]))",
+          "legendFormat": "{{agent_type}}/{{event_type}}/{{severity}}",
           "refId": "A"
         }
       ],
-      "title": "Memory Inconsistencies",
+      "title": "Security Events by Agent",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "id": 6,
       "targets": [
         {
@@ -222,7 +281,12 @@
     },
     {
       "datasource": "Prometheus",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "id": 7,
       "targets": [
         {
@@ -241,7 +305,12 @@
     },
     {
       "datasource": "Prometheus",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "id": 8,
       "targets": [
         {
@@ -257,7 +326,11 @@
   "refresh": "10s",
   "schemaVersion": 27,
   "style": "dark",
-  "tags": ["agent", "observability", "lgtm"],
+  "tags": [
+    "agent",
+    "observability",
+    "lgtm"
+  ],
   "templating": {
     "list": []
   },

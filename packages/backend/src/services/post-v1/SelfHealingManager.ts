@@ -170,6 +170,7 @@ export class SelfHealingManager {
     agentTelemetryService.recordTelemetryEvent({
       type: `self_healing_${event.type}`,
       agentType: "system" as any,
+      organizationId: typeof event.details.tenantId === "string" ? event.details.tenantId : undefined,
       data: {
         traceId: event.traceId,
         agentId: event.agentId,
