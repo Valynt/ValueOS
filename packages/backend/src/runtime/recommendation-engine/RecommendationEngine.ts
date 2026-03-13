@@ -26,6 +26,7 @@ import { DecisionRouter } from '../decision-router/index.js';
 import { getRealtimeBroadcastService } from '../../services/realtime/RealtimeBroadcastService.js';
 import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 
 // ---------------------------------------------------------------------------
 // Recommendation shape pushed to the UI
@@ -109,49 +110,57 @@ export class RecommendationEngine {
       return;
     }
 
-    logger.info('RecommendationEngine: opportunity.updated received', {
-      opportunityId: payload.opportunityId,
-      tenantId: payload.tenantId,
-      traceId: payload.traceId,
+    await runInTelemetrySpanAsync('runtime.recommendation_engine.opportunity_updated', {
+      service: 'recommendation-engine',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: payload.tenantId,
+      trace_id: payload.traceId,
+      attributes: { source_event: 'opportunity.updated' },
+    }, async () => {
+      logger.info('RecommendationEngine: opportunity.updated received', {
+        opportunityId: payload.opportunityId,
+        tenantId: payload.tenantId,
+        traceId: payload.traceId,
+      });
+
+      const stageParseResult = OpportunityLifecycleStageSchema.safeParse(payload.lifecycleStage);
+      const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
+
+      const decisionContext: DecisionContext = {
+        organization_id: payload.tenantId,
+        opportunity: {
+          id: payload.opportunityId,
+          lifecycle_stage,
+          confidence_score: payload.averageConfidence,
+          value_maturity: payload.averageConfidence >= 0.7 ? 'high' : payload.averageConfidence >= 0.4 ? 'medium' : 'low',
+        },
+        is_external_artifact_action: false,
+      };
+      const nextAgent = this.router.selectAgent(decisionContext);
+
+      const confidence = payload.averageConfidence;
+      const priority = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
+
+      const recommendation: Recommendation = {
+        id: `rec-opp-${payload.id}`,
+        generatedAt: new Date().toISOString(),
+        sourceEvent: 'opportunity.updated',
+        tenantId: payload.tenantId,
+        workspaceId: payload.workspaceId,
+        title: 'Opportunity analysis complete — review hypotheses',
+        description:
+          `${payload.hypothesisCount} value hypotheses generated with an average confidence of ` +
+          `${(confidence * 100).toFixed(0)}%. ` +
+          (payload.recommendedNextSteps.length > 0
+            ? `Suggested next steps: ${payload.recommendedNextSteps.slice(0, 2).join('; ')}.`
+            : ''),
+        nextAction: nextAgent,
+        confidence,
+        priority: priority as Recommendation['priority'],
+      };
+
+      this.broadcast(payload.tenantId, recommendation);
     });
-
-    const stageParseResult = OpportunityLifecycleStageSchema.safeParse(payload.lifecycleStage);
-    const lifecycle_stage = stageParseResult.success ? stageParseResult.data : 'discovery';
-
-    const decisionContext: DecisionContext = {
-      organization_id: payload.tenantId,
-      opportunity: {
-        id: payload.opportunityId,
-        lifecycle_stage,
-        confidence_score: payload.averageConfidence,
-        value_maturity: payload.averageConfidence >= 0.7 ? 'high' : payload.averageConfidence >= 0.4 ? 'medium' : 'low',
-      },
-      is_external_artifact_action: false,
-    };
-    const nextAgent = this.router.selectAgent(decisionContext);
-
-    const confidence = payload.averageConfidence;
-    const priority = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
-
-    const recommendation: Recommendation = {
-      id: `rec-opp-${payload.id}`,
-      generatedAt: new Date().toISOString(),
-      sourceEvent: 'opportunity.updated',
-      tenantId: payload.tenantId,
-      workspaceId: payload.workspaceId,
-      title: 'Opportunity analysis complete — review hypotheses',
-      description:
-        `${payload.hypothesisCount} value hypotheses generated with an average confidence of ` +
-        `${(confidence * 100).toFixed(0)}%. ` +
-        (payload.recommendedNextSteps.length > 0
-          ? `Suggested next steps: ${payload.recommendedNextSteps.slice(0, 2).join('; ')}.`
-          : ''),
-      nextAction: nextAgent,
-      confidence,
-      priority: priority as Recommendation['priority'],
-    };
-
-    this.broadcast(payload.tenantId, recommendation);
   }
 
   /**

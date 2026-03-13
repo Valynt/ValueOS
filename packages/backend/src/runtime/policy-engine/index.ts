@@ -29,6 +29,7 @@ import {
 } from "../../services/workflows/IntegrityVetoService.js";
 import { WorkflowStageContextDTO } from "../../types/workflow/runner.js";
 import { DecisionContext } from "@shared/domain/DecisionContext.js";
+import { runInTelemetrySpan, runInTelemetrySpanAsync } from "../../observability/telemetryStandards.js";
 
 // ============================================================================
 // Types — autonomy guardrails
@@ -157,16 +158,23 @@ export class PolicyEngine {
    * Must be called before any agent work begins.
    */
   async assertTenantExecutionAllowed(organizationId: string): Promise<void> {
-    const state = await this.executionStateService.getActiveState(organizationId);
-    if (!state?.is_paused) {
-      return;
-    }
+    await runInTelemetrySpanAsync('runtime.policy_engine.assert_tenant_execution_allowed', {
+      service: 'policy-engine',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: organizationId,
+      trace_id: `policy-tenant-guard-${organizationId}`,
+    }, async () => {
+      const state = await this.executionStateService.getActiveState(organizationId);
+      if (!state?.is_paused) {
+        return;
+      }
 
-    const pausedAt = state.paused_at ?? "unknown";
-    const reason = state.reason ?? "No reason provided";
-    throw new Error(
-      `Tenant execution is paused for organization ${organizationId}. reason=${reason}; paused_at=${pausedAt}`,
-    );
+      const pausedAt = state.paused_at ?? "unknown";
+      const reason = state.reason ?? "No reason provided";
+      throw new Error(
+        `Tenant execution is paused for organization ${organizationId}. reason=${reason}; paused_at=${pausedAt}`,
+      );
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -379,22 +387,43 @@ export class PolicyEngine {
    * Returns `allowed: true` when no policy blocks the action.
    */
   checkHITL(context: DecisionContext): PolicyCheckResult {
-    const opportunityConfidence = context.opportunity?.confidence_score;
-    const isExternalArtifact = context.is_external_artifact_action;
-    const lifecycleStage = context.opportunity?.lifecycle_stage;
+    return runInTelemetrySpan('runtime.policy_engine.check_hitl', {
+      service: 'policy-engine',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: context.organization_id,
+      trace_id: `policy-hitl-${context.opportunity?.id ?? 'unknown'}`,
+      attributes: {
+        is_external_artifact_action: context.is_external_artifact_action,
+      },
+    }, () => {
+      const opportunityConfidence = context.opportunity?.confidence_score;
+      const isExternalArtifact = context.is_external_artifact_action;
+      const lifecycleStage = context.opportunity?.lifecycle_stage;
 
-    if (
-      isExternalArtifact &&
-      opportunityConfidence !== undefined &&
-      opportunityConfidence < HITL_CONFIDENCE_THRESHOLD
-    ) {
+      if (
+        isExternalArtifact &&
+        opportunityConfidence !== undefined &&
+        opportunityConfidence < HITL_CONFIDENCE_THRESHOLD
+      ) {
+        return {
+          allowed: false,
+          hitl_required: true,
+          hitl_reason:
+            `Opportunity confidence score is ${opportunityConfidence.toFixed(2)} ` +
+            `(below the ${HITL_CONFIDENCE_THRESHOLD} threshold). ` +
+            `Human approval is required before generating an external-facing artifact.`,
+          details: {
+            rule_id: "HITL-01",
+            confidence_score: opportunityConfidence,
+            is_external_artifact_action: isExternalArtifact,
+            lifecycle_stage: lifecycleStage,
+          },
+        };
+      }
+
       return {
-        allowed: false,
-        hitl_required: true,
-        hitl_reason:
-          `Opportunity confidence score is ${opportunityConfidence.toFixed(2)} ` +
-          `(below the ${HITL_CONFIDENCE_THRESHOLD} threshold). ` +
-          `Human approval is required before generating an external-facing artifact.`,
+        allowed: true,
+        hitl_required: false,
         details: {
           rule_id: "HITL-01",
           confidence_score: opportunityConfidence,
@@ -402,17 +431,6 @@ export class PolicyEngine {
           lifecycle_stage: lifecycleStage,
         },
       };
-    }
-
-    return {
-      allowed: true,
-      hitl_required: false,
-      details: {
-        rule_id: "HITL-01",
-        confidence_score: opportunityConfidence,
-        is_external_artifact_action: isExternalArtifact,
-        lifecycle_stage: lifecycleStage,
-      },
-    };
+    });
   }
 }

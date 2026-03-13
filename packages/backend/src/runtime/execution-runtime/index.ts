@@ -31,6 +31,7 @@ import type { DecisionRouter } from '../decision-router/index.js';
 import { QueryExecutor, type QueryExecutorConfig } from './QueryExecutor.js';
 import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecutor.js';
 import type { IExecutionRuntime } from '../../types/execution/IExecutionRuntime.js';
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 
 export { QueryExecutor, WorkflowExecutor };
 export type { QueryExecutorConfig, WorkflowExecutorConfig };
@@ -91,7 +92,12 @@ export class ExecutionRuntime implements IExecutionRuntime {
   // --------------------------------------------------------------------------
 
   processQuery(envelope: ExecutionEnvelope, query: string, currentState: WorkflowState, userId: string, sessionId: string, traceId?: string): Promise<ProcessQueryResult> {
-    return this.queryExecutor.processQuery(envelope, query, currentState, userId, sessionId, traceId);
+    return runInTelemetrySpanAsync('runtime.execution_runtime.process_query', {
+      service: 'execution-runtime',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: envelope.tenant_id,
+      trace_id: traceId || envelope.trace_id,
+    }, async () => this.queryExecutor.processQuery(envelope, query, currentState, userId, sessionId, traceId));
   }
 
   processQueryAsync(envelope: ExecutionEnvelope, query: string, currentState: WorkflowState, userId: string, sessionId: string, traceId?: string): Promise<{ jobId: string; traceId: string }> {
@@ -107,7 +113,13 @@ export class ExecutionRuntime implements IExecutionRuntime {
   // --------------------------------------------------------------------------
 
   executeWorkflow(envelope: ExecutionEnvelope, workflowDefinitionId: string, context?: WorkflowContextDTO, userId?: string): Promise<WorkflowExecutionResult> {
-    return this.workflowExecutor.executeWorkflow(envelope, workflowDefinitionId, context, userId);
+    return runInTelemetrySpanAsync('runtime.execution_runtime.execute_workflow', {
+      service: 'execution-runtime',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: envelope.tenant_id,
+      trace_id: envelope.trace_id,
+      attributes: { workflow_definition_id: workflowDefinitionId },
+    }, async () => this.workflowExecutor.executeWorkflow(envelope, workflowDefinitionId, context, userId));
   }
 
   executeDAGAsync(executionId: string, organizationId: string, dag: WorkflowDAG, initialContext: WorkflowStageContextDTO, traceId: string, executionRecord?: WorkflowExecutionRecord): Promise<void> {

@@ -84,6 +84,12 @@ jobs:
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
 
+      - name: Telemetry completeness gate
+        run: pnpm check:telemetry-completeness
+
+      - name: Observability deployment gate
+        run: pnpm check:observability-deployment-gates
+
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
 

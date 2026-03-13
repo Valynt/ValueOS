@@ -24,6 +24,7 @@ import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeF
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
 import { redactSensitiveValue, summarizeRedactedContent } from "../redaction.js";
+import { runInTelemetrySpanAsync } from "../../../observability/telemetryStandards.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -193,7 +194,15 @@ export abstract class BaseAgent {
       idempotencyKey,
     } = options;
 
-    return this.circuitBreaker.execute(async () => {
+    return this.circuitBreaker.execute(async () => runInTelemetrySpanAsync('agent.base.secure_invoke', {
+      service: this.name,
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: this.organizationId,
+      trace_id: sessionId,
+      attributes: {
+        lifecycle_stage: this.lifecycleStage,
+      },
+    }, async () => {
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
@@ -296,7 +305,7 @@ export abstract class BaseAgent {
         hallucination_details: hallucinationResult,
         token_usage: tokenUsage,
       };
-    });
+    }));
   }
 
   // -------------------------------------------------------------------------

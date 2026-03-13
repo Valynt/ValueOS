@@ -49,3 +49,33 @@ The contract above is enforced in two places:
 - **CI validation:** `scripts/ci/check-observability-contract.mjs` validates this index contains required ownership mappings and telemetry contract coverage.
 
 If you add a new observability config or onboard a new service, update this file in the same PR.
+
+## Standardized observability stack and taxonomy
+
+ValueOS uses a single observability stack for production and non-production:
+
+- Metrics: Prometheus
+- Logs: Loki + Promtail
+- Traces: OpenTelemetry SDK + OTEL Collector + Tempo
+- Errors: Sentry
+- Dashboards + alerts UX: Grafana
+
+Required telemetry taxonomy across spans, logs, metrics labels, and error tags:
+
+- `service`
+- `env`
+- `tenant_id`
+- `trace_id`
+
+Sampling and retention policy source of truth:
+
+- `docs/observability/platform-standard.md`
+- `config/observability-policy.json`
+
+## Deployment gates
+
+New services/endpoints must map to at least one dashboard and one alert rule before merge/release.
+
+- Service catalog: `config/observability-service-catalog.json`
+- CI/release/deploy gate: `scripts/ci/check-observability-deployment-gates.mjs`
+- Telemetry completeness gate: `scripts/ci/check-telemetry-completeness.mjs`

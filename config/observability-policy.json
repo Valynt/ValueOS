@@ -1,0 +1,8 @@
+{
+  "required_tags": ["service", "env", "tenant_id", "trace_id"],
+  "trace_sampling": {
+    "development": 1,
+    "staging": 0.5,
+    "production": 0.2
+  }
+}

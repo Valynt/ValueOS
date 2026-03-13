@@ -23,6 +23,7 @@ import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecuti
 import type { WorkflowState, WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
 import type { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from '../../types/execution/workflowExecutionDtos.js';
 import type { ExecutionRequest } from '../../types/execution.js';
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 
 export type { WorkflowState, WorkflowStatus };
 
@@ -113,14 +114,24 @@ export class ContextStore {
     executionId: string,
     organizationId: string,
   ): Promise<WorkflowExecutionStatusDTO | null> {
-    return this.executionStore.getExecutionStatus(executionId, organizationId);
+    return runInTelemetrySpanAsync('runtime.context_store.get_execution_status', {
+      service: 'context-store',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: organizationId,
+      trace_id: `context-status-${executionId}`,
+    }, async () => this.executionStore.getExecutionStatus(executionId, organizationId));
   }
 
   async getExecutionLogs(
     executionId: string,
     organizationId: string,
   ): Promise<WorkflowExecutionLogDTO[]> {
-    return this.executionStore.getExecutionLogs(executionId, organizationId);
+    return runInTelemetrySpanAsync('runtime.context_store.get_execution_logs', {
+      service: 'context-store',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: organizationId,
+      trace_id: `context-logs-${executionId}`,
+    }, async () => this.executionStore.getExecutionLogs(executionId, organizationId));
   }
 
   // --------------------------------------------------------------------------
