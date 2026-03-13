@@ -207,20 +207,74 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
   }
 
   private mapToRecord(data: Record<string, unknown>): ProvenanceRecord {
+    const getRequiredString = (field: string): string => {
+      const value = data[field];
+      if (value === null || value === undefined) {
+        throw new Error(`ProvenanceRecord mapping error: required field "${field}" is null or undefined`);
+      }
+      if (typeof value === "string") {
+        return value;
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+      }
+      throw new Error(`ProvenanceRecord mapping error: field "${field}" has invalid type ${typeof value}`);
+    };
+
+    const getOptionalString = (field: string): string | undefined => {
+      const value = data[field];
+      if (value === null || value === undefined) {
+        return undefined;
+      }
+      if (typeof value === "string") {
+        return value;
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+      }
+      throw new Error(`ProvenanceRecord mapping error: optional field "${field}" has invalid type ${typeof value}`);
+    };
+
+    const rawEvidenceTier = data["evidence_tier"];
+    let evidenceTier: 1 | 2 | 3;
+    if (typeof rawEvidenceTier === "string") {
+      // Convert known string labels to numeric tiers.
+      evidenceTier = evidenceTierToNumeric(rawEvidenceTier as "silver" | "gold" | "platinum");
+    } else if (typeof rawEvidenceTier === "number") {
+      if (rawEvidenceTier === 1 || rawEvidenceTier === 2 || rawEvidenceTier === 3) {
+        evidenceTier = rawEvidenceTier;
+      } else {
+        throw new Error(`ProvenanceRecord mapping error: numeric evidence_tier "${rawEvidenceTier}" is out of allowed range (1|2|3)`);
+      }
+    } else {
+      throw new Error(`ProvenanceRecord mapping error: evidence_tier is missing or has invalid type ${typeof rawEvidenceTier}`);
+    }
+
+    const rawConfidence = data["confidence_score"];
+    if (typeof rawConfidence !== "number" || !Number.isFinite(rawConfidence)) {
+      throw new Error(`ProvenanceRecord mapping error: confidence_score must be a finite number, got ${String(rawConfidence)}`);
+    }
+    if (rawConfidence < 0 || rawConfidence > 1) {
+      throw new Error(`ProvenanceRecord mapping error: confidence_score ${rawConfidence} is out of range [0, 1]`);
+    }
+
+    const createdAtValue = data["created_at"];
+    if (createdAtValue === null || createdAtValue === undefined || typeof createdAtValue !== "string") {
+      throw new Error(`ProvenanceRecord mapping error: created_at must be a non-null string`);
+    }
+
     return {
-      id: String(data['id']),
-      valueCaseId: String(data['value_case_id']),
-      claimId: String(data['claim_id']),
-      dataSource: String(data['data_source']),
-      evidenceTier: typeof data['evidence_tier'] === 'string'
-        ? evidenceTierToNumeric(data['evidence_tier'] as 'silver' | 'gold' | 'platinum')
-        : (data['evidence_tier'] as 1 | 2 | 3),
-      formula: data['formula'] != null ? String(data['formula']) : undefined,
-      agentId: String(data['agent_id']),
-      agentVersion: String(data['agent_version']),
-      confidenceScore: Number(data['confidence_score']),
-      parentRecordId: data['parent_record_id'] != null ? String(data['parent_record_id']) : undefined,
-      createdAt: String(data['created_at']),
+      id: getRequiredString("id"),
+      valueCaseId: getRequiredString("value_case_id"),
+      claimId: getRequiredString("claim_id"),
+      dataSource: getRequiredString("data_source"),
+      evidenceTier,
+      formula: getOptionalString("formula"),
+      agentId: getRequiredString("agent_id"),
+      agentVersion: getRequiredString("agent_version"),
+      confidenceScore: rawConfidence,
+      parentRecordId: getOptionalString("parent_record_id"),
+      createdAt: createdAtValue,
     };
   }
 }
