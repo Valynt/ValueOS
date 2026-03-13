@@ -394,8 +394,8 @@ export class KnowledgeFabricValidator {
       opportunity: ["target", "integrity"],
       integrity: ["target", "opportunity"],
       narrative: ["target", "opportunity", "integrity"],
-      composer: ["narrative", "integrity"],
-      discovery: ["target"],
+      "compliance-auditor": ["narrative", "integrity"],
+      realization: ["target"],
     };
 
     return relationships[agentId] ?? [];

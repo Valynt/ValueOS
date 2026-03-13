@@ -99,10 +99,11 @@ describe("AgentFactory", () => {
       expect(factory.hasFabricAgent("integrity")).toBe(true);
       expect(factory.hasFabricAgent("realization")).toBe(true);
       expect(factory.hasFabricAgent("financial-modeling")).toBe(true);
+      expect(factory.hasFabricAgent("narrative")).toBe(true);
+      expect(factory.hasFabricAgent("compliance-auditor")).toBe(true);
     });
 
     it("returns false for unimplemented agents", () => {
-      expect(factory.hasFabricAgent("narrative")).toBe(false);
       expect(factory.hasFabricAgent("coordinator")).toBe(false);
       expect(factory.hasFabricAgent("nonexistent")).toBe(false);
     });
@@ -117,7 +118,9 @@ describe("AgentFactory", () => {
       expect(types).toContain("integrity");
       expect(types).toContain("realization");
       expect(types).toContain("financial-modeling");
-      expect(types).toHaveLength(6);
+      expect(types).toContain("narrative");
+      expect(types).toContain("compliance-auditor");
+      expect(types).toHaveLength(8);
     });
   });
 
@@ -164,10 +167,18 @@ describe("AgentFactory", () => {
       expect(agent.lifecycleStage).toBe("modeling");
     });
 
-    it("throws for unimplemented agent types", () => {
-      expect(() => factory.create("narrative", "org-123")).toThrow(
-        /No fabric agent implementation for type "narrative"/
-      );
+    it("creates a NarrativeAgent with correct properties", () => {
+      const agent = factory.create("narrative", "org-123");
+      expect(agent).toBeDefined();
+      expect(agent.name).toBe("narrative");
+      expect(agent.lifecycleStage).toBe("narrative");
+    });
+
+    it("creates a ComplianceAuditorAgent with correct properties", () => {
+      const agent = factory.create("compliance-auditor", "org-123");
+      expect(agent).toBeDefined();
+      expect(agent.name).toBe("compliance-auditor");
+      expect(agent.lifecycleStage).toBe("validating");
     });
 
     it("throws for unknown agent types", () => {

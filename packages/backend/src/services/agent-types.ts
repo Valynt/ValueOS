@@ -39,7 +39,8 @@ export type AgentType =
   | 'research'
   | 'benchmark'
   | 'narrative'
-  | 'groundtruth';
+  | 'groundtruth'
+  | 'compliance-auditor';
 
 /** Runtime array of all valid AgentType values. */
 export const AgentType = [
@@ -61,6 +62,7 @@ export const AgentType = [
   'benchmark',
   'narrative',
   'groundtruth',
+  'compliance-auditor',
 ] as const;
 
 /**

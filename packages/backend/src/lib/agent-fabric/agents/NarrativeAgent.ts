@@ -109,7 +109,7 @@ Return valid JSON matching the schema. Set hallucination_check to true only if a
 export class NarrativeAgent extends BaseAgent {
   public override readonly lifecycleStage = "narrative";
   public override readonly version = "1.0.0";
-  public override readonly name = "NarrativeAgent";
+  public override readonly name = "narrative";
 
   private readonly narrativeRepo = new NarrativeDraftRepository();
 

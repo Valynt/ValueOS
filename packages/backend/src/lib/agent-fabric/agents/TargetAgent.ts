@@ -592,7 +592,7 @@ export class TargetAgent extends BaseAgent {
           driver_type: undefined, // TargetAgent tree nodes don't carry a category
           parent_node_key: parentKey,
           sort_order: depth * 100 + idx,
-          source_agent: 'target',
+          source_agent: this.name,
           metadata: { type: node.type, status: node.status },
         });
         if (node.children?.length) {
