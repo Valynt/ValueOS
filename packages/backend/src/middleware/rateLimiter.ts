@@ -27,6 +27,7 @@ export const RateLimitTier = {
   STRICT: "strict",
   STANDARD: "standard",
   LOOSE: "loose",
+  AUTH: "auth",
 } as const;
 
 export type RateLimitTierValue =
@@ -137,6 +138,16 @@ const TIER_CONFIGS: Record<RateLimitTierValue, RateLimitConfig> = {
     max: 300,
     message: "Too many requests. Please try again later.",
     statusCode: 429,
+  },
+  // Auth tier uses its own Redis key namespace (tier:"auth") so /api/auth requests
+  // are counted independently from the standard tier applied globally to /api.
+  // 20 req/min, fail-closed — limits credential-stuffing surface.
+  [RateLimitTier.AUTH]: {
+    windowMs: 60 * 1000, // 1 minute
+    max: 20,
+    message: "Too many authentication attempts. Please try again later.",
+    statusCode: 429,
+    failClosed: true,
   },
 };
 
@@ -470,6 +481,14 @@ export const rateLimiters = {
   agentQuery: createRateLimiter("standard", {
     message: "Too many agent queries. Please slow down.",
   }),
+
+  /**
+   * Auth rate limiter for /api/auth routes.
+   * 20 requests per minute, fail-closed — limits credential-stuffing surface.
+   * Uses the "auth" tier so /api/auth requests are counted in their own Redis
+   * key namespace, independent of the standard tier applied globally to /api.
+   */
+  auth: createRateLimiter("auth"),
 };
 
 /**

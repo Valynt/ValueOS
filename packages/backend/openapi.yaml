@@ -28,6 +28,16 @@ tags:
     description: LLM chat and proxy
   - name: Projects
     description: Project management
+  - name: Admin
+    description: Admin and tenant management endpoints
+  - name: Integrations
+    description: CRM and enterprise integration connections
+  - name: Compliance
+    description: DSR (GDPR), compliance evidence, and audit
+  - name: Analytics
+    description: Value loop analytics and metrics
+  - name: MCP
+    description: Model Context Protocol discovery
 paths:
 
   # ---------------------------------------------------------------------------
@@ -1324,6 +1334,348 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ---------------------------------------------------------------------------
+  # Value Commitments
+  # ---------------------------------------------------------------------------
+
+  /api/v1/value-commitments:
+    get:
+      summary: List value commitments for the authenticated tenant
+      operationId: listValueCommitments
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: List of value commitments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ValueCommitment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create a value commitment
+      operationId: createValueCommitment
+      tags: [Value Cases]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValueCommitmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ValueCommitment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/value-commitments/{commitmentId}:
+    get:
+      summary: Get a value commitment by ID
+      operationId: getValueCommitment
+      tags: [Value Cases]
+      parameters:
+        - name: commitmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Value commitment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ValueCommitment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Tenant Context
+  # ---------------------------------------------------------------------------
+
+  /api/v1/tenant/context:
+    get:
+      summary: Get tenant context (company profile, industry, goals)
+      operationId: getTenantContext
+      tags: [Admin]
+      responses:
+        "200":
+          description: Tenant context
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Set or update tenant context
+      operationId: setTenantContext
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Updated tenant context
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Teams
+  # ---------------------------------------------------------------------------
+
+  /api/teams:
+    get:
+      summary: List teams for the authenticated tenant
+      operationId: listTeams
+      tags: [Admin]
+      responses:
+        "200":
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Integrations
+  # ---------------------------------------------------------------------------
+
+  /api/integrations:
+    get:
+      summary: List available integrations and their connection status
+      operationId: listIntegrations
+      tags: [Integrations]
+      responses:
+        "200":
+          description: Integration list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # CRM
+  # ---------------------------------------------------------------------------
+
+  /api/crm/connections:
+    get:
+      summary: List CRM connections for the authenticated tenant
+      operationId: listCrmConnections
+      tags: [Integrations]
+      responses:
+        "200":
+          description: CRM connections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Value Drivers
+  # ---------------------------------------------------------------------------
+
+  /api/value-drivers:
+    get:
+      summary: List value drivers for the authenticated tenant
+      operationId: listValueDrivers
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Value drivers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Data Subject Requests (DSR / GDPR)
+  # ---------------------------------------------------------------------------
+
+  /api/dsr:
+    post:
+      summary: Submit a data subject request (erasure, export, rectification)
+      operationId: createDsr
+      tags: [Compliance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, subjectEmail]
+              properties:
+                type:
+                  type: string
+                  enum: [erasure, export, rectification]
+                subjectEmail:
+                  type: string
+                  format: email
+      responses:
+        "202":
+          description: DSR accepted for processing
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Analytics
+  # ---------------------------------------------------------------------------
+
+  /api/analytics/value-loop:
+    get:
+      summary: Value loop analytics — stage transition counts and hypothesis confidence
+      operationId: getValueLoopAnalytics
+      tags: [Analytics]
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # MCP Discovery
+  # ---------------------------------------------------------------------------
+
+  /.well-known/mcp-capabilities.json:
+    get:
+      summary: MCP capabilities discovery document
+      operationId: getMcpCapabilities
+      tags: [MCP]
+      security: []
+      responses:
+        "200":
+          description: MCP capabilities
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  # ---------------------------------------------------------------------------
+  # Referrals
+  # ---------------------------------------------------------------------------
+
+  /api/referrals:
+    post:
+      summary: Submit a referral
+      operationId: createReferral
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [referredEmail]
+              properties:
+                referredEmail:
+                  type: string
+                  format: email
+      responses:
+        "201":
+          description: Referral created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Admin
+  # ---------------------------------------------------------------------------
+
+  /api/admin/users:
+    get:
+      summary: List all users (admin only)
+      operationId: adminListUsers
+      tags: [Admin]
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1734,6 +2086,58 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    # -------------------------------------------------------------------------
+    # Value Commitments
+    # -------------------------------------------------------------------------
+    ValueCommitment:
+      type: object
+      required: [id, organizationId, title, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, at_risk, completed, cancelled]
+        targetValue:
+          type: number
+          nullable: true
+        actualValue:
+          type: number
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ValueCommitmentInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        targetValue:
+          type: number
+        currency:
+          type: string
+        dueDate:
+          type: string
+          format: date
 
     # -------------------------------------------------------------------------
     # LLM

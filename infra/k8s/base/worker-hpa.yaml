@@ -74,7 +74,11 @@ spec:
           periodSeconds: 30
 
     scaleDown:
-      # Wait 5 minutes before removing pods — BullMQ jobs can take up to 3 min.
+      # 300s (5 min) matches the maximum observed BullMQ job duration (~3 min)
+      # plus a 2-min safety margin. Reducing this risks terminating pods that
+      # still hold in-flight jobs, causing job loss.
+      # Revisit after load-test baselines confirm actual p99 job duration.
+      # If p99 job duration drops below 60s, reduce to 120s.
       stabilizationWindowSeconds: 300
       selectPolicy: Min
       policies:
