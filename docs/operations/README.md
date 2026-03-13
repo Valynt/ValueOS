@@ -36,6 +36,7 @@ status: active
 - [Ci Cd Pipeline](./ci-cd-pipeline.md)
 - [Dependency Upgrade Triage Runbook](./dependency-upgrade-triage-runbook.md)
 - [Monitoring Observability](./monitoring-observability.md)
+- [SLOs and SLIs](./slo-sli.md)
 - [Query Plan Baselines](./query-plan-baselines.md)
 - [Performance Tuning](./performance-tuning.md)
 - [Scaling Guide](./scaling-guide.md)

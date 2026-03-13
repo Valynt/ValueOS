@@ -1,15 +1,739 @@
 openapi: 3.1.0
 info:
-  title: ValueOS Projects API
+  title: ValueOS API
   version: 1.0.0
   description: |
-    OpenAPI specification for Projects endpoints with a consistent error envelope.
+    OpenAPI specification for the ValueOS backend API.
+
+    All endpoints require a Bearer JWT unless marked as public.
+    Every response uses a consistent envelope: `{ data }` on success,
+    `{ error: { code, message, requestId } }` on failure.
+
+    Tenant isolation is enforced server-side via RLS. Clients must not
+    pass `organization_id` in request bodies — it is derived from the
+    authenticated JWT.
 servers:
   - url: https://api.valueos.local
     description: Local development
 security:
   - bearerAuth: []
+tags:
+  - name: Auth
+    description: Authentication — login, signup, session management
+  - name: Value Cases
+    description: Value case lifecycle (create, read, update, delete)
+  - name: Agents
+    description: Agent invocation and job management
+  - name: LLM
+    description: LLM chat and proxy
+  - name: Projects
+    description: Project management
 paths:
+
+  # ---------------------------------------------------------------------------
+  # Auth
+  # ---------------------------------------------------------------------------
+
+  /api/auth/login:
+    post:
+      summary: Log in with email and password
+      operationId: login
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                otpCode:
+                  type: string
+                  description: TOTP code when MFA is enabled
+      responses:
+        "200":
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  session:
+                    $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/signup:
+    post:
+      summary: Create a new account
+      operationId: signup
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                organizationName:
+                  type: string
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  session:
+                    $ref: "#/components/schemas/Session"
+                    nullable: true
+                    description: Null when email verification is required
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/logout:
+    post:
+      summary: Invalidate the current session
+      operationId: logout
+      tags: [Auth]
+      responses:
+        "204":
+          description: Session invalidated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/session:
+    get:
+      summary: Get the current session
+      operationId: getSession
+      tags: [Auth]
+      security: []
+      responses:
+        "200":
+          description: Current session or null
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                    nullable: true
+                  session:
+                    $ref: "#/components/schemas/Session"
+                    nullable: true
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/refresh:
+    post:
+      summary: Refresh the access token
+      operationId: refreshToken
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/password/reset:
+    post:
+      summary: Request a password reset email
+      operationId: requestPasswordReset
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "204":
+          description: Reset email sent (always 204 to prevent email enumeration)
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/auth/password/update:
+    post:
+      summary: Update password using a reset token
+      operationId: updatePassword
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        "204":
+          description: Password updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ---------------------------------------------------------------------------
+  # Value Cases
+  # ---------------------------------------------------------------------------
+
+  /api/v1/cases:
+    post:
+      summary: Create a value case
+      operationId: createValueCase
+      tags: [Value Cases]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValueCaseCreateRequest"
+      responses:
+        "201":
+          description: Value case created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    get:
+      summary: List value cases for the authenticated tenant
+      operationId: listValueCases
+      tags: [Value Cases]
+      parameters:
+        - in: query
+          name: stage
+          schema:
+            $ref: "#/components/schemas/ValueCaseStage"
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Value case list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      summary: Get a value case
+      operationId: getValueCase
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Value case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    patch:
+      summary: Update a value case
+      operationId: updateValueCase
+      tags: [Value Cases]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValueCaseUpdateRequest"
+      responses:
+        "200":
+          description: Updated value case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      summary: Delete a value case
+      operationId: deleteValueCase
+      tags: [Value Cases]
+      responses:
+        "204":
+          description: Value case deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/hypothesis:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      summary: Get the latest hypothesis output for a case
+      operationId: getHypothesis
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Hypothesis output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/HypothesisOutput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/integrity:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      summary: Get the latest integrity output for a case
+      operationId: getIntegrity
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Integrity output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/IntegrityOutput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/integrity/run:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Run the IntegrityAgent for a case
+      operationId: runIntegrity
+      tags: [Value Cases]
+      responses:
+        "202":
+          description: Integrity run queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/IntegrityOutput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/narrative:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      summary: Get the latest narrative draft for a case
+      operationId: getNarrative
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Narrative draft
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/NarrativeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/narrative/run:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Run the NarrativeAgent for a case
+      operationId: runNarrative
+      tags: [Value Cases]
+      responses:
+        "202":
+          description: Narrative run queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/NarrativeDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/realization:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      summary: Get the latest realization report for a case
+      operationId: getRealization
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Realization report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/RealizationReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/realization/run:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Run the RealizationAgent for a case
+      operationId: runRealization
+      tags: [Value Cases]
+      responses:
+        "202":
+          description: Realization run queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/RealizationReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/expansion:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    get:
+      summary: Get expansion opportunities for a case
+      operationId: getExpansion
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Expansion opportunities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExpansionOpportunity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/expansion/run:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Run the ExpansionAgent for a case
+      operationId: runExpansion
+      tags: [Value Cases]
+      responses:
+        "202":
+          description: Expansion run queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExpansionOpportunity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ---------------------------------------------------------------------------
+  # Agents
+  # ---------------------------------------------------------------------------
+
+  /api/agents/{agentId}/invoke:
+    post:
+      summary: Invoke an agent directly
+      operationId: invokeAgent
+      tags: [Agents]
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInvokeRequest"
+      responses:
+        "200":
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agents/{agentId}/info:
+    get:
+      summary: Get agent metadata
+      operationId: getAgentInfo
+      tags: [Agents]
+      parameters:
+        - $ref: "#/components/parameters/AgentId"
+      responses:
+        "200":
+          description: Agent metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agents/jobs/{jobId}:
+    get:
+      summary: Poll an async agent job
+      operationId: getAgentJob
+      tags: [Agents]
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Job status and result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/agents/jobs/{jobId}/stream:
+    get:
+      summary: Stream agent job output (SSE)
+      operationId: streamAgentJob
+      tags: [Agents]
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Server-sent event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ---------------------------------------------------------------------------
+  # LLM
+  # ---------------------------------------------------------------------------
+
+  /api/llm/chat:
+    post:
+      summary: Send a prompt to the LLM
+      operationId: llmChat
+      tags: [LLM]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LLMChatRequest"
+      responses:
+        "200":
+          description: LLM response (or SSE stream when stream=true)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMChatResponse"
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # ---------------------------------------------------------------------------
+  # Projects (existing)
+  # ---------------------------------------------------------------------------
+
   /api/v1/projects:
     post:
       summary: Create a project
@@ -249,7 +973,450 @@ components:
         type: string
         minLength: 3
         maxLength: 64
+    CaseId:
+      name: caseId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+          - OpportunityAgent
+          - TargetAgent
+          - FinancialModelingAgent
+          - IntegrityAgent
+          - RealizationAgent
+          - ExpansionAgent
+          - NarrativeAgent
+          - ComplianceAuditorAgent
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
+    # -------------------------------------------------------------------------
+    # Auth
+    # -------------------------------------------------------------------------
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        organizationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, member, viewer]
+        createdAt:
+          type: string
+          format: date-time
+
+    Session:
+      type: object
+      required: [accessToken, expiresAt]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: integer
+          description: Unix timestamp (seconds)
+
+    # -------------------------------------------------------------------------
+    # Value Cases
+    # -------------------------------------------------------------------------
+    ValueCaseStage:
+      type: string
+      enum:
+        - discovery
+        - hypothesis
+        - drafting
+        - validating
+        - composing
+        - realization
+        - expansion
+
+    ValueCase:
+      type: object
+      required: [id, title, stage, organizationId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        stage:
+          $ref: "#/components/schemas/ValueCaseStage"
+        organizationId:
+          type: string
+          format: uuid
+        qualityScore:
+          type: number
+          format: float
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ValueCaseCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+        stage:
+          $ref: "#/components/schemas/ValueCaseStage"
+
+    ValueCaseUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+        stage:
+          $ref: "#/components/schemas/ValueCaseStage"
+
+    ValueCaseEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/ValueCase"
+
+    ValueCaseListEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [items, page, pageSize, total]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ValueCase"
+            page:
+              type: integer
+              minimum: 1
+            pageSize:
+              type: integer
+              minimum: 1
+              maximum: 100
+            total:
+              type: integer
+              minimum: 0
+
+    HypothesisOutput:
+      type: object
+      required: [id, caseId, organizationId, hypotheses, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        hypotheses:
+          type: array
+          items:
+            type: object
+        kpis:
+          type: array
+          items:
+            type: object
+        confidence:
+          type: string
+          enum: [high, medium, low]
+          nullable: true
+        reasoning:
+          type: string
+          nullable: true
+        hallucinationCheck:
+          type: boolean
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    IntegrityOutput:
+      type: object
+      required: [id, valueCaseId, organizationId, vetoDecision, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        valueCaseId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        claims:
+          type: array
+          items:
+            type: object
+        vetoDecision:
+          type: string
+          enum: [pass, veto, re_refine]
+          nullable: true
+        overallScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          nullable: true
+        hallucinationCheck:
+          type: boolean
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    NarrativeDraft:
+      type: object
+      required: [id, valueCaseId, organizationId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        valueCaseId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          nullable: true
+        confidence:
+          type: string
+          enum: [high, medium, low]
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    RealizationReport:
+      type: object
+      required: [id, valueCaseId, organizationId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        valueCaseId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        milestones:
+          type: array
+          items:
+            type: object
+        risks:
+          type: array
+          items:
+            type: object
+        confidence:
+          type: string
+          enum: [high, medium, low]
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ExpansionOpportunity:
+      type: object
+      required: [id, valueCaseId, organizationId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        valueCaseId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        confidence:
+          type: string
+          enum: [high, medium, low]
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # -------------------------------------------------------------------------
+    # Agents
+    # -------------------------------------------------------------------------
+    AgentInvokeRequest:
+      type: object
+      required: [sessionId, context]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        context:
+          type: object
+          description: LifecycleContext payload passed to the agent
+        options:
+          type: object
+          properties:
+            stream:
+              type: boolean
+              default: false
+            timeoutMs:
+              type: integer
+              minimum: 1000
+              maximum: 120000
+
+    AgentResponse:
+      type: object
+      required: [agentId, status]
+      properties:
+        agentId:
+          type: string
+        status:
+          type: string
+          enum: [success, error, partial]
+        output:
+          type: object
+          nullable: true
+        jobId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present when the response is async
+        hallucinationCheck:
+          type: boolean
+          nullable: true
+
+    AgentInfo:
+      type: object
+      required: [agentId, name, lifecycleStage, version]
+      properties:
+        agentId:
+          type: string
+        name:
+          type: string
+        lifecycleStage:
+          type: string
+        version:
+          type: string
+
+    AgentJob:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        result:
+          type: object
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    # -------------------------------------------------------------------------
+    # LLM
+    # -------------------------------------------------------------------------
+    LLMChatRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+        model:
+          type: string
+          nullable: true
+        maxTokens:
+          type: integer
+          minimum: 1
+          maximum: 32000
+          nullable: true
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          nullable: true
+        stream:
+          type: boolean
+          default: false
+
+    LLMChatResponse:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        model:
+          type: string
+        usage:
+          type: object
+          properties:
+            promptTokens:
+              type: integer
+            completionTokens:
+              type: integer
+            totalTokens:
+              type: integer
+
+    # -------------------------------------------------------------------------
+    # Projects
+    # -------------------------------------------------------------------------
     ProjectStatus:
       type: string
       enum: ["planned", "active", "paused", "completed"]
