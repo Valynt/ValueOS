@@ -2,9 +2,9 @@
  * Export Utilities
  */
 
+import ExcelJS from "exceljs";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { PNG } from "pngjs";
-import * as XLSX from "xlsx";
 
 const PNG_MIME_TYPE = "image/png";
 const PDF_MIME_TYPE = "application/pdf";
@@ -129,21 +129,20 @@ export async function exportToExcel(
   data: Record<string, unknown>[],
   options?: { sheetName?: string; filename?: string }
 ): Promise<Blob> {
-  const workbook = XLSX.utils.book_new();
+  const workbook = new ExcelJS.Workbook();
   const sheetName = (options?.sheetName?.trim() || "Sheet1").slice(0, 31);
+  const worksheet = workbook.addWorksheet(sheetName);
 
-  const worksheet = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ empty: "" }]);
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  const rows = data.length > 0 ? data : [{ empty: "" }];
+  const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
 
-  const xlsxBytes = XLSX.write(workbook, {
-    type: "array",
-    bookType: "xlsx",
-    compression: true,
-  });
+  worksheet.columns = headers.map((key) => ({ header: key, key }));
+  for (const row of rows) {
+    worksheet.addRow(row);
+  }
 
-  return new Blob([xlsxBytes], {
-    type: XLSX_MIME_TYPE,
-  });
+  const buffer = await workbook.xlsx.writeBuffer();
+  return new Blob([buffer], { type: XLSX_MIME_TYPE });
 }
 
 /**
