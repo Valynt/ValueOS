@@ -19,6 +19,7 @@ import type {
   LifecycleStage,
 } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
+import { recordAgentCost } from "../../../observability/agentMetrics.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
@@ -289,6 +290,16 @@ export abstract class BaseAgent {
             total_tokens: response.usage.total_tokens,
           }
         : undefined;
+
+      // Emit cost and token metrics. Uses the model from the gateway response
+      // when available, falling back to the configured model name.
+      recordAgentCost({
+        agentName: this.name,
+        organizationId: this.organizationId,
+        model: response.model ?? "unknown",
+        inputTokens: tokenUsage?.input_tokens ?? 0,
+        outputTokens: tokenUsage?.output_tokens ?? 0,
+      });
 
       return {
         ...parsed,
