@@ -38,7 +38,7 @@ export class MessageBus {
     sender_id: z.string().min(1, 'sender_id is required'),
     recipient_ids: z.array(z.string().min(1)).min(1, 'recipient_ids must include at least one recipient'),
     recipient_agent: z.string().min(1).optional(),
-    message_type: z.string().min(1, 'message_type is required'),
+    message_type: z.string().min(1, 'message_type is required').optional(),
     correlation_id: z.string().min(1).optional(),
     reply_to: z.string().min(1).optional(),
     content: z.string().min(1),
@@ -104,11 +104,12 @@ export class MessageBus {
       throw new Error(`Invalid MessageBus payload for channel "${channel}": ${issues}`);
     }
 
+    const validatedPayload = validation.data;
     const messageId = uuidv4();
 
     const event: CommunicationEvent = {
       id: messageId,
-      ...payloadWithTracing,
+      ...validatedPayload,
       timestamp: new Date().toISOString(),
     };
 
@@ -455,8 +456,12 @@ export class MessageBus {
 
 
   private applyTraceContext(payload: CreateCommunicationEvent): CreateCommunicationEvent {
-    if (payload.trace_id && payload.trace_id.trim().length > 0) {
-      return payload;
+    const normalizedTraceId = payload.trace_id?.trim();
+    if (normalizedTraceId) {
+      return {
+        ...payload,
+        trace_id: normalizedTraceId,
+      };
     }
 
     const span = trace.getSpan(context.active());
@@ -470,7 +475,7 @@ export class MessageBus {
     const spanContext = span.spanContext();
     return {
       ...payload,
-      trace_id: payload.trace_id ?? spanContext.traceId,
+      trace_id: spanContext.traceId,
       span_id: payload.span_id ?? spanContext.spanId,
       parent_span_id: payload.parent_span_id,
     };

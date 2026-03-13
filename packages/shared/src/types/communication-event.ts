@@ -20,8 +20,11 @@ export interface CommunicationEventCore {
   message_type?: string;
   correlation_id?: string;
   reply_to?: string;
+  /** Distributed trace identifier propagated across publish/subscribe boundaries. */
   trace_id?: string;
+  /** Span identifier for the producer operation. */
   span_id?: string;
+  /** Optional parent span identifier when a call chain hops processes/services. */
   parent_span_id?: string;
   content: string;
   payload?: unknown;
