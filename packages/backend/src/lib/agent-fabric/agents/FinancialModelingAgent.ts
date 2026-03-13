@@ -27,7 +27,7 @@ import {
   toDecimalArray,
 } from '../../../domain/economic-kernel/economic_kernel.js';
 import { FinancialModelSnapshotRepository } from '../../../repositories/FinancialModelSnapshotRepository.js';
-import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { ProvenanceTracker } from '@memory/provenance/index.js';
 import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import { createServerSupabaseClient } from '../../supabase.js';
 import type {
@@ -125,7 +125,7 @@ function getProvenanceTracker(): ProvenanceTracker {
   if (!_provenanceTracker) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = createServerSupabaseClient() as any;
-    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    const store = new SupabaseProvenanceStore(client);
     _provenanceTracker = new ProvenanceTracker(store);
   }
   return _provenanceTracker;

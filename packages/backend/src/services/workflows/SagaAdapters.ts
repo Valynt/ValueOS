@@ -10,6 +10,7 @@ import type { SagaStateType } from "../../lib/agents/core/ValueCaseSaga.js";
 
 import { logger } from "../../lib/logger.js";
 import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";
+import type { ProvenanceRecord, ProvenanceStore } from '@memory/provenance/index.js';
 import { getAuditTrailService } from "../security/AuditTrailService.js";
 import type { AuditEventType } from "../security/AuditTrailService.js";
 
@@ -122,38 +123,32 @@ export class SupabaseSagaPersistence implements SagaPersistence {
 }
 
 /**
- * Supabase implementation of ProvenanceStore (R8).
+ * Supabase implementation of ProvenanceStore.
+ *
+ * Implements the canonical ProvenanceStore interface from packages/memory so
+ * callers can use it without type casts. The DB column evidence_tier stores a
+ * label string ('silver'|'gold'|'platinum'); evidenceTierToLabel/Numeric
+ * convert between that and the numeric 1|2|3 used in ProvenanceRecord.
  */
-interface ProvenanceRecord {
-  id: string;
-  valueCaseId: string;
-  claimId: string;
-  dataSource: string;
-  evidenceTier: number;
-  sourceProvenance: unknown;
-  createdAt?: string;
-}
-
-export class SupabaseProvenanceStore {
+export class SupabaseProvenanceStore implements ProvenanceStore {
   constructor(private supabase: ReturnType<typeof createClient>) {}
 
   async insert(record: ProvenanceRecord): Promise<void> {
     const { error } = await (this.supabase
-      .from('provenance_records') as unknown)
+      .from('provenance_records') as unknown as {
+        insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
+      })
       .insert({
         id: record.id,
         value_case_id: record.valueCaseId,
         claim_id: record.claimId,
         data_source: record.dataSource,
-        evidence_tier: typeof record.evidenceTier === 'number'
-          ? evidenceTierToLabel(record.evidenceTier)
-          : record.evidenceTier,
-        source_provenance: record.sourceProvenance || 'agent_inference',
-        formula: record.formula,
+        evidence_tier: evidenceTierToLabel(record.evidenceTier),
+        formula: record.formula ?? null,
         agent_id: record.agentId,
         agent_version: record.agentVersion,
         confidence_score: record.confidenceScore,
-        parent_record_id: record.parentRecordId,
+        parent_record_id: record.parentRecordId ?? null,
         created_at: record.createdAt,
       });
 
@@ -165,18 +160,30 @@ export class SupabaseProvenanceStore {
 
   async findByClaimId(valueCaseId: string, claimId: string): Promise<ProvenanceRecord[]> {
     const { data, error } = await (this.supabase
-      .from('provenance_records') as unknown)
+      .from('provenance_records') as unknown as {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+          };
+        };
+      })
       .select('*')
       .eq('value_case_id', valueCaseId)
       .eq('claim_id', claimId);
 
     if (error) throw new Error(`Provenance lookup error: ${error.message}`);
-    return (data || []).map(this.mapToRecord);
+    return (data ?? []).map((row) => this.mapToRecord(row));
   }
 
   async findById(id: string): Promise<ProvenanceRecord | null> {
     const { data, error } = await (this.supabase
-      .from('provenance_records') as unknown)
+      .from('provenance_records') as unknown as {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            single: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+          };
+        };
+      })
       .select('*')
       .eq('id', id)
       .single();
@@ -187,30 +194,33 @@ export class SupabaseProvenanceStore {
 
   async findByValueCaseId(valueCaseId: string): Promise<ProvenanceRecord[]> {
     const { data, error } = await (this.supabase
-      .from('provenance_records') as unknown)
+      .from('provenance_records') as unknown as {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+        };
+      })
       .select('*')
       .eq('value_case_id', valueCaseId);
 
     if (error) throw new Error(`Provenance search error: ${error.message}`);
-    return (data || []).map(this.mapToRecord);
+    return (data ?? []).map((row) => this.mapToRecord(row));
   }
 
   private mapToRecord(data: Record<string, unknown>): ProvenanceRecord {
     return {
-      id: data.id,
-      valueCaseId: data.value_case_id,
-      claimId: data.claim_id,
-      dataSource: data.data_source,
-      evidenceTier: typeof data.evidence_tier === 'string'
-        ? evidenceTierToNumeric(data.evidence_tier)
-        : data.evidence_tier,
-      sourceProvenance: data.source_provenance,
-      formula: data.formula,
-      agentId: data.agent_id,
-      agentVersion: data.agent_version,
-      confidenceScore: data.confidence_score,
-      parentRecordId: data.parent_record_id,
-      createdAt: data.created_at,
+      id: String(data['id']),
+      valueCaseId: String(data['value_case_id']),
+      claimId: String(data['claim_id']),
+      dataSource: String(data['data_source']),
+      evidenceTier: typeof data['evidence_tier'] === 'string'
+        ? evidenceTierToNumeric(data['evidence_tier'] as 'silver' | 'gold' | 'platinum')
+        : (data['evidence_tier'] as 1 | 2 | 3),
+      formula: data['formula'] != null ? String(data['formula']) : undefined,
+      agentId: String(data['agent_id']),
+      agentVersion: String(data['agent_version']),
+      confidenceScore: Number(data['confidence_score']),
+      parentRecordId: data['parent_record_id'] != null ? String(data['parent_record_id']) : undefined,
+      createdAt: String(data['created_at']),
     };
   }
 }

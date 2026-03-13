@@ -21,6 +21,7 @@ import { createLogger } from '@shared/lib/logger';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepository.js';
 import { financialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js';
+import { HypothesisOutputService } from '../value/HypothesisOutputService.js';
 
 const logger = createLogger({ service: 'PptxExportService' });
 
@@ -66,16 +67,31 @@ const TITLE_FONT = 'Calibri';
 const BODY_FONT = 'Calibri';
 
 // ---------------------------------------------------------------------------
+// Internal types
+// ---------------------------------------------------------------------------
+
+/** Minimal shape of a hypothesis as stored by OpportunityAgent. */
+interface HypothesisItem {
+  title?: string;
+  description?: string;
+  category?: string;
+  estimated_impact?: { value?: number; unit?: string };
+  confidence?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 export class PptxExportService {
   private supabase: ReturnType<typeof createServerSupabaseClient>;
   private narrativeRepo: NarrativeDraftRepository;
+  private hypothesisOutputService: HypothesisOutputService;
 
   constructor() {
     this.supabase = createServerSupabaseClient();
     this.narrativeRepo = new NarrativeDraftRepository();
+    this.hypothesisOutputService = new HypothesisOutputService();
   }
 
   async exportValueCase(input: PptxExportInput): Promise<PptxExportResult> {
@@ -86,9 +102,10 @@ export class PptxExportService {
 
     logger.info('PptxExportService: generating deck', { caseId });
 
-    const [narrative, financialSnapshot] = await Promise.all([
+    const [narrative, financialSnapshot, hypothesisOutput] = await Promise.all([
       this.narrativeRepo.getLatestForCase(caseId, organizationId).catch(() => null),
       financialModelSnapshotRepository.getLatestSnapshotForCase(caseId, organizationId).catch(() => null),
+      this.hypothesisOutputService.getLatestForCase(caseId, organizationId).catch(() => null),
     ]);
 
     const pptxBuffer = await this.buildDeck({
@@ -99,6 +116,7 @@ export class PptxExportService {
       roi: financialSnapshot?.roi ?? null,
       npv: financialSnapshot?.npv ?? null,
       paybackMonths: financialSnapshot?.payback_period_months ?? null,
+      hypotheses: (hypothesisOutput?.hypotheses ?? []) as HypothesisItem[],
     });
 
     logger.info('PptxExportService: uploading to storage', {
@@ -144,6 +162,7 @@ export class PptxExportService {
     roi: number | null;
     npv: number | null;
     paybackMonths: number | null;
+    hypotheses: HypothesisItem[];
   }): Promise<Buffer> {
     // Dynamic import keeps pptxgenjs optional at startup
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,6 +187,7 @@ export class PptxExportService {
     this.addCoverSlide(pptx, data.title, data.ownerName, data.createdAt);
     this.addExecutiveSummarySlide(pptx, data.narrativeContent);
     this.addFinancialSlide(pptx, data.roi, data.npv, data.paybackMonths);
+    this.addHypothesesSlide(pptx, data.hypotheses);
 
     const buffer = await pptx.write({ outputType: 'nodebuffer' });
     return buffer as Buffer;
@@ -348,6 +368,109 @@ export class PptxExportService {
       fontFace: BODY_FONT,
       italic: true,
     });
+  }
+
+  // Slide 4: Hypotheses
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private addHypothesesSlide(pptx: any, hypotheses: HypothesisItem[]): void {
+    const slide = pptx.addSlide();
+
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0, y: 0, w: '100%', h: '100%',
+      fill: { color: WHITE },
+    });
+
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0, y: 0, w: '100%', h: 0.9,
+      fill: { color: BRAND_ACCENT },
+    });
+
+    slide.addText('Value Hypotheses', {
+      x: 0.5, y: 0.1, w: 12.3, h: 0.7,
+      fontSize: 20,
+      bold: true,
+      color: WHITE,
+      fontFace: TITLE_FONT,
+    });
+
+    if (hypotheses.length === 0) {
+      slide.addText('No hypotheses have been generated for this value case yet.', {
+        x: 0.5, y: 1.5, w: 12.3, h: 1,
+        fontSize: 13,
+        color: MUTED_TEXT,
+        fontFace: BODY_FONT,
+        italic: true,
+      });
+      return;
+    }
+
+    // Table header
+    const TABLE_X = 0.4;
+    const TABLE_Y = 1.1;
+    const COL_WIDTHS = [5.2, 2.2, 2.0, 1.5]; // Hypothesis | Category | Impact | Confidence
+    const ROW_H = 0.42;
+    const HEADERS = ['Hypothesis', 'Category', 'Est. Impact', 'Confidence'];
+
+    HEADERS.forEach((label, i) => {
+      const x = TABLE_X + COL_WIDTHS.slice(0, i).reduce((a, b) => a + b, 0);
+      slide.addShape(pptx.ShapeType.rect, {
+        x, y: TABLE_Y, w: COL_WIDTHS[i], h: ROW_H,
+        fill: { color: BRAND_ACCENT },
+      });
+      slide.addText(label, {
+        x: x + 0.08, y: TABLE_Y + 0.06, w: (COL_WIDTHS[i] ?? 1) - 0.16, h: ROW_H - 0.1,
+        fontSize: 10,
+        bold: true,
+        color: WHITE,
+        fontFace: BODY_FONT,
+      });
+    });
+
+    // Rows — cap at 8 to avoid overflow
+    const rows = hypotheses.slice(0, 8);
+    rows.forEach((h, rowIdx) => {
+      const rowY = TABLE_Y + ROW_H + rowIdx * ROW_H;
+      const isEven = rowIdx % 2 === 0;
+      const rowBg = isEven ? 'F9FAFB' : WHITE;
+
+      const title = h.title ?? h.description ?? '—';
+      const category = h.category ?? '—';
+      const impact = h.estimated_impact?.value != null
+        ? `${h.estimated_impact.value.toLocaleString()} ${h.estimated_impact.unit ?? ''}`
+        : '—';
+      const confidence = h.confidence != null
+        ? `${Math.round(h.confidence * 100)}%`
+        : '—';
+
+      const cells = [title, category, impact, confidence];
+
+      cells.forEach((text, colIdx) => {
+        const x = TABLE_X + COL_WIDTHS.slice(0, colIdx).reduce((a, b) => a + b, 0);
+        slide.addShape(pptx.ShapeType.rect, {
+          x, y: rowY, w: COL_WIDTHS[colIdx], h: ROW_H,
+          fill: { color: rowBg },
+          line: { color: 'E5E7EB', width: 0.5 },
+        });
+        slide.addText(text, {
+          x: x + 0.08, y: rowY + 0.06, w: (COL_WIDTHS[colIdx] ?? 1) - 0.16, h: ROW_H - 0.1,
+          fontSize: 9,
+          color: DARK_TEXT,
+          fontFace: BODY_FONT,
+          wrap: true,
+        });
+      });
+    });
+
+    if (hypotheses.length > 8) {
+      const footerY = TABLE_Y + ROW_H + rows.length * ROW_H + 0.1;
+      slide.addText(`+ ${hypotheses.length - 8} more hypotheses not shown`, {
+        x: TABLE_X, y: footerY, w: 12, h: 0.3,
+        fontSize: 9,
+        color: MUTED_TEXT,
+        fontFace: BODY_FONT,
+        italic: true,
+      });
+    }
   }
 }
 
