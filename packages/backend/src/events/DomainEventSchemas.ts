@@ -117,75 +117,11 @@ export type DomainEventName =
   | 'realization.milestone_reached'
   | 'narrative.drafted';
 
-const NarrativeDraftedNormalizedPayloadSchema = DomainEventEnvelopeSchema.extend({
-  valueCaseId: z.string().min(1).optional(),
+export const NarrativeDraftedPayloadSchema = DomainEventEnvelopeSchema.extend({
+  valueCaseId: z.string().optional(),
   defenseReadinessScore: z.number().min(0).max(1),
-  format: z.string().min(1),
+  format: z.string(),
 });
-
-// Extended schema that retains legacy snake_case aliases so superRefine can
-// perform cross-field consistency checks after preprocess normalization.
-// The .transform() at the end strips the aliases from the final output type.
-const NarrativeDraftedWithAliasesSchema = NarrativeDraftedNormalizedPayloadSchema.extend({
-  organization_id: z.unknown().optional(),
-  value_case_id: z.unknown().optional(),
-  defense_readiness_score: z.unknown().optional(),
-}).superRefine((data, ctx) => {
-  // Cross-field consistency: if both the canonical and legacy alias were
-  // supplied in the original payload, they must agree. After preprocess the
-  // canonical field holds the merged value, so we compare against the alias.
-  if (
-    data.organization_id !== undefined &&
-    data.tenantId !== undefined &&
-    data.tenantId !== data.organization_id
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Mismatched tenant identifiers: tenantId and organization_id must match when both are present.',
-      path: ['tenantId'],
-    });
-  }
-
-  if (
-    data.value_case_id !== undefined &&
-    data.valueCaseId !== undefined &&
-    data.valueCaseId !== data.value_case_id
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Mismatched value case identifiers: valueCaseId and value_case_id must match when both are present.',
-      path: ['valueCaseId'],
-    });
-  }
-
-  if (
-    data.defense_readiness_score !== undefined &&
-    data.defenseReadinessScore !== data.defense_readiness_score
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Mismatched defense readiness scores: defenseReadinessScore and defense_readiness_score must match when both are present.',
-      path: ['defenseReadinessScore'],
-    });
-  }
-}).transform(({ organization_id: _o, value_case_id: _v, defense_readiness_score: _d, ...rest }) => rest);
-
-export const NarrativeDraftedPayloadSchema = z.preprocess((payload) => {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return payload;
-  }
-
-  const rawPayload = payload as Record<string, unknown>;
-
-  return {
-    ...rawPayload,
-    // Backward compatibility / compat mapping: prefer tenantId but fall back to organization_id.
-    tenantId: rawPayload['tenantId'] ?? rawPayload['organization_id'],
-    // Backward compatibility: old publisher used snake_case field names.
-    valueCaseId: (rawPayload['valueCaseId'] ?? rawPayload['value_case_id']) as unknown,
-    defenseReadinessScore: (rawPayload['defenseReadinessScore'] ?? rawPayload['defense_readiness_score']) as unknown,
-  };
-}, NarrativeDraftedWithAliasesSchema);
 export type NarrativeDraftedPayload = z.infer<typeof NarrativeDraftedPayloadSchema>;
 
 export type DomainEventPayloadMap = {

@@ -134,7 +134,6 @@ export class NarrativeAgent extends BaseAgent {
           confidenceThresholds: { low: 0.6, high: 0.85 },
           context: {
             agent: 'NarrativeAgent',
-            organization_id: context.organization_id,
             value_case_id: valueCaseId,
           },
         },
@@ -154,7 +153,6 @@ export class NarrativeAgent extends BaseAgent {
       'episodic',
       JSON.stringify({ executive_summary: narrativeOutput.executive_summary, defense_readiness_score: narrativeOutput.defense_readiness_score }),
       {
-        organization_id: context.organization_id,
         value_case_id: valueCaseId,
         lifecycle_stage: this.lifecycleStage,
         agent: this.name,

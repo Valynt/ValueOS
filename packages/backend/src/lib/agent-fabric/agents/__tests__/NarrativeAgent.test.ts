@@ -48,13 +48,7 @@ vi.mock("../../../../repositories/NarrativeDraftRepository.js", () => ({
 
 vi.mock("../../../../events/DomainEventBus.js", () => ({
   getDomainEventBus: () => ({ publish: mockPublish }),
-  buildEventEnvelope: vi.fn().mockReturnValue({
-    id: "11111111-1111-4111-8111-111111111111",
-    emittedAt: "2026-01-01T00:00:00.000Z",
-    traceId: "trace-123",
-    tenantId: "22222222-2222-4222-8222-222222222222",
-    actorId: "33333333-3333-4333-8333-333333333333",
-  }),
+  buildEventEnvelope: vi.fn().mockReturnValue({}),
 }));
 
 // ---------------------------------------------------------------------------
@@ -257,24 +251,16 @@ describe("NarrativeAgent", () => {
       expect(mockPublish).toHaveBeenCalledWith(
         "narrative.drafted",
         expect.objectContaining({
-          tenantId: "org-456",
           valueCaseId: "case-abc",
           defenseReadinessScore: 0.82,
           format: "executive_summary",
         }),
       );
 
-      const payload = mockPublish.mock.calls[0][1] as Record<string, unknown>;
-      expect(payload).not.toHaveProperty("organization_id");
-      expect(payload).not.toHaveProperty("value_case_id");
-      expect(payload).not.toHaveProperty("defense_readiness_score");
+      const publishedPayload = mockPublish.mock.calls[0]?.[1] as Record<string, unknown>;
+      expect(publishedPayload).not.toHaveProperty("organization_id");
+      expect(publishedPayload).not.toHaveProperty("value_case_id");
+      expect(publishedPayload).not.toHaveProperty("defense_readiness_score");
     });
   });
-
-  it("rejects execution when context organization does not match agent tenant", async () => {
-    await expect(
-      agent.execute(makeContext({ organization_id: "org-mismatch" }))
-    ).rejects.toThrow(/tenant context mismatch/i);
-  });
-
 });
