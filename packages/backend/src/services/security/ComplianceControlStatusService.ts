@@ -73,15 +73,14 @@ export class ComplianceControlStatusService {
 
       if (totalErr || totalCount === null || totalCount === 0) return null;
 
-      // Primary: join via Supabase FK syntax
-      const { data: mfaRows, error: joinErr } = await this.supabase
+      // Primary: join via Supabase FK syntax, using count-only query for efficiency
+      const { count: enabledCount, error: joinErr } = await this.supabase
         .from("user_organizations")
-        .select("user_id, mfa_secrets!inner(enabled)")
+        .select("user_id, mfa_secrets!inner(enabled)", { count: "exact", head: true })
         .eq("organization_id", tenantId)
         .eq("mfa_secrets.enabled", true);
 
-      if (!joinErr) {
-        const enabledCount = mfaRows?.length ?? 0;
+      if (!joinErr && enabledCount !== null) {
         return Number(((enabledCount / totalCount) * 100).toFixed(2));
       }
 
