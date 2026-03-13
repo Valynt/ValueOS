@@ -437,8 +437,12 @@ router.post(
         }
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_GRANT, { roleId: req.params.roleId, permissionKeys: req.body.permissionKeys });
-      return res.status(204).send();
+      res.status(204);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_GRANT, {
+        roleId: req.params.roleId,
+        permissionKeys: req.body.permissionKeys,
+      });
+      return res.send();
     } catch (error) {
       logger.error("Failed to assign permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to assign permissions" });
@@ -469,8 +473,12 @@ router.delete(
         }
       );
 
-      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_REVOKE, { roleId: req.params.roleId, permissionKeys: req.body.permissionKeys });
-      return res.status(204).send();
+      res.status(204);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_REVOKE, {
+        roleId: req.params.roleId,
+        permissionKeys: req.body.permissionKeys,
+      });
+      return res.send();
     } catch (error) {
       logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to remove permissions" });
