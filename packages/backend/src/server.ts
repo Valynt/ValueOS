@@ -437,6 +437,8 @@ app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
 // Mount routes
 // Apply standard rate limiting to all API routes by default
 app.use("/api", rateLimiters.standard);
+// Auth endpoints get a tighter limit (20/min, fail-closed) on top of the standard one.
+app.use("/api/auth", rateLimiters.auth);
 
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);

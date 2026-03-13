@@ -430,7 +430,24 @@ export class IndustryBenchmarkModule extends BaseModule {
   }
 
   // ============================================================================
-  // External API Integrations (Placeholder Implementations)
+  // External API Integrations
+  //
+  // TODO (post-v1): Implement Census Bureau and BLS API integrations.
+  //
+  // Census Bureau API
+  //   Docs:    https://www.census.gov/data/developers/data-sets.html
+  //   Key env: CENSUS_API_KEY (set in .env.local.example)
+  //   Endpoint: https://api.census.gov/data/{year}/cbp
+  //   Use case: industry revenue, establishment counts, payroll by NAICS code.
+  //
+  // BLS API
+  //   Docs:    https://www.bls.gov/developers/
+  //   Key env: BLS_API_KEY (set in .env.local.example)
+  //   Endpoint: https://api.bls.gov/publicAPI/v2/timeseries/data/
+  //   Use case: occupation wage percentiles by SOC code and metro area.
+  //
+  // Both methods fall back to STATIC_BENCHMARKS / STATIC_WAGE_DATA when the
+  // API key is absent, so the module degrades gracefully in development.
   // ============================================================================
 
   private async getCensusBenchmark(
@@ -438,17 +455,25 @@ export class IndustryBenchmarkModule extends BaseModule {
     metric?: string
   ): Promise<IndustryBenchmark> {
     if (!this.censusApiKey) {
-      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, 'Census API key not configured');
+      // Degrade gracefully — callers fall back to static data when this throws.
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        'Census API key not configured. Set CENSUS_API_KEY to enable live benchmark data.'
+      );
     }
 
-    // Placeholder: Would integrate with Census Bureau API
-    // https://www.census.gov/data/developers/data-sets.html
-    
     logger.debug('Census API lookup', { naicsCode, metric });
-    
+
+    // TODO (post-v1): Call Census Bureau API.
+    // Example request:
+    //   GET https://api.census.gov/data/{year}/cbp
+    //     ?get=NAICS2017_LABEL,PAYANN,EMP
+    //     &for=us:*
+    //     &NAICS2017={naicsCode}
+    //     &key={this.censusApiKey}
     throw new GroundTruthError(
       ErrorCodes.NO_DATA_FOUND,
-      'Census API integration not implemented'
+      'Census API integration is not yet implemented. Tracked in post-v1 roadmap (P2-001).'
     );
   }
 
@@ -457,17 +482,22 @@ export class IndustryBenchmarkModule extends BaseModule {
     metroArea?: string
   ): Promise<WageData> {
     if (!this.blsApiKey) {
-      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, 'BLS API key not configured');
+      // Degrade gracefully — callers fall back to static data when this throws.
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        'BLS API key not configured. Set BLS_API_KEY to enable live wage data.'
+      );
     }
 
-    // Placeholder: Would integrate with BLS API
-    // https://www.bls.gov/developers/
-    
     logger.debug('BLS API lookup', { occupationCode, metroArea });
-    
+
+    // TODO (post-v1): Call BLS Public Data API v2.
+    // Example request:
+    //   POST https://api.bls.gov/publicAPI/v2/timeseries/data/
+    //   Body: { "seriesid": ["OES{occupationCode}"], "registrationkey": this.blsApiKey }
     throw new GroundTruthError(
       ErrorCodes.NO_DATA_FOUND,
-      'BLS API integration not implemented'
+      'BLS API integration is not yet implemented. Tracked in post-v1 roadmap (P2-001).'
     );
   }
 
