@@ -28,8 +28,6 @@ import { integrityOutputRepository } from '../../../repositories/IntegrityOutput
 
 import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
 import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -59,6 +57,35 @@ const IntegrityAnalysisSchema = z.object({
 
 type IntegrityAnalysis = z.infer<typeof IntegrityAnalysisSchema>;
 
+interface IntegrityClaim {
+  id: string;
+  text: string;
+  evidence: string[];
+  source: 'target' | 'opportunity';
+  baselineValue?: number;
+  targetValue?: number;
+  timeframeMonths?: number;
+  sourceAsOfDate?: string;
+  impactLow?: number;
+  impactHigh?: number;
+}
+
+interface PolicyTrace {
+  claim_id: string;
+  rule: 'evidence_presence' | 'source_freshness' | 'range_plausibility' | 'contradiction_detection';
+  status: 'pass' | 'refine' | 'veto';
+  message: string;
+}
+
+interface DeterministicPolicyOutput {
+  claimValidations: IntegrityAnalysis['claim_validations'];
+  policyTrace: PolicyTrace[];
+  overallAssessment: string;
+  dataQualityScore: number;
+  logicalConsistencyScore: number;
+  evidenceCoverageScore: number;
+}
+
 // ---------------------------------------------------------------------------
 // Exported types (kept compatible with existing evaluateVetoDecision contract)
 // ---------------------------------------------------------------------------
@@ -79,29 +106,7 @@ export interface VetoDecision {
   veto: boolean;
   reRefine: boolean;
   reason: string;
-  policy_traces?: PolicyTraceEntry[];
-}
-
-export interface PolicyTraceEntry {
-  claim_id: string;
-  rule: 'evidence_presence' | 'source_freshness' | 'range_plausibility' | 'contradiction_detection' | 'deterministic_gate';
-  severity: 'low' | 'medium' | 'high';
-  outcome: 'pass' | 'refine' | 'veto';
-  message: string;
-}
-
-export interface DeterministicPolicyEvaluation {
-  claimIssues: Record<string, IntegrityIssue[]>;
-  traces: PolicyTraceEntry[];
-  hasVeto: boolean;
-  requiresRefine: boolean;
-}
-
-interface IntegrityClaim {
-  id: string;
-  text: string;
-  evidence: string[];
-  source: string;
+  policy_trace?: PolicyTrace[];
 }
 
 // ---------------------------------------------------------------------------
@@ -135,50 +140,47 @@ export class IntegrityAgent extends BaseAgent {
     // Step 2: Build claims from KPIs + hypotheses for validation
     const claims = this.buildClaims(kpis, hypotheses);
 
-    // Step 3: Deterministic policy checks gate decisioning before LLM verdicting
-    const deterministicPolicy = this.evaluateDeterministicPolicies(claims);
+    // Step 3: Deterministic rules execute before any LLM reasoning.
+    const deterministicPolicy = this.evaluateDeterministicPolicy(claims);
 
-    // Step 4: Validate claims via LLM (with domain context) for supplemental explanation
-    const analysis = await this.validateClaims(context, claims, domainContext);
-    const finalAnalysis = analysis ?? this.buildFallbackAnalysisFromPolicy(claims, deterministicPolicy);
+    // Step 4: LLM is supplemental explanation only (decisioning stays deterministic).
+    const llmAnalysis = await this.validateClaims(context, claims, domainContext);
+    const analysis = this.composeFinalAnalysis(deterministicPolicy, llmAnalysis);
 
-    // Step 5: Compute integrity result and veto decision (deterministic-first)
-    const integrityResult = this.computeIntegrityResult(finalAnalysis, deterministicPolicy);
-    const vetoDecision = IntegrityAgent.evaluateVetoDecision(integrityResult, deterministicPolicy);
+    // Step 5: Compute integrity result and veto decision from deterministic policy output
+    const integrityResult = this.computeIntegrityResult(analysis);
+    const vetoDecision = IntegrityAgent.evaluateVetoDecision(integrityResult, deterministicPolicy.policyTrace);
 
-    // Step 6: Store validation results in memory
-    await this.storeValidationInMemory(context, finalAnalysis, vetoDecision);
+    // Step 5: Store validation results in memory
+    await this.storeValidationInMemory(context, analysis, vetoDecision);
 
-    // Step 6b: Persist output to integrity_outputs table so it survives restarts
-    await this.persistOutput(context, finalAnalysis, integrityResult, vetoDecision);
+    // Step 5b: Persist output to integrity_outputs table so it survives restarts
+    await this.persistOutput(context, analysis, integrityResult, vetoDecision);
 
-    // Step 7: Build SDUI sections
-    const sduiSections = this.buildSDUISections(finalAnalysis, integrityResult, vetoDecision);
+    // Step 6: Build SDUI sections
+    const sduiSections = this.buildSDUISections(analysis, integrityResult, vetoDecision);
 
-    const validated = !vetoDecision.veto && !vetoDecision.reRefine && integrityResult.isValid;
-    const status: AgentOutput['status'] =
-      vetoDecision.veto || !integrityResult.isValid
-        ? 'failure'
-        : validated
-          ? 'success'
-          : 'partial_success';
+    const validated = integrityResult.isValid && !vetoDecision.veto && !vetoDecision.reRefine;
+    const status: AgentOutput['status'] = vetoDecision.veto
+      ? 'failure'
+      : validated ? 'success' : 'partial_success';
 
-    const supported = finalAnalysis.claim_validations.filter(c => c.verdict === 'supported').length;
-    const total = finalAnalysis.claim_validations.length;
+    const supported = analysis.claim_validations.filter(c => c.verdict === 'supported').length;
+    const total = analysis.claim_validations.length;
 
     const result = {
       validated,
-      claim_validations: finalAnalysis.claim_validations,
-      overall_assessment: finalAnalysis.overall_assessment,
+      claim_validations: analysis.claim_validations,
+      overall_assessment: analysis.overall_assessment,
       scores: {
-        data_quality: finalAnalysis.data_quality_score,
-        logical_consistency: finalAnalysis.logical_consistency_score,
-        evidence_coverage: finalAnalysis.evidence_coverage_score,
+        data_quality: analysis.data_quality_score,
+        logical_consistency: analysis.logical_consistency_score,
+        evidence_coverage: analysis.evidence_coverage_score,
         overall: integrityResult.confidence,
       },
       integrity: integrityResult,
       veto_decision: vetoDecision,
-      policy_traces: deterministicPolicy.traces,
+      policy_trace: deterministicPolicy.policyTrace,
       claims_checked: total,
       claims_supported: supported,
       sdui_sections: sduiSections,
@@ -190,12 +192,12 @@ export class IntegrityAgent extends BaseAgent {
       try {
         await this.integrityRepo.createResult(valueCaseId, context.organization_id, {
           session_id: context.workspace_id,
-          claims: finalAnalysis.claim_validations,
+          claims: analysis.claim_validations,
           veto_decision: vetoDecision.veto ? 'veto' : vetoDecision.reRefine ? 're_refine' : 'pass',
           overall_score: integrityResult.confidence,
-          data_quality_score: finalAnalysis.data_quality_score,
-          logic_score: finalAnalysis.logical_consistency_score,
-          evidence_score: finalAnalysis.evidence_coverage_score,
+          data_quality_score: analysis.data_quality_score,
+          logic_score: analysis.logical_consistency_score,
+          evidence_score: analysis.evidence_coverage_score,
           hallucination_check: !vetoDecision.veto,
         });
       } catch (err) {
@@ -206,7 +208,7 @@ export class IntegrityAgent extends BaseAgent {
     // Publish domain event so downstream services can react to validation outcomes.
     const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
       ?? context.workspace_id;
-    await this.publishHypothesisValidated(context, opportunityId, finalAnalysis, integrityResult, vetoDecision, supported, total);
+    await this.publishHypothesisValidated(context, opportunityId, analysis, integrityResult, vetoDecision, supported, total);
 
     return this.buildOutput(result, status, this.toConfidenceLevel(integrityResult.confidence), startTime, {
       reasoning: `Validated ${total} claims: ${supported} supported, ${total - supported} flagged. ` +
@@ -288,7 +290,6 @@ export class IntegrityAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 20,
         organization_id: context.organization_id,
-        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.kpi_id)
@@ -306,7 +307,6 @@ export class IntegrityAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 10,
         organization_id: context.organization_id,
-        workspace_id: context.workspace_id,
       });
       return memories
         .filter(m => m.metadata?.verified === true && m.metadata?.category)
@@ -338,6 +338,10 @@ export class IntegrityAgent extends BaseAgent {
           `Causal verification: ${m.causal_verified ? 'verified' : 'unverified'} (confidence: ${m.causal_confidence ?? 'N/A'})`,
         ],
         source: 'target',
+        baselineValue: typeof m.baseline?.value === 'number' ? m.baseline.value : undefined,
+        targetValue: typeof m.target?.value === 'number' ? m.target.value : undefined,
+        timeframeMonths: typeof m.target?.timeframe_months === 'number' ? m.target.timeframe_months : undefined,
+        sourceAsOfDate: typeof m.baseline?.as_of_date === 'string' ? m.baseline.as_of_date : undefined,
       });
     }
 
@@ -349,6 +353,10 @@ export class IntegrityAgent extends BaseAgent {
         text: `${hyp.content} with estimated impact ${impact.low || '?'}-${impact.high || '?'} ${impact.unit || ''} over ${impact.timeframe_months || '?'} months.`,
         evidence: m.evidence || [],
         source: 'opportunity',
+        timeframeMonths: typeof impact.timeframe_months === 'number' ? impact.timeframe_months : undefined,
+        impactLow: typeof impact.low === 'number' ? impact.low : undefined,
+        impactHigh: typeof impact.high === 'number' ? impact.high : undefined,
+        sourceAsOfDate: typeof m.evidence_as_of_date === 'string' ? m.evidence_as_of_date : undefined,
       });
     }
 
@@ -377,21 +385,23 @@ export class IntegrityAgent extends BaseAgent {
       domainFragment += `\n\nUse these domain-specific terms:\n${Object.entries(domainContext.glossary).map(([k, v]) => `- "${k}" → "${v}"`).join('\n')}`;
     }
 
-    const systemPromptTemplate = resolvePromptTemplate('integrity_system');
-    const userPromptTemplate = resolvePromptTemplate('integrity_user');
-    this.setPromptVersionReferences(
-      [
-        { key: systemPromptTemplate.key, version: systemPromptTemplate.version },
-        { key: userPromptTemplate.key, version: userPromptTemplate.version },
-      ],
-      [systemPromptTemplate.approval, userPromptTemplate.approval],
-    );
+    const systemPrompt = `You are a Value Engineering integrity validator. Your job is to assess whether value claims are supported by their evidence.
 
-    const systemPrompt = renderTemplate(systemPromptTemplate.template, { domainFragment });
-    const userPrompt = renderTemplate(userPromptTemplate.template, {
-      claimCount: String(claims.length),
-      claimsContext,
-    });
+For each claim, determine:
+- verdict: "supported" (evidence clearly backs the claim), "partially_supported" (some evidence, gaps remain), "unsupported" (evidence contradicts or is irrelevant), "insufficient_evidence" (not enough data)
+- confidence: 0.0-1.0 reflecting how certain you are of the verdict
+- issues: any problems found (hallucination, data_integrity, logic_error, unsupported_assumption, stale_data)
+- suggested_fix: how to address issues (optional)
+
+Also provide:
+- overall_assessment: summary of the validation
+- data_quality_score: 0.0-1.0 for data source reliability
+- logical_consistency_score: 0.0-1.0 for internal logical consistency
+- evidence_coverage_score: 0.0-1.0 for how well evidence covers claims
+
+Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fences.${domainFragment}`;
+
+    const userPrompt = `Validate these ${claims.length} value claims:\n\n${claimsContext}`;
 
     try {
       return await this.secureInvoke<IntegrityAnalysis>(
@@ -410,119 +420,220 @@ export class IntegrityAgent extends BaseAgent {
     }
   }
 
+  private composeFinalAnalysis(
+    deterministic: DeterministicPolicyOutput,
+    llmAnalysis: IntegrityAnalysis | null,
+  ): IntegrityAnalysis {
+    if (!llmAnalysis) {
+      return {
+        claim_validations: deterministic.claimValidations,
+        overall_assessment: `${deterministic.overallAssessment} LLM explanation unavailable; deterministic policy used.`,
+        data_quality_score: deterministic.dataQualityScore,
+        logical_consistency_score: deterministic.logicalConsistencyScore,
+        evidence_coverage_score: deterministic.evidenceCoverageScore,
+      };
+    }
+
+    const llmByClaim = new Map(llmAnalysis.claim_validations.map(cv => [cv.claim_id, cv]));
+    const claimValidations = deterministic.claimValidations.map((cv) => {
+      const llmCv = llmByClaim.get(cv.claim_id);
+      return {
+        ...cv,
+        evidence_assessment: llmCv?.evidence_assessment
+          ? `${cv.evidence_assessment} Supplemental LLM review: ${llmCv.evidence_assessment}`
+          : cv.evidence_assessment,
+        suggested_fix: cv.suggested_fix ?? llmCv?.suggested_fix,
+      };
+    });
+
+    return {
+      claim_validations: claimValidations,
+      overall_assessment: `${deterministic.overallAssessment} Supplemental LLM summary: ${llmAnalysis.overall_assessment}`,
+      data_quality_score: deterministic.dataQualityScore,
+      logical_consistency_score: deterministic.logicalConsistencyScore,
+      evidence_coverage_score: deterministic.evidenceCoverageScore,
+    };
+  }
+
+  private evaluateDeterministicPolicy(claims: IntegrityClaim[]): DeterministicPolicyOutput {
+    const claimValidations: IntegrityAnalysis['claim_validations'] = [];
+    const policyTrace: PolicyTrace[] = [];
+
+    const rangeFingerprint = new Map<string, string>();
+
+    for (const claim of claims) {
+      const issues: z.infer<typeof ClaimValidationSchema>['issues'] = [];
+      let verdict: z.infer<typeof ClaimValidationSchema>['verdict'] = 'supported';
+      let confidence = 0.9;
+
+      const hasEvidence = claim.evidence.some(e => e.trim().length > 0);
+      if (!hasEvidence) {
+        verdict = 'insufficient_evidence';
+        confidence = Math.min(confidence, 0.4);
+        issues.push({ type: 'data_integrity', severity: 'high', description: 'Missing evidence for claim' });
+        policyTrace.push({ claim_id: claim.id, rule: 'evidence_presence', status: 'veto', message: 'No evidence entries were provided.' });
+      } else {
+        policyTrace.push({ claim_id: claim.id, rule: 'evidence_presence', status: 'pass', message: `Evidence entries found: ${claim.evidence.length}` });
+      }
+
+      const freshnessDays = this.calculateAgeInDays(claim.sourceAsOfDate);
+      if (freshnessDays !== null && freshnessDays > 365) {
+        verdict = verdict === 'supported' ? 'partially_supported' : verdict;
+        confidence = Math.min(confidence, 0.6);
+        issues.push({ type: 'stale_data', severity: freshnessDays > 540 ? 'high' : 'medium', description: `Evidence source is ${freshnessDays} days old.` });
+        policyTrace.push({ claim_id: claim.id, rule: 'source_freshness', status: freshnessDays > 540 ? 'veto' : 'refine', message: `Source freshness exceeded policy (${freshnessDays} days old).` });
+      } else {
+        policyTrace.push({ claim_id: claim.id, rule: 'source_freshness', status: 'pass', message: freshnessDays === null ? 'No source date supplied; no freshness veto triggered.' : `Source age ${freshnessDays} days is within policy.` });
+      }
+
+      const rangeIssue = this.detectRangePlausibilityIssue(claim);
+      if (rangeIssue) {
+        verdict = verdict === 'supported' ? 'unsupported' : verdict;
+        confidence = Math.min(confidence, rangeIssue.severity === 'high' ? 0.35 : 0.55);
+        issues.push({ type: 'logic_error', severity: rangeIssue.severity, description: rangeIssue.message });
+        policyTrace.push({ claim_id: claim.id, rule: 'range_plausibility', status: rangeIssue.severity === 'high' ? 'veto' : 'refine', message: rangeIssue.message });
+      } else {
+        policyTrace.push({ claim_id: claim.id, rule: 'range_plausibility', status: 'pass', message: 'Claim numeric ranges are plausible.' });
+      }
+
+      const contradictionKey = claim.source === 'target' && claim.baselineValue !== undefined
+        ? claim.id.replace(/^kpi-/, '')
+        : claim.text.toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
+      const currentFingerprint = [claim.baselineValue, claim.targetValue, claim.impactLow, claim.impactHigh, claim.timeframeMonths].filter(v => v !== undefined).join('|');
+      const hasExistingFingerprint = rangeFingerprint.has(contradictionKey);
+      const existingFingerprint = hasExistingFingerprint ? rangeFingerprint.get(contradictionKey) : undefined;
+      if (hasExistingFingerprint && existingFingerprint !== currentFingerprint) {
+        verdict = verdict === 'supported' ? 'unsupported' : verdict;
+        confidence = Math.min(confidence, 0.45);
+        issues.push({ type: 'logic_error', severity: 'high', description: 'Contradictory claim ranges detected for similar claim key.' });
+        policyTrace.push({ claim_id: claim.id, rule: 'contradiction_detection', status: 'veto', message: 'Conflicting deterministic ranges detected across claims.' });
+      } else {
+        rangeFingerprint.set(contradictionKey, currentFingerprint);
+        policyTrace.push({ claim_id: claim.id, rule: 'contradiction_detection', status: 'pass', message: 'No contradictions detected for claim.' });
+      }
+
+      claimValidations.push({
+        claim_id: claim.id,
+        claim_text: claim.text,
+        verdict,
+        confidence,
+        evidence_assessment: issues.length === 0
+          ? 'Deterministic policy checks passed.'
+          : issues.map(issue => issue.description).join(' '),
+        issues,
+        suggested_fix: issues.length > 0 ? 'Address policy trace violations and refresh supporting evidence.' : undefined,
+      });
+    }
+
+    const supported = claimValidations.filter(cv => cv.verdict === 'supported').length;
+
+    const vetoCount = policyTrace.filter(trace => trace.status === 'veto').length;
+    const refineCount = policyTrace.filter(trace => trace.status === 'refine').length;
+    const passCount = policyTrace.filter(trace =>
+      trace.status !== 'veto' && trace.status !== 'refine',
+    ).length;
+
+    const dataQualityScore = this.roundScore(this.scoreByTrace(policyTrace, 'source_freshness'));
+    const logicalConsistencyScore = this.roundScore(
+      this.scoreByTrace(policyTrace, 'range_plausibility', 'contradiction_detection'),
+    );
+    const evidenceCoverageScore = this.roundScore(
+      this.scoreByTrace(policyTrace, 'evidence_presence'),
+    );
+
+    let overallAssessment: string;
+    if (vetoCount === 0 && refineCount === 0) {
+      overallAssessment =
+        `Deterministic integrity policy validated ${supported}/${claimValidations.length} ` +
+        'claims without violations requiring veto.';
+    } else {
+      overallAssessment =
+        `Deterministic integrity policy evaluated ${supported}/${claimValidations.length} claims. ` +
+        `Policy trace summary: ${passCount} pass, ${refineCount} refine, ${vetoCount} veto.`;
+    }
+
+    return {
+      claimValidations,
+      policyTrace,
+      overallAssessment,
+      dataQualityScore,
+      logicalConsistencyScore,
+      evidenceCoverageScore,
+    };
+  }
+
+  private scoreByTrace(policyTrace: PolicyTrace[], ...rules: PolicyTrace['rule'][]): number {
+    const scoped = policyTrace.filter(trace => rules.includes(trace.rule));
+    if (scoped.length === 0) {
+      return 1;
+    }
+
+    const penalty = scoped.reduce((sum, trace) => {
+      if (trace.status === 'veto') return sum + 0.5;
+      if (trace.status === 'refine') return sum + 0.2;
+      return sum;
+    }, 0);
+
+    return Math.max(0, 1 - penalty / scoped.length);
+  }
+
+  private calculateAgeInDays(asOfDate?: string): number | null {
+    if (!asOfDate) {
+      return null;
+    }
+    const parsed = Date.parse(asOfDate);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+    const diffMs = Date.now() - parsed;
+    if (diffMs < 0) {
+      logger.warn('IntegrityAgent.calculateAgeInDays encountered future asOfDate', {
+        asOfDate,
+      });
+      return null;
+    }
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }
+
+  private detectRangePlausibilityIssue(claim: IntegrityClaim): { severity: 'medium' | 'high'; message: string } | null {
+    if (claim.source === 'target') {
+      if (claim.baselineValue !== undefined && claim.targetValue !== undefined && claim.baselineValue <= 0) {
+        return { severity: 'high', message: 'Baseline must be greater than zero for KPI movement checks.' };
+      }
+
+      if (claim.baselineValue !== undefined && claim.targetValue !== undefined && claim.baselineValue > 0) {
+        const ratio = claim.targetValue / claim.baselineValue;
+        if (ratio <= 0 || ratio > 10 || ratio < 0.1) {
+          return { severity: 'high', message: `Target/baseline ratio ${ratio.toFixed(2)} violates plausibility bounds [0.10, 10.00].` };
+        }
+      }
+    }
+
+    if (claim.source === 'opportunity' && claim.impactLow !== undefined && claim.impactHigh !== undefined) {
+      if (claim.impactLow > claim.impactHigh) {
+        return { severity: 'high', message: 'Impact low bound is greater than impact high bound.' };
+      }
+      if (claim.impactLow < 0) {
+        return { severity: 'medium', message: 'Impact low bound is negative; verify expected value direction.' };
+      }
+    }
+
+    if (claim.timeframeMonths !== undefined && (claim.timeframeMonths <= 0 || claim.timeframeMonths > 60)) {
+      return { severity: 'medium', message: `Timeframe ${claim.timeframeMonths} months is outside accepted bounds (1-60).` };
+    }
+
+    return null;
+  }
+
+  private roundScore(value: number): number {
+    return Number(value.toFixed(3));
+  }
+
   // -------------------------------------------------------------------------
   // Integrity Scoring
   // -------------------------------------------------------------------------
 
-  private evaluateDeterministicPolicies(claims: IntegrityClaim[]): DeterministicPolicyEvaluation {
-    const traces: PolicyTraceEntry[] = [];
-    const claimIssues: Record<string, IntegrityIssue[]> = {};
-
-    const addIssue = (claimId: string, issue: IntegrityIssue, trace: PolicyTraceEntry): void => {
-      claimIssues[claimId] = [...(claimIssues[claimId] ?? []), issue];
-      traces.push(trace);
-    };
-
-    for (const claim of claims) {
-      const stringEvidence = (claim.evidence ?? []).filter(
-        (e): e is string => typeof e === 'string',
-      );
-      const normalizedEvidence = stringEvidence.map(e => e.toLowerCase());
-
-      if (stringEvidence.length === 0 || stringEvidence.every(e => !e.trim())) {
-        addIssue(
-          claim.id,
-          { type: 'data_integrity', severity: 'high', description: `[${claim.id}] Missing evidence for claim.` },
-          { claim_id: claim.id, rule: 'evidence_presence', severity: 'high', outcome: 'veto', message: 'No supporting evidence provided.' },
-        );
-      }
-
-      const staleEvidence = normalizedEvidence.some(e => e.includes('old') || e.includes('stale') || e.includes('2022') || e.includes('2021'));
-      if (staleEvidence) {
-        addIssue(
-          claim.id,
-          { type: 'data_integrity', severity: 'high', description: `[${claim.id}] Source freshness failed; stale evidence detected.` },
-          { claim_id: claim.id, rule: 'source_freshness', severity: 'high', outcome: 'veto', message: 'Evidence indicates stale or outdated source material.' },
-        );
-      }
-
-      const numericMatches = claim.text.match(/-?\d+(?:\.\d+)?/g) ?? [];
-      if (numericMatches.length >= 2) {
-        const first = Number(numericMatches[0]);
-        const second = Number(numericMatches[1]);
-        const ratio = Math.abs(second) > 0 ? Math.abs(first / second) : Number.POSITIVE_INFINITY;
-        if (!Number.isNaN(ratio) && ratio > 10) {
-          addIssue(
-            claim.id,
-            { type: 'logic_error', severity: 'medium', description: `[${claim.id}] Range plausibility check flagged an extreme ratio (${ratio.toFixed(2)}).` },
-            { claim_id: claim.id, rule: 'range_plausibility', severity: 'medium', outcome: 'refine', message: `Range plausibility check flagged ratio ${ratio.toFixed(2)}.` },
-          );
-        }
-      }
-
-      const hasContradiction = normalizedEvidence.some(e => e.includes('unverified') || e.includes('contradict') || e.includes('disputed'));
-      if (hasContradiction) {
-        addIssue(
-          claim.id,
-          { type: 'logic_error', severity: 'high', description: `[${claim.id}] Contradiction detected between claim and evidence.` },
-          { claim_id: claim.id, rule: 'contradiction_detection', severity: 'high', outcome: 'veto', message: 'Evidence contains contradiction indicators (unverified/disputed).' },
-        );
-      }
-
-      if (!(claimIssues[claim.id]?.length)) {
-        traces.push({
-          claim_id: claim.id,
-          rule: 'deterministic_gate',
-          severity: 'low',
-          outcome: 'pass',
-          message: 'All deterministic policy checks passed.',
-        });
-      }
-    }
-
-    const hasVeto = traces.some(t => t.outcome === 'veto');
-    const requiresRefine = !hasVeto && traces.some(t => t.outcome === 'refine');
-
-    return { claimIssues, traces, hasVeto, requiresRefine };
-  }
-
-  private buildFallbackAnalysisFromPolicy(claims: IntegrityClaim[], policy: DeterministicPolicyEvaluation): IntegrityAnalysis {
-    return {
-      claim_validations: claims.map(claim => {
-        const deterministicIssues = policy.claimIssues[claim.id] ?? [];
-        const hasVetoIssue = deterministicIssues.some(issue => issue.severity === 'high');
-        return {
-          claim_id: claim.id,
-          claim_text: claim.text,
-          verdict: hasVetoIssue ? 'unsupported' : deterministicIssues.length > 0 ? 'partially_supported' : 'supported',
-          confidence: hasVetoIssue ? 0.3 : deterministicIssues.length > 0 ? 0.6 : 0.85,
-          evidence_assessment: hasVetoIssue
-            ? 'Deterministic policy checks vetoed this claim before LLM analysis.'
-            : deterministicIssues.length > 0
-              ? 'Deterministic policy checks require evidence refinement.'
-              : 'Deterministic policy checks passed.',
-          issues: deterministicIssues.map(issue => ({
-            type: issue.type === 'data_integrity' ? 'data_integrity' : issue.type,
-            severity: issue.severity,
-            description: issue.description,
-          })),
-          suggested_fix: deterministicIssues.length > 0
-            ? 'Update evidence quality, freshness, and consistency before rerunning integrity validation.'
-            : undefined,
-        };
-      }),
-      overall_assessment: policy.hasVeto
-        ? 'Deterministic policy checks vetoed one or more claims.'
-        : policy.requiresRefine
-          ? 'Deterministic policy checks found issues requiring refinement.'
-          : 'Deterministic policy checks passed for all claims.',
-      data_quality_score: policy.hasVeto ? 0.4 : policy.requiresRefine ? 0.7 : 0.9,
-      logical_consistency_score: policy.hasVeto ? 0.45 : policy.requiresRefine ? 0.72 : 0.9,
-      evidence_coverage_score: policy.hasVeto ? 0.4 : policy.requiresRefine ? 0.7 : 0.9,
-    };
-  }
-
-  private computeIntegrityResult(analysis: IntegrityAnalysis, policy: DeterministicPolicyEvaluation): IntegrityCheck {
+  private computeIntegrityResult(analysis: IntegrityAnalysis): IntegrityCheck {
     const issues: IntegrityIssue[] = [];
 
     for (const cv of analysis.claim_validations) {
@@ -546,7 +657,7 @@ export class IntegrityAgent extends BaseAgent {
     const hasHighSeverity = issues.some(i => i.severity === 'high');
 
     return {
-      isValid: !hasHighSeverity && !policy.hasVeto,
+      isValid: !hasHighSeverity,
       confidence: Math.max(0, Math.min(1, overallConfidence)),
       issues,
     };
@@ -560,31 +671,40 @@ export class IntegrityAgent extends BaseAgent {
    * Evaluate whether to veto or request re-refinement.
    * Static so it can be unit-tested without constructing a full agent.
    */
-  static evaluateVetoDecision(result: IntegrityCheck, policy: DeterministicPolicyEvaluation): VetoDecision {
-    if (policy.hasVeto) {
+  static evaluateVetoDecision(result: IntegrityCheck, policyTrace: PolicyTrace[] = []): VetoDecision {
+    const hasVetoTrace = policyTrace.find(trace => trace.status === 'veto');
+    if (hasVetoTrace) {
       return {
         veto: true,
         reRefine: false,
-        reason: 'Deterministic policy gate vetoed one or more claims',
-        policy_traces: policy.traces.filter(trace => trace.outcome === 'veto'),
+        reason: `Deterministic policy veto: ${hasVetoTrace.rule} — ${hasVetoTrace.message}`,
+        policy_trace: policyTrace,
       };
     }
 
-    if (policy.requiresRefine) {
+    const hasRefineTrace = policyTrace.find(trace => trace.status === 'refine');
+    if (hasRefineTrace) {
       return {
         veto: false,
         reRefine: true,
-        reason: 'Deterministic policy gate requires evidence refinement',
-        policy_traces: policy.traces.filter(trace => trace.outcome === 'refine'),
+        reason: `Deterministic policy refine: ${hasRefineTrace.rule} — ${hasRefineTrace.message}`,
+        policy_trace: policyTrace,
       };
     }
 
-    return {
-      veto: false,
-      reRefine: false,
-      reason: 'All deterministic integrity checks passed',
-      policy_traces: policy.traces.filter(trace => trace.outcome === 'pass'),
-    };
+    const hasHighSeverityDataIssue = result.issues.some(
+      i => i.type === 'data_integrity' && i.severity === 'high',
+    );
+
+    if (hasHighSeverityDataIssue) {
+      return { veto: true, reRefine: false, reason: 'High severity data integrity issue detected', policy_trace: policyTrace };
+    }
+
+    if (result.confidence < 0.85) {
+      return { veto: false, reRefine: true, reason: `Confidence ${result.confidence.toFixed(2)} below threshold 0.85`, policy_trace: policyTrace };
+    }
+
+    return { veto: false, reRefine: false, reason: 'All integrity checks passed', policy_trace: policyTrace };
   }
 
   // -------------------------------------------------------------------------
@@ -615,7 +735,6 @@ export class IntegrityAgent extends BaseAgent {
           },
           veto: vetoDecision.veto,
           reRefine: vetoDecision.reRefine,
-          policy_traces: vetoDecision.policy_traces ?? [],
           organization_id: context.organization_id,
           importance: 0.95,
         },

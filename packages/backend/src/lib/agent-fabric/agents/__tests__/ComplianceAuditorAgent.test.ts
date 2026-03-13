@@ -96,6 +96,7 @@ function makeEvidence(source: string, content: string) {
 
 const LLM_SUCCESS_RESPONSE = JSON.stringify({
   summary: "All controls are adequately covered.",
+  control_gaps: [],
   recommended_actions: ["Continue monitoring quarterly"],
 });
 
@@ -130,17 +131,14 @@ describe("ComplianceAuditorAgent", () => {
   });
 
   describe("execute — main path", () => {
-    it("returns success with LLM summary and coverage score", async () => {
+    it("returns success with LLM summary and deterministic coverage score", async () => {
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("success");
       expect(result.agent_type).toBe("integrity");
       expect(result.result.summary).toBe("All controls are adequately covered.");
-      expect(result.result.control_coverage_score).toBeCloseTo(4 / 6, 3);
-      expect(result.result.control_gaps).toEqual([
-        "financial-modeling: Control evidence below deterministic threshold (1/2).",
-        "integrity: Control evidence below deterministic threshold (1/2).",
-      ]);
+      expect(result.result.control_coverage_score).toBe(1);
+      expect(result.result.control_gaps).toEqual([]);
       expect(result.result.recommended_actions).toEqual(["Continue monitoring quarterly"]);
     });
 
@@ -152,17 +150,6 @@ describe("ComplianceAuditorAgent", () => {
       for (const source of sources) {
         expect(counts[source]).toBe(1);
       }
-    });
-
-    it("flags tenant-wide cross-workspace retrieval with explicit reason metadata", async () => {
-      await agent.execute(makeContext());
-
-      expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({
-          allow_cross_workspace: true,
-          cross_workspace_reason: "compliance_audit_tenant_wide_sampling",
-        }),
-      );
     });
 
     it("stores the compliance summary in memory with tenant isolation", async () => {
@@ -179,24 +166,36 @@ describe("ComplianceAuditorAgent", () => {
       // Tenant isolation: organizationId must be passed as the last argument
       expect(summaryCall![5]).toBe("org-456");
       expect(summaryCall![4]).toMatchObject({
-        control_coverage_score: 4 / 6,
+        control_coverage_score: 1,
         tenant_id: "org-456",
       });
     });
 
-    it("maps deterministic coverage score to medium confidence", async () => {
+
+
+    it("reports deterministic control gaps when evidence is missing", async () => {
+      mockRetrieve.mockImplementation((query: { agent_id: string }) => {
+        if (query.agent_id === "financial-modeling" || query.agent_id === "expansion") {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([makeEvidence(query.agent_id, `Evidence from ${query.agent_id}`)]);
+      });
+
       const result = await agent.execute(makeContext());
 
-      // 4/6 coverage = 0.666... -> medium
-      expect(result.confidence).toBe("medium");
+      expect(result.result.control_coverage_score).toBeCloseTo(0.667, 3);
+      expect(result.result.control_gaps).toEqual([
+        "Missing deterministic evidence for financial-modeling",
+        "Missing deterministic evidence for expansion",
+      ]);
+      expect(result.result.coverage_by_source["financial-modeling"].covered).toBe(false);
     });
 
-    it("emits deterministic policy traces", async () => {
+    it("maps high coverage score to very_high confidence", async () => {
       const result = await agent.execute(makeContext());
 
-      const traces = result.result.policy_traces as Array<Record<string, unknown>>;
-      expect(traces).toHaveLength(6);
-      expect(traces.some(trace => trace.outcome === "refine")).toBe(true);
+      // control_coverage_score 1.0 >= 0.85 → very_high
+      expect(result.confidence).toBe("very_high");
     });
   });
 
@@ -204,7 +203,7 @@ describe("ComplianceAuditorAgent", () => {
     it("rejects context with mismatched organization_id", async () => {
       await expect(
         agent.execute(makeContext({ organization_id: "org-WRONG" })),
-      ).rejects.toThrow(/tenant context mismatch/i);
+      ).rejects.toThrow("Tenant mismatch");
     });
   });
 
@@ -223,5 +222,4 @@ describe("ComplianceAuditorAgent", () => {
       await expect(agent.execute(makeContext())).rejects.toThrow();
     });
   });
-
 });

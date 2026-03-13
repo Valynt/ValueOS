@@ -1,19 +1,22 @@
 import { z } from 'zod';
 
 import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
-import type { PromptVersionReference } from '../../../types/agent.js';
 
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
   control_gaps: z.array(z.string()),
-  control_coverage_score: z.number().min(0).max(1),
   recommended_actions: z.array(z.string()),
   hallucination_check: z.boolean().optional(),
 });
+
+interface DeterministicCoverage {
+  controlCoverageScore: number;
+  controlGaps: string[];
+  coverageBySource: Record<string, { evidence_count: number; covered: boolean }>;
+}
 
 export class ComplianceAuditorAgent extends BaseAgent {
   public readonly lifecycleStage = 'integrity';
@@ -49,12 +52,14 @@ export class ComplianceAuditorAgent extends BaseAgent {
       }
     }
 
-    const promptTemplate = resolvePromptTemplate({ promptKey: 'compliance.system.audit-summary' });
-    const promptRefs: PromptVersionReference[] = [promptTemplate.reference];
+    const deterministicCoverage = this.deriveDeterministicCoverage(evidenceBySource);
+
     const prompt = renderTemplate(
-      promptTemplate.template,
+      `You are a compliance auditor. Summarize deterministic coverage metrics for tenant {{tenantId}}.\nDeterministic coverage score: {{score}}\nDeterministic control gaps: {{gaps}}\nEvidence counts: {{counts}}\nObservations: {{observations}}\nReturn JSON with summary, control_gaps, recommended_actions.`,
       {
         tenantId: this.organizationId,
+        score: deterministicCoverage.controlCoverageScore.toFixed(3),
+        gaps: JSON.stringify(deterministicCoverage.controlGaps),
         counts: JSON.stringify(evidenceBySource),
         observations: JSON.stringify(sampleObservations),
       },
@@ -81,7 +86,9 @@ export class ComplianceAuditorAgent extends BaseAgent {
       `Compliance evidence summary: ${llmResult.summary}`,
       {
         source_counts: evidenceBySource,
-        control_coverage_score: llmResult.control_coverage_score,
+        control_coverage_score: deterministicCoverage.controlCoverageScore,
+        control_gaps: deterministicCoverage.controlGaps,
+        coverage_by_source: deterministicCoverage.coverageBySource,
         tenant_id: this.organizationId,
       },
       this.organizationId,
@@ -90,15 +97,39 @@ export class ComplianceAuditorAgent extends BaseAgent {
     return this.buildOutput(
       {
         summary: llmResult.summary,
-        control_gaps: llmResult.control_gaps,
-        control_coverage_score: llmResult.control_coverage_score,
+        control_gaps: deterministicCoverage.controlGaps,
+        control_coverage_score: deterministicCoverage.controlCoverageScore,
         recommended_actions: llmResult.recommended_actions,
         evidence_by_source: evidenceBySource,
+        coverage_by_source: deterministicCoverage.coverageBySource,
       },
       'success',
-      this.toConfidenceLevel(llmResult.control_coverage_score),
+      this.toConfidenceLevel(deterministicCoverage.controlCoverageScore),
       start,
-      { prompt_version_refs: promptRefs },
     );
+  }
+
+  private deriveDeterministicCoverage(evidenceBySource: Record<string, number>): DeterministicCoverage {
+    const sources = Object.entries(evidenceBySource);
+    const coverageBySource: DeterministicCoverage['coverageBySource'] = {};
+
+    for (const [source, count] of sources) {
+      coverageBySource[source] = {
+        evidence_count: count,
+        covered: count > 0,
+      };
+    }
+
+    const coveredSources = sources.filter(([, count]) => count > 0).length;
+    const controlCoverageScore = sources.length === 0 ? 0 : Number((coveredSources / sources.length).toFixed(3));
+    const controlGaps = sources
+      .filter(([, count]) => count === 0)
+      .map(([source]) => `Missing deterministic evidence for ${source}`);
+
+    return {
+      controlCoverageScore,
+      controlGaps,
+      coverageBySource,
+    };
   }
 }
