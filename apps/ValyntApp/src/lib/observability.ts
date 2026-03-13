@@ -11,7 +11,6 @@ export interface SpanHandle {
 export function initFrontendObservability(config: FrontendObservabilityConfig): void {
   const releaseMarker = `release:${config.appName}:${config.release}:${config.environment}`;
   window.dispatchEvent(new CustomEvent("valueos:release-marker", { detail: releaseMarker }));
-  console.info("[Observability] release marker", { releaseMarker });
 
   window.addEventListener("error", (event) => {
     console.error("[Observability] uncaught exception", {
@@ -34,17 +33,16 @@ export function initFrontendObservability(config: FrontendObservabilityConfig): 
 }
 
 export function recordMetric(name: string, value: number, tags?: Record<string, string>): void {
-  console.debug("[Observability] metric", { name, value, tags });
+  // Intentionally left without console logging to comply with no-console rule.
 }
 
 export function startSpan(name: string, tags?: Record<string, string>): SpanHandle {
   const startedAt = performance.now();
-  console.debug("[Observability] span.start", { name, tags });
 
   return {
     end: () => {
       const durationMs = performance.now() - startedAt;
-      console.debug("[Observability] span.end", { name, tags, durationMs });
+      // Duration is computed but not logged to comply with no-console rule.
     },
   };
 }
