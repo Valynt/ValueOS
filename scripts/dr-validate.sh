@@ -125,11 +125,16 @@ if [[ "$SIMULATE_FAILOVER" == "true" ]]; then
 fi
 
 RESTORE_START=$(date +%s%N)
-$DB_RESTORE_CMD < "$BACKUP_FILE" >/dev/null 2>&1 || true
+if ! $DB_RESTORE_CMD < "$BACKUP_FILE" >/dev/null 2>&1; then
+  RESTORE_END=$(date +%s%N)
+  RESTORE_DURATION_MS=$(((RESTORE_END - RESTORE_START) / 1000000))
+  fail "Database restore command failed"
+  exit 1
+fi
 RESTORE_END=$(date +%s%N)
 RESTORE_DURATION_MS=$(((RESTORE_END - RESTORE_START) / 1000000))
 
-POST_COUNTS=$($DB_QUERY_CMD "
+POST_COUNTS_RAW=$($DB_QUERY_CMD "
   SELECT json_build_object(
     'organizations', (SELECT count(*) FROM public.organizations),
     'cases',         (SELECT count(*) FROM public.cases),
@@ -137,7 +142,11 @@ POST_COUNTS=$($DB_QUERY_CMD "
     'agents',        (SELECT count(*) FROM public.agents),
     'kpis',          (SELECT count(*) FROM public.kpis)
   );
-" 2>/dev/null | tr -d '[:space:]' || echo '{}')
+" 2>/dev/null) || {
+  fail "Post-restore validation query failed"
+  exit 1
+}
+POST_COUNTS=$(echo "$POST_COUNTS_RAW" | tr -d '[:space:]')
 
 if [[ "$PRE_COUNTS" == "$POST_COUNTS" ]]; then
   DATA_INTEGRITY="pass"
