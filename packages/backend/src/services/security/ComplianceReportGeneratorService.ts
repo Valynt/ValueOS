@@ -203,7 +203,9 @@ export class ComplianceReportGeneratorService {
 
     const { data, error } = await query.order("timestamp", { ascending: true });
     if (error) {
-      return [];
+      throw new Error(
+        `Failed to query evidence from table "${table}" for tenant "${tenantId}": ${error.message ?? "unknown error"}`,
+      );
     }
 
     return data ?? [];
