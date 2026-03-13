@@ -1,4 +1,4 @@
-import { CanvasComponent } from '../../types';
+import { CanvasComponent } from '../../types/index.js';
 
 export interface CalculationDependency {
   sourceId: string;
@@ -13,7 +13,7 @@ export interface CalculationUpdate {
   formula?: string;
 }
 
-class CalculationEngine {
+export class CalculationEngine {
   private dependencies: Map<string, string[]> = new Map();
   private formulas: Map<string, (components: Map<string, CanvasComponent>) => any> = new Map();
 

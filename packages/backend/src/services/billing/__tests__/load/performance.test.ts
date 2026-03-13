@@ -14,11 +14,12 @@ import {
 } from "../__helpers__/billing-factories";
 import {
   cleanupBillingTables,
-  getTestSupabaseClient,
+  getTestSupabaseClient,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { performance as perfHelpers } from "../__helpers__/test-fixtures.js"
 
-describe("Load and Stress Tests", () => {
+describe.skipIf(!supabaseAvailable)("Load and Stress Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

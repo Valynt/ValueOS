@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger.js';
+import { logger } from '../../lib/logger.js';
 
 import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker.js';
 

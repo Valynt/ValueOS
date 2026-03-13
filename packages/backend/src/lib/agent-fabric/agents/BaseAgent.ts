@@ -62,6 +62,8 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
   protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
+  // Prompt version references set during execution, included in output metadata.
+  protected _promptVersionRefs: PromptVersionReference[] = [];
 
   constructor(
     config: AgentConfig,
@@ -79,6 +81,17 @@ export abstract class BaseAgent {
     this.circuitBreaker = circuitBreaker;
     this.knowledgeFabricValidator = null;
   }
+
+    /**
+     * Records prompt version references for the current execution.
+     * Stored on the instance so buildOutput can include them in metadata.
+     */
+    protected setPromptVersionReferences(
+      refs: Array<{ key: string; version: string }>,
+      _approvals?: unknown[],
+    ): void {
+      this._promptVersionRefs = refs.map(r => ({ key: r.key, version: r.version }));
+    }
 
     /**
      * Converts a numeric score to a confidence level string.

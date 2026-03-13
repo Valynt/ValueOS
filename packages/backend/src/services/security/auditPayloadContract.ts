@@ -1,7 +1,7 @@
 import { Request } from "express";
 import { z } from "zod";
 
-import { sanitizeForLogging } from "../lib/piiFilter.js";
+import { sanitizeForLogging } from "../../lib/piiFilter.js";
 
 export const requiredAuditPayloadSchema = z.object({
   actor: z.string().min(1),

@@ -13,12 +13,13 @@ import { createWebhookEvent } from "../__helpers__/billing-factories.js"
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
-  waitForCondition,
+  waitForCondition,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
 import { delay } from "../__helpers__/test-fixtures.js"
 
-describe("Webhook Retry and Idempotency Tests", () => {
+describe.skipIf(!supabaseAvailable)("Webhook Retry and Idempotency Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

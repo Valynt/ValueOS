@@ -15,10 +15,11 @@ import {
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
-  seedTestData,
+  seedTestData,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 
-describe("SQL Injection and Input Validation Tests", () => {
+describe.skipIf(!supabaseAvailable)("SQL Injection and Input Validation Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

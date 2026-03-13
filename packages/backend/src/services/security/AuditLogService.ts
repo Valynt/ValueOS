@@ -15,7 +15,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
-import { sanitizeForLogging } from "../lib/piiFilter.js";
+import { sanitizeForLogging } from "../../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { BaseService } from "../BaseService.js";
 import {

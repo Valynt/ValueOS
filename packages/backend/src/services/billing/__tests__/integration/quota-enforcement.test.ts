@@ -18,10 +18,11 @@ import {
   assertRecordExists,
   cleanupBillingTables,
   getTestSupabaseClient,
-  seedTestData,
+  seedTestData,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 
-describe("Quota Enforcement Integration Tests", () => {
+describe.skipIf(!supabaseAvailable)("Quota Enforcement Integration Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

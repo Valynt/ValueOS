@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../../lib/logger.js'
-import { MANIFESTO_RULES, ManifestoRule, ValidationRule } from '../lib/manifesto/ManifestoRules';
+import { MANIFESTO_RULES, ManifestoRule, ValidationRule } from '../../lib/manifesto/ManifestoRules';
 import {
   ActionContext,
   CanonicalAction,

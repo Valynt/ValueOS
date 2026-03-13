@@ -24,7 +24,7 @@ export interface AuthenticatedRequest extends Request {
   organizationId?: string;
 }
 import { auditLogService } from '../services/AuditLogService.js';
-import { authService } from '../services/AuthService.js'
+import { authService } from '../services/auth/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'
 
 import { createLogger, LogContext } from '@shared/lib/logger';

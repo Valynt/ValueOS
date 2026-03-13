@@ -17,11 +17,12 @@ import {
   assertRecordExists,
   cleanupBillingTables,
   getTestSupabaseClient,
-  seedTestData,
+  seedTestData,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { createMockStripeInvoice } from "../__helpers__/stripe-mocks.js"
 
-describe("Invoice Generation and Synchronization Tests", () => {
+describe.skipIf(!supabaseAvailable)("Invoice Generation and Synchronization Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

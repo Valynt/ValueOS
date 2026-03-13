@@ -40,10 +40,9 @@ export function isFeatureEnabled(feature: string): boolean {
 }
 
 /**
- * Main Configuration Factory
- * Aggregates environment variables into a structured, type-safe object.
+ * Full structured config shape — built from environment variables.
  */
-export function getConfig() {
+function buildConfig() {
   const corsOrigins = parseCorsAllowlist(process.env.CORS_ORIGINS, {
     source: "CORS_ORIGINS",
     credentials: true,
@@ -51,6 +50,7 @@ export function getConfig() {
   });
 
   const mfaEnabled = process.env.MFA_ENABLED === "true";
+  const env = (process.env.NODE_ENV || "development") as AppEnvironment;
 
   return {
     auth: { mfaEnabled },
@@ -62,16 +62,19 @@ export function getConfig() {
       compliance: process.env.COMPLIANCE_ENABLED !== "false",
     },
     email: { enabled: false },
-    app: { url: process.env.APP_URL || "http://localhost:3001" },
+    app: {
+      url: process.env.APP_URL || "http://localhost:3001",
+      env,
+    },
     database: {
-      url: process.env.DATABASE_URL || "",
+      url: process.env.SUPABASE_URL || process.env.DATABASE_URL || "",
       poolSize: Number(process.env.DB_POOL_SIZE) || 10,
       anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "",
     },
     agents: {
       enabled: process.env.AGENTS_ENABLED !== "false",
       maxConcurrent: Number(process.env.AGENTS_MAX_CONCURRENT) || 5,
-      apiUrl: process.env.AGENTS_API_URL || "http://localhost:3001/api/agents",
+      apiUrl: process.env.AGENT_API_URL || process.env.AGENTS_API_URL || "http://localhost:3001/api/agents",
       timeout: Number(process.env.AGENTS_TIMEOUT) || 30_000,
       logging: process.env.AGENTS_LOGGING !== "false",
       circuitBreaker: {
@@ -90,11 +93,67 @@ export function getConfig() {
     },
     security: {
       csrfEnabled: process.env.CSRF_ENABLED !== "false",
+      cspEnabled: process.env.CSP_ENABLED !== "false",
       rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== "false",
+      rateLimitPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE) || 60,
+      httpsOnly: process.env.HTTPS_ONLY === "true",
       corsOrigins,
     },
   };
 }
 
-// Export a inferred type for the configuration object
-export type AppConfig = ReturnType<typeof getConfig>;
+export type AppConfig = ReturnType<typeof buildConfig>;
+
+// Singleton cache — cleared by resetConfig()
+let _configCache: AppConfig | null = null;
+
+/**
+ * Returns the cached config singleton, building it on first call.
+ */
+export function getConfig(): AppConfig {
+  if (!_configCache) {
+    _configCache = buildConfig();
+  }
+  return _configCache;
+}
+
+/**
+ * Clears the config cache so the next getConfig() call re-reads env vars.
+ * Primarily used in tests.
+ */
+export function resetConfig(): void {
+  _configCache = null;
+}
+
+/**
+ * Alias for getConfig() — returns the full structured config.
+ */
+export function loadEnvironmentConfig(): AppConfig {
+  return getConfig();
+}
+
+/**
+ * Validates a config object and returns an array of error strings.
+ * Returns an empty array when the config is valid.
+ */
+export function validateEnvironmentConfig(config: AppConfig): string[] {
+  const errors: string[] = [];
+
+  if (config.app.env === "production") {
+    if (!config.database.url) {
+      errors.push("SUPABASE_URL is required in production");
+    }
+    if (!config.database.anonKey) {
+      errors.push("SUPABASE_ANON_KEY is required in production");
+    }
+    if (process.env.DEV_MOCKS_ENABLED === "true") {
+      errors.push("DEV_MOCKS_ENABLED must not be true in production");
+    }
+  }
+
+  if (config.features.agentFabric && !config.agents.apiUrl) {
+    errors.push("AGENT_API_URL is required when agentFabric feature is enabled");
+  }
+
+  return errors;
+}

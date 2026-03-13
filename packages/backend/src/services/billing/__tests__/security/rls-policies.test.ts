@@ -22,10 +22,11 @@ import {
   createTestUser,
   executeAsUser,
   getTestSupabaseClient,
-  seedTestData,
+  seedTestData,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 
-describe("RLS Policy Security Tests", () => {
+describe.skipIf(!supabaseAvailable)("RLS Policy Security Tests", () => {
   let supabase: SupabaseClient;
   let tenant1Id: string;
   let tenant2Id: string;

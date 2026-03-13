@@ -15,11 +15,12 @@ import {
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
-  seedTestData,
+  seedTestData,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { createMockStripePaymentMethod } from "../__helpers__/stripe-mocks.js"
 
-describe("Sensitive Data Exposure Tests", () => {
+describe.skipIf(!supabaseAvailable)("Sensitive Data Exposure Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {
