@@ -10,6 +10,10 @@
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
     "check": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "typecheck:signal": "tsx scripts/dx/typecheck-telemetry.ts",
+    "typecheck:signal:json": "tsx scripts/dx/typecheck-telemetry.ts --json",
+    "typecheck:signal:summary": "tsx scripts/dx/typecheck-telemetry.ts --summary",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e:gate": "pnpm run check:e2e-path && vitest run --config vitest.e2e.config.ts tests/e2e/**/*.test.ts",
@@ -23,7 +27,9 @@
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "check:message-payload-contracts": "node scripts/ci/check-message-payload-contracts.mjs",
     "check:e2e-path": "node scripts/ci/guard-deprecated-e2e-path.mjs",
-    "check:release-critical-focused-tests": "node scripts/ci/check-release-critical-focused-tests.mjs"
+    "check:release-critical-focused-tests": "node scripts/ci/check-release-critical-focused-tests.mjs",
+    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs",
+    "ci:verify": "pnpm run lint && pnpm run check && pnpm run typecheck:signal --verify && pnpm run check:e2e-path && pnpm run test && pnpm run ci:governance:self-check && pnpm run build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
