@@ -14,7 +14,7 @@ describe("validateEnv — ENCRYPTION_KEY production enforcement", () => {
 
   beforeEach(() => {
     // Isolate env mutations per test. Satisfy all other required vars so
-    // ENCRYPTION_KEY is the only variable under test.
+    // the encryption key is the only variable under test.
     process.env = {
       ...originalEnv,
       DATABASE_URL: "postgresql://localhost:5432/test",
@@ -25,6 +25,7 @@ describe("validateEnv — ENCRYPTION_KEY production enforcement", () => {
       REDIS_URL: undefined,
     };
     delete process.env.ENCRYPTION_KEY;
+    delete process.env.APP_ENCRYPTION_KEY;
   });
 
   afterEach(() => {
@@ -77,6 +78,30 @@ describe("validateEnv — ENCRYPTION_KEY production enforcement", () => {
   it("does not check ENCRYPTION_KEY in development", () => {
     process.env.NODE_ENV = "development";
     delete process.env.ENCRYPTION_KEY;
+    const { errors } = validateEnv();
+    expect(errors.some((e) => e.includes("ENCRYPTION_KEY"))).toBe(false);
+  });
+
+  // Regression: validateEnv previously checked only ENCRYPTION_KEY, causing a
+  // false-positive startup failure when APP_ENCRYPTION_KEY was set (the primary
+  // variable read by encryption.ts).
+  it("accepts APP_ENCRYPTION_KEY when ENCRYPTION_KEY is absent", () => {
+    delete process.env.ENCRYPTION_KEY;
+    process.env.APP_ENCRYPTION_KEY = "a".repeat(64);
+    const { errors } = validateEnv();
+    expect(errors.some((e) => e.includes("ENCRYPTION_KEY"))).toBe(false);
+  });
+
+  it("errors when both APP_ENCRYPTION_KEY and ENCRYPTION_KEY are absent", () => {
+    delete process.env.ENCRYPTION_KEY;
+    delete process.env.APP_ENCRYPTION_KEY;
+    const { errors } = validateEnv();
+    expect(errors.some((e) => e.includes("ENCRYPTION_KEY"))).toBe(true);
+  });
+
+  it("APP_ENCRYPTION_KEY takes precedence — short ENCRYPTION_KEY is not flagged when APP_ENCRYPTION_KEY is valid", () => {
+    process.env.APP_ENCRYPTION_KEY = "a".repeat(64);
+    process.env.ENCRYPTION_KEY = "tooshort";
     const { errors } = validateEnv();
     expect(errors.some((e) => e.includes("ENCRYPTION_KEY"))).toBe(false);
   });

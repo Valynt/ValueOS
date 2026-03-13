@@ -362,3 +362,31 @@ describe('MessageBus — tenant isolation', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// message_type validation — regression for misleading error message
+// ---------------------------------------------------------------------------
+
+describe('MessageBus — message_type validation', () => {
+  it('accepts a payload without message_type (field is optional)', async () => {
+    const bus = new MessageBus();
+    // Should not throw — message_type is optional
+    await expect(
+      bus.publishMessage('mt.check', makeEvent({ tenant_id: TENANT_A, message_type: undefined }))
+    ).resolves.toBeTypeOf('string');
+  });
+
+  it('accepts a payload with a valid non-empty message_type', async () => {
+    const bus = new MessageBus();
+    await expect(
+      bus.publishMessage('mt.check', makeEvent({ tenant_id: TENANT_A, message_type: 'task.created' }))
+    ).resolves.toBeTypeOf('string');
+  });
+
+  it('rejects a payload where message_type is an empty string', async () => {
+    const bus = new MessageBus();
+    await expect(
+      bus.publishMessage('mt.check', makeEvent({ tenant_id: TENANT_A, message_type: '' }))
+    ).rejects.toThrow(/non-empty string when provided/);
+  });
+});
