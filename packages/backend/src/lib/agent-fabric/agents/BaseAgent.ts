@@ -254,9 +254,10 @@ export abstract class BaseAgent {
           userId: resolvedUserId,
           trace_id: traceId,
           idempotencyKey,
-          // agentType drives policy lookup in LLMGateway — always set from
-          // this.name so the correct per-agent policy file is applied.
-          agentType: this.name,
+          // agentType drives policy lookup in LLMGateway — prefer the
+          // canonical agentType (factory key) and fall back to name for
+          // legacy agents that don't define it.
+          agentType: (this as { agentType?: AgentType; name: string }).agentType ?? this.name,
           ...context,
         },
       };
