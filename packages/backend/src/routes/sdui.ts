@@ -19,8 +19,8 @@ import { Request, Response, Router } from "express";
 import { migrateSchema, migrationRunner } from "../../../sdui/src/migrations.js";
 import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from "../../../sdui/src/schema.js";
 import logger from "../../../shared/src/lib/logger.js";
-import { getUnifiedAgentAPI } from "../services/UnifiedAgentAPI.js";
-import { canvasSchemaService } from "../services/CanvasSchemaService.js";
+import { getUnifiedAgentAPI } from "../services/value/UnifiedAgentAPI.js";
+import { canvasSchemaService } from "../services/sdui/CanvasSchemaService.js";
 
 const router: Router = Router();
 

@@ -2,7 +2,7 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { NextFunction, Request, Response } from "express";
 
-import { mfaService } from "../services/MFAService.js"
+import { mfaService } from "../services/auth/MFAService.js"
 
 
 const logger = createLogger({ component: "MFAMiddleware" });

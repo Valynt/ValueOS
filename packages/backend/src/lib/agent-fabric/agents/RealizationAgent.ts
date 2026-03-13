@@ -97,6 +97,8 @@ const EXPANSION_THRESHOLD = 1.1;
 // ---------------------------------------------------------------------------
 
 export class RealizationAgent extends BaseAgent {
+  public override readonly version = "1.0.0";
+
   private readonly realizationRepo = new RealizationReportRepository();
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();

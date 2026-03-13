@@ -19,7 +19,7 @@ vi.mock('../../../lib/logger', () => ({
 }));
 
 // Import dependencies
-import { canvasSchemaService } from '../../services/CanvasSchemaService.js'
+import { canvasSchemaService } from '../../services/sdui/CanvasSchemaService.js'
 import sduiRouter from '../sdui.js'
 
 import { SDUI_VERSION } from '@valueos/sdui';

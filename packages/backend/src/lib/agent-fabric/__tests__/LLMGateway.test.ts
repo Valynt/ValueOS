@@ -4,7 +4,7 @@ import { LLMGateway, type LLMRequest, type LLMResponse } from '../LLMGateway.js'
 import { _test_resetResilienceState, CircuitOpenError } from '../LLMResilience.js';
 
 // Mock CostAwareRouter to avoid hitting real costTracker methods
-vi.mock('../../../services/CostAwareRouter.js', () => ({
+vi.mock('../../../services/post-v1/CostAwareRouter.js', () => ({
   CostAwareRouter: class {
     async routeRequest() {
       return { fallbackToBasic: false };

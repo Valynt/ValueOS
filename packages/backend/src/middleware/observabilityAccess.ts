@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 
-import { auditLogService } from "../services/AuditLogService.js";
+import { auditLogService } from "../services/security/AuditLogService.js";
 
 export function requireObservabilityAccess() {
   return async (req: Request, res: Response, next: NextFunction) => {

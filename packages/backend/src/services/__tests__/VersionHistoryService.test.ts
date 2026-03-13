@@ -27,7 +27,7 @@ vi.mock("./BaseService.js", () => {
   return { BaseService };
 });
 
-import { VersionHistoryService, type SettingsVersion } from "./VersionHistoryService.js";
+import { VersionHistoryService, type SettingsVersion } from "../VersionHistoryService.js";
 
 function makeVersion(overrides: Partial<SettingsVersion> = {}): SettingsVersion {
   return {

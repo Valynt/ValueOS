@@ -73,7 +73,11 @@ export abstract class BaseAgent {
     circuitBreaker: CircuitBreaker
   ) {
     this.lifecycleStage = config.lifecycle_stage;
-    this.version = "1.0.0";
+    // Read version from config metadata so AgentFactory can inject per-agent versions.
+    // Subclasses may also override via `public override readonly version = "x.y.z"`.
+    // The subclass field initializer runs after super(), so it takes precedence.
+    const metadataVersion = config.metadata?.version;
+    this.version = typeof metadataVersion === "string" ? metadataVersion : "1.0.0";
     this.name = config.name;
     this.organizationId = organizationId;
     this.memorySystem = memorySystem;
@@ -215,10 +219,14 @@ export abstract class BaseAgent {
   }> {
     const {
       trackPrediction = true,
-      confidenceThresholds = { low: 0.6, high: 0.85 },
+      confidenceThresholds: _confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
     } = options;
+
+    // Reset per-invocation state so refs from a prior execute() call don't
+    // bleed into this one when the agent instance is reused.
+    this._promptVersionRefs = [];
 
     return this.circuitBreaker.execute(async () => {
       const traceId =
@@ -408,7 +416,7 @@ export abstract class BaseAgent {
 
     // 2. Self-reference patterns
     const selfRefPatterns = [
-      /as a language model/i,
+      /as an? (?:AI )?language model/i,
       /as an AI assistant/i,
       /my training data/i,
       /I was trained/i,

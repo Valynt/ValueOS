@@ -24,8 +24,8 @@ import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 import { FinancialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js'
 import { integrityOutputRepository } from '../../repositories/IntegrityOutputRepository.js'
 import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js'
-import { hypothesisOutputService } from '../../services/HypothesisOutputService.js'
-import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/CaseValueTreeService.js'
+import { hypothesisOutputService } from '../../services/value/HypothesisOutputService.js'
+import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/value/CaseValueTreeService.js'
 
 import { 
   ConflictError,

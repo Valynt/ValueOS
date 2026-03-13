@@ -1,0 +1,15 @@
+{
+  "version": "2026-07-01",
+  "agent": "expansion-agent",
+  "allowedModels": [
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+  ],
+  "allowedTools": ["web_search", "document_lookup"],
+  "maxTokens": 4000,
+  "maxCostUsd": 0.50,
+  "confidenceThresholds": {
+    "low": 0.5,
+    "high": 0.8
+  }
+}

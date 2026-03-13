@@ -16,7 +16,7 @@ import {
   assertRecordExists,
   cleanupBillingTables,
   getTestSupabaseClient,
-  seedTestData,,
+  seedTestData,
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 import {

@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import { createLogger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
-import { securityAuditService } from "../services/SecurityAuditService.js";
+import { securityAuditService } from "../services/security/SecurityAuditService.js";
 
 const logger = createLogger({ component: "billingAccessEnforcement" });
 

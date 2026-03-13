@@ -6,7 +6,7 @@
 
 import { createLogger } from "@shared/lib/logger";
 
-import { llmSanitizer } from "../services/LLMSanitizer.js"
+import { llmSanitizer } from "../services/llm/LLMSanitizer.js"
 
 const logger = createLogger({ component: "SecurityUtils" });
 

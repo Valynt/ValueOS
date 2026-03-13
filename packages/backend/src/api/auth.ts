@@ -20,12 +20,12 @@ import { authRateLimiter, recordAuthFailure } from "../middleware/authRateLimite
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requireMFA } from "../middleware/mfa.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
-import { auditLogService } from "../services/AuditLogService.js"
-import { authService } from "../services/AuthService.js"
+import { auditLogService } from "../services/security/AuditLogService.js"
+import { authService } from "../services/auth/AuthService.js"
 import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
 import { AUDIT_ACTION } from "../types/audit.js"
 import { AuthenticationError, ValidationError } from "../services/errors.js"
-import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
+import { userProfileDirectoryService } from "../services/auth/UserProfileDirectoryService.js"
 import { sanitizeErrorMessage } from "../utils/security.js"
 
 const logger = createLogger({ component: "AuthAPI" });

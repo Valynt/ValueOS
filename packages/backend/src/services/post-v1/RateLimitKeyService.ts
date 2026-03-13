@@ -22,6 +22,16 @@ export interface RateLimitKeyOptions {
   scope?: string; // Optional additional scope
 }
 
+interface ParsedRateLimitKey {
+  service?: string;
+  tier?: string;
+  tenantId?: string;
+  userId?: string;
+  ip?: string;
+  endpoint?: string;
+  scope?: string;
+}
+
 export class RateLimitKeyService {
   private static readonly SEPARATOR = ':';
   private static readonly KEY_PREFIX = 'rl';
@@ -111,15 +121,7 @@ export class RateLimitKeyService {
   /**
    * Parse rate limit key to extract components
    */
-  static parseKey(key: string): {
-    service?: string;
-    tier?: string;
-    tenantId?: string;
-    userId?: string;
-    ip?: string;
-    endpoint?: string;
-    scope?: string;
-  } {
+  static parseKey(key: string): ParsedRateLimitKey {
     const parts = key.split(this.SEPARATOR);
 
     if (parts[0] !== this.KEY_PREFIX || parts.length < 3) {
@@ -127,7 +129,7 @@ export class RateLimitKeyService {
     }
 
     const [, service, tier, tenantId, resource, scope] = parts;
-    const result: any = { service, tier, tenantId };
+    const result: ParsedRateLimitKey = { service, tier, tenantId };
 
     if (resource) {
       if (resource.startsWith('user:')) {
@@ -158,12 +160,12 @@ export class RateLimitKeyService {
       return context.tenantId;
     }
 
-    const reqTenantId = (req as any).tenantId as string | undefined;
+    const reqTenantId = req.tenantId;
     if (reqTenantId) {
       return reqTenantId;
     }
 
-    const serviceIdentityVerified = Boolean((req as any).serviceIdentityVerified);
+    const serviceIdentityVerified = Boolean(req.serviceIdentityVerified);
     if (serviceIdentityVerified) {
       const headerTenant = req.headers['x-tenant-id'];
       if (Array.isArray(headerTenant)) {
@@ -184,7 +186,7 @@ export class RateLimitKeyService {
   ): string | undefined {
     // Priority: context > request > undefined
     return context?.userId ||
-           (req as any).user?.id ||
+           req.user?.id ||
            undefined;
   }
 
@@ -196,12 +198,27 @@ export class RateLimitKeyService {
     context?: Partial<RateLimitKeyContext>
   ): string | undefined {
     // Priority: context > request headers > connection > undefined
-    return context?.ip ||
-           req.headers['x-forwarded-for'] as string ||
-           req.headers['x-real-ip'] as string ||
-           req.ip ||
-           req.socket.remoteAddress ||
-           undefined;
+    if (context?.ip) {
+      return context.ip;
+    }
+
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string') {
+      return forwardedFor.split(',')[0]?.trim() || undefined;
+    }
+    if (Array.isArray(forwardedFor) && forwardedFor.length > 0) {
+      return forwardedFor[0];
+    }
+
+    const realIp = req.headers['x-real-ip'];
+    if (typeof realIp === 'string') {
+      return realIp;
+    }
+    if (Array.isArray(realIp) && realIp.length > 0) {
+      return realIp[0];
+    }
+
+    return req.ip || req.socket.remoteAddress || undefined;
   }
 
   /**

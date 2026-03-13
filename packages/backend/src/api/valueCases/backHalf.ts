@@ -29,7 +29,7 @@ import { IntegrityResultRepository } from '../../repositories/IntegrityResultRep
 import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepository.js';
 import { RealizationReportRepository } from '../../repositories/RealizationReportRepository.js';
 import { ExpansionOpportunityRepository } from '../../repositories/ExpansionOpportunityRepository.js';
-import { getPdfExportService } from '../../services/PdfExportService.js';
+import { getPdfExportService } from '../../services/export/PdfExportService.js';
 import { getPptxExportService } from '../../services/export/PptxExportService.js';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { LLMGateway as FabricLLMGateway } from '../../lib/agent-fabric/LLMGateway.js';

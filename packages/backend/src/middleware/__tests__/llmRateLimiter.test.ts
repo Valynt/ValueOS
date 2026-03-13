@@ -18,7 +18,7 @@ vi.mock('@shared/lib/redisClient', () => ({
   getRedisClient: vi.fn().mockResolvedValue(null)
 }));
 
-vi.mock('../services/RedisCircuitBreaker', () => ({
+vi.mock('../services/agents/resilience/RedisCircuitBreaker', () => ({
   redisCircuitBreaker: {
     execute: vi.fn().mockImplementation(async ({ fallback }) => {
       return fallback();
@@ -26,7 +26,7 @@ vi.mock('../services/RedisCircuitBreaker', () => ({
   }
 }));
 
-vi.mock('../services/RateLimitKeyService', () => ({
+vi.mock('../services/llm/RateLimitKeyService', () => ({
   RateLimitKeyService: {
     generateSecureKey: vi.fn().mockReturnValue('test-key'),
     generateUserKey: vi.fn().mockReturnValue('test-key')

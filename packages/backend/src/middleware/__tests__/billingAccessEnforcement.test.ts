@@ -14,7 +14,7 @@ vi.mock("../../lib/supabase.js", () => ({
 }));
 
 const logRequestEvent = vi.fn(async () => {});
-vi.mock("../../services/SecurityAuditService.js", () => ({
+vi.mock("../../services/security/SecurityAuditService.js", () => ({
   securityAuditService: {
     logRequestEvent,
   },
