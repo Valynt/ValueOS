@@ -178,6 +178,13 @@ describe("BaseAgent", () => {
       expect(result).toBe(false);
     });
 
+
+    it("throws when organization_id does not match constructor tenant", async () => {
+      await expect(
+        agent.validateInput(makeContext({ organization_id: "org-mismatch" }))
+      ).rejects.toThrow(/tenant context mismatch/i);
+    });
+
     it("uses organizationId from constructor for LLM tenant metadata", async () => {
       // validateInput validates the context but does not mutate organizationId —
       // the agent always uses the org it was constructed with (constructor injection).

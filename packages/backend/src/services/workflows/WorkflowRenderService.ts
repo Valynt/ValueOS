@@ -8,6 +8,7 @@ import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker.js";
+import { assertTenantContextMatch } from "../../lib/tenant/assertTenantContextMatch.js";
 
 let _renderFactory: ReturnType<typeof createAgentFactory> | null = null;
 function getRenderFactory(): ReturnType<typeof createAgentFactory> {
@@ -74,12 +75,17 @@ export class DefaultWorkflowRenderService implements WorkflowRenderService {
         break;
       default: {
         // ADR-0014: direct factory invocation — no HTTP round-trip
-        const orgId = context?.organizationId ?? 'unknown';
-        const agentInstance = getRenderFactory().create(agent, orgId);
+        const orgId = context?.organizationId ?? envelope.organizationId;
+        assertTenantContextMatch({
+          expectedOrganizationId: envelope.organizationId,
+          contextOrganizationId: orgId,
+          source: 'WorkflowRenderService.generateSDUIPage',
+        });
+        const agentInstance = getRenderFactory().create(agent, envelope.organizationId);
         const output = await agentInstance.execute({
           workspace_id: context?.sessionId ?? '',
           user_id: context?.userId ?? '',
-          organization_id: orgId,
+          organization_id: envelope.organizationId,
           session_id: context?.sessionId ?? '',
           query,
         });

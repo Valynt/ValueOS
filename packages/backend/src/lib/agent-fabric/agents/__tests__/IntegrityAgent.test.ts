@@ -550,4 +550,11 @@ describe("IntegrityAgent", () => {
       ]);
     });
   });
+
+  it("rejects execution when context organization does not match agent tenant", async () => {
+    await expect(
+      agent.execute(makeContext({ organization_id: "org-mismatch" }))
+    ).rejects.toThrow(/tenant context mismatch/i);
+  });
+
 });
