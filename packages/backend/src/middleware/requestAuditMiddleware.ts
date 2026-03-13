@@ -11,6 +11,20 @@ import { AUDIT_ACTION, AuditAction } from "../types/audit.js";
 
 const DEFAULT_IGNORED_PATHS = ["/health", "/metrics"];
 
+function getNormalizedRequestPath(req: Request): string {
+  const base = req.baseUrl || "";
+  const path = req.path || "";
+  const combined = `${base}${path}`;
+
+  if (combined) {
+    return combined;
+  }
+
+  const original = req.originalUrl || "";
+  const [originalPath] = original.split("?");
+  return originalPath || "/";
+}
+
 function getRequestId(req: Request): string {
   const headerId = req.headers["x-request-id"];
   if (Array.isArray(headerId)) {
@@ -39,13 +53,14 @@ export async function emitRequestAuditEvent(
   eventData?: Record<string, unknown>
 ): Promise<void> {
   const actor = getActor(req);
+  const normalizedPath = getNormalizedRequestPath(req);
   await securityAuditService.logRequestEvent({
     requestId: (res.locals.requestId as string) || (req.requestId as string) || getRequestId(req),
     userId: actor.id,
     actor: actor.label,
     action,
-    resource: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
-    requestPath: sanitizeForLogging(req.path || req.originalUrl) as string,
+    resource: sanitizeForLogging(normalizedPath) as string,
+    requestPath: sanitizeForLogging(normalizedPath) as string,
     ipAddress: req.ip || req.socket.remoteAddress || undefined,
     userAgent: req.get("user-agent") || undefined,
     statusCode: res.statusCode,
@@ -79,7 +94,7 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     req.requestId = requestId;
     res.setHeader("X-Request-ID", requestId);
 
-    const requestPath = req.originalUrl || req.path;
+    const requestPath = getNormalizedRequestPath(req);
     if (ignoredPaths.some((path) => requestPath.startsWith(path)) || !requestPath.startsWith("/api/")) {
       return next();
     }
