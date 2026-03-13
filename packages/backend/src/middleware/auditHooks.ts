@@ -6,6 +6,7 @@
 
 import { logger } from "@shared/lib/logger";
 import { NextFunction, Request, Response } from "express";
+import { randomUUID } from "crypto";
 
 import { auditLogService } from "../services/AuditLogService";
 import {
@@ -35,7 +36,7 @@ function buildValidatedAuditInput(req: Request, input: BuildAuditInput) {
   const resourceContext = extractAuditResourceContext(req);
   const networkContext = extractAuditNetworkContext(req);
   const correlationId =
-    (req as { requestId?: string }).requestId || req.get("x-request-id") || `audit-${Date.now()}`;
+    (req as { requestId?: string }).requestId || req.get("x-request-id") || randomUUID();
   const timestamp = new Date().toISOString();
 
   const payload = requiredAuditPayloadSchema.parse({
