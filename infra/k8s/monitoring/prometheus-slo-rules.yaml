@@ -9,397 +9,193 @@ data:
       - name: valueos_slo_recording
         interval: 30s
         rules:
+          # SLO targets
           - record: slo:target:api_availability
-            expr: vector(0.9995)
+            expr: vector(0.999)
 
-          - record: slo:target:api_latency
+          - record: slo:target:api_latency_p95
             expr: vector(0.95)
 
-          - record: slo:target:runtime_availability
-            expr: vector(0.999)
+          - record: slo:target:auth_success
+            expr: vector(0.995)
 
-          - record: slo:target:runtime_latency
+          - record: slo:target:queue_health
+            expr: vector(0.99)
+
+
+          - record: slo:target:agent_cold_start
             expr: vector(0.95)
 
-          - record: slo:target:messaging_availability
-            expr: vector(0.999)
+          # Agent cold-start SLI (enqueue-to-ready <= 45s)
+          - record: slo:agent_cold_start:good_rate5m
+            expr: |
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[5m]))
+              /
+              sum(rate(agent_enqueue_to_ready_seconds_count[5m]))
 
-          - record: slo:target:messaging_latency
-            expr: vector(0.99)
+          - record: slo:agent_cold_start:good_rate1h
+            expr: |
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[1h]))
+              /
+              sum(rate(agent_enqueue_to_ready_seconds_count[1h]))
 
-          - record: slo:target:memory_availability
-            expr: vector(0.999)
+          - record: slo:agent_cold_start:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:agent_cold_start:good_rate5m) / (1 - slo:target:agent_cold_start)
 
-          - record: slo:target:memory_freshness
-            expr: vector(0.99)
+          - record: slo:agent_cold_start:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:agent_cold_start:good_rate1h) / (1 - slo:target:agent_cold_start)
 
+          # API availability SLI (non-5xx over total)
           - record: slo:api_availability:ratio_rate5m
-            expr: sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[5m])) / sum(rate(http_requests_total{job="valueos-api"}[5m]))
+            expr: |
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code!~"5.."}[5m]))
+              /
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[5m]))
 
           - record: slo:api_availability:ratio_rate1h
-            expr: sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[1h])) / sum(rate(http_requests_total{job="valueos-api"}[1h]))
-
-          - record: slo:api_availability:ratio_rate30m
-            expr: sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[30m])) / sum(rate(http_requests_total{job="valueos-api"}[30m]))
-
-          - record: slo:api_availability:ratio_rate6h
-            expr: sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[6h])) / sum(rate(http_requests_total{job="valueos-api"}[6h]))
+            expr: |
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code!~"5.."}[1h]))
+              /
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[1h]))
 
           - record: slo:api_availability:error_budget_burn_rate5m
-            expr: (1 - slo:api_availability:ratio_rate5m) / (1 - slo:target:api_availability)
+            expr: |
+              (1 - slo:api_availability:ratio_rate5m) / (1 - slo:target:api_availability)
 
           - record: slo:api_availability:error_budget_burn_rate1h
-            expr: (1 - slo:api_availability:ratio_rate1h) / (1 - slo:target:api_availability)
+            expr: |
+              (1 - slo:api_availability:ratio_rate1h) / (1 - slo:target:api_availability)
 
-          - record: slo:api_availability:error_budget_burn_rate30m
-            expr: (1 - slo:api_availability:ratio_rate30m) / (1 - slo:target:api_availability)
-
-          - record: slo:api_availability:error_budget_burn_rate6h
-            expr: (1 - slo:api_availability:ratio_rate6h) / (1 - slo:target:api_availability)
-
+          # API latency SLI (P95 under 300ms)
           - record: slo:api_latency:good_rate5m
-            expr: sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[5m])) / sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[5m]))
+            expr: |
+              sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",le="300"}[5m]))
+              /
+              sum(rate(valuecanvas_http_request_duration_ms_count{job="valueos-app",service="valueos-backend"}[5m]))
 
           - record: slo:api_latency:good_rate1h
-            expr: sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[1h])) / sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[1h]))
-
-          - record: slo:api_latency:good_rate30m
-            expr: sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[30m])) / sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[30m]))
-
-          - record: slo:api_latency:good_rate6h
-            expr: sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[6h])) / sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[6h]))
+            expr: |
+              sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",le="300"}[1h]))
+              /
+              sum(rate(valuecanvas_http_request_duration_ms_count{job="valueos-app",service="valueos-backend"}[1h]))
 
           - record: slo:api_latency:error_budget_burn_rate5m
-            expr: (1 - slo:api_latency:good_rate5m) / (1 - slo:target:api_latency)
+            expr: |
+              (1 - slo:api_latency:good_rate5m) / (1 - slo:target:api_latency_p95)
 
           - record: slo:api_latency:error_budget_burn_rate1h
-            expr: (1 - slo:api_latency:good_rate1h) / (1 - slo:target:api_latency)
+            expr: |
+              (1 - slo:api_latency:good_rate1h) / (1 - slo:target:api_latency_p95)
 
-          - record: slo:api_latency:error_budget_burn_rate30m
-            expr: (1 - slo:api_latency:good_rate30m) / (1 - slo:target:api_latency)
+          # Auth success SLI
+          - record: slo:auth_success:ratio_rate5m
+            expr: |
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend",result="success"}[5m]))
+              /
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend"}[5m]))
 
-          - record: slo:api_latency:error_budget_burn_rate6h
-            expr: (1 - slo:api_latency:good_rate6h) / (1 - slo:target:api_latency)
+          - record: slo:auth_success:ratio_rate1h
+            expr: |
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend",result="success"}[1h]))
+              /
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend"}[1h]))
 
-          - record: slo:runtime_availability:ratio_rate5m
-            expr: sum(rate(runtime_execution_total{status=~"success|completed"}[5m])) / sum(rate(runtime_execution_total[5m]))
+          - record: slo:auth_success:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:auth_success:ratio_rate5m) / (1 - slo:target:auth_success)
 
-          - record: slo:runtime_availability:ratio_rate1h
-            expr: sum(rate(runtime_execution_total{status=~"success|completed"}[1h])) / sum(rate(runtime_execution_total[1h]))
+          - record: slo:auth_success:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:auth_success:ratio_rate1h) / (1 - slo:target:auth_success)
 
-          - record: slo:runtime_availability:ratio_rate30m
-            expr: sum(rate(runtime_execution_total{status=~"success|completed"}[30m])) / sum(rate(runtime_execution_total[30m]))
+          # Queue health SLI (queue depth and age within thresholds)
+          - record: slo:queue_health:ratio_rate5m
+            expr: |
+              avg_over_time((queue_depth{job="valueos-app",service="valueos-backend",queue="default"} < bool 100)[5m:])
+              *
+              avg_over_time((queue_oldest_message_age_seconds{job="valueos-app",service="valueos-backend",queue="default"} < bool 120)[5m:])
 
-          - record: slo:runtime_availability:ratio_rate6h
-            expr: sum(rate(runtime_execution_total{status=~"success|completed"}[6h])) / sum(rate(runtime_execution_total[6h]))
+          - record: slo:queue_health:ratio_rate1h
+            expr: |
+              avg_over_time((queue_depth{job="valueos-app",service="valueos-backend",queue="default"} < bool 100)[1h:])
+              *
+              avg_over_time((queue_oldest_message_age_seconds{job="valueos-app",service="valueos-backend",queue="default"} < bool 120)[1h:])
 
-          - record: slo:runtime_availability:error_budget_burn_rate5m
-            expr: (1 - slo:runtime_availability:ratio_rate5m) / (1 - slo:target:runtime_availability)
+          - record: slo:queue_health:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:queue_health:ratio_rate5m) / (1 - slo:target:queue_health)
 
-          - record: slo:runtime_availability:error_budget_burn_rate1h
-            expr: (1 - slo:runtime_availability:ratio_rate1h) / (1 - slo:target:runtime_availability)
-
-          - record: slo:runtime_availability:error_budget_burn_rate30m
-            expr: (1 - slo:runtime_availability:ratio_rate30m) / (1 - slo:target:runtime_availability)
-
-          - record: slo:runtime_availability:error_budget_burn_rate6h
-            expr: (1 - slo:runtime_availability:ratio_rate6h) / (1 - slo:target:runtime_availability)
-
-          - record: slo:runtime_latency:good_rate5m
-            expr: sum(rate(runtime_execution_duration_seconds_bucket{le="2"}[5m])) / sum(rate(runtime_execution_duration_seconds_count[5m]))
-
-          - record: slo:runtime_latency:good_rate1h
-            expr: sum(rate(runtime_execution_duration_seconds_bucket{le="2"}[1h])) / sum(rate(runtime_execution_duration_seconds_count[1h]))
-
-          - record: slo:runtime_latency:good_rate30m
-            expr: sum(rate(runtime_execution_duration_seconds_bucket{le="2"}[30m])) / sum(rate(runtime_execution_duration_seconds_count[30m]))
-
-          - record: slo:runtime_latency:good_rate6h
-            expr: sum(rate(runtime_execution_duration_seconds_bucket{le="2"}[6h])) / sum(rate(runtime_execution_duration_seconds_count[6h]))
-
-          - record: slo:runtime_latency:error_budget_burn_rate5m
-            expr: (1 - slo:runtime_latency:good_rate5m) / (1 - slo:target:runtime_latency)
-
-          - record: slo:runtime_latency:error_budget_burn_rate1h
-            expr: (1 - slo:runtime_latency:good_rate1h) / (1 - slo:target:runtime_latency)
-
-          - record: slo:runtime_latency:error_budget_burn_rate30m
-            expr: (1 - slo:runtime_latency:good_rate30m) / (1 - slo:target:runtime_latency)
-
-          - record: slo:runtime_latency:error_budget_burn_rate6h
-            expr: (1 - slo:runtime_latency:good_rate6h) / (1 - slo:target:runtime_latency)
-
-          - record: slo:messaging_availability:ratio_rate5m
-            expr: sum(rate(message_bus_delivery_total{result="success"}[5m])) / sum(rate(message_bus_delivery_total[5m]))
-
-          - record: slo:messaging_availability:ratio_rate1h
-            expr: sum(rate(message_bus_delivery_total{result="success"}[1h])) / sum(rate(message_bus_delivery_total[1h]))
-
-          - record: slo:messaging_availability:ratio_rate30m
-            expr: sum(rate(message_bus_delivery_total{result="success"}[30m])) / sum(rate(message_bus_delivery_total[30m]))
-
-          - record: slo:messaging_availability:ratio_rate6h
-            expr: sum(rate(message_bus_delivery_total{result="success"}[6h])) / sum(rate(message_bus_delivery_total[6h]))
-
-          - record: slo:messaging_availability:error_budget_burn_rate5m
-            expr: (1 - slo:messaging_availability:ratio_rate5m) / (1 - slo:target:messaging_availability)
-
-          - record: slo:messaging_availability:error_budget_burn_rate1h
-            expr: (1 - slo:messaging_availability:ratio_rate1h) / (1 - slo:target:messaging_availability)
-
-          - record: slo:messaging_availability:error_budget_burn_rate30m
-            expr: (1 - slo:messaging_availability:ratio_rate30m) / (1 - slo:target:messaging_availability)
-
-          - record: slo:messaging_availability:error_budget_burn_rate6h
-            expr: (1 - slo:messaging_availability:ratio_rate6h) / (1 - slo:target:messaging_availability)
-
-          - record: slo:messaging_latency:good_rate5m
-            expr: sum(rate(message_bus_delivery_latency_seconds_bucket{le="1"}[5m])) / sum(rate(message_bus_delivery_latency_seconds_count[5m]))
-
-          - record: slo:messaging_latency:good_rate1h
-            expr: sum(rate(message_bus_delivery_latency_seconds_bucket{le="1"}[1h])) / sum(rate(message_bus_delivery_latency_seconds_count[1h]))
-
-          - record: slo:messaging_latency:good_rate30m
-            expr: sum(rate(message_bus_delivery_latency_seconds_bucket{le="1"}[30m])) / sum(rate(message_bus_delivery_latency_seconds_count[30m]))
-
-          - record: slo:messaging_latency:good_rate6h
-            expr: sum(rate(message_bus_delivery_latency_seconds_bucket{le="1"}[6h])) / sum(rate(message_bus_delivery_latency_seconds_count[6h]))
-
-          - record: slo:messaging_latency:error_budget_burn_rate5m
-            expr: (1 - slo:messaging_latency:good_rate5m) / (1 - slo:target:messaging_latency)
-
-          - record: slo:messaging_latency:error_budget_burn_rate1h
-            expr: (1 - slo:messaging_latency:good_rate1h) / (1 - slo:target:messaging_latency)
-
-          - record: slo:messaging_latency:error_budget_burn_rate30m
-            expr: (1 - slo:messaging_latency:good_rate30m) / (1 - slo:target:messaging_latency)
-
-          - record: slo:messaging_latency:error_budget_burn_rate6h
-            expr: (1 - slo:messaging_latency:good_rate6h) / (1 - slo:target:messaging_latency)
-
-          - record: slo:memory_availability:ratio_rate5m
-            expr: sum(rate(memory_operation_total{result="success"}[5m])) / sum(rate(memory_operation_total[5m]))
-
-          - record: slo:memory_availability:ratio_rate1h
-            expr: sum(rate(memory_operation_total{result="success"}[1h])) / sum(rate(memory_operation_total[1h]))
-
-          - record: slo:memory_availability:ratio_rate30m
-            expr: sum(rate(memory_operation_total{result="success"}[30m])) / sum(rate(memory_operation_total[30m]))
-
-          - record: slo:memory_availability:ratio_rate6h
-            expr: sum(rate(memory_operation_total{result="success"}[6h])) / sum(rate(memory_operation_total[6h]))
-
-          - record: slo:memory_availability:error_budget_burn_rate5m
-            expr: (1 - slo:memory_availability:ratio_rate5m) / (1 - slo:target:memory_availability)
-
-          - record: slo:memory_availability:error_budget_burn_rate1h
-            expr: (1 - slo:memory_availability:ratio_rate1h) / (1 - slo:target:memory_availability)
-
-          - record: slo:memory_availability:error_budget_burn_rate30m
-            expr: (1 - slo:memory_availability:ratio_rate30m) / (1 - slo:target:memory_availability)
-
-          - record: slo:memory_availability:error_budget_burn_rate6h
-            expr: (1 - slo:memory_availability:ratio_rate6h) / (1 - slo:target:memory_availability)
-
-          - record: slo:memory_freshness:good_rate5m
-            expr: avg_over_time((memory_freshness_lag_seconds < bool 120)[5m:])
-
-          - record: slo:memory_freshness:good_rate1h
-            expr: avg_over_time((memory_freshness_lag_seconds < bool 120)[1h:])
-
-          - record: slo:memory_freshness:good_rate30m
-            expr: avg_over_time((memory_freshness_lag_seconds < bool 120)[30m:])
-
-          - record: slo:memory_freshness:good_rate6h
-            expr: avg_over_time((memory_freshness_lag_seconds < bool 120)[6h:])
-
-          - record: slo:memory_freshness:error_budget_burn_rate5m
-            expr: (1 - slo:memory_freshness:good_rate5m) / (1 - slo:target:memory_freshness)
-
-          - record: slo:memory_freshness:error_budget_burn_rate1h
-            expr: (1 - slo:memory_freshness:good_rate1h) / (1 - slo:target:memory_freshness)
-
-          - record: slo:memory_freshness:error_budget_burn_rate30m
-            expr: (1 - slo:memory_freshness:good_rate30m) / (1 - slo:target:memory_freshness)
-
-          - record: slo:memory_freshness:error_budget_burn_rate6h
-            expr: (1 - slo:memory_freshness:good_rate6h) / (1 - slo:target:memory_freshness)
+          - record: slo:queue_health:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:queue_health:ratio_rate1h) / (1 - slo:target:queue_health)
 
       - name: valueos_slo_burn_rate_alerts
         interval: 30s
         rules:
           - alert: ApiAvailabilitySLOBurnRateTooHigh
-            expr: slo:api_availability:error_budget_burn_rate5m > 14.4 and slo:api_availability:error_budget_burn_rate1h > 14.4
+            expr: |
+              slo:api_availability:error_budget_burn_rate5m > 14.4
+              and
+              slo:api_availability:error_budget_burn_rate1h > 14.4
             for: 5m
             labels:
               severity: critical
               slo: api-availability
             annotations:
-              summary: API availability error budget burn rate is critically high
-              description: API availability burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#api-availability
-
-          - alert: ApiAvailabilitySLOBurnRateWarning
-            expr: slo:api_availability:error_budget_burn_rate30m > 6 and slo:api_availability:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: api-availability
-            annotations:
-              summary: API availability error budget burn rate is elevated
-              description: API availability burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#api-availability
+              summary: "API availability error budget burn rate is critically high"
+              description: "API availability burn-rate exceeded 14.4x in 5m and 1h windows"
 
           - alert: ApiLatencySLOBurnRateTooHigh
-            expr: slo:api_latency:error_budget_burn_rate5m > 14.4 and slo:api_latency:error_budget_burn_rate1h > 14.4
+            expr: |
+              slo:api_latency:error_budget_burn_rate5m > 14.4
+              and
+              slo:api_latency:error_budget_burn_rate1h > 14.4
             for: 5m
             labels:
               severity: critical
               slo: api-latency
             annotations:
-              summary: API latency error budget burn rate is critically high
-              description: API latency burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#api-latency
+              summary: "API latency error budget burn rate is critically high"
+              description: "API latency burn-rate exceeded 14.4x in 5m and 1h windows"
 
-          - alert: ApiLatencySLOBurnRateWarning
-            expr: slo:api_latency:error_budget_burn_rate30m > 6 and slo:api_latency:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: api-latency
-            annotations:
-              summary: API latency error budget burn rate is elevated
-              description: API latency burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#api-latency
-
-          - alert: RuntimeAvailabilitySLOBurnRateTooHigh
-            expr: slo:runtime_availability:error_budget_burn_rate5m > 14.4 and slo:runtime_availability:error_budget_burn_rate1h > 14.4
+          - alert: AuthSuccessSLOBurnRateTooHigh
+            expr: |
+              slo:auth_success:error_budget_burn_rate5m > 14.4
+              and
+              slo:auth_success:error_budget_burn_rate1h > 14.4
             for: 5m
             labels:
               severity: critical
-              slo: runtime-availability
+              slo: auth-success
             annotations:
-              summary: Runtime availability error budget burn rate is critically high
-              description: Runtime availability burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#runtime-failover-triggers
+              summary: "Auth success error budget burn rate is critically high"
+              description: "Auth success burn-rate exceeded 14.4x in 5m and 1h windows"
 
-          - alert: RuntimeAvailabilitySLOBurnRateWarning
-            expr: slo:runtime_availability:error_budget_burn_rate30m > 6 and slo:runtime_availability:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: runtime-availability
-            annotations:
-              summary: Runtime availability error budget burn rate is elevated
-              description: Runtime availability burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#runtime-failover-triggers
-
-          - alert: RuntimeLatencySLOBurnRateTooHigh
-            expr: slo:runtime_latency:error_budget_burn_rate5m > 14.4 and slo:runtime_latency:error_budget_burn_rate1h > 14.4
+          - alert: QueueHealthSLOBurnRateTooHigh
+            expr: |
+              slo:queue_health:error_budget_burn_rate5m > 14.4
+              and
+              slo:queue_health:error_budget_burn_rate1h > 14.4
             for: 5m
             labels:
               severity: critical
-              slo: runtime-latency
+              slo: queue-health
             annotations:
-              summary: Runtime latency error budget burn rate is critically high
-              description: Runtime latency burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#runtime-failover-triggers
+              summary: "Queue health error budget burn rate is critically high"
+              description: "Queue health burn-rate exceeded 14.4x in 5m and 1h windows"
 
-          - alert: RuntimeLatencySLOBurnRateWarning
-            expr: slo:runtime_latency:error_budget_burn_rate30m > 6 and slo:runtime_latency:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: runtime-latency
-            annotations:
-              summary: Runtime latency error budget burn rate is elevated
-              description: Runtime latency burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#runtime-failover-triggers
 
-          - alert: MessagingAvailabilitySLOBurnRateTooHigh
-            expr: slo:messaging_availability:error_budget_burn_rate5m > 14.4 and slo:messaging_availability:error_budget_burn_rate1h > 14.4
+          - alert: AgentColdStartSLOBurnRateTooHigh
+            expr: |
+              slo:agent_cold_start:error_budget_burn_rate5m > 14.4
+              and
+              slo:agent_cold_start:error_budget_burn_rate1h > 14.4
             for: 5m
             labels:
               severity: critical
-              slo: messaging-availability
+              slo: agent-cold-start
             annotations:
-              summary: Messaging availability error budget burn rate is critically high
-              description: Messaging availability burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#messaging-and-queue-health
-
-          - alert: MessagingAvailabilitySLOBurnRateWarning
-            expr: slo:messaging_availability:error_budget_burn_rate30m > 6 and slo:messaging_availability:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: messaging-availability
-            annotations:
-              summary: Messaging availability error budget burn rate is elevated
-              description: Messaging availability burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#messaging-and-queue-health
-
-          - alert: MessagingLatencySLOBurnRateTooHigh
-            expr: slo:messaging_latency:error_budget_burn_rate5m > 14.4 and slo:messaging_latency:error_budget_burn_rate1h > 14.4
-            for: 5m
-            labels:
-              severity: critical
-              slo: messaging-latency
-            annotations:
-              summary: Messaging latency error budget burn rate is critically high
-              description: Messaging latency burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#messaging-and-queue-health
-
-          - alert: MessagingLatencySLOBurnRateWarning
-            expr: slo:messaging_latency:error_budget_burn_rate30m > 6 and slo:messaging_latency:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: messaging-latency
-            annotations:
-              summary: Messaging latency error budget burn rate is elevated
-              description: Messaging latency burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#messaging-and-queue-health
-
-          - alert: MemoryAvailabilitySLOBurnRateTooHigh
-            expr: slo:memory_availability:error_budget_burn_rate5m > 14.4 and slo:memory_availability:error_budget_burn_rate1h > 14.4
-            for: 5m
-            labels:
-              severity: critical
-              slo: memory-availability
-            annotations:
-              summary: Memory availability error budget burn rate is critically high
-              description: Memory availability burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#memory-and-database-failover-triggers
-
-          - alert: MemoryAvailabilitySLOBurnRateWarning
-            expr: slo:memory_availability:error_budget_burn_rate30m > 6 and slo:memory_availability:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: memory-availability
-            annotations:
-              summary: Memory availability error budget burn rate is elevated
-              description: Memory availability burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#memory-and-database-failover-triggers
-
-          - alert: MemoryFreshnessSLOBurnRateTooHigh
-            expr: slo:memory_freshness:error_budget_burn_rate5m > 14.4 and slo:memory_freshness:error_budget_burn_rate1h > 14.4
-            for: 5m
-            labels:
-              severity: critical
-              slo: memory-freshness
-            annotations:
-              summary: Memory freshness error budget burn rate is critically high
-              description: Memory freshness burn-rate exceeded 14.4x in 5m and 1h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#memory-and-database-failover-triggers
-
-          - alert: MemoryFreshnessSLOBurnRateWarning
-            expr: slo:memory_freshness:error_budget_burn_rate30m > 6 and slo:memory_freshness:error_budget_burn_rate6h > 6
-            for: 15m
-            labels:
-              severity: warning
-              slo: memory-freshness
-            annotations:
-              summary: Memory freshness error budget burn rate is elevated
-              description: Memory freshness burn-rate exceeded 6x in 30m and 6h windows
-              runbook_url: https://github.com/ValueOSAI/ValueOS/blob/main/docs/runbooks/disaster-recovery.md#memory-and-database-failover-triggers
+              summary: "Agent cold-start enqueue-to-ready SLO burn rate is critically high"
+              description: "Cold-start burn-rate exceeded 14.4x in 5m and 1h windows"

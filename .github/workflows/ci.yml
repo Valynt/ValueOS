@@ -89,6 +89,9 @@ jobs:
 
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
+      - name: SLO rule metrics contract guard
+        run: pnpm check:slo-rule-metrics-contract
+
 
       - name: Compose DB binding guard
         run: node scripts/ci/check-compose-db-bindings.mjs
