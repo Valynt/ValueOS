@@ -225,7 +225,7 @@ async function recordFallbackActivation(alertContext: Record<string, unknown>): 
   let activationsInWindow: number;
 
   try {
-    const redis = getRedisClient();
+    const redis = await getRedisClient();
     if (redis) {
       // Use a sorted set keyed by timestamp. Each activation is a member scored
       // by its epoch-ms timestamp. ZREMRANGEBYSCORE prunes entries outside the
