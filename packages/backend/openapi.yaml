@@ -234,6 +234,372 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  # ---------------------------------------------------------------------------
+  # Authentication
+  # ---------------------------------------------------------------------------
+  /api/v1/auth/login:
+    post:
+      summary: Authenticate with email and password
+      operationId: login
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/signup:
+    post:
+      summary: Register a new user account
+      operationId: signup
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/logout:
+    post:
+      summary: Invalidate the current session
+      operationId: logout
+      tags: [Authentication]
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/session:
+    get:
+      summary: Get the current session and user
+      operationId: getSession
+      tags: [Authentication]
+      security: []
+      responses:
+        "200":
+          description: Active session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh an expired access token
+      operationId: refreshSession
+      tags: [Authentication]
+      security: []
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------------------
+  # Value Cases
+  # ---------------------------------------------------------------------------
+  /api/v1/cases:
+    post:
+      summary: Create a value case
+      operationId: createValueCase
+      tags: [Value Cases]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateValueCaseRequest"
+      responses:
+        "201":
+          description: Value case created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+    get:
+      summary: List value cases for the tenant
+      operationId: listValueCases
+      tags: [Value Cases]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, archived]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of value cases
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/cases/{caseId}:
+    parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get a value case by ID
+      operationId: getValueCase
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Value case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      summary: Update a value case
+      operationId: updateValueCase
+      tags: [Value Cases]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateValueCaseRequest"
+      responses:
+        "200":
+          description: Updated value case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValueCaseEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a value case
+      operationId: deleteValueCase
+      tags: [Value Cases]
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/cases/{caseId}/hypothesis:
+    parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get the latest hypothesis output for a case
+      operationId: getCaseHypothesis
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Hypothesis output
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HypothesisOutput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------------------------------------------------------------------
+  # Agent Invocation
+  # ---------------------------------------------------------------------------
+  # Literal paths must precede parameterized paths to avoid ambiguity
+  /api/v1/agents/execute:
+    post:
+      summary: Execute an agent action by type
+      operationId: executeAgent
+      tags: [Agents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentExecuteRequest"
+      responses:
+        "200":
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentExecuteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/agents/jobs/{jobId}:
+    get:
+      summary: Poll an async agent job
+      operationId: getAgentJob
+      tags: [Agents]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status and result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentJobStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/agents/{agentId}/invoke:
+    post:
+      summary: Invoke an agent by ID
+      operationId: invokeAgent
+      tags: [Agents]
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: opportunity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInvokeRequest"
+      responses:
+        "200":
+          description: Agent job queued or result returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentInvokeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          description: Usage quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/agents/{agentId}/info:
+    get:
+      summary: Get agent metadata
+      operationId: getAgentInfo
+      tags: [Agents]
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -272,9 +638,8 @@ components:
           minLength: 2
           maxLength: 120
         description:
-          type: string
+          type: ["string", "null"]
           maxLength: 1000
-          nullable: true
         status:
           $ref: "#/components/schemas/ProjectStatus"
         tags:
@@ -393,6 +758,285 @@ components:
             details:
               type: object
               additionalProperties: true
+
+    # -------------------------------------------------------------------------
+    # Auth schemas
+    # -------------------------------------------------------------------------
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          example: "s3cr3t!"
+        otpCode:
+          type: string
+          description: TOTP code when MFA is enabled
+          example: "123456"
+
+    SignupRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        fullName:
+          type: string
+          example: "Jane Smith"
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        user_metadata:
+          type: object
+          additionalProperties: true
+
+    AuthSession:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_at:
+          type: integer
+          description: Unix timestamp
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        session:
+          $ref: "#/components/schemas/AuthSession"
+
+    SessionResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        session:
+          $ref: "#/components/schemas/AuthSession"
+
+    # -------------------------------------------------------------------------
+    # Value Case schemas
+    # -------------------------------------------------------------------------
+    ValueCaseStatus:
+      type: string
+      enum: [draft, active, archived]
+
+    ValueCase:
+      type: object
+      required: [id, title, status, organization_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: "Cloud Migration ROI"
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ValueCaseStatus"
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ValueCaseEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/ValueCase"
+
+    ValueCaseListEnvelope:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValueCase"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    CreateValueCaseRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ValueCaseStatus"
+
+    UpdateValueCaseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ValueCaseStatus"
+
+    HypothesisOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+          format: uuid
+        hypotheses:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              statement:
+                type: string
+              confidence:
+                type: string
+                enum: [high, medium, low]
+              reasoning:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # -------------------------------------------------------------------------
+    # Agent schemas
+    # -------------------------------------------------------------------------
+    AgentInvokeRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          maxLength: 2000
+          example: "Generate value hypotheses for a cloud migration project"
+        context:
+          type: object
+          additionalProperties: true
+        parameters:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+        sessionId:
+          type: string
+          maxLength: 100
+
+    AgentInvokeResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          description: Present when the job is queued asynchronously
+        result:
+          type: object
+          additionalProperties: true
+          description: Present when the result is returned synchronously
+        status:
+          type: string
+          enum: [queued, completed, failed]
+
+    AgentInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        lifecycleStage:
+          type: string
+        version:
+          type: string
+
+    AgentJobStatus:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [waiting, active, completed, failed]
+        result:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    AgentExecuteRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          maxLength: 200
+          example: "OpportunityAgent:generateHypotheses"
+          description: "AgentType:action"
+        data:
+          type: object
+          additionalProperties: true
+        sessionId:
+          type: string
+          maxLength: 100
+
+    AgentExecuteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        result:
+          type: object
+          additionalProperties: true
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
   responses:
     BadRequest:
       description: Bad request
