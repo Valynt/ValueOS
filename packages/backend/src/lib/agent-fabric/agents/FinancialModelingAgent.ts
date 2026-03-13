@@ -290,7 +290,7 @@ export class FinancialModelingAgent extends BaseAgent {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
           context: {
-            agent: 'financial_modeling',
+            agent: 'financial-modeling',
             organization_id: context.organization_id,
             hypothesis_count: hypotheses.length,
           },
@@ -423,7 +423,7 @@ export class FinancialModelingAgent extends BaseAgent {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
-          'financial_modeling',
+          'financial-modeling',
           'semantic',
           `FinancialModel: ${model.hypothesis_description} — ROI: ${(model.roi * 100).toFixed(1)}%, NPV: $${Math.round(model.npv).toLocaleString()}, ` +
             `IRR: ${model.irr !== null ? (model.irr * 100).toFixed(1) + '%' : 'N/A'}, ` +
@@ -464,7 +464,7 @@ export class FinancialModelingAgent extends BaseAgent {
       const totalNPV = models.reduce((sum, m) => sum + m.npv, 0);
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
-        'financial_modeling',
+        'financial-modeling',
         'semantic',
         `PortfolioSummary: ${models.length} models. Total NPV: $${Math.round(totalNPV).toLocaleString()}. ${llmOutput.portfolio_summary}`,
         {
@@ -505,7 +505,7 @@ export class FinancialModelingAgent extends BaseAgent {
       version: 1,
       props: {
         response: {
-          agentId: 'financial_modeling',
+          agentId: 'financial-modeling',
           agentName: 'Financial Modeling Agent',
           timestamp: new Date().toISOString(),
           content: `${llmOutput.portfolio_summary}\n\nTotal portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
@@ -634,7 +634,7 @@ export class FinancialModelingAgent extends BaseAgent {
           total_npv: models.reduce((s, m) => s + m.npv, 0),
           average_confidence: models.reduce((s, m) => s + m.confidence, 0) / models.length,
         },
-        source_agent: 'FinancialModelingAgent',
+        source_agent: this.name,
       });
       logger.info('FinancialModelingAgent: persisted snapshot', {
         case_id: caseId,

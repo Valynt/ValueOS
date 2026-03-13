@@ -829,7 +829,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
         overall_confidence: integrityResult.confidence,
         veto_triggered: vetoDecision.veto,
         veto_reason: vetoDecision.veto ? vetoDecision.reason : undefined,
-        source_agent: 'IntegrityAgent',
+        source_agent: this.name,
       });
 
       logger.info('IntegrityAgent: output persisted', {
