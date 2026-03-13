@@ -9,3 +9,4 @@ export * from "./SecurityMiddleware.js";
 export * from "./SecurityMonitor.js";
 export * from "./SiemExportForwarderService.js";
 export * from "./auditLogger.js";
+export * from "./SecurityAnomalyService.js";
