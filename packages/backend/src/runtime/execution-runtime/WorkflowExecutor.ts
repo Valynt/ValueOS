@@ -418,7 +418,12 @@ export class WorkflowExecutor {
       }
 
       try {
-        const messageResult = await this.messageBroker.sendToAgent('orchestrator', agentType, { action: 'execute', description: stage.description ?? `Execute ${stage.id}`, context: { ...agentContext, ...memoryContext } }, { priority: 'normal', timeoutMs: (stage.timeout_seconds ?? 30) * 1000 });
+        const traceId = span.spanContext().traceId;
+        const messageResult = await this.messageBroker.sendToAgent('orchestrator', agentType, {
+          action: 'execute',
+          description: stage.description ?? `Execute ${stage.id}`,
+          context: { ...agentContext, ...memoryContext, trace_id: traceId },
+        }, { priority: 'normal', timeoutMs: (stage.timeout_seconds ?? 30) * 1000 });
         if (!messageResult.success) throw new Error(`Agent communication failed: ${messageResult.error}`);
 
         const durationMs = Date.now() - start;
