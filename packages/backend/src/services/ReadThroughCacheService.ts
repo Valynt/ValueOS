@@ -169,8 +169,3 @@ export function getTenantIdFromRequest(req: {
   // distinguish "no tenant" from a real tenant named "public".
   return tenant || undefined;
 }
-
-  // Return undefined rather than a "public" sentinel so callers can
-  // distinguish "no tenant" from a real tenant named "public".
-  return tenant || undefined;
-}
