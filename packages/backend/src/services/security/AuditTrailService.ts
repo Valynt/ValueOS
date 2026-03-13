@@ -10,6 +10,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../../lib/logger.js"
 import { getSupabaseClient } from "../../lib/supabase.js"
 import { siemExportForwarderService } from "./SiemExportForwarderService.js";
+import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
 
 // ============================================================================
 // Types
@@ -142,13 +143,33 @@ export class AuditTrailService {
         return null;
       }
 
+      const eventId = data?.id ?? crypto.randomUUID();
       void siemExportForwarderService.forward({
-        id: data?.id ?? crypto.randomUUID(),
+        id: eventId,
         source: "security_audit_log",
         tenantId: event.tenantId,
         timestamp: new Date(event.timestamp).toISOString(),
         payload: this.mapEventToRow(event),
       });
+
+      if (event.tenantId) {
+        void securityEventStreamingService.stream({
+          source: "security_audit_log",
+          category: this.resolveCategory(event),
+          eventType: event.eventType,
+          tenantId: event.tenantId,
+          actorId: event.actorId,
+          action: event.action,
+          resourceType: event.resourceType,
+          resourceId: event.resourceId,
+          outcome: event.outcome,
+          occurredAt: new Date(event.timestamp).toISOString(),
+          eventId,
+          sourceService: "AuditTrailService",
+          correlationId: event.correlationId,
+          metadata: event.details,
+        });
+      }
 
       return data?.id || null;
     } catch (error) {
@@ -186,13 +207,33 @@ export class AuditTrailService {
       } else {
         logger.debug("Flushed audit events", { count: eventsToFlush.length });
         for (const event of eventsToFlush) {
+          const eventId = crypto.randomUUID();
           void siemExportForwarderService.forward({
-            id: crypto.randomUUID(),
+            id: eventId,
             source: "security_audit_log",
             tenantId: event.tenantId,
             timestamp: new Date(event.timestamp).toISOString(),
             payload: this.mapEventToRow(event),
           });
+
+          if (event.tenantId) {
+            void securityEventStreamingService.stream({
+              source: "security_audit_log",
+              category: this.resolveCategory(event),
+              eventType: event.eventType,
+              tenantId: event.tenantId,
+              actorId: event.actorId,
+              action: event.action,
+              resourceType: event.resourceType,
+              resourceId: event.resourceId,
+              outcome: event.outcome,
+              occurredAt: new Date(event.timestamp).toISOString(),
+              eventId,
+              sourceService: "AuditTrailService",
+              correlationId: event.correlationId,
+              metadata: event.details,
+            });
+          }
         }
       }
     } catch (error) {
@@ -422,6 +463,15 @@ export class AuditTrailService {
         );
       });
     }, this.flushIntervalMs);
+  }
+
+  private resolveCategory(event: Omit<AuditEvent, "id">): "auth" | "authorization" | "role_change" | "data_export" | "policy" | "audit" {
+    if (event.eventType === "authentication") return "auth";
+    if (event.eventType === "authorization") return "authorization";
+    if (event.eventType === "permission_change" || event.eventType === "role_change") return "role_change";
+    if (/export/i.test(event.action)) return "data_export";
+    if (event.outcome === "denied" || /policy|deny|denied/i.test(event.action)) return "policy";
+    return "audit";
   }
 
   private mapEventToRow(

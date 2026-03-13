@@ -7,8 +7,8 @@ import { Request, Response, Router } from "express";
 import { z } from "zod";
 
 import { logger } from "../lib/logger.js";
-import { AuthenticatedRequest, requireAuth } from "../middleware/auth.js";
-import { requireRole } from "../middleware/rbac.js";
+import { requireAuth } from "../middleware/auth.js";
+import { requireObservabilityAccess } from "../middleware/observabilityAccess.js";
 import { SecurityMetricsCollector } from "../security/enhancedSecurityLogger.js";
 import { getSecurityAnomalyService } from "../services/security/SecurityAnomalyService.js";
 
@@ -17,7 +17,7 @@ const metricsCollector = SecurityMetricsCollector.getInstance();
 const anomalyService = getSecurityAnomalyService();
 
 router.use(requireAuth);
-router.use(requireRole("admin"));
+router.use(requireObservabilityAccess());
 
 const alertActionSchema = z.object({
   reason: z.string().min(5).max(500),
@@ -28,8 +28,7 @@ const alertSuppressSchema = alertActionSchema.extend({
 });
 
 function resolveActor(req: Request): string {
-  const authReq = req as AuthenticatedRequest;
-  return authReq.user?.id ?? "system-admin";
+  return req.user?.id ?? "system-admin";
 }
 
 router.get("/metrics", async (_req: Request, res: Response) => {
@@ -193,7 +192,7 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
 router.post("/reset-metrics", async (req: Request, res: Response) => {
   try {
     metricsCollector.reset();
-    logger.info("Security metrics reset by admin", { userId: (req as AuthenticatedRequest).user?.id });
+    logger.info("Security metrics reset by admin", { userId: req.user?.id });
 
     res.json({
       success: true,
