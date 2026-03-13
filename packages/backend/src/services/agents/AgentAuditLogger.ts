@@ -51,6 +51,13 @@ export interface AgentAuditLog {
     duration: number;
     confidence?: number;
     model?: string;
+    prompt_version_refs?: Array<{
+      prompt_key: string;
+      version: string;
+      owner?: string;
+      ticket?: string;
+      risk_class?: 'low' | 'medium' | 'high' | 'critical';
+    }>;
     tokens?: {
       prompt: number;
       completion: number;
