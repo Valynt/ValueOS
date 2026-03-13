@@ -73,6 +73,21 @@ vi.mock('../../../config/featureFlags', () => ({
   featureFlags: { ENABLE_ASYNC_AGENT_EXECUTION: false },
 }));
 
+// Regression: defaultSupabase import was accidentally removed in d85ed5142.
+// Mock it so SupabaseDecisionContextRepository (used when no repo arg is passed)
+// doesn't throw a ReferenceError at construction time.
+vi.mock('../../../lib/supabase', () => ({
+  supabase: {
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Shared mock factories
 // ---------------------------------------------------------------------------
@@ -556,5 +571,22 @@ describe('QueryExecutor context hydration integration', () => {
 
     expect(router.selectAgent).not.toHaveBeenCalled();
     expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
+  });
+});
+
+// Regression: import { supabase as defaultSupabase } was removed in d85ed5142,
+// causing a ReferenceError when SupabaseDecisionContextRepository methods are
+// called. Verify QueryExecutor can be constructed without an explicit repo arg
+// (which triggers the default SupabaseDecisionContextRepository path).
+describe('QueryExecutor default repo construction (supabase import regression)', () => {
+  it('constructs without throwing when no contextRepository is provided', () => {
+    expect(() =>
+      new QueryExecutor(
+        makePolicyMock() as never,
+        makeRouterMock() as never,
+        makeCircuitBreakerMock() as never,
+        makeQueueMock() as never,
+      ),
+    ).not.toThrow();
   });
 });

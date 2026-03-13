@@ -64,4 +64,41 @@ describe('NarrativeDraftedPayloadSchema compatibility', () => {
       }),
     ).toThrow(/Invalid payload for domain event/);
   });
+
+  // Regression tests for mismatched-alias validation (previously threw ZodError
+  // directly inside z.preprocess, which bypassed safeParse error handling).
+  it('rejects mismatched tenantId and organization_id via safeParse (not uncaught throw)', () => {
+    expect(() =>
+      validateDomainEvent('narrative.drafted', {
+        ...makeEnvelope(),
+        // tenantId from envelope + a conflicting organization_id
+        organization_id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        defenseReadinessScore: 0.5,
+        format: 'executive_summary',
+      }),
+    ).toThrow(/Invalid payload for domain event/);
+  });
+
+  it('rejects mismatched valueCaseId and value_case_id via safeParse', () => {
+    expect(() =>
+      validateDomainEvent('narrative.drafted', {
+        ...makeEnvelope(),
+        valueCaseId: 'case-a',
+        value_case_id: 'case-b',
+        defenseReadinessScore: 0.5,
+        format: 'executive_summary',
+      }),
+    ).toThrow(/Invalid payload for domain event/);
+  });
+
+  it('rejects mismatched defenseReadinessScore and defense_readiness_score via safeParse', () => {
+    expect(() =>
+      validateDomainEvent('narrative.drafted', {
+        ...makeEnvelope(),
+        defenseReadinessScore: 0.8,
+        defense_readiness_score: 0.5,
+        format: 'executive_summary',
+      }),
+    ).toThrow(/Invalid payload for domain event/);
+  });
 });

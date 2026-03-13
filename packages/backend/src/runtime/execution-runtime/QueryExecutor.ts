@@ -38,6 +38,7 @@ import {
   type DecisionContext,
 } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+import { supabase as defaultSupabase } from '../../lib/supabase.js';
 
 interface HydratedOpportunityState {
   id: string;
