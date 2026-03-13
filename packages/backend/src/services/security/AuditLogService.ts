@@ -158,10 +158,13 @@ export class AuditLogService extends BaseService {
   }
 
   private resolveSecurityEventCategory(action: string): "auth" | "authorization" | "role_change" | "data_export" | "policy" | "audit" {
-    if (/auth|login|logout|session|mfa|password/i.test(action)) return "auth";
+    // policy must be checked before authorization — "unauthorized" contains "authoriz" as a substring.
+    if (/policy|deny|denied|forbidden|unauthorized/i.test(action)) return "policy";
+    // authorization must be checked before auth — "authorization" contains "auth" as a substring.
+    if (/\bauthori[sz]|access_check|access_denied/i.test(action)) return "authorization";
+    if (/\bauth\b|login|logout|session|mfa|password/i.test(action)) return "auth";
     if (/grant|revoke|role|permission/i.test(action)) return "role_change";
     if (/export/i.test(action)) return "data_export";
-    if (/policy|deny|denied|forbidden|unauthorized/i.test(action)) return "policy";
     return "audit";
   }
 

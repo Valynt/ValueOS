@@ -701,11 +701,10 @@ export class SecurityMonitor {
 
   private recordDeliveryFailure(channel: AlertChannel, alert: SecurityAlert, error: Error, message: string): void {
     this.recordDeliveryMetric(channel, "failed", alert);
-    logger.error(message, {
+    logger.error(message, error, {
       alertId: alert.id,
       channel,
       severity: alert.severity,
-      error: error.message,
     });
     this.persistToFallbackChannel(alert, channel, `delivery_failed:${error.message}`);
   }

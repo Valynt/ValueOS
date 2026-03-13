@@ -154,7 +154,7 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
   });
 
   _worker.on('failed', (job, err) => {
-    logger.error('Job failed', { jobId: job?.id, error: err.message });
+    logger.error('Job failed', err, { jobId: job?.id });
   });
 
   logger.info('Listening on queue', { queue: RESEARCH_QUEUE_NAME });

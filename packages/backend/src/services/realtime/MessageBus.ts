@@ -39,7 +39,7 @@ export class MessageBus {
     sender_id: z.string().min(1, 'sender_id is required'),
     recipient_ids: z.array(z.string().min(1)).min(1, 'recipient_ids must include at least one recipient'),
     recipient_agent: z.string().min(1).optional(),
-    message_type: z.string().min(1, 'message_type is required').optional(),
+    message_type: z.string().min(1, 'message_type must be a non-empty string when provided').optional(),
     correlation_id: z.string().min(1).optional(),
     reply_to: z.string().min(1).optional(),
     content: z.string().min(1),

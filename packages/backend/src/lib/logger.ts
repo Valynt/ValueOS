@@ -100,13 +100,29 @@ export const logger = {
   },
 
   error(event: string, error?: unknown, meta?: LoggerMeta): void {
+    // Backward-compatibility: callers that pre-date the (event, error?, meta?) signature
+    // often pass a plain object as the second argument intending it as meta, e.g.:
+    //   logger.error('msg', { error: e.message, jobId })
+    // Detect this pattern and promote the object to meta so structured fields are preserved.
+    let resolvedError: unknown = error;
+    let resolvedMeta: LoggerMeta | undefined = meta;
+    if (
+      error !== null &&
+      error !== undefined &&
+      typeof error === "object" &&
+      !(error instanceof Error)
+    ) {
+      resolvedMeta = { ...(error as LoggerMeta), ...meta };
+      resolvedError = undefined;
+    }
+
     const errorMeta =
-      error instanceof Error
-        ? { error_name: error.name, error_message: error.message, stack: error.stack }
-        : error
-          ? { error: String(error) }
+      resolvedError instanceof Error
+        ? { error_name: resolvedError.name, error_message: resolvedError.message, stack: resolvedError.stack }
+        : resolvedError
+          ? { error: String(resolvedError) }
           : {};
-    output("error", event, { ...errorMeta, ...meta, outcome: "failure" });
+    output("error", event, { ...errorMeta, ...resolvedMeta, outcome: "failure" });
   },
 
   cache(operation: string, key: string, meta?: LoggerMeta): void {
@@ -128,6 +144,7 @@ export function createLogger(options: { component: string }) {
     error(event: string, error?: unknown, meta?: LoggerMeta): void {
       logger.error(event, error, { component: options.component, ...meta });
     },
+
   };
 }
 
