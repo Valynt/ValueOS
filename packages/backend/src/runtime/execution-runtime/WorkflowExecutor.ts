@@ -129,7 +129,7 @@ export class WorkflowExecutor {
     try {
       return await withBusinessTransaction(
         {
-          transactionName: "workflow.execution",
+          transactionName: "workflow.initiation",
           tenantId: envelope.organizationId,
           workflowId: workflowDefinitionId,
           traceId,
