@@ -4,7 +4,7 @@ import express, { Router } from "express";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { ReadThroughCacheService } from "../services/ReadThroughCacheService.js";
+import { ReadThroughCacheService } from "../services/cache/ReadThroughCacheService.js";
 import {
   ValueLoopAnalytics,
   RecordEventInputSchema,

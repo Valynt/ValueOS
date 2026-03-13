@@ -4,9 +4,18 @@
  * Stress-tests value claims by simulating CFO pushback.
  * Challenges assumptions, questions data sources, probes for math hallucinations.
  * Produces structured Objection[] with severity and category.
+ *
+ * Extends BaseAgent so all LLM calls go through secureInvoke (circuit breaker +
+ * hallucination detection + Zod validation). Sprint 25 KR 25-3.
  */
 
 import { z } from 'zod';
+
+import { BaseAgent } from '../../../agent-fabric/agents/BaseAgent.js';
+import { CircuitBreaker } from '../../../agent-fabric/CircuitBreaker.js';
+import type { LLMGateway } from '../../../agent-fabric/LLMGateway.js';
+import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
+import type { AgentOutput, LifecycleContext } from '../../../../types/agent.js';
 
 // ============================================================================
 // Types
@@ -34,7 +43,28 @@ export interface RedTeamOutput {
   objections: Objection[];
   summary: string;
   hasCritical: boolean;
+  confidence: 'high' | 'medium' | 'low';
   timestamp: string;
+  hallucination_check?: boolean;
+  hallucination_details?: {
+    grounding_score: number;
+    matched_signals: string[];
+    requires_escalation: boolean;
+  };
+}
+
+// ============================================================================
+// LLM Interface (kept for backward-compatible constructor injection in tests)
+// ============================================================================
+
+export interface RedTeamLLMGateway {
+  complete(request: {
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+    metadata: { tenantId: string; [key: string]: unknown };
+  }): Promise<{
+    content: string;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  }>;
 }
 
 // ============================================================================
@@ -54,22 +84,9 @@ export const RedTeamOutputSchema = z.object({
   objections: z.array(ObjectionSchema),
   summary: z.string(),
   hasCritical: z.boolean(),
-  timestamp: z.string(),
+  confidence: z.enum(["high", "medium", "low"]).optional().default("medium"),
+  hallucination_check: z.boolean().optional(),
 });
-
-// ============================================================================
-// LLM Interface (dependency injection)
-// ============================================================================
-
-export interface RedTeamLLMGateway {
-  complete(request: {
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
-    metadata: { tenantId: string; [key: string]: unknown };
-  }): Promise<{
-    content: string;
-    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-  }>;
-}
 
 // ============================================================================
 // System Prompt
@@ -86,18 +103,10 @@ For each value claim, you must:
 
 You MUST respond with valid JSON matching this schema:
 {
-  "objections": [
-    {
-      "id": "<unique-id>",
-      "targetComponent": "<which value tree node or narrative claim>",
-      "severity": "low" | "medium" | "high" | "critical",
-      "category": "assumption" | "data_quality" | "math_error" | "missing_evidence" | "logical_gap",
-      "description": "<specific objection>",
-      "suggestedRevision": "<optional: how to fix>"
-    }
-  ],
+  "objections": [...],
   "summary": "<overall assessment>",
-  "hasCritical": <true if any critical objections>
+  "hasCritical": <true if any critical objections>,
+  "confidence": "high" | "medium" | "low"
 }
 
 Be thorough but fair. Only mark objections as "critical" if they would materially change the business case conclusion.`;
@@ -106,65 +115,42 @@ Be thorough but fair. Only mark objections as "critical" if they would materiall
 // RedTeamAgent
 // ============================================================================
 
-export class RedTeamAgent {
-  private llmGateway: RedTeamLLMGateway;
+export class RedTeamAgent extends BaseAgent {
+  public readonly lifecycleStage = 'integrity';
+  public readonly version = '2.0.0';
+  public readonly name = 'RedTeamAgent';
 
-  constructor(llmGateway: RedTeamLLMGateway) {
-    this.llmGateway = llmGateway;
+  /**
+   * Accepts a RedTeamLLMGateway (or LLMGateway) and MemorySystem.
+   * CircuitBreaker is created internally with default config.
+   * This signature is intentionally minimal so tests can inject mocks directly.
+   */
+  constructor(
+    gateway: RedTeamLLMGateway,
+    memorySystem: MemorySystem,
+  ) {
+    super(
+      { name: 'RedTeamAgent', lifecycle_stage: 'integrity' as const },
+      // organizationId is set per-call from RedTeamInput.tenantId
+      'system',
+      memorySystem,
+      // RedTeamLLMGateway.complete() is structurally compatible with LLMGateway.complete()
+      gateway as unknown as LLMGateway,
+      new CircuitBreaker(),
+    );
   }
 
   /**
-   * Execute red team analysis on a value case
+   * Execute red team analysis on a value case.
+   * All LLM calls go through secureInvoke (circuit breaker + hallucination detection).
    */
   async analyze(input: RedTeamInput): Promise<RedTeamOutput> {
-    const userPrompt = this.buildPrompt(input);
+    // Set organizationId for this call so secureInvoke propagates tenant context correctly
+    (this as unknown as { organizationId: string }).organizationId = input.tenantId;
 
-    // RedTeamAgent uses constructor-injected RedTeamLLMGateway. In production the
-    // injected implementation is RedTeamLLMAdapter (AgentAdapters.ts), which delegates
-    // to secureLLMComplete — satisfying the guardrail requirement. Full BaseAgent
-    // migration (secureInvoke + AgentFactory wiring) is tracked in debt.md.
-    const response = await this.llmGateway.complete({
-      messages: [
-        { role: 'system', content: RED_TEAM_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-      metadata: {
-        tenantId: input.tenantId,
-        agentType: 'red-team',
-        valueCaseId: input.valueCaseId,
-        idempotencyKey: input.idempotencyKey,
-      },
-    });
-
-    const parsed = this.parseResponse(response.content);
-
-    return {
-      ...parsed,
-      timestamp: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Check if any objections are critical (requiring automatic revision)
-   */
-  static hasCriticalObjections(objections: Objection[]): boolean {
-    return objections.some((o) => o.severity === 'critical');
-  }
-
-  /**
-   * Filter objections by severity
-   */
-  static filterBySeverity(
-    objections: Objection[],
-    severity: Objection['severity']
-  ): Objection[] {
-    return objections.filter((o) => o.severity === severity);
-  }
-
-  // ---- Private helpers ----
-
-  private buildPrompt(input: RedTeamInput): string {
-    return [
+    const prompt = [
+      RED_TEAM_SYSTEM_PROMPT,
+      '',
       '## Value Tree',
       '```json',
       JSON.stringify(input.valueTree, null, 2),
@@ -182,22 +168,59 @@ export class RedTeamAgent {
       '',
       'Analyze the above value case. Identify all weaknesses, questionable assumptions, data quality issues, math errors, missing evidence, and logical gaps. Respond with JSON only.',
     ].join('\n');
+
+    const result = await this.secureInvoke(
+      input.valueCaseId,
+      prompt,
+      RedTeamOutputSchema,
+      {
+        trackPrediction: true,
+        confidenceThresholds: { low: 0.6, high: 0.85 },
+        context: {
+          agentType: 'red-team',
+          valueCaseId: input.valueCaseId,
+          idempotencyKey: input.idempotencyKey,
+        },
+        idempotencyKey: input.idempotencyKey,
+      },
+    );
+
+    const hallucinationDetails = result.hallucination_details
+      ? {
+          grounding_score: result.hallucination_details.groundingScore,
+          matched_signals: result.hallucination_details.signals.map((s) => s.type),
+          requires_escalation: result.hallucination_details.requiresEscalation,
+        }
+      : undefined;
+
+    return {
+      objections: result.objections,
+      summary: result.summary,
+      hasCritical: result.hasCritical,
+      confidence: result.confidence ?? 'medium',
+      timestamp: new Date().toISOString(),
+      hallucination_check: result.hallucination_check,
+      hallucination_details: hallucinationDetails,
+    };
   }
 
-  private parseResponse(content: string): RedTeamOutput {
-    // Try to extract JSON from the response (handle markdown code blocks)
-    let jsonStr = content;
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1]!;
-    }
+  /**
+   * Required by BaseAgent — not used in the red-team path (use analyze() instead).
+   */
+  async execute(_context: LifecycleContext): Promise<AgentOutput> {
+    return this.prepareOutput({ error: 'Use RedTeamAgent.analyze() directly' }, 'error');
+  }
 
-    const raw = JSON.parse(jsonStr);
-    const validated = RedTeamOutputSchema.parse({
-      ...raw,
-      timestamp: raw.timestamp ?? new Date().toISOString(),
-    });
+  /** Check if any objections are critical (requiring automatic revision). */
+  static hasCriticalObjections(objections: Objection[]): boolean {
+    return objections.some((o) => o.severity === 'critical');
+  }
 
-    return validated;
+  /** Filter objections by severity. */
+  static filterBySeverity(
+    objections: Objection[],
+    severity: Objection['severity'],
+  ): Objection[] {
+    return objections.filter((o) => o.severity === severity);
   }
 }

@@ -23,9 +23,9 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
 import { consentRegistry } from '../services/consentRegistry.js'
-import { CostGovernanceError } from '../services/CostGovernanceService.js'
-import { FallbackAIService } from '../services/FallbackAIService.js'
-import { llmFallback } from '../services/LLMFallback.js'
+import { CostGovernanceError } from '../services/post-v1/CostGovernanceService.js'
+import { FallbackAIService } from '../services/llm/FallbackAIService.js'
+import { llmFallback } from '../services/llm/LLMFallback.js'
 import { logger } from '../utils/logger.js'
 import { sanitizeAgentInput } from '../utils/security.js'
 

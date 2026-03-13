@@ -12,7 +12,7 @@ import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { getTracer } from '../../config/telemetry.js';
 import { featureFlags } from '../../config/featureFlags.js';
 import { logger } from '../../lib/logger.js';
-import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
+import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
 import type { AgentType } from '../../services/agent-types.js';
 import { createAgentFactory } from '../../lib/agent-fabric/AgentFactory.js';

@@ -11,7 +11,7 @@ vi.mock('../../middleware/tenantContext', () => ({
 }));
 
 // Import the singleton to reset state between tests
-import { llmFallback } from '../../services/LLMFallback.js';
+import { llmFallback } from '../../services/llm/LLMFallback.js';
 
 describe('LLM API integration — fallback behavior (Together)', () => {
   let app: typeof import('express').Application;

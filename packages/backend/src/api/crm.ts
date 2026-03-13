@@ -22,7 +22,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimiter.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { tenantContextMiddleware } from '../middleware/tenantContext.js';
-import { auditLogService } from '../services/AuditLogService.js';
+import { auditLogService } from '../services/security/AuditLogService.js';
 import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
 import { crmHealthService } from '../services/crm/CrmHealthService.js';
 import { crmIntegrationService } from '../services/crm/CRMIntegrationService.js';

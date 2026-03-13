@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMGateway, type LLMRequest } from '../LLMGateway.js';
 import { _test_resetResilienceState } from '../LLMResilience.js';
 
-vi.mock('../../../services/CostAwareRouter.js', () => ({
+vi.mock('../../../services/post-v1/CostAwareRouter.js', () => ({
   CostAwareRouter: class {
     async routeRequest() {
       return { fallbackToBasic: false };

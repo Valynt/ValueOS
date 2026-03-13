@@ -15,7 +15,7 @@ import { requireAuth } from "../middleware/auth.js"
 import { validateRequest } from "../middleware/inputValidation.js"
 import { createRateLimiter } from "../middleware/rateLimiter.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
-import { auditLogService } from "../services/AuditLogService.js"
+import { auditLogService } from "../services/security/AuditLogService.js"
 
 import { referralService } from "./services/ReferralService.js"
 

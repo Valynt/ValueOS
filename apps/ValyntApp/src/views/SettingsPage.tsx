@@ -238,15 +238,14 @@ function CompanyContextTab() {
     setStatus("saving");
 
     try {
-      const res = await apiClient.post("/api/v1/tenant/context", {
+      const response = await apiClient.post("/api/v1/tenant/context", {
         products: form.products.split(",").map(s => s.trim()).filter(Boolean),
         icps: form.icps.split(",").map(s => s.trim()).filter(Boolean),
         competitors: form.competitors.split(",").map(s => s.trim()).filter(Boolean),
         personas: form.personas.split(",").map(s => s.trim()).filter(Boolean),
         websiteUrl: form.websiteUrl || undefined,
       });
-
-      setStatus(res.success ? "saved" : "error");
+      setStatus(response.success ? "saved" : "error");
     } catch {
       setStatus("error");
     }

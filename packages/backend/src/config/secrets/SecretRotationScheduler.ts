@@ -13,7 +13,7 @@ import { EventEmitter } from "events";
 import { CronJob } from "cron";
 
 import { logger } from "../../lib/logger.js"
-import { auditLogService } from "../../services/AuditLogService.js"
+import { auditLogService } from "../../services/security/AuditLogService.js"
 
 import type {
   ISecretProvider,

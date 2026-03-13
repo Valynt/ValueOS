@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { httpRequestDuration } from "../../lib/metrics/httpMetrics";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
-import { customerAccessService } from "../../services/CustomerAccessService";
+import { customerAccessService } from "../../services/tenant/CustomerAccessService";
 import { KpiTargetService } from "../../services/value/KpiTargetService";
 import { RoiModelService } from "../../services/value/RoiModelService";
 import { ValueTreeService } from "../../services/value/ValueTreeService";

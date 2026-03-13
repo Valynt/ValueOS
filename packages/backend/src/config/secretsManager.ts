@@ -25,7 +25,7 @@ import {
 import { getEnvVar } from '../lib/env';
 import { logger } from '../lib/logger.js'
 import { createServerSupabaseClient } from '../lib/supabase.js'
-import { RbacService, type RbacUser } from '../services/RbacService.js'
+import { RbacService, type RbacUser } from '../services/auth/RbacService.js'
 
 import { getDatabaseUrl } from './database.js'
 

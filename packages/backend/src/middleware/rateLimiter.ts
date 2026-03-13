@@ -15,7 +15,7 @@ import { logger } from "@shared/lib/logger";
 import { NextFunction, Request, Response } from "express";
 
 import { createCounter } from "../lib/observability/index.js";
-import { RateLimitKeyService } from "../services/RateLimitKeyService.js"
+import { RateLimitKeyService } from "../services/llm/RateLimitKeyService.js"
 
 import { RedisRateLimitStore } from "./redisRateLimitStore.js"
 

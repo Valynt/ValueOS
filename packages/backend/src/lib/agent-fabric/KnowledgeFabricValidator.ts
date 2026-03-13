@@ -9,7 +9,7 @@
 import type {
   GroundTruthIntegrationService,
   ValidationResult as GTValidationResult,
-} from "../../services/GroundTruthIntegrationService.js";
+} from "../../services/domain-packs/GroundTruthIntegrationService.js";
 import { logger } from "../logger.js";
 
 import type { MemorySystem } from "./MemorySystem.js";
