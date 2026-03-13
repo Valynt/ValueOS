@@ -75,7 +75,12 @@ interface HypothesisItem {
   title?: string;
   description?: string;
   category?: string;
-  estimated_impact?: { value?: number; unit?: string };
+  estimated_impact?: {
+    low?: number;
+    high?: number;
+    unit?: string;
+    timeframe_months?: number;
+  };
   confidence?: number;
 }
 
