@@ -18,7 +18,7 @@ import {
   cleanupBillingTables,
   getTestSupabaseClient,
   seedTestData,
-  waitForCondition,,
+  waitForCondition,
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
