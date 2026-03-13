@@ -152,12 +152,32 @@ getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
 
 const app = express();
-getSecurityAnomalyScheduler().start();
+// Security anomaly scheduler is started once the HTTP server begins listening.
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
 // Using `true` trusts all X-Forwarded-* headers, allowing IP spoofing.
 app.set("trust proxy", 1);
 
 const server = createServer(app);
+
+let securityAnomalyInterval: ReturnType<typeof setInterval> | null = null;
+
+server.once("listening", () => {
+  const scheduler = getSecurityAnomalyScheduler();
+  securityAnomalyInterval = scheduler.start();
+  if (securityAnomalyInterval && typeof (securityAnomalyInterval as unknown as { unref?: () => void }).unref === "function") {
+    (securityAnomalyInterval as unknown as { unref?: () => void }).unref!();
+  }
+});
+
+server.on("close", () => {
+  const scheduler = getSecurityAnomalyScheduler();
+  scheduler.stop();
+  if (securityAnomalyInterval) {
+    clearInterval(securityAnomalyInterval);
+    securityAnomalyInterval = null;
+  }
+});
+
 const wss = new WebSocketServer({ server, path: "/ws/sdui" });
 const PORT = settings.API_PORT;
 const apiRouter = createVersionedApiRouter();
