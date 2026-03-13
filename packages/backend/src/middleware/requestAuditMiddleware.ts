@@ -74,7 +74,7 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
 
     (req as Request & { _auditMiddlewareAttached?: boolean })._auditMiddlewareAttached = true;
 
-    const requestId = getRequestId(req);
+    const requestId = (req.requestId as string | undefined) || getRequestId(req);
     res.locals.requestId = requestId;
     req.requestId = requestId;
     res.setHeader("X-Request-Id", requestId);
