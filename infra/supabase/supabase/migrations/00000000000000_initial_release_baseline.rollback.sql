@@ -31,25 +31,57 @@ DECLARE
 BEGIN
   SELECT COUNT(*)
     INTO dep_count
-    FROM pg_depend d
-    JOIN pg_class c  ON c.oid  = d.objid
-    JOIN pg_class ct ON ct.oid = d.refobjid
-    JOIN pg_namespace n ON n.oid = ct.relnamespace
-   WHERE n.nspname = 'public'
-     AND ct.relname IN (
-           'billing_meters',
-           'billing_price_versions',
-           'usage_policies',
-           'billing_approval_policies',
-           'billing_approval_requests',
-           'entitlement_snapshots'
-         )
-     AND d.deptype = 'n'
-     AND c.relname NOT IN (
-           -- known dependents listed above; extend this list if new migrations
-           -- add FK references to these tables
-           'idx_entitlement_snapshots_one_current_per_tenant'
-         );
+    FROM (
+           -- Existing dependency check based on pg_depend.
+           SELECT 1
+             FROM pg_depend d
+             JOIN pg_class c  ON c.oid  = d.objid
+             JOIN pg_class ct ON ct.oid = d.refobjid
+             JOIN pg_namespace n ON n.oid = ct.relnamespace
+            WHERE n.nspname = 'public'
+              AND ct.relname IN (
+                    'billing_meters',
+                    'billing_price_versions',
+                    'usage_policies',
+                    'billing_approval_policies',
+                    'billing_approval_requests',
+                    'entitlement_snapshots'
+                  )
+              AND d.deptype = 'n'
+              AND c.relname NOT IN (
+                    -- known dependents listed above; extend this list if new migrations
+                    -- add FK references to these tables
+                    'idx_entitlement_snapshots_one_current_per_tenant'
+                  )
+
+           UNION ALL
+
+           -- Explicitly check for foreign key constraints referencing these tables.
+           SELECT 1
+             FROM pg_constraint fk
+             JOIN pg_class referenced
+               ON referenced.oid = fk.confrelid
+             JOIN pg_namespace nref
+               ON nref.oid = referenced.relnamespace
+             JOIN pg_class referencing
+               ON referencing.oid = fk.conrelid
+             JOIN pg_namespace nrefg
+               ON nrefg.oid = referencing.relnamespace
+            WHERE fk.contype = 'f'
+              AND nref.nspname = 'public'
+              AND referenced.relname IN (
+                    'billing_meters',
+                    'billing_price_versions',
+                    'usage_policies',
+                    'billing_approval_policies',
+                    'billing_approval_requests',
+                    'entitlement_snapshots'
+                  )
+              AND referencing.relname NOT IN (
+                    -- keep this in sync with the allow-list above if new dependents are added
+                    'idx_entitlement_snapshots_one_current_per_tenant'
+                  )
+         ) deps;
 
   IF dep_count > 0 THEN
     RAISE EXCEPTION
