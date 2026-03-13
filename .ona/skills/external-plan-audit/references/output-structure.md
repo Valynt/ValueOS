@@ -32,7 +32,7 @@ every scheduling decision that follows.
 | Claim ID | Category | Verified Gap | Evidence |
 |---|---|---|---|
 | INFRA-002 | Infrastructure | No DR validation workflow exists | `ls .github/workflows/` — no `dr-validation.yml` |
-| DOCS-002 | Documentation | No agent API endpoints in OpenAPI spec | `grep "^  /agent" packages/backend/openapi.yaml` returns nothing |
+| DOCS-002 | Documentation | Agent API endpoints are defined under `/api/v1/agents` in OpenAPI spec | `grep "  /api/v1/agents" packages/backend/openapi.yaml` |
 
 ### Claims that are unverifiable (need clarification)
 
