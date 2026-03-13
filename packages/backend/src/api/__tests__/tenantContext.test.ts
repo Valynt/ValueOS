@@ -38,10 +38,18 @@ vi.mock("../../middleware/auth.js", () => ({
   },
 }));
 
+// Mirror USER_ROLE_PERMISSIONS: admin has all permissions; member/viewer have settings:view only.
+const ROLE_GRANTS: Record<string, string[]> = {
+  admin: ["settings:view", "settings:edit"],
+  member: ["settings:view"],
+  viewer: ["settings:view"],
+};
+
 vi.mock("../../middleware/rbac.js", () => ({
   requirePermission: (required: string) => (req: Request, res: Response, next: NextFunction) => {
     const r = req as Request & { user?: { role: string } };
-    if (required === "admin" && r.user?.role !== "admin") {
+    const granted = ROLE_GRANTS[r.user?.role ?? ""] ?? [];
+    if (!granted.includes(required)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     next();

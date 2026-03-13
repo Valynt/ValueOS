@@ -16,6 +16,7 @@ import { AUDIT_ACTION } from "../types/audit.js";
 import { AuthenticatedRequest, requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
+import { PERMISSIONS } from "@shared/lib/permissions";
 import {
   TenantContextPayloadSchema,
   tenantContextIngestionService,
@@ -33,7 +34,7 @@ router.use(tenantContextMiddleware());
 
 router.post(
   "/",
-  requirePermission("admin"),
+  requirePermission(PERMISSIONS.SETTINGS_EDIT),
   auditOperation(AUDIT_ACTION.DATA_UPDATE, "tenant_context"),
   async (req: Request, res: Response) => {
     const tenantId = (req as AuthenticatedRequest).tenantId;
@@ -63,7 +64,7 @@ router.post(
 
 router.get(
   "/",
-  requirePermission("viewer"),
+  requirePermission(PERMISSIONS.SETTINGS_VIEW),
   async (req: Request, res: Response) => {
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
