@@ -6,28 +6,33 @@ export interface UserClaims {
   org_id: string;
 }
 
-// Role hierarchy matches the backend model in packages/shared/src/lib/permissions/roles.js.
-// Canonical values: "admin" | "member" | "viewer"
-// Legacy aliases handled: "owner" → admin, "editor" → member, "reader" → viewer, "ADMIN" → admin, "ANALYST" → member
-const LEGACY_ROLE_MAP: Record<string, string> = {
+// Backend canonical roles: "admin" | "member" | "viewer"
+// Legacy aliases handled:
+// - "owner"  -> "admin"
+// - "editor" -> "member"
+// - "reader" -> "viewer"
+// Also supports auth-provider variants like "ROLE_ADMIN".
+const ROLE_MAP: Record<string, string> = {
+  admin: "admin",
   owner: "admin",
+
+  member: "member",
   editor: "member",
+  analyst: "member",
+
+  viewer: "viewer",
   reader: "viewer",
-  // Legacy uppercase variants from old frontend code
-  ADMIN: "admin",
-  ANALYST: "member",
-  VIEWER: "viewer",
 };
 
 function normalizeRole(role: string): string {
-  return LEGACY_ROLE_MAP[role] ?? role;
+  const normalized = role.replace(/^ROLE_/i, "").trim().toLowerCase();
+  return ROLE_MAP[normalized] ?? normalized;
 }
 
 export function computePermissions(roles: string[]): string[] {
   const normalized = roles.map(normalizeRole);
   const permissions = new Set<string>();
 
-  // admin inherits all permissions
   if (normalized.includes("admin")) {
     permissions.add("admin");
     permissions.add("read");
@@ -37,7 +42,7 @@ export function computePermissions(roles: string[]): string[] {
     permissions.add("read");
     permissions.add("write");
   } else {
-    // viewer or unknown — read-only
+    // viewer or unknown -> read-only
     permissions.add("read");
   }
 

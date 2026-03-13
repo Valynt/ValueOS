@@ -501,6 +501,25 @@ const backendNoConsoleOverrides = {
   },
 };
 
+// Enforce no-console in frontend production code.
+// console.warn/error are allowed for genuine error surfaces; console.log is not.
+const frontendNoConsoleOverrides = {
+  files: [
+    "apps/ValyntApp/src/**/*.ts",
+    "apps/ValyntApp/src/**/*.tsx",
+  ],
+  ignores: [
+    "apps/ValyntApp/src/**/*.test.ts",
+    "apps/ValyntApp/src/**/*.test.tsx",
+    "apps/ValyntApp/src/**/*.spec.ts",
+    "apps/ValyntApp/src/**/*.spec.tsx",
+    "apps/ValyntApp/src/**/__tests__/**",
+  ],
+  rules: {
+    "no-console": ["error", { allow: ["warn", "error"] }],
+  },
+};
+
 // Strict no-any enforcement for security-critical paths
 const strictNoAnyOverrides = {
   files: [
@@ -750,6 +769,7 @@ export default [
   valyntServicesImportGuard,
   backendServiceAuthOverrides,
   backendNoConsoleOverrides,
+  frontendNoConsoleOverrides,
   strictNoAnyOverrides,
   configOverrides,
   testOverrides,

@@ -54,10 +54,12 @@ export class EntitlementsService {
 
   private static getInstance(): EntitlementsService {
     if (!EntitlementsService._instance) {
-      // Fallback: create a stub instance so static calls don't throw "not a function".
-      // Real DB calls will fail gracefully (fail-open) when Supabase is unavailable.
-      const stub = {} as SupabaseClient;
-      EntitlementsService._instance = new EntitlementsService(stub);
+      // No instance has been registered via setInstance(). Throwing here surfaces
+      // the misconfiguration immediately rather than returning a broken stub that
+      // silently fails (or worse, fail-opens) on the first DB call.
+      throw new Error(
+        "EntitlementsService: no instance registered. Call EntitlementsService.setInstance() during app initialisation."
+      );
     }
     return EntitlementsService._instance;
   }
