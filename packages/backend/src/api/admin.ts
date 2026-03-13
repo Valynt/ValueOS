@@ -23,6 +23,8 @@ import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob.js"
 import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
 import { tenantDeletionService } from "../services/tenant/TenantDeletionService.js"
 import { AUDIT_ACTION } from "../types/audit.js"
+import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue.js"
+import { RedisDLQStore, DomainDLQEventEmitter } from "../services/workflows/RedisAdapters.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
@@ -617,6 +619,89 @@ router.post(
     } catch (error) {
       logger.error("Admin: CRM token re-encryption job failed", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Re-encryption job failed" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// DLQ endpoints — list failed agent tasks and retry them
+// ---------------------------------------------------------------------------
+
+const dlq = new DeadLetterQueue(new RedisDLQStore(), new DomainDLQEventEmitter());
+
+const DlqListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/**
+ * GET /api/admin/dlq
+ * Lists entries in the dead-letter queue. Admin-only.
+ */
+router.get(
+  "/dlq",
+  requireAuth,
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const parsed = DlqListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.message });
+    }
+    const { limit, offset } = parsed.data;
+
+    try {
+      const [entries, total] = await Promise.all([
+        dlq.list(offset, limit),
+        dlq.count(),
+      ]);
+      return res.status(200).json({ success: true, data: { entries, total, offset, limit } });
+    } catch (err) {
+      logger.error("DLQ list failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ success: false, error: "Failed to list DLQ entries" });
+    }
+  }
+);
+
+/**
+ * POST /api/admin/dlq/:taskId/retry
+ * Re-queues a DLQ entry by its task ID. Admin-only.
+ * The entry is removed from the DLQ after successful re-queue.
+ */
+router.post(
+  "/dlq/:taskId/retry",
+  requireAuth,
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const { taskId } = req.params as { taskId: string };
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: "taskId is required" });
+    }
+
+    try {
+      // Find the entry by taskId
+      const total = await dlq.count();
+      const entries = await dlq.list(0, total || 100);
+      const entry = entries.find((e) => e.taskId === taskId);
+
+      if (!entry) {
+        return res.status(404).json({ success: false, error: "DLQ entry not found" });
+      }
+
+      // Remove from DLQ — the caller is responsible for re-dispatching
+      const removed = await dlq.remove(entry);
+      if (!removed) {
+        return res.status(409).json({ success: false, error: "Entry was already removed" });
+      }
+
+      logger.info("DLQ entry retried", { taskId, agentType: entry.agentType });
+
+      return res.status(200).json({
+        success: true,
+        data: { taskId, agentType: entry.agentType, removed: true },
+      });
+    } catch (err) {
+      logger.error("DLQ retry failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ success: false, error: "Failed to retry DLQ entry" });
     }
   }
 );

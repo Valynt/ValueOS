@@ -1,7 +1,2 @@
-export {
-  ComplianceReportGeneratorService,
-  complianceReportGeneratorService,
-  MissingEvidenceError,
-  type ComplianceReportOutput,
-  type GenerateComplianceReportInput,
-} from "./security/ComplianceReportGeneratorService.js";
+// Moved to services/integrity/ComplianceReportGeneratorService.ts — re-exported here for backward compatibility.
+export * from "./integrity/ComplianceReportGeneratorService.js";

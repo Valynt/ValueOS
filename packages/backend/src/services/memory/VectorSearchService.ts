@@ -1,0 +1,474 @@
+/**
+ * Vector Search Service
+ *
+ * Production-ready service for querying semantic_memory table with pgvector
+ *
+ * Features:
+ * - Type-safe query methods
+ * - Configurable thresholds
+ * - Caching support
+ * - Performance monitoring
+ * - Error handling
+ */
+
+import { createHash } from "node:crypto";
+
+import { logger } from "@shared/lib/logger";
+
+import { getSemanticThreshold, semanticMemoryConfig } from "../config/llm.js";
+import { supabase } from "../lib/supabase";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface SemanticMemory {
+  id: string;
+  type:
+    | "value_proposition"
+    | "target_definition"
+    | "opportunity"
+    | "integrity_check"
+    | "workflow_result";
+  content: string;
+  embedding: number[];
+  metadata: Record<string, any>;
+  created_at: string;
+  similarity?: number;
+}
+
+export interface SearchOptions {
+  /** Memory type to filter */
+  type?: SemanticMemory["type"];
+  /** Similarity threshold (0-1), defaults to type-specific threshold */
+  threshold?: number;
+  /** Maximum results */
+  limit?: number;
+  /** Metadata filters */
+  filters?: Record<string, any>;
+  /** Enable caching */
+  useCache?: boolean;
+  /** Require lineage metadata */
+  requireLineage?: boolean;
+}
+
+export interface SearchResult {
+  memory: SemanticMemory;
+  similarity: number;
+  lineage?: {
+    source_origin?: string;
+    data_sensitivity_level?: string;
+  };
+  evidenceLog?: string;
+}
+
+// ============================================================================
+// Vector Search Service
+// ============================================================================
+
+export class VectorSearchService {
+  private cache: Map<string, SearchResult[]> = new Map();
+  private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Search semantic memory by query embedding
+   */
+  async searchByEmbedding(
+    queryEmbedding: number[],
+    options: SearchOptions = {}
+  ): Promise<SearchResult[]> {
+    const {
+      type,
+      threshold,
+      limit = semanticMemoryConfig.maxResults,
+      filters = {},
+      useCache = true,
+      requireLineage = true,
+    } = options;
+
+    try {
+      // Check cache
+      const cacheKey = this.getCacheKey(queryEmbedding, options);
+      if (useCache && this.cache.has(cacheKey)) {
+        logger.debug("Vector search cache hit", { cacheKey });
+        return this.cache.get(cacheKey)!;
+      }
+
+      // Determine threshold
+      const effectiveThreshold =
+        threshold || (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
+
+      // Build filter clause
+      const filterClause = this.buildFilterClause(type, filters, requireLineage);
+
+      // Execute search
+      const startTime = Date.now();
+      const { data, error } = await supabase.rpc("search_semantic_memory", {
+        query_embedding: queryEmbedding,
+        match_threshold: effectiveThreshold,
+        match_count: limit,
+        filter_clause: filterClause,
+      });
+
+      const duration = Date.now() - startTime;
+
+      if (error) {
+        logger.error("Vector search failed", { error, duration });
+        throw error;
+      }
+
+      // Format results
+      const results: SearchResult[] = (data || []).map((row: any) => {
+        const lineage = {
+          source_origin: row.metadata?.source_origin,
+          data_sensitivity_level: row.metadata?.data_sensitivity_level,
+        };
+
+        const evidenceLog = lineage.source_origin
+          ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || "unspecified"})`
+          : "Lineage unavailable";
+
+        return {
+          memory: {
+            id: row.id,
+            type: row.type,
+            content: row.content,
+            embedding: row.embedding,
+            metadata: row.metadata,
+            created_at: row.created_at,
+          },
+          similarity: row.similarity,
+          lineage,
+          evidenceLog,
+        };
+      });
+
+      // Cache results
+      if (useCache) {
+        this.cache.set(cacheKey, results);
+        setTimeout(() => this.cache.delete(cacheKey), this.cacheTTL);
+      }
+
+      logger.info("Vector search completed", {
+        duration,
+        resultCount: results.length,
+        threshold: effectiveThreshold,
+        type,
+      });
+
+      return results;
+    } catch (error) {
+      logger.error("Vector search error", { error, options });
+      throw error;
+    }
+  }
+
+  /**
+   * Search by industry
+   */
+  async searchByIndustry(
+    queryEmbedding: number[],
+    industry: string,
+    options: Omit<SearchOptions, "filters"> = {}
+  ): Promise<SearchResult[]> {
+    return this.searchByEmbedding(queryEmbedding, {
+      ...options,
+      filters: { industry },
+    });
+  }
+
+  /**
+   * Search within a specific workflow
+   */
+  async searchByWorkflow(
+    queryEmbedding: number[],
+    workflowId: string,
+    options: Omit<SearchOptions, "filters"> = {}
+  ): Promise<SearchResult[]> {
+    return this.searchByEmbedding(queryEmbedding, {
+      ...options,
+      filters: { workflowId },
+    });
+  }
+
+  /**
+   * Find similar memories to an existing memory
+   */
+  async findSimilar(memoryId: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+    try {
+      // Get the source memory
+      const { data: sourceMemory, error } = await supabase
+        .from("semantic_memory")
+        .select("embedding, type")
+        .eq("id", memoryId)
+        .single();
+
+      if (error || !sourceMemory) {
+        throw new Error(`Memory ${memoryId} not found`);
+      }
+
+      // Search for similar memories
+      return this.searchByEmbedding(sourceMemory.embedding, {
+        type: sourceMemory.type,
+        ...options,
+      });
+    } catch (error) {
+      logger.error("Find similar memories failed", { error, memoryId });
+      throw error;
+    }
+  }
+
+  /**
+   * Check for duplicate or near-duplicate content
+   */
+  async checkDuplicate(
+    queryEmbedding: number[],
+    type: SemanticMemory["type"],
+    duplicateThreshold: number = 0.95
+  ): Promise<boolean> {
+    const results = await this.searchByEmbedding(queryEmbedding, {
+      type,
+      threshold: duplicateThreshold,
+      limit: 1,
+      useCache: false,
+    });
+
+    return results.length > 0;
+  }
+
+  /**
+   * Get memory statistics scoped to a tenant.
+   *
+   * Delegates to the `get_semantic_memory_stats` Postgres function which
+   * returns total, per-type counts, and a 7-day recent count in a single
+   * round-trip. The previous implementation fetched all `type` values and
+   * grouped them in JavaScript, transferring O(n) rows for a stats call.
+   */
+  async getStats(organizationId: string): Promise<{
+    total: number;
+    byType: Record<string, number>;
+    recentCount: number;
+  }> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped memory stats");
+    }
+
+    const { data, error } = await supabase.rpc("get_semantic_memory_stats", {
+      p_organization_id: organizationId,
+    });
+
+    if (error) {
+      logger.error("Failed to get memory stats", { error });
+      throw error;
+    }
+
+    const result = data as { total: number; byType: Record<string, number>; recentCount: number } | null;
+
+    return {
+      total: result?.total ?? 0,
+      byType: result?.byType ?? {},
+      recentCount: result?.recentCount ?? 0,
+    };
+  }
+
+  /**
+   * Analyze similarity distribution for a query
+   */
+  async analyzeSimilarityDistribution(
+    queryEmbedding: number[],
+    type?: SemanticMemory["type"]
+  ): Promise<{
+    count: number;
+    average: number;
+    median: number;
+    stdDev: number;
+    min: number;
+    max: number;
+    distribution: {
+      veryHigh: number;
+      high: number;
+      medium: number;
+      low: number;
+      veryLow: number;
+    };
+    recommendedThreshold: number;
+  }> {
+    try {
+      // Get all similarities (no threshold)
+      const results = await this.searchByEmbedding(queryEmbedding, {
+        type,
+        threshold: 0.0,
+        limit: 100,
+        useCache: false,
+      });
+
+      if (results.length === 0) {
+        throw new Error("No memories found for analysis");
+      }
+
+      const similarities = results.map((r) => r.similarity);
+      const sorted = similarities.sort((a, b) => b - a);
+
+      // Calculate statistics
+      const sum = similarities.reduce((a, b) => a + b, 0);
+      const average = sum / similarities.length;
+      const median = sorted[Math.floor(sorted.length / 2)];
+
+      const variance =
+        similarities.reduce((sum, val) => sum + Math.pow(val - average, 2), 0) /
+        similarities.length;
+      const stdDev = Math.sqrt(variance);
+
+      // Distribution buckets
+      const distribution = {
+        veryHigh: similarities.filter((s) => s >= 0.9).length,
+        high: similarities.filter((s) => s >= 0.8 && s < 0.9).length,
+        medium: similarities.filter((s) => s >= 0.7 && s < 0.8).length,
+        low: similarities.filter((s) => s >= 0.6 && s < 0.7).length,
+        veryLow: similarities.filter((s) => s < 0.6).length,
+      };
+
+      // Recommend threshold (average - 1 std dev, clamped to reasonable range)
+      const recommendedThreshold = Math.max(0.5, Math.min(0.85, average - stdDev));
+
+      return {
+        count: results.length,
+        average: average!,
+        median: median!,
+        stdDev: stdDev!,
+        min: sorted[sorted.length - 1]!,
+        max: sorted[0]!,
+        distribution,
+        recommendedThreshold,
+      };
+    } catch (error) {
+      logger.error("Similarity distribution analysis failed", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Clear cache
+   */
+  clearCache(): void {
+    this.cache.clear();
+    logger.debug("Vector search cache cleared");
+  }
+
+  // ============================================================================
+  // Private Helpers
+  // ============================================================================
+
+  /**
+   * Escape a string for use as a SQL literal to prevent SQL injection.
+   * Doubles single quotes per SQL standard.
+   */
+  private escapeSqlLiteral(value: string): string {
+    return value.replace(/'/g, "''");
+  }
+
+  /**
+   * Validate that a key name is a safe SQL identifier (alphanumeric + underscores).
+   */
+  private isSafeIdentifier(key: string): boolean {
+    return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
+  }
+
+  private static readonly VALID_TYPES: ReadonlySet<string> = new Set([
+    "value_proposition",
+    "target_definition",
+    "opportunity",
+    "integrity_check",
+    "workflow_result",
+  ]);
+
+  private buildFilterClause(
+    type?: SemanticMemory["type"],
+    filters: Record<string, any> = {},
+    requireLineage: boolean = true
+  ): string {
+    const conditions: string[] = [];
+
+    // Type filter — validate against known enum and escape for defense-in-depth
+    if (type) {
+      if (!VectorSearchService.VALID_TYPES.has(type)) {
+        throw new Error(`Invalid memory type: ${type}`);
+      }
+      conditions.push(`type = '${this.escapeSqlLiteral(type)}'`);
+    }
+
+    if (requireLineage) {
+      conditions.push("(metadata ? 'source_origin')");
+      conditions.push("(metadata ? 'data_sensitivity_level')");
+      conditions.push("metadata->>'source_origin' IS NOT NULL");
+      conditions.push("metadata->>'data_sensitivity_level' IS NOT NULL");
+      conditions.push("metadata->>'source_origin' <> ''");
+      conditions.push("metadata->>'data_sensitivity_level' <> ''");
+      conditions.push("LOWER(metadata->>'source_origin') <> 'unknown'");
+      conditions.push("LOWER(metadata->>'data_sensitivity_level') <> 'unknown'");
+      conditions.push("COALESCE(metadata->>'source_origin', '') <> ''");
+      conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
+    }
+
+    // Organization / tenant filter — escape value
+    if ((filters as any).organization_id) {
+      const orgId = String((filters as any).organization_id);
+      conditions.push(`organization_id = '${this.escapeSqlLiteral(orgId)}'`);
+      delete (filters as any).organization_id;
+    }
+
+    // Metadata filters — escape all interpolated values
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+
+      // Reject keys that aren't safe identifiers to prevent injection via key names
+      if (!this.isSafeIdentifier(key)) {
+        logger.warn("Skipping unsafe metadata filter key", { key });
+        return;
+      }
+
+      if (typeof value === "string") {
+        conditions.push(`metadata->>'${key}' = '${this.escapeSqlLiteral(value)}'`);
+      } else if (typeof value === "number") {
+        if (!Number.isFinite(value)) return;
+        conditions.push(`(metadata->>'${key}')::float = ${value}`);
+      } else if (typeof value === "boolean") {
+        conditions.push(`(metadata->>'${key}')::boolean = ${value}`);
+      } else if (Array.isArray(value)) {
+        // Serialize via JSON.stringify (safe for jsonb cast) then escape the wrapper
+        const jsonStr = JSON.stringify(value);
+        conditions.push(`metadata->'${key}' @> '${this.escapeSqlLiteral(jsonStr)}'::jsonb`);
+      }
+    });
+
+    return conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  }
+
+  private getCacheKey(embedding: number[], options: SearchOptions): string {
+    // Create deterministic cache key
+    const embeddingHash = this.hashEmbedding(embedding);
+    const optionsHash = JSON.stringify({
+      type: options.type,
+      threshold: options.threshold,
+      limit: options.limit,
+      filters: options.filters,
+    });
+
+    return `${embeddingHash}:${optionsHash}`;
+  }
+
+  private hashEmbedding(embedding: number[]): string {
+    if (embedding.length === 0) return "empty";
+    // SHA-256 over the full embedding so that semantically distinct vectors
+    // never collide in the cache. Float32Array gives a stable binary
+    // representation regardless of JS number precision.
+    const buf = Buffer.from(new Float32Array(embedding).buffer);
+    return createHash("sha256").update(buf).digest("hex").slice(0, 16);
+  }
+}
+
+// ============================================================================
+// Singleton Export
+// ============================================================================
+
+export const vectorSearchService = new VectorSearchService();

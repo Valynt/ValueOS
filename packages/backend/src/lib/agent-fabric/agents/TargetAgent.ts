@@ -24,6 +24,9 @@ import type {
 import { logger } from '../../logger.js';
 import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
 import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
+import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
+import { createServerSupabaseClient } from '../../supabase.js';
 
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
@@ -107,6 +110,23 @@ interface CausalTrace {
 // ---------------------------------------------------------------------------
 // Agent
 // ---------------------------------------------------------------------------
+
+// Module-level singleton — avoids constructing a new Supabase client per agent run.
+// Per ADR-0011: use module-level singletons for infrastructure dependencies that
+// cannot be injected via LifecycleContext without a type-breaking change.
+let _provenanceTracker: ProvenanceTracker | null = null;
+function getProvenanceTracker(): ProvenanceTracker {
+  if (!_provenanceTracker) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = createServerSupabaseClient() as any;
+    // SupabaseProvenanceStore from SagaAdapters uses a local ProvenanceRecord type
+    // that is structurally compatible with the packages/memory ProvenanceStore interface.
+    // The cast is safe: both types share the same DB table and field names.
+    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    _provenanceTracker = new ProvenanceTracker(store);
+  }
+  return _provenanceTracker;
+}
 
 export class TargetAgent extends BaseAgent {
   private causalEngine = getAdvancedCausalEngine();
@@ -592,6 +612,23 @@ export class TargetAgent extends BaseAgent {
         organization_id: organizationId,
         node_count: nodes.length,
       });
+
+      // Record provenance for each node so downstream agents and the UI can
+      // trace every value tree entry back to the TargetAgent run that produced it.
+      const tracker = getProvenanceTracker();
+      await Promise.allSettled(
+        nodes.map((node) =>
+          tracker.record({
+            valueCaseId: caseId,
+            claimId: node.node_key,
+            dataSource: 'TargetAgent:value_driver_tree',
+            evidenceTier: 2, // Internal analysis — Tier 2 per EvidenceTiering classification
+            agentId: this.name,
+            agentVersion: this.version,
+            confidenceScore: 0.7, // Default; overridden by ConfidenceScorer in IntegrityAgent
+          }),
+        ),
+      );
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
       logger.error('TargetAgent: failed to persist value tree', {

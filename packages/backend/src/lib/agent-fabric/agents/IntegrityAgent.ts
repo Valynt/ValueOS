@@ -27,6 +27,14 @@ import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEve
 import { integrityOutputRepository } from '../../../repositories/IntegrityOutputRepository.js';
 
 import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
+import {
+  classifyEvidence,
+  type EvidenceItem,
+} from '../../agents/core/EvidenceTiering.js';
+import {
+  computeConfidence,
+  type ConfidenceInput,
+} from '../../agents/core/ConfidenceScorer.js';
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -768,21 +776,49 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     }
 
     try {
-      const claims = analysis.claim_validations.map(cv => ({
-        claim_id: cv.claim_id,
-        text: cv.claim_text,
-        confidence_score: cv.confidence,
-        evidence_tier: undefined as number | undefined,
-        // partially_supported is flagged so the UI surfaces evidence gaps for review,
-        // not just outright failures.
-        flagged: cv.verdict === 'unsupported' ||
-          cv.verdict === 'insufficient_evidence' ||
-          cv.verdict === 'partially_supported' ||
-          cv.issues.some(i => i.severity === 'high' || i.severity === 'critical'),
-        flag_reason: cv.issues.length > 0
-          ? cv.issues.map(i => i.description).join('; ')
-          : undefined,
-      }));
+      // Map each claim validation to a typed EvidenceItem so EvidenceTiering
+      // and ConfidenceScorer can produce evidence_tier and confidence_score.
+      // claim_id prefix ('kpi-' vs 'hyp-') determines the source type.
+      const claims = analysis.claim_validations.map(cv => {
+        const sourceType: EvidenceItem['sourceType'] = cv.claim_id.startsWith('kpi-')
+          ? 'internal_system'
+          : 'internal_analysis';
+
+        const evidenceItem: EvidenceItem = {
+          id: cv.claim_id,
+          sourceType,
+          sourceName: cv.claim_id.startsWith('kpi-') ? 'KPI target' : 'Opportunity hypothesis',
+          content: cv.claim_text,
+          // Default retrievedAt to now — freshness decay starts from the current run.
+          retrievedAt: new Date().toISOString(),
+        };
+
+        const classified = classifyEvidence(evidenceItem);
+
+        const confidenceInput: ConfidenceInput = {
+          evidence: classified,
+          transparency: cv.verdict === 'supported' ? 'full'
+            : cv.verdict === 'partially_supported' ? 'partial'
+            : 'opaque',
+        };
+        const scored = computeConfidence(confidenceInput);
+
+        return {
+          claim_id: cv.claim_id,
+          text: cv.claim_text,
+          confidence_score: scored.overall,
+          evidence_tier: classified.tier,
+          // partially_supported is flagged so the UI surfaces evidence gaps for review,
+          // not just outright failures.
+          flagged: cv.verdict === 'unsupported' ||
+            cv.verdict === 'insufficient_evidence' ||
+            cv.verdict === 'partially_supported' ||
+            cv.issues.some(i => i.severity === 'high' || i.severity === 'critical'),
+          flag_reason: cv.issues.length > 0
+            ? cv.issues.map(i => i.description).join('; ')
+            : undefined,
+        };
+      });
 
       await integrityOutputRepository.upsertForCase({
         case_id: caseId,

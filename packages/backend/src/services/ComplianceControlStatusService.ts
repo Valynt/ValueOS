@@ -1,9 +1,2 @@
-export {
-  ComplianceControlStatusService,
-  complianceControlStatusService,
-  type ComplianceControlSummary,
-  type ControlStatus,
-  type ComplianceFramework,
-  type ControlStatusRecord,
-  type PolicyHistoryRecord,
-} from "./security/ComplianceControlStatusService.js";
+// Moved to services/integrity/ComplianceControlStatusService.ts — re-exported here for backward compatibility.
+export * from "./integrity/ComplianceControlStatusService.js";

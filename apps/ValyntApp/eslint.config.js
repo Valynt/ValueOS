@@ -56,15 +56,17 @@ const valyntAppConfig = {
     // "security/detect-non-literal-fs-filename": "error", // Disabled due to ESLint 9 compatibility
     // ADR-0014 / Phase 8: All REST calls to /api/ routes must use UnifiedApiClient.
     // Raw fetch() to backend API routes bypasses auth, retry, and error handling.
+    // Exceptions (src/lib/, src/utils/): fire-and-forget analytics, external APIs, CSP reporting.
+    // Mark confirmed exceptions with: // legitimate-exception: <reason>
     "no-restricted-syntax": [
-      "warn",
+      "error",
       {
         selector: "CallExpression[callee.name='fetch'][arguments.0.type='Literal'][arguments.0.value=/^\\/api\\//]",
-        message: "Use apiClient from unified-api-client instead of raw fetch() for /api/ routes.",
+        message: "Use apiClient from unified-api-client instead of raw fetch() for /api/ routes. Add '// legitimate-exception: <reason>' if this is intentional.",
       },
       {
         selector: "CallExpression[callee.name='fetch'][arguments.0.type='TemplateLiteral']",
-        message: "Use apiClient from unified-api-client instead of raw fetch() for API calls.",
+        message: "Use apiClient from unified-api-client instead of raw fetch() for API calls. Add '// legitimate-exception: <reason>' if this is intentional.",
       },
     ],
     "no-restricted-imports": [
@@ -86,4 +88,14 @@ const valyntAppConfig = {
   },
 };
 
-export default [ignoresConfig, valyntAppConfig];
+// Confirmed exception locations: src/lib/ and src/utils/ may use raw fetch()
+// for external APIs, fire-and-forget analytics, and CSP violation reporting.
+// These are not /api/ backend routes and do not require UnifiedApiClient.
+const fetchExceptionConfig = {
+  files: ["src/lib/**/*.{ts,tsx}", "src/utils/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-syntax": "off",
+  },
+};
+
+export default [ignoresConfig, valyntAppConfig, fetchExceptionConfig];
