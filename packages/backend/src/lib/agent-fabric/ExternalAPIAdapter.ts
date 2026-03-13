@@ -46,6 +46,15 @@ export class ExternalAPIAdapter {
     const { method = "GET", headers = {}, body, timeout = 30_000, auditContext = {} } = options;
     const start = Date.now();
 
+    // Strip query params from logged URLs to avoid leaking tokens or PII in logs.
+    let redactedUrl = url;
+    try {
+      const parsed = new URL(url);
+      redactedUrl = `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      // Relative or malformed URL — log as-is.
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -75,7 +84,7 @@ export class ExternalAPIAdapter {
         caller: this.callerName,
         operationTag: this.operationTag,
         operationName,
-        url,
+        url: redactedUrl,
         method,
         status: response.status,
         latencyMs,
@@ -107,7 +116,7 @@ export class ExternalAPIAdapter {
         caller: this.callerName,
         operationTag: this.operationTag,
         operationName,
-        url,
+        url: redactedUrl,
         method,
         latencyMs,
         isTimeout,
