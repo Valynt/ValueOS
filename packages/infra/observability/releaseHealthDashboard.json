@@ -1,0 +1,26 @@
+{
+  "title": "Release Health",
+  "description": "Correlates deploy version/SHA markers with error and latency regressions",
+  "panels": [
+    {
+      "title": "Deploy markers by release",
+      "query": "count_over_time(release_health_marker_total[1h]) by (release, environment)",
+      "visualization": "annotations"
+    },
+    {
+      "title": "Error rate by release",
+      "query": "sum(rate(http_server_errors_total[5m])) by (release)",
+      "visualization": "timeseries"
+    },
+    {
+      "title": "Workflow execution p95 by release",
+      "query": "histogram_quantile(0.95, sum(rate(business_transaction_duration_ms_bucket{transaction='workflow.execution'}[5m])) by (le, release))",
+      "visualization": "timeseries"
+    },
+    {
+      "title": "Frontend crash-free sessions",
+      "query": "avg_over_time(frontend_crash_free_session_ratio[15m]) by (app, release)",
+      "visualization": "timeseries"
+    }
+  ]
+}

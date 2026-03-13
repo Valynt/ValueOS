@@ -1,0 +1,36 @@
+{
+  "nodes": [
+    { "id": "valynt-app", "type": "frontend", "description": "Primary customer UI" },
+    { "id": "vos-academy", "type": "frontend", "description": "Academy learning UI" },
+    { "id": "mcp-dashboard", "type": "frontend", "description": "MCP operations UI" },
+    { "id": "backend-api", "type": "backend", "description": "Express API" },
+    { "id": "decision-router", "type": "runtime-service", "description": "Selects next agent/action" },
+    { "id": "execution-runtime", "type": "runtime-service", "description": "Executes workflow DAG and query orchestration" },
+    { "id": "policy-engine", "type": "runtime-service", "description": "Applies integrity/structural policies" },
+    { "id": "context-store", "type": "runtime-service", "description": "Persists and hydrates workflow context" },
+    { "id": "artifact-composer", "type": "runtime-service", "description": "Composes workflow artifacts" },
+    { "id": "recommendation-engine", "type": "runtime-service", "description": "Emits recommendations" },
+    { "id": "supabase-postgres", "type": "data", "description": "Workflow + domain persistence" },
+    { "id": "redis-bullmq", "type": "messaging", "description": "Queueing and async execution" },
+    { "id": "domain-event-bus", "type": "messaging", "description": "Domain event fan-out" },
+    { "id": "realtime-broadcast", "type": "messaging", "description": "Tenant-scoped realtime pushes" }
+  ],
+  "edges": [
+    { "from": "valynt-app", "to": "backend-api", "protocol": "https" },
+    { "from": "vos-academy", "to": "backend-api", "protocol": "https" },
+    { "from": "mcp-dashboard", "to": "backend-api", "protocol": "https" },
+    { "from": "backend-api", "to": "decision-router", "protocol": "in-process" },
+    { "from": "backend-api", "to": "execution-runtime", "protocol": "in-process" },
+    { "from": "backend-api", "to": "policy-engine", "protocol": "in-process" },
+    { "from": "backend-api", "to": "context-store", "protocol": "in-process" },
+    { "from": "backend-api", "to": "artifact-composer", "protocol": "in-process" },
+    { "from": "backend-api", "to": "recommendation-engine", "protocol": "in-process" },
+    { "from": "execution-runtime", "to": "supabase-postgres", "protocol": "postgres" },
+    { "from": "execution-runtime", "to": "redis-bullmq", "protocol": "redis" },
+    { "from": "execution-runtime", "to": "domain-event-bus", "protocol": "cloudevents" },
+    { "from": "recommendation-engine", "to": "domain-event-bus", "protocol": "subscription" },
+    { "from": "recommendation-engine", "to": "realtime-broadcast", "protocol": "websocket" },
+    { "from": "realtime-broadcast", "to": "valynt-app", "protocol": "websocket" },
+    { "from": "realtime-broadcast", "to": "mcp-dashboard", "protocol": "websocket" }
+  ]
+}

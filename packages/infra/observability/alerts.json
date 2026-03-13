@@ -1,0 +1,32 @@
+{
+  "alerts": [
+    {
+      "name": "backend-error-rate-regression",
+      "query": "sum(rate(http_server_errors_total{service='valueos-backend'}[5m])) / sum(rate(http_server_requests_total{service='valueos-backend'}[5m])) > 0.03",
+      "for": "10m",
+      "severity": "critical",
+      "description": "Error rate above 3% for 10m"
+    },
+    {
+      "name": "workflow-latency-anomaly",
+      "query": "histogram_quantile(0.95, sum(rate(business_transaction_duration_ms_bucket{transaction='workflow.execution'}[10m])) by (le)) > 15000",
+      "for": "15m",
+      "severity": "high",
+      "description": "Workflow execution p95 latency crossed 15s"
+    },
+    {
+      "name": "agent-orchestration-latency-anomaly",
+      "query": "histogram_quantile(0.95, sum(rate(business_transaction_duration_ms_bucket{transaction='agent.orchestration'}[10m])) by (le)) > 7000",
+      "for": "15m",
+      "severity": "high",
+      "description": "Agent orchestration p95 latency crossed 7s"
+    },
+    {
+      "name": "frontend-crash-free-session-slo",
+      "query": "avg_over_time(frontend_crash_free_session_ratio{app=~'valynt-app|vos-academy|mcp-dashboard'}[30m]) < 0.995",
+      "for": "30m",
+      "severity": "critical",
+      "description": "Crash-free sessions dropped below 99.5%"
+    }
+  ]
+}

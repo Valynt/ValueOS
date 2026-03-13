@@ -7,6 +7,7 @@ import "./styles/globals.css";
 import { validateFrontendStartupEnv } from "./config/startupEnvValidator";
 import { analyticsClient } from "./lib/analyticsClient";
 import { logger } from "./lib/logger";
+import { initFrontendObservability } from "./lib/observability";
 
 // Validate env values before startup
 logger.debug("Startup env check", {
@@ -28,9 +29,15 @@ bootstrap({
 
   analyticsClient.initialize({ betaCohort: true });
 
+  initFrontendObservability({
+    appName: "valynt-app",
+    release: import.meta.env.VITE_RELEASE ?? "dev",
+    environment: import.meta.env.MODE,
+  });
+
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <App />
-    </React.StrictMode>,
+    </React.StrictMode>
   );
 });
