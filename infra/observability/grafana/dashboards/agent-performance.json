@@ -68,11 +68,11 @@
       "pluginVersion": "10.2.0",
       "targets": [
         {
-          "expr": "(rate(agent_reasoning_attempts_total[5m]) - rate(agent_reasoning_errors_total[5m])) / rate(agent_reasoning_attempts_total[5m])",
+          "expr": "(sum(rate(agent_fabric_execution_success_total[5m])) / clamp_min(sum(rate(agent_fabric_execution_success_total[5m]) + rate(agent_fabric_execution_failure_total[5m])), 0.000001))",
           "refId": "A"
         }
       ],
-      "title": "Reasoning Success Rate",
+      "title": "Agent Fabric Execution Success Rate",
       "type": "gauge"
     },
     {
@@ -196,12 +196,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, agent_type) (rate(agent_fabric_execution_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le, agent_type))",
           "legendFormat": "{{agent_type}}",
           "refId": "A"
         }
       ],
-      "title": "P95 Agent Execution Duration by Agent Type",
+      "title": "Agent Fabric p95 Execution Latency by Agent",
       "type": "timeseries"
     },
     {
@@ -228,12 +228,12 @@
       "id": 4,
       "targets": [
         {
-          "expr": "sum by (agent_type, severity) (rate(agent_fabric_execution_failure_total[5m]))",
-          "legendFormat": "{{agent_type}}/{{severity}}",
+          "expr": "rate(agent_safety_violations_total[5m]) by (severity)",
+          "legendFormat": "{{severity}}",
           "refId": "A"
         }
       ],
-      "title": "Agent Errors by Type and Severity",
+      "title": "Safety Violations",
       "type": "timeseries"
     },
     {
@@ -247,12 +247,12 @@
       "id": 5,
       "targets": [
         {
-          "expr": "sum by (agent_type, event_type, severity) (rate(agent_fabric_security_events_total[5m]))",
-          "legendFormat": "{{agent_type}}/{{event_type}}/{{severity}}",
+          "expr": "rate(agent_memory_inconsistencies_total[5m]) by (type)",
+          "legendFormat": "{{type}}",
           "refId": "A"
         }
       ],
-      "title": "Security Events by Agent",
+      "title": "Memory Inconsistencies",
       "type": "timeseries"
     },
     {
@@ -320,6 +320,61 @@
         }
       ],
       "title": "Top Tools by Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "errors/sec",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by(agent_type, severity) (rate(agent_fabric_execution_failure_total[5m]))",
+          "legendFormat": "{{agent_type}}/{{severity}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Agent Fabric Errors by Agent/Severity",
       "type": "timeseries"
     }
   ],

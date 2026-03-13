@@ -11,11 +11,10 @@ spec:
         - alert: AgentFabricExecutionErrorRateHigh
           expr: |
             (
-              rate(agent_fabric_execution_failure_total[5m])
+              sum by (agent_type) (rate(agent_fabric_execution_failure_total[5m]))
                 /
                 clamp_min(
-                  rate(agent_fabric_execution_success_total[5m])
-                  + rate(agent_fabric_execution_failure_total[5m]),
+                  sum by (agent_type) (rate(agent_fabric_execution_success_total[5m]) + rate(agent_fabric_execution_failure_total[5m])),
                   0.000001
                 )
               ) > 0.05
@@ -25,14 +24,14 @@ spec:
             component: agent-fabric
           annotations:
             summary: "Agent Fabric execution error rate is above 5%"
-            description: "Execution error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+            description: "Agent {{ $labels.agent_type }} execution error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
             runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-error-rate"
 
         - alert: AgentFabricExecutionLatencyP95High
           expr: |
             histogram_quantile(
               0.95,
-              sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le)
+              sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le, agent_type)
             ) > 30
           for: 10m
           labels:
@@ -40,14 +39,14 @@ spec:
             component: agent-fabric
           annotations:
             summary: "Agent Fabric execution p95 latency is high"
-            description: "p95 latency is {{ $value }}s over the last 5 minutes"
+            description: "Agent {{ $labels.agent_type }} p95 latency is {{ $value }}s over the last 5 minutes"
             runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-latency"
 
         - alert: AgentFabricExecutionLatencyP99High
           expr: |
             histogram_quantile(
               0.99,
-              sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le)
+              sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le, agent_type)
             ) > 60
           for: 10m
           labels:
@@ -55,7 +54,7 @@ spec:
             component: agent-fabric
           annotations:
             summary: "Agent Fabric execution p99 latency is critical"
-            description: "p99 latency is {{ $value }}s over the last 5 minutes"
+            description: "Agent {{ $labels.agent_type }} p99 latency is {{ $value }}s over the last 5 minutes"
             runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-latency"
 
 
