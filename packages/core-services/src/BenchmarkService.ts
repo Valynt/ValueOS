@@ -68,12 +68,17 @@ type Percentiles = { p25?: number; p50?: number; p75?: number; p90?: number };
 
 export class BenchmarkService {
   private supabase: SupabaseClient;
+  private organizationId: string;
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
   // Instance-scoped: each BenchmarkService instance (one per tenant) has its own cache.
   private readonly percentileCache = new Map<string, CacheEntry<Percentiles>>();
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient, organizationId: string) {
+    if (!organizationId) {
+      throw new Error("BenchmarkService requires organizationId — tenant isolation is mandatory");
+    }
     this.supabase = supabase;
+    this.organizationId = organizationId;
   }
 
   async compareToBenchmark(
@@ -125,7 +130,8 @@ export class BenchmarkService {
     region?: string;
     pagination?: { page?: number; pageSize?: number };
   }): Promise<Benchmark[]> {
-    let query = this.supabase.from('benchmarks').select('*');
+    let query = this.supabase.from('benchmarks').select('*')
+      .eq('organization_id', this.organizationId);
 
     if (filters.kpi_name) query = query.eq('kpi_name', filters.kpi_name);
     if (filters.industry) query = query.eq('industry', filters.industry);
@@ -146,7 +152,11 @@ export class BenchmarkService {
   }
 
   async createBenchmark(benchmark: Omit<Benchmark, 'id' | 'created_at'>): Promise<Benchmark> {
-    const { data, error } = await this.supabase.from('benchmarks').insert(benchmark).select().single();
+    const { data, error } = await this.supabase
+      .from('benchmarks')
+      .insert({ ...benchmark, organization_id: this.organizationId })
+      .select()
+      .single();
     if (error) throw error;
     this.invalidatePercentileCache();
     return data as Benchmark;
@@ -180,6 +190,7 @@ export class BenchmarkService {
     const { data } = await this.supabase
       .from('benchmarks')
       .select('*')
+      .eq('organization_id', this.organizationId)
       .eq('kpi_name', benchmark.kpi_name)
       .eq('industry', benchmark.industry ?? '')
       .eq('vertical', benchmark.vertical ?? '')
@@ -279,13 +290,18 @@ export class BenchmarkService {
   }
 
   async getSupportedIndustries(): Promise<string[]> {
-    const { data, error } = await this.supabase.from('benchmarks').select('industry').not('industry', 'is', null);
+    const { data, error } = await this.supabase
+      .from('benchmarks')
+      .select('industry')
+      .eq('organization_id', this.organizationId)
+      .not('industry', 'is', null);
     if (error) throw error;
     return [...new Set((data ?? []).map((b: { industry: string }) => b.industry).filter(Boolean))] as string[];
   }
 
   async getSupportedKPIs(industry?: string): Promise<string[]> {
-    let query = this.supabase.from('benchmarks').select('kpi_name');
+    let query = this.supabase.from('benchmarks').select('kpi_name')
+      .eq('organization_id', this.organizationId);
     if (industry) query = query.eq('industry', industry);
     const { data, error } = await query;
     if (error) throw error;
