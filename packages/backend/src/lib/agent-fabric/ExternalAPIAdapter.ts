@@ -55,11 +55,19 @@ export class ExternalAPIAdapter {
   ): Promise<ExternalAPIResponse<T>> {
     const { method = "GET", headers = {}, body, timeout = 30_000, auditContext = {} } = options;
 
+    let redactedUrl = url;
+    try {
+      const parsed = new URL(url);
+      redactedUrl = `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      // If URL parsing fails (e.g., relative URL), fall back to the original string.
+    }
+
     logger.info("ExternalAPIAdapter: outbound call", {
       caller: this.callerName,
       role: this.callerRole,
       operation: operationName,
-      url,
+      url: redactedUrl,
       method,
       ...auditContext,
     });
@@ -83,7 +91,7 @@ export class ExternalAPIAdapter {
           caller: this.callerName,
           operation: operationName,
           status: response.status,
-          url,
+          url: redactedUrl,
         });
         return {
           success: false,
