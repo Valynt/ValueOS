@@ -18,7 +18,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createUserSupabaseClient as createServerSupabaseClient } from '../../lib/supabase.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepository.js';
 import { financialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js';
 import { HypothesisOutputService } from '../value/HypothesisOutputService.js';

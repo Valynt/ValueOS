@@ -215,10 +215,14 @@ export abstract class BaseAgent {
   }> {
     const {
       trackPrediction = true,
-      confidenceThresholds = { low: 0.6, high: 0.85 },
+      confidenceThresholds: _confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
     } = options;
+
+    // Reset per-invocation state so refs from a prior execute() call don't
+    // bleed into this one when the agent instance is reused.
+    this._promptVersionRefs = [];
 
     return this.circuitBreaker.execute(async () => {
       const request = {

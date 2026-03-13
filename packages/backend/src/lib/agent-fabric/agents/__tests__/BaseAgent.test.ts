@@ -612,4 +612,78 @@ describe("BaseAgent", () => {
       );
     });
   });
+
+  // ==========================================================================
+  // _promptVersionRefs reset between invocations
+  // ==========================================================================
+
+  describe("_promptVersionRefs reset on secureInvoke", () => {
+    // Subclass that exposes the protected members needed for this test.
+    class InspectableAgent extends BaseAgent {
+      public readonly lifecycleStage = "opportunity";
+      public readonly version = "1.0.0";
+      public readonly name = "InspectableAgent";
+
+      async execute(_context: LifecycleContext): Promise<AgentOutput> {
+        return this.prepareOutput({}, "success");
+      }
+
+      async invokeSecure<T>(sessionId: string, prompt: string, schema: z.ZodSchema<T>) {
+        return this.secureInvoke(sessionId, prompt, schema);
+      }
+
+      setRefs(refs: Array<{ key: string; version: string }>) {
+        this.setPromptVersionReferences(refs);
+      }
+
+      getRefs() {
+        return this._promptVersionRefs;
+      }
+    }
+
+    let inspectable: InspectableAgent;
+
+    beforeEach(() => {
+      inspectable = new InspectableAgent(
+        makeConfig(),
+        "org-456",
+        mockMemorySystem,
+        mockLLMGateway,
+        mockCircuitBreaker
+      );
+    });
+
+    it("clears refs from a previous invocation at the start of secureInvoke", async () => {
+      // Simulate refs set during a prior execution
+      inspectable.setRefs([{ key: "prompt-v1", version: "1.0.0" }]);
+      expect(inspectable.getRefs()).toHaveLength(1);
+
+      const schema = z.object({ v: z.string(), hallucination_check: z.boolean().optional() });
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse(JSON.stringify({ v: "ok" }))
+      );
+
+      // New invocation — refs must be cleared before the LLM call
+      await inspectable.invokeSecure("s1", "prompt", schema);
+
+      // After the call, refs should be empty (setPromptVersionReferences was not
+      // called during this invocation, so the reset leaves them as [])
+      expect(inspectable.getRefs()).toHaveLength(0);
+    });
+
+    it("does not carry refs across two sequential invocations", async () => {
+      const schema = z.object({ v: z.string(), hallucination_check: z.boolean().optional() });
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse(JSON.stringify({ v: "ok" }))
+      );
+
+      // First invocation: set refs manually as an agent subclass would
+      inspectable.setRefs([{ key: "prompt-v1", version: "1.0.0" }]);
+      await inspectable.invokeSecure("s1", "prompt", schema);
+
+      // Second invocation without calling setRefs — refs must not bleed through
+      await inspectable.invokeSecure("s2", "prompt", schema);
+      expect(inspectable.getRefs()).toHaveLength(0);
+    });
+  });
 });
