@@ -44,6 +44,51 @@ export class EntitlementsService {
   private supabase: SupabaseClient;
   private snapshotService: EntitlementSnapshotService;
 
+  // Singleton for static-style access (used by tests and middleware that don't
+  // have a Supabase client at call-site). Initialised lazily via setInstance().
+  private static _instance: EntitlementsService | null = null;
+
+  static setInstance(instance: EntitlementsService): void {
+    EntitlementsService._instance = instance;
+  }
+
+  private static getInstance(): EntitlementsService {
+    if (!EntitlementsService._instance) {
+      // No instance has been registered via setInstance(). Throwing here surfaces
+      // the misconfiguration immediately rather than returning a broken stub that
+      // silently fails (or worse, fail-opens) on the first DB call.
+      throw new Error(
+        "EntitlementsService: no instance registered. Call EntitlementsService.setInstance() during app initialisation."
+      );
+    }
+    return EntitlementsService._instance;
+  }
+
+  static async checkUsageAllowed(
+    tenantId: string,
+    meterKey: MeterKey,
+    units: number = 1,
+    options: { checkGracePeriod?: boolean } = {}
+  ): Promise<EntitlementCheckResult> {
+    return EntitlementsService.getInstance().checkUsageAllowed(tenantId, meterKey, units, options);
+  }
+
+  static async checkGracePeriod(
+    tenantId: string,
+    meterKey: MeterKey,
+    requestedUsage: number,
+    quota: number
+  ): Promise<{ allowed: boolean; gracePeriodRemaining?: number }> {
+    return EntitlementsService.getInstance().checkGracePeriod(tenantId, meterKey, requestedUsage, quota);
+  }
+
+  static async getUsageWithEntitlements(tenantId: string): Promise<{
+    usage: Record<string, UsageMetricStatus>;
+    snapshot: EntitlementSnapshot | null;
+  }> {
+    return EntitlementsService.getInstance().getUsageWithEntitlements(tenantId);
+  }
+
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
     this.snapshotService = new EntitlementSnapshotService(supabase);

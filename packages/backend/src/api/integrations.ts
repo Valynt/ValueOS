@@ -14,13 +14,13 @@ import { validateRequest, ValidationSchemas } from "../middleware/inputValidatio
 import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { auditLogService } from "../services/AuditLogService.js";
+import { auditLogService } from "../services/security/AuditLogService.js";
 import { handleServiceError } from "../services/errors.js";
 import {
   integrationConnectionService,
   type IntegrationConnectPayload,
-} from "../services/IntegrationConnectionService.js";
-import { integrationControlService } from "../services/IntegrationControlService.js";
+} from "../services/crm/IntegrationConnectionService.js";
+import { integrationControlService } from "../services/crm/IntegrationControlService.js";
 
 const logger = createLogger({ component: "IntegrationsAPI" });
 const router = createSecureRouter("strict");

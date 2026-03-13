@@ -19,10 +19,11 @@ import {
   getTestSupabaseClient,
   seedTestData,
   waitForCondition,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
 
-describe("Webhook Event Processing E2E Tests", () => {
+describe.skipIf(!supabaseAvailable)("Webhook Event Processing E2E Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

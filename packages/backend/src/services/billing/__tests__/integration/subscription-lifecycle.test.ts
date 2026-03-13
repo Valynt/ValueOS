@@ -17,6 +17,7 @@ import {
   cleanupBillingTables,
   getTestSupabaseClient,
   seedTestData,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 import {
   createMockStripeClient,
@@ -35,7 +36,7 @@ vi.mock("../../StripeService", () => ({
   },
 }));
 
-describe("Subscription Lifecycle Integration Tests", () => {
+describe.skipIf(!supabaseAvailable)("Subscription Lifecycle Integration Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

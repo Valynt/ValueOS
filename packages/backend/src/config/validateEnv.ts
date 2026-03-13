@@ -129,6 +129,27 @@ export function validateEnv(): ValidationResult {
     );
   }
 
+  // Production: ENCRYPTION_KEY must be present and in a format that encryption.ts
+  // can parse: hex (64 chars), base64 (44 chars), or pbkdf2:<iterations>:<salt>:<passphrase>.
+  // A missing or malformed key causes runtime failures when encrypted data is first accessed.
+  if (nodeEnv === "production") {
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      errors.push("ENCRYPTION_KEY is required in production");
+    } else if (
+      !encryptionKey.startsWith("pbkdf2:") &&
+      !encryptionKey.startsWith("hex:") &&
+      !encryptionKey.startsWith("base64:") &&
+      encryptionKey.length < 44 // minimum for a raw base64-encoded 32-byte key
+    ) {
+      errors.push(
+        "ENCRYPTION_KEY is too short. Use one of: hex (64 chars, generate with: openssl rand -hex 32), " +
+        "base64 (44 chars, generate with: openssl rand -base64 32), " +
+        "or pbkdf2:<iterations>:<salt>:<passphrase>"
+      );
+    }
+  }
+
 
   // Canonical DB precedence: DATABASE_URL first, with explicit DB_URL fallback only for legacy compatibility.
   if (process.env.DB_URL && !process.env.DATABASE_URL) {

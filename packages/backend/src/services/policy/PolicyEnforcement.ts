@@ -2,6 +2,7 @@ import { logger } from '../../lib/logger.js';
 
 import { getAgentPolicyService } from './AgentPolicyService.js';
 import { assertAuthorized } from './AuthorizationPolicyGateway.js';
+import { securityEventStreamingService } from '../security/SecurityEventStreamingService.js';
 
 export type PolicyErrorCode = 'TOOL_DENIED' | 'MODEL_DENIED' | 'BUDGET_EXCEEDED';
 
@@ -25,6 +26,24 @@ export interface PolicyAuditEvent {
 
 export function recordPolicyAuditEvent(event: PolicyAuditEvent): void {
   logger.warn('policy.audit', event);
+
+  const tenantId = typeof event.metadata?.tenant_id === 'string' ? event.metadata.tenant_id : undefined;
+  if (tenantId) {
+    void securityEventStreamingService.stream({
+      source: 'security_audit_log',
+      category: 'policy',
+      eventType: event.eventType,
+      tenantId,
+      actorId: (typeof event.metadata?.actor_id === 'string' ? event.metadata.actor_id : event.agentType) ?? 'system',
+      action: event.eventType,
+      resourceType: 'policy',
+      resourceId: (typeof event.metadata?.resource === 'string' ? event.metadata.resource : event.agentType) ?? 'policy',
+      outcome: event.eventType === 'llm_call' ? 'success' : 'denied',
+      sourceService: 'PolicyEnforcement',
+      correlationId: typeof event.metadata?.correlation_id === 'string' ? event.metadata.correlation_id : undefined,
+      metadata: { policyVersion: event.policyVersion, ...(event.metadata ?? {}) },
+    });
+  }
 }
 
 export function enforceToolPolicy(agentType: string | undefined, toolName: string): { policyVersion: string } {
@@ -45,7 +64,7 @@ export function enforceModelPolicy(agentType: string | undefined, model: string)
       eventType: 'model_denied',
       agentType: agentType ?? 'default',
       policyVersion: policy.version,
-      metadata: { model, allowedModels: policy.allowedModels },
+      metadata: { model, allowedModels: policy.allowedModels, resource: model },
     });
     throw new PolicyEnforcementError(
       'MODEL_DENIED',
@@ -67,7 +86,7 @@ export function enforceBudgetPolicy(
       eventType: 'budget_exceeded',
       agentType: agentType ?? 'default',
       policyVersion: policy.version,
-      metadata: { budget, limits: { maxTokens: policy.maxTokens, maxCostUsd: policy.maxCostUsd } },
+      metadata: { budget, limits: { maxTokens: policy.maxTokens, maxCostUsd: policy.maxCostUsd }, resource: 'budget' },
     });
     throw new PolicyEnforcementError(
       'BUDGET_EXCEEDED',

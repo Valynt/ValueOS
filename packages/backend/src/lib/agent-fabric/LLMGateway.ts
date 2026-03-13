@@ -10,8 +10,8 @@ import { getEnvVar } from '@shared/lib/env';
 
 import { assertModelAllowed } from '../../config/models.js';
 import { getTracer } from '../../config/telemetry.js';
-import { CostAwareRouter } from '../../services/CostAwareRouter.js';
-import { LLMCostTracker } from '../../services/LLMCostTracker.js';
+import { CostAwareRouter } from '../../services/post-v1/CostAwareRouter.js';
+import { LLMCostTracker } from '../../services/llm/LLMCostTracker.js';
 import {
   enforceBudgetPolicy,
   enforceModelPolicy,
@@ -341,7 +341,7 @@ export class LLMGateway {
 
       if (routingDecision.fallbackToBasic) {
         // Use FallbackAIService
-        const { FallbackAIService } = await import('../../services/FallbackAIService.js');
+        const { FallbackAIService } = await import('../../services/llm/FallbackAIService.js');
         const fallbackResponse = FallbackAIService.generateFallbackResponse(
           request.messages.map(m => m.content).join(' ')
         );

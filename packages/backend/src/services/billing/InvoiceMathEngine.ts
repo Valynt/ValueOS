@@ -72,6 +72,20 @@ export interface InvoiceCalculationInput {
 export class InvoiceMathEngine {
   private supabase: SupabaseClient;
 
+  // Singleton for static-style access used by tests.
+  private static _instance: InvoiceMathEngine | null = null;
+
+  private static getInstance(): InvoiceMathEngine {
+    if (!InvoiceMathEngine._instance) {
+      InvoiceMathEngine._instance = new InvoiceMathEngine({} as SupabaseClient);
+    }
+    return InvoiceMathEngine._instance;
+  }
+
+  static async calculateInvoice(input: InvoiceCalculationInput): Promise<InvoiceCalculation> {
+    return InvoiceMathEngine.getInstance().calculateInvoice(input);
+  }
+
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
   }

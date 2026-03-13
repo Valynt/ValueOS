@@ -3,6 +3,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -235,19 +236,16 @@ function CompanyContextTab() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("saving");
+
     try {
-      const response = await fetch("/api/v1/tenant/context", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          products: form.products.split(",").map(s => s.trim()).filter(Boolean),
-          icps: form.icps.split(",").map(s => s.trim()).filter(Boolean),
-          competitors: form.competitors.split(",").map(s => s.trim()).filter(Boolean),
-          personas: form.personas.split(",").map(s => s.trim()).filter(Boolean),
-          websiteUrl: form.websiteUrl || undefined,
-        }),
+      const response = await apiClient.post("/api/v1/tenant/context", {
+        products: form.products.split(",").map(s => s.trim()).filter(Boolean),
+        icps: form.icps.split(",").map(s => s.trim()).filter(Boolean),
+        competitors: form.competitors.split(",").map(s => s.trim()).filter(Boolean),
+        personas: form.personas.split(",").map(s => s.trim()).filter(Boolean),
+        websiteUrl: form.websiteUrl || undefined,
       });
-      setStatus(response.ok ? "saved" : "error");
+      setStatus(response.success ? "saved" : "error");
     } catch {
       setStatus("error");
     }

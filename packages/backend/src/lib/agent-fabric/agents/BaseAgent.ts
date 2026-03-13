@@ -62,6 +62,8 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
   protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
+  // Prompt version references set during execution, included in output metadata.
+  protected _promptVersionRefs: PromptVersionReference[] = [];
 
   constructor(
     config: AgentConfig,
@@ -71,7 +73,11 @@ export abstract class BaseAgent {
     circuitBreaker: CircuitBreaker
   ) {
     this.lifecycleStage = config.lifecycle_stage;
-    this.version = "1.0.0";
+    // Read version from config metadata so AgentFactory can inject per-agent versions.
+    // Subclasses may also override via `public override readonly version = "x.y.z"`.
+    // The subclass field initializer runs after super(), so it takes precedence.
+    const metadataVersion = config.metadata?.version;
+    this.version = typeof metadataVersion === "string" ? metadataVersion : "1.0.0";
     this.name = config.name;
     this.organizationId = organizationId;
     this.memorySystem = memorySystem;
@@ -79,6 +85,17 @@ export abstract class BaseAgent {
     this.circuitBreaker = circuitBreaker;
     this.knowledgeFabricValidator = null;
   }
+
+    /**
+     * Records prompt version references for the current execution.
+     * Stored on the instance so buildOutput can include them in metadata.
+     */
+    protected setPromptVersionReferences(
+      refs: Array<{ key: string; version: string }>,
+      _approvals?: unknown[],
+    ): void {
+      this._promptVersionRefs = refs.map(r => ({ key: r.key, version: r.version }));
+    }
 
     /**
      * Converts a numeric score to a confidence level string.
@@ -202,18 +219,29 @@ export abstract class BaseAgent {
   }> {
     const {
       trackPrediction = true,
-      confidenceThresholds = { low: 0.6, high: 0.85 },
+      confidenceThresholds: _confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
     } = options;
 
+    // Reset per-invocation state so refs from a prior execute() call don't
+    // bleed into this one when the agent instance is reused.
+    this._promptVersionRefs = [];
+
     return this.circuitBreaker.execute(async () => {
+      const traceId =
+        typeof context.trace_id === "string" ? context.trace_id
+          : typeof context.traceId === "string" ? context.traceId
+            : sessionId;
+
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
           tenantId: this.organizationId,
+          tenant_id: this.organizationId,
           sessionId,
           userId: "system",
+          trace_id: traceId,
           idempotencyKey,
           ...context,
         },
@@ -388,7 +416,7 @@ export abstract class BaseAgent {
 
     // 2. Self-reference patterns
     const selfRefPatterns = [
-      /as a language model/i,
+      /as an? (?:AI )?language model/i,
       /as an AI assistant/i,
       /my training data/i,
       /I was trained/i,

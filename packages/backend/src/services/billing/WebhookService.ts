@@ -16,7 +16,7 @@ import {
   recordInvoiceEvent,
   recordStripeWebhook,
 } from "../../metrics/billingMetrics";
-import { securityAuditService } from "../SecurityAuditService.js";
+import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 
 import InvoiceService from "./InvoiceService.js"
 import StripeService from "./StripeService.js"

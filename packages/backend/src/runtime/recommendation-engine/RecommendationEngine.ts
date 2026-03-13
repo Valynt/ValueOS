@@ -27,6 +27,7 @@ import { getRealtimeBroadcastService } from '../../services/realtime/RealtimeBro
 import type { DecisionContext } from '@shared/domain/DecisionContext.js';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
 import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
+import { context, trace } from '@opentelemetry/api';
 
 // ---------------------------------------------------------------------------
 // Recommendation shape pushed to the UI
@@ -35,6 +36,8 @@ import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.
 export interface Recommendation {
   /** Unique ID for deduplication on the client */
   id: string;
+  /** Distributed trace identifier for cross-service correlation. */
+  trace_id: string;
   /** ISO-8601 timestamp */
   generatedAt: string;
   /** The domain event that triggered this recommendation */
@@ -143,6 +146,7 @@ export class RecommendationEngine {
 
       const recommendation: Recommendation = {
         id: `rec-opp-${payload.id}`,
+        trace_id: this.resolveTraceId(payload.traceId, payload.id),
         generatedAt: new Date().toISOString(),
         sourceEvent: 'opportunity.updated',
         tenantId: payload.tenantId,
@@ -210,6 +214,7 @@ export class RecommendationEngine {
 
     const recommendation: Recommendation = {
       id: `rec-hyp-${payload.id}`,
+      trace_id: this.resolveTraceId(payload.traceId, payload.id),
       generatedAt: new Date().toISOString(),
       sourceEvent: 'hypothesis.validated',
       tenantId: payload.tenantId,
@@ -242,6 +247,7 @@ export class RecommendationEngine {
 
     const recommendation: Recommendation = {
       id: `rec-ev-${payload.id}`,
+      trace_id: this.resolveTraceId(payload.traceId, payload.id),
       generatedAt: new Date().toISOString(),
       sourceEvent: 'evidence.attached',
       tenantId: payload.tenantId,
@@ -304,6 +310,7 @@ export class RecommendationEngine {
 
     const recommendation: Recommendation = {
       id: `rec-ms-${payload.id}`,
+      trace_id: this.resolveTraceId(payload.traceId, payload.id),
       generatedAt: new Date().toISOString(),
       sourceEvent: 'realization.milestone_reached',
       tenantId: payload.tenantId,
@@ -316,6 +323,19 @@ export class RecommendationEngine {
     };
 
     this.broadcast(payload.tenantId, recommendation);
+  }
+
+  private resolveTraceId(traceId: string | undefined, fallbackSeed: string): string {
+    if (traceId && traceId.trim().length > 0) {
+      return traceId;
+    }
+
+    const activeSpan = trace.getSpan(context.active());
+    if (activeSpan) {
+      return activeSpan.spanContext().traceId;
+    }
+
+    return `recommendation-${fallbackSeed}`;
   }
 
   // ---------------------------------------------------------------------------

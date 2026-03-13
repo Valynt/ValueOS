@@ -6,7 +6,9 @@ export type SecurityAnomalyType =
   | "bulk_export_volume"
   | "off_hours_privileged_access"
   | "repeated_failed_access"
-  | "api_burst";
+  | "api_burst"
+  | "cross_tenant_access_attempt"
+  | "privileged_action_spike";
 
 export interface SecurityAnomalyAlert {
   id: string;
@@ -46,6 +48,7 @@ interface AuditLogRow {
   action: string;
   status: "success" | "failed";
   details: Record<string, unknown> | null;
+  resource_type?: string | null;
   timestamp: string;
 }
 
@@ -322,6 +325,42 @@ export class SecurityAnomalyService {
       }
     }
 
+
+    const crossTenantLogs = logs.filter((log) => this.isCrossTenantAccessAttempt(log, tenantId));
+    if (crossTenantLogs.length > 0) {
+      const alert = await this.createAlert({
+        tenantId,
+        type: "cross_tenant_access_attempt",
+        severity: "critical",
+        actorId: this.topActor(crossTenantLogs),
+        observedValue: crossTenantLogs.length,
+        thresholdValue: 1,
+        evidenceEventIds: crossTenantLogs.map((log) => log.id).slice(0, 100),
+        windowStart,
+        windowEnd,
+      });
+      if (alert) generated.push(alert);
+    }
+
+    const privilegedLogs = logs.filter((log) => this.isPrivilegedAction(log));
+    const privilegedByActor = this.groupByActor(privilegedLogs);
+    for (const [actorId, actorLogs] of privilegedByActor.entries()) {
+      if (actorLogs.length >= 10) {
+        const alert = await this.createAlert({
+          tenantId,
+          type: "privileged_action_spike",
+          severity: "high",
+          actorId,
+          observedValue: actorLogs.length,
+          thresholdValue: 10,
+          evidenceEventIds: actorLogs.map((log) => log.id).slice(0, 100),
+          windowStart,
+          windowEnd,
+        });
+        if (alert) generated.push(alert);
+      }
+    }
+
     return generated;
   }
 
@@ -468,6 +507,22 @@ export class SecurityAnomalyService {
 
     const hour = new Date(log.timestamp).getUTCHours();
     return hour < 6 || hour > 20;
+  }
+
+
+  private isCrossTenantAccessAttempt(log: AuditLogRow, tenantId: string): boolean {
+    const requestedTenantId = typeof log.details?.requested_tenant_id === "string"
+      ? log.details.requested_tenant_id
+      : typeof log.details?.target_tenant_id === "string"
+      ? log.details.target_tenant_id
+      : null;
+
+    if (!requestedTenantId) return false;
+    return requestedTenantId !== tenantId;
+  }
+
+  private isPrivilegedAction(log: AuditLogRow): boolean {
+    return /grant|revoke|approve|reject|role|permission|admin|sudo/i.test(log.action);
   }
 
   private groupByActor(logs: AuditLogRow[]): Map<string, AuditLogRow[]> {

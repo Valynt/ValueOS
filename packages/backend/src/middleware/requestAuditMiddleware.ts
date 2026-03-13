@@ -14,7 +14,7 @@ interface AuditRequest extends AuthenticatedRequest {
 }
 
 import { getTraceContextForLogging } from "../config/telemetry.js";
-import { securityAuditService } from "../services/SecurityAuditService.js";
+import { securityAuditService } from "../services/security/SecurityAuditService.js";
 
 
 

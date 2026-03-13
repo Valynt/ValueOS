@@ -501,6 +501,25 @@ const backendNoConsoleOverrides = {
   },
 };
 
+// Enforce no-console in frontend production code.
+// console.warn/error are allowed for genuine error surfaces; console.log is not.
+const frontendNoConsoleOverrides = {
+  files: [
+    "apps/ValyntApp/src/**/*.ts",
+    "apps/ValyntApp/src/**/*.tsx",
+  ],
+  ignores: [
+    "apps/ValyntApp/src/**/*.test.ts",
+    "apps/ValyntApp/src/**/*.test.tsx",
+    "apps/ValyntApp/src/**/*.spec.ts",
+    "apps/ValyntApp/src/**/*.spec.tsx",
+    "apps/ValyntApp/src/**/__tests__/**",
+  ],
+  rules: {
+    "no-console": ["error", { allow: ["warn", "error"] }],
+  },
+};
+
 // Strict no-any enforcement for security-critical paths
 const strictNoAnyOverrides = {
   files: [
@@ -673,6 +692,28 @@ const backendEgressEnforcement = {
   },
 };
 
+// Block raw fetch() in ValyntApp — all API calls must go through apiClient (unified-api-client).
+// apiClient centralises auth headers, retry logic, and error normalisation.
+// Existing call sites are listed in ignores as tracked debt; remove entries as they are migrated.
+const frontendFetchEnforcement = {
+  files: ["apps/ValyntApp/src/**/*.{ts,tsx}"],
+  ignores: [
+    // apiClient itself wraps fetch — it is the only allowed call site.
+    "apps/ValyntApp/src/api/client/unified-api-client.ts",
+  ],
+  rules: {
+    "no-restricted-globals": [
+      "error",
+      {
+        name: "fetch",
+        message:
+          "Use apiClient from @/api/client/unified-api-client instead of the global fetch(). " +
+          "apiClient centralises auth headers, retry logic, and error normalisation.",
+      },
+    ],
+  },
+};
+
 // Config files override - disable type-aware rules and project
 const configOverrides = {
   files: [
@@ -750,6 +791,7 @@ export default [
   valyntServicesImportGuard,
   backendServiceAuthOverrides,
   backendNoConsoleOverrides,
+  frontendNoConsoleOverrides,
   strictNoAnyOverrides,
   configOverrides,
   testOverrides,
@@ -761,6 +803,7 @@ export default [
   appModuleBoundaryOverrides,
   backendModuleBoundaryOverrides,
   backendEgressEnforcement,
+  frontendFetchEnforcement,
   legacyRootDirBan,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],

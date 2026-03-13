@@ -18,7 +18,7 @@ import {
 import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
-} from "../services/ReadThroughCacheService.js";
+} from "../services/cache/ReadThroughCacheService.js";
 
 const router = Router();
 

@@ -9,6 +9,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { trace, TraceFlags, type Span } from '@opentelemetry/api';
 
 vi.mock('lz-string', () => ({
   compress: (value: string) => value,
@@ -110,6 +111,33 @@ describe('MessageBus.publishMessage — tenant isolation', () => {
 
     expect(deliveredEvent?.trace_id).toBeTypeOf('string');
     expect((deliveredEvent?.trace_id ?? '').length).toBeGreaterThan(0);
+  });
+
+  it('derives trace_id/span_id from active OpenTelemetry span when missing', async () => {
+    const bus = new MessageBus();
+    let deliveredEvent: CommunicationEvent | undefined;
+
+    bus.subscribe('trace.active-span', 'test-agent', async (event) => {
+      deliveredEvent = event;
+    });
+
+    const otelTraceId = '1234567890abcdef1234567890abcdef';
+    const otelSpanId = '1234567890abcdef';
+    const fakeSpan = {
+      spanContext: () => ({
+        traceId: otelTraceId,
+        spanId: otelSpanId,
+        traceFlags: TraceFlags.SAMPLED,
+      }),
+    };
+
+    const spanSpy = vi.spyOn(trace, 'getSpan').mockReturnValue(fakeSpan as unknown as Span);
+
+    await bus.publishMessage('trace.active-span', makeEvent({ tenant_id: TENANT_A, trace_id: undefined, span_id: undefined }));
+
+    spanSpy.mockRestore();
+    expect(deliveredEvent?.trace_id).toBe(otelTraceId);
+    expect(deliveredEvent?.span_id).toBe(otelSpanId);
   });
 
   it('preserves provided trace fields through compression/decompression', async () => {

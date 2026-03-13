@@ -86,7 +86,7 @@ const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
-import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
+import { getBroadcastAdapter, initBroadcastAdapter } from "./services/realtime/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
 
 // Conditionally import telemetry modules
@@ -95,11 +95,13 @@ let latencyMetricsMiddleware = null;
 let metricsMiddleware = null;
 let getMetricsRegistry = null;
 let getLatencySnapshot = null;
+let telemetrySdk: { shutdown?: () => Promise<void> } | null = null;
 
 if (process.env.ENABLE_TELEMETRY !== "false") {
   try {
     const telemetryModule = await import("./config/telemetry");
     tracingMiddleware = telemetryModule.tracingMiddleware;
+    telemetrySdk = await telemetryModule.initializeTelemetry();
 
     const latencyModule = await import("./middleware/latencyMetricsMiddleware");
     latencyMetricsMiddleware = latencyModule.latencyMetricsMiddleware;
@@ -139,10 +141,10 @@ import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
-import { securityAuditService } from "./services/SecurityAuditService.js";
+import { securityAuditService } from "./services/security/SecurityAuditService.js";
 import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
-import { TenantContextResolver } from "./services/TenantContextResolver.js";
+import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 
@@ -435,6 +437,8 @@ app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
 // Mount routes
 // Apply standard rate limiting to all API routes by default
 app.use("/api", rateLimiters.standard);
+// Auth endpoints get a tighter limit (20/min, fail-closed) on top of the standard one.
+app.use("/api/auth", rateLimiters.auth);
 
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
@@ -732,6 +736,14 @@ function registerGracefulShutdown(): void {
 
     // 3. Tear down Redis pub/sub for WebSocket broadcasts
     getBroadcastAdapter().shutdown().catch(() => {});
+
+    // 3.5 Flush OpenTelemetry buffers
+    telemetrySdk?.shutdown?.().catch((error) => {
+      logger.warn("OpenTelemetry shutdown failed", {
+        event: "telemetry.shutdown",
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     // 4. Close WebSocket connections
     wss.clients.forEach((client) => {

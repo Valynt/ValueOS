@@ -18,6 +18,7 @@ import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 
 import { createLogger } from '../lib/logger.js';
+import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 
 const logger = createLogger({ component: 'CrmWorker' });
 
@@ -188,6 +189,13 @@ export function initCrmSyncWorker(): Worker {
     CRM_SYNC_QUEUE,
     async (job: Job) => {
       const { tenantId, provider } = job.data;
+      return runInTelemetrySpanAsync('queue.crm_sync.consume', {
+        service: 'crm-worker',
+        env: process.env.NODE_ENV || 'development',
+        tenant_id: String(tenantId ?? 'unknown'),
+        trace_id: String(job.data?.traceId ?? job.id ?? 'unknown'),
+        attributes: { queue: CRM_SYNC_QUEUE, provider: String(provider ?? 'unknown') },
+      }, async () => {
 
       // Circuit breaker check
       if (isCircuitOpen(tenantId, provider)) {
@@ -210,6 +218,7 @@ export function initCrmSyncWorker(): Worker {
         recordCircuitFailure(tenantId, provider);
         throw err;
       }
+      });
     },
     {
       connection: getRedis(),
@@ -250,6 +259,13 @@ export function initCrmWebhookWorker(): Worker {
     CRM_WEBHOOK_QUEUE,
     async (job: Job) => {
       const { eventId, tenantId, provider } = job.data;
+      return runInTelemetrySpanAsync('queue.crm_webhook.consume', {
+        service: 'crm-worker',
+        env: process.env.NODE_ENV || 'development',
+        tenant_id: String(tenantId ?? 'unknown'),
+        trace_id: String(job.data?.traceId ?? eventId ?? job.id ?? 'unknown'),
+        attributes: { queue: CRM_WEBHOOK_QUEUE, provider: String(provider ?? 'unknown') },
+      }, async () => {
 
       if (isCircuitOpen(tenantId, provider)) {
         throw new Error(`Circuit breaker open for ${provider}/${tenantId}. Retrying later.`);
@@ -269,6 +285,7 @@ export function initCrmWebhookWorker(): Worker {
         recordCircuitFailure(tenantId, provider);
         throw err;
       }
+      });
     },
     {
       connection: getRedis(),
@@ -307,6 +324,13 @@ export function initCrmPrefetchWorker(): Worker {
     CRM_PREFETCH_QUEUE,
     async (job: Job) => {
       const input = job.data;
+      return runInTelemetrySpanAsync('queue.crm_prefetch.consume', {
+        service: 'crm-worker',
+        env: process.env.NODE_ENV || 'development',
+        tenant_id: String(input?.tenantId ?? 'unknown'),
+        trace_id: String(input?.traceId ?? job.id ?? 'unknown'),
+        attributes: { queue: CRM_PREFETCH_QUEUE },
+      }, async () => {
       logger.info(`[crm-prefetch] Processing`, {
         valueCaseId: input.valueCaseId,
         jobId: job.id,
@@ -317,6 +341,7 @@ export function initCrmPrefetchWorker(): Worker {
       const result = await agentPrefetchService.prefetch(input);
 
       return result;
+      });
     },
     {
       connection: getRedis(),

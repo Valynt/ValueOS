@@ -11,6 +11,7 @@ import { context, trace } from '@opentelemetry/api';
 import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js'
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 import type {
   ChannelConfig,
   CommunicationEvent,
@@ -38,7 +39,7 @@ export class MessageBus {
     sender_id: z.string().min(1, 'sender_id is required'),
     recipient_ids: z.array(z.string().min(1)).min(1, 'recipient_ids must include at least one recipient'),
     recipient_agent: z.string().min(1).optional(),
-    message_type: z.string().min(1, 'message_type is required'),
+    message_type: z.string().min(1, 'message_type is required').optional(),
     correlation_id: z.string().min(1).optional(),
     reply_to: z.string().min(1).optional(),
     content: z.string().min(1),
@@ -87,6 +88,16 @@ export class MessageBus {
     channel: string,
     payload: CreateCommunicationEvent
   ): Promise<string> {
+    const tenantId = payload.tenant_id ?? payload.organization_id ?? 'unknown';
+    const traceId = payload.trace_id ?? uuidv4();
+
+    return runInTelemetrySpanAsync('message_bus.publish', {
+      service: 'message-bus',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: tenantId,
+      trace_id: traceId,
+      attributes: { channel },
+    }, async () => {
     for (const fieldName of MessageBus.legacyFieldNames) {
       if (fieldName in (payload as Record<string, unknown>)) {
         throw new Error(
@@ -104,11 +115,12 @@ export class MessageBus {
       throw new Error(`Invalid MessageBus payload for channel "${channel}": ${issues}`);
     }
 
+    const validatedPayload = validation.data;
     const messageId = uuidv4();
 
     const event: CommunicationEvent = {
       id: messageId,
-      ...payloadWithTracing,
+      ...validatedPayload,
       timestamp: new Date().toISOString(),
     };
 
@@ -138,6 +150,7 @@ export class MessageBus {
     }
 
     return messageId;
+    });
   }
 
   /**
@@ -382,11 +395,18 @@ export class MessageBus {
     channel: string,
     event: CommunicationEvent
   ): Promise<void> {
+    const tenantId = event.tenant_id ?? (event as unknown as { organization_id?: string }).organization_id ?? 'unknown';
+    return runInTelemetrySpanAsync('message_bus.deliver', {
+      service: 'message-bus',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: tenantId,
+      trace_id: event.trace_id,
+      attributes: { channel },
+    }, async () => {
     // Tenant isolation: never deliver an unscoped message to any handler.
     // This guard applies to both local publishes and messages arriving from
     // Redis/NATS, which are routed through this method.
-    const tenantId = event.tenant_id ?? (event as unknown as { organization_id?: string }).organization_id;
-    if (!tenantId) {
+    if (!tenantId || tenantId === 'unknown') {
       logger.error('MessageBus.deliverMessage: dropping event with missing tenant_id', undefined, { channel, eventId: event.id });
       return;
     }
@@ -436,6 +456,7 @@ export class MessageBus {
     // Update latency stats
     const latency = Date.now() - startTime;
     this.updateLatencyStats(channel, latency);
+    });
   }
 
   private storeMessage(channel: string, event: CommunicationEvent): void {
@@ -455,8 +476,12 @@ export class MessageBus {
 
 
   private applyTraceContext(payload: CreateCommunicationEvent): CreateCommunicationEvent {
-    if (payload.trace_id && payload.trace_id.trim().length > 0) {
-      return payload;
+    const normalizedTraceId = payload.trace_id?.trim();
+    if (normalizedTraceId) {
+      return {
+        ...payload,
+        trace_id: normalizedTraceId,
+      };
     }
 
     const span = trace.getSpan(context.active());
@@ -470,7 +495,7 @@ export class MessageBus {
     const spanContext = span.spanContext();
     return {
       ...payload,
-      trace_id: payload.trace_id ?? spanContext.traceId,
+      trace_id: spanContext.traceId,
       span_id: payload.span_id ?? spanContext.spanId,
       parent_span_id: payload.parent_span_id,
     };

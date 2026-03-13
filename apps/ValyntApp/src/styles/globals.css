@@ -11,7 +11,7 @@
 @import "./valueos-theme.css"; /* Semantic tokens (always loaded) */
 @import "./ai-indigo-tokens.css"; /* Experimental/tenant themes, only active with [data-theme] */
 @import "./focus-visible.css"; /* Focus ring for keyboard navigation */
-@import "../../../../packages/shared/src/styles/layout-tokens.css";
+@import "../../../packages/shared/src/styles/layout-tokens.css";
 
 /* Import Inter font */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");

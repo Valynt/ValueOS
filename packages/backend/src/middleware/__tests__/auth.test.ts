@@ -2,7 +2,7 @@ import { __setEnvSourceForTests } from '@shared/lib/env';
 import jwt from 'jsonwebtoken';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../services/AuthService.js', () => ({
+vi.mock('../../services/auth/AuthService.js', () => ({
   authService: {
     getSession: vi.fn(),
   },
@@ -29,7 +29,7 @@ vi.mock('../../services/AuditLogService.js', () => ({
 
 const { requireAuth, requireTenantRequestAlignment } = await import('../auth');
 const { requirePermission } = await import('../rbac');
-const { authService } = await import('../../services/AuthService.js');
+const { authService } = await import('../../services/auth/AuthService.js');
 const { createRequestSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
   await import('@shared/lib/supabase');
 

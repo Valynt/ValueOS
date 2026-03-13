@@ -15,9 +15,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
-import { sanitizeForLogging } from "../lib/piiFilter.js";
+import { sanitizeForLogging } from "../../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { BaseService } from "../BaseService.js";
+import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
 import {
   RequiredAuditPayload,
   requiredAuditPayloadSchema,
@@ -152,6 +153,18 @@ export class AuditLogService extends BaseService {
     return this.createEntry(input);
   }
 
+  private isHighRiskAction(action: string): boolean {
+    return /create|update|delete|export|approve|reject|grant|revoke/i.test(action);
+  }
+
+  private resolveSecurityEventCategory(action: string): "auth" | "authorization" | "role_change" | "data_export" | "policy" | "audit" {
+    if (/auth|login|logout|session|mfa|password/i.test(action)) return "auth";
+    if (/grant|revoke|role|permission/i.test(action)) return "role_change";
+    if (/export/i.test(action)) return "data_export";
+    if (/policy|deny|denied|forbidden|unauthorized/i.test(action)) return "policy";
+    return "audit";
+  }
+
   private buildRequiredContract(input: AuditLogCreateInput): RequiredAuditPayload {
     const timestamp = input.timestamp ?? new Date().toISOString();
     const statusCode = input.statusCode ?? (input.status === "failed" ? 500 : 200);
@@ -266,7 +279,11 @@ export class AuditLogService extends BaseService {
           const result = await this.executeRequest(
             async () => {
               // Sanitize sensitive data
-              const rawDetails: Record<string, unknown> = { ...input.details };
+              const rawDetails: Record<string, unknown> = {
+                ...input.details,
+                audit_classification: this.isHighRiskAction(requiredContract.action_type) ? "high_risk" : "standard",
+                immutable_log: true,
+              };
               if (input.beforeState !== undefined) rawDetails["before_state"] = input.beforeState;
               if (input.afterState !== undefined) rawDetails["after_state"] = input.afterState;
               const sanitizedDetails = sanitizeForLogging(rawDetails) as Record<string, unknown>;
@@ -332,7 +349,28 @@ export class AuditLogService extends BaseService {
               }
 
               this.lastHash = hash;
-              return data as AuditLogEntry;
+              const entry = data as AuditLogEntry;
+
+              if (entry.tenant_id) {
+                void securityEventStreamingService.stream({
+                  source: "audit_logs",
+                  category: this.resolveSecurityEventCategory(requiredContract.action_type),
+                  eventType: requiredContract.action_type,
+                  tenantId: entry.tenant_id,
+                  actorId: entry.user_id ?? "system",
+                  action: requiredContract.action_type,
+                  resourceType: requiredContract.resource_type,
+                  resourceId: requiredContract.resource_id,
+                  outcome: requiredContract.outcome === "success" ? "success" : "failed",
+                  occurredAt: requiredContract.timestamp,
+                  eventId: entry.id,
+                  sourceService: "AuditLogService",
+                  correlationId: requiredContract.correlation_id,
+                  metadata: entry.details ?? {},
+                });
+              }
+
+              return entry;
             },
             { skipCache: true }
           );

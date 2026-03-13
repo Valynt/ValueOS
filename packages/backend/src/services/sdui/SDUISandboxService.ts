@@ -215,6 +215,10 @@ export class SDUISandboxService {
     return allowedComponents.includes(componentName);
   }
 
+  private isPropsRecord(props: unknown): props is Record<string, unknown> {
+    return typeof props === 'object' && props !== null;
+  }
+
   /**
    * Simulate component rendering for validation
    */
@@ -226,17 +230,28 @@ export class SDUISandboxService {
     // For now, we'll do basic validation
     
     const errors: string[] = [];
+
+    if (!this.isPropsRecord(props)) {
+      errors.push('Component props must be an object');
+      return {
+        success: false,
+        errors,
+      };
+    }
+
+    const typedProps: Record<string, unknown> = props;
     
     // Check required props
     const requiredProps = this.getRequiredProps(componentName);
     requiredProps.forEach(prop => {
-      if (!(prop in props)) {
+      if (!(prop in typedProps)) {
         errors.push(`Missing required prop: ${prop}`);
       }
     });
 
     // Basic type checking
-    if (props.title && typeof props.title !== 'string') {
+    const title = typedProps.title;
+    if (typeof title !== 'undefined' && typeof title !== 'string') {
       errors.push('Title must be a string');
     }
 

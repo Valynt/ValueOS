@@ -23,8 +23,8 @@ export interface AuthenticatedRequest extends Request {
   correlationId?: string;
   organizationId?: string;
 }
-import { auditLogService } from '../services/AuditLogService.js';
-import { authService } from '../services/AuthService.js'
+import { auditLogService } from '../services/security/AuditLogService.js';
+import { authService } from '../services/auth/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'
 
 import { createLogger, LogContext } from '@shared/lib/logger';

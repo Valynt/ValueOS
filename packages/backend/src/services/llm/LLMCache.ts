@@ -297,14 +297,72 @@ export class LLMCache {
   }
   
   /**
-   * Warm cache with common prompts
+   * Warm cache with common prompts.
+   *
+   * Callers must supply an `llmCaller` that executes the actual LLM request and
+   * returns the response string. This keeps LLMCache decoupled from LLMGateway
+   * and avoids the tenant-context requirement that LLMGateway.complete enforces.
+   *
+   * Prompts that are already cached are skipped. Failures on individual prompts
+   * are logged and skipped — a partial warm is better than no warm.
+   *
+   * @example
+   * await cache.warmCache(prompts, async ({ prompt, model }) => {
+   *   const res = await llmGateway.complete({
+   *     messages: [{ role: 'user', content: prompt }],
+   *     model,
+   *     metadata: { tenantId: SYSTEM_TENANT_ID },
+   *   });
+   *   return res.content;
+   * });
    */
-  async warmCache(prompts: Array<{ prompt: string; model: string }>): Promise<void> {
-    logger.info(`Warming cache with ${prompts.length} prompts`);
-    
-    // This would typically call the LLM service to populate cache
-    // Implementation depends on your LLM service structure
-    logger.warn('Cache warming not implemented - requires LLM service integration');
+  async warmCache(
+    prompts: Array<{ prompt: string; model: string }>,
+    llmCaller?: (entry: { prompt: string; model: string }) => Promise<string>
+  ): Promise<void> {
+    if (!this.config.enabled || !this.connected) {
+      logger.info('Cache warming skipped — cache disabled or Redis not connected');
+      return;
+    }
+
+    if (!llmCaller) {
+      logger.warn('warmCache called without llmCaller — skipping. Pass an llmCaller to populate the cache.');
+      return;
+    }
+
+    logger.info('Starting cache warm', { count: prompts.length });
+
+    let warmed = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const entry of prompts) {
+      try {
+        const existing = await this.get(entry.prompt, entry.model);
+        if (existing !== null) {
+          skipped++;
+          continue;
+        }
+
+        const response = await llmCaller(entry);
+
+        await this.set(entry.prompt, entry.model, response, {
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
+        });
+
+        warmed++;
+      } catch (error) {
+        failed++;
+        logger.error('Cache warm failed for prompt', {
+          model: entry.model,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    logger.info('Cache warm complete', { warmed, skipped, failed });
   }
   
   /**

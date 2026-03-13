@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { authService } from '../../services/AuthService.js'
+import { authService } from '../../services/auth/AuthService.js'
 import { SessionManager } from '../../services/SessionManager.js'
 
 // Mock authService

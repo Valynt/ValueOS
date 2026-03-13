@@ -18,6 +18,7 @@ import { createCounter } from "./observability/index.js";
  * Incremented whenever Redis is unavailable for RBAC pub/sub.
  * A sustained non-zero rate means cross-instance cache invalidation is broken
  * and stale permission caches may persist until TTL expiry.
+ * Runbook: docs/runbooks/rbac-redis-unavailable.md
  */
 const redisUnavailableCounter = createCounter(
   "rbac_redis_unavailable_total",

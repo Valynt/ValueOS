@@ -12,7 +12,7 @@ import { createLogger } from "../../lib/logger.js";
 import {
   CircuitBreaker,
   type CircuitBreakerConfig,
-} from "../lib/resilience/CircuitBreaker.js";
+} from "../../lib/resilience/CircuitBreaker.js";
 
 const log = createLogger({ component: "RedisCircuitBreaker" });
 

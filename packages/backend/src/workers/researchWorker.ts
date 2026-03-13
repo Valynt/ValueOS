@@ -17,6 +17,7 @@ import Redis from 'ioredis';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper.js';
 import { createLogger } from '../lib/logger.js';
+import { runInTelemetrySpanAsync } from '../observability/telemetryStandards.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
 
@@ -122,8 +123,14 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
 
   _worker = new Worker<ResearchJobInput>(
     RESEARCH_QUEUE_NAME,
-    async (job: Job<ResearchJobInput>) => {
-      logger.info('Processing job', { jobId: job.data.jobId, tenantId: job.data.tenantId });
+    async (job: Job<ResearchJobInput>) => runInTelemetrySpanAsync('queue.research.consume', {
+      service: 'research-worker',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: String(job.data.tenantId),
+      trace_id: String(job.data.traceId ?? job.data.jobId ?? job.id ?? 'unknown'),
+      attributes: { queue: RESEARCH_QUEUE_NAME },
+    }, async () => {
+      logger.info('Processing job', { jobId: job.data.jobId, tenant_id: job.data.tenantId });
       const result = await processResearchJob(job.data, supabase, llm);
 
       if (result.status === 'failed') {
@@ -131,7 +138,7 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
       }
 
       return result;
-    },
+    }),
     {
       connection: getRedis(),
       concurrency: 3,

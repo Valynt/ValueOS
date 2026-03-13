@@ -52,6 +52,42 @@ const supabase = supabaseClient ?? null;
 const DEFAULT_EXPIRY_HOURS = 24;
 
 export class BillingApprovalService {
+  // Singleton for static-style access used by tests and middleware.
+  private static _instance: BillingApprovalService | null = null;
+
+  private static getInstance(): BillingApprovalService {
+    if (!BillingApprovalService._instance) {
+      BillingApprovalService._instance = new BillingApprovalService();
+    }
+    return BillingApprovalService._instance;
+  }
+
+  static async createApprovalRequest(
+    tenantId: string,
+    actionType: ApprovalActionType,
+    payload: Record<string, unknown>,
+    requestedByUserId: string,
+    options: { computedDelta?: Record<string, unknown>; estimatedCost?: number } = {}
+  ): Promise<BillingApprovalRequest> {
+    return BillingApprovalService.getInstance().createApprovalRequest(tenantId, actionType, payload, requestedByUserId, options);
+  }
+
+  static async approveRequest(
+    approvalId: string,
+    approvedByUserId: string,
+    reason?: string
+  ): Promise<BillingApprovalRequest> {
+    return BillingApprovalService.getInstance().approveRequest(approvalId, approvedByUserId, reason);
+  }
+
+  static async rejectRequest(
+    approvalId: string,
+    rejectedByUserId: string,
+    reason: string
+  ): Promise<BillingApprovalRequest> {
+    return BillingApprovalService.getInstance().rejectRequest(approvalId, rejectedByUserId, reason);
+  }
+
   private requireSupabase() {
     if (!supabase) {
       throw new Error('Supabase not configured for BillingApprovalService');

@@ -5,7 +5,7 @@
  * setup, and teardown utilities.
  */
 
-import { assertCapability, assertTenantMember, deny } from "../services/AuthPolicy.js";
+import { assertCapability, assertTenantMember, deny } from "../services/auth/AuthPolicy.js";
 import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
 
 import { TEST_SESSIONS, TEST_TENANTS, TEST_TOKENS, TEST_USERS } from './auth.fixtures.js';
