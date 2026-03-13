@@ -317,7 +317,6 @@ export function auditTenantProvisioning(
             status: res.statusCode < 400 ? "success" : "failed",
             details: {
               operation,
-              apiKeyAction: operation,
               tenantName: req.body.name || data?.name,
               tier: req.body.tier || data?.tier,
             },
