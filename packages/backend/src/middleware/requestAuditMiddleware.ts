@@ -7,16 +7,23 @@ import { NextFunction, Request, Response } from "express";
 
 import { getTraceContextForLogging } from "../config/telemetry.js";
 import { securityAuditService } from "../services/SecurityAuditService.js";
-import {
-  extractAuditActorContext,
-  extractAuditNetworkContext,
-  extractAuditResourceContext,
-  requiredAuditPayloadSchema,
-} from "../services/security/auditPayloadContract.js";
-
-
+import { AUDIT_ACTION, AuditAction } from "../types/audit.js";
 
 const DEFAULT_IGNORED_PATHS = ["/health", "/metrics"];
+
+function getNormalizedRequestPath(req: Request): string {
+  const base = req.baseUrl || "";
+  const path = req.path || "";
+  const combined = `${base}${path}`;
+
+  if (combined) {
+    return combined;
+  }
+
+  const original = req.originalUrl || "";
+  const [originalPath] = original.split("?");
+  return originalPath || "/";
+}
 
 function getRequestId(req: Request): string {
   const headerId = req.headers["x-request-id"];
@@ -26,73 +33,85 @@ function getRequestId(req: Request): string {
   return (headerId as string) || randomUUID();
 }
 
+function getActor(req: Request): { id?: string; label: string } {
+  const anyReq = req as Request & { user?: { id?: string; email?: string; name?: string } };
+  const user = anyReq.user || {};
+  const headerActor = (req.headers["x-user-email"] as string) || (req.headers["x-actor"] as string);
+  const label = user.email || user.name || headerActor || "anonymous";
+
+  return {
+    id: user.id || undefined,
+    label: sanitizeForLogging(label) as string,
+  };
+}
+
+export async function emitRequestAuditEvent(
+  req: Request,
+  res: Response,
+  action: AuditAction,
+  eventType: string,
+  eventData?: Record<string, unknown>
+): Promise<void> {
+  const actor = getActor(req);
+  const normalizedPath = getNormalizedRequestPath(req);
+  await securityAuditService.logRequestEvent({
+    requestId: (res.locals.requestId as string) || (req.requestId as string) || getRequestId(req),
+    userId: actor.id,
+    actor: actor.label,
+    action,
+    resource: sanitizeForLogging(normalizedPath) as string,
+    requestPath: sanitizeForLogging(normalizedPath) as string,
+    ipAddress: req.ip || req.socket.remoteAddress || undefined,
+    userAgent: req.get("user-agent") || undefined,
+    statusCode: res.statusCode,
+    severity: res.statusCode >= 500 ? "high" : "medium",
+    eventType,
+    eventData: {
+      method: req.method,
+      org: sanitizeForLogging(
+        (req.headers["x-organization-id"] as string) || (req as Request & { organizationId?: string }).organizationId
+      ),
+      tenantId: sanitizeForLogging(req.tenantId),
+      routeParams: sanitizeForLogging(req.params),
+      query: sanitizeForLogging(req.query),
+      ...eventData,
+    },
+  });
+}
 
 export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
   const ignoredPaths = options?.ignoredPaths || DEFAULT_IGNORED_PATHS;
 
   return (req: Request, res: Response, next: NextFunction) => {
-    if ((req as any)._auditMiddlewareAttached) {
+    if ((req as Request & { _auditMiddlewareAttached?: boolean })._auditMiddlewareAttached) {
       return next();
     }
 
-    (req as any)._auditMiddlewareAttached = true;
+    (req as Request & { _auditMiddlewareAttached?: boolean })._auditMiddlewareAttached = true;
 
-    if (ignoredPaths.some((path) => req.path.startsWith(path))) {
-      const ignoredRequestId = getRequestId(req);
-      res.locals.requestId = ignoredRequestId;
-      (req as any).requestId = ignoredRequestId;
-      res.setHeader("X-Request-Id", ignoredRequestId);
+    const requestId = (req.requestId as string | undefined) || getRequestId(req);
+    res.locals.requestId = requestId;
+    req.requestId = requestId;
+    res.setHeader("X-Request-ID", requestId);
+
+    const requestPath = getNormalizedRequestPath(req);
+    if (ignoredPaths.some((path) => requestPath.startsWith(path)) || !requestPath.startsWith("/api/")) {
       return next();
     }
 
-    const requestId = getRequestId(req);
     const startedAt = Date.now();
 
-    res.locals.requestId = requestId;
-    (req as any).requestId = requestId;
-    res.setHeader("X-Request-Id", requestId);
-
-    // Prepare context
     const context = {
       requestId,
-      userId: (req as any).user?.id,
+      userId: req.user?.id,
       ...getTraceContextForLogging(),
     };
 
     runWithContext(context, () => {
       res.on("finish", async () => {
-        const actorContext = extractAuditActorContext(req);
-        const resourceContext = extractAuditResourceContext(req);
-        const networkContext = extractAuditNetworkContext(req);
-        const timestamp = new Date().toISOString();
         try {
-          const payload = requiredAuditPayloadSchema.parse({
-            actor: actorContext.actor,
-            action_type: req.method.toLowerCase(),
-            resource_type: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
-            resource_id: resourceContext.resourceId,
-            request_path: resourceContext.requestPath,
-            ip_address: networkContext.ipAddress,
-            user_agent: networkContext.userAgent,
-            outcome: res.statusCode < 400 ? "success" : "failed",
-            status_code: res.statusCode,
-            timestamp,
-            correlation_id: requestId,
-          });
-
-          await securityAuditService.logRequestEvent({
-            ...payload,
-            userId: actorContext.userId,
-            severity: res.statusCode >= 500 ? "high" : "medium",
-            eventData: {
-              duration_ms: Date.now() - startedAt,
-              org: sanitizeForLogging(
-                (req.headers["x-organization-id"] as string) || (req as any).organizationId
-              ),
-              tenantId: sanitizeForLogging((req as any).tenantId),
-              routeParams: sanitizeForLogging(req.params),
-              query: sanitizeForLogging(req.query),
-            },
+          await emitRequestAuditEvent(req, res, AUDIT_ACTION.API_REQUEST, "api.request", {
+            duration_ms: Date.now() - startedAt,
           });
         } catch (error) {
           logger.error("Failed to write request audit event", error as Error, {

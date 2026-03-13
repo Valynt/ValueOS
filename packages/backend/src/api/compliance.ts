@@ -5,8 +5,10 @@ import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js";
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js";
 import { auditLogService } from "../services/AuditLogService.js";
 import { complianceControlStatusService } from "../services/ComplianceControlStatusService.js";
+import { AUDIT_ACTION } from "../types/audit.js";
 
 const router = createSecureRouter("strict");
 
@@ -17,7 +19,7 @@ function getTenantId(req: Request): string | null {
   return tenantId ?? null;
 }
 
-router.get("/control-status", requirePermission("compliance.read"), async (req: Request, res: Response) => {
+router.get("/control-status", requirePermission("users.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -26,6 +28,7 @@ router.get("/control-status", requirePermission("compliance.read"), async (req: 
   const controls = await complianceControlStatusService.getLatestControlStatus(tenantId);
   const now = Date.now();
 
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "control-status" });
   return res.json({
     tenant_id: tenantId,
     generated_at: new Date().toISOString(),
@@ -37,7 +40,7 @@ router.get("/control-status", requirePermission("compliance.read"), async (req: 
   });
 });
 
-router.get("/stream", requirePermission("compliance.read"), async (req: Request, res: Response) => {
+router.get("/stream", requirePermission("users.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -68,7 +71,7 @@ router.get("/stream", requirePermission("compliance.read"), async (req: Request,
   });
 });
 
-router.get("/audit-logs", requirePermission("audit.read"), async (req: Request, res: Response) => {
+router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
@@ -76,34 +79,22 @@ router.get("/audit-logs", requirePermission("audit.read"), async (req: Request, 
 
   const limit = Number(req.query.limit ?? 25);
   const logs = await auditLogService.query({ tenantId, limit });
-  const actor = req.user;
-  await auditLogService.logAudit({
-    userId: actor.id,
-    userName: actor.email ?? "unknown",
-    userEmail: actor.email ?? "",
-    action: "compliance.audit_logs.query",
-    resourceType: "audit_logs",
-    resourceId: tenantId,
-    details: {
-      endpoint: "/api/admin/compliance/audit-logs",
-      limit,
-    },
-    status: "success",
-  });
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "audit-logs" });
   return res.json({ logs });
 });
 
-router.get("/policy-history", requirePermission("compliance.read"), async (req: Request, res: Response) => {
+router.get("/policy-history", requirePermission("users.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
   }
 
   const history = await complianceControlStatusService.getPolicyHistory(tenantId);
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "policy-history" });
   return res.json({ history });
 });
 
-router.get("/retention", requirePermission("compliance.read"), (_req: Request, res: Response) => {
+router.get("/retention", requirePermission("users.read"), (_req: Request, res: Response) => {
   return res.json({
     rules: [
       { id: "logs", data_class: "Audit Logs", retention_days: 2555, legal_hold: true, last_reviewed_at: new Date().toISOString() },
@@ -113,7 +104,7 @@ router.get("/retention", requirePermission("compliance.read"), (_req: Request, r
   });
 });
 
-router.get("/dsr", requirePermission("compliance.read"), (_req: Request, res: Response) => {
+router.get("/dsr", requirePermission("users.read"), (_req: Request, res: Response) => {
   return res.json({
     queue: [
       { id: "dsr-001", request_type: "access", subject_ref: "subject:hashed:28fd", status: "in_progress", submitted_at: new Date(Date.now() - 2 * 86400000).toISOString(), due_at: new Date(Date.now() + 28 * 86400000).toISOString() },
@@ -122,12 +113,13 @@ router.get("/dsr", requirePermission("compliance.read"), (_req: Request, res: Re
   });
 });
 
-router.get("/mode", requirePermission("compliance.read"), async (req: Request, res: Response) => {
+router.get("/mode", requirePermission("users.read"), async (req: Request, res: Response) => {
   const tenantId = getTenantId(req);
   if (!tenantId) {
     return res.status(400).json({ error: "Tenant ID required" });
   }
 
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "mode" });
   return res.json({
     tenant_id: tenantId,
     active_modes: ["SOC2", "GDPR"],

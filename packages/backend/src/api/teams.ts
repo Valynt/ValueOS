@@ -10,6 +10,7 @@ import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
 import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks.js"
+import { AUDIT_ACTION } from "../types/audit.js"
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requirePermission } from "../middleware/rbac.js"
@@ -77,7 +78,7 @@ router.post(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.invite"),
-  auditOperation("user_invite", "team_member", (req) => req.params.tenantId),
+  auditOperation(AUDIT_ACTION.DATA_CREATE, "team_member", (req) => req.params.tenantId),
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
@@ -220,7 +221,7 @@ router.delete(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.delete"),
-  auditOperation("invite_cancel", "team_invite", (req) => req.params.userId),
+  auditOperation(AUDIT_ACTION.DATA_DELETE, "team_invite", (req) => req.params.userId),
   async (req: Request, res: Response) => {
     try {
       const tenantId = req.tenantId!;

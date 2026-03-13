@@ -15,15 +15,26 @@ import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { tenantContextMiddleware } from "../middleware/tenantContext.js"
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
 import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
 import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob.js"
 import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
 import { tenantDeletionService } from "../services/tenant/TenantDeletionService.js"
+import { AUDIT_ACTION } from "../types/audit.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
+
+async function logAdminRouteEvent(
+  req: Request,
+  res: Response,
+  action: (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION],
+  details: Record<string, unknown>
+): Promise<void> {
+  await emitRequestAuditEvent(req, res, action, action, details);
+}
 
 const provisionTenantSchema = z.object({
   name: z.string().min(2).max(120),
@@ -64,7 +75,9 @@ router.post(
       if (!result.success) {
         return res.status(422).json({ error: result.errors.join("; "), errors: result.errors });
       }
-      return res.status(201).json({ organizationId: result.organizationId });
+      res.status(201);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_PROVISION, { organizationId: result.organizationId });
+      return res.json({ organizationId: result.organizationId });
     } catch (err) {
       logger.error("Tenant provisioning failed", err instanceof Error ? err : undefined);
       return res.status(500).json({ error: "Provisioning failed" });
@@ -212,6 +225,7 @@ router.patch(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { targetUserId: req.params.userId, role: req.body.role });
       return res.json({ message: "Role updated" });
     } catch (error) {
       if (error instanceof Error && error.name === "ValidationError") {
@@ -252,6 +266,7 @@ router.delete(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_SECURITY, { targetUserId: req.params.userId, operation: "remove_user" });
       return res.json({ message: "User removed" });
     } catch (error) {
       if (error instanceof Error && error.name === "ValidationError") {
@@ -329,6 +344,7 @@ router.post(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { roleId: role.id, operation: "create_custom_role" });
       return res.status(201).json({ role });
     } catch (error) {
       logger.error("Failed to create custom role", error instanceof Error ? error : undefined);
@@ -361,6 +377,7 @@ router.patch(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { roleId: req.params.roleId, operation: "update_custom_role" });
       return res.json({ role });
     } catch (error) {
       logger.error("Failed to update custom role", error instanceof Error ? error : undefined);
@@ -388,6 +405,7 @@ router.delete(
         req.params.roleId!
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_REMOVE, { roleId: req.params.roleId });
       return res.json({ message: "Role deleted" });
     } catch (error) {
       logger.error("Failed to delete custom role", error instanceof Error ? error : undefined);
@@ -434,7 +452,12 @@ router.post(
         }
       );
 
-      return res.status(204).send();
+      res.status(204);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_GRANT, {
+        roleId: req.params.roleId,
+        permissionKeys: req.body.permissionKeys,
+      });
+      return res.send();
     } catch (error) {
       logger.error("Failed to assign permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to assign permissions" });
@@ -465,7 +488,12 @@ router.delete(
         }
       );
 
-      return res.status(204).send();
+      res.status(204);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_REVOKE, {
+        roleId: req.params.roleId,
+        permissionKeys: req.body.permissionKeys,
+      });
+      return res.send();
     } catch (error) {
       logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to remove permissions" });

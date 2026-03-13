@@ -402,7 +402,7 @@ if (latencyMetricsMiddleware) {
   app.use(latencyMetricsMiddleware());
 }
 
-app.use(requestAuditMiddleware());
+app.use("/api", requestAuditMiddleware());
 
 // Health check
 app.use(healthRouter);
