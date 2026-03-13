@@ -40,8 +40,9 @@ vi.mock("../../middleware/auth.js", () => ({
 
 // Mirror USER_ROLE_PERMISSIONS: admin has all permissions; member/viewer have settings:view only.
 const ROLE_GRANTS: Record<string, string[]> = {
-  admin: ["settings:view", "settings:edit"],
-  member: ["settings:view"],
+    const r = req as Request & { user?: { role: string; permissions?: string[] } };
+    const permissions = r.user?.permissions ?? [];
+    if (!permissions.includes(required)) {
   viewer: ["settings:view"],
 };
 
@@ -55,9 +56,16 @@ vi.mock("../../middleware/rbac.js", () => ({
     next();
   },
 }));
-
+    const r = req as Request & {
+      tenantId: string;
+      user: { id: string; role: string; permissions: string[] };
+    };
 const { tenantContextRouter } = await import("../tenantContext.js");
-
+    const permissionsByRole: Record<"admin" | "viewer", string[]> = {
+      admin: ["tenant:context:read", "tenant:context:write"],
+      viewer: ["tenant:context:read"],
+    };
+    r.user = { id: "user-123", role, permissions: permissionsByRole[role as "admin" | "viewer"] };
 function buildApp(role: "admin" | "viewer" | "none") {
   const app = express();
   app.use(express.json());
