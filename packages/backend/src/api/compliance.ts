@@ -225,7 +225,16 @@ router.get("/stream", requirePermission("users.read"), async (req: Request, res:
         summary: complianceControlStatusService.summarize(controls),
       };
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
-    } catch {
+    } catch (err) {
+      console.error(
+        "Error in /compliance/stream SSE push",
+        {
+          tenantId,
+          method: req.method,
+          url: req.originalUrl,
+        },
+        err,
+      );
       cleanup();
     }
   };
