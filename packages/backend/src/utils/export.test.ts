@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
 import { exportToExcel, exportToPDF, exportToPNG } from "./export";
@@ -36,13 +36,21 @@ describe("export utilities - real format generation", () => {
     const bytes = await blobToUint8Array(blob);
 
     expect(blob.type).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    expect(Array.from(bytes.slice(0, 4))).toEqual([80, 75, 3, 4]); // ZIP local header
+    expect(Array.from(bytes.slice(0, 4))).toEqual([80, 75, 3, 4]); // ZIP local header (OOXML)
 
-    const workbook = XLSX.read(bytes, { type: "array" });
-    const worksheet = workbook.Sheets.Exports;
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(bytes.buffer as ArrayBuffer);
+    const worksheet = workbook.getWorksheet("Exports");
 
     expect(worksheet).toBeDefined();
+
+    const rows: Record<string, unknown>[] = [];
+    worksheet!.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber === 1) return; // skip header
+      const values = row.values as unknown[];
+      rows.push({ id: values[1], name: values[2], amount: values[3] });
+    });
+
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ id: 1, name: "Acme", amount: 10.5 });
   });

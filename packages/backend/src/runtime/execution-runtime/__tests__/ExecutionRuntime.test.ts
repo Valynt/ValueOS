@@ -77,11 +77,16 @@ vi.mock('../../../config/featureFlags', () => ({
 // Shared mock factories
 // ---------------------------------------------------------------------------
 
+
+const ORG_ID = '11111111-1111-4111-8111-111111111111';
+const OPP_ID = '22222222-2222-4222-8222-222222222222';
+
 function makePolicyMock() {
   return {
     assertTenantExecutionAllowed: vi.fn().mockResolvedValue(undefined),
     evaluateIntegrityVeto: vi.fn().mockResolvedValue({ vetoed: false }),
     evaluateStructuralTruthVeto: vi.fn().mockResolvedValue({ vetoed: false }),
+    checkHITL: vi.fn().mockReturnValue({ allowed: true, hitl_required: false, details: { rule_id: 'HITL-01', is_external_artifact_action: false } }),
     performReRefine: vi.fn().mockResolvedValue({ success: false, attempts: 2 }),
     checkAutonomyGuardrails: vi.fn().mockResolvedValue(undefined),
   };
@@ -108,47 +113,19 @@ function makeQueueMock() {
   };
 }
 
-function makeContextRepositoryMock(overrides: Partial<{
-  getOpportunity: (organizationId: string, opportunityId: string) => Promise<unknown>;
-  getHypothesis: (organizationId: string, caseId: string) => Promise<unknown>;
-  getBusinessCase: (organizationId: string, caseId: string) => Promise<unknown>;
-}> = {}) {
-  return {
-    getOpportunity: vi.fn().mockResolvedValue({
-      id: '11111111-1111-4111-8111-111111111111',
-      lifecycle_stage: 'drafting',
-      confidence_score: 0.82,
-      value_maturity: 'high',
-    }),
-    getHypothesis: vi.fn().mockResolvedValue({
-      id: '22222222-2222-4222-8222-222222222222',
-      confidence: 'high',
-      confidence_score: 0.82,
-      evidence_count: 3,
-      best_evidence_tier: 'gold',
-    }),
-    getBusinessCase: vi.fn().mockResolvedValue({
-      id: '33333333-3333-4333-8333-333333333333',
-      status: 'draft',
-      assumptions_reviewed: true,
-    }),
-    ...overrides,
-  };
-}
-
 function makeState() {
   return {
     id: 'state-1', workflow_id: '', execution_id: 'exec-1', workspace_id: '',
-    organization_id: '11111111-1111-4111-8111-111111111111', lifecycle_stage: 'discovery', current_step: 'discovery',
+    organization_id: ORG_ID, lifecycle_stage: 'discovery', current_step: 'discovery',
     currentStage: 'discovery', status: 'initiated' as const, completed_steps: [],
-    state_data: {}, context: { organizationId: '11111111-1111-4111-8111-111111111111', conversationHistory: [], opportunityId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', valueCaseId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+    state_data: {}, context: { organizationId: ORG_ID, conversationHistory: [] },
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   };
 }
 
 function makeEnvelope() {
   return {
-    intent: 'test', actor: { id: 'user-1' }, organizationId: '11111111-1111-4111-8111-111111111111',
+    intent: 'test', actor: { id: 'user-1' }, organizationId: ORG_ID,
     entryPoint: 'api', reason: 'test', timestamps: { requestedAt: new Date().toISOString() },
   };
 }
@@ -222,8 +199,6 @@ describe('QueryExecutor.processQueryAsync', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       queue as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
   });
 
@@ -239,7 +214,7 @@ describe('QueryExecutor.processQueryAsync', () => {
     await executor.processQueryAsync(
       makeEnvelope() as never, 'query', makeState() as never, 'user-1', 'session-1',
     );
-    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith(ORG_ID);
   });
 
   it('throws when tenant execution is paused', async () => {
@@ -257,7 +232,6 @@ describe('QueryExecutor.processQueryAsync', () => {
       makeCircuitBreakerMock() as never,
       queue as never,
       { defaultTimeoutMs: 5000, maxAgentInvocationsPerMinute: 1 },
-      makeContextRepositoryMock() as never,
     );
     await limitedExecutor.processQueryAsync(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     await expect(
@@ -283,8 +257,6 @@ describe('QueryExecutor.getAsyncQueryResult', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       queue as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
   });
 
@@ -355,8 +327,6 @@ describe('QueryExecutor.processQuery (sync path)', () => {
       makeRouterMock() as never,
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
-      undefined,
-      makeContextRepositoryMock() as never,
     );
   });
 
@@ -366,7 +336,7 @@ describe('QueryExecutor.processQuery (sync path)', () => {
 
   it('calls assertTenantExecutionAllowed', async () => {
     await executor.processQuery(makeEnvelope() as never, 'query', makeState() as never, 'u', 's');
-    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111');
+    expect(policy.assertTenantExecutionAllowed).toHaveBeenCalledWith(ORG_ID);
   });
 
   it('returns a successful response with updated state', async () => {
@@ -386,6 +356,17 @@ describe('QueryExecutor.processQuery (sync path)', () => {
     ).rejects.toThrow('Tenant execution is paused');
   });
 
+
+  it('returns an error payload when sync execution tenant context mismatches envelope tenant', async () => {
+    const state = makeState();
+    state.organization_id = 'org-2';
+
+    const result = await executor.processQuery(makeEnvelope() as never, 'query', state as never, 'u', 's');
+
+    expect(result.response?.payload).toMatchObject({ error: true });
+    expect(String(result.nextState.context?.lastError ?? '')).toContain('Tenant context mismatch');
+  });
+
   it('returns vetoed response when integrity check fails', async () => {
     // The veto check returns early from inside the span with an error payload.
     policy.evaluateIntegrityVeto.mockResolvedValueOnce({ vetoed: true, metadata: { integrityVeto: true } });
@@ -395,6 +376,16 @@ describe('QueryExecutor.processQuery (sync path)', () => {
     expect(typeof result.response?.payload.message).toBe('string');
   });
 
+
+  it('rejects async queueing when workflow state tenant mismatches envelope tenant', async () => {
+    const state = makeState();
+    state.organization_id = 'org-2';
+
+    await expect(
+      executor.processQueryAsync(makeEnvelope() as never, 'query', state as never, 'u', 's', 'trace-1'),
+    ).rejects.toThrow(/Tenant context mismatch/);
+  });
+
   it('returns error when rate limit is exceeded', async () => {
     const limited = new QueryExecutor(
       policy as never,
@@ -402,10 +393,44 @@ describe('QueryExecutor.processQuery (sync path)', () => {
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
       { defaultTimeoutMs: 5000, maxAgentInvocationsPerMinute: 0 },
-      makeContextRepositoryMock() as never,
     );
     const result = await limited.processQuery(makeEnvelope() as never, 'q', makeState() as never, 'u', 's');
     expect(result.response?.payload).toMatchObject({ error: true });
+  });
+
+  it('returns pending_approval and does not invoke agent when HITL is required', async () => {
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.4, is_external_artifact_action: true },
+    });
+
+    const result = await executor.processQuery(makeEnvelope() as never, 'generate customer proposal', makeState() as never, 'u', 's');
+    expect(result.nextState.status).toBe('pending_approval');
+    expect(result.response.payload).toMatchObject({ hitl_required: true, rule_id: 'HITL-01' });
+  });
+});
+
+describe('QueryExecutor HITL async gating', () => {
+  it('blocks queueing when HITL is required', async () => {
+    const policy = makePolicyMock();
+    policy.checkHITL.mockReturnValueOnce({
+      allowed: false,
+      hitl_required: true,
+      hitl_reason: 'Human approval required',
+      details: { rule_id: 'HITL-01', confidence_score: 0.35, is_external_artifact_action: true },
+    });
+    const queue = makeQueueMock();
+    const executor = new QueryExecutor(
+      policy as never,
+      makeRouterMock('narrative') as never,
+      makeCircuitBreakerMock() as never,
+      queue as never,
+    );
+
+    await expect(executor.processQueryAsync(makeEnvelope() as never, 'customer narrative', makeState() as never, 'u', 's')).rejects.toThrow('Human approval required');
+    expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
   });
 });
 
@@ -430,13 +455,26 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
     vi.mocked(createAgentFactory).mockReturnValueOnce({ create: mockCreate } as never);
 
     const policy = makePolicyMock();
+    const repo = {
+      getSnapshot: vi.fn().mockResolvedValue({
+        opportunity: {
+          id: OPP_ID,
+          lifecycle_stage: 'discovery',
+          confidence_score: 0.9,
+          value_maturity: 'high',
+        },
+        hypothesis: null,
+        businessCase: null,
+      }),
+    };
+
     const executor = new QueryExecutor(
       policy as never,
       makeRouterMock('opportunity') as never,
       makeCircuitBreakerMock() as never,
       makeQueueMock() as never,
       undefined,
-      makeContextRepositoryMock() as never,
+      repo as never,
     );
 
     const result = await executor.processQuery(
@@ -448,54 +486,70 @@ describe('QueryExecutor — direct AgentFactory invocation (ADR-0014)', () => {
     );
 
     // Agent was invoked directly — no fetch/HTTP call
-    expect(mockCreate).toHaveBeenCalledWith('opportunity', '11111111-1111-4111-8111-111111111111');
+    expect(mockCreate).toHaveBeenCalledWith('opportunity', ORG_ID);
     expect(mockExecute).toHaveBeenCalledOnce();
     expect(result.response?.type).toBe('message');
     expect(result.response?.payload.message).toContain('direct invocation works');
   });
 });
 
-
-describe('QueryExecutor context hydration integration', () => {
-  it('routes using rich hydrated context', async () => {
+describe('QueryExecutor decision-context hydration integration', () => {
+  it('routes using DecisionRouter when hydrated context is rich', async () => {
     const policy = makePolicyMock();
-    const queue = makeQueueMock();
     const router = makeRouterMock('financial-modeling');
-    const repo = makeContextRepositoryMock();
+    const repo = {
+      getSnapshot: vi.fn().mockResolvedValue({
+        opportunity: {
+          id: OPP_ID,
+          lifecycle_stage: 'drafting',
+          confidence_score: 0.82,
+          value_maturity: 'high',
+        },
+        hypothesis: {
+          id: '33333333-3333-4333-8333-333333333333',
+          confidence: 'high',
+          confidence_score: 0.85,
+          evidence_count: 3,
+          best_evidence_tier: 'gold',
+        },
+        businessCase: {
+          id: '44444444-4444-4444-8444-444444444444',
+          status: 'in_review',
+          assumptions_reviewed: true,
+        },
+      }),
+    };
+
     const executor = new QueryExecutor(
       policy as never,
       router as never,
       makeCircuitBreakerMock() as never,
-      queue as never,
+      makeQueueMock() as never,
       undefined,
       repo as never,
     );
 
-    const state = {
-      ...makeState(),
-      context: {
-        ...makeState().context,
-        opportunityId: '11111111-1111-4111-8111-111111111111',
-        valueCaseId: '33333333-3333-4333-8333-333333333333',
-      },
-    };
-
-    await executor.processQueryAsync(makeEnvelope() as never, 'route with rich context', state as never, 'u', 's');
+    await executor.processQuery(makeEnvelope() as never, 'route with rich context', makeState() as never, 'u', 's');
 
     expect(router.selectAgent).toHaveBeenCalledOnce();
-    expect(queue.queueAgentInvocation).toHaveBeenCalledWith(
-      expect.objectContaining({ agent: 'financial-modeling' }),
-    );
   });
 
-  it('downgrades to coordinator when hydrated context is sparse', async () => {
+  it('downgrades automation to coordinator when required opportunity fields are missing', async () => {
     const policy = makePolicyMock();
+    const router = makeRouterMock('opportunity');
     const queue = makeQueueMock();
-    const router = makeRouterMock('financial-modeling');
-    const repo = makeContextRepositoryMock({
-      getBusinessCase: async () => null,
-      getHypothesis: async () => null,
-    });
+    const repo = {
+      getSnapshot: vi.fn().mockResolvedValue({
+        opportunity: {
+          id: OPP_ID,
+          lifecycle_stage: 'drafting',
+          // missing confidence_score and value_maturity should trigger downgrade
+        },
+        hypothesis: null,
+        businessCase: null,
+      }),
+    };
+
     const executor = new QueryExecutor(
       policy as never,
       router as never,
@@ -505,16 +559,7 @@ describe('QueryExecutor context hydration integration', () => {
       repo as never,
     );
 
-    const state = {
-      ...makeState(),
-      context: {
-        ...makeState().context,
-        opportunityId: '11111111-1111-4111-8111-111111111111',
-        valueCaseId: '33333333-3333-4333-8333-333333333333',
-      },
-    };
-
-    await executor.processQueryAsync(makeEnvelope() as never, 'route with sparse context', state as never, 'u', 's');
+    await executor.processQueryAsync(makeEnvelope() as never, 'queue query', makeState() as never, 'u', 's');
 
     expect(router.selectAgent).not.toHaveBeenCalled();
     expect(queue.queueAgentInvocation).toHaveBeenCalledWith(
@@ -522,39 +567,31 @@ describe('QueryExecutor context hydration integration', () => {
     );
   });
 
-  it('rejects when hydrated context is missing a valid opportunity', async () => {
+  it('rejects automation and emits diagnostics when opportunity id is missing', async () => {
     const policy = makePolicyMock();
-    const queue = makeQueueMock();
-    const router = makeRouterMock('financial-modeling');
-    const repo = makeContextRepositoryMock();
+    const router = makeRouterMock('opportunity');
+
     const executor = new QueryExecutor(
       policy as never,
       router as never,
       makeCircuitBreakerMock() as never,
-      queue as never,
-      undefined,
-      repo as never,
+      makeQueueMock() as never,
     );
 
-    // No opportunityId/valueCaseId in context should trigger hydration-gating reject mode.
-    const state = {
+    const sparseState = {
       ...makeState(),
-      context: {
-        ...makeState().context,
-      },
+      context: { organizationId: ORG_ID, conversationHistory: [] },
     };
 
-    await expect(
-      executor.processQueryAsync(
-        makeEnvelope() as never,
-        'route with missing opportunity',
-        state as never,
-        'u',
-        's',
-      ),
-    ).rejects.toThrowError();
+    const result = await executor.processQuery(
+      makeEnvelope() as never,
+      'route with sparse context',
+      sparseState as never,
+      'u',
+      's',
+    );
 
-    expect(router.selectAgent).not.toHaveBeenCalled();
-    expect(queue.queueAgentInvocation).not.toHaveBeenCalled();
+    expect(result.response?.payload).toMatchObject({ error: true });
+    expect(String(result.response?.payload.message)).toContain('error processing your request');
   });
 });

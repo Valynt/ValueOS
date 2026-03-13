@@ -266,6 +266,12 @@ describe("TargetAgent", () => {
   });
 
   describe("execute", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("generates KPI targets from hypotheses and returns structured output", async () => {
       const result = await agent.execute(makeContext());
 
@@ -400,6 +406,18 @@ describe("TargetAgent", () => {
       expect(result.status).toBe("partial_success");
     });
 
+    it("scopes hypothesis retrieval to the active workspace", async () => {
+      await agent.execute(makeContext());
+
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent_id: "opportunity",
+          organization_id: "org-456",
+          workspace_id: "ws-123",
+        }),
+      );
+    });
+
     it("handles memory retrieval failure gracefully", async () => {
       mockRetrieve.mockRejectedValue(new Error("Memory unavailable"));
 
@@ -433,4 +451,11 @@ describe("TargetAgent", () => {
       expect(result.status).toBe("failure");
     });
   });
+
+  it("rejects execution when context organization does not match agent tenant", async () => {
+    await expect(
+      agent.execute(makeContext({ organization_id: "org-mismatch" }))
+    ).rejects.toThrow(/tenant context mismatch/i);
+  });
+
 });

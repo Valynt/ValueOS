@@ -416,7 +416,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   }
 
   private async calculateProbabilisticEffect(
-    relationship: any,
+    relationship: Record<string, unknown>,
     context?: Record<string, any>
   ): Promise<CausalEffect> {
     // Base effect from relationship
@@ -461,7 +461,7 @@ export class AdvancedCausalEngine extends EventEmitter {
     };
   }
 
-  private calculateInferenceConfidence(relationship: any, effect: CausalEffect): number {
+  private calculateInferenceConfidence(relationship: Record<string, unknown>, effect: CausalEffect): number {
     // Base confidence from relationship
     const baseConfidence = relationship.confidence_score || 0.7;
 
@@ -622,7 +622,7 @@ export class AdvancedCausalEngine extends EventEmitter {
     return sample;
   }
 
-  private createTemporalModel(relationship: any, timeHorizon: number): TemporalCausalModel {
+  private createTemporalModel(relationship: Record<string, unknown>, timeHorizon: number): TemporalCausalModel {
     // Default temporal parameters
     const timeToEffect = 30; // 30 days
     const effectDuration = 180; // 6 months
@@ -641,7 +641,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   }
 
   private async applyCounterfactualScenario(
-    relationship: any,
+    relationship: Record<string, unknown>,
     scenario: CounterfactualScenario,
     baselineValue: number
   ): Promise<number> {
@@ -670,7 +670,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   }
 
   private calculateCounterfactualConfidence(
-    relationship: any,
+    relationship: Record<string, unknown>,
     scenario: CounterfactualScenario
   ): number {
     const baseConfidence = relationship.confidence_score || 0.7;
@@ -681,7 +681,7 @@ export class AdvancedCausalEngine extends EventEmitter {
     return Math.max(0.3, baseConfidence - complexityPenalty);
   }
 
-  private identifyAssumptions(scenario: CounterfactualScenario, relationship: any): string[] {
+  private identifyAssumptions(scenario: CounterfactualScenario, relationship: Record<string, unknown>): string[] {
     const assumptions: string[] = [];
 
     assumptions.push(

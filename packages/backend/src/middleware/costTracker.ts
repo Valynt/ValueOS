@@ -7,6 +7,14 @@
 import { createLogger } from '@shared/lib/logger';
 import { NextFunction, Request, Response } from 'express';
 
+import type { AuthenticatedRequest } from './auth.js';
+
+interface CostTrackerRequest extends AuthenticatedRequest {
+  trackLLMCost?: (usage: TokenUsage) => void;
+  getSessionCostStats?: () => unknown;
+  sessionId?: string;
+}
+
 const logger = createLogger({ component: 'CostTracker' });
 
 /**
@@ -88,12 +96,12 @@ export function costTrackerMiddleware(req: Request, _res: Response, next: NextFu
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   // Attach cost tracking helper to request
-  (req as any).trackLLMCost = (usage: TokenUsage) => {
+  (req as CostTrackerRequest).trackLLMCost = (usage: TokenUsage) => {
     const estimate = calculateCost(usage);
 
     const logContext = {
       requestId: req.headers['x-request-id'],
-      tenantId: req.tenantId,
+      tenantId: (req as CostTrackerRequest).tenantId,
       agentType: usage.agentType,
       model: estimate.model,
       tokens: estimate.tokens,
@@ -168,20 +176,20 @@ export const sessionCostAccumulator = new SessionCostAccumulator();
  * Express middleware to track session-level costs
  */
 export function sessionCostTracker(req: Request, _res: Response, next: NextFunction) {
-  const sessionId = req.sessionId || req.headers['x-session-id'] as string;
+  const sessionId = (req as CostTrackerRequest).sessionId || req.headers['x-session-id'] as string;
   
   if (sessionId) {
     // Override trackLLMCost to also accumulate session costs
-    const originalTrack = (req as any).trackLLMCost;
+    const originalTrack = (req as CostTrackerRequest).trackLLMCost;
     
-    (req as any).trackLLMCost = (usage: TokenUsage) => {
+    (req as CostTrackerRequest).trackLLMCost = (usage: TokenUsage) => {
       const estimate = originalTrack ? originalTrack(usage) : calculateCost(usage);
       sessionCostAccumulator.addCost(sessionId, estimate);
       return estimate;
     };
     
     // Attach session stats getter
-    (req as any).getSessionCostStats = () => {
+    (req as CostTrackerRequest).getSessionCostStats = () => {
       return sessionCostAccumulator.getSessionStats(sessionId);
     };
   }

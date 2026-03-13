@@ -12,6 +12,7 @@ import { createLogger } from "@shared/lib/logger";
 import { Request, Response, Router } from "express";
 
 import { auditOperation } from "../middleware/auditHooks.js";
+import { AUDIT_ACTION } from "../types/audit.js";
 import { AuthenticatedRequest, requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
@@ -33,7 +34,7 @@ router.use(tenantContextMiddleware());
 router.post(
   "/",
   requirePermission("admin"),
-  auditOperation("tenant_context_ingested", "tenant_context"),
+  auditOperation(AUDIT_ACTION.DATA_UPDATE, "tenant_context"),
   async (req: Request, res: Response) => {
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {

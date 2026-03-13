@@ -42,7 +42,7 @@ export interface AgentAuditLog {
   /**
    * Response data (sanitized)
    */
-  response_data?: any;
+  response_data?: unknown;
 
   /**
    * Response metadata
@@ -51,6 +51,13 @@ export interface AgentAuditLog {
     duration: number;
     confidence?: number;
     model?: string;
+    prompt_version_refs?: Array<{
+      prompt_key: string;
+      version: string;
+      owner?: string;
+      ticket?: string;
+      risk_class?: 'low' | 'medium' | 'high' | 'critical';
+    }>;
     tokens?: {
       prompt: number;
       completion: number;
@@ -91,7 +98,7 @@ export interface AgentAuditLog {
   /**
    * Additional metadata
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -400,7 +407,7 @@ export class AgentAuditLogger {
   /**
    * Encrypt sensitive data if encryption is enabled
    */
-  private encryptSensitiveData(data: any): any {
+  private encryptSensitiveData(data: unknown): unknown {
     if (!this.isEncryptionEnabled()) {
       // Fall back to sanitization if encryption is not available
       return this.sanitizeAndZeroMemory(data);
@@ -436,7 +443,7 @@ export class AgentAuditLogger {
   /**
    * Decrypt sensitive data if it's encrypted
    */
-  private decryptSensitiveData(data: any): any {
+  private decryptSensitiveData(data: unknown): unknown {
     if (!this.isEncryptionEnabled() || !data || typeof data !== "object") {
       return data;
     }
@@ -469,7 +476,7 @@ export class AgentAuditLogger {
   /**
    * Sanitize and zero out sensitive data from memory
    */
-  private sanitizeAndZeroMemory(data: any): any {
+  private sanitizeAndZeroMemory(data: unknown): unknown {
     if (data === null || data === undefined) {
       return null;
     }
@@ -502,7 +509,7 @@ export class AgentAuditLogger {
     }
 
     if (typeof data === "object") {
-      const sanitized: any = {};
+      const sanitized: Record<string, unknown> = {};
       let keyCount = 0;
       const maxKeys = 50;
 
@@ -516,7 +523,7 @@ export class AgentAuditLogger {
 
         // Zero out sensitive fields
         if (this.isSensitiveField(key) || this.containsSensitiveData(value)) {
-          (data as any)[key] = null;
+          (data as Record<string, unknown>)[key] = null;
         }
 
         keyCount++;
@@ -531,7 +538,7 @@ export class AgentAuditLogger {
   /**
    * Check if data contains sensitive patterns
    */
-  private containsSensitiveData(data: any): boolean {
+  private containsSensitiveData(data: unknown): boolean {
     if (!data) return false;
 
     const dataString =
@@ -946,8 +953,8 @@ export async function logAgentResponse(
   agent: AgentType,
   query: string,
   success: boolean,
-  responseData?: any,
-  responseMetadata?: any,
+  responseData?: unknown,
+  responseMetadata?: unknown,
   error?: string,
   context?: AgentContext
 ): Promise<void> {

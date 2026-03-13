@@ -9,6 +9,7 @@
 import { z } from "zod";
 
 import type { AgentType } from "../../../services/agent-types.js";
+import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 import type {
   AgentConfig,
   AgentOutput,
@@ -17,14 +18,13 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
   LifecycleStage,
+  PromptVersionReference,
 } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
-import { recordAgentCost } from "../../../observability/agentMetrics.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import { redactSensitiveValue, summarizeRedactedContent } from "../redaction.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types
@@ -99,12 +99,18 @@ export abstract class BaseAgent {
       status: AgentOutput['status'],
       confidence: ConfidenceLevel,
       startTime: number,
-      extra?: { reasoning?: string; suggested_next_actions?: string[]; warnings?: string[] },
+      extra?: {
+        reasoning?: string;
+        suggested_next_actions?: string[];
+        warnings?: string[];
+        prompt_version_refs?: PromptVersionReference[];
+      },
     ): AgentOutput {
       const metadata: AgentOutputMetadata = {
         execution_time_ms: Date.now() - startTime,
         model_version: this.version,
         timestamp: new Date().toISOString(),
+        prompt_version_refs: extra?.prompt_version_refs,
       };
       return {
         agent_id: this.name,
@@ -138,6 +144,13 @@ export abstract class BaseAgent {
       });
       return false;
     }
+
+    assertTenantContextMatch({
+      expectedTenantId: this.organizationId,
+      actualTenantId: context.organization_id,
+      source: `${this.name}.validateInput`,
+    });
+
     // organizationId is set in constructor; do not mutate here
     return true;
   }
@@ -216,13 +229,11 @@ export abstract class BaseAgent {
       try {
         parsedJson = JSON.parse(response.content);
       } catch (err) {
-        const sanitized = summarizeRedactedContent(response.content);
         logger.error("Failed to parse LLM response as JSON", {
           agent: this.name,
           session_id: sessionId,
           error: (err as Error).message,
-          content_summary: sanitized.summary,
-          content_hash: sanitized.hash,
+          content: response.content,
         });
         throw new Error("LLM response was not valid JSON: " + (err as Error).message);
       }
@@ -250,12 +261,11 @@ export abstract class BaseAgent {
 
       // Track prediction if enabled
       if (trackPrediction) {
-        const llmSummary = summarizeRedactedContent(response.content, 200);
         await this.memorySystem.storeSemanticMemory(
           sessionId,
           this.name,
           "episodic",
-          `LLM Response Summary: ${llmSummary.summary} [hash:${llmSummary.hash}]`,
+          `LLM Response: ${response.content.substring(0, 200)}...`,
           {
             confidence: hallucinationResult.groundingScore,
             hallucination_check: hallucinationResult.passed,
@@ -264,7 +274,6 @@ export abstract class BaseAgent {
             validation_method: kfResult.method,
             contradiction_count: kfResult.contradictions.length,
             benchmark_misalignment_count: kfResult.benchmarkMisalignments.length,
-            llm_content_hash: llmSummary.hash,
           },
           this.organizationId
         );
@@ -272,12 +281,10 @@ export abstract class BaseAgent {
 
       if (hallucinationResult.requiresEscalation) {
         logger.warn("Hallucination escalation triggered", {
-          ...(redactSensitiveValue({
-            agent: this.name,
-            session_id: sessionId,
-            signals: hallucinationResult.signals.map(s => s.type),
-            grounding_score: hallucinationResult.groundingScore,
-          }) as Record<string, unknown>),
+          agent: this.name,
+          session_id: sessionId,
+          signals: hallucinationResult.signals.map(s => s.type),
+          grounding_score: hallucinationResult.groundingScore,
         });
       }
 
@@ -290,16 +297,6 @@ export abstract class BaseAgent {
             total_tokens: response.usage.total_tokens,
           }
         : undefined;
-
-      // Emit cost and token metrics. Uses the model from the gateway response
-      // when available, falling back to the configured model name.
-      recordAgentCost({
-        agentName: this.name,
-        organizationId: this.organizationId,
-        model: response.model ?? "unknown",
-        inputTokens: tokenUsage?.input_tokens ?? 0,
-        outputTokens: tokenUsage?.output_tokens ?? 0,
-      });
 
       return {
         ...parsed,
@@ -333,10 +330,8 @@ export abstract class BaseAgent {
       );
     } catch (err) {
       logger.error("Knowledge Fabric validation failed, defaulting to fail", {
-        ...(redactSensitiveValue({
-          agent_id: this.name,
-          error: (err as Error).message,
-        }) as Record<string, unknown>),
+        agent_id: this.name,
+        error: (err as Error).message,
       });
       return {
         passed: false,
@@ -517,9 +512,6 @@ export abstract class BaseAgent {
         memory_type: 'semantic',
         limit: 5,
         organization_id: this.organizationId,
-        workspace_id: sessionId,
-        include_cross_workspace: true,
-        cross_workspace_reason: 'Hallucination checks compare prior integrity outcomes across sessions to detect repeated contradictions.',
       });
 
       if (memories.length === 0) return;
@@ -539,11 +531,9 @@ export abstract class BaseAgent {
       }
     } catch (err) {
       logger.warn('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
-        ...(redactSensitiveValue({
-          agent: this.name,
-          organizationId: this.organizationId,
-          error: (err as Error).message,
-        }) as Record<string, unknown>),
+        agent: this.name,
+        organizationId: this.organizationId,
+        error: (err as Error).message,
       });
       if (err && typeof err.message === 'string' && err.message.includes('tenant')) {
         throw new Error(`Tenant isolation violation in crossReferenceMemory: ${err.message}`);

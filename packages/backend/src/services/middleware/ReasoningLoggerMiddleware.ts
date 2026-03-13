@@ -88,10 +88,10 @@ export class ReasoningLoggerMiddleware implements AgentMiddleware {
 
     // Inject reasoning callback into context metadata so agents can report steps
     if (!context.envelope) {
-      (context as any).envelope = {};
+      context.envelope = {} as ExecutionEnvelope;
     }
-    const originalMetadata = (context as any).metadata ?? {};
-    (context as any).metadata = {
+    const originalMetadata = context.metadata ?? {};
+    context.metadata = {
       ...originalMetadata,
       reasoningCallback: (step: ReasoningStep) => {
         const scrubbedContent = this.scrubber.scrubText(step.content);
@@ -153,9 +153,9 @@ export class ReasoningLoggerMiddleware implements AgentMiddleware {
 
     // Check for reasoning_steps or thought_chain fields
     const steps: unknown[] =
-      (payload as any).reasoning_steps ??
-      (payload as any).thought_chain ??
-      (payload as any).reasoningSteps ??
+      (payload as Record<string, unknown>).reasoning_steps ??
+      (payload as Record<string, unknown>).thought_chain ??
+      (payload as Record<string, unknown>).reasoningSteps ??
       [];
 
     if (!Array.isArray(steps)) return;

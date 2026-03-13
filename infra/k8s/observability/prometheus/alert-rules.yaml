@@ -30,6 +30,7 @@ data:
         annotations:
           summary: "High error rate detected"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} has error rate of {{ $value | humanizePercentage }}"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
 
       # High response time
       - alert: HighResponseTime
@@ -44,6 +45,7 @@ data:
         annotations:
           summary: "High response time detected"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} has p95 latency of {{ $value }}s"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
 
       # Pod down
       - alert: PodDown
@@ -54,6 +56,7 @@ data:
         annotations:
           summary: "Pod is down"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} has been down for more than 2 minutes"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-poddown"
 
       # High CPU usage
       - alert: HighCPUUsage
@@ -69,6 +72,7 @@ data:
         annotations:
           summary: "High CPU usage"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} CPU usage is {{ $value | humanizePercentage }}"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highcpuusage"
 
       # High memory usage
       - alert: HighMemoryUsage
@@ -84,6 +88,7 @@ data:
         annotations:
           summary: "High memory usage"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} memory usage is {{ $value | humanizePercentage }}"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highmemoryusage"
 
       # Pod restart
       - alert: PodRestarting
@@ -94,6 +99,7 @@ data:
         annotations:
           summary: "Pod is restarting"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-podrestarting"
 
       # Database connection pool exhausted
       - alert: DatabaseConnectionPoolExhausted
@@ -110,6 +116,7 @@ data:
         annotations:
           summary: "Database connection pool nearly exhausted"
           description: "{{ $labels.namespace }}/{{ $labels.pod }} is using {{ $value | humanizePercentage }} of connection pool"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-databaseconnectionpoolexhausted"
 
       # High request rate
       - alert: HighRequestRate
@@ -120,6 +127,7 @@ data:
         annotations:
           summary: "High request rate"
           description: "{{ $labels.namespace }} is receiving {{ $value }} requests/second"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highrequestrate"
 
     - name: query-performance
       interval: 60s
@@ -138,6 +146,7 @@ data:
         annotations:
           summary: "Query fingerprint p95 regression"
           description: "Fingerprint {{ $labels.fingerprint }} p95 exceeded 125% of 7d baseline; inspect DB SLO dashboards."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-queryfingerprintp95regression"
 
       - alert: QueryFingerprintTotalExecTimeRegression
         expr: |
@@ -153,6 +162,7 @@ data:
         annotations:
           summary: "Query fingerprint total execution time regression"
           description: "Fingerprint {{ $labels.fingerprint }} total_exec_time is above baseline budget; check SLO error budget burn impact."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-queryfingerprinttotalexectimeregression"
 
       - alert: QueryFingerprintCallVolumeSpike
         expr: |
@@ -168,6 +178,7 @@ data:
         annotations:
           summary: "Query fingerprint call volume spike"
           description: "Fingerprint {{ $labels.fingerprint }} call volume is above 140% of baseline; verify workload and cache behavior."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-queryfingerprintcallvolumespike"
 
     - name: kubernetes
       interval: 30s
@@ -181,6 +192,7 @@ data:
         annotations:
           summary: "Node is not ready"
           description: "Node {{ $labels.node }} has been not ready for more than 5 minutes"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-nodenotready"
 
       # Node disk pressure
       - alert: NodeDiskPressure
@@ -191,6 +203,7 @@ data:
         annotations:
           summary: "Node has disk pressure"
           description: "Node {{ $labels.node }} is experiencing disk pressure"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-nodediskpressure"
 
       # Node memory pressure
       - alert: NodeMemoryPressure
@@ -201,6 +214,7 @@ data:
         annotations:
           summary: "Node has memory pressure"
           description: "Node {{ $labels.node }} is experiencing memory pressure"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-nodememorypressure"
 
       # Deployment replica mismatch
       - alert: DeploymentReplicasMismatch
@@ -214,6 +228,7 @@ data:
         annotations:
           summary: "Deployment replicas mismatch"
           description: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has {{ $value }} replica mismatch"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-deploymentreplicasmismatch"
 
       # PVC almost full
       - alert: PVCAlmostFull
@@ -229,3 +244,4 @@ data:
         annotations:
           summary: "PVC almost full"
           description: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full"
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-pvcalmostfull"

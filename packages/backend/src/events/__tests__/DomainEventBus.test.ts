@@ -224,7 +224,7 @@ describe('DomainEventBus', () => {
     });
   });
 
-  describe('all four domain events', () => {
+  describe('all domain events', () => {
     it('delivers hypothesis.validated', async () => {
       const handler = vi.fn().mockResolvedValue(undefined);
       bus.subscribe('hypothesis.validated', handler);
@@ -289,6 +289,23 @@ describe('DomainEventBus', () => {
         direction: 'under',
         overallRealizationRate: 0.85,
         expansionSignalCount: 0,
+      });
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+    it('delivers narrative.drafted', async () => {
+      const handler = vi.fn().mockResolvedValue(undefined);
+      bus.subscribe('narrative.drafted', handler);
+
+      await bus.publish('narrative.drafted', {
+        id: crypto.randomUUID(),
+        emittedAt: new Date().toISOString(),
+        traceId: 'trace-005',
+        tenantId: crypto.randomUUID(),
+        actorId: 'user-001',
+        valueCaseId: 'case-001',
+        defenseReadinessScore: 0.82,
+        format: 'executive_summary',
       });
 
       expect(handler).toHaveBeenCalledOnce();

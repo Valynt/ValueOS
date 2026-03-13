@@ -4,13 +4,14 @@ import {
   SagaEventEmitter,
   SagaPersistence,
   SagaSnapshot,
-  SagaStateType,
   SagaTransitionRecord
 } from "../../lib/agents/core/index.js";
+import type { SagaStateType } from "../../lib/agents/core/ValueCaseSaga.js";
 
 import { logger } from "../../lib/logger.js";
 import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";
-import { AuditEventType, getAuditTrailService } from "../security/AuditTrailService.js";
+import { getAuditTrailService } from "../security/AuditTrailService.js";
+import type { AuditEventType } from "../security/AuditTrailService.js";
 
 /**
  * Supabase implementation of SagaPersistence.
@@ -20,8 +21,8 @@ export class SupabaseSagaPersistence implements SagaPersistence {
   constructor(private supabase: ReturnType<typeof createClient>) {}
 
   async saveState(snapshot: SagaSnapshot): Promise<void> {
-    const { error } = await this.supabase
-      .from('workflow_states')
+    const { error } = await (this.supabase
+      .from('workflow_states') as unknown)
       .upsert({
         case_id: snapshot.valueCaseId,
         organization_id: snapshot.tenantId,
@@ -47,8 +48,8 @@ export class SupabaseSagaPersistence implements SagaPersistence {
   }
 
   async loadState(valueCaseId: string): Promise<SagaSnapshot | null> {
-    const { data, error } = await this.supabase
-      .from('workflow_states')
+    const { data, error } = await (this.supabase
+      .from('workflow_states') as unknown)
       .select('*')
       .eq('case_id', valueCaseId)
       .single();
@@ -80,8 +81,8 @@ export class SupabaseSagaPersistence implements SagaPersistence {
     // Falls back to a no-op warn if the case isn't found rather than crashing.
     let organizationId: string | null = null;
     try {
-      const { data } = await this.supabase
-        .from('workflow_states')
+      const { data } = await (this.supabase
+        .from('workflow_states') as unknown)
         .select('organization_id')
         .eq('case_id', record.valueCaseId)
         .maybeSingle();
@@ -98,8 +99,8 @@ export class SupabaseSagaPersistence implements SagaPersistence {
       return;
     }
 
-    const { error } = await this.supabase
-      .from('saga_transitions')
+    const { error } = await (this.supabase
+      .from('saga_transitions') as unknown)
       .insert({
         value_case_id: record.valueCaseId,
         organization_id: organizationId,
@@ -120,30 +121,25 @@ export class SupabaseSagaPersistence implements SagaPersistence {
   }
 }
 
+/**
+ * Supabase implementation of ProvenanceStore (R8).
+ */
 interface ProvenanceRecord {
   id: string;
   valueCaseId: string;
   claimId: string;
   dataSource: string;
-  evidenceTier: string | number;
-  sourceProvenance?: string;
-  formula?: string;
-  agentId?: string;
-  agentVersion?: string;
-  confidenceScore?: number;
-  parentRecordId?: string;
-  createdAt: string;
+  evidenceTier: number;
+  sourceProvenance: unknown;
+  createdAt?: string;
 }
 
-/**
- * Supabase implementation of ProvenanceStore (R8).
- */
 export class SupabaseProvenanceStore {
   constructor(private supabase: ReturnType<typeof createClient>) {}
 
   async insert(record: ProvenanceRecord): Promise<void> {
-    const { error } = await this.supabase
-      .from('provenance_records')
+    const { error } = await (this.supabase
+      .from('provenance_records') as unknown)
       .insert({
         id: record.id,
         value_case_id: record.valueCaseId,
@@ -168,8 +164,8 @@ export class SupabaseProvenanceStore {
   }
 
   async findByClaimId(valueCaseId: string, claimId: string): Promise<ProvenanceRecord[]> {
-    const { data, error } = await this.supabase
-      .from('provenance_records')
+    const { data, error } = await (this.supabase
+      .from('provenance_records') as unknown)
       .select('*')
       .eq('value_case_id', valueCaseId)
       .eq('claim_id', claimId);
@@ -179,8 +175,8 @@ export class SupabaseProvenanceStore {
   }
 
   async findById(id: string): Promise<ProvenanceRecord | null> {
-    const { data, error } = await this.supabase
-      .from('provenance_records')
+    const { data, error } = await (this.supabase
+      .from('provenance_records') as unknown)
       .select('*')
       .eq('id', id)
       .single();
@@ -190,8 +186,8 @@ export class SupabaseProvenanceStore {
   }
 
   async findByValueCaseId(valueCaseId: string): Promise<ProvenanceRecord[]> {
-    const { data, error } = await this.supabase
-      .from('provenance_records')
+    const { data, error } = await (this.supabase
+      .from('provenance_records') as unknown)
       .select('*')
       .eq('value_case_id', valueCaseId);
 
@@ -201,20 +197,20 @@ export class SupabaseProvenanceStore {
 
   private mapToRecord(data: Record<string, unknown>): ProvenanceRecord {
     return {
-      id: data.id as string,
-      valueCaseId: data.value_case_id as string,
-      claimId: data.claim_id as string,
-      dataSource: data.data_source as string,
+      id: data.id,
+      valueCaseId: data.value_case_id,
+      claimId: data.claim_id,
+      dataSource: data.data_source,
       evidenceTier: typeof data.evidence_tier === 'string'
         ? evidenceTierToNumeric(data.evidence_tier)
-        : (data.evidence_tier as number),
-      sourceProvenance: data.source_provenance as string | undefined,
-      formula: data.formula as string | undefined,
-      agentId: data.agent_id as string | undefined,
-      agentVersion: data.agent_version as string | undefined,
-      confidenceScore: data.confidence_score as number | undefined,
-      parentRecordId: data.parent_record_id as string | undefined,
-      createdAt: data.created_at as string,
+        : data.evidence_tier,
+      sourceProvenance: data.source_provenance,
+      formula: data.formula,
+      agentId: data.agent_id,
+      agentVersion: data.agent_version,
+      confidenceScore: data.confidence_score,
+      parentRecordId: data.parent_record_id,
+      createdAt: data.created_at,
     };
   }
 }

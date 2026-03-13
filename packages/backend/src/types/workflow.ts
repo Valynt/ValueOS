@@ -15,7 +15,7 @@ export type { LifecycleStage } from '@valueos/shared';
 
 export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion";
 
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back";
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back" | "waiting_approval";
 
 // ============================================================================
 // Retry Configuration

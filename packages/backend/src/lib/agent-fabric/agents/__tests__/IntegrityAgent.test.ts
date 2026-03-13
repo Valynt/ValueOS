@@ -85,7 +85,7 @@ const STORED_KPIS = [
     created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
     metadata: {
       kpi_id: "kpi-1", category: "cost", unit: "currency",
-      baseline: { value: 45.5, source: "ERP system Q4 2024", as_of_date: "2024-12-31" },
+      baseline: { value: 45.5, source: "ERP system Q4 2024", as_of_date: "2999-01-01" },
       target: { value: 32, timeframe_months: 12, confidence: 0.7 },
       measurement_method: "Monthly ERP procurement report",
       hypothesis_id: "hyp-1", causal_verified: true, causal_confidence: 0.8,
@@ -227,6 +227,12 @@ describe("IntegrityAgent", () => {
   });
 
   describe("execute — pass scenario", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("validates claims and returns success when all supported", async () => {
       const result = await agent.execute(makeContext());
 
@@ -319,42 +325,33 @@ describe("IntegrityAgent", () => {
 
   describe("execute — veto scenario", () => {
     beforeEach(() => {
-      mockRetrieve.mockImplementation((query: any) => {
-        if (query.agent_id === "target") {
-          return Promise.resolve([{
-            ...STORED_KPIS[0],
-            metadata: {
-              ...STORED_KPIS[0].metadata,
-              baseline: { value: 45.5, source: "Legacy report 2021", as_of_date: "2021-01-31" },
-              causal_verified: false,
-            },
-          }]);
-        }
-        if (query.agent_id === "opportunity") {
-          return Promise.resolve([{
-            ...STORED_HYPOTHESES[0],
-            metadata: {
-              ...STORED_HYPOTHESES[0].metadata,
-              evidence: ["This estimate is disputed by finance and unverified"],
-            },
-          }]);
-        }
-        return Promise.resolve([]);
-      });
-
       mockComplete.mockResolvedValue({
         id: "resp-2", model: "test-model",
         content: VETO_RESPONSE, finish_reason: "stop",
       });
     });
 
-    it("vetoes when high-severity data integrity issues found", async () => {
+    it("vetoes when deterministic policy emits veto trace", async () => {
+      mockRetrieve.mockImplementation((query: any) => {
+        if (query.agent_id === "target") {
+          return Promise.resolve([{
+            ...STORED_KPIS[0],
+            metadata: {
+              ...STORED_KPIS[0].metadata,
+              baseline: { ...STORED_KPIS[0].metadata.baseline, as_of_date: "2023-01-01" },
+            },
+          }]);
+        }
+        if (query.agent_id === "opportunity") return Promise.resolve(STORED_HYPOTHESES);
+        return Promise.resolve([]);
+      });
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("failure");
       expect(result.result.validated).toBe(false);
       expect(result.result.veto_decision.veto).toBe(true);
-      expect(result.result.veto_decision.reason).toContain("Deterministic policy gate");
+      expect(result.result.veto_decision.reason).toContain("Deterministic policy veto");
+      expect(result.result.policy_trace.some((t: any) => t.status === "veto")).toBe(true);
     });
 
     it("includes IntegrityVetoPanel in SDUI when issues exist", async () => {
@@ -394,34 +391,33 @@ describe("IntegrityAgent", () => {
 
   describe("execute — re-refine scenario", () => {
     beforeEach(() => {
-      mockRetrieve.mockImplementation((query: any) => {
-        if (query.agent_id === "target") {
-          return Promise.resolve([{
-            ...STORED_KPIS[0],
-            metadata: {
-              ...STORED_KPIS[0].metadata,
-              baseline: { value: 1000, source: "ERP system Q4 2024", as_of_date: "2024-12-31" },
-              target: { value: 10, timeframe_months: 12, confidence: 0.7 },
-            },
-          }]);
-        }
-        if (query.agent_id === "opportunity") return Promise.resolve(STORED_HYPOTHESES);
-        return Promise.resolve([]);
-      });
-
       mockComplete.mockResolvedValue({
         id: "resp-3", model: "test-model",
         content: REREFINE_RESPONSE, finish_reason: "stop",
       });
     });
 
-    it("requests re-refinement when confidence below threshold", async () => {
+    it("requests re-refinement when deterministic policy emits refine trace", async () => {
+      mockRetrieve.mockImplementation((query: any) => {
+        if (query.agent_id === "target") {
+          return Promise.resolve([{
+            ...STORED_KPIS[0],
+            metadata: {
+              ...STORED_KPIS[0].metadata,
+              target: { ...STORED_KPIS[0].metadata.target, timeframe_months: 72 },
+            },
+          }]);
+        }
+        if (query.agent_id === "opportunity") return Promise.resolve(STORED_HYPOTHESES);
+        return Promise.resolve([]);
+      });
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("partial_success");
       expect(result.result.validated).toBe(false);
       expect(result.result.veto_decision.veto).toBe(false);
       expect(result.result.veto_decision.reRefine).toBe(true);
+      expect(result.result.policy_trace.some((t: any) => t.status === "refine")).toBe(true);
     });
 
     it("reasoning includes re-refinement request", async () => {
@@ -480,7 +476,7 @@ describe("IntegrityAgent", () => {
   });
 
   describe("LLM failure handling", () => {
-    it("falls back to deterministic output when LLM returns invalid JSON", async () => {
+    it("continues with deterministic policy when LLM returns invalid JSON", async () => {
       mockComplete.mockResolvedValue({
         id: "resp-5", model: "test-model", content: "not json", finish_reason: "stop",
       });
@@ -488,10 +484,10 @@ describe("IntegrityAgent", () => {
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("success");
-      expect(result.result.overall_assessment).toContain("Deterministic policy checks passed");
+      expect(result.result.overall_assessment).toContain("deterministic policy used");
     });
 
-    it("falls back to deterministic output when LLM throws", async () => {
+    it("continues with deterministic policy when LLM throws", async () => {
       mockComplete.mockRejectedValue(new Error("LLM unavailable"));
 
       const result = await agent.execute(makeContext());
@@ -501,18 +497,23 @@ describe("IntegrityAgent", () => {
   });
 
   describe("evaluateVetoDecision (static)", () => {
-    it("passes when deterministic policy has no veto or refine traces", () => {
+    it("passes when confidence >= 0.85 and no high-severity issues", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: true, confidence: 0.9, issues: [],
-      }, { claimIssues: {}, traces: [], hasVeto: false, requiresRefine: false });
+      }, []);
       expect(decision.veto).toBe(false);
       expect(decision.reRefine).toBe(false);
     });
 
-    it("requests re-refine when deterministic policy requires it", () => {
+    it("requests re-refine when confidence < 0.85", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
-        isValid: true, confidence: 0.6, issues: [],
-      }, { claimIssues: {}, traces: [{ claim_id: "c1", rule: "range_plausibility", severity: "medium", outcome: "refine", message: "refine" }], hasVeto: false, requiresRefine: true });
+        isValid: true, confidence: 0.95, issues: [],
+      }, [{
+        claim_id: "c1",
+        rule: "source_freshness",
+        status: "refine",
+        message: "Needs newer source",
+      }]);
       expect(decision.veto).toBe(false);
       expect(decision.reRefine).toBe(true);
     });
@@ -521,7 +522,12 @@ describe("IntegrityAgent", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: false, confidence: 0.95,
         issues: [{ type: "data_integrity", severity: "high", description: "bad data" }],
-      }, { claimIssues: {}, traces: [{ claim_id: "c1", rule: "evidence_presence", severity: "high", outcome: "veto", message: "missing" }], hasVeto: true, requiresRefine: false });
+      }, [{
+        claim_id: "c1",
+        rule: "evidence_presence",
+        status: "veto",
+        message: "Missing evidence",
+      }]);
       expect(decision.veto).toBe(true);
     });
 
@@ -529,25 +535,9 @@ describe("IntegrityAgent", () => {
       const decision = IntegrityAgent.evaluateVetoDecision({
         isValid: true, confidence: 0.6,
         issues: [{ type: "data_integrity", severity: "medium", description: "minor issue" }],
-      }, { claimIssues: {}, traces: [{ claim_id: "c1", rule: "range_plausibility", severity: "medium", outcome: "refine", message: "minor" }], hasVeto: false, requiresRefine: true });
+      });
       expect(decision.veto).toBe(false);
       expect(decision.reRefine).toBe(true);
-    });
-
-    it("returns veto traces when deterministic policy vetoes", () => {
-      const decision = IntegrityAgent.evaluateVetoDecision(
-        { isValid: false, confidence: 0.9, issues: [] },
-        {
-          claimIssues: {},
-          traces: [{ claim_id: "claim-1", rule: "contradiction_detection", severity: "high", outcome: "veto", message: "contradiction" }],
-          hasVeto: true,
-          requiresRefine: false,
-        },
-      );
-
-      expect(decision.policy_traces).toEqual([
-        { claim_id: "claim-1", rule: "contradiction_detection", severity: "high", outcome: "veto", message: "contradiction" },
-      ]);
     });
   });
 });

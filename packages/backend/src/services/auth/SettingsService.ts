@@ -23,7 +23,7 @@ const SecureSettingsSchemas = {
 export interface Setting {
   id: string;
   key: string;
-  value: any;
+  value: unknown;
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
@@ -33,14 +33,14 @@ export interface Setting {
 
 export interface SettingCreateInput {
   key: string;
-  value: any;
+  value: unknown;
   type: Setting['type'];
   scope: Setting['scope'];
   scopeId: string;
 }
 
 export interface SettingUpdateInput {
-  value: any;
+  value: unknown;
 }
 
 export interface SettingsQueryOptions {
@@ -433,7 +433,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Serialize value for storage
    */
-  private serializeValue(value: any, type: Setting['type']): string {
+  private serializeValue(value: unknown, type: Setting["type"]): string {
     switch (type) {
       case 'string':
         return String(value);
@@ -452,7 +452,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Deserialize value from storage with schema validation
    */
-  private deserializeValue(value: string, type: Setting['type']): any {
+  private deserializeValue(value: string, type: Setting["type"]): unknown {
 
     try {
       switch (type) {
@@ -490,7 +490,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Validate that value matches type
    */
-  private validateSettingType(value: any, type: Setting['type']): void {
+  private validateSettingType(value: unknown, type: Setting["type"]): void {
     switch (type) {
       case 'string':
         if (typeof value !== 'string') {
@@ -523,7 +523,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Infer type from value
    */
-  private inferType(value: any): Setting['type'] {
+  private inferType(value: unknown): Setting["type"] {
     if (typeof value === 'string') return 'string';
     if (typeof value === 'number') return 'number';
     if (typeof value === 'boolean') return 'boolean';

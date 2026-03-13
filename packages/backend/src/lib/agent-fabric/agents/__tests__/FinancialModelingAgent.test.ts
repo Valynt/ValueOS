@@ -177,11 +177,17 @@ describe("FinancialModelingAgent", () => {
   });
 
   describe("execute — successful modeling", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("produces financial models and returns success", async () => {
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("success");
-      expect(result.agent_type).toBe("financial_modeling");
+      expect(result.agent_type).toBe("modeling");
       expect(result.lifecycle_stage).toBe("modeling");
       expect(result.result.models_count).toBe(2);
     });
@@ -318,7 +324,7 @@ describe("FinancialModelingAgent", () => {
       await agent.execute(makeContext());
 
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456" }),
+        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456", workspace_id: "ws-123" }),
       );
     });
   });
@@ -358,4 +364,11 @@ describe("FinancialModelingAgent", () => {
       await expect(agent.execute(ctx)).rejects.toThrow("Invalid input context");
     });
   });
+
+  it("rejects execution when context organization does not match agent tenant", async () => {
+    await expect(
+      agent.execute(makeContext({ organization_id: "org-mismatch" }))
+    ).rejects.toThrow(/tenant context mismatch/i);
+  });
+
 });

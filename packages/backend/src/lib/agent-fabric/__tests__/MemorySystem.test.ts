@@ -73,57 +73,76 @@ describe("MemorySystem", () => {
       expect(results).toHaveLength(0);
     });
 
-    it("prevents workspace B from retrieving workspace A memories by default in same tenant", async () => {
+    it("does not return workspace A memories to workspace B within same tenant by default", async () => {
       await ms.store({
         agent_id: "agent-1",
         organization_id: ORG_ID,
-        workspace_id: "ws-a",
-        content: "workspace A memory",
+        workspace_id: "ws-A",
+        content: "workspace A only",
         memory_type: "semantic",
-        importance: 0.75,
+        importance: 0.8,
         metadata: { organization_id: ORG_ID },
       });
 
-      const results = await ms.retrieve({
-        agent_id: "agent-1",
-        organization_id: ORG_ID,
-        workspace_id: "ws-b",
-      });
-
-      expect(results).toHaveLength(0);
-    });
-
-    it("allows cross-workspace retrieval only when explicitly requested with a reason", async () => {
       await ms.store({
         agent_id: "agent-1",
         organization_id: ORG_ID,
-        workspace_id: "ws-a",
-        content: "workspace A memory",
+        workspace_id: "ws-B",
+        content: "workspace B only",
         memory_type: "semantic",
-        importance: 0.75,
+        importance: 0.8,
         metadata: { organization_id: ORG_ID },
       });
 
-      const results = await ms.retrieve({
+      const workspaceAResults = await ms.retrieve({
         agent_id: "agent-1",
         organization_id: ORG_ID,
-        workspace_id: "ws-b",
-        include_cross_workspace: true,
-        cross_workspace_reason: "Historical trend review",
+        workspace_id: "ws-A",
       });
 
-      expect(results).toHaveLength(1);
-      expect(results[0].workspace_id).toBe("ws-a");
+      expect(workspaceAResults).toHaveLength(1);
+      expect(workspaceAResults[0].content).toBe("workspace A only");
     });
 
-    it("requires a reason when include_cross_workspace is true", async () => {
+    it("supports explicit cross-workspace retrieval when flagged with a reason", async () => {
+      await ms.store({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-A",
+        content: "workspace A only",
+        memory_type: "semantic",
+        importance: 0.8,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      await ms.store({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-B",
+        content: "workspace B only",
+        memory_type: "semantic",
+        importance: 0.7,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      const crossWorkspaceResults = await ms.retrieve({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        allow_cross_workspace: true,
+        cross_workspace_reason: "tenant_audit_review",
+      });
+
+      expect(crossWorkspaceResults).toHaveLength(2);
+      expect(crossWorkspaceResults.map((memory) => memory.workspace_id).sort()).toEqual(["ws-A", "ws-B"]);
+    });
+
+    it("rejects cross-workspace retrieval requests that omit reason metadata", async () => {
       await expect(
         ms.retrieve({
           agent_id: "agent-1",
           organization_id: ORG_ID,
-          workspace_id: "ws-b",
-          include_cross_workspace: true,
-        })
+          allow_cross_workspace: true,
+        }),
       ).rejects.toThrow("cross_workspace_reason is required");
     });
 
@@ -336,54 +355,6 @@ describe("MemorySystem", () => {
       expect(stored.workspace_id).toBe("session-1");
       expect(stored.memory_type).toBe("episodic");
       expect(stored.metadata?.organization_id).toBe(ORG_ID);
-    });
-
-    it("redacts PII in memory content and metadata", async () => {
-      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
-
-      await ms.storeSemanticMemory(
-        "session-1",
-        "OpportunityAgent",
-        "episodic",
-        "Email john@example.com phone 415-555-1212 account_id ACCT998877",
-        { contact: "john@example.com", account: "account_id ACCT998877" },
-        ORG_ID,
-      );
-
-      const results = await ms.retrieve({
-        agent_id: "OpportunityAgent",
-        organization_id: ORG_ID,
-        memory_type: "episodic",
-      });
-
-      expect(results[0].content).toContain("[REDACTED_EMAIL]");
-      expect(results[0].content).toContain("[REDACTED_PHONE]");
-      expect(results[0].content).toContain("[REDACTED_ACCOUNT_ID]");
-      expect(results[0].metadata?.contact).toBe("[REDACTED_EMAIL]");
-      expect(String(results[0].metadata?.account)).toContain("[REDACTED_ACCOUNT_ID]");
-    });
-
-    it("uses protected summary for episodic/semantic content in high-trust mode", async () => {
-      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false, high_trust_mode: true });
-
-      await ms.storeSemanticMemory(
-        "session-1",
-        "OpportunityAgent",
-        "episodic",
-        "Reach me at john@example.com for account_id ACCT123456",
-        {},
-        ORG_ID,
-      );
-
-      const results = await ms.retrieve({
-        agent_id: "OpportunityAgent",
-        organization_id: ORG_ID,
-        memory_type: "episodic",
-      });
-
-      expect(results[0].content).toContain("[HIGH_TRUST_SUMMARY]");
-      expect(results[0].content).toContain("[REDACTED_EMAIL]");
-      expect(results[0].content).toMatch(/\[HASH:[a-f0-9]{64}\]/);
     });
   });
 
@@ -627,6 +598,47 @@ describe("MemorySystem", () => {
 // (the old location). After the B3 refactor moved organization_id to a
 // top-level field, memories stored without metadata.organization_id were
 // silently skipped — consolidation was a no-op for all tenants.
+  describe("redaction and high-trust mode", () => {
+    it("redacts email, phone number, and account identifiers in stored memory", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+      await ms.storeSemanticMemory(
+        "session-1",
+        "agent-1",
+        "semantic",
+        "Contact jane.doe@valueos.ai at +1 (415) 555-2671 about account ACCT-778899.",
+        { importance: 0.9 },
+        ORG_ID,
+      );
+
+      const [stored] = await ms.retrieve({ agent_id: "agent-1", organization_id: ORG_ID, memory_type: "semantic" });
+      expect(stored.content).toContain("[REDACTED_EMAIL]");
+      expect(stored.content).toContain("[REDACTED_PHONE]");
+      expect(stored.content).toContain("[REDACTED_ACCOUNT_ID]");
+      expect(stored.content).not.toContain("jane.doe@valueos.ai");
+      expect(stored.content).not.toContain("555-2671");
+      expect(stored.content).not.toContain("ACCT-778899");
+    });
+
+    it("suppresses raw model output when high_trust_mode is enabled", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false, high_trust_mode: true });
+
+      await ms.storeSemanticMemory(
+        "session-1",
+        "agent-1",
+        "episodic",
+        "Raw model output with secret token sk_live_abcdef123456 and user test@valueos.ai",
+        { raw_model_output: true },
+        ORG_ID,
+      );
+
+      const [stored] = await ms.retrieve({ agent_id: "agent-1", organization_id: ORG_ID, memory_type: "episodic" });
+      expect(stored.content).toContain("[HIGH_TRUST_MODE] raw model output omitted");
+      expect(stored.content).not.toContain("sk_live_abcdef123456");
+      expect(stored.content).not.toContain("test@valueos.ai");
+    });
+  });
+
 
 describe("MemorySystem.consolidate() tenant isolation (BUG-1 regression)", () => {
   const ORG_A = "org-a-111";

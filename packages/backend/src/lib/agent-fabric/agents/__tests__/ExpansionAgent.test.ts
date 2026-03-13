@@ -249,6 +249,12 @@ describe("ExpansionAgent", () => {
   });
 
   describe("execute — expansion opportunities found", () => {
+    it("rejects context when organization_id mismatches agent tenant", async () => {
+      await expect(
+        agent.execute(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
     it("identifies expansion opportunities and returns success", async () => {
       const result = await agent.execute(makeContext());
 
@@ -383,10 +389,10 @@ describe("ExpansionAgent", () => {
       await agent.execute(makeContext());
 
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "realization", organization_id: "org-456" }),
+        expect.objectContaining({ agent_id: "realization", organization_id: "org-456", workspace_id: "ws-123" }),
       );
       expect(mockRetrieve).toHaveBeenCalledWith(
-        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456" }),
+        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456", workspace_id: "ws-123" }),
       );
     });
   });
@@ -409,4 +415,11 @@ describe("ExpansionAgent", () => {
       await expect(agent.execute(ctx)).rejects.toThrow("Invalid input context");
     });
   });
+
+  it("rejects execution when context organization does not match agent tenant", async () => {
+    await expect(
+      agent.execute(makeContext({ organization_id: "org-mismatch" }))
+    ).rejects.toThrow(/tenant context mismatch/i);
+  });
+
 });

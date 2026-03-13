@@ -2,66 +2,55 @@ import { describe, expect, it } from 'vitest';
 
 import { validateDomainEvent } from '../DomainEventSchemas.js';
 
-function makeEnvelope() {
-  return {
-    id: '11111111-1111-4111-8111-111111111111',
-    emittedAt: '2026-01-01T00:00:00.000Z',
-    traceId: 'trace-1',
-    tenantId: '22222222-2222-4222-8222-222222222222',
-    actorId: 'user-1',
+describe('DomainEventSchemas narrative.drafted compatibility', () => {
+  const envelope = {
+    id: crypto.randomUUID(),
+    emittedAt: new Date().toISOString(),
+    traceId: 'trace-compat-001',
+    tenantId: crypto.randomUUID(),
+    actorId: 'user-001',
   };
-}
 
-describe('NarrativeDraftedPayloadSchema compatibility', () => {
-  it('accepts normalized narrative.drafted payload shape', () => {
-    const parsed = validateDomainEvent('narrative.drafted', {
-      ...makeEnvelope(),
+  it('accepts normalized narrative.drafted fields', () => {
+    const payload = validateDomainEvent('narrative.drafted', {
+      ...envelope,
       valueCaseId: 'case-123',
-      defenseReadinessScore: 0.87,
+      defenseReadinessScore: 0.81,
       format: 'executive_summary',
     });
 
-    expect(parsed).toMatchObject({
-      tenantId: '22222222-2222-4222-8222-222222222222',
+    expect(payload.valueCaseId).toBe('case-123');
+    expect(payload.defenseReadinessScore).toBe(0.81);
+  });
+
+  it('rejects legacy snake_case tenant and payload fields', () => {
+    expect(() => validateDomainEvent('narrative.drafted', {
+      ...envelope,
+      organization_id: envelope.tenantId,
+      value_case_id: 'case-123',
+      defense_readiness_score: 0.81,
+      format: 'executive_summary',
+    })).toThrow(/Invalid payload for domain event/);
+  });
+
+  it('strips legacy snake_case fields when normalized keys are present', () => {
+    const payload = validateDomainEvent('narrative.drafted', {
+      ...envelope,
+      organization_id: envelope.tenantId,
       valueCaseId: 'case-123',
-      defenseReadinessScore: 0.87,
+      value_case_id: 'legacy-case-ignored',
+      defenseReadinessScore: 0.81,
+      defense_readiness_score: 0.5,
       format: 'executive_summary',
     });
-  });
 
-  it('maps legacy snake_case narrative.drafted fields to normalized shape', () => {
-    const parsed = validateDomainEvent('narrative.drafted', {
-      id: '11111111-1111-4111-8111-111111111111',
-      emittedAt: '2026-01-01T00:00:00.000Z',
-      traceId: 'trace-1',
-      organization_id: '22222222-2222-4222-8222-222222222222',
-      actorId: 'user-1',
-      value_case_id: 'case-legacy',
-      defense_readiness_score: 0.74,
-      format: 'board_deck',
-    });
+    // Normalized fields are preserved
+    expect(payload.valueCaseId).toBe('case-123');
+    expect(payload.defenseReadinessScore).toBe(0.81);
 
-    expect(parsed).toMatchObject({
-      tenantId: '22222222-2222-4222-8222-222222222222',
-      valueCaseId: 'case-legacy',
-      defenseReadinessScore: 0.74,
-      format: 'board_deck',
-    });
-    expect(parsed).not.toHaveProperty('organization_id');
-    expect(parsed).not.toHaveProperty('value_case_id');
-    expect(parsed).not.toHaveProperty('defense_readiness_score');
-  });
-
-  it('rejects payloads missing both tenantId and organization_id', () => {
-    expect(() =>
-      validateDomainEvent('narrative.drafted', {
-        id: '11111111-1111-4111-8111-111111111111',
-        emittedAt: '2026-01-01T00:00:00.000Z',
-        traceId: 'trace-1',
-        actorId: 'user-1',
-        defenseReadinessScore: 0.74,
-        format: 'board_deck',
-      }),
-    ).toThrow(/Invalid payload for domain event/);
+    // Legacy snake_case fields are stripped from the parsed payload
+    expect('organization_id' in payload).toBe(false);
+    expect('value_case_id' in payload).toBe(false);
+    expect('defense_readiness_score' in payload).toBe(false);
   });
 });

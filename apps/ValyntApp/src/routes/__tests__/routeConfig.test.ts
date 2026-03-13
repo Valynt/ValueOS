@@ -17,12 +17,30 @@ describe("ValyntApp route config", () => {
     ]);
   });
 
-  it("keeps protected/admin route declarations explicit", () => {
-    expect(protectedRoutePaths).toEqual([]);
+  it("tracks protected routes from the active AppRoutes tree", () => {
+    expect(protectedRoutePaths).toEqual([
+      "/create-org",
+      "/onboarding",
+      "/dashboard",
+      "/opportunities",
+      "/opportunities/:id",
+      "/opportunities/:oppId/cases/:caseId",
+      "/models",
+      "/models/:id",
+      "/agents",
+      "/agents/:id",
+      "/integrations",
+      "/settings",
+      "/workspace/:caseId",
+      "/company",
+    ]);
+  });
+
+  it("has no admin-only routes in the current active router", () => {
     expect(adminRoutePaths).toEqual([]);
   });
 
-  it("matches root and home redirects used by AppRoutes", () => {
+  it("redirects legacy root paths to dashboard", () => {
     expect(redirectRoutes).toEqual([
       { path: "/", to: "/dashboard" },
       { path: "/home", to: "/dashboard" },

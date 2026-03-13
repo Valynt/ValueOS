@@ -38,7 +38,8 @@ export type WorkflowStatus =
   | 'failed'
   | 'cancelled'
   | 'paused'
-  | 'rolled_back';
+  | 'rolled_back'
+  | 'waiting_approval';
 
 export interface WorkflowStateFilter {
   organization_id: string;

@@ -1,0 +1,30 @@
+{
+  "title": "Runtime Services Observability",
+  "uid": "runtime-services-observability",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Runtime Span Volume",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"decision-router|policy-engine|context-store|recommendation-engine|artifact-composer|execution-runtime|agent-fabric|valynt-app\"}[5m])) by (service)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Endpoint Error Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{span_name=~\"runtime.decision_router.evaluate|runtime.decision_router.route_stage|runtime.policy_engine.assert_tenant_execution_allowed|runtime.policy_engine.check_hitl|runtime.context_store.get_execution_status|runtime.context_store.get_execution_logs|runtime.recommendation_engine.opportunity_updated|runtime.artifact_composer.generate_sdui_page|runtime.artifact_composer.generate_and_render_page|runtime.execution_runtime.process_query|runtime.execution_runtime.execute_workflow|agent.base.secure_invoke|frontend.bootstrap.load_config|frontend.bootstrap.analytics|frontend.bootstrap.error_tracking\",status_code=\"STATUS_CODE_ERROR\"}[5m])) by (span_name)",
+          "legendFormat": "{{span_name}}"
+        }
+      ]
+    }
+  ]
+}

@@ -94,7 +94,7 @@ export interface Permission {
 export interface PermissionCondition {
   type: ConditionType;
   operator: ConditionOperator;
-  value: any;
+  value: unknown;
   negate?: boolean;
 }
 
@@ -252,7 +252,7 @@ export interface LocationRestrictions {
 export interface PolicyCondition {
   type: string;
   operator: string;
-  value: any;
+  value: unknown;
 }
 
 export interface PolicyAction {
@@ -897,7 +897,7 @@ export class AgentSecurityService extends EventEmitter {
     };
   }
 
-  private calculateTrustLevel(validation: CredentialValidationResult, context: any): TrustLevel {
+  private calculateTrustLevel(validation: CredentialValidationResult, context: unknown): TrustLevel {
     let trustLevel: TrustLevel = "low";
 
     // Base trust from authentication method
@@ -1164,7 +1164,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private async generateComplianceReport(
     framework: ComplianceFramework,
-    _scope?: any
+    _scope?: unknown
   ): Promise<ComplianceReport> {
     // Mock compliance report generation
     const report: ComplianceReport = {
@@ -1300,7 +1300,7 @@ export interface CredentialValidationResult {
 export interface AuthorizationResult {
   granted: boolean;
   reason: string;
-  conditions?: any[];
+  conditions?: unknown[];
   requiresMFA?: boolean;
   riskScore: number;
 }
@@ -1313,7 +1313,7 @@ export interface PermissionCheckResult {
 export interface PolicyCheckResult {
   allowed: boolean;
   reason: string;
-  conditions?: any[];
+  conditions?: unknown[];
   requiresMFA?: boolean;
 }
 

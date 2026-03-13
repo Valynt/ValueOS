@@ -9,17 +9,18 @@
  * and key talking points. Persists to narrative_drafts for frontend retrieval.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
-import { NarrativeDraftRepository } from '../../../repositories/NarrativeDraftRepository.js';
-import type {
-  AgentOutput,
-  LifecycleContext,
-} from '../../../types/agent.js';
-import { logger } from '../../logger.js';
-import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+import { NarrativeDraftRepository } from "../../../repositories/NarrativeDraftRepository.js";
+import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import { logger } from "../../logger.js";
+import {
+  buildEventEnvelope,
+  getDomainEventBus,
+} from "../../../events/DomainEventBus.js";
 
-import { BaseAgent } from './BaseAgent.js';
+import { BaseAgent } from "./BaseAgent.js";
+import { escapePromptInterpolation } from "../promptUtils.js";
 
 // ---------------------------------------------------------------------------
 // Zod schema for LLM output
@@ -32,10 +33,12 @@ const NarrativeOutputSchema = z.object({
   risk_mitigations: z.array(z.string()),
   call_to_action: z.string(),
   defense_readiness_score: z.number().min(0).max(1),
-  talking_points: z.array(z.object({
-    audience: z.enum(['executive', 'technical', 'financial', 'procurement']),
-    point: z.string(),
-  })),
+  talking_points: z.array(
+    z.object({
+      audience: z.enum(["executive", "technical", "financial", "procurement"]),
+      point: z.string(),
+    })
+  ),
   hallucination_check: z.boolean().optional(),
 });
 
@@ -55,31 +58,37 @@ function buildNarrativePrompt(params: {
   financialSummary: string;
 }): string {
   const claimLines = params.claims
-    .map(c => `- ${String(c.claim_text ?? '')} (verdict: ${String(c.verdict ?? '')}, confidence: ${String(c.confidence ?? '')})`)
-    .join('\n');
+    .map(
+      c =>
+        `- ${escapePromptInterpolation(c.claim_text)} (verdict: ${escapePromptInterpolation(c.verdict)}, confidence: ${escapePromptInterpolation(c.confidence)})`
+    )
+    .join("\n");
 
   const kpiLines = params.kpis
-    .map(k => `- ${String(k.name ?? '')}: ${String(k.target ?? '')} ${String(k.unit ?? '')} (${String(k.timeframe ?? '')})`)
-    .join('\n');
+    .map(
+      k =>
+        `- ${escapePromptInterpolation(k.name)}: ${escapePromptInterpolation(k.target)} ${escapePromptInterpolation(k.unit)} (${escapePromptInterpolation(k.timeframe)})`
+    )
+    .join("\n");
 
   return `You are a senior value engineering consultant composing an executive business case narrative.
 
 ## Context
-Organization: ${params.organizationId}
-Value Case: ${params.valueCaseId}
+Organization: ${escapePromptInterpolation(params.organizationId)}
+Value Case: ${escapePromptInterpolation(params.valueCaseId)}
 
 ## Validated Claims
-${claimLines || '(none)'}
+${claimLines || "(none)"}
 
 ## Integrity Assessment
-Overall Score: ${params.integrityScore}
-Veto Decision: ${params.vetoDecision}
+Overall Score: ${escapePromptInterpolation(params.integrityScore)}
+Veto Decision: ${escapePromptInterpolation(params.vetoDecision)}
 
 ## KPI Targets
-${kpiLines || '(none)'}
+${kpiLines || "(none)"}
 
 ## Financial Summary
-${params.financialSummary}
+${escapePromptInterpolation(params.financialSummary)}
 
 ## Task
 Compose a defensible executive narrative for this business case. The narrative must:
@@ -98,9 +107,9 @@ Return valid JSON matching the schema. Set hallucination_check to true only if a
 // ---------------------------------------------------------------------------
 
 export class NarrativeAgent extends BaseAgent {
-  public override readonly lifecycleStage = 'narrative';
-  public override readonly version = '1.0.0';
-  public override readonly name = 'NarrativeAgent';
+  public override readonly lifecycleStage = "narrative";
+  public override readonly version = "1.0.0";
+  public override readonly name = "NarrativeAgent";
 
   private readonly narrativeRepo = new NarrativeDraftRepository();
 
@@ -109,27 +118,50 @@ export class NarrativeAgent extends BaseAgent {
 
     const isValid = await this.validateInput(context);
     if (!isValid) {
-      throw new Error('Invalid input context');
+      throw new Error("Invalid input context");
     }
 
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
-    const format = (context.user_inputs?.format as string | undefined) ?? 'executive_summary';
+    const valueCaseId = context.user_inputs?.value_case_id as
+      | string
+      | undefined;
+    const format =
+      (context.user_inputs?.format as string | undefined) ??
+      "executive_summary";
 
     // Step 1: Retrieve integrity results and KPI targets from prior stage outputs
-    const integrityData = context.previous_stage_outputs?.integrity as Record<string, unknown> | undefined;
-    const targetData = context.previous_stage_outputs?.target as Record<string, unknown> | undefined;
-    const financialData = context.previous_stage_outputs?.modeling as Record<string, unknown> | undefined;
+    const integrityData = context.previous_stage_outputs?.integrity as
+      | Record<string, unknown>
+      | undefined;
+    const targetData = context.previous_stage_outputs?.target as
+      | Record<string, unknown>
+      | undefined;
+    const financialData = context.previous_stage_outputs?.modeling as
+      | Record<string, unknown>
+      | undefined;
 
-    const claims = (integrityData?.claim_validations as Array<Record<string, unknown>> | undefined) ?? [];
-    const integrityScore = (integrityData?.scores as Record<string, number> | undefined)?.overall ?? 0;
-    const vetoDecision = (integrityData?.veto_decision as Record<string, unknown> | undefined)?.veto ? 'VETOED' : 'PASSED';
-    const kpis = (targetData?.kpi_targets as Array<Record<string, unknown>> | undefined) ?? [];
-    const financialSummary = (financialData?.summary as string | undefined) ?? 'No financial model available.';
+    const claims =
+      (integrityData?.claim_validations as
+        | Array<Record<string, unknown>>
+        | undefined) ?? [];
+    const integrityScore =
+      (integrityData?.scores as Record<string, number> | undefined)?.overall ??
+      0;
+    const vetoDecision = (
+      integrityData?.veto_decision as Record<string, unknown> | undefined
+    )?.veto
+      ? "VETOED"
+      : "PASSED";
+    const kpis =
+      (targetData?.kpi_targets as Array<Record<string, unknown>> | undefined) ??
+      [];
+    const financialSummary =
+      (financialData?.summary as string | undefined) ??
+      "No financial model available.";
 
     // Step 2: Build prompt
     const prompt = buildNarrativePrompt({
       organizationId: context.organization_id,
-      valueCaseId: valueCaseId ?? 'unknown',
+      valueCaseId: valueCaseId ?? "unknown",
       claims,
       integrityScore,
       vetoDecision,
@@ -148,17 +180,23 @@ export class NarrativeAgent extends BaseAgent {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
           context: {
-            agent: 'NarrativeAgent',
+            agent: "NarrativeAgent",
             organization_id: context.organization_id,
             value_case_id: valueCaseId,
           },
-        },
+        }
       );
     } catch (err) {
-      logger.error('NarrativeAgent: LLM invocation failed', { error: (err as Error).message });
+      logger.error("NarrativeAgent: LLM invocation failed", {
+        error: (err as Error).message,
+      });
       return this.buildOutput(
-        { error: 'Narrative generation failed. Retry or provide more context.' },
-        'failure', 'low', startTime,
+        {
+          error: "Narrative generation failed. Retry or provide more context.",
+        },
+        "failure",
+        "low",
+        startTime
       );
     }
 
@@ -166,15 +204,18 @@ export class NarrativeAgent extends BaseAgent {
     await this.memorySystem.storeSemanticMemory(
       context.workspace_id,
       this.name,
-      'episodic',
-      JSON.stringify({ executive_summary: narrativeOutput.executive_summary, defense_readiness_score: narrativeOutput.defense_readiness_score }),
+      "episodic",
+      JSON.stringify({
+        executive_summary: narrativeOutput.executive_summary,
+        defense_readiness_score: narrativeOutput.defense_readiness_score,
+      }),
       {
         organization_id: context.organization_id,
         value_case_id: valueCaseId,
         lifecycle_stage: this.lifecycleStage,
         agent: this.name,
       },
-      this.organizationId,
+      this.organizationId
     );
 
     // Step 5: Persist to DB for frontend retrieval
@@ -182,47 +223,62 @@ export class NarrativeAgent extends BaseAgent {
       try {
         const fullContent = [
           narrativeOutput.executive_summary,
-          '',
-          '## Value Proposition',
+          "",
+          "## Value Proposition",
           narrativeOutput.value_proposition,
-          '',
-          '## Key Proof Points',
+          "",
+          "## Key Proof Points",
           ...narrativeOutput.key_proof_points.map(p => `- ${p}`),
-          '',
-          '## Risk Mitigations',
+          "",
+          "## Risk Mitigations",
           ...narrativeOutput.risk_mitigations.map(r => `- ${r}`),
-          '',
-          '## Call to Action',
+          "",
+          "## Call to Action",
           narrativeOutput.call_to_action,
-        ].join('\n');
+        ].join("\n");
 
-        await this.narrativeRepo.createDraft(valueCaseId, context.organization_id, {
-          session_id: context.workspace_id,
-          content: fullContent,
-          format: format as 'executive_summary' | 'technical' | 'board_deck' | 'customer_facing',
-          defense_readiness_score: narrativeOutput.defense_readiness_score,
-          hallucination_check: narrativeOutput.hallucination_check ?? false,
-        });
+        await this.narrativeRepo.createDraft(
+          valueCaseId,
+          context.organization_id,
+          {
+            session_id: context.workspace_id,
+            content: fullContent,
+            format: format as
+              | "executive_summary"
+              | "technical"
+              | "board_deck"
+              | "customer_facing",
+            defense_readiness_score: narrativeOutput.defense_readiness_score,
+            hallucination_check: narrativeOutput.hallucination_check ?? false,
+          }
+        );
       } catch (err) {
-        logger.error('NarrativeAgent: failed to persist draft', { error: (err as Error).message });
+        logger.error("NarrativeAgent: failed to persist draft", {
+          error: (err as Error).message,
+        });
       }
     }
 
     // Step 6: Publish domain event
     try {
-      const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
-      await getDomainEventBus().publish('narrative.drafted', {
+      const traceId =
+        (context.metadata?.trace_id as string | undefined) ??
+        context.workspace_id;
+      await getDomainEventBus().publish("narrative.drafted", {
         ...buildEventEnvelope({
           traceId,
           tenantId: context.organization_id,
           actorId: context.user_id,
         }),
-        valueCaseId,
-        defenseReadinessScore: narrativeOutput.defense_readiness_score,
+        organization_id: context.organization_id,
+        value_case_id: valueCaseId,
+        defense_readiness_score: narrativeOutput.defense_readiness_score,
         format,
       });
     } catch (err) {
-      logger.warn('NarrativeAgent: failed to publish domain event', { error: (err as Error).message });
+      logger.warn("NarrativeAgent: failed to publish domain event", {
+        error: (err as Error).message,
+      });
     }
 
     const result = {
@@ -237,15 +293,17 @@ export class NarrativeAgent extends BaseAgent {
     };
 
     const defenseScore = narrativeOutput.defense_readiness_score;
-    const confidence = defenseScore >= 0.8 ? 'high' : defenseScore >= 0.6 ? 'medium' : 'low';
+    const confidence =
+      defenseScore >= 0.8 ? "high" : defenseScore >= 0.6 ? "medium" : "low";
 
-    return this.buildOutput(result, 'success', confidence, startTime, {
-      reasoning: `Composed ${format} narrative with defense readiness score ${(defenseScore * 100).toFixed(0)}%. ` +
+    return this.buildOutput(result, "success", confidence, startTime, {
+      reasoning:
+        `Composed ${format} narrative with defense readiness score ${(defenseScore * 100).toFixed(0)}%. ` +
         `${narrativeOutput.key_proof_points.length} proof points, ${narrativeOutput.risk_mitigations.length} risk mitigations.`,
       suggested_next_actions: [
-        'Review narrative with stakeholders',
-        'Export business case as PDF',
-        'Proceed to RealizationAgent for implementation planning',
+        "Review narrative with stakeholders",
+        "Export business case as PDF",
+        "Proceed to RealizationAgent for implementation planning",
       ],
     });
   }

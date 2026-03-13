@@ -23,6 +23,7 @@ import type {
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
+  PromptVersionReference,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
 
@@ -30,6 +31,7 @@ import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEve
 
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -108,8 +110,8 @@ export class OpportunityAgent extends BaseAgent {
     const domainContext = await this.loadDomainPackContext(context);
 
     // Step 2: Generate hypotheses via LLM
-    const analysis = await this.generateHypotheses(context, query, financialData, domainContext);
-    if (!analysis) {
+    const generation = await this.generateHypotheses(context, query, financialData, domainContext);
+    if (!generation) {
       return this.buildOutput(
         { error: 'LLM hypothesis generation failed. Retry or provide more context.' },
         'failure',
@@ -119,6 +121,7 @@ export class OpportunityAgent extends BaseAgent {
     }
 
     // Step 3: Store hypotheses in memory for downstream agents
+    const { analysis, promptRefs } = generation;
     await this.storeHypothesesInMemory(context, analysis);
 
     // Publish evidence.attached for each hypothesis that has financial grounding
@@ -164,6 +167,7 @@ export class OpportunityAgent extends BaseAgent {
     await this.publishOpportunityUpdated(context, opportunityId, analysis, avgConfidence);
 
     return this.buildOutput(result, 'success', confidenceLevel, startTime, {
+      prompt_version_refs: promptRefs,
       reasoning: `Generated ${analysis.hypotheses.length} value hypotheses for "${query}"` +
         (financialData ? ` with financial grounding from ${financialData.sources.join(', ')}` : ''),
       suggested_next_actions: analysis.recommended_next_steps,
@@ -310,7 +314,7 @@ export class OpportunityAgent extends BaseAgent {
           metrics_count: Object.keys(result.metrics).length,
         });
       }
-      return result;
+      return { analysis: result, promptRefs };
     } catch (err) {
       logger.warn('Ground truth fetch failed, proceeding without grounding', {
         entity_id: entityId,
@@ -324,63 +328,49 @@ export class OpportunityAgent extends BaseAgent {
   // LLM Hypothesis Generation
   // -------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // Prompt templates
-  // ---------------------------------------------------------------------------
-
-  private static readonly BASE_PROMPT_TEMPLATE = `You are a Value Engineering analyst. Your job is to identify specific, measurable value hypotheses for a B2B prospect.
-
-Rules:
-- Each hypothesis must have a concrete estimated_impact range (low/high) with units.
-- Evidence must reference specific, verifiable facts — not generic claims.
-- Confidence scores reflect how well-supported the hypothesis is (0.0–1.0).
-- Categories: revenue_growth, cost_reduction, risk_mitigation, operational_efficiency, strategic_advantage.
-- KPI targets should be specific metrics the prospect can track.
-- Stakeholder roles should map to real buying committee positions.
-
-Respond with valid JSON matching the schema. Do not include markdown fences or commentary.`;
-
-  private static readonly GROUNDING_SECTION_TEMPLATE = `
-
-Grounding data for {{ entityName }} ({{ period }}):
-{{ metricsStr }}{{ benchmarksSection }}
-
-Use this data to ground your hypotheses. Reference specific metrics and benchmarks in evidence fields.`;
-
-  private static readonly BENCHMARKS_SECTION_TEMPLATE = `
-
-Industry benchmarks:
-{{ benchStr }}`;
-
-  /**
+    /**
    * Build the system prompt with optional financial grounding context.
    */
-  private buildSystemPrompt(financialData: FinancialDataResult | null): string {
+  private buildSystemPrompt(financialData: FinancialDataResult | null): {
+    prompt: string;
+    refs: PromptVersionReference[];
+  } {
+    const base = resolvePromptTemplate({ promptKey: 'opportunity.system.base' });
+    const refs: PromptVersionReference[] = [base.reference];
+
     if (!financialData) {
-      return OpportunityAgent.BASE_PROMPT_TEMPLATE;
+      return { prompt: base.template, refs };
     }
 
     const metricsStr = Object.entries(financialData.metrics)
       .map(([k, v]) => `  ${k}: ${v.value} ${v.unit} (source: ${v.source}, confidence: ${v.confidence})`)
       .join('\n');
 
+    const benchmarkTemplate = resolvePromptTemplate({ promptKey: 'opportunity.system.benchmarks' });
     const benchmarksSection = financialData.industryBenchmarks
-      ? renderTemplate(OpportunityAgent.BENCHMARKS_SECTION_TEMPLATE, {
+      ? renderTemplate(benchmarkTemplate.template, {
           benchStr: Object.entries(financialData.industryBenchmarks)
             .map(([k, v]) => `  ${k}: median=${v.median}, p25=${v.p25}, p75=${v.p75}`)
             .join('\n'),
         })
       : '';
 
-    return (
-      OpportunityAgent.BASE_PROMPT_TEMPLATE +
-      renderTemplate(OpportunityAgent.GROUNDING_SECTION_TEMPLATE, {
+    if (financialData.industryBenchmarks) {
+      refs.push(benchmarkTemplate.reference);
+    }
+
+    const groundingTemplate = resolvePromptTemplate({ promptKey: 'opportunity.system.grounding' });
+    refs.push(groundingTemplate.reference);
+
+    return {
+      prompt: base.template + renderTemplate(groundingTemplate.template, {
         entityName: financialData.entityName,
         period: financialData.period,
         metricsStr,
         benchmarksSection,
-      })
-    );
+      }),
+      refs,
+    };
   }
 
   /**
@@ -391,8 +381,11 @@ Industry benchmarks:
     query: string,
     financialData: FinancialDataResult | null,
     domainContext?: DomainContext,
-  ): Promise<OpportunityAnalysis | null> {
-    let systemPrompt = this.buildSystemPrompt(financialData);
+  ): Promise<{ analysis: OpportunityAnalysis; promptRefs: PromptVersionReference[] } | null> {
+    const system = this.buildSystemPrompt(financialData);
+    let systemPrompt = system.prompt;
+    const userTemplate = resolvePromptTemplate({ promptKey: 'opportunity.user.analysis-request' });
+    const promptRefs: PromptVersionReference[] = [...system.refs, userTemplate.reference];
 
     // Append domain pack context if available
     const domainFragment = domainContext ? formatDomainContextForPrompt(domainContext) : '';
@@ -400,18 +393,12 @@ Industry benchmarks:
       systemPrompt += `\n\n${domainFragment}\n\nUse the domain pack KPIs and assumptions to ground your hypotheses. Reference specific KPI keys in kpi_targets fields.`;
     }
 
-    const userPrompt = `Analyze this opportunity and generate value hypotheses:
-
-${query}
-
-${context.user_inputs?.additional_context ? `Additional context: ${context.user_inputs.additional_context}` : ''}
-
-Generate a JSON object with:
-- company_summary: Brief summary of the company/opportunity
-- industry_context: Industry dynamics relevant to value creation
-- hypotheses: Array of 3-5 value hypotheses with estimated impact, evidence, assumptions, and KPI targets
-- stakeholder_roles: Key buying committee roles with their concerns
-- recommended_next_steps: 3-5 concrete next actions`;
+    const userPrompt = renderTemplate(userTemplate.template, {
+      query,
+      additionalContext: context.user_inputs?.additional_context
+        ? `Additional context: ${context.user_inputs.additional_context}`
+        : '',
+    });
 
     try {
       const result = await this.secureInvoke<OpportunityAnalysis>(
@@ -438,7 +425,7 @@ Generate a JSON object with:
         id: h.id ?? `${h.category}-${i + 1}`,
       }));
 
-      return result;
+      return { analysis: result, promptRefs };
     } catch (err) {
       logger.error('Hypothesis generation failed', {
         error: (err as Error).message,

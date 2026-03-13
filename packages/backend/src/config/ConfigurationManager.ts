@@ -25,7 +25,7 @@ export interface ConfigUpdateRequest {
   userId: string;
   userRole: 'tenant_admin' | 'vendor_admin' | 'user';
   setting: string;
-  value: any;
+  value: unknown;
 }
 
 /**
@@ -88,7 +88,7 @@ export class ConfigurationManager {
     }
 
     const config = await this.getConfiguration(organizationId, userRole);
-    return (config as any)[setting] || null;
+    return (config as Record<string, unknown>)[setting] ?? null;
   }
 
   /**
@@ -226,7 +226,7 @@ export class ConfigurationManager {
    */
   private async validateSetting(
     setting: string,
-    value: any
+    value: unknown
   ): Promise<ValidationResult> {
     const errors: string[] = [];
 
@@ -291,7 +291,7 @@ export class ConfigurationManager {
       return {};
     }
 
-    const filtered: any = {};
+    const filtered: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(config)) {
       if (hasConfigAccess(key, userRole, 'view_only')) {
@@ -367,7 +367,7 @@ export class ConfigurationManager {
   private async updateInDatabase(
     organizationId: string,
     setting: string,
-    value: any
+    value: unknown
   ): Promise<void> {
     try {
       const { supabase } = await import('../lib/supabase');
@@ -467,7 +467,7 @@ export class ConfigurationManager {
     organizationId: string,
     userId: string,
     setting: string,
-    value: any
+    value: unknown
   ): Promise<void> {
     try {
       const { supabase } = await import('../lib/supabase');

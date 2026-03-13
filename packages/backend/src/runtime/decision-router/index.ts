@@ -22,6 +22,7 @@ import {
   RoutingRule,
   DOMAIN_ROUTING_RULES,
 } from './rules/index.js';
+import { runInTelemetrySpan } from '../../observability/telemetryStandards.js';
 
 export type { StageRoute, RoutingRecommendation, RoutingRule };
 export { AgentRegistry, AgentRoutingLayer, AgentRoutingScorer };
@@ -50,7 +51,13 @@ export class DecisionRouter {
    * Uses capability scoring, load balancing, and sticky sessions.
    */
   routeStage(dag: WorkflowDAG, stageId: string, context: RoutingContext): StageRoute {
-    return this.routingLayer.routeStage(dag, stageId, context);
+    return runInTelemetrySpan('runtime.decision_router.route_stage', {
+      service: 'decision-router',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: context.organizationId || 'unknown',
+      trace_id: context.sessionId || `decision-route-${stageId}`,
+      attributes: { stage_id: stageId },
+    }, () => this.routingLayer.routeStage(dag, stageId, context));
   }
 
   /**
@@ -61,13 +68,21 @@ export class DecisionRouter {
    * 'coordinator' agent.
    */
   evaluate(context: DecisionContext): RoutingRecommendation | null {
-    for (const rule of this.rules) {
-      const recommendation = rule.evaluate(context);
-      if (recommendation !== null) {
-        return recommendation;
+    return runInTelemetrySpan('runtime.decision_router.evaluate', {
+      service: 'decision-router',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: context.organization_id,
+      trace_id: `decision-eval-${context.opportunity?.id ?? 'unknown'}`,
+      attributes: { rule_count: this.rules.length },
+    }, () => {
+      for (const rule of this.rules) {
+        const recommendation = rule.evaluate(context);
+        if (recommendation !== null) {
+          return recommendation;
+        }
       }
-    }
-    return null;
+      return null;
+    });
   }
 
   /**

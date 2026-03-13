@@ -137,3 +137,16 @@ After every SEV-1 or SEV-2 incident:
 2. Record actual RTO and RPO achieved
 3. File action items as GitHub issues with `incident-followup` label
 4. Update this runbook if procedures changed
+
+## Runtime failover triggers
+
+- Trigger active failover when `RuntimeAvailabilitySLOBurnRateTooHigh` or `RuntimeLatencySLOBurnRateTooHigh` is active for more than 5 minutes.
+- Trigger passive degradation mode when warning burn alerts (`*SLOBurnRateWarning`) remain active for 30 minutes.
+- During failover, route only tenant-safe idempotent retries until queue lag normalizes.
+
+## Memory and database failover triggers
+
+- Trigger database failover when primary region DB health probes fail for 2 minutes and replication lag is within acceptable window.
+- Block automatic DB failover if replication lag exceeds 120 seconds; require incident commander approval for controlled promotion.
+- Trigger memory/index catch-up mode when `MemoryFreshnessSLOBurnRateTooHigh` is active and recommendation freshness lag exceeds 120 seconds.
+- Validate rollback by replaying synthetic write/read checks and parity checks before traffic returns to recovered primary.

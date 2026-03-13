@@ -7,56 +7,56 @@ groups:
           sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m]))
           /
           sum(rate(valuecanvas_http_requests_total[5m]))
-          > ${SLO_AVAILABILITY_FAST_BURN_ERROR_RATE_THRESHOLD}
+          > 0.01
         for: 10m
         labels:
           severity: critical
           slo: availability
         annotations:
           summary: "Fast burn: API availability SLO breach"
-          description: "5xx error ratio is above 1% for 10m, consuming error budget too quickly."
+          description: "5xx error ratio is above 1.00% for 10m, consuming error budget too quickly."
 
       - alert: APIAvailabilitySlowBurn
         expr: |
           sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[30m]))
           /
           sum(rate(valuecanvas_http_requests_total[30m]))
-          > ${SLO_AVAILABILITY_SLOW_BURN_ERROR_RATE_THRESHOLD}
+          > 0.001
         for: 1h
         labels:
           severity: warning
           slo: availability
         annotations:
           summary: "Slow burn: API availability SLO at risk"
-          description: "5xx error ratio is above 0.1% for 1h (below 99.9% availability objective)."
+          description: "5xx error ratio is above 0.10% for 1h (below 99.9% availability objective)."
 
   - name: api-slo-latency
     rules:
-      # API latency SLO: p95 under ${SLO_MAX_P95_LATENCY_MS}ms
+      # API latency SLO: p95 under 200ms
       - alert: APILatencyP95High
         expr: |
           histogram_quantile(
             0.95,
             sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le)
-          ) > ${SLO_MAX_P95_LATENCY_MS}
+          ) > 200
         for: 10m
         labels:
           severity: warning
           slo: latency
         annotations:
           summary: "High p95 latency"
-          description: "P95 API latency has exceeded ${SLO_MAX_P95_LATENCY_MS}ms for at least 10m."
+          description: "P95 API latency has exceeded 200ms for at least 10m."
 
   - name: api-slo-mttr
     rules:
-      # MTTR SLO: incidents should resolve in <= ${SLO_MAX_MTTR_MINUTES} minutes
+      # MTTR SLO: incidents should resolve in <= 15 minutes
       - alert: APIMTTRHigh
         expr: |
-          avg_over_time(valuecanvas_incident_mttr_minutes[24h]) > ${SLO_MAX_MTTR_MINUTES}
+          avg_over_time(valuecanvas_incident_mttr_minutes[24h]) > 15
         for: 15m
         labels:
           severity: critical
           slo: mttr
         annotations:
           summary: "MTTR SLO breach"
-          description: "Average incident MTTR over 24h exceeds ${SLO_MAX_MTTR_MINUTES} minutes."
+          description: "Average incident MTTR over 24h exceeds 15 minutes."

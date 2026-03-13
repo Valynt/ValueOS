@@ -1098,3 +1098,9 @@ jobs:
 ValueOS is **close to enterprise-ready architecture in intent**, but still needs targeted control hardening to satisfy strict CISO/CTO production expectations. The top blockers are **uniform tenant isolation enforcement**, **CI standardization**, and **turning documented controls into automatically verifiable controls**.
 
 ---
+
+## Retention, archive integrity, and auditor retrieval
+- Retention policy configuration is versioned in `infra/retention/security-audit-retention-policy.v1.json` and consumed by `/api/admin/compliance/retention`.
+- Archive pipeline: DB rotation (`rotate_security_audit_logs`) -> segment export -> checksum manifest -> object-lock/legal-hold upload.
+- Integrity verification (`verify_security_audit_archive_integrity`) validates segment checksums and export metadata continuity.
+- For audits/eDiscovery, follow the restore and retrieval runbook in `infra/logging-retention.md` to produce evidence bundles with manifest + hash verification.

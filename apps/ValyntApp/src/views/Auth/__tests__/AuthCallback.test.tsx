@@ -58,7 +58,7 @@ describe("AuthCallback Component", () => {
       // Assert
       await waitFor(() => {
         expect(supabase.auth.getSession).toHaveBeenCalled();
-        expect(mockNavigate).toHaveBeenCalledWith("/home", { replace: true });
+        expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
       });
     });
 

@@ -1,0 +1,75 @@
+{
+  "services": [
+    {
+      "name": "decision-router",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "runtime.decision_router.evaluate",
+        "runtime.decision_router.route_stage"
+      ]
+    },
+    {
+      "name": "policy-engine",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "runtime.policy_engine.assert_tenant_execution_allowed",
+        "runtime.policy_engine.check_hitl"
+      ]
+    },
+    {
+      "name": "context-store",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "runtime.context_store.get_execution_status",
+        "runtime.context_store.get_execution_logs"
+      ]
+    },
+    {
+      "name": "recommendation-engine",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "runtime.recommendation_engine.opportunity_updated"
+      ]
+    },
+    {
+      "name": "agent-fabric",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "agent.base.secure_invoke"
+      ]
+    },
+    {
+      "name": "valynt-app",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "frontend.bootstrap.load_config",
+        "frontend.bootstrap.analytics",
+        "frontend.bootstrap.error_tracking"
+      ]
+    },
+    {
+      "name": "artifact-composer",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "runtime.artifact_composer.generate_sdui_page",
+        "runtime.artifact_composer.generate_and_render_page"
+      ]
+    },
+    {
+      "name": "execution-runtime",
+      "dashboard": "infra/observability/grafana/dashboards/runtime-services-observability.json",
+      "alert": "infra/observability/prometheus/alerts/runtime-services.yml",
+      "endpoints": [
+        "runtime.execution_runtime.process_query",
+        "runtime.execution_runtime.execute_workflow"
+      ]
+    }
+  ]
+}

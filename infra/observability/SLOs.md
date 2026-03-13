@@ -2,17 +2,30 @@
 
 This document formalizes ValueOS reliability SLOs backed by **OpenTelemetry instrumentation** and **Prometheus evaluation**.
 
-## Scope
+## Canonical HTTP metric contract (authoritative)
 
-The SLO gate currently evaluates the backend HTTP surface (`service="valueos-backend"`) and incident lifecycle metrics exported by the OpenTelemetry SDK/collector.
+All HTTP SLO queries MUST use this metric contract:
 
-## SLO Targets
+- `valuecanvas_http_requests_total`
+- `valuecanvas_http_request_duration_ms_bucket`
+- `valuecanvas_http_request_duration_ms_count`
+- Label key: `status_code` (not `code`/`status`)
+- Scrape selectors for backend SLOs: `job="valueos-app", service="valueos-backend"`
+
+## Authoritative PromQL for backend HTTP SLOs
 
 | SLI | Target | Measurement window | PromQL source |
 | --- | --- | --- | --- |
-| Latency (P95) | `<= ${SLO_MAX_P95_LATENCY_MS}ms` | 5m rolling | `histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le))` |
-| Error rate | `<= ${SLO_MAX_ERROR_RATE}` (1 - success target) | 5m rolling | `sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m])) / sum(rate(valuecanvas_http_requests_total[5m]))` |
-| MTTR | `<= ${SLO_MAX_MTTR_MINUTES} minutes` | 24h rolling | `avg_over_time(valuecanvas_incident_mttr_minutes[24h])` |
+| Availability | `>= 99.9%` | 5m / 1h rolling | `sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code!~"5.."}[5m])) / sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[5m]))` |
+| Latency (threshold) | `>= 95% <= 300ms` | 5m / 1h rolling | `sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",le="300"}[5m])) / sum(rate(valuecanvas_http_request_duration_ms_count{job="valueos-app",service="valueos-backend"}[5m]))` |
+| MTTR | `<= 15 minutes` | 24h rolling | `avg_over_time(valuecanvas_incident_mttr_minutes[24h])` |
+
+## Deprecated metric names (do not use)
+
+- `http_requests_total`
+- `http_server_request_duration_seconds_bucket`
+- `http_server_request_duration_seconds_count`
+- Label keys `code` and `status` for HTTP status filtering
 
 ## OpenTelemetry Requirements
 
@@ -32,20 +45,6 @@ CI calls `scripts/ci/observability-slo-gate.sh`.
 
 Default thresholds (override with env vars):
 
-- `SLO_MAX_P95_LATENCY_MS=200`
+- `SLO_MAX_P95_LATENCY_MS=300`
 - `SLO_MAX_ERROR_RATE=0.001`
 - `SLO_MAX_MTTR_MINUTES=15`
-
-- `SLO_WARN_P95_LATENCY_MS=150`
-- `SLO_WARN_ERROR_RATE=0.0005`
-- `SLO_WARN_MTTR_MINUTES=10`
-- `SLO_API_AVAILABILITY_TARGET=0.999`
-- `SLO_API_LATENCY_P95_TARGET=0.95`
-- `SLO_AUTH_SUCCESS_TARGET=0.995`
-- `SLO_QUEUE_HEALTH_TARGET=0.99`
-- `SLO_AGENT_COLD_START_TARGET=0.95`
-- `SLO_API_LATENCY_BUCKET_LE_SECONDS=0.3`
-- `SLO_AGENT_COLD_START_THRESHOLD_SECONDS=45`
-- `SLO_BURN_RATE_CRITICAL=14.4`
-- `SLO_AVAILABILITY_FAST_BURN_ERROR_RATE_THRESHOLD=0.01`
-- `SLO_AVAILABILITY_SLOW_BURN_ERROR_RATE_THRESHOLD=0.001`

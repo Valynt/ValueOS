@@ -16,6 +16,7 @@ import { logger } from "@shared/lib/logger";
 import { NextFunction, Request, Response } from "express";
 
 import { auditLogService } from "../services/AuditLogService";
+import { AUDIT_ACTION, AuditAction, inferCrudAuditAction } from "../types/audit.js";
 
 interface RequestUser {
   id?: string;
@@ -71,7 +72,7 @@ export function auditDataExport(resourceType: string) {
         await auditLogService.logAudit({
           ...user,
           ...metadata,
-          action: "data_export",
+          action: AUDIT_ACTION.ADMIN_EXPORT,
           resourceType,
           resourceId: req.params.id || "bulk",
           status: success ? "success" : "failed",
@@ -87,13 +88,13 @@ export function auditDataExport(resourceType: string) {
     };
 
     // Override send
-    res.send = function (data: any) {
+    res.send = function (data: unknown) {
       logExport(res.statusCode < 400, data?.length);
       return originalSend.call(this, data);
     };
 
     // Override json
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       logExport(res.statusCode < 400, data?.length || data?.count);
       return originalJson.call(this, data);
     };
@@ -114,19 +115,20 @@ export function auditAPIKeyOperation(operation: "view" | "create" | "rotate" | "
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
           await auditLogService.logAudit({
             ...user,
             ...metadata,
-            action: `api_key_${operation}`,
+            action: inferCrudAuditAction(req.method),
             resourceType: "api_key",
             resourceId: req.params.keyId || data?.id || "unknown",
             status: res.statusCode < 400 ? "success" : "failed",
             details: {
               operation,
+              apiKeyAction: operation,
             },
           });
         } catch (error) {
@@ -157,14 +159,14 @@ export function auditBulkDelete(resourceType: string) {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
           await auditLogService.logAudit({
             ...user,
             ...metadata,
-            action: "bulk_delete",
+            action: AUDIT_ACTION.DATA_DELETE,
             resourceType,
             resourceId: "bulk",
             status: res.statusCode < 400 ? "success" : "failed",
@@ -203,14 +205,14 @@ export function auditPermissionChange() {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
           await auditLogService.logAudit({
             ...user,
             ...metadata,
-            action: granted ? "permission_grant" : "permission_revoke",
+            action: granted ? AUDIT_ACTION.RBAC_PERMISSION_GRANT : AUDIT_ACTION.RBAC_PERMISSION_REVOKE,
             resourceType: "user_permission",
             resourceId: targetUserId,
             status: res.statusCode < 400 ? "success" : "failed",
@@ -249,14 +251,14 @@ export function auditRoleAssignment() {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
           await auditLogService.logAudit({
             ...user,
             ...metadata,
-            action: assigned ? "role_assign" : "role_remove",
+            action: assigned ? AUDIT_ACTION.RBAC_ROLE_ASSIGN : AUDIT_ACTION.RBAC_ROLE_REMOVE,
             resourceType: "user_role",
             resourceId: targetUserId,
             status: res.statusCode < 400 ? "success" : "failed",
@@ -295,14 +297,21 @@ export function auditTenantProvisioning(
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
           await auditLogService.logAudit({
             ...user,
             ...metadata,
-            action: `tenant_${operation}`,
+            action:
+              operation === "provision"
+                ? AUDIT_ACTION.ADMIN_PROVISION
+                : operation === "deprovision"
+                  ? AUDIT_ACTION.ADMIN_DEPROVISION
+                  : operation === "suspend"
+                    ? AUDIT_ACTION.ADMIN_SUSPEND
+                    : AUDIT_ACTION.ADMIN_REACTIVATE,
             resourceType: "tenant",
             resourceId: tenantId,
             status: res.statusCode < 400 ? "success" : "failed",
@@ -339,14 +348,14 @@ export function auditSettingsChange(settingsType: string) {
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {
           await auditLogService.logAudit({
             ...user,
             ...metadata,
-            action: "settings_change",
+            action: AUDIT_ACTION.ADMIN_SETTINGS_UPDATE,
             resourceType: settingsType,
             resourceId: req.params.id || "global",
             status: res.statusCode < 400 ? "success" : "failed",
@@ -373,7 +382,7 @@ export function auditSettingsChange(settingsType: string) {
  * Generic audit middleware
  */
 export function auditOperation(
-  action: string,
+  action: AuditAction,
   resourceType: string,
   getResourceId?: (req: Request) => string
 ) {
@@ -386,7 +395,7 @@ export function auditOperation(
     const originalJson = res.json;
 
     // Intercept response
-    res.json = function (data: any) {
+    res.json = function (data: unknown) {
       // Log after response
       setImmediate(async () => {
         try {

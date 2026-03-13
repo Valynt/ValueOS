@@ -10,6 +10,8 @@ import { createHash } from "crypto";
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
+import type { AuthenticatedRequest } from "../middleware/auth.js";
+
 import { createServerSupabaseClient } from "../lib/supabase.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
@@ -120,9 +122,9 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = req.tenantId;
-    const actorId = req.userId;
-    const requestId = req.requestId as string | undefined ?? "unknown";
+    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+    const actorId = (req as AuthenticatedRequest & { userId?: string }).userId as string | undefined;
+    const requestId = (req as AuthenticatedRequest & { requestId?: string }).requestId as string | undefined ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -181,9 +183,9 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = req.tenantId;
-    const actorId = req.userId;
-    const requestId = req.requestId as string | undefined ?? "unknown";
+    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+    const actorId = (req as AuthenticatedRequest & { userId?: string }).userId as string | undefined;
+    const requestId = (req as AuthenticatedRequest & { requestId?: string }).requestId as string | undefined ?? "unknown";
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });
@@ -263,7 +265,7 @@ router.post(
   requirePermission("users.delete"),
   async (req: Request, res: Response) => {
     const { email } = req.body ?? {};
-    const tenantId = req.tenantId;
+    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
 
     if (!email || typeof email !== "string") {
       return res.status(400).json({ error: "email is required" });

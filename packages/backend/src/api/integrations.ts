@@ -7,6 +7,8 @@
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
+import type { AuthenticatedRequest } from "../middleware/auth.js";
+
 import { requireAuth } from "../middleware/auth.js";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js";
 import { requirePermission } from "../middleware/rbac.js";
@@ -26,16 +28,16 @@ const router = createSecureRouter("strict");
 router.use(requireAuth, tenantContextMiddleware());
 
 function getActor(req: Request) {
-  const user = req.user;
+  const user = (req as AuthenticatedRequest).user;
   const userName =
-    (user as { user_metadata?: { full_name?: string; name?: string } } | undefined)?.user_metadata?.full_name ||
-    (user as { user_metadata?: { name?: string } } | undefined)?.user_metadata?.name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
     user?.email ||
     "Unknown";
 
   return {
-    id: user?.id ?? "",
-    email: user?.email ?? "",
+    id: user?.id as string,
+    email: user?.email as string,
     name: userName,
   };
 }
@@ -51,8 +53,8 @@ function handleError(res: Response, error: unknown, message: string) {
 
 router.get("/", requirePermission("integrations:view"), async (req: Request, res: Response) => {
   try {
-    const tenantId = req.tenantId;
-    const userId = req.user?.id;
+    const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+    const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
 
     if (!tenantId || !userId) {
       return res.status(400).json({ error: "Tenant context is required" });
@@ -71,8 +73,8 @@ router.post(
   validateRequest(ValidationSchemas.integrationConnect),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId;
-      const userId = req.user?.id;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
 
       if (!tenantId || !userId) {
         return res.status(400).json({ error: "Tenant context is required" });
@@ -116,8 +118,8 @@ router.delete(
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId;
-      const userId = req.user?.id;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
@@ -158,8 +160,8 @@ router.post(
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId;
-      const userId = req.user?.id;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {
@@ -200,8 +202,8 @@ router.post(
   requirePermission("integrations:manage"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = req.tenantId;
-      const userId = req.user?.id;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string | undefined;
+      const userId = (req as AuthenticatedRequest).user?.id as string | undefined;
       const integrationId = req.params.integrationId;
 
       if (!tenantId || !userId) {

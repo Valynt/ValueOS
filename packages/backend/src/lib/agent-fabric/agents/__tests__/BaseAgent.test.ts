@@ -43,7 +43,7 @@ import type { HallucinationCheckResult } from "../../KnowledgeFabricValidator";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
-import { logger } from "../../../logger.js";
+import { logger } from "../../../logger";
 
 // --- Concrete subclass for testing abstract BaseAgent ---
 
@@ -66,6 +66,7 @@ class TestAgent extends BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      storeRawModelOutputInMemory?: boolean;
     }
   ) {
     return this.secureInvoke(sessionId, prompt, schema, options);
@@ -101,7 +102,9 @@ function makeConfig(overrides: Partial<AgentConfig> = {}): AgentConfig {
   };
 }
 
-function makeContext(overrides: Partial<LifecycleContext> = {}): LifecycleContext {
+function makeContext(
+  overrides: Partial<LifecycleContext> = {}
+): LifecycleContext {
   return {
     workspace_id: "ws-123",
     organization_id: "org-456",
@@ -127,9 +130,15 @@ function makeLLMResponse(content: string) {
 
 describe("BaseAgent", () => {
   let agent: TestAgent;
-  let mockLLMGateway: InstanceType<typeof LLMGateway> & { complete: ReturnType<typeof vi.fn> };
-  let mockMemorySystem: InstanceType<typeof MemorySystem> & { storeSemanticMemory: ReturnType<typeof vi.fn> };
-  let mockCircuitBreaker: InstanceType<typeof CircuitBreaker> & { execute: ReturnType<typeof vi.fn> };
+  let mockLLMGateway: InstanceType<typeof LLMGateway> & {
+    complete: ReturnType<typeof vi.fn>;
+  };
+  let mockMemorySystem: InstanceType<typeof MemorySystem> & {
+    storeSemanticMemory: ReturnType<typeof vi.fn>;
+  };
+  let mockCircuitBreaker: InstanceType<typeof CircuitBreaker> & {
+    execute: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -143,7 +152,7 @@ describe("BaseAgent", () => {
       "org-456",
       mockMemorySystem,
       mockLLMGateway,
-      mockCircuitBreaker,
+      mockCircuitBreaker
     );
   });
 
@@ -172,11 +181,16 @@ describe("BaseAgent", () => {
     });
 
     it("returns false when user_id is missing", async () => {
-      const result = await agent.validateInput(
-        makeContext({ user_id: "" })
-      );
+      const result = await agent.validateInput(makeContext({ user_id: "" }));
       expect(result).toBe(false);
     });
+
+    it("throws when organization_id does not match agent tenant", async () => {
+      await expect(
+        agent.validateInput(makeContext({ organization_id: "org-other" }))
+      ).rejects.toThrow(/Tenant context mismatch/);
+    });
+
 
     it("uses organizationId from constructor for LLM tenant metadata", async () => {
       // validateInput validates the context but does not mutate organizationId —
@@ -252,6 +266,20 @@ describe("BaseAgent", () => {
       expect(result.confidence).toBe(0.85);
     });
 
+    it("sanitizes prompt content before dispatching to LLM", async () => {
+      await agent.invokeSecure(
+        "session-1",
+        "prompt\0 with\r\nnewline",
+        responseSchema
+      );
+
+      expect(mockLLMGateway.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: [{ role: "user", content: "prompt with\nnewline" }],
+        })
+      );
+    });
+
     it("includes tenant metadata in LLM request", async () => {
       await agent.invokeSecure("session-1", "prompt", responseSchema);
 
@@ -315,7 +343,7 @@ describe("BaseAgent", () => {
         "session-1",
         "TestAgent",
         "episodic",
-        expect.stringContaining("LLM Response Summary:"),
+        expect.stringContaining("LLM Response:"),
         expect.objectContaining({
           // hallucination_check reflects hallucinationResult.passed (true for clean response)
           hallucination_check: true,
@@ -326,28 +354,6 @@ describe("BaseAgent", () => {
         }),
         "org-456"
       );
-    });
-
-
-    it("redacts sensitive content and stores only summary + hash", async () => {
-      mockLLMGateway.complete.mockResolvedValue(
-        makeLLMResponse(JSON.stringify({
-          answer: "Contact me at john@example.com or 415-555-1212 with account_id ACCT123456",
-          confidence: 0.8,
-        }))
-      );
-
-      await agent.invokeSecure("session-1", "prompt", responseSchema);
-
-      const memoryContent = mockMemorySystem.storeSemanticMemory.mock.calls[0][3] as string;
-      const metadata = mockMemorySystem.storeSemanticMemory.mock.calls[0][4] as Record<string, unknown>;
-
-      expect(memoryContent).toContain("LLM Response Summary:");
-      expect(memoryContent).toContain("[REDACTED_EMAIL]");
-      expect(memoryContent).toContain("[REDACTED_PHONE]");
-      expect(memoryContent).toContain("[REDACTED_ACCOUNT_ID]");
-      expect(memoryContent).toMatch(/\[hash:[a-f0-9]{64}\]/);
-      expect(typeof metadata.llm_content_hash).toBe("string");
     });
 
     it("skips tracking memory when trackPrediction is false", async () => {
@@ -366,26 +372,6 @@ describe("BaseAgent", () => {
       await expect(
         agent.invokeSecure("session-1", "prompt", responseSchema)
       ).rejects.toThrow();
-    });
-
-
-
-    it("logs redacted summary + hash for invalid JSON", async () => {
-      mockLLMGateway.complete.mockResolvedValue(
-        makeLLMResponse('{"bad":"john@example.com 415-555-1212 account_id ACCT112233"')
-      );
-
-      await expect(
-        agent.invokeSecure("session-1", "prompt", responseSchema)
-      ).rejects.toThrow();
-
-      expect(logger.error).toHaveBeenCalledWith(
-        "Failed to parse LLM response as JSON",
-        expect.objectContaining({
-          content_summary: expect.stringContaining("[REDACTED_EMAIL]"),
-          content_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        }),
-      );
     });
 
     it("throws on Zod validation failure", async () => {
@@ -407,6 +393,49 @@ describe("BaseAgent", () => {
       await expect(
         agent.invokeSecure("session-1", "prompt", responseSchema)
       ).rejects.toThrow("LLM service unavailable");
+    });
+
+
+    it("logs redacted summary and content hash when JSON parsing fails", async () => {
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse("Contact jane.doe@valueos.ai at +1 (415) 555-2671 for account ACCT-778899")
+      );
+
+      await expect(
+        agent.invokeSecure("session-1", "prompt", responseSchema)
+      ).rejects.toThrow("LLM response was not valid JSON");
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("[REDACTED_EMAIL]"),
+          content_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        })
+      );
+      expect(logger.error).not.toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("jane.doe@valueos.ai"),
+        })
+      );
+    });
+
+    it("stores summarized output when raw model storage is disabled", async () => {
+      await agent.invokeSecure("session-1", "prompt", responseSchema, {
+        storeRawModelOutputInMemory: false,
+      });
+
+      expect(mockMemorySystem.storeSemanticMemory).toHaveBeenCalledWith(
+        "session-1",
+        "TestAgent",
+        "episodic",
+        expect.stringContaining("LLM Response Summary:"),
+        expect.objectContaining({
+          raw_model_output: false,
+          response_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+        "org-456"
+      );
     });
   });
 
@@ -437,7 +466,14 @@ describe("BaseAgent", () => {
         validate: vi.fn().mockResolvedValue({
           passed: false,
           confidence: 0.3,
-          contradictions: [{ claim: "x", existingFact: "y", similarity: 0.9, source: "target" }],
+          contradictions: [
+            {
+              claim: "x",
+              existingFact: "y",
+              similarity: 0.9,
+              source: "target",
+            },
+          ],
           benchmarkMisalignments: [],
           method: "knowledge_fabric",
         } satisfies HallucinationCheckResult),
@@ -449,8 +485,8 @@ describe("BaseAgent", () => {
 
       expect(mockValidator.validate).toHaveBeenCalledWith(
         expect.any(String), // raw LLM content
-        "org-456",          // organizationId
-        "TestAgent"         // agent name
+        "org-456", // organizationId
+        "TestAgent" // agent name
       );
       expect(result.hallucination_check).toBe(false);
     });
@@ -461,10 +497,22 @@ describe("BaseAgent", () => {
           passed: false,
           confidence: 0.4,
           contradictions: [
-            { claim: "a", existingFact: "b", similarity: 0.8, source: "target" },
-            { claim: "c", existingFact: "d", similarity: 0.85, source: "integrity" },
+            {
+              claim: "a",
+              existingFact: "b",
+              similarity: 0.8,
+              source: "target",
+            },
+            {
+              claim: "c",
+              existingFact: "d",
+              similarity: 0.85,
+              source: "integrity",
+            },
           ],
-          benchmarkMisalignments: [{ metricId: "m1", claimedValue: 100, validation: { valid: false } }],
+          benchmarkMisalignments: [
+            { metricId: "m1", claimedValue: 100, validation: { valid: false } },
+          ],
           method: "knowledge_fabric",
         } satisfies HallucinationCheckResult),
       };
@@ -531,7 +579,7 @@ describe("BaseAgent", () => {
         "org-1",
         mockMemorySystem,
         mockLLMGateway,
-        mockCircuitBreaker,
+        mockCircuitBreaker
       );
       // The config lifecycle_stage is set, but TestAgent overrides it
       // Verify the base class stored the config value
@@ -544,10 +592,13 @@ describe("BaseAgent", () => {
         "org-custom",
         mockMemorySystem,
         mockLLMGateway,
-        mockCircuitBreaker,
+        mockCircuitBreaker
       );
 
-      const schema = z.object({ v: z.string(), hallucination_check: z.boolean().optional() });
+      const schema = z.object({
+        v: z.string(),
+        hallucination_check: z.boolean().optional(),
+      });
       mockLLMGateway.complete.mockResolvedValue(
         makeLLMResponse(JSON.stringify({ v: "ok" }))
       );

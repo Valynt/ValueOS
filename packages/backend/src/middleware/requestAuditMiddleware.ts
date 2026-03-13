@@ -5,6 +5,14 @@ import { logger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { NextFunction, Request, Response } from "express";
 
+import type { AuthenticatedRequest } from "./auth.js";
+
+interface AuditRequest extends AuthenticatedRequest {
+  _auditMiddlewareAttached?: boolean;
+  requestId?: string;
+  organizationId?: string;
+}
+
 import { getTraceContextForLogging } from "../config/telemetry.js";
 import { securityAuditService } from "../services/SecurityAuditService.js";
 
@@ -21,12 +29,13 @@ function getRequestId(req: Request): string {
 }
 
 function getActor(req: Request): { id?: string; label: string } {
-  const user = req.user;
+  const anyReq = req as AuditRequest;
+  const user = anyReq.user || {};
   const headerActor = (req.headers["x-user-email"] as string) || (req.headers["x-actor"] as string);
-  const label = user?.email || (user as { name?: string } | undefined)?.name || headerActor || "anonymous";
+  const label = user.email || user.name || headerActor || "anonymous";
 
   return {
-    id: user?.id || undefined,
+    id: user.id || undefined,
     label: sanitizeForLogging(label) as string,
   };
 }
@@ -35,16 +44,16 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
   const ignoredPaths = options?.ignoredPaths || DEFAULT_IGNORED_PATHS;
 
   return (req: Request, res: Response, next: NextFunction) => {
-    if (req._auditMiddlewareAttached) {
+    if ((req as AuditRequest)._auditMiddlewareAttached) {
       return next();
     }
 
-    req._auditMiddlewareAttached = true;
+    (req as AuditRequest)._auditMiddlewareAttached = true;
 
     if (ignoredPaths.some((path) => req.path.startsWith(path))) {
       const ignoredRequestId = getRequestId(req);
       res.locals.requestId = ignoredRequestId;
-      req.requestId = ignoredRequestId;
+      (req as AuditRequest).requestId = ignoredRequestId;
       res.setHeader("X-Request-Id", ignoredRequestId);
       return next();
     }
@@ -53,13 +62,13 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
     const startedAt = Date.now();
 
     res.locals.requestId = requestId;
-    req.requestId = requestId;
+    (req as AuditRequest).requestId = requestId;
     res.setHeader("X-Request-Id", requestId);
 
     // Prepare context
     const context = {
       requestId,
-      userId: req.user?.id,
+      userId: (req as AuditRequest).user?.id,
       ...getTraceContextForLogging(),
     };
 
@@ -82,9 +91,9 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
             eventData: {
               duration_ms: Date.now() - startedAt,
               org: sanitizeForLogging(
-                (req.headers["x-organization-id"] as string) || req.organizationId
+                (req.headers["x-organization-id"] as string) || (req as AuditRequest).organizationId
               ),
-              tenantId: sanitizeForLogging(req.tenantId),
+              tenantId: sanitizeForLogging((req as AuditRequest).tenantId),
               routeParams: sanitizeForLogging(req.params),
               query: sanitizeForLogging(req.query),
             },

@@ -3,19 +3,19 @@
  * Manages invoice storage and retrieval
  */
 
+import type Stripe from "stripe";
+
 import { createLogger } from "../../lib/logger.js"
 import { supabase } from '../../lib/supabase.js';
 import { Invoice } from "../../types/billing";
-
-import Stripe from "stripe";
 
 import StripeService from "./StripeService.js"
 
 const logger = createLogger({ component: "InvoiceService" });
 
 class InvoiceService {
-  private stripe: Stripe | null;
-  private stripeService: StripeService | null;
+  private stripe: Stripe | null = null;
+  private stripeService: InstanceType<typeof StripeService> | null = null;
 
   constructor() {
     // Initialize Stripe service only if billing is configured
@@ -230,7 +230,7 @@ class InvoiceService {
   /**
    * Get upcoming invoice preview from Stripe
    */
-  async getUpcomingInvoice(tenantId: string): Promise<Stripe.UpcomingInvoice> {
+  async getUpcomingInvoice(tenantId: string): Promise<any> {
     try {
       const { data: customer } = await supabase
         .from("billing_customers")

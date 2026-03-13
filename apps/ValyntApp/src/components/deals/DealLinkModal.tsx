@@ -1,8 +1,20 @@
-import { AlertCircle, Building2, Calendar, DollarSign, ExternalLink, Loader2, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+/**
+ * DealLinkModal Component
+ *
+ * Connects an existing Value Case to a CRM Deal.
+ * Workflow:
+ * 1. User clicks "Link Deal" in capsule
+ * 2. Searches CRM (mocked or real) for open opportunities
+ * 3. Selects a deal
+ * 4. System establishes deal_id on the value_case record
+ */
+
+import { Building2, Calendar, DollarSign, ExternalLink, Loader2, Search } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { Deal } from './DealStatusCapsule';
 
+import { apiClient } from '@/api/client/unified-api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,10 +27,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useOrganization } from '@/hooks/useOrganization';
-import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
-import { searchCRMDeals, type CRMDealSearchItem } from '@/services/dealSearchService';
+
 
 export interface CRMDeal extends Deal {
   company: string;
@@ -26,11 +36,55 @@ export interface CRMDeal extends Deal {
   lastActivity?: Date;
 }
 
+/** Shape returned by GET /api/crm/deals */
+interface ApiCRMDeal {
+  id: string;
+  externalId: string;
+  provider: string;
+  name: string;
+  amount?: number;
+  stage: string;
+  closeDate?: string;
+  ownerName?: string;
+  companyName?: string;
+}
+
+const VALID_STAGES = new Set<Deal['stage']>([
+  'prospecting', 'qualification', 'proposal',
+  'negotiation', 'closed_won', 'closed_lost',
+]);
+
+function toLocalStage(raw: string): Deal['stage'] {
+  const normalised = raw.toLowerCase().replace(/\s+/g, '_') as Deal['stage'];
+  return VALID_STAGES.has(normalised) ? normalised : 'prospecting';
+}
+
+function mapApiDeal(d: ApiCRMDeal): CRMDeal {
+  return {
+    id: d.id,
+    name: d.name,
+    stage: toLocalStage(d.stage),
+    amount: d.amount,
+    closeDate: d.closeDate ? new Date(d.closeDate) : undefined,
+    crmId: d.externalId,
+    crmSource: (d.provider === 'salesforce' || d.provider === 'hubspot' || d.provider === 'pipedrive')
+      ? d.provider
+      : undefined,
+    company: d.companyName ?? '',
+    owner: d.ownerName,
+  };
+}
+
 export interface DealLinkModalProps {
+  /** Whether the modal is open */
   open: boolean;
+  /** Callback when modal is closed */
   onClose: () => void;
+  /** Callback when a deal is selected and linked */
   onLinkDeal: (deal: CRMDeal) => void;
+  /** Current value case ID for context */
   valueCaseId: string;
+  /** Optional: pre-filter by company name */
   companyFilter?: string;
 }
 
@@ -53,8 +107,12 @@ const STAGE_LABELS: Record<Deal['stage'], string> = {
 };
 
 function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  if (amount >= 1_000_000) {
+    return `$${(amount / 1_000_000).toFixed(1)}M`;
+  }
+  if (amount >= 1_000) {
+    return `$${(amount / 1_000).toFixed(0)}K`;
+  }
   return `$${amount.toLocaleString()}`;
 }
 
@@ -66,67 +124,44 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-function toCRMDeal(deal: CRMDealSearchItem): CRMDeal {
-  return {
-    ...deal,
-    closeDate: deal.closeDate ? new Date(deal.closeDate) : undefined,
-    lastActivity: deal.lastActivity ? new Date(deal.lastActivity) : undefined,
-  };
-}
 
-export function DealLinkModal({ open, onClose, onLinkDeal, valueCaseId, companyFilter }: DealLinkModalProps) {
-  const { organizationId, isLoading: isOrgLoading } = useOrganization();
+
+export function DealLinkModal({
+  open,
+  onClose,
+  onLinkDeal,
+  valueCaseId,
+  companyFilter,
+}: DealLinkModalProps) {
   const [searchQuery, setSearchQuery] = useState(companyFilter || '');
   const [deals, setDeals] = useState<CRMDeal[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDeal, setSelectedDeal] = useState<CRMDeal | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
 
-  const debouncedQuery = useDebounce(searchQuery.trim(), 350);
-
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedQuery, open]);
-
-  useEffect(() => {
-    async function loadDeals() {
-      if (!open || isOrgLoading || !organizationId) return;
-
-      setError(null);
-      setIsLoading(page === 1);
-      setIsLoadingMore(page > 1);
-
-      try {
-        const response = await searchCRMDeals({
-          query: debouncedQuery,
-          page,
-          pageSize: 10,
-          tenantId: organizationId,
-          valueCaseId,
-          company: companyFilter,
-        });
-
-        const mapped = response.deals.map(toCRMDeal);
-        setDeals((previous) => (page === 1 ? mapped : [...previous, ...mapped]));
-        setHasMore(response.hasMore);
-      } catch (requestError) {
-        setError(requestError instanceof Error ? requestError.message : 'Unable to search deals');
-      } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
-      }
+  const searchDeals = useCallback(async (query: string) => {
+    setIsLoading(true);
+    try {
+      const params = query ? { q: query } : undefined;
+      const res = await apiClient.get<{ deals: ApiCRMDeal[] }>('/api/crm/deals', params);
+      setDeals((res.data?.deals ?? []).map(mapApiDeal));
+    } catch {
+      setDeals([]);
+    } finally {
+      setIsLoading(false);
     }
+  }, []);
 
-    void loadDeals();
-  }, [companyFilter, debouncedQuery, isOrgLoading, open, organizationId, page, valueCaseId]);
+  useEffect(() => {
+    if (open) {
+      searchDeals(searchQuery);
+    }
+  }, [open, searchQuery, searchDeals]);
 
   const handleLink = () => {
-    if (!selectedDeal) return;
-    onLinkDeal(selectedDeal);
-    onClose();
+    if (selectedDeal) {
+      onLinkDeal(selectedDeal);
+      onClose();
+    }
   };
 
   return (
@@ -134,10 +169,13 @@ export function DealLinkModal({ open, onClose, onLinkDeal, valueCaseId, companyF
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Link to CRM Deal</DialogTitle>
-          <DialogDescription>Search for an existing deal in your CRM to link with this Value Case.</DialogDescription>
+          <DialogDescription>
+            Search for an existing deal in your CRM to link with this Value Case.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -148,13 +186,11 @@ export function DealLinkModal({ open, onClose, onLinkDeal, valueCaseId, companyF
             />
           </div>
 
+          {/* Deal List */}
           <ScrollArea className="h-[300px] border rounded-lg">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center h-full text-destructive gap-1">
-                <AlertCircle className="w-8 h-8" />
-                <p className="text-sm">{error}</p>
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : deals.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -171,35 +207,51 @@ export function DealLinkModal({ open, onClose, onLinkDeal, valueCaseId, companyF
                     className={cn(
                       'w-full p-3 rounded-lg border text-left transition-colors',
                       'hover:bg-accent hover:border-accent-foreground/20',
-                      selectedDeal?.id === deal.id ? 'bg-accent border-primary' : 'bg-card border-border'
+                      selectedDeal?.id === deal.id
+                        ? 'bg-accent border-primary'
+                        : 'bg-card border-border'
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium truncate">{deal.name}</span>
-                          <Badge className={cn('text-xs', STAGE_COLORS[deal.stage])}>{STAGE_LABELS[deal.stage]}</Badge>
+                          <Badge className={cn('text-xs', STAGE_COLORS[deal.stage])}>
+                            {STAGE_LABELS[deal.stage]}
+                          </Badge>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{deal.company}</span>
-                          {deal.amount && <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />{formatCurrency(deal.amount)}</span>}
-                          {deal.closeDate && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(deal.closeDate)}</span>}
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            {deal.company}
+                          </span>
+                          {deal.amount && (
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              {formatCurrency(deal.amount)}
+                            </span>
+                          )}
+                          {deal.closeDate && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(deal.closeDate)}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-xs capitalize">{deal.crmSource}</Badge>
+                      {deal.crmSource && (
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {deal.crmSource}
+                        </Badge>
+                      )}
                     </div>
                   </button>
                 ))}
-
-                {hasMore && (
-                  <Button variant="outline" className="w-full" onClick={() => setPage((current) => current + 1)} disabled={isLoadingMore}>
-                    {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load more deals'}
-                  </Button>
-                )}
               </div>
             )}
           </ScrollArea>
 
+          {/* Selected Deal Preview */}
           {selectedDeal && (
             <div className="p-3 rounded-lg bg-muted/50 border">
               <div className="flex items-center justify-between">
@@ -209,7 +261,11 @@ export function DealLinkModal({ open, onClose, onLinkDeal, valueCaseId, companyF
                 </div>
                 {selectedDeal.crmId && (
                   <Button variant="ghost" size="sm" asChild>
-                    <a href={`#crm/${selectedDeal.crmSource}/${selectedDeal.crmId}`} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={`#crm/${selectedDeal.crmSource}/${selectedDeal.crmId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <ExternalLink className="w-4 h-4 mr-1" />
                       View in CRM
                     </a>
@@ -221,8 +277,12 @@ export function DealLinkModal({ open, onClose, onLinkDeal, valueCaseId, companyF
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleLink} disabled={!selectedDeal}>Link Deal</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleLink} disabled={!selectedDeal}>
+            Link Deal
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

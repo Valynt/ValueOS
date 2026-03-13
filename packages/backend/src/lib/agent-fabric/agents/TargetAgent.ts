@@ -19,12 +19,18 @@ import type {
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
+  PromptVersionReference,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
 import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
 import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
+import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
+import { createServerSupabaseClient } from '../../supabase.js';
 
 import { BaseAgent } from './BaseAgent.js';
+import { renderTemplate } from '../promptUtils.js';
+import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -105,6 +111,23 @@ interface CausalTrace {
 // Agent
 // ---------------------------------------------------------------------------
 
+// Module-level singleton — avoids constructing a new Supabase client per agent run.
+// Per ADR-0011: use module-level singletons for infrastructure dependencies that
+// cannot be injected via LifecycleContext without a type-breaking change.
+let _provenanceTracker: ProvenanceTracker | null = null;
+function getProvenanceTracker(): ProvenanceTracker {
+  if (!_provenanceTracker) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = createServerSupabaseClient() as any;
+    // SupabaseProvenanceStore from SagaAdapters uses a local ProvenanceRecord type
+    // that is structurally compatible with the packages/memory ProvenanceStore interface.
+    // The cast is safe: both types share the same DB table and field names.
+    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    _provenanceTracker = new ProvenanceTracker(store);
+  }
+  return _provenanceTracker;
+}
+
 export class TargetAgent extends BaseAgent {
   private causalEngine = getAdvancedCausalEngine();
 
@@ -131,8 +154,8 @@ export class TargetAgent extends BaseAgent {
 
     // Step 2: Generate KPI targets and model inputs via LLM
     const query = context.user_inputs?.query as string | undefined;
-    const analysis = await this.generateTargets(context, hypotheses, query);
-    if (!analysis) {
+    const generation = await this.generateTargets(context, hypotheses, query);
+    if (!generation) {
       return this.buildOutput(
         { error: 'KPI target generation failed. Retry or provide more context.' },
         'failure',
@@ -142,6 +165,7 @@ export class TargetAgent extends BaseAgent {
     }
 
     // Step 3: Validate causal traces for each KPI against linked hypotheses
+    const { analysis, promptRefs } = generation;
     const causalResults = await this.validateAllCausalTraces(analysis.kpi_definitions, hypotheses);
     const verifiedCount = causalResults.filter(c => c.verified).length;
     const allVerified = verifiedCount === causalResults.length;
@@ -194,6 +218,7 @@ export class TargetAgent extends BaseAgent {
         'Validate measurement methods with data team',
       ],
       warnings,
+      prompt_version_refs: promptRefs,
     });
   }
 
@@ -215,7 +240,6 @@ export class TargetAgent extends BaseAgent {
         memory_type: 'semantic',
         limit: 10,
         organization_id: context.organization_id,
-        workspace_id: context.workspace_id,
       });
 
       // Filter to verified hypotheses with required metadata
@@ -242,7 +266,10 @@ export class TargetAgent extends BaseAgent {
   /**
    * Build the system prompt with hypothesis context.
    */
-  private buildSystemPrompt(hypotheses: Array<{ content: string; metadata: Record<string, unknown> }>): string {
+  private buildSystemPrompt(hypotheses: Array<{ content: string; metadata: Record<string, unknown> }>): {
+    prompt: string;
+    ref: PromptVersionReference;
+  } {
     const hypothesisContext = hypotheses.map((h, i) => {
       const m = h.metadata;
       const impact = m.estimated_impact || {};
@@ -253,25 +280,11 @@ export class TargetAgent extends BaseAgent {
    Evidence: ${(m.evidence || []).join('; ')}`;
     }).join('\n\n');
 
-    return `You are a Value Engineering analyst specializing in KPI definition and financial modeling.
-
-Given the following value hypotheses from the Opportunity stage, generate:
-1. Measurable KPI definitions with baselines, targets, and measurement methods
-2. A value driver tree showing how KPIs roll up to business outcomes
-3. Financial model inputs for ROI calculation
-4. A measurement plan
-5. Key risks
-
-Rules:
-- Each KPI must link to a specific hypothesis via hypothesis_id
-- Baselines must be realistic and sourced
-- Targets must be achievable within the stated timeframe
-- Value driver tree uses root/branch/leaf hierarchy
-- Financial model inputs must include sensitivity variables
-- Respond with valid JSON matching the schema. No markdown fences.
-
-Hypotheses:
-${hypothesisContext}`;
+    const template = resolvePromptTemplate({ promptKey: 'target.system.kpi-generation' });
+    return {
+      prompt: renderTemplate(template.template, { hypothesisContext }),
+      ref: template.reference,
+    };
   }
 
   /**
@@ -281,27 +294,21 @@ ${hypothesisContext}`;
     context: LifecycleContext,
     hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
     query?: string,
-  ): Promise<TargetAnalysis | null> {
+  ): Promise<{ analysis: TargetAnalysis; promptRefs: PromptVersionReference[] } | null> {
     const systemPrompt = this.buildSystemPrompt(hypotheses);
+    const userTemplate = resolvePromptTemplate({ promptKey: 'target.user.generate-targets' });
+    const promptRefs: PromptVersionReference[] = [systemPrompt.ref, userTemplate.reference];
 
     const hypothesisIds = hypotheses.map((h, i) => `"hyp-${i + 1}" (${h.metadata.category})`).join(', ');
-    const userPrompt = `Generate KPI targets and financial model inputs for these hypotheses.
-
-Hypothesis IDs to reference: ${hypothesisIds}
-
-${query ? `Additional context: ${query}` : ''}
-
-Generate a JSON object with:
-- kpi_definitions: Array of KPI definitions with baselines and targets
-- value_driver_tree: Hierarchical tree of value drivers (root → branch → leaf)
-- financial_model_inputs: Array of model inputs for ROI calculation
-- measurement_plan: How to track and verify these KPIs
-- risks: Key risks to achieving targets`;
+    const userPrompt = renderTemplate(userTemplate.template, {
+      hypothesisIds,
+      additionalContext: query ? `Additional context: ${query}` : '',
+    });
 
     try {
       const result = await this.secureInvoke<TargetAnalysis>(
         context.workspace_id,
-        `${systemPrompt}\n\n${userPrompt}`,
+        `${systemPrompt.prompt}\n\n${userPrompt}`,
         TargetAnalysisSchema,
         {
           trackPrediction: true,
@@ -314,7 +321,7 @@ Generate a JSON object with:
         },
       );
 
-      return result;
+      return { analysis: result, promptRefs };
     } catch (err) {
       logger.error('KPI target generation failed', {
         error: (err as Error).message,
@@ -605,6 +612,39 @@ Generate a JSON object with:
         organization_id: organizationId,
         node_count: nodes.length,
       });
+
+      // Record provenance for each node so downstream agents and the UI can
+      // trace every value tree entry back to the TargetAgent run that produced it.
+      const tracker = getProvenanceTracker();
+      const provenanceResults = await Promise.allSettled(
+        nodes.map((node) =>
+          tracker.record({
+            valueCaseId: caseId,
+            claimId: node.node_key,
+            dataSource: 'TargetAgent:value_driver_tree',
+            evidenceTier: 2, // Internal analysis — Tier 2 per EvidenceTiering classification
+            agentId: this.name,
+            agentVersion: this.version,
+            confidenceScore: 0.7, // Default; overridden by ConfidenceScorer in IntegrityAgent
+          }),
+        ),
+      );
+
+      const failedProvenance = provenanceResults.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      );
+
+      if (failedProvenance.length > 0) {
+        logger.warn('TargetAgent: failed to record provenance for some value tree nodes', {
+          case_id: caseId,
+          organization_id: organizationId,
+          node_count: nodes.length,
+          failed_count: failedProvenance.length,
+          sample_errors: failedProvenance.slice(0, 3).map((r) =>
+            r.reason instanceof Error ? r.reason.message : String(r.reason),
+          ),
+        });
+      }
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
       logger.error('TargetAgent: failed to persist value tree', {

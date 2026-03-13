@@ -51,8 +51,7 @@ export default function AuthCallback() {
         });
 
         // Session is now stored and AuthContext will pick it up via onAuthStateChange
-        // Redirect to home page
-        navigate("/home", { replace: true });
+        navigate("/dashboard", { replace: true });
       } catch (err) {
         logger.error("Unexpected error during OAuth callback", err as Error);
         setError("An unexpected error occurred. Please try again.");

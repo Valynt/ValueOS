@@ -140,6 +140,15 @@ export interface AgentOutputMetadata {
   timestamp: string;
   correlation_id?: string;
   retry_count?: number;
+  prompt_version_refs?: PromptVersionReference[];
+}
+
+export interface PromptVersionReference {
+  prompt_key: string;
+  version: string;
+  owner?: string;
+  ticket?: string;
+  risk_class?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface TokenUsage {

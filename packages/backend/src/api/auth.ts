@@ -22,6 +22,8 @@ import { requireMFA } from "../middleware/mfa.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { auditLogService } from "../services/AuditLogService.js"
 import { authService } from "../services/AuthService.js"
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
+import { AUDIT_ACTION } from "../types/audit.js"
 import { AuthenticationError, ValidationError } from "../services/errors.js"
 import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
 import { sanitizeErrorMessage } from "../utils/security.js"
@@ -399,13 +401,16 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
         userId: actor.id,
         userName: actor.name,
         userEmail: actor.email,
-        action: "auth.logout",
+        action: AUDIT_ACTION.AUTH_LOGOUT,
         resourceType: "auth",
         resourceId: actor.id,
         details: {
           ipAddress: req.ip,
         },
         status: "success",
+      });
+      await emitRequestAuditEvent(req, res, AUDIT_ACTION.AUTH_LOGOUT, "auth.logout", {
+        targetUserId: actor.id,
       });
     }
 

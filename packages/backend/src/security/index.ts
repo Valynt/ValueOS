@@ -54,7 +54,6 @@ const defaultRateLimiter: RateLimiterProvider = {
     if (record.count >= maxAttempts) {
       const retryAfter = Math.ceil((record.resetTime - now) / 1000);
       // Emit audit event
-      try { (_securityEvents as any)?.emit?.('rate_limit.trigger', { identifier, retryAfter }); } catch {}
       throw new RateLimitExceededError(retryAfter);
     }
 
@@ -107,7 +106,6 @@ function recordHibpFailure() {
   hibpFailureCount++;
   if (hibpFailureCount >= HIBP_CIRCUIT_THRESHOLD) {
     hibpCircuitOpenedUntil = Date.now() + HIBP_CIRCUIT_COOLDOWN_MS;
-    try { (_securityEvents as any)?.emit?.('hibp.circuit_open', { until: hibpCircuitOpenedUntil }); } catch {}
   }
 }
 
@@ -129,7 +127,7 @@ async function fetchHibpRange(prefix: string, timeoutMs: number, attempts = 3): 
   };
 
   let attempt = 0;
-  let lastErr: any = null;
+  let lastErr: unknown = null;
   while (attempt < attempts) {
     attempt++;
     const controller = new AbortController();
@@ -142,7 +140,7 @@ async function fetchHibpRange(prefix: string, timeoutMs: number, attempts = 3): 
       hibpCache.set(prefix, { text, fetchedAt: Date.now() });
       resetHibpFailures();
       return text;
-    } catch (err: any) {
+    } catch (err: unknown) {
       clearTimeout(to);
       lastErr = err;
       recordHibpFailure();
@@ -160,7 +158,6 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
   const timeoutMs = Number(process.env.HIBP_TIMEOUT_MS) || 2000;
 
   if (!enabled) {
-    try { (_securityEvents as any)?.emit?.('hibp.skipped', { reason: 'disabled' }); } catch {}
     return { status: 'unknown', reason: 'hibp_disabled' };
   }
 
@@ -177,15 +174,12 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
       if (!hashSuffix) continue;
       if (hashSuffix === suffix) {
         const count = Number((countStr || '').trim()) || undefined;
-        try { (_securityEvents as any)?.emit?.('hibp.match', { prefix, found: true, count }); } catch {}
         return { status: 'breached', count };
       }
     }
-    try { (_securityEvents as any)?.emit?.('hibp.match', { prefix, found: false }); } catch {}
     return { status: 'not_breached' };
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Fail-closed: return unknown and emit telemetry — caller should treat unknown conservatively
-    try { (_securityEvents as any)?.emit?.('hibp.error', { prefix, message: String(err?.message || err) }); } catch {}
     return { status: 'unknown', reason: String(err?.message || err) };
   }
 }

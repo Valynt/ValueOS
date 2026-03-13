@@ -41,6 +41,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Observability release gates
+        run: |
+          pnpm check:telemetry-completeness
+          pnpm check:observability-deployment-gates
+
       - name: Create Release PR or tag & publish
         id: changesets
         uses: changesets/action@v1

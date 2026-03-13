@@ -16,7 +16,7 @@ export interface StageRouteDTO {
 }
 
 export interface StageExecutionResultDTO {
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "waiting_approval";
   output?: Record<string, unknown>;
   error?: string;
 }

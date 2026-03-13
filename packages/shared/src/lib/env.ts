@@ -6,6 +6,11 @@
 // Check once at module load time
 const _isBrowser = typeof window !== "undefined";
 
+// Vite injects import.meta.env at build time; this interface avoids `any` casts.
+interface ViteImportMeta extends ImportMeta {
+  env?: Record<string, string | undefined>;
+}
+
 export const REQUIRED_ENV_VARS = [
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_ANON_KEY",
@@ -37,7 +42,7 @@ export function validateEnv() {
 function getEnvValue(key: string): string | undefined {
   if (_isBrowser) {
     // In browser environments, use import.meta.env if available (Vite)
-    return (import.meta as any)?.env?.[key];
+    return ( import.meta as ViteImportMeta)?.env?.[key];
   } else {
     // In Node.js environments, use process.env
     return typeof process !== "undefined" && process.env ? process.env[key] : undefined;
@@ -77,8 +82,8 @@ export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string |
 
 export function setEnvVar(key: string, value: string): void {
   if (_isBrowser) {
-    if ((import.meta as any)?.env) {
-      (import.meta as any).env[key] = value;
+    if (( import.meta as ViteImportMeta)?.env) {
+      ( import.meta as ViteImportMeta).env[key] = value;
     }
   } else {
     if (typeof process !== "undefined" && process.env) {
@@ -93,8 +98,8 @@ export function checkIsBrowser(): boolean {
 
 export function __setEnvSourceForTests(envSource: Record<string, string>): void {
   if (_isBrowser) {
-    if ((import.meta as any)?.env) {
-      Object.assign((import.meta as any).env, envSource);
+    if (( import.meta as ViteImportMeta)?.env) {
+      Object.assign(( import.meta as ViteImportMeta).env, envSource);
     }
   } else {
     if (typeof process !== "undefined" && process.env) {

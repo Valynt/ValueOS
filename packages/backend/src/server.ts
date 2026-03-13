@@ -62,7 +62,6 @@ import onboardingRouter from "./api/onboarding.js";
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
 import { usageRouter } from "./api/usage.js";
-import valueModelsRouter from "./api/valueModels.js";
 import securityMonitoringRouter from "./api/securityMonitoring.js";
 import teamsRouter from "./api/teams.js";
 import workflowRouter from "./api/workflow.js";
@@ -89,11 +88,6 @@ import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRou
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
-
-// Bootstrap OTel SDK before any instrumented libraries are imported.
-// startTracing() is a no-op when ENABLE_TELEMETRY=false or on failure.
-import { startTracing, stopTracing } from "./observability/tracing.js";
-await startTracing();
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -147,7 +141,6 @@ import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforc
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
 import { permissionService } from "./services/auth/PermissionService.js";
-import { FabricMonitor } from "./lib/agent-fabric/FabricMonitor.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
@@ -505,7 +498,6 @@ app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
-app.use("/api/value-models", valueModelsRouter);
 app.use("/api/value-drivers", valueDriversRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
@@ -708,12 +700,6 @@ async function startServer(): Promise<void> {
   // 6. Start audit log DLQ retry loop
   securityAuditService.startRetryLoop();
 
-  // 7. Start agent fabric DLQ monitor
-  const fabricMonitor = new FabricMonitor();
-  fabricMonitor.startMonitoring().catch((err) => {
-    logger.warn("[Instrumentation] FabricMonitor failed to start", { error: err });
-  });
-
   // 7. Register graceful shutdown handlers
   registerGracefulShutdown();
 }
@@ -735,10 +721,7 @@ function registerGracefulShutdown(): void {
     // 1. Tell health check to return 503 so the load balancer stops sending traffic
     markAsShuttingDown();
 
-    // 2. Flush and shut down OTel SDK (best-effort, non-blocking)
-    stopTracing().catch(() => {});
-
-    // 2.1. Stop audit DLQ retry loop
+    // 2. Stop audit DLQ retry loop
     securityAuditService.stopRetryLoop();
 
     // 2.5. Stop RecommendationEngine subscriptions

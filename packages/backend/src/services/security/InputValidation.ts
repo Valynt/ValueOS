@@ -22,7 +22,7 @@ export interface ValidationResult {
   isValid: boolean;
   errors?: string[];
   warnings?: string[];
-  sanitizedData?: any;
+  sanitizedData?: unknown;
 }
 
 export interface ValidationRule {
@@ -30,9 +30,9 @@ export interface ValidationRule {
   name: string;
   description: string;
   schema: ValidationSchema;
-  sanitizers?: Array<(data: any) => any>;
-  preValidators?: Array<(data: any) => boolean>;
-  postValidators?: Array<(data: any) => ValidationResult>;
+  sanitizers?: Array<(data: unknown) => unknown>;
+  preValidators?: Array<(data: unknown) => boolean>;
+  postValidators?: Array<(data: unknown) => ValidationResult>;
 }
 
 export class EnhancedInputValidator {
@@ -323,7 +323,7 @@ export class EnhancedInputValidator {
   addRule(rule: ValidationRule): void {
     // Compile the schema
     const validate = this.ajv.compile(rule.schema);
-    (rule as any).validate = validate;
+    (rule as Record<string, unknown>).validate = validate;
 
     this.rules.set(rule.id, rule);
     logger.info('Validation rule added', { ruleId: rule.id, name: rule.name });
@@ -332,7 +332,7 @@ export class EnhancedInputValidator {
   /**
    * Validate data against a rule
    */
-  validate(ruleId: string, data: any): ValidationResult {
+  validate(ruleId: string, data: unknown): ValidationResult {
     const rule = this.rules.get(ruleId);
 
     if (!rule) {
@@ -360,7 +360,7 @@ export class EnhancedInputValidator {
     }
 
     // Run schema validation
-    const validate = (rule as any).validate;
+    const validate = (rule as Record<string, unknown>).validate;
     const isValid = validate(data);
 
     if (!isValid && validate.errors) {
@@ -435,7 +435,7 @@ export class EnhancedInputValidator {
   /**
    * Validate multiple rules
    */
-  validateMultiple(rules: Array<{ ruleId: string; data: any }>): ValidationResult {
+  validateMultiple(rules: Array<{ ruleId: string; data: unknown }>): ValidationResult {
     const allErrors: string[] = [];
     const allWarnings: string[] = [];
     let allValid = true;
@@ -465,7 +465,7 @@ export class EnhancedInputValidator {
   /**
    * Add custom validation keyword
    */
-  addKeyword(keyword: string, definition: any): void {
+  addKeyword(keyword: string, definition: unknown): void {
     this.ajv.addKeyword(keyword, definition);
     logger.info('Custom validation keyword added', { keyword });
   }

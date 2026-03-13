@@ -40,6 +40,7 @@ import type {
   TaskPlanResult,
   SubgoalDefinition,
 } from "../../types/orchestration.js";
+import { runInTelemetrySpanAsync } from "../../observability/telemetryStandards.js";
 
 export type { TaskPlanResult, SubgoalDefinition };
 
@@ -435,13 +436,19 @@ export class ArtifactComposer {
     context?: AgentContext,
     streamingCallback?: (update: StreamingUpdate) => void,
   ): Promise<AgentResponse> {
-    return this.renderService.generateSDUIPage(
+    return runInTelemetrySpanAsync('runtime.artifact_composer.generate_sdui_page', {
+      service: 'artifact-composer',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: envelope.tenant_id,
+      trace_id: envelope.trace_id,
+      attributes: { agent },
+    }, async () => this.renderService.generateSDUIPage(
       envelope,
       agent,
       query,
       context,
       streamingCallback,
-    );
+    ));
   }
 
   async generateAndRenderPage(
@@ -451,13 +458,19 @@ export class ArtifactComposer {
     context?: AgentContext,
     renderOptions?: RenderPageOptions,
   ): Promise<{ response: AgentResponse; rendered: unknown }> {
-    return this.renderService.generateAndRenderPage(
+    return runInTelemetrySpanAsync('runtime.artifact_composer.generate_and_render_page', {
+      service: 'artifact-composer',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: envelope.tenant_id,
+      trace_id: envelope.trace_id,
+      attributes: { agent },
+    }, async () => this.renderService.generateAndRenderPage(
       envelope,
       agent,
       query,
       context,
       renderOptions,
-    );
+    ));
   }
 
   async planTask(

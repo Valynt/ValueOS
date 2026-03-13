@@ -96,14 +96,14 @@ function parseBearerToken(header?: string | string[]): string | null {
   return token.length > 0 ? token : null;
 }
 
-interface RequestWithSupabase {
+interface SupabaseRequest {
   headers?: { authorization?: string | string[] };
   supabase?: SupabaseClient;
   supabaseUser?: unknown;
   user?: unknown;
 }
 
-export function createRequestSupabaseClient(req: RequestWithSupabase): SupabaseClient {
+export function createRequestSupabaseClient(req: SupabaseRequest) {
   if (!isServer) {
     throw new Error("Request-scoped Supabase client can only be used server-side");
   }
@@ -140,7 +140,7 @@ export function createRequestSupabaseClient(req: RequestWithSupabase): SupabaseC
   return client;
 }
 
-export function getRequestSupabaseClient(req: RequestWithSupabase): SupabaseClient {
+export function getRequestSupabaseClient(req: SupabaseRequest) {
   return req.supabase ?? createRequestSupabaseClient(req);
 }
 

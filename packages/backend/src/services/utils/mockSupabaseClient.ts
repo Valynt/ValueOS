@@ -10,21 +10,21 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
     tables,
     from: (table: string) => {
       let currentData = [...getTable(table)];
-      let filters: any[] = [];
-      let sort: any = null;
+      let filters: Array<{ column: string; value: unknown }> = [];
+      let sort: { column: string; ascending: boolean } | null = null;
       let operation = 'select';
-      let updateData: any = null;
+      let updateData: Record<string, unknown> | null = null;
 
       const builder = {
         select: (_columns: string = '*') => {
           operation = 'select';
           return builder;
         },
-        eq: (column: string, value: any) => {
+        eq: (column: string, value: unknown) => {
           filters.push({ type: 'eq', column, value });
           return builder;
         },
-        in: (column: string, values: any[]) => {
+        in: (column: string, values: unknown[]) => {
            filters.push({ type: 'in', column, values });
            return builder;
         },
@@ -36,12 +36,12 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
             operation = 'delete';
             return builder;
         },
-        update: (data: any) => {
+        update: (data: Record<string, unknown>) => {
             operation = 'update';
             updateData = data;
             return builder;
         },
-        insert: async (data: any) => {
+        insert: async (data: Record<string, unknown> | Record<string, unknown>[]) => {
             const rows = Array.isArray(data) ? data : [data];
             getTable(table).push(...rows);
             return { data: rows, error: null };
@@ -72,7 +72,7 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
 
                     if (idx === -1 && item.id !== undefined) {
                          // Fallback using ID if reference check fails (should not happen if consistent)
-                         idx = targetTable.findIndex((r: any) => r.id === item.id);
+                         idx = targetTable.findIndex((r: Record<string, unknown>) => r.id === item.id);
                     }
 
                     if (idx !== -1) {
@@ -102,7 +102,7 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
   return mock;
 }
 
-function matchesFilters(row: any, filters: any[]) {
+function matchesFilters(row: Record<string, unknown>, filters: Array<{ column: string; value: unknown }>) {
     for (const f of filters) {
         if (f.type === 'eq') {
             if (row[f.column] !== f.value) return false;
@@ -113,6 +113,6 @@ function matchesFilters(row: any, filters: any[]) {
     return true;
 }
 
-function applyFilters(rows: any[], filters: any[]) {
+function applyFilters(rows: Record<string, unknown>[], filters: Array<{ column: string; value: unknown }>) {
     return rows.filter(r => matchesFilters(r, filters));
 }

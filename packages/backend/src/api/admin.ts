@@ -15,15 +15,28 @@ import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { tenantContextMiddleware } from "../middleware/tenantContext.js"
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
 import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
 import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob.js"
 import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
 import { tenantDeletionService } from "../services/tenant/TenantDeletionService.js"
+import { AUDIT_ACTION } from "../types/audit.js"
+import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue.js"
+import { RedisDLQStore, DomainDLQEventEmitter } from "../services/workflows/RedisAdapters.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
+
+async function logAdminRouteEvent(
+  req: Request,
+  res: Response,
+  action: (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION],
+  details: Record<string, unknown>
+): Promise<void> {
+  await emitRequestAuditEvent(req, res, action, action, details);
+}
 
 const provisionTenantSchema = z.object({
   name: z.string().min(2).max(120),
@@ -64,7 +77,9 @@ router.post(
       if (!result.success) {
         return res.status(422).json({ error: result.errors.join("; "), errors: result.errors });
       }
-      return res.status(201).json({ organizationId: result.organizationId });
+      res.status(201);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_PROVISION, { organizationId: result.organizationId });
+      return res.json({ organizationId: result.organizationId });
     } catch (err) {
       logger.error("Tenant provisioning failed", err instanceof Error ? err : undefined);
       return res.status(500).json({ error: "Provisioning failed" });
@@ -212,6 +227,7 @@ router.patch(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { targetUserId: req.params.userId, role: req.body.role });
       return res.json({ message: "Role updated" });
     } catch (error) {
       if (error instanceof Error && error.name === "ValidationError") {
@@ -252,6 +268,7 @@ router.delete(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_SECURITY, { targetUserId: req.params.userId, operation: "remove_user" });
       return res.json({ message: "User removed" });
     } catch (error) {
       if (error instanceof Error && error.name === "ValidationError") {
@@ -329,6 +346,7 @@ router.post(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { roleId: role.id, operation: "create_custom_role" });
       return res.status(201).json({ role });
     } catch (error) {
       logger.error("Failed to create custom role", error instanceof Error ? error : undefined);
@@ -361,6 +379,7 @@ router.patch(
         }
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_ASSIGN, { roleId: req.params.roleId, operation: "update_custom_role" });
       return res.json({ role });
     } catch (error) {
       logger.error("Failed to update custom role", error instanceof Error ? error : undefined);
@@ -388,6 +407,7 @@ router.delete(
         req.params.roleId!
       );
 
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_ROLE_REMOVE, { roleId: req.params.roleId });
       return res.json({ message: "Role deleted" });
     } catch (error) {
       logger.error("Failed to delete custom role", error instanceof Error ? error : undefined);
@@ -434,7 +454,12 @@ router.post(
         }
       );
 
-      return res.status(204).send();
+      res.status(204);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_GRANT, {
+        roleId: req.params.roleId,
+        permissionKeys: req.body.permissionKeys,
+      });
+      return res.send();
     } catch (error) {
       logger.error("Failed to assign permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to assign permissions" });
@@ -465,7 +490,12 @@ router.delete(
         }
       );
 
-      return res.status(204).send();
+      res.status(204);
+      await logAdminRouteEvent(req, res, AUDIT_ACTION.RBAC_PERMISSION_REVOKE, {
+        roleId: req.params.roleId,
+        permissionKeys: req.body.permissionKeys,
+      });
+      return res.send();
     } catch (error) {
       logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Failed to remove permissions" });
@@ -589,6 +619,89 @@ router.post(
     } catch (error) {
       logger.error("Admin: CRM token re-encryption job failed", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Re-encryption job failed" });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// DLQ endpoints — list failed agent tasks and retry them
+// ---------------------------------------------------------------------------
+
+const dlq = new DeadLetterQueue(new RedisDLQStore(), new DomainDLQEventEmitter());
+
+const DlqListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/**
+ * GET /api/admin/dlq
+ * Lists entries in the dead-letter queue. Admin-only.
+ */
+router.get(
+  "/dlq",
+  requireAuth,
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const parsed = DlqListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.message });
+    }
+    const { limit, offset } = parsed.data;
+
+    try {
+      const [entries, total] = await Promise.all([
+        dlq.list(offset, limit),
+        dlq.count(),
+      ]);
+      return res.status(200).json({ success: true, data: { entries, total, offset, limit } });
+    } catch (err) {
+      logger.error("DLQ list failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ success: false, error: "Failed to list DLQ entries" });
+    }
+  }
+);
+
+/**
+ * POST /api/admin/dlq/:taskId/retry
+ * Re-queues a DLQ entry by its task ID. Admin-only.
+ * The entry is removed from the DLQ after successful re-queue.
+ */
+router.post(
+  "/dlq/:taskId/retry",
+  requireAuth,
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const { taskId } = req.params as { taskId: string };
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: "taskId is required" });
+    }
+
+    try {
+      // Find the entry by taskId
+      const total = await dlq.count();
+      const entries = await dlq.list(0, total || 100);
+      const entry = entries.find((e) => e.taskId === taskId);
+
+      if (!entry) {
+        return res.status(404).json({ success: false, error: "DLQ entry not found" });
+      }
+
+      // Remove from DLQ — the caller is responsible for re-dispatching
+      const removed = await dlq.remove(entry);
+      if (!removed) {
+        return res.status(409).json({ success: false, error: "Entry was already removed" });
+      }
+
+      logger.info("DLQ entry retried", { taskId, agentType: entry.agentType });
+
+      return res.status(200).json({
+        success: true,
+        data: { taskId, agentType: entry.agentType, removed: true },
+      });
+    } catch (err) {
+      logger.error("DLQ retry failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ success: false, error: "Failed to retry DLQ entry" });
     }
   }
 );
