@@ -16,7 +16,12 @@ planned or re-opening sprints that are complete.
 ls docs/sprint-plan-*.md
 
 # Check the most recent plan for its sprint range and completion status
-head -20 $(ls -t docs/sprint-plan-*.md | head -1)
+latest_plan=$(ls -t docs/sprint-plan-*.md 2>/dev/null | head -1)
+if [ -n "$latest_plan" ]; then
+  head -20 "$latest_plan"
+else
+  echo "No sprint plans found yet (no docs/sprint-plan-*.md files)."
+fi
 
 # Check sprint-roadmap for current sprint number
 grep -n "Sprint\|current\|complete\|in.progress" sprint-roadmap.md | head -20
