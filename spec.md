@@ -1,370 +1,392 @@
-# Spec: ValueOS Agentic Workflow Engine
+# Spec: Valynt Memory Layer (VML) — Gap Implementation
 
-## Problem Statement
+**Project Code Name:** Mnemonic-GTM  
+**Status:** Draft  
+**Owner:** Agentic Architect  
+**Scope:** Fill the gaps in the existing `packages/memory` architecture. Existing Tier 1, Tier 3, and Tier 4 foundations are retained and extended, not replaced.
 
-ValueOS has extensive scaffolding for an agentic Value Engineering platform — agent base infrastructure, SDUI components, a lifecycle orchestrator with saga compensation, database schema with RLS, and domain agents. However, the core agentic workflow described in the Architectural Design Brief is not wired end-to-end:
+---
 
-- **Agent orchestration is empty** — `packages/agents/orchestration/index.ts` and `packages/agents/core/index.ts` export nothing.
-- **Domain agents use mock data** — `financial-modeling`, `narrative`, `integrity`, `groundtruth` agents return hardcoded responses instead of calling the LLMGateway.
-- **Memory modules are stubs** — `packages/memory/{semantic,episodic,vector,provenance}/index.ts` all export `{}`.
-- **The saga state machine doesn't match the design brief** — current states are generic (`created`, `started`, `completed`, `failed`, `paused`) instead of the domain-specific phases (`INITIATED`, `DRAFTING`, `VALIDATING`, `COMPOSING`, `REFINING`, `FINALIZED`).
-- **No hypothesis-first core loop** — the design brief's 7-step loop (Hypothesis → Model → Evidence → Narrative → Objection → Revision → Approval) has no implementation.
-- **No evidence tiering** — the Integrity Engine lacks Tier 1/2/3 classification and confidence scoring based on data freshness, source reliability, and logic transparency.
-- **No idempotency enforcement** — agent requests don't carry or validate idempotency keys.
-- **No Dead-Letter Queue** — failed agent tasks are logged but not routed to a DLQ for inspection.
-- **No Red Team agent** — the "Objection" step has no agent implementation.
+## 1. Problem Statement
 
-The `ValueLifecycleOrchestrator` (795 lines) and `IntegrityValidationService` (852 lines) contain substantial saga and validation logic but need to be aligned to the design brief's state machine and connected to real agent execution.
+The `packages/memory` package has a working foundation for Tier 1 (SessionContextLedger), Tier 3 (SemanticMemory + VectorMemory), and partial Tier 4 (ProvenanceTracker). Four gaps block the VML from being production-ready for B2B GTM use cases:
 
-## Existing Assets (What We Keep)
+1. **No Entity Graph (Tier 2).** Account→KPI→NPV dependency chains are not tracked as a memory tier. A 1% churn change in one region cannot propagate to a global NPV recalculation because the dependency map does not exist.
+2. **No Veto Controller.** Agents can commit financially invalid scenarios (negative churn, IRR > 500%, NPV deviation > 20% without justification) with no guardrail.
+3. **No financial override audit trail.** `AuditLogger` is an empty stub. Every financial assumption change must be bound to an `auth0_id` for compliance.
+4. **No MCP write interface.** External tools (Salesforce, Gong) have no defined contract for writing entity data into Tier 2.
 
-| Asset | Location | Status |
+---
+
+## 2. Architecture Baseline
+
+### What exists (do not replace)
+
+| Component | Location | Maps to |
 |---|---|---|
-| Agent base (server, config, health, safety, context) | `packages/agents/base/src/` | Working |
-| SDUI schema + renderer | `packages/sdui/src/schema.ts`, `engine/renderPage.ts` | Working |
-| SDUI components (DiscoveryCard, KPIForm, ValueTreeCard, NarrativeBlock) | `packages/sdui/src/components/SDUI/` | Working |
-| ConfidenceDisplay, IntegrityVetoPanel, WorkflowStatusBar | `packages/sdui/src/components/Agent/`, `Workflow/` | Working |
-| ValueLifecycleOrchestrator (saga + compensation) | `packages/backend/src/services/ValueLifecycleOrchestrator.ts` | Needs alignment |
-| WorkflowStateMachine | `packages/backend/src/services/WorkflowStateMachine.ts` | Needs replacement |
-| WorkflowExecutionStore (Redis) | `packages/backend/src/services/WorkflowExecutionStore.ts` | Working |
-| IntegrityValidationService | `packages/backend/src/services/IntegrityValidationService.ts` | Working, extend |
-| LLMGateway (multi-provider, cost tracking, circuit breaker) | `packages/backend/src/lib/agent-fabric/LLMGateway.ts` | Working |
-| BaseAgent (abstract, secureInvoke with Zod validation) | `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | Working |
-| Domain agents (Opportunity, Target, Expansion, Integrity, Realization) | `packages/backend/src/lib/agent-fabric/agents/` | Working (backend fabric) |
-| Database schema (organizations, cases, workflows, workflow_states, agents, agent_runs, kpis) | `infra/supabase/supabase/migrations/` | Working |
-| RLS policies (tenant-scoped via JWT) | `infra/supabase/supabase/migrations/20231202000000_rls.sql` | Working |
-| Domain events (typed, with EventMeta, correlationId) | `packages/shared/src/types/events.ts` | Working |
-| SSE streaming for agent responses | `packages/backend/src/api/agents.ts` | Working |
-| Audit trail service | `packages/backend/src/services/security/AuditTrailService.ts` | Working |
-| CircuitBreaker | `packages/backend/src/lib/agent-fabric/CircuitBreaker.ts` | Working |
+| `SessionContextLedger` | `packages/memory/context-ledger/` | Tier 1 — Redis, 24h TTL, scratchpad |
+| `SemanticMemory` | `packages/memory/semantic/` | Tier 3 — facts, contradiction detection, `evidenceTier` 1/2/3 |
+| `VectorMemory` | `packages/memory/vector/` | Tier 3 — hybrid search (70/30 vector/BM25), provenance attachment |
+| `EpisodicMemory` | `packages/memory/episodic/` | Tier 3 — immutable interaction history, importance-weighted retrieval |
+| `ProvenanceTracker` | `packages/memory/provenance/` | Tier 4 partial — append-only lineage, CFO Defence |
+| `MemoryLifecycle` | `packages/memory/lifecycle/` | Cross-cutting — TTL, consolidation, promotion |
 
-## Requirements
+### Evidence tier naming (canonical)
 
-### R1: Value Case Saga State Machine
+The codebase uses `silver | gold | platinum` string enum (domain layer) and numeric `1 | 2 | 3` (provenance layer). Both are correct and map as follows:
 
-Replace the generic `WorkflowStateMachine` with a domain-specific state machine matching the design brief.
-
-**File:** `packages/agents/core/ValueCaseSaga.ts` (new)
-
-States and transitions:
-
-```
-INITIATED  →  DRAFTING  →  VALIDATING  →  COMPOSING  →  REFINING  →  FINALIZED
-                  ↑              |              |            |
-                  └──────────────┘              |            |
-                  (integrity veto)              |            |
-                  ↑                             |            |
-                  └─────────────────────────────┘            |
-                  (red-team objection)                       |
-                  ↑                                          |
-                  └──────────────────────────────────────────┘
-                  (user feedback)
-```
-
-| Phase | State | Trigger | Output |
+| String | Numeric | Source | Agent write permission |
 |---|---|---|---|
-| Discovery | `INITIATED` | Opportunity ID ingested | Context map, pain points |
-| Modeling | `DRAFTING` | Hypothesis confirmed | Value Tree (JSON) |
-| Integrity | `VALIDATING` | Model complete | Confidence scores, citations |
-| Narrative | `COMPOSING` | Integrity check pass | Executive summary, SDUI page |
-| Iteration | `REFINING` | User/Red-Team feedback | Delta-updates to model |
-| Realization | `FINALIZED` | VE approval | Locked business case |
+| `silver` | `3` | Agent inference, unverified | Writable by agents |
+| `gold` | `2` | CRM/Salesforce opportunity data | Writable by agents with `source_url` |
+| `platinum` | `1` | Finalized ERP/Audit data | **Read-only for agents** — requires human or MCP write |
 
-Each transition must:
-- Validate the transition is legal
-- Persist state to `workflow_states` table via Supabase
-- Emit a typed domain event (`saga.state.transitioned`)
-- Record the transition in the audit trail with `correlation_id`
+---
 
-Compensation handlers:
-- `DRAFTING` → revert value tree to previous version
-- `VALIDATING` → clear confidence scores, re-queue for modeling
-- `COMPOSING` → delete generated narrative, revert to VALIDATING
-- `REFINING` → restore pre-refinement snapshot
+## 3. Requirements
 
-**File:** `packages/agents/core/index.ts` — export `ValueCaseSaga`, state types, transition types
+### 3.1 Tier 2 — Entity Graph (KPI Dependency Map)
 
-### R2: Hypothesis-First Core Loop Orchestrator
+**Goal:** Track how a change to one financial assumption propagates to downstream KPIs and the global NPV/IRR.
 
-Wire the 7-step core loop as a saga-driven orchestration.
+**Approach:** Extend existing domain tables rather than creating a standalone graph database.
 
-**File:** `packages/agents/orchestration/HypothesisLoop.ts` (new)
+#### New DB table: `kpi_dependencies`
 
-The orchestrator accepts a `valueCaseId` and `tenantId`, then drives the loop:
+```sql
+kpi_dependencies (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,          -- tenant isolation
+  value_case_id   uuid NOT NULL,
+  source_node_id  uuid NOT NULL,          -- references value_tree_nodes.id
+  target_node_id  uuid NOT NULL,          -- references value_tree_nodes.id
+  dependency_type text NOT NULL,          -- 'churn_to_npv' | 'arpu_to_irr' | 'headcount_to_cost' | 'custom'
+  weight          numeric(5,4) NOT NULL,  -- sensitivity coefficient (0–1)
+  formula         text,                   -- optional formula string for audit
+  evidence_tier   smallint NOT NULL,      -- 1 (platinum) | 2 (gold) | 3 (silver)
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+)
+```
 
-1. **Hypothesis** — Call `OpportunityAgent` to propose value drivers from discovery signals. Output: array of `ValueHypothesis` objects.
-2. **Model** — For each confirmed hypothesis, call `FinancialModelingAgent` to build a Value Tree. Output: `ValueTree` JSON persisted to DB.
-3. **Evidence** — Call `GroundTruthAgent` to fetch grounding data. Classify evidence into tiers (R4). Output: `EvidenceBundle` with citations.
-4. **Narrative** — Call `NarrativeAgent` to translate the math into a business story. Output: SDUI `NarrativeBlock` payload.
-5. **Objection** — Call `RedTeamAgent` (R3) to stress-test. Output: array of `Objection` objects with severity.
-6. **Revision** — If objections exist, auto-correct by re-entering at step 2 (DRAFTING) with objection context. Max 3 revision cycles.
-7. **Approval** — Present to VE via SDUI. On approval, transition to FINALIZED.
+RLS: standard four-policy pattern using `security.user_has_tenant_access(organization_id)`.
 
-Each step:
-- Carries an `idempotency_key` (UUID) to prevent duplicate execution (R5)
-- Streams progress to the frontend via SSE
-- Records token usage, cost, and duration per agent invocation
-- On failure, triggers saga compensation (R1) and routes to DLQ (R6)
+#### New TypeScript class: `EntityGraph`
 
-**File:** `packages/agents/orchestration/index.ts` — export `HypothesisLoop`, loop types
+Location: `packages/memory/entity-graph/index.ts`
 
-### R3: Red Team Agent
-
-Implement the "Objection" step — a Red Team agent that stress-tests value claims.
-
-**File:** `packages/agents/orchestration/agents/RedTeamAgent.ts` (new)
-
-Behavior:
-- Receives a `ValueTree` + `NarrativeBlock` + `EvidenceBundle`
-- Simulates CFO pushback: challenges assumptions, questions data sources, probes for math hallucinations
-- Produces an array of `Objection` objects:
-  ```typescript
-  interface Objection {
-    id: string;
-    targetComponent: string;  // which value tree node or narrative claim
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    category: 'assumption' | 'data_quality' | 'math_error' | 'missing_evidence' | 'logical_gap';
-    description: string;
-    suggestedRevision?: string;
-  }
-  ```
-- Uses the LLMGateway (not mock data) with a system prompt tuned for adversarial analysis
-- Critical objections (`severity: 'critical'`) trigger automatic revision; others are flagged for VE review
-
-### R4: Evidence Tiering and Confidence Scoring
-
-Implement the Integrity Engine's evidence classification and confidence scoring.
-
-**File:** `packages/agents/core/EvidenceTiering.ts` (new)
-
-Evidence tiers:
-- **Tier 1 (Public/Primary)**: EDGAR filings, 10-K/Q, customer-provided data. Weight: 1.0
-- **Tier 2 (Market/Secondary)**: Gartner/Forrester, industry benchmarks. Weight: 0.7
-- **Tier 3 (Benchmarks)**: Internal historical data, anonymized aggregates. Weight: 0.4
-
-**File:** `packages/agents/core/ConfidenceScorer.ts` (new)
-
-Confidence score (0.0-1.0) computed from:
-- **Data Freshness**: `1.0 - (age_days / max_age_days)`, clamped to [0, 1]. Max age: 365 days for Tier 1, 730 for Tier 2, 1095 for Tier 3.
-- **Source Reliability**: Tier weight (above)
-- **Logic Transparency**: 1.0 if formula decomposes to primitive inputs, 0.5 if partially opaque, 0.0 if black-box
-
-Final score: weighted average `(freshness * 0.3) + (reliability * 0.4) + (transparency * 0.3)`
-
-Every claim in the Value Tree and NarrativeBlock must carry a `ConfidenceScore` and at least one `Citation` linking to the evidence source.
-
-### R5: Idempotency Enforcement
-
-Ensure all agent requests include and validate an idempotency key.
-
-**File:** `packages/agents/core/IdempotencyGuard.ts` (new)
-
-Behavior:
-- Every agent request must include an `idempotency_key` (UUIDv4) in the request payload
-- Before execution, check Redis for `idempotency:{key}` — if exists, return the cached result
-- After successful execution, store the result in Redis with TTL of 24 hours
-- The `HypothesisLoop` orchestrator generates idempotency keys per step
-
-**Integration:** Add idempotency check to `BaseAgent.secureInvoke()` in `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts`
-
-### R6: Dead-Letter Queue for Failed Agent Tasks
-
-Route failed agent tasks to a DLQ for manual inspection.
-
-**File:** `packages/agents/core/DeadLetterQueue.ts` (new)
-
-Behavior:
-- When an agent task fails after circuit breaker exhaustion (all retries failed), push the failed task to a Redis list `dlq:agent_tasks`
-- Each DLQ entry contains: `{ taskId, agentType, input, error, timestamp, correlationId, tenantId, retryCount }`
-- Expose a `/api/admin/dlq` endpoint (admin-only) to list, inspect, and retry DLQ entries
-- Emit a `system.dlq.enqueued` domain event for alerting
-
-### R7: Wire Domain Agents to LLMGateway
-
-Replace mock implementations in `packages/agents/` domain agents with real LLM calls.
-
-**Files to modify:**
-- `packages/agents/financial-modeling/src/index.ts` — replace `FinancialModelingAnalyzer` mock with LLMGateway call using a financial modeling system prompt. Parse response with Zod schema.
-- `packages/agents/narrative/src/index.ts` — replace `NarrativeAnalyzer` mock with LLMGateway call using a narrative construction system prompt.
-- `packages/agents/integrity/src/index.ts` — replace `IntegrityAnalyzer` mock with LLMGateway call using an integrity analysis system prompt.
-- `packages/agents/groundtruth/src/index.ts` — replace mock with LLMGateway call for evidence retrieval and classification.
-
-Each agent must:
-- Accept an `LLMGateway` instance via constructor injection (not hardcoded)
-- Use `BaseAgent.secureInvoke()` for Zod-validated, circuit-breaker-protected LLM calls
-- Include `idempotency_key` in every request
-- Record token usage and cost via the existing `agent_runs` table
-- Return structured output matching the existing response schemas
-
-### R8: Memory Module — Provenance Tracking
-
-Implement the provenance module to track data lineage for the "CFO Defence" requirement.
-
-**File:** `packages/memory/provenance/index.ts` (replace empty stub)
+Interface:
 
 ```typescript
-interface ProvenanceRecord {
-  id: string;
-  valueCaseId: string;
-  claimId: string;           // which value tree node or narrative claim
-  dataSource: string;        // raw data source reference
+export interface DependencyNode {
+  nodeId: string;
+  nodeType: 'kpi' | 'assumption' | 'npv' | 'irr' | 'churn' | 'arpu' | 'custom';
+  label: string;
+  currentValue: number;
+  unit: string;
   evidenceTier: 1 | 2 | 3;
-  formula?: string;          // the calculation formula used
-  agentId: string;           // which agent produced this
-  agentVersion: string;
-  confidenceScore: number;
-  createdAt: string;
-  parentRecordId?: string;   // for tracking derivation chains
+}
+
+export interface KpiDependency {
+  id: string;
+  organizationId: string;
+  valueCaseId: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  dependencyType: string;
+  weight: number;
+  formula?: string;
+  evidenceTier: 1 | 2 | 3;
+}
+
+export interface PropagationResult {
+  affectedNodes: Array<{ nodeId: string; label: string; delta: number; newValue: number }>;
+  npvDelta: number;
+  irrDelta: number;
+  propagationPath: string[];
+}
+
+export class EntityGraph {
+  addDependency(input: Omit<KpiDependency, 'id'>): Promise<KpiDependency>;
+  getDependencies(organizationId: string, valueCaseId: string): Promise<KpiDependency[]>;
+  propagateChange(
+    organizationId: string,
+    valueCaseId: string,
+    sourceNodeId: string,
+    delta: number,
+  ): Promise<PropagationResult>;
 }
 ```
 
-Behavior:
-- Every calculated figure in the Value Tree must have a `ProvenanceRecord`
-- Clicking a number in the UI triggers a provenance lookup that returns the full lineage chain
-- Provenance records are immutable (append-only)
-- Stored in the `agent_memory` table with `memory_type: 'provenance'`
+`propagateChange` walks the dependency graph from the changed node, applies `weight * delta` at each hop, and returns the full propagation path. This is the mechanism that answers "a 1% churn increase in Region X impacts global NPV by $Y."
 
-### R9: Align ValueLifecycleOrchestrator to Design Brief
+**Platinum-tier protection:** `addDependency` must reject writes where the source node has `evidenceTier = 1` (platinum) and the caller is an agent (not a human or MCP write). Agents may read platinum nodes but not overwrite them.
 
-Update the existing `ValueLifecycleOrchestrator` to use the new `ValueCaseSaga` (R1) and `HypothesisLoop` (R2).
+---
 
-**File:** `packages/backend/src/services/ValueLifecycleOrchestrator.ts` (modify)
+### 3.2 Veto Controller — Financial Guardrail
 
-Changes:
-1. Replace the generic `LifecycleStage` type with the saga states from R1
-2. Replace `runLifecycle()` with a method that delegates to `HypothesisLoop`
-3. Keep the existing compensation infrastructure but align compensation handlers to R1's definitions
-4. Add `idempotency_key` to `LifecycleContext`
-5. Add DLQ routing on terminal failures (R6)
-6. Preserve the existing audit trail integration
+**Goal:** Block agents from committing financially invalid scenarios. Force evidence escalation when thresholds are breached.
 
-### R10: Domain Events for Saga Transitions
+#### Location
 
-Extend the domain events system to cover saga state transitions.
+`packages/memory/veto/index.ts`
 
-**File:** `packages/shared/src/types/events.ts` (modify)
+#### Veto triggers
 
-Add new event types:
+Three triggers, configurable per lifecycle stage:
+
+| Trigger | Default threshold | Configurable per stage |
+|---|---|---|
+| Churn rate | `< 0%` | Yes |
+| IRR | `> 500%` (non-seed) | Yes — seed-stage orgs may override |
+| NPV session deviation | `> 20%` from previous session without justification narrative | Yes |
+
+#### Stage-configurable thresholds
+
 ```typescript
-type SagaEvent =
-  | { type: 'saga.state.transitioned'; payload: { valueCaseId: string; fromState: string; toState: string; trigger: string; agentId?: string; } }
-  | { type: 'saga.compensation.executed'; payload: { valueCaseId: string; compensationName: string; success: boolean; error?: string; } }
-  | { type: 'saga.hypothesis.proposed'; payload: { valueCaseId: string; hypotheses: Array<{ id: string; description: string; confidence: number }>; } }
-  | { type: 'saga.integrity.vetoed'; payload: { valueCaseId: string; componentId: string; reason: string; confidenceScore: number; } }
-  | { type: 'saga.redteam.objection'; payload: { valueCaseId: string; objections: Array<{ id: string; severity: string; description: string }>; } }
-  | { type: 'saga.case.finalized'; payload: { valueCaseId: string; approvedBy: string; finalConfidence: number; } };
+export interface VetoThresholds {
+  minChurnRate: number;               // default: 0
+  maxIrrPercent: number;              // default: 500
+  maxNpvDeviationPercent: number;     // default: 20
+  allowSeedStageIrrOverride: boolean; // default: false
+}
+
+export type VetoStageConfig = Partial<Record<LifecycleStage, VetoThresholds>>;
 ```
 
-Add `SagaEvent` to the `DomainEvent` union. Add `'saga.commands'` and `'saga.events'` to `EVENT_TOPICS`.
+Thresholds are stored in a new `veto_stage_config` table (per `organization_id` + `lifecycle_stage`). A `DEFAULT_VETO_THRESHOLDS` constant provides the fallback when no row exists.
 
-## Files Changed (Summary)
+#### Veto outcome
 
-### Created
-| File | Purpose |
+```typescript
+export type VetoDecision = 'pass' | 'veto' | 'warn';
+
+export interface VetoResult {
+  decision: VetoDecision;
+  triggeredRules: VetoRule[];
+  requiredEvidenceTier: 1 | 2 | 3 | null; // null when decision is 'pass'
+  justificationRequired: boolean;
+  message: string;
+}
+
+export interface VetoRule {
+  ruleId: string;
+  trigger: 'churn_negative' | 'irr_exceeded' | 'npv_deviation';
+  observedValue: number;
+  thresholdValue: number;
+  severity: 'warn' | 'block';
+}
+```
+
+When `decision === 'veto'`, the agent **must not** commit the financial scenario. It must surface `requiredEvidenceTier` to the user and request supporting evidence before retrying.
+
+#### Integration point
+
+`VetoController.check(params)` is called inside `FinancialModelingAgent.execute()` after the LLM produces cash flow projections, before `FinancialModelSnapshotRepository.save()`. If vetoed, the agent returns an `AgentOutput` with `status: 'veto'` and the `VetoResult` in `metadata`.
+
+---
+
+### 3.3 AuditLogger — Financial Override Audit Trail
+
+**Goal:** Every financial assumption change must be bound to an `auth0_id` and written to an immutable append-only log.
+
+#### New DB table: `financial_audit_log`
+
+```sql
+financial_audit_log (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  value_case_id   uuid NOT NULL,
+  auth0_id        text NOT NULL,          -- Auth0 sub claim
+  session_id      uuid NOT NULL,
+  agent_id        text NOT NULL,
+  action          text NOT NULL,          -- 'assumption_change' | 'veto_override' | 'evidence_upgrade' | 'npv_commit'
+  field_path      text NOT NULL,          -- e.g. 'cash_flows[0].discount_rate'
+  previous_value  jsonb,
+  new_value       jsonb NOT NULL,
+  evidence_tier   smallint NOT NULL,
+  veto_result     jsonb,                  -- populated when action = 'veto_override'
+  created_at      timestamptz NOT NULL DEFAULT now()
+)
+```
+
+This table is **append-only**. No `UPDATE` or `DELETE` RLS policies. `INSERT` requires `auth0_id` to be non-null.
+
+#### TypeScript class: `AuditLogger` (replace stub)
+
+Location: `packages/backend/src/lib/agent-fabric/AuditLogger.ts`
+
+```typescript
+export interface FinancialAuditEntry {
+  organizationId: string;
+  valueCaseId: string;
+  auth0Id: string;
+  sessionId: string;
+  agentId: string;
+  action: 'assumption_change' | 'veto_override' | 'evidence_upgrade' | 'npv_commit';
+  fieldPath: string;
+  previousValue?: unknown;
+  newValue: unknown;
+  evidenceTier: 1 | 2 | 3;
+  vetoResult?: VetoResult;
+}
+
+export class AuditLogger {
+  async logFinancialChange(entry: FinancialAuditEntry): Promise<void>;
+  async getAuditTrail(organizationId: string, valueCaseId: string): Promise<FinancialAuditEntry[]>;
+}
+```
+
+`logFinancialChange` validates with Zod, then inserts into `financial_audit_log`. It never throws on insert failure — it logs the error and continues, so a DB hiccup does not block the agent pipeline. However, it emits a `financial_audit_write_failure_total` Prometheus counter so the condition is observable.
+
+---
+
+### 3.4 MCP Write Interface — Stub
+
+**Goal:** Define the contract for external tools (Salesforce, Gong) to write entity data into Tier 2. Implementation is deferred; the interface must be stable.
+
+#### Location
+
+`packages/mcp/src/tools/memory-write/index.ts`
+
+#### Interface contract
+
+```typescript
+export interface McpMemoryWriteInput {
+  organizationId: string;
+  auth0Id: string;           // the human who authorized the write
+  source: 'salesforce' | 'gong' | 'erp' | 'manual';
+  entityType: 'account' | 'opportunity' | 'kpi' | 'assumption';
+  entityId: string;
+  payload: Record<string, unknown>;
+  evidenceTier: 1 | 2 | 3;  // caller declares tier; system validates
+}
+
+export interface McpMemoryWriteResult {
+  success: boolean;
+  nodeId?: string;
+  auditLogId?: string;
+  error?: string;
+}
+
+// Stub implementation — throws NotImplementedError
+export class McpMemoryWriteTool implements Tool<McpMemoryWriteInput, McpMemoryWriteResult> {
+  readonly name = 'memory_write';
+  readonly description = 'Write entity data from external CRM/ERP tools into the Entity Graph (Tier 2)';
+  async execute(_input: McpMemoryWriteInput): Promise<McpMemoryWriteResult> {
+    throw new Error('McpMemoryWriteTool: not yet implemented (Mnemonic-GTM Phase 4)');
+  }
+}
+```
+
+Register `McpMemoryWriteTool` statically in `ToolRegistry.ts` so it appears in tool discovery. The stub surfaces a clear error rather than silently failing.
+
+---
+
+## 4. Acceptance Criteria
+
+### Tier 2 — Entity Graph
+
+- [ ] `kpi_dependencies` table exists with RLS enabled and all four standard policies
+- [ ] `EntityGraph.addDependency()` rejects agent writes to platinum-tier source nodes
+- [ ] `EntityGraph.propagateChange()` returns correct `npvDelta` for a single-hop dependency (unit test)
+- [ ] `EntityGraph.propagateChange()` returns correct `npvDelta` for a two-hop dependency chain (unit test)
+- [ ] All queries include `organization_id` filter (tenant isolation)
+
+### Veto Controller
+
+- [ ] `VetoController.check()` returns `decision: 'veto'` when churn < 0%
+- [ ] `VetoController.check()` returns `decision: 'veto'` when IRR > 500% and `allowSeedStageIrrOverride: false`
+- [ ] `VetoController.check()` returns `decision: 'pass'` when IRR > 500% and `allowSeedStageIrrOverride: true`
+- [ ] `VetoController.check()` returns `decision: 'veto'` when NPV deviates > 20% from previous session without justification
+- [ ] `VetoController.check()` returns `decision: 'warn'` when NPV deviates > 20% and a justification narrative is present
+- [ ] `FinancialModelingAgent` calls `VetoController.check()` before committing a snapshot
+- [ ] A vetoed agent run returns `status: 'veto'` in `AgentOutput` (not an unhandled error)
+- [ ] Stage-specific thresholds override defaults when a `veto_stage_config` row exists
+
+### AuditLogger
+
+- [ ] `AuditLogger.logFinancialChange()` inserts a row into `financial_audit_log` with non-null `auth0_id`
+- [ ] Insert failure increments `financial_audit_write_failure_total` counter and does not throw
+- [ ] `financial_audit_log` has no `UPDATE` or `DELETE` RLS policies
+- [ ] `AuditLogger.getAuditTrail()` filters by `organization_id` (tenant isolation)
+- [ ] `FinancialModelingAgent` calls `AuditLogger.logFinancialChange()` on every NPV commit
+
+### MCP Write Stub
+
+- [ ] `McpMemoryWriteTool` is registered in `ToolRegistry.ts`
+- [ ] Calling `execute()` throws with a message referencing Mnemonic-GTM Phase 4
+- [ ] Tool appears in tool discovery output
+
+### Cross-cutting
+
+- [ ] `pnpm run test:rls` passes for `kpi_dependencies` and `financial_audit_log`
+- [ ] Hallucination rate on NPV/IRR calculations remains < 1% (measured via existing `valueLoopMetrics`)
+- [ ] Semantic retrieval from Tier 3 remains < 400ms (no regression from new Tier 2 queries)
+
+---
+
+## 5. Implementation Plan
+
+Steps are ordered by dependency. Each step is independently mergeable.
+
+1. **DB migration: `kpi_dependencies` table**  
+   New migration file. Enable RLS. Four standard policies. Rollback file.
+
+2. **DB migration: `financial_audit_log` table**  
+   Append-only. INSERT-only RLS. No UPDATE/DELETE policies. Rollback file.
+
+3. **DB migration: `veto_stage_config` table**  
+   Stores per-org, per-stage threshold overrides. RLS. Seed default row.
+
+4. **`EntityGraph` class + `KpiDependencyRepository`**  
+   `packages/memory/entity-graph/index.ts`. Platinum-tier write guard. `propagateChange` BFS traversal. Co-located unit tests.
+
+5. **`VetoController` class**  
+   `packages/memory/veto/index.ts`. Three trigger rules. Stage-config lookup. Zod-validated output. Co-located unit tests covering all pass/warn/veto branches.
+
+6. **`AuditLogger` implementation (replace stub)**  
+   `packages/backend/src/lib/agent-fabric/AuditLogger.ts`. Zod validation. Prometheus counter. Co-located unit tests with mocked Supabase.
+
+7. **Wire `VetoController` into `FinancialModelingAgent`**  
+   Call `check()` after LLM output, before snapshot save. Return `status: 'veto'` on block. Call `AuditLogger.logFinancialChange()` on NPV commit.
+
+8. **`McpMemoryWriteTool` stub + `ToolRegistry` registration**  
+   `packages/mcp/src/tools/memory-write/index.ts`. Static registration. NotImplementedError.
+
+9. **Export `EntityGraph` and `VetoController` from `packages/memory/index.ts`**  
+   Update public API barrel.
+
+10. **Update context layer**  
+    - `traceability.md`: add Tier 2 row for `kpi_dependencies`  
+    - `decisions.md`: add undocumented decision for VetoController thresholds  
+    - `debt.md`: mark MCP write as deferred (Phase 4)
+
+---
+
+## 6. Out of Scope
+
+- Replacing existing Tier 1, Tier 3, or Tier 4 implementations
+- Auth0 namespace isolation (per-user scratchpad partitioning within a tenant) — audit log only
+- MCP write implementation (stub interface only)
+- LLM provider changes (Together.ai remains the only provider per ADR undocumented decision)
+- Frontend UI for the Veto Controller (surfacing `status: 'veto'` in the existing `IntegrityStage` is a follow-on task)
+
+---
+
+## 7. Key File Pointers
+
+| File | Role |
 |---|---|
-| `packages/agents/core/ValueCaseSaga.ts` | Domain-specific saga state machine (6 states, transitions, compensation) |
-| `packages/agents/core/EvidenceTiering.ts` | Evidence tier classification (Tier 1/2/3) |
-| `packages/agents/core/ConfidenceScorer.ts` | Confidence scoring (freshness, reliability, transparency) |
-| `packages/agents/core/IdempotencyGuard.ts` | Redis-backed idempotency key validation |
-| `packages/agents/core/DeadLetterQueue.ts` | Redis-backed DLQ for failed agent tasks |
-| `packages/agents/orchestration/HypothesisLoop.ts` | 7-step core loop orchestrator |
-| `packages/agents/orchestration/agents/RedTeamAgent.ts` | Adversarial objection agent |
-
-### Modified
-| File | Change |
-|---|---|
-| `packages/agents/core/index.ts` | Export ValueCaseSaga, EvidenceTiering, ConfidenceScorer, IdempotencyGuard, DeadLetterQueue |
-| `packages/agents/orchestration/index.ts` | Export HypothesisLoop |
-| `packages/agents/financial-modeling/src/index.ts` | Replace mock with LLMGateway integration |
-| `packages/agents/narrative/src/index.ts` | Replace mock with LLMGateway integration |
-| `packages/agents/integrity/src/index.ts` | Replace mock with LLMGateway integration |
-| `packages/agents/groundtruth/src/index.ts` | Replace mock with LLMGateway integration |
-| `packages/memory/provenance/index.ts` | Implement provenance tracking |
-| `packages/backend/src/services/ValueLifecycleOrchestrator.ts` | Align to ValueCaseSaga and HypothesisLoop |
-| `packages/shared/src/types/events.ts` | Add SagaEvent types and topics |
-
-## Out of Scope
-
-- Frontend UI changes (SDUI components already exist and will render the new payloads)
-- Database schema migrations (existing tables support the new data model via JSONB columns)
-- EDGAR/10-K API integration (GroundTruthAgent will use LLM for evidence retrieval; real API adapters are a follow-up)
-- PPTX export (design brief mentions it; deferred to a separate spec)
-- CI/CD workflow changes
-- Kubernetes/infrastructure changes
-- Changes to the existing `packages/backend/src/lib/agent-fabric/agents/` (these are the backend-internal agents; R7 targets the `packages/agents/` standalone agents)
-
-## Acceptance Criteria
-
-### AC1: Saga State Machine
-- `ValueCaseSaga` implements all 6 states with valid transitions
-- Invalid transitions throw with a descriptive error
-- Each transition persists state and emits a domain event
-- Compensation handlers exist for DRAFTING, VALIDATING, COMPOSING, REFINING
-
-### AC2: Hypothesis Loop Executes End-to-End
-- `HypothesisLoop.run(valueCaseId, tenantId)` drives through all 7 steps
-- Each step calls the corresponding agent (not mock data)
-- Progress streams to SSE
-- On Red Team objection (critical), the loop re-enters at DRAFTING (max 3 cycles)
-- On VE approval, state transitions to FINALIZED
-
-### AC3: Red Team Agent Produces Structured Objections
-- `RedTeamAgent` receives ValueTree + Narrative + Evidence
-- Returns typed `Objection[]` with severity, category, and description
-- Uses LLMGateway (not mock)
-
-### AC4: Evidence Tiering and Confidence Scoring
-- Every evidence item is classified as Tier 1, 2, or 3
-- `ConfidenceScorer` computes a score from freshness, reliability, transparency
-- Every Value Tree node and NarrativeBlock claim carries a confidence score and citation
-
-### AC5: Idempotency
-- Duplicate agent requests with the same idempotency key return cached results
-- The HypothesisLoop generates unique keys per step per execution
-
-### AC6: Dead-Letter Queue
-- Failed agent tasks (after circuit breaker exhaustion) appear in the DLQ
-- DLQ entries contain taskId, agentType, input, error, correlationId, tenantId
-- A `system.dlq.enqueued` event is emitted
-
-### AC7: Domain Agents Use LLMGateway
-- `financial-modeling`, `narrative`, `integrity`, `groundtruth` agents call LLMGateway
-- Responses are Zod-validated
-- Token usage and cost are recorded in `agent_runs`
-
-### AC8: Provenance Tracking
-- Every calculated figure has a ProvenanceRecord
-- Provenance records include data source, formula, agent, confidence score
-- Records are queryable by valueCaseId and claimId
-
-### AC9: Domain Events
-- `saga.state.transitioned` events fire on every state change
-- `saga.integrity.vetoed` fires on component-scoped vetoes
-- `saga.redteam.objection` fires when Red Team produces objections
-- `saga.case.finalized` fires on VE approval
-
-### AC10: No Regressions
-- Existing SDUI components render without errors
-- Existing API endpoints (`/health`, `/metrics`, `/api/agents/*`) continue to work
-- Existing tests pass
-
-## Implementation Order
-
-1. **R1: ValueCaseSaga** — foundation for all orchestration
-2. **R4: EvidenceTiering + ConfidenceScorer** — needed by agents
-3. **R5: IdempotencyGuard** — needed before wiring agents
-4. **R6: DeadLetterQueue** — needed for failure handling
-5. **R10: Domain Events** — needed for saga event emission
-6. **R3: RedTeamAgent** — new agent, no dependencies on existing agent rewrites
-7. **R7: Wire domain agents to LLMGateway** — replace mocks
-8. **R2: HypothesisLoop** — orchestrates all agents (depends on R1, R3-R7)
-9. **R8: Provenance tracking** — depends on agents producing real data
-10. **R9: Align ValueLifecycleOrchestrator** — final integration
-
-## Completion Criteria
-
-The spec is fully satisfied when:
-1. All files listed in "Files Changed" are created or modified as specified
-2. All 10 acceptance criteria (AC1-AC10) are satisfied
-3. TypeScript compilation passes (`pnpm run typecheck` or `tsc --noEmit`) for modified packages
-4. The HypothesisLoop can be instantiated and its type signatures are correct (runtime execution depends on LLM API keys and database, which are environment-specific)
+| `packages/memory/context-ledger/index.ts` | Tier 1 — do not modify |
+| `packages/memory/semantic/index.ts` | Tier 3 — do not modify |
+| `packages/memory/vector/index.ts` | Tier 3 — do not modify |
+| `packages/memory/provenance/index.ts` | Tier 4 — do not modify |
+| `packages/memory/entity-graph/index.ts` | **New** — Tier 2 |
+| `packages/memory/veto/index.ts` | **New** — Veto Controller |
+| `packages/backend/src/lib/agent-fabric/AuditLogger.ts` | **Replace stub** |
+| `packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts` | Wire veto + audit |
+| `packages/mcp/src/tools/memory-write/index.ts` | **New stub** |
+| `packages/backend/src/services/ToolRegistry.ts` | Register MCP stub |
+| `infra/supabase/supabase/migrations/` | New migration files (steps 1–3) |
