@@ -9,6 +9,35 @@ export interface IntegrationState {
   reason?: string;
 }
 
+interface IntegrationSettings {
+  enabled?: boolean;
+  disabledAt?: string;
+  disabledBy?: string;
+  reason?: string;
+}
+
+type OrganizationSettings = Record<string, unknown> & {
+  integrations?: IntegrationSettings;
+};
+
+function isOrganizationSettings(settings: unknown): settings is OrganizationSettings {
+  if (settings === null || typeof settings !== 'object') {
+    return false;
+  }
+
+  // If there is an `integrations` property, it should be an object as well.
+  const maybeSettings = settings as { integrations?: unknown };
+  if (
+    'integrations' in maybeSettings &&
+    maybeSettings.integrations !== undefined &&
+    (maybeSettings.integrations === null || typeof maybeSettings.integrations !== 'object')
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Service to manage integration access state per tenant
  */
@@ -29,8 +58,8 @@ export class IntegrationControlService {
 
       if (error || !data) return true; // Default to enabled if we can't check
 
-      const settings = data.settings as Record<string, any>;
-      if (settings?.integrations?.enabled === false) {
+      const settings: unknown = data.settings;
+      if (isOrganizationSettings(settings) && settings.integrations?.enabled === false) {
         return false;
       }
 
@@ -58,8 +87,10 @@ export class IntegrationControlService {
       throw new Error(`Failed to fetch organization settings: ${fetchError.message}`);
     }
 
-    const currentSettings = (org.settings || {}) as Record<string, any>;
-    const newSettings = {
+    const currentSettings: OrganizationSettings = isOrganizationSettings(org?.settings)
+      ? org.settings
+      : {};
+    const newSettings: OrganizationSettings = {
       ...currentSettings,
       integrations: {
         ...(currentSettings.integrations || {}),
