@@ -7,7 +7,7 @@
  * agent construction logic.
  */
 
-import type { GroundTruthIntegrationService } from "../../services/GroundTruthIntegrationService.js";
+import type { GroundTruthIntegrationService } from "../../services/domain-packs/GroundTruthIntegrationService.js";
 import type { AgentConfig } from "../../types/agent.js";
 import type { LifecycleStage } from "@valueos/shared";
 import { logger } from "../logger.js";

@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase.js';
 import { logger } from '../../lib/logger.js';
 import { recordAgentInvocation, recordLoopCompletion } from '../../observability/valueLoopMetrics.js';
 import { getTracer } from '../../config/telemetry.js';
-import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
+import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
 import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
 import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';

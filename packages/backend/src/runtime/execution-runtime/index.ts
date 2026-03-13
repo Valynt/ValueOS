@@ -11,7 +11,7 @@
  * This index wires them together and exposes a single ExecutionRuntime class.
  */
 
-import { CircuitBreakerManager } from '../../services/CircuitBreaker.js';
+import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
 import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
 import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
