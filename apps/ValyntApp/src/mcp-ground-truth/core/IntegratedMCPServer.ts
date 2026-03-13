@@ -119,7 +119,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
   /**
    * Get all available tools (base + Phase 3)
    */
-  getTools(): any[] {
+  getTools(): unknown[] {
     const baseTools = super.getTools();
 
     const phase3Tools = [
@@ -480,11 +480,11 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
             },
             companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"] },
             annualRevenue: { type: "number" },
-            currentKPIs: { type: "object" },
-            selectedActions: { type: "array", items: { type: "string" } },
-            timeframe: { type: "string", enum: ["30d", "90d", "180d", "365d"] },
-            confidenceThreshold: { type: "number", minimum: 0, maximum: 1 },
-            scenarioName: { type: "string" },
+            currentKPIs: Record<string, unknown>;
+            selectedActions: string[];
+            timeframe: { type: string; enum: ["30d", "90d", "180d", "365d"] };
+            confidenceThreshold?: number;
+            scenarioName?: string;
           },
           required: [
             "persona",
@@ -537,9 +537,9 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
                   },
                   companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"] },
                   annualRevenue: { type: "number" },
-                  currentKPIs: { type: "object" },
-                  selectedActions: { type: "array", items: { type: "string" } },
-                  timeframe: { type: "string", enum: ["30d", "90d", "180d", "365d"] },
+                  currentKPIs: Record<string, unknown>;
+                  selectedActions: string[];
+                  timeframe: { type: string; enum: ["30d", "90d", "180d", "365d"] };
                 },
                 required: [
                   "name",
@@ -592,18 +592,15 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
               ],
             },
             companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"] },
-            currentKPIs: { type: "object" },
-            goals: { type: "array", items: { type: "string" } },
-            constraints: {
-              type: "object",
-              properties: {
-                maxInvestment: { type: "number" },
-                maxTime: { type: "number" },
-                minROI: { type: "number" },
-                riskTolerance: { type: "string", enum: ["low", "medium", "high"] },
-                preferredQuickWins: { type: "boolean" },
-              },
-            },
+            currentKPIs: Record<string, unknown>;
+            goals: string[];
+            constraints?: {
+              maxInvestment?: number;
+              maxTime?: number;
+              minROI?: number;
+              riskTolerance?: "low" | "medium" | "high";
+              preferredQuickWins?: boolean;
+            };
           },
           required: ["persona", "industry", "companySize", "currentKPIs", "goals"],
         },
@@ -683,7 +680,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
   /**
    * Execute an MCP tool (base + Phase 3)
    */
-  async executeTool(toolName: string, args: Record<string, any>): Promise<any> {
+  async executeTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
     // Log tool execution for audit trail
     if (this.auditManager) {
       this.auditManager.log({
@@ -719,7 +716,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
 
       // Fall back to base server for existing tools
       return await super.executeTool(toolName, args);
-    } catch (error) {
+    } catch (error: unknown) {
       // Log errors for audit trail
       if (this.auditManager) {
         this.auditManager.log({
@@ -743,14 +740,14 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
   /**
    * Execute Phase 3 specific tools
    */
-  private async executePhase3Tool(toolName: string, args: Record<string, any>): Promise<any> {
+  private async executePhase3Tool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
     switch (toolName) {
       // Structural Truth Tools
       case "get_kpi_formula":
         return await this.getKPIFormula(args as { kpiId: string; industry?: string });
 
       case "calculate_kpi_value":
-        return await this.calculateKPIValue(args as { kpiId: string; inputs: any[] });
+        return await this.calculateKPIValue(args as { kpiId: string; inputs: unknown[] });
 
       case "get_cascading_impacts":
         return await this.getCascadingImpacts(
@@ -773,7 +770,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
         return await this.simulateActionOutcome(
           args as {
             action: string;
-            baseline: any[];
+            baseline: Array<{ kpi: string; value: number }>;
             persona: string;
             industry: string;
             companySize: string;
@@ -781,7 +778,18 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
         );
 
       case "compare_scenarios":
-        return await this.compareScenarios(args as { scenarios: any[] });
+        return await this.compareScenarios(
+          args as {
+            scenarios: Array<{
+              name: string;
+              actions: string[];
+              baseline: Array<{ kpi: string; value: number }>;
+              persona: string;
+              industry: string;
+              companySize: string;
+            }>;
+          }
+        );
 
       case "get_cascading_effects":
         return await this.getCascadingEffects(
@@ -803,33 +811,62 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
             persona: string;
             industry: string;
             companySize: string;
-            constraints?: any;
+            constraints?: Record<string, unknown>;
           }
         );
 
       // Business Case Generation Tools
       case "generate_business_case":
-        return await this.generateBusinessCase(args as { scenarios: any[] });
+        return await this.generateBusinessCase(args as {
+          persona: string;
+          industry: string;
+          companySize: string;
+          annualRevenue: number;
+          currentKPIs: Record<string, unknown>;
+          selectedActions: string[];
+          timeframe: "30d" | "90d" | "180d" | "365d";
+          confidenceThreshold?: number;
+          scenarioName?: string;
+        });
 
       case "compare_business_scenarios":
-        return await this.compareBusinessScenarios(args as { scenarios: any[] });
+        return await this.compareBusinessScenarios(
+          args as {
+            scenarios: Array<{
+              name: string;
+              persona: string;
+              industry: string;
+              companySize: string;
+              annualRevenue: number;
+              currentKPIs: Record<string, unknown>;
+              selectedActions: string[];
+              timeframe: "30d" | "90d" | "180d" | "365d";
+            }>;
+          }
+        );
 
       // Reasoning Engine Tools
       case "generate_strategic_recommendations":
         return await this.generateStrategicRecommendations(
           args as {
-            action: string;
-            rootKpi: string;
-            maxDepth?: number;
             persona: string;
             industry: string;
             companySize: string;
+            currentKPIs: Record<string, unknown>;
+            goals: string[];
+            constraints?: {
+              maxInvestment?: number;
+              maxTime?: number;
+              minROI?: number;
+              riskTolerance?: "low" | "medium" | "high";
+              preferredQuickWins?: boolean;
+            };
           }
         );
 
       // Audit Trail Tools
       case "query_audit_trail":
-        return await this.queryAuditTrail(args as { startTime: string; endTime: string });
+        return await this.queryAuditTrail(args as Record<string, unknown>);
 
       case "generate_compliance_report":
         return await this.generateComplianceReport(args as { startTime: string; endTime: string });
@@ -872,7 +909,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async calculateKPIValue(args: { kpiId: string; inputs: any[] }) {
+  private async calculateKPIValue(args: { kpiId: string; inputs: unknown[] }) {
     const registry = this.structuralTruth.getFormulaRegistry();
     const formulas = registry.getFormulasForKPI(args.kpiId);
 
@@ -937,10 +974,10 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     companySize: string;
   }) {
     const impact = this.causalTruth.getImpactForAction(
-      args.action as any,
-      args.persona as any,
-      args.industry as any,
-      args.companySize as any
+      args.action as unknown,
+      args.persona as unknown,
+      args.industry as unknown,
+      args.companySize as unknown
     );
 
     return {
@@ -955,7 +992,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
 
   private async simulateActionOutcome(args: {
     action: string;
-    baseline: any[];
+    baseline: Array<{ kpi: string; value: number }>;
     persona: string;
     industry: string;
     companySize: string;
@@ -966,11 +1003,11 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     });
 
     const result = this.causalTruth.simulateScenario(
-      [args.action as any],
+      [args.action as unknown],
       baselineMap,
-      args.persona as any,
-      args.industry as any,
-      args.companySize as any
+      args.persona as unknown,
+      args.industry as unknown,
+      args.companySize as unknown
     );
 
     return {
@@ -983,21 +1020,30 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async compareScenarios(args: { scenarios: any[] }) {
+  private async compareScenarios(args: {
+    scenarios: Array<{
+      name: string;
+      actions: string[];
+      baseline: Array<{ kpi: string; value: number }>;
+      persona: string;
+      industry: string;
+      companySize: string;
+    }>;
+  }) {
     const results = [];
 
     for (const scenario of args.scenarios) {
       const baselineMap: Record<string, number> = {};
-      scenario.baseline.forEach((item: any) => {
+      scenario.baseline.forEach((item) => {
         baselineMap[item.kpi] = item.value;
       });
 
       const result = this.causalTruth.simulateScenario(
         scenario.actions,
         baselineMap,
-        scenario.persona as any,
-        scenario.industry as any,
-        scenario.companySize as any
+        scenario.persona as unknown,
+        scenario.industry as unknown,
+        scenario.companySize as unknown
       );
 
       results.push(result);
@@ -1022,12 +1068,12 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     companySize: string;
   }) {
     const effects = this.causalTruth.getCascadingEffects(
-      args.action as any,
+      args.action as unknown,
       args.rootKpi,
       args.maxDepth || 2,
-      args.persona as any,
-      args.industry as any,
-      args.companySize as any
+      args.persona as unknown,
+      args.industry as unknown,
+      args.companySize as unknown
     );
 
     return {
@@ -1046,14 +1092,14 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     persona: string;
     industry: string;
     companySize: string;
-    constraints?: any;
+    constraints?: Record<string, unknown>;
   }) {
     const recommendations = this.causalTruth.getRecommendationsForKPI(
       args.targetKpi,
       args.targetImprovement,
-      args.persona as any,
-      args.industry as any,
-      args.companySize as any,
+      args.persona as unknown,
+      args.industry as unknown,
+      args.companySize as unknown,
       args.constraints || {}
     );
 
@@ -1067,7 +1113,17 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async generateBusinessCase(args: any) {
+  private async generateBusinessCase(args: {
+    persona: string;
+    industry: string;
+    companySize: string;
+    annualRevenue: number;
+    currentKPIs: Record<string, unknown>;
+    selectedActions: string[];
+    timeframe: "30d" | "90d" | "180d" | "365d";
+    confidenceThreshold?: number;
+    scenarioName?: string;
+  }) {
     const result = await this.businessCaseGenerator.generateBusinessCase(args);
 
     return {
@@ -1080,7 +1136,18 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async compareBusinessScenarios(args: { scenarios: any[] }) {
+  private async compareBusinessScenarios(args: {
+    scenarios: Array<{
+      name: string;
+      persona: string;
+      industry: string;
+      companySize: string;
+      annualRevenue: number;
+      currentKPIs: Record<string, unknown>;
+      selectedActions: string[];
+      timeframe: "30d" | "90d" | "180d" | "365d";
+    }>;
+  }) {
     const results = [];
 
     for (const scenario of args.scenarios) {
@@ -1101,7 +1168,20 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async generateStrategicRecommendations(args: any) {
+  private async generateStrategicRecommendations(args: {
+    persona: string;
+    industry: string;
+    companySize: string;
+    currentKPIs: Record<string, unknown>;
+    goals: string[];
+    constraints?: {
+      maxInvestment?: number;
+      maxTime?: number;
+      minROI?: number;
+      riskTolerance?: "low" | "medium" | "high";
+      preferredQuickWins?: boolean;
+    };
+  }) {
     const result = await this.reasoningEngine.generateRecommendations(args);
 
     return {
@@ -1114,7 +1194,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async queryAuditTrail(args: any) {
+  private async queryAuditTrail(args: Record<string, unknown>) {
     const entries = this.auditManager.query(args);
 
     return {
@@ -1147,7 +1227,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async verifyAuditIntegrity(args: any) {
+  private async verifyAuditIntegrity(args: unknown) {
     const result = this.auditManager.verifyIntegrity();
 
     return {
@@ -1160,7 +1240,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
     };
   }
 
-  private async getComplianceDashboard(args: any) {
+  private async getComplianceDashboard(args: unknown) {
     const dashboard = this.complianceMonitor.getDashboardData();
 
     return {
@@ -1178,7 +1258,7 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
    */
   async healthCheck(): Promise<{
     status: "healthy" | "degraded" | "unhealthy";
-    details: any;
+    details: Record<string, unknown>;
   }> {
     const baseHealth = await super.healthCheck();
 

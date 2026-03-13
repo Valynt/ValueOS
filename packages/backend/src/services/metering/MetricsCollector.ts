@@ -30,10 +30,10 @@ class MetricsCollector {
       'user_seats',
     ];
 
-    const usage: Record<BillingMetric, number> = {} as any;
-    const quotas: Record<BillingMetric, number> = {} as any;
-    const percentages: Record<BillingMetric, number> = {} as any;
-    const overages: Record<BillingMetric, number> = {} as any;
+    const usage: Record<BillingMetric, number> = {} as Record<BillingMetric, number>;
+    const quotas: Record<BillingMetric, number> = {} as Record<BillingMetric, number>;
+    const percentages: Record<BillingMetric, number> = {} as Record<BillingMetric, number>;
+    const overages: Record<BillingMetric, number> = {} as Record<BillingMetric, number>;
 
     // Fetch metrics in parallel
     await Promise.all(
@@ -88,7 +88,7 @@ class MetricsCollector {
   async getUsageForExport(
     tenantId: string,
     range: { startDate: Date; endDate: Date }
-  ): Promise<Array<{ metric: string; usage: number; quota: number; period: string }>> {
+  ): Promise<Array<{ metric: BillingMetric; usage: number; quota: number; period: string }>> {
     const metrics: BillingMetric[] = ['llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats'];
     const period = `${range.startDate.toISOString().slice(0, 10)} - ${range.endDate.toISOString().slice(0, 10)}`;
 

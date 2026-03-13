@@ -25,7 +25,7 @@ export type ConnectionState =
 export interface WebSocketMessage {
   type: string;
   channel?: string;
-  data: any;
+  data: unknown;
   timestamp: string;
   messageId?: string;
 }
@@ -35,8 +35,8 @@ export interface WebSocketMessage {
  */
 export interface ChannelSubscription {
   channel: string;
-  callback: (data: any) => void;
-  filter?: (data: any) => boolean;
+  callback: (data: unknown) => void;
+  filter?: (data: unknown) => boolean;
 }
 
 /**
@@ -145,7 +145,7 @@ export class WebSocketManager {
           this.handleMessage(event.data);
         };
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = (error: Event) => {
           this.log("WebSocket error:", error);
           this.setState("error");
           const connectionError = new Error("WebSocket connection error");
@@ -157,7 +157,7 @@ export class WebSocketManager {
           reject(connectionError);
         };
 
-        this.ws.onclose = (event) => {
+        this.ws.onclose = (event: CloseEvent) => {
           this.log("WebSocket closed:", event.code, event.reason);
           this.stopHeartbeat();
           this.emitEvent({
@@ -171,7 +171,7 @@ export class WebSocketManager {
             this.setState("disconnected");
           }
         };
-      } catch (error) {
+      } catch (error: unknown) {
         this.log("Failed to create WebSocket:", error);
         this.setState("error");
         reject(error);
@@ -221,7 +221,7 @@ export class WebSocketManager {
     });
 
     this.reconnectTimer = setTimeout(() => {
-      this.connect().catch((error) => {
+      this.connect().catch((error: unknown) => {
         this.log("Reconnection failed:", error);
       });
     }, delay);
@@ -232,8 +232,8 @@ export class WebSocketManager {
    */
   public subscribe(
     channel: string,
-    callback: (data: any) => void,
-    filter?: (data: any) => boolean
+    callback: (data: unknown) => void,
+    filter?: (data: unknown) => boolean
   ): () => void {
     const subscription: ChannelSubscription = { channel, callback, filter };
 
@@ -331,7 +331,7 @@ export class WebSocketManager {
           }
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.log("Failed to parse message:", error);
     }
   }
@@ -485,7 +485,7 @@ export class WebSocketManager {
   /**
    * Log message
    */
-  private log(...args: any[]): void {
+  private log(...args: unknown[]): void {
     if (this.config.debug) {
       this.logger.debug("WebSocket manager debug", { args });
     }

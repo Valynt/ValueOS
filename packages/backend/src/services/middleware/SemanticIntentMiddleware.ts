@@ -150,7 +150,12 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
 
       // 4. Classify via LLM
       const organizationId = context.envelope.organizationId;
-      const intentGraph = await this.classifyIntent(context.query, embedding, historicalResults, organizationId);
+      const intentGraph = await this.classifyIntent(
+        context.query,
+        embedding,
+        historicalResults as Array<{ memory: Record<string, unknown>; similarity: number }>,
+        organizationId
+      );
 
       // 5. Check ambiguity
       if (
@@ -189,11 +194,11 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
         embedding,
         intentGraph.resolvedAgent ?? context.agentType,
         context,
-        response.type !== 'message' || !(response.payload as any)?.error
+        response.type !== 'message' || !((response.payload as Record<string, unknown>)?.error)
       );
 
       return response;
-    } catch (error) {
+    } catch (error: unknown) {
       // On failure, fall through to existing keyword routing
       logger.warn('SemanticIntentMiddleware: classification failed, falling through', {
         traceId: context.traceId,
@@ -210,12 +215,17 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
   private async classifyIntent(
     query: string,
     _embedding: number[],
-    historicalResults: Array<{ memory: any; similarity: number }>,
+    historicalResults: Array<{ memory: Record<string, unknown>; similarity: number }>,
     organizationId: string
   ): Promise<IntentGraph> {
     const historicalContext = historicalResults
       .slice(0, 3)
-      .map((r) => `- "${r.memory.content}" → agent: ${r.memory.metadata?.agentType}, similarity: ${r.similarity.toFixed(2)}`)
+      .map(
+        (r) =>
+          `- "${String(r.memory.content)}" → agent: ${String(
+            r.memory.metadata?.agentType ?? 'unknown'
+          )}, similarity: ${r.similarity.toFixed(2)}`
+      )
       .join('\n');
 
     const systemPrompt = `You are an intent classifier for a value engineering platform. Classify the user query into a structured intent graph.
@@ -256,10 +266,17 @@ Respond with valid JSON only, no markdown fences:
         },
       );
 
-      const parsed = JSON.parse(llmResponse.content);
+      const parsed: {
+        intent: string;
+        confidence: number;
+        category: IntentCategory;
+        parameters: IntentParameter[];
+        secondaryConfidence?: number;
+        resolvedAgent?: string | null;
+      } = JSON.parse(llmResponse.content);
 
       const missingParameters: IntentParameter[] = (parsed.parameters ?? []).filter(
-        (p: IntentParameter) => p.required && (p.value === null || p.value === undefined)
+        (p) => p.required && (p.value === null || p.value === undefined)
       );
 
       // Compute ambiguity: based on confidence gap and missing params
@@ -269,21 +286,20 @@ Respond with valid JSON only, no markdown fences:
       const ambiguityScore = Math.min(1, ambiguityFromGap + ambiguityFromParams);
 
       const resolvedAgent =
-        resolveAgentFromIntent(parsed.intent) ??
-        (parsed.resolvedAgent ? (parsed.resolvedAgent as AgentType) : null);
+        resolveAgentFromIntent(parsed.intent) ?? (parsed.resolvedAgent ? (parsed.resolvedAgent as AgentType) : null);
 
       const historicalMatches: HistoricalIntentMatch[] = historicalResults.map((r) => ({
-        intentId: r.memory.id,
+        intentId: String(r.memory.id),
         similarity: r.similarity,
-        previousAgent: r.memory.metadata?.agentType ?? 'unknown',
-        wasSuccessful: r.memory.metadata?.wasSuccessful ?? false,
+        previousAgent: String(r.memory.metadata?.agentType ?? 'unknown'),
+        wasSuccessful: Boolean(r.memory.metadata?.wasSuccessful ?? false),
       }));
 
       const root: IntentNode = {
         id: uuidv4(),
         intent: parsed.intent,
         confidence: parsed.confidence,
-        category: parsed.category as IntentCategory,
+        category: parsed.category,
         parameters: parsed.parameters ?? [],
         children: [],
       };
@@ -295,7 +311,7 @@ Respond with valid JSON only, no markdown fences:
         resolvedAgent,
         historicalMatches,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('SemanticIntentMiddleware: LLM classification failed', {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -340,7 +356,7 @@ Respond with valid JSON only, no markdown fences:
           tags: ['intent_classification'],
         },
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn('SemanticIntentMiddleware: failed to store intent classification', {
         traceId: context.traceId,
         error: error instanceof Error ? error.message : String(error),

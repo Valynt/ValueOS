@@ -12,6 +12,20 @@ import {
 import { logger } from '../../lib/logger.js'
 import { ManifestoCheckResult } from '../types/sdui-integration';
 
+interface Violation {
+  rule: string;
+  severity: string;
+  message: string;
+  context: Record<string, unknown>;
+}
+
+interface Warning {
+  rule: string;
+  severity: string;
+  message: string;
+  context?: Record<string, unknown>;
+}
+
 /**
  * Integrity Warning Generator
  */
@@ -27,12 +41,12 @@ export class IntegrityWarningGenerator {
 
     // Generate actions for violations
     if (result.violations.length > 0) {
-      actions.push(...this.generateViolationActions(result.violations, workspaceId));
+      actions.push(...this.generateViolationActions(result.violations as Violation[], workspaceId));
     }
 
     // Generate actions for warnings
     if (result.warnings.length > 0) {
-      actions.push(...this.generateWarningBanners(result.warnings, workspaceId));
+      actions.push(...this.generateWarningBanners(result.warnings as Warning[], workspaceId));
     }
 
     logger.info('Generated integrity warning actions', {
@@ -49,7 +63,7 @@ export class IntegrityWarningGenerator {
    * Generate actions for violations
    */
   private generateViolationActions(
-    violations: any[],
+    violations: Violation[],
     workspaceId: string
   ): AtomicUIAction[] {
     const actions: AtomicUIAction[] = [];
@@ -105,7 +119,7 @@ export class IntegrityWarningGenerator {
    * Generate warning banners
    */
   private generateWarningBanners(
-    warnings: any[],
+    warnings: Warning[],
     workspaceId: string
   ): AtomicUIAction[] {
     const actions: AtomicUIAction[] = [];
@@ -177,8 +191,8 @@ export class IntegrityWarningGenerator {
       {
         component: 'IntegrityReviewPanel',
         props: {
-          violations: result.violations,
-          warnings: result.warnings,
+          violations: result.violations as Violation[],
+          warnings: result.warnings as Warning[],
           workspaceId,
           actionId,
           showOverrideButton: result.violations.length > 0,
@@ -198,7 +212,7 @@ export class IntegrityWarningGenerator {
    */
   generateOverrideRequestUI(
     requestId: string,
-    violations: any[]
+    violations: Violation[]
   ): AtomicUIAction {
     return createAddAction(
       {

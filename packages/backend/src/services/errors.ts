@@ -19,14 +19,14 @@ export enum ErrorCode {
 export class ServiceError extends Error {
   public readonly code: ErrorCode;
   public readonly statusCode?: number;
-  public readonly details?: any;
+  public readonly details?: unknown;
   public readonly timestamp: Date;
 
   constructor(
     message: string,
     code: ErrorCode = ErrorCode.UNKNOWN,
     statusCode?: number,
-    details?: any
+    details?: unknown
   ) {
     super(message);
     this.name = 'ServiceError';
@@ -50,14 +50,14 @@ export class ServiceError extends Error {
 }
 
 export class NetworkError extends ServiceError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, ErrorCode.NETWORK_ERROR, undefined, details);
     this.name = 'NetworkError';
   }
 }
 
 export class ValidationError extends ServiceError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, ErrorCode.VALIDATION_ERROR, 400, details);
     this.name = 'ValidationError';
   }
@@ -85,7 +85,7 @@ export class NotFoundError extends ServiceError {
 }
 
 export class ConflictError extends ServiceError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, ErrorCode.CONFLICT, 409, details);
     this.name = 'ConflictError';
   }

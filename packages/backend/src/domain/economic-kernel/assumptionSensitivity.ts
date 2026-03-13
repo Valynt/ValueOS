@@ -65,7 +65,7 @@ export async function analyseAssumptionSensitivity(
   // at transform time in jsdom environments (same pattern as FinancialModelingAgent).
   const decimalPkg = "decimal.js";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { default: Decimal } = await import(/* @vite-ignore */ decimalPkg) as { default: any };
+  const { default: Decimal } = await import(/* @vite-ignore */ decimalPkg) as { default: unknown };
 
   // Build base-case value map
   const baseValues: Record<string, number> = {};
@@ -74,46 +74,44 @@ export async function analyseAssumptionSensitivity(
   }
 
   const baseOutput = evaluate(baseValues);
-  const baseOutputDecimal = new Decimal(baseOutput);
+  const baseOutputDecimal = new (Decimal as new (n: number) => { isZero: () => boolean })(
+    baseOutput
+  );
 
   const impacts: AssumptionImpact[] = assumptions.map((assumption) => {
     // Derive perturbation multipliers from sensitivity_range if present
-    let perturbations: unknown[];
+    let perturbations: (number | { toNumber: () => number })[];
     if (assumption.sensitivity_range) {
       const [low, high] = assumption.sensitivity_range;
       // Use 5 evenly-spaced points between low and high multipliers
       const step = (high - low) / 4;
-      perturbations = Array.from({ length: 5 }, (_, i) =>
-        new Decimal(low + i * step)
-      );
+      perturbations = Array.from({ length: 5 }, (_, i) => low + i * step);
     } else {
-      perturbations = DEFAULT_PERTURBATION_VALUES.map((v) => new Decimal(v));
+      perturbations = [...DEFAULT_PERTURBATION_VALUES];
     }
 
     const sensitivity = sensitivityAnalysis(
       assumption.name,
-      new Decimal(assumption.value),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      perturbations as any,
+      new (Decimal as new (n: number) => { toNumber: () => number })(assumption.value),
+      // Perturbations are numbers but sensitivityAnalysis expects decimals - cast accordingly
+      perturbations.map((v) =>
+        typeof v === "number"
+          ? new (Decimal as new (n: number) => { toNumber: () => number })(v)
+          : v
+      ),
       (paramValue: { toNumber: () => number }) => {
         const values = { ...baseValues, [assumption.id]: paramValue.toNumber() };
-        return new Decimal(evaluate(values));
+        return new (Decimal as new (n: number) => { toNumber: () => number })(evaluate(values));
       }
     );
 
     const outputValues = sensitivity.points.map((p) => p.outputValue);
-    const maxOutput = outputValues.reduce(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (m: any, v: any) => (v.gt(m) ? v : m),
-      outputValues[0]
-    );
-    const minOutput = outputValues.reduce(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (m: any, v: any) => (v.lt(m) ? v : m),
-      outputValues[0]
-    );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const swing = (maxOutput as any).minus(minOutput).abs().toNumber();
+    const maxOutput = outputValues.reduce((m, v) => (v.gt(m) ? v : m), outputValues[0]);
+    const minOutput = outputValues.reduce((m, v) => (v.lt(m) ? v : m), outputValues[0]);
+    const swing = (maxOutput as { minus(other: unknown): { abs(): { toNumber(): number } } })
+      .minus(minOutput)
+      .abs()
+      .toNumber();
 
     const relativeImpact = baseOutputDecimal.isZero()
       ? null

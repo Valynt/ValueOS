@@ -104,7 +104,7 @@ class ValueCaseService extends TenantAwareService {
       }
 
       return this.getTenantContext(userId);
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("Error in getTenantContextFromSession", err as Error);
       throw err;
     }
@@ -140,7 +140,7 @@ class ValueCaseService extends TenantAwareService {
         .order("updated_at", { ascending: false });
 
       if (!vcError && valueCases && valueCases.length > 0) {
-        return valueCases.map((vc: any) => this.mapValueCase(vc));
+        return valueCases.map((vc: Record<string, unknown>) => this.mapValueCase(vc));
       }
 
       // Fallback to legacy business_cases table, but still restrict to owner
@@ -155,8 +155,8 @@ class ValueCaseService extends TenantAwareService {
         return [];
       }
 
-      return (businessCases || []).map((bc: any) => this.mapBusinessCase(bc));
-    } catch (error) {
+      return (businessCases || []).map((bc: Record<string, unknown>) => this.mapBusinessCase(bc));
+    } catch (error: unknown) {
       logger.error(
         "Error fetching value cases",
         error instanceof Error ? error : undefined
@@ -203,11 +203,11 @@ class ValueCaseService extends TenantAwareService {
           .single();
 
         if (bcError || !bc) return null;
-        return this.mapBusinessCase(bc);
+        return this.mapBusinessCase(bc as Record<string, unknown>);
       }
 
-      return this.mapValueCase(data);
-    } catch (error) {
+      return this.mapValueCase(data as Record<string, unknown>);
+    } catch (error: unknown) {
       logger.error(
         "Error fetching value case",
         error instanceof Error ? error : undefined
@@ -257,8 +257,8 @@ class ValueCaseService extends TenantAwareService {
         return null;
       }
 
-      return this.mapBusinessCase(data);
-    } catch (error) {
+      return this.mapBusinessCase(data as Record<string, unknown>);
+    } catch (error: unknown) {
       logger.error(
         "Error creating value case",
         error instanceof Error ? error : undefined
@@ -312,8 +312,8 @@ class ValueCaseService extends TenantAwareService {
         return null;
       }
 
-      return this.mapBusinessCase(data);
-    } catch (error) {
+      return this.mapBusinessCase(data as Record<string, unknown>);
+    } catch (error: unknown) {
       logger.error(
         "Error updating value case",
         error instanceof Error ? error : undefined
@@ -341,7 +341,7 @@ class ValueCaseService extends TenantAwareService {
       }
 
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         "Error deleting value case",
         error instanceof Error ? error : undefined
@@ -391,7 +391,7 @@ class ValueCaseService extends TenantAwareService {
           }
         )
         .subscribe();
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         "Failed to initialize tenant-scoped realtime channel",
         error as Error
@@ -407,40 +407,42 @@ class ValueCaseService extends TenantAwareService {
   // Mappers
   // ============================================================================
 
-  private mapValueCase(data: any): ValueCase {
-    const metadata = data.metadata || {};
-    const stage = metadata.stage || "opportunity";
+  private mapValueCase(data: Record<string, unknown>): ValueCase {
+    const metadata = (data.metadata as Record<string, unknown>) || {};
+    const stage = (metadata.stage as string) || "opportunity";
     const status = data.status === "published" ? "completed" : "in-progress";
 
     return {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      company: data.company_profiles?.[0]?.company_name || "Unknown Company",
+      id: data.id as string,
+      name: data.name as string,
+      description: data.description as string | undefined,
+      company:
+        (data.company_profiles as Array<Record<string, unknown>>)?.[0]
+          ?.company_name as string || "Unknown Company",
       stage: this.normalizeStage(stage),
-      status,
-      quality_score: data.quality_score,
-      created_at: new Date(data.created_at),
-      updated_at: new Date(data.updated_at),
+      status: status as "in-progress" | "completed" | "paused",
+      quality_score: data.quality_score as number | undefined,
+      created_at: new Date(data.created_at as string),
+      updated_at: new Date(data.updated_at as string),
       metadata,
     };
   }
 
-  private mapBusinessCase(data: any): ValueCase {
-    const metadata = data.metadata || {};
-    const stage = metadata.stage || "opportunity";
+  private mapBusinessCase(data: Record<string, unknown>): ValueCase {
+    const metadata = (data.metadata as Record<string, unknown>) || {};
+    const stage = (metadata.stage as string) || "opportunity";
     const status = data.status === "presented" ? "completed" : "in-progress";
 
     return {
-      id: data.id,
-      name: data.name,
-      description: metadata.description,
-      company: data.client,
+      id: data.id as string,
+      name: data.name as string,
+      description: metadata.description as string | undefined,
+      company: data.client as string,
       stage: this.normalizeStage(stage),
-      status,
-      quality_score: metadata.quality_score,
-      created_at: new Date(data.created_at),
-      updated_at: new Date(data.updated_at),
+      status: status as "in-progress" | "completed" | "paused",
+      quality_score: metadata.quality_score as number | undefined,
+      created_at: new Date(data.created_at as string),
+      updated_at: new Date(data.updated_at as string),
       metadata,
     };
   }

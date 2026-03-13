@@ -32,7 +32,7 @@ export interface SemanticMemory {
     | "workflow_result";
   content: string;
   embedding: number[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
   similarity?: number;
 }
@@ -45,7 +45,7 @@ export interface SearchOptions {
   /** Maximum results */
   limit?: number;
   /** Metadata filters */
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   /** Enable caching */
   useCache?: boolean;
   /** Require lineage metadata */
@@ -118,10 +118,11 @@ export class VectorSearchService {
       }
 
       // Format results
-      const results: SearchResult[] = (data || []).map((row: any) => {
+      const results: SearchResult[] = (data || []).map((row: Record<string, unknown>) => {
+        const metadata = row.metadata as Record<string, unknown> | undefined;
         const lineage = {
-          source_origin: row.metadata?.source_origin,
-          data_sensitivity_level: row.metadata?.data_sensitivity_level,
+          source_origin: metadata?.source_origin as string | undefined,
+          data_sensitivity_level: metadata?.data_sensitivity_level as string | undefined,
         };
 
         const evidenceLog = lineage.source_origin
@@ -130,14 +131,14 @@ export class VectorSearchService {
 
         return {
           memory: {
-            id: row.id,
-            type: row.type,
-            content: row.content,
-            embedding: row.embedding,
-            metadata: row.metadata,
-            created_at: row.created_at,
+            id: row.id as string,
+            type: row.type as SemanticMemory["type"],
+            content: row.content as string,
+            embedding: row.embedding as number[],
+            metadata: metadata || {},
+            created_at: row.created_at as string,
           },
-          similarity: row.similarity,
+          similarity: row.similarity as number,
           lineage,
           evidenceLog,
         };
@@ -157,7 +158,7 @@ export class VectorSearchService {
       });
 
       return results;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Vector search error", { error, options });
       throw error;
     }
@@ -208,11 +209,11 @@ export class VectorSearchService {
       }
 
       // Search for similar memories
-      return this.searchByEmbedding(sourceMemory.embedding, {
-        type: sourceMemory.type,
+      return this.searchByEmbedding(sourceMemory.embedding as number[], {
+        type: sourceMemory.type as SemanticMemory["type"],
         ...options,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Find similar memories failed", { error, memoryId });
       throw error;
     }
@@ -307,7 +308,7 @@ export class VectorSearchService {
       }
 
       const similarities = results.map((r) => r.similarity);
-      const sorted = similarities.sort((a, b) => b - a);
+      const sorted = similarities.slice().sort((a, b) => b - a);
 
       // Calculate statistics
       const sum = similarities.reduce((a, b) => a + b, 0);
@@ -341,7 +342,7 @@ export class VectorSearchService {
         distribution,
         recommendedThreshold,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Similarity distribution analysis failed", { error });
       throw error;
     }
@@ -384,7 +385,7 @@ export class VectorSearchService {
 
   private buildFilterClause(
     type?: SemanticMemory["type"],
-    filters: Record<string, any> = {},
+    filters: Record<string, unknown> = {},
     requireLineage: boolean = true
   ): string {
     const conditions: string[] = [];
@@ -411,10 +412,10 @@ export class VectorSearchService {
     }
 
     // Organization / tenant filter — escape value
-    if ((filters as any).organization_id) {
-      const orgId = String((filters as any).organization_id);
+    if ("organization_id" in filters) {
+      const orgId = String(filters["organization_id"]);
       conditions.push(`organization_id = '${this.escapeSqlLiteral(orgId)}'`);
-      delete (filters as any).organization_id;
+      delete filters["organization_id"];
     }
 
     // Metadata filters — escape all interpolated values

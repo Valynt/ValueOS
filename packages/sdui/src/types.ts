@@ -74,7 +74,7 @@ export interface ComponentMetadata {
   /**
    * Props passed to component
    */
-  props: Record<string, any>;
+  props: Record<string, unknown>;
 
   /**
    * Timestamp when component started rendering
@@ -169,7 +169,7 @@ export interface RenderEvent {
   /**
    * Event payload
    */
-  payload?: any;
+  payload?: unknown;
 }
 
 /**
@@ -229,7 +229,7 @@ export interface DataSource {
   /**
    * Request body (for POST/PUT)
    */
-  body?: any;
+  body?: unknown;
 
   /**
    * Query parameters
@@ -239,7 +239,7 @@ export interface DataSource {
   /**
    * Transform function to process response data
    */
-  transform?: (data: any) => any;
+  transform?: (data: unknown) => unknown;
 
   /**
    * Cache configuration
@@ -258,7 +258,7 @@ export interface ExtendedRegistryEntry {
   /**
    * React component
    */
-  component: ComponentType<any>;
+  component: ComponentType<unknown>;
 
   /**
    * Supported versions
@@ -298,12 +298,12 @@ export interface ExtendedRegistryEntry {
   /**
    * Default props
    */
-  defaultProps?: Record<string, any>;
+  defaultProps?: Record<string, unknown>;
 
   /**
    * Prop validation schema
    */
-  propSchema?: any;
+  propSchema?: unknown;
 }
 
 /**
@@ -373,7 +373,7 @@ export interface PageRenderContext {
   /**
    * Render options
    */
-  options: any;
+  options: unknown;
 
   /**
    * Performance metrics
@@ -389,11 +389,11 @@ export interface PageRenderContext {
 /**
  * Utility type for component props with hydration support
  */
-export type HydratableProps<T = any> = T & {
+export type HydratableProps<T = unknown> = T & {
   /**
    * Hydrated data (injected by runtime)
    */
-  _hydrated?: Record<string, any>;
+  _hydrated?: Record<string, unknown>;
 
   /**
    * Hydration status (injected by runtime)
@@ -406,12 +406,12 @@ export type HydratableProps<T = any> = T & {
  */
 export function hasHydrationData<T>(
   props: T
-): props is T & { _hydrated: Record<string, any> } {
+): props is T & { _hydrated: Record<string, unknown> } {
   return (
     typeof props === 'object' &&
     props !== null &&
     '_hydrated' in props &&
-    typeof (props as any)._hydrated === 'object'
+    typeof (props as unknown as { _hydrated?: unknown })._hydrated === 'object' && (props as unknown as { _hydrated?: unknown })._hydrated !== null
   );
 }
 

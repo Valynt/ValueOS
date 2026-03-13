@@ -30,6 +30,16 @@ interface PerformanceTrend {
   invocation_count: number;
 }
 
+interface RawAgentMetricRecord {
+  agent_type: string;
+  total_tokens?: number;
+  latency_ms?: number;
+  cost?: string | number;
+  confidence_score?: number;
+  error?: unknown;
+  created_at: string;
+}
+
 export function AgentPerformanceDashboard() {
   const [metrics, setMetrics] = useState<AgentMetrics[]>([]);
   const [trends, setTrends] = useState<PerformanceTrend[]>([]);
@@ -49,7 +59,7 @@ export function AgentPerformanceDashboard() {
 
       // Fetch aggregate metrics
       const { data: metricsData, error: metricsError } = await supabase
-        .from('agent_metrics')
+        .from<RawAgentMetricRecord>('agent_metrics')
         .select('*')
         .gte('created_at', getTimeRangeStart())
         .order('created_at', { ascending: false });
@@ -62,7 +72,7 @@ export function AgentPerformanceDashboard() {
 
       // Fetch trends
       const { data: trendsData, error: trendsError } = await supabase
-        .from('agent_metrics')
+        .from<RawAgentMetricRecord>('agent_metrics')
         .select('agent_type, created_at, latency_ms')
         .gte('created_at', getTimeRangeStart())
         .order('created_at', { ascending: true });
@@ -73,7 +83,7 @@ export function AgentPerformanceDashboard() {
       setTrends(trendsByHour);
 
       setError(null);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching agent metrics:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -81,7 +91,7 @@ export function AgentPerformanceDashboard() {
     }
   };
 
-  const getTimeRangeStart = () => {
+  const getTimeRangeStart = (): string => {
     const now = new Date();
     switch (timeRange) {
       case '1h':
@@ -93,8 +103,18 @@ export function AgentPerformanceDashboard() {
     }
   };
 
-  const aggregateMetrics = (data: any[]): AgentMetrics[] => {
-    const grouped = data.reduce((acc, record) => {
+  interface AggregatedMetrics {
+    agent_type: string;
+    total_tokens: number;
+    total_latency: number;
+    total_cost: number;
+    count: number;
+    total_confidence: number;
+    errors: number;
+  }
+
+  const aggregateMetrics = (data: RawAgentMetricRecord[]): AgentMetrics[] => {
+    const grouped = data.reduce<Record<string, AggregatedMetrics>>((acc, record) => {
       const agent = record.agent_type;
       if (!acc[agent]) {
         acc[agent] = {
@@ -108,17 +128,17 @@ export function AgentPerformanceDashboard() {
         };
       }
 
-      acc[agent].total_tokens += record.total_tokens || 0;
-      acc[agent].total_latency += record.latency_ms || 0;
-      acc[agent].total_cost += parseFloat(record.cost || 0);
-      acc[agent].total_confidence += record.confidence_score || 0;
+      acc[agent].total_tokens += record.total_tokens ?? 0;
+      acc[agent].total_latency += record.latency_ms ?? 0;
+      acc[agent].total_cost += typeof record.cost === 'string' ? parseFloat(record.cost) : (record.cost ?? 0);
+      acc[agent].total_confidence += record.confidence_score ?? 0;
       acc[agent].count += 1;
       if (record.error) acc[agent].errors += 1;
 
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
-    return Object.values(grouped).map((g: any) => ({
+    return Object.values(grouped).map((g) => ({
       agent_type: g.agent_type,
       avg_tokens: Math.round(g.total_tokens / g.count),
       avg_latency_ms: Math.round(g.total_latency / g.count),
@@ -129,8 +149,15 @@ export function AgentPerformanceDashboard() {
     }));
   };
 
-  const aggregateTrends = (data: any[]): PerformanceTrend[] => {
-    const grouped = data.reduce((acc, record) => {
+  interface AggregatedTrend {
+    timestamp: string;
+    agent_type: string;
+    total_latency: number;
+    count: number;
+  }
+
+  const aggregateTrends = (data: RawAgentMetricRecord[]): PerformanceTrend[] => {
+    const grouped = data.reduce<Record<string, AggregatedTrend>>((acc, record) => {
       const hour = new Date(record.created_at).toISOString().slice(0, 13);
       const key = `${hour}-${record.agent_type}`;
 
@@ -143,13 +170,13 @@ export function AgentPerformanceDashboard() {
         };
       }
 
-      acc[key].total_latency += record.latency_ms || 0;
+      acc[key].total_latency += record.latency_ms ?? 0;
       acc[key].count += 1;
 
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
-    return Object.values(grouped).map((g: any) => ({
+    return Object.values(grouped).map((g) => ({
       timestamp: g.timestamp,
       agent_type: g.agent_type,
       avg_latency: Math.round(g.total_latency / g.count),

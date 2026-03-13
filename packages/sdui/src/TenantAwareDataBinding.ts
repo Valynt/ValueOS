@@ -138,7 +138,7 @@ export function createTenantDataSourceContext(
 /**
  * Filter data based on tenant permissions
  */
-export function filterTenantData<T = any>(
+export function filterTenantData<T = unknown>(
   data: T,
   context: TenantContext,
   filterRules?: TenantDataFilterRules
@@ -147,7 +147,7 @@ export function filterTenantData<T = any>(
 
   // Apply field-level filtering
   if (filterRules.fields && typeof data === 'object' && data !== null) {
-    const filtered: any = Array.isArray(data) ? [] : {};
+    const filtered: Record<string, unknown> | unknown[] = Array.isArray(data) ? [] : {};
 
     for (const [key, value] of Object.entries(data)) {
       const fieldRule = filterRules.fields[key];
@@ -159,9 +159,9 @@ export function filterTenantData<T = any>(
 
       // Apply field transformation
       if (fieldRule?.transform) {
-        filtered[key] = fieldRule.transform(value, context);
+        (filtered as Record<string, unknown>)[key] = fieldRule.transform(value, context);
       } else {
-        filtered[key] = value;
+        (filtered as Record<string, unknown>)[key] = value;
       }
     }
 
@@ -185,13 +185,13 @@ export interface TenantDataFilterRules {
    */
   fields?: Record<string, {
     permission?: string;
-    transform?: (value: any, context: TenantContext) => any;
+    transform?: (value: unknown, context: TenantContext) => unknown;
   }>;
 
   /**
    * Row-level filtering function
    */
-  rowFilter?: (row: any, context: TenantContext) => boolean;
+  rowFilter?: (row: unknown, context: TenantContext) => boolean;
 }
 
 /**
@@ -206,7 +206,7 @@ export interface DataAccessAuditLog {
   action: 'read' | 'write';
   success: boolean;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -293,7 +293,7 @@ export function createTenantBinding(
 ): TenantAwareDataBinding {
   return {
     $bind: path,
-    $source: source as any,
+    $source: source,
     $tenantId: tenantContext.tenantId,
     $organizationId: tenantContext.organizationId,
     $strictIsolation: true,

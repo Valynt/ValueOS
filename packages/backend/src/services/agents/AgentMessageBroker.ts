@@ -24,7 +24,7 @@ import { logger } from "../../lib/logger.js"
 export interface AgentMessageRequest {
   fromAgentId: string;
   toAgentId: string;
-  payload: any;
+  payload: unknown;
   priority?: MessagePriority;
   encrypted?: boolean;
   correlationId?: string;
@@ -34,7 +34,7 @@ export interface AgentMessageRequest {
 export interface AgentMessageResponse {
   success: boolean;
   message?: SecureMessage;
-  response?: any;
+  response?: unknown;
   error?: string;
   deliveryTime: number;
 }
@@ -169,7 +169,7 @@ export class AgentMessageBroker {
       response.deliveryTime = Date.now() - startTime;
 
       return response;
-    } catch (error) {
+    } catch (error: unknown) {
       const deliveryTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -191,10 +191,10 @@ export class AgentMessageBroker {
   /**
    * Send a message and get response (simplified interface)
    */
-  async sendToAgent<T = any>(
+  async sendToAgent<T = unknown>(
     fromAgentId: string,
     toAgentId: string,
-    payload: any,
+    payload: unknown,
     options: {
       priority?: MessagePriority;
       encrypted?: boolean;
@@ -287,7 +287,7 @@ export class AgentMessageBroker {
     try {
       // Process messages in parallel
       await Promise.all(batch.map((request) => this.processMessage(request)));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error processing message batch", error instanceof Error ? error : undefined, {
         batchSize: batch.length,
         error: error instanceof Error ? error.message : String(error),
@@ -353,8 +353,9 @@ export class AgentMessageBroker {
 
       // Forward message to the recipient agent's public message handler
       // Note: We need to use a public method or create a message interface
-      await (recipient.agentInstance as any).handleIncomingMessage?.(message, sender);
-    } catch (error) {
+      await (recipient.agentInstance as { handleIncomingMessage?(msg: SecureMessage, sender: AgentIdentity): Promise<void> })
+        .handleIncomingMessage?.(message, sender);
+    } catch (error: unknown) {
       logger.error("Error handling incoming message", error instanceof Error ? error : undefined, {
         errorMessage: error instanceof Error ? error.message : String(error),
       });

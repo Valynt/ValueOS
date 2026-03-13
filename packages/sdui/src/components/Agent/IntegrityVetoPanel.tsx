@@ -10,11 +10,11 @@ export interface IntegrityIssue {
   issueType: "low_confidence" | "hallucination" | "data_integrity" | "logic_error";
   severity: "low" | "medium" | "high" | "critical";
   description: string;
-  originalOutput: any;
-  suggestedFix?: any;
+  originalOutput: unknown;
+  suggestedFix?: unknown;
   confidence: number;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface IntegrityVetoPanelProps {
@@ -22,7 +22,7 @@ export interface IntegrityVetoPanelProps {
   onResolve: (
     issueId: string,
     resolution: "accept" | "reject" | "modify",
-    modifiedOutput?: any
+    modifiedOutput?: unknown
   ) => void;
   onDismiss: (issueId: string) => void;
   className?: string;
@@ -117,7 +117,7 @@ export const IntegrityVetoPanel: React.FC<IntegrityVetoPanelProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   onResolve(issue.id, "accept");
                 }}
@@ -126,7 +126,7 @@ export const IntegrityVetoPanel: React.FC<IntegrityVetoPanelProps> = ({
                 Accept
               </button>
               <button
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   onResolve(issue.id, "reject");
                 }}
@@ -135,7 +135,7 @@ export const IntegrityVetoPanel: React.FC<IntegrityVetoPanelProps> = ({
                 Reject
               </button>
               <button
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   setSelectedIssue(issue);
                   setShowDetails(true);
@@ -145,7 +145,7 @@ export const IntegrityVetoPanel: React.FC<IntegrityVetoPanelProps> = ({
                 Compare & Resolve
               </button>
               <button
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   onDismiss(issue.id);
                 }}

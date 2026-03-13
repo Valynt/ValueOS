@@ -496,7 +496,7 @@ export class ValueFabricService {
     };
   }
 
-  private async getBusinessObjectives(organizationId: string, valueCaseId: string) {
+  private async getBusinessObjectives(organizationId: string, valueCaseId: string): Promise<Record<string, unknown>[]> {
     const { data } = await this.supabase
       .from("business_objectives")
       .select("*")
@@ -505,7 +505,7 @@ export class ValueFabricService {
     return data || [];
   }
 
-  private async getValueTrees(organizationId: string, valueCaseId: string) {
+  private async getValueTrees(organizationId: string, valueCaseId: string): Promise<Record<string, unknown>[]> {
     const { data } = await this.supabase
       .from("value_trees")
       .select("*")
@@ -514,7 +514,7 @@ export class ValueFabricService {
     return data || [];
   }
 
-  async getValueTreeHierarchy(organizationId: string, valueTreeId: string, maxDepth: number = 5) {
+  async getValueTreeHierarchy(organizationId: string, valueTreeId: string, maxDepth: number = 5): Promise<Record<string, unknown>[]> {
     this.requireOrganizationId(organizationId);
     const { data, error } = await this.supabase.rpc("get_value_tree_hierarchy", {
       value_tree_uuid: valueTreeId,
@@ -526,7 +526,7 @@ export class ValueFabricService {
     return data || [];
   }
 
-  private async getROIModels(organizationId: string, valueCaseId: string) {
+  private async getROIModels(organizationId: string, valueCaseId: string): Promise<Record<string, unknown>[]> {
     const { data } = await this.supabase
       .from("roi_models")
       .select("*")
@@ -535,7 +535,7 @@ export class ValueFabricService {
     return data || [];
   }
 
-  private async getValueCommits(organizationId: string, valueCaseId: string) {
+  private async getValueCommits(organizationId: string, valueCaseId: string): Promise<Record<string, unknown>[]> {
     const { data } = await this.supabase
       .from("value_commits")
       .select("*")
@@ -544,7 +544,12 @@ export class ValueFabricService {
     return data || [];
   }
 
-  private async getTelemetryCount(organizationId: string, valueCaseId: string) {
+  private async getTelemetryCount(organizationId: string, valueCaseId: string): Promise<{
+    count: number;
+    unique_kpis: number;
+    last_timestamp: string | undefined;
+    coverage: number;
+  }> {
     const { data, count } = await this.supabase
       .from("telemetry_events")
       .select("kpi_hypothesis_id, event_timestamp", { count: "exact" })
@@ -562,7 +567,7 @@ export class ValueFabricService {
     };
   }
 
-  private async getRealizationReports(organizationId: string, valueCaseId: string) {
+  private async getRealizationReports(organizationId: string, valueCaseId: string): Promise<Record<string, unknown>[]> {
     const { data } = await this.supabase
       .from("realization_reports")
       .select("*")
@@ -571,7 +576,7 @@ export class ValueFabricService {
     return data || [];
   }
 
-  private async getExpansionModels(organizationId: string, valueCaseId: string) {
+  private async getExpansionModels(organizationId: string, valueCaseId: string): Promise<Record<string, unknown>[]> {
     const { data } = await this.supabase
       .from("expansion_models")
       .select("*")
@@ -581,11 +586,11 @@ export class ValueFabricService {
   }
 
   private determineLifecycleStage(data: {
-    businessObjectives: any[];
-    valueTrees: any[];
-    valueCommits: any[];
-    realizationReports: any[];
-    expansionModels: any[];
+    businessObjectives: unknown[];
+    valueTrees: unknown[];
+    valueCommits: unknown[];
+    realizationReports: unknown[];
+    expansionModels: unknown[];
   }): "opportunity" | "target" | "realization" | "expansion" {
     if (data.expansionModels.length > 0) return "expansion";
     if (data.realizationReports.length > 0) return "realization";
@@ -678,7 +683,7 @@ export class ValueFabricService {
     });
   }
 
-  private static invalidateCache(cache: Map<string, CacheEntry<any>>): void {
+  private static invalidateCache(cache: Map<string, CacheEntry<unknown>>): void {
     cache.clear();
   }
 

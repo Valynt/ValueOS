@@ -14,7 +14,7 @@ export interface DataHydrationOptions {
   /**
    * Callback when hydration succeeds
    */
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: unknown) => void;
 
   /**
    * Callback when hydration fails
@@ -48,7 +48,7 @@ export interface DataHydrationOptions {
   /**
    * Custom data fetcher function
    */
-  fetcher?: (endpoint: string) => Promise<any>;
+  fetcher?: (endpoint: string) => Promise<unknown>;
 
   /**
    * Enable caching of hydrated data
@@ -70,7 +70,7 @@ export interface DataHydrationResult {
   /**
    * The hydrated data (merged from all endpoints)
    */
-  data: Record<string, any> | null;
+  data: Record<string, unknown> | null;
 
   /**
    * Whether data is currently being fetched
@@ -97,7 +97,7 @@ export interface DataHydrationResult {
  * Cache entry structure
  */
 interface CacheEntry {
-  data: any;
+  data: unknown;
   timestamp: number;
 }
 
@@ -109,7 +109,7 @@ const hydrationCache = new Map<string, CacheEntry>();
 /**
  * Default data fetcher using fetch API
  */
-const defaultFetcher = async (endpoint: string): Promise<any> => {
+const defaultFetcher = async (endpoint: string): Promise<unknown> => {
   const response = await fetch(endpoint);
 
   if (!response.ok) {
@@ -181,7 +181,7 @@ export function useDataHydration(
     cacheTtl = 300000, // 5 minutes
   } = options;
 
-  const [data, setData] = useState<Record<string, any> | null>(null);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
@@ -206,7 +206,7 @@ export function useDataHydration(
    * Fetch data from a single endpoint with timeout and retry support
    */
   const fetchEndpoint = useCallback(
-    async (endpoint: string, attempt: number = 0): Promise<any> => {
+    async (endpoint: string, attempt: number = 0): Promise<unknown> => {
       // Check cache first
       if (enableCache) {
         const cached = hydrationCache.get(endpoint);
@@ -221,7 +221,7 @@ export function useDataHydration(
 
       try {
         // Create timeout promise
-        const timeoutPromise = new Promise((_, reject) => {
+        const timeoutPromise = new Promise<never>((_, reject) => {
           const id = setTimeout(() => {
             controller.abort();
             reject(new Error(`Request timeout after ${timeout}ms`));
@@ -242,8 +242,8 @@ export function useDataHydration(
         }
 
         return result;
-      } catch (err) {
-        const error = err as Error;
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
 
         // Don't retry if aborted or disabled
         if (error.name === "AbortError" || !enableRetry) {
@@ -253,7 +253,7 @@ export function useDataHydration(
         // Retry if attempts remaining
         if (attempt < retryAttempts) {
           const delay = calculateBackoff(attempt, retryDelay);
-          await new Promise((resolve) => {
+          await new Promise<void>((resolve) => {
             const id = setTimeout(resolve, delay);
             timeoutIdsRef.current.push(id);
           });
@@ -290,7 +290,7 @@ export function useDataHydration(
       }
 
       // Process results
-      const mergedData: Record<string, any> = {};
+      const mergedData: Record<string, unknown> = {};
       const errors: Array<{ endpoint: string; error: Error }> = [];
 
       results.forEach((result, index) => {
@@ -299,12 +299,12 @@ export function useDataHydration(
         if (result.status === "fulfilled") {
           // Merge data - if result is object, spread it; otherwise use endpoint as key
           if (typeof result.value === "object" && result.value !== null) {
-            Object.assign(mergedData, result.value);
+            Object.assign(mergedData, result.value as Record<string, unknown>);
           } else {
             mergedData[endpoint] = result.value;
           }
         } else {
-          errors.push({ endpoint, error: result.reason });
+          errors.push({ endpoint, error: result.reason instanceof Error ? result.reason : new Error(String(result.reason)) });
         }
       });
 
@@ -327,8 +327,8 @@ export function useDataHydration(
       // Set merged data
       setData(mergedData);
       onSuccess?.(mergedData);
-    } catch (err) {
-      const error = err as Error;
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
 
       if (isMountedRef.current) {
         setError(error);

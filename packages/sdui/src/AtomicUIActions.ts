@@ -46,7 +46,7 @@ export interface ComponentSelector {
   /**
    * Props to match (partial match)
    */
-  props?: Record<string, any>;
+  props?: Record<string, unknown>;
 
   /**
    * Natural language description for fuzzy matching
@@ -82,7 +82,7 @@ export interface PropertyMutation {
   /**
    * New value
    */
-  value?: any;
+  value?: unknown;
 }
 
 /**
@@ -124,7 +124,7 @@ export interface AddComponentAction {
   component: {
     component: string;
     version?: string;
-    props: Record<string, any>;
+    props: Record<string, unknown>;
     type?: string;
     layout?: string;
   };
@@ -302,7 +302,7 @@ export const ComponentSelectorSchema = z.object({
   id: z.string().optional(),
   type: z.string().optional(),
   index: z.number().optional(),
-  props: z.record(z.any()).optional(),
+  props: z.record(z.unknown()).optional(),
   description: z.string().optional(),
 }).refine(
   (data) => data.id || data.type || data.index !== undefined || data.description,
@@ -312,7 +312,7 @@ export const ComponentSelectorSchema = z.object({
 export const PropertyMutationSchema = z.object({
   path: z.string().min(1),
   operation: z.enum(['set', 'merge', 'append', 'prepend', 'remove', 'replace']),
-  value: z.any().optional(),
+  value: z.unknown().optional(),
 });
 
 export const MutateComponentActionSchema = z.object({
@@ -328,7 +328,7 @@ export const AddComponentActionSchema = z.object({
   component: z.object({
     component: z.string(),
     version: z.string().optional(),
-    props: z.record(z.any()),
+    props: z.record(z.unknown()),
     type: z.string().optional(),
     layout: z.string().optional(),
   }),
@@ -389,7 +389,7 @@ export const AtomicUIActionSchema: z.ZodType<AtomicUIAction> = z.union([
 /**
  * Validate atomic UI action
  */
-export function validateAtomicAction(action: any): {
+export function validateAtomicAction(action: unknown): {
   valid: boolean;
   errors: string[];
 } {
@@ -433,7 +433,7 @@ export function createMutateAction(
 export function createPropertyUpdate(
   selector: ComponentSelector,
   propertyPath: string,
-  value: any,
+  value: unknown,
   description?: string
 ): MutateComponentAction {
   return createMutateAction(

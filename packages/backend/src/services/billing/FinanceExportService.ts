@@ -44,7 +44,7 @@ export interface ReconciliationReport {
     paid: number;
     outstanding: number;
     disputed: number;
-    last_payment_date?: string;
+    last_payment_date?: string | null;
   }>;
   by_plan: Array<{
     plan_tier: string;
@@ -59,6 +59,54 @@ export interface ReconciliationReport {
     past_due_60: number; // 61-90 days
     past_due_90: number; // 90+ days
   };
+}
+
+interface InvoiceRecord {
+  invoice_id: string;
+  stripe_invoice_id: string | null;
+  tenant_id: string;
+  tenant_name: string;
+  organization_id: string;
+  period_start: string;
+  period_end: string;
+  amount_due: number;
+  amount_paid: number;
+  amount_remaining: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency: string;
+  status: string;
+  due_date: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
+interface UsageRecord {
+  tenant_id: string;
+  tenant_name: string;
+  subscription_id: string;
+  price_version_id: string;
+  meter_key: string;
+  period_start: string;
+  period_end: string;
+  quantity_used: number;
+  quantity_included: number;
+  quantity_overage: number;
+  unit_price: number;
+  amount: number;
+  rated_at: string;
+  source_aggregate_hash: string;
+}
+
+interface RevenueRecord {
+  tenant_id: string;
+  tenant_name: string;
+  period_start: string;
+  period_end: string;
+  revenue_amount: number;
+  recognized_revenue: number;
+  deferred_revenue: number;
 }
 
 export class FinanceExportService {
@@ -143,7 +191,7 @@ export class FinanceExportService {
         throw new Error('Export not found');
       }
 
-      let records: any[] = [];
+      let records: Record<string, unknown>[] = [];
       let totalAmount = 0;
 
       // Process based on export type
@@ -152,21 +200,21 @@ export class FinanceExportService {
           ({ records, totalAmount } = await this.exportInvoices(
             exportData.period_start,
             exportData.period_end,
-            exportData.tenant_filter
+            exportData.tenant_filter || []
           ));
           break;
         case 'usage':
           ({ records, totalAmount } = await this.exportUsage(
             exportData.period_start,
             exportData.period_end,
-            exportData.tenant_filter
+            exportData.tenant_filter || []
           ));
           break;
         case 'reconciliation':
           const reconciliationData = await this.generateReconciliationReport(
             exportData.period_start,
             exportData.period_end,
-            exportData.tenant_filter
+            exportData.tenant_filter || []
           );
           records = [reconciliationData];
           totalAmount = reconciliationData.total_invoiced;
@@ -175,7 +223,7 @@ export class FinanceExportService {
           ({ records, totalAmount } = await this.exportRevenue(
             exportData.period_start,
             exportData.period_end,
-            exportData.tenant_filter
+            exportData.tenant_filter || []
           ));
           break;
         default:
@@ -227,7 +275,7 @@ export class FinanceExportService {
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[]
-  ): Promise<{ records: any[]; totalAmount: number }> {
+  ): Promise<{ records: InvoiceRecord[]; totalAmount: number }> {
     let query = this.supabase
       .from('invoices')
       .select(`
@@ -251,12 +299,12 @@ export class FinanceExportService {
       throw new Error('Failed to fetch invoices for export');
     }
 
-    const records = (data || []).map(invoice => ({
+    const records: InvoiceRecord[] = (data || []).map(invoice => ({
       invoice_id: invoice.id,
-      stripe_invoice_id: invoice.stripe_invoice_id,
+      stripe_invoice_id: invoice.stripe_invoice_id ?? null,
       tenant_id: invoice.tenant_id,
-      tenant_name: invoice.tenants?.name || '',
-      organization_id: invoice.tenants?.organization_id || '',
+      tenant_name: invoice.tenants?.name ?? '',
+      organization_id: invoice.tenants?.organization_id ?? '',
       period_start: invoice.period_start,
       period_end: invoice.period_end,
       amount_due: invoice.amount_due,
@@ -267,8 +315,8 @@ export class FinanceExportService {
       total: invoice.total,
       currency: invoice.currency,
       status: invoice.status,
-      due_date: invoice.due_date,
-      paid_at: invoice.paid_at,
+      due_date: invoice.due_date ?? null,
+      paid_at: invoice.paid_at ?? null,
       created_at: invoice.created_at
     }));
 
@@ -284,7 +332,7 @@ export class FinanceExportService {
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[]
-  ): Promise<{ records: any[]; totalAmount: number }> {
+  ): Promise<{ records: UsageRecord[]; totalAmount: number }> {
     let query = this.supabase
       .from('rated_ledger')
       .select(`
@@ -307,9 +355,9 @@ export class FinanceExportService {
       throw new Error('Failed to fetch usage data for export');
     }
 
-    const records = (data || []).map(entry => ({
+    const records: UsageRecord[] = (data || []).map(entry => ({
       tenant_id: entry.tenant_id,
-      tenant_name: entry.tenants?.name || '',
+      tenant_name: entry.tenants?.name ?? '',
       subscription_id: entry.subscription_id,
       price_version_id: entry.price_version_id,
       meter_key: entry.meter_key,
@@ -347,7 +395,17 @@ export class FinanceExportService {
       const outstandingAmount = invoices.records.reduce((sum, inv) => sum + inv.amount_remaining, 0);
 
       // Group by tenant
-      const tenantGroups = new Map<string, any>();
+      type TenantGroup = {
+        tenant_id: string;
+        tenant_name?: string;
+        invoiced: number;
+        paid: number;
+        outstanding: number;
+        disputed: number;
+        last_payment_date: string | null;
+      };
+
+      const tenantGroups = new Map<string, TenantGroup>();
       for (const invoice of invoices.records) {
         const key = invoice.tenant_id;
         if (!tenantGroups.has(key)) {
@@ -371,7 +429,15 @@ export class FinanceExportService {
       }
 
       // Group by plan (simplified - would need subscription data)
-      const planGroups = new Map<string, any>();
+      type PlanGroup = {
+        plan_tier: string;
+        tenant_count: number;
+        total_invoiced: number;
+        total_paid: number;
+        outstanding: number;
+      };
+
+      const planGroups = new Map<string, PlanGroup>();
       // This would require joining with subscriptions to get plan tiers
 
       // Aging analysis
@@ -425,7 +491,7 @@ export class FinanceExportService {
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[]
-  ): Promise<{ records: any[]; totalAmount: number }> {
+  ): Promise<{ records: RevenueRecord[]; totalAmount: number }> {
     // Revenue export combines invoices and usage for revenue recognition
     const invoices = await this.exportInvoices(periodStart, periodEnd, tenantFilter);
     const usage = await this.exportUsage(periodStart, periodEnd, tenantFilter);
@@ -440,10 +506,10 @@ export class FinanceExportService {
   /**
    * Aggregate data for revenue reporting
    */
-  private aggregateRevenueData(invoices: any[], usage: any[]): any[] {
+  private aggregateRevenueData(invoices: InvoiceRecord[], usage: UsageRecord[]): RevenueRecord[] {
     // This would create revenue recognition entries
     // Simplified implementation
-    const revenueMap = new Map<string, any>();
+    const revenueMap = new Map<string, RevenueRecord>();
 
     // Process invoices
     for (const invoice of invoices) {
@@ -472,7 +538,7 @@ export class FinanceExportService {
    * Generate export file (simplified - would integrate with file storage)
    */
   private async generateExportFile(
-    records: any[],
+    records: Record<string, unknown>[],
     format: string,
     exportId: string
   ): Promise<string> {

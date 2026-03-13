@@ -24,11 +24,11 @@ import { SecretAuditEvent, StructuredSecretAuditLogger } from './SecretAuditLogg
 // Type definitions for node-vault (simplified)
 interface VaultClient {
   kubernetesLogin(options: { role: string; jwt: string }): Promise<{ auth: { client_token: string } }>;
-  read(path: string): Promise<{ data: { data: any; metadata: any } }>;
-  write(path: string, data: any): Promise<any>;
-  delete(path: string): Promise<any>;
+  read(path: string): Promise<{ data: { data: Record<string, unknown>; metadata: Record<string, unknown> } }>;
+  write(path: string, data: Record<string, unknown>): Promise<unknown>;
+  delete(path: string): Promise<unknown>;
   list(path: string): Promise<{ data: { keys: string[] } }>;
-  health(): Promise<any>;
+  health(): Promise<unknown>;
 }
 
 /**
@@ -85,7 +85,7 @@ export class VaultSecretProvider implements ISecretProvider {
       }
 
       logger.info('Vault client initialized and authenticated');
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to initialize Vault client', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -106,10 +106,10 @@ export class VaultSecretProvider implements ISecretProvider {
       const response = await this.client.kubernetesLogin({ role, jwt });
       
       // Store the client token for subsequent requests
-      (this.client as any).token = response.auth.client_token;
+      (this.client as unknown as Record<string, unknown>).token = response.auth.client_token;
 
       logger.info('Kubernetes authentication successful', { role });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Kubernetes authentication failed', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -191,22 +191,22 @@ export class VaultSecretProvider implements ISecretProvider {
       const secretValue = response.data.data as SecretValue;
 
       // Remove internal metadata if present
-      const { _metadata, ...cleanValue } = secretValue as any;
+      const { _metadata, ...cleanValue } = secretValue as Record<string, unknown>;
 
       // Cache the secret
       this.cache.set(cacheKey, {
-        value: cleanValue,
+        value: cleanValue as SecretValue,
         expiresAt: Date.now() + this.cacheTTL
       });
 
       await this.auditAccess(tenantId, secretKey, 'READ', 'SUCCESS', userId, undefined, {
         source: 'vault',
         latency_ms: Date.now() - startTime,
-        version: response.data.metadata?.version
+        version: (response.data.metadata as Record<string, unknown>)?.version
       });
 
-      return cleanValue;
-    } catch (error) {
+      return cleanValue as SecretValue;
+    } catch (error: unknown) {
       await this.auditAccess(
         tenantId,
         secretKey,
@@ -238,7 +238,7 @@ export class VaultSecretProvider implements ISecretProvider {
 
     try {
       // Add metadata to secret
-      const secretWithMetadata = {
+      const secretWithMetadata: Record<string, unknown> = {
         data: {
           ...value,
           _metadata: {
@@ -270,7 +270,7 @@ export class VaultSecretProvider implements ISecretProvider {
       });
 
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditAccess(
         tenantId,
         secretKey,
@@ -331,7 +331,7 @@ export class VaultSecretProvider implements ISecretProvider {
       });
 
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditAccess(
         tenantId,
         secretKey,
@@ -389,7 +389,7 @@ export class VaultSecretProvider implements ISecretProvider {
       });
 
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditAccess(
         tenantId,
         secretKey,
@@ -421,7 +421,7 @@ export class VaultSecretProvider implements ISecretProvider {
       });
 
       return secretKeys;
-    } catch (error) {
+    } catch (error: unknown) {
       await this.auditAccess(
         tenantId,
         'ALL',
@@ -454,15 +454,15 @@ export class VaultSecretProvider implements ISecretProvider {
       const metadata: SecretMetadata = {
         tenantId,
         secretPath: metadataPath,
-        version: String(vaultMetadata.current_version || 'latest'),
-        createdAt: vaultMetadata.created_time || new Date().toISOString(),
+        version: String((vaultMetadata as Record<string, unknown>).current_version || 'latest'),
+        createdAt: (vaultMetadata as Record<string, unknown>).created_time || new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
         sensitivityLevel: 'high', // Default, should be in tags
-        tags: vaultMetadata.custom_metadata || {}
+        tags: (vaultMetadata as Record<string, Record<string, unknown>>).custom_metadata || {}
       };
 
       return metadata;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to get secret metadata from Vault', error instanceof Error ? error : new Error(String(error)), {
         tenantId,
         secretKey
@@ -480,7 +480,7 @@ export class VaultSecretProvider implements ISecretProvider {
     try {
       const metadata = await this.getSecretMetadata(tenantId, secretKey, userId);
       return metadata !== null;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -492,7 +492,7 @@ export class VaultSecretProvider implements ISecretProvider {
     result: AuditResult,
     userId?: string,
     error?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     const event: SecretAuditEvent = {
       tenantId,
@@ -531,7 +531,7 @@ export class VaultSecretProvider implements ISecretProvider {
       const client = this.ensureClient();
       await client.health();
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Vault provider health check failed', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
@@ -543,7 +543,7 @@ export class VaultSecretProvider implements ISecretProvider {
   clearCache(tenantId?: string): void {
     if (tenantId) {
       // Clear cache for specific tenant
-      for (const [key] of this.cache.entries()) {
+      for (const key of this.cache.keys()) {
         if (key.startsWith(`${tenantId}:`)) {
           this.cache.delete(key);
         }

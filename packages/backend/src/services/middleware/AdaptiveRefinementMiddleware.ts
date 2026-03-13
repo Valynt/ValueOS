@@ -67,7 +67,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
     // Pass through errors and clarification responses
     if (
       response.type === ('clarification_needed' as any) ||
-      (response.payload && (response.payload as any).error)
+      (response.payload && (response.payload as Record<string, unknown>).error)
     ) {
       return response;
     }
@@ -81,7 +81,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
         userId: context.userId,
         organizationId: context.envelope.organizationId,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn('AdaptiveRefinementMiddleware: reflection evaluation failed, passing through', {
         traceId: context.traceId,
         error: error instanceof Error ? error.message : String(error),
@@ -111,7 +111,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
       if (refinementResult) {
         return refinementResult;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.warn('AdaptiveRefinementMiddleware: refinement attempt failed', {
         traceId: context.traceId,
         error: error instanceof Error ? error.message : String(error),
@@ -162,7 +162,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
         sessionId: context.sessionId,
         organizationId: context.envelope.organizationId,
         metadata: {
-          ...(context.envelope as any).metadata,
+          ...((context.envelope as { metadata?: Record<string, unknown> }).metadata ?? {}),
           refinement: true,
           model: upgradedModel,
         },
@@ -228,7 +228,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
   }
 
   private getCurrentModel(context: AgentMiddlewareContext): string {
-    return (context as any).metadata?.model ?? (context.envelope as any)?.metadata?.model ?? 'unknown';
+    return (context as { metadata?: { model?: string } }).metadata?.model ?? (context.envelope as { metadata?: { model?: string } })?.metadata?.model ?? 'unknown';
   }
 
   private resolveProvider(model: string): 'openai' | 'anthropic' | 'gemini' | 'custom' | 'together_ai' {
@@ -247,7 +247,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
       metadata: {
         ...(response.metadata ?? {}),
         refinement: metadata,
-      } as any,
+      } as Record<string, unknown>,
     };
   }
 }

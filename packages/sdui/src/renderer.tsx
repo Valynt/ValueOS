@@ -83,7 +83,7 @@ const InvalidSchemaFallback: React.FC<{ errors: string[] }> = ({ errors }) => (
  */
 const ComponentWithBindings: React.FC<{
   section: SDUIComponentSection;
-  Component: React.ComponentType<any>;
+  Component: React.ComponentType<Record<string, unknown>>;
   resolver?: DataBindingResolver;
   context?: DataSourceContext;
   debugOverlay?: boolean;
@@ -92,7 +92,7 @@ const ComponentWithBindings: React.FC<{
   if (!resolver || !context) {
     return (
       <>
-        <Component {...section.props} />
+        <Component {...(section.props as Record<string, unknown>)} />
         {debugOverlay && (
           <HydrationTrace
             section={section}
@@ -112,7 +112,7 @@ const ComponentWithBindings: React.FC<{
     validationErrors,
     validationWarnings,
     refresh,
-  } = useValidatedDataBindings(section.props, {
+  } = useValidatedDataBindings(section.props as Record<string, unknown>, {
     resolver,
     context,
     componentName: section.component,
@@ -202,7 +202,7 @@ const MAX_RENDER_DEPTH = 10;
  * Renders a single SDUI section with full error isolation, type-safe hydration, and lazy loading for non-critical widgets.
  */
 const renderSection = (
-  section: any,
+  section: unknown,
   index: number,
   debugOverlay?: boolean,
   resolver?: DataBindingResolver,
@@ -216,13 +216,13 @@ const renderSection = (
       new Error("Stack overflow"),
       {
         depth,
-        component: section?.component || "unknown",
-        type: section?.type || "unknown",
+        component: (section as Record<string, unknown>)?.component || "unknown",
+        type: (section as Record<string, unknown>)?.type || "unknown",
       }
     );
     incrementSecurityMetric("recursion_limit", {
       depth,
-      section: section?.component,
+      section: (section as Record<string, unknown>)?.component,
     });
     return (
       <div
@@ -238,48 +238,55 @@ const renderSection = (
   }
   // Handle layout types (VerticalSplit, HorizontalSplit, Grid, DashboardPanel)
   if (
-    section.type &&
-    ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(section.type)
+    typeof section === "object" && section !== null &&
+    "type" in section &&
+    typeof (section as Record<string, unknown>).type === "string" &&
+    ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(
+      (section as Record<string, string>).type
+    )
   ) {
-    const key = `layout-${section.type}-${index}`;
+    const sec = section as Record<string, unknown> & { type: string; children?: unknown[]; slots?: Record<string, unknown> };
+    const key = `layout-${sec.type}-${index}`;
     // Recursively render children with depth tracking
     const childNodes =
-      section.children?.map((child: any, i: number) =>
-        renderSection(child, i, debugOverlay, resolver, context, depth + 1)
-      ) || [];
-    const slotNodes = section.slots
+      Array.isArray(sec.children)
+        ? sec.children.map((child, i) =>
+            renderSection(child, i, debugOverlay, resolver, context, depth + 1)
+          )
+        : [];
+    const slotNodes = sec.slots
       ? {
-          primary: section.slots.primary
-            ? renderSection(section.slots.primary, 0, debugOverlay, resolver, context, depth + 1)
+          primary: sec.slots.primary
+            ? renderSection(sec.slots.primary, 0, debugOverlay, resolver, context, depth + 1)
             : undefined,
-          secondary: section.slots.secondary
-            ? renderSection(section.slots.secondary, 1, debugOverlay, resolver, context, depth + 1)
+          secondary: sec.slots.secondary
+            ? renderSection(sec.slots.secondary, 1, debugOverlay, resolver, context, depth + 1)
             : undefined,
-          header: section.slots.header
-            ? renderSection(section.slots.header, 2, debugOverlay, resolver, context, depth + 1)
+          header: sec.slots.header
+            ? renderSection(sec.slots.header, 2, debugOverlay, resolver, context, depth + 1)
             : undefined,
-          footer: section.slots.footer
-            ? renderSection(section.slots.footer, 3, debugOverlay, resolver, context, depth + 1)
+          footer: sec.slots.footer
+            ? renderSection(sec.slots.footer, 3, debugOverlay, resolver, context, depth + 1)
             : undefined,
         }
       : undefined;
     // Always wrap layout in error boundary for isolation
     const LayoutComponent =
-      section.type === "VerticalSplit"
+      sec.type === "VerticalSplit"
         ? VerticalSplit
-        : section.type === "HorizontalSplit"
+        : sec.type === "HorizontalSplit"
           ? HorizontalSplit
-          : section.type === "Grid"
+          : sec.type === "Grid"
             ? Grid
             : DashboardPanel;
     return (
       <ComponentErrorBoundary
         key={key}
-        componentName={section.type}
-        fallback={<SectionErrorFallback componentName={section.type} />}
+        componentName={sec.type}
+        fallback={<SectionErrorFallback componentName={sec.type} />}
         circuitBreaker={{ failureThreshold: 3, recoveryTimeout: 30000, monitoringPeriod: 300000 }}
       >
-        <LayoutComponent {...section} key={key} slots={slotNodes}>
+        <LayoutComponent {...sec} key={key} slots={slotNodes}>
           {childNodes}
         </LayoutComponent>
       </ComponentErrorBoundary>
@@ -308,15 +315,15 @@ const renderSection = (
   if (!entry || !entry.component) {
     // Log missing component for monitoring
     incrementSecurityMetric("component_not_found", {
-      component: section.component,
-      version: section.version,
+      component: componentSection.component,
+      version: componentSection.version,
     });
     return (
-      <div key={`${section.component}-${index}`}>
-        <RegistryPlaceholderComponent componentName={section.component} />
+      <div key={`${componentSection.component}-${index}`}>
+        <RegistryPlaceholderComponent componentName={componentSection.component} />
         {debugOverlay && (
           <HydrationTrace
-            section={section}
+            section={componentSection}
             status="placeholder"
             warning="Component not found in registry"
           />
@@ -327,10 +334,10 @@ const renderSection = (
   const Component = entry.component;
   // Always wrap every widget in an error boundary for full isolation
   return (
-    <div key={`${section.component}-${index}`} className="space-y-2">
+    <div key={`${componentSection.component}-${index}`} className="space-y-2">
       <ComponentErrorBoundary
-        componentName={section.component}
-        fallback={<SectionErrorFallback componentName={section.component} />}
+        componentName={componentSection.component}
+        fallback={<SectionErrorFallback componentName={componentSection.component} />}
         circuitBreaker={{
           failureThreshold: 3,
           recoveryTimeout: 30000,
@@ -345,7 +352,7 @@ const renderSection = (
       >
         {/* Strict type-safe hydration: only render if validation passes */}
         <ComponentWithBindings
-          section={section}
+          section={componentSection}
           Component={Component}
           resolver={resolver}
           context={context}

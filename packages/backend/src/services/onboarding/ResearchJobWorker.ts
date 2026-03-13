@@ -159,8 +159,8 @@ export async function processResearchJob(
           await updateEntityStatus(supabase, jobId, 'sec_filing', 'completed');
         }
       }
-    } catch (secErr) {
-      logger.warn('SEC ingestion failed, continuing with web crawl only', { jobId, error: (secErr as any).message });
+    } catch (secErr: unknown) {
+      logger.warn('SEC ingestion failed, continuing with web crawl only', { jobId, error: (secErr as Error).message });
       await updateEntityStatus(supabase, jobId, 'sec_filing', 'failed');
     }
 
@@ -258,7 +258,7 @@ export async function processResearchJob(
           extractionResults.push({
             entityType: 'value_pattern',
             items: hypotheses.map(h => ({
-              payload: h as any,
+              payload: h as Record<string, unknown>,
               confidence_score: 0.85,
               source_urls: ['sec://edgar'],
               source_page_url: 'https://www.sec.gov/edgar'
@@ -267,8 +267,8 @@ export async function processResearchJob(
           });
           logger.info('Generated grounded value hypotheses', { count: hypotheses.length });
         }
-      } catch (hvErr) {
-        logger.warn('Value hypothesis generation failed', { error: (hvErr as any).message });
+      } catch (hvErr: unknown) {
+        logger.warn('Value hypothesis generation failed', { error: (hvErr as Error).message });
       }
     }
 
@@ -321,7 +321,7 @@ export async function processResearchJob(
     logger.info('Research job completed', { jobId, suggestionsCreated, totalTokens });
 
     return { jobId, status: 'completed', suggestionsCreated };
-  } catch (err) {
+  } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     logger.error('Research job failed', { jobId, error: errorMsg });
 

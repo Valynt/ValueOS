@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase.js'
 export interface ValidationContext {
   reportId: string;
   reportType: 'value_commit' | 'roi_model' | 'qbr' | 'value_case';
-  content: any;
+  content: Record<string, unknown>;
   userId: string;
   organizationId: string;
 }
@@ -96,7 +96,7 @@ const MANIFESTO_RULES: ManifestoRule[] = [
       }
 
       // Check for consistent metric definitions
-      if (context.content.metrics || context.content.kpis) {
+      if ('metrics' in context.content || 'kpis' in context.content) {
         evidence.push('Metrics are explicitly defined');
       }
 
@@ -114,11 +114,12 @@ const MANIFESTO_RULES: ManifestoRule[] = [
       let confidence: 'high' | 'medium' | 'low' = 'high';
 
       // Check for assumptions documentation
-      if (context.content.assumptions && Array.isArray(context.content.assumptions)) {
-        evidence.push(`${context.content.assumptions.length} assumptions documented`);
+      if ('assumptions' in context.content && Array.isArray(context.content.assumptions)) {
+        const assumptions = context.content.assumptions as Array<Record<string, unknown>>;
+        evidence.push(`${assumptions.length} assumptions documented`);
         
         // Check if assumptions have sources
-        const withSources = context.content.assumptions.filter((a: any) => a.source);
+        const withSources = assumptions.filter((a) => a.source !== undefined);
         if (withSources.length > 0) {
           evidence.push(`${withSources.length} assumptions have documented sources`);
         } else {
@@ -133,7 +134,7 @@ const MANIFESTO_RULES: ManifestoRule[] = [
       }
 
       // Check for data sources
-      if (context.content.dataSources || context.content.sources) {
+      if ('dataSources' in context.content || 'sources' in context.content) {
         evidence.push('Data sources are documented');
       }
 
@@ -163,13 +164,14 @@ const MANIFESTO_RULES: ManifestoRule[] = [
       }
 
       // Check for financial metrics
-      if (context.content.roi || context.content.npv || context.content.payback) {
+      if ('roi' in context.content || 'npv' in context.content || 'payback' in context.content) {
         evidence.push('Financial metrics are present');
       }
 
       // Check for KPIs
-      if (context.content.kpis && Array.isArray(context.content.kpis)) {
-        evidence.push(`${context.content.kpis.length} KPIs defined`);
+      if ('kpis' in context.content && Array.isArray(context.content.kpis)) {
+        const kpisArray = context.content.kpis as unknown[];
+        evidence.push(`${kpisArray.length} KPIs defined`);
       } else {
         passed = false;
         evidence.push('No KPIs defined');
@@ -240,7 +242,7 @@ const MANIFESTO_RULES: ManifestoRule[] = [
       }
 
       // Check for approval workflow
-      if (context.content.approvals || context.content.stakeholders) {
+      if ('approvals' in context.content || 'stakeholders' in context.content) {
         evidence.push('Stakeholder approval process documented');
       }
 
@@ -258,11 +260,12 @@ const MANIFESTO_RULES: ManifestoRule[] = [
       let confidence: 'high' | 'medium' | 'low' = 'high';
 
       // Check for risk documentation
-      if (context.content.risks && Array.isArray(context.content.risks)) {
-        evidence.push(`${context.content.risks.length} risks identified`);
+      if ('risks' in context.content && Array.isArray(context.content.risks)) {
+        const risks = context.content.risks as Array<Record<string, unknown>>;
+        evidence.push(`${risks.length} risks identified`);
         
         // Check for mitigation strategies
-        const withMitigation = context.content.risks.filter((r: any) => r.mitigation);
+        const withMitigation = risks.filter((r) => r.mitigation !== undefined);
         if (withMitigation.length > 0) {
           evidence.push(`${withMitigation.length} risks have mitigation strategies`);
         } else {
@@ -416,16 +419,16 @@ export class ComplianceValidator {
       return [];
     }
 
-    return data.map(row => ({
-      reportId: row.report_id,
-      reportType: row.report_type,
-      generatedAt: row.created_at,
-      generatedBy: row.user_id,
-      manifestoVersion: row.manifesto_version,
-      overallStatus: row.overall_status,
-      rules: row.rules_detail,
-      evidenceCount: row.evidence_count,
-      confidenceScore: row.confidence_score,
+    return data.map((row: Record<string, unknown>) => ({
+      reportId: String(row.report_id),
+      reportType: String(row.report_type),
+      generatedAt: String(row.created_at),
+      generatedBy: String(row.user_id),
+      manifestoVersion: String(row.manifesto_version),
+      overallStatus: (row.overall_status as 'compliant' | 'non-compliant' | 'partial') ?? 'non-compliant',
+      rules: (row.rules_detail as ComplianceRule[]) ?? [],
+      evidenceCount: Number(row.evidence_count) ?? 0,
+      confidenceScore: Number(row.confidence_score) ?? 0,
     }));
   }
 
@@ -460,12 +463,12 @@ export class ComplianceValidator {
     const compliantReports = data.filter(r => r.overall_status === 'compliant').length;
     const partialReports = data.filter(r => r.overall_status === 'partial').length;
     const nonCompliantReports = data.filter(r => r.overall_status === 'non-compliant').length;
-    const averageConfidence = data.reduce((sum, r) => sum + r.confidence_score, 0) / totalReports;
+    const averageConfidence = data.reduce((sum, r) => sum + (r.confidence_score as number || 0), 0) / totalReports;
 
     // Calculate common failures
     const failureCount: Record<string, number> = {};
     data.forEach(result => {
-      result.rules_detail.forEach((rule: ComplianceRule) => {
+      (result.rules_detail as ComplianceRule[] || []).forEach((rule) => {
         if (rule.status === 'failed') {
           failureCount[rule.name] = (failureCount[rule.name] || 0) + 1;
         }

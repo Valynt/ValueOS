@@ -46,7 +46,7 @@ export class XBRLModule extends BaseModule {
   private baseUrl: string = 'https://data.sec.gov/api/xbrl';
   private rateLimit: number = 10;
   private lastRequestTime: number = 0;
-  private factsCache: Map<string, any> = new Map();
+  private factsCache: Map<string, unknown> = new Map();
 
   // Standard XBRL US GAAP taxonomy mappings
   private readonly GAAP_MAPPINGS: Record<string, string> = {
@@ -68,7 +68,7 @@ export class XBRLModule extends BaseModule {
     cost_of_revenue: 'CostOfRevenue',
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
     
     const xbrlConfig = config as XBRLConfig;
@@ -142,11 +142,14 @@ export class XBRLModule extends BaseModule {
    * Uses SEC's companyfacts API endpoint
    * Caches results to minimize API calls
    */
-  private async getCompanyFacts(cik: string): Promise<any> {
+  private async getCompanyFacts(cik: string): Promise<Record<string, unknown>> {
     // Check cache first
     if (this.factsCache.has(cik)) {
       logger.debug('XBRL facts cache hit', { cik });
-      return this.factsCache.get(cik);
+      const cached = this.factsCache.get(cik);
+      if (cached && typeof cached === 'object') return cached as Record<string, unknown>;
+      // fallback to empty object if unexpected
+      return {};
     }
 
     await this.enforceRateLimit();
@@ -175,19 +178,19 @@ export class XBRLModule extends BaseModule {
         );
       }
 
-      const data = await response.json();
+      const data = await response.json() as Record<string, unknown>;
 
       // Cache the results
       this.factsCache.set(cik, data);
 
       logger.info('XBRL facts retrieved', {
         cik: paddedCIK,
-        entityName: data.entityName,
-        factsCount: Object.keys(data.facts || {}).length,
+        entityName: (data.entityName ?? 'Unknown'),
+        factsCount: data.facts && typeof data.facts === 'object' ? Object.keys(data.facts).length : 0,
       });
 
       return data;
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GroundTruthError) {
         throw error;
       }
@@ -204,11 +207,11 @@ export class XBRLModule extends BaseModule {
    * Handles multiple taxonomies (us-gaap, dei, etc.) and periods
    */
   private extractFact(
-    factsData: any,
+    factsData: Record<string, unknown>,
     tag: string,
     period?: string
   ): XBRLFact | null {
-    const facts = factsData.facts;
+    const facts = factsData.facts as Record<string, Record<string, unknown>> | undefined;
     if (!facts) {
       return null;
     }
@@ -217,12 +220,12 @@ export class XBRLModule extends BaseModule {
     const taxonomies = ['us-gaap', 'dei', 'ifrs-full'];
     
     for (const taxonomy of taxonomies) {
-      if (!facts[taxonomy] || !facts[taxonomy][tag]) {
+      if (!facts[taxonomy] || !(facts[taxonomy] as Record<string, unknown>)[tag]) {
         continue;
       }
 
-      const tagData = facts[taxonomy][tag];
-      const units = tagData.units;
+      const tagData = (facts[taxonomy] as Record<string, any>)[tag];
+      const units = tagData.units as Record<string, Array<Record<string, unknown>>> | undefined;
 
       if (!units) {
         continue;
@@ -248,7 +251,7 @@ export class XBRLModule extends BaseModule {
       // Filter by period if specified
       let filteredData = unitData;
       if (period) {
-        filteredData = unitData.filter((item: any) => {
+        filteredData = unitData.filter((item: Record<string, unknown>) => {
           return item.fy?.toString() === period || 
                  item.fp === period ||
                  item.frame === period;
@@ -260,25 +263,25 @@ export class XBRLModule extends BaseModule {
       }
 
       // Get most recent fact
-      const sortedData = filteredData.sort((a: any, b: any) => {
-        return new Date(b.filed).getTime() - new Date(a.filed).getTime();
+      const sortedData = filteredData.sort((a, b) => {
+        return new Date(b.filed as string).getTime() - new Date(a.filed as string).getTime();
       });
 
       const mostRecent = sortedData[0];
 
       return {
         tag,
-        label: tagData.label || tag,
+        label: typeof tagData.label === 'string' ? tagData.label : tag,
         value: mostRecent.val,
         unit: selectedUnit,
         period: mostRecent.fy ? `FY${mostRecent.fy}` : mostRecent.frame || 'Unknown',
-        frame: mostRecent.frame,
+        frame: mostRecent.frame as string | undefined,
         taxonomy,
-        form: mostRecent.form,
-        filed: mostRecent.filed,
-        accn: mostRecent.accn,
-        start: mostRecent.start,
-        end: mostRecent.end,
+        form: mostRecent.form as string | undefined,
+        filed: mostRecent.filed as string | undefined,
+        accn: mostRecent.accn as string | undefined,
+        start: mostRecent.start as string | undefined,
+        end: mostRecent.end as string | undefined,
       };
     }
 
@@ -308,11 +311,14 @@ export class XBRLModule extends BaseModule {
     const taxonomies = ['us-gaap', 'dei', 'ifrs-full'];
     
     for (const taxonomy of taxonomies) {
-      if (!facts.facts[taxonomy] || !facts.facts[taxonomy][xbrlTag]) {
+      if (!facts.facts || typeof facts.facts !== 'object' || !((facts.facts as Record<string, unknown>)[taxonomy] && ((facts.facts as Record<string, unknown>)[taxonomy] as Record<string, unknown>)[xbrlTag])) {
         continue;
       }
 
-      const tagData = facts.facts[taxonomy][xbrlTag];
+      const tagData = ((facts.facts as Record<string, Record<string, unknown>>)[taxonomy])[xbrlTag] as {
+        units?: Record<string, Array<Record<string, unknown>>>
+      };
+
       const units = tagData.units;
 
       if (!units) {
@@ -329,9 +335,9 @@ export class XBRLModule extends BaseModule {
 
       // Sort by filing date
       const sortedData = unitData
-        .filter((item: any) => item.val !== null && item.val !== undefined)
-        .sort((a: any, b: any) => {
-          return new Date(a.filed).getTime() - new Date(b.filed).getTime();
+        .filter((item) => item.val !== null && item.val !== undefined)
+        .sort((a, b) => {
+          return new Date(a.filed as string).getTime() - new Date(b.filed as string).getTime();
         });
 
       // Limit to requested number of periods
@@ -345,7 +351,7 @@ export class XBRLModule extends BaseModule {
           : item.frame || 'Unknown';
         
         trendData.periods.push(periodLabel);
-        trendData.values.push(item.val);
+        trendData.values.push(item.val as number);
       }
 
       break; // Use first taxonomy that has data
@@ -475,7 +481,7 @@ export class XBRLModule extends BaseModule {
 
     if (timeSinceLastRequest < minInterval) {
       const waitTime = minInterval - timeSinceLastRequest;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise<void>(resolve => setTimeout(resolve, waitTime));
     }
 
     this.lastRequestTime = Date.now();

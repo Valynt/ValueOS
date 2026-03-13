@@ -12,10 +12,10 @@ import type { SDUIPageDefinition } from "../schema";
  * Generate SOF-enhanced Opportunity page
  */
 export function generateSOFOpportunityPage(data: {
-  businessCase: any;
+  businessCase: Record<string, unknown>;
   systemMap?: SystemMap;
-  personas?: any[];
-  kpis?: any[];
+  personas?: Record<string, unknown>[];
+  kpis?: Record<string, unknown>[];
 }): SDUIPageDefinition {
   const sections: SDUIPageDefinition["sections"] = [
     // Header
@@ -208,7 +208,7 @@ export function generateSOFOpportunityPage(data: {
                       ],
                     },
                   },
-              ].filter(Boolean) as any[],
+              ].filter(Boolean) as SDUIPageDefinition["sections"],
             },
           },
         ],

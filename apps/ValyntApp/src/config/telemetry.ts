@@ -14,7 +14,7 @@ const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'u
 
 // Browser imports - use dynamic imports to avoid bundling issues
 import type { Span as SpanType } from '@opentelemetry/api';
-let trace: any, context: any, SpanStatusCode: any, Span: any;
+let trace: Record<string, unknown>, context: Record<string, unknown>, SpanStatusCode: Record<string, number>, Span: unknown;
 
 async function initializeTelemetryImports() {
   if (isBrowser) {
@@ -53,7 +53,7 @@ const noopSpan = {
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (_name: string, _options: any, fn: (span: SpanType) => any) => fn(noopSpan)
+  startActiveSpan: (_name: string, _options: unknown, fn: (span: SpanType) => unknown) => fn(noopSpan)
 };
 
 // Exporter endpoints (Node.js only)
@@ -67,7 +67,7 @@ if (!isBrowser) {
 /**
  * Initialize OpenTelemetry SDK
  */
-export async function initializeTelemetry(): Promise<any> {
+export async function initializeTelemetry(): Promise<unknown> {
   if (isBrowser) {
     // Browser environment - no-op initialization
     logger.info('OpenTelemetry initialized for browser environment');
@@ -143,7 +143,7 @@ export async function initializeTelemetry(): Promise<any> {
   process.on('SIGTERM', () => {
     sdk.shutdown()
       .then(() => logger.info('OpenTelemetry shut down successfully'))
-      .catch((error) => logger.error('Error shutting down OpenTelemetry', error));
+      .catch((error: unknown) => logger.error('Error shutting down OpenTelemetry', error));
   });
 
   return sdk;
@@ -157,7 +157,14 @@ export function getTracer() {
     return noopTracer;
   }
 
-  return trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
+  return trace.getTracer(SERVICE_NAME, SERVICE_VERSION) as unknown as {
+    startActiveSpan: (
+      name: string,
+      options: unknown,
+      fn: (span: SpanType) => Promise<unknown>
+    ) => Promise<unknown>;
+    startSpan: (name: string) => unknown;
+  };
 }
 
 /**
@@ -201,7 +208,7 @@ export async function traceLLMOperation<T>(
         span.setStatus({ code: SpanStatusCode.OK });
 
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         const duration = Date.now() - startTime;
 
         span.setAttributes({
@@ -215,14 +222,14 @@ export async function traceLLMOperation<T>(
           message: error instanceof Error ? error.message : 'Unknown error'
         });
 
-        span.recordException(error as Error);
+        span.recordException(error instanceof Error ? error : new Error('Unknown error'));
 
         throw error;
       } finally {
         span.end();
       }
     }
-  );
+  ) as Promise<T>;
 }
 
 /**
@@ -252,18 +259,18 @@ export async function traceDatabaseOperation<T>(
         const result = await operation(span);
         span.setStatus({ code: SpanStatusCode.OK });
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: error instanceof Error ? error.message : 'Unknown error'
         });
-        span.recordException(error as Error);
+        span.recordException(error instanceof Error ? error : new Error('Unknown error'));
         throw error;
       } finally {
         span.end();
       }
     }
-  );
+  ) as Promise<T>;
 }
 
 /**
@@ -293,25 +300,27 @@ export async function traceCacheOperation<T>(
         const result = await operation(span);
         span.setStatus({ code: SpanStatusCode.OK });
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: error instanceof Error ? error.message : 'Unknown error'
         });
-        span.recordException(error as Error);
+        span.recordException(error instanceof Error ? error : new Error('Unknown error'));
         throw error;
       } finally {
         span.end();
       }
     }
-  );
+  ) as Promise<T>;
 }
 
 /**
  * Add custom attributes to current span
  */
 export function addSpanAttributes(attributes: Record<string, string | number | boolean>): void {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan?.() as
+    | { setAttributes: (attrs: Record<string, string | number | boolean>) => void }
+    | undefined;
   if (span) {
     span.setAttributes(attributes);
   }
@@ -321,7 +330,9 @@ export function addSpanAttributes(attributes: Record<string, string | number | b
  * Add event to current span
  */
 export function addSpanEvent(name: string, attributes?: Record<string, string | number | boolean>): void {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan?.() as
+    | { addEvent: (name: string, attributes?: Record<string, string | number | boolean>) => void }
+    | undefined;
   if (span) {
     span.addEvent(name, attributes);
   }
@@ -331,7 +342,12 @@ export function addSpanEvent(name: string, attributes?: Record<string, string | 
  * Record exception in current span
  */
 export function recordSpanException(error: Error): void {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan?.() as
+    | {
+        recordException: (error: Error) => void;
+        setStatus: (status: { code: number; message: string }) => void;
+      }
+    | undefined;
   if (span) {
     span.recordException(error);
     span.setStatus({
@@ -344,11 +360,15 @@ export function recordSpanException(error: Error): void {
 /**
  * Get current trace context
  */
-export function getCurrentTraceContext(): {
-  traceId: string;
-  spanId: string;
-} | null {
-  const span = trace.getActiveSpan();
+export function getCurrentTraceContext():
+  | {
+      traceId: string;
+      spanId: string;
+    }
+  | null {
+  const span = trace.getActiveSpan?.() as
+    | { spanContext: () => { traceId: string; spanId: string } }
+    | undefined;
   if (!span) return null;
 
   const spanContext = span.spanContext();
@@ -374,7 +394,10 @@ export function getTraceContextForLogging(): Record<string, string> {
 /**
  * Create custom metric counter
  */
-export async function createCounter(name: string, description: string) {
+export async function createCounter(name: string, description: string): Promise<{
+  add: (...args: unknown[]) => void;
+  record: (...args: unknown[]) => void;
+}> {
   if (isBrowser) {
     return {
       add: () => {},
@@ -390,7 +413,9 @@ export async function createCounter(name: string, description: string) {
 /**
  * Create custom metric histogram
  */
-export async function createHistogram(name: string, description: string) {
+export async function createHistogram(name: string, description: string): Promise<{
+  record: (...args: unknown[]) => void;
+}> {
   if (isBrowser) {
     return {
       record: () => {}
@@ -409,7 +434,9 @@ export async function createObservableGauge(
   name: string,
   description: string,
   callback: () => number
-) {
+): Promise<{
+  observe: () => void;
+}> {
   if (isBrowser) {
     return {
       observe: () => {}
@@ -418,11 +445,15 @@ export async function createObservableGauge(
 
   const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
-  return meter.createObservableGauge(name, {
-    description
-  }, (observableResult) => {
-    observableResult.observe(callback());
-  });
+  return meter.createObservableGauge(
+    name,
+    {
+      description
+    },
+    (observableResult: { observe: (value: number) => void }) => {
+      observableResult.observe(callback());
+    }
+  );
 }
 
 // Pre-defined metrics (async initialization)
@@ -446,9 +477,17 @@ export const metrics = {
  * Middleware to add tracing to Express routes
  */
 export function tracingMiddleware() {
-  return (req: any, res: any, next: any) => {
+  return (
+    req: { method: string; path: string; url: string; get: (header: string) => string; traceContext?: { traceId: string; spanId: string } },
+    res: { on: (event: string, callback: () => void) => void; statusCode: number },
+    next: () => void
+  ) => {
     const tracer = getTracer();
-    const span = tracer.startSpan(`http.${req.method} ${req.path}`);
+    const span = tracer.startSpan(`http.${req.method} ${req.path}`) as {
+      setAttributes: (attrs: Record<string, string | number | boolean>) => void;
+      setStatus: (status: { code: number; message?: string }) => void;
+      end: () => void;
+    };
 
     span.setAttributes({
       'http.method': req.method,
@@ -458,7 +497,7 @@ export function tracingMiddleware() {
     });
 
     // Add trace context to request
-    req.traceContext = getCurrentTraceContext();
+    req.traceContext = getCurrentTraceContext() ?? undefined;
 
     // End span when response finishes
     res.on('finish', () => {

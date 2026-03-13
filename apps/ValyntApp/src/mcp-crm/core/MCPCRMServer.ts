@@ -442,20 +442,20 @@ export class MCPCRMServer {
         return;
       }
 
-      for (const integration of (integrations || []) as any[]) {
+      for (const integration of (integrations || []) as Array<Record<string, unknown>>) {
         const connection: CRMConnection = {
-          id: integration.id,
-          tenantId: integration.tenant_id,
+          id: integration.id as string,
+          tenantId: integration.tenant_id as string,
           provider: integration.provider as CRMProvider,
-          accessToken: integration.access_token,
-          refreshToken: integration.refresh_token,
+          accessToken: integration.access_token as string,
+          refreshToken: integration.refresh_token as string,
           tokenExpiresAt: integration.token_expires_at
-            ? new Date(integration.token_expires_at)
+            ? new Date(integration.token_expires_at as string)
             : undefined,
-          instanceUrl: integration.instance_url,
-          hubId: integration.hub_id,
-          scopes: integration.scopes || [],
-          status: integration.status,
+          instanceUrl: integration.instance_url as string | undefined,
+          hubId: integration.hub_id as string | undefined,
+          scopes: (integration.scopes as string[] | undefined) || [],
+          status: integration.status as string,
         };
 
         this.connections.set(connection.provider, connection);
@@ -566,7 +566,7 @@ export class MCPCRMServer {
             `Unknown CRM tool: ${toolName}`,
             { requestId, tool: toolName }
           );
-          return responseBuilder.error(error) as any;
+          return responseBuilder.error(error);
       }
     } catch (error) {
       logger.error("CRM tool execution failed", error instanceof Error ? error : undefined);
@@ -576,7 +576,7 @@ export class MCPCRMServer {
           error instanceof Error ? error.message : "Unknown error",
           { requestId, tool: toolName }
         )
-      ) as any;
+      );
     }
   }
 
@@ -605,7 +605,7 @@ export class MCPCRMServer {
       result.data,
       this.config.tenantId,
       providers.length > 0 ? "connected" : "disconnected"
-    ) as any;
+    );
   }
 
   private async handleSearchDeals(
@@ -632,7 +632,7 @@ export class MCPCRMServer {
 
     const params: DealSearchParams = {
       query: args.query as string | undefined,
-      companyName: args.company_name as string | undefined,
+      companyName: args["company_name"] as string | undefined,
       stage: args.stages as string[] | undefined,
       minAmount: args.min_amount as number | undefined,
       limit: (args.limit as number) || 10,
@@ -834,7 +834,42 @@ export class MCPCRMServer {
     const normalizedStage = this.normalizeStage(deal.stage);
 
     // Build normalized context optimized for value analysis
-    const normalizedContext = {
+    const normalizedContext: {
+      dealId: string;
+      externalId?: string;
+      provider: CRMProvider;
+      financial: {
+        dealValue: number;
+        currency: string;
+        probability: number;
+        expectedValue: number;
+      };
+      stage: {
+        current: string;
+        normalized: string;
+        closeDate?: string;
+        daysInStage: number;
+        daysToClose: number | null;
+      };
+      company: {
+        id?: string;
+        name: string;
+      };
+      owner: {
+        id?: string;
+        name: string;
+      };
+      timestamps: {
+        created: string;
+        lastModified: string;
+      };
+      customFields: Record<string, unknown>;
+      history?: {
+        recentActivityCount: number;
+        lastActivityDate: string | null;
+        activityTypes: string[];
+      };
+    } = {
       // Core identification
       dealId: deal.id,
       externalId: deal.externalId,
@@ -882,7 +917,7 @@ export class MCPCRMServer {
     // Optionally include stage history
     if (includeHistory) {
       const activities = await module.getDealActivities(dealId, 20);
-      (normalizedContext as any).history = {
+      normalizedContext.history = {
         recentActivityCount: activities.length,
         lastActivityDate: activities[0]?.occurredAt?.toISOString() || null,
         activityTypes: [...new Set(activities.map((a) => a.type))],
@@ -1044,7 +1079,7 @@ export class MCPCRMServer {
     return normalized || "unknown";
   }
 
-  private normalizeCurrency(amount: number | undefined): number {
+  private normalizeCurrency(amount: number | string | undefined | null): number {
     if (amount === undefined || amount === null) return 0;
     // Handle string amounts like "$1.2M" or "EUR 500K"
     if (typeof amount === "string") {

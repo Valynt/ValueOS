@@ -12,14 +12,14 @@ import type { SDUIPageDefinition } from "../schema";
  * Generate SOF-enhanced Realization page
  */
 export function generateSOFRealizationPage(data: {
-  businessCase: any;
+  businessCase: Record<string, unknown> | undefined;
   systemMap: SystemMap;
   interventionPoint: InterventionPoint;
   feedbackLoops?: FeedbackLoop[];
   realizationData?: {
     implementationStatus: "planning" | "implementing" | "completed";
-    observedChanges: any[];
-    kpiMeasurements?: any[];
+    observedChanges: unknown[];
+    kpiMeasurements?: unknown[];
   };
 }): SDUIPageDefinition {
   const activeLoops =
@@ -38,7 +38,7 @@ export function generateSOFRealizationPage(data: {
         breadcrumbs: [
           { label: "Home", href: "/" },
           { label: "Opportunities", href: "/opportunities" },
-          { label: data.businessCase?.name || "Business Case" },
+          { label: (data.businessCase?.name as string) || "Business Case" },
           { label: "Realization" },
         ],
       },
@@ -175,7 +175,7 @@ export function generateSOFRealizationPage(data: {
                     })),
                   },
                 },
-              ].filter(Boolean) as any[],
+              ].filter(Boolean) as SDUIPageDefinition["sections"],
             },
           },
 
@@ -298,7 +298,7 @@ export function generateSOFRealizationPage(data: {
                     ],
                   },
                 },
-              ].filter(Boolean) as any[],
+              ].filter(Boolean) as SDUIPageDefinition["sections"],
             },
           },
         ],
@@ -359,7 +359,7 @@ export function generateSOFRealizationPage(data: {
         ],
       },
     },
-  ].filter(Boolean) as any[];
+  ].filter(Boolean) as SDUIPageDefinition["sections"];
 
   return {
     type: "page",

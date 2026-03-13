@@ -369,7 +369,7 @@ export class RedisStreamBroker {
     id: string;
     eventName: EventName;
     status: "ack" | "retry" | "dlq";
-    payload?: any;
+    payload?: Record<string, unknown>;
     nextAttempt?: number;
     error?: Error;
   }> {
@@ -380,7 +380,7 @@ export class RedisStreamBroker {
 
     const eventName = fieldMap["eventName"] as EventName;
     const attempt = Number(fieldMap["attempt"] || "0");
-    const payload = JSON.parse(fieldMap["payload"]);
+    const payload = JSON.parse(fieldMap["payload"]) as Record<string, unknown>;
     const idempotencyKey = fieldMap["idempotencyKey"];
 
     const start = Date.now();
@@ -408,12 +408,12 @@ export class RedisStreamBroker {
     eventName: EventName;
     attempt: number;
     error: Error;
-    payload: any;
+    payload: Record<string, unknown>;
   }): Promise<{
     id: string;
     eventName: EventName;
     status: "retry" | "dlq";
-    payload: any;
+    payload: Record<string, unknown>;
     nextAttempt: number;
     error: Error;
   }> {

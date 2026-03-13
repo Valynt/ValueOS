@@ -47,7 +47,7 @@ export interface FallbackComponentConfig {
     /**
      * Custom predicate function
      */
-    predicate?: (error: Error, context?: any) => boolean;
+    predicate?: (error: Error, context?: unknown) => boolean;
   };
 
   /**
@@ -98,7 +98,7 @@ export interface FallbackProps {
   /**
    * Additional props passed through
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -185,7 +185,7 @@ export class FallbackComponentRegistry {
   getFallback(
     componentName: string,
     error?: Error,
-    context?: any
+    context?: unknown
   ): ComponentType<FallbackProps> | null {
     const specificFallbacks = this.registry.get(componentName) || [];
     const allFallbacks = [...specificFallbacks, ...this.globalFallbacks];
@@ -203,7 +203,7 @@ export class FallbackComponentRegistry {
   /**
    * Check if a fallback entry matches the current conditions
    */
-  private matchesConditions(entry: RegistryEntry, error?: Error, context?: any): boolean {
+  private matchesConditions(entry: RegistryEntry, error?: Error, context?: unknown): boolean {
     const { conditions } = entry;
 
     if (!conditions) return true;
@@ -217,8 +217,15 @@ export class FallbackComponentRegistry {
     }
 
     // Check versions
-    if (conditions.versions && context?.componentVersion) {
-      if (!conditions.versions.includes(context.componentVersion)) {
+    if (
+      conditions.versions &&
+      typeof context === "object" &&
+      context !== null &&
+      "componentVersion" in context &&
+      typeof (context as Record<string, unknown>).componentVersion === "number"
+    ) {
+      const cv = (context as Record<string, number>).componentVersion;
+      if (!conditions.versions.includes(cv)) {
         return false;
       }
     }
@@ -227,7 +234,7 @@ export class FallbackComponentRegistry {
     if (conditions.predicate && error) {
       try {
         return conditions.predicate(error, context);
-      } catch (predicateError) {
+      } catch (predicateError: unknown) {
         logger.error("Fallback predicate error", {
           componentName: entry.componentName,
           error: predicateError,
@@ -517,7 +524,7 @@ fallbackRegistry.registerGlobal({
 export function useFallbackComponent(
   componentName: string,
   error?: Error,
-  context?: any
+  context?: unknown
 ): ComponentType<FallbackProps> | null {
   return fallbackRegistry.getFallback(componentName, error, context);
 }

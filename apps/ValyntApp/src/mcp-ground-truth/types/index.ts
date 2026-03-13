@@ -21,7 +21,7 @@ export interface FinancialMetric {
   tier: ConfidenceTier;
   source: string;
   timestamp: string; // ISO 8601
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   raw_extract?: string;
   provenance: ProvenanceInfo;
 }
@@ -45,7 +45,7 @@ export interface ModuleRequest {
   identifier: string; // CIK, ticker, domain, NAICS code, etc.
   metric?: string;
   period?: string;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
 export interface ModuleResponse {
@@ -54,7 +54,7 @@ export interface ModuleResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   cache_hit?: boolean;
   execution_time_ms?: number;
@@ -216,7 +216,7 @@ export interface WageData {
 
 export interface CacheEntry {
   key: string;
-  value: any;
+  value: unknown;
   tier: ConfidenceTier;
   ttl: number; // Seconds
   created_at: string;
@@ -271,8 +271,8 @@ export interface AuditLog {
   agent_id?: string;
   module: string;
   operation: string;
-  request: any;
-  response: any;
+  request: unknown;
+  response: unknown;
   provenance: ProvenanceInfo;
 }
 
@@ -288,7 +288,7 @@ export interface GroundTruthModule {
   /**
    * Initialize the module with configuration
    */
-  initialize(config: Record<string, any>): Promise<void>;
+  initialize(config: Record<string, unknown>): Promise<void>;
   
   /**
    * Execute a query against this module
@@ -303,7 +303,7 @@ export interface GroundTruthModule {
   /**
    * Get module health status
    */
-  healthCheck(): Promise<{ healthy: boolean; details?: any }>;
+  healthCheck(): Promise<{ healthy: boolean; details?: unknown }>;
 }
 
 // ============================================================================
@@ -333,7 +333,7 @@ export class GroundTruthError extends Error {
   constructor(
     public code: string,
     message: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'GroundTruthError';

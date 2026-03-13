@@ -40,13 +40,13 @@ export interface StageExecutionContext {
   workflowId: string;
   stageId: string;
   stage: WorkflowStage;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   attempt: number;
 }
 
 export interface StageExecutionResult {
   success: boolean;
-  output?: any;
+  output?: unknown;
   error?: string;
   duration: number;
   retryable: boolean;
@@ -56,7 +56,7 @@ export interface CompensationContext {
   executionId: string;
   stageId: string;
   artifactsCreated: string[];
-  stateChanges: Record<string, any>;
+  stateChanges: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -107,7 +107,7 @@ export class WorkflowDAGExecutor {
    */
   async executeWorkflow(
     workflowId: string,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
     userId: string
   ): Promise<string> {
     const workflow = getWorkflowById(workflowId);
@@ -115,7 +115,7 @@ export class WorkflowDAGExecutor {
       throw new Error(`Workflow not found: ${workflowId}`);
     }
 
-    if (!context.organizationId) {
+    if (!("organizationId" in context) || typeof context.organizationId !== "string") {
       throw new Error("context.organizationId is required for tenant-scoped workflow execution");
     }
 
@@ -131,7 +131,7 @@ export class WorkflowDAGExecutor {
         context: {
           ...context,
           executed_steps: [],
-          compensation_policy: context.compensation_policy || "continue_on_error",
+          compensation_policy: (context.compensation_policy as string) || "continue_on_error",
         },
         audit_context: {
           workflow_name: workflow.name,
@@ -154,8 +154,12 @@ export class WorkflowDAGExecutor {
     });
 
     // Execute DAG asynchronously
-    this.executeDAG(execution.id, workflow).catch(async (error) => {
-      await this.handleWorkflowFailure(execution.id, error.message);
+    this.executeDAG(execution.id, workflow).catch(async (error: unknown) => {
+      if (error instanceof Error) {
+        await this.handleWorkflowFailure(execution.id, error.message);
+      } else {
+        await this.handleWorkflowFailure(execution.id, "Unknown error");
+      }
     });
 
     return execution.id;
@@ -192,7 +196,7 @@ export class WorkflowDAGExecutor {
         });
 
         // Update execution context with output and executed steps
-        const contextUpdate: Record<string, any> = {
+        const contextUpdate: Record<string, unknown> = {
           executed_steps: executedSteps,
         };
 
@@ -214,8 +218,8 @@ export class WorkflowDAGExecutor {
           .eq("id", executionId)
           .single();
 
-        const context = latestExecution?.context || {};
-        const currentWorkflowStatus = latestExecution?.status || "initiated";
+        const context = (latestExecution?.context ?? {}) as Record<string, unknown>;
+        const currentWorkflowStatus = (latestExecution?.status as WorkflowStatus) || "initiated";
 
         // Find next stage
         const nextStageId = this.getNextStage(workflow, currentStageId, context);
@@ -233,7 +237,7 @@ export class WorkflowDAGExecutor {
             });
 
             currentStageId = nextStageId;
-          } catch (error) {
+          } catch (error: unknown) {
             if (error instanceof Error) {
               await this.handleWorkflowFailure(executionId, error.message);
             } else {
@@ -301,9 +305,9 @@ export class WorkflowDAGExecutor {
           duration,
           retryable: false,
         };
-      } catch (error) {
+      } catch (error: unknown) {
         const duration = Date.now() - startTime;
-        const errorMessage = (error as Error).message;
+        const errorMessage = error instanceof Error ? error.message : String(error);
         lastError = errorMessage;
 
         // Check if circuit breaker is open
@@ -317,7 +321,7 @@ export class WorkflowDAGExecutor {
         }
 
         // Check if retryable
-        const isRetryable = this.isRetryableError(error as Error);
+        const isRetryable = error instanceof Error ? this.isRetryableError(error) : false;
         if (!isRetryable || attempt >= retryConfig.max_attempts) {
           return {
             success: false,
@@ -348,7 +352,7 @@ export class WorkflowDAGExecutor {
     executionId: string,
     workflowId: string,
     stage: WorkflowStage
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Get execution context
     const { data: execution } = await supabase
       .from("workflow_executions")
@@ -360,13 +364,13 @@ export class WorkflowDAGExecutor {
       throw new Error("Execution not found");
     }
 
-    const context = execution.context || {};
+    const context = execution.context as Record<string, unknown> | undefined ?? {};
 
     // Check if stage already completed (idempotency)
-    const executedSteps: ExecutedStep[] = context.executed_steps || [];
+    const executedSteps: ExecutedStep[] = (context.executed_steps as ExecutedStep[]) || [];
     const alreadyExecuted = executedSteps.find((step) => step.stage_id === stage.id);
     if (alreadyExecuted) {
-      logger.debug("Stage ${stage.id} already executed, skipping (idempotent)");
+      logger.debug(`Stage ${stage.id} already executed, skipping (idempotent)`);
       return { idempotent: true, previous_execution: alreadyExecuted };
     }
 
@@ -378,8 +382,8 @@ export class WorkflowDAGExecutor {
       agent: agentType,
       query: `Execute ${stage.name}`,
       context: {
-        userId: execution.context?.userId,
-        organizationId: execution.context?.organizationId,
+        userId: context.userId,
+        organizationId: context.organizationId,
         sessionId: executionId,
         workflowId,
         stageId: stage.id,
@@ -415,7 +419,7 @@ export class WorkflowDAGExecutor {
   private getNextStage(
     workflow: WorkflowDAG,
     currentStageId: string,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): string | null {
     const transitions = workflow.transitions.filter((t) => t.from_stage === currentStageId);
 
@@ -443,14 +447,14 @@ export class WorkflowDAGExecutor {
   /**
    * Evaluate a condition against the execution context
    */
-  private evaluateCondition(condition: string, context: Record<string, any>): boolean {
+  private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
     // Support negation
     if (condition.startsWith("!")) {
       const key = condition.substring(1);
-      return !context[key];
+      return !Boolean(context[key]);
     }
 
-    return !!context[condition];
+    return Boolean(context[condition]);
   }
 
   /**
@@ -462,10 +466,10 @@ export class WorkflowDAGExecutor {
   ): Promise<void> {
     try {
       await workflowCompensation.rollbackExecution(executionId);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Compensation failed", error instanceof Error ? error : undefined);
       await this.logEvent(executionId, "compensation_failed", null, {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -554,7 +558,7 @@ export class WorkflowDAGExecutor {
    */
   private async updateExecutionContext(
     executionId: string,
-    contextUpdate: Record<string, any>
+    contextUpdate: Record<string, unknown>
   ): Promise<void> {
     const { data: execution } = await supabase
       .from("workflow_executions")
@@ -614,7 +618,7 @@ export class WorkflowDAGExecutor {
     executionId: string,
     eventType: string,
     stageId: string | null,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<void> {
     await supabase.from("workflow_events").insert({
       execution_id: executionId,
@@ -627,7 +631,7 @@ export class WorkflowDAGExecutor {
   /**
    * Get circuit breaker status for a stage
    */
-  getCircuitBreakerStatus(workflowId: string, stageId: string): any {
+  getCircuitBreakerStatus(workflowId: string, stageId: string): unknown {
     const key = `${workflowId}:${stageId}`;
     return this.circuitBreakers.getBreaker(key).getState();
   }
@@ -735,7 +739,7 @@ export async function retryWorkflowFromLastStage(
   }
 
   // Start from last successful stage or initial stage
-  const executedStepsFromContext: ExecutedStep[] = execution.context?.executed_steps || [];
+  const executedStepsFromContext: ExecutedStep[] = execution.context?.executed_steps ?? [];
   const entryStage = workflow.initial_stage ?? workflow.entry_stage ?? '';
   const lastSuccessfulStage =
     executedStepsFromContext.length > 0
@@ -748,7 +752,7 @@ export async function retryWorkflowFromLastStage(
       ...execution.context,
       retry_from_stage: lastSuccessfulStage,
       original_execution_id: executionId,
-    },
+    } as Record<string, unknown>,
     userId
   );
 }

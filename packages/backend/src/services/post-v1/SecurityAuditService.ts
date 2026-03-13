@@ -52,7 +52,7 @@ interface DlqEntry {
 }
 
 class SecurityAuditService extends BaseService {
-  private _supabase: any = null;
+  private _supabase: ReturnType<typeof createServerSupabaseClient> | null = null;
   private dlq: DlqEntry[] = [];
   private retryTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -125,8 +125,8 @@ class SecurityAuditService extends BaseService {
     await this.executeRequest(
       async () => {
         const { error } = await this.supabase
-          .from("security_audit_log" as any)
-          .insert(payload as any);
+          .from("security_audit_log")
+          .insert(payload);
 
         if (error) {
           logger.error("Failed to write security audit event", error, {
