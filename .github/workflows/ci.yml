@@ -65,6 +65,9 @@ jobs:
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Governance gate
+        run: pnpm run typecheck:signal --verify
+
       - name: Unit suite + schema guard
         run: |
           npx vitest run --coverage --coverage.thresholds.lines=60 --coverage.thresholds.functions=50 --coverage.thresholds.branches=50 --coverage.thresholds.statements=60

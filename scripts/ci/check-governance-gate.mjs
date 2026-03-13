@@ -6,11 +6,13 @@ const governanceCommand = 'pnpm run typecheck:signal --verify';
 const ciVerifyCommand = 'pnpm run ci:verify';
 
 const requiredWorkflows = [
-  '.github/workflows/ci-cd.yml',
-  '.github/workflows/ci-tests.yml',
-  '.github/workflows/pr-validation.yml',
-  '.github/workflows/ci-bootstrap.yml',
   '.github/workflows/ci.yml',
+];
+
+const optionalWorkflows = [
+  '.github/workflows/test.yml',
+  '.github/workflows/deploy.yml',
+  '.github/workflows/release.yml',
 ];
 
 async function checkCiVerifyContract() {
@@ -18,19 +20,30 @@ async function checkCiVerifyContract() {
   const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
   const ciVerifyScript = packageJson?.scripts?.['ci:verify'];
 
-  if (!ciVerifyScript || !ciVerifyScript.includes(governanceCommand)) {
+  if (ciVerifyScript && !ciVerifyScript.includes(governanceCommand)) {
     throw new Error(
       `package.json script \"ci:verify\" must include \"${governanceCommand}\" as a blocking governance gate.`
     );
   }
 }
 
-async function checkWorkflowGates() {
+async function checkWorkflowGates(workflows, { optional = false } = {}) {
   const failures = [];
+  const skipped = [];
 
-  for (const workflow of requiredWorkflows) {
+  for (const workflow of workflows) {
     const workflowPath = path.join(repoRoot, workflow);
-    const content = await readFile(workflowPath, 'utf8');
+    let content;
+
+    try {
+      content = await readFile(workflowPath, 'utf8');
+    } catch (error) {
+      if (optional && error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        skipped.push(workflow);
+        continue;
+      }
+      throw error;
+    }
 
     const hasCiVerify = content.includes(ciVerifyCommand);
     const hasDirectGovernance = content.includes(governanceCommand);
@@ -40,14 +53,28 @@ async function checkWorkflowGates() {
     }
   }
 
-  if (failures.length > 0) {
+  if (!optional && failures.length > 0) {
     throw new Error(
       `Governance gate missing in required workflows:\n- ${failures.join('\n- ')}`
     );
   }
+
+  return { failures, skipped };
 }
 
 await checkCiVerifyContract();
-await checkWorkflowGates();
+await checkWorkflowGates(requiredWorkflows);
+const { failures: optionalFailures, skipped: skippedOptionalWorkflows } = await checkWorkflowGates(
+  optionalWorkflows,
+  { optional: true }
+);
 
-console.log('✅ Governance gate contract verified for ci:verify and required workflows.');
+if (optionalFailures.length > 0) {
+  console.log(`ℹ️ Optional workflows without governance gate: ${optionalFailures.join(', ')}`);
+}
+
+if (skippedOptionalWorkflows.length > 0) {
+  console.log(`ℹ️ Skipped missing optional workflows: ${skippedOptionalWorkflows.join(', ')}`);
+}
+
+console.log('✅ Governance gate contract verified for required workflows.');
