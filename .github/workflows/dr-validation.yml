@@ -1,0 +1,47 @@
+name: DR Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "DR target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - local
+          - staging
+  schedule:
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  dr-validation:
+    runs-on: ubuntu-latest
+    env:
+      STAGE_DATABASE_URL: ${{ secrets.STAGE_DATABASE_URL }}
+      DR_FAILOVER_HEALTHCHECK_URL: ${{ secrets.DR_FAILOVER_HEALTHCHECK_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install PostgreSQL client + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client jq
+
+      - name: Run DR validation with failover simulation and rollback checks
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'staging' }}"
+          bash scripts/dr-validate.sh "$ENVIRONMENT" --simulate-failover --validate-rollback --output-dir artifacts/dr
+
+      - name: Upload DR report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dr-validation-report-${{ github.run_id }}
+          path: |
+            artifacts/dr/dr-validation-report.json
+            artifacts/dr/dr-validation-summary.md
+          if-no-files-found: error
