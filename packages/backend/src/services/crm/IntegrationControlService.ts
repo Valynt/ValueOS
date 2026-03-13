@@ -127,33 +127,58 @@ export class IntegrationControlService {
       .eq('id', tenantId)
       .single();
 
-    if (org?.settings) {
-      const settings = org.settings as Record<string, any>;
+    if (org?.settings && typeof org.settings === 'object') {
+      const settings = org.settings as Record<string, unknown>;
       let modified = false;
 
-      // Recursive function to find and redact keys
-      const redactKeys = (obj: any): any => {
-        if (!obj || typeof obj !== 'object') return obj;
+      const redactKeys = (obj: unknown): unknown => {
+        const isRecord = (value: unknown): value is Record<string, unknown> => {
+          return typeof value === 'object' && value !== null && !Array.isArray(value);
+        };
 
-        for (const key in obj) {
-            const lowerKey = key.toLowerCase();
-            if (['access_token', 'refresh_token', 'api_key', 'secret', 'password', 'credential', 'oauth_token'].some(k => lowerKey.includes(k))) {
-                if (obj[key] && obj[key] !== 'REVOKED') {
-                    obj[key] = 'REVOKED';
-                    modified = true;
-                    scrubbedCount++;
-                }
-            } else if (typeof obj[key] === 'object') {
-                redactKeys(obj[key]);
-            }
+        if (Array.isArray(obj)) {
+          return obj.map(item => redactKeys(item));
         }
-        return obj;
+
+        if (!isRecord(obj)) {
+          return obj;
+        }
+
+        const workingObj: Record<string, unknown> = { ...obj };
+
+        for (const key of Object.keys(workingObj)) {
+          const lowerKey = key.toLowerCase();
+          const value = workingObj[key];
+
+          if (['access_token', 'refresh_token', 'api_key', 'secret', 'password', 'credential', 'oauth_token'].some(k => lowerKey.includes(k))) {
+            if (typeof value === 'string' && value !== 'REVOKED') {
+              workingObj[key] = 'REVOKED';
+              modified = true;
+              scrubbedCount++;
+            }
+          } else if (typeof value === 'object' && value !== null) {
+            workingObj[key] = redactKeys(value);
+          }
+        }
+
+        return workingObj;
       };
 
-      const newSettings = redactKeys({ ...settings }); // shallow copy top level
+      const newSettings = redactKeys(settings);
 
       if (modified) {
-         await supabase.from('organizations').update({ settings: newSettings }).eq('id', tenantId);
+        const { error: updateError } = await supabase
+          .from('organizations')
+          .update({ settings: newSettings })
+          .eq('id', tenantId);
+
+        if (updateError) {
+          logger.error('Failed to update organization settings during credential scrub', {
+            tenantId,
+            error: updateError.message,
+          });
+          throw new Error(`Failed to update organization settings during credential scrub: ${updateError.message}`);
+        }
       }
     }
 
