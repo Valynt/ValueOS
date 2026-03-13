@@ -811,6 +811,7 @@ jobs:
       - dast-gate
       - verify-secret-rotation-metadata-age
       - accessibility-audit
+      - error-budget-release-gate
       - ui-truthfulness-gate
     steps:
       - name: Enforce PR blockers
@@ -833,6 +834,36 @@ jobs:
             fi
           done
 
+  error-budget-release-gate:
+    name: error-budget release gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v6
+      - name: Enforce SLO error budget policy
+        env:
+          PROMETHEUS_BASE_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
+          PROMETHEUS_BEARER_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
+          SLO_FAST_BURN_THRESHOLD: "14.4"
+          SLO_SLOW_BURN_THRESHOLD: "6"
+          SLO_GATE_OUTPUT_DIR: artifacts/slo-gate
+        run: |
+          if [ -z "${PROMETHEUS_BASE_URL}" ]; then
+            echo "PROMETHEUS_STAGING_URL secret is required for release gate"
+            exit 1
+          fi
+          bash scripts/ci/observability-slo-gate.sh
+
+      - name: Upload SLO gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-error-budget-gate-${{ github.run_id }}
+          path: |
+            artifacts/slo-gate/slo-gate-report.json
+            artifacts/slo-gate/slo-gate-summary.md
+          if-no-files-found: warn
+
   staging-deploy-release-gates:
     name: staging/deploy release gates
     runs-on: ubuntu-latest
@@ -844,6 +875,7 @@ jobs:
       - dast-gate
       - verify-secret-rotation-metadata-age
       - accessibility-audit
+      - error-budget-release-gate
     steps:
       - name: Enforce staging/deploy blockers
         run: |
@@ -855,7 +887,8 @@ jobs:
             "security-gate:${{ needs.security-gate.result }}" \
             "dast-gate:${{ needs.dast-gate.result }}" \
             "verify-secret-rotation-metadata-age:${{ needs.verify-secret-rotation-metadata-age.result }}" \
-            "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
+            "accessibility-audit:${{ needs.accessibility-audit.result }}" \
+            "error-budget-release-gate:${{ needs.error-budget-release-gate.result }}"; do
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

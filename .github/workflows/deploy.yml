@@ -712,10 +712,42 @@ jobs:
 
           echo "No active SLO burn-rate alerts in pre-production."
 
+  error-budget-policy-gate:
+    name: Error Budget Policy Gate
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, preprod-slo-guard]
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Evaluate SLO error budget burn policy
+        env:
+          PROMETHEUS_BASE_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
+          PROMETHEUS_BEARER_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
+          SLO_FAST_BURN_THRESHOLD: "14.4"
+          SLO_SLOW_BURN_THRESHOLD: "6"
+          SLO_GATE_OUTPUT_DIR: artifacts/slo-gate
+        run: |
+          if [ -z "${PROMETHEUS_BASE_URL}" ]; then
+            echo "PROMETHEUS_STAGING_URL secret is required for error budget policy gate"
+            exit 1
+          fi
+          bash scripts/ci/observability-slo-gate.sh
+
+      - name: Upload error budget gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: error-budget-gate-${{ github.run_id }}
+          path: |
+            artifacts/slo-gate/slo-gate-report.json
+            artifacts/slo-gate/slo-gate-summary.md
+          if-no-files-found: warn
+
   preprod-launch-gate:
     name: Pre-Production Launch Gate
     runs-on: ubuntu-latest
-    needs: [deploy-staging, preprod-slo-guard, dast-gate]
+    needs: [deploy-staging, preprod-slo-guard, error-budget-policy-gate, dast-gate]
     if: github.event_name != 'schedule'
     steps:
       - uses: actions/checkout@v6
