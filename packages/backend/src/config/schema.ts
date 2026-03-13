@@ -7,17 +7,15 @@
 
 import { z } from 'zod';
 
-// Import environment writing functions
+// NodeJS process may not exist in all environments (e.g. browser bundles)
+const nodeProcess = (globalThis as { process?: NodeJS.Process }).process;
+
 function writeStdout(message: string) {
-  if (typeof globalThis !== 'undefined' && (globalThis as any).process?.stdout) {
-    (globalThis as any).process.stdout.write(`${message}\n`);
-  }
+  nodeProcess?.stdout?.write(`${message}\n`);
 }
 
 function writeStderr(message: string) {
-  if (typeof globalThis !== 'undefined' && (globalThis as any).process?.stderr) {
-    (globalThis as any).process.stderr.write(`${message}\n`);
-  }
+  nodeProcess?.stderr?.write(`${message}\n`);
 }
 
 /**
@@ -216,7 +214,7 @@ const DevelopmentConfigSchema = ConfigSchema.extend({
  */
 export interface ConfigValidationResult {
   success: boolean;
-  config: z.infer<typeof ConfigSchema>;
+  config: z.infer<typeof ConfigSchema> | null;
   errors: string[];
   warnings: string[];
   environment: string;
@@ -225,7 +223,7 @@ export interface ConfigValidationResult {
 /**
  * Map environment variables to configuration object
  */
-function mapEnvVarsToConfig(env: Record<string, string>): Record<string, any> {
+function mapEnvVarsToConfig(env: Record<string, string>): Record<string, unknown> {
   return {
     app: {
       environment: env.NODE_ENV || 'development',
@@ -356,7 +354,7 @@ export function loadAndValidateConfig(env: Record<string, string> = process.env)
 
     if (!result.success) {
       // Format validation errors for better readability
-      result.error.issues.forEach((issue: any) => {
+      result.error.issues.forEach((issue) => {
         const path = issue.path.join('.');
         const message = issue.message;
 
@@ -376,7 +374,7 @@ export function loadAndValidateConfig(env: Record<string, string> = process.env)
 
       return {
         success: false,
-        config: null as any,
+        config: null,
         errors,
         warnings,
         environment,
@@ -426,7 +424,7 @@ export function loadAndValidateConfig(env: Record<string, string> = process.env)
 
     return {
       success: false,
-      config: null as any,
+      config: null,
       errors: [errorMsg],
       warnings,
       environment,
@@ -452,8 +450,8 @@ export function getValidatedConfig(): z.infer<typeof ConfigSchema> {
     writeStderr('  npm run config:validate');
     writeStderr('  npm run config:diff');
 
-    if (typeof globalThis !== 'undefined' && (globalThis as any).process) {
-      (globalThis as any).process.exit(1);
+    if (nodeProcess) {
+      nodeProcess.exit(1);
     } else {
       throw new Error('Configuration validation failed');
     }

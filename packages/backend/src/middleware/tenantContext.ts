@@ -10,7 +10,16 @@ import {
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-import { validateEnv } from "../config/validateEnv.js"
+import { validateEnv } from "../config/validateEnv.js";
+import type { AuthenticatedRequest } from "./auth.js";
+
+// Extended request shape used internally by this middleware
+interface TenantRequest extends AuthenticatedRequest {
+  session?: { expires_at?: number; expires_in?: number };
+  serviceIdentityVerified?: boolean;
+  tenantSource?: string;
+  tenantContext?: TCTPayload;
+}
 
 const logger = createLogger({ component: "TenantContextMiddleware" });
 const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";
@@ -69,8 +78,8 @@ const buildRequestContext = (
   req: Request,
   userId?: string | null
 ): TCTPayload => {
-  const user = (req as any).user;
-  const session = (req as any).session;
+  const user = (req as TenantRequest).user;
+  const session = (req as TenantRequest).session;
   const roles = resolveRoles(user);
   const exp =
     (session?.expires_at as number | undefined) ??
@@ -97,7 +106,7 @@ export const tenantContextMiddleware = (enforce = true) => {
 
   return async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers["x-tenant-context"];
-    const userId = (req as any).user?.id as string | undefined;
+    const userId = (req as TenantRequest).user?.id as string | undefined;
     let tenantSource: TenantCandidateSource = "none";
     let resolvedTenantId: string | null = null;
     let tctPayload: TCTPayload | null = null;
@@ -107,7 +116,7 @@ export const tenantContextMiddleware = (enforce = true) => {
 
       try {
         tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as unknown as TCTPayload;
-        const requestTenantId = (req as any).tenantId as string | undefined;
+        const requestTenantId = (req as TenantRequest).tenantId as string | undefined;
 
         if (requestTenantId && tctPayload.tid !== requestTenantId) {
           logger.warn("Tenant context tenant mismatch", {
@@ -139,7 +148,7 @@ export const tenantContextMiddleware = (enforce = true) => {
     if (!resolvedTenantId) {
       const tenantHeader = req.header("x-tenant-id");
       if (tenantHeader) {
-        if (!(req as any).serviceIdentityVerified) {
+        if (!(req as TenantRequest).serviceIdentityVerified) {
           logger.warn("Blocked external tenant header usage", {
             userId,
             path: req.path,
@@ -154,7 +163,7 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
-    const claimTenantId = (req as any).user?.tenant_id || (req as any).user?.organization_id;
+    const claimTenantId = (req as TenantRequest).user?.tenant_id || (req as TenantRequest).user?.organization_id;
     if (!resolvedTenantId && claimTenantId) {
       resolvedTenantId = claimTenantId;
       tenantSource = "user-claim";
@@ -238,8 +247,8 @@ export const tenantContextMiddleware = (enforce = true) => {
     }
 
     const attachContext = () => {
-      (req as any).tenantId = resolvedTenantId;
-      (req as any).tenantSource = tenantSource;
+      (req as TenantRequest).tenantId = resolvedTenantId;
+      (req as TenantRequest).tenantSource = tenantSource;
       next();
     };
 
@@ -251,7 +260,7 @@ export const tenantContextMiddleware = (enforce = true) => {
     const sharedContext = { ...existingContext, tenantId: resolvedTenantId };
 
     tenantContextStorage.run(contextPayload, () => {
-      (req as any).tenantContext = contextPayload;
+      (req as TenantRequest).tenantContext = contextPayload;
       runWithContext(sharedContext, attachContext);
     });
   };

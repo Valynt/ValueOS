@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClientOptions } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
 
 import { getEnvVar, getSupabaseConfig } from "./env";
 
@@ -51,7 +51,7 @@ if (isServer && isProduction && !supabaseServiceRoleKey) {
 }
 
 // Validate required client-side configuration
-let supabase: any = null;
+let supabase: SupabaseClient | null = null;
 if (supabaseUrl && supabaseAnonKey) {
   const supabaseOptions: SupabaseClientOptions<"public"> = {
     db: {
@@ -96,12 +96,14 @@ function parseBearerToken(header?: string | string[]): string | null {
   return token.length > 0 ? token : null;
 }
 
-export function createRequestSupabaseClient(req: {
+interface SupabaseRequest {
   headers?: { authorization?: string | string[] };
-  supabase?: any;
-  supabaseUser?: any;
-  user?: any;
-}) {
+  supabase?: SupabaseClient;
+  supabaseUser?: unknown;
+  user?: unknown;
+}
+
+export function createRequestSupabaseClient(req: SupabaseRequest) {
   if (!isServer) {
     throw new Error("Request-scoped Supabase client can only be used server-side");
   }
@@ -133,18 +135,13 @@ export function createRequestSupabaseClient(req: {
   };
 
   const client = createClient(supabaseUrl, supabaseAnonKey, requestOptions);
-  (req as any).supabase = client;
-  (req as any).supabaseUser = (req as any).user ?? null;
+  req.supabase = client;
+  req.supabaseUser = req.user ?? null;
   return client;
 }
 
-export function getRequestSupabaseClient(req: {
-  headers?: { authorization?: string | string[] };
-  supabase?: any;
-  supabaseUser?: any;
-  user?: any;
-}) {
-  return (req as any).supabase ?? createRequestSupabaseClient(req);
+export function getRequestSupabaseClient(req: SupabaseRequest) {
+  return req.supabase ?? createRequestSupabaseClient(req);
 }
 
 // Server-side Supabase client - for backend services only

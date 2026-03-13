@@ -3,6 +3,8 @@
  * Provides comprehensive rate limiting for API endpoints and user actions
  */
 
+import type { NextFunction, Request, Response } from "express";
+
 import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'RateLimitService' });
@@ -12,9 +14,9 @@ export interface RateLimitConfig {
   maxRequests: number; // Maximum requests per window
   skipSuccessfulRequests?: boolean; // Don't count successful requests
   skipFailedRequests?: boolean; // Don't count failed requests
-  keyGenerator?: (req: any) => string; // Custom key generator
-  skip?: (req: any) => boolean; // Skip rate limiting for certain requests
-  handler?: (req: any, res: any, next: any) => void; // Custom handler for rate limit exceeded
+  keyGenerator?: (req: Request) => string; // Custom key generator
+  skip?: (req: Request) => boolean; // Skip rate limiting for certain requests
+  handler?: (req: Request, res: Response, next: NextFunction) => void; // Custom handler for rate limit exceeded
 }
 
 export interface RateLimitResult {
@@ -49,7 +51,7 @@ export class RateLimitService {
   checkLimit(
     key: string,
     config: RateLimitConfig,
-    req?: any
+    req?: Request
   ): RateLimitResult {
     // Check if rate limiting should be skipped
     if (config.skip && req && config.skip(req)) {
@@ -123,7 +125,7 @@ export class RateLimitService {
    * Middleware factory for Express routes
    */
   createMiddleware(config: RateLimitConfig) {
-    return (req: any, res: any, next: any) => {
+    return (req: Request, res: Response, next: NextFunction) => {
       const key = this.generateKey(req);
       const result = this.checkLimit(key, config, req);
 
@@ -156,7 +158,7 @@ export class RateLimitService {
   /**
    * Generate rate limit key from request
    */
-  private generateKey(req: any): string {
+  private generateKey(req: Request): string {
     // Use IP address as default key
     const ip = req.ip || req.connection?.remoteAddress || 'unknown';
     const userId = req.user?.id || 'anonymous';

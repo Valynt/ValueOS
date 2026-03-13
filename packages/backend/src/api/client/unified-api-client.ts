@@ -43,7 +43,7 @@ export interface ResponseMetadata {
 export interface RequestConfig {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   url: string;
-  data?: any;
+  data?: unknown;
   params?: Record<string, any>;
   headers?: Record<string, string>;
   timeout?: number;
@@ -120,7 +120,7 @@ export class UnifiedApiClient {
 
   async post<T = any>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: Partial<RequestConfig>
   ): Promise<ApiResponse<T>> {
     return this.request<T>({
@@ -133,7 +133,7 @@ export class UnifiedApiClient {
 
   async put<T = any>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: Partial<RequestConfig>
   ): Promise<ApiResponse<T>> {
     return this.request<T>({
@@ -146,7 +146,7 @@ export class UnifiedApiClient {
 
   async patch<T = any>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: Partial<RequestConfig>
   ): Promise<ApiResponse<T>> {
     return this.request<T>({
@@ -338,7 +338,7 @@ export class UnifiedApiClient {
   private async parseResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const contentType = response.headers.get("content-type");
 
-    let data: any;
+    let data: unknown;
     if (contentType && contentType.includes("application/json")) {
       data = await response.json();
     } else {
@@ -420,31 +420,31 @@ export const api = {
   // Value Cases
   getValueCases: (params?: Record<string, any>) => apiClient.get("/api/cases", params),
 
-  createValueCase: (data: any) => apiClient.post("/api/cases", data),
+  createValueCase: ( data: unknown) => apiClient.post("/api/cases", data),
 
-  updateValueCase: (id: string, data: any) => apiClient.put(`/api/cases/${id}`, data),
+  updateValueCase: (id: string, data: unknown) => apiClient.put(`/api/cases/${id}`, data),
 
   deleteValueCase: (id: string) => apiClient.delete(`/api/cases/${id}`),
 
   // Agents
-  executeAgent: (type: string, data: any) => apiClient.post("/api/agents/execute", { type, data }),
+  executeAgent: (type: string, data: unknown) => apiClient.post("/api/agents/execute", { type, data }),
 
   getAgentStatus: (id: string) => apiClient.get(`/api/agents/${id}/status`),
 
   // Workflows
-  executeWorkflow: (data: any) => apiClient.post("/api/workflows/execute", data),
+  executeWorkflow: ( data: unknown) => apiClient.post("/api/workflows/execute", data),
 
   getWorkflowStatus: (id: string) => apiClient.get(`/api/workflows/${id}/status`),
 
   // Integrations
   getIntegrations: () => apiClient.get("/api/integrations"),
 
-  createIntegration: (data: any) => apiClient.post("/api/integrations", data),
+  createIntegration: ( data: unknown) => apiClient.post("/api/integrations", data),
 
   testIntegration: (id: string) => apiClient.post(`/api/integrations/${id}/test`),
 
   // User Management
   getCurrentUser: () => apiClient.get("/api/user/me"),
 
-  updateProfile: (data: any) => apiClient.put("/api/user/profile", data),
+  updateProfile: ( data: unknown) => apiClient.put("/api/user/profile", data),
 };

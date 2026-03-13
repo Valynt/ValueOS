@@ -6,7 +6,8 @@
 
 import { Request, Response, Router } from 'express';
 
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth } from '../middleware/auth.js';
+import type { AuthenticatedRequest } from '../middleware/auth.js';
 import { requireConsent } from '../middleware/consentMiddleware.js'
 import { rateLimiters } from '../middleware/rateLimiter.js'
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
@@ -28,7 +29,7 @@ router.use(serviceIdentityMiddleware);
 router.use(requireAuth);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: (req as AuthenticatedRequest & { requestId?: string; sessionId?: string }).requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -63,8 +64,8 @@ router.post(
     }
     
     // Get user info
-    const userId = (req as any).user?.id || 'anonymous';
-    const sessionId = (req as any).sessionId;
+    const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
+    const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
     
     const promptSanitization = prompt ? sanitizeAgentInput(prompt) : null;
     const variablesSanitization = promptVariables ? sanitizeAgentInput(promptVariables) : null;
@@ -215,7 +216,7 @@ router.delete(
       'LLM job cancelled',
       withRequestContext(req, res, {
         jobId,
-        userId: (req as any).user?.id,
+        userId: (req as AuthenticatedRequest).user?.id,
       })
     );
     
@@ -280,10 +281,10 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
       });
     }
     
-    const userId = (req as any).user?.id || 'anonymous';
-    const sessionId = (req as any).sessionId;
+    const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
+    const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
 
-    const sanitizedJobs = [] as any[];
+    const sanitizedJobs: unknown[] = [];
 
     for (const [index, jobData] of jobs.entries()) {
       const promptSanitization = jobData.prompt ? sanitizeAgentInput(jobData.prompt) : null;

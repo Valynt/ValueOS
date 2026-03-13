@@ -9,6 +9,8 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
+import type { AuthenticatedRequest } from "../middleware/auth.js";
+
 import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks.js"
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
@@ -31,7 +33,7 @@ router.get(
   requirePermission("users.read"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
 
       const users = await adminUserService.listTenantUsers(tenantId);
 
@@ -81,8 +83,8 @@ router.post(
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -136,8 +138,8 @@ router.patch(
   validateRequest(ValidationSchemas.adminChangeRole),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -180,8 +182,8 @@ router.delete(
   auditBulkDelete("team_member"),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -223,8 +225,8 @@ router.delete(
   auditOperation("invite_cancel", "team_invite", (req) => req.params.userId),
   async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId as string;
-      const actor = (req as any).user;
+      const tenantId = (req as AuthenticatedRequest).tenantId as string;
+      const actor = (req as AuthenticatedRequest).user;
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||

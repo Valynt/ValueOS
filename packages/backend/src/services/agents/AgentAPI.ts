@@ -243,7 +243,7 @@ export class AgentAPI {
   /**
    * Sanitize outbound agent payloads to guard against prompt injection and XSS.
    */
-  private sanitizeRequestBody(body: any): any {
+  private sanitizeRequestBody(body: unknown): unknown {
     const sanitizedQuery = body.query
       ? sanitizeString(
           llmSanitizer.sanitizePrompt(String(body.query), { maxLength: 4000 }).content,
@@ -260,7 +260,7 @@ export class AgentAPI {
   /**
    * Normalize token counts to a safe ceiling to prevent overflow and abuse.
    */
-  private normalizeTokenUsage(tokens?: any): { prompt?: number; completion?: number; total?: number } | undefined {
+  private normalizeTokenUsage(tokens?: unknown): { prompt?: number; completion?: number; total?: number } | undefined {
     if (!tokens) return undefined;
 
     const clamp = (value: number | undefined, max = 20000) =>
@@ -308,7 +308,7 @@ export class AgentAPI {
   private async executeRequest<T>(
     agent: AgentType,
     endpoint: string,
-    body: any
+    body: unknown
   ): Promise<AgentResponse<T>> {
     const startTime = Date.now();
     const circuitBreaker = this.getCircuitBreaker(agent);
@@ -473,7 +473,7 @@ export class AgentAPI {
   async generateKPIHypothesis(
     query: string,
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('target', '/target/kpi-hypothesis', {
       query,
       context,
@@ -485,9 +485,9 @@ export class AgentAPI {
    */
   async generateROIModel(
     query: string,
-    assumptions: Record<string, any>,
+    assumptions: Record<string, unknown>,
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('financial-modeling', '/financial/roi-model', {
       query,
       assumptions,
@@ -555,9 +555,9 @@ export class AgentAPI {
    * Validate integrity (Integrity Agent)
    */
   async validateIntegrity(
-    artifact: any,
+    artifact: unknown,
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('integrity', '/integrity/validate', {
       artifact,
       context,
@@ -570,7 +570,7 @@ export class AgentAPI {
   async researchCompany(
     companyName: string,
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('company-intelligence', '/company/research', {
       companyName,
       context,
@@ -583,7 +583,7 @@ export class AgentAPI {
   async mapValueDrivers(
     query: string,
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('value-mapping', '/value/map-drivers', {
       query,
       context,
@@ -602,7 +602,7 @@ export class AgentAPI {
       researchQuestions?: string[];
     },
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('research', '/research/execute', {
       companyName,
       ...options,
@@ -621,7 +621,7 @@ export class AgentAPI {
       region?: string;
     },
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('benchmark', '/benchmark/execute', {
       industry,
       kpis,
@@ -652,7 +652,7 @@ export class AgentAPI {
       customInstructions?: string;
     },
     context?: AgentContext
-  ): Promise<AgentResponse<any>> {
+  ): Promise<AgentResponse<unknown>> {
     return this.executeRequest('narrative', '/narrative/generate', {
       level,
       audience,

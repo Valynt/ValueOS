@@ -118,7 +118,7 @@ class Logger {
     const sanitizedError = actualError ? sanitizeError(actualError) : undefined;
     this.log("error", message, {
       ...sanitizedContext,
-      error: sanitizedError as any,
+      error: sanitizedError as Error | undefined,
     });
   }
 
@@ -308,14 +308,14 @@ export const secureLog = {
   /**
    * Log user-related actions (automatically sanitizes user objects)
    */
-  user: (message: string, user: any, context?: LogContext) => {
+  user: (message: string, user: unknown, context?: LogContext) => {
     logger.info(message, { ...sanitizeUser(user), ...context });
   },
 
   /**
    * Log request-related actions (automatically sanitizes requests)
    */
-  request: (message: string, req: any, context?: LogContext) => {
+  request: (message: string, req: unknown, context?: LogContext) => {
     logger.info(message, { ...sanitizeRequest(req), ...context });
   },
 
@@ -339,13 +339,13 @@ export function setupMonitoring() {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const Sentry = typeof (globalThis as Record<string, unknown>)['window'] === "undefined" ? require("@sentry/node") : null as any;
+      const Sentry = typeof (globalThis as Record<string, unknown>)['window'] === "undefined" ? require("@sentry/node") : null;
 
       if (Sentry) {
         logger.addListener((entry) => {
           if (entry.level === "error" && entry.error) {
             const trace = getTraceContextForLogging();
-            Sentry.withScope((scope: any) => {
+            Sentry.withScope((scope: unknown) => {
               scope.setExtras({ ...entry.context, ...trace });
               scope.setTag("component", entry.context?.component || "unknown");
               Sentry.captureException(entry.error);

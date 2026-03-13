@@ -3,6 +3,8 @@
  * Manages invoice storage and retrieval
  */
 
+import type Stripe from "stripe";
+
 import { createLogger } from "../../lib/logger.js"
 import { supabase } from '../../lib/supabase.js';
 import { Invoice } from "../../types/billing";
@@ -12,8 +14,8 @@ import StripeService from "./StripeService.js"
 const logger = createLogger({ component: "InvoiceService" });
 
 class InvoiceService {
-  private stripe: any;
-  private stripeService: any;
+  private stripe: Stripe | null = null;
+  private stripeService: InstanceType<typeof StripeService> | null = null;
 
   constructor() {
     // Initialize Stripe service only if billing is configured
@@ -30,7 +32,7 @@ class InvoiceService {
   /**
    * Store invoice from Stripe
    */
-  async storeInvoice(stripeInvoice: any): Promise<Invoice> {
+  async storeInvoice(stripeInvoice: Stripe.Invoice): Promise<Invoice> {
     if (!this.stripe || !supabase) {
       throw new Error("Billing service not configured");
     }
@@ -96,7 +98,7 @@ class InvoiceService {
         .single();
 
       if (error) {
-        if ((error as any).code === "23505") {
+        if ((error as { code?: string }).code === "23505") {
           return this.updateInvoice(stripeInvoice);
         }
         throw error;
@@ -117,7 +119,7 @@ class InvoiceService {
   /**
    * Update existing invoice
    */
-  async updateInvoice(stripeInvoice: any): Promise<Invoice> {
+  async updateInvoice(stripeInvoice: Stripe.Invoice): Promise<Invoice> {
     return this.updateInvoiceWithCustomerStatus(stripeInvoice, null);
   }
 
@@ -125,7 +127,7 @@ class InvoiceService {
    * Update existing invoice with optimistic concurrency control
    */
   async updateInvoiceWithCustomerStatus(
-    stripeInvoice: any,
+    stripeInvoice: Stripe.Invoice,
     customerStatus: string | null
   ): Promise<Invoice> {
     // Transaction boundary: RPC function runs in a single database transaction
@@ -136,7 +138,7 @@ class InvoiceService {
       .single();
 
     if (fetchError) {
-      if ((fetchError as any).code !== "PGRST116") {
+      if ((fetchError as { code?: string }).code !== "PGRST116") {
         throw fetchError;
       }
     }
@@ -172,7 +174,7 @@ class InvoiceService {
     );
 
     if (error) {
-      if ((error as any).code === "40001") {
+      if ((error as { code?: string }).code === "40001") {
         throw new Error(
           `Invoice update conflict for stripe invoice ${stripeInvoice.id}`
         );

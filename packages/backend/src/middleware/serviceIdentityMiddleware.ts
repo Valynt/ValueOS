@@ -1,6 +1,14 @@
 import { createHash, createHmac, randomUUID as nodeRandomUUID, timingSafeEqual } from 'crypto';
 
 import { NextFunction, Request, Response } from 'express';
+
+interface ServiceRequest extends Request {
+  serviceIdentityVerified?: boolean;
+  requestNonce?: string;
+  servicePrincipal?: string;
+  serviceIssuer?: string;
+  serviceAuthMethod?: string;
+}
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
 import { getAutonomyConfig } from "../config/autonomy.js"
@@ -91,7 +99,7 @@ function normalizeBody(body: unknown): string {
 }
 
 function bodyHashFromRequest(req: Request): string {
-  return createHash('sha256').update(normalizeBody((req as any).body)).digest('hex');
+  return createHash('sha256').update(normalizeBody((req as ServiceRequest & { body: unknown }).body)).digest('hex');
 }
 
 function buildSigningPayload(req: Request, timestamp: number, nonce: string, bodyHash: string): string {
@@ -315,11 +323,11 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       return res.status(401).json({ error: 'Replay detected' });
     }
 
-    (req as any).serviceIdentityVerified = true;
-    (req as any).requestNonce = nonce;
-    (req as any).servicePrincipal = resolvedIdentity.principal;
-    (req as any).serviceIssuer = resolvedIdentity.issuer;
-    (req as any).serviceAuthMethod = resolvedIdentity.method;
+    (req as ServiceRequest).serviceIdentityVerified = true;
+    (req as ServiceRequest).requestNonce = nonce;
+    (req as ServiceRequest).servicePrincipal = resolvedIdentity.principal;
+    (req as ServiceRequest).serviceIssuer = resolvedIdentity.issuer;
+    (req as ServiceRequest).serviceAuthMethod = resolvedIdentity.method;
     logger.info('Service identity verified', {
       servicePrincipal: resolvedIdentity.principal,
       issuer: resolvedIdentity.issuer,

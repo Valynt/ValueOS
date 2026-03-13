@@ -65,29 +65,29 @@ export interface VMRT {
   context: {
     organization: {
       industry: string;
-      [key: string]: any;
+      [key: string]: unknown;
     };
     persona: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   valueModel: {
     outcomeCategory: string;
     financialImpact: {
       totalImpact: {
         amount: number;
-        [key: string]: any;
+        [key: string]: unknown;
       };
-      [key: string]: any;
+      [key: string]: unknown;
     };
-    [key: string]: any;
+    [key: string]: unknown;
   };
   reasoningSteps: {
     description: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }[];
   qualityMetrics: {
     overallConfidence: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

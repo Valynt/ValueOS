@@ -79,14 +79,14 @@ export interface DataAccessRequest {
   resourceType: string;
   resourceId?: string;
   operation: "read" | "write" | "delete" | "list";
-  query?: any;
+  query?: unknown;
   filters?: Record<string, any>;
 }
 
 export interface IsolationResult {
   allowed: boolean;
   reason: string;
-  filteredData?: any;
+  filteredData?: unknown;
   appliedRules: string[];
   warnings: string[];
   auditRequired: boolean;
@@ -438,7 +438,7 @@ export class TenantIsolationService {
   ): Promise<{
     allowed: boolean;
     reason: string;
-    filteredData?: any;
+    filteredData?: unknown;
     warnings?: string[];
   }> {
     // Check tenant access
@@ -546,8 +546,8 @@ export class TenantIsolationService {
    */
   private async applyRowLevelSecurity(
     request: DataAccessRequest,
-    query: any
-  ): Promise<any> {
+    query: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Add tenant_id filter to query
     const filteredQuery = {
       ...query,
@@ -565,8 +565,8 @@ export class TenantIsolationService {
    */
   private async applyColumnLevelSecurity(
     request: DataAccessRequest,
-    query: any
-  ): Promise<any> {
+    query: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Remove sensitive columns based on user permissions
     const allowedColumns = await this.getAllowedColumns(request);
 
@@ -605,8 +605,8 @@ export class TenantIsolationService {
    */
   private async applyDataFiltering(
     request: DataAccessRequest,
-    query: any
-  ): Promise<any> {
+    query: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Apply any additional tenant-specific filtering
     return {
       ...query,
@@ -658,7 +658,7 @@ export class TenantIsolationService {
     appliedRules: string[],
     warnings: string[],
     auditRequired: boolean,
-    filteredData?: any
+    filteredData?: unknown
   ): IsolationResult {
     return {
       allowed,
@@ -743,7 +743,7 @@ export class TenantIsolationService {
   /**
    * Get isolation metrics
    */
-  public getMetrics(): any {
+  public getMetrics(): Record<string, unknown> {
     return {
       ...this.metrics,
       activeTenants: this.tenants.size,

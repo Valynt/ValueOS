@@ -58,7 +58,7 @@ export interface ValidationRule {
   max?: number;
   pattern?: RegExp;
   enum?: string[];
-  customValidator?: (value: any) => boolean | string;
+  customValidator?: (value: unknown) => boolean | string;
 }
 
 /**
@@ -74,7 +74,7 @@ export interface ValidationSchema {
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-  sanitizedData?: any;
+  sanitizedData?: unknown;
 }
 
 /**
@@ -157,7 +157,7 @@ export function securityScan(input: string): { safe: boolean; threats: string[] 
 /**
  * Validate single value against rule
  */
-function validateValue(value: any, rule: ValidationRule, fieldName: string): string[] {
+function validateValue(value: unknown, rule: ValidationRule, fieldName: string): string[] {
   const errors: string[] = [];
 
   // Required check
@@ -259,13 +259,13 @@ function validateValue(value: any, rule: ValidationRule, fieldName: string): str
  * Validate data against schema
  */
 export function validateData(
-  data: any,
+  data: unknown,
   schema: ValidationSchema,
   sanitize: boolean = true,
   options: { allowUnknown?: boolean } = {}
 ): ValidationResult {
   const errors: string[] = [];
-  const sanitizedData: any = {};
+  const sanitizedData: Record<string, unknown> = {};
   const payload = typeof data === 'object' && data !== null ? data : {};
   const allowUnknown = options.allowUnknown ?? false;
 
@@ -341,7 +341,7 @@ export function validateRequest(
           path: sanitizeForLogging(req.path),
           method: req.method,
           ip: sanitizeForLogging(req.ip),
-          requestId: (req as any).requestId ?? res.locals.requestId
+          requestId: (req as Request & { requestId?: string }).requestId ?? res.locals.requestId
         });
 
         res.status(400).json({

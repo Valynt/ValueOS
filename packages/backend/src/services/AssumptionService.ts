@@ -24,10 +24,10 @@ export class AssumptionService {
     assumptionId: string,
     updates: Record<string, any>,
     context: AssumptionUpdateContext = {}
-  ): Promise<{ assumptionId: string; updated: boolean; data: any }> {
+  ): Promise<{ assumptionId: string; updated: boolean; data: unknown }> {
     logger.info('Updating assumption', { assumptionId });
 
-    let previous: any = null;
+    let previous: unknown = null;
     try {
       previous = await this.getAssumption(assumptionId);
     } catch (error) {
@@ -45,14 +45,14 @@ export class AssumptionService {
       proposedPayload,
       previousPayload: previous || undefined,
       stageFlags: {
-        allowHighIrrException: Boolean((safeUpdates as any).allowHighIrrException || (safeUpdates as any)?.stageFlags?.allowHighIrrException),
+        allowHighIrrException: Boolean((safeUpdates as Record<string, unknown>).allowHighIrrException || (safeUpdates as Record<string, unknown>)?.stageFlags?.allowHighIrrException),
       },
-      justificationText: String((safeUpdates as any)?.justificationText || (safeUpdates as any)?.justification || ''),
+      justificationText: String((safeUpdates as Record<string, unknown>)?.justificationText || (safeUpdates as Record<string, unknown>)?.justification || ''),
     });
 
     const actor = context.externalSub || context.userId || 'system';
-    const valueCaseId = context.valueCaseId || (previous as any)?.value_case_id || (safeUpdates as any)?.value_case_id;
-    const sessionId = context.sessionId || (safeUpdates as any)?.session_id || undefined;
+    const valueCaseId = context.valueCaseId || (previous as Record<string, unknown>)?.value_case_id || (safeUpdates as Record<string, unknown>)?.value_case_id;
+    const sessionId = context.sessionId || (safeUpdates as Record<string, unknown>)?.session_id || undefined;
 
     if (evaluation.vetoed) {
       this.sagaEventEmitter.emit({
