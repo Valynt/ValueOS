@@ -94,13 +94,14 @@ router.post(
 
       const actor = getActor(req);
       await auditLogService.logAudit({
+        tenantId,
         userId: actor.id,
         userName: actor.name,
         userEmail: actor.email,
         action: 'crm_oauth_started',
         resourceType: 'crm_connection',
         resourceId: provider,
-        details: { provider, tenantId },
+        details: { provider },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
@@ -172,13 +173,14 @@ router.get(
 
       // Audit log
       await auditLogService.logAudit({
+        tenantId,
         userId: 'system',
         userName: 'System',
         userEmail: 'system@valueos.io',
         action: 'crm_connected',
         resourceType: 'crm_connection',
         resourceId: connection.id,
-        details: { provider, tenantId, status: connection.status },
+        details: { provider, status: connection.status },
       });
 
       // Trigger initial sync
@@ -238,13 +240,14 @@ router.post(
 
       const actor = getActor(req);
       await auditLogService.logAudit({
+        tenantId,
         userId: actor.id,
         userName: actor.name,
         userEmail: actor.email,
         action: 'crm_disconnected',
         resourceType: 'crm_connection',
         resourceId: provider,
-        details: { provider, tenantId },
+        details: { provider },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
@@ -490,13 +493,14 @@ router.post(
 
       const actor = getActor(req);
       await auditLogService.logAudit({
+        tenantId,
         userId: actor.id,
         userName: actor.name,
         userEmail: actor.email,
         action: 'crm_sync_triggered',
         resourceType: 'crm_connection',
         resourceId: provider,
-        details: { provider, tenantId, jobId: job.id },
+        details: { provider, jobId: job.id },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
