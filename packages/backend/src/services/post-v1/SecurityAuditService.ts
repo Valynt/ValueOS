@@ -10,7 +10,7 @@ export interface RequestAuditEvent {
   requestId: string;
   userId?: string;
   actor?: string;
-  action: AuditAction;
+  action: AuditAction | string;
   resource: string;
   requestPath: string;
   ipAddress?: string;
@@ -26,7 +26,7 @@ interface AuditPayload {
   request_id: string;
   user_id: string | null;
   actor: string;
-  action: AuditAction;
+  action: AuditAction | string;
   resource: string;
   request_path: string;
   event_type: string;
