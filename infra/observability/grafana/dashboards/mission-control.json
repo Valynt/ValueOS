@@ -24,8 +24,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 150 },
-              { "color": "red", "value": 200 }
+              { "color": "yellow", "value": "${SLO_WARN_P95_LATENCY_MS}" },
+              { "color": "red", "value": "${SLO_MAX_P95_LATENCY_MS}" }
             ]
           },
           "unit": "ms",
@@ -43,7 +43,7 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "title": "P95 Latency (target: 200ms)",
+      "title": "P95 Latency (target: ${SLO_MAX_P95_LATENCY_MS}ms)",
       "type": "stat",
       "targets": [
         {
@@ -61,8 +61,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 0.05 },
-              { "color": "red", "value": 0.1 }
+              { "color": "yellow", "value": "${SLO_WARN_ERROR_RATE}" },
+              { "color": "red", "value": "${SLO_MAX_ERROR_RATE}" }
             ]
           },
           "unit": "percentunit",
@@ -82,7 +82,7 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "title": "Error Rate (target: < 0.1%)",
+      "title": "Error Rate (target: < ${SLO_MAX_ERROR_RATE})",
       "type": "stat",
       "targets": [
         {
@@ -100,8 +100,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 10 },
-              { "color": "red", "value": 15 }
+              { "color": "yellow", "value": "${SLO_WARN_MTTR_MINUTES}" },
+              { "color": "red", "value": "${SLO_MAX_MTTR_MINUTES}" }
             ]
           },
           "unit": "m",
@@ -119,7 +119,7 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "title": "MTTR (target: < 15min)",
+      "title": "MTTR (target: < ${SLO_MAX_MTTR_MINUTES}min)",
       "type": "stat",
       "targets": [
         {
@@ -559,6 +559,30 @@
         "refresh": 2,
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+      },
+      {
+        "current": { "selected": true, "text": "${SLO_MAX_P95_LATENCY_MS}", "value": "${SLO_MAX_P95_LATENCY_MS}" },
+        "hide": 2,
+        "label": "SLO Max P95 Latency (ms)",
+        "name": "slo_max_p95_latency_ms",
+        "query": "${SLO_MAX_P95_LATENCY_MS}",
+        "type": "constant"
+      },
+      {
+        "current": { "selected": true, "text": "${SLO_MAX_ERROR_RATE}", "value": "${SLO_MAX_ERROR_RATE}" },
+        "hide": 2,
+        "label": "SLO Max Error Rate",
+        "name": "slo_max_error_rate",
+        "query": "${SLO_MAX_ERROR_RATE}",
+        "type": "constant"
+      },
+      {
+        "current": { "selected": true, "text": "${SLO_MAX_MTTR_MINUTES}", "value": "${SLO_MAX_MTTR_MINUTES}" },
+        "hide": 2,
+        "label": "SLO Max MTTR (min)",
+        "name": "slo_max_mttr_minutes",
+        "query": "${SLO_MAX_MTTR_MINUTES}",
+        "type": "constant"
       },
       {
         "current": { "selected": false, "text": "Prometheus", "value": "prometheus" },

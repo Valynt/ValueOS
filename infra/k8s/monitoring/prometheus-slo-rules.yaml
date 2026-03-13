@@ -11,31 +11,31 @@ data:
         rules:
           # SLO targets
           - record: slo:target:api_availability
-            expr: vector(0.999)
+            expr: vector(${SLO_API_AVAILABILITY_TARGET})
 
           - record: slo:target:api_latency_p95
-            expr: vector(0.95)
+            expr: vector(${SLO_API_LATENCY_P95_TARGET})
 
           - record: slo:target:auth_success
-            expr: vector(0.995)
+            expr: vector(${SLO_AUTH_SUCCESS_TARGET})
 
           - record: slo:target:queue_health
-            expr: vector(0.99)
+            expr: vector(${SLO_QUEUE_HEALTH_TARGET})
 
 
           - record: slo:target:agent_cold_start
-            expr: vector(0.95)
+            expr: vector(${SLO_AGENT_COLD_START_TARGET})
 
           # Agent cold-start SLI (enqueue-to-ready <= 45s)
           - record: slo:agent_cold_start:good_rate5m
             expr: |
-              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[5m]))
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="${SLO_AGENT_COLD_START_THRESHOLD_SECONDS}"}[5m]))
               /
               sum(rate(agent_enqueue_to_ready_seconds_count[5m]))
 
           - record: slo:agent_cold_start:good_rate1h
             expr: |
-              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[1h]))
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="${SLO_AGENT_COLD_START_THRESHOLD_SECONDS}"}[1h]))
               /
               sum(rate(agent_enqueue_to_ready_seconds_count[1h]))
 
@@ -71,13 +71,13 @@ data:
           # API latency SLI (P95 under 300ms)
           - record: slo:api_latency:good_rate5m
             expr: |
-              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[5m]))
+              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="${SLO_API_LATENCY_BUCKET_LE_SECONDS}"}[5m]))
               /
               sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[5m]))
 
           - record: slo:api_latency:good_rate1h
             expr: |
-              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[1h]))
+              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="${SLO_API_LATENCY_BUCKET_LE_SECONDS}"}[1h]))
               /
               sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[1h]))
 
@@ -136,66 +136,66 @@ data:
         rules:
           - alert: ApiAvailabilitySLOBurnRateTooHigh
             expr: |
-              slo:api_availability:error_budget_burn_rate5m > 14.4
+              slo:api_availability:error_budget_burn_rate5m > ${SLO_BURN_RATE_CRITICAL}
               and
-              slo:api_availability:error_budget_burn_rate1h > 14.4
+              slo:api_availability:error_budget_burn_rate1h > ${SLO_BURN_RATE_CRITICAL}
             for: 5m
             labels:
               severity: critical
               slo: api-availability
             annotations:
               summary: "API availability error budget burn rate is critically high"
-              description: "API availability burn-rate exceeded 14.4x in 5m and 1h windows"
+              description: "API availability burn-rate exceeded ${SLO_BURN_RATE_CRITICAL}x in 5m and 1h windows"
 
           - alert: ApiLatencySLOBurnRateTooHigh
             expr: |
-              slo:api_latency:error_budget_burn_rate5m > 14.4
+              slo:api_latency:error_budget_burn_rate5m > ${SLO_BURN_RATE_CRITICAL}
               and
-              slo:api_latency:error_budget_burn_rate1h > 14.4
+              slo:api_latency:error_budget_burn_rate1h > ${SLO_BURN_RATE_CRITICAL}
             for: 5m
             labels:
               severity: critical
               slo: api-latency
             annotations:
               summary: "API latency error budget burn rate is critically high"
-              description: "API latency burn-rate exceeded 14.4x in 5m and 1h windows"
+              description: "API latency burn-rate exceeded ${SLO_BURN_RATE_CRITICAL}x in 5m and 1h windows"
 
           - alert: AuthSuccessSLOBurnRateTooHigh
             expr: |
-              slo:auth_success:error_budget_burn_rate5m > 14.4
+              slo:auth_success:error_budget_burn_rate5m > ${SLO_BURN_RATE_CRITICAL}
               and
-              slo:auth_success:error_budget_burn_rate1h > 14.4
+              slo:auth_success:error_budget_burn_rate1h > ${SLO_BURN_RATE_CRITICAL}
             for: 5m
             labels:
               severity: critical
               slo: auth-success
             annotations:
               summary: "Auth success error budget burn rate is critically high"
-              description: "Auth success burn-rate exceeded 14.4x in 5m and 1h windows"
+              description: "Auth success burn-rate exceeded ${SLO_BURN_RATE_CRITICAL}x in 5m and 1h windows"
 
           - alert: QueueHealthSLOBurnRateTooHigh
             expr: |
-              slo:queue_health:error_budget_burn_rate5m > 14.4
+              slo:queue_health:error_budget_burn_rate5m > ${SLO_BURN_RATE_CRITICAL}
               and
-              slo:queue_health:error_budget_burn_rate1h > 14.4
+              slo:queue_health:error_budget_burn_rate1h > ${SLO_BURN_RATE_CRITICAL}
             for: 5m
             labels:
               severity: critical
               slo: queue-health
             annotations:
               summary: "Queue health error budget burn rate is critically high"
-              description: "Queue health burn-rate exceeded 14.4x in 5m and 1h windows"
+              description: "Queue health burn-rate exceeded ${SLO_BURN_RATE_CRITICAL}x in 5m and 1h windows"
 
 
           - alert: AgentColdStartSLOBurnRateTooHigh
             expr: |
-              slo:agent_cold_start:error_budget_burn_rate5m > 14.4
+              slo:agent_cold_start:error_budget_burn_rate5m > ${SLO_BURN_RATE_CRITICAL}
               and
-              slo:agent_cold_start:error_budget_burn_rate1h > 14.4
+              slo:agent_cold_start:error_budget_burn_rate1h > ${SLO_BURN_RATE_CRITICAL}
             for: 5m
             labels:
               severity: critical
               slo: agent-cold-start
             annotations:
               summary: "Agent cold-start enqueue-to-ready SLO burn rate is critically high"
-              description: "Cold-start burn-rate exceeded 14.4x in 5m and 1h windows"
+              description: "Cold-start burn-rate exceeded ${SLO_BURN_RATE_CRITICAL}x in 5m and 1h windows"
