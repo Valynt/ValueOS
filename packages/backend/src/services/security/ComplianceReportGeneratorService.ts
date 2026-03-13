@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "crypto";
+import { createHash, createHmac, randomUUID } from "crypto";
 
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 
@@ -264,7 +264,12 @@ export class ComplianceReportGeneratorService {
   }
 
   private signPayload(payload: Record<string, unknown>): string {
-    return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+    const secret = process.env.COMPLIANCE_MANIFEST_HMAC_KEY;
+    if (!secret) {
+      throw new Error("COMPLIANCE_MANIFEST_HMAC_KEY is not configured for manifest signing");
+    }
+
+    return createHmac("sha256", secret).update(JSON.stringify(payload)).digest("hex");
   }
 
   private assertTenant(tenantId: string): void {
