@@ -69,4 +69,8 @@ if [[ "$FAILED" == "true" ]] && [[ "$REPORT_ONLY" == "false" ]]; then
   exit 1
 fi
 
-echo "OK: All modules within 'any' ceilings."
+if [[ "$FAILED" == "true" ]] && [[ "$REPORT_ONLY" == "true" ]]; then
+  echo "REPORT: One or more modules exceed their 'any' ceiling (no failure due to --report)."
+elif [[ "$FAILED" == "false" ]]; then
+  echo "OK: All modules within 'any' ceilings."
+fi
