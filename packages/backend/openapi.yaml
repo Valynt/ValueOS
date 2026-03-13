@@ -1,3 +1,76 @@
+openapi: 3.0.0
+info:
+  title: Backend API
+  version: 1.0.0
+paths:
+  /api/admin/dlq:
+    get:
+      summary: List dead-letter queue tasks
+      operationId: getAdminDlq
+      responses:
+        '200':
+          description: Paginated list of DLQ tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      entries:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AdminDlqTask'
+                      total:
+                        type: integer
+                        format: int64
+                      offset:
+                        type: integer
+                        format: int32
+                      limit:
+                        type: integer
+                        format: int32
+                    required:
+                      - entries
+                      - total
+                      - offset
+                      - limit
+                required:
+                  - data
+components:
+  schemas:
+    AdminDlqTask:
+      type: object
+      description: Task in the admin dead-letter queue
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the task
+        status:
+          type: string
+          description: Current status of the task in the DLQ
+        createdAt:
+          type: string
+          format: date-time
+          description: When the task was originally created
+        failedAt:
+          type: string
+          format: date-time
+          description: When the task failed and entered the DLQ
+        errorMessage:
+          type: string
+          nullable: true
+          description: Error message associated with the failure
+        payload:
+          type: object
+          nullable: true
+          description: Original task payload
+      required:
+        - id
+        - status
+        - createdAt
+        - failedAt
 openapi: 3.1.0
 info:
   title: ValueOS API
