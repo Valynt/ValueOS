@@ -212,7 +212,7 @@ export class SecurityAnomalyService {
     const baselineStart = new Date(windowStart.getTime() - 7 * 24 * 60 * 60 * 1000);
     const { data, error } = await (this.supabase as any)
       .from("audit_logs")
-      .select("id, user_id, action, status, details, timestamp")
+      .select("id, user_id, action, status, details, timestamp, resource_type")
       .eq("tenant_id", tenantId)
       .gte("timestamp", baselineStart.toISOString())
       .lt("timestamp", windowStart.toISOString())
