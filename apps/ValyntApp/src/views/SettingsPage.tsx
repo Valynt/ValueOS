@@ -11,7 +11,6 @@ const tabs = [
   { key: "api-keys", label: "API Keys", icon: Key },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "security", label: "Security", icon: Shield },
-  { key: "company-context", label: "Company Context", icon: BookOpen },
 ];
 
 // -- Organization Tab --
