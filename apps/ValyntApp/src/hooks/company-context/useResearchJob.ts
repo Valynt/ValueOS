@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ResearchJob, ResearchSuggestion, SuggestionEntityType } from "./types";
 
-import { apiClient, type ApiResponse, type RequestConfig } from "@/api/client/unified-api-client";
+import { apiClient } from "@/api/client/unified-api-client";
 import { supabase } from "@/lib/supabase";
 
 const RESEARCH_KEY = "research-job";
@@ -29,39 +29,18 @@ function getClient() {
 /**
  * Typed API wrapper for endpoints returning { data }.
  */
-async function apiRequest<T>(
-  path: string,
-  init?: { method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH"; body?: unknown },
-): Promise<T> {
-  const method = init?.method ?? "GET";
+async function apiRequest<T>(path: string, init?: { method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH"; body?: unknown }): Promise<T> {
+  const response = await apiClient.request<{ data: T }>({
+    method: init?.method ?? "GET",
+    url: path,
+    data: init?.body,
+  });
 
-  let response: ApiResponse<{ data: T }>;
-
-  switch (method) {
-    case "GET":
-      response = await apiClient.get<{ data: T }>(path);
-      break;
-    case "POST":
-      response = await apiClient.post<{ data: T }>(path, init?.body);
-      break;
-    case "PUT":
-      response = await apiClient.put<{ data: T }>(path, init?.body);
-      break;
-    case "DELETE":
-      // apiClient.delete has no data parameter; pass body via config spread
-      response = await apiClient.delete<{ data: T }>(path, { data: init?.body } as Partial<RequestConfig>);
-      break;
-    case "PATCH":
-      response = await apiClient.patch<{ data: T }>(path, init?.body);
-      break;
-    default:
-      throw new Error(`Unsupported HTTP method: ${method}`);
-  }
   if (!response.success) {
     throw new Error(response.error?.message ?? "Request failed");
   }
 
-  if (response.data === undefined || response.data === null) {
+  if (!response.data) {
     throw new Error("No data returned from API");
   }
 
