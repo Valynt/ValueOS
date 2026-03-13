@@ -1,10 +1,9 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
+import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
 
-import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../promptRegistry.js';
+import { BaseAgent } from "./BaseAgent.js";
+import { renderTemplate } from "../promptUtils.js";
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
@@ -15,51 +14,56 @@ const ComplianceSummarySchema = z.object({
 });
 
 export class ComplianceAuditorAgent extends BaseAgent {
-  public readonly lifecycleStage = 'integrity';
-  public readonly version = '1.0.0';
-  public readonly name = 'ComplianceAuditorAgent';
+  public readonly lifecycleStage = "integrity";
+  public readonly version = "1.0.0";
+  public readonly name = "ComplianceAuditorAgent";
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const start = Date.now();
     const valid = await this.validateInput(context);
     if (!valid) {
-      throw new Error('Invalid compliance auditor context');
+      throw new Error("Invalid compliance auditor context");
     }
 
     if (context.organization_id !== this.organizationId) {
-      throw new Error('Tenant mismatch for ComplianceAuditorAgent execution');
+      throw new Error("Tenant mismatch for ComplianceAuditorAgent execution");
     }
 
-    const sources = ['opportunity', 'target', 'financial-modeling', 'integrity', 'realization', 'expansion'];
+    const sources = [
+      "opportunity",
+      "target",
+      "financial-modeling",
+      "integrity",
+      "realization",
+      "expansion",
+    ];
     const evidenceBySource: Record<string, number> = {};
     const sampleObservations: string[] = [];
 
     for (const source of sources) {
       const evidence = await this.memorySystem.retrieve({
         agent_id: source,
-        memory_type: 'semantic',
+        memory_type: "semantic",
         limit: 5,
         organization_id: this.organizationId,
-        allow_cross_workspace: true,
-        cross_workspace_reason: 'compliance_audit_tenant_wide_sampling',
       });
 
       evidenceBySource[source] = evidence.length;
       if (evidence.length > 0) {
-        sampleObservations.push(`${source}: ${evidence[0].content.slice(0, 180)}`);
+        sampleObservations.push(
+          `${source}: ${evidence[0].content.slice(0, 180)}`
+        );
       }
     }
 
-    const promptTemplate = resolvePromptTemplate('compliance_auditor_system');
-    this.setPromptVersionReferences([{ key: promptTemplate.key, version: promptTemplate.version }], [promptTemplate.approval]);
-
     const prompt = renderTemplate(
-      promptTemplate.template,
+      `You are a compliance auditor. Review control evidence counts and observations for tenant {{tenantId}}.\nEvidence counts: {{counts}}\nObservations: {{observations}}\nReturn JSON with summary, control_gaps, control_coverage_score, recommended_actions.`,
       {
         tenantId: this.organizationId,
         counts: JSON.stringify(evidenceBySource),
         observations: JSON.stringify(sampleObservations),
       },
+      { allowlist: ["tenantId", "counts", "observations"] }
     );
 
     const llmResult = await this.secureInvoke(
@@ -73,20 +77,20 @@ export class ComplianceAuditorAgent extends BaseAgent {
           agent: this.name,
           tenant_id: this.organizationId,
         },
-      },
+      }
     );
 
     await this.memorySystem.storeSemanticMemory(
       context.workspace_id,
       this.name,
-      'episodic',
+      "episodic",
       `Compliance evidence summary: ${llmResult.summary}`,
       {
         source_counts: evidenceBySource,
         control_coverage_score: llmResult.control_coverage_score,
         tenant_id: this.organizationId,
       },
-      this.organizationId,
+      this.organizationId
     );
 
     return this.buildOutput(
@@ -97,9 +101,9 @@ export class ComplianceAuditorAgent extends BaseAgent {
         recommended_actions: llmResult.recommended_actions,
         evidence_by_source: evidenceBySource,
       },
-      'success',
+      "success",
       this.toConfidenceLevel(llmResult.control_coverage_score),
-      start,
+      start
     );
   }
 }

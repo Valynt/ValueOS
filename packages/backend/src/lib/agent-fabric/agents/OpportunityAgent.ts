@@ -10,27 +10,32 @@
  * page schema that the frontend renders directly.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
-import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
-import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
-import { featureFlags } from '../../../config/featureFlags.js';
-import { mcpGroundTruthService } from '../../../services/MCPGroundTruthService.js';
-import type { FinancialDataResult } from '../../../services/MCPGroundTruthService.js';
-import { hypothesisOutputService } from '../../../services/HypothesisOutputService.js';
+import {
+  formatDomainContextForPrompt,
+  loadDomainContext,
+} from "../../../agents/context/loadDomainContext.js";
+import type { DomainContext } from "../../../agents/context/loadDomainContext.js";
+import { featureFlags } from "../../../config/featureFlags.js";
+import { mcpGroundTruthService } from "../../../services/MCPGroundTruthService.js";
+import type { FinancialDataResult } from "../../../services/MCPGroundTruthService.js";
+import { hypothesisOutputService } from "../../../services/HypothesisOutputService.js";
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
-} from '../../../types/agent.js';
-import { logger } from '../../logger.js';
+} from "../../../types/agent.js";
+import { logger } from "../../logger.js";
 
-import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+import {
+  buildEventEnvelope,
+  getDomainEventBus,
+} from "../../../events/DomainEventBus.js";
 
-import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../promptRegistry.js';
+import { BaseAgent } from "./BaseAgent.js";
+import { escapePromptInterpolation, renderTemplate } from "../promptUtils.js";
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -46,16 +51,16 @@ const ValueHypothesisSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   category: z.enum([
-    'revenue_growth',
-    'cost_reduction',
-    'risk_mitigation',
-    'operational_efficiency',
-    'strategic_advantage',
+    "revenue_growth",
+    "cost_reduction",
+    "risk_mitigation",
+    "operational_efficiency",
+    "strategic_advantage",
   ]),
   estimated_impact: z.object({
     low: z.number(),
     high: z.number(),
-    unit: z.enum(['usd', 'percent', 'hours', 'headcount']),
+    unit: z.enum(["usd", "percent", "hours", "headcount"]),
     timeframe_months: z.number().int().positive(),
   }),
   confidence: z.number().min(0).max(1),
@@ -68,11 +73,13 @@ const OpportunityAnalysisSchema = z.object({
   company_summary: z.string(),
   industry_context: z.string(),
   hypotheses: z.array(ValueHypothesisSchema).min(1),
-  stakeholder_roles: z.array(z.object({
-    role: z.string(),
-    relevance: z.string(),
-    likely_concerns: z.array(z.string()),
-  })),
+  stakeholder_roles: z.array(
+    z.object({
+      role: z.string(),
+      relevance: z.string(),
+      likely_concerns: z.array(z.string()),
+    })
+  ),
   recommended_next_steps: z.array(z.string()),
 });
 
@@ -88,16 +95,19 @@ export class OpportunityAgent extends BaseAgent {
     const startTime = Date.now();
     const isValid = await this.validateInput(context);
     if (!isValid) {
-      throw new Error('Invalid input context');
+      throw new Error("Invalid input context");
     }
 
     const query = context.user_inputs?.query as string | undefined;
     if (!query || query.trim().length === 0) {
       return this.buildOutput(
-        { error: 'No query provided. Supply a company name, deal context, or pain points.' },
-        'failure',
-        'low',
-        startTime,
+        {
+          error:
+            "No query provided. Supply a company name, deal context, or pain points.",
+        },
+        "failure",
+        "low",
+        startTime
       );
     }
 
@@ -109,13 +119,21 @@ export class OpportunityAgent extends BaseAgent {
     const domainContext = await this.loadDomainPackContext(context);
 
     // Step 2: Generate hypotheses via LLM
-    const analysis = await this.generateHypotheses(context, query, financialData, domainContext);
+    const analysis = await this.generateHypotheses(
+      context,
+      query,
+      financialData,
+      domainContext
+    );
     if (!analysis) {
       return this.buildOutput(
-        { error: 'LLM hypothesis generation failed. Retry or provide more context.' },
-        'failure',
-        'low',
-        startTime,
+        {
+          error:
+            "LLM hypothesis generation failed. Retry or provide more context.",
+        },
+        "failure",
+        "low",
+        startTime
       );
     }
 
@@ -124,13 +142,21 @@ export class OpportunityAgent extends BaseAgent {
 
     // Publish evidence.attached for each hypothesis that has financial grounding
     if (financialData) {
-      const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
-        ?? context.workspace_id;
-      await this.publishEvidenceAttached(context, opportunityId, analysis, financialData);
+      const opportunityId =
+        (context.user_inputs?.opportunity_id as string | undefined) ??
+        context.workspace_id;
+      await this.publishEvidenceAttached(
+        context,
+        opportunityId,
+        analysis,
+        financialData
+      );
     }
 
     // Step 3b: Persist hypothesis output to Supabase for frontend retrieval
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    const valueCaseId = context.user_inputs?.value_case_id as
+      | string
+      | undefined;
     if (valueCaseId && context.organization_id) {
       await this.persistHypothesisOutput(context, valueCaseId, analysis);
     }
@@ -139,8 +165,9 @@ export class OpportunityAgent extends BaseAgent {
     const sduiSections = this.buildSDUISections(analysis, financialData);
 
     // Step 5: Determine overall confidence
-    const avgConfidence = analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0)
-      / analysis.hypotheses.length;
+    const avgConfidence =
+      analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0) /
+      analysis.hypotheses.length;
     const confidenceLevel = this.toConfidenceLevel(avgConfidence);
 
     const result = {
@@ -149,24 +176,35 @@ export class OpportunityAgent extends BaseAgent {
       hypotheses: analysis.hypotheses,
       stakeholder_roles: analysis.stakeholder_roles,
       recommended_next_steps: analysis.recommended_next_steps,
-      financial_grounding: financialData ? {
-        entity: financialData.entityName,
-        period: financialData.period,
-        sources: financialData.sources,
-        metrics_available: Object.keys(financialData.metrics),
-      } : null,
+      financial_grounding: financialData
+        ? {
+            entity: financialData.entityName,
+            period: financialData.period,
+            sources: financialData.sources,
+            metrics_available: Object.keys(financialData.metrics),
+          }
+        : null,
       sdui_sections: sduiSections,
     };
 
     // Publish domain event so downstream services (RecommendationEngine, etc.)
     // can react without polling.
-    const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)
-      ?? context.workspace_id;
-    await this.publishOpportunityUpdated(context, opportunityId, analysis, avgConfidence);
+    const opportunityId =
+      (context.user_inputs?.opportunity_id as string | undefined) ??
+      context.workspace_id;
+    await this.publishOpportunityUpdated(
+      context,
+      opportunityId,
+      analysis,
+      avgConfidence
+    );
 
-    return this.buildOutput(result, 'success', confidenceLevel, startTime, {
-      reasoning: `Generated ${analysis.hypotheses.length} value hypotheses for "${query}"` +
-        (financialData ? ` with financial grounding from ${financialData.sources.join(', ')}` : ''),
+    return this.buildOutput(result, "success", confidenceLevel, startTime, {
+      reasoning:
+        `Generated ${analysis.hypotheses.length} value hypotheses for "${query}"` +
+        (financialData
+          ? ` with financial grounding from ${financialData.sources.join(", ")}`
+          : ""),
       suggested_next_actions: analysis.recommended_next_steps,
     });
   }
@@ -175,11 +213,13 @@ export class OpportunityAgent extends BaseAgent {
     context: LifecycleContext,
     opportunityId: string,
     analysis: OpportunityAnalysis,
-    avgConfidence: number,
+    avgConfidence: number
   ): Promise<void> {
     try {
-      const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
-      await getDomainEventBus().publish('opportunity.updated', {
+      const traceId =
+        (context.metadata?.trace_id as string | undefined) ??
+        context.workspace_id;
+      await getDomainEventBus().publish("opportunity.updated", {
         ...buildEventEnvelope({
           traceId,
           tenantId: context.organization_id,
@@ -194,10 +234,13 @@ export class OpportunityAgent extends BaseAgent {
       });
     } catch (err) {
       // Non-fatal: event bus failure must not break the agent response
-      logger.warn('OpportunityAgent: failed to publish opportunity.updated event', {
-        workspace_id: context.workspace_id,
-        error: (err as Error).message,
-      });
+      logger.warn(
+        "OpportunityAgent: failed to publish opportunity.updated event",
+        {
+          workspace_id: context.workspace_id,
+          error: (err as Error).message,
+        }
+      );
     }
   }
 
@@ -205,19 +248,22 @@ export class OpportunityAgent extends BaseAgent {
     context: LifecycleContext,
     opportunityId: string,
     analysis: OpportunityAnalysis,
-    financialData: FinancialDataResult,
+    financialData: FinancialDataResult
   ): Promise<void> {
-    const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
-    const avgConfidence = analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0)
-      / analysis.hypotheses.length;
+    const traceId =
+      (context.metadata?.trace_id as string | undefined) ??
+      context.workspace_id;
+    const avgConfidence =
+      analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0) /
+      analysis.hypotheses.length;
 
     // Publish all evidence events concurrently — each is independent and the
     // event bus is in-process, so parallel dispatch is safe. Per-item errors
     // are caught individually so one failure does not suppress the others.
     await Promise.all(
-      analysis.hypotheses.map(async (hypothesis) => {
+      analysis.hypotheses.map(async hypothesis => {
         try {
-          await getDomainEventBus().publish('evidence.attached', {
+          await getDomainEventBus().publish("evidence.attached", {
             ...buildEventEnvelope({
               traceId,
               tenantId: context.organization_id,
@@ -227,17 +273,20 @@ export class OpportunityAgent extends BaseAgent {
             workspaceId: context.workspace_id,
             // id is always set by generateHypotheses() before this runs
             hypothesisId: hypothesis.id ?? `${hypothesis.category}-unknown`,
-            evidenceType: 'financial_data',
-            source: financialData.sources.join(', '),
+            evidenceType: "financial_data",
+            source: financialData.sources.join(", "),
             confidenceDelta: avgConfidence,
           });
         } catch (err) {
-          logger.warn('OpportunityAgent: failed to publish evidence.attached event', {
-            hypothesis: hypothesis.title,
-            error: (err as Error).message,
-          });
+          logger.warn(
+            "OpportunityAgent: failed to publish evidence.attached event",
+            {
+              hypothesis: hypothesis.title,
+              error: (err as Error).message,
+            }
+          );
         }
-      }),
+      })
     );
   }
 
@@ -249,14 +298,24 @@ export class OpportunityAgent extends BaseAgent {
    * Load domain pack KPIs and assumptions for the current value case.
    * Returns empty context when the feature flag is off or no pack is attached.
    */
-  private async loadDomainPackContext(context: LifecycleContext): Promise<DomainContext> {
-    const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
+  private async loadDomainPackContext(
+    context: LifecycleContext
+  ): Promise<DomainContext> {
+    const empty: DomainContext = {
+      pack: undefined,
+      kpis: [],
+      assumptions: [],
+      glossary: {},
+      complianceRules: [],
+    };
 
     if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) {
       return empty;
     }
 
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    const valueCaseId = context.user_inputs?.value_case_id as
+      | string
+      | undefined;
     if (!valueCaseId || !context.organization_id) {
       return empty;
     }
@@ -264,7 +323,7 @@ export class OpportunityAgent extends BaseAgent {
     try {
       return await loadDomainContext(context.organization_id, valueCaseId);
     } catch (err) {
-      logger.warn('Failed to load domain pack context, proceeding without it', {
+      logger.warn("Failed to load domain pack context, proceeding without it", {
         value_case_id: valueCaseId,
         error: (err as Error).message,
       });
@@ -281,14 +340,12 @@ export class OpportunityAgent extends BaseAgent {
    */
   private extractEntityId(context: LifecycleContext): string | null {
     const inputs = context.user_inputs || {};
-    return (
-      inputs.entity_id ||
+    return (inputs.entity_id ||
       inputs.entityId ||
       inputs.ticker ||
       inputs.cik ||
       inputs.company_name ||
-      null
-    ) as string | null;
+      null) as string | null;
   }
 
   /**
@@ -296,24 +353,32 @@ export class OpportunityAgent extends BaseAgent {
    * Returns null on failure — the agent can still generate hypotheses
    * without grounding data, just at lower confidence.
    */
-  private async fetchGroundTruth(entityId: string | null): Promise<FinancialDataResult | null> {
+  private async fetchGroundTruth(
+    entityId: string | null
+  ): Promise<FinancialDataResult | null> {
     if (!entityId) return null;
 
     try {
       const result = await mcpGroundTruthService.getFinancialData({
         entityId,
-        metrics: ['revenue', 'netIncome', 'operatingMargin', 'totalAssets', 'employeeCount'],
+        metrics: [
+          "revenue",
+          "netIncome",
+          "operatingMargin",
+          "totalAssets",
+          "employeeCount",
+        ],
         includeIndustryBenchmarks: true,
       });
       if (result) {
-        logger.info('Ground truth data retrieved', {
+        logger.info("Ground truth data retrieved", {
           entity: result.entityName,
           metrics_count: Object.keys(result.metrics).length,
         });
       }
       return result;
     } catch (err) {
-      logger.warn('Ground truth fetch failed, proceeding without grounding', {
+      logger.warn("Ground truth fetch failed, proceeding without grounding", {
         entity_id: entityId,
         error: (err as Error).message,
       });
@@ -325,43 +390,63 @@ export class OpportunityAgent extends BaseAgent {
   // LLM Hypothesis Generation
   // -------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Prompt templates
+  // ---------------------------------------------------------------------------
+
+  private static readonly BASE_PROMPT_TEMPLATE = `You are a Value Engineering analyst. Your job is to identify specific, measurable value hypotheses for a B2B prospect.
+
+Rules:
+- Each hypothesis must have a concrete estimated_impact range (low/high) with units.
+- Evidence must reference specific, verifiable facts — not generic claims.
+- Confidence scores reflect how well-supported the hypothesis is (0.0–1.0).
+- Categories: revenue_growth, cost_reduction, risk_mitigation, operational_efficiency, strategic_advantage.
+- KPI targets should be specific metrics the prospect can track.
+- Stakeholder roles should map to real buying committee positions.
+
+Respond with valid JSON matching the schema. Do not include markdown fences or commentary.`;
+
+  private static readonly GROUNDING_SECTION_TEMPLATE = `
+
+Grounding data for {{ entityName }} ({{ period }}):
+{{ metricsStr }}{{ benchmarksSection }}
+
+Use this data to ground your hypotheses. Reference specific metrics and benchmarks in evidence fields.`;
+
+  private static readonly BENCHMARKS_SECTION_TEMPLATE = `
+
+Industry benchmarks:
+{{ benchStr }}`;
+
   /**
    * Build the system prompt with optional financial grounding context.
    */
   private buildSystemPrompt(financialData: FinancialDataResult | null): string {
     if (!financialData) {
-      const basePrompt = resolvePromptTemplate('opportunity_base');
-      this.setPromptVersionReferences([
-        { key: basePrompt.key, version: basePrompt.version },
-      ], [basePrompt.approval]);
-      return basePrompt.template;
+      return OpportunityAgent.BASE_PROMPT_TEMPLATE;
     }
 
-    const basePrompt = resolvePromptTemplate('opportunity_base');
-    const groundingSection = resolvePromptTemplate('opportunity_grounding_section');
-    const benchmarkSection = resolvePromptTemplate('opportunity_benchmarks_section');
-
-    this.setPromptVersionReferences([
-      { key: basePrompt.key, version: basePrompt.version },
-      { key: groundingSection.key, version: groundingSection.version },
-      { key: benchmarkSection.key, version: benchmarkSection.version },
-    ], [basePrompt.approval, groundingSection.approval, benchmarkSection.approval]);
-
     const metricsStr = Object.entries(financialData.metrics)
-      .map(([k, v]) => `  ${k}: ${v.value} ${v.unit} (source: ${v.source}, confidence: ${v.confidence})`)
-      .join('\n');
+      .map(
+        ([k, v]) =>
+          `  ${k}: ${v.value} ${v.unit} (source: ${v.source}, confidence: ${v.confidence})`
+      )
+      .join("\n");
 
     const benchmarksSection = financialData.industryBenchmarks
-      ? renderTemplate(benchmarkSection.template, {
+      ? renderTemplate(OpportunityAgent.BENCHMARKS_SECTION_TEMPLATE, {
           benchStr: Object.entries(financialData.industryBenchmarks)
-            .map(([k, v]) => `  ${k}: median=${v.median}, p25=${v.p25}, p75=${v.p75}`)
-            .join('\n'),
+            .map(
+              ([k, v]) =>
+                `  ${k}: median=${v.median}, p25=${v.p25}, p75=${v.p75}`
+            )
+            .join("\n"),
         })
-      : '';
+      : "";
 
     return (
-      basePrompt.template +
-      renderTemplate(groundingSection.template, {
+      OpportunityAgent.BASE_PROMPT_TEMPLATE +
+      renderTemplate(OpportunityAgent.GROUNDING_SECTION_TEMPLATE, {
         entityName: financialData.entityName,
         period: financialData.period,
         metricsStr,
@@ -377,21 +462,23 @@ export class OpportunityAgent extends BaseAgent {
     context: LifecycleContext,
     query: string,
     financialData: FinancialDataResult | null,
-    domainContext?: DomainContext,
+    domainContext?: DomainContext
   ): Promise<OpportunityAnalysis | null> {
     let systemPrompt = this.buildSystemPrompt(financialData);
 
     // Append domain pack context if available
-    const domainFragment = domainContext ? formatDomainContextForPrompt(domainContext) : '';
+    const domainFragment = domainContext
+      ? formatDomainContextForPrompt(domainContext)
+      : "";
     if (domainFragment) {
       systemPrompt += `\n\n${domainFragment}\n\nUse the domain pack KPIs and assumptions to ground your hypotheses. Reference specific KPI keys in kpi_targets fields.`;
     }
 
     const userPrompt = `Analyze this opportunity and generate value hypotheses:
 
-${query}
+${escapePromptInterpolation(query)}
 
-${context.user_inputs?.additional_context ? `Additional context: ${context.user_inputs.additional_context}` : ''}
+${context.user_inputs?.additional_context ? `Additional context: ${escapePromptInterpolation(context.user_inputs.additional_context)}` : ""}
 
 Generate a JSON object with:
 - company_summary: Brief summary of the company/opportunity
@@ -409,11 +496,11 @@ Generate a JSON object with:
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },
           context: {
-            agent: 'opportunity',
+            agent: "opportunity",
             organization_id: context.organization_id,
             has_grounding: !!financialData,
           },
-        },
+        }
       );
 
       // Ensure every hypothesis has a stable id. The LLM rarely emits one, so
@@ -427,7 +514,7 @@ Generate a JSON object with:
 
       return result;
     } catch (err) {
-      logger.error('Hypothesis generation failed', {
+      logger.error("Hypothesis generation failed", {
         error: (err as Error).message,
         workspace_id: context.workspace_id,
       });
@@ -445,14 +532,14 @@ Generate a JSON object with:
    */
   private async storeHypothesesInMemory(
     context: LifecycleContext,
-    analysis: OpportunityAnalysis,
+    analysis: OpportunityAnalysis
   ): Promise<void> {
     for (const hypothesis of analysis.hypotheses) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
-          'opportunity',
-          'semantic',
+          "opportunity",
+          "semantic",
           `Hypothesis: ${hypothesis.title} — ${hypothesis.description}`,
           {
             verified: true,
@@ -467,10 +554,10 @@ Generate a JSON object with:
             organization_id: context.organization_id,
             importance: hypothesis.confidence,
           },
-          context.organization_id,
+          context.organization_id
         );
       } catch (err) {
-        logger.warn('Failed to store hypothesis in memory', {
+        logger.warn("Failed to store hypothesis in memory", {
           title: hypothesis.title,
           error: (err as Error).message,
         });
@@ -484,13 +571,13 @@ Generate a JSON object with:
    */
   private categoryToAction(category: string): string {
     const mapping: Record<string, string> = {
-      revenue_growth: 'increase_revenue',
-      cost_reduction: 'reduce_costs',
-      risk_mitigation: 'mitigate_risk',
-      operational_efficiency: 'improve_efficiency',
-      strategic_advantage: 'strategic_initiative',
+      revenue_growth: "increase_revenue",
+      cost_reduction: "reduce_costs",
+      risk_mitigation: "mitigate_risk",
+      operational_efficiency: "improve_efficiency",
+      strategic_advantage: "strategic_initiative",
     };
-    return mapping[category] || 'business_improvement';
+    return mapping[category] || "business_improvement";
   }
 
   // -------------------------------------------------------------------------
@@ -503,35 +590,37 @@ Generate a JSON object with:
    */
   private buildSDUISections(
     analysis: OpportunityAnalysis,
-    financialData: FinancialDataResult | null,
+    financialData: FinancialDataResult | null
   ): Array<Record<string, unknown>> {
     const sections: Array<Record<string, unknown>> = [];
 
     // Summary card
     sections.push({
-      type: 'component',
-      component: 'AgentResponseCard',
+      type: "component",
+      component: "AgentResponseCard",
       version: 1,
       props: {
         response: {
-          agentId: 'opportunity',
-          agentName: 'Opportunity Agent',
+          agentId: "opportunity",
+          agentName: "Opportunity Agent",
           timestamp: new Date().toISOString(),
           content: `${analysis.company_summary}\n\n${analysis.industry_context}`,
-          confidence: analysis.hypotheses.reduce((s, h) => s + h.confidence, 0) / analysis.hypotheses.length,
-          status: 'completed',
+          confidence:
+            analysis.hypotheses.reduce((s, h) => s + h.confidence, 0) /
+            analysis.hypotheses.length,
+          status: "completed",
         },
         showReasoning: false,
         showActions: true,
-        stage: 'opportunity',
+        stage: "opportunity",
       },
     });
 
     // One DiscoveryCard per hypothesis
     for (const hypothesis of analysis.hypotheses) {
       sections.push({
-        type: 'component',
-        component: 'DiscoveryCard',
+        type: "component",
+        component: "DiscoveryCard",
         version: 1,
         props: {
           title: hypothesis.title,
@@ -539,23 +628,25 @@ Generate a JSON object with:
           category: hypothesis.category,
           tags: hypothesis.kpi_targets,
           confidence: hypothesis.confidence,
-          status: 'new' as const,
+          status: "new" as const,
         },
       });
     }
 
     // Financial grounding card (if available)
     if (financialData) {
-      const metricsData = Object.entries(financialData.metrics).map(([name, m]) => ({
-        name,
-        value: m.value,
-        unit: m.unit,
-        source: m.source,
-      }));
+      const metricsData = Object.entries(financialData.metrics).map(
+        ([name, m]) => ({
+          name,
+          value: m.value,
+          unit: m.unit,
+          source: m.source,
+        })
+      );
 
       sections.push({
-        type: 'component',
-        component: 'KPIForm',
+        type: "component",
+        component: "KPIForm",
         version: 1,
         props: {
           kpis: metricsData,
@@ -579,13 +670,14 @@ Generate a JSON object with:
   private async persistHypothesisOutput(
     context: LifecycleContext,
     valueCaseId: string,
-    analysis: OpportunityAnalysis,
+    analysis: OpportunityAnalysis
   ): Promise<void> {
-    const avgConfidence = analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0)
-      / analysis.hypotheses.length;
+    const avgConfidence =
+      analysis.hypotheses.reduce((sum, h) => sum + h.confidence, 0) /
+      analysis.hypotheses.length;
     // Map the 5-level ConfidenceLevel to the 3-level DB enum
-    const dbConfidence: 'high' | 'medium' | 'low' =
-      avgConfidence >= 0.7 ? 'high' : avgConfidence >= 0.4 ? 'medium' : 'low';
+    const dbConfidence: "high" | "medium" | "low" =
+      avgConfidence >= 0.7 ? "high" : avgConfidence >= 0.4 ? "medium" : "low";
 
     try {
       await hypothesisOutputService.create({
@@ -593,13 +685,13 @@ Generate a JSON object with:
         organization_id: context.organization_id,
         agent_run_id: context.workspace_id,
         hypotheses: analysis.hypotheses,
-        kpis: analysis.hypotheses.flatMap((h) => h.kpi_targets),
+        kpis: analysis.hypotheses.flatMap(h => h.kpi_targets),
         confidence: dbConfidence,
         reasoning: `Generated ${analysis.hypotheses.length} hypotheses for "${context.user_inputs?.query}"`,
       });
     } catch (err) {
       // Non-fatal: memory is already stored; log and continue
-      logger.warn('Failed to persist hypothesis output to DB', {
+      logger.warn("Failed to persist hypothesis output to DB", {
         case_id: valueCaseId,
         organization_id: context.organization_id,
         error: (err as Error).message,

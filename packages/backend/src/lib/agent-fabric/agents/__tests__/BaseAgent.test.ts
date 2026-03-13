@@ -102,7 +102,9 @@ function makeConfig(overrides: Partial<AgentConfig> = {}): AgentConfig {
   };
 }
 
-function makeContext(overrides: Partial<LifecycleContext> = {}): LifecycleContext {
+function makeContext(
+  overrides: Partial<LifecycleContext> = {}
+): LifecycleContext {
   return {
     workspace_id: "ws-123",
     organization_id: "org-456",
@@ -128,9 +130,15 @@ function makeLLMResponse(content: string) {
 
 describe("BaseAgent", () => {
   let agent: TestAgent;
-  let mockLLMGateway: InstanceType<typeof LLMGateway> & { complete: ReturnType<typeof vi.fn> };
-  let mockMemorySystem: InstanceType<typeof MemorySystem> & { storeSemanticMemory: ReturnType<typeof vi.fn> };
-  let mockCircuitBreaker: InstanceType<typeof CircuitBreaker> & { execute: ReturnType<typeof vi.fn> };
+  let mockLLMGateway: InstanceType<typeof LLMGateway> & {
+    complete: ReturnType<typeof vi.fn>;
+  };
+  let mockMemorySystem: InstanceType<typeof MemorySystem> & {
+    storeSemanticMemory: ReturnType<typeof vi.fn>;
+  };
+  let mockCircuitBreaker: InstanceType<typeof CircuitBreaker> & {
+    execute: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -144,7 +152,7 @@ describe("BaseAgent", () => {
       "org-456",
       mockMemorySystem,
       mockLLMGateway,
-      mockCircuitBreaker,
+      mockCircuitBreaker
     );
   });
 
@@ -173,9 +181,7 @@ describe("BaseAgent", () => {
     });
 
     it("returns false when user_id is missing", async () => {
-      const result = await agent.validateInput(
-        makeContext({ user_id: "" })
-      );
+      const result = await agent.validateInput(makeContext({ user_id: "" }));
       expect(result).toBe(false);
     });
 
@@ -251,6 +257,20 @@ describe("BaseAgent", () => {
       expect(mockLLMGateway.complete).toHaveBeenCalledTimes(1);
       expect(result.answer).toBe("test answer");
       expect(result.confidence).toBe(0.85);
+    });
+
+    it("sanitizes prompt content before dispatching to LLM", async () => {
+      await agent.invokeSecure(
+        "session-1",
+        "prompt\0 with\r\nnewline",
+        responseSchema
+      );
+
+      expect(mockLLMGateway.complete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: [{ role: "user", content: "prompt with\nnewline" }],
+        })
+      );
     });
 
     it("includes tenant metadata in LLM request", async () => {
@@ -439,7 +459,14 @@ describe("BaseAgent", () => {
         validate: vi.fn().mockResolvedValue({
           passed: false,
           confidence: 0.3,
-          contradictions: [{ claim: "x", existingFact: "y", similarity: 0.9, source: "target" }],
+          contradictions: [
+            {
+              claim: "x",
+              existingFact: "y",
+              similarity: 0.9,
+              source: "target",
+            },
+          ],
           benchmarkMisalignments: [],
           method: "knowledge_fabric",
         } satisfies HallucinationCheckResult),
@@ -451,8 +478,8 @@ describe("BaseAgent", () => {
 
       expect(mockValidator.validate).toHaveBeenCalledWith(
         expect.any(String), // raw LLM content
-        "org-456",          // organizationId
-        "TestAgent"         // agent name
+        "org-456", // organizationId
+        "TestAgent" // agent name
       );
       expect(result.hallucination_check).toBe(false);
     });
@@ -463,10 +490,22 @@ describe("BaseAgent", () => {
           passed: false,
           confidence: 0.4,
           contradictions: [
-            { claim: "a", existingFact: "b", similarity: 0.8, source: "target" },
-            { claim: "c", existingFact: "d", similarity: 0.85, source: "integrity" },
+            {
+              claim: "a",
+              existingFact: "b",
+              similarity: 0.8,
+              source: "target",
+            },
+            {
+              claim: "c",
+              existingFact: "d",
+              similarity: 0.85,
+              source: "integrity",
+            },
           ],
-          benchmarkMisalignments: [{ metricId: "m1", claimedValue: 100, validation: { valid: false } }],
+          benchmarkMisalignments: [
+            { metricId: "m1", claimedValue: 100, validation: { valid: false } },
+          ],
           method: "knowledge_fabric",
         } satisfies HallucinationCheckResult),
       };
@@ -533,7 +572,7 @@ describe("BaseAgent", () => {
         "org-1",
         mockMemorySystem,
         mockLLMGateway,
-        mockCircuitBreaker,
+        mockCircuitBreaker
       );
       // The config lifecycle_stage is set, but TestAgent overrides it
       // Verify the base class stored the config value
@@ -546,10 +585,13 @@ describe("BaseAgent", () => {
         "org-custom",
         mockMemorySystem,
         mockLLMGateway,
-        mockCircuitBreaker,
+        mockCircuitBreaker
       );
 
-      const schema = z.object({ v: z.string(), hallucination_check: z.boolean().optional() });
+      const schema = z.object({
+        v: z.string(),
+        hallucination_check: z.boolean().optional(),
+      });
       mockLLMGateway.complete.mockResolvedValue(
         makeLLMResponse(JSON.stringify({ v: "ok" }))
       );
