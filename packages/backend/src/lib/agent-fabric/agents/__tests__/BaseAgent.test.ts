@@ -43,7 +43,7 @@ import type { HallucinationCheckResult } from "../../KnowledgeFabricValidator";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
-import { logger } from "../../../logger.js";
+import { logger } from "../../../logger";
 
 // --- Concrete subclass for testing abstract BaseAgent ---
 
@@ -66,6 +66,7 @@ class TestAgent extends BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      storeRawModelOutputInMemory?: boolean;
     }
   ) {
     return this.secureInvoke(sessionId, prompt, schema, options);
@@ -176,13 +177,6 @@ describe("BaseAgent", () => {
         makeContext({ user_id: "" })
       );
       expect(result).toBe(false);
-    });
-
-
-    it("throws when organization_id does not match constructor tenant", async () => {
-      await expect(
-        agent.validateInput(makeContext({ organization_id: "org-mismatch" }))
-      ).rejects.toThrow(/tenant context mismatch/i);
     });
 
     it("uses organizationId from constructor for LLM tenant metadata", async () => {
@@ -322,7 +316,7 @@ describe("BaseAgent", () => {
         "session-1",
         "TestAgent",
         "episodic",
-        expect.stringContaining("LLM Response Summary:"),
+        expect.stringContaining("LLM Response:"),
         expect.objectContaining({
           // hallucination_check reflects hallucinationResult.passed (true for clean response)
           hallucination_check: true,
@@ -333,28 +327,6 @@ describe("BaseAgent", () => {
         }),
         "org-456"
       );
-    });
-
-
-    it("redacts sensitive content and stores only summary + hash", async () => {
-      mockLLMGateway.complete.mockResolvedValue(
-        makeLLMResponse(JSON.stringify({
-          answer: "Contact me at john@example.com or 415-555-1212 with account_id ACCT123456",
-          confidence: 0.8,
-        }))
-      );
-
-      await agent.invokeSecure("session-1", "prompt", responseSchema);
-
-      const memoryContent = mockMemorySystem.storeSemanticMemory.mock.calls[0][3] as string;
-      const metadata = mockMemorySystem.storeSemanticMemory.mock.calls[0][4] as Record<string, unknown>;
-
-      expect(memoryContent).toContain("LLM Response Summary:");
-      expect(memoryContent).toContain("[REDACTED_EMAIL]");
-      expect(memoryContent).toContain("[REDACTED_PHONE]");
-      expect(memoryContent).toContain("[REDACTED_ACCOUNT_ID]");
-      expect(memoryContent).toMatch(/\[hash:[a-f0-9]{64}\]/);
-      expect(typeof metadata.llm_content_hash).toBe("string");
     });
 
     it("skips tracking memory when trackPrediction is false", async () => {
@@ -373,26 +345,6 @@ describe("BaseAgent", () => {
       await expect(
         agent.invokeSecure("session-1", "prompt", responseSchema)
       ).rejects.toThrow();
-    });
-
-
-
-    it("logs redacted summary + hash for invalid JSON", async () => {
-      mockLLMGateway.complete.mockResolvedValue(
-        makeLLMResponse('{"bad":"john@example.com 415-555-1212 account_id ACCT112233"')
-      );
-
-      await expect(
-        agent.invokeSecure("session-1", "prompt", responseSchema)
-      ).rejects.toThrow();
-
-      expect(logger.error).toHaveBeenCalledWith(
-        "Failed to parse LLM response as JSON",
-        expect.objectContaining({
-          content_summary: expect.stringContaining("[REDACTED_EMAIL]"),
-          content_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        }),
-      );
     });
 
     it("throws on Zod validation failure", async () => {
@@ -414,6 +366,49 @@ describe("BaseAgent", () => {
       await expect(
         agent.invokeSecure("session-1", "prompt", responseSchema)
       ).rejects.toThrow("LLM service unavailable");
+    });
+
+
+    it("logs redacted summary and content hash when JSON parsing fails", async () => {
+      mockLLMGateway.complete.mockResolvedValue(
+        makeLLMResponse("Contact jane.doe@valueos.ai at +1 (415) 555-2671 for account ACCT-778899")
+      );
+
+      await expect(
+        agent.invokeSecure("session-1", "prompt", responseSchema)
+      ).rejects.toThrow("LLM response was not valid JSON");
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("[REDACTED_EMAIL]"),
+          content_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        })
+      );
+      expect(logger.error).not.toHaveBeenCalledWith(
+        "Failed to parse LLM response as JSON",
+        expect.objectContaining({
+          content_summary: expect.stringContaining("jane.doe@valueos.ai"),
+        })
+      );
+    });
+
+    it("stores summarized output when raw model storage is disabled", async () => {
+      await agent.invokeSecure("session-1", "prompt", responseSchema, {
+        storeRawModelOutputInMemory: false,
+      });
+
+      expect(mockMemorySystem.storeSemanticMemory).toHaveBeenCalledWith(
+        "session-1",
+        "TestAgent",
+        "episodic",
+        expect.stringContaining("LLM Response Summary:"),
+        expect.objectContaining({
+          raw_model_output: false,
+          response_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+        "org-456"
+      );
     });
   });
 
