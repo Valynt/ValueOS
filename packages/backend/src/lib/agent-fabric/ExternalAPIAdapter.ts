@@ -71,13 +71,15 @@ export class ExternalAPIAdapter {
       const success = response.ok;
 
       logger.info("ExternalAPIAdapter call completed", {
+        ...auditContext,
         caller: this.callerName,
         operationTag: this.operationTag,
         operationName,
+        url,
+        method,
         status: response.status,
         latencyMs,
         success,
-        ...auditContext,
       });
 
       if (!success) {
@@ -101,12 +103,14 @@ export class ExternalAPIAdapter {
           : String(err);
 
       logger.error("ExternalAPIAdapter call failed", err instanceof Error ? err : undefined, {
+        ...auditContext,
         caller: this.callerName,
         operationTag: this.operationTag,
         operationName,
+        url,
+        method,
         latencyMs,
         isTimeout,
-        ...auditContext,
       });
 
       return { success: false, error: errorMessage, latencyMs };
