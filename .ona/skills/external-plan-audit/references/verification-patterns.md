@@ -6,14 +6,46 @@ figures.
 
 ---
 
+## Sprint plan discovery
+
+Run this before writing any new sprint plan. Avoids duplicating work already
+planned or re-opening sprints that are complete.
+
+```bash
+# List all existing sprint plans
+ls docs/sprint-plan-*.md
+
+# Check the most recent plan for its sprint range and completion status
+latest_plan=$(ls -t docs/sprint-plan-*.md 2>/dev/null | head -1)
+if [ -n "$latest_plan" ]; then
+  head -20 "$latest_plan"
+else
+  echo "No sprint plans found yet (no docs/sprint-plan-*.md files)."
+fi
+
+# Check sprint-roadmap for current sprint number
+grep -n "Sprint\|current\|complete\|in.progress" sprint-roadmap.md | head -20
+
+# Check todo.md for in-progress sprint work
+cat todo.md
+```
+
+Before writing Sprint N, confirm:
+1. Sprint N-1 deliverables are in main (check with `git log --oneline` for the
+   relevant files named in the prior plan's acceptance criteria).
+2. No open PR targets the same sprint work (`gh pr list` or check GitHub).
+3. The prior plan's test gate passed: `pnpm test` and `pnpm run test:rls`.
+
+---
+
 ## Resolved debt
 
 Check the `debt.md` Resolved section before doing anything else. If the
 claim matches a resolved item, classify immediately as "Already resolved."
 
 ```bash
-# List all resolved items
-grep -n "^| " .ona/context/debt.md | grep -A1 "Resolved"
+# List all resolved items (grep the Resolved section directly)
+awk '/^## Resolved debt/,/^## [^R]/' .ona/context/debt.md | grep "^|"
 
 # Check if a specific debt ID is resolved
 grep -n "DEBT-007\|QUAL-003\|SEC-02" .ona/context/debt.md
@@ -183,8 +215,8 @@ grep -n "RTO\|RPO\|Recovery" docs/runbooks/disaster-recovery.md | head -10
 
 ```bash
 # Confirm load test scripts exist
-find . -name "*.k6.js" -o -name "load-test*" \
-  | grep -v node_modules | grep -v ".skill"
+find . \( -name "*.k6.js" -o -name "load-test*" \) \
+  | grep -v node_modules | grep -v "\.skill"
 
 # Check if documented baselines exist
 find docs/operations -name "load-test-baselines*" 2>/dev/null

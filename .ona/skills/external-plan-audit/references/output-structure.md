@@ -31,8 +31,8 @@ every scheduling decision that follows.
 
 | Claim ID | Category | Verified Gap | Evidence |
 |---|---|---|---|
-| INFRA-001 | Infrastructure | 95 migrations without rollback scripts | `find infra/.../migrations -name "*.rollback.sql" | wc -l` → 22 |
-| DOCS-001 | Documentation | OpenAPI missing value cases, agents, commitments | `grep "^  /" packages/backend/openapi.yaml` shows Projects paths only |
+| INFRA-002 | Infrastructure | No DR validation workflow exists | `ls .github/workflows/` — no `dr-validation.yml` |
+| DOCS-002 | Documentation | Agent API endpoints are defined under `/api/v1/agents` in OpenAPI spec | `grep "  /api/v1/agents" packages/backend/openapi.yaml` |
 
 ### Claims that are unverifiable (need clarification)
 
