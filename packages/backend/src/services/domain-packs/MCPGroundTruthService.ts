@@ -9,7 +9,7 @@ import { getGroundtruthConfig, isBrowser } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { getRedisClient } from '../../lib/redisClient.js';
 
-import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
+import { ExternalCircuitBreaker } from '../post-v1/ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)
 interface MCPServer {

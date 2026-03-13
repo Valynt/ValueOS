@@ -16,10 +16,11 @@ import {
 import {
   assertRowCount,
   cleanupBillingTables,
-  getTestSupabaseClient,
+  getTestSupabaseClient,,
+  supabaseAvailable
 } from "../__helpers__/db-helpers";
 
-describe("Usage Metering Idempotency Tests", () => {
+describe.skipIf(!supabaseAvailable)("Usage Metering Idempotency Tests", () => {
   let supabase: SupabaseClient;
 
   beforeEach(async () => {

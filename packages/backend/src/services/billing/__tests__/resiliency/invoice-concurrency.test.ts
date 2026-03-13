@@ -6,7 +6,7 @@ import {
 } from "../__helpers__/billing-factories";
 import { setupTestDatabase } from "../__helpers__/db-helpers.js"
 
-describe("Invoice concurrency safety", () => {
+describe.skipIf(!supabaseAvailable)("Invoice concurrency safety", () => {
   const getSupabase = setupTestDatabase();
 
   it("prevents double inserts for the same Stripe invoice ID", async () => {

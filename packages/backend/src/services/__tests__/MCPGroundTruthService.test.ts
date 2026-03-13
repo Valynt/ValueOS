@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../ExternalCircuitBreaker.js', () => ({
+vi.mock('../post-v1/ExternalCircuitBreaker.js', () => ({
   ExternalCircuitBreaker: class {
     constructor(_name: string) {}
     execute<T>(_key: string, fn: () => Promise<T>): Promise<T> {
@@ -10,7 +10,7 @@ vi.mock('../ExternalCircuitBreaker.js', () => ({
       return {};
     }
   },
-}), { virtual: true });
+}));
 
 vi.mock('../../lib/env.js', () => ({
   getGroundtruthConfig: () => ({ baseUrl: 'http://localhost:3001', apiKey: '' }),

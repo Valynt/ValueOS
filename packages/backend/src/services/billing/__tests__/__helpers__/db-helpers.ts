@@ -17,8 +17,13 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABA
 const JWT_SECRET =
   process.env.SUPABASE_JWT_SECRET || "super-secret-jwt-token-with-at-least-32-characters-long";
 
+/** True when the required Supabase env vars are present. */
+export const supabaseAvailable = Boolean(supabaseUrl && supabaseServiceKey);
+
 /**
- * Get Supabase client for tests
+ * Get Supabase client for tests.
+ * Throws a skip signal when env vars are absent so the calling test is
+ * marked as skipped rather than failed.
  */
 export function getTestSupabaseClient(): SupabaseClient {
   if (!supabaseUrl || !supabaseServiceKey) {
