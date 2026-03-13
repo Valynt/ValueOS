@@ -262,6 +262,7 @@ export class OpportunityAgent extends BaseAgent {
       // Set ENABLE_DOMAIN_PACK_CONTEXT=true and attach a domain pack to the value case
       // to ground hypotheses in tenant-specific KPIs and assumptions.
       logger.warn('OpportunityAgent: domain pack context disabled (ENABLE_DOMAIN_PACK_CONTEXT=false). Hypotheses will not reference tenant-specific KPIs or assumptions.', {
+        tenant_id: context.organization_id,
         organization_id: context.organization_id,
         value_case_id: context.user_inputs?.value_case_id,
       });
