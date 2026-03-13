@@ -8,3 +8,4 @@ export * from "./InputValidation.js";
 export * from "./SecurityMiddleware.js";
 export * from "./SecurityMonitor.js";
 export * from "./auditLogger.js";
+export * from "./SecurityAnomalyService.js";

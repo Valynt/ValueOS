@@ -88,6 +88,7 @@ import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRou
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 import { getRecommendationEngine } from "./runtime/recommendation-engine/index.js";
+import { getSecurityAnomalyScheduler } from "./services/security/SecurityAnomalyService.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -151,6 +152,7 @@ getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
 
 const app = express();
+getSecurityAnomalyScheduler().start();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
 // Using `true` trusts all X-Forwarded-* headers, allowing IP spoofing.
 app.set("trust proxy", 1);

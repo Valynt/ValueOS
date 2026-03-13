@@ -1,31 +1,40 @@
 /**
  * Security Monitoring API
- * Provides endpoints for the security dashboard to retrieve security metrics and events
+ * Provides endpoints for the security dashboard to retrieve security metrics, events, and persisted anomaly alerts.
  */
 
 import { Request, Response, Router } from "express";
+import { z } from "zod";
 
 import { logger } from "../lib/logger.js";
-import { requireAuth } from "../middleware/auth.js";
+import { AuthenticatedRequest, requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { SecurityMetricsCollector } from "../security/enhancedSecurityLogger.js";
-const router = Router();
-const securityLogger = logger;
-const metricsCollector = SecurityMetricsCollector.getInstance();
+import { getSecurityAnomalyService } from "../services/security/SecurityAnomalyService.js";
 
-// Apply authentication and authorization middleware
+const router = Router();
+const metricsCollector = SecurityMetricsCollector.getInstance();
+const anomalyService = getSecurityAnomalyService();
+
 router.use(requireAuth);
 router.use(requireRole("admin"));
 
-/**
- * GET /api/admin/security/metrics
- * Get current security metrics
- */
+const alertActionSchema = z.object({
+  reason: z.string().min(5).max(500),
+});
+
+const alertSuppressSchema = alertActionSchema.extend({
+  suppressUntil: z.string().datetime(),
+});
+
+function resolveActor(req: Request): string {
+  const authReq = req as AuthenticatedRequest;
+  return authReq.user?.id ?? "system-admin";
+}
+
 router.get("/metrics", async (_req: Request, res: Response) => {
   try {
     const metrics = metricsCollector.getMetrics();
-
-    // Calculate additional derived metrics
     const totalEvents = Object.values(metrics).reduce((sum, count) => sum + count, 0);
     const blockedEvents = Object.entries(metrics)
       .filter(([key]) => key.includes("_blocked"))
@@ -34,7 +43,7 @@ router.get("/metrics", async (_req: Request, res: Response) => {
       .filter(([key]) => key.includes("_error"))
       .reduce((sum, [, count]) => sum + count, 0);
 
-    const response = {
+    res.json({
       timestamp: new Date().toISOString(),
       metrics,
       derived: {
@@ -44,34 +53,24 @@ router.get("/metrics", async (_req: Request, res: Response) => {
         blockRate: totalEvents > 0 ? (blockedEvents / totalEvents) * 100 : 0,
         errorRate: totalEvents > 0 ? (errorEvents / totalEvents) * 100 : 0,
       },
-    };
-
-    res.json(response);
+    });
   } catch (error) {
     logger.error("Failed to retrieve security metrics", error);
     res.status(500).json({ error: "Failed to retrieve security metrics" });
   }
 });
 
-/**
- * GET /api/admin/security/events
- * Get recent security events
- */
 router.get("/events", async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
     const category = req.query.category as string;
     const severity = req.query.severity as string;
 
-    let events;
-
-    if (category) {
-      events = metricsCollector.getEventsByCategory(category as any, limit);
-    } else if (severity) {
-      events = metricsCollector.getEventsBySeverity(severity as any, limit);
-    } else {
-      events = metricsCollector.getRecentEvents(limit);
-    }
+    const events = category
+      ? metricsCollector.getEventsByCategory(category as never, limit)
+      : severity
+      ? metricsCollector.getEventsBySeverity(severity as never, limit)
+      : metricsCollector.getRecentEvents(limit);
 
     res.json({
       timestamp: new Date().toISOString(),
@@ -84,76 +83,14 @@ router.get("/events", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * GET /api/admin/security/alerts
- * Get active security alerts
- */
-router.get("/alerts", async (_req: Request, res: Response) => {
+router.get("/alerts", async (req: Request, res: Response) => {
   try {
-    const events = metricsCollector.getRecentEvents(100);
+    const tenantId = (req.query.tenantId as string | undefined) ?? undefined;
+    const status = (req.query.status as "open" | "acknowledged" | "suppressed" | undefined) ?? undefined;
+    const includeSuppressed = req.query.includeSuppressed === "true";
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 200);
 
-    // Generate alerts based on event patterns
-    const alerts: unknown[] = [];
-
-    // High-severity events in the last hour
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const recentHighSeverity = events
-      .filter((event) => event.severity === "high" || event.severity === "critical")
-      .filter((event) => new Date(event.timestamp) > oneHourAgo);
-
-    if (recentHighSeverity.length > 0) {
-      alerts.push({
-        id: "high-severity-events",
-        type: "warning",
-        title: "High Severity Security Events",
-        description: `${recentHighSeverity.length} high/critical security events in the last hour`,
-        count: recentHighSeverity.length,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    // Multiple auth failures from same IP
-    const authFailures = events.filter((event) => event.type === "AUTH_FAILURE");
-    const ipCounts = authFailures.reduce(
-      (acc, event) => {
-        const ip = event.ipAddress || "unknown";
-        acc[ip] = (acc[ip] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-
-    Object.entries(ipCounts).forEach(([ip, count]) => {
-      if (count >= 5) {
-        alerts.push({
-          id: `auth-failures-${ip}`,
-          type: "danger",
-          title: "Multiple Authentication Failures",
-          description: `${count} failed login attempts from ${ip}`,
-          count,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // Rate limiting alerts
-    const rateLimitEvents = events.filter((event) => event.type === "RATE_LIMIT_EXCEEDED");
-    if (rateLimitEvents.length > 0) {
-      const recentRateLimits = rateLimitEvents.filter(
-        (event) => new Date(event.timestamp) > oneHourAgo
-      );
-
-      if (recentRateLimits.length > 0) {
-        alerts.push({
-          id: "rate-limit-exceeded",
-          type: "warning",
-          title: "Rate Limiting Active",
-          description: `${recentRateLimits.length} rate limit violations in the last hour`,
-          count: recentRateLimits.length,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    }
+    const alerts = await anomalyService.getAlerts({ tenantId, includeSuppressed, status, limit });
 
     res.json({
       timestamp: new Date().toISOString(),
@@ -161,58 +98,102 @@ router.get("/alerts", async (_req: Request, res: Response) => {
       count: alerts.length,
     });
   } catch (error) {
-    logger.error("Failed to retrieve security alerts", error);
-    res.status(500).json({ error: "Failed to retrieve security alerts" });
+    logger.error("Failed to retrieve persisted security alerts", error);
+    res.status(500).json({ error: "Failed to retrieve persisted security alerts" });
   }
 });
 
-/**
- * GET /api/admin/security/dashboard
- * Get comprehensive dashboard data
- */
+router.post("/alerts/:alertId/acknowledge", async (req: Request, res: Response) => {
+  try {
+    const { alertId } = req.params;
+    const { reason } = alertActionSchema.parse(req.body ?? {});
+    const acknowledged = await anomalyService.acknowledgeAlert({
+      alertId,
+      actorId: resolveActor(req),
+      reason,
+    });
+
+    if (!acknowledged) {
+      res.status(404).json({ error: "Alert not found" });
+      return;
+    }
+
+    res.json({ success: true, alert: acknowledged });
+  } catch (error) {
+    logger.error("Failed to acknowledge security alert", error);
+    res.status(500).json({ error: "Failed to acknowledge security alert" });
+  }
+});
+
+router.post("/alerts/:alertId/suppress", async (req: Request, res: Response) => {
+  try {
+    const { alertId } = req.params;
+    const { reason, suppressUntil } = alertSuppressSchema.parse(req.body ?? {});
+    const suppressed = await anomalyService.suppressAlert({
+      alertId,
+      actorId: resolveActor(req),
+      reason,
+      suppressUntil,
+    });
+
+    if (!suppressed) {
+      res.status(404).json({ error: "Alert not found" });
+      return;
+    }
+
+    res.json({ success: true, alert: suppressed });
+  } catch (error) {
+    logger.error("Failed to suppress security alert", error);
+    res.status(500).json({ error: "Failed to suppress security alert" });
+  }
+});
+
 router.get("/dashboard", async (_req: Request, res: Response) => {
   try {
     const metrics = metricsCollector.getMetrics();
     const recentEvents = metricsCollector.getRecentEvents(20);
+    const alerts = await anomalyService.getAlerts({ includeSuppressed: false, limit: 200 });
 
-    // Calculate dashboard KPIs
     const totalEvents = Object.values(metrics).reduce((sum, count) => sum + count, 0);
     const blockedEvents = Object.entries(metrics)
       .filter(([key]) => key.includes("_blocked"))
       .reduce((sum, [, count]) => sum + count, 0);
 
-    const dashboard = {
+    const openAlerts = alerts.filter((alert) => alert.status === "open");
+
+    res.json({
       timestamp: new Date().toISOString(),
       kpis: {
         totalSecurityEvents: totalEvents,
         blockedThreats: blockedEvents,
-        activeAlerts: 0, // Will be calculated below
-        securityScore: Math.max(0, 100 - blockedEvents * 2), // Simple scoring
+        activeAlerts: openAlerts.length,
+        securityScore: Math.max(0, 100 - blockedEvents * 2 - openAlerts.length * 3),
       },
       metrics,
       recentEvents,
+      alerts: {
+        open: openAlerts.slice(0, 20),
+        byType: openAlerts.reduce((acc, alert) => {
+          acc[alert.anomaly_type] = (acc[alert.anomaly_type] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+      },
       charts: {
         eventsByCategory: calculateEventsByCategory(metrics),
         eventsByOutcome: calculateEventsByOutcome(metrics),
         eventsOverTime: calculateEventsOverTime(recentEvents),
       },
-    };
-
-    res.json(dashboard);
+    });
   } catch (error) {
     logger.error("Failed to retrieve security dashboard data", error);
     res.status(500).json({ error: "Failed to retrieve security dashboard data" });
   }
 });
 
-/**
- * POST /api/admin/security/reset-metrics
- * Reset security metrics (admin only)
- */
 router.post("/reset-metrics", async (req: Request, res: Response) => {
   try {
     metricsCollector.reset();
-    logger.info("Security metrics reset by admin", { userId: (req as any).user?.id });
+    logger.info("Security metrics reset by admin", { userId: (req as AuthenticatedRequest).user?.id });
 
     res.json({
       success: true,
@@ -224,7 +205,6 @@ router.post("/reset-metrics", async (req: Request, res: Response) => {
   }
 });
 
-// Helper functions for dashboard calculations
 function calculateEventsByCategory(metrics: Record<string, number>): Record<string, number> {
   const categories: Record<string, number> = {};
 
@@ -247,7 +227,7 @@ function calculateEventsByOutcome(metrics: Record<string, number>): Record<strin
   return outcomes;
 }
 
-function calculateEventsOverTime(events: any[]): Array<{ timestamp: string; count: number }> {
+function calculateEventsOverTime(events: Array<{ timestamp: string }>): Array<{ timestamp: string; count: number }> {
   const hourlyBuckets: Record<string, number> = {};
 
   events.forEach((event) => {
