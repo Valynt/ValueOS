@@ -8,7 +8,7 @@
 import { getGroundtruthConfig } from '../../lib/env';
 import { logger } from '../../lib/logger.js'
 
-import { ExternalCircuitBreaker } from './post-v1/ExternalCircuitBreaker.js';
+import { ExternalCircuitBreaker } from '../post-v1/ExternalCircuitBreaker.js';
 
 export interface GroundtruthAPIConfig {
   baseUrl?: string;
