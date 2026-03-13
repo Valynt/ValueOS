@@ -29,15 +29,15 @@ data:
           # Agent cold-start SLI (enqueue-to-ready <= 45s)
           - record: slo:agent_cold_start:good_rate5m
             expr: |
-              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[5m]))
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{job="valueos-app",service="valueos-backend",le="45"}[5m]))
               /
-              sum(rate(agent_enqueue_to_ready_seconds_count[5m]))
+              sum(rate(agent_enqueue_to_ready_seconds_count{job="valueos-app",service="valueos-backend"}[5m]))
 
           - record: slo:agent_cold_start:good_rate1h
             expr: |
-              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[1h]))
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{job="valueos-app",service="valueos-backend",le="45"}[1h]))
               /
-              sum(rate(agent_enqueue_to_ready_seconds_count[1h]))
+              sum(rate(agent_enqueue_to_ready_seconds_count{job="valueos-app",service="valueos-backend"}[1h]))
 
           - record: slo:agent_cold_start:error_budget_burn_rate5m
             expr: |
@@ -50,15 +50,15 @@ data:
           # API availability SLI (non-5xx over total)
           - record: slo:api_availability:ratio_rate5m
             expr: |
-              sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[5m]))
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code!~"5.."}[5m]))
               /
-              sum(rate(http_requests_total{job="valueos-api"}[5m]))
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[5m]))
 
           - record: slo:api_availability:ratio_rate1h
             expr: |
-              sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[1h]))
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend",status_code!~"5.."}[1h]))
               /
-              sum(rate(http_requests_total{job="valueos-api"}[1h]))
+              sum(rate(valuecanvas_http_requests_total{job="valueos-app",service="valueos-backend"}[1h]))
 
           - record: slo:api_availability:error_budget_burn_rate5m
             expr: |
@@ -71,15 +71,15 @@ data:
           # API latency SLI (P95 under 300ms)
           - record: slo:api_latency:good_rate5m
             expr: |
-              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[5m]))
+              sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",le="300"}[5m]))
               /
-              sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[5m]))
+              sum(rate(valuecanvas_http_request_duration_ms_count{job="valueos-app",service="valueos-backend"}[5m]))
 
           - record: slo:api_latency:good_rate1h
             expr: |
-              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[1h]))
+              sum(rate(valuecanvas_http_request_duration_ms_bucket{job="valueos-app",service="valueos-backend",le="300"}[1h]))
               /
-              sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[1h]))
+              sum(rate(valuecanvas_http_request_duration_ms_count{job="valueos-app",service="valueos-backend"}[1h]))
 
           - record: slo:api_latency:error_budget_burn_rate5m
             expr: |
@@ -92,15 +92,15 @@ data:
           # Auth success SLI
           - record: slo:auth_success:ratio_rate5m
             expr: |
-              sum(rate(auth_attempts_total{job="valueos-api",result="success"}[5m]))
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend",result="success"}[5m]))
               /
-              sum(rate(auth_attempts_total{job="valueos-api"}[5m]))
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend"}[5m]))
 
           - record: slo:auth_success:ratio_rate1h
             expr: |
-              sum(rate(auth_attempts_total{job="valueos-api",result="success"}[1h]))
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend",result="success"}[1h]))
               /
-              sum(rate(auth_attempts_total{job="valueos-api"}[1h]))
+              sum(rate(auth_attempts_total{job="valueos-app",service="valueos-backend"}[1h]))
 
           - record: slo:auth_success:error_budget_burn_rate5m
             expr: |
@@ -113,15 +113,15 @@ data:
           # Queue health SLI (queue depth and age within thresholds)
           - record: slo:queue_health:ratio_rate5m
             expr: |
-              avg_over_time((queue_depth{job="valueos-worker",queue="default"} < bool 100)[5m:])
+              avg_over_time((queue_depth{job="valueos-app",service="valueos-backend",queue="default"} < bool 100)[5m:])
               *
-              avg_over_time((queue_oldest_message_age_seconds{job="valueos-worker",queue="default"} < bool 120)[5m:])
+              avg_over_time((queue_oldest_message_age_seconds{job="valueos-app",service="valueos-backend",queue="default"} < bool 120)[5m:])
 
           - record: slo:queue_health:ratio_rate1h
             expr: |
-              avg_over_time((queue_depth{job="valueos-worker",queue="default"} < bool 100)[1h:])
+              avg_over_time((queue_depth{job="valueos-app",service="valueos-backend",queue="default"} < bool 100)[1h:])
               *
-              avg_over_time((queue_oldest_message_age_seconds{job="valueos-worker",queue="default"} < bool 120)[1h:])
+              avg_over_time((queue_oldest_message_age_seconds{job="valueos-app",service="valueos-backend",queue="default"} < bool 120)[1h:])
 
           - record: slo:queue_health:error_budget_burn_rate5m
             expr: |
