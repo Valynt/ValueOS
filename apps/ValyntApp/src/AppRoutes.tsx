@@ -4,12 +4,11 @@
  */
 
 import { lazy, type ReactElement, Suspense } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
-import { PermissionRoute, ProtectedRoute, SENSITIVE_ROUTE_PERMISSIONS } from "./app/routes/route-guards";
+import { ProtectedRoute } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -18,7 +17,7 @@ import { ToastProvider } from "./components/common/Toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
 import { DrawerProvider } from "./contexts/DrawerContext";
-import { TenantProvider } from "./contexts/TenantContext";
+import { TenantProvider, useTenant } from "./contexts/TenantContext";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
@@ -66,21 +65,52 @@ const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
 const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 
+
+const TENANT_SCOPED_PREFIX = "/org";
+
+function buildTenantPath(tenantSlugOrId: string, leafPath: string): string {
+  const normalizedLeafPath = leafPath.startsWith("/") ? leafPath.slice(1) : leafPath;
+  return `${TENANT_SCOPED_PREFIX}/${tenantSlugOrId}/${normalizedLeafPath}`;
+}
+
+function TenantAwareRedirect({ leafPath }: { leafPath: string }) {
+  const { currentTenant, isLoading } = useTenant();
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (!currentTenant) {
+    return <Navigate to="/create-org" replace />;
+  }
+
+  return (
+    <Navigate
+      to={buildTenantPath(currentTenant.slug || currentTenant.id, leafPath)}
+      replace
+    />
+  );
+}
+
+function LegacyTenantRouteBridge() {
+  const { currentTenant, isLoading } = useTenant();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+  if (!currentTenant) {
+    return <Navigate to="/create-org" replace />;
+  }
+
+  const tenantSlugOrId = currentTenant.slug || currentTenant.id;
+  const nextPath = buildTenantPath(tenantSlugOrId, location.pathname.replace(/^\//, ""));
+  const searchWithHash = `${location.search}${location.hash}`;
+
+  return <Navigate to={`${nextPath}${searchWithHash}`} replace />;
+}
+
 export function AppRoutes() {
-  const queryClient = useQueryClient();
-
-  const handleTenantSwitch = () => {
-    queryClient
-      .cancelQueries()
-      .then(() => {
-        queryClient.clear();
-      })
-      .catch(() => {
-        // Ensure we still clear even if cancellation rejects
-        queryClient.clear();
-      });
-  };
-
   const publicRouteElements: Record<string, ReactElement> = {
     "/login": <LoginPage />,
     "/signup": <SignupPage />,
@@ -99,7 +129,7 @@ export function AppRoutes() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <TenantProvider onTenantSwitch={handleTenantSwitch}>
+          <TenantProvider>
             <CompanyContextProvider>
               <DrawerProvider>
                 <I18nProvider>
@@ -119,8 +149,8 @@ export function AppRoutes() {
                         ))}
 
                         {/* Root redirect */}
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                        <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/" element={<TenantAwareRedirect leafPath="dashboard" />} />
+                        <Route path="/home" element={<TenantAwareRedirect leafPath="dashboard" />} />
 
                         {/* Protected routes */}
                         <Route element={<ProtectedRoute />}>
@@ -133,31 +163,41 @@ export function AppRoutes() {
                             <Route path="/onboarding" element={<CompanyOnboarding />} />
 
                             {/* Main app — gated by onboarding completion */}
-                            <Route element={<OnboardingGate />}>
+                            <Route path="/org/:tenantSlug" element={<OnboardingGate />}>
                               <Route element={<MainLayout />}>
-                                <Route path="/dashboard" element={<Dashboard />} />
-                                <Route path="/opportunities" element={<Opportunities />} />
-                                <Route path="/opportunities/:id" element={<OpportunityDetail />} />
-                                <Route path="/opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
-                                <Route path="/models" element={<Models />} />
-                                <Route path="/models/:id" element={<ModelDetail />} />
-                                <Route path="/agents" element={<Agents />} />
-                                <Route path="/agents/:id" element={<AgentDetail />} />
-                                <Route element={<PermissionRoute requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.INTEGRATIONS} />}>
-                                  <Route path="/integrations" element={<Integrations />} />
-                                </Route>
-                                <Route element={<PermissionRoute requiredPermissions={SENSITIVE_ROUTE_PERMISSIONS.SETTINGS} />}>
-                                  <Route path="/settings" element={<SettingsPage />} />
-                                </Route>
-                                <Route path="/workspace/:caseId" element={<ValueCaseWorkspace />} />
-                                <Route path="/company" element={<CompanyKnowledge />} />
+                                <Route path="dashboard" element={<Dashboard />} />
+                                <Route path="opportunities" element={<Opportunities />} />
+                                <Route path="opportunities/:id" element={<OpportunityDetail />} />
+                                <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                                <Route path="models" element={<Models />} />
+                                <Route path="models/:id" element={<ModelDetail />} />
+                                <Route path="agents" element={<Agents />} />
+                                <Route path="agents/:id" element={<AgentDetail />} />
+                                <Route path="integrations" element={<Integrations />} />
+                                <Route path="settings" element={<SettingsPage />} />
+                                <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
+                                <Route path="company" element={<CompanyKnowledge />} />
                               </Route>
                             </Route>
+
+                            {/* Legacy non-tenant routes bridge to canonical tenant URL */}
+                            <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/models" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/agents" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/agents/:id" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/integrations" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/settings" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/workspace/:caseId" element={<LegacyTenantRouteBridge />} />
+                            <Route path="/company" element={<LegacyTenantRouteBridge />} />
                           </Route>
                         </Route>
 
                         {/* Catch-all */}
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="*" element={<TenantAwareRedirect leafPath="dashboard" />} />
                             </Routes>
                           </Suspense>
                         </CommandPaletteProvider>
