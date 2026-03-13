@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as bootstrapModule from "../bootstrap";
-import { BootstrapGuard } from "../components/Common/BootstrapGuard";
+import { BootstrapGuard } from "../components/common/BootstrapGuard";
 import * as useBootstrapModule from "../hooks/useBootstrap";
 
 // Mock the useBootstrap hook to control its behavior

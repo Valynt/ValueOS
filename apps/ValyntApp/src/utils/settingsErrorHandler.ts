@@ -7,7 +7,7 @@
 
 import * as React from "react";
 
-import { useToast } from "../components/Common/Toast";
+import { useToast } from "../components/common/Toast";
 import { logger } from "../lib/logger";
 
 // ============================================================================
