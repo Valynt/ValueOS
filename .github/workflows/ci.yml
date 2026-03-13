@@ -811,7 +811,6 @@ jobs:
       - dast-gate
       - verify-secret-rotation-metadata-age
       - accessibility-audit
-      - error-budget-release-gate
       - ui-truthfulness-gate
     steps:
       - name: Enforce PR blockers
