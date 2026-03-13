@@ -75,8 +75,9 @@ router.post(
       if (!result.success) {
         return res.status(422).json({ error: result.errors.join("; "), errors: result.errors });
       }
+      res.status(201);
       await logAdminRouteEvent(req, res, AUDIT_ACTION.ADMIN_PROVISION, { organizationId: result.organizationId });
-      return res.status(201).json({ organizationId: result.organizationId });
+      return res.json({ organizationId: result.organizationId });
     } catch (err) {
       logger.error("Tenant provisioning failed", err instanceof Error ? err : undefined);
       return res.status(500).json({ error: "Provisioning failed" });
