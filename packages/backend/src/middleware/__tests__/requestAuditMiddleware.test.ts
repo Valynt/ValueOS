@@ -74,6 +74,8 @@ describe('requestAuditMiddleware', () => {
 
     const loggedEvent = logRequestEventMock.mock.calls[0][0];
     expect(loggedEvent.resource).toBe('/api/customer');
+    expect(loggedEvent.action).toBe('api.request');
+    expect(loggedEvent.eventType).toBe('api.request');
     expect(loggedEvent.requestPath).toBe('/api/customer/value-case/secret-token');
     expect(loggedEvent.actor).toContain('[REDACTED');
     expect(loggedEvent.eventData.query).toEqual({

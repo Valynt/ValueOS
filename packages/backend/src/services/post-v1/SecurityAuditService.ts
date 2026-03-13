@@ -4,13 +4,13 @@ import { captureMessage } from "../lib/sentry";
 import { createServerSupabaseClient } from "../../lib/supabase.js"
 
 import { BaseService } from "../BaseService.js"
-
+import { AuditAction } from "../../types/audit.js";
 
 export interface RequestAuditEvent {
   requestId: string;
   userId?: string;
   actor?: string;
-  action: string;
+  action: AuditAction;
   resource: string;
   requestPath: string;
   ipAddress?: string;
@@ -26,7 +26,7 @@ interface AuditPayload {
   request_id: string;
   user_id: string | null;
   actor: string;
-  action: string;
+  action: AuditAction;
   resource: string;
   request_path: string;
   event_type: string;

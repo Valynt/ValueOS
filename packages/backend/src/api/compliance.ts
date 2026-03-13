@@ -5,8 +5,10 @@ import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js";
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js";
 import { auditLogService } from "../services/AuditLogService.js";
 import { complianceControlStatusService } from "../services/ComplianceControlStatusService.js";
+import { AUDIT_ACTION } from "../types/audit.js";
 
 const router = createSecureRouter("strict");
 
@@ -26,6 +28,7 @@ router.get("/control-status", requirePermission("users.read"), async (req: Reque
   const controls = await complianceControlStatusService.getLatestControlStatus(tenantId);
   const now = Date.now();
 
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "control-status" });
   return res.json({
     tenant_id: tenantId,
     generated_at: new Date().toISOString(),
@@ -76,6 +79,7 @@ router.get("/audit-logs", requirePermission("users.read"), async (req: Request, 
 
   const limit = Number(req.query.limit ?? 25);
   const logs = await auditLogService.query({ tenantId, limit });
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "audit-logs" });
   return res.json({ logs });
 });
 
@@ -86,6 +90,7 @@ router.get("/policy-history", requirePermission("users.read"), async (req: Reque
   }
 
   const history = await complianceControlStatusService.getPolicyHistory(tenantId);
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "policy-history" });
   return res.json({ history });
 });
 
@@ -114,6 +119,7 @@ router.get("/mode", requirePermission("users.read"), async (req: Request, res: R
     return res.status(400).json({ error: "Tenant ID required" });
   }
 
+  await emitRequestAuditEvent(req, res, AUDIT_ACTION.ADMIN_COMPLIANCE, "admin.compliance", { endpoint: "control-status" });
   return res.json({
     tenant_id: tenantId,
     active_modes: ["SOC2", "GDPR"],
