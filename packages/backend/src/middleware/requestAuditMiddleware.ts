@@ -7,6 +7,12 @@ import { NextFunction, Request, Response } from "express";
 
 import { getTraceContextForLogging } from "../config/telemetry.js";
 import { securityAuditService } from "../services/SecurityAuditService.js";
+import {
+  extractAuditActorContext,
+  extractAuditNetworkContext,
+  extractAuditResourceContext,
+  requiredAuditPayloadSchema,
+} from "../services/security/auditPayloadContract.js";
 
 
 
@@ -20,17 +26,6 @@ function getRequestId(req: Request): string {
   return (headerId as string) || randomUUID();
 }
 
-function getActor(req: Request): { id?: string; label: string } {
-  const anyReq = req as any;
-  const user = anyReq.user || {};
-  const headerActor = (req.headers["x-user-email"] as string) || (req.headers["x-actor"] as string);
-  const label = user.email || user.name || headerActor || "anonymous";
-
-  return {
-    id: user.id || undefined,
-    label: sanitizeForLogging(label) as string,
-  };
-}
 
 export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
   const ignoredPaths = options?.ignoredPaths || DEFAULT_IGNORED_PATHS;
@@ -66,19 +61,28 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
 
     runWithContext(context, () => {
       res.on("finish", async () => {
-        const actor = getActor(req);
+        const actorContext = extractAuditActorContext(req);
+        const resourceContext = extractAuditResourceContext(req);
+        const networkContext = extractAuditNetworkContext(req);
+        const timestamp = new Date().toISOString();
         try {
+          const payload = requiredAuditPayloadSchema.parse({
+            actor: actorContext.actor,
+            action_type: req.method.toLowerCase(),
+            resource_type: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
+            resource_id: resourceContext.resourceId,
+            request_path: resourceContext.requestPath,
+            ip_address: networkContext.ipAddress,
+            user_agent: networkContext.userAgent,
+            outcome: res.statusCode < 400 ? "success" : "failed",
+            status_code: res.statusCode,
+            timestamp,
+            correlation_id: requestId,
+          });
+
           await securityAuditService.logRequestEvent({
-            requestId,
-            userId: actor.id,
-            actor: actor.label,
-            action: req.method.toLowerCase(),
-            // Avoid persisting raw URLs that may include sensitive query strings.
-            resource: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
-            requestPath: sanitizeForLogging(req.path || req.originalUrl) as string,
-            ipAddress: req.ip || req.socket.remoteAddress || undefined,
-            userAgent: req.get("user-agent") || undefined,
-            statusCode: res.statusCode,
+            ...payload,
+            userId: actorContext.userId,
             severity: res.statusCode >= 500 ? "high" : "medium",
             eventData: {
               duration_ms: Date.now() - startedAt,

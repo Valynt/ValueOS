@@ -17,9 +17,11 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
-import type { AuditLogEntry } from "../types";
-
 import { BaseService } from "../BaseService.js";
+import {
+  RequiredAuditPayload,
+  requiredAuditPayloadSchema,
+} from "./auditPayloadContract.js";
 
 // audit_logs is not in the generated Database type — use a typed helper
 // rather than scattering `as any` across every query.
@@ -63,6 +65,14 @@ export interface AuditLogCreateInput {
   ipAddress?: string;
   userAgent?: string;
   status?: "success" | "failed";
+  statusCode?: number;
+  requestPath?: string;
+  correlationId?: string;
+  timestamp?: string;
+  actionType?: string;
+  resourceTypeCanonical?: string;
+  resourceIdCanonical?: string;
+  actor?: string;
 }
 
 export interface AuditLogQuery {
@@ -140,6 +150,25 @@ export class AuditLogService extends BaseService {
    */
   async logAudit(input: AuditLogCreateInput): Promise<AuditLogEntry> {
     return this.createEntry(input);
+  }
+
+  private buildRequiredContract(input: AuditLogCreateInput): RequiredAuditPayload {
+    const timestamp = input.timestamp ?? new Date().toISOString();
+    const statusCode = input.statusCode ?? (input.status === "failed" ? 500 : 200);
+
+    return requiredAuditPayloadSchema.parse({
+      actor: input.actor ?? input.userEmail ?? input.userName ?? input.userId,
+      action_type: input.actionType ?? input.action,
+      resource_type: input.resourceTypeCanonical ?? input.resourceType,
+      resource_id: input.resourceIdCanonical ?? input.resourceId,
+      request_path: input.requestPath ?? "/unknown",
+      ip_address: input.ipAddress ?? "unknown",
+      user_agent: input.userAgent ?? "unknown",
+      outcome: input.status ?? "success",
+      status_code: statusCode,
+      timestamp,
+      correlation_id: input.correlationId ?? crypto.randomUUID(),
+    });
   }
 
   /**
@@ -222,14 +251,9 @@ export class AuditLogService extends BaseService {
    * AUD-301: Logs are INSERT-only with cryptographic integrity
    */
   async createEntry(input: AuditLogCreateInput): Promise<AuditLogEntry> {
-    this.validateRequired(input, [
-      "userId",
-      "userName",
-      "userEmail",
-      "action",
-      "resourceType",
-      "resourceId",
-    ]);
+    this.validateRequired(input, ["userId", "userName", "action", "resourceType", "resourceId"]);
+
+    const requiredContract = this.buildRequiredContract(input);
 
     // Ensure hash chain is initialized before creating entries
     await this.initializeHashChain();
@@ -246,30 +270,46 @@ export class AuditLogService extends BaseService {
               if (input.beforeState !== undefined) rawDetails["before_state"] = input.beforeState;
               if (input.afterState !== undefined) rawDetails["after_state"] = input.afterState;
               const sanitizedDetails = sanitizeForLogging(rawDetails) as Record<string, unknown>;
-              const { status: _ignoredStatus, ...detailsWithoutStatus } = sanitizedDetails;
+              const {
+                status: _ignoredStatus,
+                ip_address: _ignoredIpAddress,
+                user_agent: _ignoredUserAgent,
+                request_path: _ignoredRequestPath,
+                status_code: _ignoredStatusCode,
+                outcome: _ignoredOutcome,
+                correlation_id: _ignoredCorrelationId,
+                ...detailsWithoutStatus
+              } = sanitizedDetails;
 
               // Calculate integrity hash (using secure SHA-256)
               const hash = await this.calculateHash({
                 userId: input.userId,
-                action: input.action,
-                resourceType: input.resourceType,
-                resourceId: input.resourceId,
+                action: requiredContract.action_type,
+                resourceType: requiredContract.resource_type,
+                resourceId: requiredContract.resource_id,
                 details: detailsWithoutStatus,
                 previousHash: this.lastHash,
+                correlationId: requiredContract.correlation_id,
               });
 
               const logEntry = {
                 user_id: input.userId,
                 user_name: input.userName,
                 user_email: input.userEmail,
-                action: input.action,
-                resource_type: input.resourceType,
-                resource_id: input.resourceId,
-                details: detailsWithoutStatus,
-                ip_address: input.ipAddress || "",
-                user_agent: input.userAgent || "",
-                status: input.status || "success",
-                timestamp: new Date().toISOString(),
+                action: requiredContract.action_type,
+                resource_type: requiredContract.resource_type,
+                resource_id: requiredContract.resource_id,
+                details: {
+                  ...detailsWithoutStatus,
+                  request_path: requiredContract.request_path,
+                  outcome: requiredContract.outcome,
+                  status_code: requiredContract.status_code,
+                  correlation_id: requiredContract.correlation_id,
+                },
+                ip_address: requiredContract.ip_address,
+                user_agent: requiredContract.user_agent,
+                status: requiredContract.outcome,
+                timestamp: requiredContract.timestamp,
                 integrity_hash: hash,
                 previous_hash: this.lastHash || undefined,
               };
