@@ -28,7 +28,7 @@ export interface UseAsyncStateOptions<T> {
 }
 
 export interface AsyncActions<T> {
-  execute: (...args: any[]) => Promise<T>;
+  execute: (...args: unknown[]) => Promise<T>;
   reset: () => void;
   retry: () => void;
   setData: (data: T) => void;
@@ -39,7 +39,7 @@ export interface AsyncActions<T> {
 // ============================================================================
 
 export function useAsyncState<T>(
-  asyncFunction: (...args: any[]) => Promise<T>,
+  asyncFunction: (...args: unknown[]) => Promise<T>,
   options: UseAsyncStateOptions<T> = {}
 ): [AsyncState<T>, AsyncActions<T>] {
   const {
@@ -77,7 +77,7 @@ export function useAsyncState<T>(
 
   // Execute async function
   const execute = useCallback(
-    async (...args: any[]): Promise<T> => {
+    async (...args: unknown[]): Promise<T> => {
       // Cancel previous request if still running
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -204,7 +204,7 @@ export function useAsyncState<T>(
  * Hook for API calls with automatic loading and error states
  */
 export function useApiCall<T>(
-  apiFunction: (...args: any[]) => Promise<T>,
+  apiFunction: (...args: unknown[]) => Promise<T>,
   options?: UseAsyncStateOptions<T>
 ) {
   return useAsyncState(apiFunction, options);
@@ -260,19 +260,43 @@ export function useCachedData<T>(
   // Update cache when data changes
   useEffect(() => {
     if (state.data && state.lastUpdated) {
-      try {
-        localStorage.setItem(
-          `cache_${key}`,
-          JSON.stringify({
-            data: state.data,
-            timestamp: state.lastUpdated.getTime(),
-          })
+      const payload = JSON.stringify({
+        data: state.data,
+        timestamp: state.lastUpdated.getTime(),
+      });
+      // Skip caching payloads that are likely to exceed the ~5 MB localStorage quota.
+      // 4 MB leaves headroom for other stored keys.
+      const MAX_CACHE_BYTES = 4 * 1024 * 1024;
+      const payloadBytes = new TextEncoder().encode(payload).length;
+      if (payloadBytes > MAX_CACHE_BYTES) {
+        console.warn(
+          `[useCachedData] Skipping cache write for key "${key}": payload size ${payloadBytes} bytes exceeds limit.`
         );
+        return;
+      }
+      try {
+        localStorage.setItem(`cache_${key}`, payload);
       } catch (error) {
-        console.warn("Failed to cache data:", error);
+        if (error instanceof DOMException && error.name === "QuotaExceededError") {
+          console.warn(
+            `[useCachedData] localStorage quota exceeded for key "${key}". Cache write skipped.`,
+            error
+          );
+        } else {
+          // Unexpected storage errors: log and notify, but do not throw from inside useEffect.
+          console.error(
+            `[useCachedData] Unexpected localStorage error while writing cache for key "${key}". Cache write skipped.`,
+            error
+          );
+          if (options.onError) {
+            options.onError(
+              `Unexpected localStorage error while caching data for key "${key}".`
+            );
+          }
+        }
       }
     }
-  }, [key, state.data, state.lastUpdated]);
+  }, [key, state.data, state.lastUpdated, options.onError]);
 
   return [state, actions] as const;
 }
@@ -342,13 +366,13 @@ export function usePaginatedData<T>(
  * Create a debounced version of an async function
  */
 export function useDebouncedAsync<T>(
-  asyncFunction: (...args: any[]) => Promise<T>,
+  asyncFunction: (...args: unknown[]) => Promise<T>,
   delay: number = 300
 ) {
   const debouncedRef = useRef<NodeJS.Timeout | null>(null);
 
   return useCallback(
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       return new Promise<T>((resolve, reject) => {
         // Clear previous timeout
         if (debouncedRef.current) {
@@ -374,13 +398,13 @@ export function useDebouncedAsync<T>(
  * Create a throttled version of an async function
  */
 export function useThrottledAsync<T>(
-  asyncFunction: (...args: any[]) => Promise<T>,
+  asyncFunction: (...args: unknown[]) => Promise<T>,
   limit: number = 1000
 ) {
   const lastExecutionRef = useRef<number>(0);
 
   return useCallback(
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       return new Promise<T>((resolve, reject) => {
         const now = Date.now();
         const timeSinceLastExecution = now - lastExecutionRef.current;

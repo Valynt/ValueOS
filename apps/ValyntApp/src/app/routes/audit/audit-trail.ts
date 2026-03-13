@@ -37,15 +37,15 @@ export interface AuditEntry {
   category: AuditCategory;
   component: string;
   operation: string;
-  inputs: Record<string, any>;
-  outputs: Record<string, any>;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
   confidence: number;
   reasoning: string;
   evidence: string[];
   userId?: string;
   sessionId?: string;
   correlationId?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   hash: string;
   previousHash?: string;
 }
@@ -141,15 +141,15 @@ export class AuditTrailManager {
     category: AuditCategory;
     component: string;
     operation: string;
-    inputs: Record<string, any>;
-    outputs: Record<string, any>;
+    inputs: Record<string, unknown>;
+    outputs: Record<string, unknown>;
     confidence: number;
     reasoning: string;
     evidence?: string[];
     userId?: string;
     sessionId?: string;
     correlationId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): AuditEntry {
     if (!this.enabled) {
       return {} as AuditEntry;
@@ -175,7 +175,7 @@ export class AuditTrailManager {
       correlationId: entry.correlationId,
       metadata: entry.metadata || {},
       previousHash,
-      hash: this.calculateHash({ timestamp, ...entry })
+      hash: this.calculateHash({ timestamp, previousHash, ...entry })
     };
 
     this.entries.push(auditEntry);
@@ -538,7 +538,7 @@ export class AuditTrailManager {
         return obj.map(sanitize);
       }
 
-      const result: any = {};
+      const result: unknown = {};
       for (const [key, value] of Object.entries(obj)) {
         if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
           result[key] = '***REDACTED***';
@@ -623,7 +623,7 @@ export function AuditTrail(
     const originalMethod = descriptor.value;
     const audit = AuditTrailManager.getInstance();
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const startTime = Date.now();
       const inputs = options.includeInputs !== false ? args : {};
 

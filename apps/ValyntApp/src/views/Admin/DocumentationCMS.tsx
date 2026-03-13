@@ -24,6 +24,7 @@ import {
 import React, { useEffect, useState } from "react";
 
 import { supabase } from "../../lib/supabase";
+import { useOrganization } from "../../hooks/useOrganization";
 
 interface DocPage {
   id: string;
@@ -49,6 +50,7 @@ interface DocCategory {
 }
 
 export const DocumentationCMS: React.FC = () => {
+  const { organizationId } = useOrganization();
   const [pages, setPages] = useState<DocPage[]>([]);
   const [categories, setCategories] = useState<DocCategory[]>([]);
   const [selectedPage, setSelectedPage] = useState<DocPage | null>(null);
@@ -59,15 +61,17 @@ export const DocumentationCMS: React.FC = () => {
   const [confirmDeletePageId, setConfirmDeletePageId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!organizationId) return;
     loadPages();
     loadCategories();
-  }, [filterStatus, searchQuery]);
+  }, [filterStatus, searchQuery, organizationId]);
 
   const loadPages = async () => {
+    if (!organizationId) return;
     setLoading(true);
-    let query = (supabase as any)
-      .from("doc_pages")
+    let query = supabase.from("doc_pages")
       .select("*")
+      .eq("organization_id", organizationId)
       .order("updated_at", { ascending: false });
     if (filterStatus !== "all") {
       query = query.eq("status", filterStatus);
@@ -85,9 +89,10 @@ export const DocumentationCMS: React.FC = () => {
   };
 
   const loadCategories = async () => {
-    const { data } = await (supabase as any)
-      .from("doc_categories")
+    if (!organizationId) return;
+    const { data } = await supabase.from("doc_categories")
       .select("*")
+      .eq("organization_id", organizationId)
       .order("display_order");
     if (data) {
       setCategories(data);
@@ -114,7 +119,7 @@ export const DocumentationCMS: React.FC = () => {
   };
 
   const savePage = async () => {
-    if (!selectedPage) return;
+    if (!selectedPage || !organizationId) return;
     // Generate slug from title if empty
     if (!selectedPage.slug) {
       selectedPage.slug = selectedPage.title
@@ -124,18 +129,20 @@ export const DocumentationCMS: React.FC = () => {
     }
     const pageData = {
       ...selectedPage,
+      organization_id: organizationId,
       updated_at: new Date().toISOString(),
     };
     if (selectedPage.id) {
-      // Update existing page
-      const { error } = await (supabase as any)
-        .from("doc_pages")
+      // Update existing page — scope to both id and organization_id
+      const { error } = await supabase.from("doc_pages")
         .update(pageData)
-        .eq("id", selectedPage.id);
+        .eq("id", selectedPage.id)
+        .eq("organization_id", organizationId);
       if (!error) {
-        // Create version history entry
-        await (supabase as any).from("doc_versions").insert({
+        // Create version history entry scoped to the organization
+        await supabase.from("doc_versions").insert({
           page_id: selectedPage.id,
+          organization_id: organizationId,
           version: selectedPage.version,
           title: selectedPage.title,
           content: selectedPage.content,
@@ -145,8 +152,7 @@ export const DocumentationCMS: React.FC = () => {
       }
     } else {
       // Create new page
-      const { data, error } = await (supabase as any)
-        .from("doc_pages")
+      const { data, error } = await supabase.from("doc_pages")
         .insert(pageData)
         .select()
         .single();
@@ -157,34 +163,40 @@ export const DocumentationCMS: React.FC = () => {
     loadPages();
     setIsEditing(false);
   };
+
   const deletePage = (pageId: string) => {
     setConfirmDeletePageId(pageId);
   };
 
   const handleConfirmDeletePage = async () => {
-    if (!confirmDeletePageId) return;
-    await (supabase as any).from("doc_pages").delete().eq("id", confirmDeletePageId);
+    if (!confirmDeletePageId || !organizationId) return;
+    await supabase.from("doc_pages")
+      .delete()
+      .eq("id", confirmDeletePageId)
+      .eq("organization_id", organizationId);
     loadPages();
     setSelectedPage(null);
     setConfirmDeletePageId(null);
   };
 
   const publishPage = async (pageId: string) => {
-    await (supabase as any)
-      .from("doc_pages")
+    if (!organizationId) return;
+    await supabase.from("doc_pages")
       .update({
         status: "published",
         published_at: new Date().toISOString(),
       })
-      .eq("id", pageId);
+      .eq("id", pageId)
+      .eq("organization_id", organizationId);
     loadPages();
   };
 
   const unpublishPage = async (pageId: string) => {
-    await (supabase as any)
-      .from("doc_pages")
+    if (!organizationId) return;
+    await supabase.from("doc_pages")
       .update({ status: "draft" })
-      .eq("id", pageId);
+      .eq("id", pageId)
+      .eq("organization_id", organizationId);
     loadPages();
   };
 
