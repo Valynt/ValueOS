@@ -171,3 +171,28 @@ Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRe
 ### RecommendationEngine is the sixth runtime service
 
 `packages/backend/src/runtime/recommendation-engine/RecommendationEngine.ts` is a fully wired runtime service alongside the five originally documented ones (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer). It subscribes to four domain events (`opportunity.updated`, `hypothesis.validated`, `evidence.attached`, `realization.milestone_reached`) and pushes next-best-action `Recommendation` objects to UI clients via `RealtimeBroadcastService`. It is started in `server.ts` and has its own test suite. All references to "five runtime services" in documentation were incorrect — there are six.
+
+---
+
+### audit_logs.tenant_id — optional field, backward-compatible (2026-08-04)
+
+`AuditLogCreateInput.tenantId` is optional. Callers that omit it write `null` to the nullable `tenant_id` column, which is the pre-existing behavior. The `audit_logs` RLS SELECT policy accepts both `tenant_id` and `organization_id` as valid access paths, so rows with `null` tenant_id are still readable by service_role and by authenticated users whose token matches `organization_id`.
+
+**Why optional:** ~40 existing call sites do not have a `tenantId` in scope (auth routes, billing, referrals). Making the field required would break all of them. The field is optional so new callers can supply it without forcing a mass update of existing callers.
+
+**New callers must supply `tenantId`:** Any new `logAudit` / `createEntry` call added after 2026-08-04 must pass `tenantId` if the request context carries one. Omitting it on a new call site is a code-review finding.
+
+**Callers updated (2026-08-04):** `api/projects.ts` (all audit writes), `api/crm.ts` (oauth_started, crm_connected, crm_disconnected, crm_sync_triggered). `tenantId` removed from `details` payload in these callers — it is now a first-class column, not a detail field.
+
+**Files:** `packages/backend/src/services/security/AuditLogService.ts`, `packages/backend/src/api/projects.ts`, `packages/backend/src/api/crm.ts`
+
+---
+
+### state_events table — event-sourcing store for optimistic-lock state changes (2026-08-04)
+
+`EventSourcingManager` (`apps/ValyntApp/src/state/EventSourcing.ts`) writes to a `state_events` table that had no migration. Migration `20260804000000_state_events.sql` creates the table with:
+- `tenant_id NOT NULL` — every event is tenant-scoped; no cross-tenant reads possible
+- Unique constraint on `(tenant_id, aggregate_id, version)` — enforces optimistic-lock semantics at the DB layer
+- RLS: authenticated users SELECT/INSERT only within their tenant; service_role has full access
+
+**Consequence for agents:** Do not query `state_events` without a `tenant_id` filter. The unique constraint means a version conflict on `append()` surfaces as a Postgres unique-violation error — callers must handle this as a `ConflictType.VERSION_CONFLICT`.

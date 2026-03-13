@@ -64,6 +64,12 @@ export interface AuditLogCreateInput {
   ipAddress?: string;
   userAgent?: string;
   status?: "success" | "failed";
+  /**
+   * Tenant that owns this audit record. Optional for backward compatibility —
+   * existing callers that omit it write null to the nullable tenant_id column.
+   * New callers should always supply this to enable tenant-scoped RLS reads.
+   */
+  tenantId?: string;
 }
 
 export interface AuditLogQuery {
@@ -251,6 +257,7 @@ export class AuditLogService extends BaseService {
 
               // Calculate integrity hash (using secure SHA-256)
               const hash = await this.calculateHash({
+                tenantId: input.tenantId ?? null,
                 userId: input.userId,
                 action: input.action,
                 resourceType: input.resourceType,
@@ -260,6 +267,7 @@ export class AuditLogService extends BaseService {
               });
 
               const logEntry = {
+                tenant_id: input.tenantId ?? null,
                 user_id: input.userId,
                 user_name: input.userName,
                 user_email: input.userEmail,
