@@ -48,8 +48,8 @@ log() { echo -e "${GREEN}[DR]${NC} $1"; }
 warn() { echo -e "${YELLOW}[DR]${NC} $1"; }
 fail() { echo -e "${RED}[DR]${NC} $1"; }
 
-if ! command -v pg_dump &>/dev/null || ! command -v psql &>/dev/null || ! command -v jq &>/dev/null; then
-  fail "Required tools missing: pg_dump, psql, jq"
+if ! command -v pg_dump &>/dev/null || ! command -v psql &>/dev/null; then
+  fail "Required tools missing: pg_dump, psql"
   exit 1
 fi
 
