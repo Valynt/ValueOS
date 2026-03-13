@@ -10,6 +10,7 @@ groups:
         annotations:
           summary: "High CPU usage"
           description: "CPU usage is above 80% for 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highcpuusage"
 
       - alert: HighMemoryUsage
         expr: |
@@ -20,6 +21,7 @@ groups:
         annotations:
           summary: "High memory usage"
           description: "Available memory is below 10% for 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#highmemoryusage"
 
       - alert: HighDiskUsage
         expr: |
