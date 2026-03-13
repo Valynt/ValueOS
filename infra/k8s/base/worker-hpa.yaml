@@ -74,8 +74,8 @@ spec:
           periodSeconds: 30
 
     scaleDown:
-      # Wait 5 minutes before removing pods — BullMQ jobs can take up to 3 min.
-      stabilizationWindowSeconds: 300
+      # 150s: BullMQ jobs take up to 3 min; 150s gives a 50% buffer before scale-down.
+      stabilizationWindowSeconds: 150
       selectPolicy: Min
       policies:
         # Remove at most 20% of pods per minute to avoid dropping in-flight jobs.

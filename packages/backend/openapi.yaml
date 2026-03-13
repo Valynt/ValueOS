@@ -28,6 +28,8 @@ tags:
     description: LLM chat and proxy
   - name: Projects
     description: Project management
+  - name: Admin
+    description: Internal admin operations (DLQ management, diagnostics)
 paths:
 
   # ---------------------------------------------------------------------------
@@ -597,6 +599,147 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/run-loop:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Run the full HypothesisLoop for a case
+      operationId: runHypothesisLoop
+      tags: [Value Cases]
+      description: |
+        Executes the full agent loop (opportunity → model → integrity → narrative).
+        Streams progress via SSE when `Accept: text/event-stream` is set;
+        otherwise returns a JSON summary on completion.
+      responses:
+        "200":
+          description: Loop completed (JSON mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  finalState: { type: string }
+                  revisionCount: { type: integer }
+                  error: { type: string }
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream of LoopProgress events, terminated by `{ done: true }`.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/export/pptx:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Export a value case as a PPTX presentation
+      operationId: exportCasePptx
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: PPTX file stream
+          content:
+            application/vnd.openxmlformats-officedocument.presentationml.presentation:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/provenance/{claimId}:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+      - name: claimId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Get the provenance chain for a claim
+      operationId: getClaimProvenance
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Provenance chain (empty array if no records)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        claimId: { type: string }
+                        valueCaseId: { type: string }
+                        sourceType: { type: string }
+                        sourceId: { type: string }
+                        derivedAt: { type: string, format: date-time }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/admin/dlq:
+    get:
+      summary: List dead-letter queue tasks
+      operationId: listDlqTasks
+      tags: [Admin]
+      responses:
+        "200":
+          description: DLQ task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        taskId: { type: string }
+                        payload: { type: object }
+                        failedAt: { type: string, format: date-time }
+                        retryCount: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/admin/dlq/{taskId}/retry:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Retry a dead-letter queue task
+      operationId: retryDlqTask
+      tags: [Admin]
+      responses:
+        "200":
+          description: Task requeued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  taskId: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   # ---------------------------------------------------------------------------
   # Agents

@@ -5201,3 +5201,64 @@ open https://grafana.valueos.com
 
 ---
 Use the runbook for operational decisions and execution.
+
+---
+
+## Worker HPA Scaling
+
+Config: `infra/k8s/base/worker-hpa.yaml`  
+Adapter rules: `infra/k8s/monitoring/prometheus-adapter-rules.yaml`
+
+### Scaling parameters
+
+| Parameter | Value |
+|---|---|
+| `minReplicas` | 2 |
+| `maxReplicas` | 12 |
+| Scale-up stabilization | 30s |
+| Scale-down stabilization | 150s (BullMQ jobs take up to 3 min; 150s gives 50% buffer) |
+
+### Scaling signals (in priority order)
+
+| Metric | Target | Source |
+|---|---|---|
+| `bullmq_queue_waiting_jobs{queue="agent-jobs"}` | 20 waiting jobs per pod | Primary — queue depth |
+| `bullmq_queue_delayed_jobs{queue="agent-jobs"}` | 50 delayed jobs per pod | Leading indicator for bursts |
+| CPU utilization | 65% | Secondary — compute-heavy LLM post-processing |
+| Memory utilization | 75% | Guard against embedding/vector op leaks |
+
+### Scale-up policy
+
+Doubles pod count every 30s during a burst (max 100% increase per step), with a minimum of 2 pods added per step to avoid thrashing.
+
+### Scale-down policy
+
+Removes at most 20% of pods per minute, never more than 1 pod per 120s step. The 150s stabilization window ensures in-flight BullMQ jobs complete before a pod is terminated.
+
+### Prometheus Adapter setup
+
+Both BullMQ queue metrics (`bullmq_queue_waiting_jobs`, `bullmq_queue_delayed_jobs`) are exposed to the Kubernetes metrics API via the prometheus-adapter ConfigMap in `infra/k8s/monitoring/prometheus-adapter-rules.yaml`.
+
+Install the adapter if not already present:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install prometheus-adapter prometheus-community/prometheus-adapter \
+  --namespace monitoring \
+  --set prometheus.url=http://prometheus.monitoring.svc \
+  --values infra/k8s/monitoring/prometheus-adapter-rules.yaml
+```
+
+Verify the metrics are visible to the HPA:
+
+```bash
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/bullmq_queue_waiting_jobs"
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/bullmq_queue_delayed_jobs"
+```
+
+### Observing HPA decisions
+
+```bash
+kubectl describe hpa worker-hpa -n valynt
+kubectl get hpa worker-hpa -n valynt -w
+```

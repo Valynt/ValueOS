@@ -20,6 +20,8 @@ import { adminRoleService } from "../services/AdminRoleService.js"
 import { adminUserService } from "../services/AdminUserService.js"
 import { auditLogService } from "../services/AuditLogService.js"
 import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob.js"
+import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue.js"
+import { getRedisClient } from "../lib/redis.js"
 import { provisionTenant, TenantTier } from "../services/TenantProvisioning.js"
 import { tenantDeletionService } from "../services/tenant/TenantDeletionService.js"
 import { AUDIT_ACTION } from "../types/audit.js"
@@ -617,6 +619,96 @@ router.post(
     } catch (error) {
       logger.error("Admin: CRM token re-encryption job failed", error instanceof Error ? error : undefined);
       return res.status(500).json({ error: "Re-encryption job failed" });
+    }
+  }
+);
+
+// ── Dead-Letter Queue ─────────────────────────────────────────────────────────
+
+const DlqQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+async function getDlq(): Promise<DeadLetterQueue | null> {
+  const redis = await getRedisClient();
+  if (!redis) return null;
+  const store = {
+    lpush: async (k: string, v: string) => { await redis.lPush(k, v); },
+    lrange: async (k: string, s: number, e: number) => redis.lRange(k, s, e),
+    llen: async (k: string) => redis.lLen(k),
+    lrem: async (k: string, c: number, v: string) => redis.lRem(k, c, v),
+  };
+  return new DeadLetterQueue(store, { emit: () => {} });
+}
+
+/**
+ * GET /api/admin/dlq
+ * List DLQ entries. Requires admin permission.
+ */
+router.get(
+  "/dlq",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const parsed = DlqQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.flatten() });
+    }
+    const { limit, offset } = parsed.data;
+
+    const dlq = await getDlq();
+    if (!dlq) {
+      return res.status(503).json({ success: false, error: "Redis unavailable" });
+    }
+
+    try {
+      const [entries, total] = await Promise.all([dlq.list(offset, limit), dlq.count()]);
+      return res.status(200).json({ success: true, data: { entries, total, offset, limit } });
+    } catch (err) {
+      logger.error("DLQ list failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ success: false, error: "Failed to list DLQ entries" });
+    }
+  }
+);
+
+/**
+ * POST /api/admin/dlq/:taskId/retry
+ * Remove a DLQ entry and re-enqueue it. Requires admin permission.
+ */
+router.post(
+  "/dlq/:taskId/retry",
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission("system.admin"),
+  async (req: Request, res: Response) => {
+    const taskId = (req.params as Record<string, string>)["taskId"];
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: "taskId required" });
+    }
+
+    const dlq = await getDlq();
+    if (!dlq) {
+      return res.status(503).json({ success: false, error: "Redis unavailable" });
+    }
+
+    try {
+      const entries = await dlq.list(0, 200);
+      const entry = entries.find((e) => e.taskId === taskId);
+      if (!entry) {
+        return res.status(404).json({ success: false, error: "DLQ entry not found" });
+      }
+
+      // Remove from DLQ and re-enqueue with incremented retryCount
+      await dlq.remove(entry);
+      await dlq.enqueue({ ...entry, retryCount: entry.retryCount + 1 });
+
+      logger.info("DLQ entry retried", { taskId, retryCount: entry.retryCount + 1 });
+      return res.status(200).json({ success: true, data: { taskId, retried: true } });
+    } catch (err) {
+      logger.error("DLQ retry failed", err instanceof Error ? err : undefined);
+      return res.status(500).json({ success: false, error: "Failed to retry DLQ entry" });
     }
   }
 );

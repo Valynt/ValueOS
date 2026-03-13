@@ -16,6 +16,7 @@ const settingsTabs = [
   { path: "team", label: "Team" },
   { path: "branding", label: "Branding" },
   { path: "integrations", label: "Integrations" },
+  { path: "company-context", label: "Company Context" },
 ];
 
 export function SettingsLayout() {

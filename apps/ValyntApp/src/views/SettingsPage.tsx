@@ -1,8 +1,9 @@
 import {
-  Building2, Copy, CreditCard, ExternalLink, Eye, EyeOff, Key, Plus, Shield, Trash2, Users,
+  BookOpen, Building2, Copy, CreditCard, ExternalLink, Eye, EyeOff, Key, Plus, Shield, Trash2, Users,
 } from "lucide-react";
 import { useState } from "react";
 
+import { CompanyContextPage } from "@/pages/settings/CompanyContextPage";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -11,6 +12,7 @@ const tabs = [
   { key: "api-keys", label: "API Keys", icon: Key },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "security", label: "Security", icon: Shield },
+  { key: "company-context", label: "Company Context", icon: BookOpen },
 ];
 
 // -- Organization Tab --
@@ -232,6 +234,7 @@ export default function SettingsPage() {
     "api-keys": <ApiKeysTab />,
     billing: <BillingTab />,
     security: <SecurityTab />,
+    "company-context": <CompanyContextPage />,
   };
 
   return (

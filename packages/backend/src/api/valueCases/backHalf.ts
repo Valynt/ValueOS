@@ -30,6 +30,17 @@ import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepos
 import { RealizationReportRepository } from '../../repositories/RealizationReportRepository.js';
 import { ExpansionOpportunityRepository } from '../../repositories/ExpansionOpportunityRepository.js';
 import { getPdfExportService } from '../../services/PdfExportService.js';
+import { getPptxExportService } from '../../services/export/PptxExportService.js';
+import { auditLogService } from '../../services/AuditLogService.js';
+import { HypothesisLoop } from '../../lib/agents/orchestration/HypothesisLoop.js';
+import { AgentServiceAdapter, RedTeamLLMAdapter } from '../../services/workflows/AgentAdapters.js';
+import { ValueCaseSaga } from '../../lib/agents/core/ValueCaseSaga.js';
+import { IdempotencyGuard } from '../../lib/agents/core/IdempotencyGuard.js';
+import { DeadLetterQueue } from '../../lib/agents/core/DeadLetterQueue.js';
+import { getRedisClient } from '../../lib/redis.js';
+import { RedTeamAgent } from '../../lib/agents/orchestration/agents/RedTeamAgent.js';
+import { ProvenanceTracker } from '@valueos/memory/provenance';
+import { SupabaseProvenanceStore } from '../../repositories/SupabaseProvenanceStore.js';
 import type { LifecycleContext, LifecycleStage } from '../../types/agent.js';
 
 // ---------------------------------------------------------------------------
@@ -172,7 +183,7 @@ backHalfRouter.get('/:id/integrity', ...auth, async (req: Request, res: Response
 });
 
 backHalfRouter.post('/:id/integrity/run', ...auth, async (req: Request, res: Response) => {
-  return runAgent(req, res, 'integrity', 'integrity');
+  return runAgent(req, res, 'integrity', 'validating');
 });
 
 // ── Narrative ────────────────────────────────────────────────────────────────
@@ -195,7 +206,7 @@ backHalfRouter.get('/:id/narrative', ...auth, async (req: Request, res: Response
 });
 
 backHalfRouter.post('/:id/narrative/run', ...auth, async (req: Request, res: Response) => {
-  return runAgent(req, res, 'narrative', 'narrative');
+  return runAgent(req, res, 'narrative', 'composing');
 });
 
 // ── Realization ──────────────────────────────────────────────────────────────
@@ -218,7 +229,7 @@ backHalfRouter.get('/:id/realization', ...auth, async (req: Request, res: Respon
 });
 
 backHalfRouter.post('/:id/realization/run', ...auth, async (req: Request, res: Response) => {
-  return runAgent(req, res, 'realization', 'realization');
+  return runAgent(req, res, 'realization', 'realized');
 });
 
 // ── Expansion ────────────────────────────────────────────────────────────────
@@ -357,5 +368,201 @@ backHalfRouter.post('/:id/export/pdf', ...auth, async (req: Request, res: Respon
     }
 
     return res.status(500).json({ success: false, error: 'PDF export failed' });
+  }
+});
+
+// ── PPTX Export ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/cases/:id/export/pptx
+ *
+ * Generates and streams a PPTX presentation for the value case.
+ */
+backHalfRouter.post('/:id/export/pptx', ...auth, async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  const caseId = getCaseId(req);
+
+  if (!tenantId) {
+    return res.status(401).json({ success: false, error: 'Tenant context required' });
+  }
+
+  try {
+    const buffer = await getPptxExportService().generatePptx({
+      caseId,
+      organizationId: tenantId,
+    });
+
+    await auditLogService.logAudit({
+      action: 'export',
+      resourceId: caseId,
+      resourceType: 'value_case',
+      userId: (req as AuthenticatedRequest).user?.id ?? 'system',
+      userName: '',
+      userEmail: '',
+      status: 'success',
+      details: { format: 'pptx', organizationId: tenantId },
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.setHeader('Content-Disposition', `attachment; filename="value-case-${caseId}.pptx"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.status(200).send(buffer);
+  } catch (err) {
+    logger.error('PPTX export failed', { caseId, error: (err as Error).message });
+    return res.status(500).json({ success: false, error: 'PPTX export failed' });
+  }
+});
+
+// ── Provenance ───────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/cases/:id/provenance/:claimId
+ *
+ * Returns the full derivation chain for a claim. Returns [] (not 404) when
+ * no records exist. Recursion is capped at depth 10.
+ */
+backHalfRouter.get('/:id/provenance/:claimId', ...auth, async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  const caseId = getCaseId(req);
+  const claimId = (req.params as Record<string, string>)['claimId'];
+
+  if (!tenantId) {
+    return res.status(401).json({ success: false, error: 'Tenant context required' });
+  }
+  if (!claimId) {
+    return res.status(400).json({ success: false, error: 'claimId required' });
+  }
+
+  try {
+    const tracker = new ProvenanceTracker(new SupabaseProvenanceStore(tenantId));
+    const chain = await tracker.getLineage(caseId, claimId);
+    return res.status(200).json({ success: true, data: chain });
+  } catch (err) {
+    logger.error('provenance query failed', { caseId, claimId, error: (err as Error).message });
+    return res.status(500).json({ success: false, error: 'Provenance query failed' });
+  }
+});
+
+// ── Hypothesis Loop ───────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/cases/:id/run-loop
+ *
+ * Runs the full HypothesisLoop for a value case. Streams progress via SSE
+ * when the client sends Accept: text/event-stream; otherwise returns JSON.
+ */
+backHalfRouter.post('/:id/run-loop', ...auth, async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  const caseId = getCaseId(req);
+
+  if (!tenantId) {
+    return res.status(401).json({ success: false, error: 'Tenant context required' });
+  }
+
+  const correlationId = uuidv4();
+  const useSSE = req.headers['accept'] === 'text/event-stream';
+
+  if (useSSE) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+  }
+
+  // SSEEmitter.send receives a LoopProgress object; we serialise it directly.
+  const sseEmitter = useSSE
+    ? {
+        send: (progress: import('../../lib/agents/orchestration/HypothesisLoop.js').LoopProgress) => {
+          res.write(`data: ${JSON.stringify(progress)}\n\n`);
+        },
+      }
+    : undefined;
+
+  try {
+    const redis = await getRedisClient();
+
+    // In-memory idempotency store for single-request scope.
+    // Replace with Redis-backed store when distributed deduplication is needed.
+    // In-memory IdempotencyStore — no `has` method on the interface; use `get` check.
+    const idempotencyStore = new Map<string, string>();
+    const idempotencyGuard = new IdempotencyGuard({
+      get: async (k) => idempotencyStore.get(k) ?? null,
+      set: async (k, v, _ttl: number) => { idempotencyStore.set(k, v); },
+    });
+
+    const dlqStore = redis
+      ? {
+          lpush: async (k: string, v: string) => { await redis.lPush(k, v); },
+          lrange: async (k: string, s: number, e: number) => redis.lRange(k, s, e),
+          llen: async (k: string) => redis.lLen(k),
+          lrem: async (k: string, c: number, v: string) => redis.lRem(k, c, v),
+        }
+      : {
+          lpush: async () => {},
+          lrange: async () => [],
+          llen: async () => 0,
+          lrem: async () => 0,
+        };
+
+    const dlq = new DeadLetterQueue(dlqStore, { emit: () => {} });
+
+    const noop = { saveState: async () => {}, loadState: async () => null, recordTransition: async () => {} };
+    const noopEmitter = { emit: () => {} };
+    const noopAudit = { log: async () => {} };
+    const saga = new ValueCaseSaga({
+      persistence: noop,
+      eventEmitter: noopEmitter,
+      auditLogger: noopAudit,
+    });
+
+    const llmGateway = new LLMGateway({ provider: 'openai', model: 'gpt-4o-mini' });
+    const adapter = new AgentServiceAdapter(llmGateway);
+    const redTeamAgent = new RedTeamAgent(new RedTeamLLMAdapter(llmGateway));
+
+    const loop = new HypothesisLoop({
+      saga,
+      idempotencyGuard,
+      dlq,
+      opportunityAgent: adapter,
+      financialModelingAgent: adapter,
+      groundTruthAgent: adapter,
+      narrativeAgent: adapter,
+      redTeamAgent,
+    });
+
+    const result = await loop.run(caseId, tenantId, correlationId, sseEmitter);
+
+    await auditLogService.logAudit({
+      action: 'run_hypothesis_loop',
+      resourceId: caseId,
+      resourceType: 'value_case',
+      userId: (req as AuthenticatedRequest).user?.id ?? 'system',
+      userName: '',
+      userEmail: '',
+      status: result.success ? 'success' : 'failed',
+      details: { revisionCount: result.revisionCount, finalState: result.finalState, organizationId: tenantId },
+    });
+
+    if (useSSE) {
+      res.write(`data: ${JSON.stringify({ done: true, result })}\n\n`);
+      return res.end();
+    }
+
+    return res.status(200).json({
+      success: result.success,
+      finalState: result.finalState,
+      revisionCount: result.revisionCount,
+      error: result.error,
+    });
+  } catch (err) {
+    const message = (err as Error).message;
+    logger.error('run-loop failed', { caseId, tenantId, error: message });
+
+    if (useSSE) {
+      res.write(`data: ${JSON.stringify({ done: true, error: message })}\n\n`);
+      return res.end();
+    }
+
+    return res.status(500).json({ success: false, error: 'Loop execution failed' });
   }
 });

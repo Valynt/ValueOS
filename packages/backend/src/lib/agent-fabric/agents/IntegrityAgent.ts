@@ -27,6 +27,8 @@ import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEve
 import { integrityOutputRepository } from '../../../repositories/IntegrityOutputRepository.js';
 
 import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
+import { classifyEvidence } from '../../agents/core/EvidenceTiering.js';
+import { scoreClaimConfidence } from '../../agents/core/ConfidenceScorer.js';
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -146,6 +148,31 @@ export class IntegrityAgent extends BaseAgent {
     // Step 4: LLM is supplemental explanation only (decisioning stays deterministic).
     const llmAnalysis = await this.validateClaims(context, claims, domainContext);
     const analysis = this.composeFinalAnalysis(deterministicPolicy, llmAnalysis);
+
+    // Step 4b: Enrich each claim with evidence_tier and confidence_score using
+    // EvidenceTiering and ConfidenceScorer. These are deterministic — no LLM call.
+    const now = new Date().toISOString();
+    analysis.claim_validations = analysis.claim_validations.map((claim) => {
+      const evidenceItem = {
+        id: claim.claim_id,
+        sourceType: 'llm_validation',
+        sourceName: 'IntegrityAgent',
+        content: claim.evidence_assessment,
+        retrievedAt: now,
+      };
+      const classified = classifyEvidence(evidenceItem);
+      const claimScore = scoreClaimConfidence(
+        claim.claim_id,
+        [classified],
+        'partial',
+        [],
+      );
+      return {
+        ...claim,
+        evidence_tier: classified.tier,
+        confidence_score: claimScore.score.overall,
+      };
+    });
 
     // Step 5: Compute integrity result and veto decision from deterministic policy output
     const integrityResult = this.computeIntegrityResult(analysis);

@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Clock,
+  Download,
   Layers,
   Play,
   RotateCcw,
@@ -20,6 +21,7 @@ import { NarrativeStage } from "./canvas/NarrativeStage";
 import { RealizationStage } from "./canvas/RealizationStage";
 
 import type { AgentJobResult } from "@/hooks/useAgentJob";
+import { useCaseExport } from "@/hooks/useCaseExport";
 import { useCase } from "@/hooks/useCases";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
@@ -48,6 +50,7 @@ export default function ValueCaseCanvas() {
     setActiveRunId(jobId);
     setActiveDirectResult(direct ?? null);
   };
+  const { exporting, exportCase } = useCaseExport();
   const { data: merged } = useMergedContext(caseId);
   const { data: valueCase, isLoading: caseLoading } = useCase(caseId);
 
@@ -116,6 +119,16 @@ export default function ValueCaseCanvas() {
         >
           <Shield className="w-3.5 h-3.5" />
           Evidence
+        </button>
+
+        {/* Export PPTX */}
+        <button
+          onClick={() => caseId && exportCase(caseId)}
+          disabled={exporting || !caseId}
+          className="flex items-center gap-1.5 px-3 py-2 border border-zinc-200 rounded-xl text-[12px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="w-3.5 h-3.5" />
+          {exporting ? "Exporting…" : "Export"}
         </button>
 
         {/* Run stage */}

@@ -28,6 +28,8 @@ import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeReposito
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
 import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
+import { ProvenanceTracker } from '@valueos/memory/provenance';
+import { SupabaseProvenanceStore } from '../../../repositories/SupabaseProvenanceStore.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -592,6 +594,25 @@ export class TargetAgent extends BaseAgent {
         organization_id: organizationId,
         node_count: nodes.length,
       });
+
+      // Record provenance for each node so downstream agents can trace derivation.
+      const provenanceTracker = new ProvenanceTracker(new SupabaseProvenanceStore(organizationId));
+      await Promise.all(
+        nodes.map((node) =>
+          provenanceTracker.record({
+            valueCaseId: caseId,
+            claimId: node.node_key,
+            dataSource: 'TargetAgent',
+            evidenceTier: 2,
+            agentId: 'TargetAgent',
+            agentVersion: this.version,
+            confidenceScore: 0.7,
+          }).catch((err) => {
+            // Non-fatal: provenance failure must not block the main flow.
+            logger.warn('TargetAgent: provenance record failed', { node_key: node.node_key, error: (err as Error).message });
+          })
+        )
+      );
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
       logger.error('TargetAgent: failed to persist value tree', {

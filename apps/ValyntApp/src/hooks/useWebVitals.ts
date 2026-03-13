@@ -41,7 +41,9 @@ export const useWebVitals = () => {
  * Send metrics to analytics service
  */
 function sendToAnalytics(name: string, metric: any) {
-  // Send to custom analytics endpoint
+  // Raw fetch retained: this is a fire-and-forget beacon call that runs before
+  // React context is available. apiClient requires auth context. Migrate when
+  // apiClient exposes an unauthenticated beacon method.
   fetch("/api/analytics/web-vitals", {
     method: "POST",
     headers: {

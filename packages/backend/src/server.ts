@@ -58,6 +58,7 @@ import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
+import tenantContextRouter from "./api/tenantContext.js";
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
 import { usageRouter } from "./api/usage.js";
@@ -436,6 +437,7 @@ app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
 app.use("/api", rateLimiters.standard);
 
 apiRouter.use("/billing", billingRouter);
+apiRouter.use("/tenant/context", tenantContextRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
 apiRouter.use(
   "/initiatives",

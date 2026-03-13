@@ -106,7 +106,15 @@ Be thorough but fair. Only mark objections as "critical" if they would materiall
 // RedTeamAgent
 // ============================================================================
 
-export class RedTeamAgent {
+/**
+ * Minimal interface consumed by HypothesisLoop. Satisfied by RedTeamAgent
+ * and any test double.
+ */
+export interface RedTeamAnalyzer {
+  analyze(input: RedTeamInput): Promise<RedTeamOutput>;
+}
+
+export class RedTeamAgent implements RedTeamAnalyzer {
   private llmGateway: RedTeamLLMGateway;
 
   constructor(llmGateway: RedTeamLLMGateway) {

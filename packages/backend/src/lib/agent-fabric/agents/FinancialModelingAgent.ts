@@ -38,6 +38,8 @@ import { logger } from '../../logger.js';
 import { BaseAgent } from './BaseAgent.js';
 import { renderTemplate } from '../promptUtils.js';
 import { resolvePromptTemplate } from '../promptRegistry.js';
+import { ProvenanceTracker } from '@valueos/memory/provenance';
+import { SupabaseProvenanceStore } from '../../../repositories/SupabaseProvenanceStore.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -624,6 +626,28 @@ export class FinancialModelingAgent extends BaseAgent {
         organization_id: organizationId,
         model_count: models.length,
       });
+
+      // Record provenance for each model so downstream agents can trace derivation.
+      const provenanceTracker = new ProvenanceTracker(new SupabaseProvenanceStore(organizationId));
+      await Promise.all(
+        models.map((model) =>
+          provenanceTracker.record({
+            valueCaseId: caseId,
+            claimId: model.hypothesis_id,
+            dataSource: 'FinancialModelingAgent',
+            evidenceTier: 2,
+            formula: `roi=${model.roi?.toFixed(4)},npv=${model.npv?.toFixed(2)}`,
+            agentId: 'FinancialModelingAgent',
+            agentVersion: this.version,
+            confidenceScore: model.confidence,
+          }).catch((err) => {
+            logger.warn('FinancialModelingAgent: provenance record failed', {
+              hypothesis_id: model.hypothesis_id,
+              error: (err as Error).message,
+            });
+          })
+        )
+      );
     } catch (err) {
       // Non-fatal: memory store succeeded; log and continue.
       logger.error('FinancialModelingAgent: failed to persist snapshot', {
