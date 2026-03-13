@@ -221,12 +221,19 @@ export abstract class BaseAgent {
     } = options;
 
     return this.circuitBreaker.execute(async () => {
+      const traceId =
+        typeof context.trace_id === "string" ? context.trace_id
+          : typeof context.traceId === "string" ? context.traceId
+            : sessionId;
+
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
           tenantId: this.organizationId,
+          tenant_id: this.organizationId,
           sessionId,
           userId: "system",
+          trace_id: traceId,
           idempotencyKey,
           ...context,
         },
