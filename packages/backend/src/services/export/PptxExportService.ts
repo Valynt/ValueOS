@@ -8,7 +8,7 @@
  *   1. Title — case title, owner, date
  *   2. Executive Summary — narrative draft content
  *   3. Financial Model — ROI, NPV, payback period
- *   4. Hypotheses — one row per validated hypothesis with value range
+ *   4. Hypotheses — latest OpportunityAgent hypotheses, one row per hypothesis with a single expected impact value
  *
  * pptxgenjs is loaded via dynamic import so the service starts without it
  * in environments where it is unavailable (same pattern as PdfExportService).
@@ -361,7 +361,7 @@ export class PptxExportService {
     });
 
     // Footer note
-    slide.addText('Financial projections are based on validated hypotheses and agent-modelled assumptions.', {
+    slide.addText('Financial projections are based on the latest OpportunityAgent hypotheses and agent-modelled assumptions.', {
       x: 0.5, y: 6.6, w: 12.3, h: 0.4,
       fontSize: 9,
       color: MUTED_TEXT,
@@ -371,6 +371,9 @@ export class PptxExportService {
   }
 
   // Slide 4: Hypotheses
+  // Renders the latest OpportunityAgent hypotheses for this case. All hypotheses provided
+  // in the `hypotheses` array are shown as-is; there is currently no concept of a separate
+  // “validated” subset or low–high value ranges. Impact is rendered as a single expected value.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private addHypothesesSlide(pptx: any, hypotheses: HypothesisItem[]): void {
     const slide = pptx.addSlide();
@@ -385,7 +388,7 @@ export class PptxExportService {
       fill: { color: BRAND_ACCENT },
     });
 
-    slide.addText('Value Hypotheses', {
+    slide.addText('Value Hypotheses (latest OpportunityAgent output)', {
       x: 0.5, y: 0.1, w: 12.3, h: 0.7,
       fontSize: 20,
       bold: true,
@@ -394,7 +397,7 @@ export class PptxExportService {
     });
 
     if (hypotheses.length === 0) {
-      slide.addText('No hypotheses have been generated for this value case yet.', {
+      slide.addText('No OpportunityAgent hypotheses have been generated for this value case yet.', {
         x: 0.5, y: 1.5, w: 12.3, h: 1,
         fontSize: 13,
         color: MUTED_TEXT,
