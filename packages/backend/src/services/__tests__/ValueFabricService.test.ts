@@ -247,3 +247,5 @@ describe("ValueFabricService semantic search and ontology queries", () => {
     expect(supabase.from).toHaveBeenCalledWith("audit_log");
   });
 });
+
+
