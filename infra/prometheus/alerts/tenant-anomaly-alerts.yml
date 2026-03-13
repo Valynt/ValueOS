@@ -1,0 +1,131 @@
+groups:
+  - name: tenant-anomaly-detection
+    interval: 1m
+    rules:
+      - record: tenant:request_rate:5m
+        expr: sum(rate(valueos_http_requests_total{tenant_id!=""}[5m])) by (tenant_id, tenant_tier)
+
+      - record: tenant:error_rate:5m
+        expr: |
+          sum(rate(valueos_http_requests_total{tenant_id!="",status=~"5.."}[5m])) by (tenant_id, tenant_tier)
+          /
+          clamp_min(sum(rate(valueos_http_requests_total{tenant_id!=""}[5m])) by (tenant_id, tenant_tier), 0.001)
+
+      - record: tenant:latency_p95_seconds:5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valueos_request_duration_seconds_bucket{tenant_id!=""}[5m])) by (le, tenant_id, tenant_tier)
+          )
+
+      - record: tenant:queue_delay_p95_seconds:5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valueos_queue_delay_seconds_bucket{tenant_id!=""}[5m])) by (le, tenant_id, tenant_tier)
+          )
+
+      - record: tenant:compute_spend_usd_per_minute:5m
+        expr: sum(rate(valueos_compute_cost_usd_total{tenant_id!=""}[5m])) by (tenant_id, tenant_tier) * 60
+
+      - record: tenant:recommendation_throughput:5m
+        expr: sum(rate(valueos_recommendations_emitted_total{tenant_id!=""}[5m])) by (tenant_id, tenant_tier)
+
+      - record: tenant:latency_p95_baseline_7d
+        expr: avg_over_time(tenant:latency_p95_seconds:5m[7d])
+
+      - record: tenant:error_rate_baseline_7d
+        expr: avg_over_time(tenant:error_rate:5m[7d])
+
+      - record: tenant:queue_delay_p95_baseline_7d
+        expr: avg_over_time(tenant:queue_delay_p95_seconds:5m[7d])
+
+      - record: tenant:compute_spend_baseline_7d
+        expr: avg_over_time(tenant:compute_spend_usd_per_minute:5m[7d])
+
+      - record: tenant:latency_deviation_ratio
+        expr: |
+          (avg_over_time(tenant:latency_p95_seconds:5m[15m]) - tenant:latency_p95_baseline_7d)
+          /
+          clamp_min(tenant:latency_p95_baseline_7d, 0.001)
+
+      - record: tenant:error_rate_deviation_ratio
+        expr: |
+          (avg_over_time(tenant:error_rate:5m[15m]) - tenant:error_rate_baseline_7d)
+          /
+          clamp_min(tenant:error_rate_baseline_7d, 0.001)
+
+      - record: tenant:queue_delay_deviation_ratio
+        expr: |
+          (avg_over_time(tenant:queue_delay_p95_seconds:5m[15m]) - tenant:queue_delay_p95_baseline_7d)
+          /
+          clamp_min(tenant:queue_delay_p95_baseline_7d, 0.001)
+
+      - record: tenant:compute_spend_deviation_ratio
+        expr: |
+          (avg_over_time(tenant:compute_spend_usd_per_minute:5m[15m]) - tenant:compute_spend_baseline_7d)
+          /
+          clamp_min(tenant:compute_spend_baseline_7d, 0.001)
+
+      - record: tenant:request_share_ratio:5m
+        expr: |
+          tenant:request_rate:5m
+          /
+          clamp_min(sum(tenant:request_rate:5m) without (tenant_id, tenant_tier), 0.001)
+
+      - alert: TenantLatencyDeviationHigh
+        expr: tenant:latency_deviation_ratio > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          scope: single_tenant
+          team: platform
+        annotations:
+          summary: "Tenant latency deviation is high"
+          description: "Tenant {{ $labels.tenant_id }} p95 latency deviates {{ $value | humanizePercentage }} above 7d baseline."
+
+      - alert: TenantErrorRateDeviationCritical
+        expr: tenant:error_rate_deviation_ratio > 1
+        for: 5m
+        labels:
+          severity: critical
+          scope: single_tenant
+          team: platform
+        annotations:
+          summary: "Tenant error-rate deviation is critical"
+          description: "Tenant {{ $labels.tenant_id }} error rate is over 2x 7d baseline."
+
+      - alert: TenantQueueDelayDeviationHigh
+        expr: tenant:queue_delay_deviation_ratio > 0.75
+        for: 10m
+        labels:
+          severity: warning
+          scope: single_tenant
+          team: runtime
+        annotations:
+          summary: "Tenant queue delay is elevated"
+          description: "Tenant {{ $labels.tenant_id }} queue delay has materially deviated from baseline."
+
+      - alert: TenantNoisyNeighborDetected
+        expr: |
+          tenant:request_share_ratio:5m > 0.40
+          and on () count(tenant:latency_deviation_ratio > 0.30) > 1
+        for: 10m
+        labels:
+          severity: critical
+          scope: multi_tenant
+          team: platform
+        annotations:
+          summary: "Potential noisy-neighbor behavior detected"
+          description: "Tenant {{ $labels.tenant_id }} exceeds 40% request share while other tenants show latency degradation."
+
+      - alert: MultiTenantBlastRadiusIncident
+        expr: count(tenant:error_rate_deviation_ratio > 0.5) > 2
+        for: 10m
+        labels:
+          severity: critical
+          scope: multi_tenant
+          team: incident-response
+        annotations:
+          summary: "Multi-tenant blast radius incident"
+          description: "More than two tenants show significant error-rate deviation from baseline."
