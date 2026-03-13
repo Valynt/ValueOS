@@ -10,8 +10,51 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          serviceAccountName: audit-ops
           containers:
             - name: audit-retention
+              image: ghcr.io/valueos/audit-archive-runner:2026.08.04
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: valynt-database
+                      key: url
+                - name: AUDIT_ARCHIVE_BUCKET
+                  valueFrom:
+                    secretKeyRef:
+                      name: audit-archive-storage
+                      key: bucket
+                - name: AUDIT_ARCHIVE_PREFIX
+                  value: immutable/security-audit
+                - name: RETENTION_POLICY_VERSION
+                  value: security-audit-retention-v1
+                - name: PRIMARY_WINDOW_DAYS_SOC2
+                  value: "365"
+                - name: PRIMARY_WINDOW_DAYS_GDPR
+                  value: "180"
+                - name: PRIMARY_WINDOW_DAYS_HIPAA
+                  value: "730"
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  /workspace/infra/scripts/export-security-audit-archive.sh
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: security-audit-archive-integrity
+  namespace: valynt
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: audit-ops
+          containers:
+            - name: audit-integrity
               image: postgres@sha256:cedbd4a3809524b5d1c29fb855a695d9c688f1916ee29c07620ef35efe1d9732
               env:
                 - name: DATABASE_URL
@@ -22,5 +65,4 @@ spec:
               command: ["/bin/sh", "-c"]
               args:
                 - |
-                  psql "$DATABASE_URL" -c "SELECT public.rotate_security_audit_logs(180);"
-          serviceAccountName: audit-ops
+                  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT public.verify_security_audit_archive_integrity(45);"

@@ -1,0 +1,58 @@
+{
+  "version": "2026-08-04",
+  "policy_id": "security-audit-retention-v1",
+  "reviewed_at": "2026-08-04T00:00:00.000Z",
+  "classes": [
+    {
+      "id": "audit-events",
+      "data_class": "Security audit events",
+      "framework_windows": {
+        "SOC2": { "operational_days": 365, "archive_years": 7 },
+        "ISO27001": { "operational_days": 365, "archive_years": 6 },
+        "GDPR": { "operational_days": 180, "archive_years": 3 }
+      },
+      "default_window": { "operational_days": 365, "archive_years": 7 },
+      "legal_hold": true,
+      "archive_target": "s3://valueos-security-audit-archive/immutable/security-audit/",
+      "worm": {
+        "object_lock_mode": "COMPLIANCE",
+        "default_retain_years": 7,
+        "legal_hold_required": true
+      }
+    },
+    {
+      "id": "security-alert-evidence",
+      "data_class": "Security incident and alert evidence",
+      "framework_windows": {
+        "SOC2": { "operational_days": 730, "archive_years": 7 },
+        "ISO27001": { "operational_days": 730, "archive_years": 6 },
+        "NIST80053": { "operational_days": 730, "archive_years": 7 }
+      },
+      "default_window": { "operational_days": 730, "archive_years": 7 },
+      "legal_hold": true,
+      "archive_target": "s3://valueos-security-audit-archive/immutable/security-evidence/",
+      "worm": {
+        "object_lock_mode": "COMPLIANCE",
+        "default_retain_years": 7,
+        "legal_hold_required": true
+      }
+    },
+    {
+      "id": "compliance-control-evidence",
+      "data_class": "Compliance control evidence",
+      "framework_windows": {
+        "SOC2": { "operational_days": 365, "archive_years": 7 },
+        "HIPAA": { "operational_days": 730, "archive_years": 6 },
+        "PCI-DSS": { "operational_days": 365, "archive_years": 2 }
+      },
+      "default_window": { "operational_days": 365, "archive_years": 7 },
+      "legal_hold": true,
+      "archive_target": "s3://valueos-security-audit-archive/immutable/compliance-evidence/",
+      "worm": {
+        "object_lock_mode": "COMPLIANCE",
+        "default_retain_years": 7,
+        "legal_hold_required": true
+      }
+    }
+  ]
+}

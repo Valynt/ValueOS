@@ -7,6 +7,7 @@ import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js";
 import { auditLogService } from "../services/AuditLogService.js";
 import { complianceControlStatusService } from "../services/ComplianceControlStatusService.js";
+import { readComplianceRetentionPolicy } from "../config/complianceRetentionPolicy.js";
 
 const router = createSecureRouter("strict");
 
@@ -90,12 +91,21 @@ router.get("/policy-history", requirePermission("users.read"), async (req: Reque
 });
 
 router.get("/retention", requirePermission("users.read"), (_req: Request, res: Response) => {
+  const policy = readComplianceRetentionPolicy();
+
   return res.json({
-    rules: [
-      { id: "logs", data_class: "Audit Logs", retention_days: 2555, legal_hold: true, last_reviewed_at: new Date().toISOString() },
-      { id: "security-events", data_class: "Security Events", retention_days: 365, legal_hold: false, last_reviewed_at: new Date().toISOString() },
-      { id: "dsr", data_class: "DSR Cases", retention_days: 1095, legal_hold: true, last_reviewed_at: new Date().toISOString() },
-    ],
+    policy_id: policy.policy_id,
+    version: policy.version,
+    reviewed_at: policy.reviewed_at,
+    rules: policy.classes.map((rule) => ({
+      id: rule.id,
+      data_class: rule.data_class,
+      legal_hold: rule.legal_hold,
+      archive_target: rule.archive_target,
+      worm: rule.worm,
+      default_window: rule.default_window,
+      framework_windows: rule.framework_windows,
+    })),
   });
 });
 
