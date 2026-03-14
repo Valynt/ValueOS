@@ -3,12 +3,15 @@
  *
  * Centralized gateway for LLM interactions with circuit breaker,
  * caching, telemetry, and multi-provider support.
+ * Chat completions and streaming use the official together-ai SDK.
  */
 
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getEnvVar } from '@shared/lib/env';
 
 import { assertModelAllowed } from '../../config/models.js';
+import { getCapabilities } from './ModelRegistry.js';
+import { getTogetherClient } from './TogetherClient.js';
 import { getTracer } from '../../config/telemetry.js';
 import { CostAwareRouter } from '../../services/post-v1/CostAwareRouter.js';
 import { LLMCostTracker } from '../../services/llm/LLMCostTracker.js';
@@ -76,6 +79,13 @@ export interface LLMRequest {
   max_tokens?: number;
   stream?: boolean;
   metadata: LLMRequestMetadata;
+  /**
+   * JSON Schema object derived from the caller's Zod schema.
+   * When present and the model supports structured outputs, the gateway
+   * passes response_format: json_schema to the Together API.
+   * Zod validation still runs post-response regardless.
+   */
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface LLMMessage {
@@ -167,45 +177,42 @@ export class LLMGateway {
     const model = request.model || this.config.model;
     assertModelAllowed('together_ai', model);
 
-    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
-    if (!togetherApiKey) {
-      throw new Error('Together.ai API key not configured');
-    }
+    const client = getTogetherClient();
 
-    const response = await fetch('https://api.together.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${togetherApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: request.messages,
-        max_tokens: request.max_tokens || this.config.max_tokens || 1000,
-        temperature: request.temperature || this.config.temperature || 0.7,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout_ms || 25000),
+    // Use structured outputs when the caller supplied a schema and the model supports it
+    const capabilities = getCapabilities(model);
+    const useStructuredOutputs =
+      request.responseSchema != null && (capabilities?.supportsStructuredOutputs ?? false);
+
+    const response = await client.chat.completions.create({
+      model,
+      messages: request.messages,
+      max_tokens: request.max_tokens ?? this.config.max_tokens ?? 1000,
+      temperature: request.temperature ?? this.config.temperature ?? 0.7,
+      ...(useStructuredOutputs
+        ? {
+            response_format: {
+              type: 'json_schema',
+              schema: request.responseSchema as Record<string, string>,
+            },
+          }
+        : {}),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
-    }
-
-    const data = await response.json();
     return {
-      id: data.id || `llm_${Date.now()}`,
+      id: response.id || `llm_${Date.now()}`,
       model,
-      content: data.choices?.[0]?.message?.content || '',
-      finish_reason: data.choices?.[0]?.finish_reason || 'stop',
+      content: response.choices?.[0]?.message?.content || '',
+      finish_reason: (response.choices?.[0]?.finish_reason as LLMResponse['finish_reason']) || 'stop',
       usage: {
-        prompt_tokens: data.usage?.prompt_tokens || 0,
-        completion_tokens: data.usage?.completion_tokens || 0,
-        total_tokens: data.usage?.total_tokens || 0,
+        prompt_tokens: response.usage?.prompt_tokens || 0,
+        completion_tokens: response.usage?.completion_tokens || 0,
+        total_tokens: response.usage?.total_tokens || 0,
       },
       metadata: {
         ...(request.metadata || {}),
         duration_ms: Date.now() - startTime,
+        structured_outputs_used: useStructuredOutputs,
       },
     };
   }
@@ -220,73 +227,31 @@ export class LLMGateway {
     const model = request.model || this.config.model;
     assertModelAllowed('together_ai', model);
 
-    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
-    if (!togetherApiKey) {
-      throw new Error('Together.ai API key not configured');
-    }
+    const client = getTogetherClient();
 
-    const response = await fetch('https://api.together.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${togetherApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: request.messages,
-        max_tokens: request.max_tokens || this.config.max_tokens || 1000,
-        temperature: request.temperature || this.config.temperature || 0.7,
-        stream: true,
-      }),
+    const stream = await client.chat.completions.create({
+      model,
+      messages: request.messages,
+      max_tokens: request.max_tokens ?? this.config.max_tokens ?? 1000,
+      temperature: request.temperature ?? this.config.temperature ?? 0.7,
+      stream: true,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
-    }
-
-    if (!response.body) {
-      throw new Error('No response body');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
     let usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-          const dataStr = trimmed.slice(6);
-          if (dataStr === '[DONE]') continue;
-
-          const data = JSON.parse(dataStr);
-          if (data.usage) {
-            usage = {
-              prompt_tokens: data.usage.prompt_tokens || 0,
-              completion_tokens: data.usage.completion_tokens || 0,
-              total_tokens: data.usage.total_tokens || 0,
-            };
-          }
-
-          const content = data.choices?.[0]?.delta?.content || '';
-          if (content) {
-            yield { content, done: false };
-          }
-        }
+    for await (const chunk of stream) {
+      const chunkUsage = chunk.usage;
+      if (chunkUsage) {
+        usage = {
+          prompt_tokens: chunkUsage.prompt_tokens || 0,
+          completion_tokens: chunkUsage.completion_tokens || 0,
+          total_tokens: chunkUsage.total_tokens || 0,
+        };
       }
-    } finally {
-      reader.releaseLock();
+      const content = chunk.choices?.[0]?.delta?.content || '';
+      if (content) {
+        yield { content, done: false };
+      }
     }
 
     yield { content: '', done: true, usage };

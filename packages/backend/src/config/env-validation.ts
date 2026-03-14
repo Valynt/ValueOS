@@ -105,10 +105,12 @@ const baseEnvSchema = z.object({
     .pipe(z.number().positive().max(31536000))
     .default("3600"),
 
-  // External Services
+  // External Services — Together.ai
   TOGETHER_API_KEY: z.string().min(1).optional(),
+  TOGETHER_API_BASE_URL: z.string().url().optional(),
   TOGETHER_PRIMARY_MODEL_NAME: z.string().min(1).optional(),
   TOGETHER_SECONDARY_MODEL_NAME: z.string().min(1).optional(),
+  TOGETHER_TIMEOUT_MS: z.string().transform(Number).pipe(z.number().positive()).optional(),
   LLM_FALLBACK_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
   LLM_FALLBACK_MAX_ATTEMPTS: z.string().transform(Number).pipe(z.number().nonnegative()).default("1"),
   LLM_RETRY_BACKOFF_MS: z.string().transform(Number).pipe(z.number().nonnegative()).default("200"),

@@ -1,51 +1,55 @@
+/**
+ * Allowlist enforcement delegates to ModelRegistry, which is the single
+ * source of truth for approved Together AI models. This file retains the
+ * public API surface so existing callers need no import changes.
+ */
+
+import {
+  assertModelAllowed as registryAssertAllowed,
+  getActiveModelIds,
+  ModelDeniedError as RegistryModelDeniedError,
+} from '../lib/agent-fabric/ModelRegistry.js';
+
+export { ModelDeniedError } from '../lib/agent-fabric/ModelRegistry.js';
+
 export const MODEL_POLICY_VERSION = '2026-02-14.1';
 
+export type LlmProvider = 'together_ai' | 'openai';
+
+/**
+ * Dynamic allowlist derived from the registry's active models.
+ * Kept for backward compatibility with code that reads MODEL_ALLOWLIST directly.
+ */
 export const MODEL_ALLOWLIST = {
-  together_ai: [
-    'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
-    'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo',
-    'Qwen/Qwen2.5-72B-Instruct-Turbo',
-    'primary-model',
-    'secondary-model',
-  ],
-  openai: ['gpt-4o-mini'],
-} as const;
-
-export type LlmProvider = keyof typeof MODEL_ALLOWLIST;
-
-const PROVIDERS = Object.keys(MODEL_ALLOWLIST) as LlmProvider[];
-
-export class ModelDeniedError extends Error {
-  readonly code = 'MODEL_DENIED' as const;
-  readonly status = 403;
-
-  constructor(public readonly provider: LlmProvider, public readonly model: string) {
-    super(`Model '${model}' is not approved for provider '${provider}'`);
-    this.name = 'ModelDeniedError';
-  }
-}
+  get together_ai() {
+    return getActiveModelIds();
+  },
+  openai: ['gpt-4o-mini'] as string[],
+};
 
 export function assertModelAllowed(provider: LlmProvider, model: string): void {
-  if (!MODEL_ALLOWLIST[provider].includes(model as never)) {
-    throw new ModelDeniedError(provider, model);
+  if (provider === 'together_ai') {
+    registryAssertAllowed(model);
+    return;
+  }
+  if (provider === 'openai') {
+    if (!MODEL_ALLOWLIST.openai.includes(model)) {
+      throw new RegistryModelDeniedError(model, `not approved for provider 'openai'`);
+    }
+    return;
   }
 }
 
 export function findProviderForModel(model: string): LlmProvider | null {
-  for (const provider of PROVIDERS) {
-    if (MODEL_ALLOWLIST[provider].includes(model as never)) {
-      return provider;
-    }
-  }
-
+  if (getActiveModelIds().includes(model)) return 'together_ai';
+  if (MODEL_ALLOWLIST.openai.includes(model)) return 'openai';
   return null;
 }
 
 export function assertKnownApprovedModel(model: string): LlmProvider {
   const provider = findProviderForModel(model);
   if (!provider) {
-    throw new ModelDeniedError('together_ai', model);
+    throw new RegistryModelDeniedError(model, 'not in approved registry');
   }
-
   return provider;
 }

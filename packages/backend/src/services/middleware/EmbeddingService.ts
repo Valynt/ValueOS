@@ -2,11 +2,13 @@
  * Embedding Service
  *
  * Abstraction over Together AI embedding generation.
- * Reuses the same model/config as SemanticMemoryService.
+ * Uses the official together-ai SDK via the shared TogetherClient singleton.
  * Includes an LRU cache with TTL to avoid redundant API calls.
  */
 
 import { logger } from '../../lib/logger.js';
+import { resolveAlias } from '../../lib/agent-fabric/ModelRegistry.js';
+import { getTogetherClient } from '../../lib/agent-fabric/TogetherClient.js';
 
 // ============================================================================
 // LRU Cache
@@ -68,7 +70,9 @@ class LRUCache {
 
 export interface EmbeddingServiceConfig {
   model?: string;
+  /** @deprecated apiKey is now read from the shared TogetherClient singleton */
   apiKey?: string;
+  /** @deprecated apiUrl is now read from the shared TogetherClient singleton */
   apiUrl?: string;
   cacheMaxSize?: number;
   cacheTtlMs?: number;
@@ -76,14 +80,11 @@ export interface EmbeddingServiceConfig {
 
 export class EmbeddingService {
   private readonly model: string;
-  private readonly apiKey: string;
-  private readonly apiUrl: string;
   private readonly cache: LRUCache;
 
   constructor(config: EmbeddingServiceConfig = {}) {
-    this.model = config.model ?? 'togethercomputer/m2-bert-80M-8k-retrieval';
-    this.apiKey = config.apiKey ?? process.env.TOGETHER_API_KEY ?? '';
-    this.apiUrl = config.apiUrl ?? 'https://api.together.xyz/v1/embeddings';
+    // Default to the registry alias so model swaps only require a registry update
+    this.model = config.model ?? resolveAlias('embedding-default').modelId;
     this.cache = new LRUCache(
       config.cacheMaxSize ?? 100,
       config.cacheTtlMs ?? 5 * 60 * 1000 // 5 minutes
@@ -102,24 +103,13 @@ export class EmbeddingService {
     }
 
     try {
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.model,
-          input: text,
-        }),
+      const client = getTogetherClient();
+      const response = await client.embeddings.create({
+        model: this.model,
+        input: text,
       });
 
-      if (!response.ok) {
-        throw new Error(`Together AI embedding API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const embedding: number[] = data.data[0].embedding;
+      const embedding: number[] = response.data[0].embedding;
 
       this.cache.set(cacheKey, embedding);
       return embedding;

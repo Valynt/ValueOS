@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 import type { AgentType } from "../../../services/agent-types.js";
 import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
@@ -234,8 +235,19 @@ export abstract class BaseAgent {
           : typeof context.traceId === "string" ? context.traceId
             : sessionId;
 
+      // Derive a JSON Schema from the Zod schema so the gateway can request
+      // structured outputs from the model when it supports them.
+      let responseSchema: Record<string, unknown> | undefined;
+      try {
+        responseSchema = zodToJsonSchema(zodSchema, { target: 'jsonSchema7' }) as Record<string, unknown>;
+      } catch {
+        // Non-fatal: fall back to freeform + post-parse Zod validation
+        responseSchema = undefined;
+      }
+
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
+        responseSchema,
         metadata: {
           tenantId: this.organizationId,
           tenant_id: this.organizationId,
