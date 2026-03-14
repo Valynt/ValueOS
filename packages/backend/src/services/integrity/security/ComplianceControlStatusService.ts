@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../ComplianceControlStatusService.js";
+export * from "../../security/ComplianceControlStatusService.js";

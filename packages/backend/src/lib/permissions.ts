@@ -1,5 +1,3 @@
-/**
- * Permissions - Re-export from shared
- */
-
-export { checkPermission, hasPermission } from '@shared/lib/permissions';
+// Re-export permission utilities from canonical sources
+export * from '@shared/lib/permissions';
+export { checkPermission } from '../middleware/rbac.js';

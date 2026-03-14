@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../types/agentInputs.js";
+export * from "../../validators/agentInputs.js";

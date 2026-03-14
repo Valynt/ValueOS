@@ -546,5 +546,15 @@ export class LLMFallbackService {
   }
 }
 
-// Export singleton instance
-export const llmFallback = new LLMFallbackService();
+// Lazy singleton — deferred to avoid ESM circular TDZ on LLMGateway
+let _llmFallback: LLMFallbackService | undefined;
+export function getLLMFallback(): LLMFallbackService {
+  if (!_llmFallback) _llmFallback = new LLMFallbackService();
+  return _llmFallback;
+}
+// Backward-compat proxy
+export const llmFallback = new Proxy({} as LLMFallbackService, {
+  get(_t, prop) {
+    return getLLMFallback()[prop as keyof LLMFallbackService];
+  },
+});

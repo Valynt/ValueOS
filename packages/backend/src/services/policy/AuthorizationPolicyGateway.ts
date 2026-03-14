@@ -185,3 +185,18 @@ export class AuthorizationPolicyGateway {
 }
 
 export const authorizationPolicyGateway = new AuthorizationPolicyGateway();
+
+// Convenience wrapper: throws if the authorization decision is denied.
+export function assertAuthorized(
+  request: AuthorizationRequest,
+  validator?: DecisionValidator
+): void {
+  const decision = authorizationPolicyGateway.authorize(request, validator);
+  if (!decision.allowed) {
+    throw new PolicyEnforcementError(
+      decision.reason ?? "permission denied",
+      "POLICY_DENIED",
+      decision.policyVersion
+    );
+  }
+}

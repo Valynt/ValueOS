@@ -23,6 +23,7 @@ logger.info("[Instrumentation] Environment validation passed");
 // Now safe to import modules that depend on env vars
 logger.info("[Instrumentation] Starting module imports...");
 
+import compression from "compression";
 import cors from "cors";
 import express from "express";
 logger.info("[Instrumentation] Express imported successfully");
@@ -118,7 +119,7 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
 }
 
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
-import { createRateLimiter } from "./middleware/rateLimiter.js";
+import { createRateLimiter, rateLimiters } from "./middleware/rateLimiter.js";
 import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
 import {
   accessLogMiddleware,

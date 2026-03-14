@@ -28,18 +28,18 @@ const jobTotalCounter = createCounter(
   "Total BullMQ job events by queue and status",
 );
 
-/** Job processing duration in seconds. */
-const jobDurationHistogram = (() => {
-  // Use the shared observability histogram factory.
-  // Import lazily to avoid circular deps with the metrics registry.
-  const { createHistogram } = require("../lib/observability/index.js") as {
-    createHistogram: (name: string, help: string) => { observe: (labels: Record<string, string>, value: number) => void };
-  };
-  return createHistogram(
-    "queue_job_duration_seconds",
-    "BullMQ job processing duration in seconds",
-  );
-})();
+/** Job processing duration in seconds. Initialized lazily after module load. */
+let jobDurationHistogram: { observe: (labels: Record<string, string>, value: number) => void } | null = null;
+async function getJobDurationHistogram() {
+  if (!jobDurationHistogram) {
+    const { createHistogram } = await import("../lib/observability/index.js");
+    jobDurationHistogram = createHistogram(
+      "queue_job_duration_seconds",
+      "BullMQ job processing duration in seconds",
+    );
+  }
+  return jobDurationHistogram;
+}
 
 /** Current waiting + delayed job count per queue (consumer lag proxy). */
 const consumerLagGauge = createObservableGauge(
@@ -88,7 +88,7 @@ export function attachQueueMetrics(worker: Worker, queueName: string): void {
     const finishedOn = job.finishedOn ?? Date.now();
     const durationSeconds = (finishedOn - processedOn) / 1000;
     if (durationSeconds >= 0) {
-      jobDurationHistogram.observe({ queue: queueName }, durationSeconds);
+      getJobDurationHistogram().then(h => h.observe({ queue: queueName }, durationSeconds)).catch(() => {});
     }
   });
 

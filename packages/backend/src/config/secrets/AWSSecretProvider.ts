@@ -100,7 +100,7 @@ export class AWSSecretProvider implements ISecretProvider {
 
     // Initialize Redis client for distributed caching
     if (this.redisEnabled) {
-      getRedisClient()
+      Promise.resolve(getRedisClient())
         .then((client) => {
           this.redisClient = client;
           logger.info(
