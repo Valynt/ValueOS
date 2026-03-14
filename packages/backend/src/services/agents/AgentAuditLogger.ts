@@ -9,11 +9,11 @@ import {
   decrypt,
   encrypt,
   generateEncryptionKey,
-} from "../lib/crypto/CryptoUtils";
+} from "../../lib/crypto/CryptoUtils";
 import { logger } from "../../lib/logger.js"
 import { supabase } from "../../lib/supabase.js"
 
-import { AgentContext, AgentType } from "./agent-types.js"
+import { AgentContext, AgentType } from "../agent-types.js"
 
 /**
  * Audit log entry
@@ -853,49 +853,57 @@ export class AgentAuditLogger {
   }
 
   /**
-   * Get recent logs
+   * Get recent logs. organizationId is required for tenant isolation.
    */
-  async getRecent(limit: number = 50): Promise<AgentAuditLog[]> {
-    return this.query({ limit, sortOrder: "desc" });
+  async getRecent(organizationId: string, limit: number = 50): Promise<AgentAuditLog[]> {
+    return this.query({ organizationId, limit, sortOrder: "desc" });
   }
 
   /**
-   * Get logs for a specific agent
+   * Get logs for a specific agent. organizationId is required for tenant isolation.
    */
   async getByAgent(
+    organizationId: string,
     agent: AgentType,
     limit: number = 50
   ): Promise<AgentAuditLog[]> {
-    return this.query({ agent, limit, sortOrder: "desc" });
+    return this.query({ organizationId, agent, limit, sortOrder: "desc" });
   }
 
   /**
-   * Get logs for a specific user
+   * Get logs for a specific user. organizationId is required for tenant isolation.
    */
   async getByUser(
+    organizationId: string,
     userId: string,
     limit: number = 50
   ): Promise<AgentAuditLog[]> {
-    return this.query({ userId, limit, sortOrder: "desc" });
+    return this.query({ organizationId, userId, limit, sortOrder: "desc" });
   }
 
   /**
-   * Get logs for a specific session
+   * Get logs for a specific session. organizationId is required for tenant isolation.
    */
-  async getBySession(sessionId: string): Promise<AgentAuditLog[]> {
-    return this.query({ sessionId, sortOrder: "asc" });
+  async getBySession(organizationId: string, sessionId: string): Promise<AgentAuditLog[]> {
+    return this.query({ organizationId, sessionId, sortOrder: "asc" });
   }
 
   /**
-   * Delete old logs
+   * Delete old logs for a specific tenant. organizationId is required to prevent
+   * cross-tenant deletion.
    */
-  async deleteOldLogs(daysToKeep: number = 90): Promise<number> {
+  async deleteOldLogs(organizationId: string, daysToKeep: number = 90): Promise<number> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for deleteOldLogs to enforce tenant isolation");
+    }
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
     const { data, error } = await supabase
       .from("agent_audit_logs")
       .delete()
+      .eq("organization_id", organizationId)
       .lt("timestamp", cutoffDate.toISOString())
       .select("id");
 
@@ -973,9 +981,4 @@ export async function logAgentResponse(
   });
 }
 
-/**
- * Default export
- */
-export { AgentAuditLogger };
-/** @deprecated Use named import `AgentAuditLogger` instead. */
-export default AgentAuditLogger;
+

@@ -12,7 +12,7 @@
 
 import { logger } from "../../lib/logger.js"
 
-import { BaseService } from "../BaseService.js"
+import { BaseService } from "../utils/BaseService.js"
 import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export interface TrustedDevice {
@@ -35,12 +35,22 @@ export class TrustedDeviceService extends BaseService {
   }
 
   /**
-   * Generate device fingerprint from browser characteristics
+   * Generate device fingerprint from browser characteristics.
+   *
+   * This method is browser-only. In a Node.js (server) context it returns null
+   * because the required browser globals (navigator, screen, document) are not
+   * available. Callers must supply a fingerprint from the client when running
+   * server-side.
    *
    * Uses: User-Agent, Screen Resolution, Timezone, Canvas hash
    * Privacy: No PII, fingerprint is hashed
    */
-  generateDeviceFingerprint(): string {
+  generateDeviceFingerprint(): string | null {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      // Server-side context — fingerprint must be provided by the client.
+      return null;
+    }
+
     const components = [
       navigator.userAgent,
       screen.width + "x" + screen.height,
@@ -214,7 +224,7 @@ export class TrustedDeviceService extends BaseService {
    * Get device name from user agent
    */
   getDeviceName(userAgent?: string): string {
-    const ua = userAgent || navigator.userAgent;
+    const ua = userAgent ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
 
     let browser = "Unknown Browser";
     let os = "Unknown OS";

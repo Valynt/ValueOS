@@ -2,17 +2,17 @@ import { Job, Queue, QueueEvents, Worker } from "bullmq";
 
 import {
   getAgentMessageQueueConfig,
-} from "../config/ServiceConfigManager";
+} from "../../config/ServiceConfigManager";
 import { logger } from "../../lib/logger.js"
-import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
+import { registerShutdownHandler } from "../../lib/shutdown/gracefulShutdown.js"
 
-import { AgentType } from "./agent-types.js"
+import { AgentContext, AgentType } from "../agent-types.js"
 import { getAgentAPI } from "./AgentAPI.js"
 
 export interface AgentInvocationJob {
   agent: AgentType;
   query: string;
-  context?: any;
+  context?: AgentContext;
   sessionId: string;
   organizationId: string;
   userId: string;
@@ -22,7 +22,7 @@ export interface AgentInvocationJob {
 
 export interface AgentInvocationResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
   executionTime?: number;
   traceId: string;

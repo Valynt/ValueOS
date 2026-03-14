@@ -8,13 +8,13 @@
 
 import { v4 as uuidv4 } from "uuid";
 
-import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
+import { BaseAgent } from "../../lib/agent-fabric/agents/BaseAgent";
 import {
   MessagePriority,
   SecureMessage,
   secureMessageBus,
-} from "../lib/agent-fabric/SecureMessageBus";
-import { AgentIdentity } from "../lib/auth/AgentIdentity";
+} from "../../lib/agent-fabric/SecureMessageBus";
+import { AgentIdentity } from "../../lib/auth/AgentIdentity";
 import { logger } from "../../lib/logger.js"
 
 // ============================================================================
@@ -24,7 +24,7 @@ import { logger } from "../../lib/logger.js"
 export interface AgentMessageRequest {
   fromAgentId: string;
   toAgentId: string;
-  payload: any;
+  payload: unknown;
   priority?: MessagePriority;
   encrypted?: boolean;
   correlationId?: string;
@@ -34,7 +34,7 @@ export interface AgentMessageRequest {
 export interface AgentMessageResponse {
   success: boolean;
   message?: SecureMessage;
-  response?: any;
+  response?: unknown;
   error?: string;
   deliveryTime: number;
 }
@@ -191,10 +191,10 @@ export class AgentMessageBroker {
   /**
    * Send a message and get response (simplified interface)
    */
-  async sendToAgent<T = any>(
+  async sendToAgent<T = unknown>(
     fromAgentId: string,
     toAgentId: string,
-    payload: any,
+    payload: unknown,
     options: {
       priority?: MessagePriority;
       encrypted?: boolean;
@@ -208,7 +208,7 @@ export class AgentMessageBroker {
       ...options,
     });
 
-    if (response.success && response.response) {
+    if (response.success && response.response !== undefined) {
       return {
         success: true,
         data: response.response as T,
@@ -298,12 +298,20 @@ export class AgentMessageBroker {
   }
 
   private async processMessage(request: AgentMessageRequest): Promise<void> {
-    // Add to queue for batch processing
-    this.messageQueue.push(request);
-
-    // Trigger immediate processing if queue is getting full
-    if (this.messageQueue.length >= this.batchSize) {
-      setImmediate(() => this.processBatch());
+    // Dispatch the message via SecureMessageBus. This must NOT re-enqueue —
+    // processMessage is called from processBatch, so pushing back onto
+    // messageQueue would create an infinite growth loop.
+    try {
+      await this.sendMessage(request);
+    } catch (error) {
+      logger.error(
+        "processMessage: failed to send message",
+        error instanceof Error ? error : undefined,
+        {
+          fromAgentId: request.fromAgentId,
+          toAgentId: request.toAgentId,
+        }
+      );
     }
   }
 
@@ -351,9 +359,11 @@ export class AgentMessageBroker {
         return;
       }
 
-      // Forward message to the recipient agent's public message handler
-      // Note: We need to use a public method or create a message interface
-      await (recipient.agentInstance as any).handleIncomingMessage?.(message, sender);
+      // Forward message to the recipient agent's public message handler.
+      // BaseAgent does not yet declare handleIncomingMessage on its public
+      // interface; cast through unknown until the interface is formalised.
+      await (recipient.agentInstance as unknown as { handleIncomingMessage?: (m: SecureMessage, s: AgentIdentity) => Promise<void> })
+        .handleIncomingMessage?.(message, sender);
     } catch (error) {
       logger.error("Error handling incoming message", error instanceof Error ? error : undefined, {
         errorMessage: error instanceof Error ? error.message : String(error),

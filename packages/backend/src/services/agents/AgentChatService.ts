@@ -18,30 +18,30 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
-import { checkStageTransition } from "../config/chatWorkflowConfig.js"
-import { llmConfig } from "../config/llm.js"
-import { detectIndustry } from "../data/industryTemplates";
+import { checkStageTransition } from "../../config/chatWorkflowConfig.js"
+import { llmConfig } from "../../config/llm.js"
+import { detectIndustry } from "../../data/industryTemplates";
 import {
   formatExampleForPrompt,
   getRelevantExamples,
-} from "../data/valueModelExamples";
-import { contextFabric } from "../lib/agent-fabric/ContextFabric";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+} from "../../data/valueModelExamples";
+import { contextFabric } from "../../lib/agent-fabric/ContextFabric";
+import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
 import { logger } from "../../lib/logger.js"
 import {
   WorkflowState,
   WorkflowStateRepository,
-} from "../repositories/WorkflowStateRepository";
-import type { LifecycleStage } from "../types/vos";
+} from "../../repositories/WorkflowStateRepository";
+import type { LifecycleStage } from "../../types/vos";
 
 import {
   conversationHistoryService,
   ConversationMessage,
-} from "./ConversationHistoryService";
-import { FallbackAIService } from "./FallbackAIService.js"
-import { geminiProxyService } from "./GeminiProxyService.js"
-import { createToolExecutor, getAllTools } from "./MCPTools.js"
-import { RetryService } from "./RetryService.js"
+} from "../value/ConversationHistoryService";
+import { FallbackAIService } from "../llm/FallbackAIService.js"
+import { geminiProxyService } from "../llm/GeminiProxyService.js"
+import { createToolExecutor, getAllTools } from "../domain-packs/MCPTools.js"
+import { RetryService } from "./resilience/RetryService.js"
 
 // ============================================================================
 // Type-Safe Schemas with Zod
@@ -60,7 +60,7 @@ const KeyMetricSchema = z.object({
   trend: z.enum(["up", "down", "neutral"]),
 });
 
-export const AIResponseSchema = z.object({
+export const AIResponseSchemaSchema = z.object({
   analysisSummary: z.string(),
   identifiedIndustry: z.string(),
   valueHypotheses: z.array(ValueHypothesisSchema),
@@ -68,7 +68,7 @@ export const AIResponseSchema = z.object({
   recommendedActions: z.array(z.string()),
 });
 
-export type AIResponseSchema = z.infer<typeof AIResponseSchema>;
+export type AIResponseSchema = z.infer<typeof AIResponseSchemaSchema>;
 
 // ============================================================================
 // Types
@@ -283,7 +283,7 @@ export class AgentChatService {
 
       if (retryResult.success && retryResult.result) {
         const textResponse = retryResult.result;
-        parsedData = AIResponseSchema.parse(JSON.parse(textResponse));
+        parsedData = AIResponseSchemaSchema.parse(JSON.parse(textResponse));
 
         // Cache successful analysis for fallback use
         FallbackAIService.cacheAnalysis(request.caseId, parsedData);
@@ -366,10 +366,11 @@ export class AgentChatService {
       // Fallback SDUI if API fails
       return {
         message: {
-          role: "assistant",
+          id: uuidv4(),
+          role: "assistant" as const,
           content: "Error processing request",
-          timestamp: Date.now(),
-        } as any,
+          timestamp: new Date().toISOString(),
+        },
         sduiPage: this.getErrorSDUI(),
         nextState: request.workflowState,
         traceId,
