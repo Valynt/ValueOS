@@ -42,6 +42,7 @@
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.0",
     "kafkajs": "^2.2.4",
+    "lz-string": "^1.5.0",
     "nats": "^2.29.2",
     "otpauth": "^9.5.0",
     "p-queue": "^9.1.0",

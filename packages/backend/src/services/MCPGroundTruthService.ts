@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "domain-packs/MCPGroundTruthService.js";
+export * from "./domain-packs/MCPGroundTruthService.js";

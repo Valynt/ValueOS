@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "auth/AgentAuditLogger.js";
+export * from "../types/auth.js";

@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "memory/SemanticMemory.js";
+export * from "./memory/SemanticMemory.js";
