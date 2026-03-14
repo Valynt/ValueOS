@@ -13,6 +13,14 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+ops/env/.env.frontend.local
+ops/env/.env.frontend.cloud-dev
+ops/env/.env.frontend.test
+ops/env/.env.frontend.prod
+ops/env/.env.backend.local
+ops/env/.env.backend.cloud-dev
+ops/env/.env.backend.test
+ops/env/.env.backend.prod
 
 # Production secrets — never commit real values; inject at deploy time
 infra/docker/overlays/prod/secrets/*.txt
