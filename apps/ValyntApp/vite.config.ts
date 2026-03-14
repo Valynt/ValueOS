@@ -6,10 +6,12 @@ import { defineConfig, type Plugin } from "vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const vitePort = Number(process.env.VITE_PORT || 5173);
-const hmrPort = Number(process.env.VITE_HMR_PORT || vitePort);
-const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT || hmrPort);
-const hmrHost = process.env.VITE_HMR_HOST || "localhost";
-const hmrProtocol = process.env.VITE_HMR_PROTOCOL || "ws";
+const hmrPort = process.env.VITE_HMR_PORT ? Number(process.env.VITE_HMR_PORT) : undefined;
+const hmrClientPort = process.env.VITE_HMR_CLIENT_PORT
+  ? Number(process.env.VITE_HMR_CLIENT_PORT)
+  : undefined;
+const hmrHost = process.env.VITE_HMR_HOST;
+const hmrProtocol = process.env.VITE_HMR_PROTOCOL;
 const viteHost = process.env.VITE_HOST || "0.0.0.0";
 
 const isCi = process.env.CI === "true";
@@ -37,7 +39,7 @@ const performanceBudgetPlugin = (): Plugin => ({
     const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 700);
 
     const chunks = Object.values(bundle).filter(
-      (asset): asset is OutputChunk => asset.type === "chunk" && typeof asset.code === "string",
+      (asset): asset is OutputChunk => asset.type === "chunk" && typeof asset.code === "string"
     );
 
     const initialChunks = chunks.filter((chunk) => chunk.isEntry && !chunk.isDynamicEntry);
@@ -57,7 +59,7 @@ const performanceBudgetPlugin = (): Plugin => ({
 
     if (totalInitialJsKb > maxInitialJsKb) {
       this.error(
-        `Bundle budget exceeded (initial JS total): ${totalInitialJsKb.toFixed(1)}KB > ${maxInitialJsKb}KB`,
+        `Bundle budget exceeded (initial JS total): ${totalInitialJsKb.toFixed(1)}KB > ${maxInitialJsKb}KB`
       );
     }
   },
@@ -67,6 +69,7 @@ export default defineConfig({
   envDir: __dirname,
   plugins: [react(), performanceBudgetPlugin()],
   resolve: {
+    extensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@app": path.resolve(__dirname, "./src/app"),
@@ -91,12 +94,16 @@ export default defineConfig({
     strictPort: isCi,
     allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
     hmr: {
-      protocol: hmrProtocol,
-      host: hmrHost,
-      port: hmrPort,
+      ...(hmrProtocol ? { protocol: hmrProtocol } : {}),
+      ...(hmrHost ? { host: hmrHost } : {}),
+      ...(hmrPort ? { port: hmrPort } : {}),
       // In Docker, ensure the browser uses the same port the server is binding.
       // Outside Docker, allow explicit override for remote/devcontainers.
-      clientPort: isDockerMode ? hmrPort : hmrClientPort,
+      ...(isDockerMode
+        ? { clientPort: hmrPort ?? vitePort }
+        : hmrClientPort
+          ? { clientPort: hmrClientPort }
+          : {}),
     },
     watch: usePolling
       ? {
@@ -108,7 +115,11 @@ export default defineConfig({
     // This eliminates hostname issues in Gitpod/Codespaces environments
     proxy: {
       "/api": {
-        target: process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:3001",
+        target:
+          process.env.VITE_API_PROXY_TARGET ||
+          process.env.API_BASE_URL ||
+          process.env.BACKEND_ORIGIN ||
+          "http://127.0.0.1:8000",
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
@@ -188,5 +199,10 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["react", "react-dom", "react-router-dom"],
+    esbuildOptions: {
+      loader: {
+        ".js": "jsx",
+      },
+    },
   },
 });

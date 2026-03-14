@@ -9,4 +9,4 @@ MODE="${APP_ENV:-${1:-local}}"
 source "$PROJECT_ROOT/scripts/env/prepare-backend-env.sh" "$MODE"
 
 cd "$PROJECT_ROOT"
-exec pnpm --filter @valueos/backend dev
+exec pnpm --filter @valueos/backend exec tsx src/server.ts

@@ -2,6 +2,12 @@ import { context, trace, type Span } from "@opentelemetry/api";
 
 import { captureException } from "./sentry";
 
+export interface FrontendObservabilityInitOptions {
+  appName: string;
+  release: string;
+  environment: string;
+}
+
 export interface ObservabilityTags {
   service: string;
   env: string;
@@ -12,6 +18,22 @@ export interface ObservabilityTags {
 
 const DEFAULT_SERVICE = "valynt-app";
 const DEFAULT_ENV = import.meta.env.MODE || "development";
+
+let observabilityInitialized = false;
+
+export function initFrontendObservability(options: FrontendObservabilityInitOptions): void {
+  if (observabilityInitialized) {
+    return;
+  }
+
+  observabilityInitialized = true;
+
+  console.info("[observability.init]", {
+    appName: options.appName,
+    release: options.release,
+    environment: options.environment,
+  });
+}
 
 export function recordMetric(name: string, value: number, tags: ObservabilityTags): void {
   console.debug("[observability.metric]", { name, value, ...tags });
@@ -33,7 +55,7 @@ export function startSpan(name: string, tags: ObservabilityTags): { end: () => v
 export async function trackFrontendFlow<T>(
   flowName: string,
   tags: Partial<ObservabilityTags>,
-  operation: () => Promise<T>,
+  operation: () => Promise<T>
 ): Promise<T> {
   const spanTags: ObservabilityTags = {
     service: tags.service || DEFAULT_SERVICE,
