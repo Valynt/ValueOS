@@ -7,10 +7,11 @@
 
 import { createLogger } from "@shared/lib/logger";
 import { Counter, metrics } from "@opentelemetry/api";
-import { HubSpotAdapter, SalesforceAdapter, ServiceNowAdapter, SharePointAdapter, SlackAdapter } from "../../../integrations/index.ts";
+import { HubSpotAdapter, SalesforceAdapter, ServiceNowAdapter, SharePointAdapter, SlackAdapter } from "@valueos/integrations";
 
-import { AuthorizationError, NotFoundError, ValidationError } from "./errors.js";
-import { TenantAwareService } from "./TenantAwareService.js";
+import { AuthorizationError, NotFoundError, ValidationError } from "../errors.js";
+import { TenantAwareService } from "../auth/TenantAwareService.js";
+import { decryptToken, encryptToken } from "./tokenEncryption.js";
 
 const logger = createLogger({ component: "IntegrationConnectionService" });
 
@@ -47,6 +48,22 @@ export interface IntegrationTestResult {
 }
 
 const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce", "servicenow", "sharepoint", "slack"];
+
+/**
+ * Allowlisted hostname patterns for Salesforce instance URLs.
+ * Prevents SSRF by rejecting arbitrary URLs stored in tenant records.
+ */
+const SALESFORCE_INSTANCE_URL_PATTERN =
+  /^https:\/\/[a-zA-Z0-9-]+\.(salesforce|force|my\.salesforce|lightning\.force)\.com(\/|$)/;
+
+function assertSalesforceInstanceUrl(instanceUrl: string): void {
+  if (!SALESFORCE_INSTANCE_URL_PATTERN.test(instanceUrl)) {
+    throw new ValidationError(
+      `Salesforce instance URL '${instanceUrl}' does not match an allowed Salesforce domain. ` +
+      "Expected a URL under *.salesforce.com, *.force.com, or *.my.salesforce.com."
+    );
+  }
+}
 
 const PROVIDER_REQUIREMENTS: Record<IntegrationProvider, { requiresInstanceUrl: boolean }> = {
   hubspot: { requiresInstanceUrl: false },
@@ -128,8 +145,9 @@ export class IntegrationConnectionService extends TenantAwareService {
     const upsertPayload = {
       tenant_id: tenantId,
       provider: payload.provider,
-      access_token: payload.accessToken,
-      refresh_token: payload.refreshToken ?? null,
+      // Encrypt OAuth tokens at rest; decrypted only when needed for outbound calls.
+      access_token: encryptToken(payload.accessToken),
+      refresh_token: payload.refreshToken ? encryptToken(payload.refreshToken) : null,
       token_expires_at: payload.tokenExpiresAt ?? null,
       instance_url: payload.instanceUrl ?? null,
       scopes: payload.scopes ?? [],
@@ -317,6 +335,10 @@ export class IntegrationConnectionService extends TenantAwareService {
             throw new ValidationError("Salesforce instance URL is required");
           }
 
+          // Validate against allowlist before making any outbound request to
+          // prevent SSRF via a compromised or malicious tenant_integrations record.
+          assertSalesforceInstanceUrl(integration.instance_url);
+
           const instanceUrl = integration.instance_url.replace(/\/+$/, "");
           const response = await this.fetchWithTimeout(`${instanceUrl}/services/data`, {
             headers: {
@@ -446,6 +468,26 @@ export class IntegrationConnectionService extends TenantAwareService {
     if (error || !data) {
       logger.warn("Integration not found", { integrationId });
       throw new NotFoundError("Integration");
+    }
+
+    // Decrypt tokens before returning so callers always work with plaintext.
+    if (includeSecrets) {
+      if (data.access_token) {
+        try {
+          data.access_token = decryptToken(data.access_token);
+        } catch (err) {
+          logger.error("Failed to decrypt access_token", err instanceof Error ? err : undefined, { integrationId });
+          throw new Error("Failed to decrypt integration credentials");
+        }
+      }
+      if (data.refresh_token) {
+        try {
+          data.refresh_token = decryptToken(data.refresh_token);
+        } catch (err) {
+          logger.error("Failed to decrypt refresh_token", err instanceof Error ? err : undefined, { integrationId });
+          throw new Error("Failed to decrypt integration credentials");
+        }
+      }
     }
 
     return data;

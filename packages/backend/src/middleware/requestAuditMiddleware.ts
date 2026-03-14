@@ -14,7 +14,8 @@ interface AuditRequest extends AuthenticatedRequest {
 }
 
 import { getTraceContextForLogging } from "../config/telemetry.js";
-import { securityAuditService } from "../services/security/SecurityAuditService.js";
+import { securityAuditService } from "../services/post-v1/SecurityAuditService.js";
+import type { AuditAction } from "../types/audit.js";
 
 
 
@@ -29,15 +30,52 @@ function getRequestId(req: Request): string {
 }
 
 function getActor(req: Request): { id?: string; label: string } {
-  const anyReq = req as AuditRequest;
-  const user = anyReq.user || {};
-  const headerActor = (req.headers["x-user-email"] as string) || (req.headers["x-actor"] as string);
-  const label = user.email || user.name || headerActor || "anonymous";
+  // Actor identity must come exclusively from verified JWT claims on req.user.
+  // x-user-email and x-actor headers are caller-controlled and must not be
+  // trusted for audit attribution.
+  const user = (req as AuditRequest).user ?? {};
+  const label = (user.email as string | undefined)
+    ?? (user.name as string | undefined)
+    ?? "anonymous";
 
   return {
-    id: user.id || undefined,
+    id: user.id ?? undefined,
     label: sanitizeForLogging(label) as string,
   };
+}
+
+export async function emitRequestAuditEvent(
+  req: Request,
+  res: Response,
+  action: AuditAction,
+  eventType: string,
+  eventData?: Record<string, unknown>
+): Promise<void> {
+  const actor = getActor(req);
+  const normalizedPath = (req as AuditRequest).path || req.originalUrl;
+  await securityAuditService.logRequestEvent({
+    requestId: (res.locals.requestId as string) || (req as AuditRequest).requestId || getRequestId(req),
+    userId: actor.id,
+    actor: actor.label,
+    action,
+    resource: sanitizeForLogging(normalizedPath) as string,
+    requestPath: sanitizeForLogging(normalizedPath) as string,
+    ipAddress: req.ip || req.socket.remoteAddress || undefined,
+    userAgent: req.get("user-agent") || undefined,
+    statusCode: res.statusCode,
+    severity: res.statusCode >= 500 ? "high" : "medium",
+    eventType,
+    eventData: {
+      method: req.method,
+      org: sanitizeForLogging(
+        (req.headers["x-organization-id"] as string) || (req as AuditRequest).organizationId
+      ),
+      tenantId: sanitizeForLogging((req as AuditRequest).tenantId),
+      routeParams: sanitizeForLogging(req.params),
+      query: sanitizeForLogging(req.query),
+      ...eventData,
+    },
+  });
 }
 
 export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {

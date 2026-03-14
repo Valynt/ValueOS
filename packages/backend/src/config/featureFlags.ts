@@ -89,64 +89,67 @@ function parseBoolean(value: string | undefined, defaultValue: boolean = false):
  * Load feature flags from environment
  */
 function loadFeatureFlags(): FeatureFlags {
+  // Each flag reads a plain env var (e.g. ENABLE_CIRCUIT_BREAKER) so it can be
+  // overridden at runtime in Node.js. VITE_* vars are injected by Vite at
+  // frontend build time and are never present in the server process environment.
   const flags: FeatureFlags = {
     // Unified orchestration (consolidation flag)
     ENABLE_UNIFIED_ORCHESTRATION: parseBoolean(
-      import.meta.env.VITE_ENABLE_UNIFIED_ORCHESTRATION,
+      process.env.ENABLE_UNIFIED_ORCHESTRATION,
       true // Default: enabled (use consolidated orchestrator)
     ),
     // Legacy stateless flag (deprecated, kept for backward compatibility)
     ENABLE_STATELESS_ORCHESTRATION: parseBoolean(
-      import.meta.env.VITE_ENABLE_STATELESS_ORCHESTRATION,
+      process.env.ENABLE_STATELESS_ORCHESTRATION,
       false // Default: disabled (superseded by unified)
     ),
     ENABLE_SAFE_JSON_PARSER: parseBoolean(
-      import.meta.env.VITE_ENABLE_SAFE_JSON_PARSER,
+      process.env.ENABLE_SAFE_JSON_PARSER,
       true // Default: enabled (low risk, high benefit)
     ),
     ENABLE_INPUT_SANITIZATION: parseBoolean(
-      import.meta.env.VITE_ENABLE_INPUT_SANITIZATION,
+      process.env.ENABLE_INPUT_SANITIZATION,
       true // Default: enabled (security)
     ),
     ENABLE_TRACE_LOGGING: parseBoolean(
-      import.meta.env.VITE_ENABLE_TRACE_LOGGING,
+      process.env.ENABLE_TRACE_LOGGING,
       true // Default: enabled (observability)
     ),
     ENABLE_CIRCUIT_BREAKER: parseBoolean(
-      import.meta.env.VITE_ENABLE_CIRCUIT_BREAKER,
+      process.env.ENABLE_CIRCUIT_BREAKER,
       true // Default: enabled (safety)
     ),
     ENABLE_RATE_LIMITING: parseBoolean(
-      import.meta.env.VITE_ENABLE_RATE_LIMITING,
+      process.env.ENABLE_RATE_LIMITING,
       true // Default: enabled (security)
     ),
     ENABLE_AUDIT_LOGGING: parseBoolean(
-      import.meta.env.VITE_ENABLE_AUDIT_LOGGING,
+      process.env.ENABLE_AUDIT_LOGGING,
       true // Default: enabled (compliance)
     ),
     ENABLE_ASYNC_AGENT_EXECUTION: parseBoolean(
-      import.meta.env.VITE_ENABLE_ASYNC_AGENT_EXECUTION,
+      process.env.ENABLE_ASYNC_AGENT_EXECUTION,
       false // Default: disabled (gradual rollout)
     ),
     DISABLE_LEGACY_BUSINESS_CASES: parseBoolean(
-      import.meta.env.VITE_DISABLE_LEGACY_BUSINESS_CASES,
+      process.env.DISABLE_LEGACY_BUSINESS_CASES,
       false // Default: disabled (maintain backward compatibility)
     ),
     // Sprint 0: Security flags - default OFF in production
     ENABLE_VALUE_COMMITMENT_SERVICE: parseBoolean(
-      import.meta.env.VITE_ENABLE_VALUE_COMMITMENT_SERVICE,
+      process.env.ENABLE_VALUE_COMMITMENT_SERVICE,
       false // Default: disabled (stubbed implementation)
     ),
     ENABLE_AGENT_PLACEHOLDER_MODE: parseBoolean(
-      import.meta.env.VITE_ENABLE_AGENT_PLACEHOLDER_MODE,
-      import.meta.env.MODE !== "production" // Default: disabled in prod
+      process.env.ENABLE_AGENT_PLACEHOLDER_MODE,
+      process.env.NODE_ENV !== "production" // Default: disabled in prod
     ),
     ENABLE_CLIENT_LLM_STREAMING: parseBoolean(
-      import.meta.env.VITE_ENABLE_CLIENT_LLM_STREAMING,
-      import.meta.env.MODE !== "production" // Default: disabled in prod
+      process.env.ENABLE_CLIENT_LLM_STREAMING,
+      process.env.NODE_ENV !== "production" // Default: disabled in prod
     ),
     ENABLE_DOMAIN_PACK_CONTEXT: parseBoolean(
-      import.meta.env.VITE_ENABLE_DOMAIN_PACK_CONTEXT,
+      process.env.ENABLE_DOMAIN_PACK_CONTEXT,
       false // Default: disabled until repository is wired
     ),
   };

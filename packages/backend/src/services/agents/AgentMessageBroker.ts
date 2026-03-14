@@ -8,13 +8,13 @@
 
 import { v4 as uuidv4 } from "uuid";
 
-import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
+import { BaseAgent } from "../../lib/agent-fabric/agents/BaseAgent";
 import {
   MessagePriority,
   SecureMessage,
   secureMessageBus,
-} from "../lib/agent-fabric/SecureMessageBus";
-import { AgentIdentity } from "../lib/auth/AgentIdentity";
+} from "../../lib/agent-fabric/SecureMessageBus";
+import { AgentIdentity } from "../../lib/auth/AgentIdentity";
 import { logger } from "../../lib/logger.js"
 
 // ============================================================================
@@ -208,7 +208,7 @@ export class AgentMessageBroker {
       ...options,
     });
 
-    if (response.success && response.response) {
+    if (response.success && response.response !== undefined) {
       return {
         success: true,
         data: response.response as T,
@@ -298,12 +298,20 @@ export class AgentMessageBroker {
   }
 
   private async processMessage(request: AgentMessageRequest): Promise<void> {
-    // Add to queue for batch processing
-    this.messageQueue.push(request);
-
-    // Trigger immediate processing if queue is getting full
-    if (this.messageQueue.length >= this.batchSize) {
-      setImmediate(() => this.processBatch());
+    // Dispatch the message via SecureMessageBus. This must NOT re-enqueue —
+    // processMessage is called from processBatch, so pushing back onto
+    // messageQueue would create an infinite growth loop.
+    try {
+      await this.sendMessage(request);
+    } catch (error) {
+      logger.error(
+        "processMessage: failed to send message",
+        error instanceof Error ? error : undefined,
+        {
+          fromAgentId: request.fromAgentId,
+          toAgentId: request.toAgentId,
+        }
+      );
     }
   }
 
@@ -351,8 +359,9 @@ export class AgentMessageBroker {
         return;
       }
 
-      // Forward message to the recipient agent's public message handler
-      // Note: We need to use a public method or create a message interface
+      // Forward message to the recipient agent's public message handler.
+      // BaseAgent does not yet declare handleIncomingMessage on its public
+      // interface; cast through a typed interface until it is formalised.
       await (recipient.agentInstance as { handleIncomingMessage?(msg: SecureMessage, sender: AgentIdentity): Promise<void> })
         .handleIncomingMessage?.(message, sender);
     } catch (error: unknown) {

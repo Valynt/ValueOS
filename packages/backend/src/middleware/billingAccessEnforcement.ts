@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import { createLogger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
-import { securityAuditService } from "../services/security/SecurityAuditService.js";
+import { securityAuditService } from "../services/post-v1/SecurityAuditService.js";
 
 const logger = createLogger({ component: "billingAccessEnforcement" });
 
@@ -29,7 +29,7 @@ async function auditDecision(
   context: Record<string, unknown>
 ): Promise<void> {
   await securityAuditService.logRequestEvent({
-    requestId: (req as any).id ?? `billing-enforcement-${Date.now()}`,
+    requestId: req.requestId ?? `billing-enforcement-${Date.now()}`,
     userId: req.user?.id,
     actor: req.user?.id ?? "system",
     action: `billing_access_${decision}`,

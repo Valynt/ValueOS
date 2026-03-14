@@ -664,3 +664,48 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     next();
   }
 }
+
+export async function requireMFA(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Authentication required' });
+    return;
+  }
+
+  try {
+    // Lazy import to avoid circular dependency at module load time
+    const { mfaService } = await import('../services/auth/MFAService.js');
+    const mfaEnabled = await mfaService.isMFAEnabled(userId);
+
+    if (!mfaEnabled) {
+      // MFA not enrolled — treat as not satisfied
+      res.status(403).json({
+        error: 'MFA required',
+        message: 'Multi-factor authentication must be enabled to access this resource',
+      });
+      return;
+    }
+
+    // MFA is enrolled; the session token already carries proof of MFA completion
+    // (Supabase sets amr claim when MFA was used during sign-in). Check it.
+    const amr = (req.session as Record<string, unknown> | undefined)?.amr;
+    const mfaVerified =
+      Array.isArray(amr) &&
+      (amr as Array<{ method: string }>).some(
+        (entry) => entry.method === 'totp' || entry.method === 'webauthn'
+      );
+
+    if (!mfaVerified) {
+      res.status(403).json({
+        error: 'MFA required',
+        message: 'This resource requires a session authenticated with MFA',
+      });
+      return;
+    }
+
+    next();
+  } catch (error) {
+    logger.error('requireMFA: failed to verify MFA status', error instanceof Error ? error : undefined, { userId });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}

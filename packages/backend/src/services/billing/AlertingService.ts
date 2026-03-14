@@ -7,11 +7,11 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 
-import { settings } from '../config/settings.js'
+import { settings } from '../../config/settings.js'
 import { logger } from '../../lib/logger.js'
-import { captureMessage } from '../lib/sentry';
+import { captureMessage } from '../../lib/sentry';
 
-import { emailService } from './EmailService.js'
+import { emailService } from '../messaging/EmailService.js'
 import { getMetricsCollector } from './MetricsCollector.js'
 
 export interface AlertThreshold {
@@ -30,7 +30,7 @@ export interface Alert {
   currentValue: number;
   threshold: number;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AlertRule {

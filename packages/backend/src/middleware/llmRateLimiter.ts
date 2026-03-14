@@ -11,8 +11,8 @@ import { NextFunction, Request, RequestHandler, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 
-import { RateLimitKeyService } from '../services/llm/RateLimitKeyService';
-import { redisCircuitBreaker } from '../services/agents/resilience/RedisCircuitBreaker';
+import { RateLimitKeyService } from '../services/post-v1/RateLimitKeyService';
+import { redisCircuitBreaker } from '../services/post-v1/RedisCircuitBreaker';
 
 
 // Extended Request interface for rate limiting
@@ -185,10 +185,11 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
       standardHeaders: true, // Return rate limit info in headers
       legacyHeaders: false,
 
-      // Use Redis for distributed rate limiting if available
+      // Use Redis for distributed rate limiting if available.
+      // rate-limit-redis v4 requires a sendCommand function, not a raw client.
       ...(client ? {
         store: new RedisStore({
-          client: client as any,
+          sendCommand: (...args: string[]) => client.call(...args) as Promise<unknown>,
           prefix: `rl:${tier}:`
         })
       } : {}),
