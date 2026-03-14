@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/realtime/RealtimeBroadcastService.js";
+export * from "RealtimeBroadcastService.js";

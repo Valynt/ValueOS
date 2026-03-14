@@ -5,7 +5,8 @@
  * Supports pub/sub, message compression, and delivery guarantees.
  */
 
-import { compress, decompress } from 'lz-string';
+import LZString from 'lz-string';
+const { compress, decompress } = LZString;
 import { v4 as uuidv4 } from 'uuid';
 import { context, trace } from '@opentelemetry/api';
 import { z } from 'zod';

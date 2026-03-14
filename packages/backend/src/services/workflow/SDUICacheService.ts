@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/sdui/CanvasSchemaService.js";
+export * from "../post-v1/CanvasSchemaService.js";

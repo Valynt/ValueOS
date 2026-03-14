@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/sdui/ROIFormulaInterpreter.js";
+export * from "ROIFormulaInterpreter.js";

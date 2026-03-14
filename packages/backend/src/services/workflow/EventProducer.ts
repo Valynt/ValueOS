@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/realtime/EventProducer.js";
+export * from "../post-v1/EventProducer.js";

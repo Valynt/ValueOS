@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/auth/EmailService.js";
+export * from "../auth/EmailService.js";

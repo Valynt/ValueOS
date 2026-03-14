@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/post-v1/PromptVersionControl.js";
+export * from "../post-v1/PromptVersionControl.js";

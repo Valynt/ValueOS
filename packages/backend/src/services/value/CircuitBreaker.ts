@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/agents/resilience/CircuitBreaker.js";
+export * from "../post-v1/CircuitBreaker.js";

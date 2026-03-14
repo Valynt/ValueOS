@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../../services/cache/TenantCache.js";
+export * from "../../cache/TenantCache.js";

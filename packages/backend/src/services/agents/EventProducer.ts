@@ -1,2 +1,2 @@
-// Re-export shim — canonical location: ../../services/realtime/EventProducer.js
-export * from "../../services/realtime/EventProducer.js";
+// Re-export shim
+export * from "../post-v1/EventProducer.js";

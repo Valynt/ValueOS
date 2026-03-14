@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../../services/billing/MetricsCollector.js";
+export * from "../../billing/MetricsCollector.js";

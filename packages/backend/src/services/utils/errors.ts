@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../types/errors.js";
+export * from "../errors.js";

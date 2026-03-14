@@ -1,2 +1,2 @@
-// Re-export shim — canonical location: ../../services/agents/resilience/CircuitBreaker.js
-export * from "../../services/agents/resilience/CircuitBreaker.js";
+// Re-export shim
+export * from "../post-v1/CircuitBreaker.js";

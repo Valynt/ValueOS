@@ -1,2 +1,2 @@
-// Re-export shim — canonical location: ../../services/auth/TenantAwareService.js
-export * from "../../services/auth/TenantAwareService.js";
+// Re-export shim
+export * from "TenantAwareService.js";

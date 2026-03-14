@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../../services/security/ComplianceReportGeneratorService.js";
+export * from "ComplianceReportGeneratorService.js";

@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/llm/SecurityLogger.js";
+export * from "../post-v1/SecurityLogger.js";

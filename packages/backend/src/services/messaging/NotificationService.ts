@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/realtime/NotificationService.js";
+export * from "NotificationService.js";

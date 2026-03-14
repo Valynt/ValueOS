@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/llm/LLMFallback.js";
+export * from "../llm/LLMFallback.js";

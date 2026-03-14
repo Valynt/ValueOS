@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../services/auth/SettingsService.js";
+export * from "../auth/SettingsService.js";
