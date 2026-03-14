@@ -56,12 +56,24 @@ describe("EntityGraph", () => {
     expect(graph.getOutgoingEdges("b")).toHaveLength(0);
   });
 
-  it("rejects self-loop edges", () => {
+  it("rejects self-loop edges (same type)", () => {
     const graph = new EntityGraph("t1", "vc1");
     graph.addNode(makeNode("a"));
     expect(() => graph.addEdge(makeEdge("e1", "a", "a"))).toThrow(
       "Self-loop edges are not allowed"
     );
+  });
+
+  it("rejects self-loop edges where sourceId === targetId but types differ", () => {
+    // Regression: the original guard required BOTH sourceId===targetId AND
+    // sourceType===targetType, so a cross-type self-loop slipped through.
+    const graph = new EntityGraph("t1", "vc1");
+    graph.addNode(makeNode("a", "kpi"));
+    expect(() =>
+      graph.addEdge(
+        makeEdge("e1", "a", "a", { sourceType: "kpi", targetType: "account" })
+      )
+    ).toThrow("Self-loop edges are not allowed");
   });
 
   it("detects cycles", () => {

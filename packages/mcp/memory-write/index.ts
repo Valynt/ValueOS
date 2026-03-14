@@ -496,7 +496,19 @@ export class MemoryWriteHandler {
       };
     }
 
-    // 3. Route to target memory layer
+    // 3. Reserve the idempotency key before writing.
+    // Reserving first (with an empty recordId placeholder) closes the TOCTOU
+    // window: a second concurrent request will see the key as already processed
+    // and return a no-op rather than racing to write a duplicate record.
+    // If the write below fails the key remains reserved, which is correct —
+    // the caller should use a new idempotency key for a genuine retry.
+    await this.store.recordIdempotencyKey(
+      request.tenantId,
+      request.idempotencyKey,
+      "" // placeholder; updated after the write succeeds
+    );
+
+    // 4. Route to target memory layer
     let recordId: string;
     try {
       recordId = await this.routeWrite(request);
@@ -514,14 +526,15 @@ export class MemoryWriteHandler {
       };
     }
 
-    // 4. Record idempotency key
+    // 5. Update the idempotency record with the real recordId now that the
+    // write succeeded.
     await this.store.recordIdempotencyKey(
       request.tenantId,
       request.idempotencyKey,
       recordId
     );
 
-    // 5. Audit trail
+    // 6. Audit trail
     await this.store.emitAudit({
       id: recordId,
       tenantId: request.tenantId,

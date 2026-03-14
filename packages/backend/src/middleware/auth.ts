@@ -688,7 +688,11 @@ export async function requireMFA(req: Request, res: Response, next: NextFunction
 
     // MFA is enrolled; the session token already carries proof of MFA completion
     // (Supabase sets amr claim when MFA was used during sign-in). Check it.
-    const amr = (req.session as Record<string, unknown> | undefined)?.amr;
+    // amr lives in the JWT payload, not on the AuthSession object, so decode
+    // the access token directly rather than reading from req.session.
+    const accessToken = (req.session as Record<string, unknown> | undefined)?.access_token;
+    const tokenClaims = typeof accessToken === 'string' ? decodeClaims(accessToken) : null;
+    const amr = tokenClaims?.amr;
     const mfaVerified =
       Array.isArray(amr) &&
       (amr as Array<{ method: string }>).some(

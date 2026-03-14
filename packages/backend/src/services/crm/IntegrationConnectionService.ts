@@ -52,15 +52,24 @@ const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce", "se
 /**
  * Allowlisted hostname patterns for Salesforce instance URLs.
  * Prevents SSRF by rejecting arbitrary URLs stored in tenant records.
+ *
+ * Matches production, sandbox, and scratch-org hostnames, e.g.:
+ *   https://myorg.salesforce.com
+ *   https://myorg.my.salesforce.com
+ *   https://myorg--sandbox.sandbox.my.salesforce.com
+ *   https://myorg.lightning.force.com
+ *
+ * The subdomain portion allows multiple dot-separated labels so that
+ * multi-segment sandbox hostnames are accepted.
  */
 const SALESFORCE_INSTANCE_URL_PATTERN =
-  /^https:\/\/[a-zA-Z0-9-]+\.(salesforce|force|my\.salesforce|lightning\.force)\.com(\/|$)/;
+  /^https:\/\/([a-zA-Z0-9-]+\.)+salesforce\.com(\/|$)|^https:\/\/([a-zA-Z0-9-]+\.)+force\.com(\/|$)/;
 
 function assertSalesforceInstanceUrl(instanceUrl: string): void {
   if (!SALESFORCE_INSTANCE_URL_PATTERN.test(instanceUrl)) {
     throw new ValidationError(
       `Salesforce instance URL '${instanceUrl}' does not match an allowed Salesforce domain. ` +
-      "Expected a URL under *.salesforce.com, *.force.com, or *.my.salesforce.com."
+      "Expected a URL under *.salesforce.com or *.force.com."
     );
   }
 }
