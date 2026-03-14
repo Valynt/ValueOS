@@ -35,45 +35,59 @@ DROP INDEX IF EXISTS public.idx_value_loop_analytics_org_event;
 
 -- ---------------------------------------------------------------------------
 -- D. workflow_executions — add missing columns, then fix indexes
+-- Table may not exist yet (created in 20260331010000); skip if absent.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE public.workflow_executions
-  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
-  ADD COLUMN IF NOT EXISTS case_id uuid REFERENCES public.value_cases(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'workflow_executions') THEN
+    ALTER TABLE public.workflow_executions
+      ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+      ADD COLUMN IF NOT EXISTS case_id uuid REFERENCES public.value_cases(id) ON DELETE SET NULL;
 
--- Drop the broken indexes from 20260324000000 and recreate correctly.
-DROP INDEX IF EXISTS public.idx_workflow_executions_org_status;
-DROP INDEX IF EXISTS public.idx_workflow_executions_case_created;
+    DROP INDEX IF EXISTS public.idx_workflow_executions_org_status;
+    DROP INDEX IF EXISTS public.idx_workflow_executions_case_created;
 
-CREATE INDEX IF NOT EXISTS idx_workflow_executions_org_status
-  ON public.workflow_executions (organization_id, status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_workflow_executions_org_status
+      ON public.workflow_executions (organization_id, status, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_workflow_executions_case_created
-  ON public.workflow_executions (case_id, created_at DESC)
-  WHERE case_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_workflow_executions_case_created
+      ON public.workflow_executions (case_id, created_at DESC)
+      WHERE case_id IS NOT NULL;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- E. prompt_executions — add missing session_id column, then fix index
+-- Table may not exist yet (created in 20260331010000); skip if absent.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE public.prompt_executions
-  ADD COLUMN IF NOT EXISTS session_id text;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'prompt_executions') THEN
+    ALTER TABLE public.prompt_executions
+      ADD COLUMN IF NOT EXISTS session_id text;
 
-DROP INDEX IF EXISTS public.idx_prompt_executions_session;
+    DROP INDEX IF EXISTS public.idx_prompt_executions_session;
 
-CREATE INDEX IF NOT EXISTS idx_prompt_executions_session
-  ON public.prompt_executions (session_id, created_at DESC)
-  WHERE session_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_prompt_executions_session
+      ON public.prompt_executions (session_id, created_at DESC)
+      WHERE session_id IS NOT NULL;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- F. agent_predictions — add missing organization_id column, then fix index
+-- Table may not exist yet (created in 20260331010000); skip if absent.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE public.agent_predictions
-  ADD COLUMN IF NOT EXISTS organization_id uuid;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_predictions') THEN
+    ALTER TABLE public.agent_predictions
+      ADD COLUMN IF NOT EXISTS organization_id uuid;
 
-DROP INDEX IF EXISTS public.idx_agent_predictions_org_type_created;
+    DROP INDEX IF EXISTS public.idx_agent_predictions_org_type_created;
 
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_org_type_created
-  ON public.agent_predictions (organization_id, agent_type, created_at DESC)
-  WHERE organization_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_agent_predictions_org_type_created
+      ON public.agent_predictions (organization_id, agent_type, created_at DESC)
+      WHERE organization_id IS NOT NULL;
+  END IF;
+END $$;

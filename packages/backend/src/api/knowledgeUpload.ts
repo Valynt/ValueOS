@@ -4,7 +4,7 @@ import { requireConsent } from '../middleware/consentMiddleware.js'
 import { enforceLineage } from '../middleware/lineageValidationMiddleware.js'
 import { requirePermission } from '../middleware/rbac.js'
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
-import { consentRegistry } from '../services/consentRegistry.js'
+import { consentRegistry } from '../services/auth/consentRegistry.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router();

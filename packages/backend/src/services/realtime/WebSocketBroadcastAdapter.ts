@@ -10,7 +10,7 @@
 import Redis from "ioredis";
 import { WebSocket, WebSocketServer } from "ws";
 
-import { settings } from "../config/settings.js";
+import { settings } from "../../config/settings.js";
 import { logger } from "../../lib/logger.js";
 
 const WS_BROADCAST_CHANNEL = "ws:broadcast";

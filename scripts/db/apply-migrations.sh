@@ -67,7 +67,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q -c "
 # process substitution, and to keep the loop POSIX-compatible.
 _tmplist="$(mktemp)"
 trap 'rm -f "$_tmplist"' EXIT
-find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort > "$_tmplist"
+find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' ! -name '*.rollback.sql' | sort > "$_tmplist"
 _migration_count="$(wc -l < "$_tmplist" | tr -d ' ')"
 
 if [[ "$_migration_count" -eq 0 ]]; then
@@ -84,8 +84,10 @@ _skipped=0
 while IFS= read -r file; do
   base="$(basename "$file")"
 
-  _already="$(psql "$DATABASE_URL" -tAX --set=name="$base" -c \
-    "SELECT 1 FROM public.schema_migrations WHERE name = :'name' LIMIT 1;" 2>/dev/null || true)"
+  # Use shell-quoted interpolation for -c commands; :'var' only works in file/stdin mode.
+  _safe_base="$(printf '%s' "$base" | sed "s/'/''/g")"
+  _already="$(psql "$DATABASE_URL" -tAX -c \
+    "SELECT 1 FROM public.schema_migrations WHERE name = '$_safe_base' LIMIT 1;" 2>/dev/null || true)"
 
   if [[ "$_already" == "1" ]]; then
     _skipped=$((_skipped + 1))
@@ -94,8 +96,8 @@ while IFS= read -r file; do
 
   echo "[migrations] -> $base"
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -f "$file"
-  psql "$DATABASE_URL" -X -q --set=name="$base" -c \
-    "INSERT INTO public.schema_migrations (name) VALUES (:'name') ON CONFLICT (name) DO NOTHING;" \
+  psql "$DATABASE_URL" -X -q -c \
+    "INSERT INTO public.schema_migrations (name) VALUES ('$_safe_base') ON CONFLICT (name) DO NOTHING;" \
     || true
   _applied=$((_applied + 1))
 done < "$_tmplist"

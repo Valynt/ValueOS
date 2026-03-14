@@ -58,7 +58,7 @@ services:
     commands:
       start: |
         ona env port open 8000 --protocol https 2>/dev/null || true
-        pnpm run dev:backend
+        APP_ENV=cloud-dev pnpm run dev:backend
       ready: |
         curl -sf http://localhost:8000/health
 
@@ -70,7 +70,7 @@ services:
     commands:
       start: |
         ona env port open 5173 --protocol https 2>/dev/null || true
-        pnpm run dev:frontend
+        APP_ENV=cloud-dev pnpm run dev:frontend
       ready: |
         curl -sf http://localhost:5173
 

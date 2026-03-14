@@ -8,7 +8,7 @@ SET search_path = public, pg_temp;
 
 CREATE TABLE IF NOT EXISTS public.crm_connections (
   id                          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id                   uuid        NOT NULL REFERENCES public.tenants (id) ON DELETE CASCADE,
+  tenant_id                   text        NOT NULL REFERENCES public.tenants (id) ON DELETE CASCADE,
   provider                    text        NOT NULL,
   status                      text        NOT NULL DEFAULT 'disconnected',
   access_token_enc            text,

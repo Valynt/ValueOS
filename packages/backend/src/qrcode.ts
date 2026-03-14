@@ -1,0 +1,2 @@
+// Stub: qrcode
+export {};

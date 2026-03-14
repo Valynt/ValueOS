@@ -72,7 +72,7 @@ import {
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
-} from "./config/secrets/SecretVolumeWatcher";
+} from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
 import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
@@ -126,7 +126,7 @@ import {
   notFoundHandler,
   requestIdMiddleware,
   setupGlobalErrorHandlers,
-} from "./middleware/globalErrorHandler";
+} from "./middleware/globalErrorHandler.js";
 import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
 import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
@@ -141,9 +141,10 @@ import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
-import { securityAuditService } from "./services/security/SecurityAuditService.js";
+import { securityAuditService } from "./services/post-v1/SecurityAuditService.js";
+
 import { permissionService } from "./services/auth/PermissionService.js";
-import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
+import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
