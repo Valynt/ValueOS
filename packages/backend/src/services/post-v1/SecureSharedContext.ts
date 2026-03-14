@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "SecureSharedContext.js";
+export * from "../auth/SecureSharedContext.js";

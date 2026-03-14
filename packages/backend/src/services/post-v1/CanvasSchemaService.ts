@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "CanvasSchemaService.js";
+export * from "../workflow/CanvasSchemaService.js";

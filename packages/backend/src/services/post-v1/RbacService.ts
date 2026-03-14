@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "RbacService.js";
+export * from "../auth/RbacService.js";

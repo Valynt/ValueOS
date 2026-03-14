@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "LLMSanitizer.js";
+export * from "../llm/LLMSanitizer.js";

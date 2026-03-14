@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "GuestAccessService.js";
+export * from "../tenant/GuestAccessService.js";

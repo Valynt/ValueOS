@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "agent-types.js";
+export * from "../auth/agent-types.js";

@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "kafkaConfig.js";
+export * from "../kafkaConfig.js";

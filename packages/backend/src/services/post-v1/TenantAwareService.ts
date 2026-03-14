@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "TenantAwareService.js";
+export * from "../auth/TenantAwareService.js";

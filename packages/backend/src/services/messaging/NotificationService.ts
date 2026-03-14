@@ -1,2 +1,3 @@
-// Re-export shim
-export * from "NotificationService.js";
+// Stub: NotificationService not found in codebase
+export class NotificationService { async send() {} }
+export const notificationService = new NotificationService();

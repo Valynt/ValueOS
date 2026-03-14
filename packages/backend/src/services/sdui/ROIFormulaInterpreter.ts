@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "ROIFormulaInterpreter.js";
+export * from "../reasoning/ROIFormulaInterpreter.js";

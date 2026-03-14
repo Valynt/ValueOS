@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "LLMFallbackWithTracing.js";
+export * from "../llm/LLMFallbackWithTracing.js";

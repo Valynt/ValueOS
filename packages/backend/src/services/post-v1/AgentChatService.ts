@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "AgentChatService.js";
+export * from "../agents/AgentChatService.js";
