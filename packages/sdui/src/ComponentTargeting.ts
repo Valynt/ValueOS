@@ -163,8 +163,8 @@ export class ComponentTargeting {
    * Match component props against selector props
    */
   private matchProps(
-    componentProps: Record<string, any>,
-    selectorProps: Record<string, any>
+    componentProps: Record<string, unknown>,
+    selectorProps: Record<string, unknown>
   ): { matches: boolean; score: number } {
     const selectorKeys = Object.keys(selectorProps);
     if (selectorKeys.length === 0) {
@@ -192,7 +192,7 @@ export class ComponentTargeting {
   /**
    * Check if two values match
    */
-  private valuesMatch(a: any, b: any): boolean {
+  private valuesMatch(a: unknown, b: unknown): boolean {
     // Exact match
     if (a === b) return true;
 
@@ -202,8 +202,12 @@ export class ComponentTargeting {
     }
 
     // Deep equality for objects/arrays
-    if (typeof a === "object" && typeof b === "object") {
-      return JSON.stringify(a) === JSON.stringify(b);
+    if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) {
+      try {
+        return JSON.stringify(a) === JSON.stringify(b);
+      } catch {
+        return false;
+      }
     }
 
     return false;
@@ -362,7 +366,7 @@ export class ComponentTargeting {
   /**
    * Find components with specific prop value
    */
-  findComponentsByProp(layout: SDUIPageDefinition, propPath: string, value: any): ComponentMatch[] {
+  findComponentsByProp(layout: SDUIPageDefinition, propPath: string, value: unknown): ComponentMatch[] {
     const matches: ComponentMatch[] = [];
 
     for (let i = 0; i < layout.sections.length; i++) {
@@ -385,15 +389,15 @@ export class ComponentTargeting {
   /**
    * Get nested property value
    */
-  private getNestedProp(obj: any, path: string): any {
+  private getNestedProp(obj: unknown, path: string): unknown {
     const parts = path.split(".");
     let current = obj;
 
     for (const part of parts) {
-      if (current === null || current === undefined) {
+      if (current === null || current === undefined || typeof current !== "object") {
         return undefined;
       }
-      current = current[part];
+      current = (current as Record<string, unknown>)[part];
     }
 
     return current;

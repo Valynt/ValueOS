@@ -169,7 +169,7 @@ export class AgentMessageBroker {
       response.deliveryTime = Date.now() - startTime;
 
       return response;
-    } catch (error) {
+    } catch (error: unknown) {
       const deliveryTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -287,7 +287,7 @@ export class AgentMessageBroker {
     try {
       // Process messages in parallel
       await Promise.all(batch.map((request) => this.processMessage(request)));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error processing message batch", error instanceof Error ? error : undefined, {
         batchSize: batch.length,
         error: error instanceof Error ? error.message : String(error),
@@ -361,10 +361,10 @@ export class AgentMessageBroker {
 
       // Forward message to the recipient agent's public message handler.
       // BaseAgent does not yet declare handleIncomingMessage on its public
-      // interface; cast through unknown until the interface is formalised.
-      await (recipient.agentInstance as unknown as { handleIncomingMessage?: (m: SecureMessage, s: AgentIdentity) => Promise<void> })
+      // interface; cast through a typed interface until it is formalised.
+      await (recipient.agentInstance as { handleIncomingMessage?(msg: SecureMessage, sender: AgentIdentity): Promise<void> })
         .handleIncomingMessage?.(message, sender);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error handling incoming message", error instanceof Error ? error : undefined, {
         errorMessage: error instanceof Error ? error.message : String(error),
       });

@@ -46,7 +46,7 @@ export class IndustryBenchmarkModule extends BaseModule {
   private censusApiKey?: string;
   private enableStaticData: boolean = true;
   private cacheTTL: number = 86400 * 30; // 30 days default
-  private benchmarkCache: Map<string, { data: any; timestamp: number }> = new Map();
+  private benchmarkCache: Map<string, { data: IndustryBenchmark | WageData; timestamp: number }> = new Map();
 
   // Static industry benchmarks (2024 data)
   // In production, this would be regularly updated from authoritative sources
@@ -177,7 +177,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     },
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
     
     const benchmarkConfig = config as BenchmarkConfig;
@@ -237,7 +237,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     const cached = this.getCachedData(cacheKey);
     if (cached) {
       logger.debug('Industry benchmark cache hit', { naicsCode, metric });
-      return this.createMetricFromBenchmark(cached, true);
+      return this.createMetricFromBenchmark(cached as IndustryBenchmark, true);
     }
 
     // Try static data first
@@ -268,7 +268,7 @@ export class IndustryBenchmarkModule extends BaseModule {
         const benchmark = await this.getCensusBenchmark(naicsCode, metric);
         this.setCachedData(cacheKey, benchmark);
         return this.createMetricFromBenchmark(benchmark, false);
-      } catch (error) {
+      } catch (error: unknown) {
         logger.warn('Census API lookup failed', { naicsCode, error });
       }
     }
@@ -291,7 +291,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     const cached = this.getCachedData(cacheKey);
     if (cached) {
       logger.debug('Wage data cache hit', { occupationCode, metroArea });
-      return this.createMetricFromWageData(cached, true);
+      return this.createMetricFromWageData(cached as WageData, true);
     }
 
     // Try static data first
@@ -308,7 +308,7 @@ export class IndustryBenchmarkModule extends BaseModule {
         const wageData = await this.getBLSWageData(occupationCode, metroArea);
         this.setCachedData(cacheKey, wageData);
         return this.createMetricFromWageData(wageData, false);
-      } catch (error) {
+      } catch (error: unknown) {
         logger.warn('BLS API lookup failed', { occupationCode, error });
       }
     }
@@ -352,7 +352,13 @@ export class IndustryBenchmarkModule extends BaseModule {
     delta_percent: number;
   }>> {
     const benchmarks = await this.getAllBenchmarks(naicsCode);
-    const comparison: Record<string, any> = {};
+    const comparison: Record<string, {
+      company_value: number;
+      industry_median: number;
+      percentile: number;
+      delta: number;
+      delta_percent: number;
+    }> = {};
 
     for (const [metricName, companyValue] of Object.entries(companyMetrics)) {
       const benchmark = benchmarks.find(b => b.metric_name === metricName);
@@ -367,10 +373,10 @@ export class IndustryBenchmarkModule extends BaseModule {
 
         // Estimate percentile (simplified)
         let percentile = 50;
-        if (deltaPercent > 25) percentile = 75;
-        else if (deltaPercent > 50) percentile = 90;
-        else if (deltaPercent < -25) percentile = 25;
+        if (deltaPercent > 50) percentile = 90;
+        else if (deltaPercent > 25) percentile = 75;
         else if (deltaPercent < -50) percentile = 10;
+        else if (deltaPercent < -25) percentile = 25;
 
         comparison[metricName] = {
           company_value: companyValue,
@@ -557,7 +563,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     );
   }
 
-  private getCachedData(key: string): any | null {
+  private getCachedData(key: string): IndustryBenchmark | WageData | null {
     const cached = this.benchmarkCache.get(key);
 
     if (!cached) {
@@ -573,7 +579,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     return cached.data;
   }
 
-  private setCachedData(key: string, data: any): void {
+  private setCachedData(key: string, data: IndustryBenchmark | WageData): void {
     this.benchmarkCache.set(key, {
       data,
       timestamp: Date.now(),

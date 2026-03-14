@@ -105,7 +105,7 @@ export abstract class BaseSemanticTool<TInput, TOutput> implements SemanticTool<
       }
 
       return validatedOutput;
-    } catch (error) {
+    } catch (error: unknown) {
       const executionTimeMs = Date.now() - startTime;
 
       // Record error telemetry if enabled
@@ -148,7 +148,7 @@ export abstract class BaseSemanticTool<TInput, TOutput> implements SemanticTool<
   private async validateInput(input: TInput): Promise<TInput> {
     try {
       return await this.inputSchema.parseAsync(input);
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         const validationErrors = error.errors.reduce(
           (acc, err) => {
@@ -176,7 +176,7 @@ export abstract class BaseSemanticTool<TInput, TOutput> implements SemanticTool<
   private async validateOutput(output: TOutput): Promise<TOutput> {
     try {
       return await this.outputSchema.parseAsync(output);
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         const validationErrors = error.errors.reduce(
           (acc, err) => {
@@ -201,7 +201,7 @@ export abstract class BaseSemanticTool<TInput, TOutput> implements SemanticTool<
   /**
    * Sanitize data for logging to prevent sensitive data exposure
    */
-  private sanitizeForLogging(data: any): any {
+  private sanitizeForLogging(data: unknown): unknown {
     if (typeof data !== "object" || data === null) {
       return data;
     }
@@ -220,19 +220,19 @@ export abstract class BaseSemanticTool<TInput, TOutput> implements SemanticTool<
       "phone",
     ];
 
-    const sanitized = Array.isArray(data) ? [] : {};
+    const sanitized: Record<string, unknown> | unknown[] = Array.isArray(data) ? [] : {};
 
-    for (const [key, value] of Object.entries(data)) {
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
       if (
         sensitiveFields.some((field) =>
           key.toLowerCase().includes(field.toLowerCase())
         )
       ) {
-        (sanitized as any)[key] = "[REDACTED]";
+        sanitized[key] = "[REDACTED]";
       } else if (typeof value === "object" && value !== null) {
-        (sanitized as any)[key] = this.sanitizeForLogging(value);
+        sanitized[key] = this.sanitizeForLogging(value);
       } else {
-        (sanitized as any)[key] = value;
+        sanitized[key] = value;
       }
     }
 

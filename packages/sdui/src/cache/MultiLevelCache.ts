@@ -241,7 +241,7 @@ export class SessionCache<T> implements CacheLayer<T> {
       }
 
       return parsed.data;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Session cache get error", { error, key });
       return null;
     }
@@ -255,7 +255,7 @@ export class SessionCache<T> implements CacheLayer<T> {
         expiresAt: Date.now() + ttl,
       };
       sessionStorage.setItem(this.prefix + key, this.serialize(item));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Session cache set error", { error, key });
     }
   }
@@ -263,7 +263,7 @@ export class SessionCache<T> implements CacheLayer<T> {
   async delete(key: string): Promise<void> {
     try {
       sessionStorage.removeItem(this.prefix + key);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Session cache delete error", { error, key });
     }
   }
@@ -276,7 +276,7 @@ export class SessionCache<T> implements CacheLayer<T> {
           sessionStorage.removeItem(key);
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Session cache clear error", { error });
     }
   }
@@ -588,17 +588,17 @@ export class CacheFactory {
 }
 
 // Global cache instance
-export const globalCache = CacheFactory.createMultiLevelCache<any>();
+export const globalCache = CacheFactory.createMultiLevelCache<unknown>();
 
 /**
  * Cache decorator for functions
  */
-export function cached<T extends (...args: any[]) => Promise<any>>(
+export function cached<T extends (...args: unknown[]) => Promise<unknown>>(
   ttl: number = 5 * 60 * 1000,
   keyGenerator?: (...args: Parameters<T>) => string
 ) {
-  return function (_target: any, propertyName: string, descriptor: PropertyDescriptor) {
-    const method = descriptor.value;
+  return function (_target: unknown, propertyName: string, descriptor: PropertyDescriptor) {
+    const method = descriptor.value as T;
 
     descriptor.value = async function (...args: Parameters<T>) {
       const cacheKey = keyGenerator

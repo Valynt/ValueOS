@@ -18,7 +18,7 @@ export interface HistoryEntry {
   component_id: string;
   action_type: "created" | "updated" | "deleted" | "moved" | "resized";
   actor: string;
-  changes: any;
+  changes: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -34,7 +34,7 @@ export interface AgentActivity {
     | "data-import";
   title: string;
   content: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -76,7 +76,7 @@ class PersistenceService {
       return null;
     }
 
-    return data;
+    return data as BusinessCase;
   }
 
   async getBusinessCase(caseId: string): Promise<BusinessCase | null> {
@@ -103,7 +103,7 @@ class PersistenceService {
       return null;
     }
 
-    return data;
+    return data as BusinessCase;
   }
 
   async updateBusinessCase(
@@ -180,7 +180,14 @@ class PersistenceService {
     updates: Partial<CanvasComponent>,
     actor: string = "user"
   ): Promise<boolean> {
-    const dbUpdates: any = {};
+    const dbUpdates: Partial<{
+      position_x: number;
+      position_y: number;
+      width: number;
+      height: number;
+      props: Record<string, unknown>;
+      is_dirty: boolean;
+    }> = {};
 
     if (updates.position) {
       dbUpdates.position_x = updates.position.x;
@@ -193,7 +200,7 @@ class PersistenceService {
     }
 
     if (updates.props) {
-      dbUpdates.props = updates.props;
+      dbUpdates.props = updates.props as Record<string, unknown>;
     }
 
     dbUpdates.is_dirty = false;
@@ -277,15 +284,21 @@ class PersistenceService {
       return [];
     }
 
-    return data.map((component: any) => ({
+    return data.map((component: { id: string; type: string; position_x: number; position_y: number; width: number; height: number; props: Record<string, unknown> }) => ({
       id: component.id,
       type: component.type,
       position: { x: component.position_x, y: component.position_y },
       size: { width: component.width, height: component.height },
-      props: component.props as any,
+      props: component.props,
     }));
   }
 
+  async logHistory(
+    componentId: string,
+    actionType: "created" | "updated" | "deleted" | "moved" | "resized",
+    actor: string,
+    changes: unknown
+  ): Promise<void>;
   async logHistory(
     organizationId: string,
     componentId: string,
@@ -293,24 +306,43 @@ class PersistenceService {
     actor: string,
     changes: unknown
   ): Promise<void> {
-    if (!organizationId) {
+    if (arguments.length === 5) {
+      // Full signature
+      const [organizationId, componentId, actionType, actor, changes] = arguments as [
+        string,
+        string,
+        "created" | "updated" | "deleted" | "moved" | "resized",
+        string,
+        unknown
+      ];
+      if (!organizationId) {
+        logger.error("logHistory called without organizationId — skipping to prevent cross-tenant leak");
+        return;
+      }
+      const { error } = await supabase.from("component_history").insert({
+        organization_id: organizationId,
+        component_id: componentId,
+        action_type: actionType,
+        actor,
+        changes,
+      });
+      if (error) {
+        logger.error(
+          "Error logging history",
+          error instanceof Error ? error : undefined
+        );
+      }
+      return;
+    } else if (arguments.length === 4) {
+      // Deprecated signature (componentId, actionType, actor, changes)
+      const [componentId, actionType, actor, changes] = arguments as [
+        string,
+        "created" | "updated" | "deleted" | "moved" | "resized",
+        string,
+        unknown
+      ];
       logger.error("logHistory called without organizationId — skipping to prevent cross-tenant leak");
       return;
-    }
-
-    const { error } = await supabase.from("component_history").insert({
-      organization_id: organizationId,
-      component_id: componentId,
-      action_type: actionType,
-      actor,
-      changes,
-    });
-
-    if (error) {
-      logger.error(
-        "Error logging history",
-        error instanceof Error ? error : undefined
-      );
     }
   }
 
@@ -329,7 +361,7 @@ class PersistenceService {
       return [];
     }
 
-    return data;
+    return data as HistoryEntry[];
   }
 
   async getGlobalHistory(
@@ -356,7 +388,7 @@ class PersistenceService {
       return [];
     }
 
-    return data;
+    return data as HistoryEntry[];
   }
 
   async logAgentActivity(
@@ -415,7 +447,7 @@ class PersistenceService {
       return [];
     }
 
-    return data;
+    return data as AgentActivity[];
   }
 
   flushSaveQueue(): void {

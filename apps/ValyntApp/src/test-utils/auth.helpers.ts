@@ -64,14 +64,14 @@ export function setupAuthMocks() {
  * Assert that a function throws an error with specific properties
  */
 export async function expectToThrowError(
-  fn: () => Promise<any>,
+  fn: () => Promise<unknown>,
   expectedError: {
     name?: string;
     message?: string | RegExp;
     code?: string;
   }
 ) {
-  let error: any;
+  let error: unknown;
 
   try {
     await fn();
@@ -83,31 +83,41 @@ export async function expectToThrowError(
     throw new Error("Expected function to throw an error but it did not");
   }
 
-  if (expectedError.name && error.name !== expectedError.name) {
+  if (expectedError.name && typeof error === "object" && error !== null && "name" in error && error.name !== expectedError.name) {
     throw new Error(
-      `Expected error name "${expectedError.name}" but got "${error.name}"`
+      `Expected error name "${expectedError.name}" but got "${(error as { name?: string }).name}"`
     );
   }
 
   if (expectedError.message) {
     if (typeof expectedError.message === "string") {
-      if (!error.message.includes(expectedError.message)) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        !(error as { message?: string }).message?.includes(expectedError.message)
+      ) {
         throw new Error(
-          `Expected error message to include "${expectedError.message}" but got "${error.message}"`
+          `Expected error message to include "${expectedError.message}" but got "${(error as { message?: string }).message}"`
         );
       }
     } else {
-      if (!expectedError.message.test(error.message)) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        !expectedError.message.test((error as { message?: string }).message ?? "")
+      ) {
         throw new Error(
-          `Expected error message to match ${expectedError.message} but got "${error.message}"`
+          `Expected error message to match ${expectedError.message} but got "${(error as { message?: string }).message}"`
         );
       }
     }
   }
 
-  if (expectedError.code && error.code !== expectedError.code) {
+  if (expectedError.code && typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code !== expectedError.code) {
     throw new Error(
-      `Expected error code "${expectedError.code}" but got "${error.code}"`
+      `Expected error code "${expectedError.code}" but got "${(error as { code?: string }).code}"`
     );
   }
 
@@ -128,20 +138,20 @@ export function mockLocalStorage() {
   const storage: Record<string, string> = {};
 
   return {
-    getItem: vi.fn((key: string) => storage[key] || null),
-    setItem: vi.fn((key: string, value: string) => {
+    getItem: vi.fn((key: string): string | null => storage[key] || null),
+    setItem: vi.fn((key: string, value: string): void => {
       storage[key] = value;
     }),
-    removeItem: vi.fn((key: string) => {
+    removeItem: vi.fn((key: string): void => {
       delete storage[key];
     }),
-    clear: vi.fn(() => {
+    clear: vi.fn((): void => {
       Object.keys(storage).forEach((key) => delete storage[key]);
     }),
-    get length() {
+    get length(): number {
       return Object.keys(storage).length;
     },
-    key: vi.fn((index: number) => Object.keys(storage)[index] || null),
+    key: vi.fn((index: number): string | null => Object.keys(storage)[index] || null),
   };
 }
 
@@ -193,11 +203,11 @@ export function setupBrowserMocks() {
 export function resetAuthMocks(mocks: ReturnType<typeof setupAuthMocks>) {
   Object.values(mocks).forEach((mock) => {
     if (mock && typeof mock === "object" && "mockClear" in mock) {
-      (mock as any).mockClear();
+      (mock as { mockClear: () => void }).mockClear();
     } else if (mock && typeof mock === "object") {
       Object.values(mock).forEach((fn) => {
         if (fn && typeof fn === "function" && "mockClear" in fn) {
-          (fn as any).mockClear();
+          (fn as { mockClear: () => void }).mockClear();
         }
       });
     }
@@ -207,7 +217,7 @@ export function resetAuthMocks(mocks: ReturnType<typeof setupAuthMocks>) {
 /**
  * Create a matcher for Supabase auth calls
  */
-export function matchSupabaseAuthCall(expectedData: any) {
+export function matchSupabaseAuthCall(expectedData: Record<string, unknown>) {
   return expect.objectContaining(expectedData);
 }
 

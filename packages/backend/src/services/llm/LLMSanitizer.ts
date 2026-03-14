@@ -316,7 +316,7 @@ export class LLMSanitizer extends BaseService {
       }
 
       return { valid: true };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         valid: false,
         error: error instanceof Error ? error.message : "Invalid JSON",
@@ -327,20 +327,21 @@ export class LLMSanitizer extends BaseService {
   /**
    * Check for prototype pollution in object
    */
-  private hasPrototypePollution(obj: any): boolean {
+  private hasPrototypePollution(obj: unknown): boolean {
     if (typeof obj !== "object" || obj === null) {
       return false;
     }
 
     const dangerousKeys = ["__proto__", "constructor", "prototype"];
 
-    for (const key of Object.keys(obj)) {
+    for (const key of Object.keys(obj as Record<string, unknown>)) {
       if (dangerousKeys.includes(key)) {
         return true;
       }
 
-      if (typeof obj[key] === "object" && obj[key] !== null) {
-        if (this.hasPrototypePollution(obj[key])) {
+      const value = (obj as Record<string, unknown>)[key];
+      if (typeof value === "object" && value !== null) {
+        if (this.hasPrototypePollution(value)) {
           return true;
         }
       }
@@ -352,12 +353,12 @@ export class LLMSanitizer extends BaseService {
   /**
    * Sanitize object (remove dangerous properties)
    */
-  sanitizeObject<T extends Record<string, any>>(obj: T): T {
+  sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
     if (typeof obj !== "object" || obj === null) {
       return obj;
     }
 
-    const sanitized: any = Array.isArray(obj) ? [] : {};
+    const sanitized: Record<string, unknown> = Array.isArray(obj) ? [] : {};
     const dangerousKeys = ["__proto__", "constructor", "prototype"];
 
     for (const key of Object.keys(obj)) {
@@ -369,7 +370,7 @@ export class LLMSanitizer extends BaseService {
       const value = obj[key];
 
       if (typeof value === "object" && value !== null) {
-        sanitized[key] = this.sanitizeObject(value);
+        sanitized[key] = this.sanitizeObject(value as Record<string, unknown>);
       } else if (typeof value === "string") {
         const result = this.sanitizeResponse(value);
         sanitized[key] = result.content;
@@ -520,8 +521,8 @@ export class LLMSanitizer extends BaseService {
   /**
    * Comprehensive input sanitization for agent invocations
    */
-  sanitizeAgentInput(input: any): {
-    sanitized: any;
+  sanitizeAgentInput(input: unknown): {
+    sanitized: unknown;
     violations: string[];
     injectionDetected: boolean;
     severity: "low" | "medium" | "high";
@@ -574,9 +575,9 @@ export class LLMSanitizer extends BaseService {
     }
 
     if (typeof input === "object" && input !== null) {
-      const sanitizedObj: any = {};
+      const sanitizedObj: Record<string, unknown> = {};
 
-      for (const [key, value] of Object.entries(input)) {
+      for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
         const result = this.sanitizeAgentInput(value);
         violations.push(...result.violations);
         if (result.injectionDetected) {

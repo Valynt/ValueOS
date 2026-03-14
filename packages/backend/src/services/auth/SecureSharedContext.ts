@@ -22,13 +22,13 @@ export interface SharedContext {
   traceId: string;
   workflowId?: string;
   timestamp: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface AgentContext {
   agentType: AgentType;
   sessionId: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   permissions: string[];
   dataAccessLevel: string;
   complianceChecks: string[];
@@ -40,9 +40,9 @@ export interface ContextShareRequest {
   fromAgent: AgentType;
   toAgent: AgentType;
   contextKey: string;
-  data: any;
+  data: unknown;
   securityContext: SecurityContext;
-  auditMetadata: Record<string, any>;
+  auditMetadata: Record<string, unknown>;
 }
 
 export interface SecurityContext {
@@ -65,7 +65,7 @@ export interface ContextValidationResult {
 
 export interface ContextCache {
   key: string;
-  data: any;
+  data: unknown;
   securityContext: SecurityContext;
   createdAt: number;
   expiresAt: number;
@@ -230,7 +230,7 @@ export class SecureSharedContext {
   /**
    * Sanitize context data for storage
    */
-  private sanitizeContextData(data: any): any {
+  private sanitizeContextData(data: unknown): unknown {
     if (data === null || data === undefined) {
       return {};
     }
@@ -248,8 +248,8 @@ export class SecureSharedContext {
       return data.slice(0, 1000).map(item => this.sanitizeContextData(item)); // Max 1000 items
     }
 
-    if (typeof data === 'object') {
-      const sanitized: any = {};
+    if (typeof data === 'object' && data !== null) {
+      const sanitized: Record<string, unknown> = {};
       const maxKeys = 100;
       let keyCount = 0;
 
@@ -281,7 +281,7 @@ export class SecureSharedContext {
       const sanitizedData = this.sanitizeContextData(request.data);
 
       // Create sanitized request copy
-      const sanitizedRequest = {
+      const sanitizedRequest: ContextShareRequest = {
         ...request,
         data: sanitizedData
       };
@@ -382,7 +382,7 @@ export class SecureSharedContext {
     toAgent: AgentType,
     contextKey: string,
     securityContext: SecurityContext
-  ): Promise<any | null> {
+  ): Promise<unknown | null> {
     const cacheKey = this.generateCacheKey(fromAgent, toAgent, contextKey, securityContext.tenantId);
     const cached = this.contextCache.get(cacheKey);
 
@@ -819,7 +819,7 @@ export class SecureSharedContext {
     return levels[agentType] || 1;
   }
 
-  private assessDataSensitivity(data: any): 'low' | 'medium' | 'high' {
+  private assessDataSensitivity(data: unknown): 'low' | 'medium' | 'high' {
     if (!data || typeof data !== 'object') return 'low';
 
     const dataString = JSON.stringify(data).toLowerCase();
@@ -978,7 +978,7 @@ export class SecureSharedContext {
   }
 
   private getComplianceRequirements(fromAgent: AgentType, toAgent: AgentType): string[] {
-    const requirements: unknown[] = [];
+    const requirements: string[] = [];
 
     // Financial compliance
     if ([fromAgent, toAgent].some(agent => ['financial-modeling', 'target'].includes(agent))) {

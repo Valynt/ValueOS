@@ -47,7 +47,7 @@ export interface DataBinding {
   /**
    * Fallback value if binding fails
    */
-  $fallback?: any;
+  $fallback?: unknown;
 
   /**
    * Refresh interval in milliseconds (optional)
@@ -64,7 +64,7 @@ export interface DataBinding {
   /**
    * Additional parameters for the data source
    */
-  $params?: Record<string, any>;
+  $params?: Record<string, unknown>;
 
   /**
    * Cache key (optional)
@@ -140,7 +140,7 @@ export const DataBindingSchema = z.object({
 /**
  * Type guard to check if a value is a data binding
  */
-export function isDataBinding(value: any): value is DataBinding {
+export function isDataBinding(value: unknown): value is DataBinding {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -152,7 +152,7 @@ export function isDataBinding(value: any): value is DataBinding {
 /**
  * Validate data binding
  */
-export function validateDataBinding(value: any): {
+export function validateDataBinding(value: unknown): {
   valid: boolean;
   errors: string[];
 } {
@@ -177,7 +177,7 @@ export interface ResolvedBinding {
   /**
    * The resolved value
    */
-  value: any;
+  value: unknown;
 
   /**
    * Whether the binding was successfully resolved
@@ -227,7 +227,7 @@ export interface DataSourceContext {
   /**
    * Additional context data
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

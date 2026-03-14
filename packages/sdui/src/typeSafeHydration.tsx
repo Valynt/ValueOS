@@ -19,18 +19,18 @@ export interface PropValidationResult {
   success: boolean;
   errors: string[];
   warnings: string[];
-  validatedProps: Record<string, any>;
+  validatedProps: Record<string, unknown>;
 }
 
 /**
  * Component prop schema registry
  */
-const componentPropSchemas = new Map<string, z.ZodSchema<any>>();
+const componentPropSchemas = new Map<string, z.ZodSchema<unknown>>();
 
 /**
  * Register a prop schema for a component
  */
-export function registerComponentPropSchema(componentName: string, schema: z.ZodSchema<any>): void {
+export function registerComponentPropSchema(componentName: string, schema: z.ZodSchema<unknown>): void {
   componentPropSchemas.set(componentName, schema);
   logger.info("Component prop schema registered", { componentName });
 }
@@ -38,7 +38,7 @@ export function registerComponentPropSchema(componentName: string, schema: z.Zod
 /**
  * Get prop schema for a component
  */
-export function getComponentPropSchema(componentName: string): z.ZodSchema<any> | null {
+export function getComponentPropSchema(componentName: string): z.ZodSchema<unknown> | null {
   return componentPropSchemas.get(componentName) || null;
 }
 
@@ -49,7 +49,7 @@ function createDynamicPropSchema(
   componentName: string,
   requiredProps: string[] = [],
   optionalProps: string[] = []
-): z.ZodSchema<any> {
+): z.ZodSchema<unknown> {
   const schema: Record<string, z.ZodTypeAny> = {};
 
   // Add required props
@@ -75,7 +75,7 @@ export function validateComponentProps(
 ): PropValidationResult {
   const { component, version } = componentResult;
   const componentName = section.component;
-  const props = section.props || {};
+  const props: Record<string, unknown> = section.props || {};
 
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -146,11 +146,11 @@ export function validateComponentProps(
 /**
  * Enhanced useDataBindings with type-safe validation
  */
-export function useValidatedDataBindings<T extends Record<string, any>>(
+export function useValidatedDataBindings<T extends Record<string, unknown>>(
   props: T,
   options: {
-    resolver?: any;
-    context?: any;
+    resolver?: unknown;
+    context?: unknown;
     componentName?: string;
     componentVersion?: number;
   }
@@ -179,8 +179,8 @@ export function useValidatedDataBindings<T extends Record<string, any>>(
   if (componentName && componentVersion) {
     const componentResult = resolveComponentWithVersion(componentName, componentVersion);
     if (componentResult.component) {
-      const section = {
-        type: "component" as const,
+      const section: SDUIComponentSection & { props: Record<string, unknown> } = {
+        type: "component",
         component: componentName,
         version: componentVersion,
         props: resolvedProps,

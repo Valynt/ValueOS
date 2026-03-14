@@ -40,7 +40,7 @@ export const sanitizeHTML = (input: string): string => {
  * Sanitizes user input for display in templates
  * Removes dangerous content while preserving text
  */
-export const sanitizeUserInput = (input: any): string => {
+export const sanitizeUserInput = (input: unknown): string => {
   if (input === null || input === undefined) return "";
   if (typeof input !== "string") return String(input);
 
@@ -57,29 +57,29 @@ export const sanitizeUserInput = (input: any): string => {
 /**
  * Sanitizes complex data objects (arrays, nested objects)
  */
-export const sanitizeDataObject = <T,>(data: T): T => {
+export const sanitizeDataObject = <T>(data: T): T => {
   if (data === null || data === undefined) return data;
 
   if (Array.isArray(data)) {
-    return data.map((item) => sanitizeDataObject(item)) as T;
+    return data.map((item) => sanitizeDataObject(item)) as unknown as T;
   }
 
-  if (typeof data === "object") {
-    const sanitized: any = {};
+  if (typeof data === "object" && data !== null) {
+    const sanitized: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       if (typeof value === "string") {
         sanitized[key] = sanitizeUserInput(value);
-      } else if (typeof value === "object") {
+      } else if (typeof value === "object" && value !== null) {
         sanitized[key] = sanitizeDataObject(value);
       } else {
         sanitized[key] = value;
       }
     }
-    return sanitized as T;
+    return sanitized as unknown as T;
   }
 
   if (typeof data === "string") {
-    return sanitizeUserInput(data) as T;
+    return sanitizeUserInput(data) as unknown as T;
   }
 
   return data;
@@ -93,7 +93,7 @@ export const sanitizeDataObject = <T,>(data: T): T => {
  * Validates and sanitizes numeric inputs
  */
 export const validateNumber = (
-  input: any,
+  input: unknown,
   min?: number,
   max?: number
 ): number => {
@@ -110,7 +110,7 @@ export const validateNumber = (
  * Validates string inputs with length limits
  */
 export const validateString = (
-  input: any,
+  input: unknown,
   maxLength: number = 1000
 ): string => {
   if (input === null || input === undefined) return "";
@@ -144,7 +144,7 @@ export const validateURL = (url: string): boolean => {
 /**
  * Validates array inputs
  */
-export const validateArray = <T,>(input: any, maxLength: number = 100): T[] => {
+export const validateArray = <T>(input: unknown, maxLength: number = 100): T[] => {
   if (!Array.isArray(input)) return [];
   return input.slice(0, maxLength) as T[];
 };
@@ -349,7 +349,7 @@ export const getSecurityHeaders = (): Record<string, string> => ({
 /**
  * Safely parses JSON with validation
  */
-export const safeJSONParse = <T,>(
+export const safeJSONParse = <T>(
   jsonString: string,
   defaultValue: T | null = null
 ): T | null => {
@@ -364,10 +364,10 @@ export const safeJSONParse = <T,>(
 /**
  * Safely stringifies data with validation
  */
-export const safeJSONStringify = <T,>(data: T): string | null => {
+export const safeJSONStringify = <T>(data: T): string | null => {
   try {
     // Remove circular references
-    const seen = new WeakSet();
+    const seen = new WeakSet<object>();
     const safeData = JSON.parse(
       JSON.stringify(data, (_key, value) => {
         if (typeof value === "object" && value !== null) {
@@ -435,9 +435,9 @@ export const clearRateLimit = (identifier: string): void => {
 /**
  * Complete sanitization pipeline for template inputs
  */
-export const sanitizeTemplateInput = <T,>(
+export const sanitizeTemplateInput = <T>(
   input: T,
-  schema?: Record<string, any>
+  schema?: Record<string, (value: unknown) => unknown>
 ): T => {
   if (!input) return input;
 
@@ -446,9 +446,9 @@ export const sanitizeTemplateInput = <T,>(
 
   // Step 2: Validate against schema if provided
   if (schema) {
-    const validated: any = {};
+    const validated: Record<string, unknown> = {};
     for (const [key, validator] of Object.entries(schema)) {
-      if (sanitized[key] !== undefined) {
+      if (Object.prototype.hasOwnProperty.call(sanitized, key)) {
         validated[key] = validator(sanitized[key]);
       }
     }
@@ -466,7 +466,7 @@ export interface SecurityEvent {
   type: "xss_attempt" | "csrf_violation" | "rate_limit" | "invalid_input";
   timestamp: number;
   source: string;
-  details: any;
+  details: unknown;
 }
 
 const securityEvents: SecurityEvent[] = [];

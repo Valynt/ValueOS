@@ -28,7 +28,14 @@ export interface SessionState {
 
 export type SessionEventType = 'idle_warning' | 'idle_timeout' | 'absolute_timeout' | 'activity' | 'logout';
 
-export type SessionEventListener = (type: SessionEventType, data?: any) => void;
+export type SessionEventData =
+  | SessionState
+  | { lastActivity: number }
+  | { timeoutIn: number; minutesRemaining: number }
+  | { reason: 'idle_timeout' | 'absolute_timeout' }
+  | undefined;
+
+export type SessionEventListener = (type: SessionEventType, data?: SessionEventData) => void;
 
 export class SessionManager extends BaseService {
   private static readonly DEFAULT_CONFIG: SessionConfig = {
@@ -125,7 +132,7 @@ export class SessionManager extends BaseService {
       if (!stored) return null;
 
       return JSON.parse(stored) as SessionState;
-    } catch (error) {
+    } catch (error: unknown) {
       this.log('error', 'Failed to parse session state', { error });
       return null;
     }
@@ -142,7 +149,7 @@ export class SessionManager extends BaseService {
         SessionManager.STORAGE_KEY,
         JSON.stringify(state)
       );
-    } catch (error) {
+    } catch (error: unknown) {
       this.log('error', 'Failed to save session state', { error });
     }
   }
@@ -155,7 +162,7 @@ export class SessionManager extends BaseService {
 
     try {
       sessionStorage.removeItem(SessionManager.STORAGE_KEY);
-    } catch (error) {
+    } catch (error: unknown) {
       this.log('error', 'Failed to clear session state', { error });
     }
   }
@@ -289,7 +296,7 @@ export class SessionManager extends BaseService {
       await authService.logout();
       this.clearSessionState();
       this.emitEvent('logout', { reason: type });
-    } catch (error) {
+    } catch (error: unknown) {
       this.log('error', 'Failed to logout on timeout', { error });
     }
   }
@@ -349,11 +356,11 @@ export class SessionManager extends BaseService {
   /**
    * Emit event to listeners
    */
-  private emitEvent(type: SessionEventType, data?: any): void {
+  private emitEvent(type: SessionEventType, data?: SessionEventData): void {
     this.eventListeners.forEach(listener => {
       try {
         listener(type, data);
-      } catch (error) {
+      } catch (error: unknown) {
         this.log('error', 'Event listener error', { type, error });
       }
     });
@@ -362,12 +369,12 @@ export class SessionManager extends BaseService {
   /**
    * Throttle function calls
    */
-  private throttle<T extends (...args: any[]) => any>(
+  private throttle<T extends (...args: unknown[]) => unknown>(
     func: T,
     limit: number
   ): (...args: Parameters<T>) => void {
     let inThrottle: boolean;
-    return function(this: any, ...args: Parameters<T>) {
+    return function(this: unknown, ...args: Parameters<T>) {
       if (!inThrottle) {
         func.apply(this, args);
         inThrottle = true;

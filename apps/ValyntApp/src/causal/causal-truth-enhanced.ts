@@ -84,8 +84,8 @@ export class CausalTruth {
     // Get base relationships
     const relationships = CAUSAL_RELATIONSHIPS.filter(r => 
       r.action === action &&
-      (!r.industry || r.industry.includes(industry as any)) &&
-      (!r.persona || r.persona.includes(persona as any)) &&
+      (!r.industry || r.industry.includes(industry as unknown)) &&
+      (!r.persona || r.persona.includes(persona as unknown)) &&
       (!r.companySize || r.companySize === companySize)
     );
 
@@ -433,8 +433,8 @@ export class CausalTruth {
     const candidates = this.queryEngine.findBestActionsForKpi(
       targetKpi,
       constraints.minConfidence || this.config.confidenceThreshold,
-      industry as any,
-      persona as any
+      industry as unknown,
+      persona as unknown
     );
 
     return candidates

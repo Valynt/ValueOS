@@ -78,7 +78,7 @@ interface MCPTool {
   description: string;
   inputSchema: {
     type: "object";
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required: string[];
   };
 }
@@ -90,7 +90,7 @@ interface MCPToolResult {
   content: Array<{
     type: "text" | "resource";
     text?: string;
-    resource?: any;
+    resource?: unknown;
   }>;
   isError?: boolean;
 }
@@ -164,7 +164,7 @@ export class MCPFinancialGroundTruthServer {
 
       this.initialized = true;
       logger.info("MCP Financial Ground Truth Server initialized successfully");
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         "Failed to initialize MCP server",
         error instanceof Error ? error : new Error("Unknown error")
@@ -333,7 +333,7 @@ export class MCPFinancialGroundTruthServer {
   /**
    * Execute an MCP tool
    */
-  async executeTool(toolName: string, args: Record<string, any>): Promise<MCPToolResult> {
+  async executeTool(toolName: string, args: Record<string, unknown>): Promise<MCPToolResult> {
     if (!this.initialized) {
       throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "MCP server not initialized");
     }
@@ -392,7 +392,7 @@ export class MCPFinancialGroundTruthServer {
         default:
           throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unknown tool: ${toolName}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         "MCP tool execution failed",
         error instanceof Error ? error : new Error("Unknown error"),
@@ -676,7 +676,7 @@ export class MCPFinancialGroundTruthServer {
    */
   async healthCheck(): Promise<{
     status: "healthy" | "degraded" | "unhealthy";
-    details: any;
+    details: Record<string, unknown>;
   }> {
     const health = await this.truthLayer.healthCheck();
 
@@ -694,12 +694,12 @@ export class MCPFinancialGroundTruthServer {
   // Helper Methods
   // ============================================================================
 
-  private async generateVerificationHash(results: any[]): Promise<string> {
+  private async generateVerificationHash(results: unknown[]): Promise<string> {
     try {
       const data = JSON.stringify(results);
       const hash = await sha256(data);
       return `sha256:${hash}`;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(
         "Failed to generate verification hash",
         error instanceof Error ? error : undefined

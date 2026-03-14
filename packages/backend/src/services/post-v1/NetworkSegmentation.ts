@@ -32,7 +32,7 @@ export interface NetworkRequest {
   url: string;
   method: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   agentType: string;
   agentId: string;
   priority?: "low" | "medium" | "high" | "critical";
@@ -41,7 +41,7 @@ export interface NetworkRequest {
 export interface NetworkResponse {
   status: number;
   headers: Record<string, string>;
-  data: any;
+  data: unknown;
   duration: number;
   encrypted: boolean;
 }
@@ -50,7 +50,7 @@ export class NetworkSegmentationManager {
   private static instance: NetworkSegmentationManager;
   private policies: Map<string, NetworkPolicy> = new Map();
   private activeConnections: Map<string, number> = new Map();
-  private connectionPool: Map<string, any[]> = new Map();
+  private connectionPool: Map<string, unknown[]> = new Map();
 
   private constructor() {
     this.initializeDefaultPolicies();
@@ -252,7 +252,7 @@ export class NetworkSegmentationManager {
         metadata: { url: request.url, result: "allowed" },
         severity: "info" as const,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       securityLogger.log({
         category: "authorization" as const,
         action: "ssrf_check",
@@ -364,7 +364,7 @@ export class NetworkSegmentationManager {
           ...response,
           duration: Date.now() - Date.now(), // Would be calculated in makeRequest
         };
-      } catch (error) {
+      } catch (error: unknown) {
         lastError = error as Error;
 
         log.warn("Network request failed, retrying", {
@@ -415,7 +415,7 @@ export class NetworkSegmentationManager {
 
       clearTimeout(timeoutId);
 
-      const data = await response.json().catch(() => ({}));
+      const data: unknown = await response.json().catch(() => ({}));
       const duration = Date.now() - startTime;
 
       return {
@@ -425,7 +425,7 @@ export class NetworkSegmentationManager {
         duration,
         encrypted: response.url.startsWith("https://"),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
       log.error("Network request failed", {
         error: (error as Error).message,
@@ -522,7 +522,7 @@ export class NetworkSegmentationManager {
       // Use DNS resolution to get IP
       const dns = require("dns");
       const addresses = await new Promise<string[]>((resolve, reject) => {
-        dns.resolve4(domain, (err: any, addresses: string[]) => {
+        dns.resolve4(domain, (err: unknown, addresses: string[]) => {
           if (err) reject(err);
           else resolve(addresses);
         });
@@ -540,7 +540,7 @@ export class NetworkSegmentationManager {
       }
 
       return { allowed: true, ip: addresses[0] };
-    } catch (error) {
+    } catch (error: unknown) {
       log.warn("DNS resolution failed, allowing request", {
         domain,
         error: (error as Error).message,

@@ -43,11 +43,11 @@ export class LLMCache {
     this.client = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
       socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+        reconnectStrategy: (retries: number) => Math.min(retries * 50, 500)
       }
     });
     
-    this.client.on('error', (err) => {
+    this.client.on('error', (err: unknown) => {
       logger.error('Redis client error', err);
       this.connected = false;
     });
@@ -84,7 +84,7 @@ export class LLMCache {
   /**
    * Generate cache key from prompt and model
    */
-  private generateCacheKey(prompt: string, model: string, options?: any): string {
+  private generateCacheKey(prompt: string, model: string, options?: Record<string, unknown>): string {
     // Create a hash of the prompt + model + options
     const content = JSON.stringify({
       prompt: prompt.trim().toLowerCase(),
@@ -107,7 +107,7 @@ export class LLMCache {
   async get(
     prompt: string,
     model: string,
-    options?: any
+    options?: Record<string, unknown>
   ): Promise<LLMCacheEntry | null> {
     if (!this.config.enabled || !this.connected) {
       return null;
@@ -140,8 +140,8 @@ export class LLMCache {
       });
 
       return entry;
-    } catch (error) {
-      logger.error('Failed to get from cache', error as Error);
+    } catch (error: unknown) {
+      logger.error('Failed to get from cache', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -158,7 +158,7 @@ export class LLMCache {
       completionTokens: number;
       cost: number;
     },
-    options?: any
+    options?: Record<string, unknown>
   ): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;
@@ -188,15 +188,15 @@ export class LLMCache {
         cost: metadata.cost,
         ttl: this.config.ttl
       });
-    } catch (error) {
-      logger.error('Failed to set cache', error as Error);
+    } catch (error: unknown) {
+      logger.error('Failed to set cache', error instanceof Error ? error : new Error(String(error)));
     }
   }
   
   /**
    * Delete cached response
    */
-  async delete(prompt: string, model: string, options?: any): Promise<void> {
+  async delete(prompt: string, model: string, options?: Record<string, unknown>): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;
     }
@@ -206,8 +206,8 @@ export class LLMCache {
       await this.client.del(key);
       
       logger.cache('delete', key);
-    } catch (error) {
-      logger.error('Failed to delete from cache', error as Error);
+    } catch (error: unknown) {
+      logger.error('Failed to delete from cache', error instanceof Error ? error : new Error(String(error)));
     }
   }
   
@@ -240,8 +240,8 @@ export class LLMCache {
       await this.client.del(`${this.config.keyPrefix}stats`);
 
       logger.info(`Cleared ${totalDeleted} cache entries`);
-    } catch (error) {
-      logger.error('Failed to clear cache', error as Error);
+    } catch (error: unknown) {
+      logger.error('Failed to clear cache', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -268,16 +268,16 @@ export class LLMCache {
       ]);
 
       const memoryMatch = memInfo.match(/used_memory:(\d+)/);
-      const cacheSize = memoryMatch ? parseInt(memoryMatch[1]) : 0;
+      const cacheSize = memoryMatch ? parseInt(memoryMatch[1], 10) : 0;
 
       return {
-        totalEntries: parseInt(statsHash.totalEntries ?? '0'),
-        totalHits: parseInt(statsHash.totalHits ?? '0'),
+        totalEntries: parseInt(statsHash.totalEntries ?? '0', 10),
+        totalHits: parseInt(statsHash.totalHits ?? '0', 10),
         totalCostSaved: parseFloat(statsHash.totalCostSaved ?? '0'),
         cacheSize,
       };
-    } catch (error) {
-      logger.error('Failed to get cache stats', error as Error);
+    } catch (error: unknown) {
+      logger.error('Failed to get cache stats', error instanceof Error ? error : new Error(String(error)));
       return { totalEntries: 0, totalHits: 0, totalCostSaved: 0, cacheSize: 0 };
     }
   }
@@ -353,7 +353,7 @@ export class LLMCache {
         });
 
         warmed++;
-      } catch (error) {
+      } catch (error: unknown) {
         failed++;
         logger.error('Cache warm failed for prompt', {
           model: entry.model,
@@ -378,7 +378,7 @@ export class LLMCache {
       cost: number;
     },
     ttl: number,
-    options?: any
+    options?: Record<string, unknown>
   ): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;
@@ -406,8 +406,8 @@ export class LLMCache {
         cost: metadata.cost,
         ttl
       });
-    } catch (error) {
-      logger.error('Failed to set cache with TTL', error as Error);
+    } catch (error: unknown) {
+      logger.error('Failed to set cache with TTL', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }
@@ -426,8 +426,8 @@ export async function initializeLLMCache(): Promise<void> {
     // Log initial stats
     const stats = await llmCache.getStats();
     logger.info('Cache stats', stats);
-  } catch (error) {
-    logger.error('Failed to initialize LLM cache', error as Error);
+  } catch (error: unknown) {
+    logger.error('Failed to initialize LLM cache', error instanceof Error ? error : new Error(String(error)));
     logger.warn('LLM caching will be disabled');
   }
 }

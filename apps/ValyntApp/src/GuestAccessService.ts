@@ -80,7 +80,7 @@ export interface GuestActivity {
   guestAccessTokenId: string;
   valueCaseId: string;
   activityType: GuestActivityType;
-  activityData?: Record<string, any>;
+  activityData?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
@@ -241,7 +241,16 @@ class GuestAccessService {
 
       if (error) throw error;
 
-      const result = data[0];
+      const result = (data as Array<{
+        is_valid: boolean;
+        guest_user_id?: string;
+        value_case_id?: string;
+        permissions?: GuestPermissions;
+        guest_name?: string;
+        guest_email?: string;
+        expires_at?: string;
+        error_message?: string;
+      }>)[0];
 
       if (!result.is_valid) {
         logger.warn('Invalid guest token', {
@@ -313,7 +322,7 @@ class GuestAccessService {
         reason,
       });
 
-      return data;
+      return data as boolean;
     } catch (error) {
       logger.error('Failed to revoke guest token', error as Error);
       throw error;
@@ -358,7 +367,7 @@ class GuestAccessService {
 
       if (error) throw error;
 
-      return data.map(this.mapDatabaseToToken);
+      return (data as Array<Record<string, unknown>>).map(this.mapDatabaseToToken);
     } catch (error) {
       logger.error('Failed to get guest tokens', error as Error);
       throw error;
@@ -373,7 +382,7 @@ class GuestAccessService {
     tokenId: string,
     valueCaseId: string,
     activityType: GuestActivityType,
-    activityData?: Record<string, any>,
+    activityData?: Record<string, unknown>,
     ipAddress?: string,
     userAgent?: string
   ): Promise<void> {
@@ -419,7 +428,7 @@ class GuestAccessService {
 
       if (error) throw error;
 
-      return data.map(this.mapDatabaseToActivity);
+      return (data as Array<Record<string, unknown>>).map(this.mapDatabaseToActivity);
     } catch (error) {
       logger.error('Failed to get guest activity', error as Error);
       throw error;
@@ -437,7 +446,7 @@ class GuestAccessService {
 
       logger.info('Expired guest tokens cleaned up', { count: data });
 
-      return data;
+      return data as number;
     } catch (error) {
       logger.error('Failed to cleanup expired tokens', error as Error);
       throw error;
@@ -463,66 +472,66 @@ class GuestAccessService {
    * Generate magic link URL
    */
   private generateMagicLink(token: string): string {
-    const baseUrl = import.meta.env.VITE_APP_URL || 'http://localhost:5173';
+    const baseUrl = (import.meta as any).env.VITE_APP_URL || 'http://localhost:5173';
     return `${baseUrl}/guest/access?token=${token}`;
   }
 
   /**
    * Map database row to GuestUser
    */
-  private mapDatabaseToGuestUser(row: any): GuestUser {
+  private mapDatabaseToGuestUser(row: Record<string, unknown>): GuestUser {
     return {
-      id: row.id,
-      email: row.email,
-      name: row.name,
-      company: row.company,
-      role: row.role,
-      createdBy: row.created_by,
-      organizationId: row.organization_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      id: String(row.id),
+      email: String(row.email),
+      name: String(row.name),
+      company: row.company === null || row.company === undefined ? undefined : String(row.company),
+      role: row.role === null || row.role === undefined ? undefined : String(row.role),
+      createdBy: String(row.created_by),
+      organizationId: String(row.organization_id),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
     };
   }
 
   /**
    * Map database row to GuestAccessToken
    */
-  private mapDatabaseToToken(row: any): GuestAccessToken {
+  private mapDatabaseToToken(row: Record<string, unknown>): GuestAccessToken {
     return {
-      id: row.id,
-      guestUserId: row.guest_user_id,
-      valueCaseId: row.value_case_id,
-      token: row.token,
-      permissions: row.permissions,
-      expiresAt: row.expires_at,
-      lastAccessedAt: row.last_accessed_at,
-      accessCount: row.access_count,
-      ipAddress: row.ip_address,
-      userAgent: row.user_agent,
-      revoked: row.revoked,
-      revokedAt: row.revoked_at,
-      revokedBy: row.revoked_by,
-      revokeReason: row.revoke_reason,
-      createdBy: row.created_by,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      id: String(row.id),
+      guestUserId: String(row.guest_user_id),
+      valueCaseId: String(row.value_case_id),
+      token: String(row.token),
+      permissions: row.permissions as GuestPermissions,
+      expiresAt: String(row.expires_at),
+      lastAccessedAt: row.last_accessed_at === null || row.last_accessed_at === undefined ? undefined : String(row.last_accessed_at),
+      accessCount: typeof row.access_count === 'number' ? row.access_count : Number(row.access_count),
+      ipAddress: row.ip_address === null || row.ip_address === undefined ? undefined : String(row.ip_address),
+      userAgent: row.user_agent === null || row.user_agent === undefined ? undefined : String(row.user_agent),
+      revoked: Boolean(row.revoked),
+      revokedAt: row.revoked_at === null || row.revoked_at === undefined ? undefined : String(row.revoked_at),
+      revokedBy: row.revoked_by === null || row.revoked_by === undefined ? undefined : String(row.revoked_by),
+      revokeReason: row.revoke_reason === null || row.revoke_reason === undefined ? undefined : String(row.revoke_reason),
+      createdBy: String(row.created_by),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
     };
   }
 
   /**
    * Map database row to GuestActivity
    */
-  private mapDatabaseToActivity(row: any): GuestActivity {
+  private mapDatabaseToActivity(row: Record<string, unknown>): GuestActivity {
     return {
-      id: row.id,
-      guestUserId: row.guest_user_id,
-      guestAccessTokenId: row.guest_access_token_id,
-      valueCaseId: row.value_case_id,
-      activityType: row.activity_type,
-      activityData: row.activity_data,
-      ipAddress: row.ip_address,
-      userAgent: row.user_agent,
-      createdAt: row.created_at,
+      id: String(row.id),
+      guestUserId: String(row.guest_user_id),
+      guestAccessTokenId: String(row.guest_access_token_id),
+      valueCaseId: String(row.value_case_id),
+      activityType: row.activity_type as GuestActivityType,
+      activityData: row.activity_data as Record<string, unknown> | undefined,
+      ipAddress: row.ip_address === null || row.ip_address === undefined ? undefined : String(row.ip_address),
+      userAgent: row.user_agent === null || row.user_agent === undefined ? undefined : String(row.user_agent),
+      createdAt: String(row.created_at),
     };
   }
 }

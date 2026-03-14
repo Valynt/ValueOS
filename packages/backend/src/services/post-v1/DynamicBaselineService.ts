@@ -34,7 +34,7 @@ export interface TenantBaseline {
 export interface MetricData {
   value: number;
   timestamp: Date;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface BaselineCalculation {
@@ -201,11 +201,17 @@ export class DynamicBaselineService extends TenantAwareService {
       }
 
       // Calculate new baseline using exponential moving average
-      const currentBaseline = baseline.baseline as any;
+      const currentBaseline = baseline.baseline as {
+        mean: number;
+        std_dev: number;
+        threshold: number;
+        confidence: number;
+        sample_size: number;
+      };
       const newCalculation = this.calculateBaseline(newData);
 
       // Apply learning rate for smooth adaptation
-      const learningRate = baseline.learning_config?.learning_rate || this.DEFAULT_CONFIG.learningRate;
+      const learningRate = baseline.learning_config?.learning_rate ?? this.DEFAULT_CONFIG.learningRate;
 
       const updatedBaseline = {
         mean: currentBaseline.mean * (1 - learningRate) + newCalculation.mean * learningRate,
@@ -336,7 +342,7 @@ export class DynamicBaselineService extends TenantAwareService {
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
       const { data } = await this.supabase
-        .from('security_metrics')
+        .from<{value: number; timestamp: string}>('security_metrics')
         .select('value, timestamp')
         .eq('tenant_id', tenantId)
         .eq('metric_name', metricName)
@@ -436,7 +442,7 @@ export class DynamicBaselineService extends TenantAwareService {
     tenantId: string,
     metricName: string,
     value: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<void> {
     try {
       await this.supabase.from('security_metrics').insert({
@@ -477,7 +483,7 @@ export class DynamicBaselineService extends TenantAwareService {
   }> {
     try {
       const { data } = await this.supabase
-        .from('tenant_baselines')
+        .from<{ baseline: { confidence: number }; last_updated: string }>('tenant_baselines')
         .select('baseline, last_updated')
         .eq('tenant_id', tenantId);
 
@@ -492,7 +498,7 @@ export class DynamicBaselineService extends TenantAwareService {
 
       const totalBaselines = data.length;
       const highConfidenceBaselines = data.filter(b =>
-        (b.baseline as any).confidence > 0.8
+        b.baseline.confidence > 0.8
       ).length;
 
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -501,7 +507,7 @@ export class DynamicBaselineService extends TenantAwareService {
       ).length;
 
       const metricsByConfidence = data.reduce((acc, b) => {
-        const confidence = (b.baseline as any).confidence;
+        const confidence = b.baseline.confidence;
         const bucket = confidence > 0.8 ? 'high' : confidence > 0.5 ? 'medium' : 'low';
         acc[bucket] = (acc[bucket] || 0) + 1;
         return acc;
@@ -528,7 +534,13 @@ export class DynamicBaselineService extends TenantAwareService {
   /**
    * Map database record to TenantBaseline interface
    */
-  private mapDbBaseline(dbRecord: any): TenantBaseline {
+  private mapDbBaseline(dbRecord: {
+    id: string;
+    tenant_id: string;
+    metric_name: string;
+    baseline: TenantBaseline['baseline'];
+    learning_config?: TenantBaseline['learningConfig'];
+  }): TenantBaseline {
     return {
       id: dbRecord.id,
       tenantId: dbRecord.tenant_id,
@@ -547,7 +559,7 @@ export class DynamicBaselineService extends TenantAwareService {
       const sixMonthsAgo = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000);
 
       const { data: oldBaselines } = await this.supabase
-        .from('tenant_baselines')
+        .from<{ id: string; tenant_id: string; metric_name: string }>('tenant_baselines')
         .select('id, tenant_id, metric_name')
         .lt('last_updated', sixMonthsAgo);
 
@@ -555,7 +567,7 @@ export class DynamicBaselineService extends TenantAwareService {
         for (const baseline of oldBaselines) {
           // Check if there's recent metric data
           const { data: recentData } = await this.supabase
-            .from('security_metrics')
+            .from<{ id: string }>('security_metrics')
             .select('id')
             .eq('tenant_id', baseline.tenant_id)
             .eq('metric_name', baseline.metric_name)

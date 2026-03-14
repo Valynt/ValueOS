@@ -359,8 +359,8 @@ const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
 };
 
 // Component load cache
-const componentCache = new Map<string, ComponentType<any>>();
-const loadingPromises = new Map<string, Promise<ComponentType<any>>>();
+const componentCache = new Map<string, ComponentType<unknown>>();
+const loadingPromises = new Map<string, Promise<ComponentType<unknown>>>();
 
 // Loading fallback component
 const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ componentName }) => (
@@ -445,11 +445,11 @@ export class LazyComponentRegistry {
         });
         logger.info(`Component loaded lazily: ${componentName}`, { loadTime, componentName });
         return { component, ...metadata };
-      } catch (error) {
+      } catch (error: unknown) {
         loadingPromises.delete(componentName);
         throw error;
       }
-    } catch (error) {
+    } catch (error: unknown) {
       const loadTime = Date.now() - startTime;
       sduiTelemetry.recordEvent({
         type: TelemetryEventType.COMPONENT_ERROR,
@@ -473,8 +473,8 @@ export class LazyComponentRegistry {
    */
   private static async loadComponent(
     componentName: string,
-    lazyLoader: React.LazyExoticComponent<ComponentType<any>>
-  ): Promise<ComponentType<any>> {
+    lazyLoader: React.LazyExoticComponent<ComponentType<unknown>>
+  ): Promise<ComponentType<unknown>> {
     try {
       // Trigger the lazy load
       const Component = lazyLoader;
@@ -503,9 +503,11 @@ export class LazyComponentRegistry {
       });
 
       return Component;
-    } catch (error) {
+    } catch (error: unknown) {
       throw new Error(
-        `Failed to load component ${componentName}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to load component ${componentName}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
     }
   }
@@ -522,7 +524,7 @@ export class LazyComponentRegistry {
           try {
             await this.loadComponent(componentName, lazyLoader);
             componentCache.set(componentName, lazyLoader);
-          } catch (error) {
+          } catch (error: unknown) {
             logger.warn(`Failed to preload component: ${componentName}`, { error });
           }
         }
@@ -598,7 +600,7 @@ export function resolveComponentLazy(section: SDUIComponentSection): RegistryEnt
     return { default: entry.component };
   });
   // Wrap with Suspense for loading states and error boundary for resilience
-  const WrappedComponent = (props: any) => (
+  const WrappedComponent: React.FC<Record<string, unknown>> = (props) => (
     <Suspense fallback={<ComponentLoadingFallback componentName={section.component} />}>
       <LazyComponent {...props} />
     </Suspense>
@@ -621,7 +623,7 @@ export function preloadCriticalComponents(): void {
     "InfoBanner",
   ];
 
-  LazyComponentRegistry.preloadComponents(criticalComponents).catch((error) => {
+  LazyComponentRegistry.preloadComponents(criticalComponents).catch((error: unknown) => {
     logger.warn("Failed to preload critical components", { error });
   });
 }

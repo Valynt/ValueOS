@@ -15,7 +15,7 @@ import { EventProducer, getEventProducer } from "./EventProducer.js"
 export interface SagaStep {
   stepId: string;
   stepType: string;
-  action: () => Promise<any>;
+  action: () => Promise<unknown>;
   compensate: () => Promise<void>;
   timeout?: number;
   retryCount?: number;
@@ -25,7 +25,7 @@ export interface SagaStep {
 export interface SagaDefinition {
   sagaType: string;
   steps: SagaStep[];
-  onComplete?: (result: any) => Promise<void>;
+  onComplete?: (result: SagaState) => Promise<void>;
   onFailure?: (error: Error) => Promise<void>;
   timeout?: number;
 }
@@ -47,7 +47,7 @@ export interface SagaState {
   steps: Array<{
     stepId: string;
     status: "pending" | "executing" | "completed" | "failed" | "compensated";
-    result?: any;
+    result?: unknown;
     error?: string;
     startTime?: Date;
     endTime?: Date;
@@ -85,7 +85,7 @@ export class SagaCoordinator {
   /**
    * Start a new saga
    */
-  async startSaga(sagaType: string, correlationId: string, initialData?: any): Promise<string> {
+  async startSaga(sagaType: string, correlationId: string, initialData?: unknown): Promise<string> {
     const definition = this.sagaDefinitions.get(sagaType);
     if (!definition) {
       throw new Error(`Saga definition not found: ${sagaType}`);
@@ -298,8 +298,8 @@ export class SagaCoordinator {
     stepState: SagaState["steps"][0],
     definition: SagaDefinition
   ): Promise<void> {
-    const maxRetries = step.retryCount || 3;
-    const retryDelay = step.retryDelay || 1000;
+    const maxRetries = step.retryCount ?? 3;
+    const retryDelay = step.retryDelay ?? 1000;
 
     stepState.status = "executing";
     stepState.startTime = new Date();
@@ -334,20 +334,20 @@ export class SagaCoordinator {
         });
 
         return;
-      } catch (error) {
+      } catch (error: unknown) {
         logger.warn("Saga step failed, retrying", {
           sagaId: sagaState.sagaId,
           stepId: step.stepId,
           attempt: attempt + 1,
           maxRetries,
-          error: (error as Error).message,
+          error: error instanceof Error ? error.message : String(error),
         });
 
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
         } else {
           stepState.status = "failed";
-          stepState.error = (error as Error).message;
+          stepState.error = error instanceof Error ? error.message : String(error);
           stepState.endTime = new Date();
 
           // Publish step failure event
@@ -365,7 +365,7 @@ export class SagaCoordinator {
               stepType: step.stepType,
               status: "failed",
               input: stepState.result,
-              error: (error as Error).message,
+              error: stepState.error,
               duration: stepState.endTime.getTime() - stepState.startTime!.getTime(),
               retryCount: attempt,
             },
@@ -425,8 +425,8 @@ export class SagaCoordinator {
             sagaId: sagaState.sagaId,
             stepId: step.stepId,
           });
-        } catch (compensationError) {
-          logger.error("Saga compensation failed", compensationError as Error, {
+        } catch (compensationError: unknown) {
+          logger.error("Saga compensation failed", compensationError instanceof Error ? compensationError : new Error(String(compensationError)), {
             sagaId: sagaState.sagaId,
             stepId: step.stepId,
           });

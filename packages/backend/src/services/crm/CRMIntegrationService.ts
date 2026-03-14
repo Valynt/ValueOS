@@ -20,6 +20,25 @@ export interface CRMSyncResult {
   message: string;
 }
 
+interface ValueHypothesis {
+  title: string;
+  description: string;
+  confidence: number;
+}
+
+interface KeyMetric {
+  label: string;
+  value: string | number;
+  trend: string;
+}
+
+interface AnalysisData {
+  analysisSummary?: string;
+  valueHypotheses?: ValueHypothesis[];
+  keyMetrics?: KeyMetric[];
+  [key: string]: unknown;
+}
+
 export class CRMIntegrationService {
   /**
    * Fetches deals from the connected CRM
@@ -42,7 +61,7 @@ export class CRMIntegrationService {
     try {
       const result = await crmModule.searchDeals({ limit: 50 });
       return result.deals;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Failed to fetch CRM deals", error);
       throw error;
     }
@@ -53,7 +72,7 @@ export class CRMIntegrationService {
    */
   async syncAnalysisToDeal(
     dealId: string,
-    analysisData: any,
+    analysisData: AnalysisData,
     tenantId?: string // Optional for now to maintain compat, but required for enforcement
   ): Promise<CRMSyncResult> {
     logger.info("Starting CRM Sync", { dealId });
@@ -99,7 +118,7 @@ export class CRMIntegrationService {
           message: "Failed to write to HubSpot. Please check connection.",
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("CRM Sync Failed", error);
       return {
         success: false,
@@ -108,7 +127,7 @@ export class CRMIntegrationService {
     }
   }
 
-  private formatAnalysisAsNote(data: any): string {
+  private formatAnalysisAsNote(data: AnalysisData): string {
     const timestamp = new Date().toLocaleString();
     let body = `<p><strong>ValueOS Analysis - ${timestamp}</strong></p>`;
 
@@ -118,7 +137,7 @@ export class CRMIntegrationService {
 
     if (data.valueHypotheses && Array.isArray(data.valueHypotheses)) {
       body += `<p><strong>Strategic Value Hypotheses:</strong></p><ul>`;
-      data.valueHypotheses.forEach((h: any) => {
+      data.valueHypotheses.forEach((h) => {
         body += `<li><strong>${h.title}</strong>: ${h.description} (Confidence: ${h.confidence}%)</li>`;
       });
       body += `</ul><br/>`;
@@ -126,7 +145,7 @@ export class CRMIntegrationService {
 
     if (data.keyMetrics && Array.isArray(data.keyMetrics)) {
       body += `<p><strong>Target Metrics:</strong></p><ul>`;
-      data.keyMetrics.forEach((m: any) => {
+      data.keyMetrics.forEach((m) => {
         body += `<li>${m.label}: ${m.value} (${m.trend})</li>`;
       });
       body += `</ul>`;

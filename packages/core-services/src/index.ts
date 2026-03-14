@@ -38,3 +38,17 @@ export { BenchmarkService } from './BenchmarkService.js';
 export type { Benchmark, BenchmarkComparison, BenchmarkImportResult } from './BenchmarkService.js';
 
 export type { CanvasComponent, Suggestion } from './CanvasTypes.js';
+
+export { EntityGraph, EntityGraphError } from './EntityGraph.js';
+export type {
+  EntityNode,
+  EntityNodeType,
+  GraphEdge,
+  EdgeType,
+  PropagationType,
+  KpiDependency,
+  PropagationResult,
+  CycleDetectionResult,
+  EntityGraphStore,
+} from './EntityGraph.js';
+export { KpiDependencySchema, EntityGraphEdgeSchema } from './EntityGraph.js';

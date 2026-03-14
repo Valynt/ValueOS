@@ -5,8 +5,8 @@
 export interface Rule {
   id: string;
   name: string;
-  condition: (context: any) => boolean;
-  action: (context: any) => void | Promise<void>;
+  condition: (context: Record<string, unknown>) => boolean;
+  action: (context: Record<string, unknown>) => void | Promise<void>;
 }
 
 export interface EnforcementResult {
@@ -49,7 +49,7 @@ export class RulesEngine {
     this.rules.set(rule.id, rule);
   }
 
-  async evaluate(context: any): Promise<void> {
+  async evaluate(context: Record<string, unknown>): Promise<void> {
     for (const rule of this.rules.values()) {
       if (rule.condition(context)) {
         await rule.action(context);

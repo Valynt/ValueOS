@@ -133,12 +133,12 @@ router.get("/api/sdui/schema/:workspaceId", async (req: Request, res: Response) 
 
     const context: WorkspaceContext = {
       workspaceId: workspaceId || "",
-      userId: (req as any).user?.id || "anonymous",
+      userId: (req as unknown as { user?: { id: string } }).user?.id || "anonymous",
       stage: isValidStage(req.query.stage as string)
         ? (req.query.stage as LifecycleStage)
         : "opportunity",
       metadata: {
-        tenantId: (req as any).tenantId || "",
+        tenantId: (req as unknown as { tenantId?: string }).tenantId || "",
         sessionId: (req.headers["x-session-id"] as string) || "",
       },
     };
@@ -198,7 +198,7 @@ router.get("/api/sdui/schema/:workspaceId", async (req: Request, res: Response) 
           to: migrationResult.toVersion,
           duration: migrationResult.duration,
         });
-      } catch (migrationError) {
+      } catch (migrationError: unknown) {
         logger.error("Migration error occurred", {
           workspaceId,
           error: migrationError,
@@ -247,7 +247,7 @@ router.get("/api/sdui/schema/:workspaceId", async (req: Request, res: Response) 
     }
 
     return res.json(schema);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("SDUI schema request failed", { error });
     return res.status(500).json({
       error: "internal_error",
@@ -300,7 +300,7 @@ router.get("/api/sdui/agent/:agentId/schema", async (req: Request, res: Response
     res.setHeader("Vary", "Accept-Version");
 
     return res.json(schema);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Agent SDUI schema request failed", { error });
     return res.status(500).json({
       error: "internal_error",
@@ -356,7 +356,7 @@ router.get("/api/sdui/versions", (_req: Request, res: Response) => {
  */
 router.post("/api/sdui/validate", (req: Request, res: Response) => {
   try {
-    const schema = req.body;
+    const schema: unknown = req.body;
     const validation = validateSDUISchema(schema);
 
     if (validation.success) {
@@ -370,7 +370,7 @@ router.post("/api/sdui/validate", (req: Request, res: Response) => {
         errors: validation.errors,
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Schema validation failed", { error });
     return res.status(500).json({
       error: "validation_error",
@@ -403,7 +403,7 @@ router.get("/api/sdui/migrations/checkpoints", (_req: Request, res: Response) =>
         metadata: cp.metadata,
       })),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Failed to get migration checkpoints", { error });
     return res.status(500).json({
       error: "internal_error",
@@ -441,7 +441,7 @@ router.post("/api/sdui/migrations/rollback/:checkpointId", async (req: Request, 
         errors: result.errors,
       });
     }
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Migration rollback failed", { error });
     return res.status(500).json({
       error: "internal_error",
@@ -457,7 +457,9 @@ router.post("/api/sdui/migrations/rollback/:checkpointId", async (req: Request, 
  */
 router.post("/api/sdui/migrations/diff", (req: Request, res: Response) => {
   try {
-    const { original, updated } = req.body;
+    const body: Record<string, unknown> = req.body;
+    const original = body.original as Record<string, unknown> | undefined;
+    const updated = body.updated as Record<string, unknown> | undefined;
 
     if (!original || !updated) {
       return res.status(400).json({
@@ -476,7 +478,7 @@ router.post("/api/sdui/migrations/diff", (req: Request, res: Response) => {
     });
 
     return res.json(diff);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Schema diff generation failed", { error });
     return res.status(500).json({
       error: "internal_error",
@@ -490,13 +492,22 @@ router.post("/api/sdui/migrations/diff", (req: Request, res: Response) => {
  *
  * Returns list of available schema migrations with metadata
  */
+interface MigrationInfo {
+  fromVersion: number;
+  toVersion: number;
+  description: string;
+  estimatedTimeMs: number;
+  breakingChanges: boolean;
+  rollback?: () => Promise<void>;
+}
+
 router.get("/api/sdui/migrations/available", (_req: Request, res: Response) => {
   try {
     // Placeholder implementation - method doesn't exist yet
-    const availableMigrations: any[] = [];
+    const availableMigrations: MigrationInfo[] = [];
 
     return res.json({
-      migrations: availableMigrations.map((migration: any) => ({
+      migrations: availableMigrations.map((migration) => ({
         fromVersion: migration.fromVersion,
         toVersion: migration.toVersion,
         description: migration.description,
@@ -505,7 +516,7 @@ router.get("/api/sdui/migrations/available", (_req: Request, res: Response) => {
         hasRollback: !!migration.rollback,
       })),
     });
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Failed to get available migrations", { error });
     return res.status(500).json({
       error: "internal_error",

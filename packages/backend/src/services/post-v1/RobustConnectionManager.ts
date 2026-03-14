@@ -73,7 +73,7 @@ export interface RobustConnectionOptions {
  */
 export interface ConnectionMessage {
   type: string;
-  payload: any;
+  payload: unknown;
   timestamp: number;
   messageId: string;
   strategy: ConnectionStrategy;
@@ -102,7 +102,7 @@ class BrowserEventEmitter {
     }
   }
 
-  emit(event: string, ...args: any[]): void {
+  emit(event: string, ...args: unknown[]): void {
     const eventListeners = this.listeners.get(event);
     if (eventListeners) {
       eventListeners.forEach(listener => listener(...args));
@@ -195,7 +195,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
 
     try {
       await this.attemptConnection(this.currentStrategy);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to connect with primary strategy', {
         strategy: this.currentStrategy,
         error: error instanceof Error ? error.message : String(error),
@@ -238,7 +238,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
     try {
       await this.sendWithStrategy(fullMessage);
       logger.debug('Message sent', { type: message.type, messageId: fullMessage.messageId });
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to send message', {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -306,7 +306,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
           clearTimeout(timeout);
           resolve();
         })
-        .catch((error) => {
+        .catch((error: unknown) => {
           clearTimeout(timeout);
           reject(error);
         });
@@ -347,20 +347,20 @@ export class RobustConnectionManager extends BrowserEventEmitter {
           resolve();
         };
 
-        this.websocket.onmessage = (event) => {
+        this.websocket.onmessage = (event: MessageEvent) => {
           this.handleMessage(event, 'websocket');
         };
 
-        this.websocket.onerror = (event) => {
+        this.websocket.onerror = (event: Event) => {
           logger.error('WebSocket error', { event });
           reject(new Error('WebSocket connection failed'));
         };
 
-        this.websocket.onclose = (event) => {
+        this.websocket.onclose = (event: CloseEvent) => {
           logger.info('WebSocket closed', { code: event.code, reason: event.reason });
           this.handleDisconnection();
         };
-      } catch (error) {
+      } catch (error: unknown) {
         reject(error);
       }
     });
@@ -390,15 +390,15 @@ export class RobustConnectionManager extends BrowserEventEmitter {
           resolve();
         };
 
-        this.eventSource.onmessage = (event) => {
+        this.eventSource.onmessage = (event: MessageEvent) => {
           this.handleMessage(event, 'sse');
         };
 
-        this.eventSource.onerror = (event) => {
+        this.eventSource.onerror = (event: Event) => {
           logger.error('SSE error', { event });
           reject(new Error('SSE connection failed'));
         };
-      } catch (error) {
+      } catch (error: unknown) {
         reject(error);
       }
     });
@@ -446,7 +446,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
         this.currentStrategy = strategy;
         await this.attemptConnection(strategy);
         return;
-      } catch (error) {
+      } catch (error: unknown) {
         logger.warn('Fallback strategy failed', { strategy, error: error instanceof Error ? error.message : String(error) });
       }
     }
@@ -532,12 +532,12 @@ export class RobustConnectionManager extends BrowserEventEmitter {
         });
 
         if (response.ok) {
-          const messages = await response.json();
-          messages.forEach((message: any) => {
+          const messages: unknown[] = await response.json();
+          messages.forEach((message: unknown) => {
             this.handleMessage({ data: JSON.stringify(message) }, 'polling');
           });
         }
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error('Polling request failed', { error });
       }
     }, 5000); // Poll every 5 seconds
@@ -579,16 +579,20 @@ export class RobustConnectionManager extends BrowserEventEmitter {
   /**
    * Handle incoming message
    */
-  private handleMessage(event: any, strategy: ConnectionStrategy): void {
+  private handleMessage(event: { data: unknown }, strategy: ConnectionStrategy): void {
     try {
       const message: ConnectionMessage = typeof event.data === 'string'
         ? JSON.parse(event.data)
-        : event.data;
+        : event.data as ConnectionMessage;
 
       // Track latency for heartbeat responses
-      if (message.type === 'heartbeat_response' && message.payload.originalTimestamp) {
-        const latency = Date.now() - message.payload.originalTimestamp;
-        this.trackLatency(latency);
+      if (message.type === 'heartbeat_response' && message.payload && typeof message.payload === 'object' && 'originalTimestamp' in (message.payload as Record<string, unknown>)) {
+        const payloadRecord = message.payload as Record<string, unknown>;
+        const originalTimestamp = payloadRecord.originalTimestamp;
+        if (typeof originalTimestamp === 'number') {
+          const latency = Date.now() - originalTimestamp;
+          this.trackLatency(latency);
+        }
       }
 
       this.packetCount++;
@@ -601,7 +605,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
 
       this.emit('message', message);
       this.emit(message.type, message.payload);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to parse message', {
         error: error instanceof Error ? error.message : String(error),
       });

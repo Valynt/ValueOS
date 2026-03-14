@@ -27,7 +27,7 @@ export interface AdversarialValidationRequest {
   agentType: string;
   confidence: number;
   reasoning: string[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   traceId: string;
 }
 
@@ -151,7 +151,7 @@ export class AdversarialValidator {
 
       return validationResult;
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Adversarial validation failed', error instanceof Error ? error : undefined, {
         traceId: request.traceId,
       });
@@ -213,7 +213,7 @@ export class AdversarialValidator {
         confidence: analysis.confidence,
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Structural validation challenge failed', error instanceof Error ? error : undefined);
       return {
         issues: [{
@@ -268,7 +268,7 @@ export class AdversarialValidator {
         confidence: analysis.confidence,
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Reasoning analysis challenge failed', error instanceof Error ? error : undefined);
       return {
         issues: [{
@@ -323,7 +323,7 @@ export class AdversarialValidator {
         confidence: analysis.confidence,
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Source verification challenge failed', error instanceof Error ? error : undefined);
       return {
         issues: [{
@@ -378,7 +378,7 @@ export class AdversarialValidator {
         confidence: analysis.confidence,
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Logical consistency challenge failed', error instanceof Error ? error : undefined);
       return {
         issues: [{
@@ -422,7 +422,7 @@ export class AdversarialValidator {
         confidence: analysis.confidence,
       };
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Metric verification challenge failed', error instanceof Error ? error : undefined);
       return {
         issues: [{
@@ -506,7 +506,7 @@ Respond with JSON format:
 }`;
   }
 
-  private buildConsistencyChallenge(response: SDUIPageDefinition, context: Record<string, any>): string {
+  private buildConsistencyChallenge(response: SDUIPageDefinition, context: Record<string, unknown>): string {
     return `You are an expert in logical consistency analysis.
 
 Analyze this SDUI response for consistency with the provided context:
@@ -554,10 +554,20 @@ Respond with JSON format:
   // Response Parsers
   // ============================================================================
 
-  private parseStructuralResponse(response: string): any {
+  private parseStructuralResponse(response: string): {
+    hallucinatedComponents: string[];
+    structurallyConsistent: boolean;
+    inconsistencyReason: string;
+    confidence: number;
+  } {
     try {
-      return JSON.parse(response);
-    } catch (error) {
+      return JSON.parse(response) as {
+        hallucinatedComponents: string[];
+        structurallyConsistent: boolean;
+        inconsistencyReason: string;
+        confidence: number;
+      };
+    } catch (error: unknown) {
       logger.error('Failed to parse structural response', error instanceof Error ? error : undefined);
       return {
         hallucinatedComponents: [],
@@ -568,10 +578,18 @@ Respond with JSON format:
     }
   }
 
-  private parseReasoningResponse(response: string): any {
+  private parseReasoningResponse(response: string): {
+    reasoningQuality: number;
+    contradictions: string[];
+    confidence: number;
+  } {
     try {
-      return JSON.parse(response);
-    } catch (error) {
+      return JSON.parse(response) as {
+        reasoningQuality: number;
+        contradictions: string[];
+        confidence: number;
+      };
+    } catch (error: unknown) {
       logger.error('Failed to parse reasoning response', error instanceof Error ? error : undefined);
       return {
         reasoningQuality: 0.5,
@@ -581,10 +599,18 @@ Respond with JSON format:
     }
   }
 
-  private parseSourceResponse(response: string): any {
+  private parseSourceResponse(response: string): {
+    fabricatedSources: string[];
+    unverifiableClaims: string[];
+    confidence: number;
+  } {
     try {
-      return JSON.parse(response);
-    } catch (error) {
+      return JSON.parse(response) as {
+        fabricatedSources: string[];
+        unverifiableClaims: string[];
+        confidence: number;
+      };
+    } catch (error: unknown) {
       logger.error('Failed to parse source response', error instanceof Error ? error : undefined);
       return {
         fabricatedSources: [],
@@ -594,10 +620,20 @@ Respond with JSON format:
     }
   }
 
-  private parseConsistencyResponse(response: string): any {
+  private parseConsistencyResponse(response: string): {
+    contextMismatch: boolean;
+    mismatchReason: string;
+    logicalFlowIssues: string[];
+    confidence: number;
+  } {
     try {
-      return JSON.parse(response);
-    } catch (error) {
+      return JSON.parse(response) as {
+        contextMismatch: boolean;
+        mismatchReason: string;
+        logicalFlowIssues: string[];
+        confidence: number;
+      };
+    } catch (error: unknown) {
       logger.error('Failed to parse consistency response', error instanceof Error ? error : undefined);
       return {
         contextMismatch: false,
@@ -608,10 +644,18 @@ Respond with JSON format:
     }
   }
 
-  private parseMetricResponse(response: string): any {
+  private parseMetricResponse(response: string): {
+    suspiciousMetrics: string[];
+    calculationErrors: string[];
+    confidence: number;
+  } {
     try {
-      return JSON.parse(response);
-    } catch (error) {
+      return JSON.parse(response) as {
+        suspiciousMetrics: string[];
+        calculationErrors: string[];
+        confidence: number;
+      };
+    } catch (error: unknown) {
       logger.error('Failed to parse metric response', error instanceof Error ? error : undefined);
       return {
         suspiciousMetrics: [],
@@ -628,7 +672,7 @@ Respond with JSON format:
   private calculateAdversarialScore(issues: ValidationIssue[]): number {
     if (issues.length === 0) return 0.0;
 
-    const severityWeights = {
+    const severityWeights: Record<'low' | 'medium' | 'high' | 'critical', number> = {
       low: 0.1,
       medium: 0.3,
       high: 0.6,

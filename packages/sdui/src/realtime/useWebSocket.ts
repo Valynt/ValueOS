@@ -22,7 +22,7 @@ export interface UseWebSocketOptions {
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Error) => void;
-  onMessage?: (data: any) => void;
+  onMessage?: (data: unknown) => void;
   debug?: boolean;
 }
 
@@ -35,8 +35,8 @@ export interface UseWebSocketReturn {
   send: (message: WebSocketMessage) => void;
   subscribe: (
     channel: string,
-    callback: (data: any) => void,
-    filter?: (data: any) => boolean
+    callback: (data: unknown) => void,
+    filter?: (data: unknown) => boolean
   ) => () => void;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -86,7 +86,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       options.onClose?.();
     });
 
-    const removeErrorListener = wsManagerRef.current.addEventListener('error', (event) => {
+    const removeErrorListener = wsManagerRef.current.addEventListener('error', (event: { error?: Error }) => {
       setState('error');
       options.onError?.(event.error || new Error('WebSocket error'));
     });
@@ -146,8 +146,8 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const subscribe = useCallback(
     (
       channel: string,
-      callback: (data: any) => void,
-      filter?: (data: any) => boolean
+      callback: (data: unknown) => void,
+      filter?: (data: unknown) => boolean
     ): (() => void) => {
       if (!wsManagerRef.current) {
         return () => {};
@@ -183,7 +183,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
  * 
  * Simplified hook for subscribing to a single channel
  */
-export function useWebSocketChannel<T = any>(
+export function useWebSocketChannel<T = unknown>(
   channel: string,
   options: UseWebSocketOptions
 ): {
@@ -198,7 +198,7 @@ export function useWebSocketChannel<T = any>(
 
   const ws = useWebSocket({
     ...options,
-    onError: (err) => {
+    onError: (err: Error) => {
       setError(err);
       setLoading(false);
       options.onError?.(err);
@@ -207,8 +207,8 @@ export function useWebSocketChannel<T = any>(
 
   useEffect(() => {
     if (!ws.isConnected) {
-      ws.connect().catch((err) => {
-        setError(err);
+      ws.connect().catch((err: unknown) => {
+        setError(err instanceof Error ? err : new Error(String(err)));
         setLoading(false);
       });
     }

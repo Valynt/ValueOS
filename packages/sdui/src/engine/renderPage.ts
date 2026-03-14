@@ -14,13 +14,13 @@ export interface RenderContext {
   userId?: string;
   sessionId?: string;
   businessCaseId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface RenderOptions {
   context?: RenderContext;
   onError?: (error: Error, section: SDUISection) => void;
-  componentRegistry?: Map<string, React.ComponentType<any>>;
+  componentRegistry?: Map<string, React.ComponentType<unknown>>;
 }
 
 /**
@@ -65,7 +65,7 @@ function renderSection(
   section: SDUISection,
   index: number,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<any>>
+  componentRegistry?: Map<string, React.ComponentType<unknown>>
 ): React.ReactElement {
   if (section.type === "layout.directive") {
     return renderLayoutDirective(section, index, context, componentRegistry);
@@ -82,7 +82,7 @@ function renderLayoutDirective(
   directive: SDUILayoutDirective,
   index: number,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<any>>
+  componentRegistry?: Map<string, React.ComponentType<unknown>>
 ): React.ReactElement {
   const { intent, component, props, layout, metadata } = directive;
 
@@ -122,10 +122,10 @@ function renderComponent(
   section: SDUISection,
   index: number,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<any>>
+  componentRegistry?: Map<string, React.ComponentType<unknown>>
 ): React.ReactElement {
   if (section.type !== "component") {
-    throw new Error(`Invalid section type: ${(section as any).type}`);
+    throw new Error(`Invalid section type: ${section.type}`);
   }
 
   const { component, props, version, fallback } = section;
@@ -169,10 +169,10 @@ function renderComponent(
  */
 function wrapWithLayout(
   element: React.ReactElement,
-  layout: string | { type: string; children?: any[] },
+  layout: string | { type: string; children?: unknown[]; props?: Record<string, unknown> },
   index: number,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<any>>
+  componentRegistry?: Map<string, React.ComponentType<unknown>>
 ): React.ReactElement {
   // Handle nested layout objects
   if (typeof layout === "object" && layout.type) {
@@ -180,7 +180,7 @@ function wrapWithLayout(
   }
 
   // Handle simple string layout types
-  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
+  const primitiveLayoutMap: Record<string, React.ComponentType<unknown> | undefined> = {
     two_column: VerticalSplit,
     dashboard: DashboardPanel,
     grid: Grid,
@@ -223,11 +223,11 @@ function wrapWithLayout(
  * Render nested layout with recursive child rendering
  */
 function renderNestedLayout(
-  layout: { type: string; children?: any[]; props?: any },
+  layout: { type: string; children?: unknown[]; props?: Record<string, unknown> },
   primaryElement: React.ReactElement,
   index: number,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<any>>
+  componentRegistry?: Map<string, React.ComponentType<unknown>>
 ): React.ReactElement {
   const { type, children, props } = layout;
 
@@ -235,10 +235,15 @@ function renderNestedLayout(
   const renderedChildren = children
     ? children
         .map((child, childIndex) => {
-          if (child.type === "component" || child.type === "layout.directive") {
+          if (
+            typeof child === "object" &&
+            child !== null &&
+            ("type" in child) &&
+            (child.type === "component" || child.type === "layout.directive")
+          ) {
             return renderSection(
-              child,
-              `${index}-${childIndex}` as any,
+              child as SDUISection,
+              `${index}-${childIndex}`,
               context,
               componentRegistry
             );
@@ -251,7 +256,7 @@ function renderNestedLayout(
   // Combine primary element with rendered children
   const allChildren = [primaryElement, ...renderedChildren];
 
-  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
+  const primitiveLayoutMap: Record<string, React.ComponentType<unknown> | undefined> = {
     VerticalSplit,
     HorizontalSplit,
     Grid,
@@ -297,7 +302,7 @@ function renderErrorFallback(
 ): React.ReactElement {
   // Log error for monitoring
   logger.error("SDUI render error", {
-    component: (section as any).component,
+    component: (section as { component?: string }).component,
     sectionType: section.type,
     error: error.message,
     stack: error.stack,
@@ -309,7 +314,7 @@ function renderErrorFallback(
       key: `error-${index}`,
       className: "sdui-error-fallback",
       "data-error-type": "render-failure",
-      "data-component": (section as any).component,
+      "data-component": (section as { component?: string }).component,
     },
     React.createElement(
       "div",
@@ -379,7 +384,7 @@ export function validatePageForRendering(page: SDUIPageDefinition): {
         errors.push("Component section must specify a component");
       }
     } else {
-      errors.push(`Unknown section type: ${(section as any).type}`);
+      errors.push(`Unknown section type: ${(section as { type?: string }).type}`);
     }
   }
 
@@ -403,7 +408,7 @@ export function extractPageMetadata(page: SDUIPageDefinition): {
   const directiveCount = page.sections.filter((s) => s.type === "layout.directive").length;
 
   const hasHydration = page.sections.some(
-    (s) => s.type === "component" && s.hydrateWith && s.hydrateWith.length > 0
+    (s) => s.type === "component" && typeof s.hydrateWith === "object" && s.hydrateWith != null && (s.hydrateWith as unknown[]).length > 0
   );
 
   const cacheEnabled = !!page.metadata?.cacheTtlSeconds;

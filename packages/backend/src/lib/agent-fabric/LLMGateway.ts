@@ -93,7 +93,7 @@ export interface LLMResponse {
     completion_tokens: number;
     total_tokens: number;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class LLMGateway {
@@ -303,7 +303,7 @@ export class LLMGateway {
       metadata.organizationId ??
       metadata.organization_id;
     const sessionId = metadata.sessionId ?? metadata.session_id;
-    const agentType = String((metadata as any).agentType || 'default');
+    const agentType = String((metadata as Record<string, unknown>).agentType || 'default');
 
     if (!tenantId) {
       const error = new Error(
@@ -334,7 +334,7 @@ export class LLMGateway {
       const routingDecision = await this.costAwareRouter.routeRequest({
         tenantId,
         agentType,
-        priority: (metadata as any).priority || 'medium',
+        priority: (metadata as Record<string, unknown>).priority || 'medium',
         tokenEstimate: estimatedPromptTokens,
         sessionId,
       });
@@ -376,7 +376,7 @@ export class LLMGateway {
             'llm.model': model,
           },
         },
-        async (span: any) => {
+        async (span: unknown) => {
           try {
             // MODEL SELECTION + RETRY/FALLBACK (Together-specific behavior)
             const requestedModel = request.model ?? this.config.model;
@@ -390,14 +390,14 @@ export class LLMGateway {
               request.model = this.togetherPrimaryModel || this.config.model;
             }
 
-            const isTransientError = (err: any) => {
+            const isTransientError = (err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
               return /timeout|ETIMEDOUT|429|5\d{2}|rate limit/i.test(msg);
             };
 
             const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-            const tryPrimaryWithRetries = async () => {
+            const tryPrimaryWithRetries = async (): Promise<LLMResponse> => {
               const maxRetries = Math.max(0, this.llmFallbackMaxAttempts || 0);
               for (let attempt = 0; attempt <= maxRetries; attempt++) {
                 try {
@@ -438,16 +438,18 @@ export class LLMGateway {
                 estimatedCostUsd: costUsd,
               });
 
-              span.setAttributes({
-                'llm.prompt_tokens': primaryResult.usage?.prompt_tokens || 0,
-                'llm.completion_tokens': primaryResult.usage?.completion_tokens || 0,
-                'llm.total_tokens': primaryResult.usage?.total_tokens || 0,
-                'llm.cost_usd': costUsd,
-                'llm.latency_ms': latencyMs,
-                'llm.cached': false,
-              });
-              span.setStatus({ code: SpanStatusCode.OK });
-              span.end();
+              if (typeof span === 'object' && span !== null && 'setAttributes' in span && 'setStatus' in span && 'end' in span) {
+                (span as { setAttributes(attrs: Record<string, unknown>): void }).setAttributes({
+                  'llm.prompt_tokens': primaryResult.usage?.prompt_tokens || 0,
+                  'llm.completion_tokens': primaryResult.usage?.completion_tokens || 0,
+                  'llm.total_tokens': primaryResult.usage?.total_tokens || 0,
+                  'llm.cost_usd': costUsd,
+                  'llm.latency_ms': latencyMs,
+                  'llm.cached': false,
+                });
+                (span as { setStatus(status: unknown): void }).setStatus({ code: SpanStatusCode.OK });
+                (span as { end(): void }).end();
+              }
 
               return primaryResult;
             } catch (primaryErr) {
@@ -481,21 +483,25 @@ export class LLMGateway {
                 policyVersion: budgetPolicy.policyVersion,
               };
 
-              span.setAttributes({ 'llm.latency_ms': Date.now() - startTime });
-              span.setStatus({ code: SpanStatusCode.OK });
-              span.end();
+              if (typeof span === 'object' && span !== null && 'setAttributes' in span && 'setStatus' in span && 'end' in span) {
+                (span as { setAttributes(attrs: Record<string, unknown>): void }).setAttributes({ 'llm.latency_ms': Date.now() - startTime });
+                (span as { setStatus(status: unknown): void }).setStatus({ code: SpanStatusCode.OK });
+                (span as { end(): void }).end();
+              }
 
               return secondaryResult;
             }
           } catch (err) {
             const latencyMs = Date.now() - startTime;
-            span.setAttributes({ 'llm.latency_ms': latencyMs });
-            span.setStatus({
-              code: SpanStatusCode.ERROR,
-              message: err instanceof Error ? err.message : String(err),
-            });
-            if (err instanceof Error) span.recordException(err);
-            span.end();
+            if (typeof span === 'object' && span !== null && 'setAttributes' in span && 'setStatus' in span && 'recordException' in span && 'end' in span) {
+              (span as { setAttributes(attrs: Record<string, unknown>): void }).setAttributes({ 'llm.latency_ms': latencyMs });
+              (span as { setStatus(status: { code: number; message?: string }): void }).setStatus({
+                code: SpanStatusCode.ERROR,
+                message: err instanceof Error ? err.message : String(err),
+              });
+              if (err instanceof Error) (span as { recordException(err: Error): void }).recordException(err);
+              (span as { end(): void }).end();
+            }
             throw err;
           }
         }
@@ -533,7 +539,7 @@ export class LLMGateway {
       });
 
       return response;
-    } catch (error) {
+    } catch (error: unknown) {
       const latencyMs = Date.now() - startTime;
       void this.costTracker.trackUsage({
         userId,

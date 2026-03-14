@@ -28,7 +28,7 @@ export interface SandboxConfig {
  */
 export interface SandboxResult {
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   executionTime: number;
   consoleOutput?: string[];
@@ -90,7 +90,7 @@ export class CodeSandbox {
           ? workerResult.consoleOutput
           : undefined,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       const executionTime = Date.now() - startTime;
 
       logger.warn('Sandbox execution failed', {
@@ -146,20 +146,20 @@ export class CodeSandbox {
    * Create sandboxed execution context
    */
   private createSandboxContext(
-    userContext: Record<string, any>,
+    userContext: Record<string, unknown>,
     consoleOutput: string[]
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     // Safe console implementation
     const sandboxConsole = {
-      log: (...args: any[]) => {
+      log: (...args: unknown[]) => {
         const message = args.map(String).join(' ');
         consoleOutput.push(message);
       },
-      error: (...args: any[]) => {
+      error: (...args: unknown[]) => {
         const message = args.map(String).join(' ');
         consoleOutput.push(`ERROR: ${message}`);
       },
-      warn: (...args: any[]) => {
+      warn: (...args: unknown[]) => {
         const message = args.map(String).join(' ');
         consoleOutput.push(`WARN: ${message}`);
       },
@@ -189,8 +189,8 @@ export class CodeSandbox {
   /**
    * Validate user-provided context
    */
-  private validateContext(context: Record<string, any>): Record<string, any> {
-    const validated: Record<string, any> = {};
+  private validateContext(context: Record<string, unknown>): Record<string, unknown> {
+    const validated: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(context)) {
       // Skip functions and dangerous objects
@@ -215,12 +215,12 @@ export class CodeSandbox {
    * Execute multiple code snippets in batch
    */
   async executeBatch(
-    codeSnippets: Array<{ code: string; context?: Record<string, any> }>
+    codeSnippets: Array<{ code: string; context?: Record<string, unknown> }>
   ): Promise<SandboxResult[]> {
     const results: SandboxResult[] = [];
 
     for (const snippet of codeSnippets) {
-      const result = await this.execute(snippet.code, snippet.context);
+      const result = await this.execute(snippet.code, snippet.context ?? {});
       results.push(result);
 
       // Stop on first error if configured
@@ -243,7 +243,7 @@ export class CodeSandbox {
     try {
       this.validateCode(code);
       return { safe: true };
-    } catch (error) {
+    } catch (error: unknown) {
       return {
         safe: false,
         reason: error instanceof Error ? error.message : String(error),

@@ -10,7 +10,7 @@ import { z } from 'zod';
 // Layout Primitives
 // ============================================================================
 
-export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
+export const CanvasLayoutSchema: z.ZodType<CanvasLayout> = z.lazy(() =>
   z.discriminatedUnion('type', [
     // Vertical split with ratio control
     z.object({
@@ -86,7 +86,7 @@ export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
       componentId: z.string(), // Unique ID for patching
       component: z.string(),
       version: z.number().default(1),
-      props: z.record(z.any()).default({}),
+      props: z.record(z.unknown()).default({}),
     }),
   ])
 );
@@ -155,11 +155,11 @@ export interface CanvasChunk {
  * Operation types for delta updates
  */
 export type PatchOperation =
-  | { op: 'replace'; path: string; value: any }
-  | { op: 'add'; path: string; value: any }
+  | { op: 'replace'; path: string; value: unknown }
+  | { op: 'add'; path: string; value: unknown }
   | { op: 'remove'; path: string }
-  | { op: 'update_props'; componentId: string; props: Record<string, any> }
-  | { op: 'update_data'; componentId: string; data: any }
+  | { op: 'update_props'; componentId: string; props: Record<string, unknown> }
+  | { op: 'update_data'; componentId: string; data: unknown }
   | { op: 'reorder'; parentPath: string; fromIndex: number; toIndex: number };
 
 /**
@@ -179,12 +179,12 @@ export interface CanvasDelta {
  * Events emitted from canvas to agent
  */
 export type CanvasEvent =
-  | { type: 'component_click'; componentId: string; data?: any }
-  | { type: 'value_change'; componentId: string; value: any }
-  | { type: 'drill_down'; metric: string; context: any }
-  | { type: 'filter_applied'; filters: Record<string, any> }
+  | { type: 'component_click'; componentId: string; data?: unknown }
+  | { type: 'value_change'; componentId: string; value: unknown }
+  | { type: 'drill_down'; metric: string; context: unknown }
+  | { type: 'filter_applied'; filters: Record<string, unknown> }
   | { type: 'export_requested'; format: 'pdf' | 'csv' | 'json' }
-  | { type: 'question'; question: string; context: any }
+  | { type: 'question'; question: string; context: unknown }
   | { type: 'undo_requested' }
   | { type: 'redo_requested' };
 
@@ -246,7 +246,7 @@ export type AllowedCanvasComponent = (typeof ALLOWED_CANVAS_COMPONENTS)[number];
 /**
  * Component prop schemas (for validation)
  */
-export const COMPONENT_PROP_SCHEMAS: Record<string, z.ZodType<any>> = {
+export const COMPONENT_PROP_SCHEMAS: Record<string, z.ZodType<unknown>> = {
   KPICard: z.object({
     title: z.string(),
     value: z.union([z.string(), z.number()]),
@@ -276,7 +276,7 @@ export const COMPONENT_PROP_SCHEMAS: Record<string, z.ZodType<any>> = {
   }),
 
   DataTable: z.object({
-    data: z.array(z.record(z.any())),
+    data: z.array(z.record(z.unknown())),
     columns: z.array(
       z.object({
         key: z.string(),
@@ -357,8 +357,8 @@ export interface AgentFunctionSchema {
   description: string;
   parameters: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required: string[];
-    definitions?: Record<string, any>;
+    definitions?: Record<string, unknown>;
   };
 }

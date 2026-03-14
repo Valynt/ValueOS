@@ -49,7 +49,7 @@ import { SDUIComponentSection } from "./schema";
  * Versioned component entry with compatibility information
  */
 export interface VersionedComponentEntry {
-  component: React.ComponentType<any>;
+  component: React.ComponentType<unknown>;
   version: number;
   minCompatibleVersion?: number;
   maxCompatibleVersion?: number;
@@ -67,7 +67,7 @@ export interface VersionedComponentEntry {
  * Legacy registry entry for backward compatibility
  */
 export interface RegistryEntry {
-  component: React.ComponentType<any>;
+  component: React.ComponentType<unknown>;
   versions: number[];
   requiredProps?: string[];
   description?: string;
@@ -77,7 +77,7 @@ export interface RegistryEntry {
  * Component resolution result
  */
 export interface ComponentResolutionResult {
-  component: React.ComponentType<any>;
+  component: React.ComponentType<unknown>;
   version: number;
   isFallback: boolean;
   isDeprecated: boolean;
@@ -232,7 +232,7 @@ class VersionedComponentRegistry {
     if (version === requestedVersion) return true;
 
     // Check if requested version is in compatible range
-    if (minCompatibleVersion && maxCompatibleVersion) {
+    if (minCompatibleVersion !== undefined && maxCompatibleVersion !== undefined) {
       return requestedVersion >= minCompatibleVersion && requestedVersion <= maxCompatibleVersion;
     }
 
@@ -299,14 +299,23 @@ class VersionedComponentRegistry {
     const entries = this.components.get(componentName);
     if (!entries) return null;
 
-    if (version) {
+    if (version !== undefined) {
       const entry = entries.find((e) => e.version === version);
-      return entry ? { ...entry } : null;
+      if (entry) {
+        // Exclude component
+        const { component, ...rest } = entry;
+        return { ...rest };
+      }
+      return null;
     }
 
     // Return latest version metadata
     const latest = entries[0];
-    return latest ? { ...latest } : null;
+    if (latest) {
+      const { component, ...rest } = latest;
+      return { ...rest };
+    }
+    return null;
   }
 
   /**
@@ -320,7 +329,7 @@ class VersionedComponentRegistry {
   /**
    * Get component name from component
    */
-  private getComponentName(component: React.ComponentType<any>): string {
+  private getComponentName(component: React.ComponentType<unknown>): string {
     return component.displayName || component.name || "UnknownComponent";
   }
 
@@ -681,7 +690,7 @@ export function resolveComponentWithVersion(
 /**
  * Legacy resolveComponent for backward compatibility
  */
-export function resolveComponentLegacy(componentName: string): React.ComponentType<any> | null {
+export function resolveComponentLegacy(componentName: string): React.ComponentType<unknown> | null {
   const result = versionedRegistry.resolve(componentName);
   return result.component;
 }
@@ -689,10 +698,8 @@ export function resolveComponentLegacy(componentName: string): React.ComponentTy
 /**
  * Get registry placeholder component for unknown components
  */
-export const RegistryPlaceholderComponent: React.ComponentType<any> = ({
+export const RegistryPlaceholderComponent: React.ComponentType<{ componentName: string }> = ({
   componentName,
-}: {
-  componentName: string;
 }) => (
   <div className="p-4 border border-gray-300 rounded bg-gray-50 text-center text-gray-500">
     <span className="text-sm">Component not found: {componentName}</span>
@@ -799,7 +806,7 @@ export function resolveComponentFromLegacyRegistry(
 ): RegistryEntry | undefined {
   const entry = registry.get(section.component);
   if (!entry) return undefined;
-  if (!entry.versions.includes(section.version)) {
+  if (section.version !== undefined && !entry.versions.includes(section.version)) {
     return {
       ...entry,
       description: `${entry.description ?? ""} (coerced version)`,
@@ -813,7 +820,7 @@ export function resolveComponentFromLegacyRegistry(
  */
 export function resolveComponentFromVersionedRegistry(
   section: { component?: string; type?: string; version?: number }
-): React.ComponentType<any> | null {
+): React.ComponentType<unknown> | null {
   const name = section.component ?? section.type;
   if (!name) return null;
   const result = versionedRegistry.resolve(name, section.version);
@@ -839,7 +846,7 @@ export function resetRegistry(): void {
 
 export function hotSwapComponent(
   name: string,
-  component: React.ComponentType<any>
+  component: React.ComponentType<unknown>
 ): RegistryEntry | undefined {
   const current = registry.get(name);
   if (!current) return undefined;

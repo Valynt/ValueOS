@@ -270,7 +270,7 @@ export class AgentChatService {
             sessionId: request.sessionId,
             traceId
           },
-          onRetry: (attempt, error, delay) => {
+          onRetry: (attempt: number, error: unknown, delay: number) => {
             logger.warn(`Gemini API attempt ${attempt} failed, retrying in ${delay}ms`, {
               error: error instanceof Error ? error.message : String(error),
               attempt,
@@ -361,7 +361,7 @@ export class AgentChatService {
         nextState,
         traceId,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Agent Error:", error instanceof Error ? error : new Error(String(error)));
       // Fallback SDUI if API fails
       return {
@@ -403,7 +403,7 @@ export class AgentChatService {
           type: "layout",
           layout: "Grid",
           props: { columns: 2, gap: 4, className: "mb-6" },
-          children: data.keyMetrics.map((m: any, _i: number) => ({
+          children: data.keyMetrics.map((m: { label: string; value: string; trend: "up" | "down" | "neutral" }, _i: number) => ({
             type: "component",
             component: "MetricBadge", // Using MetricBadge mapping
             version: 1,
@@ -428,7 +428,7 @@ export class AgentChatService {
           type: "layout",
           layout: "Grid", // Stack via 1 col grid
           props: { columns: 1, gap: 4 },
-          children: data.valueHypotheses.map((h: any, i: number) => ({
+          children: data.valueHypotheses.map((h: { title: string; description: string; confidence: number; impact: "High" | "Medium" | "Low" }, i: number) => ({
             type: "component",
             component: "ValueHypothesisCard",
             version: 1,
@@ -495,7 +495,7 @@ export class AgentChatService {
     query?: string,
     contextPrompt?: string
   ): string {
-    const stageContext = {
+    const stageContext: Record<LifecycleStage, string> = {
       opportunity:
         "Focus on discovering pain points, understanding the customer context, and identifying potential value drivers.",
       target:
@@ -768,7 +768,7 @@ ${stagePrompt}`;
     query: string,
     response: string,
     confidence: number,
-    analysisData?: any // Phase 5: Capture structured data
+    analysisData?: Record<string, unknown> // Phase 5: Capture structured data
   ): WorkflowState {
     const nextState = { ...currentState };
 

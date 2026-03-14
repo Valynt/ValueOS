@@ -22,7 +22,7 @@ export interface DetailedValidationResult {
   rule: ManifestoRule;
   validation: ValidationRule;
   passed: boolean;
-  artifact: any;
+  artifact: Record<string, unknown>;
   message: string;
 }
 
@@ -130,7 +130,7 @@ export class ManifestoEnforcer {
         violations,
         warnings,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Failed to check Manifesto rules', {
         actionType: action.type,
         error: error instanceof Error ? error.message : String(error),
@@ -155,7 +155,7 @@ export class ManifestoEnforcer {
    * Validate artifact against all rules
    */
   private async validateArtifact(
-    artifact: any,
+    artifact: Record<string, unknown>,
     actionType: string
   ): Promise<DetailedValidationResult[]> {
     const results: DetailedValidationResult[] = [];
@@ -176,7 +176,7 @@ export class ManifestoEnforcer {
             artifact,
             message: passed ? 'Validation passed' : validation.errorMessage,
           });
-        } catch (error) {
+        } catch (error: unknown) {
           logger.error('Validation check failed', {
             rule: rule.id,
             validation: validation.name,
@@ -200,7 +200,7 @@ export class ManifestoEnforcer {
   /**
    * Check if rule applies to action type
    */
-  private ruleApplies(rule: ManifestoRule, actionType: string, artifact: any): boolean {
+  private ruleApplies(rule: ManifestoRule, actionType: string, artifact: Record<string, unknown>): boolean {
     // RULE_001: Applies to all actions with business outcomes
     if (rule.id === 'RULE_001') {
       return actionType === 'updateValueTree' || actionType === 'exportArtifact';
@@ -208,7 +208,7 @@ export class ManifestoEnforcer {
 
     // RULE_002: Applies to KPI-related actions
     if (rule.id === 'RULE_002') {
-      return actionType === 'updateValueTree' || artifact.kpis;
+      return actionType === 'updateValueTree' || Boolean(artifact.kpis);
     }
 
     // RULE_003: Applies to value tree updates
@@ -218,12 +218,12 @@ export class ManifestoEnforcer {
 
     // RULE_004: Applies to assumptions and ROI
     if (rule.id === 'RULE_004') {
-      return actionType === 'updateAssumption' || artifact.roi_model;
+      return actionType === 'updateAssumption' || Boolean(artifact.roi_model);
     }
 
     // RULE_005: Applies to all lifecycle actions
     if (rule.id === 'RULE_005') {
-      return actionType === 'navigateToStage' || artifact.lifecycle_stage;
+      return actionType === 'navigateToStage' || Boolean(artifact.lifecycle_stage);
     }
 
     // RULE_006: Applies to target and realization stages
@@ -233,7 +233,7 @@ export class ManifestoEnforcer {
 
     // RULE_007: Applies to financial impact
     if (rule.id === 'RULE_007') {
-      return artifact.financial_impact || artifact.roi_model;
+      return Boolean(artifact.financial_impact) || Boolean(artifact.roi_model);
     }
 
     // RULE_008: Applies to all actions
@@ -247,7 +247,7 @@ export class ManifestoEnforcer {
   /**
    * Extract artifact from action
    */
-  private extractArtifact(action: CanonicalAction): any | null {
+  private extractArtifact(action: CanonicalAction): Record<string, unknown> | null {
     switch (action.type) {
       case 'updateValueTree':
         return action.updates;

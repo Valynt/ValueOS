@@ -41,7 +41,7 @@ export interface HealingEvent {
   type: "rate_limit_triggered" | "stall_detected" | "agent_reset" | "reasoning_logged";
   traceId: string;
   agentId?: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -169,7 +169,7 @@ export class SelfHealingManager {
     // Record telemetry
     agentTelemetryService.recordTelemetryEvent({
       type: `self_healing_${event.type}`,
-      agentType: "system" as any,
+      agentType: "system" as string,
       organizationId: typeof event.details.tenantId === "string" ? event.details.tenantId : undefined,
       data: {
         traceId: event.traceId,
@@ -203,8 +203,8 @@ export class SelfHealingManager {
     config: SelfHealingConfig;
   } {
     return {
-      globalRateLimitActive: (this.retryManager as any).globalRateLimitActive || false,
-      activeExecutions: (this.coordinator as any).activeExecutions?.size || 0,
+      globalRateLimitActive: (this.retryManager as { globalRateLimitActive?: boolean }).globalRateLimitActive ?? false,
+      activeExecutions: (this.coordinator as { activeExecutions?: Set<unknown> }).activeExecutions?.size ?? 0,
       recentHealingEvents: this.healingEvents.length,
       config: this.config,
     };
@@ -214,7 +214,11 @@ export class SelfHealingManager {
    * Force reset of global rate limit
    */
   forceResetGlobalRateLimit(): void {
-    const retryManager = this.retryManager as any;
+    const retryManager = this.retryManager as {
+      globalRateLimitActive: boolean;
+      globalRateLimitUntil: number;
+      rateLimitIncidents: number;
+    };
     retryManager.globalRateLimitActive = false;
     retryManager.globalRateLimitUntil = 0;
     retryManager.rateLimitIncidents = 0;

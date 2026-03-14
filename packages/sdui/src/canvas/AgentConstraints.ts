@@ -134,7 +134,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
     };
   }
   
-  const layout = (output as any).layout;
+  const layout = (output as Record<string, unknown>).layout;
   if (!layout) {
     return {
       valid: false,
@@ -143,59 +143,66 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
   }
   
   // Validate all components in the tree
-  function validateNode(node: any, path: string = 'root'): void {
+  function validateNode(node: unknown, path: string = 'root'): void {
     if (!node || typeof node !== 'object') {
       errors.push(`Invalid node at ${path}: must be an object`);
       return;
     }
+    const nodeObj = node as Record<string, unknown>;
     
-    if (!node.type) {
+    if (!nodeObj.type || typeof nodeObj.type !== 'string') {
       errors.push(`Missing type at ${path}`);
       return;
     }
     
+    const type = nodeObj.type;
+    
     // Validate component type
-    if (node.type === 'Component') {
-      if (!node.component) {
+    if (type === 'Component') {
+      const component = nodeObj.component;
+      if (!component || typeof component !== 'string') {
         errors.push(`Missing component name at ${path}`);
         return;
       }
       
-      if (!ALLOWED_CANVAS_COMPONENTS.includes(node.component as any)) {
+      if (!ALLOWED_CANVAS_COMPONENTS.includes(component)) {
         errors.push(
-          `Invalid component "${node.component}" at ${path}. ` +
+          `Invalid component "${component}" at ${path}. ` +
           `Allowed components: ${ALLOWED_CANVAS_COMPONENTS.join(', ')}`
         );
       }
       
-      if (!node.componentId) {
+      if (!nodeObj.componentId || typeof nodeObj.componentId !== 'string') {
         warnings.push(`Missing componentId at ${path} - will generate one`);
       }
     }
     
     // Validate layout types
-    if (['VerticalSplit', 'HorizontalSplit', 'Grid', 'DashboardPanel'].includes(node.type)) {
-      if (!node.children || !Array.isArray(node.children)) {
+    if (['VerticalSplit', 'HorizontalSplit', 'Grid', 'DashboardPanel'].includes(type)) {
+      const children = nodeObj.children;
+      if (!Array.isArray(children)) {
         errors.push(`Layout at ${path} missing children array`);
         return;
       }
       
       // Recursively validate children
-      node.children.forEach((child: any, i: number) => {
+      children.forEach((child, i) => {
         validateNode(child, `${path}.children[${i}]`);
       });
       
       // Type-specific validation
-      if (node.type === 'VerticalSplit' || node.type === 'HorizontalSplit') {
-        if (!node.ratios || !Array.isArray(node.ratios)) {
-          errors.push(`${node.type} at ${path} missing ratios array`);
-        } else if (node.ratios.length !== node.children.length) {
-          warnings.push(`${node.type} at ${path} has mismatched ratios and children count`);
+      if (type === 'VerticalSplit' || type === 'HorizontalSplit') {
+        const ratios = nodeObj.ratios;
+        if (!Array.isArray(ratios)) {
+          errors.push(`${type} at ${path} missing ratios array`);
+        } else if (ratios.length !== children.length) {
+          warnings.push(`${type} at ${path} has mismatched ratios and children count`);
         }
       }
       
-      if (node.type === 'Grid') {
-        if (typeof node.columns !== 'number' || node.columns < 1 || node.columns > 12) {
+      if (type === 'Grid') {
+        const columns = nodeObj.columns;
+        if (typeof columns !== 'number' || columns < 1 || columns > 12) {
           errors.push(`Grid at ${path} has invalid columns (must be 1-12)`);
         }
       }
@@ -224,7 +231,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
 export function sanitizeAgentOutput(layout: CanvasLayout): CanvasLayout {
   let idCounter = 0;
   
-  function sanitizeNode(node: any): any {
+  function sanitizeNode(node: CanvasLayout): CanvasLayout {
     // Auto-generate componentId if missing
     if (node.type === 'Component' && !node.componentId) {
       node.componentId = `auto_${++idCounter}_${Date.now()}`;

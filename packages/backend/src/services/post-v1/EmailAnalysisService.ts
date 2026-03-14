@@ -79,9 +79,9 @@ class EmailAnalysisService {
     if (!taskContext) {
       const { data: { session } } = await supabase.auth.getSession();
       taskContext = session ? {
-        sessionId: (session as any).id,
-        userId: (session as any).user.id,
-        organizationId: (session as any).user.raw_user_meta_data?.tenant_id || (session as any).user.raw_user_meta_data?.organization_id
+        sessionId: (session as unknown as { id: string }).id,
+        userId: (session as unknown as { user: { id: string } }).user.id,
+        organizationId: ((session as unknown as { user: { raw_user_meta_data?: Record<string, unknown> } }).user.raw_user_meta_data?.tenant_id as string) || ((session as unknown as { user: { raw_user_meta_data?: Record<string, unknown> } }).user.raw_user_meta_data?.organization_id as string)
       } : undefined;
     }
 
@@ -212,7 +212,7 @@ Provide your analysis as JSON.`;
       );
 
       return this.parseAnalysisResponse(response.content, thread);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Email analysis failed', error instanceof Error ? error : undefined);
       return this.fallbackAnalysis(rawText, thread);
     }
@@ -257,7 +257,7 @@ Provide your analysis as JSON.`;
       commitments: parsed.commitments || [],
       openQuestions: parsed.openQuestions || [],
       suggestedNextStep: parsed.suggestedNextStep || 'Follow up with the prospect',
-      urgencyScore: Math.min(10, Math.max(1, parsed.urgencyScore || 5)),
+      urgencyScore: Math.min(10, Math.max(1, parsed.urgencyScore ?? 5)),
       urgencyReason: parsed.urgencyReason || '',
       dealSignals: parsed.dealSignals || { positive: [], negative: [] },
       lastContactDate: parsed.lastContactDate,
@@ -319,7 +319,7 @@ Provide your analysis as JSON.`;
         currentSection = 'urgency';
         const urgencyMatch = trimmed.match(/(\d+)/);
         if (urgencyMatch) {
-          analysis.urgencyScore = Math.min(10, Math.max(1, parseInt(urgencyMatch[1])));
+          analysis.urgencyScore = Math.min(10, Math.max(1, parseInt(urgencyMatch[1], 10)));
         }
       } else if (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.match(/^\d+\./)) {
         const item = trimmed.replace(/^[-•\d.]\s*/, '').trim();

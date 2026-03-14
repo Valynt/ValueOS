@@ -17,7 +17,7 @@ export interface SDUIUpdate {
   payload: SDUIPayload;
   metadata?: SDUIMetadata;
   timestamp: string;
-  actions?: Record<string, unknown>[];
+  actions?: Array<Record<string, unknown>>;
   source?: string;
   workspaceId?: string;
   schema?: Record<string, unknown>;
@@ -40,7 +40,7 @@ export interface SDUIPayload {
   state?: Partial<WorkspaceState>;
   validation?: ValidationResult;
   navigation?: NavigationUpdate;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export interface SDUIMetadata {
@@ -78,14 +78,14 @@ export interface ComponentValidation {
 
 export interface ValidationRule {
   type: string;
-  value: any;
+  value: unknown;
   message: string;
 }
 
 export interface ComponentEvent {
   name: string;
   action: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -115,46 +115,46 @@ export interface WorkspaceData {
   realization?: RealizationData;
   expansion?: ExpansionData;
   integrity?: IntegrityData;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface OpportunityData {
   problem_statement?: string;
   stakeholders?: string[];
-  initial_metrics?: Record<string, any>;
-  [key: string]: any;
+  initial_metrics?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface TargetData {
   goals?: string[];
   kpis?: Array<{ name: string; target: number; unit: string }>;
   timeline?: { start: string; end: string };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface RealizationData {
   implementation_plan?: string;
   milestones?: Array<{ name: string; date: string; status: string }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ExpansionData {
   scaling_strategy?: string;
   new_opportunities?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface IntegrityData {
   validation_results?: ManifestoCheckResult[];
   audit_trail?: Array<{ timestamp: string; action: string; user: string }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface UIState {
   active_panel?: string;
   expanded_sections?: string[];
   selected_items?: string[];
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   sort?: { field: string; direction: "asc" | "desc" };
 }
 
@@ -199,7 +199,7 @@ export interface WorkspaceContext {
   lifecycle_stage: string;
   lifecycleStage?: string;
   permissions: WorkspacePermissions;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkspacePermissions {
@@ -248,7 +248,7 @@ export interface ActionContext {
 
 export interface ActionPayload {
   action: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   validation?: {
     schema?: string;
     rules?: ValidationRule[];
@@ -294,7 +294,7 @@ export interface ManifestoValidation {
 export interface NavigationUpdate {
   target_view: string;
   target_stage?: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
   transition?: "push" | "replace" | "back";
 }
 
@@ -319,7 +319,7 @@ export interface StageCompletionEvent {
   stage_id: string;
   lifecycle_stage: string;
   status: "completed" | "failed" | "skipped";
-  output_data: Record<string, any>;
+  output_data: Record<string, unknown>;
   timestamp: string;
 }
 

@@ -14,9 +14,28 @@ const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'u
 // Browser imports - use dynamic imports to avoid bundling issues
 import type { NextFunction, Request, Response } from "express";
 import type { Span as SpanType } from "@opentelemetry/api";
-let trace: any, context: any, SpanStatusCode: any, Span: any;
+let trace: {
+  trace: unknown;
+  getTracer(name: string, version?: string): unknown;
+  getActiveSpan(): SpanType | undefined;
+  setSpan(ctx: unknown, span: SpanType): unknown;
+  context: unknown;
+  SpanStatusCode: {
+    OK: number;
+    ERROR: number;
+    UNSET: number;
+  };
+  Span: unknown;
+} | any,
+  context: unknown,
+  SpanStatusCode: {
+    OK: number;
+    ERROR: number;
+    UNSET: number;
+  },
+  Span: unknown;
 
-async function initializeTelemetryImports() {
+async function initializeTelemetryImports(): Promise<void> {
   if (isBrowser) {
     // Browser environment - use OpenTelemetry API only
     const api = await import('@opentelemetry/api');
@@ -48,12 +67,12 @@ const noopSpan = {
   recordException: () => {},
   addEvent: () => {},
   end: () => {},
-  spanContext: () => ({ traceId: '', spanId: '' })
+  spanContext: (): { traceId: string; spanId: string } => ({ traceId: '', spanId: '' })
 };
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (_name: string, _options: any, fn: (span: SpanType) => any) => fn(noopSpan)
+  startActiveSpan: (_name: string, _options: Record<string, unknown>, fn: (span: SpanType) => unknown) => fn(noopSpan as SpanType)
 };
 
 // Exporter endpoints (Node.js only)
@@ -67,9 +86,10 @@ if (!isBrowser) {
 /**
  * Initialize OpenTelemetry SDK
  */
-export async function initializeTelemetry(): Promise<any> {
+export async function initializeTelemetry(): Promise<unknown> {
   if (isBrowser) {
     // Browser environment - no-op initialization
+    const { logger } = await import('../lib/logger');
     logger.info('OpenTelemetry initialized for browser environment');
     return null;
   }
@@ -132,7 +152,7 @@ export async function initializeTelemetry(): Promise<any> {
   process.on('SIGTERM', () => {
     sdk.shutdown()
       .then(() => logger.info('OpenTelemetry shut down successfully'))
-      .catch((error) => logger.error('Error shutting down OpenTelemetry', error));
+      .catch((error: unknown) => logger.error('Error shutting down OpenTelemetry', error));
   });
 
   return sdk;
@@ -141,7 +161,11 @@ export async function initializeTelemetry(): Promise<any> {
 /**
  * Get tracer instance
  */
-export function getTracer() {
+export function getTracer(): {
+  getTracer?: (name: string, version?: string) => unknown;
+  startSpan?: (name: string) => unknown;
+  startActiveSpan: <T>(name: string, options: Record<string, unknown>, fn: (span: SpanType) => T | Promise<T>) => Promise<T>;
+} {
   if (isBrowser || !trace) {
     return noopTracer;
   }
@@ -190,7 +214,7 @@ export async function traceLLMOperation<T>(
         span.setStatus({ code: SpanStatusCode.OK });
 
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         const duration = Date.now() - startTime;
 
         span.setAttributes({
@@ -204,7 +228,7 @@ export async function traceLLMOperation<T>(
           message: error instanceof Error ? error.message : 'Unknown error'
         });
 
-        span.recordException(error as Error);
+        span.recordException(error instanceof Error ? error : new Error(String(error)));
 
         throw error;
       } finally {
@@ -241,12 +265,12 @@ export async function traceDatabaseOperation<T>(
         const result = await operation(span);
         span.setStatus({ code: SpanStatusCode.OK });
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: error instanceof Error ? error.message : 'Unknown error'
         });
-        span.recordException(error as Error);
+        span.recordException(error instanceof Error ? error : new Error(String(error)));
         throw error;
       } finally {
         span.end();
@@ -282,12 +306,12 @@ export async function traceCacheOperation<T>(
         const result = await operation(span);
         span.setStatus({ code: SpanStatusCode.OK });
         return result;
-      } catch (error) {
+      } catch (error: unknown) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: error instanceof Error ? error.message : 'Unknown error'
         });
-        span.recordException(error as Error);
+        span.recordException(error instanceof Error ? error : new Error(String(error)));
         throw error;
       } finally {
         span.end();
@@ -300,7 +324,7 @@ export async function traceCacheOperation<T>(
  * Add custom attributes to current span
  */
 export function addSpanAttributes(attributes: Record<string, string | number | boolean>): void {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan() as SpanType | undefined;
   if (span) {
     span.setAttributes(attributes);
   }
@@ -310,7 +334,7 @@ export function addSpanAttributes(attributes: Record<string, string | number | b
  * Add event to current span
  */
 export function addSpanEvent(name: string, attributes?: Record<string, string | number | boolean>): void {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan() as SpanType | undefined;
   if (span) {
     span.addEvent(name, attributes);
   }
@@ -320,7 +344,7 @@ export function addSpanEvent(name: string, attributes?: Record<string, string | 
  * Record exception in current span
  */
 export function recordSpanException(error: Error): void {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan() as SpanType | undefined;
   if (span) {
     span.recordException(error);
     span.setStatus({
@@ -337,7 +361,7 @@ export function getCurrentTraceContext(): {
   traceId: string;
   spanId: string;
 } | null {
-  const span = trace.getActiveSpan();
+  const span = trace.getActiveSpan() as SpanType | undefined;
   if (!span) return null;
 
   const spanContext = span.spanContext();
@@ -363,7 +387,7 @@ export function getTraceContextForLogging(): Record<string, string> {
 /**
  * Create custom metric counter
  */
-export async function createCounter(name: string, description: string) {
+export async function createCounter(name: string, description: string): Promise<unknown> {
   if (isBrowser) {
     return {
       add: () => {},
@@ -379,7 +403,7 @@ export async function createCounter(name: string, description: string) {
 /**
  * Create custom metric histogram
  */
-export async function createHistogram(name: string, description: string) {
+export async function createHistogram(name: string, description: string): Promise<unknown> {
   if (isBrowser) {
     return {
       record: () => {}
@@ -398,7 +422,7 @@ export async function createObservableGauge(
   name: string,
   description: string,
   callback: () => number
-) {
+): Promise<unknown> {
   if (isBrowser) {
     return {
       observe: () => {}
@@ -409,7 +433,7 @@ export async function createObservableGauge(
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createObservableGauge(name, {
     description
-  }, (observableResult) => {
+  }, (observableResult: { observe(value: number): void }) => {
     observableResult.observe(callback());
   });
 }
@@ -440,9 +464,9 @@ function getHeaderValue(input: string | string[] | undefined): string | undefine
 }
 
 export function tracingMiddleware() {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request & { tenantId?: string; traceContext?: { traceId: string; spanId: string } }, res: Response, next: NextFunction) => {
     const tracer = getTracer();
-    const span = tracer.startSpan(`http.${req.method} ${req.path}`);
+    const span = tracer.startSpan(`http.${req.method} ${req.path}`) as SpanType;
 
     const tenantId =
       getHeaderValue(req.headers["x-tenant-id"]) ??
@@ -462,7 +486,7 @@ export function tracingMiddleware() {
     });
 
     const activeCtx = trace.setSpan(context.active(), span);
-    context.with(activeCtx, () => {
+    (context as any).with(activeCtx, () => {
       req.traceContext = {
         traceId: span.spanContext().traceId,
         spanId: span.spanContext().spanId,

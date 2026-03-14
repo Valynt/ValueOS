@@ -83,7 +83,7 @@ export interface RenderPageOptions {
   /**
    * Custom data fetcher function for hydration
    */
-  dataFetcher?: (endpoint: string) => Promise<any>;
+  dataFetcher?: (endpoint: string) => Promise<unknown>;
 
   /**
    * Cache hydrated data to avoid redundant fetches
@@ -94,17 +94,17 @@ export interface RenderPageOptions {
   /**
    * Callback when a component successfully renders
    */
-  onComponentRender?: (componentName: string, props: any) => void;
+  onComponentRender?: (componentName: string, props: Record<string, unknown>) => void;
 
   /**
    * Callback when data hydration completes
    */
-  onHydrationComplete?: (componentName: string, data: any) => void;
+  onHydrationComplete?: (componentName: string, data: Record<string, unknown>) => void;
 
   /**
    * Callback for handling component actions (e.g. clicks, form submissions)
    */
-  onAction?: (action: string, payload?: any) => void;
+  onAction?: (action: string, payload?: unknown) => void;
 
   /**
    * Enable lazy loading of components for better performance
@@ -236,11 +236,11 @@ const SectionRenderer: React.FC<{
     error: hydrationError,
   } = useDataHydration(section.hydrateWith || [], {
     enabled: !!section.hydrateWith && section.hydrateWith.length > 0,
-    onError: (error, endpoint) => {
+    onError: (error: Error, endpoint: string) => {
       logger.error(`Hydration failed for ${section.component}:`, error);
       onHydrationError?.(error, endpoint);
     },
-    onSuccess: (data) => {
+    onSuccess: (data: Record<string, unknown>) => {
       onHydrationComplete?.(section.component, data);
     },
     timeout: options.hydrationTimeout,
@@ -310,7 +310,7 @@ const SectionRenderer: React.FC<{
         <div key={`${section.component}-${index}`} className="space-y-2">
           <ComponentErrorBoundary
             componentName={section.fallback.component!}
-            onError={(error) => onRenderError?.(error, section.fallback!.component!)}
+            onError={(error: Error) => onRenderError?.(error, section.fallback!.component!)}
             fallback={<ErrorFallback componentName={section.fallback.component!} />}
           >
             <FallbackComponent {...(section.fallback.props || {})} />
@@ -348,14 +348,14 @@ const SectionRenderer: React.FC<{
   };
 
   // Notify that component is rendering
-  onComponentRender?.(section.component, mergedProps);
+  onComponentRender?.(section.component, mergedProps as Record<string, unknown>);
 
   // Render the component with error boundary
   return (
     <div key={`${section.component}-${index}`} className="space-y-2">
       <ComponentErrorBoundary
         componentName={section.component}
-        onError={(error) => onRenderError?.(error, section.component)}
+        onError={(error: Error) => onRenderError?.(error, section.component)}
         fallback={<ErrorFallback componentName={section.component} />}
       >
         <Component {...mergedProps} />
@@ -466,7 +466,11 @@ export function renderPage(
 
   // Step 4: Calculate metadata
   const hydratedComponentCount = page.sections.filter(
-    (section) => section.type === "component" && section.hydrateWith && section.hydrateWith.length > 0
+    (section) =>
+      section.type === "component" &&
+      section.hydrateWith !== undefined &&
+      section.hydrateWith !== null &&
+      section.hydrateWith.length > 0
   ).length;
 
   const metadata = {
@@ -490,7 +494,7 @@ export function renderPage(
   // Step 7: Render the page with error boundary
   const element = (
     <ErrorBoundary
-      onError={(error) => {
+      onError={(error: Error) => {
         logger.error("Fatal error rendering SDUI page:", error);
         options.onRenderError?.(error, "PageRenderer");
       }}
@@ -520,7 +524,7 @@ export const RenderPageComponent: React.FC<{
   try {
     const result = renderPage(pageDefinition, options);
     return result.element;
-  } catch (error) {
+  } catch (error: unknown) {
     // Handle validation errors
     if (error instanceof SDUIValidationError) {
       onError?.(error);
@@ -537,7 +541,14 @@ export const RenderPageComponent: React.FC<{
     }
 
     // Handle unexpected errors
-    onError?.(error as Error);
-    throw error;
+    if (error instanceof Error) {
+      onError?.(error);
+      throw error;
+    }
+
+    // If error is not an Error instance, wrap and throw it
+    const wrappedError = new Error("Unknown error caught in RenderPageComponent");
+    onError?.(wrappedError);
+    throw wrappedError;
   }
 };

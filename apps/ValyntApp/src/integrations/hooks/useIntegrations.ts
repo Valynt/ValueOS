@@ -27,6 +27,27 @@ const mapStatus = (status?: string): IntegrationStatus => {
 
 const providerIds = new Set(PROVIDERS.map((provider) => provider.id));
 
+interface RawIntegration {
+  id: string;
+  provider: string;
+  status?: string;
+  connectedAt?: string;
+  connected_at?: string;
+  lastUsedAt?: string;
+  last_used_at?: string;
+  errorMessage?: string;
+  error_message?: string;
+  instanceUrl?: string;
+  instance_url?: string;
+  scopes?: string[];
+}
+
+interface RawResponseData {
+  integrations?: RawIntegration[];
+  integration?: RawIntegration;
+  result?: { status?: string };
+}
+
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,10 +62,12 @@ export function useIntegrations() {
         throw new Error(response.error?.message || "Failed to fetch integrations");
       }
 
-      const items = (response.data as any)?.integrations ?? [];
+      const data = response.data as unknown;
+      const rawData = data as RawResponseData;
+      const items = rawData.integrations ?? [];
       const mapped = items
-        .filter((item: any) => providerIds.has(item.provider))
-        .map((item: any) => ({
+        .filter((item) => providerIds.has(item.provider))
+        .map((item) => ({
           id: item.id,
           provider: item.provider as IntegrationProviderId,
           status: mapStatus(item.status),
@@ -56,7 +79,7 @@ export function useIntegrations() {
         }));
 
       setIntegrations(mapped);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch integrations");
     } finally {
       setIsLoading(false);
@@ -65,7 +88,7 @@ export function useIntegrations() {
 
   const connect = useCallback(
     async (providerId: IntegrationProviderId, credentials: IntegrationCredentialsInput) => {
-    try {
+      try {
         setError(null);
         const response = await api.createIntegration({
           provider: providerId,
@@ -78,7 +101,9 @@ export function useIntegrations() {
           throw new Error(response.error?.message || "Failed to connect integration");
         }
 
-        const integration = (response.data as any)?.integration;
+        const data = response.data as unknown;
+        const rawData = data as RawResponseData;
+        const integration = rawData.integration;
         if (!integration) {
           throw new Error("Integration response missing");
         }
@@ -103,9 +128,9 @@ export function useIntegrations() {
           }
           return [...prev, updated];
         });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to connect");
-    }
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to connect");
+      }
     },
     []
   );
@@ -118,7 +143,7 @@ export function useIntegrations() {
         throw new Error(response.error?.message || "Failed to disconnect");
       }
       setIntegrations((prev) => prev.filter((i) => i.id !== integrationId));
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to disconnect");
     }
   }, []);
@@ -131,7 +156,9 @@ export function useIntegrations() {
         throw new Error(response.error?.message || "Failed to test connection");
       }
 
-      const result = (response.data as any)?.result;
+      const data = response.data as unknown;
+      const rawData = data as RawResponseData;
+      const result = rawData.result;
       if (result?.status) {
         setIntegrations((prev) =>
           prev.map((i) =>
@@ -139,7 +166,7 @@ export function useIntegrations() {
           )
         );
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to test connection");
     }
   }, []);
@@ -151,7 +178,9 @@ export function useIntegrations() {
       if (!response.success) {
         throw new Error(response.error?.message || "Failed to sync integration");
       }
-      const integration = (response.data as any)?.integration;
+      const data = response.data as unknown;
+      const rawData = data as RawResponseData;
+      const integration = rawData.integration;
       if (integration) {
         setIntegrations((prev) =>
           prev.map((i) =>
@@ -165,7 +194,7 @@ export function useIntegrations() {
           )
         );
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sync");
     }
   }, []);

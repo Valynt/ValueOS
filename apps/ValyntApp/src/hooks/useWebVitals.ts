@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { onCLS, onFCP, onFID, onLCP, onTTFB } from "web-vitals";
+import { onCLS, onFCP, onFID, onLCP, onTTFB, Metric } from "web-vitals";
 
 import { apiClient } from "../api/client/unified-api-client";
 import { logger } from "../lib/logger";
@@ -10,28 +10,28 @@ import { logger } from "../lib/logger";
 export const useWebVitals = () => {
   useEffect(() => {
     // Track Core Web Vitals
-    onCLS((metric) => {
+    onCLS((metric: Metric) => {
       logger.info("CLS:", metric);
       // Send to analytics
       sendToAnalytics("CLS", metric);
     });
 
-    onFID((metric) => {
+    onFID((metric: Metric) => {
       logger.info("FID:", metric);
       sendToAnalytics("FID", metric);
     });
 
-    onFCP((metric) => {
+    onFCP((metric: Metric) => {
       logger.info("FCP:", metric);
       sendToAnalytics("FCP", metric);
     });
 
-    onLCP((metric) => {
+    onLCP((metric: Metric) => {
       logger.info("LCP:", metric);
       sendToAnalytics("LCP", metric);
     });
 
-    onTTFB((metric) => {
+    onTTFB((metric: Metric) => {
       logger.info("TTFB:", metric);
       sendToAnalytics("TTFB", metric);
     });
@@ -41,7 +41,7 @@ export const useWebVitals = () => {
 /**
  * Send metrics to analytics service
  */
-function sendToAnalytics(name: string, metric: { name: string; value: number; rating: string; delta: number; entries: unknown[] }) {
+function sendToAnalytics(name: string, metric: Metric) {
   apiClient.post("/api/analytics/web-vitals", {
     name: metric.name,
     value: metric.value,
