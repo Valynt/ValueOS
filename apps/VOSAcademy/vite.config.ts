@@ -130,12 +130,13 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       host: "0.0.0.0",
-      port: 5173,
+      port: 5174,
       strictPort: true,
+      allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
       hmr: {
         protocol: "ws",
         host: "localhost",
-        port: 5173,
+        port: 5174,
       },
     },
     resolve: {

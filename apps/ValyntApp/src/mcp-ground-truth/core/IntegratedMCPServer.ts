@@ -480,11 +480,11 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
             },
             companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"] },
             annualRevenue: { type: "number" },
-            currentKPIs: Record<string, unknown>;
-            selectedActions: string[];
-            timeframe: { type: string; enum: ["30d", "90d", "180d", "365d"] };
-            confidenceThreshold?: number;
-            scenarioName?: string;
+            currentKPIs: { type: "object", additionalProperties: true },
+            selectedActions: { type: "array", items: { type: "string" } },
+            timeframe: { type: "string", enum: ["30d", "90d", "180d", "365d"] },
+            confidenceThreshold: { type: "number" },
+            scenarioName: { type: "string" },
           },
           required: [
             "persona",
@@ -537,9 +537,9 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
                   },
                   companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"] },
                   annualRevenue: { type: "number" },
-                  currentKPIs: Record<string, unknown>;
-                  selectedActions: string[];
-                  timeframe: { type: string; enum: ["30d", "90d", "180d", "365d"] };
+                  currentKPIs: { type: "object", additionalProperties: true },
+                  selectedActions: { type: "array", items: { type: "string" } },
+                  timeframe: { type: "string", enum: ["30d", "90d", "180d", "365d"] },
                 },
                 required: [
                   "name",
@@ -592,15 +592,18 @@ export class IntegratedMCPServer extends MCPFinancialGroundTruthServer {
               ],
             },
             companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"] },
-            currentKPIs: Record<string, unknown>;
-            goals: string[];
-            constraints?: {
-              maxInvestment?: number;
-              maxTime?: number;
-              minROI?: number;
-              riskTolerance?: "low" | "medium" | "high";
-              preferredQuickWins?: boolean;
-            };
+            currentKPIs: { type: "object", additionalProperties: true },
+            goals: { type: "array", items: { type: "string" } },
+            constraints: {
+              type: "object",
+              properties: {
+                maxInvestment: { type: "number" },
+                maxTime: { type: "number" },
+                minROI: { type: "number" },
+                riskTolerance: { type: "string", enum: ["low", "medium", "high"] },
+                preferredQuickWins: { type: "boolean" },
+              },
+            },
           },
           required: ["persona", "industry", "companySize", "currentKPIs", "goals"],
         },

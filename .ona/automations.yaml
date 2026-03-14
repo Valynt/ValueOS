@@ -74,6 +74,17 @@ services:
       ready: |
         curl -sf http://localhost:5173
 
+  academy:
+    name: VOSAcademy (Vite)
+    description: Vite dev server for VOSAcademy on port 5174.
+    triggeredBy: []
+    commands:
+      start: |
+        ona env port open 5174 --protocol https 2>/dev/null || true
+        pnpm run dev:academy
+      ready: |
+        curl -sf http://localhost:5174
+
 tasks:
   installDeps:
     name: Install dependencies
