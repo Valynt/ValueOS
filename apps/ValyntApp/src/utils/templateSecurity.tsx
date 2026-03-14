@@ -57,7 +57,7 @@ export const sanitizeUserInput = (input: unknown): string => {
 /**
  * Sanitizes complex data objects (arrays, nested objects)
  */
-export const sanitizeDataObject = <T>(data: T): T => {
+export const sanitizeDataObject = <T,>(data: T): T => {
   if (data === null || data === undefined) return data;
 
   if (Array.isArray(data)) {
@@ -144,7 +144,7 @@ export const validateURL = (url: string): boolean => {
 /**
  * Validates array inputs
  */
-export const validateArray = <T>(input: unknown, maxLength: number = 100): T[] => {
+export const validateArray = <T,>(input: unknown, maxLength: number = 100): T[] => {
   if (!Array.isArray(input)) return [];
   return input.slice(0, maxLength) as T[];
 };
@@ -349,7 +349,7 @@ export const getSecurityHeaders = (): Record<string, string> => ({
 /**
  * Safely parses JSON with validation
  */
-export const safeJSONParse = <T>(
+export const safeJSONParse = <T,>(
   jsonString: string,
   defaultValue: T | null = null
 ): T | null => {
@@ -364,7 +364,7 @@ export const safeJSONParse = <T>(
 /**
  * Safely stringifies data with validation
  */
-export const safeJSONStringify = <T>(data: T): string | null => {
+export const safeJSONStringify = <T,>(data: T): string | null => {
   try {
     // Remove circular references
     const seen = new WeakSet<object>();
@@ -435,7 +435,7 @@ export const clearRateLimit = (identifier: string): void => {
 /**
  * Complete sanitization pipeline for template inputs
  */
-export const sanitizeTemplateInput = <T>(
+export const sanitizeTemplateInput = <T,>(
   input: T,
   schema?: Record<string, (value: unknown) => unknown>
 ): T => {

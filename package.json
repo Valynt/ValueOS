@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev:frontend": "pnpm --filter valynt-app dev",
+    "dev:academy": "pnpm --filter vosacademy dev",
     "dev:backend": "pnpm --filter @valueos/backend dev",
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
