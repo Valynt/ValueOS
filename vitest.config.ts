@@ -1,20 +1,34 @@
-import { defineConfig } from "vitest/config";
+import { defineWorkspace } from "vitest/config";
 import path from "path";
 
-const templateRoot = path.resolve(import.meta.dirname);
+const root = path.resolve(import.meta.dirname);
 
-export default defineConfig({
-  root: templateRoot,
-  resolve: {
-    alias: {
-      "@shared": path.resolve(templateRoot, "packages", "shared", "src"),
+/**
+ * Vitest workspace — each project runs with its own environment and aliases.
+ *
+ * - packages/memory: node, no aliases (relative imports only)
+ * - packages/backend: node, @shared/@backend/@mcp aliases (delegates to package config)
+ * - apps/ValyntApp: jsdom, react plugin, @/* aliases (delegates to package config)
+ */
+export default defineWorkspace([
+  // packages/memory — no per-package vitest config; inline it here
+  {
+    test: {
+      name: "memory",
+      globals: true,
+      environment: "node",
+      fileParallelism: false,
+      include: ["packages/memory/tests/**/*.{test,spec}.ts"],
+      exclude: ["**/node_modules/**", "**/dist/**"],
+    },
+    resolve: {
+      alias: {
+        "@shared": path.resolve(root, "packages/shared/src"),
+      },
     },
   },
-  test: {
-    environment: "node",
-    include: [
-      "packages/memory/tests/**/*.test.ts",
-      "packages/memory/tests/**/*.spec.ts",
-    ],
-  },
-});
+  // packages/backend — delegates to its own vitest.config.ts
+  "packages/backend",
+  // apps/ValyntApp — delegates to its own vitest.config.ts (jsdom + react + @/* aliases)
+  "apps/ValyntApp",
+]);
