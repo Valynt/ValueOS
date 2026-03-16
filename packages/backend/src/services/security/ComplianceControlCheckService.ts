@@ -151,13 +151,21 @@ export class ComplianceControlCheckService {
       results,
     };
 
-    await this.supabase.from("compliance_control_audit").insert({
+    const { error: runAuditInsertError } = await this.supabase.from("compliance_control_audit").insert({
       tenant_id: tenantId,
       control_id: "automated_control_checks",
       event_type: "automated_control_check_ran",
       event_payload: snapshot,
       evidence_ts: checkedAt,
     });
+
+    if (runAuditInsertError) {
+      logger.error("Failed to insert automated_control_check_ran audit record", {
+        tenant_id: tenantId,
+        run_id: snapshot.run_id,
+        error: runAuditInsertError,
+      });
+    }
 
     await auditLogService.createEntry({
       userId: "system",
@@ -176,7 +184,7 @@ export class ComplianceControlCheckService {
     });
 
     if (failingChecks.length > 0) {
-      await this.supabase.from("compliance_control_audit").insert({
+      const { error: alertInsertError } = await this.supabase.from("compliance_control_audit").insert({
         tenant_id: tenantId,
         control_id: "automated_control_checks",
         event_type: "automated_control_check_alert_raised",
@@ -187,6 +195,15 @@ export class ComplianceControlCheckService {
         },
         evidence_ts: checkedAt,
       });
+
+      if (alertInsertError) {
+        logger.error("Failed to insert automated_control_check_alert_raised record", {
+          tenant_id: tenantId,
+          run_id: snapshot.run_id,
+          failing_checks_count: failingChecks.length,
+          error: alertInsertError,
+        });
+      }
     }
 
     return snapshot;
