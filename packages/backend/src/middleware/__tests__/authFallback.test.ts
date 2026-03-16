@@ -19,7 +19,7 @@ vi.mock('@shared/lib/redisClient', () => ({
   })),
 }));
 
-vi.mock('../../services/AuditLogService.js', () => ({
+vi.mock('../../services/security/AuditLogService.js', () => ({
   auditLogService: {
     logAudit: auditLog,
   },
@@ -38,6 +38,8 @@ describe('verifyAccessToken local fallback policy', () => {
       SUPABASE_JWT_AUDIENCE: 'authenticated',
       AUTH_FALLBACK_EMERGENCY_MODE: 'false',
       AUTH_FALLBACK_EMERGENCY_TTL_UNTIL: now,
+      AUTH_FALLBACK_INCIDENT_ID: 'INC-1234',
+      AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS: '14400',
       NODE_ENV: 'production',
     });
   });
@@ -49,7 +51,8 @@ describe('verifyAccessToken local fallback policy', () => {
       'SUPABASE_JWT_AUDIENCE',
       'AUTH_FALLBACK_EMERGENCY_MODE',
       'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL',
-      'ALLOW_LOCAL_JWT_FALLBACK',
+      'AUTH_FALLBACK_INCIDENT_ID',
+      'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS',
       'NODE_ENV',
     ]) {
       delete process.env[key];
@@ -57,6 +60,104 @@ describe('verifyAccessToken local fallback policy', () => {
   });
 
   it('does not use local JWT verification unless emergency mode is enabled in non-dev', async () => {
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+
+  it('denies fallback when emergency TTL is missing', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_EMERGENCY_TTL_UNTIL: '',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback when emergency TTL is expired', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_EMERGENCY_TTL_UNTIL: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback when incident metadata is missing', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_INCIDENT_ID: '',
+    });
+
+    const token = jwt.sign(
+      {
+        sub: 'user-123',
+        email: 'user@example.com',
+        iss: 'https://issuer.test',
+        aud: 'authenticated',
+        tenant_id: 'tenant-123',
+      },
+      'test-secret',
+      { expiresIn: '1h' },
+    );
+
+    const verified = await verifyAccessToken(token, { route: '/api/test', method: 'GET' });
+
+    expect(verified).toBeNull();
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('denies fallback when emergency TTL exceeds max allowed duration', async () => {
+    __setEnvSourceForTests({
+      AUTH_FALLBACK_EMERGENCY_MODE: 'true',
+      AUTH_FALLBACK_EMERGENCY_TTL_UNTIL: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS: '3600',
+    });
+
     const token = jwt.sign(
       {
         sub: 'user-123',
@@ -96,7 +197,15 @@ describe('verifyAccessToken local fallback policy', () => {
     expect(verified?.user.id).toBe('user-123');
     expect(verified?.session.access_token).toBe(token);
     expect(redisExists).toHaveBeenCalled();
-    expect(auditLog).toHaveBeenCalled();
+    expect(auditLog).toHaveBeenCalledTimes(2);
+    expect(auditLog).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      action: 'auth.jwt_fallback_activated',
+      details: expect.objectContaining({ incidentId: 'INC-1234' }),
+    }));
+    expect(auditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      action: 'auth.jwt_fallback_high_severity_alert',
+      details: expect.objectContaining({ severity: 'high', incidentId: 'INC-1234' }),
+    }));
   });
 
   it('rejects fallback tokens with missing tenant claim', async () => {

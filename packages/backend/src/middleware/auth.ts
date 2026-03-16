@@ -36,9 +36,10 @@ import { getRedisClient } from '@shared/lib/redisClient';
 const logger = createLogger({ component: 'AuthMiddleware' });
 
 const SUPABASE_TOKEN_PREFIX = 'Bearer ';
-const ALLOW_LOCAL_JWT_FALLBACK_FLAG = 'ALLOW_LOCAL_JWT_FALLBACK';
 const AUTH_FALLBACK_EMERGENCY_MODE_FLAG = 'AUTH_FALLBACK_EMERGENCY_MODE';
 const AUTH_FALLBACK_EMERGENCY_TTL_UNTIL = 'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL';
+const AUTH_FALLBACK_INCIDENT_ID = 'AUTH_FALLBACK_INCIDENT_ID';
+const AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS = 'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS';
 const AUTH_FALLBACK_ALERT_THRESHOLD = 'AUTH_FALLBACK_ALERT_THRESHOLD';
 const AUTH_FALLBACK_ALERT_WINDOW_SECONDS = 'AUTH_FALLBACK_ALERT_WINDOW_SECONDS';
 
@@ -81,29 +82,21 @@ type VerifiedAuth = {
   claims: JwtPayload;
 };
 
-function allowLocalJwtFallback(): boolean {
-  return getEnvVar(ALLOW_LOCAL_JWT_FALLBACK_FLAG) === 'true';
-}
+type FallbackEmergencyConfig = {
+  incidentId: string;
+};
 
-function isDevelopmentEnvironment(): boolean {
-  return getEnvVar('NODE_ENV', { defaultValue: 'development' }) === 'development';
-}
-
-function isFallbackEmergencyModeEnabled(): boolean {
+function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
   if (getEnvVar(AUTH_FALLBACK_EMERGENCY_MODE_FLAG) !== 'true') {
-    return false;
+    return null;
   }
 
   const ttlUntil = getEnvVar(AUTH_FALLBACK_EMERGENCY_TTL_UNTIL);
   if (!ttlUntil) {
-    if (!isDevelopmentEnvironment()) {
-      logger.error('Fallback emergency mode requires explicit TTL in non-dev environments', undefined, {
-        flag: AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
-      });
-      return false;
-    }
-
-    return true;
+    logger.error('Fallback emergency mode requires explicit TTL', undefined, {
+      flag: AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
+    });
+    return null;
   }
 
   const ttlDate = new Date(ttlUntil);
@@ -112,10 +105,47 @@ function isFallbackEmergencyModeEnabled(): boolean {
       flag: AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
       value: sanitizeForLogging(ttlUntil),
     });
-    return false;
+    return null;
   }
 
-  return ttlDate.getTime() > Date.now();
+  const maxEmergencyDurationSeconds = Number(getEnvVar(AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS) || '14400');
+  if (!Number.isFinite(maxEmergencyDurationSeconds) || maxEmergencyDurationSeconds <= 0) {
+    logger.error('Invalid max emergency duration; refusing local JWT fallback', undefined, {
+      flag: AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS,
+      value: sanitizeForLogging(getEnvVar(AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS)),
+    });
+    return null;
+  }
+
+  const ttlRemainingSeconds = Math.floor((ttlDate.getTime() - Date.now()) / 1000);
+  if (ttlRemainingSeconds <= 0) {
+    logger.error('Fallback emergency mode TTL has expired; refusing local JWT fallback', undefined, {
+      flag: AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
+      value: sanitizeForLogging(ttlUntil),
+    });
+    return null;
+  }
+
+  if (ttlRemainingSeconds > maxEmergencyDurationSeconds) {
+    logger.error('Fallback emergency TTL exceeds maximum allowed emergency duration', undefined, {
+      ttlRemainingSeconds,
+      maxEmergencyDurationSeconds,
+      flag: AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS,
+    });
+    return null;
+  }
+
+  const incidentId = getEnvVar(AUTH_FALLBACK_INCIDENT_ID);
+  if (!incidentId) {
+    logger.error('Fallback emergency mode requires incident reference', undefined, {
+      flag: AUTH_FALLBACK_INCIDENT_ID,
+    });
+    return null;
+  }
+
+  return {
+    incidentId,
+  };
 }
 
 function parseBearerToken(header?: string): string | null {
@@ -275,6 +305,7 @@ async function emitFallbackAuditEvent(context: {
   method?: string;
   tenantId?: string;
   reason: string;
+  incidentId: string;
 }) {
   const details = {
     severity: 'critical',
@@ -282,6 +313,7 @@ async function emitFallbackAuditEvent(context: {
     method: context.method || 'UNKNOWN',
     tenantId: sanitizeForLogging(context.tenantId || 'unknown'),
     reason: context.reason,
+    incidentId: sanitizeForLogging(context.incidentId),
     fallbackMode: true,
   };
 
@@ -299,6 +331,25 @@ async function emitFallbackAuditEvent(context: {
       status: 'success',
       details: {
         reason: context.reason,
+        incidentId: context.incidentId,
+        tenantId: context.tenantId,
+        route: context.route,
+        method: context.method,
+      },
+    });
+
+    await auditLogService.logAudit({
+      userId: 'system',
+      userName: 'System',
+      userEmail: 'system@valueos.local',
+      action: 'auth.jwt_fallback_high_severity_alert',
+      resourceType: 'security_alert',
+      resourceId: context.route || 'unknown_route',
+      status: 'success',
+      details: {
+        severity: 'high',
+        reason: context.reason,
+        incidentId: context.incidentId,
         tenantId: context.tenantId,
         route: context.route,
         method: context.method,
@@ -515,10 +566,10 @@ async function verifyTokenWithSupabase(token: string): Promise<VerifiedAuth | nu
 }
 
 async function verifyTokenLocally(token: string, context: VerificationContext = {}): Promise<VerifiedAuth | null> {
-  const emergencyModeEnabled = isFallbackEmergencyModeEnabled();
-  const devExplicitFallback = isDevelopmentEnvironment() && allowLocalJwtFallback();
+  const emergencyConfig = getFallbackEmergencyConfig();
+  const emergencyModeEnabled = Boolean(emergencyConfig);
 
-  if (!emergencyModeEnabled && !devExplicitFallback) {
+  if (!emergencyModeEnabled) {
     logger.warn(
       `Local JWT verification fallback disabled; set ${AUTH_FALLBACK_EMERGENCY_MODE_FLAG}=true with TTL for break-glass usage`
     );
@@ -559,7 +610,8 @@ async function verifyTokenLocally(token: string, context: VerificationContext = 
       route: context.route,
       method: context.method,
       tenantId: extractTenantId(claims),
-      reason: emergencyModeEnabled ? 'idp_unavailable_emergency_mode' : 'dev_explicit_fallback',
+      reason: 'idp_unavailable_emergency_mode',
+      incidentId: emergencyConfig.incidentId,
     });
 
     const session = buildSessionFromClaims(token, claims);
