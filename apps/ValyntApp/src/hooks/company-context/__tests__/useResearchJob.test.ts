@@ -11,12 +11,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGet, mockPost, mockPut, mockDelete, mockPatch } = vi.hoisted(() => ({
-  mockGet: vi.fn(),
-  mockPost: vi.fn(),
-  mockPut: vi.fn(),
-  mockDelete: vi.fn(),
-  mockPatch: vi.fn(),
+const { mockRequest } = vi.hoisted(() => ({
+  mockRequest: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -25,11 +21,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/api/client/unified-api-client", () => ({
   apiClient: {
-    get: mockGet,
-    post: mockPost,
-    put: mockPut,
-    delete: mockDelete,
-    patch: mockPatch,
+    request: mockRequest,
   },
 }));
 
@@ -46,27 +38,23 @@ const SUCCESS = { success: true, data: { data: { id: "job-1", status: "pending" 
 describe("apiRequest argument shape regression", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPost.mockResolvedValue(SUCCESS);
-    mockGet.mockResolvedValue(SUCCESS);
-    mockPut.mockResolvedValue(SUCCESS);
-    mockDelete.mockResolvedValue(SUCCESS);
-    mockPatch.mockResolvedValue(SUCCESS);
+    mockRequest.mockResolvedValue(SUCCESS);
   });
 
-  it("passes URL as a positional string to apiClient.post, not an object", async () => {
+  it("passes URL to apiClient.request config", async () => {
     const { result } = renderHook(() => useCreateResearchJob("tenant-1"), {
       wrapper: makeWrapper(),
     });
 
     await result.current.mutateAsync({ contextId: "ctx-1", website: "https://example.com" });
 
-    expect(mockPost).toHaveBeenCalledOnce();
-    const [urlArg] = mockPost.mock.calls[0] as [unknown, ...unknown[]];
-    expect(typeof urlArg).toBe("string");
-    expect(urlArg).toBe("/api/onboarding/research");
+    expect(mockRequest).toHaveBeenCalledOnce();
+    const [config] = mockRequest.mock.calls[0] as [Record<string, unknown>];
+    expect(config.url).toBe("/api/onboarding/research");
+    expect(config.method).toBe("POST");
   });
 
-  it("passes body as second positional argument to apiClient.post", async () => {
+  it("passes body as request data", async () => {
     const { result } = renderHook(() => useCreateResearchJob("tenant-1"), {
       wrapper: makeWrapper(),
     });
@@ -74,7 +62,7 @@ describe("apiRequest argument shape regression", () => {
     const input = { contextId: "ctx-1", website: "https://example.com", industry: "SaaS" };
     await result.current.mutateAsync(input);
 
-    const [, bodyArg] = mockPost.mock.calls[0] as [unknown, unknown];
-    expect(bodyArg).toEqual(input);
+    const [config] = mockRequest.mock.calls[0] as [Record<string, unknown>];
+    expect(config.data).toEqual(input);
   });
 });
