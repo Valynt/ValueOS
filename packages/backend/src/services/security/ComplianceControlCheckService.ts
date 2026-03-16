@@ -38,6 +38,8 @@ const FRESHNESS_BUDGET_MINUTES: Record<EvidenceType, number> = {
   control_status: 60 * 24,
 };
 
+const CONCURRENT_TENANT_CHECKS = 5;
+
 export class ComplianceControlCheckService {
   private readonly supabase = createServerSupabaseClient();
   private interval: NodeJS.Timeout | null = null;
@@ -235,8 +237,20 @@ export class ComplianceControlCheckService {
     }
 
     const tenants = (data as Array<{ id: string }> | null) ?? [];
-    for (const tenant of tenants) {
-      await this.runChecksForTenant(tenant.id, "scheduled");
+    for (let i = 0; i < tenants.length; i += CONCURRENT_TENANT_CHECKS) {
+      const batch = tenants.slice(i, i + CONCURRENT_TENANT_CHECKS);
+      await Promise.all(
+        batch.map(async (tenant) => {
+          try {
+            await this.runChecksForTenant(tenant.id, "scheduled");
+          } catch (err) {
+            logger.warn("ComplianceControlCheckService: scheduled sweep failed for tenant", {
+              tenantId: tenant.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }),
+      );
     }
   }
 
