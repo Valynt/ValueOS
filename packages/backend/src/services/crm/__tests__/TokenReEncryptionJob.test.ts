@@ -13,6 +13,8 @@ function makeEnv(keyVersion = 1) {
   return {
     CRM_TOKEN_ENCRYPTION_KEY: 'test-key-for-unit-tests-exactly-32ch!',
     CRM_TOKEN_ENCRYPTION_KEY_V2: 'test-key-v2-for-unit-tests-32chars!',
+    CRM_TOKEN_KEK_SECRET: 'test-kek-secret-v1',
+    CRM_TOKEN_KEK_SECRET_V2: 'test-kek-secret-v2',
     CRM_TOKEN_KEY_VERSION: String(keyVersion),
   };
 }

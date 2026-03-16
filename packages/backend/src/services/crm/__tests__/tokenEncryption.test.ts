@@ -10,6 +10,7 @@ describe('tokenEncryption', () => {
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV };
     process.env.CRM_TOKEN_ENCRYPTION_KEY = 'test-encryption-key-for-unit-tests-32chars!';
+    process.env.CRM_TOKEN_KEK_SECRET = 'test-kek-secret-for-unit-tests';
     // Default to key version 1
     delete process.env.CRM_TOKEN_KEY_VERSION;
   });
@@ -26,9 +27,9 @@ describe('tokenEncryption', () => {
     const encrypted = encryptToken(plaintext);
 
     expect(encrypted).not.toBe(plaintext);
-    // Versioned format: v1:{iv}:{authTag}:{ciphertext}
-    expect(encrypted).toMatch(/^v\d+:/);
-    expect(encrypted.split(':')).toHaveLength(4);
+    // Versioned envelope format: v2:{kekVersion}:{dataKeyVersion}:{createdAt}:{wrappedDataKey}:{iv}:{authTag}:{ciphertext}
+    expect(encrypted).toMatch(/^v2:/);
+    expect(encrypted.split(':')).toHaveLength(8);
 
     const decrypted = decryptToken(encrypted);
     expect(decrypted).toBe(plaintext);
@@ -45,12 +46,13 @@ describe('tokenEncryption', () => {
   });
 
   it('throws on missing encryption key', async () => {
+    delete process.env.CRM_TOKEN_KEK_SECRET;
     delete process.env.CRM_TOKEN_ENCRYPTION_KEY;
     vi.resetModules();
 
     const { encryptToken } = await import('../tokenEncryption.js');
 
-    expect(() => encryptToken('test')).toThrow('CRM_TOKEN_ENCRYPTION_KEY');
+    expect(() => encryptToken('test')).toThrow('CRM_TOKEN_KEK_SECRET');
   });
 
   it('throws on invalid encrypted format', async () => {
@@ -64,8 +66,8 @@ describe('tokenEncryption', () => {
 
     const encrypted = encryptToken('secret-token');
     const parts = encrypted.split(':');
-    // Tamper with the ciphertext (4th part in versioned format)
-    parts[3] = 'AAAA' + parts[3].slice(4);
+    // Tamper with ciphertext payload (8th part in v2 envelope format)
+    parts[7] = 'AAAA' + parts[7].slice(4);
     const tampered = parts.join(':');
 
     expect(() => decryptToken(tampered)).toThrow();
@@ -107,6 +109,7 @@ describe('tokenEncryption', () => {
 
     // Simulate key version bump
     process.env.CRM_TOKEN_KEY_VERSION = '2';
+    process.env.CRM_TOKEN_KEK_SECRET_V2 = 'new-kek-secret-for-version-2';
     process.env.CRM_TOKEN_ENCRYPTION_KEY_V2 = 'new-key-for-version-2';
     expect(needsReEncryption(encrypted)).toBe(true);
   });
