@@ -208,7 +208,10 @@ async function checkOpenAI(): Promise<HealthStatus> {
 async function checkSupabase(): Promise<HealthStatus> {
   const startTime = Date.now();
 
-  if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
     return {
       status: "not_configured",
       message: "Supabase not configured",
@@ -217,13 +220,10 @@ async function checkSupabase(): Promise<HealthStatus> {
   }
 
   try {
-    const supabase = createClient(
-      process.env.VITE_SUPABASE_URL,
-      process.env.VITE_SUPABASE_ANON_KEY
-    );
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { error } = await supabase
-      .from("agent_sessions")
+      .from("tenants")
       .select("id")
       .limit(1);
 
@@ -262,11 +262,11 @@ async function checkDatabase(): Promise<HealthStatus> {
 
   try {
     const supabase = createClient(
-      process.env.VITE_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY!
+      process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "",
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
     );
 
-    const { error } = await supabase.rpc("pg_backend_pid");
+    const { error } = await supabase.from("tenants").select("id").limit(1);
 
     const latency = Date.now() - startTime;
 
@@ -310,7 +310,8 @@ async function checkRedis(): Promise<HealthStatus> {
   }
 
   try {
-    const { redisClient } = await import("../../middleware/llmRateLimiter");
+    const { getRedisClient } = await import("../../lib/redisClient.js");
+    const redisClient = getRedisClient();
 
     // Add timeout to prevent hanging on unresponsive Redis
     const pingPromise = redisClient.ping();

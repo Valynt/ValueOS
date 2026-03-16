@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../tenant/EmailService.js";
+export * from "../messaging/EmailService.js";

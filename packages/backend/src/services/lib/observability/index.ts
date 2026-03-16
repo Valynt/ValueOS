@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../../observability/index.js";
+export * from "../../../lib/observability/index.js";

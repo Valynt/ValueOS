@@ -144,7 +144,7 @@ export class AuthRateLimitStore {
 
   private connectRedis(): void {
     this.reconnectScheduled = false;
-    getRedisClient()
+    Promise.resolve(getRedisClient())
       .then((client) => {
         this.redis = client;
         this.redisReady = true;

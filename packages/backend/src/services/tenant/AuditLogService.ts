@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../security/AuditLogService.js";
+export * from "../security/AuditLogService.js";

@@ -22,7 +22,7 @@ import {
   RateLimitExceededError,
   resetRateLimit,
   setAuthRateLimiter,
-} from "../security";
+} from "../security/index.js";
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
 import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
 import { DeviceFingerprint, getSessionStore, RedisSessionStore } from "../security/RedisSessionStore.js";

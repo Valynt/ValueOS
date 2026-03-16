@@ -14,3 +14,16 @@ export function validateAgentInput(input: any): { valid: boolean; errors: string
     errors,
   };
 }
+
+import { z } from "zod";
+
+// Zod schema for TargetAgent input validation
+export const TargetAgentInputSchema = z.object({
+  workspace_id: z.string().min(1),
+  organization_id: z.string().min(1),
+  user_id: z.string().min(1),
+  opportunity_id: z.string().optional(),
+  context: z.record(z.unknown()).optional(),
+}).passthrough();
+
+export type TargetAgentInput = z.infer<typeof TargetAgentInputSchema>;

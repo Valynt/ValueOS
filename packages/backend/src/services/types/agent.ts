@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "../../types/agent.js";
+export * from "../agent-types.js";

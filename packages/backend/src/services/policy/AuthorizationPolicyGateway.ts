@@ -196,6 +196,7 @@ export function assertAuthorized(params: {
   action: string;
   resource: string;
   agentType?: string;
+  [key: string]: unknown;
 }): AuthorizationDecision {
   return authorizationPolicyGateway.authorize({
     channel: "tool_registry",
