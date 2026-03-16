@@ -141,4 +141,12 @@ export class AuditLogger {
   }
 }
 
-export const auditlogger = new AuditLogger();
+// Lazy singleton — constructed on first access so AuditLogService dependencies
+// (Supabase client, env vars) are available by the time the instance is created.
+let _auditlogger: AuditLogger | null = null;
+export function getAuditLogger(): AuditLogger {
+  if (_auditlogger === null) {
+    _auditlogger = new AuditLogger();
+  }
+  return _auditlogger;
+}

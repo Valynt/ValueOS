@@ -28,10 +28,21 @@ const DB_TYPE = "workflow_result" as const;
  * Populated from CROSS_WORKSPACE_MEMORY_ALLOWLIST env var (comma-separated).
  * Defaults to empty — cross-workspace reads are tenant-scoped only unless
  * an org is explicitly allowlisted.
+ *
+ * Memoized at module level so the Set is not rebuilt on every retrieve() call.
+ * Call resetCrossWorkspaceAllowlistCache() in tests to clear the cached value.
  */
+let _crossWorkspaceAllowlistCache: Set<string> | null = null;
+
+export function resetCrossWorkspaceAllowlistCache(): void {
+  _crossWorkspaceAllowlistCache = null;
+}
+
 function getCrossWorkspaceAllowlist(): Set<string> {
+  if (_crossWorkspaceAllowlistCache !== null) return _crossWorkspaceAllowlistCache;
   const raw = process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST ?? "";
-  return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  _crossWorkspaceAllowlistCache = new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  return _crossWorkspaceAllowlistCache;
 }
 
 export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
