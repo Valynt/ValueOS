@@ -9,9 +9,14 @@ import { BillingMetric } from '../config/billing.js';
 import { createLogger } from '../lib/logger.js';
 import { supabase } from '../lib/supabase.js';
 import { EntitlementsService } from '../services/billing/EntitlementsService.js';
+import { createCounter } from '../services/lib/observability/index.js';
 import { getMetricsCollector } from '../services/monitoring/MetricsCollector.js';
 
 const logger = createLogger({ component: 'UsageEnforcementMiddleware' });
+const usageEnforcementFailOpenCounter = createCounter(
+  'usage_enforcement_fail_open_override_total',
+  'Number of requests permitted because usage enforcement fail-open override is active'
+);
 
 // Lazy singleton — instantiated on first use so supabase client is ready
 let _entitlementsService: EntitlementsService | null = null;
@@ -26,6 +31,10 @@ interface UsageEnforcementOptions {
   metric: BillingMetric;
   checkGracePeriod?: boolean;
   allowPartialUsage?: boolean;
+}
+
+function isUsageEnforcementFailOpenEnabled(): boolean {
+  return process.env.USAGE_ENFORCEMENT_FAIL_OPEN === 'true';
 }
 
 /**
@@ -110,8 +119,37 @@ export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
         tenantId: req.tenantId
       });
 
-      // On error, allow request to proceed (fail open)
-      next();
+      const tenantId = req.tenantId ?? 'unknown';
+      const route = req.route?.path ? String(req.route.path) : req.path;
+      const failOpenEnabled = isUsageEnforcementFailOpenEnabled();
+
+      if (failOpenEnabled) {
+        logger.warn('Usage enforcement fail-open override active; permitting request despite entitlement dependency failure', {
+          tenantId,
+          route,
+          metric: options.metric,
+          reason: 'entitlements_dependency_unavailable',
+          securityImpact: 'quota_enforcement_bypassed'
+        });
+
+        usageEnforcementFailOpenCounter.add(1, {
+          metric: options.metric,
+          tenant_id: tenantId,
+          route,
+        });
+
+        next();
+        return;
+      }
+
+      return res.status(503).json({
+        allowed: false,
+        reason: 'entitlements_dependency_unavailable',
+        reason_code: 'ENTITLEMENTS_DEPENDENCY_UNAVAILABLE',
+        meter_key: options.metric,
+        retryable: true,
+        message: 'Usage enforcement is temporarily unavailable. Please retry shortly.',
+      });
     }
   };
 }
