@@ -158,13 +158,42 @@ export class PlaygroundSessionService {
     let orgId = organizationId;
     if (!orgId) {
       try {
-        const { data, error } = await supabase.from('agent_sessions').select('organization_id').eq('id', sessionId).single();
-        if (!error && isAgentSessionOrganizationRow(data)) {
-          orgId = data.organization_id;
+        const { data, error } = await supabase
+          .from('agent_sessions')
+          .select('organization_id')
+          .eq('id', sessionId)
+          .single();
+
+        if (error) {
+          logger.warn('Error fetching session organizationId when loading session', {
+            sessionId,
+            error: error.message,
+          });
+          return null;
         }
+
+        if (!data || !isAgentSessionOrganizationRow(data)) {
+          logger.warn('No valid organizationId found for session when loading session', {
+            sessionId,
+          });
+          return null;
+        }
+
+        orgId = data.organization_id;
       } catch (err) {
-        logger.warn('Unable to fetch session organizationId when loading session', { sessionId, error: err instanceof Error ? err.message : String(err) });
+        logger.warn('Unable to fetch session organizationId when loading session', {
+          sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
       }
+    }
+
+    if (!orgId) {
+      logger.warn('Missing organizationId for playground session; refusing to load from Redis', {
+        sessionId,
+      });
+      return null;
     }
 
     const key = REDIS_KEYS.session(sessionId, orgId);
