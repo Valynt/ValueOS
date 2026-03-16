@@ -19,7 +19,11 @@ services:
       - name: cors
         config:
           origins:
-            - "*"
+            # Private/authenticated surfaces (dev + staging + production)
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+            - "https://staging.valueos.ai"
+            - "https://app.valueos.ai"
           methods:
             - GET
             - POST
@@ -49,7 +53,11 @@ services:
       - name: cors
         config:
           origins:
-            - "*"
+            # Private/authenticated surfaces (dev + staging + production)
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+            - "https://staging.valueos.ai"
+            - "https://app.valueos.ai"
           methods:
             - GET
             - POST
@@ -66,7 +74,7 @@ services:
             - Prefer
             - Range
             - accept-profile
-          credentials: true
+          credentials: false
           max_age: 3600
 
   # Realtime Service
@@ -81,7 +89,23 @@ services:
       - name: cors
         config:
           origins:
-            - "*"
+            # Public subscription endpoint (no cookie forwarding)
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+            - "https://staging.valueos.ai"
+            - "https://app.valueos.ai"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          credentials: false
+          max_age: 3600
 
   # Storage Service
   - name: storage-service
@@ -95,7 +119,11 @@ services:
       - name: cors
         config:
           origins:
-            - "*"
+            # Public object and upload endpoints (token auth, no cookies)
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+            - "https://staging.valueos.ai"
+            - "https://app.valueos.ai"
           methods:
             - GET
             - POST
@@ -112,7 +140,7 @@ services:
             - upload-offset
             - tus-resumable
             - upload-metadata
-          credentials: true
+          credentials: false
           max_age: 3600
 
   # Meta Service (for Studio)

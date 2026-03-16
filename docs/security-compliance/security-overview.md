@@ -16,6 +16,7 @@ This document is the canonical security controls matrix for ValueOS. It maps eac
 | SEC-06 | CodeQL analysis is required for JavaScript/TypeScript. | `.github/workflows/codeql.yml` (`github/codeql-action/init@v3` + `github/codeql-action/analyze@v3`). | `codeql-analyze (js-ts)` runs on PRs and pushes to `main`; intended as a required branch-protection check. |
 | SEC-07 | Trivy filesystem and container image scans are enforced in CI. | `.github/workflows/ci.yml` (`aquasecurity/trivy-action@0.28.0` for `scan-type: fs` and `scan-type: image`). | HIGH/CRITICAL severities fail `security-gate`; SARIF artifacts (`trivy-fs.sarif`, `trivy-image.sarif`) are uploaded to code scanning and retained for 90 days. |
 | SEC-08 | CI scanner control matrix drift is blocked automatically. | `scripts/ci/check-ci-security-control-matrix.mjs`, `.github/workflows/CI_CONTROL_MATRIX.md`. | `ci.yml` runs the guard and fails if required scanner action identifiers or matrix rows drift. |
+| SEC-09 | Gateway CORS configuration forbids wildcard origins in production. | `config/kong.yml` (approved origin allowlists per environment), `scripts/ci/check-kong-cors-origins.mjs` (wildcard detection in production mode), `.github/workflows/ci.yml` (guard execution). | `pnpm check:kong-cors-origins` fails CI if any `origins: ["*"]`-style entries are present in gateway config. |
 
 ## Baseline Verification Entry Point
 
@@ -24,6 +25,7 @@ Run baseline verifiers locally:
 ```bash
 node scripts/ci/security-baseline-verification.mjs
 node scripts/ci/check-ci-security-control-matrix.mjs
+pnpm check:kong-cors-origins
 ```
 
 These checks are intentionally narrow and fast: they confirm core middleware wiring and verify scanner/control-matrix contracts in workflow configuration.
