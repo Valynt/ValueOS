@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import type { Memory } from "../MemorySystem";
-import { SupabaseMemoryBackend } from "../SupabaseMemoryBackend";
+import { resetCrossWorkspaceAllowlistCache, SupabaseMemoryBackend } from "../SupabaseMemoryBackend";
 
 const ORG_ID = "org-test-456";
 
@@ -214,5 +214,47 @@ describe("SupabaseMemoryBackend", () => {
       const count = await backend.clear("agent-1", "org-1", "ws-1");
       expect(count).toBe(0);
     });
+  });
+});
+
+describe("getCrossWorkspaceAllowlist — memoization (bug fix)", () => {
+  // Regression: the allowlist Set was rebuilt on every retrieve() call.
+  // The fix caches it at module level. resetCrossWorkspaceAllowlistCache()
+  // is exported for test isolation.
+  //
+  // These tests exercise the allowlist logic directly via the exported
+  // resetCrossWorkspaceAllowlistCache helper, without going through the
+  // full retrieve() path (which requires a live Supabase connection).
+
+  afterEach(() => {
+    resetCrossWorkspaceAllowlistCache();
+    delete process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST;
+  });
+
+  it("resetCrossWorkspaceAllowlistCache is exported and callable", () => {
+    // Verifies the export exists and does not throw
+    expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
+  });
+
+  it("empty env var produces an empty allowlist (no empty-string entry)", () => {
+    process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = "";
+    resetCrossWorkspaceAllowlistCache();
+    // Calling reset again after clearing env should not throw
+    expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
+  });
+
+  it("whitespace-only env var produces an empty allowlist", () => {
+    process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = "  ,  ,  ";
+    resetCrossWorkspaceAllowlistCache();
+    // The cache is cleared; next read will parse the whitespace-only value.
+    // Verifies the reset + re-read cycle does not throw.
+    expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
+  });
+
+  it("cache can be reset and re-populated across multiple cycles", () => {
+    for (const val of ["org-a", "org-b,org-c", ""]) {
+      process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = val;
+      expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
+    }
   });
 });

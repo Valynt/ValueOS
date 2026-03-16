@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuditLogger } from "../AuditLogger.js";
+vi.mock("../../../lib/logger.js", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+import { AuditLogger, getAuditLogger } from "../AuditLogger.js";
 import type { AuditLogService } from "../../../services/security/AuditLogService.js";
 
 function makeMockAuditLogService() {
@@ -118,5 +122,22 @@ describe("AuditLogger", () => {
         })
       ).resolves.toBeUndefined();
     });
+  });
+});
+
+describe("getAuditLogger — lazy singleton (bug fix)", () => {
+  // Regression: `export const auditlogger = new AuditLogger()` ran at import
+  // time, constructing AuditLogService before dependencies were ready.
+  // The fix replaces it with a lazy getter that constructs on first call.
+
+  it("returns an AuditLogger instance", () => {
+    const instance = getAuditLogger();
+    expect(instance).toBeInstanceOf(AuditLogger);
+  });
+
+  it("returns the same instance on repeated calls (singleton)", () => {
+    const a = getAuditLogger();
+    const b = getAuditLogger();
+    expect(a).toBe(b);
   });
 });

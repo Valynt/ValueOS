@@ -268,9 +268,11 @@ export abstract class BaseAgent {
     // bleed into this one when the agent instance is reused.
     this._promptVersionRefs = [];
 
-    const invokeStartMs = Date.now();
-
     return this.circuitBreaker.execute(async () => {
+      // Start the timer inside the closure so circuit-breaker queue time is
+      // not included in the reported LLM latency.
+      const invokeStartMs = Date.now();
+
       const traceId =
         typeof context.trace_id === "string"
           ? context.trace_id
@@ -708,7 +710,8 @@ export abstract class BaseAgent {
     results: number[] = []
   ): number[] {
     if (obj === null || obj === undefined) return results;
-    if (typeof obj === "number" && !Number.isNaN(obj)) return results;
+    // A bare number is not keyed, so it cannot match keyPattern — skip it.
+    if (typeof obj === "number") return results;
 
     if (Array.isArray(obj)) {
       for (const item of obj) {
