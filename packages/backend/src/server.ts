@@ -712,7 +712,19 @@ async function startServer(): Promise<void> {
   securityAuditService.startRetryLoop();
 
   // 7. Start compliance automated control check scheduler
-  complianceControlCheckService.start();
+  const shouldStartComplianceScheduler =
+    settings.NODE_ENV === "development" || process.env.COMPLIANCE_SCHEDULER_LEADER === "true";
+
+  if (shouldStartComplianceScheduler) {
+    logger.info(
+      "[Instrumentation] Starting compliance automated control check scheduler on this instance",
+    );
+    complianceControlCheckService.start();
+  } else {
+    logger.info(
+      "[Instrumentation] Skipping compliance automated control check scheduler; not leader instance",
+    );
+  }
 
   // 8. Register graceful shutdown handlers
   registerGracefulShutdown();
