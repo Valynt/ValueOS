@@ -52,15 +52,15 @@ services:
 
   backend:
     name: Backend API
-    description: Express API server on port 8000.
+    description: Express API server on port 3001.
     triggeredBy:
       - postEnvironmentStart
     commands:
       start: |
-        ona env port open 8000 --protocol https 2>/dev/null || true
+        ona env port open 3001 --protocol https 2>/dev/null || true
         pnpm run dev:backend
       ready: |
-        curl -sf http://localhost:8000/health
+        curl -sf http://localhost:3001/health
 
   frontend:
     name: ValyntApp (Vite)

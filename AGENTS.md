@@ -150,6 +150,18 @@ pnpm run test:rls        # RLS policy validation
 bash scripts/test-agent-security.sh  # Agent security suite
 ```
 
+## Dev Environment Notes
+
+**Backend port:** The Express server binds to `API_PORT` (default **3001**), not 8000. Defined in `packages/backend/src/config/settings.ts`. Health check: `http://localhost:3001/health`. Do not assume port 8000 in ready checks, proxy configs, or test setup.
+
+**`SUPABASE_KEY` env var:** Three backend files (`packages/core-services/src/FeatureFlags.ts`, `packages/backend/src/services/post-v1/PromptVersionControl.ts`, `packages/backend/src/services/realtime/MessageQueue.ts`) read `process.env.SUPABASE_KEY` rather than `SUPABASE_ANON_KEY`. Both must be set to the same anon key value in local env files and `containerEnv`. If the backend crashes at startup with `supabaseKey is required`, `SUPABASE_KEY` is missing.
+
+**Required env vars for local dev** (set in `ops/env/.env.backend.local` and `.devcontainer/devcontainer.json` `containerEnv`):
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_KEY` (anon key alias), `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
+- `TCT_SECRET` — token-signing secret; backend startup fails fast if missing
+- `WEB_SCRAPER_ENCRYPTION_KEY` — 32-byte hex key; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
 ## Testing Conventions
 
 - Framework: Vitest with jsdom, globals enabled.
