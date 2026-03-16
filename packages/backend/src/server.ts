@@ -132,7 +132,7 @@ import {
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler.js";
 import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
-import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
+import { cspNonceMiddleware, cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import {
@@ -449,6 +449,7 @@ app.use((req, _res, next) => {
 });
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
+app.use(cspNonceMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
 app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)

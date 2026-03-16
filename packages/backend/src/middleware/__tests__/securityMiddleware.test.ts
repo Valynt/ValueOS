@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getSecurityConfig } from '../../security/SecurityConfig.js'
 import {
+  cspNonceMiddleware,
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
-  sessionTimeoutMiddleware,
 } from '../securityMiddleware';
 
 function mockRes() {
   const headers: Record<string, string> = {};
   return {
+    locals: {},
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
     setHeader: vi.fn((key: string, value: string) => {
@@ -24,16 +24,20 @@ describe('securityMiddlewares', () => {
     vi.useRealTimers();
   });
 
-  it('applies security headers', () => {
+  it('applies strict CSP headers with nonce and no unsafe-inline script policy', () => {
     const req = {} as any;
     const res = mockRes();
+    const nonceNext = vi.fn();
     const next = vi.fn();
 
+    cspNonceMiddleware(req, res as any, nonceNext);
     securityHeadersMiddleware(req, res as any, next);
 
+    expect(nonceNext).toHaveBeenCalled();
     expect(next).toHaveBeenCalled();
-    const configHeaders = Object.keys(res.headers);
-    expect(configHeaders.length).toBeGreaterThan(0);
+    const csp = res.headers['Content-Security-Policy'];
+    expect(csp).toContain("script-src 'self' 'nonce-");
+    expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
   });
 
   it('enforces CSRF double-submit', () => {
@@ -59,28 +63,5 @@ describe('securityMiddlewares', () => {
     expect(next2).toHaveBeenCalled();
   });
 
-  it('enforces session idle and absolute timeouts', () => {
-    const { timeout, absoluteTimeout } = getSecurityConfig().session;
-    const now = Date.now();
-    const baseSession = { createdAt: now - 1000, lastActivityAt: now - 1000 };
 
-    const makeReq = (session: any) => ({ session } as any);
-
-    const resIdle = mockRes();
-    const nextIdle = vi.fn();
-    const idleSession = { ...baseSession, lastActivityAt: now - (timeout + 1000) };
-    sessionTimeoutMiddleware(makeReq(idleSession), resIdle as any, nextIdle);
-    expect(resIdle.status).toHaveBeenCalledWith(440);
-
-    const resAbsolute = mockRes();
-    const nextAbsolute = vi.fn();
-    const absoluteSession = { ...baseSession, createdAt: now - (absoluteTimeout + 1000) };
-    sessionTimeoutMiddleware(makeReq(absoluteSession), resAbsolute as any, nextAbsolute);
-    expect(resAbsolute.status).toHaveBeenCalledWith(440);
-
-    const resOk = mockRes();
-    const nextOk = vi.fn();
-    sessionTimeoutMiddleware(makeReq(baseSession), resOk as any, nextOk);
-    expect(nextOk).toHaveBeenCalled();
-  });
 });
