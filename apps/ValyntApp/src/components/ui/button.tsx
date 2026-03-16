@@ -1,6 +1,6 @@
 /**
  * Button Component
- * 
+ *
  * Base button with multiple variants following ValueOS design system.
  * Supports: primary, secondary, ghost, destructive, outline, link
  */
@@ -23,33 +23,34 @@ const buttonVariants = cva(
           "bg-primary text-primary-foreground shadow hover:bg-primary/90 active:bg-primary/80",
         primary:
           "bg-primary text-primary-foreground shadow hover:bg-primary/90 active:bg-primary/80",
-        
+
         // Secondary - Subtle background for secondary actions
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70",
-        
+
         // Ghost - No background, just text
         ghost:
           "hover:bg-accent hover:text-accent-foreground",
-        
+
         // Destructive - Red for dangerous actions
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:bg-destructive/80",
-        
+
         // Outline - Border only
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        
+
         // Link - Looks like a link
         link:
           "text-primary underline-offset-4 hover:underline",
-        
+
         // Success - Green for positive actions
         success:
           "bg-success text-success-foreground shadow hover:bg-success/90 active:bg-success/80",
       },
       size: {
         default: "h-9 px-4 py-2",
+        xs: "h-7 px-2 text-xs rounded",
         sm: "h-8 px-3 text-xs rounded-md",
         md: "h-9 px-4 py-2",
         lg: "h-10 px-6 text-base",
@@ -68,7 +69,7 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   loading?: boolean;
   leftIcon?: React.ReactNode;

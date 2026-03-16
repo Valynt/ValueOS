@@ -5,12 +5,17 @@
 // In production, replace this stub with a transport-backed logger (e.g. Winston, Pino).
 
 export const logger = {
-  info: (msg: string, data?: unknown) => console.log(`[INFO] ${msg}`, data !== undefined ? data : ""),
-  warn: (msg: string, data?: unknown) => console.warn(`[WARN] ${msg}`, data !== undefined ? data : ""),
-  error: (msg: string, data?: unknown) => console.error(`[ERROR] ${msg}`, data !== undefined ? data : ""),
-  debug: (msg: string, data?: unknown) => console.log(`[DEBUG] ${msg}`, data !== undefined ? data : ""),
+  info: (msg: string, ...data: unknown[]) => console.log(`[INFO] ${msg}`, ...data),
+  warn: (msg: string, ...data: unknown[]) => console.warn(`[WARN] ${msg}`, ...data),
+  error: (msg: string, ...data: unknown[]) => console.error(`[ERROR] ${msg}`, ...data),
+  debug: (msg: string, ...data: unknown[]) => console.log(`[DEBUG] ${msg}`, ...data),
 };
 
-export const createLogger = () => logger;
+export const createLogger = (_context?: string) => logger;
 
 export const log = logger;
+
+/** Monitoring setup stub - replace with real implementation in production */
+export function setupMonitoring(): void {
+  // Stub: monitoring initialization placeholder
+}
