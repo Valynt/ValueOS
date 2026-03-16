@@ -8,13 +8,13 @@
     "ghcr.io/devcontainers/features/docker-in-docker": {}
   },
   "runArgs": ["--network=host"],
-  "forwardPorts": [5173, 8000, 24678, 5432, 6379, 4222, 8222],
+  "forwardPorts": [5173, 3001, 24678, 5432, 6379, 4222, 8222],
   "portsAttributes": {
     "5173": {
       "label": "ValyntApp (Vite)",
       "onAutoForward": "notify"
     },
-    "8000": {
+    "3001": {
       "label": "Backend API",
       "onAutoForward": "notify"
     },
