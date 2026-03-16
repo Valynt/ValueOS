@@ -46,7 +46,7 @@ function resolveUsageEvidence(
  * Track API calls
  */
 export function trackAPICall(req: Request, res: Response, next: NextFunction) {
-  const tenantId = (req as { tenantId?: string }).tenantId;
+  const tenantId = req.tenantId;
 
   if (!tenantId) {
     return next();
@@ -86,7 +86,7 @@ export function trackAPICall(req: Request, res: Response, next: NextFunction) {
 
 export function trackLLMUsage(tokens: number, model?: string) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const tenantId = (req as { tenantId?: string }).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       return next();
@@ -126,7 +126,7 @@ export function trackLLMUsage(tokens: number, model?: string) {
 
 export function trackAgentExecution(agentType?: string) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const tenantId = (req as { tenantId?: string }).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       return next();
