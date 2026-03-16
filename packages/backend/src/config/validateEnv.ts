@@ -42,6 +42,21 @@ function parseUrl(raw: string): URL | null {
   }
 }
 
+function validateCacheEncryptionRules(nodeEnv: string, errors: string[]): void {
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) {
+    return;
+  }
+
+  if (process.env.CACHE_ENCRYPTION_ENABLED === "false") {
+    errors.push(`In ${nodeEnv}, CACHE_ENCRYPTION_ENABLED must not be false.`);
+  }
+
+  const cacheEncryptionKey = process.env.CACHE_ENCRYPTION_KEY;
+  if (!cacheEncryptionKey) {
+    errors.push(`In ${nodeEnv}, CACHE_ENCRYPTION_KEY is required.`);
+  }
+}
+
 function validateSecureTransportRules(errors: string[]): void {
   const nodeEnv = process.env.NODE_ENV ?? "development";
   if (!SECURE_NODE_ENVS.has(nodeEnv)) {
@@ -179,6 +194,7 @@ export function validateEnv(): ValidationResult {
   }
 
   validateSecureTransportRules(errors);
+  validateCacheEncryptionRules(nodeEnv, errors);
 
   return {
     valid: errors.length === 0,
