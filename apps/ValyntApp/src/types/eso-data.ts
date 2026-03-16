@@ -10,7 +10,7 @@
 //   - McKinsey Organizational Health Index
 // ============================================================================
 
-import type { ESOEdge, ESOKPINode, ESOPersonaValueMap } from './eso';
+import type { CompanySize, ESOEdge, ESOKPINode, ESOPersonaValueMap, SizeMultiplier } from './eso';
 
 // ============================================================================
 // KPI Definitions
@@ -489,3 +489,54 @@ export const EXTENDED_PERSONA_MAPS: ESOPersonaValueMap[] = [
     communicationPreference: 'executive_summary',
   },
 ];
+
+// ============================================================================
+// Company-Size Benchmark Multipliers
+//
+// Adjusts generic benchmarks for company maturity/scale.
+// SMBs typically show higher growth but lower margins; enterprises show the
+// inverse. Multipliers are applied to the raw benchmark value.
+// ============================================================================
+
+export const SIZE_MULTIPLIERS: Record<string, SizeMultiplier> = {
+  // SaaS — SMBs churn more, enterprises retain more
+  saas_nrr:             { smb: 0.90, mid_market: 1.00, enterprise: 1.08 },
+  saas_gross_churn:     { smb: 1.30, mid_market: 1.00, enterprise: 0.75 },
+  saas_expansion_rate:  { smb: 0.80, mid_market: 1.00, enterprise: 1.15 },
+  saas_cac:             { smb: 0.50, mid_market: 1.00, enterprise: 2.00 },
+  saas_ltv_cac:         { smb: 0.85, mid_market: 1.00, enterprise: 1.10 },
+  saas_magic_number:    { smb: 1.10, mid_market: 1.00, enterprise: 0.90 },
+  // Financial — enterprise margins are typically higher
+  fin_dso:              { smb: 1.20, mid_market: 1.00, enterprise: 0.85 },
+  fin_gross_margin:     { smb: 0.92, mid_market: 1.00, enterprise: 1.05 },
+  fin_operating_margin: { smb: 0.80, mid_market: 1.00, enterprise: 1.15 },
+  fin_rule_of_40:       { smb: 1.10, mid_market: 1.00, enterprise: 0.95 },
+  fin_burn_multiple:    { smb: 1.30, mid_market: 1.00, enterprise: 0.80 },
+  // Operational
+  ops_revenue_per_employee: { smb: 0.60, mid_market: 1.00, enterprise: 1.40 },
+  ops_cost_of_revenue:      { smb: 1.15, mid_market: 1.00, enterprise: 0.90 },
+  // Customer
+  cust_nps:             { smb: 1.05, mid_market: 1.00, enterprise: 0.95 },
+  cust_time_to_value:   { smb: 0.70, mid_market: 1.00, enterprise: 1.50 },
+  // Workforce
+  wf_utilization_rate:     { smb: 0.95, mid_market: 1.00, enterprise: 1.05 },
+  wf_voluntary_attrition:  { smb: 1.15, mid_market: 1.00, enterprise: 0.90 },
+  // Growth — SMBs grow faster from a smaller base
+  growth_arr_growth:       { smb: 1.30, mid_market: 1.00, enterprise: 0.70 },
+  growth_sales_efficiency: { smb: 1.10, mid_market: 1.00, enterprise: 0.85 },
+  growth_rd_spend_pct:     { smb: 1.20, mid_market: 1.00, enterprise: 0.90 },
+};
+
+/**
+ * Adjust a benchmark value for company size.
+ * Returns the original value multiplied by the size-specific factor.
+ */
+export function adjustBenchmarkForSize(
+  metricId: string,
+  baseValue: number,
+  size: CompanySize,
+): number {
+  const multiplier = SIZE_MULTIPLIERS[metricId];
+  if (!multiplier) return baseValue;
+  return baseValue * multiplier[size];
+}

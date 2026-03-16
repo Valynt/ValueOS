@@ -6,16 +6,24 @@
  *
  * Widget layout is driven by an SDUIWidget[] descriptor so the backend can
  * push new layouts without a frontend deploy.
+ *
+ * Enhanced with PipelineStepper, PipelineProgressBar, and AgentInsightCard
+ * for real-time 7-step pipeline visualization driven by SSE LoopProgress events.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { CanvasHost, type SDUIWidget } from "@/components/canvas";
+import { AgentInsightCard } from "@/components/orchestration/AgentInsightCard";
 import { AgentStatusIndicator } from "@/components/orchestration/AgentStatusIndicator";
+import { PipelineCompletionSummary } from "@/components/orchestration/PipelineCompletionSummary";
+import { PipelineProgressBar } from "@/components/orchestration/PipelineProgressBar";
+import { PipelineStepper } from "@/components/orchestration/PipelineStepper";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
+import { useValueCaseStream } from "@/hooks/useValueCaseStream";
 
 /**
  * Default widget layout when no server-driven layout is available.
@@ -87,6 +95,18 @@ export function ValueCaseWorkspace() {
     },
   });
 
+  // Real-time pipeline stream (SSE)
+  const {
+    pipeline,
+    connect: connectStream,
+    progress,
+    activeStep,
+  } = useValueCaseStream({
+    onComplete: () => calculateMetrics(),
+  });
+
+  const hasPipelineActivity = pipeline.steps.some((s) => s.status !== "pending");
+
   // Recalculate on assumption changes
   useEffect(() => {
     calculateMetrics();
@@ -122,8 +142,39 @@ export function ValueCaseWorkspace() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Agent status bar */}
-      {isProcessing && (
+      {/* ── Pipeline progress header ── */}
+      {(isProcessing || hasPipelineActivity) && (
+        <div className="border-b border-zinc-200 bg-white">
+          {/* Compact progress bar at the very top */}
+          {pipeline.isRunning && (
+            <PipelineProgressBar
+              progress={progress}
+              isRunning={pipeline.isRunning}
+              label={activeStep?.message}
+              className="px-6 pt-3 pb-1"
+            />
+          )}
+
+          {/* 7-step pipeline stepper */}
+          <div className="px-6 py-4 overflow-x-auto">
+            <PipelineStepper
+              steps={pipeline.steps}
+              revisionCycle={pipeline.revisionCycle}
+              maxRevisionCycles={pipeline.maxRevisionCycles}
+            />
+          </div>
+
+          {/* Error banner */}
+          {pipeline.error && (
+            <div className="mx-6 mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              {pipeline.error}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Fallback: legacy agent status pill ── */}
+      {isProcessing && !hasPipelineActivity && (
         <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-2">
           <AgentStatusIndicator
             state={agentState}
@@ -132,7 +183,7 @@ export function ValueCaseWorkspace() {
         </div>
       )}
 
-      {/* Thought stream */}
+      {/* ── Thought stream ── */}
       {thoughts.length > 0 && (
         <div className="border-b border-zinc-200 bg-zinc-50/50 px-6 py-3">
           <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wide mb-1">
@@ -149,9 +200,26 @@ export function ValueCaseWorkspace() {
         </div>
       )}
 
-      {/* SDUI Canvas */}
+      {/* ── Main content ── */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-4xl space-y-6">
+          {/* Pipeline completion summary */}
+          {pipeline.isComplete && (
+            <PipelineCompletionSummary pipeline={pipeline} />
+          )}
+
+          {/* Agent insight cards — one per completed/running step */}
+          {hasPipelineActivity && (
+            <div className="space-y-2">
+              {pipeline.steps
+                .filter((s) => s.status !== "pending")
+                .map((s) => (
+                  <AgentInsightCard key={`${s.step}-${pipeline.revisionCycle}`} step={s} />
+                ))}
+            </div>
+          )}
+
+          {/* SDUI Canvas */}
           {caseId ? (
             <CanvasHost
               widgets={widgets}

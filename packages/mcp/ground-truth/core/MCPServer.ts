@@ -446,6 +446,29 @@ export class MCPFinancialGroundTruthServer {
         },
       },
       {
+        name: "corroborate_metric",
+        description:
+          "Resolves a financial metric across ALL tiers simultaneously and returns a cross-tier corroboration report with Bayesian-synthesized confidence, per-source values, max discrepancy, and staleness assessment.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            entity_id: {
+              type: "string",
+              description: "CIK, ticker, or domain identifier for the entity.",
+            },
+            metric: {
+              type: "string",
+              description: "Financial metric to corroborate (e.g. revenue_total, net_income).",
+            },
+            period: {
+              type: "string",
+              description: "Fiscal period (e.g. FY2024, CQ1_2024).",
+            },
+          },
+          required: ["entity_id", "metric"],
+        },
+      },
+      {
         name: "analyze_financial_sentiment",
         description:
           "Analyze sentiment and qualitative factors from financial documents (earnings calls, SEC filings, press releases) using AI-powered natural language processing.",
@@ -757,6 +780,15 @@ export class MCPFinancialGroundTruthServer {
 
         case "get_industry_benchmark":
           return await this.getIndustryBenchmark(args as { identifier: string; metric?: string });
+
+        case "corroborate_metric":
+          return await this.corroborateMetric(
+            args as {
+              entity_id: string;
+              metric: string;
+              period?: string;
+            }
+          );
 
         case "analyze_financial_sentiment":
           return await this.analyzeFinancialSentiment(
@@ -1150,6 +1182,8 @@ export class MCPFinancialGroundTruthServer {
 
   /**
    * Tool: verify_claim_aletheia
+   *
+   * Enhanced: returns full ClaimVerificationReport with per-claim granularity.
    */
   private async verifyClaimAletheia(args: {
     claim_text: string;
@@ -1159,7 +1193,7 @@ export class MCPFinancialGroundTruthServer {
   }): Promise<MCPToolResult> {
     const { claim_text, context_entity, context_date, strict_mode = true } = args;
 
-    const verification = await this.truthLayer.verifyClaim(
+    const report = await this.truthLayer.verifyClaim(
       claim_text,
       context_entity,
       context_date,
@@ -1167,23 +1201,83 @@ export class MCPFinancialGroundTruthServer {
     );
 
     const response = {
-      verified: verification.verified,
-      confidence: verification.confidence,
-      evidence: verification.evidence
-        ? {
-            metric: verification.evidence.metric_name,
-            value: verification.evidence.value,
-            source: verification.evidence.source,
-            tier: verification.evidence.tier,
-          }
-        : undefined,
-      discrepancy: verification.discrepancy,
+      overall_verdict: report.overall_verdict,
+      overall_confidence: report.overall_confidence,
+      claims_total: report.claims_total,
+      claims_verified: report.claims_verified,
+      claims_refuted: report.claims_refuted,
+      claims_unverifiable: report.claims_unverifiable,
+      per_claim: report.per_claim.map((c) => ({
+        claim_text: c.claim_text,
+        metric: c.metric,
+        claimed_value: c.claimed_value,
+        ground_truth_value: c.ground_truth_value,
+        ground_truth_source: c.ground_truth_source,
+        ground_truth_tier: c.ground_truth_tier,
+        discrepancy: c.discrepancy,
+        tolerance: c.tolerance,
+        verdict: c.verdict,
+        confidence: c.confidence,
+      })),
       audit: {
         trace_id: `mcp-req-${Date.now()}`,
         timestamp: new Date().toISOString(),
         claim_text,
         context_entity,
         strict_mode,
+      },
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: corroborate_metric
+   *
+   * Queries all tiers for the same metric and returns cross-tier
+   * corroboration with Bayesian-synthesized confidence.
+   */
+  private async corroborateMetric(args: {
+    entity_id: string;
+    metric: string;
+    period?: string;
+  }): Promise<MCPToolResult> {
+    const { entity_id, metric, period } = args;
+
+    const result = await this.truthLayer.resolve({
+      identifier: entity_id,
+      metric,
+      period,
+      corroborate: true,
+    });
+
+    const response = {
+      entity_id,
+      metric,
+      primary: {
+        value: result.metric.value,
+        source: result.metric.source,
+        tier: result.metric.tier,
+        confidence: result.metric.confidence,
+      },
+      corroboration: result.corroboration,
+      staleness: result.staleness,
+      telemetry: {
+        total_duration_ms: result.telemetry.total_duration_ms,
+        strategy: result.telemetry.strategy,
+        cache_hits: result.telemetry.cache_hits,
+        tiers_attempted: result.telemetry.tiers_attempted,
+      },
+      audit: {
+        trace_id: `mcp-req-${Date.now()}`,
+        timestamp: new Date().toISOString(),
       },
     };
 
@@ -1665,7 +1759,7 @@ export class MCPFinancialGroundTruthServer {
         timestamp: event.timestamp,
         metadata: {
           source: event.source,
-          quality: "realtime",
+          quality: "realtime" as unknown as number,
         },
       });
     });
@@ -1677,7 +1771,7 @@ export class MCPFinancialGroundTruthServer {
         timestamp: event.timestamp,
         metadata: {
           source: event.source,
-          quality: "batch",
+          quality: "batch" as unknown as number,
         },
       });
     });
@@ -1775,7 +1869,7 @@ export class MCPFinancialGroundTruthServer {
     } catch (error) {
       logger.error(
         "Failed to generate verification hash",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : "Unknown error" }
       );
       // Fallback to simple hash for audit trail continuity
       let hash = 0;

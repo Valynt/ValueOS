@@ -74,6 +74,12 @@ export const GetIndustryBenchmarkSchema = z.object({
   metric: z.string().optional(),
 });
 
+export const CorroborateMetricSchema = z.object({
+  entity_id: z.string().min(1),
+  metric: z.string().min(1),
+  period: z.string().optional(),
+});
+
 export const AnalyzeFinancialSentimentSchema = z.object({
   document_type: z.enum([
     "earnings_call",
@@ -170,6 +176,7 @@ export const ToolSchemas: Record<string, z.ZodType<any>> = {
   verify_claim_aletheia: VerifyClaimAletheiaSchema,
   populate_value_driver_tree: PopulateValueDriverTreeSchema,
   get_industry_benchmark: GetIndustryBenchmarkSchema,
+  corroborate_metric: CorroborateMetricSchema,
   analyze_financial_sentiment: AnalyzeFinancialSentimentSchema,
   generate_financial_forecast: GenerateFinancialForecastSchema,
   detect_financial_anomalies: DetectFinancialAnomaliesSchema,

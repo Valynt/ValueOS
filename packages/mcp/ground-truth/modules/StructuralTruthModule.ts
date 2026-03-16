@@ -8,17 +8,26 @@
  * - get_similar_traces: Find relevant VMRT examples for reasoning
  */
 
-import { checkBenchmarkAlignment } from "@backend/types/eso";
+import {
+  checkBenchmarkAlignment,
+  classifyClaimSeverity,
+  assessImprovementFeasibility,
+  computeCompositeHealth,
+  computeConfidenceScore,
+} from "@backend/types/eso";
 import type {
+  CompanySize,
   ESOEdge,
   ESOIndustry,
   ESOKPINode,
   ESOPersonaValueMap,
+  ImpactNode,
 } from "@backend/types/eso";
 import {
   ALL_ESO_KPIS,
   EXTENDED_ESO_EDGES,
   EXTENDED_PERSONA_MAPS,
+  adjustBenchmarkForSize,
 } from "@backend/types/eso-data";
 import { ALL_VMRT_SEEDS } from "@backend/types/vos-pt1-seed";
 import { z } from "zod";
@@ -89,7 +98,9 @@ interface ValidateClaimRequest {
 interface ValidateClaimResponse {
   valid: boolean;
   percentile: string;
+  severity?: string;
   warning?: string;
+  detail?: string;
   benchmark: {
     p25: number;
     p50: number;
@@ -133,6 +144,37 @@ interface SimilarTracesResponse {
     confidence: number;
   }>;
   count: number;
+}
+
+interface ImpactSimulationRequest {
+  metricId: string;
+  deltaPercent: number;
+  depth?: number;
+  companySize?: CompanySize;
+}
+
+interface ImpactSimulationResponse {
+  rootMetricId: string;
+  rootDeltaPercent: number;
+  impactedMetrics: ImpactNode[];
+  totalCascadeCount: number;
+  maxDepthReached: number;
+  confidenceDecayRate: number;
+}
+
+interface FeasibilityRequest {
+  metricId: string;
+  currentValue: number;
+  targetValue: number;
+}
+
+interface CompositeHealthRequest {
+  metrics: Array<{ metricId: string; value: number }>;
+}
+
+interface SeverityRequest {
+  metricId: string;
+  claimedValue: number;
 }
 
 // ============================================================================
@@ -272,6 +314,78 @@ export class ESOModule extends BaseModule {
           required: ["persona"],
         },
       },
+      {
+        name: "eso_simulate_impact",
+        description:
+          "Simulate cascading impact of improving a KPI by a given percentage through the causal graph",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metricId: { type: "string", description: "Root KPI to change" },
+            deltaPercent: {
+              type: "number",
+              description: "Percentage change (e.g. 10 for +10%)",
+            },
+            depth: { type: "number", default: 3, description: "Max hops" },
+            companySize: {
+              type: "string",
+              enum: ["smb", "mid_market", "enterprise"],
+              description: "Optional company size for adjusted benchmarks",
+            },
+          },
+          required: ["metricId", "deltaPercent"],
+        },
+      },
+      {
+        name: "eso_assess_feasibility",
+        description:
+          "Assess how feasible it is to improve a KPI from a current value to a target value",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metricId: { type: "string" },
+            currentValue: { type: "number" },
+            targetValue: { type: "number" },
+          },
+          required: ["metricId", "currentValue", "targetValue"],
+        },
+      },
+      {
+        name: "eso_composite_health",
+        description:
+          "Score an organization's health across multiple KPIs with graph-weighted grading",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metrics: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  metricId: { type: "string" },
+                  value: { type: "number" },
+                },
+                required: ["metricId", "value"],
+              },
+              description: "Array of { metricId, value } pairs",
+            },
+          },
+          required: ["metrics"],
+        },
+      },
+      {
+        name: "eso_classify_severity",
+        description:
+          "Classify a claimed value into plausible/optimistic/aspirational/implausible severity bands",
+        inputSchema: {
+          type: "object",
+          properties: {
+            metricId: { type: "string" },
+            claimedValue: { type: "number" },
+          },
+          required: ["metricId", "claimedValue"],
+        },
+      },
     ];
   }
 
@@ -290,6 +404,22 @@ export class ESOModule extends BaseModule {
         return this.getSimilarTraces(args as unknown as SimilarTracesRequest);
       case "eso_get_persona_kpis":
         return this.getPersonaKPIs(args.persona as string);
+      case "eso_simulate_impact":
+        return this.simulateImpact(args as unknown as ImpactSimulationRequest);
+      case "eso_assess_feasibility":
+        return assessImprovementFeasibility(
+          (args as unknown as FeasibilityRequest).metricId,
+          (args as unknown as FeasibilityRequest).currentValue,
+          (args as unknown as FeasibilityRequest).targetValue,
+        );
+      case "eso_composite_health":
+        return computeCompositeHealth(
+          (args as unknown as CompositeHealthRequest).metrics,
+        );
+      case "eso_classify_severity": {
+        const req = args as unknown as SeverityRequest;
+        return classifyClaimSeverity(req.metricId, req.claimedValue);
+      }
       default:
         throw new Error(`Unknown tool: ${toolName}`);
     }
@@ -310,6 +440,8 @@ export class ESOModule extends BaseModule {
       percentile as keyof typeof kpi.benchmarks
     ] as number;
 
+    const confidenceResult = computeConfidenceScore(kpi);
+
     return {
       metricId: kpi.id,
       name: kpi.name,
@@ -327,14 +459,18 @@ export class ESOModule extends BaseModule {
         industry: kpi.domain,
         improvementDirection: kpi.improvementDirection,
       },
-      confidence: 0.9,
+      confidence: confidenceResult.value,
     };
   }
 
   private validateClaim(request: ValidateClaimRequest): ValidateClaimResponse {
-    const result = checkBenchmarkAlignment(
+    const alignment = checkBenchmarkAlignment(
       request.metricId,
       request.claimedValue
+    );
+    const severity = classifyClaimSeverity(
+      request.metricId,
+      request.claimedValue,
     );
     const kpi = this.kpiIndex.get(request.metricId);
 
@@ -348,15 +484,17 @@ export class ESOModule extends BaseModule {
     }
 
     return {
-      valid: result.aligned,
-      percentile: result.percentile,
-      warning: result.warning,
+      valid: alignment.aligned,
+      percentile: alignment.percentile,
+      severity: severity.severity,
+      warning: alignment.warning,
+      detail: severity.detail,
       benchmark: {
         p25: kpi.benchmarks.p25,
         p50: kpi.benchmarks.p50,
         p75: kpi.benchmarks.p75,
       },
-      recommendation: result.warning
+      recommendation: alignment.warning
         ? "Consider using P50 benchmark for conservative estimates"
         : undefined,
     };
@@ -447,6 +585,110 @@ export class ESOModule extends BaseModule {
       count: traces.length,
     };
   }
+
+  // ============================================================================
+  // Impact Simulation — cascading what-if through the causal DAG
+  // ============================================================================
+
+  private simulateImpact(
+    request: ImpactSimulationRequest,
+  ): ImpactSimulationResponse {
+    const rootKpi = this.kpiIndex.get(request.metricId);
+    if (!rootKpi) {
+      throw new Error(`Unknown metric: ${request.metricId}`);
+    }
+
+    const maxDepth = Math.min(request.depth ?? 3, 5);
+    const decayRate = 0.7; // confidence decays 30% per hop
+    const visited = new Set<string>([request.metricId]);
+    const impacted: ImpactNode[] = [];
+
+    // BFS through outgoing edges
+    interface QueueItem {
+      metricId: string;
+      parentDelta: number;
+      depth: number;
+      confidence: number;
+    }
+
+    const queue: QueueItem[] = [];
+    const rootEdges = this.edgeIndex.get(request.metricId) ?? [];
+    for (const edge of rootEdges) {
+      if (!visited.has(edge.targetId)) {
+        queue.push({
+          metricId: edge.targetId,
+          parentDelta: request.deltaPercent,
+          depth: 1,
+          confidence: decayRate,
+        });
+        visited.add(edge.targetId);
+      }
+    }
+
+    let maxDepthReached = 0;
+
+    while (queue.length > 0) {
+      const item = queue.shift()!;
+      if (item.depth > maxDepth) continue;
+      maxDepthReached = Math.max(maxDepthReached, item.depth);
+
+      const kpi = this.kpiIndex.get(item.metricId);
+      if (!kpi) continue;
+
+      // Find the edge from parent to this node
+      const incomingEdge = EXTENDED_ESO_EDGES.find(
+        (e) => e.targetId === item.metricId && visited.has(e.sourceId),
+      ) ?? EXTENDED_ESO_EDGES.find((e) => e.targetId === item.metricId);
+
+      const weight = incomingEdge?.weight ?? 0.5;
+      const relationship = incomingEdge?.relationship ?? "correlates";
+      const sign = relationship === "inhibits" ? -1 : 1;
+      const cascadedDelta = item.parentDelta * weight * sign;
+
+      const baseValue = request.companySize
+        ? adjustBenchmarkForSize(item.metricId, kpi.benchmarks.p50, request.companySize)
+        : kpi.benchmarks.p50;
+      const projectedValue = baseValue * (1 + cascadedDelta / 100);
+
+      impacted.push({
+        metricId: item.metricId,
+        name: kpi.name,
+        baselineValue: baseValue,
+        projectedValue,
+        deltaPercent: cascadedDelta,
+        confidence: item.confidence,
+        pathLength: item.depth,
+        relationship,
+      });
+
+      // Continue BFS
+      const childEdges = this.edgeIndex.get(item.metricId) ?? [];
+      for (const edge of childEdges) {
+        if (!visited.has(edge.targetId) && item.depth + 1 <= maxDepth) {
+          queue.push({
+            metricId: edge.targetId,
+            parentDelta: cascadedDelta,
+            depth: item.depth + 1,
+            confidence: item.confidence * decayRate,
+          });
+          visited.add(edge.targetId);
+        }
+      }
+    }
+
+    return {
+      rootMetricId: request.metricId,
+      rootDeltaPercent: request.deltaPercent,
+      impactedMetrics: impacted,
+      totalCascadeCount: impacted.length,
+      maxDepthReached,
+      confidenceDecayRate: decayRate,
+    };
+  }
+
+  // ============================================================================
+  // Persona KPIs
+  // ============================================================================
 
   private getPersonaKPIs(persona: string) {
     const personaMap = this.personaIndex.get(persona);

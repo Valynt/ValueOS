@@ -10,6 +10,7 @@ import {
 } from "./agents/orchestration/index.js";
 import { logger } from "./logger.js";
 import type { AgentFactoryDeps } from "./agent-fabric/AgentFactory.js";
+import type { LifecycleContext } from "../types/agent.js";
 import { createAgentFactory } from "./agent-fabric/AgentFactory.js";
 
 // ============================================================================
@@ -122,16 +123,19 @@ export class AgentFabric {
     // Run opportunity agent to generate initial hypotheses
     const opportunityAgent = factory.create("opportunity", organizationId);
     const opportunityResult = await opportunityAgent.execute({
-      input: userInput,
-      valueCaseId: executionId,
-      organizationId,
-      sessionId: executionId,
+      workspace_id: executionId,
+      organization_id: organizationId,
+      user_id: "system",
+      lifecycle_stage: opportunityAgent.lifecycleStage as LifecycleContext["lifecycle_stage"],
+      workspace_data: {},
+      user_inputs: { query: userInput },
+      metadata: { valueCaseId: executionId },
     });
     agentContributions.opportunity = opportunityResult;
-    totalTokens += (opportunityResult.metadata as Record<string, number>)?.tokensUsed ?? 0;
+    totalTokens += opportunityResult.metadata.token_usage?.total_tokens ?? 0;
 
     // Validate hypotheses against the LoopResult contract
-    const rawHypotheses = (opportunityResult.data as Record<string, unknown>)?.hypotheses;
+    const rawHypotheses = (opportunityResult.result as Record<string, unknown>)?.hypotheses;
     const hypotheses = (Array.isArray(rawHypotheses) ? rawHypotheses : []).map(
       (h: Record<string, unknown>) =>
         ValueHypothesisSchema.parse({
@@ -154,15 +158,18 @@ export class AgentFabric {
     if (factory.hasFabricAgent("financial-modeling")) {
       const finAgent = factory.create("financial-modeling", organizationId);
       const finResult = await finAgent.execute({
-        input: JSON.stringify(hypotheses),
-        valueCaseId: executionId,
-        organizationId,
-        sessionId: executionId,
+        workspace_id: executionId,
+        organization_id: organizationId,
+        user_id: "system",
+        lifecycle_stage: finAgent.lifecycleStage as LifecycleContext["lifecycle_stage"],
+        workspace_data: {},
+        user_inputs: { query: JSON.stringify(hypotheses) },
+        metadata: { valueCaseId: executionId },
       });
       agentContributions["financial-modeling"] = finResult;
-      totalTokens += (finResult.metadata as Record<string, number>)?.tokensUsed ?? 0;
+      totalTokens += finResult.metadata.token_usage?.total_tokens ?? 0;
 
-      const fm = (finResult.data as Record<string, unknown>)?.financialModel as
+      const fm = (finResult.result as Record<string, unknown>)?.financialModel as
         | Record<string, unknown>
         | undefined;
       if (fm) {
@@ -190,7 +197,7 @@ export class AgentFabric {
     });
 
     const totalLatencyMs = Date.now() - startTime;
-    const oppData = opportunityResult.data as Record<string, unknown> | undefined;
+    const oppData = opportunityResult.result as Record<string, unknown> | undefined;
 
     return {
       value_case_id: executionId,
@@ -207,7 +214,7 @@ export class AgentFabric {
       financial_model: financialModel,
       assumptions:
         (oppData?.assumptions as AgentFabricResult["assumptions"]) ?? [],
-      quality_score: (opportunityResult.metadata as Record<string, number>)?.qualityScore ?? 0,
+      quality_score: ((opportunityResult.metadata as unknown as Record<string, unknown>)?.qualityScore as number) ?? 0,
       execution_metadata: {
         execution_id: executionId,
         iteration_count: 1,

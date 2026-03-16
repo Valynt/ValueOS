@@ -11,9 +11,24 @@
 import { ESOModule } from "@mcp/ground-truth/modules/ESOModule";
 
 import { logger } from "../../lib/logger.js";
-import { checkBenchmarkAlignment } from "../../types/eso";
-import type { ESOKPINode, ESOPersona, FinancialDriver } from "../../types/eso";
-import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../../types/eso-data";
+import {
+  checkBenchmarkAlignment,
+  classifyClaimSeverity,
+  assessImprovementFeasibility,
+  computeCompositeHealth,
+  computeConfidenceScore,
+} from "../../types/eso";
+import type {
+  ClaimSeverity,
+  CompanySize,
+  CompositeHealthResult,
+  ConfidenceScore,
+  ESOKPINode,
+  ESOPersona,
+  FeasibilityResult,
+  FinancialDriver,
+} from "../../types/eso";
+import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS, adjustBenchmarkForSize } from "../../types/eso-data";
 import type { VMRT } from "../../types/vmrt";
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 
@@ -41,7 +56,9 @@ export interface BenchmarkResult {
 export interface ValidationResult {
   valid: boolean;
   percentile: string;
+  severity: ClaimSeverity;
   warning?: string;
+  detail: string;
   citation: string;
 }
 
@@ -160,16 +177,24 @@ export class GroundTruthIntegrationService {
   ): Promise<ValidationResult> {
     await this.ensureInitialized();
 
-    const result = checkBenchmarkAlignment(metricId, claimedValue);
+    const alignment = checkBenchmarkAlignment(metricId, claimedValue);
+    const severity = classifyClaimSeverity(metricId, claimedValue);
     const kpi = this.kpiIndex.get(metricId);
 
+    const vintage = kpi?.benchmarks.vintage;
+    const citation = kpi
+      ? vintage
+        ? `${kpi.benchmarks.source} (${vintage})`
+        : kpi.benchmarks.source
+      : "Unknown source";
+
     return {
-      valid: result.aligned,
-      percentile: result.percentile,
-      warning: result.warning,
-      citation: kpi
-        ? `${kpi.benchmarks.source} (${kpi.benchmarks.vintage})`
-        : "Unknown source",
+      valid: alignment.aligned,
+      percentile: alignment.percentile,
+      severity: severity.severity,
+      warning: alignment.warning,
+      detail: severity.detail,
+      citation,
     };
   }
 
@@ -286,6 +311,65 @@ export class GroundTruthIntegrationService {
       benchmarks,
       validations,
       overallConfidence,
+    };
+  }
+
+  /**
+   * Assess feasibility of improving a KPI from current to target value.
+   */
+  async assessFeasibility(
+    metricId: string,
+    currentValue: number,
+    targetValue: number,
+  ): Promise<FeasibilityResult> {
+    await this.ensureInitialized();
+    return assessImprovementFeasibility(metricId, currentValue, targetValue);
+  }
+
+  /**
+   * Score an organization's health across multiple KPIs.
+   */
+  async scoreCompositeHealth(
+    metrics: Array<{ metricId: string; value: number }>,
+  ): Promise<CompositeHealthResult> {
+    await this.ensureInitialized();
+    return computeCompositeHealth(metrics);
+  }
+
+  /**
+   * Compute data-quality-aware confidence for a KPI benchmark.
+   */
+  async getConfidenceScore(metricId: string): Promise<ConfidenceScore | null> {
+    await this.ensureInitialized();
+    const kpi = this.kpiIndex.get(metricId);
+    if (!kpi) return null;
+    return computeConfidenceScore(kpi);
+  }
+
+  /**
+   * Get a size-adjusted benchmark for a KPI.
+   */
+  async getSizeAdjustedBenchmark(
+    metricId: string,
+    size: CompanySize,
+    percentile: "p25" | "p50" | "p75" = "p50",
+  ): Promise<BenchmarkResult | null> {
+    await this.ensureInitialized();
+    const kpi = this.kpiIndex.get(metricId);
+    if (!kpi) return null;
+
+    const baseValue = kpi.benchmarks[percentile];
+    const adjustedValue = adjustBenchmarkForSize(metricId, baseValue, size);
+    const confidence = computeConfidenceScore(kpi, { sizeAdjusted: true });
+
+    return {
+      metricId: kpi.id,
+      name: kpi.name,
+      value: adjustedValue,
+      unit: kpi.unit,
+      percentile,
+      confidence: confidence.value,
+      source: kpi.benchmarks.source,
     };
   }
 
