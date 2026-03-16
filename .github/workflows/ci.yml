@@ -171,7 +171,59 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-  # Critical invariant: no cross-tenant data access
+  # Critical invariant: no cross-tenant data access (secrets-free static lane)
+  tenant-isolation-static-gate:
+    name: tenant-isolation-static-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Static tenant boundary guards
+        run: |
+          node scripts/ci/check-supabase-tenant-controls.mjs
+          node scripts/ci/check-migration-schema-consistency.mjs
+          bash scripts/ci/check-permissive-rls.sh
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/tenant-isolation-static-gate
+          cat > artifacts/ci-lanes/tenant-isolation-static-gate/summary.md <<EOF
+          # tenant-isolation-static-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-tenant-isolation-static-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/tenant-isolation-static-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Critical invariant: no cross-tenant data access (secret-backed runtime lane)
   tenant-isolation-gate:
     name: tenant-isolation-gate
     runs-on: ubuntu-latest
@@ -565,6 +617,7 @@ jobs:
     if: github.event_name == 'pull_request'
     needs:
       - unit-component-schema
+      - tenant-isolation-static-gate
       - tenant-isolation-gate
       - security-gate
       - accessibility-audit
@@ -572,8 +625,20 @@ jobs:
       - name: Enforce PR release blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          tenant_static="${{ needs.tenant-isolation-static-gate.result }}"
+          tenant_runtime="${{ needs.tenant-isolation-gate.result }}"
+
+          echo "tenant-isolation-static-gate:${tenant_static}"
+          echo "tenant-isolation-gate:${tenant_runtime}"
+
+          if [ "$tenant_static" != "success" ] && [ "$tenant_runtime" != "success" ]; then
+            echo "Failing PR gate: at least one tenant-isolation lane must be success."
+            exit 1
+          fi
+
           for lane in \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
+            "tenant-isolation-static-gate:${{ needs.tenant-isolation-static-gate.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do
