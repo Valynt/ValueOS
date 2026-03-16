@@ -3,14 +3,13 @@ import fs from "fs";
 import { describe, expect, it } from "vitest";
 
 describe("Seed demo password", () => {
-  it("has a default demo password of at least 8 characters and matches 'passw0rd'", () => {
+  it("does not embed a static default demo password and requires secure handling", () => {
     const content = fs.readFileSync("scripts/seed-demo-user.ts", "utf8");
-    const m = content.match(/process\.env\.DEMO_USER_PASSWORD\s*\|\|\s*["'`](.+?)["'`]/);
-    expect(m).toBeTruthy();
-    const defaultPass = m![1];
-    expect(typeof defaultPass).toBe("string");
-    expect(defaultPass.length).toBeGreaterThanOrEqual(8);
-    // Also assert canonical value
-    expect(defaultPass).toBe("passw0rd");
+
+    expect(content).not.toContain("DEFAULT_DEMO_PASSWORD");
+    expect(content).not.toContain("passw0rd");
+    expect(content).toContain("DEMO_USER_PASSWORD");
+    expect(content).toContain("crypto.randomBytes");
+    expect(content).toContain("isStrongPassword");
   });
 });
