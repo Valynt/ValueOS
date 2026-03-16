@@ -48,12 +48,13 @@ print_missing_var_error() {
   local var_name="$2"
   local env_file_rel
   env_file_rel="$(mode_to_env_file "$mode")"
+  local example_file="${env_file_rel}.example"
 
   cat >&2 <<ERR
 [env] Missing required variable: $var_name
 [env] Mode: $mode
 [env] Expected file: $env_file_rel (shell vars override file values)
-[env] Fix: cp ops/env/.env.local.example $env_file_rel && set $var_name
+[env] Fix: cp $example_file $env_file_rel  # then set $var_name
 ERR
 }
 
@@ -100,7 +101,9 @@ validate_mode_env() {
       require_vars "$mode" SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
       ;;
     cloud-dev)
-      require_vars "$mode" SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_PROJECT_REF
+      require_vars "$mode" \
+        SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_PROJECT_REF \
+        TCT_SECRET WEB_SCRAPER_ENCRYPTION_KEY SUPABASE_KEY
       ;;
     test)
       require_vars "$mode" DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
