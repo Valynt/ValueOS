@@ -9,6 +9,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 
 import { Request, Response, Router } from "express";
+import { z } from "zod";
 
 
 import { logger } from "../lib/logger.js";
@@ -18,6 +19,66 @@ import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";
 
 const execAsync = promisify(exec);
 const router = Router();
+const CACHE_PREFIX = "valueos";
+
+type RedisCacheClient = {
+  scan(cursor: string, options: { MATCH: string; COUNT: number }): Promise<[string, string[]]>;
+  del(keys: string | string[]): Promise<number>;
+};
+
+const cacheClearScopeSchema = z
+  .object({
+    scope: z.enum(["platform", "tenant"]),
+    tenantId: z.string().trim().min(1).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.scope === "tenant" && !value.tenantId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "tenantId is required for tenant scope",
+        path: ["tenantId"],
+      });
+    }
+  });
+
+export function resolveCacheClearPattern(payload: unknown): { scope: "platform" | "tenant"; pattern: string } {
+  const parsed = cacheClearScopeSchema.safeParse(payload);
+  if (!parsed.success) {
+    const formatted = parsed.error.issues.map((issue) => issue.message).join(", ");
+    throw new Error(formatted || "Invalid scope for cache clear operation");
+  }
+
+  if (parsed.data.scope === "tenant") {
+    return {
+      scope: "tenant",
+      pattern: `${CACHE_PREFIX}:tenant:${parsed.data.tenantId}:*`,
+    };
+  }
+
+  return {
+    scope: "platform",
+    pattern: `${CACHE_PREFIX}:*`,
+  };
+}
+
+export async function deleteKeysByPattern(client: RedisCacheClient, pattern: string): Promise<number> {
+  let cursor = "0";
+  let deleted = 0;
+
+  do {
+    const [nextCursor, keys] = await client.scan(cursor, {
+      MATCH: pattern,
+      COUNT: 100,
+    });
+    cursor = nextCursor;
+
+    if (keys.length > 0) {
+      deleted += await client.del(keys);
+    }
+  } while (cursor !== "0");
+
+  return deleted;
+}
 
 const isDevRoutesEnabled = shouldEnableDevRoutes();
 
@@ -43,7 +104,7 @@ router.use(requireAuth);
  * This is acceptable here because dev routes are already gated by NODE_ENV + feature flag.
  */
 function requireDevAdmin(req: Request, res: Response, next: () => void): void {
-  const user = (req as any).user;
+  const user = req.user;
   const role = user?.role ?? user?.app_metadata?.role;
   if (role !== "admin" && role !== "service_role") {
     res.status(403).json({ error: "Admin access required for this dev operation" });
@@ -194,20 +255,49 @@ if (isDevRoutesEnabled) {
     }, 500);
   });
 
-  router.post("/clear-cache", requireDevAdmin, async (_req: Request, res: Response) => {
+  router.post("/clear-cache", requireDevAdmin, async (req: Request, res: Response) => {
+    const payload = req.body as unknown;
+    let parsedScope: { scope: "platform" | "tenant"; pattern: string };
+
+    try {
+      parsedScope = resolveCacheClearPattern(payload);
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Invalid scope for cache clear operation",
+      });
+      return;
+    }
+
     try {
       const redisModule = (await import("../lib/redis")) as Record<
         string,
         unknown
       >;
       const getClient = redisModule.getRedisClient as
-        | (() => Promise<{ flushdb: () => Promise<void> }>)
+        | (() => Promise<RedisCacheClient | null>)
         | undefined;
+      let deletedCount = 0;
+
       if (getClient) {
         const client = await getClient();
-        await client.flushdb();
+        if (client) {
+          deletedCount = await deleteKeysByPattern(client, parsedScope.pattern);
+        }
       }
-      res.json({ success: true, message: "Cache cleared" });
+
+      logger.info("dev.cache_clear.completed", {
+        event: "dev.cache_clear.completed",
+        scope: parsedScope.scope,
+        deleted_key_count: deletedCount,
+      });
+
+      res.json({
+        success: true,
+        scope: parsedScope.scope,
+        deletedKeyCount: deletedCount,
+        message: "Cache cleared for requested scope",
+      });
     } catch (error) {
       res.json({
         success: false,
