@@ -112,7 +112,7 @@ export function tenantDbContextMiddleware(enforce = true) {
       await client.query("BEGIN");
       await client.query("SET LOCAL app.tenant_id = $1", [tenantId]);
 
-      (req as any).db = {
+      req.db = {
         client,
         query: client.query.bind(client),
         tx: client.query.bind(client),

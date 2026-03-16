@@ -40,7 +40,7 @@ usageRouter.post(
     }
 
     const body: UsagePersistRequestBody = parsed.data;
-    const tenantId = (req as { tenantId?: string }).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       return res.status(403).json({ error: "Tenant context required" });

@@ -34,13 +34,11 @@ const scheduleReportSchema = z.object({
 });
 
 function getTenantId(req: Request): string | null {
-  const tenantId = (req as { tenantId?: string }).tenantId;
-  return tenantId ?? null;
+  return req.tenantId ?? null;
 }
 
 function getActorId(req: Request): string {
-  const user = req.user as { id?: string; sub?: string } | undefined;
-  return user?.id ?? user?.sub ?? "system";
+  return req.user?.id ?? req.user?.sub ?? "system";
 }
 
 router.get("/control-status", requirePermission("users.read"), async (req: Request, res: Response) => {
