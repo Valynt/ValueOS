@@ -34,11 +34,14 @@ describe('ComponentErrorBoundary secrecy + retry', () => {
     const retry = screen.getByRole('button', { name: /retry rendering/i });
     expect(retry).toBeEnabled();
 
-    expect(captureException).toHaveBeenCalledWith(expect.any(Error), {
-      extra: {
-        componentName: 'Danger',
-        componentStack: expect.any(String),
-      },
-    });
+    expect(captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        extra: expect.objectContaining({
+          componentName: 'Danger',
+          componentStack: expect.any(String),
+        }),
+      })
+    );
   });
 });

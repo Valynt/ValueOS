@@ -1,7 +1,36 @@
 import { cacheManager } from './cache';
 
+// jsdom's sessionStorage/localStorage silently fail without a real origin.
+// Provide in-memory replacements that expose stored keys as own enumerable
+// properties so Object.keys(storage) works the same as a real Storage object.
+function makeStorage(): Storage {
+  const proxy = new Proxy({} as Storage, {
+    get(target, prop: string) {
+      if (prop === 'getItem') return (k: string) => (target as Record<string, string>)[k] ?? null;
+      if (prop === 'setItem') return (k: string, v: string) => { (target as Record<string, string>)[k] = v; };
+      if (prop === 'removeItem') return (k: string) => { delete (target as Record<string, string>)[k]; };
+      if (prop === 'clear') return () => { Object.keys(target).forEach(k => delete (target as Record<string, string>)[k]); };
+      if (prop === 'key') return (i: number) => Object.keys(target)[i] ?? null;
+      if (prop === 'length') return Object.keys(target).length;
+      return (target as Record<string, string>)[prop];
+    },
+    set(target, prop: string, value: string) {
+      (target as Record<string, string>)[prop] = value;
+      return true;
+    },
+    ownKeys(target) { return Object.keys(target); },
+    getOwnPropertyDescriptor(target, prop: string) {
+      if (prop in target) return { value: (target as Record<string, string>)[prop], writable: true, enumerable: true, configurable: true };
+      return undefined;
+    },
+  });
+  return proxy;
+}
+
 describe('cacheManager', () => {
   beforeEach(() => {
+    vi.stubGlobal('sessionStorage', makeStorage());
+    vi.stubGlobal('localStorage', makeStorage());
     cacheManager.clear();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T12:00:00-05:00'));
@@ -10,6 +39,7 @@ describe('cacheManager', () => {
   afterEach(() => {
     cacheManager.clear();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it('stores and retrieves values with TTL', () => {

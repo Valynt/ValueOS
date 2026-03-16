@@ -9,19 +9,27 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
 import type { CanvasElement } from '../../lib/realtime/supabaseRealtime';
 
-// vi.mock is hoisted — define the mock object inside the factory to avoid
-// "Cannot access before initialization" errors.
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
+// vi.mock is hoisted — all mock state must be defined inside the factory
+vi.mock('../../lib/supabase', () => {
+  const instance = {
     channel: vi.fn(),
     from: vi.fn(),
-  },
-}));
+    removeChannel: vi.fn().mockResolvedValue(undefined),
+    removeAllChannels: vi.fn().mockResolvedValue(undefined),
+    getChannels: vi.fn().mockReturnValue([]),
+  };
+  return {
+    supabase: instance,
+    createBrowserSupabaseClient: vi.fn(() => instance),
+  };
+});
 
-// Re-export for use in tests
-const mockSupabase = {
-  channel: vi.fn(),
-  from: vi.fn(),
+import { supabase as _supabase } from '../../lib/supabase';
+const mockSupabase = _supabase as {
+  channel: ReturnType<typeof vi.fn>;
+  from: ReturnType<typeof vi.fn>;
+  removeChannel: ReturnType<typeof vi.fn>;
+  removeAllChannels: ReturnType<typeof vi.fn>;
 };
 
 describe('Real-Time Sync Integration Tests', () => {
@@ -85,13 +93,9 @@ describe('Real-Time Sync Integration Tests', () => {
         updatedAt: new Date().toISOString(),
       };
 
-      // Trigger the postgres_changes callback
-      const onCall = mockChannel.on.mock.calls.find(
-        (call) => call[0] === 'postgres_changes'
-      );
-      const eventHandler = onCall![2];
-
-      eventHandler({
+      // Each subscription creates its own channel (same mock object).
+      // Trigger ALL postgres_changes handlers to simulate both users receiving the event.
+      const payload = {
         eventType: 'INSERT',
         new: {
           id: newElement.id,
@@ -105,9 +109,14 @@ describe('Real-Time Sync Integration Tests', () => {
           created_at: newElement.createdAt,
           updated_at: newElement.updatedAt,
         },
-      });
+      };
 
-      // Both users should receive the event
+      const pgChangeCalls = mockChannel.on.mock.calls.filter(
+        (call: unknown[]) => call[0] === 'postgres_changes'
+      );
+      pgChangeCalls.forEach((call: unknown[]) => (call[2] as (p: unknown) => void)(payload));
+
+      // Each user's subscription should have received the event
       expect(user1Events).toHaveLength(1);
       expect(user2Events).toHaveLength(1);
       expect(user1Events[0].id).toBe('elem-1');
@@ -147,13 +156,8 @@ describe('Real-Time Sync Integration Tests', () => {
         }
       );
 
-      // Simulate element update
-      const onCall = mockChannel.on.mock.calls.find(
-        (call) => call[0] === 'postgres_changes'
-      );
-      const eventHandler = onCall![2];
-
-      eventHandler({
+      // Trigger ALL postgres_changes handlers (one per subscriber)
+      const updatePayload = {
         eventType: 'UPDATE',
         new: {
           id: 'elem-1',
@@ -167,7 +171,10 @@ describe('Real-Time Sync Integration Tests', () => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-      });
+      };
+      mockChannel.on.mock.calls
+        .filter((call: unknown[]) => call[0] === 'postgres_changes')
+        .forEach((call: unknown[]) => (call[2] as (p: unknown) => void)(updatePayload));
 
       expect(user1Updates).toHaveLength(1);
       expect(user2Updates).toHaveLength(1);
@@ -208,13 +215,8 @@ describe('Real-Time Sync Integration Tests', () => {
         }
       );
 
-      // Simulate element deletion
-      const onCall = mockChannel.on.mock.calls.find(
-        (call) => call[0] === 'postgres_changes'
-      );
-      const eventHandler = onCall![2];
-
-      eventHandler({
+      // Trigger ALL postgres_changes handlers (one per subscriber)
+      const deletePayload = {
         eventType: 'DELETE',
         new: {
           id: 'elem-1',
@@ -228,7 +230,10 @@ describe('Real-Time Sync Integration Tests', () => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
-      });
+      };
+      mockChannel.on.mock.calls
+        .filter((call: unknown[]) => call[0] === 'postgres_changes')
+        .forEach((call: unknown[]) => (call[2] as (p: unknown) => void)(deletePayload));
 
       expect(user1Deletions).toHaveLength(1);
       expect(user2Deletions).toHaveLength(1);

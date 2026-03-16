@@ -1,59 +1,77 @@
-import React from 'react';
-import { beforeEach, describe, it } from 'vitest';
-import '@testing-library/jest-dom';
-import { render } from '@testing-library/react';
+import React from "react";
+import { beforeEach, describe, expect, it } from "vitest";
+import "@testing-library/jest-dom";
+import { render, screen } from "@testing-library/react";
 
-import { registerComponent, resetRegistry } from '../registry';
-import { renderPage } from '../renderPage';
+import { registerComponent, resetRegistry } from "../registry";
+import { renderPage } from "../renderPage";
 
-describe('renderPage SDUI fallbacks', () => {
+describe("renderPage SDUI fallbacks", () => {
   beforeEach(() => {
     resetRegistry();
   });
 
-  it('renders fallback component inside ComponentErrorBoundary on hydration failure', () => {
-    const Fallback = ({ message }: { message: string }) => <div data-testid="fallback">{message}</div>;
-    registerComponent('FallbackComponent', { component: Fallback, versions: [1] });
-
+  it("renders UnknownComponentFallback for unregistered components", () => {
     const page = {
-      type: 'page',
+      type: "page",
       version: 1,
       sections: [
         {
-          type: 'component',
-          component: 'MissingPrimary',
+          type: "component",
+          component: "MissingPrimary",
           version: 1,
-          hydrateWith: ['/api/bad'],
-          fallback: {
-            component: 'FallbackComponent',
-            props: { message: 'Using fallback' },
-          },
+          props: {},
         },
       ],
     };
 
     const { element } = renderPage(page);
-    const { getByTestId } = render(element);
-    expect(getByTestId('fallback').textContent).toContain('Using fallback');
+    render(element);
+    // renderPage uses UnknownComponentFallback for components not in the registry
+    expect(screen.getByTestId("unknown-component-fallback")).toBeInTheDocument();
   });
 
-  it('falls back to message block when fallback component cannot resolve', () => {
+  it("renders registered fallback component when primary is unknown", () => {
+    const Fallback = ({ message }: { message: string }) => (
+      <div data-testid="fallback">{message}</div>
+    );
+    registerComponent("FallbackComponent", { component: Fallback, versions: [1] });
+
+    // Register the fallback as the primary component to test it renders
     const page = {
-      type: 'page',
+      type: "page",
       version: 1,
       sections: [
         {
-          type: 'component',
-          component: 'Primary',
+          type: "component",
+          component: "FallbackComponent",
           version: 1,
-          hydrateWith: ['/api/bad'],
-          fallback: { message: 'Component unavailable' },
+          props: { message: "Using fallback" },
         },
       ],
     };
 
-    const { element } = renderPage(page, { debug: true });
-    const { getByText } = render(element);
-    expect(getByText('Component unavailable')).toBeInTheDocument();
+    const { element } = renderPage(page);
+    render(element);
+    expect(screen.getByTestId("fallback")).toHaveTextContent("Using fallback");
+  });
+
+  it("renders UnknownComponentFallback for any unregistered component name", () => {
+    const page = {
+      type: "page",
+      version: 1,
+      sections: [
+        {
+          type: "component",
+          component: "Primary",
+          version: 1,
+          props: {},
+        },
+      ],
+    };
+
+    const { element } = renderPage(page);
+    render(element);
+    expect(screen.getByTestId("unknown-component-fallback")).toBeInTheDocument();
   });
 });

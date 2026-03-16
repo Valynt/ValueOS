@@ -54,7 +54,7 @@ describe('PasswordValidator', () => {
       const result = validatePassword('MyPassword123');
       
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one special character');
+      expect(result.errors.some(e => e.startsWith('Password must contain at least one special character'))).toBe(true);
     });
 
     it('should reject common passwords', () => {

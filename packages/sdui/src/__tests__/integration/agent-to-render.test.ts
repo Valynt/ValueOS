@@ -15,11 +15,12 @@ import { useCanvasStore } from "../../canvas/CanvasStore";
 import { renderPage } from "../../engine/renderPage";
 import { SDUIPageDefinition } from "../../schema";
 
+// Always read fresh state after mutations — Zustand set() creates a new object.
+const getStore = () => useCanvasStore.getState();
+
 describe("Agent to Render Integration Tests", () => {
   beforeEach(() => {
-    // Reset canvas store before each test
-    const store = useCanvasStore.getState();
-    store.reset();
+    getStore().reset();
   });
 
   describe("Test 1: Agent generates layout → CanvasStore receives", () => {
@@ -63,7 +64,7 @@ describe("Agent to Render Integration Tests", () => {
       store.setCurrentPage(agentLayout);
 
       // Verify storage
-      const storedPage = store.currentPage;
+      const storedPage = getStore().currentPage;
       expect(storedPage).toBeDefined();
       expect(storedPage?.sections).toHaveLength(2);
       expect(storedPage?.sections[0].component).toBe("PageHeader");
@@ -92,7 +93,7 @@ describe("Agent to Render Integration Tests", () => {
 
       // Verify history tracking
       expect(store.canUndo()).toBe(false); // First page, nothing to undo to
-      expect(store.history).toHaveLength(1);
+      expect(getStore().history).toHaveLength(1);
     });
   });
 
@@ -137,7 +138,7 @@ describe("Agent to Render Integration Tests", () => {
       store.setCurrentPage(updatedPage);
 
       // Verify update
-      const current = store.currentPage;
+      const current = getStore().currentPage;
       expect(current?.sections[0].props.status).toBe("complete");
       expect(current?.sections[0].props.result).toBe("Analysis finished");
 
@@ -191,8 +192,8 @@ describe("Agent to Render Integration Tests", () => {
       store.setCurrentPage(page3);
 
       // Verify final state
-      expect(store.currentPage?.sections[0].component).toBe("ResultCard");
-      expect(store.history).toHaveLength(3);
+      expect(getStore().currentPage?.sections[0].component).toBe("ResultCard");
+      expect(getStore().history).toHaveLength(3);
     });
   });
 
@@ -228,15 +229,15 @@ describe("Agent to Render Integration Tests", () => {
       store.setCurrentPage(page3);
 
       // Current should be C
-      expect(store.currentPage?.sections[0].component).toBe("C");
+      expect(getStore().currentPage?.sections[0].component).toBe("C");
 
       // Undo once
       store.undo();
-      expect(store.currentPage?.sections[0].component).toBe("B");
+      expect(getStore().currentPage?.sections[0].component).toBe("B");
 
       // Undo again
       store.undo();
-      expect(store.currentPage?.sections[0].component).toBe("A");
+      expect(getStore().currentPage?.sections[0].component).toBe("A");
 
       // Can't undo further
       expect(store.canUndo()).toBe(false);
@@ -263,11 +264,11 @@ describe("Agent to Render Integration Tests", () => {
 
       // Undo
       store.undo();
-      expect(store.currentPage?.sections[0].component).toBe("X");
+      expect(getStore().currentPage?.sections[0].component).toBe("X");
 
       // Redo
       store.redo();
-      expect(store.currentPage?.sections[0].component).toBe("Y");
+      expect(getStore().currentPage?.sections[0].component).toBe("Y");
       expect(store.canRedo()).toBe(false);
     });
 
@@ -300,7 +301,7 @@ describe("Agent to Render Integration Tests", () => {
       // Make new change - should clear redo
       store.setCurrentPage(page3);
       expect(store.canRedo()).toBe(false);
-      expect(store.currentPage?.sections[0].component).toBe("P3");
+      expect(getStore().currentPage?.sections[0].component).toBe("P3");
     });
   });
 
@@ -476,7 +477,7 @@ describe("Agent to Render Integration Tests", () => {
       store.undo();
 
       // Should be back to layout 1
-      const currentAfterUndo = store.currentPage;
+      const currentAfterUndo = getStore().currentPage;
       expect(currentAfterUndo?.sections[0].props.title).toBe("Opportunity 1");
 
       // Step 4: User redoes
@@ -484,7 +485,7 @@ describe("Agent to Render Integration Tests", () => {
       store.redo();
 
       // Should be back to layout 2
-      const currentAfterRedo = store.currentPage;
+      const currentAfterRedo = getStore().currentPage;
       expect(currentAfterRedo?.sections[0].props.title).toBe("Opportunity 2 - Updated");
     });
   });

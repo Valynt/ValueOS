@@ -112,7 +112,7 @@ describe('StateManagement - Data Binding Resolution', () => {
       $bind: 'cached.data',
       $source: 'static',
       $value: { timestamp: Date.now() },
-      $cache: { ttl: 5000 },
+      $cache: 'test_cache_key', $cacheTTL: 5000,
     };
 
     const result1 = await resolver.resolve(binding, context);
@@ -132,7 +132,7 @@ describe('StateManagement - Data Binding Resolution', () => {
       $bind: 'expiring.data',
       $source: 'static',
       $value: { timestamp: Date.now() },
-      $cache: { ttl: 100 },
+      $cache: 'test_cache_expire', $cacheTTL: 100,
     };
 
     const result1 = await resolver.resolve(binding, context);
@@ -200,10 +200,11 @@ describe('StateManagement - Data Binding Resolution', () => {
 describe('StateManagement - Data Hydration Hook', () => {
   beforeEach(() => {
     clearAllHydrationCache();
-    global.fetch = vi.fn();
+    vi.stubGlobal('fetch', vi.fn());
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -217,7 +218,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/user'])
+      useDataHydration(['/api/user'], { enableRetry: false })
     );
 
     expect(result.current.loading).toBe(true);
@@ -247,7 +248,7 @@ describe('StateManagement - Data Hydration Hook', () => {
       });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/user', '/api/settings'])
+      useDataHydration(['/api/user', '/api/settings'], { enableRetry: false })
     );
 
     await waitFor(() => {
@@ -270,7 +271,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     });
 
     const { result: result1 } = renderHook(() =>
-      useDataHydration(['/api/cached'], { enableCache: true })
+      useDataHydration(['/api/cached'], { enableCache: true, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -278,7 +279,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     });
 
     const { result: result2 } = renderHook(() =>
-      useDataHydration(['/api/cached'], { enableCache: true })
+      useDataHydration(['/api/cached'], { enableCache: true, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -299,7 +300,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     });
 
     const { result: result1 } = renderHook(() =>
-      useDataHydration(['/api/ttl'], { enableCache: true, cacheTtl: 100 })
+      useDataHydration(['/api/ttl'], { enableCache: true, cacheTtl: 100, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -309,7 +310,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     const { result: result2 } = renderHook(() =>
-      useDataHydration(['/api/ttl'], { enableCache: true, cacheTtl: 100 })
+      useDataHydration(['/api/ttl'], { enableCache: true, cacheTtl: 100, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -325,7 +326,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     const onError = vi.fn();
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/error'], { onError })
+      useDataHydration(['/api/error'], { onError, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -439,7 +440,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/clear-cache'], { enableCache: true })
+      useDataHydration(['/api/clear-cache'], { enableCache: true, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -467,7 +468,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     const onError = vi.fn();
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/success', '/api/failure'], { onError })
+      useDataHydration(['/api/success', '/api/failure'], { onError, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -482,7 +483,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     const customFetcher = vi.fn().mockResolvedValue({ custom: true });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/custom'], { fetcher: customFetcher })
+      useDataHydration(['/api/custom'], { fetcher: customFetcher, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -504,7 +505,7 @@ describe('StateManagement - Data Hydration Hook', () => {
     });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/success'], { onSuccess })
+      useDataHydration(['/api/success'], { onSuccess, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -623,7 +624,7 @@ describe('StateManagement - useDataBindings Hook', () => {
       $bind: 'cached',
       $source: 'static',
       $value: { data: true },
-      $cache: { ttl: 5000 },
+      $cache: 'test_cache_key', $cacheTTL: 5000,
     };
 
     const { result: result1 } = renderHook(() =>
@@ -742,6 +743,11 @@ describe('StateManagement - State Synchronization', () => {
 describe('StateManagement - Cache Management', () => {
   beforeEach(() => {
     clearAllHydrationCache();
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('tracks cache statistics', async () => {
@@ -754,7 +760,7 @@ describe('StateManagement - Cache Management', () => {
     });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/stats'], { enableCache: true })
+      useDataHydration(['/api/stats'], { enableCache: true, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -779,7 +785,7 @@ describe('StateManagement - Cache Management', () => {
     });
 
     const { result } = renderHook(() =>
-      useDataHydration(['/api/clear-all'], { enableCache: true })
+      useDataHydration(['/api/clear-all'], { enableCache: true, enableRetry: false })
     );
 
     await waitFor(() => {
@@ -805,6 +811,7 @@ describe('StateManagement - Cache Management', () => {
       useDataHydration(['/api/evict'], {
         enableCache: true,
         cacheTtl: 100,
+        enableRetry: false,
       })
     );
 
@@ -818,6 +825,7 @@ describe('StateManagement - Cache Management', () => {
       useDataHydration(['/api/evict'], {
         enableCache: true,
         cacheTtl: 100,
+        enableRetry: false,
       })
     );
 

@@ -93,23 +93,42 @@ if (typeof window !== "undefined") {
     value: MockResizeObserver,
   });
 
-  // Mock localStorage
+  // Mock localStorage — getItem returns null for missing keys (matches real API)
   const localStorageMock = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
+    _store: {} as Record<string, string>,
+    getItem: vi.fn(function(this: { _store: Record<string, string> }, key: string) {
+      return Object.prototype.hasOwnProperty.call(this._store, key) ? this._store[key] : null;
+    }),
+    setItem: vi.fn(function(this: { _store: Record<string, string> }, key: string, value: string) {
+      this._store[key] = String(value);
+    }),
+    removeItem: vi.fn(function(this: { _store: Record<string, string> }, key: string) {
+      delete this._store[key];
+    }),
+    clear: vi.fn(function(this: { _store: Record<string, string> }) {
+      this._store = {};
+    }),
   };
-  Object.defineProperty(window, "localStorage", { value: localStorageMock });
+  Object.defineProperty(window, "localStorage", { value: localStorageMock, writable: true });
 
-  // Mock sessionStorage
+  // Mock sessionStorage — same contract
   const sessionStorageMock = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
+    _store: {} as Record<string, string>,
+    getItem: vi.fn(function(this: { _store: Record<string, string> }, key: string) {
+      return Object.prototype.hasOwnProperty.call(this._store, key) ? this._store[key] : null;
+    }),
+    setItem: vi.fn(function(this: { _store: Record<string, string> }, key: string, value: string) {
+      this._store[key] = String(value);
+    }),
+    removeItem: vi.fn(function(this: { _store: Record<string, string> }, key: string) {
+      delete this._store[key];
+    }),
+    clear: vi.fn(function(this: { _store: Record<string, string> }) {
+      this._store = {};
+    }),
   };
   Object.defineProperty(window, "sessionStorage", {
     value: sessionStorageMock,
+    writable: true,
   });
 }

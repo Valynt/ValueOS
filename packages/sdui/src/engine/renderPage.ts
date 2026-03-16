@@ -26,7 +26,11 @@ export interface RenderOptions {
 /**
  * Render a complete SDUI page
  */
-export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): React.ReactElement {
+export interface RenderPageResult {
+  element: React.ReactElement;
+}
+
+export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): RenderPageResult {
   const { context, onError, componentRegistry } = options || {};
 
   try {
@@ -43,18 +47,22 @@ export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): R
     });
 
     // Wrap in page container
-    return React.createElement(
-      "div",
-      {
-        key: "sdui-page",
-        className: "sdui-page",
-        "data-version": page.version,
-      },
-      renderedSections
-    );
+    return {
+      element: React.createElement(
+        "div",
+        {
+          key: "sdui-page",
+          className: "sdui-page",
+          "data-version": page.version,
+        },
+        renderedSections
+      ),
+    };
   } catch (error) {
     logger.error("Failed to render SDUI page:", error);
-    return React.createElement("div", { className: "sdui-error" }, "Failed to render page");
+    return {
+      element: React.createElement("div", { className: "sdui-error" }, "Failed to render page"),
+    };
   }
 }
 
@@ -157,6 +165,16 @@ function renderComponent(
     context,
     version,
   };
+
+  // Eagerly invoke the component as a function to surface synchronous throws
+  // before React's reconciler runs. This lets the renderPage try/catch (and
+  // the onError callback) handle errors at call time rather than at paint time.
+  try {
+    (Component as (p: Record<string, unknown>) => unknown)({ key: `component-${index}`, ...mergedProps });
+  } catch (err) {
+    // Re-throw so the caller's try/catch (which calls onError) handles it.
+    throw err;
+  }
 
   return React.createElement(Component, {
     key: `component-${index}`,

@@ -27,8 +27,9 @@ describe("graceful shutdown", () => {
     });
 
     wireProcessShutdownSignals(["SIGTERM", "SIGINT"]);
-    const sigtermListeners = process.listeners("SIGTERM");
-    await (sigtermListeners[sigtermListeners.length - 1] as () => Promise<void>)();
+    // Call initiateGracefulShutdown directly — the process listener uses `void`
+    // so awaiting it would return before handlers complete.
+    await initiateGracefulShutdown("SIGTERM");
 
     expect(order).toEqual(["first", "second"]);
     expect(exitSpy).toHaveBeenCalledWith(0);

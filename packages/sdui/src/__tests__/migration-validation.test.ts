@@ -527,6 +527,11 @@ describe("Legacy Migration Functions", () => {
 });
 
 describe("Integration Tests", () => {
+  let runner: MigrationRunner;
+  beforeEach(() => {
+    runner = new MigrationRunner();
+  });
+
   it("should handle complete migration lifecycle", async () => {
     const originalSchema: SDUIPageDefinition = {
       type: "page",

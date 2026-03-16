@@ -76,6 +76,7 @@ const PersonaCard: React.FC<{
   showConsensus?: boolean;
 }> = ({ analysis, selected, onClick, showConsensus }) => {
   const config = PERSONA_CONFIG[analysis.persona];
+  if (!config) return null;
   const Icon = config.icon;
 
   return (
@@ -90,6 +91,7 @@ const PersonaCard: React.FC<{
       `}
       role="button"
       tabIndex={0}
+      aria-pressed={selected}
       data-testid={`persona-card-${analysis.persona}`}
     >
       {/* Header */}
@@ -119,7 +121,7 @@ const PersonaCard: React.FC<{
 
       {/* Key Metrics */}
       <div className="flex flex-wrap gap-2 mb-3">
-        {analysis.keyMetrics.slice(0, 2).map((metric, idx) => (
+        {(analysis.keyMetrics ?? []).slice(0, 2).map((metric, idx) => (
           <div key={idx} className="px-2 py-1 bg-secondary rounded text-xs">
             <span className="font-medium">{metric.value}</span>
             {metric.unit && <span className="text-muted-foreground ml-1">{metric.unit}</span>}
@@ -155,6 +157,7 @@ const AnalysisDetail: React.FC<{
   onBack: () => void;
 }> = ({ analysis, onBack }) => {
   const config = PERSONA_CONFIG[analysis.persona];
+  if (!config) return null;
   const Icon = config.icon;
 
   return (
@@ -197,7 +200,7 @@ const AnalysisDetail: React.FC<{
           Key Metrics
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {analysis.keyMetrics.map((metric, idx) => (
+          {(analysis.keyMetrics ?? []).map((metric, idx) => (
             <div key={idx} className="p-3 bg-secondary rounded-lg">
               <div className="text-xs text-muted-foreground mb-1">{metric.label}</div>
               <div className="text-lg font-bold text-foreground">
@@ -224,7 +227,7 @@ const AnalysisDetail: React.FC<{
           Recommendations
         </h3>
         <ul className="space-y-2">
-          {analysis.recommendations.map((rec, idx) => (
+          {(analysis.recommendations ?? []).map((rec, idx) => (
             <li key={idx} className="flex items-start gap-2 text-sm">
               <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
               <span className="text-foreground">{rec}</span>
@@ -234,13 +237,13 @@ const AnalysisDetail: React.FC<{
       </div>
 
       {/* Risks */}
-      {analysis.risks.length > 0 && (
+      {(analysis.risks ?? []).length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Risks & Considerations
           </h3>
           <ul className="space-y-2">
-            {analysis.risks.map((risk, idx) => (
+            {(analysis.risks ?? []).map((risk, idx) => (
               <li key={idx} className="flex items-start gap-2 text-sm">
                 <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                 <span className="text-foreground">{risk}</span>
@@ -271,7 +274,7 @@ const ConsensusView: React.FC<{
   const avgConfidence = consensusAnalyses.reduce((sum, a) => sum + a.confidence, 0) / consensusAnalyses.length;
   
   // Find common recommendations
-  const allRecommendations = consensusAnalyses.flatMap(a => a.recommendations);
+  const allRecommendations = consensusAnalyses.flatMap(a => a.recommendations ?? []);
   const recommendationCounts = allRecommendations.reduce((acc, rec) => {
     acc[rec] = (acc[rec] || 0) + 1;
     return acc;

@@ -9,6 +9,7 @@ import { devtools, persist } from 'zustand/middleware';
 
 import { CanvasPatcher } from './CanvasPatcher';
 import { CanvasDelta, CanvasLayout } from './types';
+import { SDUIPageDefinition } from '../schema';
 
 interface CanvasState {
   // Current canvas
@@ -22,18 +23,24 @@ interface CanvasState {
   
   // Streaming state
   isStreaming: boolean;
-  streamChunks: any[];
+  streamChunks: unknown[];
   
   // Metadata
   lastUpdated: number;
   agentId?: string;
+
+  // Page-level API (SDUIPageDefinition-based, parallel to CanvasLayout API)
+  currentPage: SDUIPageDefinition | null;
+  pageHistory: SDUIPageDefinition[];
+  pageHistoryIndex: number;
   
   // Actions
   setCanvas: (layout: CanvasLayout, canvasId: string, agentId?: string) => void;
   patchCanvas: (delta: CanvasDelta) => void;
   startStreaming: () => void;
-  addStreamChunk: (chunk: any) => void;
+  addStreamChunk: (chunk: unknown) => void;
   completeStreaming: (finalLayout: CanvasLayout) => void;
+  setCurrentPage: (page: SDUIPageDefinition) => void;
   undo: () => void;
   redo: () => void;
   reset: () => void;
@@ -43,6 +50,8 @@ interface CanvasState {
   canRedo: () => boolean;
   getComponentById: (componentId: string) => CanvasLayout | null;
 }
+
+
 
 export const useCanvasStore = create<CanvasState>()(
   devtools(
@@ -57,6 +66,9 @@ export const useCanvasStore = create<CanvasState>()(
         isStreaming: false,
         streamChunks: [],
         lastUpdated: 0,
+        currentPage: null,
+        pageHistory: [],
+        pageHistoryIndex: -1,
         
         // Set canvas (full replacement)
         setCanvas: (layout, canvasId, agentId) =>
@@ -118,27 +130,61 @@ export const useCanvasStore = create<CanvasState>()(
             };
           }),
         
-        // Undo
-        undo: () =>
-          set((state) => {
-            if (state.historyIndex <= 0) return state;
-            return {
-              current: state.history[state.historyIndex - 1],
-              historyIndex: state.historyIndex - 1,
-              lastUpdated: Date.now(),
-            };
-          }),
-        
-        // Redo
-        redo: () =>
-          set((state) => {
-            if (state.historyIndex >= state.history.length - 1) return state;
-            return {
-              current: state.history[state.historyIndex + 1],
-              historyIndex: state.historyIndex + 1,
-              lastUpdated: Date.now(),
-            };
-          }),
+        // Set current page (SDUIPageDefinition-based history).
+        // Also mirrors into the CanvasLayout history so store.history.length
+        // stays consistent with pageHistory.length.
+        setCurrentPage: (page) => {
+          const state = get();
+          const newPageHistory = [
+            ...state.pageHistory.slice(0, state.pageHistoryIndex + 1),
+            page,
+          ];
+          const newPageIndex = Math.min(newPageHistory.length - 1, 49);
+          const pageAsLayout = page as unknown as CanvasLayout;
+          const newHistory = [
+            ...state.history.slice(0, state.historyIndex + 1),
+            pageAsLayout,
+          ];
+          const newHistoryIndex = Math.min(newHistory.length - 1, 49);
+          set({
+            currentPage: page,
+            pageHistory: newPageHistory.slice(-50),
+            pageHistoryIndex: newPageIndex,
+            history: newHistory.slice(-50),
+            historyIndex: newHistoryIndex,
+            lastUpdated: Date.now(),
+          });
+        },
+
+        // Undo — rewinds both CanvasLayout and SDUIPageDefinition histories
+        undo: () => {
+          const state = get();
+          const update: Partial<CanvasState> = { lastUpdated: Date.now() };
+          if (state.historyIndex > 0) {
+            update.current = state.history[state.historyIndex - 1];
+            update.historyIndex = state.historyIndex - 1;
+          }
+          if (state.pageHistoryIndex > 0) {
+            update.currentPage = state.pageHistory[state.pageHistoryIndex - 1];
+            update.pageHistoryIndex = state.pageHistoryIndex - 1;
+          }
+          set(update);
+        },
+
+        // Redo — advances both histories
+        redo: () => {
+          const state = get();
+          const update: Partial<CanvasState> = { lastUpdated: Date.now() };
+          if (state.historyIndex < state.history.length - 1) {
+            update.current = state.history[state.historyIndex + 1];
+            update.historyIndex = state.historyIndex + 1;
+          }
+          if (state.pageHistoryIndex < state.pageHistory.length - 1) {
+            update.currentPage = state.pageHistory[state.pageHistoryIndex + 1];
+            update.pageHistoryIndex = state.pageHistoryIndex + 1;
+          }
+          set(update);
+        },
         
         // Reset
         reset: () =>
@@ -152,18 +198,24 @@ export const useCanvasStore = create<CanvasState>()(
             streamChunks: [],
             lastUpdated: 0,
             agentId: undefined,
+            currentPage: null,
+            pageHistory: [],
+            pageHistoryIndex: -1,
           }),
         
         // Can undo?
         canUndo: () => {
           const state = get();
-          return state.historyIndex > 0;
+          return state.historyIndex > 0 || state.pageHistoryIndex > 0;
         },
         
         // Can redo?
         canRedo: () => {
           const state = get();
-          return state.historyIndex < state.history.length - 1;
+          return (
+            state.historyIndex < state.history.length - 1 ||
+            state.pageHistoryIndex < state.pageHistory.length - 1
+          );
         },
         
         // Get component by ID
@@ -179,8 +231,11 @@ export const useCanvasStore = create<CanvasState>()(
           current: state.current,
           canvasId: state.canvasId,
           version: state.version,
+          currentPage: state.currentPage,
         }),
       }
     )
   )
 );
+
+

@@ -1,46 +1,50 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// Mock apiClient before importing the module under test
+vi.mock("@/api/client/unified-api-client", () => ({
+  apiClient: {
+    post: vi.fn(),
+  },
+}));
+
+import { apiClient } from "@/api/client/unified-api-client";
 import { createLLMClient } from "./client";
+
+const mockPost = vi.mocked(apiClient.post);
 
 const ORIGINAL_ENV = { ...process.env };
 
 describe("LLMClient.complete", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     process.env = { ...ORIGINAL_ENV, NODE_ENV: "test" };
   });
 
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV };
-    vi.restoreAllMocks();
   });
 
   it("calls /api/llm/chat and maps structured response", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch" as never).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    mockPost.mockResolvedValue({
+      success: true,
+      data: {
         success: true,
         data: {
           content: "Real completion",
           model: "gpt-4o",
-          usage: {
-            promptTokens: 4,
-            completionTokens: 7,
-            totalTokens: 11,
-          },
+          usage: { promptTokens: 4, completionTokens: 7, totalTokens: 11 },
         },
-      }),
-    } as Response);
+      },
+    });
 
     const client = createLLMClient({ model: "gpt-4" });
     const result = await client.complete({
       messages: [{ role: "user", content: "hello" }],
     });
 
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(mockPost).toHaveBeenCalledWith(
       "/api/llm/chat",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({ messages: expect.any(Array) }),
     );
     expect(result.content).toBe("Real completion");
     expect(result.model).toBe("gpt-4o");
@@ -49,24 +53,19 @@ describe("LLMClient.complete", () => {
 
   it("throws in release mode when completion content is empty", async () => {
     process.env.NODE_ENV = "production";
-    vi.spyOn(globalThis, "fetch" as never).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
+
+    mockPost.mockResolvedValue({
+      success: true,
+      data: {
         success: true,
-        data: {
-          content: "",
-          model: "gpt-4o",
-        },
-      }),
-    } as Response);
+        data: { content: "", model: "gpt-4o" },
+      },
+    });
 
     const client = createLLMClient();
 
     await expect(
-      client.complete({
-        messages: [{ role: "user", content: "hello" }],
-      }),
+      client.complete({ messages: [{ role: "user", content: "hello" }] }),
     ).rejects.toThrow(/Empty LLM completion content/);
   });
 });

@@ -17,6 +17,18 @@ vi.mock("../contexts/AuthContext", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+// Override the global setup mock: restore real useLocation so MemoryRouter
+// state propagates correctly in route-guard tests.
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return {
+    ...actual,
+    useNavigate: vi.fn(() => vi.fn()),
+    useParams: vi.fn(() => ({})),
+    // useLocation is NOT mocked here — use the real one from MemoryRouter
+  };
+});
+
 function LocationEcho() {
   const location = useLocation();
   return <pre data-testid="location-state">{JSON.stringify(location.state ?? null)}</pre>;

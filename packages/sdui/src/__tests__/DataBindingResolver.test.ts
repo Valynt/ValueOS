@@ -300,10 +300,8 @@ describe('DataBindingResolver', () => {
         $cacheTTL: 60000,
       };
 
-      // Register mock resolver
-      resolver.registerResolver('realization_engine', async () => ({
-        test: { value: 'cached_value' },
-      }));
+      // Register mock resolver — returns the resolved value directly
+      resolver.registerResolver('realization_engine', async () => 'cached_value');
 
       // First resolution
       const result1 = await resolver.resolve(binding, context);
@@ -326,7 +324,7 @@ describe('DataBindingResolver', () => {
       let callCount = 0;
       resolver.registerResolver('realization_engine', async () => {
         callCount++;
-        return { test: { value: `value_${callCount}` } };
+        return `value_${callCount}`;
       });
 
       // First resolution
@@ -350,9 +348,7 @@ describe('DataBindingResolver', () => {
         $cacheTTL: 60000,
       };
 
-      resolver.registerResolver('realization_engine', async () => ({
-        test: { value: 'value' },
-      }));
+      resolver.registerResolver('realization_engine', async () => 'value');
 
       // Resolve and cache
       await resolver.resolve(binding, context);
@@ -385,6 +381,11 @@ describe('DataBindingResolver', () => {
     });
 
     it('should handle missing resolver', async () => {
+      // Override the built-in resolver to simulate a failure
+      resolver.registerResolver('realization_engine', async () => {
+        throw new Error('Resolver unavailable');
+      });
+
       const binding: DataBinding = {
         $bind: 'test.value',
         $source: 'realization_engine',
@@ -410,9 +411,8 @@ describe('DataBindingResolver', () => {
 
   describe('resolveObject', () => {
     it('should resolve nested bindings', async () => {
-      resolver.registerResolver('realization_engine', async () => ({
-        metrics: { revenue: 1000000 },
-      }));
+      // Resolver returns the value directly (no path extraction on custom resolvers)
+      resolver.registerResolver('realization_engine', async () => 1000000);
 
       const obj = {
         title: 'Revenue',
@@ -431,9 +431,7 @@ describe('DataBindingResolver', () => {
     });
 
     it('should resolve arrays', async () => {
-      resolver.registerResolver('realization_engine', async () => ({
-        value: 100,
-      }));
+      resolver.registerResolver('realization_engine', async () => 100);
 
       const arr = [
         'static',
@@ -449,9 +447,7 @@ describe('DataBindingResolver', () => {
     });
 
     it('should handle deeply nested objects', async () => {
-      resolver.registerResolver('realization_engine', async () => ({
-        metrics: { revenue: 1000000 },
-      }));
+      resolver.registerResolver('realization_engine', async () => 1000000);
 
       const obj = {
         level1: {
@@ -471,9 +467,8 @@ describe('DataBindingResolver', () => {
 
   describe('custom resolvers', () => {
     it('should register and use custom resolver', async () => {
-      const customResolver = async (binding: DataBinding) => {
-        return { custom: { value: 'custom_data' } };
-      };
+      // Custom resolvers return the value directly
+      const customResolver = async (_binding: DataBinding) => 'custom_data';
 
       resolver.registerResolver('realization_engine', customResolver);
 
@@ -490,9 +485,12 @@ describe('DataBindingResolver', () => {
 
   describe('resolveMany', () => {
     it('should resolve multiple bindings in parallel', async () => {
-      resolver.registerResolver('realization_engine', async () => ({
-        metrics: { revenue: 1000000, cost: 500000 },
-      }));
+      // Resolver returns values directly; use binding.$bind to differentiate
+      resolver.registerResolver('realization_engine', async (binding) => {
+        if (binding.$bind === 'metrics.revenue') return 1000000;
+        if (binding.$bind === 'metrics.cost') return 500000;
+        return null;
+      });
 
       const bindings: DataBinding[] = [
         {

@@ -30,25 +30,29 @@ export const DEFAULT_SANITIZATION_OPTIONS: Required<SanitizationOptions> = {
   encodeHtmlEntities: true,
   removeEventHandlers: true,
   removeDangerousProtocols: true,
-  trimWhitespace: true,
+  trimWhitespace: false,
 };
 
 /**
- * Dangerous patterns to remove from content
+ * Patterns for script tag removal (with content)
  */
-const DANGEROUS_PATTERNS = [
-  // Script tags and their content
+const SCRIPT_PATTERNS = [
   /<script[\s\S]*?<\/script>/gi,
-  // JavaScript protocol
-  /javascript:/gi,
-  // Event handlers
-  /on\w+\s*=/gi,
-  // Dangerous HTML elements
-  /<(iframe|object|embed|form|input|button|select|textarea|meta|link)[\s\S]*?>/gi,
-  // Base64 encoded data that might contain scripts
-  /data:text\/html/gi,
-  // Comments that might contain sensitive info
   /<!--[\s\S]*?-->/g,
+];
+
+/**
+ * Patterns for event handler attribute removal (attribute only, not the element).
+ * Matches the attribute name+value but preserves the preceding whitespace token.
+ */
+const EVENT_HANDLER_PATTERN = /on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi;
+
+/**
+ * Patterns for dangerous protocol removal (full expression up to whitespace)
+ */
+const DANGEROUS_PROTOCOL_PATTERNS = [
+  /javascript:\S*/gi,
+  /data:text\/html\S*/gi,
 ];
 
 /**
@@ -60,30 +64,48 @@ const HTML_ENTITIES: Record<string, string> = {
   '>': '&gt;',
   '"': '&quot;',
   "'": '&#39;',
-  '/': '&#x2F;',
-  '`': '&#x60;',
-  '=': '&#x3D;'
 };
 
 /**
- * Encode dangerous HTML characters
+ * Encode dangerous HTML characters (does not encode / to preserve tag structure)
  */
 function encodeHtmlEntities(text: string): string {
-  return text.replace(/[&<>"'`=/]/g, char => HTML_ENTITIES[char] || char);
+  return text.replace(/[&<>"']/g, char => HTML_ENTITIES[char] || char);
 }
 
 /**
- * Remove dangerous patterns from content
+ * Remove dangerous patterns from content, respecting individual config flags
  */
-function removeDangerousPatterns(content: string): { sanitized: string; changes: string[] } {
+function removeDangerousPatterns(
+  content: string,
+  opts: { removeScripts: boolean; removeEventHandlers: boolean; removeDangerousProtocols: boolean }
+): { sanitized: string; changes: string[] } {
   const changes: string[] = [];
   let sanitized = content;
 
-  for (const pattern of DANGEROUS_PATTERNS) {
-    sanitized = sanitized.replace(pattern, (match) => {
-      changes.push(`Removed: ${match.slice(0, 50)}${match.length > 50 ? '...' : ''}`);
+  if (opts.removeScripts) {
+    for (const pattern of SCRIPT_PATTERNS) {
+      sanitized = sanitized.replace(pattern, (match) => {
+        changes.push(`Removed: ${match.slice(0, 50)}${match.length > 50 ? '...' : ''}`);
+        return '';
+      });
+    }
+  }
+
+  if (opts.removeEventHandlers) {
+    sanitized = sanitized.replace(EVENT_HANDLER_PATTERN, (match) => {
+      changes.push(`Removed: ${match.trim().slice(0, 50)}`);
       return '';
     });
+  }
+
+  if (opts.removeDangerousProtocols) {
+    for (const pattern of DANGEROUS_PROTOCOL_PATTERNS) {
+      sanitized = sanitized.replace(pattern, (match) => {
+        changes.push(`Removed: ${match.slice(0, 50)}${match.length > 50 ? '...' : ''}`);
+        return '';
+      });
+    }
   }
 
   return { sanitized, changes };
@@ -125,7 +147,11 @@ export function sanitizeLLMContent(
   try {
     // Remove dangerous patterns
     if (config.removeScripts || config.removeEventHandlers || config.removeDangerousProtocols) {
-      const patternResult = removeDangerousPatterns(sanitized);
+      const patternResult = removeDangerousPatterns(sanitized, {
+        removeScripts: config.removeScripts,
+        removeEventHandlers: config.removeEventHandlers,
+        removeDangerousProtocols: config.removeDangerousProtocols,
+      });
       sanitized = patternResult.sanitized;
       changes.push(...patternResult.changes);
     }
@@ -197,7 +223,7 @@ export function sanitizeUserInput(
     encodeHtmlEntities: false, // User input might need different handling
     removeEventHandlers: true,
     removeDangerousProtocols: true,
-    trimWhitespace: true,
+    trimWhitespace: false,
   });
 }
 
@@ -209,8 +235,8 @@ export function sanitizeLLMMessage(
 ): { sanitized: typeof message; changes: string[] } {
   const changes: string[] = [];
 
-  if (typeof message.content === 'string') {
-    const contentResult = sanitizeLLMContent(message.content);
+  if (typeof message.content === 'string' && message.content.length > 0) {
+    const contentResult = sanitizeLLMContent(message.content, { encodeHtmlEntities: false, trimWhitespace: false });
     if (contentResult.changes.length > 0) {
       changes.push(...contentResult.changes.map(change => `content: ${change}`));
     }
@@ -238,7 +264,8 @@ export function containsDangerousContent(content: string): {
   const patterns: string[] = [];
   let severity: 'low' | 'medium' | 'high' = 'low';
 
-  for (const pattern of DANGEROUS_PATTERNS) {
+  const allPatterns = [...SCRIPT_PATTERNS, EVENT_HANDLER_PATTERN, ...DANGEROUS_PROTOCOL_PATTERNS];
+  for (const pattern of allPatterns) {
     const matches = content.match(pattern);
     if (matches) {
       patterns.push(...matches.slice(0, 5)); // Limit to first 5 matches
