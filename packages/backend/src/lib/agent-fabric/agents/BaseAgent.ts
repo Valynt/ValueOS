@@ -25,6 +25,8 @@ import { AuditLogger } from "../AuditLogger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
 import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
+import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../../auth/AgentIdentity.js";
+import { toolRegistry, type ToolExecutionContext, type ToolResult } from "../../../services/tools/ToolRegistry.js";
 import type {
   HallucinationCheckResult as KFHallucinationCheckResult,
   KnowledgeFabricValidator,
@@ -207,6 +209,27 @@ export abstract class BaseAgent {
         timestamp: new Date().toISOString(),
       },
     };
+  }
+
+  /**
+   * Invoke a tool by name after checking that this agent's policy permits it.
+   * Throws PermissionDeniedError if the tool is not in the agent's allowedTools list.
+   * All agent subclasses must use this method rather than calling toolRegistry directly.
+   */
+  protected async invokeTool(
+    toolName: string,
+    params: Record<string, unknown>,
+    context?: Omit<ToolExecutionContext, "agentType">
+  ): Promise<ToolResult> {
+    const identity = createAgentIdentity(this.name, this.name, this.organizationId);
+    if (!canUseTool(identity, toolName)) {
+      throw new PermissionDeniedError(this.name, toolName);
+    }
+    return toolRegistry.execute(toolName, params, {
+      ...context,
+      agentType: this.name,
+      tenantId: context?.tenantId ?? this.organizationId,
+    });
   }
 
   /**

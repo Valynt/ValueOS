@@ -85,12 +85,8 @@ const SettingsContent: React.FC = () => {
       case '/organization/security':
         return <OrganizationSecurity />;
       case '/organization/audit-logs':
-        return (
-          <SettingsPlaceholder
-            title="Organization Audit Logs"
-            description="View and export comprehensive activity logs for compliance"
-          />
-        );
+      case '/audit-log':
+        return <TeamAuditLog />;
       case '/organization/billing':
         return <OrganizationBilling />;
       case '/organization/integrations':

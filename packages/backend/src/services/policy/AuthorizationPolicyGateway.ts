@@ -185,3 +185,23 @@ export class AuthorizationPolicyGateway {
 }
 
 export const authorizationPolicyGateway = new AuthorizationPolicyGateway();
+
+/**
+ * Convenience wrapper used by PolicyEnforcement.ts.
+ * Calls authorize() on the singleton gateway and returns the decision.
+ * Throws PolicyEnforcementError (via enforceToolPolicy) when denied.
+ */
+export function assertAuthorized(params: {
+  domain: string;
+  action: string;
+  resource: string;
+  agentType?: string;
+}): AuthorizationDecision {
+  return authorizationPolicyGateway.authorize({
+    channel: "tool_registry",
+    action: params.action,
+    resource: params.resource,
+    subject: { agentType: params.agentType },
+    metadata: { domain: params.domain },
+  });
+}

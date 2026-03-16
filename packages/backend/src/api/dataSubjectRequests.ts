@@ -23,7 +23,9 @@ const router = createSecureRouter("strict");
 
 router.use(requireAuth, tenantContextMiddleware());
 
-// Tables that may contain PII, keyed by the column holding the user reference
+// Tables that may contain PII, keyed by the column holding the user reference.
+// Agent output tables are scoped by organization_id; the erasure query joins
+// through value_cases.created_by to resolve the user-level scope.
 const PII_TABLES: Array<{ table: string; userColumn: string }> = [
   { table: "users", userColumn: "id" },
   { table: "cases", userColumn: "user_id" },
@@ -31,6 +33,14 @@ const PII_TABLES: Array<{ table: string; userColumn: string }> = [
   { table: "agent_sessions", userColumn: "user_id" },
   { table: "agent_memory", userColumn: "user_id" },
   { table: "audit_logs", userColumn: "user_id" },
+  // Agent output tables — scoped by created_by (the user who initiated the case)
+  { table: "hypothesis_outputs", userColumn: "created_by" },
+  { table: "integrity_outputs", userColumn: "created_by" },
+  { table: "narrative_drafts", userColumn: "created_by" },
+  { table: "realization_reports", userColumn: "created_by" },
+  { table: "expansion_opportunities", userColumn: "created_by" },
+  { table: "value_tree_nodes", userColumn: "created_by" },
+  { table: "financial_model_snapshots", userColumn: "created_by" },
 ];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -229,10 +239,37 @@ router.post(
       await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
       await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
 
+      // 3. Delete agent output rows attributed to this user (GDPR Art. 17 — F-011).
+      //    These tables use created_by for the user reference and tenant_id for isolation.
+      const AGENT_OUTPUT_TABLES = [
+        "hypothesis_outputs",
+        "integrity_outputs",
+        "narrative_drafts",
+        "realization_reports",
+        "expansion_opportunities",
+        "value_tree_nodes",
+        "financial_model_snapshots",
+      ] as const;
+
+      for (const table of AGENT_OUTPUT_TABLES) {
+        const { error: delErr } = await supabase
+          .from(table)
+          .delete()
+          .eq("created_by", userId)
+          .eq("tenant_id", tenantId);
+        if (delErr) {
+          logger.warn(`DSR erase: failed to delete from ${table}`, {
+            error: delErr.message,
+            emailHash,
+            tenantId,
+          });
+        }
+      }
+
       try {
         await auditDsr(supabase, "erase", actorId, email, tenantId, requestId, {
           anonymized_to: placeholderEmail,
-          tables_scrubbed: ["users", "messages", "cases", "agent_memory"],
+          tables_scrubbed: ["users", "messages", "cases", "agent_memory", ...AGENT_OUTPUT_TABLES],
         });
       } catch (auditErr) {
         // Audit failure must not suppress a completed operation. Log for out-of-band remediation.

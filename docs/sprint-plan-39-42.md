@@ -68,29 +68,27 @@ Every PR across all sprints must satisfy these rules from `AGENTS.md`:
 
 ---
 
-## Sprint 39 — Agent Integrity and Memory Hardening
+## Resequencing rationale (updated post-review)
 
-**Objective:** Close the two critical security findings that undermine agent trustworthiness (fake compliance scores, empty audit trail) and enforce memory access controls.
+The original Sprint 39 led with compliance score replacement. The revised sequence leads with **control integrity** — audit trail, actor identity, memory boundaries — so that when compliance scoring is replaced in Sprint 40, it can reference real signals from a trustworthy audit infrastructure. The key insight: an audit trail with `userId: "system"` is materially weaker than one with real actor attribution, so F-004 is pulled into Sprint 39.
 
-**Dependency rationale:** F-001 and F-002 are the highest-severity open items. They must be resolved before Sprint 40's user-facing trust features can be meaningful — surfacing `hallucination_check` in the UI is hollow if the underlying audit trail is a stub.
+**Release gate tiers:**
 
-### KR 1 — Replace hash-derived compliance scores (F-001)
+| Tier | Items | Gate |
+|---|---|---|
+| Must ship before production | AuditLogger, real userId, memory TTL/read gating, DSR coverage, policy-based permissions | Sprint 39–41 |
+| Should ship before enterprise rollout | Redaction utility, prompt contract hashes, FIDES sanitization, audit log UI | Sprint 40–41 |
+| Can wait | Hallucination badge, kill switch UI, lineage API, OpenAPI expansion, Salesforce, FinancialModelingAgent validation | Sprint 42+ |
 
-`ComplianceControlStatusService.scoreFor()` derives all compliance metrics from a SHA-1 hash of `tenantId + seed`. This produces deterministic but fabricated numbers that change only when the tenant ID changes. Replace with real telemetry queries.
+---
 
-**Acceptance criteria:**
-- `scoreFor()` removed; each metric reads from a real source:
-  - `mfaCoverage` → query `auth.mfa_factors` count / `auth.users` count for the tenant
-  - `encryptionCoverage` → constant 100 (AES-256-GCM enforced at infra layer; document the source)
-  - `keyRotationHours` → read `crm_connections.token_key_version` last-rotated timestamp
-  - `integrityFailures` → count `integrity_outputs` rows where `veto_count > 0` in last 30 days
-- `/compliance/control-status` returns values that change when underlying data changes
-- Unit test: mock Supabase responses → assert metric values match expected derivation
-- `pnpm test` green
+## Sprint 39 — Control Integrity
 
-**Debt ref:** F-001, F-006 (SHA-1 in `scoreFor` removed as part of this change)
+**Objective:** Establish a trustworthy audit trail with real actor attribution and enforced memory access boundaries.
 
-### KR 2 — Implement `AuditLogger` in agent-fabric (F-002)
+**Dependency rationale:** AuditLogger (KR1) is the foundation. Real userId (KR2) must land in the same sprint — an audit trail with `userId: "system"` is incomplete actor attribution. Memory TTL and cross-workspace gating (KR3) close the memory isolation gap that compliance scoring will reference in Sprint 40.
+
+### KR 1 — Implement `AuditLogger` in agent-fabric (F-002)
 
 `packages/backend/src/lib/agent-fabric/AuditLogger.ts` is an empty class. Agent LLM invocations, memory writes, and veto decisions produce no audit entries.
 
@@ -104,36 +102,219 @@ Every PR across all sprints must satisfy these rules from `AGENTS.md`:
 
 **Debt ref:** F-002
 
-### KR 3 — Enforce `MemorySystem` TTL on reads (F-012) and gate cross-workspace reads (F-008)
+### KR 2 — Forward real userId in `secureInvoke` (F-004) — pulled from Sprint 40
 
-Two related memory access control gaps: (1) `MemorySystem` prunes expired entries only during `consolidate()`, not on reads — stale entries are returned between consolidation cycles. (2) `crossReferenceMemory` in `BaseAgent` calls `SupabaseMemoryBackend` with `include_cross_workspace: true` without verifying the caller has cross-workspace permission.
+`BaseAgent.secureInvoke()` hardcodes `userId: "system"` (line 243). The `LifecycleContext` carries the real user ID. Without this fix, every audit entry from KR1 has incomplete actor attribution.
 
 **Acceptance criteria:**
-- `MemorySystem.get()` / `query()` filter out entries where `created_at + ttl_seconds < now` before returning
-- `crossReferenceMemory` checks `this.organizationId` against a configurable allowlist before setting `include_cross_workspace: true`; defaults to `false` (tenant-scoped only) when no allowlist entry exists
-- Unit tests: expired entry not returned on read; cross-workspace read blocked without allowlist entry
+- `secureInvoke` reads `userId` from `context.userId` or `context.user_id` when available; falls back to `"system"` only when context is absent, with a `warn` log
+- All LLM audit entries produced by `AuditLogger` include the real user ID
+- Unit test: context with `userId` → audit entry contains that ID; context without → `"system"` with warn log
+- `pnpm test` green
+
+**Debt ref:** F-004
+
+### KR 3 — Enforce `MemorySystem` TTL on reads + gate cross-workspace reads (F-008, F-012)
+
+Two related memory access control gaps: (1) `MemorySystem` prunes expired entries only during `consolidate()`, not on reads — stale entries are returned between consolidation cycles. (2) `SupabaseMemoryBackend` accepts `include_cross_workspace: true` without verifying the caller's organization is on an explicit allowlist.
+
+**Acceptance criteria:**
+- `MemorySystem.retrieveFromCache()` filters out entries where `created_at + ttl_seconds < now` before returning; expired entries are evicted from the cache on read
+- `SupabaseMemoryBackend.retrieve()` checks `organization_id` against `CROSS_WORKSPACE_MEMORY_ALLOWLIST` env var before honoring `include_cross_workspace: true`; downgrades to tenant-scoped when not allowlisted, with a `warn` log
+- Unit tests: expired entry not returned on read; cross-workspace read blocked without allowlist entry; cross-workspace read proceeds with allowlist entry
 - `pnpm test` green
 
 **Debt ref:** F-008, F-012 | **Memory standard:** Memory Hardening and Isolation
 
-### KR 4 — PII and secret redaction in agent debug views (MEM-02)
+### KR 4 — Test gate
 
-Agent output logs and debug endpoints expose raw LLM responses that may contain PII or credentials extracted from documents. Structured log fields must be scrubbed before writing.
+- `pnpm test` green
+- `pnpm run test:rls` green
+- `bash scripts/test-agent-security.sh` green
+
+---
+
+## Sprint 40 — Compliance Signals and Operator Visibility
+
+**Objective:** Replace fabricated compliance metrics with real telemetry, add PII scrubbing to the audit pipeline, and give operators a queryable audit log UI.
+
+**Dependency rationale:** Sprint 39 must complete first. Real compliance scoring (KR1) can now reference `integrity_outputs` and `crm_connections` with confidence that the audit trail capturing those events is real. The redaction utility (KR2) is wired into `AuditLogger` before the audit log UI (KR3) is exposed — so operators never see raw PII in the UI.
+
+### KR 1 — Replace hash-derived compliance scores (F-001, F-006)
+
+`ComplianceControlStatusService.scoreFor()` derives all compliance metrics from a SHA-1 hash of `tenantId + seed`. Replace with real telemetry queries.
 
 **Acceptance criteria:**
-- `AuditLogger` (from KR 2) passes output through a `redactPii()` utility before logging
-- `redactPii()` masks: SSN patterns, credit card numbers, email addresses in bulk, phone numbers, passport numbers — consistent with the PII detection rules in `.windsurf/rules/global.md`
-- Financial figures in `ComplianceAuditorAgent` prompts are redacted before the LLM call (F-007 partial)
-- Unit test: `redactPii()` masks each PII type; non-PII strings pass through unchanged
+- `scoreFor()` removed; each metric reads from a real source:
+  - `mfaCoverage` → `user_settings.mfa_enabled` ratio per tenant
+  - `encryptionCoverage` → constant 100 (AES-256-GCM enforced at infra layer; documented)
+  - `keyRotationHours` → `crm_connections.updated_at` for most recently updated row
+  - `integrityFailures` → count `integrity_outputs.veto_triggered = true` in last 30 days
+- `/compliance/control-status` returns values that change when underlying data changes
+- Unit test: mock Supabase responses → assert metric values match expected derivation
+- `pnpm test` green
+
+**Debt ref:** F-001, F-006
+
+### KR 2 — PII redaction in agent audit pipeline (MEM-02, F-007 partial)
+
+Agent output logs may contain PII extracted from documents. `AuditLogger` must scrub before writing.
+
+**Acceptance criteria:**
+- `redactSensitiveText()` in `lib/agent-fabric/redaction.ts` extended to cover: SSN (`\d{3}-\d{2}-\d{4}`), credit card numbers (Luhn-pattern 13–19 digits), passport numbers, DOB patterns, healthcare IDs (NPI format)
+- `AuditLogger.logLLMInvocation()` passes `details` through `redactSensitiveText()` before writing
+- Financial figures in `ComplianceAuditorAgent` prompts redacted before the LLM call
+- Unit test: each PII type masked; non-PII strings pass through unchanged
 - `pnpm test` green
 
 **Debt ref:** MEM-02, F-007 (partial)
+
+### KR 3 — Tenant admin audit log view (UX-02)
+
+**Acceptance criteria:**
+- `GET /api/v1/audit-logs` endpoint: tenant-scoped, paginated (cursor-based), filterable by `action`, `resource_type`, date range; requires `admin:audit` permission
+- Frontend page `AuditLogPage` at `/settings/audit-log` with table: timestamp, actor, action, resource, details
+- Route added to `SettingsLayout` as "Audit Log" tab (admin-only)
+- Empty state when no entries exist; cross-tenant read returns 403
+- `pnpm test` green; `pnpm run test:rls` green
+
+**Debt ref:** UX-02
+
+### KR 4 — Test gate
+
+- `pnpm test` green
+- `pnpm run test:rls` green
+- `bash scripts/test-agent-security.sh` green
+
+---
+
+## Sprint 41 — Governance and Data Rights
+
+**Objective:** Close GDPR Art. 17 coverage, enforce agent permissions from policy files, sanitize agent reasoning context, and anchor model cards to real prompt hashes. These four items reinforce each other as a governance tranche.
+
+**Dependency rationale:** DSR erasure (KR1) requires knowing all agent output tables — confirmed complete after Sprint 39–40. `AgentIdentity` permissions (KR2) build on the policy files already in place. FIDES sanitization (KR3) uses the redaction utility from Sprint 40 KR2. Prompt contract hashes (KR4) are independent but belong in the same governance sprint.
+
+### KR 1 — DSR erasure covers all 7 agent output tables (F-011)
+
+`PII_TABLES` in `dataSubjectRequests.ts` lists 6 tables. Seven agent output tables are missing.
+
+**Acceptance criteria:**
+- `hypothesis_outputs`, `integrity_outputs`, `narrative_drafts`, `realization_reports`, `expansion_opportunities`, `value_tree_nodes`, `financial_model_snapshots` added to `PII_TABLES`
+- DSR erasure test: create agent outputs for a user → trigger erasure → assert rows deleted or anonymized
+- `pnpm test` green
+
+**Debt ref:** F-011
+
+### KR 2 — `AgentIdentity` permissions enforced from policy files (F-013)
+
+`AgentIdentity.permissions` always `[]`. Agents have no tool access enforcement.
+
+**Acceptance criteria:**
+- `AgentIdentity` permissions populated from `allowedTools` in the agent's policy file
+- `BaseAgent` checks `this.identity.permissions` before calling a tool; throws `PermissionDeniedError` if not allowed
+- `ComplianceAuditorAgent` policy lists only `document_lookup` (no `web_search`)
+- Unit test: agent with restricted permissions cannot invoke a disallowed tool
+- `pnpm test` green
+
+**Debt ref:** F-013
+
+### KR 3 — FIDES-style context sanitization in ContextStore (MEM-03)
+
+Agents processing financial or compliance data must not receive raw PII in their reasoning context.
+
+**Acceptance criteria:**
+- `ContextStore` applies `sanitizeForAgent()` before injecting context into agent prompts
+- `sanitizeForAgent()` removes fields tagged `pii: true` or `secret: true` in the domain schema; replaces with `[REDACTED]`
+- `ComplianceAuditorAgent` and `FinancialModelingAgent` receive sanitized context
+- Unit test: context with PII fields → sanitized; non-PII fields pass through
+- `pnpm test` green
+
+**Debt ref:** MEM-03 | **Memory standard:** FIDES Planning
+
+### KR 4 — Real `prompt_contract_hash` in model cards (F-010)
+
+`ModelCardService` hardcodes fake hex strings as `prompt_contract_hash`.
+
+**Acceptance criteria:**
+- `ModelCardService` computes `prompt_contract_hash` as `sha256(promptTemplate)` at startup from the agent's Handlebars template file
+- Hash changes when the template changes (verified by test)
+- Model names in all model cards reference valid Together.ai model identifiers
+- `pnpm test` green
+
+**Debt ref:** F-010
 
 ### KR 5 — Test gate
 
 - `pnpm test` green
 - `pnpm run test:rls` green
 - `bash scripts/test-agent-security.sh` green
+
+---
+
+## Sprint 42 — Platform Expansion
+
+**Objective:** Operator visibility features, API contract completeness, and deferred integrations. These items are valuable but not production blockers.
+
+**Dependency rationale:** All Sprint 39–41 production-gate items complete. Sprint 42 items can be delivered in any order within the sprint.
+
+### KR 1 — `HallucinationBadge` SDUI component (UX-01)
+
+**Acceptance criteria:**
+- New SDUI component `HallucinationBadge` registered in both `config/ui-registry.json` and `packages/sdui/src/registry.tsx`
+- Badge renders green/amber/red based on `hallucination_check` value; tooltip shows `grounding_score`
+- Wired to `HypothesisStage`, `IntegrityStage`, `NarrativeStage`, `RealizationStage`, `ExpansionStage`
+- Component test passes; `pnpm test` green
+
+**Debt ref:** UX-01
+
+### KR 2 — Agent kill switch table + API + admin UI (UX-03)
+
+**Acceptance criteria:**
+- `GET /api/v1/admin/agents` returns agent name, policy version, kill switch state
+- `POST /api/v1/admin/agents/:agentName/kill-switch` toggles; requires `admin:agents` permission
+- `BaseAgent.secureInvoke()` checks kill switch before executing
+- Frontend `AgentAdminPage` at `/admin/agents`
+- `pnpm test` green; `pnpm run test:rls` green
+
+**Debt ref:** UX-03
+
+### KR 3 — `agent_execution_lineage` table + API (UX-04 foundation)
+
+**Acceptance criteria:**
+- Migration: `agent_execution_lineage` (`id`, `session_id`, `agent_name`, `organization_id`, `memory_reads jsonb`, `tool_calls jsonb`, `db_writes jsonb`, `created_at`) with RLS + rollback file
+- `BaseAgent` writes a lineage row after each `secureInvoke` (non-blocking)
+- `GET /api/v1/cases/:caseId/lineage` returns tenant-scoped lineage rows
+- `pnpm run test:rls` green for new table
+
+**Debt ref:** UX-04 (foundation)
+
+### KR 4 — OpenAPI spec covers all public endpoints (TASK-023)
+
+**Acceptance criteria:**
+- All routes in `server.ts` have corresponding OpenAPI path entries with request/response schemas
+- CI check: `openapi-validator` fails on schema errors
+- `pnpm test` green
+
+**Debt ref:** TASK-023
+
+### KR 5 — Salesforce OAuth + opportunity fetch (UX-05)
+
+**Acceptance criteria:**
+- OAuth2 PKCE flow wired; tokens stored via `CrmConnectionService`
+- `GET /api/crm/salesforce/opportunities` returns paginated tenant-scoped results
+- Salesforce selectable in "New Case" flow alongside HubSpot
+- `pnpm run test:rls` green
+
+**Debt ref:** UX-05, US-008
+
+### KR 6 — FinancialModelingAgent architecture validation (#1144)
+
+**Acceptance criteria:**
+- Integration test: invoke agent → assert `financial_model_snapshots` row created + `semantic_memory` entry with correct `tenant_id`
+- Any gaps documented as new debt items in `debt.md`
+- `pnpm test` green
+
+**Debt ref:** #1144
 
 ---
 
@@ -364,9 +545,9 @@ Validate that `FinancialModelingAgent` correctly uses the two-layer memory archi
 
 ## Summary Table
 
-| Sprint | Objective | Key Outcomes |
-|---|---|---|
-| 39 | Agent Integrity and Memory Hardening | Real compliance scores, agent audit trail live, memory TTL enforced, PII redaction in logs |
-| 40 | User-Facing Trust Features | Hallucination badge in SDUI, tenant audit log view, agent kill switch admin UI, real userId in LLM calls |
-| 41 | GDPR Completeness, Model Cards, `any` Elimination | DSR covers all agent tables, real prompt hashes, AgentIdentity permissions enforced, backend any <100 |
-| 42 | OpenAPI, Salesforce, Data Lineage Foundation | Full API contract documented, Salesforce OAuth wired, lineage data model live, FinancialModelingAgent validated |
+| Sprint | Objective | Key Outcomes | Release gate |
+|---|---|---|---|
+| 39 | Control Integrity | AuditLogger live, real userId in all audit entries, memory TTL enforced, cross-workspace gated | Must ship before production |
+| 40 | Compliance Signals + Operator Visibility | Real compliance scores, PII scrubbing in audit pipeline, audit log UI | Must ship before production |
+| 41 | Governance and Data Rights | DSR covers all agent tables, AgentIdentity permissions enforced, FIDES sanitization, real prompt hashes | Must ship before production |
+| 42 | Platform Expansion | Hallucination badge, kill switch UI, lineage API, OpenAPI completeness, Salesforce OAuth, FinancialModelingAgent validation | Before enterprise rollout |

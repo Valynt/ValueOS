@@ -1,0 +1,128 @@
+/**
+ * Tests that secureInvoke resolves the real userId from context
+ * and falls back to "system" with a warn log when absent (F-004).
+ */
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../logger.js", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+vi.mock("../LLMGateway.js", () => ({
+  LLMGateway: class {
+    complete = vi.fn().mockResolvedValue({
+      content: JSON.stringify({ result: "ok", hallucination_check: true }),
+      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+      finish_reason: "stop",
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+    });
+  },
+}));
+
+vi.mock("../MemorySystem.js", () => ({
+  MemorySystem: class {
+    store = vi.fn().mockResolvedValue("mem_1");
+    retrieve = vi.fn().mockResolvedValue([]);
+    storeSemanticMemory = vi.fn().mockResolvedValue("mem_2");
+  },
+}));
+
+vi.mock("../CircuitBreaker.js", () => ({
+  CircuitBreaker: class {
+    execute = vi.fn().mockImplementation((fn: () => Promise<unknown>) => fn());
+  },
+}));
+
+vi.mock("../AuditLogger.js", () => ({
+  AuditLogger: class {
+    logLLMInvocation = vi.fn().mockResolvedValue(undefined);
+    logMemoryStore = vi.fn().mockResolvedValue(undefined);
+    logVetoDecision = vi.fn().mockResolvedValue(undefined);
+  },
+}));
+
+vi.mock("../KnowledgeFabricValidator.js", () => ({
+  KnowledgeFabricValidator: class {},
+}));
+
+import { z } from "zod";
+import { logger } from "../../logger.js";
+import { BaseAgent } from "../agents/BaseAgent.js";
+import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import { LLMGateway } from "../LLMGateway.js";
+import { MemorySystem } from "../MemorySystem.js";
+import { CircuitBreaker } from "../CircuitBreaker.js";
+import { AuditLogger } from "../AuditLogger.js";
+
+const schema = z.object({ result: z.string(), hallucination_check: z.boolean().optional() });
+
+class TestAgent extends BaseAgent {
+  public readonly lifecycleStage = "discovery";
+  public readonly version = "1.0.0";
+  public readonly name = "TestAgent";
+
+  async execute(_ctx: LifecycleContext): Promise<AgentOutput> {
+    return this.prepareOutput({}, "success");
+  }
+
+  // Expose secureInvoke for testing
+  async invokeSecure(sessionId: string, prompt: string, context: Record<string, unknown>) {
+    return this.secureInvoke(sessionId, prompt, schema, { context });
+  }
+}
+
+function makeAgent() {
+  const config: AgentConfig = {
+    name: "TestAgent",
+    lifecycle_stage: "discovery",
+    llm_config: { provider: "together", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", temperature: 0.7, max_tokens: 1000 },
+    memory_config: { max_memories: 10, enable_persistence: false },
+    tools: [],
+  };
+  const llm = new LLMGateway({ provider: "together", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free" });
+  const mem = new MemorySystem({ max_memories: 10, enable_persistence: false });
+  const cb = new CircuitBreaker();
+  return new TestAgent(config, "org-test", mem, llm, cb);
+}
+
+describe("BaseAgent.secureInvoke userId resolution (F-004)", () => {
+  let agent: TestAgent;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    agent = makeAgent();
+  });
+
+  it("uses userId from context.userId when present", async () => {
+    await agent.invokeSecure("sess-1", "test prompt", { userId: "user-real-123" });
+
+    const auditLogger = (agent as unknown as { auditLogger: AuditLogger }).auditLogger;
+    expect(auditLogger.logLLMInvocation).toHaveBeenCalledOnce();
+    const call = vi.mocked(auditLogger.logLLMInvocation).mock.calls[0][0];
+    expect(call.userId).toBe("user-real-123");
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("no userId in context"),
+      expect.anything(),
+    );
+  });
+
+  it("uses userId from context.user_id when context.userId absent", async () => {
+    await agent.invokeSecure("sess-2", "test prompt", { user_id: "user-snake-456" });
+
+    const auditLogger = (agent as unknown as { auditLogger: AuditLogger }).auditLogger;
+    const call = vi.mocked(auditLogger.logLLMInvocation).mock.calls[0][0];
+    expect(call.userId).toBe("user-snake-456");
+  });
+
+  it("falls back to 'system' and emits warn when no userId in context", async () => {
+    await agent.invokeSecure("sess-3", "test prompt", {});
+
+    const auditLogger = (agent as unknown as { auditLogger: AuditLogger }).auditLogger;
+    const call = vi.mocked(auditLogger.logLLMInvocation).mock.calls[0][0];
+    expect(call.userId).toBe("system");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "secureInvoke: no userId in context, falling back to 'system'",
+      expect.objectContaining({ agent: "TestAgent", session_id: "sess-3" }),
+    );
+  });
+});
