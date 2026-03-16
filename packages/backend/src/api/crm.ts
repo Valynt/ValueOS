@@ -34,6 +34,12 @@ import { getCrmSyncQueue, getCrmWebhookQueue } from '../workers/crmWorker.js';
 const logger = createLogger({ component: 'CrmAPI' });
 const router = Router();
 
+
+function getScriptNonceAttribute(res: Response): string {
+  const nonce = typeof res.locals.cspNonce === 'string' ? res.locals.cspNonce : '';
+  return nonce ? ` nonce="${nonce}"` : '';
+}
+
 // Rate limiter for webhook endpoint: 100 requests per minute per IP
 const webhookRateLimiter = createRateLimiter('strict', {
   message: 'Webhook rate limit exceeded',
@@ -150,9 +156,10 @@ router.get(
       if (!stateMeta) {
         logger.warn('OAuth callback rejected: invalid or expired state', { provider });
         const appOrigin = JSON.stringify(process.env.APP_URL || '*');
+        const scriptNonceAttr = getScriptNonceAttribute(res);
         return res.status(400).send(`
           <html><body>
-            <script>
+            <script${scriptNonceAttr}>
               window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Invalid or expired state' }, ${appOrigin});
               window.close();
             </script>
@@ -199,9 +206,10 @@ router.get(
       // but we use JSON.stringify to guarantee safe embedding in script context.
       const safeProvider = JSON.stringify(provider);
       const appOrigin = JSON.stringify(process.env.APP_URL || '*');
+      const scriptNonceAttr = getScriptNonceAttribute(res);
       return res.send(`
         <html><body>
-          <script>
+          <script${scriptNonceAttr}>
             window.opener?.postMessage({ type: 'crm-oauth-complete', provider: ${safeProvider} }, ${appOrigin});
             window.close();
           </script>
@@ -211,9 +219,10 @@ router.get(
     } catch (error) {
       logger.error('OAuth callback failed', error instanceof Error ? error : undefined);
       const appOrigin = JSON.stringify(process.env.APP_URL || '*');
+      const scriptNonceAttr = getScriptNonceAttribute(res);
       return res.status(500).send(`
         <html><body>
-          <script>
+          <script${scriptNonceAttr}>
             window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Connection failed' }, ${appOrigin});
             window.close();
           </script>

@@ -107,16 +107,20 @@ function buildCSPString(config: CSPConfig): string {
  * Modern security headers middleware for production environments.
  * Implements CSP, HSTS, X-Frame-Options, NoSniff, and other protections.
  */
+export function cspNonceMiddleware(_req: Request, res: Response, next: NextFunction): void {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  if (!isDevelopment) {
+    res.locals.cspNonce = crypto.randomBytes(16).toString("base64");
+  }
+  next();
+}
+
 export function securityHeadersMiddleware(_req: Request, res: Response, next: NextFunction): void {
   // Select CSP based on environment
   const isDevelopment = process.env.NODE_ENV === "development";
   const baseCSP = isDevelopment ? developmentCSP : productionCSP;
 
-  // Generate cryptographic nonce for CSP (only in production)
-  let nonce: string | undefined;
-  if (!isDevelopment) {
-    nonce = crypto.randomBytes(16).toString("base64");
-  }
+  const nonce = typeof res.locals.cspNonce === "string" ? res.locals.cspNonce : undefined;
 
   // Content Security Policy with nonce (production only)
   let cspConfig = baseCSP;
@@ -130,12 +134,6 @@ export function securityHeadersMiddleware(_req: Request, res: Response, next: Ne
 
   const cspValue = buildCSPString(cspConfig);
   res.setHeader("Content-Security-Policy", cspValue);
-
-  // Make nonce available to templates/rendering (production only)
-  if (nonce) {
-    (res as any).locals = (res as any).locals || {};
-    (res as any).locals.cspNonce = nonce;
-  }
 
   // Strict Transport Security
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");

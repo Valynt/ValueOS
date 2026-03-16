@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { securityHeadersMiddleware } from '../securityHeaders';
+import { cspNonceMiddleware, securityHeadersMiddleware } from '../securityHeaders';
 
 function mockRes() {
   const headers: Record<string, string> = {};
@@ -31,7 +31,11 @@ describe('securityHeadersMiddleware (production)', () => {
     const res = mockRes();
     const next = vi.fn();
 
+    const nonceNext = vi.fn();
+
+    expect(() => cspNonceMiddleware(req, res as any, nonceNext)).not.toThrow();
     expect(() => securityHeadersMiddleware(req, res as any, next)).not.toThrow();
+    expect(nonceNext).toHaveBeenCalled();
     expect(next).toHaveBeenCalled();
     expect(res.locals.cspNonce).toBeDefined();
     expect(res.headers['Content-Security-Policy']).toContain(`'nonce-${res.locals.cspNonce}'`);
