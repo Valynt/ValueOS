@@ -466,7 +466,7 @@ jobs:
         run: docker build -f infra/docker/Dockerfile.backend -t valueos-backend:ci .
 
       - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
           scan-ref: .
@@ -477,7 +477,7 @@ jobs:
           exit-code: '1'
 
       - name: Trivy container image scan (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: valueos-backend:ci
