@@ -24,7 +24,8 @@
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",
     "check:kong-cors-origins": "node scripts/ci/check-kong-cors-origins.mjs --mode=production",
     "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs",
-    "check:any-ratchet": "node scripts/ci/any-ratchet.mjs"
+    "check:any-ratchet": "node scripts/ci/any-ratchet.mjs",
+    "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts && SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

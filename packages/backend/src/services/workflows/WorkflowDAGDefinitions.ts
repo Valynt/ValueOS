@@ -624,10 +624,10 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
     }
   });
 
-  // Check for cycles (warning, not error - cycles can be intentional)
-  const hasCycle = detectCycle(workflow);
-  if (hasCycle) {
-    warnings.push('Workflow contains cycles - ensure this is intentional');
+  // Check for cycles (error - DAGs must be acyclic)
+  const cyclePath = detectCycle(workflow);
+  if (cyclePath) {
+    errors.push(`Workflow contains cycle: ${cyclePath.join(' -> ')}`);
   }
 
   return {
@@ -637,30 +637,64 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
   };
 }
 
-function detectCycle(workflow: WorkflowDAG): boolean {
+function detectCycle(workflow: WorkflowDAG): string[] | null {
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
+  const traversalPath: string[] = [];
 
-  function dfs(stageId: string): boolean {
+  const adjacency = new Map<string, string[]>();
+  for (const stage of workflow.stages) {
+    adjacency.set(stage.id, []);
+  }
+  for (const transition of workflow.transitions) {
+    const fromStage = transition.from_stage;
+    const toStage = transition.to_stage;
+    if (!fromStage || !toStage) {
+      continue;
+    }
+    const nextStages = adjacency.get(fromStage);
+    if (nextStages) {
+      nextStages.push(toStage);
+    } else {
+      adjacency.set(fromStage, [toStage]);
+    }
+  }
+
+  function dfs(stageId: string): string[] | null {
     visited.add(stageId);
     recursionStack.add(stageId);
+    traversalPath.push(stageId);
 
-    const outgoingTransitions = workflow.transitions.filter(t => t.from_stage === stageId);
-    for (const transition of outgoingTransitions) {
-      if (!visited.has(transition.to_stage!)) {
-        if (dfs(transition.to_stage!)) {
-          return true;
+    const outgoingTransitions = adjacency.get(stageId) ?? [];
+    for (const nextStage of outgoingTransitions) {
+      if (!visited.has(nextStage)) {
+        const cycle = dfs(nextStage);
+        if (cycle) {
+          return cycle;
         }
-      } else if (recursionStack.has(transition.to_stage!)) {
-        return true;
+      } else if (recursionStack.has(nextStage)) {
+        const cycleStart = traversalPath.indexOf(nextStage);
+        return [...traversalPath.slice(cycleStart), nextStage];
       }
     }
 
+    traversalPath.pop();
     recursionStack.delete(stageId);
-    return false;
+    return null;
   }
 
-  return dfs(workflow.initial_stage ?? workflow.entry_stage ?? '');
+  for (const stage of workflow.stages) {
+    if (visited.has(stage.id)) {
+      continue;
+    }
+
+    const cycle = dfs(stage.id);
+    if (cycle) {
+      return cycle;
+    }
+  }
+
+  return null;
 }
 
 // ============================================================================

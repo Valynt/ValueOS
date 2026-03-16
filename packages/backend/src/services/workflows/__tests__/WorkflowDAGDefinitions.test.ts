@@ -180,6 +180,21 @@ describe('Workflow DAG Definitions', () => {
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
     });
+
+    it('should reject cyclic workflows as errors', () => {
+      const cyclicWorkflow = {
+        ...OPPORTUNITY_WORKFLOW,
+        transitions: [
+          { from_stage: 'opportunity_research', to_stage: 'opportunity_validation' },
+          { from_stage: 'opportunity_validation', to_stage: 'opportunity_prioritization' },
+          { from_stage: 'opportunity_prioritization', to_stage: 'opportunity_research' },
+        ],
+      };
+
+      const result = validateWorkflowDAG(cyclicWorkflow);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some(error => error.includes('contains cycle'))).toBe(true);
+    });
   });
 
   describe('Stage Properties', () => {
