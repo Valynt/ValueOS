@@ -1,0 +1,59 @@
+---
+# Prometheus Adapter custom metric rules for Kubernetes HPA
+#
+# Exposes BullMQ queue depth metrics so the worker HPA
+# (infra/k8s/base/worker-hpa.yaml) can scale on queue depth
+# rather than CPU/memory alone.
+#
+# Requires: prometheus-adapter installed in the cluster
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install prometheus-adapter prometheus-community/prometheus-adapter \
+#     --namespace monitoring \
+#     --set prometheus.url=http://prometheus.monitoring.svc \
+#     --values infra/k8s/monitoring/prometheus-adapter-rules.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-adapter-config
+  namespace: monitoring
+  labels:
+    app: prometheus-adapter
+data:
+  config.yaml: |
+    rules:
+      # ── bullmq_queue_waiting_jobs ─────────────────────────────────────────
+      # Number of jobs waiting to be picked up by a worker.
+      # Scraped from the BullMQ metrics endpoint exposed by the worker pods.
+      - seriesQuery: 'bullmq_queue_waiting_jobs{namespace!="",pod!=""}'
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+        name:
+          matches: "bullmq_queue_waiting_jobs"
+          as: "bullmq_queue_waiting_jobs"
+        metricsQuery: |
+          sum by (queue) (
+            bullmq_queue_waiting_jobs{<<.LabelMatchers>>}
+          )
+
+      # ── bullmq_queue_delayed_jobs ─────────────────────────────────────────
+      # Number of jobs scheduled for future execution (delayed queue).
+      # Used as a leading indicator to scale up before the burst hits active.
+      - seriesQuery: 'bullmq_queue_delayed_jobs{namespace!="",pod!=""}'
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+        name:
+          matches: "bullmq_queue_delayed_jobs"
+          as: "bullmq_queue_delayed_jobs"
+        metricsQuery: |
+          sum by (queue) (
+            bullmq_queue_delayed_jobs{<<.LabelMatchers>>}
+          )

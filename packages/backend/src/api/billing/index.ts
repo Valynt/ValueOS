@@ -14,6 +14,7 @@ import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
 import executionControlRouter from './execution-control.js'
 import invoicesRouter from './invoices.js'
+import overridesRouter from './overrides.js'
 import paymentMethodsRouter from './payment-methods.js'
 import planChangeRouter from './plan-change.js'
 import plansRouter from './plans.js'
@@ -89,6 +90,16 @@ router.use(
   tenantDbContextMiddleware(),
   requirePermission('billing:manage'),
   executionControlRouter
+);
+
+// Overrides (custom pricing + cap increases) and reconciliation export.
+// GET /billing/overrides/reconciliation is included in overridesRouter.
+router.use(
+  '/overrides',
+  requireAuth,
+  tenantContextMiddleware(),
+  requirePermission('billing:manage'),
+  overridesRouter
 );
 
 export default router;
