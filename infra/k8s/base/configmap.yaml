@@ -8,7 +8,10 @@ metadata:
     app.kubernetes.io/part-of: valynt
 data:
   # Redis configuration
-  redis-url: "redis://redis:6379"
+  redis-url: "rediss://redis:6379"
+  redis-tls-servername: "redis"
+  redis-tls-reject-unauthorized: "true"
+  redis-tls-ca-cert-path: "/etc/redis/tls/ca.crt"
   
   # Application configuration
   node-env: "production"
