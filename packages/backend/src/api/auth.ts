@@ -26,6 +26,7 @@ import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
 import { AUDIT_ACTION } from "../types/audit.js"
 import { AuthenticationError, ValidationError } from "../services/errors.js"
 import { userProfileDirectoryService } from "../services/auth/UserProfileDirectoryService.js"
+import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth"
 import { sanitizeErrorMessage } from "../utils/security.js"
 
 const logger = createLogger({ component: "AuthAPI" });
@@ -37,6 +38,10 @@ function getServerSupabase() {
     serverSupabase = createServerSupabaseClient();
   }
   return serverSupabase;
+}
+
+function getSupabaseAdminAuthAdapter() {
+  return new SupabaseAdminAuthAdapter(getServerSupabase());
 }
 
 type AuthActor = {
@@ -233,20 +238,19 @@ router.post(
       });
 
       try {
-        const supabaseAdmin = getServerSupabase();
-        const { data: resetUser } = await (supabaseAdmin.auth.admin as any).getUserByEmail(email);
-        if (resetUser?.user) {
+        const resetUser = await getSupabaseAdminAuthAdapter().getUserByEmail(email);
+        if (resetUser) {
           await auditLogService.logAudit({
-            userId: resetUser.user.id,
+            userId: resetUser.id,
             userName:
-              resetUser.user.user_metadata?.full_name ||
-              resetUser.user.user_metadata?.name ||
-              resetUser.user.email ||
+              resetUser.user_metadata?.full_name ||
+              resetUser.user_metadata?.name ||
+              resetUser.email ||
               "User",
-            userEmail: resetUser.user.email || email,
+            userEmail: resetUser.email || email,
             action: "auth.password_reset_requested",
             resourceType: "auth",
-            resourceId: resetUser.user.id,
+            resourceId: resetUser.id,
             details: {
               ipAddress: req.ip,
             },
@@ -298,21 +302,19 @@ router.post(
       }
 
       try {
-        const { data: verifyUser } = await (getServerSupabase().auth.admin as any).getUserByEmail(
-          email
-        );
-        if (verifyUser?.user) {
+        const verifyUser = await getSupabaseAdminAuthAdapter().getUserByEmail(email);
+        if (verifyUser) {
           await auditLogService.logAudit({
-            userId: verifyUser.user.id,
+            userId: verifyUser.id,
             userName:
-              verifyUser.user.user_metadata?.full_name ||
-              verifyUser.user.user_metadata?.name ||
-              verifyUser.user.email ||
+              verifyUser.user_metadata?.full_name ||
+              verifyUser.user_metadata?.name ||
+              verifyUser.email ||
               "User",
-            userEmail: verifyUser.user.email || email,
+            userEmail: verifyUser.email || email,
             action: "auth.verify_resend",
             resourceType: "auth",
-            resourceId: verifyUser.user.id,
+            resourceId: verifyUser.id,
             details: {
               ipAddress: req.ip,
             },
