@@ -44,7 +44,7 @@ These summaries/artifacts are uploaded even when a lane fails (`if: always()`), 
 
 - `critical-workflows-gate` depends on `unit-component-schema` and `tenant-isolation-gate`.
 - PR blocking gate (`pr-fast-blocking-subsets`) depends on `unit-component-schema`, `tenant-isolation-gate`, `security-gate`, `dast-gate`, and `accessibility-audit`.
-- `security-gate` is merge-blocking only when SBOM generation succeeds and `sbom.json` exists with non-zero size; missing/empty SBOM fails the lane.
+- `security-gate` is merge-blocking and will fail if SBOM generation fails or if `sbom.json` is missing or empty.
 - Staging/deploy gate (`staging-deploy-release-gates`) depends on `tenant-isolation-gate`, `critical-workflows-gate`, `security-gate`, `dast-gate`, and `accessibility-audit`.
 
 This structure guarantees release blockers are surfaced with explicit lane names and workflow IDs in a single enforcement job.
