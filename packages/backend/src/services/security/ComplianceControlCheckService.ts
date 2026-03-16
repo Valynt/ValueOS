@@ -293,4 +293,46 @@ export class ComplianceControlCheckService {
   }
 }
 
-export const complianceControlCheckService = new ComplianceControlCheckService();
+let _complianceControlCheckService: ComplianceControlCheckService | null = null;
+
+function getComplianceControlCheckServiceInstance(): ComplianceControlCheckService {
+  if (_complianceControlCheckService === null) {
+    _complianceControlCheckService = new ComplianceControlCheckService();
+  }
+  return _complianceControlCheckService;
+}
+
+const complianceControlCheckServiceProxyHandler: ProxyHandler<ComplianceControlCheckService> = {
+  get(_target, prop, _receiver) {
+    const instance = getComplianceControlCheckServiceInstance();
+    const value = (instance as Record<PropertyKey, unknown>)[prop];
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(instance);
+    }
+    return value;
+  },
+  set(_target, prop, value) {
+    const instance = getComplianceControlCheckServiceInstance();
+    (instance as Record<PropertyKey, unknown>)[prop] = value;
+    return true;
+  },
+  has(_target, prop) {
+    const instance = getComplianceControlCheckServiceInstance();
+    return prop in instance;
+  },
+  ownKeys(_target) {
+    const instance = getComplianceControlCheckServiceInstance();
+    return Reflect.ownKeys(instance);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const instance = getComplianceControlCheckServiceInstance();
+    const descriptor = Object.getOwnPropertyDescriptor(instance, prop);
+    if (!descriptor) return undefined;
+    return { ...descriptor, configurable: true };
+  },
+};
+
+export const complianceControlCheckService: ComplianceControlCheckService = new Proxy(
+  {} as ComplianceControlCheckService,
+  complianceControlCheckServiceProxyHandler,
+);
