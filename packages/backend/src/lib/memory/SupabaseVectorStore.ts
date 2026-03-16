@@ -265,24 +265,16 @@ export class SupabaseVectorStore implements VectorStore {
     };
   }
 
-  async deleteByArtifactId(artifactId: string, tenantId?: string): Promise<number> {
-    // tenantId is required in production to prevent cross-tenant deletes.
-    // Callers that do not yet supply it will hit RLS as the only guard — log a
-    // warning so the gap is visible in observability.
-    if (!tenantId) {
-      logger.warn('SupabaseVectorStore.deleteByArtifactId called without tenantId — relying on RLS only', {
-        artifactId,
-      });
+  async deleteByArtifactId(artifactId: string, tenantId: string): Promise<number> {
+    if (tenantId === '') {
+      throw new Error('tenantId is required');
     }
 
-    let query = this.supabase
+    const query = this.supabase
       .from('semantic_memory')
       .delete()
-      .eq('metadata->>artifact_id', artifactId);
-
-    if (tenantId) {
-      query = query.eq('organization_id', tenantId) as typeof query;
-    }
+      .eq('metadata->>artifact_id', artifactId)
+      .eq('organization_id', tenantId);
 
     const { data, error } = await query.select('id');
 
