@@ -52,4 +52,6 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 - `check-migration-governance.mjs` — scans Supabase migrations/rollbacks for duplicate or near-duplicate migration intents, rollback files without forward migration pairs, and schema concerns that are active across multiple non-archived paths. Writes `ci-artifacts/migration-governance-report.json` (or `--report <path>`) for machine-readable CI artifacts and fails only when newly introduced duplicate intents are detected.
 - `analyze-outdated-dependencies.mjs` — parses `pnpm outdated --format=json`, classifies patch/minor/major upgrades, applies configurable fail/warn policy, and writes markdown + JSON reports for CI artifacts.
 
+- `docs-boundary-consistency-lint.mjs` — lightweight docs lint that checks canonical architecture docs for stale product names (`ValueCanvas`), invalid k8s path patterns (`infra/infra/k8s`), and legacy agent source paths (`apps/ValyntApp/src/lib/agent-fabric/agents`).
+
 - `any-ratchet.mjs` — scans non-test TypeScript files for explicit `any` usage (`: any`, `as any`, `<any>`) and enforces non-increasing per-package baselines from `.github/any-ratchet-budgets.json`.

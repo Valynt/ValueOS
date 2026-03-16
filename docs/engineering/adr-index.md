@@ -22,6 +22,10 @@ before changing system boundaries.
 | ADR-0016 | CI Security Gate Model                            | Accepted | 2026-07-15 | CI security gate enforcement for RLS, agent security tests, and release waivers        | [`docs/engineering/adr/0016-ci-security-gate-model.md`](./adr/0016-ci-security-gate-model.md)                         |
 | ADR-0017 | Service De-duplication Strategy                   | Accepted | 2026-07-15 | Service consolidation policy, canonical file ownership, and extraction strategy         | [`docs/engineering/adr/0017-service-deduplication-strategy.md`](./adr/0017-service-deduplication-strategy.md)         |
 
+## Governance Evidence
+
+- **2026-03-16 — Canonical docs reconciliation completed:** runtime/agent inventories and naming/path references were synchronized across `README.md`, `AGENTS.md`, `docs/architecture/*`, and `infra/k8s/README.md`; a CI docs boundary lint was added at `scripts/ci/docs-boundary-consistency-lint.mjs` to prevent regression.
+
 ## Authoring standard
 
 Use this outline for new ADRs:

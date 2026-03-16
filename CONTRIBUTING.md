@@ -114,6 +114,7 @@ If your area has additional checks documented in service-level docs/runbooks, ru
 - Any material architectural change must include either:
   - a new ADR, or
   - an update to an existing ADR + explicit approval in PR discussion.
+- **Docs consistency checklist (required):** when runtime boundaries, canonical agent/runtime inventories, or ownership paths change, update all canonical docs in the same PR (`README.md`, `AGENTS.md`, relevant `docs/architecture/*`, and infra docs that reference paths/names).
 - Keep layering clear:
   - UI concerns stay in frontend layers.
   - Business logic remains in domain/service layers.
