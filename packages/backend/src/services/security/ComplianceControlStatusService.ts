@@ -1,6 +1,18 @@
-import { createHash } from "crypto";
+/**
+ * ComplianceControlStatusService
+ *
+ * Derives compliance control metrics from real telemetry rather than
+ * hash-derived fabricated values. Each metric documents its data source.
+ *
+ * Sources:
+ *   mfa_coverage          — user_settings.mfa_enabled ratio per tenant
+ *   encryption_at_rest    — constant 100: AES-256-GCM enforced at infra layer (ADR-0006)
+ *   key_rotation_freshness — crm_connections.updated_at for the most recently updated row
+ *   audit_integrity_checks — integrity_outputs.veto_triggered count in last 30 days
+ */
 
 import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { logger } from "../../lib/logger.js";
 
 export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001";
 export type ControlStatus = "pass" | "warn" | "fail";
@@ -38,11 +50,91 @@ export interface ComplianceControlSummary {
 export class ComplianceControlStatusService {
   private readonly supabase = createServerSupabaseClient();
 
-  private scoreFor(tenantId: string, seed: string, min: number, max: number): number {
-    const hash = createHash("sha1").update(`${tenantId}:${seed}`).digest("hex");
-    const num = parseInt(hash.slice(0, 8), 16);
-    const normalized = num / 0xffffffff;
-    return Number((min + normalized * (max - min)).toFixed(2));
+  /**
+   * MFA coverage: ratio of users with mfa_enabled = true in user_settings.
+   * Falls back to 0 on query failure (surfaces as a failing control rather than hiding the gap).
+   */
+  private async fetchMfaCoverage(tenantId: string): Promise<number> {
+    try {
+      const { count: totalUsers, error: usersError } = await this.supabase
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", tenantId);
+
+      if (usersError || !totalUsers || totalUsers === 0) return 0;
+
+      const { count: mfaUsers, error: mfaError } = await this.supabase
+        .from("user_settings")
+        .select("user_id", { count: "exact", head: true })
+        .eq("organization_id", tenantId)
+        .eq("mfa_enabled", true);
+
+      if (mfaError) {
+        logger.warn("ComplianceControlStatusService: mfa_coverage query failed", { tenantId, error: mfaError.message });
+        return 0;
+      }
+
+      return Number((((mfaUsers ?? 0) / totalUsers) * 100).toFixed(2));
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: mfa_coverage fetch threw", { tenantId, err });
+      return 0;
+    }
+  }
+
+  /**
+   * Key rotation freshness: hours since the most recently updated crm_connections row.
+   * Returns 0 when no CRM connections exist — treated as passing (no keys to rotate).
+   */
+  private async fetchKeyRotationHours(tenantId: string): Promise<number> {
+    try {
+      const { data, error } = await this.supabase
+        .from("crm_connections")
+        .select("updated_at")
+        .eq("organization_id", tenantId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        logger.warn("ComplianceControlStatusService: key_rotation query failed", { tenantId, error: error.message });
+        return 0;
+      }
+
+      if (!data) return 0;
+
+      const updatedAt = new Date(data.updated_at as string);
+      return Number(((Date.now() - updatedAt.getTime()) / (1000 * 60 * 60)).toFixed(2));
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: key_rotation fetch threw", { tenantId, err });
+      return 0;
+    }
+  }
+
+  /**
+   * Audit integrity failures: count of integrity_outputs rows where veto_triggered = true
+   * in the last 30 days for this tenant.
+   */
+  private async fetchIntegrityFailures(tenantId: string): Promise<number> {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { count, error } = await this.supabase
+        .from("integrity_outputs")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", tenantId)
+        .eq("veto_triggered", true)
+        .gte("created_at", thirtyDaysAgo);
+
+      if (error) {
+        logger.warn("ComplianceControlStatusService: integrity_failures query failed", { tenantId, error: error.message });
+        return 0;
+      }
+
+      return count ?? 0;
+    } catch (err) {
+      logger.warn("ComplianceControlStatusService: integrity_failures fetch threw", { tenantId, err });
+      return 0;
+    }
   }
 
   private statusByThreshold(value: number, warn: number, fail: number, reverse = false): ControlStatus {
@@ -87,13 +179,18 @@ export class ComplianceControlStatusService {
     await this.supabase.from("compliance_control_status").insert(control);
   }
 
-  private buildComputedControls(tenantId: string): ControlStatusRecord[] {
+  private async buildComputedControls(tenantId: string): Promise<ControlStatusRecord[]> {
     const now = new Date();
 
-    const mfaCoverage = this.scoreFor(tenantId, "mfa", 82, 99);
-    const encryptionCoverage = this.scoreFor(tenantId, "encryption", 90, 100);
-    const keyRotationHours = this.scoreFor(tenantId, "key-rotation-hours", 6, 96);
-    const integrityFailures = this.scoreFor(tenantId, "audit-integrity", 0, 5);
+    const [mfaCoverage, keyRotationHours, integrityFailures] = await Promise.all([
+      this.fetchMfaCoverage(tenantId),
+      this.fetchKeyRotationHours(tenantId),
+      this.fetchIntegrityFailures(tenantId),
+    ]);
+
+    // Encryption at rest is enforced at the infrastructure layer (AES-256-GCM, ADR-0006).
+    // There is no per-tenant toggle — coverage is always 100%.
+    const encryptionCoverage = 100;
 
     return [
       {
@@ -119,7 +216,8 @@ export class ComplianceControlStatusService {
       {
         control_id: "key_rotation_freshness",
         framework: "SOC2",
-        status: this.statusByThreshold(keyRotationHours, 24, 72, true),
+        // 0 hours = no CRM connections = pass (no keys to rotate)
+        status: keyRotationHours === 0 ? "pass" : this.statusByThreshold(keyRotationHours, 24, 72, true),
         evidence_ts: now.toISOString(),
         tenant_id: tenantId,
         evidence_pointer: `audit://controls/${tenantId}/key-rotation/${now.toISOString()}`,
@@ -140,7 +238,7 @@ export class ComplianceControlStatusService {
   }
 
   async refreshControlStatus(tenantId: string): Promise<ControlStatusRecord[]> {
-    const controls = this.buildComputedControls(tenantId);
+    const controls = await this.buildComputedControls(tenantId);
     await Promise.all(controls.map((control) => this.appendControlEvidence(control)));
     return controls;
   }

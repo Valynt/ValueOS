@@ -23,6 +23,17 @@ import type { Memory, MemoryQuery, MemoryType } from "./MemorySystem.js";
  */
 const DB_TYPE = "workflow_result" as const;
 
+/**
+ * Organization IDs permitted to use cross-workspace memory reads.
+ * Populated from CROSS_WORKSPACE_MEMORY_ALLOWLIST env var (comma-separated).
+ * Defaults to empty — cross-workspace reads are tenant-scoped only unless
+ * an org is explicitly allowlisted.
+ */
+function getCrossWorkspaceAllowlist(): Set<string> {
+  const raw = process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST ?? "";
+  return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+}
+
 export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
   private semanticStore: SupabaseSemanticStore;
 
@@ -87,6 +98,21 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
 
     if (query.include_cross_workspace && !query.cross_workspace_reason) {
       throw new Error("cross_workspace_reason is required when include_cross_workspace is true");
+    }
+
+    // Access control gate: cross-workspace reads require the organization to be
+    // on the explicit allowlist (CROSS_WORKSPACE_MEMORY_ALLOWLIST env var).
+    // Without an allowlist entry the query is silently downgraded to tenant-scoped.
+    if (query.include_cross_workspace) {
+      const allowlist = getCrossWorkspaceAllowlist();
+      if (!allowlist.has(query.organization_id)) {
+        logger.warn("SupabaseMemoryBackend: cross-workspace read blocked — org not in allowlist", {
+          organization_id: query.organization_id,
+          cross_workspace_reason: query.cross_workspace_reason,
+        });
+        // Downgrade to tenant-scoped rather than throwing, so agent execution continues.
+        query = { ...query, include_cross_workspace: false };
+      }
     }
 
     try {

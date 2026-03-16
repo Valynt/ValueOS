@@ -276,12 +276,22 @@ export class MemorySystem {
     }
 
     const results: Memory[] = [];
+    const now = Date.now();
+    const ttlMs = (this.config.ttl_seconds ?? 3600) * 1000;
 
     for (const id of candidateIds) {
       const memory = this.memories.get(id);
       if (!memory) continue;
       if (query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
       if (query.min_importance && memory.importance < query.min_importance) continue;
+
+      // Enforce TTL on reads — expired entries are skipped and evicted from the cache.
+      const createdAt = new Date(memory.created_at).getTime();
+      if (now - createdAt > ttlMs) {
+        this.unindexMemory(memory);
+        this.memories.delete(memory.id);
+        continue;
+      }
 
       memory.accessed_at = new Date().toISOString();
       memory.access_count++;
