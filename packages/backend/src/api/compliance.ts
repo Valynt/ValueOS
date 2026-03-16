@@ -10,6 +10,7 @@ import { auditLogService } from "../services/security/AuditLogService.js";
 import { complianceControlStatusService } from "../services/integrity/ComplianceControlStatusService.js";
 import { complianceReportGeneratorService, MissingEvidenceError } from "../services/integrity/ComplianceReportGeneratorService.js";
 import { complianceControlMappingRegistry } from "../services/security/ComplianceControlMappingRegistry.js";
+import { complianceControlCheckService } from "../services/security/ComplianceControlCheckService.js";
 
 const router = createSecureRouter("strict");
 
@@ -244,6 +245,22 @@ router.get("/stream", requirePermission("users.read"), async (req: Request, res:
 
   req.on("close", cleanup);
   res.on("error", cleanup);
+});
+
+
+router.get("/control-checks/status", requirePermission("system.admin"), async (req: Request, res: Response) => {
+  const tenantId = getTenantId(req);
+  if (!tenantId) {
+    return res.status(400).json({ error: "Tenant ID required" });
+  }
+
+  const latest = await complianceControlCheckService.getLatestStatus(tenantId);
+  if (!latest) {
+    const computed = await complianceControlCheckService.runChecksForTenant(tenantId, "manual");
+    return res.json(computed);
+  }
+
+  return res.json(latest);
 });
 
 router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {

@@ -118,6 +118,9 @@ jobs:
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
 
+      - name: Compliance control regression gate
+        run: node scripts/ci/check-compliance-control-regressions.mjs
+
       - name: Emit lane summary
         if: always()
         run: |
