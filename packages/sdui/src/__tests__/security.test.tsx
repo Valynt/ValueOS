@@ -6,7 +6,7 @@
  */
 
 import { render, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { DataBindingResolver } from '../DataBindingResolver';
 import { DataSourceContext } from '../DataBindingSchema';

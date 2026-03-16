@@ -8,11 +8,11 @@
 import { render, screen } from '@testing-library/react';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, it } from 'vitest';
 
-import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
-import { SDUIRenderer } from '../../sdui/renderer';
-import { SDUIPageDefinition } from '../../sdui/schema';
+import { hotSwapComponent, resetRegistry } from '../registry';
+import { SDUIRenderer } from '../renderer';
+import { SDUIPageDefinition } from '../schema';
 
 expect.extend(toHaveNoViolations);
 

@@ -2,7 +2,7 @@
  * Tests for renderPage() function
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { clearAllHydrationCache } from '../hooks/useDataHydration';
 import { renderPage, RenderPageOptions } from '../renderPage';
@@ -216,7 +216,7 @@ describe('renderPage', () => {
 
       renderPage(pageDefinition, { onComponentRender });
 
-      expect(onComponentRender).toHaveBeenCalledWith('InfoBanner', expect.any(Object));
+      expect(onComponentRender).toHaveBeenCalledWith('InfoBanner'.any(Object));
     });
 
     it('should render multiple components', () => {

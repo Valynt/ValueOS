@@ -3,7 +3,7 @@
  * Tests LRU cache, performance metrics, and session validation
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, it } from 'vitest';
 
 import { getSecurityMetrics, resetSecurityMetrics } from '../security/metrics';
 import {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PasswordInput } from "../password-input";
 

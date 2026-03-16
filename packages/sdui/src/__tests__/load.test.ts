@@ -10,7 +10,7 @@
 
 import { performance } from 'perf_hooks';
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, it } from 'vitest';
 
 import { resetSecurityMetrics } from '../security/metrics';
 import { sanitizeProps } from '../security/sanitization';

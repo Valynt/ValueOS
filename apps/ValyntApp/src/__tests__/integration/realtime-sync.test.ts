@@ -9,15 +9,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
 import type { CanvasElement } from '../../lib/realtime/supabaseRealtime';
 
-// Mock Supabase for integration tests
+// vi.mock is hoisted — define the mock object inside the factory to avoid
+// "Cannot access before initialization" errors.
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    channel: vi.fn(),
+    from: vi.fn(),
+  },
+}));
+
+// Re-export for use in tests
 const mockSupabase = {
   channel: vi.fn(),
   from: vi.fn(),
 };
-
-vi.mock('../../lib/supabase', () => ({
-  supabase: mockSupabase,
-}));
 
 describe('Real-Time Sync Integration Tests', () => {
   let realtimeService: ReturnType<typeof getRealtimeService>;

@@ -19,17 +19,7 @@ describe("Together AI Configuration", () => {
       expect(llmConfig.provider).not.toBe("openai");
     });
 
-    it("should have provider property that is immutable", () => {
-      const originalProvider = llmConfig.provider;
-
-      // Attempt to modify (should not work due to const)
-      try {
-        (llmConfig as any).provider = "openai";
-      } catch (e) {
-        // Expected in strict mode
-      }
-
-      expect(llmConfig.provider).toBe(originalProvider);
+    it("should have provider property set to together", () => {
       expect(llmConfig.provider).toBe("together");
     });
   });

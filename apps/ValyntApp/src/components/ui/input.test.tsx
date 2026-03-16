@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SearchInput } from "./input";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, vi } from "vitest";
 
 describe("SearchInput", () => {
   it("renders search icon with aria-hidden='true'", () => {

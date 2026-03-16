@@ -1,4 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useSubscription } from "../useSubscription";
 import { api } from "../../../../api/client/unified-api-client";
@@ -11,6 +13,14 @@ vi.mock("../../../../api/client/unified-api-client", () => ({
     cancelSubscription: vi.fn(),
   },
 }));
+
+function createWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(QueryClientProvider, { client }, children);
+}
 
 describe("useSubscription", () => {
   const mockSubscription = {
@@ -33,7 +43,7 @@ describe("useSubscription", () => {
       data: mockSubscription,
     });
 
-    const { result } = renderHook(() => useSubscription());
+    const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
     expect(result.current.isLoading).toBe(true);
 
@@ -50,7 +60,7 @@ describe("useSubscription", () => {
       error: { message: "Network error" },
     });
 
-    const { result } = renderHook(() => useSubscription());
+    const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -70,7 +80,7 @@ describe("useSubscription", () => {
       data: updatedSubscription,
     });
 
-    const { result } = renderHook(() => useSubscription());
+    const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -94,7 +104,7 @@ describe("useSubscription", () => {
       error: { message: "Failed to upgrade" },
     });
 
-    const { result } = renderHook(() => useSubscription());
+    const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -119,7 +129,7 @@ describe("useSubscription", () => {
       data: canceledSubscription,
     });
 
-    const { result } = renderHook(() => useSubscription());
+    const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 

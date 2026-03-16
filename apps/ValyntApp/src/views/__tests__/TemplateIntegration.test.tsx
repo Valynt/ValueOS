@@ -5,7 +5,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { describe, it, vi } from "vitest";
 
 import ImpactCascade from "../ImpactCascade";
 // import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector"; // Component not found

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 
 import { Form, FormInput, FormSelect, FormTextarea } from "./FormSystem";
 

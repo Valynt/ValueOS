@@ -7,13 +7,13 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
-import { AtomicUIActions } from '../../sdui/AtomicUIActions';
-import { ComponentTargeting } from '../../sdui/ComponentTargeting';
-import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
-import { SDUIRenderer } from '../../sdui/renderer';
-import { SDUIPageDefinition } from '../../sdui/schema';
+import { AtomicUIActions } from '../AtomicUIActions';
+import { ComponentTargeting } from '../ComponentTargeting';
+import { hotSwapComponent, resetRegistry } from '../registry';
+import { SDUIRenderer } from '../renderer';
+import { SDUIPageDefinition } from '../schema';
 
 describe('ComponentInteraction - Dynamic Rendering', () => {
   afterEach(() => {
