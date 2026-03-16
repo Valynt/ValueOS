@@ -106,9 +106,7 @@ export { Checkbox } from "./checkbox";
 // Tooltip
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./tooltip";
 
-// Textarea (standalone)
-export { Textarea } from "./textarea";
-export type { TextareaProps } from "./textarea";
+// Note: Textarea is exported from ./input above
 
 // Sheet
 export {

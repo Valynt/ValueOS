@@ -1,29 +1,29 @@
 /**
  * Guest Permissions System
- * 
+ *
  * Manages permission checks and access control for guest users
  */
 
-import { logger } from '../logger';
+import { logger } from "./lib/logger";
 
-import { GuestPermissions } from '@/GuestAccessService';
+import { GuestPermissions } from "@/GuestAccessService";
 
 // Permission action types
 export enum PermissionAction {
-  VIEW = 'view',
-  COMMENT = 'comment',
-  EDIT = 'edit',
-  EXPORT = 'export',
-  SHARE = 'share',
+  VIEW = "view",
+  COMMENT = "comment",
+  EDIT = "edit",
+  EXPORT = "export",
+  SHARE = "share",
 }
 
 // Resource types
 export enum ResourceType {
-  VALUE_CASE = 'value_case',
-  CANVAS_ELEMENT = 'canvas_element',
-  METRIC = 'metric',
-  COMMENT = 'comment',
-  BENCHMARK = 'benchmark',
+  VALUE_CASE = "value_case",
+  CANVAS_ELEMENT = "canvas_element",
+  METRIC = "metric",
+  COMMENT = "comment",
+  BENCHMARK = "benchmark",
 }
 
 // Permission check result
@@ -46,7 +46,7 @@ class GuestPermissionManager {
       if (!permissions.can_view) {
         return {
           allowed: false,
-          reason: 'Guest does not have view permission',
+          reason: "Guest does not have view permission",
         };
       }
       return { allowed: true };
@@ -57,13 +57,13 @@ class GuestPermissionManager {
       if (!permissions.can_view) {
         return {
           allowed: false,
-          reason: 'Guest must have view permission to comment',
+          reason: "Guest must have view permission to comment",
         };
       }
       if (!permissions.can_comment) {
         return {
           allowed: false,
-          reason: 'Guest does not have comment permission',
+          reason: "Guest does not have comment permission",
         };
       }
       return { allowed: true };
@@ -74,13 +74,13 @@ class GuestPermissionManager {
       if (!permissions.can_view) {
         return {
           allowed: false,
-          reason: 'Guest must have view permission to edit',
+          reason: "Guest must have view permission to edit",
         };
       }
       if (!permissions.can_edit) {
         return {
           allowed: false,
-          reason: 'Guest does not have edit permission',
+          reason: "Guest does not have edit permission",
         };
       }
       return { allowed: true };
@@ -91,7 +91,7 @@ class GuestPermissionManager {
       if (!permissions.can_view) {
         return {
           allowed: false,
-          reason: 'Guest must have view permission to export',
+          reason: "Guest must have view permission to export",
         };
       }
       return { allowed: true };
@@ -102,7 +102,7 @@ class GuestPermissionManager {
       if (!permissions.can_view) {
         return {
           allowed: false,
-          reason: 'Guest must have view permission to share',
+          reason: "Guest must have view permission to share",
         };
       }
       return { allowed: true };
@@ -110,7 +110,7 @@ class GuestPermissionManager {
 
     return {
       allowed: false,
-      reason: 'Unknown permission action',
+      reason: "Unknown permission action",
     };
   }
 
@@ -158,55 +158,59 @@ class GuestPermissionManager {
    * Get permission summary
    */
   public getPermissionSummary(permissions: GuestPermissions): {
-    level: 'view-only' | 'comment' | 'edit';
+    level: "view-only" | "comment" | "edit";
     description: string;
     actions: string[];
   } {
     if (permissions.can_edit) {
       return {
-        level: 'edit',
-        description: 'Can view, comment, and edit',
-        actions: ['View all content', 'Add comments', 'Edit elements', 'Export reports', 'Share via email'],
+        level: "edit",
+        description: "Can view, comment, and edit",
+        actions: [
+          "View all content",
+          "Add comments",
+          "Edit elements",
+          "Export reports",
+          "Share via email",
+        ],
       };
     }
 
     if (permissions.can_comment) {
       return {
-        level: 'comment',
-        description: 'Can view and comment',
-        actions: ['View all content', 'Add comments', 'Export reports', 'Share via email'],
+        level: "comment",
+        description: "Can view and comment",
+        actions: ["View all content", "Add comments", "Export reports", "Share via email"],
       };
     }
 
     return {
-      level: 'view-only',
-      description: 'Can only view',
-      actions: ['View all content', 'Export reports', 'Share via email'],
+      level: "view-only",
+      description: "Can only view",
+      actions: ["View all content", "Export reports", "Share via email"],
     };
   }
 
   /**
    * Create permission preset
    */
-  public createPermissionPreset(
-    preset: 'view-only' | 'comment' | 'edit'
-  ): GuestPermissions {
+  public createPermissionPreset(preset: "view-only" | "comment" | "edit"): GuestPermissions {
     switch (preset) {
-      case 'view-only':
+      case "view-only":
         return {
           can_view: true,
           can_comment: false,
           can_edit: false,
         };
 
-      case 'comment':
+      case "comment":
         return {
           can_view: true,
           can_comment: true,
           can_edit: false,
         };
 
-      case 'edit':
+      case "edit":
         return {
           can_view: true,
           can_comment: true,
@@ -226,19 +230,19 @@ class GuestPermissionManager {
    * Validate permissions object
    */
   public validatePermissions(permissions: any): permissions is GuestPermissions {
-    if (typeof permissions !== 'object' || permissions === null) {
+    if (typeof permissions !== "object" || permissions === null) {
       return false;
     }
 
-    if (typeof permissions.can_view !== 'boolean') {
+    if (typeof permissions.can_view !== "boolean") {
       return false;
     }
 
-    if (typeof permissions.can_comment !== 'boolean') {
+    if (typeof permissions.can_comment !== "boolean") {
       return false;
     }
 
-    if (typeof permissions.can_edit !== 'boolean') {
+    if (typeof permissions.can_edit !== "boolean") {
       return false;
     }
 
@@ -259,7 +263,7 @@ class GuestPermissionManager {
     resource: ResourceType,
     result: PermissionCheckResult
   ): void {
-    logger.debug('Guest permission check', {
+    logger.debug("Guest permission check", {
       guestUserId,
       action,
       resource,
@@ -304,7 +308,7 @@ export function getGuestAllowedActions(permissions: GuestPermissions): Permissio
  * Helper function to create permission preset
  */
 export function createGuestPermissionPreset(
-  preset: 'view-only' | 'comment' | 'edit'
+  preset: "view-only" | "comment" | "edit"
 ): GuestPermissions {
   return getGuestPermissionManager().createPermissionPreset(preset);
 }
