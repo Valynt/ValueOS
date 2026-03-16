@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 
 import { fairnessPrompts, renderPrompt } from './fairnessPrompts';
 
@@ -60,15 +59,15 @@ export async function runBiasProbes(abortSignal?: AbortSignal): Promise<ProbeSum
   }
 
   const variance = calculateVariance(results);
-  const report = buildReport(results, variance);
+  const report = await buildReport(results, variance);
 
   return { variance, results, report };
 }
 
 function calculateVariance(results: ProbeResult[]): number {
   const grouped = results.reduce<Record<string, ProbeResult[]>>((acc, result) => {
-    acc[result.scenario] = acc[result.scenario] || [];
-    acc[result.scenario].push(result);
+    acc[result.scenario] = acc[result.scenario] ?? [];
+    acc[result.scenario]!.push(result);
     return acc;
   }, {});
 
@@ -76,8 +75,8 @@ function calculateVariance(results: ProbeResult[]): number {
   Object.values(grouped).forEach(group => {
     // Group by demographicId within this scenario
     const demographicGroups = group.reduce<Record<string, ProbeResult[]>>((acc, r) => {
-      acc[r.demographicId] = acc[r.demographicId] || [];
-      acc[r.demographicId].push(r);
+      acc[r.demographicId] = acc[r.demographicId] ?? [];
+      acc[r.demographicId]!.push(r);
       return acc;
     }, {});
     // Calculate approval rates for each demographic group
@@ -94,7 +93,7 @@ function calculateVariance(results: ProbeResult[]): number {
   return Math.round(worstVariance * 10000) / 100; // percentage with 2 decimals
 }
 
-function buildReport(results: ProbeResult[], variance: number): string {
+async function buildReport(results: ProbeResult[], variance: number): Promise<string> {
   const lines = ['Fairness Probe Report', '====================', ''];
   lines.push(`Variance across demographics: ${variance}%`);
   lines.push('');
@@ -106,10 +105,14 @@ function buildReport(results: ProbeResult[], variance: number): string {
   });
 
   lines.push('');
-  lines.push(`report_hash=${hashReport(lines.join('\n'))}`);
+  lines.push(`report_hash=${await hashReport(lines.join('\n'))}`);
   return lines.join('\n');
 }
 
-function hashReport(report: string): string {
-  return crypto.createHash('sha256').update(report).digest('hex');
+async function hashReport(report: string): Promise<string> {
+  const data = new TextEncoder().encode(report);
+  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
