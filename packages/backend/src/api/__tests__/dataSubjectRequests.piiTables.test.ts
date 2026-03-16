@@ -1,17 +1,12 @@
 /**
- * Verifies PII_TABLES covers all 7 agent output tables (F-011).
- * Reads the source file directly to assert table names are present —
- * this is intentionally a static analysis test so it catches regressions
- * without needing a live database.
+ * Verifies DSR PII assets are sourced from canonical inventory metadata (F-011).
  */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const SOURCE = readFileSync(
-  resolve(__dirname, "../dataSubjectRequests.ts"),
-  "utf-8",
-);
+import {
+  getDsrMappedPiiAssets,
+  getUnmappedPiiAssets,
+} from "../../observability/dataAssetInventoryRegistry.js";
 
 const REQUIRED_AGENT_TABLES = [
   "hypothesis_outputs",
@@ -21,21 +16,22 @@ const REQUIRED_AGENT_TABLES = [
   "expansion_opportunities",
   "value_tree_nodes",
   "financial_model_snapshots",
-];
+] as const;
 
-describe("DSR PII_TABLES coverage (F-011)", () => {
-  for (const table of REQUIRED_AGENT_TABLES) {
-    it(`includes agent output table: ${table}`, () => {
-      expect(SOURCE).toContain(`"${table}"`);
-    });
-  }
+describe("DSR PII registry coverage (F-011)", () => {
+  it("has no unmapped PII assets", () => {
+    expect(getUnmappedPiiAssets()).toEqual([]);
+  });
 
-  it("all agent output tables use created_by as userColumn", () => {
+  it("contains all required agent output tables with created_by mapping", () => {
+    const mapped = getDsrMappedPiiAssets();
+
     for (const table of REQUIRED_AGENT_TABLES) {
-      // Each entry should appear near a created_by reference
-      const idx = SOURCE.indexOf(`"${table}"`);
-      const surrounding = SOURCE.slice(idx, idx + 80);
-      expect(surrounding).toContain("created_by");
+      const entry = mapped.find((asset) => asset.asset === table);
+      expect(entry).toBeDefined();
+      expect(entry?.dsr.userColumn).toBe("created_by");
+      expect(entry?.dsr.exportable).toBe(true);
+      expect(entry?.dsr.erasure).toBe("delete");
     }
   });
 });
