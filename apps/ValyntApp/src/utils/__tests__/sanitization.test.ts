@@ -30,13 +30,14 @@ describe('Sanitization Utilities', () => {
       const input = 'Safe content <script>alert("danger")</script> more safe content';
       const result = sanitizeLLMContent(input);
 
+      // trimWhitespace defaults to false, so double space is preserved after removal
       expect(result.sanitized).toBe('Safe content  more safe content');
       expect(result.changes).toContain('Removed: <script>alert("danger")</script>');
     });
 
     it('should remove event handlers', () => {
       const input = '<button onclick="danger()">Click me</button>';
-      const result = sanitizeLLMContent(input);
+      const result = sanitizeLLMContent(input, { encodeHtmlEntities: false });
 
       expect(result.sanitized).toBe('<button >Click me</button>');
       expect(result.changes).toContain('Removed: onclick="danger()"');
@@ -86,10 +87,11 @@ describe('Sanitization Utilities', () => {
     it('should respect configuration options', () => {
       const input = 'Content with <script>danger</script> and <b>html</b>';
 
-      // With HTML encoding disabled
+      // With HTML encoding disabled and whitespace trimming disabled
       const noEncodeResult = sanitizeLLMContent(input, {
         encodeHtmlEntities: false,
         removeScripts: true,
+        trimWhitespace: false,
       });
       expect(noEncodeResult.sanitized).toBe('Content with  and <b>html</b>');
 
@@ -217,7 +219,8 @@ describe('Sanitization Utilities', () => {
       expect(DEFAULT_SANITIZATION_OPTIONS.maxLength).toBe(50000);
       expect(DEFAULT_SANITIZATION_OPTIONS.removeScripts).toBe(true);
       expect(DEFAULT_SANITIZATION_OPTIONS.encodeHtmlEntities).toBe(true);
-      expect(DEFAULT_SANITIZATION_OPTIONS.trimWhitespace).toBe(true);
+      // trimWhitespace defaults to false; callers opt in explicitly
+      expect(DEFAULT_SANITIZATION_OPTIONS.trimWhitespace).toBe(false);
     });
   });
 

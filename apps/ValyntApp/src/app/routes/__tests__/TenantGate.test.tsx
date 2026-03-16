@@ -19,9 +19,10 @@ function renderGate(initialPath = "/dashboard") {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
+        {/* /create-org is a sibling — TenantGate redirects here when no tenant */}
+        <Route path="/create-org" element={<div>Create Org Page</div>} />
         <Route element={<TenantGate />}>
           <Route path="/dashboard" element={<div>Dashboard Content</div>} />
-          <Route path="/create-org" element={<div>Create Org Page</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,

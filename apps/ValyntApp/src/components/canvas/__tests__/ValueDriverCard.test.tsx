@@ -59,8 +59,9 @@ describe("ValueDriverCard", () => {
         onValueChange={mockOnValueChange}
       />
     );
-    const editButton = screen.getByRole("button", { name: /edit/i });
-    fireEvent.click(editButton);
+    // Buttons contain only icons (no text/aria-label) — first button is Edit
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[0]);
     expect(mockOnEdit).toHaveBeenCalled();
   });
 
@@ -73,8 +74,9 @@ describe("ValueDriverCard", () => {
         onValueChange={mockOnValueChange}
       />
     );
-    const deleteButton = screen.getByRole("button", { name: /trash/i });
-    fireEvent.click(deleteButton);
+    // Buttons contain only icons (no text/aria-label) — second button is Delete
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[1]);
     expect(mockOnDelete).toHaveBeenCalled();
   });
 

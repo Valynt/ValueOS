@@ -190,7 +190,7 @@ describe('Load Testing', () => {
   describe('Rate Limiting Under Load', () => {
     it('should enforce rate limits under burst traffic', () => {
       const rateLimiter = new Map<string, { count: number; resetTime: number }>();
-      const _RATE_LIMIT = 100;
+      const RATE_LIMIT = 100;
       const WINDOW_MS = 60000;
       let blocked = 0;
 
@@ -224,7 +224,7 @@ describe('Load Testing', () => {
 
     it('should handle multiple organizations concurrently', () => {
       const rateLimiter = new Map<string, { count: number; resetTime: number }>();
-      const _RATE_LIMIT = 100;
+      const RATE_LIMIT = 100;
       const WINDOW_MS = 60000;
       const orgIds = Array(100).fill(0).map((_, i) => `org-${i}`);
 

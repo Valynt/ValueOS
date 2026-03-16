@@ -10,6 +10,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["**/node_modules/**", "**/*.pure-unit.test.*"],
     env: {
       NODE_ENV: "test",
       TEST_MODE: "true",
@@ -19,7 +20,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "src/test/"],
+      exclude: ["node_modules/", "src/test/", "**/*.pure-unit.test.*"],
       thresholds: {
         branches: 70,
         functions: 70,

@@ -25,6 +25,7 @@ export interface PasswordValidationResult {
  */
 const COMMON_PASSWORDS = new Set([
   'password', '123456', '123456789', '12345678', '12345', '1234567', 'password1',
+  'password123!', 'password123', 'p@ssword123', 'p@ssw0rd',
   'qwerty', 'abc123', '111111', '123123', 'admin', 'letmein', 'welcome', 'monkey',
   'dragon', 'master', 'sunshine', 'princess', 'football', 'shadow', 'michael',
   'jennifer', 'computer', 'baseball', 'jordan', 'superman', 'iloveyou', 'trustno1',
@@ -107,7 +108,11 @@ export function validatePassword(
 
   // Check for special characters
   if (config.requireSpecialChars) {
-    const specialCharsRegex = new RegExp(`[${config.specialChars.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}]`);
+    // Escape regex metacharacters and ensure '-' is at the end to avoid range interpretation
+    const escaped = config.specialChars
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/-/g, '\\-');
+    const specialCharsRegex = new RegExp(`[${escaped}]`);
     if (!specialCharsRegex.test(password)) {
       errors.push(`Password must contain at least one special character (${config.specialChars})`);
     } else {

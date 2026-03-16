@@ -717,6 +717,7 @@ export const RegistryPlaceholderComponent: React.ComponentType<{ componentName: 
 
 // Legacy registry placeholder for backward compatibility
 export const baseRegistry: Record<string, RegistryEntry> = {
+  // Workflow components
   WorkflowStatusBar: {
     component: WorkflowStatusBar,
     versions: [1],
@@ -729,13 +730,32 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     requiredProps: ["stageId", "agentName", "action", "riskLevel", "onApprove", "onReject"],
     description: "Human approval interface for high-risk workflow stages.",
   },
+  // Agent components
   ConfidenceDisplay: {
     component: ConfidenceDisplay,
     versions: [1],
     requiredProps: [],
-    description:
-      "Displays agent confidence levels and hallucination status with regeneration options.",
+    description: "Displays agent confidence levels and hallucination status with regeneration options.",
   },
+  AgentResponseCard: {
+    component: AgentResponseCard,
+    versions: [1],
+    requiredProps: ["agentName", "response"],
+    description: "Card displaying a structured agent response with confidence and sources.",
+  },
+  AgentWorkflowPanel: {
+    component: AgentWorkflowPanel,
+    versions: [1],
+    requiredProps: ["workflowId"],
+    description: "Panel showing agent workflow state, steps, and progress.",
+  },
+  IntegrityVetoPanel: {
+    component: IntegrityVetoPanel,
+    versions: [1],
+    requiredProps: ["issues", "onResolve", "onDismiss"],
+    description: "Integrity review panel with issue list, severity colors, and resolve modal.",
+  },
+  // Layout components
   ComponentPreview: {
     component: ComponentPreview,
     versions: [1],
@@ -766,17 +786,24 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     requiredProps: [],
     description: "Dashboard panel container with optional collapsible sections.",
   },
-  DiscoveryCard: {
-    component: DiscoveryCard,
+  // Data display components
+  DataTable: {
+    component: DataTable,
     versions: [1],
-    requiredProps: ["title"],
-    description: "Card showing a discovered value opportunity with status and confidence.",
+    requiredProps: ["columns", "rows"],
+    description: "Sortable, filterable data table for structured data display.",
   },
-  KPIForm: {
-    component: KPIForm,
+  ConfidenceIndicator: {
+    component: ConfidenceIndicator,
     versions: [1],
-    requiredProps: ["kpis"],
-    description: "Form for entering/editing KPI values with type-appropriate inputs.",
+    requiredProps: ["value"],
+    description: "Visual indicator for confidence scores with colour-coded thresholds.",
+  },
+  MetricBadge: {
+    component: MetricBadge,
+    versions: [1],
+    requiredProps: ["label", "value"],
+    description: "Compact badge displaying a single metric with optional trend indicator.",
   },
   InteractiveChart: {
     component: InteractiveChart,
@@ -784,11 +811,86 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     requiredProps: ["type", "data"],
     description: "Recharts-based chart supporting bar, line, area, and pie types.",
   },
+  // Form components
+  KPIForm: {
+    component: KPIForm,
+    versions: [1],
+    requiredProps: ["kpis"],
+    description: "Form for entering/editing KPI values with type-appropriate inputs.",
+  },
+  ValueCommitForm: {
+    component: ValueCommitForm,
+    versions: [1],
+    requiredProps: ["hypothesisId", "onSubmit"],
+    description: "Form for committing to a value hypothesis with evidence and confidence.",
+  },
+  SDUIForm: {
+    component: SDUIForm,
+    versions: [1],
+    requiredProps: ["fields", "onSubmit"],
+    description: "Generic server-driven form with field-level validation.",
+  },
+  // Navigation components
+  SideNavigation: {
+    component: SideNavigation,
+    versions: [1],
+    requiredProps: ["items"],
+    description: "Collapsible side navigation with nested item support.",
+  },
+  TabBar: {
+    component: TabBar,
+    versions: [1],
+    requiredProps: ["tabs", "activeTab"],
+    description: "Horizontal tab bar for switching between views.",
+  },
+  Breadcrumbs: {
+    component: Breadcrumbs,
+    versions: [1],
+    requiredProps: ["items"],
+    description: "Breadcrumb trail for hierarchical navigation context.",
+  },
+  // Lifecycle components
+  InfoBanner: {
+    component: InfoBanner,
+    versions: [1],
+    requiredProps: ["message"],
+    description: "Informational banner with severity level and optional dismiss action.",
+  },
+  DiscoveryCard: {
+    component: DiscoveryCard,
+    versions: [1],
+    requiredProps: ["title"],
+    description: "Card showing a discovered value opportunity with status and confidence.",
+  },
   ValueTreeCard: {
     component: ValueTreeCard,
     versions: [1],
     requiredProps: ["nodes"],
     description: "Hierarchical tree visualization of value decomposition.",
+  },
+  ExpansionBlock: {
+    component: ExpansionBlock,
+    versions: [1],
+    requiredProps: ["title"],
+    description: "Collapsible block for expansion opportunity details.",
+  },
+  RealizationDashboard: {
+    component: RealizationDashboard,
+    versions: [1],
+    requiredProps: ["planId"],
+    description: "Dashboard tracking realization plan milestones and progress.",
+  },
+  LifecyclePanel: {
+    component: LifecyclePanel,
+    versions: [1],
+    requiredProps: ["stage"],
+    description: "Panel showing current lifecycle stage with transitions and agent status.",
+  },
+  IntegrityReviewPanel: {
+    component: IntegrityReviewPanel,
+    versions: [1],
+    requiredProps: ["claims"],
+    description: "Panel for reviewing integrity claims with evidence and veto controls.",
   },
   NarrativeBlock: {
     component: NarrativeBlock,
@@ -796,11 +898,11 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     requiredProps: ["content"],
     description: "Typed narrative text block with metadata and sources.",
   },
-  IntegrityVetoPanel: {
-    component: IntegrityVetoPanel,
+  ScenarioSelector: {
+    component: ScenarioSelector,
     versions: [1],
-    requiredProps: ["issues", "onResolve", "onDismiss"],
-    description: "Integrity review panel with issue list, severity colors, and resolve modal.",
+    requiredProps: ["scenarios"],
+    description: "Selector for switching between named scenario configurations.",
   },
 };
 
@@ -834,6 +936,29 @@ export function resolveComponentFromVersionedRegistry(
   if (!name) return null;
   const result = versionedRegistry.resolve(name, section.version);
   return result.component;
+}
+
+/**
+ * Resolve a RegistryEntry from a section descriptor.
+ * When the requested version is not in the entry's versions array, returns the
+ * entry with a description note indicating version coercion to the latest available.
+ * Returns undefined when the component is not registered.
+ */
+export function resolveComponent(
+  section: { component?: string; type?: string; version?: number }
+): RegistryEntry | undefined {
+  const name = section.component ?? section.type;
+  if (!name) return undefined;
+  const entry = registry.get(name);
+  if (!entry) return undefined;
+  if (section.version !== undefined && !entry.versions.includes(section.version)) {
+    const latest = Math.max(...entry.versions);
+    return {
+      ...entry,
+      description: `${entry.description ?? ""} (coerced version ${section.version} → ${latest})`.trim(),
+    };
+  }
+  return entry;
 }
 
 export function listRegisteredComponents(): RegistryEntry[] {

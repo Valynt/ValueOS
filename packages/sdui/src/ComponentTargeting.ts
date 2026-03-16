@@ -281,7 +281,9 @@ export class ComponentTargeting {
    * Get component ID
    */
   private getComponentId(section: SDUIComponentSection, index: number): string {
-    // Use component name + index as ID
+    // Prefer explicit props.id, fall back to component_index
+    const propsId = (section.props as Record<string, unknown>)?.id;
+    if (typeof propsId === "string") return propsId;
     return `${section.component}_${index}`;
   }
 

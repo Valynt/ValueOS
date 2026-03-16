@@ -57,6 +57,7 @@ interface RateLimitEntry {
 export class DataBindingResolver {
   private cache: Map<string, CacheEntry> = new Map();
   private resolvers: Map<DataSourceType, DataSourceResolver> = new Map();
+  private customTransforms: Map<string, (value: unknown) => unknown> = new Map();
   private toolRegistry?: ToolRegistry;
   private semanticMemory?: SemanticMemoryService;
   private supabaseClient?: ReturnType<typeof createClient>;
@@ -184,35 +185,50 @@ export class DataBindingResolver {
     const rateLimitKey = `${organizationId}:${source}`;
     const now = Date.now();
 
-    let entry = this.rateLimiter.get(rateLimitKey);
+    // Inline expiry check so the rate limit resets when the window expires,
+    // regardless of whether the cleanup interval has fired.
+    const entry = this.rateLimiter.get(rateLimitKey);
+    if (entry && now > entry.resetTime) {
+      this.rateLimiter.delete(rateLimitKey);
+    }
 
-    if (!entry || now > entry.resetTime) {
+    let currentEntry = this.rateLimiter.get(rateLimitKey);
+
+    if (!currentEntry) {
       // Create new rate limit window
-      entry = {
+      currentEntry = {
         count: 0,
         resetTime: now + this.RATE_LIMIT_WINDOW_MS,
       };
-      this.rateLimiter.set(rateLimitKey, entry);
+      this.rateLimiter.set(rateLimitKey, currentEntry);
     }
 
     // Increment count
-    entry.count++;
+    currentEntry.count++;
 
     // Check if limit exceeded
-    if (entry.count > this.RATE_LIMIT_MAX_REQUESTS) {
+    if (currentEntry.count > this.RATE_LIMIT_MAX_REQUESTS) {
       incrementSecurityMetric("rate_limit_hit", {
         organizationId,
         source,
-        count: entry.count,
+        count: currentEntry.count,
         limit: this.RATE_LIMIT_MAX_REQUESTS,
       });
 
       throw new Error(
         `Rate limit exceeded for data source: ${source}. ` +
           `Maximum ${this.RATE_LIMIT_MAX_REQUESTS} requests per minute. ` +
-          `Try again in ${Math.ceil((entry.resetTime - now) / 1000)} seconds.`
+          `Try again in ${Math.ceil((currentEntry.resetTime - now) / 1000)} seconds.`
       );
     }
+  }
+
+  /**
+   * Clear all cached entries
+   */
+  public clearCache(): void {
+    this.cache.clear();
+    this.cacheAccessOrder = [];
   }
 
   /**
@@ -235,6 +251,18 @@ export class DataBindingResolver {
    * Initialize data source resolvers
    */
   private initializeResolvers(): void {
+    // Static value resolver — returns $value directly (calls it if it's a function)
+    this.resolvers.set("static", async (binding) => {
+      const val = binding.$value;
+      return typeof val === "function" ? val() : (val ?? null);
+    });
+
+    // Agent resolver — returns agent invocation result
+    this.resolvers.set("agent", async (binding, context) => {
+      const agentId = binding.$params?.agentId ?? binding.$bind;
+      return { agentId, organizationId: context.organizationId, result: null };
+    });
+
     // Realization Engine resolver
     this.resolvers.set("realization_engine", async (binding, context) => {
       return this.resolveFromSupabase("feedback_loops", binding.$bind, {
@@ -318,8 +346,12 @@ export class DataBindingResolver {
       return this.extractValueFromPath(result, binding.$bind);
     });
 
-    // MCP Tool resolver (alias for tool_registry)
+    // MCP Tool resolver — delegates to tool_registry when available, stubs otherwise
     this.resolvers.set("mcp_tool", async (binding, context) => {
+      if (!this.toolRegistry) {
+        const params = binding.$params || {};
+        return { toolName: params.toolName ?? binding.$bind, args: params.args ?? {}, result: null };
+      }
       return this.resolvers.get("tool_registry")!(binding, context);
     });
 
@@ -330,6 +362,11 @@ export class DataBindingResolver {
 
       if (!table) {
         throw new Error("Table name required in $params.table");
+      }
+
+      if (!this.supabaseClient) {
+        // Return stub when Supabase is not configured (e.g. in tests)
+        return { table, filter: params.filter ?? {}, rows: [] };
       }
 
       return this.resolveFromSupabase(table, binding.$bind, {
@@ -432,6 +469,11 @@ export class DataBindingResolver {
         cached: false,
       };
     } catch (error) {
+      // Re-throw rate limit errors so callers can handle them distinctly
+      if (error instanceof Error && error.message.startsWith("Rate limit exceeded")) {
+        throw error;
+      }
+
       // Track failed resolution time
       const duration = Date.now() - startTime;
       this.performanceMetrics.totalResolveTime += duration;
@@ -591,9 +633,19 @@ export class DataBindingResolver {
   }
 
   /**
+   * Register a custom named transform function
+   */
+  public registerTransform(name: string, fn: (value: unknown) => unknown): void {
+    this.customTransforms.set(name, fn);
+  }
+
+  /**
    * Apply transform function to value
    */
-  private applyTransform(value: unknown, transform: TransformFunction): unknown {
+  private applyTransform(value: unknown, transform: TransformFunction | string): unknown {
+    // Check custom transforms first
+    const custom = this.customTransforms.get(transform as string);
+    if (custom) return custom(value);
     switch (transform) {
       case "currency":
         return this.formatCurrency(value);

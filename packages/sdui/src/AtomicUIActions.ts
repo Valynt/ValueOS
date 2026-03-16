@@ -565,3 +565,109 @@ export const EXAMPLE_ACTIONS = {
 } as const;
 
 export default AtomicUIActionSchema;
+
+// ---------------------------------------------------------------------------
+// AtomicUIActions class — imperative API for layout mutations
+// ---------------------------------------------------------------------------
+
+import type { SDUIPageDefinition, SDUIComponentSection } from "./schema";
+
+type ComponentSelector = { id?: string; type?: string; index?: number };
+
+type MutationResult =
+  | { success: true; layout: SDUIPageDefinition }
+  | { success: false; error: string };
+
+type BatchOp =
+  | { type: "mutate_component"; selector: ComponentSelector; props: Record<string, unknown> }
+  | { type: "add_component"; section: Partial<SDUIComponentSection> }
+  | { type: "remove_component"; selector: ComponentSelector }
+  | { type: "reorder_components"; order: number[] };
+
+function findIndex(sections: SDUIComponentSection[], selector: ComponentSelector): number {
+  if (selector.index !== undefined) return selector.index;
+  return sections.findIndex((s) => {
+    if (selector.id && s.props?.id === selector.id) return true;
+    if (selector.type && s.component === selector.type) return true;
+    return false;
+  });
+}
+
+export class AtomicUIActions {
+  mutateComponent(
+    layout: SDUIPageDefinition,
+    selector: ComponentSelector,
+    props: Record<string, unknown>
+  ): MutationResult {
+    const sections = layout.sections as SDUIComponentSection[];
+    const idx = findIndex(sections, selector);
+    if (idx === -1) {
+      return { success: false, error: `Component not found: ${JSON.stringify(selector)}` };
+    }
+    const updated = sections.map((s, i) =>
+      i === idx ? { ...s, props: { ...s.props, ...props } } : s
+    );
+    return { success: true, layout: { ...layout, sections: updated } };
+  }
+
+  addComponent(
+    layout: SDUIPageDefinition,
+    section: Partial<SDUIComponentSection>
+  ): MutationResult {
+    const newSection: SDUIComponentSection = {
+      type: "component",
+      component: section.component ?? "Unknown",
+      props: section.props ?? {},
+      ...section,
+    };
+    return {
+      success: true,
+      layout: { ...layout, sections: [...(layout.sections as SDUIComponentSection[]), newSection] },
+    };
+  }
+
+  removeComponent(
+    layout: SDUIPageDefinition,
+    selector: ComponentSelector
+  ): MutationResult {
+    const sections = layout.sections as SDUIComponentSection[];
+    const idx = findIndex(sections, selector);
+    if (idx === -1) {
+      return { success: false, error: `Component not found: ${JSON.stringify(selector)}` };
+    }
+    return {
+      success: true,
+      layout: { ...layout, sections: sections.filter((_, i) => i !== idx) },
+    };
+  }
+
+  reorderComponents(layout: SDUIPageDefinition, order: number[]): MutationResult {
+    const sections = layout.sections as SDUIComponentSection[];
+    if (order.length !== sections.length) {
+      return { success: false, error: "Order length must match sections length" };
+    }
+    const reordered = order.map((i) => sections[i]);
+    return { success: true, layout: { ...layout, sections: reordered } };
+  }
+
+  batch(layout: SDUIPageDefinition, ops: BatchOp[]): MutationResult {
+    let current = layout;
+    for (const op of ops) {
+      let result: MutationResult;
+      if (op.type === "mutate_component") {
+        result = this.mutateComponent(current, op.selector, op.props);
+      } else if (op.type === "add_component") {
+        result = this.addComponent(current, op.section);
+      } else if (op.type === "remove_component") {
+        result = this.removeComponent(current, op.selector);
+      } else if (op.type === "reorder_components") {
+        result = this.reorderComponents(current, op.order);
+      } else {
+        return { success: false, error: `Unknown op type` };
+      }
+      if (!result.success) return result;
+      current = result.layout;
+    }
+    return { success: true, layout: current };
+  }
+}
