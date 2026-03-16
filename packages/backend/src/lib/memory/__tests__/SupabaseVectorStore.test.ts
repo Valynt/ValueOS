@@ -181,24 +181,8 @@ describe('SupabaseVectorStore', () => {
       expect(orgFilter![1]).toBe(TENANT_ID);
     });
 
-    it('omits organization_id filter and logs a warning when tenantId is not supplied', async () => {
-      const eqCalls: Array<[string, string]> = [];
-      const deleteChain: Record<string, unknown> = {};
-      deleteChain['eq'] = (col: string, val: string) => {
-        eqCalls.push([col, val]);
-        return deleteChain;
-      };
-      deleteChain['select'] = () => Promise.resolve({ data: [], error: null });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      vi.spyOn((store as any).supabase, 'from').mockReturnValue({
-        delete: () => deleteChain,
-      });
-
-      await store.deleteByArtifactId(ARTIFACT_ID);
-
-      const orgFilter = eqCalls.find(([col]) => col === 'organization_id');
-      expect(orgFilter).toBeUndefined();
+    it('fails fast when tenantId is an empty string', async () => {
+      await expect(store.deleteByArtifactId(ARTIFACT_ID, '')).rejects.toThrow('tenantId is required');
     });
   });
 
