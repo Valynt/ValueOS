@@ -770,6 +770,9 @@ importers:
       '@valueos/core-services':
         specifier: workspace:*
         version: link:../core-services
+      '@valueos/memory':
+        specifier: workspace:*
+        version: link:../memory
       '@valueos/shared':
         specifier: workspace:*
         version: link:../shared

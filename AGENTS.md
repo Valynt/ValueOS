@@ -78,6 +78,10 @@ export class MyAgent extends BaseAgent {
   public readonly name = "MyAgent";
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
+    const startTime = Date.now();
+    const sessionId = context.workspace_id;
+    const prompt = `Analyse the following opportunity: ${JSON.stringify(context.workspace_data)}`;
+
     const schema = z.object({
       result: z.string(),
       confidence: z.enum(["high", "medium", "low"]),
@@ -92,10 +96,16 @@ export class MyAgent extends BaseAgent {
     });
 
     await this.memorySystem.storeSemanticMemory(
-      sessionId, this.name, "episodic", content, metadata, this.organizationId
+      sessionId,
+      this.name,
+      "episodic",
+      result.result,
+      { confidence: result.confidence, reasoning: result.reasoning },
+      this.organizationId,
     );
 
-    return this.prepareOutput(result, "success");
+    const confidenceLevel = this.toConfidenceLevel(result.confidence ?? 0.5);
+    return this.buildOutput(result, "success", confidenceLevel, startTime);
   }
 }
 ```
