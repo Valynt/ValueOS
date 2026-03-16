@@ -420,9 +420,14 @@ jobs:
 
       - name: SBOM — generate CycloneDX
         run: |
-          npm install -g @cyclonedx/cyclonedx-npm@latest --silent
-          cyclonedx-npm --output-format json --output-file sbom.json
-        continue-on-error: true
+          pnpm exec cyclonedx-npm --output-format json --output-file sbom.json
+
+      - name: SBOM — verify artifact exists and is non-empty
+        run: |
+          if [ ! -s sbom.json ]; then
+            echo "SBOM generation failed: sbom.json is missing or empty" >&2
+            exit 1
+          fi
 
       - name: Upload security artifacts
         if: always()

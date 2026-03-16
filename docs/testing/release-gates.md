@@ -17,7 +17,7 @@ This document defines the CI lane model in `.github/workflows/ci.yml`, ownership
 | `unit/component/schema` | Lint, typecheck, unit tests, schema hygiene checks, architecture guardrails | App Platform | Investigate within 4 business hours |
 | `tenant-isolation-gate` | RLS + tenant-boundary integration checks and DSR compliance suites | Data Platform + Security | Investigate within 2 business hours |
 | `critical-workflows-gate` | Claims verification + workflow contract checks for release flows | Backend Agent Platform | Investigate within 2 business hours |
-| `security-gate` | SAST, SCA, secret scanning, SBOM export, SARIF upload | Security Engineering | Investigate within 2 business hours |
+| `security-gate` | SAST, SCA, secret scanning, SBOM export (required artifact), SARIF upload | Security Engineering | Investigate within 2 business hours |
 | `dast-gate` | OWASP ZAP baseline scan against deterministic staging target with severity threshold enforcement | Security Engineering + Platform | Investigate within 2 business hours |
 | `accessibility-audit` | WCAG 2.2 AA automation + trend gate | Frontend Platform | Investigate within 4 business hours |
 
@@ -44,6 +44,7 @@ These summaries/artifacts are uploaded even when a lane fails (`if: always()`), 
 
 - `critical-workflows-gate` depends on `unit-component-schema` and `tenant-isolation-gate`.
 - PR blocking gate (`pr-fast-blocking-subsets`) depends on `unit-component-schema`, `tenant-isolation-gate`, `security-gate`, `dast-gate`, and `accessibility-audit`.
+- `security-gate` is merge-blocking only when SBOM generation succeeds and `sbom.json` exists with non-zero size; missing/empty SBOM fails the lane.
 - Staging/deploy gate (`staging-deploy-release-gates`) depends on `tenant-isolation-gate`, `critical-workflows-gate`, `security-gate`, `dast-gate`, and `accessibility-audit`.
 
 This structure guarantees release blockers are surfaced with explicit lane names and workflow IDs in a single enforcement job.

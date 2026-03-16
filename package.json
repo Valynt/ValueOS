@@ -92,6 +92,7 @@
   },
   "devDependencies": {
     "@builder.io/vite-plugin-jsx-loc": "^0.1.1",
+    "@cyclonedx/cyclonedx-npm": "^4.2.1",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.2.1",
