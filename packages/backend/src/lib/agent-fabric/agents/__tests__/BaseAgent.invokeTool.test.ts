@@ -163,4 +163,37 @@ describe("BaseAgent.invokeTool permission enforcement (F-013)", () => {
       expect.objectContaining({ tenantId: "org-123" }),
     );
   });
+
+  it("re-creates identity when cached identity has expired", async () => {
+    const { createAgentIdentity } = await import("../../../auth/AgentIdentity.js");
+    const mockCreate = vi.mocked(createAgentIdentity);
+
+    // First call returns an already-expired identity
+    mockCreate.mockReturnValueOnce({
+      agent_id: "TestAgent",
+      agent_type: "TestAgent",
+      organization_id: "org-123",
+      permissions: ["tool:allowed_tool"],
+      issued_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(Date.now() - 1).toISOString(), // expired
+    });
+    // Second call returns a fresh identity
+    mockCreate.mockReturnValueOnce({
+      agent_id: "TestAgent",
+      agent_type: "TestAgent",
+      organization_id: "org-123",
+      permissions: ["tool:allowed_tool"],
+      issued_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+    });
+
+    // First invokeTool uses the expired identity (still has permissions, so succeeds)
+    // and should trigger a refresh for the next call
+    await agent.callTool("allowed_tool", {});
+    // Second invokeTool should have triggered a second createAgentIdentity call
+    await agent.callTool("allowed_tool", {});
+
+    // createAgentIdentity should have been called at least twice (initial + refresh)
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
 });
