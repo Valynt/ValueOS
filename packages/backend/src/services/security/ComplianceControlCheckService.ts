@@ -6,6 +6,7 @@ import {
   type ComplianceFramework,
   type EvidenceType,
 } from "./ComplianceControlMappingRegistry.js";
+import { randomUUID } from "node:crypto";
 
 export type AutomatedControlCheckStatus = "pass" | "fail";
 
@@ -163,7 +164,7 @@ export class ComplianceControlCheckService {
 
     const failingChecks = results.filter((item) => item.status === "fail");
     const snapshot: AutomatedControlCheckSnapshot = {
-      run_id: crypto.randomUUID(),
+      run_id: randomUUID(),
       tenant_id: tenantId,
       checked_at: checkedAt,
       trigger,
