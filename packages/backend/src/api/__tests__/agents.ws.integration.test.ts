@@ -8,7 +8,7 @@ import WebSocket from "ws";
 
 
 let server: Server;
-let wss: any;
+let wss: { clients: Set<WebSocket>; close: (cb: () => void) => void };
 let port: number;
 
 const jwtSecret = "test-websocket-secret";
@@ -18,9 +18,18 @@ const waitForOpen = (ws: WebSocket) =>
     ws.once("error", (err) => reject(err));
   });
 
+const waitForClose = (ws: WebSocket) =>
+  new Promise<{ code: number; reason: string }>((resolve) => {
+    ws.once("close", (code, reason) => {
+      resolve({ code, reason: reason.toString() });
+    });
+  });
+
 beforeAll(async () => {
   process.env.NODE_ENV = "test";
   process.env.JWT_SECRET = jwtSecret;
+  process.env.WS_MAX_MESSAGES_PER_SECOND = "5";
+  process.env.WS_MAX_PAYLOAD_BYTES = "128";
 
   const serverModule = await import("../../server");
   server = serverModule.server;
@@ -37,9 +46,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  wss.clients.forEach((c: any) => c.close());
-  await new Promise<void>((resolve) => wss.close(() => resolve()));
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  if (wss) {
+    wss.clients.forEach((c) => c.close());
+    await new Promise<void>((resolve) => wss.close(() => resolve()));
+  }
+
+  if (server) {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });
 
 const createToken = (userId: string, tenantId: string) =>
@@ -116,4 +130,47 @@ describe("Agent reasonings websocket broadcast", () => {
 
     ws.close();
   });
+
+
+  it("closes socket on rapid-fire message flood", async () => {
+    const token = createToken("u-flood", "tenant-1");
+
+    const ws = new WebSocket(`ws://localhost:${port}/ws/sdui`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    await waitForOpen(ws);
+
+    const closed = waitForClose(ws);
+
+    for (let i = 0; i < 8; i += 1) {
+      ws.send(JSON.stringify({ type: "ping", messageId: `m-${i}` }));
+    }
+
+    const result = await closed;
+    expect(result.code).toBe(1008);
+  });
+
+  it("closes socket on oversized payload", async () => {
+    const token = createToken("u-big", "tenant-1");
+
+    const ws = new WebSocket(`ws://localhost:${port}/ws/sdui`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    await waitForOpen(ws);
+
+    const closed = waitForClose(ws);
+
+    ws.send(
+      JSON.stringify({
+        type: "sdui_update",
+        payload: {
+          blob: "x".repeat(512),
+        },
+      })
+    );
+
+    const result = await closed;
+    expect(result.code).toBe(1008);
+  });
+
 });
