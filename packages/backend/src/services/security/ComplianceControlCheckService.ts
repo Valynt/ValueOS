@@ -157,7 +157,7 @@ export class ComplianceControlCheckService {
             : "Required evidence artifact is missing.",
         last_evidence_at: latest,
         max_age_minutes: maxAge,
-        freshness_minutes: freshness ? Number(freshness.toFixed(2)) : null,
+        freshness_minutes: freshness !== null ? Number(freshness.toFixed(2)) : null,
       });
     }
 
