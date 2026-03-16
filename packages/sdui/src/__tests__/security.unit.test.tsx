@@ -3,7 +3,7 @@
  * Tests XSS sanitization, rate limiting, and recursion guards WITHOUT database dependencies
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, it } from 'vitest';
 
 import {
   getSecurityMetrics,

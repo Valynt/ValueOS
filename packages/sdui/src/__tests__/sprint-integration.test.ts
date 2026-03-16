@@ -5,7 +5,7 @@
  * the implemented features: migrations, error handling, caching, versioning.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, it } from "vitest";
 
 import { CacheFactory, globalCache } from "../cache";
 import { ComponentErrorBoundary } from "../components/ComponentErrorBoundary";

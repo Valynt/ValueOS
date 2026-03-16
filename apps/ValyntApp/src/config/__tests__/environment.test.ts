@@ -177,8 +177,8 @@ describe('Environment Configuration', () => {
         // Should be a valid URL
         expect(() => new URL(config.database.url)).not.toThrow();
         
-        // If it's a real Supabase URL (not placeholder), validate format
-        if (!config.database.url.includes('your-project')) {
+        // If it's a real Supabase URL (not placeholder or local dev), validate format
+        if (!config.database.url.includes('your-project') && !config.database.url.includes('localhost')) {
           expect(config.database.url).toMatch(/^https:\/\//);
         }
       }
@@ -187,7 +187,7 @@ describe('Environment Configuration', () => {
     it('should have valid Supabase key format if provided', () => {
       const config = getConfig();
       
-      if (config.database.anonKey && !config.database.anonKey.includes('your-')) {
+      if (config.database.anonKey && !config.database.anonKey.includes('your-') && !config.database.anonKey.includes('test-')) {
         // Real keys should have proper prefix
         expect(
           config.database.anonKey.startsWith('eyJ') || 

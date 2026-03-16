@@ -5,7 +5,7 @@
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { DrawerContext } from '../../contexts/DrawerContext';
 import ROICalculator from '../ROICalculator';
@@ -49,13 +49,16 @@ vi.mock('../../components/Agents/ConfidenceIndicator', () => ({
 }));
 
 vi.mock('../../components/ui/tooltip', () => ({
-  default: ({
+  Tooltip: ({
     children,
     content,
   }: {
     children: React.ReactNode;
     content: string;
   }) => <div data-tooltip={content}>{children}</div>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 describe('ROICalculator - Trinity Dashboard', () => {

@@ -5,7 +5,7 @@
  * Targets: XSS <5ms, Resolve <100ms, Session validation <1ms
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, it } from 'vitest';
 
 import { DataBindingResolver } from '../DataBindingResolver';
 import { sanitizeProps } from '../security/sanitization';

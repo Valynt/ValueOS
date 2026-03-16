@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, it, vi } from "vitest";
 
 import * as bootstrapModule from "../bootstrap";
 import { BootstrapGuard } from "../components/common/BootstrapGuard";

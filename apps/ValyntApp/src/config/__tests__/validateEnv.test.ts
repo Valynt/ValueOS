@@ -10,79 +10,60 @@ import { validateEnv, validateLLMConfig } from '../validateEnv';
 describe('Phase 1: Environment Validation', () => {
   describe('validateLLMConfig', () => {
     beforeEach(() => {
-      // Reset environment
-      vi.stubEnv('VITE_LLM_PROVIDER', '');
-      vi.stubEnv('VITE_LLM_GATING_ENABLED', '');
+      vi.unstubAllEnvs();
     });
 
-    it('should pass with valid together provider', () => {
-      vi.stubEnv('VITE_LLM_PROVIDER', 'together');
-      vi.stubEnv('VITE_LLM_GATING_ENABLED', 'true');
+    it('should pass when Together AI is configured', () => {
+      vi.stubEnv('TOGETHER_API_KEY', 'test-key-123');
 
       const result = validateLLMConfig();
-      
-      expect(result.isValid).toBe(true);
+
+      // provider is hardcoded to "together" — no env override needed
+      expect(result.provider).toBe('together');
+      expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should pass with valid openai provider', () => {
-      vi.stubEnv('VITE_LLM_PROVIDER', 'openai');
-      vi.stubEnv('VITE_LLM_GATING_ENABLED', 'false');
+    it('should report error when TOGETHER_API_KEY is missing', () => {
+      vi.stubEnv('TOGETHER_API_KEY', '');
 
       const result = validateLLMConfig();
-      
-      expect(result.isValid).toBe(true);
-      expect(result.errors).toHaveLength(0);
+
+      expect(result.errors.some(e => e.toLowerCase().includes('together'))).toBe(true);
     });
 
-    it('should fail with invalid provider', () => {
-      vi.stubEnv('VITE_LLM_PROVIDER', 'invalid-provider');
-
-      const result = validateLLMConfig();
-      
-      expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      expect(result.errors[0]).toContain('VITE_LLM_PROVIDER');
-    });
-
-    it('should warn about missing provider', () => {
-      vi.stubEnv('VITE_LLM_PROVIDER', '');
-
-      const result = validateLLMConfig();
-      
-      expect(result.warnings.length).toBeGreaterThan(0);
-    });
-
-    it('should detect leaked API keys', () => {
+    it('should detect leaked VITE_-prefixed API keys', () => {
       vi.stubEnv('VITE_TOGETHER_API_KEY', 'leaked-key');
 
       const result = validateLLMConfig();
-      
-      expect(result.isValid).toBe(false);
+
+      expect(result.valid).toBe(false);
       expect(result.errors.some(e => e.includes('VITE_TOGETHER_API_KEY'))).toBe(true);
     });
   });
 
   describe('validateEnv', () => {
-    it('should validate all environment categories', () => {
-      vi.stubEnv('VITE_LLM_PROVIDER', 'together');
-      vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
-      vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-key');
-
-      const result = validateEnv();
-      
-      expect(result).toHaveProperty('llm');
-      expect(result).toHaveProperty('supabase');
-      expect(result).toHaveProperty('summary');
+    beforeEach(() => {
+      vi.unstubAllEnvs();
     });
 
-    it('should aggregate errors from all validators', () => {
-      vi.stubEnv('VITE_LLM_PROVIDER', 'invalid');
-      vi.stubEnv('VITE_SUPABASE_URL', '');
+    it('should return valid/errors/warnings shape', () => {
+      const result = validateEnv();
+
+      expect(result).toHaveProperty('valid');
+      expect(result).toHaveProperty('errors');
+      expect(result).toHaveProperty('warnings');
+      expect(Array.isArray(result.errors)).toBe(true);
+      expect(Array.isArray(result.warnings)).toBe(true);
+    });
+
+    it('should aggregate errors when configuration is invalid', () => {
+      vi.stubEnv('VITE_TOGETHER_API_KEY', 'leaked');
 
       const result = validateEnv();
-      
-      expect(result.summary.totalErrors).toBeGreaterThan(0);
+
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.valid).toBe(false);
     });
   });
 });

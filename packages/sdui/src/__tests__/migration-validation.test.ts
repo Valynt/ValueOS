@@ -5,7 +5,7 @@
  * rollback capabilities, schema diffing, and validation.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, it } from "vitest";
 
 import { logger } from "../../lib/logger";
 import {

@@ -4,7 +4,7 @@
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';
 import ImpactCascade from '../ImpactCascade';

@@ -14,7 +14,7 @@ import AgentBadge from "../components/Agents/AgentBadge";
 import ConfidenceIndicator from "../components/Agents/ConfidenceIndicator";
 import { HelpTooltip } from "../components/HelpTooltip";
 import { ReasoningViewer } from "../components/ReasoningViewer";
-import Tooltip from "../components/ui/tooltip";
+import { Tooltip } from "../components/ui/tooltip";
 import { useDrawer } from "../contexts/DrawerContext";
 
 export default function ROICalculator() {

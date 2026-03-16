@@ -4,7 +4,7 @@
  */
 
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 
 import ImpactCascade from "../ImpactCascade";
 import QuantumView from "../QuantumView";

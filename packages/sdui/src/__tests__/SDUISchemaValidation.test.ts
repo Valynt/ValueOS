@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 
-import { validateSDUISchema } from '../../sdui/schema';
-import { IntegrityTemplate, OpportunityTemplate } from '../../sdui/templates';
+import { validateSDUISchema } from '../schema';
+import { IntegrityTemplate, OpportunityTemplate } from '../templates';
 
 describe('SDUI schema validation', () => {
   it('accepts valid layouts and preserves sections', () => {

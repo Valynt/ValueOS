@@ -5,7 +5,7 @@
  * without requiring database integration.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, it } from 'vitest';
 
 import {
   checkCriticalThresholds,
