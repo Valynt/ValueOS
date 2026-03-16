@@ -16,6 +16,8 @@ describe("validateEnv transport security", () => {
     vi.stubEnv("REDIS_TLS_CA_CERT_PATH", "");
     vi.stubEnv("REDIS_TLS_CA_CERT", "");
     vi.stubEnv("REDIS_TLS_SERVERNAME", "");
+    vi.stubEnv("CACHE_ENCRYPTION_ENABLED", "false");
+    vi.stubEnv("CACHE_ENCRYPTION_KEY", "");
 
     const result = validateEnv();
 
@@ -35,6 +37,8 @@ describe("validateEnv transport security", () => {
     vi.stubEnv("REDIS_TLS_REJECT_UNAUTHORIZED", "true");
     vi.stubEnv("REDIS_TLS_CA_CERT_PATH", "/run/secrets/redis-ca.crt");
     vi.stubEnv("REDIS_TLS_SERVERNAME", "redis.internal");
+    vi.stubEnv("CACHE_ENCRYPTION_ENABLED", "true");
+    vi.stubEnv("CACHE_ENCRYPTION_KEY", "staging-cache-key");
 
     const result = validateEnv();
 

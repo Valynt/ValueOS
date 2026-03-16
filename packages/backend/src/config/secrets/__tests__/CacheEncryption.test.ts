@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CacheEncryption } from "../CacheEncryption.js"
+import { CacheEncryption } from "../CacheEncryption.js";
 
-vi.mock('../../../lib/logger', () => ({
+vi.mock("../../../lib/logger", () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -10,6 +10,10 @@ vi.mock('../../../lib/logger', () => ({
     debug: vi.fn(),
   },
 }));
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("CacheEncryption", () => {
   it("should encrypt and decrypt correctly", () => {
@@ -25,10 +29,25 @@ describe("CacheEncryption", () => {
 
   it("benchmark should run without error", async () => {
     const ce = new CacheEncryption();
-    // Use iterations > BATCH_SIZE (100) to trigger yielding
     const stats = await ce.benchmark(150);
+
     expect(stats.throughputMBps).toBeGreaterThan(0);
     expect(stats.averageEncryptionMs).toBeGreaterThanOrEqual(0);
     expect(stats.averageDecryptionMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("throws in production when cache encryption is disabled", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CACHE_ENCRYPTION_ENABLED", "false");
+    vi.stubEnv("CACHE_ENCRYPTION_KEY", "prod-key");
+
+    expect(() => new CacheEncryption()).toThrow(/cannot be disabled/i);
+  });
+
+  it("throws in production when cache encryption key is missing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CACHE_ENCRYPTION_ENABLED", "true");
+
+    expect(() => new CacheEncryption()).toThrow(/CACHE_ENCRYPTION_KEY is required/i);
   });
 });
