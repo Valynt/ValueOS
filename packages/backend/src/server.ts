@@ -36,6 +36,7 @@ import { parseCorsAllowlist } from "@shared/config/cors";
 import { WebSocket, WebSocketServer } from "ws";
 
 import adminRouter from "./api/admin.js";
+import { agentAdminRouter } from "./api/agentAdmin.js";
 import agentsRouter from "./api/agents.js";
 import analyticsRouter from "./api/analytics.js";
 import authRouter from "./api/auth.js";
@@ -57,6 +58,7 @@ import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
+import { auditLogsRouter } from "./api/auditLogs.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
 import { projectsRouter } from "./api/projects.js";
@@ -453,6 +455,7 @@ apiRouter.use(
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/admin/agents", agentAdminRouter);
 app.use("/api/admin/security", securityMonitoringRouter);
 app.use("/api/admin/compliance", complianceRouter);
 app.use(
@@ -506,6 +509,7 @@ app.use("/api/crm", crmRouter);
 app.use("/api/value-drivers", valueDriversRouter);
 app.use("/api/onboarding", onboardingConcurrencyGuard, onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
+app.use("/api/v1/audit-logs", auditLogsRouter);
 app.use("/api/v1/cases", valueCasesRouter);
 // Alias — frontend hooks in useHypothesis, useValueTree, useModelSnapshot call /api/v1/value-cases
 app.use("/api/v1/value-cases", valueCasesRouter);

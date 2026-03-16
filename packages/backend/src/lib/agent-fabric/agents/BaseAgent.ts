@@ -23,6 +23,8 @@ import type {
 import { logger } from "../../logger.js";
 import { AuditLogger } from "../AuditLogger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
+import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
+import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
 import type {
   HallucinationCheckResult as KFHallucinationCheckResult,
   KnowledgeFabricValidator,
@@ -253,6 +255,12 @@ export abstract class BaseAgent {
     // bleed into this one when the agent instance is reused.
     this._promptVersionRefs = [];
 
+    // Kill switch — admin can disable an agent at runtime without a deploy.
+    // Fails open: if Redis is unavailable the check returns false and execution proceeds.
+    if (await agentKillSwitchService.isKilled(this.name)) {
+      throw new Error(`Agent ${this.name} is currently disabled by kill switch`);
+    }
+
     const invokeStartMs = Date.now();
 
     return this.circuitBreaker.execute(async () => {
@@ -262,6 +270,9 @@ export abstract class BaseAgent {
           : typeof context.traceId === "string"
             ? context.traceId
             : sessionId;
+
+      // Sanitize context before injecting into the LLM request — removes PII/secret fields.
+      const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
 
       // Resolve the real userId from context; fall back to "system" only when absent.
       const resolvedUserId =
@@ -289,7 +300,7 @@ export abstract class BaseAgent {
           userId: resolvedUserId,
           trace_id: traceId,
           idempotencyKey,
-          ...context,
+          ...sanitizedContext,
         },
       };
 
