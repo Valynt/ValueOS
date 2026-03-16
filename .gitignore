@@ -127,3 +127,7 @@ temp/
 *.db
 *.sqlite
 *.sqlite3
+
+# Linux core dumps
+core
+core.*
