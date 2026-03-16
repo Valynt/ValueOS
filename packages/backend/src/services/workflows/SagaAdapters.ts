@@ -10,7 +10,7 @@ import type { SagaStateType } from "../../lib/agents/core/ValueCaseSaga.js";
 
 import { logger } from "../../lib/logger.js";
 import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";
-import type { ProvenanceRecord, ProvenanceStore } from "@memory/provenance/index.js";
+import type { ProvenanceRecord, ProvenanceStore } from "@valueos/memory/provenance";
 import { getAuditTrailService } from "../security/AuditTrailService.js";
 import type { AuditEventType } from "../security/AuditTrailService.js";
 

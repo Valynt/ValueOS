@@ -71,6 +71,12 @@ export abstract class BaseAgent {
   public readonly lifecycleStage: string;
   public readonly version: string;
   public readonly name: string;
+  /**
+   * Optional agent type key used for policy lookup in LLMGateway.
+   * Subclasses may override to set a canonical factory key distinct from `name`.
+   * When absent, `name` is used as the fallback.
+   */
+  protected agentType?: AgentType;
   protected organizationId: string;
   protected memorySystem: MemorySystem;
   protected llmGateway: LLMGateway;
@@ -192,6 +198,12 @@ export abstract class BaseAgent {
     return true;
   }
 
+  /**
+   * @deprecated Use `buildOutput(result, status, confidence, startTime, extra?)` instead.
+   * This method hardcodes `confidence: "medium"` and `execution_time_ms: 0`,
+   * producing misleading output metadata. It exists only for backward compatibility
+   * with test stubs and must not be used in new agents.
+   */
   async prepareOutput(
     result: Record<string, unknown>,
     status: AgentOutputStatus
@@ -292,13 +304,22 @@ export abstract class BaseAgent {
       userId,
     } = options;
 
-    // Resolve userId: explicit option > context.user_id > "system" fallback.
+    // Resolve userId once, before the kill-switch check, so the same value
+    // is used in the warn log, LLM metadata, and audit log.
+    // Order: options.userId > context.userId (camelCase) > context.user_id (snake_case) > "system".
     // "system" is only correct for cron/background jobs — agent execute() methods
     // must pass context.user_id so cost tracking and abuse investigation work.
-    const resolvedUserId =
-      userId ??
-      (typeof context.user_id === "string" ? context.user_id : undefined) ??
-      "system";
+    const resolvedUserId = BaseAgent.resolveUserId({ userId }, context);
+
+    if (resolvedUserId === "system") {
+      logger.warn(
+        "secureInvoke: no userId in context, falling back to 'system'",
+        {
+          agent: this.name,
+          session_id: sessionId,
+        }
+      );
+    }
 
     // Reset per-invocation state so refs from a prior execute() call don't
     // bleed into this one when the agent instance is reused.
@@ -325,27 +346,14 @@ export abstract class BaseAgent {
       // Sanitize context before injecting into the LLM request — removes PII/secret fields.
       const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
 
-      // Resolve the real userId from context; fall back to "system" only when absent.
-      const resolvedUserId =
-        typeof context.userId === "string" && context.userId.length > 0
-          ? context.userId
-          : typeof context.user_id === "string" && context.user_id.length > 0
-            ? context.user_id
-            : "system";
-
-      if (resolvedUserId === "system") {
-        logger.warn(
-          "secureInvoke: no userId in context, falling back to 'system'",
-          {
-            agent: this.name,
-            session_id: sessionId,
-          }
-        );
-      }
-
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
+          // Spread sanitized context first so explicit named fields below
+          // take precedence and cannot be overridden by caller-supplied values.
+          // sanitizeForAgent redacts PII/secret fields; non-sensitive fields
+          // (e.g. trace_id, custom metadata) pass through unchanged.
+          ...sanitizedContext,
           tenantId: this.organizationId,
           sessionId,
           userId: resolvedUserId,
@@ -353,9 +361,8 @@ export abstract class BaseAgent {
           idempotencyKey,
           // agentType drives policy lookup in LLMGateway — prefer the
           // canonical agentType (factory key) and fall back to name for
-          // legacy agents that don't define it.
-          agentType: (this as { agentType?: AgentType; name: string }).agentType ?? this.name,
-          ...context,
+          // agents that don't override it.
+          agentType: this.agentType ?? this.name,
         },
       };
 
@@ -374,11 +381,11 @@ export abstract class BaseAgent {
         logger.error("Failed to parse LLM response as JSON", {
           agent: this.name,
           session_id: sessionId,
-          error: (err as Error).message,
+          error: BaseAgent.getErrorMessage(err),
           content: response.content,
         });
         throw new Error(
-          "LLM response was not valid JSON: " + (err as Error).message
+          "LLM response was not valid JSON: " + BaseAgent.getErrorMessage(err)
         );
       }
       const parsed = zodSchema.parse(parsedJson);
@@ -491,7 +498,7 @@ export abstract class BaseAgent {
     } catch (err) {
       logger.error("Knowledge Fabric validation failed, defaulting to fail", {
         agent_id: this.name,
-        error: (err as Error).message,
+        error: BaseAgent.getErrorMessage(err),
       });
       return {
         passed: false,
@@ -706,16 +713,12 @@ export abstract class BaseAgent {
         {
           agent: this.name,
           organizationId: this.organizationId,
-          error: (err as Error).message,
+          error: BaseAgent.getErrorMessage(err),
         }
       );
-      if (
-        err &&
-        typeof err.message === "string" &&
-        err.message.includes("tenant")
-      ) {
+      if (BaseAgent.getErrorMessage(err).includes("tenant")) {
         throw new Error(
-          `Tenant isolation violation in crossReferenceMemory: ${err.message}`
+          `Tenant isolation violation in crossReferenceMemory: ${BaseAgent.getErrorMessage(err)}`
         );
       }
       // Otherwise, skip cross-reference but error is now visible
@@ -831,6 +834,40 @@ export abstract class BaseAgent {
       }
     }
     return results;
+  }
+
+  // -------------------------------------------------------------------------
+  // Utility helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Canonical userId resolution for secureInvoke.
+   * Order: options.userId > context.userId (camelCase) > context.user_id (snake_case) > "system".
+   */
+  private static resolveUserId(
+    options: { userId?: string },
+    context: Record<string, unknown>
+  ): string {
+    if (typeof options.userId === "string" && options.userId.length > 0) {
+      return options.userId;
+    }
+    if (typeof context.userId === "string" && context.userId.length > 0) {
+      return context.userId;
+    }
+    if (typeof context.user_id === "string" && context.user_id.length > 0) {
+      return context.user_id;
+    }
+    return "system";
+  }
+
+  /**
+   * Safely extract a message string from an unknown catch value.
+   * Avoids accessing `.message` directly on `unknown` (strict-mode violation).
+   */
+  private static getErrorMessage(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    if (typeof err === "string") return err;
+    return String(err);
   }
 
   getCapabilities(): string[] {

@@ -21,7 +21,7 @@ import { NarrativeAgent } from "./agents/NarrativeAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
 import { TargetAgent } from "./agents/TargetAgent.js";
-import { CircuitBreaker } from "./CircuitBreaker.js";
+import { CircuitBreaker, CircuitBreakerManager } from "./CircuitBreaker.js";
 import { KnowledgeFabricValidator } from "./KnowledgeFabricValidator.js";
 import { LLMGateway } from "./LLMGateway.js";
 import { MemorySystem } from "./MemorySystem.js";
@@ -47,7 +47,20 @@ const FABRIC_AGENT_CLASSES: Partial<
 export interface AgentFactoryDeps {
   llmGateway: LLMGateway;
   memorySystem: MemorySystem;
-  circuitBreaker: CircuitBreaker;
+  /**
+   * Preferred: supply a CircuitBreakerManager so each agent type gets its own
+   * isolated breaker. A failure in one agent will not trip breakers for others.
+   */
+  circuitBreakerManager?: CircuitBreakerManager;
+  /**
+   * Legacy: supply a single CircuitBreaker. AgentFactory wraps it in a
+   * CircuitBreakerManager internally, registering the same instance under
+   * every agent type key. Behavior is identical to the previous shared-breaker
+   * approach. Migrate callers to circuitBreakerManager when convenient.
+   *
+   * @deprecated Prefer circuitBreakerManager for per-agent isolation.
+   */
+  circuitBreaker?: CircuitBreaker;
   /** Optional — when provided, agents get Knowledge Fabric hallucination detection */
   groundTruthService?: GroundTruthIntegrationService;
 }
@@ -55,25 +68,47 @@ export interface AgentFactoryDeps {
 /**
  * Factory for creating fabric agent instances with shared dependencies.
  *
- * Dependencies (LLMGateway, MemorySystem, CircuitBreaker) are injected
+ * Dependencies (LLMGateway, MemorySystem, CircuitBreakerManager) are injected
  * once at construction time and reused across all agent instantiations.
  * The organizationId is provided per-request since agents are tenant-scoped.
+ *
+ * Each agent type receives its own CircuitBreaker from the manager so a
+ * failure cascade in one agent does not trip breakers for others.
  */
 export class AgentFactory {
   private llmGateway: LLMGateway;
   private memorySystem: MemorySystem;
-  private circuitBreaker: CircuitBreaker;
+  private circuitBreakerManager: CircuitBreakerManager;
   private knowledgeFabricValidator: KnowledgeFabricValidator | null;
 
   constructor(deps: AgentFactoryDeps) {
+    if (!deps.circuitBreakerManager && !deps.circuitBreaker) {
+      throw new Error(
+        "AgentFactory requires either circuitBreakerManager or circuitBreaker in deps."
+      );
+    }
+
     this.llmGateway = deps.llmGateway;
     this.memorySystem = deps.memorySystem;
-    this.circuitBreaker = deps.circuitBreaker;
+
+    if (deps.circuitBreakerManager) {
+      this.circuitBreakerManager = deps.circuitBreakerManager;
+    } else {
+      // Legacy path: store the single breaker and return it for every agent type
+      // in create(). All agent types share the same underlying breaker instance,
+      // preserving the previous behavior for callers that have not yet migrated.
+      this._legacyBreaker = deps.circuitBreaker!;
+      this.circuitBreakerManager = new CircuitBreakerManager();
+    }
+
     this.knowledgeFabricValidator = new KnowledgeFabricValidator(
       deps.memorySystem,
       deps.groundTruthService ?? null,
     );
   }
+
+  /** Holds the legacy single breaker when the caller did not supply a manager. */
+  private _legacyBreaker: CircuitBreaker | undefined;
 
   /**
    * Check whether a given agent type has a fabric implementation.
@@ -143,12 +178,17 @@ export class AgentFactory {
       organization_id: organizationId,
     });
 
+    // Resolve the per-agent breaker. When a manager was supplied, each agent
+    // type gets its own isolated breaker. When only a legacy single breaker was
+    // supplied, _legacyBreaker is returned for every type (same behavior as before).
+    const breaker = this._legacyBreaker ?? this.circuitBreakerManager.getBreaker(agentType);
+
     const agent = new AgentClass(
       config,
       organizationId,
       this.memorySystem,
       this.llmGateway,
-      this.circuitBreaker,
+      breaker,
     );
 
     if (this.knowledgeFabricValidator) {

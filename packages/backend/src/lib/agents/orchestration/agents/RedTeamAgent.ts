@@ -208,7 +208,12 @@ export class RedTeamAgent extends BaseAgent {
    * Required by BaseAgent — not used in the red-team path (use analyze() instead).
    */
   async execute(_context: LifecycleContext): Promise<AgentOutput> {
-    return this.prepareOutput({ error: 'Use RedTeamAgent.analyze() directly' }, 'error');
+    return this.buildOutput(
+      { error: 'Use RedTeamAgent.analyze() directly' },
+      'error',
+      'low',
+      Date.now(),
+    );
   }
 
   /** Check if any objections are critical (requiring automatic revision). */

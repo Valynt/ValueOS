@@ -39,7 +39,7 @@ import {
   ValueLifecycleOrchestrator,
   type LifecycleContext as OrchestratorLifecycleContext,
 } from '../../services/post-v1/ValueLifecycleOrchestrator.js';
-import { ProvenanceTracker, type ProvenanceStore } from '@memory/provenance/index.js';
+import { ProvenanceTracker, type ProvenanceStore } from '@valueos/memory/provenance';
 import { SupabaseProvenanceStore } from '../../services/workflows/SagaAdapters.js';
 import type { LifecycleContext, LifecycleStage } from '../../types/agent.js';
 

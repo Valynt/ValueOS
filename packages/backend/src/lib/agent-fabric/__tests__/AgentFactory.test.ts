@@ -22,13 +22,23 @@ vi.mock("../MemorySystem.js", () => ({
   },
 }));
 
-// Mock CircuitBreaker (the one from agent-fabric re-export)
-vi.mock("../CircuitBreaker.js", () => ({
-  CircuitBreaker: class MockCircuitBreaker {
+// Mock CircuitBreaker and CircuitBreakerManager (the ones from agent-fabric re-export)
+vi.mock("../CircuitBreaker.js", () => {
+  class MockCircuitBreaker {
     constructor(_threshold?: number, _timeout?: number) {}
-    execute = vi.fn().mockImplementation((fn: () => Promise<any>) => fn());
-  },
-}));
+    execute = vi.fn().mockImplementation((fn: () => Promise<unknown>) => fn());
+    getState = vi.fn().mockReturnValue("closed");
+  }
+  class MockCircuitBreakerManager {
+    getBreaker = vi.fn().mockReturnValue(new MockCircuitBreaker());
+    getState = vi.fn().mockReturnValue("closed");
+    execute = vi.fn().mockImplementation((_key: string, fn: () => Promise<unknown>) => fn());
+  }
+  return {
+    CircuitBreaker: MockCircuitBreaker,
+    CircuitBreakerManager: MockCircuitBreakerManager,
+  };
+});
 
 // Mock the secrets CircuitBreaker (used by AgentFactory import)
 vi.mock("../../../config/secrets/CircuitBreaker.js", () => ({
@@ -72,7 +82,26 @@ vi.mock("../../../services/ExternalCircuitBreaker.js", () => ({
 vi.mock("../../env", () => ({
   isBrowser: () => false,
   getGroundtruthConfig: () => ({ apiUrl: "", apiKey: "", timeoutMs: 5000 }),
+  getValidatedSupabaseRuntimeConfig: () => ({
+    url: "http://localhost:54321",
+    anonKey: "test-anon-key",
+    serviceRoleKey: "test-service-role-key",
+  }),
   env: { isProduction: false },
+}));
+
+// Mock @valueos/memory/provenance (used by FinancialModelingAgent and TargetAgent)
+vi.mock("@valueos/memory/provenance", () => ({
+  ProvenanceTracker: class {
+    record = vi.fn().mockResolvedValue({ id: "prov-1", createdAt: new Date().toISOString() });
+  },
+}));
+
+// Mock AgentKillSwitchService (called in secureInvoke before circuit breaker)
+vi.mock("../../../services/agents/AgentKillSwitchService.js", () => ({
+  agentKillSwitchService: {
+    isKilled: vi.fn().mockResolvedValue(false),
+  },
 }));
 
 import { AgentFactory } from "../AgentFactory";
@@ -124,26 +153,30 @@ describe("AgentFactory", () => {
     });
   });
 
+  // AgentFactory.create() takes a routing label (e.g. "opportunity") and maps
+  // it to a canonical LifecycleStage via agentLabelToLifecycleStage().
+  // agent.name  = routing label (set in AgentConfig.name)
+  // agent.lifecycleStage = canonical stage (set in AgentConfig.lifecycle_stage)
   describe("create", () => {
     it("creates an OpportunityAgent with correct properties", () => {
       const agent = factory.create("opportunity", "org-123");
       expect(agent).toBeDefined();
       expect(agent.name).toBe("opportunity");
-      expect(agent.lifecycleStage).toBe("opportunity");
+      expect(agent.lifecycleStage).toBe("discovery");
     });
 
     it("creates a TargetAgent with correct properties", () => {
       const agent = factory.create("target", "org-123");
       expect(agent).toBeDefined();
       expect(agent.name).toBe("target");
-      expect(agent.lifecycleStage).toBe("target");
+      expect(agent.lifecycleStage).toBe("drafting");
     });
 
     it("creates an IntegrityAgent with correct properties", () => {
       const agent = factory.create("integrity", "org-123");
       expect(agent).toBeDefined();
       expect(agent.name).toBe("integrity");
-      expect(agent.lifecycleStage).toBe("integrity");
+      expect(agent.lifecycleStage).toBe("validating");
     });
 
     it("creates an ExpansionAgent with correct properties", () => {
@@ -157,20 +190,23 @@ describe("AgentFactory", () => {
       const agent = factory.create("realization", "org-123");
       expect(agent).toBeDefined();
       expect(agent.name).toBe("realization");
-      expect(agent.lifecycleStage).toBe("realization");
+      expect(agent.lifecycleStage).toBe("refining");
     });
 
     it("creates a FinancialModelingAgent with correct properties", () => {
       const agent = factory.create("financial-modeling", "org-123");
       expect(agent).toBeDefined();
       expect(agent.name).toBe("financial-modeling");
-      expect(agent.lifecycleStage).toBe("modeling");
+      expect(agent.lifecycleStage).toBe("drafting");
     });
 
     it("creates a NarrativeAgent with correct properties", () => {
       const agent = factory.create("narrative", "org-123");
       expect(agent).toBeDefined();
       expect(agent.name).toBe("narrative");
+      // NarrativeAgent declares lifecycleStage = "narrative" directly.
+      // The canonical stage mapping ("composing") is in AgentConfig.lifecycle_stage,
+      // not in the agent's own lifecycleStage property.
       expect(agent.lifecycleStage).toBe("narrative");
     });
 
@@ -188,18 +224,21 @@ describe("AgentFactory", () => {
     });
   });
 
+  // createForStage() takes a canonical LifecycleStage and maps it to the
+  // primary agent routing label via lifecycleStageToAgentLabel().
   describe("createForStage", () => {
-    it("creates agent by lifecycle stage name", () => {
-      const agent = factory.createForStage("opportunity", "org-456");
+    it("creates OpportunityAgent for discovery stage", () => {
+      const agent = factory.createForStage("discovery", "org-456");
       expect(agent).toBeDefined();
-      expect(agent.lifecycleStage).toBe("opportunity");
+      expect(agent.name).toBe("opportunity");
+      expect(agent.lifecycleStage).toBe("discovery");
     });
 
-    it("maps modeling stage to financial-modeling agent", () => {
-      const agent = factory.createForStage("modeling", "org-456");
+    it("creates TargetAgent for drafting stage", () => {
+      const agent = factory.createForStage("drafting", "org-456");
       expect(agent).toBeDefined();
-      expect(agent.name).toBe("financial-modeling");
-      expect(agent.lifecycleStage).toBe("modeling");
+      expect(agent.name).toBe("target");
+      expect(agent.lifecycleStage).toBe("drafting");
     });
   });
 });
