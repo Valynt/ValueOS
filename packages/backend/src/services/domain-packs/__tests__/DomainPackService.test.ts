@@ -158,7 +158,9 @@ describe("DomainPackService.getMergedContext", () => {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({ data: mockPack, error: null }),
+                or: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: mockPack, error: null }),
+                }),
               }),
             }),
           };
@@ -269,7 +271,9 @@ describe("DomainPackService.getMergedContext", () => {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({ data: mockPack, error: null }),
+                or: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: mockPack, error: null }),
+                }),
               }),
             }),
           };
