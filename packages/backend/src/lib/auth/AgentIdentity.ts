@@ -7,6 +7,7 @@
  */
 
 import { getAgentPolicyService } from "../../services/policy/AgentPolicyService.js";
+import { logger } from "../logger.js";
 
 export interface AgentIdentity {
   agent_id: string;
@@ -34,7 +35,11 @@ function resolvePermissions(agentType: string): string[] {
   try {
     const policy = getAgentPolicyService().getPolicy(agentType);
     return policy.allowedTools.map((tool) => `tool:${tool}`);
-  } catch {
+  } catch (err) {
+    logger.warn("AgentIdentity: failed to resolve permissions — agent will be denied all tools", {
+      agentType,
+      err,
+    });
     return [];
   }
 }

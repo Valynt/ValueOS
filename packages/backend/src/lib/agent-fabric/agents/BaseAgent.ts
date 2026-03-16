@@ -221,8 +221,7 @@ export abstract class BaseAgent {
     params: Record<string, unknown>,
     context?: Omit<ToolExecutionContext, "agentType">
   ): Promise<ToolResult> {
-    const identity = createAgentIdentity(this.name, this.name, this.organizationId);
-    if (!canUseTool(identity, toolName)) {
+    if (!canUseTool(this.agentIdentity, toolName)) {
       throw new PermissionDeniedError(this.name, toolName);
     }
     return toolRegistry.execute(toolName, params, {
@@ -231,6 +230,18 @@ export abstract class BaseAgent {
       tenantId: context?.tenantId ?? this.organizationId,
     });
   }
+
+  /** Lazily-initialized identity — policy file is read once per agent instance, refreshed on expiry. */
+  private get agentIdentity() {
+    if (
+      !this._agentIdentity ||
+      Date.now() >= new Date(this._agentIdentity.expires_at).getTime()
+    ) {
+      this._agentIdentity = createAgentIdentity(this.name, this.name, this.organizationId);
+    }
+    return this._agentIdentity;
+  }
+  private _agentIdentity: ReturnType<typeof createAgentIdentity> | undefined;
 
   /**
    * Secure LLM invocation with circuit breaker, multi-signal hallucination

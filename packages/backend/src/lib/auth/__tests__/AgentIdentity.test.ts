@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../logger.js", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
 vi.mock("../../../services/policy/AgentPolicyService.js", () => ({
   getAgentPolicyService: vi.fn(() => ({
     getPolicy: vi.fn((agentType: string) => {
@@ -25,6 +29,7 @@ vi.mock("../../../services/policy/AgentPolicyService.js", () => ({
 }));
 
 import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../AgentIdentity.js";
+import { logger } from "../../logger.js";
 
 describe("AgentIdentity permissions (F-013)", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -67,5 +72,18 @@ describe("AgentIdentity permissions (F-013)", () => {
 
     const identity = createAgentIdentity("agent-5", "unknown-agent", "org-abc");
     expect(identity.permissions).toEqual([]);
+  });
+
+  it("logs a warn with agentType when policy resolution fails", async () => {
+    const { getAgentPolicyService } = await import("../../../services/policy/AgentPolicyService.js");
+    vi.mocked(getAgentPolicyService).mockReturnValueOnce({
+      getPolicy: vi.fn().mockImplementation(() => { throw new Error("no policy"); }),
+    } as never);
+
+    createAgentIdentity("agent-6", "unknown-agent", "org-abc");
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      expect.stringContaining("agent will be denied all tools"),
+      expect.objectContaining({ agentType: "unknown-agent" }),
+    );
   });
 });
