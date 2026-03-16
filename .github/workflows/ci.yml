@@ -66,6 +66,9 @@ jobs:
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Backend request cast guardrails
+        run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
+
       - name: Generated src artifacts guard
         run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
 
@@ -82,6 +85,13 @@ jobs:
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+
+      - name: OpenAPI single-root guard
+        run: node scripts/ci/check-openapi-single-root.mjs
+
+      - name: OpenAPI structural validation
+        run: node scripts/ci/check-openapi-structure.mjs
+
 
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
@@ -127,6 +137,9 @@ jobs:
 
       - name: CI security control-matrix guard
         run: node scripts/ci/check-ci-security-control-matrix.mjs
+
+      - name: CI scanner action version manifest guard
+        run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
 
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs

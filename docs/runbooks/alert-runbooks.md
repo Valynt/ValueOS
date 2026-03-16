@@ -169,3 +169,23 @@ Runbooks for Prometheus alert rules defined in:
 - **Escalation:** Page **Platform SRE** and service owner if projected exhaustion <24h.
 - **Post-incident actions:** add forecast alerting, retention tests, and storage growth dashboards.
 - **Ownership:** Platform SRE. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
+
+## EntitlementsDependencyOutage
+- **Trigger meaning:** entitlement checks (usage/quota enforcement dependency) are failing and requests may be denied by fail-closed policy.
+- **Detection signals:** elevated 503 responses with `reason_code=ENTITLEMENTS_DEPENDENCY_UNAVAILABLE`; log event `Error in usage enforcement middleware`; optional override metric `usage_enforcement_fail_open_override_total` increments with labels `{metric, tenant_id, route}`.
+- **Default behavior:** `USAGE_ENFORCEMENT_FAIL_OPEN=false` (default) keeps enforcement **fail-closed** to prevent unmetered/cross-policy usage during uncertainty.
+- **Emergency override (SEV-approved only):** set `USAGE_ENFORCEMENT_FAIL_OPEN=true` to temporarily permit requests while dependency is unavailable. This is a security/commercial risk and must be time-boxed.
+- **Triage commands:**
+  - `kubectl -n <ns> logs deploy/<backend-deploy> --since=15m | rg -n "ENTITLEMENTS_DEPENDENCY_UNAVAILABLE|usage enforcement fail-open override"`
+  - `kubectl -n <ns> set env deploy/<backend-deploy> USAGE_ENFORCEMENT_FAIL_OPEN=true`
+  - `kubectl -n <ns> set env deploy/<backend-deploy> USAGE_ENFORCEMENT_FAIL_OPEN=false`
+- **Remediation flow:**
+  1. Confirm entitlement dependency outage scope and tenant impact.
+  2. If customer impact is severe and approved by Incident Commander + Revenue Platform owner, enable fail-open override.
+  3. Monitor override counter by `{metric, tenant_id, route}` to quantify un-enforced traffic.
+  4. Restore entitlement dependency health.
+  5. Disable override immediately after recovery and verify 503 rate returns to baseline.
+  6. Initiate billing/reconciliation review for traffic served during override window.
+- **Escalation:** Page **Revenue Platform** + **Backend Platform** immediately. Security on-call must be notified when override is enabled.
+- **Post-incident actions:** attach outage timeline, override start/end timestamps, impacted tenants/routes, and reconciliation outcome.
+- **Ownership:** Revenue Platform + Backend Platform.

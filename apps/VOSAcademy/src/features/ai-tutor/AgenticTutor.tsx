@@ -108,7 +108,7 @@ What would you like to work on today?`
     });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -233,7 +233,7 @@ What would you like to work on today?`
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder={getPlaceholder(activeMode)}
             className="min-h-[60px] resize-none"
             disabled={isStreaming}
@@ -241,6 +241,7 @@ What would you like to work on today?`
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isStreaming}
+            aria-label="Send message"
             size="icon"
             className="h-[60px] w-[60px]"
           >

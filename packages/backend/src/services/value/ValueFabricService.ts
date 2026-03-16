@@ -15,6 +15,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
+import { createCounter } from "../../lib/observability/index.js";
 import { supabase } from "../../lib/supabase.js";
 import type {
   Benchmark,
@@ -44,11 +45,149 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
+interface CacheMetrics {
+  hits: number;
+  misses: number;
+  evictions: number;
+}
+
+/**
+ * Small bounded LRU with TTL expiry support.
+ *
+ * Eviction policy:
+ * 1. Expired entries are removed first.
+ * 2. If at capacity after expiry cleanup, the least-recently used key is evicted.
+ */
+class BoundedLruCache<T> {
+  private readonly store = new Map<string, CacheEntry<T>>();
+  private metrics: CacheMetrics = { hits: 0, misses: 0, evictions: 0 };
+
+  constructor(private readonly maxEntries: number) {}
+
+  get(key: string): T | null {
+    const entry = this.store.get(key);
+    if (!entry) {
+      this.metrics.misses += 1;
+      return null;
+    }
+
+    if (entry.expiresAt < Date.now()) {
+      this.store.delete(key);
+      this.metrics.misses += 1;
+      return null;
+    }
+
+    this.store.delete(key);
+    this.store.set(key, entry);
+    this.metrics.hits += 1;
+    return entry.data;
+  }
+
+  set(key: string, value: T, ttlMs: number): boolean {
+    if (this.store.has(key)) {
+      this.store.delete(key);
+    }
+
+    this.evictExpired();
+    const evicted = this.evictIfAtCapacity();
+
+    this.store.set(key, {
+      data: value,
+      expiresAt: Date.now() + ttlMs,
+    });
+
+    return evicted;
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+
+  size(): number {
+    return this.store.size;
+  }
+
+  capacity(): number {
+    return this.maxEntries;
+  }
+
+  snapshotMetrics(): CacheMetrics {
+    return { ...this.metrics };
+  }
+
+  private evictExpired(): void {
+    const now = Date.now();
+
+    for (const [key, entry] of this.store.entries()) {
+      if (entry.expiresAt >= now) {
+        continue;
+      }
+
+      this.store.delete(key);
+      this.metrics.evictions += 1;
+    }
+  }
+
+  private evictIfAtCapacity(): boolean {
+    if (this.store.size < this.maxEntries) {
+      return false;
+    }
+
+    const oldestKey = this.store.keys().next().value;
+    if (typeof oldestKey !== "string") {
+      return false;
+    }
+
+    this.store.delete(oldestKey);
+    this.metrics.evictions += 1;
+    return true;
+  }
+}
+
 export class ValueFabricService {
   private supabase: SupabaseClient;
   private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
-  private static capabilityCache = new Map<string, CacheEntry<Capability[]>>();
-  private static useCaseCache = new Map<string, CacheEntry<UseCase[]>>();
+  /**
+   * In-memory cache budget: bounded to avoid unbounded growth under high-cardinality filters.
+   *
+   * Budget assumptions:
+   * - Capability cache: up to 1,000 entries
+   * - Use-case cache: up to 750 entries
+   * These bounds target a modest process memory footprint while preserving hot-query reuse.
+   */
+  private static readonly CAPABILITY_CACHE_MAX_ENTRIES = 1000;
+  private static readonly USE_CASE_CACHE_MAX_ENTRIES = 750;
+  private static capabilityCache = new BoundedLruCache<Capability[]>(
+    ValueFabricService.CAPABILITY_CACHE_MAX_ENTRIES,
+  );
+  private static useCaseCache = new BoundedLruCache<UseCase[]>(
+    ValueFabricService.USE_CASE_CACHE_MAX_ENTRIES,
+  );
+
+  private static readonly capabilityCacheHits = createCounter(
+    "value_fabric_capability_cache_hits_total",
+    "Total capability cache hits",
+  );
+  private static readonly capabilityCacheMisses = createCounter(
+    "value_fabric_capability_cache_misses_total",
+    "Total capability cache misses",
+  );
+  private static readonly capabilityCacheEvictions = createCounter(
+    "value_fabric_capability_cache_evictions_total",
+    "Total capability cache evictions",
+  );
+  private static readonly useCaseCacheHits = createCounter(
+    "value_fabric_use_case_cache_hits_total",
+    "Total use case cache hits",
+  );
+  private static readonly useCaseCacheMisses = createCounter(
+    "value_fabric_use_case_cache_misses_total",
+    "Total use case cache misses",
+  );
+  private static readonly useCaseCacheEvictions = createCounter(
+    "value_fabric_use_case_cache_evictions_total",
+    "Total use case cache evictions",
+  );
 
   constructor(supabaseClient: SupabaseClient = supabase) {
     this.supabase = supabaseClient;
@@ -70,7 +209,12 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ organizationId, ...filters, page, pageSize });
 
-    const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
+    const cached = this.getCachedData(
+      ValueFabricService.capabilityCache,
+      cacheKey,
+      () => ValueFabricService.capabilityCacheHits.inc(),
+      () => ValueFabricService.capabilityCacheMisses.inc(),
+    );
     if (cached) return cached;
 
     let query = this.supabase.from("capabilities").select("*")
@@ -96,7 +240,12 @@ export class ValueFabricService {
 
     if (error) throw error;
     const capabilities = data || [];
-    this.setCachedData(ValueFabricService.capabilityCache, cacheKey, capabilities);
+    this.setCachedData(
+      ValueFabricService.capabilityCache,
+      cacheKey,
+      capabilities,
+      () => ValueFabricService.capabilityCacheEvictions.inc(),
+    );
     return capabilities;
   }
 
@@ -161,7 +310,12 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ organizationId, ...filters, page, pageSize });
 
-    const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
+    const cached = this.getCachedData(
+      ValueFabricService.useCaseCache,
+      cacheKey,
+      () => ValueFabricService.useCaseCacheHits.inc(),
+      () => ValueFabricService.useCaseCacheMisses.inc(),
+    );
     if (cached) return cached;
 
     let query = this.supabase.from("use_cases").select("*")
@@ -186,7 +340,12 @@ export class ValueFabricService {
 
     if (error) throw error;
     const useCases = data || [];
-    this.setCachedData(ValueFabricService.useCaseCache, cacheKey, useCases);
+    this.setCachedData(
+      ValueFabricService.useCaseCache,
+      cacheKey,
+      useCases,
+      () => ValueFabricService.useCaseCacheEvictions.inc(),
+    );
     return useCases;
   }
 
@@ -664,26 +823,30 @@ export class ValueFabricService {
     };
   }
 
-  private getCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  private getCachedData<T>(
+    cache: BoundedLruCache<T>,
+    key: string,
+    onHit: () => void,
+    onMiss: () => void,
+  ): T | null {
     const entry = cache.get(key);
-    if (!entry) return null;
-
-    if (entry.expiresAt < Date.now()) {
-      cache.delete(key);
-      return null;
+    if (entry) {
+      onHit();
+      return entry;
     }
 
-    return entry.data;
+    onMiss();
+    return null;
   }
 
-  private setCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
-    cache.set(key, {
-      data,
-      expiresAt: Date.now() + ValueFabricService.CACHE_TTL_MS,
-    });
+  private setCachedData<T>(cache: BoundedLruCache<T>, key: string, data: T, onEvict: () => void): void {
+    const evicted = cache.set(key, data, ValueFabricService.CACHE_TTL_MS);
+    if (evicted) {
+      onEvict();
+    }
   }
 
-  private static invalidateCache(cache: Map<string, CacheEntry<unknown>>): void {
+  private static invalidateCache(cache: BoundedLruCache<unknown>): void {
     cache.clear();
   }
 
@@ -693,6 +856,38 @@ export class ValueFabricService {
 
   private static invalidateUseCaseCache(): void {
     this.invalidateCache(this.useCaseCache);
+  }
+
+  public static getCacheDiagnostics(): {
+    capability: { size: number; capacity: number; metrics: CacheMetrics };
+    useCase: { size: number; capacity: number; metrics: CacheMetrics };
+  } {
+    return {
+      capability: {
+        size: this.capabilityCache.size(),
+        capacity: this.capabilityCache.capacity(),
+        metrics: this.capabilityCache.snapshotMetrics(),
+      },
+      useCase: {
+        size: this.useCaseCache.size(),
+        capacity: this.useCaseCache.capacity(),
+        metrics: this.useCaseCache.snapshotMetrics(),
+      },
+    };
+  }
+
+  public static seedCacheForTesting(cacheType: "capability" | "useCase", key: string): void {
+    if (cacheType === "capability") {
+      this.capabilityCache.set(key, [], this.CACHE_TTL_MS);
+      return;
+    }
+
+    this.useCaseCache.set(key, [], this.CACHE_TTL_MS);
+  }
+
+  public static clearCachesForTesting(): void {
+    this.capabilityCache.clear();
+    this.useCaseCache.clear();
   }
 
   // =====================================================

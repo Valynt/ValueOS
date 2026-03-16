@@ -153,7 +153,7 @@ export class NarrativeEngine {
     try {
       const { data: vc } = await this.supabase
         .from("value_cases")
-        .select("domain_pack_id, domain_pack_snapshot")
+        .select("domain_pack_id, domain_pack_snapshot, organization_id")
         .eq("id", valueCaseId)
         .single();
 
@@ -164,9 +164,9 @@ export class NarrativeEngine {
       const snapshot = vc.domain_pack_snapshot as Record<string, unknown> | null;
       if (snapshot?.glossary) {
         glossary = snapshot.glossary as Record<string, string>;
-      } else if (vc.domain_pack_id) {
+      } else if (vc.domain_pack_id && vc.organization_id) {
         const service = new DomainPackService(this.supabase);
-        const packData = await service.getPackWithLayers(vc.domain_pack_id);
+        const packData = await service.getPackWithLayers(vc.domain_pack_id, vc.organization_id);
         const pack = packData.pack as Record<string, unknown>;
         glossary = (pack.glossary as Record<string, string>) ?? {};
       }

@@ -1,5 +1,6 @@
 export {
   DomainPackService,
+  DomainPackAccessError,
   DomainPackSchema,
   PackKPISchema,
   PackAssumptionSchema,

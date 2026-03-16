@@ -103,7 +103,7 @@ export async function loadDomainContext(
   }
 
   const service = new DomainPackService(supabaseClient);
-  const packData = await service.getPackWithLayers(vc.domain_pack_id);
+  const packData = await service.getPackWithLayers(vc.domain_pack_id, tenantId);
 
   // Convert to DomainPackKpi[] format expected by agents
   const kpis: DomainPackKpi[] = packData.kpis.map((k) => ({

@@ -659,7 +659,7 @@ export class ValueLifecycleOrchestrator {
         if (caseData?.domain_pack_id) {
           const { DomainPackService } = await import('./domain-packs/DomainPackService.js');
           const packService = new DomainPackService(this.supabase);
-          domainPackContext = await packService.getAgentKPIContext(caseData.domain_pack_id);
+          domainPackContext = await packService.getAgentKPIContext(caseData.domain_pack_id, tenantId);
         }
       } catch (packErr) {
         logger.warn('Failed to load domain pack context, proceeding without it', {

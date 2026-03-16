@@ -38,7 +38,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@/_core': path.resolve(__dirname, './src/data/_core'),
-      '@shared/const': path.resolve(__dirname, './packages/shared/src/const.ts')
+      '@shared/const': path.resolve(__dirname, './packages/shared/src/const.ts'),
+      '@valueos/design-system': path.resolve(__dirname, '../../packages/components/design-system/src/index.ts')
     }
   }
 })

@@ -109,3 +109,35 @@ Backlog triage guidance:
 - If deferring, annotate with required metadata and link an actionable ticket.
 - Keep owners current and refresh stale dates when work is re-triaged.
 
+
+## TypeScript Strictness Rollout (2026)
+
+### Scope
+- Root strict baseline now lives in `tsconfig.app.json` with `"strict": true` and `"noImplicitAny": true`.
+- Temporary exceptions must be isolated to package-level override files and never applied globally.
+
+### Temporary exception files
+- `packages/backend/tsconfig.strict-exceptions.json`
+- `packages/shared/tsconfig.strict-exceptions.json`
+
+Use these only for migration windows and package-scoped typecheck jobs. Production/default package tsconfigs should converge to strict-only mode without these overrides.
+
+### CI ratchet
+- CI check: `node scripts/ci/any-ratchet.mjs`
+- Budget file: `.github/any-ratchet-budgets.json`
+- Rule: non-test `any` usage must be non-increasing per package (ratchet fails on regression).
+
+### Milestones and thresholds
+- **M1 (2026-03-31):** Enable root strict baseline and introduce per-package strict exception files.
+  - Target thresholds: backend `<= 154`, shared `<= 31`.
+- **M2 (2026-04-30):** Remove high-risk `any` at trust boundaries (request context, auth claims, external payloads).
+  - Target thresholds: backend `<= 130`, shared `<= 20`.
+- **M3 (2026-05-31):** Eliminate temporary strict exception usage in backend/shared CI jobs.
+  - Target thresholds: backend `<= 80`, shared `<= 8`.
+- **M4 (2026-06-30):** `strict` + `noImplicitAny` enforced across all packages with no exception overlays.
+  - Target thresholds: backend `<= 20`, shared `<= 0`.
+
+### Enforcement notes
+- Replace `any` with `unknown` at external boundaries first, then narrow with schemas/type guards.
+- Non-test paths are measured; tests are excluded from ratchet counts.
+- When a package reaches its `nextTarget`, lower its baseline in `.github/any-ratchet-budgets.json` in the same PR.

@@ -36,3 +36,17 @@ This is the single control matrix for workflows under `.github/workflows/`.
 - `pr-fast-blocking-subsets`
 - `post-merge-critical-subsets`
 - `codeql-analyze (js-ts)`
+
+## Scanner Version Upgrade Workflow
+
+To prevent drift between workflow scanner refs and CI verification scripts, scanner versions are centralized in `scripts/ci/security-tool-versions.json`.
+
+When bumping scanner action versions:
+
+1. Update version refs in `scripts/ci/security-tool-versions.json`.
+2. Update `.github/workflows/ci.yml` and/or `.github/workflows/codeql.yml` to use the same refs.
+3. Run these guards locally:
+   - `node scripts/ci/security-baseline-verification.mjs`
+   - `node scripts/ci/check-ci-security-control-matrix.mjs`
+   - `node scripts/ci/check-ci-workflow-scanner-refs.mjs`
+4. Include all related updates in the same PR. Scanner version bumps without paired manifest/workflow consistency updates must be treated as policy violations.

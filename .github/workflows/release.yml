@@ -18,6 +18,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   release:
@@ -40,6 +41,63 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build workspace
+        run: pnpm run build --if-present
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          mkdir -p release-artifacts
+          pnpm dlx @cyclonedx/cyclonedx-npm --output-file release-artifacts/sbom.cyclonedx.json --output-format JSON --ignore-npm-errors
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: release-artifacts/sbom.spdx.json
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign release security artifacts with cosign + OIDC
+        run: |
+          cosign sign-blob --yes release-artifacts/sbom.cyclonedx.json \
+            --output-signature release-artifacts/sbom.cyclonedx.json.sig \
+            --output-certificate release-artifacts/sbom.cyclonedx.json.pem
+
+          cosign sign-blob --yes release-artifacts/sbom.spdx.json \
+            --output-signature release-artifacts/sbom.spdx.json.sig \
+            --output-certificate release-artifacts/sbom.spdx.json.pem
+
+      - name: Verify generated SBOMs and signatures
+        run: |
+          test -s release-artifacts/sbom.cyclonedx.json
+          test -s release-artifacts/sbom.spdx.json
+          test -s release-artifacts/sbom.cyclonedx.json.sig
+          test -s release-artifacts/sbom.spdx.json.sig
+          test -s release-artifacts/sbom.cyclonedx.json.pem
+          test -s release-artifacts/sbom.spdx.json.pem
+
+          cosign verify-blob release-artifacts/sbom.cyclonedx.json \
+            --signature release-artifacts/sbom.cyclonedx.json.sig \
+            --certificate release-artifacts/sbom.cyclonedx.json.pem \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+
+          cosign verify-blob release-artifacts/sbom.spdx.json \
+            --signature release-artifacts/sbom.spdx.json.sig \
+            --certificate release-artifacts/sbom.spdx.json.pem \
+            --certificate-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/heads/main" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+
+      - name: Dependency license policy check (optional)
+        run: |
+          if pnpm -s run | rg -q '^\s*license:check\b'; then
+            pnpm run license:check
+          else
+            echo "license:check script not configured; skipping policy check."
+          fi
 
       - name: Observability release gates
         run: |
@@ -67,19 +125,30 @@ jobs:
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
         with:
           script: |
+            const fs = require('fs');
+            const artifacts = [
+              'release-artifacts/sbom.cyclonedx.json',
+              'release-artifacts/sbom.cyclonedx.json.sig',
+              'release-artifacts/sbom.cyclonedx.json.pem',
+              'release-artifacts/sbom.spdx.json',
+              'release-artifacts/sbom.spdx.json.sig',
+              'release-artifacts/sbom.spdx.json.pem',
+            ];
             const publishedPackages = JSON.parse(process.env.PUBLISHED_PACKAGES);
             for (const pkg of publishedPackages) {
               const tag = `${pkg.name}@${pkg.version}`;
+              let release;
               try {
-                await github.rest.repos.getReleaseByTag({
+                const response = await github.rest.repos.getReleaseByTag({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   tag,
                 });
+                release = response.data;
                 console.log(`Release for ${tag} already exists, skipping.`);
               } catch (err) {
                 if (err.status !== 404) throw err;
-                await github.rest.repos.createRelease({
+                const response = await github.rest.repos.createRelease({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   tag_name: tag,
@@ -88,6 +157,36 @@ jobs:
                   draft: false,
                   prerelease: false,
                 });
+                release = response.data;
                 console.log(`Created release for ${tag}`);
+              }
+
+              const existingAssets = await github.paginate(github.rest.repos.listReleaseAssets, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+                per_page: 100,
+              });
+
+              for (const artifactPath of artifacts) {
+                const fileName = artifactPath.split('/').pop();
+                const prior = existingAssets.find((asset) => asset.name === fileName);
+                if (prior) {
+                  await github.rest.repos.deleteReleaseAsset({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    asset_id: prior.id,
+                  });
+                }
+
+                const data = fs.readFileSync(artifactPath);
+                await github.rest.repos.uploadReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: release.id,
+                  name: fileName,
+                  data,
+                });
+                console.log(`Uploaded ${fileName} to ${tag}`);
               }
             }

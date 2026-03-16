@@ -9,6 +9,31 @@
 
 import { isDevelopment } from "../config/environment.js";
 
+interface SanitizableUser {
+  id?: unknown;
+  role?: unknown;
+  tenant_id?: unknown;
+}
+
+interface SanitizableRequest {
+  method?: unknown;
+  path?: unknown;
+  url?: unknown;
+  query?: unknown;
+  user?: SanitizableUser;
+  tenantId?: unknown;
+  ip?: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function asStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+
 /**
  * Sensitive field patterns to redact
  */
@@ -200,13 +225,14 @@ export function sanitizeForLogging(obj: unknown, maxDepth: number = 5): unknown 
  * Sanitize user object for logging
  * Only log safe identifiers, never PII
  */
-export function sanitizeUser(user: any): Record<string, unknown> {
-  if (!user) return { user: null };
+export function sanitizeUser(user: unknown): Record<string, unknown> {
+  if (!isRecord(user)) return { user: null };
 
+  const typedUser = user as SanitizableUser;
   return {
-    id: user.id,
-    role: user.role,
-    tenant_id: user.tenant_id,
+    id: typedUser.id,
+    role: typedUser.role,
+    tenant_id: typedUser.tenant_id,
     // NEVER log: email, name, phone, address, etc.
   };
 }
@@ -215,16 +241,19 @@ export function sanitizeUser(user: any): Record<string, unknown> {
  * Sanitize request object for logging
  * Only log safe metadata, never body or headers
  */
-export function sanitizeRequest(req: any): Record<string, unknown> {
-  if (!req) return { request: null };
+export function sanitizeRequest(req: unknown): Record<string, unknown> {
+  if (!isRecord(req)) return { request: null };
+
+  const typedRequest = req as SanitizableRequest;
+  const typedUser = isRecord(typedRequest.user) ? (typedRequest.user as SanitizableUser) : undefined;
 
   return {
-    method: req.method,
-    path: req.path || req.url,
-    query: sanitizeForLogging(req.query),
-    user_id: req.user?.id,
-    tenant_id: req.tenantId ?? req.user?.tenant_id,
-    ip: isDevelopment() ? req.ip : "[REDACTED]",
+    method: typedRequest.method,
+    path: asStringOrUndefined(typedRequest.path) ?? asStringOrUndefined(typedRequest.url),
+    query: sanitizeForLogging(typedRequest.query),
+    user_id: typedUser?.id,
+    tenant_id: typedRequest.tenantId ?? typedUser?.tenant_id,
+    ip: isDevelopment() ? typedRequest.ip : "[REDACTED]",
     // NEVER log: body, headers, cookies, authorization
   };
 }
