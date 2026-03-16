@@ -67,7 +67,9 @@ const DEFAULT_BASELINE: TenantBaseline = {
 export class SecurityAnomalyService {
   private readonly supabase = createServerSupabaseClient();
 
-  async runScheduledDetection(referenceTime = new Date()): Promise<SecurityAnomalyAlert[]> {
+  async runScheduledDetection(
+    referenceTime = new Date()
+  ): Promise<SecurityAnomalyAlert[]> {
     const windowEnd = referenceTime;
     const windowStart = new Date(referenceTime.getTime() - 15 * 60 * 1000);
 
@@ -75,9 +77,19 @@ export class SecurityAnomalyService {
     const createdAlerts: SecurityAnomalyAlert[] = [];
 
     for (const tenantId of tenantIds) {
-      const baselines = await this.calculateTenantBaseline(tenantId, windowStart, windowEnd);
+      const baselines = await this.calculateTenantBaseline(
+        tenantId,
+        windowStart,
+        windowEnd
+      );
       const logs = await this.fetchTenantLogs(tenantId, windowStart, windowEnd);
-      const alerts = await this.detectForTenant(tenantId, logs, baselines, windowStart, windowEnd);
+      const alerts = await this.detectForTenant(
+        tenantId,
+        logs,
+        baselines,
+        windowStart,
+        windowEnd
+      );
       createdAlerts.push(...alerts);
     }
 
@@ -90,36 +102,49 @@ export class SecurityAnomalyService {
     status?: "open" | "acknowledged" | "suppressed";
     limit?: number;
   }): Promise<SecurityAnomalyAlert[]> {
-    let query = (this.supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          not: (col: string, op: string, val: null) => {
-            order: (col: string, opts: { ascending: boolean }) => {
-              limit: (count: number) => unknown;
-              eq: (col: string, val: unknown) => unknown;
-              neq: (col: string, val: unknown) => unknown;
-              maybeSingle?: () => Promise<{ data: unknown; error: Error | null }>;
+    // Define the subset of Supabase query builder methods needed here.
+    // Filters are applied before .limit() to avoid intermediate `as any` casts.
+    interface AlertFilterQuery {
+      eq(col: string, val: unknown): AlertFilterQuery;
+      neq(col: string, val: unknown): AlertFilterQuery;
+      limit(
+        count: number
+      ): Promise<{ data: SecurityAnomalyAlert[] | null; error: Error | null }>;
+    }
+
+    let query: AlertFilterQuery = (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            not: (
+              col: string,
+              op: string,
+              val: null
+            ) => {
+              order: (
+                col: string,
+                opts: { ascending: boolean }
+              ) => AlertFilterQuery;
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("security_anomaly_alerts")
       .select("*")
       .not("tenant_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(options.limit ?? 100);
+      .order("created_at", { ascending: false });
 
     if (options.tenantId) {
-      query = (query as any).eq("tenant_id", options.tenantId);
+      query = query.eq("tenant_id", options.tenantId);
     }
     if (options.status) {
-      query = (query as any).eq("status", options.status);
+      query = query.eq("status", options.status);
     } else if (!options.includeSuppressed) {
-      query = (query as any).neq("status", "suppressed");
+      query = query.neq("status", "suppressed");
     }
 
-    const { data, error } = await (query as Promise<{ data: SecurityAnomalyAlert[] | null; error: Error | null }>);
+    const { data, error } = await query.limit(options.limit ?? 100);
     if (error) throw error;
     return (data ?? []) as SecurityAnomalyAlert[];
   }
@@ -130,19 +155,31 @@ export class SecurityAnomalyService {
     reason: string;
   }): Promise<SecurityAnomalyAlert | null> {
     const nowIso = new Date().toISOString();
-    const { data, error } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        update: (values: Partial<SecurityAnomalyAlert>) => {
-          eq: (col: string, val: unknown) => {
-            not: (col: string, op: string, val: null) => {
-              select: (columns: string) => {
-                maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+    const { data, error } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          update: (values: Partial<SecurityAnomalyAlert>) => {
+            eq: (
+              col: string,
+              val: unknown
+            ) => {
+              not: (
+                col: string,
+                op: string,
+                val: null
+              ) => {
+                select: (columns: string) => {
+                  maybeSingle: () => Promise<{
+                    data: SecurityAnomalyAlert | null;
+                    error: Error | null;
+                  }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("security_anomaly_alerts")
       .update({
         status: "acknowledged",
@@ -167,19 +204,31 @@ export class SecurityAnomalyService {
     suppressUntil: string;
   }): Promise<SecurityAnomalyAlert | null> {
     const nowIso = new Date().toISOString();
-    const { data, error } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        update: (values: Partial<SecurityAnomalyAlert>) => {
-          eq: (col: string, val: unknown) => {
-            not: (col: string, op: string, val: null) => {
-              select: (columns: string) => {
-                maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+    const { data, error } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          update: (values: Partial<SecurityAnomalyAlert>) => {
+            eq: (
+              col: string,
+              val: unknown
+            ) => {
+              not: (
+                col: string,
+                op: string,
+                val: null
+              ) => {
+                select: (columns: string) => {
+                  maybeSingle: () => Promise<{
+                    data: SecurityAnomalyAlert | null;
+                    error: Error | null;
+                  }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("security_anomaly_alerts")
       .update({
         status: "suppressed",
@@ -197,37 +246,59 @@ export class SecurityAnomalyService {
     const alert = data ?? null;
     if (!alert) return null;
 
-    const { error: suppressionError } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        insert: (values: Record<string, unknown>) => { error: Error | null };
-      };
-    }).from("security_anomaly_suppressions").insert({
-      tenant_id: alert.tenant_id,
-      anomaly_type: alert.anomaly_type,
-      actor_id: alert.actor_id,
-      suppression_until: params.suppressUntil,
-      reason: params.reason,
-      created_by: params.actorId,
-    });
+    const { error: suppressionError } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          insert: (values: Record<string, unknown>) => { error: Error | null };
+        };
+      }
+    )
+      .from("security_anomaly_suppressions")
+      .insert({
+        tenant_id: alert.tenant_id,
+        anomaly_type: alert.anomaly_type,
+        actor_id: alert.actor_id,
+        suppression_until: params.suppressUntil,
+        reason: params.reason,
+        created_by: params.actorId,
+      });
 
     if (suppressionError) throw suppressionError;
     return alert;
   }
 
-  private async fetchActiveTenantIds(windowStart: Date, windowEnd: Date): Promise<string[]> {
-    const { data, error } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          not: (col: string, op: string, val: null) => {
-            gte: (col: string, val: string) => {
-              lte: (col: string, val: string) => {
-                limit: (count: number) => Promise<{ data: { tenant_id: string }[] | null; error: Error | null }>;
+  private async fetchActiveTenantIds(
+    windowStart: Date,
+    windowEnd: Date
+  ): Promise<string[]> {
+    const { data, error } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            not: (
+              col: string,
+              op: string,
+              val: null
+            ) => {
+              gte: (
+                col: string,
+                val: string
+              ) => {
+                lte: (
+                  col: string,
+                  val: string
+                ) => {
+                  limit: (count: number) => Promise<{
+                    data: { tenant_id: string }[] | null;
+                    error: Error | null;
+                  }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("audit_logs")
       .select("tenant_id")
       .not("tenant_id", "is", null)
@@ -237,7 +308,7 @@ export class SecurityAnomalyService {
 
     if (error) throw error;
 
-    return Array.from(new Set((data ?? []).map((row) => row.tenant_id)));
+    return Array.from(new Set((data ?? []).map(row => row.tenant_id)));
   }
 
   private async fetchTenantLogs(
@@ -245,23 +316,42 @@ export class SecurityAnomalyService {
     windowStart: Date,
     windowEnd: Date
   ): Promise<AuditLogRow[]> {
-    const { data, error } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          eq: (col: string, val: string) => {
-            gte: (col: string, val: string) => {
-              lte: (col: string, val: string) => {
-                order: (col: string, opts: { ascending: boolean }) => {
-                  limit: (count: number) => Promise<{ data: AuditLogRow[] | null; error: Error | null }>;
+    const { data, error } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (
+              col: string,
+              val: string
+            ) => {
+              gte: (
+                col: string,
+                val: string
+              ) => {
+                lte: (
+                  col: string,
+                  val: string
+                ) => {
+                  order: (
+                    col: string,
+                    opts: { ascending: boolean }
+                  ) => {
+                    limit: (count: number) => Promise<{
+                      data: AuditLogRow[] | null;
+                      error: Error | null;
+                    }>;
+                  };
                 };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("audit_logs")
-      .select("id, tenant_id, organization_id, user_id, action, status, details, timestamp")
+      .select(
+        "id, tenant_id, organization_id, user_id, action, status, details, timestamp"
+      )
       .eq("tenant_id", tenantId)
       .gte("timestamp", windowStart.toISOString())
       .lte("timestamp", windowEnd.toISOString())
@@ -277,22 +367,41 @@ export class SecurityAnomalyService {
     windowStart: Date,
     windowEnd: Date
   ): Promise<TenantBaseline> {
-    const baselineStart = new Date(windowStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const { data, error } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          eq: (col: string, val: string) => {
-            gte: (col: string, val: string) => {
-              lt: (col: string, val: string) => {
-                order: (col: string, opts: { ascending: boolean }) => {
-                  limit: (count: number) => Promise<{ data: AuditLogRow[] | null; error: Error | null }>;
+    const baselineStart = new Date(
+      windowStart.getTime() - 7 * 24 * 60 * 60 * 1000
+    );
+    const { data, error } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (
+              col: string,
+              val: string
+            ) => {
+              gte: (
+                col: string,
+                val: string
+              ) => {
+                lt: (
+                  col: string,
+                  val: string
+                ) => {
+                  order: (
+                    col: string,
+                    opts: { ascending: boolean }
+                  ) => {
+                    limit: (count: number) => Promise<{
+                      data: AuditLogRow[] | null;
+                      error: Error | null;
+                    }>;
+                  };
                 };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("audit_logs")
       .select("id, user_id, action, status, details, timestamp, resource_type")
       .eq("tenant_id", tenantId)
@@ -302,26 +411,38 @@ export class SecurityAnomalyService {
       .limit(25000);
 
     if (error) {
-      logger.warn("Failed to calculate tenant baseline; falling back to defaults", {
-        tenantId,
-        error: error.message,
-      });
+      logger.warn(
+        "Failed to calculate tenant baseline; falling back to defaults",
+        {
+          tenantId,
+          error: error.message,
+        }
+      );
       return DEFAULT_BASELINE;
     }
 
     const logs = data ?? [];
     if (logs.length === 0) return DEFAULT_BASELINE;
 
-    const exportEvents = logs.filter((log) => this.isBulkExport(log)).length;
-    const failedEvents = logs.filter((log) => this.isFailedAccess(log)).length;
-    const apiEvents = logs.filter((log) => this.isApiAction(log)).length;
+    const exportEvents = logs.filter(log => this.isBulkExport(log)).length;
+    const failedEvents = logs.filter(log => this.isFailedAccess(log)).length;
+    const apiEvents = logs.filter(log => this.isApiAction(log)).length;
 
     const windowsPerWeek = (7 * 24 * 60) / 15;
 
     return {
-      exportThreshold: Math.max(DEFAULT_BASELINE.exportThreshold, Math.ceil((exportEvents / windowsPerWeek) * 6)),
-      failedThreshold: Math.max(DEFAULT_BASELINE.failedThreshold, Math.ceil((failedEvents / windowsPerWeek) * 8)),
-      burstThreshold: Math.max(DEFAULT_BASELINE.burstThreshold, Math.ceil((apiEvents / windowsPerWeek) * 10)),
+      exportThreshold: Math.max(
+        DEFAULT_BASELINE.exportThreshold,
+        Math.ceil((exportEvents / windowsPerWeek) * 6)
+      ),
+      failedThreshold: Math.max(
+        DEFAULT_BASELINE.failedThreshold,
+        Math.ceil((failedEvents / windowsPerWeek) * 8)
+      ),
+      burstThreshold: Math.max(
+        DEFAULT_BASELINE.burstThreshold,
+        Math.ceil((apiEvents / windowsPerWeek) * 10)
+      ),
     };
   }
 
@@ -334,7 +455,7 @@ export class SecurityAnomalyService {
   ): Promise<SecurityAnomalyAlert[]> {
     const generated: SecurityAnomalyAlert[] = [];
 
-    const exportLogs = logs.filter((log) => this.isBulkExport(log));
+    const exportLogs = logs.filter(log => this.isBulkExport(log));
     if (exportLogs.length >= baseline.exportThreshold) {
       const alert = await this.createAlert({
         tenantId,
@@ -343,14 +464,14 @@ export class SecurityAnomalyService {
         actorId: this.topActor(exportLogs),
         observedValue: exportLogs.length,
         thresholdValue: baseline.exportThreshold,
-        evidenceEventIds: exportLogs.map((log) => log.id).slice(0, 100),
+        evidenceEventIds: exportLogs.map(log => log.id).slice(0, 100),
         windowStart,
         windowEnd,
       });
       if (alert) generated.push(alert);
     }
 
-    const failedLogs = logs.filter((log) => this.isFailedAccess(log));
+    const failedLogs = logs.filter(log => this.isFailedAccess(log));
     const failedByActor = this.groupByActor(failedLogs);
     for (const [actorId, actorLogs] of failedByActor.entries()) {
       if (actorLogs.length >= baseline.failedThreshold) {
@@ -361,7 +482,7 @@ export class SecurityAnomalyService {
           actorId,
           observedValue: actorLogs.length,
           thresholdValue: baseline.failedThreshold,
-          evidenceEventIds: actorLogs.map((log) => log.id).slice(0, 100),
+          evidenceEventIds: actorLogs.map(log => log.id).slice(0, 100),
           windowStart,
           windowEnd,
         });
@@ -369,7 +490,9 @@ export class SecurityAnomalyService {
       }
     }
 
-    const offHoursPrivilegedLogs = logs.filter((log) => this.isOffHoursPrivilegedAccess(log));
+    const offHoursPrivilegedLogs = logs.filter(log =>
+      this.isOffHoursPrivilegedAccess(log)
+    );
     if (offHoursPrivilegedLogs.length > 0) {
       const alert = await this.createAlert({
         tenantId,
@@ -378,14 +501,16 @@ export class SecurityAnomalyService {
         actorId: this.topActor(offHoursPrivilegedLogs),
         observedValue: offHoursPrivilegedLogs.length,
         thresholdValue: 1,
-        evidenceEventIds: offHoursPrivilegedLogs.map((log) => log.id).slice(0, 100),
+        evidenceEventIds: offHoursPrivilegedLogs
+          .map(log => log.id)
+          .slice(0, 100),
         windowStart,
         windowEnd,
       });
       if (alert) generated.push(alert);
     }
 
-    const apiLogs = logs.filter((log) => this.isApiAction(log));
+    const apiLogs = logs.filter(log => this.isApiAction(log));
     const actorApi = this.groupByActor(apiLogs);
     for (const [actorId, actorLogs] of actorApi.entries()) {
       if (actorLogs.length >= baseline.burstThreshold) {
@@ -396,7 +521,7 @@ export class SecurityAnomalyService {
           actorId,
           observedValue: actorLogs.length,
           thresholdValue: baseline.burstThreshold,
-          evidenceEventIds: actorLogs.map((log) => log.id).slice(0, 100),
+          evidenceEventIds: actorLogs.map(log => log.id).slice(0, 100),
           windowStart,
           windowEnd,
         });
@@ -404,8 +529,9 @@ export class SecurityAnomalyService {
       }
     }
 
-
-    const crossTenantLogs = logs.filter((log) => this.isCrossTenantAccessAttempt(log, tenantId));
+    const crossTenantLogs = logs.filter(log =>
+      this.isCrossTenantAccessAttempt(log, tenantId)
+    );
     if (crossTenantLogs.length > 0) {
       const alert = await this.createAlert({
         tenantId,
@@ -414,14 +540,14 @@ export class SecurityAnomalyService {
         actorId: this.topActor(crossTenantLogs),
         observedValue: crossTenantLogs.length,
         thresholdValue: 1,
-        evidenceEventIds: crossTenantLogs.map((log) => log.id).slice(0, 100),
+        evidenceEventIds: crossTenantLogs.map(log => log.id).slice(0, 100),
         windowStart,
         windowEnd,
       });
       if (alert) generated.push(alert);
     }
 
-    const privilegedLogs = logs.filter((log) => this.isPrivilegedAction(log));
+    const privilegedLogs = logs.filter(log => this.isPrivilegedAction(log));
     const privilegedByActor = this.groupByActor(privilegedLogs);
     for (const [actorId, actorLogs] of privilegedByActor.entries()) {
       if (actorLogs.length >= 10) {
@@ -432,7 +558,7 @@ export class SecurityAnomalyService {
           actorId,
           observedValue: actorLogs.length,
           thresholdValue: 10,
-          evidenceEventIds: actorLogs.map((log) => log.id).slice(0, 100),
+          evidenceEventIds: actorLogs.map(log => log.id).slice(0, 100),
           windowStart,
           windowEnd,
         });
@@ -465,7 +591,11 @@ export class SecurityAnomalyService {
       return null;
     }
 
-    const suppression = await this.findActiveSuppression(params.tenantId, params.type, params.actorId);
+    const suppression = await this.findActiveSuppression(
+      params.tenantId,
+      params.type,
+      params.actorId
+    );
     if (suppression) {
       return null;
     }
@@ -492,15 +622,21 @@ export class SecurityAnomalyService {
       status: "open",
     };
 
-    const { data, error } = await (this.supabase as unknown as {
-      from: (table: string) => {
-        insert: (values: typeof payload) => {
-          select: (columns: string) => {
-            single: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
+    const { data, error } = await (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          insert: (values: typeof payload) => {
+            select: (columns: string) => {
+              single: () => Promise<{
+                data: SecurityAnomalyAlert | null;
+                error: Error | null;
+              }>;
+            };
           };
         };
-      };
-    }).from("security_anomaly_alerts")
+      }
+    )
+      .from("security_anomaly_alerts")
       .insert(payload)
       .select("*")
       .single();
@@ -536,40 +672,55 @@ export class SecurityAnomalyService {
     windowStart: Date,
     windowEnd: Date
   ): Promise<SecurityAnomalyAlert | null> {
-    let query = (this.supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          eq: (col: string, val: unknown) => {
-            gte: (col: string, val: string) => {
-              lte: (col: string, val: string) => {
-                neq: (col: string, val: unknown) => {
-                  limit: (count: number) => {
-                    eq: (col: string, val: unknown) => {
-                      maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
-                    };
-                    is: (col: string, val: null) => {
-                      maybeSingle: () => Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>;
-                    };
-                  };
+    // Apply actor_id filter before .limit(1) to avoid intermediate `as any` casts.
+    interface DuplicateCheckQuery {
+      eq(col: string, val: unknown): DuplicateCheckQuery;
+      is(col: string, val: null): DuplicateCheckQuery;
+      limit(count: number): {
+        maybeSingle(): Promise<{
+          data: SecurityAnomalyAlert | null;
+          error: Error | null;
+        }>;
+      };
+    }
+
+    let query: DuplicateCheckQuery = (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (
+              col: string,
+              val: unknown
+            ) => {
+              gte: (
+                col: string,
+                val: string
+              ) => {
+                lte: (
+                  col: string,
+                  val: string
+                ) => {
+                  neq: (col: string, val: unknown) => DuplicateCheckQuery;
                 };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("security_anomaly_alerts")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("anomaly_type", anomalyType)
       .gte("window_start", windowStart.toISOString())
       .lte("window_end", windowEnd.toISOString())
-      .neq("status", "suppressed")
-      .limit(1);
+      .neq("status", "suppressed");
 
-    query = actorId ? (query as any).eq("actor_id", actorId) : (query as any).is("actor_id", null);
+    query = actorId
+      ? query.eq("actor_id", actorId)
+      : query.is("actor_id", null);
 
-    const { data, error } = await (query as Promise<{ data: SecurityAnomalyAlert | null; error: Error | null }>).maybeSingle();
+    const { data, error } = await query.limit(1).maybeSingle();
     if (error) throw error;
     return data ?? null;
   }
@@ -580,30 +731,41 @@ export class SecurityAnomalyService {
     actorId: string | null
   ): Promise<boolean> {
     const nowIso = new Date().toISOString();
-    let query = (this.supabase as unknown as {
-      from: (table: string) => {
-        select: (columns: string) => {
-          eq: (col: string, val: unknown) => {
-            gt: (col: string, val: string) => {
-              limit: (count: number) => {
-                eq: (col: string, val: unknown) => Promise<{ data: unknown[] | null; error: Error | null }>;
-                is: (col: string, val: null) => Promise<{ data: unknown[] | null; error: Error | null }>;
-              };
+
+    // Apply actor_id filter before .limit(1) to avoid intermediate `as any` casts.
+    interface SuppressionCheckQuery {
+      eq(col: string, val: unknown): SuppressionCheckQuery;
+      is(col: string, val: null): SuppressionCheckQuery;
+      limit(
+        count: number
+      ): Promise<{ data: unknown[] | null; error: Error | null }>;
+    }
+
+    let query: SuppressionCheckQuery = (
+      this.supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (
+              col: string,
+              val: unknown
+            ) => {
+              gt: (col: string, val: string) => SuppressionCheckQuery;
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("security_anomaly_suppressions")
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("anomaly_type", anomalyType)
-      .gt("suppression_until", nowIso)
-      .limit(1);
+      .gt("suppression_until", nowIso);
 
-    query = actorId ? (query as any).eq("actor_id", actorId) : (query as any).is("actor_id", null);
+    query = actorId
+      ? query.eq("actor_id", actorId)
+      : query.is("actor_id", null);
 
-    const { data, error } = await (query as Promise<{ data: unknown[] | null; error: Error | null }>);
+    const { data, error } = await query.limit(1);
     if (error) throw error;
     return (data ?? []).length > 0;
   }
@@ -613,11 +775,16 @@ export class SecurityAnomalyService {
   }
 
   private isFailedAccess(log: AuditLogRow): boolean {
-    return log.status === "failed" || /denied|forbidden|unauthorized/i.test(log.action);
+    return (
+      log.status === "failed" ||
+      /denied|forbidden|unauthorized/i.test(log.action)
+    );
   }
 
   private isApiAction(log: AuditLogRow): boolean {
-    return /api|endpoint|request/i.test(log.action) || log.resource_type === "api";
+    return (
+      /api|endpoint|request/i.test(log.action) || log.resource_type === "api"
+    );
   }
 
   private isOffHoursPrivilegedAccess(log: AuditLogRow): boolean {
@@ -629,19 +796,25 @@ export class SecurityAnomalyService {
     return hour < 6 || hour > 20;
   }
 
-  private isCrossTenantAccessAttempt(log: AuditLogRow, tenantId: string): boolean {
-    const requestedTenantId = typeof log.details?.requested_tenant_id === "string"
-      ? log.details.requested_tenant_id
-      : typeof log.details?.target_tenant_id === "string"
-      ? log.details.target_tenant_id
-      : null;
+  private isCrossTenantAccessAttempt(
+    log: AuditLogRow,
+    tenantId: string
+  ): boolean {
+    const requestedTenantId =
+      typeof log.details?.requested_tenant_id === "string"
+        ? log.details.requested_tenant_id
+        : typeof log.details?.target_tenant_id === "string"
+          ? log.details.target_tenant_id
+          : null;
 
     if (!requestedTenantId) return false;
     return requestedTenantId !== tenantId;
   }
 
   private isPrivilegedAction(log: AuditLogRow): boolean {
-    return /grant|revoke|approve|reject|role|permission|admin|sudo/i.test(log.action);
+    return /grant|revoke|approve|reject|role|permission|admin|sudo/i.test(
+      log.action
+    );
   }
 
   private groupByActor(logs: AuditLogRow[]): Map<string, AuditLogRow[]> {
