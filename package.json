@@ -21,7 +21,7 @@
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",
     "check:kong-cors-origins": "node scripts/ci/check-kong-cors-origins.mjs --mode=production",
-    "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs"
+    "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs",
     "check:any-ratchet": "node scripts/ci/any-ratchet.mjs"
   },
   "dependencies": {

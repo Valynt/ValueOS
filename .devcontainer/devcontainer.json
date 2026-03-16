@@ -41,9 +41,18 @@
   },
   "containerEnv": {
     "NODE_ENV": "development",
+    "APP_ENV": "local",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
-    "ENCRYPTION_AT_REST_ENABLED": "false"
+    "ENCRYPTION_AT_REST_ENABLED": "false",
+    "TCT_SECRET": "local-dev-tct-secret-change-in-prod",
+    "WEB_SCRAPER_ENCRYPTION_KEY": "0540cee9ee4e7ed4633735bfb82a499d7e41dc15ab5dc249fb90400ede4914ff",
+    "SUPABASE_URL": "https://wfhdrrpijqygytvoaafc.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaGRycnBpanF5Z3l0dm9hYWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDYzMzAsImV4cCI6MjA4NjUyMjMzMH0.mGtlhNjMC_G2feTIRBCobbXvTGDcTwS5D8Lsz7j_0QE",
+    "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaGRycnBpanF5Z3l0dm9hYWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDYzMzAsImV4cCI6MjA4NjUyMjMzMH0.mGtlhNjMC_G2feTIRBCobbXvTGDcTwS5D8Lsz7j_0QE",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmaGRycnBpanF5Z3l0dm9hYWZjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDk0NjMzMCwiZXhwIjoyMDg2NTIyMzMwfQ.btX3zTa7ElicduyvcAVghJm6aFVu4q95fcEPR5gStFo",
+    "SUPABASE_PROJECT_REF": "wfhdrrpijqygytvoaafc",
+    "DATABASE_URL": "postgresql://postgres:ZqD8dvJih0JXahU6@db.wfhdrrpijqygytvoaafc.supabase.co:5432/postgres"
   },
   "remoteEnv": {
     "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"

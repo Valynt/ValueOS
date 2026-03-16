@@ -58,7 +58,7 @@ services:
     commands:
       start: |
         ona env port open 8000 --protocol https 2>/dev/null || true
-        APP_ENV=cloud-dev pnpm run dev:backend
+        pnpm run dev:backend
       ready: |
         curl -sf http://localhost:8000/health
 
@@ -70,7 +70,7 @@ services:
     commands:
       start: |
         ona env port open 5173 --protocol https 2>/dev/null || true
-        APP_ENV=cloud-dev pnpm run dev:frontend
+        pnpm run dev:frontend
       ready: |
         curl -sf http://localhost:5173
 
@@ -91,7 +91,7 @@ tasks:
     description: Enable corepack, activate pnpm, and install workspace dependencies.
     command: |
       sudo corepack enable --install-directory /usr/local/bin 2>/dev/null || true
-      corepack prepare pnpm@9.15.0 --activate 2>/dev/null || true
+      corepack prepare pnpm@10.4.1 --activate 2>/dev/null || true
       # Clean incomplete node_modules from a previous failed run before installing.
       # ENOTEMPTY errors occur when multiple pnpm processes race on first boot.
       if [ -d node_modules/.pnpm ] && [ ! -f node_modules/.modules.yaml ]; then
@@ -121,61 +121,7 @@ tasks:
     name: Apply database migrations
     description: Apply pending SQL migrations to the local Postgres instance.
     command: |
-      MIGRATIONS_DIR="${MIGRATIONS_DIR:-infra/supabase/supabase/migrations}"
-      if [ ! -d "$MIGRATIONS_DIR" ]; then
-        echo "WARNING: migrations directory not found at $MIGRATIONS_DIR — skipping."
-        exit 0
-      fi
-
-      # Resolve DATABASE_URL: env var -> ops/env/.env.local -> default local credentials.
-      if [ -z "${DATABASE_URL:-}" ] && [ -f ops/env/.env.local ]; then
-        set -a; . ops/env/.env.local; set +a
-      fi
-      export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/valueos}"
-
-      # Wait for Postgres to be reachable before attempting migrations.
-      _retries=0
-      until pg_isready -d "$DATABASE_URL" -q 2>/dev/null || [ "$_retries" -ge 30 ]; do
-        echo "Waiting for Postgres..."
-        sleep 2
-        _retries=$((_retries + 1))
-      done
-      if ! pg_isready -d "$DATABASE_URL" -q 2>/dev/null; then
-        echo "Postgres not reachable after 60s — skipping migrations."
-        exit 0
-      fi
-
-      # Ensure migration tracking table exists.
-      psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q -c "
-        CREATE TABLE IF NOT EXISTS public.schema_migrations (
-          name        TEXT PRIMARY KEY,
-          applied_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-          checksum    TEXT
-        );
-        ALTER TABLE public.schema_migrations ENABLE ROW LEVEL SECURITY;
-        GRANT SELECT ON public.schema_migrations TO anon, authenticated;
-        GRANT ALL   ON public.schema_migrations TO service_role, supabase_admin;
-      " || { echo "FAIL: could not create schema_migrations table"; exit 1; }
-
-      _applied=0
-      _skipped=0
-      for _file in $(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name "*.sql" | sort); do
-        _name="$(basename "$_file")"
-        _already="$(psql "$DATABASE_URL" -tAX -c "SELECT 1 FROM public.schema_migrations WHERE name = '$_name' LIMIT 1;" 2>/dev/null || true)"
-        if [ "$_already" = "1" ]; then
-          _skipped=$((_skipped + 1))
-          continue
-        fi
-        echo "  -> $_name"
-        if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -f "$_file"; then
-          psql "$DATABASE_URL" -X -q -c "INSERT INTO public.schema_migrations (name) VALUES ('$_name') ON CONFLICT (name) DO NOTHING;" || true
-          _applied=$((_applied + 1))
-        else
-          echo "FAIL: $_name"; exit 1
-        fi
-      done
-
-      echo "Migrations: $_applied applied, $_skipped already up-to-date."
+      ALLOW_REMOTE_DB_MIGRATIONS=true pnpm run db:apply-migrations
     triggeredBy:
       - postEnvironmentStart
     dependsOn:
@@ -206,7 +152,6 @@ tasks:
     description: Execute the full Vitest suite (unit + backend).
     command: |
       pnpm test
-      pnpm --filter @valueos/backend test
     triggeredBy:
       - manual
     dependsOn:
