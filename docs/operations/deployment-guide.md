@@ -3143,6 +3143,29 @@ describe('Application Bootstrap', () => {
 - Validate origin headers
 - Log CORS violations
 
+#### Approved gateway origins (Kong)
+
+- **Development**: `http://localhost:3000`, `http://localhost:5173`
+- **Staging**: `https://staging.valueos.ai`
+- **Production**: `https://app.valueos.ai`
+
+All origins must be explicitly listed in `config/kong.yml` under each service `cors.config.origins` block. Do not use `"*"`.
+
+#### Credentials policy
+
+- Keep `credentials: true` only for endpoints that require cookie/auth credential forwarding.
+- Public endpoints should use `credentials: false`.
+- Current baseline: auth endpoints keep credentials enabled; REST, Realtime, and Storage CORS blocks disable credentials.
+
+#### Rollout process for origin changes
+
+1. Update the relevant origin lists in `config/kong.yml`.
+2. Run `pnpm check:kong-cors-origins` locally to verify wildcard rejection in production mode.
+3. Open a PR that includes justification for each new origin and target environment.
+4. Deploy to staging and validate browser preflight/actual requests for affected routes.
+5. Promote to production only after staging verification succeeds and security review sign-off is recorded.
+6. Monitor gateway logs for CORS violations after rollout and roll back if unexpected origins appear.
+
 ### 4. Rate Limiting
 
 - Implement per-user rate limits

@@ -57,6 +57,9 @@ jobs:
       - name: Check runtime sentinels
         run: pnpm check:runtime-sentinels
 
+      - name: Gateway CORS wildcard guard
+        run: pnpm check:kong-cors-origins
+
       - name: Lint
         run: npx turbo run lint
 
