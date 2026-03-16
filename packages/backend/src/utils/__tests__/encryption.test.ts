@@ -4,18 +4,25 @@ import { decrypt, encrypt } from '../encryption.js'
 
 describe('Encryption Utils', () => {
   const originalKey = process.env.APP_ENCRYPTION_KEY;
+  const originalKek = process.env.APP_ENCRYPTION_KEK_MATERIAL;
 
   beforeEach(() => {
-    process.env.APP_ENCRYPTION_KEY = Buffer.from('a'.repeat(32), 'utf8').toString('base64');
+    process.env.APP_ENCRYPTION_KEK_MATERIAL = Buffer.from('a'.repeat(32), 'utf8').toString('base64');
   });
 
   afterEach(() => {
     if (originalKey === undefined) {
       delete process.env.APP_ENCRYPTION_KEY;
+    } else {
+      process.env.APP_ENCRYPTION_KEY = originalKey;
+    }
+
+    if (originalKek === undefined) {
+      delete process.env.APP_ENCRYPTION_KEK_MATERIAL;
       return;
     }
 
-    process.env.APP_ENCRYPTION_KEY = originalKey;
+    process.env.APP_ENCRYPTION_KEK_MATERIAL = originalKek;
   });
 
   it('should encrypt and decrypt correctly', () => {
@@ -50,13 +57,27 @@ describe('Encryption Utils', () => {
   });
 
   it('should reject malformed key lengths', () => {
-    process.env.APP_ENCRYPTION_KEY = Buffer.from('short-key', 'utf8').toString('base64');
-    expect(() => encrypt('value')).toThrow('APP_ENCRYPTION_KEY must be a 32-byte key encoded as hex/base64');
+    process.env.APP_ENCRYPTION_KEK_MATERIAL = Buffer.from('short-key', 'utf8').toString('base64');
+    expect(() => encrypt('value')).toThrow('APP_ENCRYPTION_KEK_MATERIAL must be a 32-byte key encoded as hex/base64');
   });
 
   it('should support PBKDF2-derived keys with explicit parameters', () => {
-    process.env.APP_ENCRYPTION_KEY = 'pbkdf2:100000:c2FsdC1mb3ItdGVzdHMxMjM0NTY=:passphrase';
+    process.env.APP_ENCRYPTION_KEK_MATERIAL = 'pbkdf2:100000:c2FsdC1mb3ItdGVzdHMxMjM0NTY=:passphrase';
     const plaintext = 'pbkdf2-encrypted';
     expect(decrypt(encrypt(plaintext))).toBe(plaintext);
+  });
+
+  it('should decrypt legacy ciphertext format for backward compatibility', async () => {
+    const { createCipheriv, randomBytes } = await import('node:crypto');
+    process.env.APP_ENCRYPTION_KEY = Buffer.from('b'.repeat(32), 'utf8').toString('base64');
+    const key = Buffer.from('b'.repeat(32), 'utf8');
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update('legacy-value', 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag();
+    const legacyFormat = `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+
+    expect(decrypt(legacyFormat)).toBe('legacy-value');
   });
 });
