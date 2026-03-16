@@ -75,6 +75,7 @@ Each PR should include:
 - **Screenshots or recordings** for UI changes.
 - **Rollback approach** for production-impacting changes, with runbook link when possible.
 - **ADR reference** when changing architecture boundaries or core patterns.
+- **ADR index integrity**: if a PR adds, removes, renames, or updates an ADR in `docs/engineering/adr/`, update `docs/engineering/adr-index.md` in the same PR with accurate status/date/area metadata.
 
 PR size guideline:
 
