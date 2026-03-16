@@ -144,6 +144,63 @@ describe("MemoryWriteHandler", () => {
     expect(result.error).toBe("DB connection failed");
   });
 
+  it("reserves idempotency key before writing to close the TOCTOU race", async () => {
+    // Regression: previously recordIdempotencyKey was called AFTER routeWrite,
+    // so two concurrent requests with the same key could both pass the
+    // hasIdempotencyKey check and produce duplicate writes.
+    //
+    // After the fix, recordIdempotencyKey is called BEFORE routeWrite.
+    // We verify the call order by tracking the sequence of store method calls.
+    const callOrder: string[] = [];
+
+    (store.recordIdempotencyKey as ReturnType<typeof vi.fn>).mockImplementation(
+      async () => { callOrder.push("recordIdempotencyKey"); }
+    );
+    (store.writeSemanticFact as ReturnType<typeof vi.fn>).mockImplementation(
+      async () => { callOrder.push("writeSemanticFact"); return "fact-001"; }
+    );
+
+    await handler.handleWrite({
+      tenantId: "tenant-1",
+      organizationId: "00000000-0000-0000-0000-000000000001",
+      source: "salesforce",
+      sourceId: "sf-opp-001",
+      target: "semantic",
+      operation: "create",
+      idempotencyKey: "race-test-key",
+      payload: { content: "race condition test" },
+    });
+
+    // First call reserves the key (placeholder), second call updates it with
+    // the real recordId. Both must come after hasIdempotencyKey but the first
+    // reservation must precede the actual write.
+    expect(callOrder[0]).toBe("recordIdempotencyKey"); // reservation
+    expect(callOrder[1]).toBe("writeSemanticFact");    // write
+    expect(callOrder[2]).toBe("recordIdempotencyKey"); // update with real recordId
+  });
+
+  it("second concurrent request sees key as reserved and returns no-op", async () => {
+    // Simulate the second request arriving after the first has reserved the key
+    // but before it has finished writing. hasIdempotencyKey returns true because
+    // the reservation already exists.
+    (store.hasIdempotencyKey as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+    const result = await handler.handleWrite({
+      tenantId: "tenant-1",
+      organizationId: "00000000-0000-0000-0000-000000000001",
+      source: "salesforce",
+      sourceId: "sf-opp-001",
+      target: "semantic",
+      operation: "create",
+      idempotencyKey: "race-test-key",
+      payload: { content: "duplicate" },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.warnings).toContain("Idempotency key already processed; no-op");
+    expect(store.writeSemanticFact).not.toHaveBeenCalled();
+  });
+
   describe("executeTool", () => {
     it("executes memory_write_fact tool", async () => {
       const result = await handler.executeTool("memory_write_fact", {
