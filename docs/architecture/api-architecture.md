@@ -14,6 +14,10 @@
 
 ---
 
+## Canonical OpenAPI Source of Truth
+
+The canonical machine-readable API contract is `packages/backend/openapi.yaml`. CI validates this file for structural correctness and enforces a single OpenAPI document root.
+
 ## Value Modeling API Reference
 
 *Source: `engineering/api/VALUE_MODELING_API.md`*

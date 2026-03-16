@@ -83,6 +83,13 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: OpenAPI single-root guard
+        run: node scripts/ci/check-openapi-single-root.mjs
+
+      - name: OpenAPI structural validation
+        run: node scripts/ci/check-openapi-structure.mjs
+
+
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
 
