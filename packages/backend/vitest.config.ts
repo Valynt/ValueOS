@@ -9,6 +9,11 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
     fileParallelism: false,
+    env: {
+      // AgentPolicyService defaults to process.cwd()/policies/agents.
+      // Tests run from packages/backend, so point explicitly to the repo-root policies.
+      AGENT_POLICY_DIR: path.resolve(root, 'policies/agents'),
+    },
   },
   resolve: {
     alias: {

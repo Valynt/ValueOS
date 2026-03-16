@@ -164,7 +164,6 @@ export class AuditLogger {
       await this.auditLogService.logAudit({
         // Treat the agent as the acting "system" user; record the triggering user in details.
         userId: "system",
-        userId: "system",
         userName: event.agentName,
         userEmail: `agent:${event.agentName.toLowerCase()}@valueos.internal`,
         action: `agent.${event.action}`,
@@ -176,7 +175,6 @@ export class AuditLogger {
           session_id: event.sessionId,
           triggered_by_user_id: event.userId,
           organization_id: event.organizationId,
-          triggered_by_user_id: event.userId,
           ...event.details,
         },
         correlationId: event.sessionId,

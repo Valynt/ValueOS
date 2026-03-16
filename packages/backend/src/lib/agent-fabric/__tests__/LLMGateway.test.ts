@@ -12,15 +12,39 @@ vi.mock('../../../services/post-v1/CostAwareRouter.js', () => ({
   },
 }));
 
+// Mock PolicyEnforcement — these tests cover resilience and usage tracking,
+// not policy enforcement. Bypass the allowlist so any model is permitted.
+vi.mock('../../../services/policy/PolicyEnforcement.js', () => ({
+  enforceModelPolicy: () => ({ policyVersion: 'test' }),
+  enforceBudgetPolicy: () => ({ policyVersion: 'test' }),
+  enforceToolPolicy: () => ({ policyVersion: 'test' }),
+  recordPolicyAuditEvent: () => undefined,
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+class AlwaysSucceedingGateway extends LLMGateway {
+  protected override async executeCompletion(
+    _request: LLMRequest,
+    _startTime: number
+  ): Promise<LLMResponse> {
+    return {
+      id: 'llm_ok',
+      model: 'gpt-4o-mini',
+      content: 'ok',
+      finish_reason: 'stop',
+      usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+    };
+  }
+}
 
 function makeGateway(
   trackUsage = vi.fn(),
   resilienceOverrides?: Record<string, unknown>
 ) {
-  return new LLMGateway(
+  return new AlwaysSucceedingGateway(
     { provider: 'openai', model: 'gpt-4o-mini' },
     { trackUsage } as any,
     resilienceOverrides as any
@@ -263,8 +287,8 @@ describe('LLMGateway resilience integration', () => {
       metadata: { tenantId: 'tenant-raw' },
     });
 
-    // Should get the placeholder response directly
-    expect(result.content).toBe('LLM Gateway placeholder response');
+    // completeRaw calls executeCompletion directly, bypassing the resilience wrapper
+    expect(result.content).toBe('ok');
     expect(result.finish_reason).toBe('stop');
   });
 
