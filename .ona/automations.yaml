@@ -1,55 +1,4 @@
 services:
-  postgres:
-    name: PostgreSQL
-    description: Postgres 15 database for local development.
-    triggeredBy:
-      - postEnvironmentStart
-    commands:
-      start: |
-        docker run --rm --name valueos-postgres \
-          -e POSTGRES_DB=valueos \
-          -e POSTGRES_USER=postgres \
-          -e POSTGRES_PASSWORD=postgres \
-          -p 5432:5432 \
-          postgres:15-alpine
-      ready: |
-        docker exec valueos-postgres pg_isready -U postgres
-      stop: |
-        docker stop valueos-postgres 2>/dev/null || true
-
-  redis:
-    name: Redis
-    description: Redis 7 cache and BullMQ queue broker.
-    triggeredBy:
-      - postEnvironmentStart
-    commands:
-      start: |
-        docker run --rm --name valueos-redis \
-          -p 6379:6379 \
-          redis:7-alpine \
-          redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
-      ready: |
-        docker exec valueos-redis redis-cli ping | grep -q PONG
-      stop: |
-        docker stop valueos-redis 2>/dev/null || true
-
-  nats:
-    name: NATS
-    description: NATS message broker for inter-agent CloudEvents messaging.
-    triggeredBy:
-      - postEnvironmentStart
-    commands:
-      start: |
-        docker run --rm --name valueos-nats \
-          -p 4222:4222 \
-          -p 8222:8222 \
-          nats:2-alpine \
-          -m 8222
-      ready: |
-        curl -sf http://localhost:8222/healthz
-      stop: |
-        docker stop valueos-nats 2>/dev/null || true
-
   backend:
     name: Backend API
     description: Express API server on port 3001.
@@ -57,6 +6,17 @@ services:
       - postEnvironmentStart
     commands:
       start: |
+        # Wait for pnpm install to complete before starting (installDeps runs at postDevcontainerStart)
+        wait_count=0
+        until [ -f node_modules/.modules.yaml ]; do
+          wait_count=$((wait_count + 1))
+          if [ $wait_count -ge 150 ]; then
+            echo "Timed out waiting for node_modules — did installDeps fail?"
+            exit 1
+          fi
+          echo "Waiting for node_modules... (${wait_count}/150)"
+          sleep 2
+        done
         ona env port open 3001 --protocol https 2>/dev/null || true
         pnpm run dev:backend
       ready: |
@@ -69,6 +29,17 @@ services:
       - postEnvironmentStart
     commands:
       start: |
+        # Wait for pnpm install to complete before starting (installDeps runs at postDevcontainerStart)
+        wait_count=0
+        until [ -f node_modules/.modules.yaml ]; do
+          wait_count=$((wait_count + 1))
+          if [ $wait_count -ge 150 ]; then
+            echo "Timed out waiting for node_modules — did installDeps fail?"
+            exit 1
+          fi
+          echo "Waiting for node_modules... (${wait_count}/150)"
+          sleep 2
+        done
         ona env port open 5173 --protocol https 2>/dev/null || true
         pnpm run dev:frontend
       ready: |
@@ -117,16 +88,6 @@ tasks:
     dependsOn:
       - installDeps
 
-  applyMigrations:
-    name: Apply database migrations
-    description: Apply pending SQL migrations to the local Postgres instance.
-    command: |
-      ALLOW_REMOTE_DB_MIGRATIONS=true pnpm run db:apply-migrations
-    triggeredBy:
-      - postEnvironmentStart
-    dependsOn:
-      - setupTools
-
   lint:
     name: Lint
     description: Run ESLint across the workspace.
@@ -165,7 +126,7 @@ tasks:
     triggeredBy:
       - manual
     dependsOn:
-      - applyMigrations
+      - installDeps
 
   build:
     name: Build
