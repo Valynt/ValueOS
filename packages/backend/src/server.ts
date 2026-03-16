@@ -62,7 +62,7 @@ import llmRouter from "./api/llm.js";
 import { auditLogsRouter } from "./api/auditLogs.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
-import tenantContextRouter from "./api/tenantContext.js";
+
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
 import { usageRouter } from "./api/usage.js";

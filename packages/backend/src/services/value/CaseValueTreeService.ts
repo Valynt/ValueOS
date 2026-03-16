@@ -1,4 +1,4 @@
-<<<<<<<< HEAD:packages/backend/src/services/value/CaseValueTreeService.ts
+
 /**
  * CaseValueTreeService
  *
@@ -208,7 +208,3 @@ export class CaseValueTreeService {
 }
 
 export const caseValueTreeService = new CaseValueTreeService();
-========
-// Re-export from canonical location. Callers need no import changes.
-export * from "./value/CaseValueTreeService.js";
->>>>>>>> origin/feat/sprints-32-40-spec-backlog:packages/backend/src/services/CaseValueTreeService.ts

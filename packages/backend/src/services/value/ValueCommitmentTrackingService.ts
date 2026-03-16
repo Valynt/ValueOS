@@ -1,4 +1,4 @@
-<<<<<<<< HEAD:packages/backend/src/services/value/ValueCommitmentTrackingService.ts
+
 /**
  * ValueCommitmentTrackingService
  *
@@ -456,7 +456,3 @@ export class ValueCommitmentTrackingService {
 }
 
 export const valueCommitmentTrackingService = new ValueCommitmentTrackingService();
-========
-// Re-export from canonical location. Callers need no import changes.
-export * from "./value/ValueCommitmentTrackingService.js";
->>>>>>>> origin/feat/sprints-32-40-spec-backlog:packages/backend/src/services/ValueCommitmentTrackingService.ts
