@@ -52,7 +52,7 @@ type WorkflowExecuteRequest = Request & {
 };
 
 async function executeWorkflowHandler(req: WorkflowExecuteRequest, res: Response): Promise<Response> {
-  const tenantId = getTenantIdFromRequest(req as unknown as { tenantId?: string; headers: Record<string, string | string[] | undefined> });
+  const tenantId = getTenantIdFromRequest(req);
   const parseResult = executeWorkflowBodySchema.safeParse(req.body ?? {});
 
   if (!parseResult.success) {
@@ -132,7 +132,7 @@ router.get(
   async (req: Request, res: Response) => {
     const { id } = req.params;
     // Use a fixed prefix that cannot collide with real UUID tenant IDs.
-    const tenantId = getTenantIdFromRequest(req as any) ?? "__anon__";
+    const tenantId = getTenantIdFromRequest(req) ?? "__anon__";
 
     const payload = await ReadThroughCacheService.getOrLoad(
       {
@@ -193,7 +193,7 @@ router.get(
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
     const tenantId = req.tenantId;
-    const db = (req as any).db as { query?: (query: string, params?: unknown[]) => Promise<{ rows?: Array<{ output_data?: unknown }> }> } | undefined;
+    const db = req.db;
 
     if (!tenantId) {
       return res.status(403).json({

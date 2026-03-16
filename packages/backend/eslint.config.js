@@ -1,6 +1,8 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+const reqAsAnyMessage = "Do not cast req to any. Use typed Express.Request properties from src/types/express.d.ts (e.g., req.tenantId, req.userId, req.sessionId, req.user, req.db).";
+
 export default tseslint.config(
   { ignores: ["dist", "node_modules"] },
   js.configs.recommended,
@@ -23,6 +25,33 @@ export default tseslint.config(
       "@typescript-eslint/no-empty-object-type": "warn",
       "@typescript-eslint/no-namespace": "warn",
       "@typescript-eslint/no-non-null-asserted-optional-chain": "warn",
+    },
+  },
+  {
+    files: ["src/**/*.ts"],
+    ignores: [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts",
+      "src/**/__tests__/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TSAsExpression[expression.type='Identifier'][expression.name='req'] > TSAnyKeyword",
+          message: reqAsAnyMessage,
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts",
+      "src/**/__tests__/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
 );
