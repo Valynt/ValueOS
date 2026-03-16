@@ -6,11 +6,11 @@ on:
   push:
     branches: [main, develop]
     tags:
-      - 'v*'
+      - "v*"
   release:
     types: [published]
   schedule:
-    - cron: '0 3 * * *'
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -331,6 +331,38 @@ jobs:
             --metrics-out artifacts/accessibility/a11y-metrics.json \
             --summary-out artifacts/accessibility/a11y-trend-summary.md
 
+      - name: Enforce WCAG severity budgets
+        if: always()
+        run: |
+          node scripts/ci/check-a11y-severity-budgets.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --budget .github/metrics/wcag-severity-budgets.json \
+            --metrics-out artifacts/accessibility/wcag-severity-metrics.json
+
+      - name: Generate i18n key extraction catalog
+        if: always()
+        run: |
+          node scripts/ci/extract-i18n-catalog.mjs \
+            --out artifacts/i18n/extracted-keys.json
+
+      - name: Verify localization coverage
+        if: always()
+        run: |
+          node scripts/ci/check-i18n-keys.mjs \
+            --json-out artifacts/i18n/coverage-dashboard.json
+
+      - name: Verify pseudo-localization readiness
+        if: always()
+        run: |
+          node scripts/ci/check-pseudo-localization.mjs \
+            --json-out artifacts/i18n/pseudo-localization-report.json
+
+      - name: Build frontend quality dashboard artifacts
+        if: always()
+        run: |
+          node scripts/ci/collect-frontend-quality-dashboard.mjs \
+            --dashboard-out artifacts/frontend-quality/dashboard.md \
+            --json-out artifacts/frontend-quality/dashboard.json
       - name: Upload accessibility artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -339,6 +371,8 @@ jobs:
           path: |
             playwright-report/
             artifacts/accessibility/
+            artifacts/i18n/
+            artifacts/frontend-quality/
           if-no-files-found: warn
           retention-days: 30
 
