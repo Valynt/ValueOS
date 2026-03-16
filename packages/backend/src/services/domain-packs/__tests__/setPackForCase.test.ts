@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { DomainPackService } from '../DomainPackService.js';
+import { DomainPackAccessError, DomainPackService } from '../DomainPackService.js';
 
 const PACK_ID = '00000000-0000-0000-0000-000000000001';
+const PRIVATE_PACK_ID = '00000000-0000-0000-0000-000000000002';
 const CASE_ID = '00000000-0000-0000-0000-000000000010';
-const TENANT_ID = '00000000-0000-0000-0000-000000000099';
+const TENANT_A = '00000000-0000-0000-0000-000000000099';
+const TENANT_B = '00000000-0000-0000-0000-000000000098';
 
 const mockPack = {
   id: PACK_ID,
@@ -65,7 +67,9 @@ describe('DomainPackService.setPackForCase', () => {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({ data: mockPack, error: null }),
+                or: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: mockPack, error: null }),
+                }),
               }),
             }),
           };
@@ -105,9 +109,8 @@ describe('DomainPackService.setPackForCase', () => {
     };
 
     const service = new DomainPackService(mockClient as unknown as import('@supabase/supabase-js').SupabaseClient);
-    await service.setPackForCase(CASE_ID, PACK_ID, TENANT_ID);
+    await service.setPackForCase(CASE_ID, PACK_ID, TENANT_A);
 
-    // Verify the update was called with snapshot data
     expect(capturedUpdate).not.toBeNull();
     expect(capturedUpdate!.domain_pack_id).toBe(PACK_ID);
     expect(capturedUpdate!.domain_pack_version).toBe('1.0.0');
@@ -121,19 +124,89 @@ describe('DomainPackService.setPackForCase', () => {
     expect(snapshot.version).toBe('1.0.0');
     expect(snapshot.snapshotCreatedAt).toBeDefined();
 
-    // Verify KPIs are in the snapshot
     const snapshotKpis = snapshot.kpis as Array<Record<string, unknown>>;
     expect(snapshotKpis).toHaveLength(1);
     expect(snapshotKpis[0].kpiKey).toBe('core_modernization_savings');
 
-    // Verify assumptions are in the snapshot
     const snapshotAssumptions = snapshot.assumptions as Array<Record<string, unknown>>;
     expect(snapshotAssumptions).toHaveLength(1);
     expect(snapshotAssumptions[0].assumptionKey).toBe('discount_rate');
     expect(snapshotAssumptions[0].valueNumber).toBe(12);
 
-    // Verify glossary and compliance rules are in the snapshot
     expect(snapshot.glossary).toEqual({ revenue_uplift: 'NII Expansion' });
     expect(snapshot.complianceRules).toEqual(['SOX compliance required']);
+  });
+
+  it('blocks snapshotting another tenant\'s private pack', async () => {
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'domain_packs') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                or: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: null, error: { message: 'No rows' } }),
+                }),
+              }),
+            }),
+          };
+        }
+        return { select: vi.fn().mockReturnThis() };
+      }),
+    };
+
+    const service = new DomainPackService(mockClient as unknown as import('@supabase/supabase-js').SupabaseClient);
+
+    await expect(service.setPackForCase(CASE_ID, PRIVATE_PACK_ID, TENANT_A)).rejects.toBeInstanceOf(DomainPackAccessError);
+  });
+
+  it('allows snapshotting a system/global pack', async () => {
+    const updateSpy = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }),
+    });
+
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'domain_packs') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                or: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: { ...mockPack, tenant_id: null }, error: null }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'domain_pack_kpis') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({ data: mockKpis, error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === 'domain_pack_assumptions') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({ data: mockAssumptions, error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === 'value_cases') {
+          return { update: updateSpy };
+        }
+        return { select: vi.fn().mockReturnThis() };
+      }),
+    };
+
+    const service = new DomainPackService(mockClient as unknown as import('@supabase/supabase-js').SupabaseClient);
+    await expect(service.setPackForCase(CASE_ID, PACK_ID, TENANT_B)).resolves.toBeUndefined();
+    expect(updateSpy).toHaveBeenCalledTimes(1);
   });
 });
