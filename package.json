@@ -93,6 +93,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "12.1.0",
     "@cyclonedx/cyclonedx-npm": "^4.2.1",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/typography": "^0.5.15",
