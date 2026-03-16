@@ -1,6 +1,6 @@
 {
   "version": "2026-07-01",
-  "agent": "expansion-agent",
+  "agent": "expansion",
   "allowedModels": [
     "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
     "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"

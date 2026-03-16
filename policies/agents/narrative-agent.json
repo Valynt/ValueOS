@@ -1,6 +1,6 @@
 {
   "version": "2026-07-01",
-  "agent": "narrative-agent",
+  "agent": "narrative",
   "allowedModels": [
     "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
     "Qwen/Qwen2.5-72B-Instruct-Turbo"
