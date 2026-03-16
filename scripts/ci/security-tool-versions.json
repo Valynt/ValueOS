@@ -1,0 +1,39 @@
+{
+  "scannerActions": [
+    {
+      "id": "gitleaks",
+      "workflow": ".github/workflows/ci.yml",
+      "uses": "gitleaks/gitleaks-action@v2"
+    },
+    {
+      "id": "semgrep",
+      "workflow": ".github/workflows/ci.yml",
+      "uses": "returntocorp/semgrep-action@v1"
+    },
+    {
+      "id": "trivy-filesystem",
+      "workflow": ".github/workflows/ci.yml",
+      "uses": "aquasecurity/trivy-action@0.35.0"
+    },
+    {
+      "id": "trivy-image",
+      "workflow": ".github/workflows/ci.yml",
+      "uses": "aquasecurity/trivy-action@0.35.0"
+    },
+    {
+      "id": "codeql-init",
+      "workflow": ".github/workflows/codeql.yml",
+      "uses": "github/codeql-action/init@v3"
+    },
+    {
+      "id": "codeql-analyze",
+      "workflow": ".github/workflows/codeql.yml",
+      "uses": "github/codeql-action/analyze@v3"
+    }
+  ],
+  "ciWorkflowScannerRefs": [
+    "gitleaks/gitleaks-action@v2",
+    "returntocorp/semgrep-action@v1",
+    "aquasecurity/trivy-action@0.35.0"
+  ]
+}
