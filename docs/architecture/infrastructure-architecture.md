@@ -80,19 +80,17 @@ This roadmap outlines the strategy for containerizing ValueOS agents and service
 
 ### Agent Inventory
 
-**Lifecycle Agents** (in `apps/ValyntApp/src/lib/agent-fabric/agents/`):
+**Core Lifecycle Agents** (in `packages/backend/src/lib/agent-fabric/agents/`):
 - `OpportunityAgent` - Discovery phase
 - `TargetAgent` - Definition phase
 - `RealizationAgent` - Realization phase
 - `ExpansionAgent` - Expansion phase
 - `IntegrityAgent` - Governance phase
-- `CoordinatorAgent` - Orchestration
+- `FinancialModelingAgent` - Financial modeling
 
 **Cross-Cutting Agents**:
-- `CommunicatorAgent` - Messaging
-- `CompanyIntelligenceAgent` - Intelligence gathering
-- `SystemMapperAgent` - System mapping
-- `InterventionDesignerAgent` - Intervention design
+- `NarrativeAgent` - Business narrative composition
+- `ComplianceAuditorAgent` - Control evidence review and compliance scoring
 
 **Standalone Agents** (in `packages/agents/`):
 - `groundtruth` - Ground truth validation
@@ -131,7 +129,7 @@ python packages/agents/base/generate-dockerfiles.py --validate
 {
   "agents": {
     "opportunity": {
-      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts",
+      "source": "packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts",
       "package": "@valueos/opportunity-agent",
       "dependencies": ["@valueos/agent-base", "@valueos/memory"],
       "expose_port": 8081,
@@ -140,7 +138,7 @@ python packages/agents/base/generate-dockerfiles.py --validate
       "confidence_threshold": { "low": 0.5, "high": 0.8 }
     },
     "target": {
-      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/TargetAgent.ts",
+      "source": "packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts",
       "package": "@valueos/target-agent",
       "dependencies": ["@valueos/agent-base", "@valueos/memory"],
       "expose_port": 8082,
@@ -165,7 +163,7 @@ python packages/agents/base/generate-dockerfiles.py --validate
 export DOCKER_BUILDKIT=1
 export BUILDX_NO_DEFAULT_ATTESTATIONS=1
 
-AGENTS=("opportunity" "target" "realization" "expansion" "integrity" "coordinator")
+AGENTS=("opportunity" "target" "financial-modeling" "integrity" "realization" "expansion" "narrative" "compliance-auditor")
 
 for agent in "${AGENTS[@]}"; do
   docker buildx build \
