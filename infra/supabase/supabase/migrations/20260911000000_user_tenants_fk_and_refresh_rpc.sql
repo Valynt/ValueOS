@@ -23,6 +23,11 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ── tenants.slug column ─────────────────────────────────────────────────────
+-- Frontend queries select tenants(id,name,slug,settings) but slug was missing.
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS slug text;
+UPDATE public.tenants SET slug = lower(replace(name, ' ', '-')) WHERE slug IS NULL;
+
 -- ── RPC: get_refresh_token_status ───────────────────────────────────────────
 -- Stub implementation: always returns trusted.
 -- Full implementation should check a refresh_token_fingerprints table
@@ -47,5 +52,46 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_refresh_token_status(text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_refresh_token_status(text, text, text) TO service_role;
+
+-- ── Fix security.user_has_tenant_access stubs ───────────────────────────────
+-- Both overloads (text, uuid) were returning false unconditionally.
+-- Replaced with real logic that checks user_tenants membership.
+CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+BEGIN
+  IF current_setting('request.jwt.claim.role', true) = 'service_role' THEN
+    RETURN true;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_tenants
+    WHERE user_id = auth.uid()::text
+      AND tenant_id = target_tenant_id
+      AND status = 'active'
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+BEGIN
+  IF current_setting('request.jwt.claim.role', true) = 'service_role' THEN
+    RETURN true;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_tenants
+    WHERE user_id = auth.uid()::text
+      AND tenant_id = target_tenant_id::text
+      AND status = 'active'
+  );
+END;
+$$;
 
 COMMIT;
