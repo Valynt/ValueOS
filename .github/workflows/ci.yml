@@ -122,6 +122,9 @@ jobs:
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
 
+      - name: CI security control-matrix guard
+        run: node scripts/ci/check-ci-security-control-matrix.mjs
+
       - name: Emit lane summary
         if: always()
         run: |
@@ -456,6 +459,45 @@ jobs:
           sarif_file: semgrep.sarif
           category: semgrep
 
+      - name: Build backend container image for Trivy
+        run: docker build -f infra/docker/Dockerfile.backend -t valueos-backend:ci .
+
+      - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Trivy container image scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: valueos-backend:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload Trivy filesystem SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
       - name: SBOM — generate CycloneDX
         run: |
           pnpm exec cyclonedx-npm --output-format json --output-file sbom.json
@@ -475,6 +517,8 @@ jobs:
           path: |
             npm-audit-report.json
             semgrep.sarif
+            trivy-fs.sarif
+            trivy-image.sarif
             sbom.json
           if-no-files-found: warn
           retention-days: 90

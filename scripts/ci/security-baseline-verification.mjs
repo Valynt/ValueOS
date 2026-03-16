@@ -26,19 +26,28 @@ const checks = [
       'Expected security middleware pack to conditionally apply createSecurityHeadersMiddleware in packages/backend/src/middleware/security/index.ts',
   },
   {
-    id: 'ci-has-sast-job',
+    id: 'ci-has-semgrep',
     file: '.github/workflows/ci.yml',
-    // SAST via semgrep-action OR security-antipatterns guard script
+    test: (content) => content.includes('returntocorp/semgrep-action@v1'),
+    error: 'Expected returntocorp/semgrep-action@v1 in .github/workflows/ci.yml',
+  },
+  {
+    id: 'ci-has-trivy',
+    file: '.github/workflows/ci.yml',
+    test: (content) => content.includes('aquasecurity/trivy-action@0.28.0'),
+    error: 'Expected aquasecurity/trivy-action@0.28.0 in .github/workflows/ci.yml',
+  },
+  {
+    id: 'codeql-dedicated-workflow',
+    file: '.github/workflows/codeql.yml',
     test: (content) =>
-      (content.includes('sast:') && content.includes('semgrep/semgrep-action@v1')) ||
-      content.includes('check-security-antipatterns.mjs'),
-    error: 'Expected SAST coverage in .github/workflows/ci.yml (semgrep-action or check-security-antipatterns.mjs)',
+      content.includes('github/codeql-action/init@v3') &&
+      content.includes('github/codeql-action/analyze@v3'),
+    error: 'Expected dedicated CodeQL init/analyze steps in .github/workflows/codeql.yml',
   },
   {
     id: 'ci-has-tenant-controls-guard',
     file: '.github/workflows/ci.yml',
-    // Tenant isolation guard replaced the dedicated SCA job in the sprint10 refactor.
-    // TODO: restore aquasecurity/trivy-action for dependency vulnerability + license scanning.
     test: (content) => content.includes('check-supabase-tenant-controls.mjs'),
     error: 'Expected check-supabase-tenant-controls.mjs in .github/workflows/ci.yml',
   },
