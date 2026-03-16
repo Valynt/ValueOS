@@ -66,6 +66,9 @@ jobs:
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Backend request cast guardrails
+        run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
+
       - name: Generated src artifacts guard
         run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
 
