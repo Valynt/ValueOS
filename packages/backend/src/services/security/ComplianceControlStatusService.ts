@@ -82,16 +82,35 @@ export class ComplianceControlStatusService {
   }
 
   /**
-   * Key rotation freshness: hours since the most recently updated crm_connections row.
-   * Returns 0 when no CRM connections exist — treated as passing (no keys to rotate).
+   * Action names that indicate a successful key or secret rotation.
+   * Covers patterns used by RotationService, APIKeyRotationService,
+   * SecretRotationScheduler, and SecureTokenManager. Add new values here
+   * when onboarding additional rotation tooling.
+   */
+  private static readonly KEY_ROTATION_ACTIONS = [
+    "secret.rotate",
+    "api_key.rotate",
+    "secret.rotate.scheduled",
+    "refresh_token_rotated",
+    "secret.rotated",
+    "key.rotated",
+    "api_key.rotated",
+    "key_rotation.completed",
+  ];
+
+  /**
+   * Key rotation freshness: hours since the most recent key/secret rotation
+   * event in audit_logs for this tenant.
+   * Returns 0 when no rotation event is found — treated as passing (no keys to rotate).
    */
   private async fetchKeyRotationHours(tenantId: string): Promise<number> {
     try {
       const { data, error } = await this.supabase
-        .from("crm_connections")
-        .select("updated_at")
+        .from("audit_logs")
+        .select("created_at")
         .eq("organization_id", tenantId)
-        .order("updated_at", { ascending: false })
+        .in("action", ComplianceControlStatusService.KEY_ROTATION_ACTIONS)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -102,8 +121,8 @@ export class ComplianceControlStatusService {
 
       if (!data) return 0;
 
-      const updatedAt = new Date(data.updated_at as string);
-      return Number(((Date.now() - updatedAt.getTime()) / (1000 * 60 * 60)).toFixed(2));
+      const rotatedAt = new Date(data.created_at as string);
+      return Number(((Date.now() - rotatedAt.getTime()) / (1000 * 60 * 60)).toFixed(2));
     } catch (err) {
       logger.warn("ComplianceControlStatusService: key_rotation fetch threw", { tenantId, err });
       return 0;

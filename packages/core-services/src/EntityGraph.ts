@@ -193,8 +193,10 @@ export class EntityGraph {
   }
 
   addEdge(edge: GraphEdge): void {
-    // Validate no self-loop
-    if (edge.sourceId === edge.targetId && edge.sourceType === edge.targetType) {
+    // Validate no self-loop. The adjacency map is keyed by node ID only, so
+    // an edge where sourceId === targetId creates a self-loop regardless of
+    // whether the source and target types differ.
+    if (edge.sourceId === edge.targetId) {
       throw new EntityGraphError("Self-loop edges are not allowed");
     }
 

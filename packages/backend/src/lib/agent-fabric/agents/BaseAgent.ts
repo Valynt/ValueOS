@@ -231,6 +231,12 @@ export abstract class BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      /**
+       * The authenticated user who triggered this agent run.
+       * Pass `context.user_id` from LifecycleContext here.
+       * Defaults to "system" only for background/cron invocations.
+       */
+      userId?: string;
     } = {}
   ): Promise<
     T & {
@@ -249,7 +255,16 @@ export abstract class BaseAgent {
       confidenceThresholds: _confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
+      userId,
     } = options;
+
+    // Resolve userId: explicit option > context.user_id > "system" fallback.
+    // "system" is only correct for cron/background jobs — agent execute() methods
+    // must pass context.user_id so cost tracking and abuse investigation work.
+    const resolvedUserId =
+      userId ??
+      (typeof context.user_id === "string" ? context.user_id : undefined) ??
+      "system";
 
     // Reset per-invocation state so refs from a prior execute() call don't
     // bleed into this one when the agent instance is reused.
@@ -261,9 +276,11 @@ export abstract class BaseAgent {
       throw new Error(`Agent ${this.name} is currently disabled by kill switch`);
     }
 
-    const invokeStartMs = Date.now();
-
     return this.circuitBreaker.execute(async () => {
+      // Start the timer inside the closure so circuit-breaker queue time is
+      // not included in the reported LLM latency.
+      const invokeStartMs = Date.now();
+
       const traceId =
         typeof context.trace_id === "string"
           ? context.trace_id
@@ -300,7 +317,11 @@ export abstract class BaseAgent {
           userId: resolvedUserId,
           trace_id: traceId,
           idempotencyKey,
-          ...sanitizedContext,
+          // agentType drives policy lookup in LLMGateway — prefer the
+          // canonical agentType (factory key) and fall back to name for
+          // legacy agents that don't define it.
+          agentType: (this as { agentType?: AgentType; name: string }).agentType ?? this.name,
+          ...context,
         },
       };
 
@@ -700,7 +721,8 @@ export abstract class BaseAgent {
     results: number[] = []
   ): number[] {
     if (obj === null || obj === undefined) return results;
-    if (typeof obj === "number" && !Number.isNaN(obj)) return results;
+    // A bare number is not keyed, so it cannot match keyPattern — skip it.
+    if (typeof obj === "number") return results;
 
     if (Array.isArray(obj)) {
       for (const item of obj) {

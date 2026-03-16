@@ -72,6 +72,7 @@ export class ComplianceAuditorAgent extends BaseAgent {
       {
         trackPrediction: true,
         confidenceThresholds: { low: 0.7, high: 0.9 },
+        userId: context.user_id,
         context: {
           agent: this.name,
           tenant_id: this.organizationId,
