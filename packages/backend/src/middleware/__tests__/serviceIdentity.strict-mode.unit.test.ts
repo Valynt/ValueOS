@@ -13,7 +13,7 @@ vi.mock('../nonceStore.js', () => ({
   NonceStoreUnavailableError: class NonceStoreUnavailableError extends Error {},
 }));
 
-const { serviceIdentityMiddleware } = await import('../serviceIdentityMiddleware.js');
+const { serviceIdentityMiddleware, validateServiceIdentityConfig } = await import('../serviceIdentityMiddleware.js');
 
 function buildApp(middleware: (req: Request, res: Response, next: NextFunction) => void) {
   const app = express();
@@ -45,7 +45,7 @@ describe('serviceIdentityMiddleware — strict mode (SERVICE_IDENTITY_REQUIRED=t
     const res = await request(app).get('/probe');
 
     expect(res.status).toBe(503);
-    expect(res.body).toMatchObject({ error: 'Service identity is not configured' });
+    expect(res.body).toMatchObject({ error: 'Service identity cryptographic assertions not configured' });
   });
 
   it('calls next() when SERVICE_IDENTITY_REQUIRED is unset and no assertions are configured', async () => {
@@ -73,9 +73,12 @@ describe('serviceIdentityMiddleware — strict mode (SERVICE_IDENTITY_REQUIRED=t
     expect(res.status).toBe(503);
   });
 
-  it('does not return 503 when assertions are configured, regardless of SERVICE_IDENTITY_REQUIRED', async () => {
+  it('does not return 503 when cryptographic assertions are configured, regardless of SERVICE_IDENTITY_REQUIRED', async () => {
     process.env.SERVICE_IDENTITY_REQUIRED = 'true';
-    process.env.SERVICE_IDENTITY_ALLOWED_SPIFFE_IDS = 'spiffe://cluster/ns/svc';
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
 
     const app = buildApp(serviceIdentityMiddleware);
     // Assertions are present — strict-mode bypass is skipped.
@@ -83,5 +86,12 @@ describe('serviceIdentityMiddleware — strict mode (SERVICE_IDENTITY_REQUIRED=t
     const res = await request(app).get('/probe');
 
     expect(res.status).not.toBe(503);
+  });
+
+  it('startup validation fails in strict mode when only legacy token is configured', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.SERVICE_IDENTITY_REQUIRED = 'true';
+
+    expect(() => validateServiceIdentityConfig()).toThrow(/cryptographic assertions/i);
   });
 });

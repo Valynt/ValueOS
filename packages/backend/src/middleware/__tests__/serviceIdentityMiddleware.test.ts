@@ -88,6 +88,78 @@ describe('serviceIdentityMiddleware', () => {
     expect(next).toHaveBeenCalled();
     delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
   });
+
+  it('rejects forged x-spiffe-id without signed ingress attestation', () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      allowedSpiffeIds: ['spiffe://cluster.local/ns/valynt/sa/backend'],
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+
+    const req = {
+      method: 'POST',
+      url: '/internal',
+      originalUrl: '/internal',
+      body: {},
+      header: vi.fn((name: string) => {
+        switch (name.toLowerCase()) {
+          case 'x-spiffe-id':
+            return 'spiffe://cluster.local/ns/valynt/sa/backend';
+          case 'x-request-timestamp':
+            return String(Date.now());
+          case 'x-request-nonce':
+            return 'forged-nonce';
+          default:
+            return undefined;
+        }
+      }),
+    } as any;
+
+    const res = mockRes();
+    const next = vi.fn();
+
+    serviceIdentityMiddleware(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+  });
+
+  it('rejects forged x-service-principal without jwt/hmac assertion', () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      allowedSpiffeIds: ['internal-agent'],
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+
+    const req = {
+      method: 'POST',
+      url: '/internal',
+      originalUrl: '/internal',
+      body: {},
+      header: vi.fn((name: string) => {
+        switch (name.toLowerCase()) {
+          case 'x-service-principal':
+            return 'internal-agent';
+          case 'x-request-timestamp':
+            return String(Date.now());
+          case 'x-request-nonce':
+            return 'forged-principal-nonce';
+          default:
+            return undefined;
+        }
+      }),
+    } as any;
+
+    const res = mockRes();
+    const next = vi.fn();
+
+    serviceIdentityMiddleware(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+  });
 });
 
 describe('addServiceIdentityHeader', () => {
