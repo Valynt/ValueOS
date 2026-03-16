@@ -50,7 +50,24 @@ type ServiceIdentityConfig = {
   allowedSpiffeIds?: string[];
   jwtIssuers?: JwtIssuerConfig[];
   hmacKeys?: HmacServiceKey[];
+  ingressAttestors?: IngressAttestorConfig[];
   revokedServices?: string[];
+};
+
+type IngressAttestorConfig = {
+  issuer: string;
+  keyId: string;
+  sharedSecret: string;
+};
+
+type IngressAttestationPayload = {
+  issuer: string;
+  keyId: string;
+  timestamp: number;
+  nonce: string;
+  spiffeId?: string;
+  servicePrincipal?: string;
+  audience?: string;
 };
 
 type ResolvedIdentity = {
@@ -130,8 +147,58 @@ function getRevokedServices(config: ServiceIdentityConfig): Set<string> {
   return new Set((config.revokedServices || []).map((id) => id.toLowerCase()));
 }
 
+function isLocalEnvironment(): boolean {
+  return ['development', 'test', 'local'].includes(process.env.NODE_ENV || 'development');
+}
+
+function hasCryptographicAssertions(config: ServiceIdentityConfig): boolean {
+  return Boolean((config.jwtIssuers && config.jwtIssuers.length > 0) || (config.hmacKeys && config.hmacKeys.length > 0));
+}
+
+function parseIngressAttestation(req: Request, config: ServiceIdentityConfig): IngressAttestationPayload | null {
+  const encodedPayload = req.header('x-ingress-attestation');
+  const signature = req.header('x-ingress-attestation-signature');
+  if (!encodedPayload || !signature) {
+    return null;
+  }
+
+  let payload: IngressAttestationPayload;
+  try {
+    payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as IngressAttestationPayload;
+  } catch {
+    return null;
+  }
+
+  if (!payload.issuer || !payload.keyId || !payload.timestamp || !payload.nonce) {
+    return null;
+  }
+
+  if (Math.abs(Date.now() - payload.timestamp) > MAX_CLOCK_SKEW_MS) {
+    return null;
+  }
+
+  const attestor = (config.ingressAttestors || []).find(
+    (candidate) => candidate.issuer === payload.issuer && candidate.keyId === payload.keyId
+  );
+  if (!attestor) {
+    return null;
+  }
+
+  const expectedSignature = createHmac('sha256', attestor.sharedSecret).update(encodedPayload).digest('hex');
+  if (!secureEquals(expectedSignature, signature)) {
+    return null;
+  }
+
+  return payload;
+}
+
 function verifyMtlsIdentity(req: Request, config: ServiceIdentityConfig): ResolvedIdentity | null {
-  const presented = req.header('x-spiffe-id') || req.header('x-service-principal') || '';
+  const attestation = parseIngressAttestation(req, config);
+  if (!attestation) {
+    return null;
+  }
+
+  const presented = attestation.spiffeId || attestation.servicePrincipal || '';
   if (!presented) return null;
 
   const allowed = config.allowedSpiffeIds || [];
@@ -139,7 +206,7 @@ function verifyMtlsIdentity(req: Request, config: ServiceIdentityConfig): Resolv
     return null;
   }
 
-  const audience = req.header('x-service-audience') || undefined;
+  const audience = attestation.audience || req.header('x-service-audience') || undefined;
   if (config.expectedAudience && audience && audience !== config.expectedAudience) {
     return null;
   }
@@ -257,6 +324,16 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
     (config.jwtIssuers && config.jwtIssuers.length > 0) ||
     (config.hmacKeys && config.hmacKeys.length > 0)
   );
+  const hasCryptoAssertions = hasCryptographicAssertions(config);
+  const strictMode = !isLocalEnvironment() || process.env.SERVICE_IDENTITY_REQUIRED === 'true';
+
+  if (strictMode && !hasCryptoAssertions) {
+    logger.error('Service identity strict mode requires jwtIssuers or hmacKeys', {
+      path: req.originalUrl || req.url,
+      nodeEnv: process.env.NODE_ENV,
+    });
+    return res.status(503).json({ error: 'Service identity cryptographic assertions not configured' });
+  }
 
   if (!configuredAssertions && !serviceIdentityToken) {
     // Fail closed in production (caught at startup by validateServiceIdentityConfig)
@@ -357,8 +434,6 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
  * and no legacy token is present, preventing the open-access misconfiguration.
  */
 export function validateServiceIdentityConfig(): void {
-  if (process.env.NODE_ENV !== 'production') return;
-
   const { serviceIdentityToken } = getAutonomyConfig();
   const config = parseServiceIdentityConfig();
   const configuredAssertions = Boolean(
@@ -367,11 +442,38 @@ export function validateServiceIdentityConfig(): void {
     (config.hmacKeys && config.hmacKeys.length > 0)
   );
 
+  const hasCryptoAssertions = hasCryptographicAssertions(config);
+  const strictMode = !isLocalEnvironment() || process.env.SERVICE_IDENTITY_REQUIRED === 'true';
+
+  if (!strictMode) {
+    return;
+  }
+
+  if (strictMode && !hasCryptoAssertions) {
+    throw new Error(
+      'FATAL: Service identity strict mode requires cryptographic assertions. ' +
+      'Set SERVICE_IDENTITY_CONFIG_JSON with jwtIssuers and/or hmacKeys for non-local environments.'
+    );
+  }
+
   if (!configuredAssertions && !serviceIdentityToken) {
     throw new Error(
       'FATAL: No service identity assertions configured in production. ' +
       'Set SERVICE_IDENTITY_CONFIG_JSON with hmacKeys, jwtIssuers, or allowedSpiffeIds. ' +
       'Internal endpoints are unprotected without this configuration.'
+    );
+  }
+
+  if (strictMode && serviceIdentityToken && !configuredAssertions) {
+    throw new Error(
+      'FATAL: Legacy x-service-identity token cannot be used as the only service identity mechanism in strict mode.'
+    );
+  }
+
+  if ((config.allowedSpiffeIds || []).length > 0 && (config.ingressAttestors || []).length === 0) {
+    throw new Error(
+      'FATAL: allowedSpiffeIds configured without ingressAttestors. ' +
+      'mTLS identity must be accompanied by signed ingress attestation.'
     );
   }
 }
