@@ -46,7 +46,7 @@ export function loadConfig(): AppConfig {
   return {
     env,
     appUrl: getEnv("VITE_APP_URL", "http://localhost:5173"),
-    apiBaseUrl: getEnv("VITE_API_BASE_URL", "/api"),
+    apiBaseUrl: getEnv("VITE_API_BASE_URL", ""),
     supabase: {
       url: getEnv("VITE_SUPABASE_URL", ""),
       anonKey: getEnv("VITE_SUPABASE_ANON_KEY", ""),
