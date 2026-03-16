@@ -154,11 +154,11 @@ export class WorkflowDAGExecutor {
     });
 
     // Execute DAG asynchronously
-    this.executeDAG(execution.id, workflow).catch(async (error: unknown) => {
+    this.executeDAG(execution.id, workflow, context.organizationId).catch(async (error: unknown) => {
       if (error instanceof Error) {
-        await this.handleWorkflowFailure(execution.id, error.message);
+        await this.handleWorkflowFailure(execution.id, context.organizationId, error.message);
       } else {
-        await this.handleWorkflowFailure(execution.id, "Unknown error");
+        await this.handleWorkflowFailure(execution.id, context.organizationId, "Unknown error");
       }
     });
 
@@ -168,7 +168,11 @@ export class WorkflowDAGExecutor {
   /**
    * Execute the workflow DAG
    */
-  private async executeDAG(executionId: string, workflow: WorkflowDAG): Promise<void> {
+  private async executeDAG(
+    executionId: string,
+    workflow: WorkflowDAG,
+    organizationId: string
+  ): Promise<void> {
     let currentStageId = workflow.initial_stage;
     const executedSteps: ExecutedStep[] = [];
 
@@ -239,9 +243,13 @@ export class WorkflowDAGExecutor {
             currentStageId = nextStageId;
           } catch (error: unknown) {
             if (error instanceof Error) {
-              await this.handleWorkflowFailure(executionId, error.message);
+              await this.handleWorkflowFailure(executionId, organizationId, error.message);
             } else {
-              await this.handleWorkflowFailure(executionId, "Invalid workflow state transition");
+              await this.handleWorkflowFailure(
+                executionId,
+                organizationId,
+                "Invalid workflow state transition"
+              );
             }
             return;
           }
@@ -263,7 +271,11 @@ export class WorkflowDAGExecutor {
           await this.triggerCompensation(executionId, executedSteps);
         }
 
-        await this.handleWorkflowFailure(executionId, result.error || "Stage execution failed");
+        await this.handleWorkflowFailure(
+          executionId,
+          organizationId,
+          result.error || "Stage execution failed"
+        );
         return;
       }
     }
@@ -598,7 +610,11 @@ export class WorkflowDAGExecutor {
   /**
    * Handle workflow failure
    */
-  private async handleWorkflowFailure(executionId: string, error: string): Promise<void> {
+  private async handleWorkflowFailure(
+    executionId: string,
+    organizationId: string,
+    error: string
+  ): Promise<void> {
     await supabase
       .from("workflow_executions")
       .update({
@@ -606,7 +622,8 @@ export class WorkflowDAGExecutor {
         error_message: error,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", executionId);
+      .eq("id", executionId)
+      .eq("organization_id", organizationId);
 
     await this.logEvent(executionId, "workflow_failed", null, { error });
   }
