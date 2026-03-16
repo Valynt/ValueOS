@@ -89,17 +89,36 @@ export class ComplianceControlCheckService {
       return (data?.timestamp as string | undefined) ?? null;
     }
 
-    const { data, error } = await this.supabase
-      .from("audit_logs")
-      .select("timestamp")
-      .eq("tenant_id", tenantId)
-      .eq("archived", true)
-      .order("timestamp", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    if (evidenceType === "audit_logs_archive") {
+      const { data, error } = await this.supabase
+        .from("audit_logs")
+        .select("timestamp")
+        .eq("tenant_id", tenantId)
+        .eq("archived", true)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (error) return null;
-    return (data?.timestamp as string | undefined) ?? null;
+      if (error) return null;
+      return (data?.timestamp as string | undefined) ?? null;
+    }
+
+    if (evidenceType === "security_audit_log_archive") {
+      const { data, error } = await this.supabase
+        .from("audit_logs")
+        .select("timestamp")
+        .eq("tenant_id", tenantId)
+        .eq("archived", true)
+        .in("resource_type", ["security_alert", "security_event", "security_incident", "security_audit_log"])
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) return null;
+      return (data?.timestamp as string | undefined) ?? null;
+    }
+
+    return null;
   }
 
   async runChecksForTenant(tenantId: string, trigger: "scheduled" | "manual" = "scheduled"): Promise<AutomatedControlCheckSnapshot> {
