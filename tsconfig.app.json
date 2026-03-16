@@ -55,6 +55,9 @@
       "@valueos/memory": [
         "./packages/memory/index.ts"
       ],
+      "@valueos/memory/*": [
+        "./packages/memory/*/index.ts"
+      ],
       "@valueos/sdui": [
         "./packages/sdui/src/index.ts"
       ],

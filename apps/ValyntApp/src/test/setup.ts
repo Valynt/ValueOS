@@ -1,6 +1,11 @@
-import "@testing-library/jest-dom/vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
+import { afterEach, expect, vi } from "vitest";
+
+// Extend vitest's expect with jest-dom matchers explicitly.
+// The @testing-library/jest-dom/vitest side-effect import is unreliable
+// with some vitest versions — explicit extend is always safe.
+expect.extend(matchers);
 
 // Fallback env vars so modules that eagerly validate config don't throw at import time
 process.env.VITE_SUPABASE_URL ??= "http://localhost:54321";

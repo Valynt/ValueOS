@@ -15,6 +15,7 @@ status: active
 ## Authoritative Runbooks
 
 - [Deployment Runbook](./runbooks/deployment-runbook.md)
+- [RBAC Degraded-Security Runbook](./runbooks/rbac-redis-unavailable.md)
 - [Testing Operations Runbook](./runbooks/testing-operations-runbook.md)
 - [Troubleshooting Runbook](./runbooks/troubleshooting-runbook.md)
 - [Incident Response](./incident-response.md)
@@ -30,13 +31,14 @@ status: active
 ## Additional Operations Docs
 
 - [Analytics Guide](./analytics-guide.md)
-- [Backup Recovery](./backup-recovery.md)
+- [Backup and Recovery](./backup-and-recovery.md)
 - [Caddy Configuration](./caddy-configuration.md)
 - [Environment and Startup Unification](./env-startup-unification.md)
 - [Ci Cd Pipeline](./ci-cd-pipeline.md)
 - [Dependency Upgrade Triage Runbook](./dependency-upgrade-triage-runbook.md)
 - [Monitoring Observability](./monitoring-observability.md)
 - [SLOs and SLIs](./slo-sli.md)
+- [Load Test Baselines](./load-test-baselines.md)
 - [Query Plan Baselines](./query-plan-baselines.md)
 - [Performance Tuning](./performance-tuning.md)
 - [Scaling Guide](./scaling-guide.md)
