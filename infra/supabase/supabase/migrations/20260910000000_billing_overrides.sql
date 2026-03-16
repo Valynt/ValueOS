@@ -12,7 +12,11 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.billing_overrides (
   id                uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id   uuid        NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  -- FK to organizations deferred: table may not exist yet on all databases.
+  -- Add constraint when public.organizations is created:
+  --   ALTER TABLE public.billing_overrides
+  --     ADD CONSTRAINT billing_overrides_org_fk FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+  organization_id   uuid        NOT NULL,
   metric            text        NOT NULL,
   override_type     text        NOT NULL CHECK (override_type IN ('contract', 'temporary')),
   -- For contract overrides: custom price per unit (overrides plan rate)
