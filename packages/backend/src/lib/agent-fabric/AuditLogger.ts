@@ -12,7 +12,26 @@
  */
 
 import { logger } from "../logger.js";
+import { redactSensitiveText } from "./redaction.js";
 import { AuditLogService } from "../../services/security/AuditLogService.js";
+
+/**
+ * Recursively redact PII from all string values in an audit details object.
+ * Numeric and boolean values pass through unchanged.
+ */
+function redactDetails(details: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(details)) {
+    if (typeof v === "string") {
+      out[k] = redactSensitiveText(v).redactedText;
+    } else if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+      out[k] = redactDetails(v as Record<string, unknown>);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 export interface LLMInvocationAuditParams {
   agentName: string;
@@ -78,14 +97,14 @@ export class AuditLogger {
         resourceType: "agent_session",
         resourceId: params.sessionId,
         tenantId: params.tenantId,
-        details: {
+        details: redactDetails({
           agent: params.agentName,
           model: params.model,
           latency_ms: params.latencyMs,
           hallucination_passed: params.hallucinationPassed,
           grounding_score: params.groundingScore,
           token_usage: params.tokenUsage,
-        },
+        }),
         status: "success",
         correlationId: params.sessionId,
       });
@@ -108,11 +127,11 @@ export class AuditLogger {
         resourceType: "semantic_memory",
         resourceId: params.sessionId,
         tenantId: params.tenantId,
-        details: {
+        details: redactDetails({
           agent: params.agentName,
           memory_type: params.memoryType,
           key_preview: params.keyPreview,
-        },
+        }),
         status: "success",
         correlationId: params.sessionId,
       });
@@ -135,13 +154,13 @@ export class AuditLogger {
         resourceType: "value_case",
         resourceId: params.caseId,
         tenantId: params.tenantId,
-        details: {
+        details: redactDetails({
           agent: params.agentName,
           case_id: params.caseId,
           claim_id: params.claimId,
           reason: params.reason,
           confidence: params.confidence,
-        },
+        }),
         status: "success",
         correlationId: params.sessionId,
       });
@@ -164,7 +183,6 @@ export class AuditLogger {
       await this.auditLogService.logAudit({
         // Treat the agent as the acting "system" user; record the triggering user in details.
         userId: "system",
-        userId: "system",
         userName: event.agentName,
         userEmail: `agent:${event.agentName.toLowerCase()}@valueos.internal`,
         action: `agent.${event.action}`,
@@ -176,7 +194,6 @@ export class AuditLogger {
           session_id: event.sessionId,
           triggered_by_user_id: event.userId,
           organization_id: event.organizationId,
-          triggered_by_user_id: event.userId,
           ...event.details,
         },
         correlationId: event.sessionId,

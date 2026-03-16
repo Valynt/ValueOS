@@ -37,6 +37,7 @@ import {
   VerticalSplit,
 } from "./components/SDUI/CanvasLayout";
 import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+import { HallucinationBadge } from "./components/SDUI/HallucinationBadge";
 import { InteractiveChart } from "./components/SDUI/InteractiveChart";
 import { KPIForm } from "./components/SDUI/KPIForm";
 import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
@@ -666,6 +667,14 @@ versionedRegistry.register({
   description: "Dashboard panel layout container with optional collapsible header",
   optionalProps: ["title", "collapsible", "defaultCollapsed", "slots"],
   tags: ["ui", "layout", "canvas", "dashboard"],
+});
+
+versionedRegistry.register({
+  component: HallucinationBadge,
+  version: 1,
+  description: "Displays agent hallucination check result. Green = passed, red = failed, amber = unknown. Shows grounding score on click.",
+  optionalProps: ["hallucination_check", "grounding_score", "detail"],
+  tags: ["ui", "agent", "trust", "badge"],
 });
 
 // Register fallback components
