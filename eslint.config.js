@@ -545,6 +545,37 @@ const strictNoAnyOverrides = {
 
 
 
+
+// Guardrail: prevent `as any` assertions in auth/security production modules.
+const authSecurityNoAsAnyOverrides = {
+  files: [
+    "packages/backend/src/api/auth.ts",
+    "packages/backend/src/middleware/auth*.ts",
+    "packages/backend/src/middleware/security*.ts",
+    "packages/backend/src/services/auth/**/*.ts",
+    "packages/shared/src/lib/auth/**/*.ts",
+  ],
+  ignores: [
+    "packages/backend/src/**/*.test.ts",
+    "packages/backend/src/**/*.spec.ts",
+    "packages/backend/src/**/__tests__/**",
+    "packages/shared/src/**/*.test.ts",
+    "packages/shared/src/**/*.spec.ts",
+    "packages/shared/src/**/__tests__/**",
+    "packages/backend/src/services/auth/AuthService.ts",
+    "packages/backend/src/middleware/securityHeaders.ts",
+  ],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "TSAsExpression > TSAnyKeyword",
+        message: "Do not use `as any` in auth/security modules. Introduce typed adapters or type guards.",
+      },
+    ],
+  },
+};
+
 const appModuleBoundaryOverrides = {
   files: ["apps/ValyntApp/src/**/*.{ts,tsx,js,jsx}"],
   rules: {
@@ -793,6 +824,7 @@ export default [
   backendNoConsoleOverrides,
   frontendNoConsoleOverrides,
   strictNoAnyOverrides,
+  authSecurityNoAsAnyOverrides,
   configOverrides,
   testOverrides,
   k6Overrides,
