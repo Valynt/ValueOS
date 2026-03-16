@@ -10,8 +10,10 @@
 - [Bug Bounty and CVD Program](./bug-bounty-cvd-program.md)
 - [Compliance Guide](./compliance-guide.md)
 - [Control Summaries (Customer-Facing)](./control-summaries.md)
+- [Control Traceability Matrix](./control-traceability-matrix.md)
 - [Data Ownership Statement](./data-ownership-statement.md)
 - [Evidence Index](./evidence-index.md)
+- [HIPAA Applicability Profile](./hipaa-applicability-profile.md)
 - [Production Contract](./production-contract.md)
 - [RBAC Role Taxonomy](./rbac-role-taxonomy.md)
 - [Security Overview](./security-overview.md)
@@ -22,4 +24,4 @@
 
 ---
 
-**Total Documents**: 13
+**Total Documents**: 15

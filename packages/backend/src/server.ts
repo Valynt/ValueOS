@@ -146,6 +146,7 @@ import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/post-v1/SecurityAuditService.js";
+import { complianceControlCheckService } from "./services/security/ComplianceControlCheckService.js";
 
 import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
@@ -784,7 +785,10 @@ async function startServer(): Promise<void> {
   // 6. Start audit log DLQ retry loop
   securityAuditService.startRetryLoop();
 
-  // 7. Register graceful shutdown handlers
+  // 7. Start compliance automated control check scheduler
+  complianceControlCheckService.start();
+
+  // 8. Register graceful shutdown handlers
   registerGracefulShutdown();
 }
 
@@ -810,6 +814,9 @@ function registerGracefulShutdown(): void {
 
     // 2.5. Stop RecommendationEngine subscriptions
     getRecommendationEngine().stop();
+
+    // 2.6 Stop compliance control check scheduler
+    complianceControlCheckService.stop();
 
     // 2.6. Tear down RBAC invalidation Redis pub/sub subscription
     permissionService.destroy().catch(() => {});
