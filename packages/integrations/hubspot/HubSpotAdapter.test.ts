@@ -205,7 +205,7 @@ describe("HubSpotAdapter", () => {
       throw new DOMException("Aborted", "AbortError");
     });
 
-    await expect(adapter.validate()).rejects.toMatchObject<Partial<IntegrationError>>({
+    await expect(adapter.validate()).rejects.toMatchObject({
       code: "TIMEOUT",
       retryable: true,
     });

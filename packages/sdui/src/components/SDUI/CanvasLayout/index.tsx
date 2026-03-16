@@ -199,8 +199,8 @@ function SplitLayout({
           }`}
           style={
             isVertical
-              ? { left: `calc(${(activeRatios[0] / totalRatio) * 100}% - 6px)` }
-              : { top: `calc(${(activeRatios[0] / totalRatio) * 100}% - 6px)` }
+              ? { left: `calc(${((activeRatios[0] ?? 0) / totalRatio) * 100}% - 6px)` }
+              : { top: `calc(${((activeRatios[0] ?? 0) / totalRatio) * 100}% - 6px)` }
           }
         >
           {isVertical ? <GripVertical className="h-3 w-3" /> : <GripHorizontal className="h-3 w-3" />}

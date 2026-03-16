@@ -36,8 +36,25 @@ export interface SchemaDelta {
 
 // Track applied delta IDs to prevent duplicate application.
 // Bounded to last 1000 entries.
+//
+// HMR NOTE: This set is module-level and survives Vite hot-module replacement.
+// Delta IDs applied before a hot reload will be silently skipped after the
+// reload, which can make schema patches appear to have no effect during
+// development. Call `clearAppliedDeltas()` in your HMR accept handler:
+//
+//   if (import.meta.hot) {
+//     import.meta.hot.accept(() => clearAppliedDeltas());
+//   }
 const appliedDeltaIds = new Set<string>();
 const MAX_APPLIED_DELTAS = 1000;
+
+/**
+ * Reset the applied-delta deduplication set.
+ * Call this in HMR accept handlers and in test `beforeEach` blocks.
+ */
+export function clearAppliedDeltas(): void {
+  appliedDeltaIds.clear();
+}
 
 export class SchemaPatcher {
   /**
@@ -97,6 +114,7 @@ export class SchemaPatcher {
     const updateNested = (obj: unknown, keys: string[]): unknown => {
       if (keys.length === 0) return value;
       const [head, ...tail] = keys;
+      if (head === undefined) return obj;
       if (Array.isArray(obj)) {
         const index = parseInt(head, 10);
         if (isNaN(index)) return obj;
@@ -145,7 +163,7 @@ export class SchemaPatcher {
   ): SDUIPageDefinition {
     if (index < 0 || index >= schema.sections.length) return schema;
     const newSections = schema.sections.map((section, i) =>
-      i === index ? { ...section, ...updates } : section
+      i === index ? ({ ...section, ...updates } as typeof section) : section
     );
     return {
       ...schema,
@@ -162,7 +180,7 @@ export class SchemaPatcher {
       metadata: {
         ...schema.metadata,
         ...metadata,
-      },
+      } as typeof schema.metadata,
     };
   }
 

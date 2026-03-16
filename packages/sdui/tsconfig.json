@@ -32,6 +32,6 @@
       "@valueos/sdui-types": ["../sdui-types/index.ts"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]
+  "include": ["src/**/*", "config/**/*", "lib/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx", "**/*.stories.tsx", "**/*.stories.ts"]
 }

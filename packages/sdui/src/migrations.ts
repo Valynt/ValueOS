@@ -431,11 +431,13 @@ export class MigrationRunner {
       // Final validation — skip the "at least one section" check for empty
       // schemas so callers can migrate placeholder/empty pages without error.
       const finalValidation = validateSDUISchema(migratedSchema);
-      const nonEmptySectionErrors = (finalValidation.errors ?? []).filter(
-        (e) => !e.includes("At least one section")
-      );
-      if (!finalValidation.success && nonEmptySectionErrors.length > 0) {
-        throw new Error(`Final schema validation failed: ${nonEmptySectionErrors.join(", ")}`);
+      if (!finalValidation.success) {
+        const nonEmptySectionErrors = finalValidation.errors.filter(
+          (e) => !e.includes("At least one section")
+        );
+        if (nonEmptySectionErrors.length > 0) {
+          throw new Error(`Final schema validation failed: ${nonEmptySectionErrors.join(", ")}`);
+        }
       }
 
       // Calculate final schema hash
@@ -443,7 +445,7 @@ export class MigrationRunner {
 
       result.success = true;
       result.schemaHash = finalHash;
-      result.warnings = finalValidation.warnings;
+      result.warnings = finalValidation.success ? finalValidation.warnings : [];
 
       logger.info("Migration completed successfully", {
         fromVersion,
@@ -597,8 +599,8 @@ export class MigrationRunner {
     // Store checkpoint (maintain max size)
     this.checkpoints.set(checkpoint.id, checkpoint);
     if (this.checkpoints.size > this.maxCheckpoints) {
-      const oldestKey = this.checkpoints.keys().next().value;
-      this.checkpoints.delete(oldestKey);
+      const oldestKey = this.checkpoints.keys().next().value as string | undefined;
+      if (oldestKey !== undefined) this.checkpoints.delete(oldestKey);
     }
 
     logger.info("Migration checkpoint created", {

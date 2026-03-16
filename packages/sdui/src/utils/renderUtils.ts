@@ -346,24 +346,24 @@ export function isDevelopment(): boolean {
 /**
  * Log message only in development mode
  */
-export function devLog(message: string, ...args: unknown[]): void {
+export function devLog(message: string, context?: Record<string, unknown>): void {
   if (isDevelopment()) {
-    logger.debug(`[SDUI] ${message}`, ...args);
+    logger.debug(`[SDUI] ${message}`, context);
   }
 }
 
 /**
  * Log warning only in development mode
  */
-export function devWarn(message: string, ...args: unknown[]): void {
+export function devWarn(message: string, context?: Record<string, unknown>): void {
   if (isDevelopment()) {
-    logger.warn(`[SDUI] ${message}`, ...args);
+    logger.warn(`[SDUI] ${message}`, context);
   }
 }
 
 /**
  * Log error (always logged)
  */
-export function logError(message: string, error?: Error, ...args: unknown[]): void {
-  logger.error(`[SDUI] ${message}`, error, ...args);
+export function logError(message: string, error?: Error, context?: Record<string, unknown>): void {
+  logger.error(`[SDUI] ${message}`, error, context);
 }

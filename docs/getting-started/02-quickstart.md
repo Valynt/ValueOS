@@ -1,5 +1,7 @@
 # 02 Quickstart
 
+> **Note:** References to `pnpm run dx` and `pnpm run dx:*` in this document are design specifications, not implemented package.json scripts. Use `gitpod automations service start <id>` to start services. See `.ona/automations.yaml` for the canonical service list.
+
 **Last Updated**: 2026-02-08
 
 **Consolidated from 1 source documents**

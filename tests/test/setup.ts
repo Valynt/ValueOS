@@ -18,7 +18,7 @@ afterEach(() => {
 process.env.VITE_APP_ENV = 'test';
 process.env.VITE_APP_URL = 'http://localhost:5173';
 process.env.VITE_API_BASE_URL = 'http://localhost:3000';
-process.env.VITE_AGENT_API_URL = 'http://localhost:8000/api/agents';
+process.env.VITE_AGENT_API_URL = 'http://localhost:3001/api/agents';
 process.env.VITE_MOCK_AGENTS = 'true';
 process.env.TEST_MODE = 'true';
 

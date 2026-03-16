@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
 
-import { getEnvVar, getSupabaseConfig } from "./env";
+import { getEnvVar, getSupabaseConfig } from "./env.js";
 
 // Simple fetch wrapper with retry for transient network/server errors
 const MAX_RETRY_ATTEMPTS = 3;
@@ -13,7 +13,7 @@ function isRetryableError(error: unknown): boolean {
 }
 
 const fetchWithRetry = async (
-  input: RequestInfo | URL,
+  input: string | URL | Request,
   init?: RequestInit
 ): Promise<Response> => {
   let lastError: unknown;
@@ -43,7 +43,7 @@ const supabaseServiceRoleKey = supabaseConfig.serviceRoleKey;
 const nodeEnv = getEnvVar("NODE_ENV") || getEnvVar("VITE_APP_ENV");
 const allowInsecureAnonServerClient =
   getEnvVar("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
-const isServer = typeof window === "undefined";
+const isServer = !(typeof globalThis !== "undefined" && "window" in globalThis);
 const isProduction = nodeEnv === "production";
 
 if (isServer && isProduction && !supabaseServiceRoleKey) {
@@ -159,7 +159,7 @@ export function createServerSupabaseClient(serviceKey?: string) {
     }
   }
 
-  if (typeof window !== "undefined") {
+  if (typeof globalThis !== "undefined" && "window" in globalThis) {
     throw new Error(
       "Server Supabase client cannot be used in browser environment"
     );

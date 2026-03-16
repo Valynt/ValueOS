@@ -165,7 +165,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
         return;
       }
       
-      if (!ALLOWED_CANVAS_COMPONENTS.includes(component)) {
+      if (!ALLOWED_CANVAS_COMPONENTS.includes(component as typeof ALLOWED_CANVAS_COMPONENTS[number])) {
         errors.push(
           `Invalid component "${component}" at ${path}. ` +
           `Allowed components: ${ALLOWED_CANVAS_COMPONENTS.join(', ')}`

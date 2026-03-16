@@ -131,7 +131,7 @@ const ComponentWithBindings: React.FC<{
 
   // Check for validation errors
   if (validationErrors.length > 0) {
-    logger.error("Component prop validation failed", {
+    logger.error("Component prop validation failed", undefined, {
       component: section.component,
       version: section.version,
       errors: validationErrors,
@@ -243,7 +243,7 @@ const renderSection = (
     "type" in section &&
     typeof (section as Record<string, unknown>).type === "string" &&
     ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(
-      (section as Record<string, string>).type
+      (section as Record<string, unknown>).type as string
     )
   ) {
     const sec = section as Record<string, unknown> & { type: string; children?: unknown[]; slots?: Record<string, unknown> };

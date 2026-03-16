@@ -15,7 +15,7 @@ import {
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
-  seedTestData,,
+  seedTestData,
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 

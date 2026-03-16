@@ -8,9 +8,8 @@
 import { logger } from "@shared/lib/logger";
 import { z } from "zod";
 
-import { ComponentResolutionResult, resolveComponentWithVersion } from "./registry";
+import { ComponentResolutionResult, resolveComponentWithVersion, versionedRegistry } from "./registry";
 import { SDUIComponentSection } from "./schema";
-import { useDataBindings } from "./useDataBinding";
 
 /**
  * Validation result for component props
@@ -81,8 +80,8 @@ export function validateComponentProps(
   const warnings: string[] = [];
 
   // Get component metadata from registry
-  const metadata = resolveComponentWithVersion(componentName, version);
-  if (!metadata) {
+  const resolutionResult = resolveComponentWithVersion(componentName, version);
+  if (!resolutionResult) {
     errors.push(`No metadata found for component ${componentName} v${version}`);
     return {
       success: false,
@@ -92,6 +91,8 @@ export function validateComponentProps(
     };
   }
 
+  const versionedMeta = versionedRegistry.getMetadata(componentName, version);
+
   // Try to get registered schema first
   let schema = getComponentPropSchema(componentName);
 
@@ -99,8 +100,8 @@ export function validateComponentProps(
   if (!schema) {
     schema = createDynamicPropSchema(
       componentName,
-      metadata.requiredProps || [],
-      metadata.optionalProps || []
+      versionedMeta?.requiredProps ?? [],
+      versionedMeta?.optionalProps ?? []
     );
     warnings.push(
       `Using dynamic schema for ${componentName} - consider registering a proper Zod schema`
@@ -118,8 +119,8 @@ export function validateComponentProps(
   }
 
   // Check required props
-  if (metadata.requiredProps) {
-    for (const requiredProp of metadata.requiredProps) {
+  if (versionedMeta?.requiredProps) {
+    for (const requiredProp of versionedMeta.requiredProps) {
       if (!(requiredProp in props)) {
         errors.push(`${componentName}: Missing required prop '${requiredProp}'`);
       }
@@ -127,13 +128,13 @@ export function validateComponentProps(
   }
 
   // Validate version compatibility
-  if (metadata.deprecated) {
+  if (resolutionResult.isDeprecated) {
     warnings.push(
-      `${componentName} v${version} is deprecated: ${metadata.deprecationMessage || "Component is deprecated"}`
+      `${componentName} v${version} is deprecated: ${resolutionResult.deprecationMessage ?? "Component is deprecated"}`
     );
   }
 
-  const validatedProps = validation.success ? validation.data : props;
+  const validatedProps = validation.success ? (validation.data as Record<string, unknown>) : props;
 
   return {
     success: errors.length === 0,
@@ -164,13 +165,11 @@ export function useValidatedDataBindings<T extends Record<string, unknown>>(
 } {
   const { resolver, context, componentName, componentVersion } = options;
 
-  // Use existing data binding resolution
-  const {
-    props: resolvedProps,
-    loading,
-    errors,
-    refresh,
-  } = useDataBindings(props, { resolver, context });
+  // useDataBindings resolves a single DataBinding — pass props as-is when not a binding
+  const resolvedProps = props;
+  const loading = false;
+  const errors: Record<string, string> = {};
+  const refresh = async () => { /* no-op: props are static */ };
 
   // Perform type validation if component info is provided
   const validationErrors: string[] = [];
@@ -178,12 +177,12 @@ export function useValidatedDataBindings<T extends Record<string, unknown>>(
 
   if (componentName && componentVersion) {
     const componentResult = resolveComponentWithVersion(componentName, componentVersion);
-    if (componentResult.component) {
-      const section: SDUIComponentSection & { props: Record<string, unknown> } = {
+    if (componentResult?.component) {
+      const section: SDUIComponentSection = {
         type: "component",
         component: componentName,
         version: componentVersion,
-        props: resolvedProps,
+        props: resolvedProps as Record<string, unknown>,
       };
 
       const validation = validateComponentProps(section, componentResult);

@@ -65,6 +65,15 @@
     "noImplicitThis": true
   },
   "include": ["src"],
-  "exclude": ["src/legacy-merge/**"],
+  "exclude": [
+    "src/legacy-merge/**",
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/observability/**",
+    "src/metrics/**"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

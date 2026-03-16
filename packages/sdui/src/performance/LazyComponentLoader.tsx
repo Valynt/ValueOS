@@ -21,7 +21,7 @@ export interface LazyLoadConfig {
   /**
    * Import function
    */
-  loader: () => Promise<{ default: ComponentType<unknown> }>;
+  loader: () => Promise<{ default: ComponentType<any> }>;
 
   /**
    * Loading fallback component
@@ -52,7 +52,7 @@ export interface LazyLoadConfig {
 /**
  * Lazy component cache
  */
-const lazyComponentCache = new Map<string, React.LazyExoticComponent<ComponentType<unknown>>>();
+const lazyComponentCache = new Map<string, React.LazyExoticComponent<ComponentType<any>>>();
 
 /**
  * Preload cache
@@ -62,14 +62,14 @@ const preloadCache = new Set<string>();
 /**
  * Create lazy component with retry logic
  */
-function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<ComponentType<unknown>> {
+function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<ComponentType<any>> {
   // Check cache
   if (lazyComponentCache.has(config.name)) {
     return lazyComponentCache.get(config.name)!;
   }
 
   // Create loader with retry logic
-  const loaderWithRetry = async (): Promise<{ default: ComponentType<unknown> }> => {
+  const loaderWithRetry = async (): Promise<{ default: ComponentType<any> }> => {
     const { retryAttempts = 3, retryDelay = 1000 } = config;
     let lastError: Error | null = null;
 
@@ -160,7 +160,7 @@ class LazyComponentErrorBoundary extends React.Component<
             </button>
           </div>
 
-          <style jsx>{`
+          <style>{`
             .sdui-lazy-error {
               display: flex;
               align-items: center;
@@ -234,7 +234,7 @@ export const LazyComponent: React.FC<
   return (
     <div onMouseEnter={handleMouseEnter}>
       <LazyComponentErrorBoundary fallback={errorFallback} componentName={name}>
-        <Suspense fallback={fallback || <LoadingFallback />}>
+        <Suspense fallback={fallback || <LoadingFallback componentName={name} />}>
           <LazyComp {...props} />
         </Suspense>
       </LazyComponentErrorBoundary>

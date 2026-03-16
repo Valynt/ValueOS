@@ -204,7 +204,7 @@ export interface InfoBannerProps {
 }
 
 export function InfoBanner({ title, description, tone = "info" }: InfoBannerProps) {
-  const toneClasses: Record<InfoBannerProps["tone"], string> = {
+  const toneClasses: Record<NonNullable<InfoBannerProps["tone"]>, string> = {
     info: "bg-blue-50 border-blue-200 text-blue-900",
     success: "bg-green-50 border-green-200 text-green-900",
     warning: "bg-yellow-50 border-yellow-200 text-yellow-900",
@@ -540,10 +540,13 @@ export interface ProgressBarProps {
 }
 
 export function ProgressBar({ value = 0, max = 100, label, ...ariaProps }: ProgressBarProps) {
+  const filteredAria = Object.fromEntries(
+    Object.entries(ariaProps).filter(([, v]) => v !== undefined)
+  ) as Record<string, string>;
   return (
     <div className="space-y-1">
       {label ? <p className="text-sm">{label}</p> : null}
-      <progress value={value} max={max} className="w-full" {...ariaProps} />
+      <progress value={value} max={max} className="w-full" {...filteredAria} />
     </div>
   );
 }

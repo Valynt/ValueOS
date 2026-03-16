@@ -300,7 +300,7 @@ export function createTenantCacheKey(
  */
 export function createTenantBinding(
   path: string,
-  source: string,
+  source: import("./DataBindingSchema").DataSourceType,
   tenantContext: TenantContext,
   options?: Partial<Omit<TenantAwareDataBinding, '$bind' | '$source'>>
 ): TenantAwareDataBinding {

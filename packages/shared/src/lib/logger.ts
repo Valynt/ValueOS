@@ -345,7 +345,7 @@ export function setupMonitoring() {
         logger.addListener((entry) => {
           if (entry.level === "error" && entry.error) {
             const trace = getTraceContextForLogging();
-            Sentry.withScope((scope: unknown) => {
+            Sentry.withScope((scope: { setExtras: (e: Record<string, unknown>) => void; setTag: (k: string, v: string) => void }) => {
               scope.setExtras({ ...entry.context, ...trace });
               scope.setTag("component", entry.context?.component || "unknown");
               Sentry.captureException(entry.error);

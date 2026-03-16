@@ -4,9 +4,10 @@
  * Registers all Systemic Outcome Framework components with the SDUI system.
  */
 
-import { FeedbackLoopViewer } from '../components/SOF/FeedbackLoopViewer';
-import { InterventionPointCard } from '../components/SOF/InterventionPointCard';
-import { SystemMapCanvas } from '../components/SOF/SystemMapCanvas';
+import React from 'react';
+import { FeedbackLoopViewer } from './components/SOF/FeedbackLoopViewer';
+import { InterventionPointCard } from './components/SOF/InterventionPointCard';
+import { SystemMapCanvas } from './components/SOF/SystemMapCanvas';
 
 /**
  * SOF Component Registry
@@ -55,6 +56,7 @@ export const SOFComponentRegistry = {
 /**
  * Get SOF component by type
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getSOFComponent(type: string): React.ComponentType<any> | undefined {
   return SOFComponentRegistry[type as keyof typeof SOFComponentRegistry];
 }
@@ -73,4 +75,4 @@ export function getSOFComponentTypes(): string[] {
   return Object.keys(SOFComponentRegistry);
 }
 
-export default SOFComponentRegistry;
+

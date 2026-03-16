@@ -40,9 +40,8 @@ vi.mock("../../middleware/auth.js", () => ({
 
 // Mirror USER_ROLE_PERMISSIONS: admin has all permissions; member/viewer have settings:view only.
 const ROLE_GRANTS: Record<string, string[]> = {
-    const r = req as Request & { user?: { role: string; permissions?: string[] } };
-    const permissions = r.user?.permissions ?? [];
-    if (!permissions.includes(required)) {
+  admin: ["tenant:context:read", "tenant:context:write"],
+  member: ["settings:view"],
   viewer: ["settings:view"],
 };
 
@@ -56,26 +55,22 @@ vi.mock("../../middleware/rbac.js", () => ({
     next();
   },
 }));
-    const r = req as Request & {
-      tenantId: string;
-      user: { id: string; role: string; permissions: string[] };
-    };
-const { tenantContextRouter } = await import("../tenantContext.js");
-    const permissionsByRole: Record<"admin" | "viewer", string[]> = {
-      admin: ["tenant:context:read", "tenant:context:write"],
-      viewer: ["tenant:context:read"],
-    };
-    r.user = { id: "user-123", role, permissions: permissionsByRole[role as "admin" | "viewer"] };
-function buildApp(role: "admin" | "viewer" | "none") {
+
+async function buildApp(role: "admin" | "viewer" | "none") {
   const app = express();
   app.use(express.json());
   app.use((req: Request, _res: Response, next: NextFunction) => {
     if (role === "none") return next();
-    const r = req as Request & { tenantId: string; user: { id: string; role: string } };
+    const r = req as Request & { tenantId: string; user: { id: string; role: string; permissions: string[] } };
+    const permissionsByRole: Record<string, string[]> = {
+      admin: ["tenant:context:read", "tenant:context:write"],
+      viewer: ["tenant:context:read"],
+    };
     r.tenantId = "tenant-abc";
-    r.user = { id: "user-123", role };
+    r.user = { id: "user-123", role, permissions: permissionsByRole[role] ?? [] };
     next();
   });
+  const { tenantContextRouter } = await import("../tenantContext.js");
   app.use("/api/v1/tenant/context", tenantContextRouter);
   return app;
 }
@@ -87,7 +82,8 @@ describe("POST /api/v1/tenant/context", () => {
     const { tenantContextIngestionService } = await import(
       "../../services/tenant/TenantContextIngestionService.js"
     );
-    const res = await request(buildApp("admin"))
+    const app = await buildApp("admin");
+    const res = await request(app)
       .post("/api/v1/tenant/context")
       .send({ products: ["ProductA"], icps: ["SMB"], competitors: [], personas: [] })
       .expect(200);
@@ -100,21 +96,24 @@ describe("POST /api/v1/tenant/context", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    await request(buildApp("none"))
+    const app = await buildApp("none");
+    await request(app)
       .post("/api/v1/tenant/context")
       .send({ products: ["ProductA"] })
       .expect(401);
   });
 
   it("returns 403 for viewer role", async () => {
-    await request(buildApp("viewer"))
+    const app = await buildApp("viewer");
+    await request(app)
       .post("/api/v1/tenant/context")
       .send({ products: ["ProductA"] })
       .expect(403);
   });
 
   it("returns 400 for invalid payload", async () => {
-    const res = await request(buildApp("admin"))
+    const app = await buildApp("admin");
+    const res = await request(app)
       .post("/api/v1/tenant/context")
       .send({ notProducts: true })
       .expect(400);
@@ -124,7 +123,8 @@ describe("POST /api/v1/tenant/context", () => {
 
 describe("GET /api/v1/tenant/context", () => {
   it("returns 200 with context summary for viewer", async () => {
-    const res = await request(buildApp("viewer"))
+    const app = await buildApp("viewer");
+    const res = await request(app)
       .get("/api/v1/tenant/context")
       .expect(200);
     expect(res.body.data.products).toContain("ProductA");

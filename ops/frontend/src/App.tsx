@@ -81,7 +81,7 @@ function App() {
                   <span className="font-medium text-gray-700">Frontend Port:</span> <span className="text-gray-600">{import.meta.env.VITE_FRONTEND_PORT || '5173'}</span>
                 </div>
                 <div className="p-4 bg-gray-25 rounded-lg border border-gray-150">
-                  <span className="font-medium text-gray-700">Backend Port:</span> <span className="text-gray-600">{import.meta.env.VITE_API_BASE_URL?.split(':').pop() || '8000'}</span>
+                  <span className="font-medium text-gray-700">Backend Port:</span> <span className="text-gray-600">{import.meta.env.VITE_API_BASE_URL?.split(':').pop() || '3001'}</span>
                 </div>
                 <div className="p-4 bg-gray-25 rounded-lg border border-gray-150">
                   <span className="font-medium text-gray-700">Environment:</span> <span className="text-gray-600">{import.meta.env.MODE}</span>

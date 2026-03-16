@@ -146,7 +146,7 @@ export class SECAdapter implements DataIngestionAdapter {
     };
 
     this.ws.onerror = (error) => {
-      logger.error("Market data websocket error", error as Error);
+      logger.error("Market data websocket error", error instanceof Error ? error : new Error(String(error)));
     };
   }
 

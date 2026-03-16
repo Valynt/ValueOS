@@ -58,8 +58,8 @@ services:
   frontend:
     profiles: ["runtime-docker"]
     environment:
-      API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
-      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-3001}}
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-3001}}
       VITE_SUPABASE_URL: ${SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       VITE_USE_POLLING: ${VITE_USE_POLLING:-true}

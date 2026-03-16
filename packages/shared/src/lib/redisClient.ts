@@ -108,7 +108,7 @@ function buildRedisConnectionConfig(): { url: string; tls?: { servername: string
 export function getRedisClient(): Redis {
   if (!client) {
     const { url, tls } = buildRedisConnectionConfig();
-    client = new Redis(url, tls ? { tls } : undefined);
+    client = tls ? new Redis(url, { tls }) : new Redis(url);
 
     client.on('error', (err: Error) => {
       logger.error('Redis client error', err);

@@ -27,7 +27,8 @@ export function generateSOFIntegrityPage(data: {
   const activeLoops = allLoops.filter((loop) => loop.realization_stage === 'active');
   const closedLoops = allLoops.filter((loop) => loop.closure_status === 'closed');
 
-  const components: SDUIPageDefinition['components'] = [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const components: SDUIPageDefinition['sections'] = ([
     // Header
     {
       type: 'PageHeader',
@@ -461,13 +462,14 @@ export function generateSOFIntegrityPage(data: {
         ],
       },
     },
-  ].filter(Boolean);
+  ] as unknown as SDUIPageDefinition['sections']).filter(Boolean) as SDUIPageDefinition['sections'];
 
   return {
     type: 'page',
     version: 1,
     sections: components as SDUIPageDefinition['sections'], // added proper cast here
     metadata: {
+      theme: 'light' as const,
       lifecycle_stage: 'integrity',
       sofEnabled: true,
       requiresGovernance: true,

@@ -16,7 +16,7 @@ import {
 import {
   assertRowCount,
   cleanupBillingTables,
-  getTestSupabaseClient,,
+  getTestSupabaseClient,
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 
@@ -33,6 +33,8 @@ describe.skipIf(!supabaseAvailable)("Usage Metering Idempotency Tests", () => {
   });
 
   describe("Usage Event Deduplication", () => {
+    // Enforced by: 20260316211357_usage_events_request_id_unique.sql
+    // (UNIQUE INDEX idx_usage_events_tenant_request_id_unique on (tenant_id, request_id))
     it("should prevent duplicate usage events with same request_id", async () => {
       const tenantId = `tenant_${Date.now()}`;
       const requestId = `req_${Date.now()}_unique`;
@@ -47,28 +49,28 @@ describe.skipIf(!supabaseAvailable)("Usage Metering Idempotency Tests", () => {
         request_id: requestId, // Duplicate request ID
       });
 
-      // Insert first event
+      // Insert first event — must succeed
       const { error: error1 } = await supabase
         .from("usage_events")
         .insert(event1);
 
       expect(error1).toBeNull();
 
-      // Attempt to insert duplicate
+      // Attempt to insert duplicate — must be rejected by the unique constraint
+      // on (tenant_id, request_id). If this passes, the constraint is missing
+      // and duplicate charges are possible.
       const { error: error2 } = await supabase
         .from("usage_events")
         .insert(event2);
 
-      // Should succeed (no unique constraint on request_id)
-      // But application logic should check for duplicates before inserting
-      expect(error2).toBeNull();
+      expect(error2).not.toBeNull();
+      // Postgres unique-violation code
+      expect((error2 as { code?: string }).code).toBe("23505");
 
-      // Verify both were inserted
-      await assertRowCount(supabase, "usage_events", 2, {
+      // Only the first event should exist
+      await assertRowCount(supabase, "usage_events", 1, {
         request_id: requestId,
       });
-
-      // Document: Should implement unique constraint or application-level dedup
     });
 
     it("should use request_id for idempotent processing", async () => {
@@ -90,7 +92,7 @@ describe.skipIf(!supabaseAvailable)("Usage Metering Idempotency Tests", () => {
 
       await supabase.from("usage_events").insert(event);
 
-      // Retry with same request_id should detect existing
+      // Retry with same request_id should detect the existing row
       const { data: retry } = await supabase
         .from("usage_events")
         .select("id")
@@ -99,7 +101,10 @@ describe.skipIf(!supabaseAvailable)("Usage Metering Idempotency Tests", () => {
 
       expect(retry).toBeTruthy();
 
-      // Document: Application should return success without creating duplicate
+      // Confirm only one row exists — a second insert must not have been created
+      await assertRowCount(supabase, "usage_events", 1, {
+        request_id: requestId,
+      });
     });
   });
 

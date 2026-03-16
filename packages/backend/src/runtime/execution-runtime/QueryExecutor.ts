@@ -42,8 +42,8 @@ import type { WorkflowState } from '../../repositories/WorkflowStateRepository.j
 import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
 import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
-import type { DecisionContext } from '@shared/domain/DecisionContext.js';
-import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity.js';
+import type { DecisionContext } from '@shared/domain/DecisionContext';
+import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity';
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 
 // ============================================================================

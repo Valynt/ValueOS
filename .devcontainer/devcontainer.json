@@ -23,10 +23,18 @@
   },
   "containerEnv": {
     "NODE_ENV": "development",
-    "APP_ENV": "cloud-dev",
+    "APP_ENV": "local",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
-    "ENCRYPTION_AT_REST_ENABLED": "false"
+    "ENCRYPTION_AT_REST_ENABLED": "false",
+    "TCT_SECRET": "local-dev-tct-secret-change-in-prod",
+    "WEB_SCRAPER_ENCRYPTION_KEY": "0000000000000000000000000000000000000000000000000000000000000000",
+    "SUPABASE_URL": "http://localhost:54321",
+    "SUPABASE_ANON_KEY": "set-in-ops-env-env.backend.local",
+    "SUPABASE_KEY": "set-in-ops-env-env.backend.local",
+    "SUPABASE_SERVICE_ROLE_KEY": "set-in-ops-env-env.backend.local",
+    "SUPABASE_PROJECT_REF": "set-in-ops-env-env.backend.local",
+    "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/valueos"
   },
   "remoteEnv": {
     "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"

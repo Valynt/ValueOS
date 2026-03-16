@@ -1,8 +1,6 @@
 # Development Setup
 
-**Last Updated**: 2026-02-08
-
-**Consolidated from 8 source documents**
+> **Note:** References to `pnpm run dx`, `pnpm run dx:*`, and `pnpm run dx:doctor` throughout this document are design specifications. These are not implemented as package.json scripts. Use `gitpod automations service start <id>` to start services, and `node scripts/dx/doctor.js` for diagnostics. See `.ona/automations.yaml` for the canonical service list.
 
 ---
 

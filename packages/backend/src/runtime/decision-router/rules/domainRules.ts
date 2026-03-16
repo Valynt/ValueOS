@@ -12,7 +12,7 @@
  *   P50  lifecycleStageRule        — lifecycle stage → canonical agent mapping
  */
 
-import { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { DecisionContext } from '@shared/domain/DecisionContext';
 import { RoutingRule, RoutingRecommendation } from './types.js';
 
 // ---------------------------------------------------------------------------

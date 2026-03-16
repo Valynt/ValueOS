@@ -16,7 +16,7 @@ Complete Kubernetes deployment configuration for ValueOS using Kustomize.
 ┌───────────────┐         ┌───────────────┐
 │   Frontend    │         │    Backend    │
 │   (Nginx)     │────────▶│   (Express)   │
-│   Port: 80    │         │   Port: 8000  │
+│   Port: 80    │         │   Port: 3001  │
 └───────────────┘         └───────┬───────┘
                                   │
                      ┌────────────┴────────────┐
@@ -219,7 +219,7 @@ kustomize build infra/k8s/overlays/production | kubectl apply -f -
 ### Backend (Express API)
 
 - **Image:** `valueos-backend`
-- **Port:** 8000
+- **Port:** 3001
 - **Resources:** 100-500m CPU, 256Mi-1Gi memory
 - **Health Check:** `/health`
 - **Metrics:** `/metrics` (Prometheus)
@@ -377,7 +377,7 @@ kubectl logs -n kube-system deployment/aws-load-balancer-controller
 ```bash
 # Test from pod
 kubectl exec -it deployment/backend-staging -n valynt-staging -- \
-  curl -v http://backend:8000/health
+  curl -v http://backend:3001/health
 
 # Check secrets
 kubectl get secret valynt-secrets -n valynt-staging -o yaml

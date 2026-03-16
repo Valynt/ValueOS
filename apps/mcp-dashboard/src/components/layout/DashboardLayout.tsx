@@ -29,7 +29,7 @@ const adminNavigation = [
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
-  const { notifications, clearNotifications, connectionStatus } =
+  const { notifications, connectionStatus } =
     useWebSocket();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();

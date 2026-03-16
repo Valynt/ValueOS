@@ -572,19 +572,19 @@ export default AtomicUIActionSchema;
 
 import type { SDUIPageDefinition, SDUIComponentSection } from "./schema";
 
-type ComponentSelector = { id?: string; type?: string; index?: number };
+type SimpleSelector = { id?: string; type?: string; index?: number };
 
 type MutationResult =
   | { success: true; layout: SDUIPageDefinition }
   | { success: false; error: string };
 
 type BatchOp =
-  | { type: "mutate_component"; selector: ComponentSelector; props: Record<string, unknown> }
+  | { type: "mutate_component"; selector: SimpleSelector; props: Record<string, unknown> }
   | { type: "add_component"; section: Partial<SDUIComponentSection> }
-  | { type: "remove_component"; selector: ComponentSelector }
+  | { type: "remove_component"; selector: SimpleSelector }
   | { type: "reorder_components"; order: number[] };
 
-function findIndex(sections: SDUIComponentSection[], selector: ComponentSelector): number {
+function findIndex(sections: SDUIComponentSection[], selector: SimpleSelector): number {
   if (selector.index !== undefined) return selector.index;
   return sections.findIndex((s) => {
     if (selector.id && s.props?.id === selector.id) return true;
@@ -596,7 +596,7 @@ function findIndex(sections: SDUIComponentSection[], selector: ComponentSelector
 export class AtomicUIActions {
   mutateComponent(
     layout: SDUIPageDefinition,
-    selector: ComponentSelector,
+    selector: SimpleSelector,
     props: Record<string, unknown>
   ): MutationResult {
     const sections = layout.sections as SDUIComponentSection[];
@@ -618,6 +618,7 @@ export class AtomicUIActions {
       type: "component",
       component: section.component ?? "Unknown",
       props: section.props ?? {},
+      version: section.version ?? 1,
       ...section,
     };
     return {
@@ -646,7 +647,7 @@ export class AtomicUIActions {
     if (order.length !== sections.length) {
       return { success: false, error: "Order length must match sections length" };
     }
-    const reordered = order.map((i) => sections[i]);
+    const reordered = order.map((i) => sections[i]!).filter((s): s is SDUIComponentSection => s !== undefined);
     return { success: true, layout: { ...layout, sections: reordered } };
   }
 

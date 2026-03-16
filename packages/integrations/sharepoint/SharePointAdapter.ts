@@ -266,7 +266,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
       externalId: site.id,
       provider: this.provider,
       type: "site",
-      data: site as Record<string, unknown>,
+      data: site as unknown as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: site.lastModifiedDateTime,
@@ -282,7 +282,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
       externalId: list.id,
       provider: this.provider,
       type: "list",
-      data: list as Record<string, unknown>,
+      data: list as unknown as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: list.lastModifiedDateTime,
@@ -298,7 +298,7 @@ export class SharePointAdapter extends EnterpriseAdapter {
       externalId: item.id,
       provider: this.provider,
       type: "driveitem",
-      data: item as Record<string, unknown>,
+      data: item as unknown as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: item.lastModifiedDateTime,
