@@ -92,8 +92,8 @@ export function sanitizeLLMContent(content: string): string {
  * Sanitize and detect prompt injection in agent input
  * Uses the backend LLMSanitizer for comprehensive sanitization
  */
-export function sanitizeAgentInput(input: any): {
-  sanitized: any;
+export function sanitizeAgentInput(input: unknown): {
+  sanitized: unknown;
   safe: boolean;
   violations: string[];
   severity: "none" | "low" | "medium" | "high" | "critical";

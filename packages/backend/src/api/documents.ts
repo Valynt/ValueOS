@@ -22,7 +22,7 @@ import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddlewa
 interface LineageMetadata {
   source_origin: string;
   data_sensitivity_level: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const router = Router();
