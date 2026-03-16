@@ -2,11 +2,21 @@
 
 /**
  * Demo User Seeding Script
- * Creates a demo tenant, user, and basic data for local development
+ * Creates a demo tenant, user, and basic data for local development.
+ *
+ * Usage (local development only):
+ *   LOCAL_DEV_DEMO_SEED=1 DEMO_USER_PASSWORD='<strong-password>' pnpm tsx scripts/seed-demo-user.ts
+ *
+ * Secure credential handling:
+ * - No default static password is embedded in source.
+ * - DEMO_USER_PASSWORD is recommended and must satisfy strong password rules.
+ * - If DEMO_USER_PASSWORD is omitted, a cryptographically random password is generated,
+ *   emitted exactly once to stderr, and never re-printed in normal logs.
  */
 
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import path from "path";
 import { validateEnv } from "../packages/shared/src/lib/env";
@@ -21,15 +31,20 @@ dotenv.config({ path: path.join(projectRoot, ".env.local") });
 // Validate required environment variables (fail fast)
 validateEnv();
 
-// Canonical demo password used when DEMO_USER_PASSWORD is not provided
-export const DEFAULT_DEMO_PASSWORD = "passw0rd";
-
 const runtimeEnv = process.env.NODE_ENV || process.env.VITE_APP_ENV || "development";
 const allowDemoSeed = process.env.ALLOW_DEMO_SEED === "1";
+const localDevDemoSeedEnabled = process.env.LOCAL_DEV_DEMO_SEED === "1";
 
 if ((runtimeEnv === "production" || runtimeEnv === "staging") && !allowDemoSeed) {
   console.error(
     `❌ Demo seeding blocked in ${runtimeEnv} environment. Set ALLOW_DEMO_SEED=1 only for non-production workflows.`
+  );
+  process.exit(1);
+}
+
+if (!localDevDemoSeedEnabled) {
+  console.error(
+    "❌ Demo seeding requires LOCAL_DEV_DEMO_SEED=1. Refusing to seed without explicit local-dev acknowledgement."
   );
   process.exit(1);
 }
@@ -39,6 +54,48 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+function estimateEntropyBits(password: string): number {
+  const hasLower = /[a-z]/.test(password);
+  const hasUpper = /[A-Z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  const hasSymbol = /[^A-Za-z\d]/.test(password);
+
+  let charsetSize = 0;
+  if (hasLower) charsetSize += 26;
+  if (hasUpper) charsetSize += 26;
+  if (hasDigit) charsetSize += 10;
+  if (hasSymbol) charsetSize += 33;
+
+  if (charsetSize === 0) return 0;
+
+  return password.length * Math.log2(charsetSize);
+}
+
+function isStrongPassword(password: string): boolean {
+  const meetsComplexity =
+    password.length >= 14 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z\d]/.test(password);
+
+  const hasAcceptableEntropy = password.length >= 12 && estimateEntropyBits(password) >= 60;
+  return meetsComplexity || hasAcceptableEntropy;
+}
+
+function getDemoUserPassword(): string {
+  const configuredPassword = process.env.DEMO_USER_PASSWORD;
+  if (configuredPassword) {
+    return configuredPassword;
+  }
+
+  const generatedPassword = crypto.randomBytes(24).toString("base64url");
+  console.error(
+    `⚠️ DEMO_USER_PASSWORD not set. Generated one-time demo password (store securely): ${generatedPassword}`
+  );
+  return generatedPassword;
+}
 
 async function seedDemoData() {
   console.log("🌱 Seeding demo development data...");
@@ -63,15 +120,14 @@ async function seedDemoData() {
 
     console.log(`✅ Created demo tenant: ${tenant.name}`);
 
-    // Create demo user with fixed credentials (INVARIANT - do not change)
+    // Create demo user with deterministic identity and secure password handling
     const demoUserEmail = process.env.DEMO_USER_EMAIL || "demouser@valynt.com";
-    // Allow overriding demo password via env var, but enforce minimum length
-    const demoUserPassword = process.env.DEMO_USER_PASSWORD || DEFAULT_DEMO_PASSWORD;
+    const demoUserPassword = getDemoUserPassword();
     const demoUserId = "00000000-0000-0000-0000-000000000001"; // Fixed UUID for determinism
 
-    if (demoUserPassword.length < 8) {
+    if (!isStrongPassword(demoUserPassword)) {
       console.error(
-        "❌ Demo password must be at least 8 characters long. Set DEMO_USER_PASSWORD to a longer value."
+        "❌ Demo password does not meet strong password policy. Use >=14 chars with upper/lower/digit/symbol, or >=60 bits estimated entropy."
       );
       process.exit(1);
     }
@@ -127,7 +183,7 @@ async function seedDemoData() {
 
     console.log("\n📋 Demo credentials:");
     console.log(`   Email:    ${demoUserEmail}`);
-    console.log(`   Password: ${demoUserPassword}`);
+    console.log("   Password: [redacted]");
     console.log(`   UUID:     ${demoUserId}`);
 
     // Create some demo projects
@@ -158,7 +214,7 @@ async function seedDemoData() {
     console.log("\n🎉 Demo data seeded successfully!");
     console.log("\n📋 Login Credentials:");
     console.log(`   Email:    ${demoUserEmail}`);
-    console.log(`   Password: ${demoUserPassword}`);
+    console.log("   Password: [redacted]");
     console.log(`   Role:     admin`);
     console.log(`   UUID:     ${demoUserId}`);
     console.log("\n🌐 Open http://localhost:5173 and login with the above credentials.");

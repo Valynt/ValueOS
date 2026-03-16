@@ -301,9 +301,9 @@ Compose image pull instead of build
 ## 1. Demo User Contract
 
 - **Email:** `admin@valueos.com`
-- **Password:** `ValueOS2026!`
+- **Password:** Set `DEMO_USER_PASSWORD` explicitly or use one-time generated password emitted to stderr
 - **Role:** `admin`
-- **Invariants:** Credentials and UUID must remain fixed for automated testing and seeding.
+- **Invariants:** Email/UUID remain deterministic; password is never hardcoded and must meet strong policy.
 - **Seeding:** Idempotent via `scripts/seed-demo-user.ts`.
 
 ## 2. Port Assignments (Source: `config/ports.json`)
