@@ -276,8 +276,14 @@ export class ComplianceControlCheckService {
   start(intervalMs = 15 * 60 * 1000): void {
     if (this.interval) return;
     this.interval = setInterval(() => {
-      void this.runScheduledSweep();
+      void this.runScheduledSweep().catch((error) => {
+        logger.error("ComplianceControlCheckService: scheduled sweep failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }, intervalMs);
+    // Do not keep the process alive solely because of this background interval
+    this.interval.unref?.();
   }
 
   stop(): void {
