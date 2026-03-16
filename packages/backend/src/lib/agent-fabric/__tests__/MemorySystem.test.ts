@@ -105,8 +105,9 @@ describe("MemorySystem", () => {
     });
 
     it("supports explicit cross-workspace retrieval when flagged with a reason", async () => {
+      // F-008: only compliance-auditor is permitted to perform cross-workspace reads.
       await ms.store({
-        agent_id: "agent-1",
+        agent_id: "compliance-auditor",
         organization_id: ORG_ID,
         workspace_id: "ws-A",
         content: "workspace A only",
@@ -116,7 +117,7 @@ describe("MemorySystem", () => {
       });
 
       await ms.store({
-        agent_id: "agent-1",
+        agent_id: "compliance-auditor",
         organization_id: ORG_ID,
         workspace_id: "ws-B",
         content: "workspace B only",
@@ -126,7 +127,7 @@ describe("MemorySystem", () => {
       });
 
       const crossWorkspaceResults = await ms.retrieve({
-        agent_id: "agent-1",
+        agent_id: "compliance-auditor",
         organization_id: ORG_ID,
         allow_cross_workspace: true,
         cross_workspace_reason: "tenant_audit_review",
@@ -137,13 +138,26 @@ describe("MemorySystem", () => {
     });
 
     it("rejects cross-workspace retrieval requests that omit reason metadata", async () => {
+      // F-008: use compliance-auditor (the only permitted agent) so the test
+      // reaches the reason-validation check rather than the allowlist gate.
+      await expect(
+        ms.retrieve({
+          agent_id: "compliance-auditor",
+          organization_id: ORG_ID,
+          allow_cross_workspace: true,
+        }),
+      ).rejects.toThrow("cross_workspace_reason is required");
+    });
+
+    it("blocks non-permitted agents from cross-workspace retrieval (F-008)", async () => {
       await expect(
         ms.retrieve({
           agent_id: "agent-1",
           organization_id: ORG_ID,
           allow_cross_workspace: true,
+          cross_workspace_reason: "some_reason",
         }),
-      ).rejects.toThrow("cross_workspace_reason is required");
+      ).rejects.toThrow('Agent "agent-1" is not permitted to perform cross-workspace memory reads');
     });
 
     it("throws when organization_id is missing from retrieve", async () => {
