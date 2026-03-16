@@ -38,6 +38,7 @@ export interface VersionCreateInput {
 }
 
 export interface VersionQueryOptions {
+  organizationId: string;
   scope?: string;
   scopeId?: string;
   settingKey?: string;
@@ -90,12 +91,15 @@ export class VersionHistoryService extends BaseService {
   /**
    * Get version history
    */
-  async getHistory(options: VersionQueryOptions = {}): Promise<SettingsVersion[]> {
+  async getHistory(options: VersionQueryOptions): Promise<SettingsVersion[]> {
     this.log('info', 'Getting version history', options);
 
     return this.executeRequest(
       async () => {
-        let query = this.supabase.from('settings_versions').select('*');
+        let query = this.supabase
+          .from('settings_versions')
+          .select('*')
+          .eq('organization_id', options.organizationId);
 
         if (options.scope) {
           query = query.eq('scope', options.scope);
@@ -145,13 +149,14 @@ export class VersionHistoryService extends BaseService {
   /**
    * Get specific version
    */
-  async getVersion(id: string): Promise<SettingsVersion> {
+  async getVersion(id: string, organizationId: string): Promise<SettingsVersion> {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
           .from('settings_versions')
           .select('*')
           .eq('id', id)
+          .eq('organization_id', organizationId)
           .single();
 
         if (error) throw error;
@@ -160,7 +165,7 @@ export class VersionHistoryService extends BaseService {
         return this.mapVersion(data);
       },
       {
-        deduplicationKey: `version-${id}`,
+        deduplicationKey: `version-${organizationId}-${id}`,
       }
     );
   }
@@ -168,13 +173,13 @@ export class VersionHistoryService extends BaseService {
   /**
    * Rollback to a specific version
    */
-  async rollback(versionId: string, rolledBackBy: string): Promise<SettingsVersion> {
+  async rollback(versionId: string, rolledBackBy: string, organizationId: string): Promise<SettingsVersion> {
     this.log('warn', 'Rolling back settings', { versionId });
 
     return this.executeRequest(
       async () => {
         // Get the version to rollback to
-        const version = await this.getVersion(versionId);
+        const version = await this.getVersion(versionId, organizationId);
 
         // Mark as rolled back
         const { data, error } = await this.supabase
@@ -185,6 +190,7 @@ export class VersionHistoryService extends BaseService {
             rolled_back_by: rolledBackBy,
           })
           .eq('id', versionId)
+          .eq('organization_id', organizationId)
           .select()
           .single();
 
@@ -214,15 +220,16 @@ export class VersionHistoryService extends BaseService {
    */
   async compareVersions(
     versionId1: string,
-    versionId2: string
+    versionId2: string,
+    organizationId: string
   ): Promise<{
     version1: SettingsVersion;
     version2: SettingsVersion;
     differences: Array<{ field: string; value1: unknown; value2: unknown }>;
   }> {
     const [version1, version2] = await Promise.all([
-      this.getVersion(versionId1),
-      this.getVersion(versionId2),
+      this.getVersion(versionId1, organizationId),
+      this.getVersion(versionId2, organizationId),
     ]);
 
     const differences: Array<{ field: string; value1: unknown; value2: unknown }> = [];
@@ -250,13 +257,13 @@ export class VersionHistoryService extends BaseService {
   /**
    * Get rollback preview
    */
-  async getRollbackPreview(versionId: string): Promise<{
+  async getRollbackPreview(versionId: string, organizationId: string): Promise<{
     version: SettingsVersion;
     currentValue: unknown;
     rollbackValue: unknown;
     affectedSettings: string[];
   }> {
-    const version = await this.getVersion(versionId);
+    const version = await this.getVersion(versionId, organizationId);
 
     return {
       version,
