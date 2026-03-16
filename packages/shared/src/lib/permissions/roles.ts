@@ -1,7 +1,7 @@
 /**
  * Role Types and Constants
  */
-import { Permission, PERMISSIONS } from "./types";
+import { Permission, PERMISSIONS } from "./types.js";
 
 export const USER_ROLES = {
   ADMIN: "admin",

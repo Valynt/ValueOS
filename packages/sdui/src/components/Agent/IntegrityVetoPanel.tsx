@@ -248,7 +248,7 @@ export const IntegrityVetoPanel: React.FC<IntegrityVetoPanelProps> = ({
               >
                 Accept Original
               </button>
-              {selectedIssue.suggestedFix && (
+              {Boolean(selectedIssue.suggestedFix) && (
                 <button
                   onClick={() => {
                     onResolve(selectedIssue.id, "modify", selectedIssue.suggestedFix);

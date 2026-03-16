@@ -12,11 +12,32 @@
  * - Prevents error propagation
  */
 
-import { SpanStatusCode } from "@opentelemetry/api";
 import { logger } from "@shared/lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
-import { getTracer } from "../../lib/observability";
+declare global {
+  interface Window {
+    analytics?: { track: (event: string, props?: Record<string, unknown>) => void };
+  }
+}
+
+// Stub tracer — replace with real OpenTelemetry integration when available
+const SpanStatusCode = { ERROR: 2, OK: 1 } as const;
+type StubSpan = {
+  setStatus: (s: { code: number; message?: string }) => void;
+  recordException: (e: Error) => void;
+  setAttributes: (attrs: Record<string, unknown>) => void;
+  end: () => void;
+};
+const stubSpan: StubSpan = {
+  setStatus: () => undefined,
+  recordException: () => undefined,
+  setAttributes: () => undefined,
+  end: () => undefined,
+};
+const getTracer = (_name?: string) => ({
+  startActiveSpan: (_spanName: string, fn: (span: StubSpan) => unknown) => fn(stubSpan),
+});
 
 
 interface Props {

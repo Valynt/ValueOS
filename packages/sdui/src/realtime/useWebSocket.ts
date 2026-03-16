@@ -217,8 +217,8 @@ export function useWebSocketChannel<T = unknown>(
   useEffect(() => {
     if (!ws.isConnected) return;
 
-    const unsubscribe = ws.subscribe(channel, (newData: T) => {
-      setData(newData);
+    const unsubscribe = ws.subscribe(channel, (newData: unknown) => {
+      setData(newData as T);
       setLoading(false);
       setError(null);
     });

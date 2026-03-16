@@ -24,7 +24,7 @@ export {
   matchesPermission,
   expandWildcard,
   isValidPermission,
-} from "./types";
+} from "./types.js";
 
 export {
   // Role types
@@ -45,4 +45,4 @@ export {
   isValidAgentRole,
   normalizeRole,
   getRolesWithPermission,
-} from "./roles";
+} from "./roles.js";

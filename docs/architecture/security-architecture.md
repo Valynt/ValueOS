@@ -1325,7 +1325,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
   - IPv6 private ranges (`fc00::/7`, `fe80::/10`)
 - Hostname validation
 - DNS rebinding protection
-- Port restrictions (80, 443, 3000, 8000, 5432 allowed)
+- Port restrictions (80, 443, 3000, 3001, 8000, 5432 allowed)
 
 ### Request Validation
 

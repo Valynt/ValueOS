@@ -84,7 +84,7 @@ docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.productio
 This starts:
 - **Caddy** — reverse proxy with automatic HTTPS (ports 80/443)
 - **Frontend** — Vite-built SPA served by nginx (port 8080 internal)
-- **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 8000 internal)
+- **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 3001 internal)
 - **Postgres** — database (port 5432 internal)
 - **Redis** — session cache and rate limiting (port 6379 internal)
 

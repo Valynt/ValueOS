@@ -148,7 +148,7 @@ export const securityConfig: SecurityConfig = {
       "fc00::/7",
       "fe80::/10",
     ],
-    allowedPorts: [80, 443, 3000, 8000, 5432],
+    allowedPorts: [80, 443, 3000, 3001, 8000, 5432],
   },
   rateLimiting: {
     enabled: true,

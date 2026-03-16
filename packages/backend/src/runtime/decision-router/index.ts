@@ -16,7 +16,7 @@ import { AgentRegistry, RoutingContext } from '../../services/agents/AgentRegist
 import { AgentRoutingLayer, StageRoute } from '../../services/agents/AgentRoutingLayer.js';
 import { AgentRoutingScorer } from '../../services/agents/AgentRoutingScorer.js';
 import { WorkflowDAG } from '../../types/workflow.js';
-import { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { DecisionContext } from '@shared/domain/DecisionContext';
 import {
   RoutingRecommendation,
   RoutingRule,

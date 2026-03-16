@@ -114,7 +114,7 @@ export default defineConfig({
           process.env.VITE_API_PROXY_TARGET ||
           process.env.API_BASE_URL ||
           process.env.BACKEND_ORIGIN ||
-          "http://127.0.0.1:8000",
+          "http://127.0.0.1:3001",
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {

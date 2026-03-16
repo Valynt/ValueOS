@@ -79,6 +79,7 @@ export default function Forecasting() {
       // For now, using mock calculation
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
+      const lastValue = data.values[data.values.length - 1]!;
       const mockResult: ForecastingResult = {
         forecast: {
           periods: Array.from(
@@ -87,18 +88,16 @@ export default function Forecasting() {
           ),
           values: Array.from(
             { length: forecastPeriods },
-            (_, i) => data.values[data.values.length - 1] * (1 + 0.1 * (i + 1))
+            (_, i) => lastValue * (1 + 0.1 * (i + 1))
           ),
           confidence_intervals: {
             lower: Array.from(
               { length: forecastPeriods },
-              (_, i) =>
-                data.values[data.values.length - 1] * (1 + 0.05 * (i + 1))
+              (_, i) => lastValue * (1 + 0.05 * (i + 1))
             ),
             upper: Array.from(
               { length: forecastPeriods },
-              (_, i) =>
-                data.values[data.values.length - 1] * (1 + 0.15 * (i + 1))
+              (_, i) => lastValue * (1 + 0.15 * (i + 1))
             ),
             level: 0.95,
           },
@@ -343,7 +342,7 @@ FY2023,1520875`}
             <FinancialLineChart
               data={result.forecast.periods.map((period, index) => ({
                 period,
-                value: result.forecast.values[index],
+                value: result.forecast.values[index] ?? 0,
               }))}
               title={`Forecasted ${metricName}`}
               height={350}
@@ -479,18 +478,18 @@ FY2023,1520875`}
                         {period}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(result.forecast.values[index])}
+                        {formatCurrency(result.forecast.values[index] ?? 0)}
                       </td>
                       {result.forecast.confidence_intervals && (
                         <>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {formatCurrency(
-                              result.forecast.confidence_intervals.lower[index]
+                              result.forecast.confidence_intervals.lower[index] ?? 0
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {formatCurrency(
-                              result.forecast.confidence_intervals.upper[index]
+                              result.forecast.confidence_intervals.upper[index] ?? 0
                             )}
                           </td>
                         </>

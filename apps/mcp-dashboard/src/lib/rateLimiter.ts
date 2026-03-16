@@ -1,6 +1,11 @@
 /**
- * Rate Limiter for Authentication Attempts
- * Prevents brute force attacks by limiting authentication attempts
+ * Client-side rate limiter for authentication attempts.
+ *
+ * SECURITY NOTE: This is a UX-only safeguard. Because state is stored in
+ * localStorage, a determined attacker can bypass it by clearing storage.
+ * Brute-force protection MUST be enforced server-side (e.g. via the backend
+ * auth middleware). This class exists solely to give honest users early
+ * feedback and to reduce accidental repeated submissions.
  */
 
 interface RateLimitEntry {
@@ -148,17 +153,17 @@ class AuthRateLimiter {
     const data = this.getRateLimitData(identifier);
     const now = Date.now();
 
-    let lockoutRemaining;
-    if (data.isLocked && data.lockUntil && data.lockUntil > now) {
-      lockoutRemaining = Math.ceil((data.lockUntil - now) / 1000 / 60);
-    }
-
-    return {
+    const isLocked = data.isLocked && (!data.lockUntil || data.lockUntil > now);
+    const base = {
       attempts: data.attempts,
       maxAttempts: this.maxAttempts,
-      isLocked: data.isLocked && (!data.lockUntil || data.lockUntil > now),
-      lockoutRemaining,
+      isLocked,
     };
+
+    if (data.isLocked && data.lockUntil && data.lockUntil > now) {
+      return { ...base, lockoutRemaining: Math.ceil((data.lockUntil - now) / 1000 / 60) };
+    }
+    return base;
   }
 
   /**

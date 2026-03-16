@@ -48,8 +48,10 @@ class AuditLogger {
   private events: AuditEvent[] = [];
   private readonly maxEvents = 10000; // Keep last 10k events
   private readonly batchSize = 100; // Send in batches
+  private readonly maxRetries = 3; // Maximum send attempts per batch
   private sendTimer: ReturnType<typeof setInterval> | null = null;
   private pendingEvents: AuditEvent[] = [];
+  private retryCount = 0;
 
   private constructor() {
     this.setupBatchSending();
@@ -213,11 +215,13 @@ class AuditLogger {
 
     if (filter) {
       if (filter.startDate) {
-        filtered = filtered.filter((event) => event.timestamp >= filter.startDate?.getTime?.());
+        const start = filter.startDate.getTime();
+        filtered = filtered.filter((event) => event.timestamp >= start);
       }
 
       if (filter.endDate) {
-        filtered = filtered.filter((event) => event.timestamp <= filter.endDate?.getTime?.());
+        const end = filter.endDate.getTime();
+        filtered = filtered.filter((event) => event.timestamp <= end);
       }
 
       if (filter.userId) {
@@ -395,7 +399,9 @@ class AuditLogger {
   }
 
   /**
-   * Send batch of events to server
+   * Send batch of events to server.
+   * Failed batches are re-queued up to maxRetries times; after that the batch
+   * is dropped to prevent unbounded memory growth.
    */
   private async sendBatch(): Promise<void> {
     if (this.pendingEvents.length === 0) return;
@@ -416,10 +422,18 @@ class AuditLogger {
           }),
         });
       }
+      // Reset retry counter on success
+      this.retryCount = 0;
     } catch (error) {
-      console.error("Failed to send audit batch:", error);
-      // Re-add events to pending for retry
-      this.pendingEvents.unshift(...batch);
+      this.retryCount++;
+      if (this.retryCount <= this.maxRetries) {
+        console.error(`Failed to send audit batch (attempt ${this.retryCount}/${this.maxRetries}):`, error);
+        // Re-queue for next interval
+        this.pendingEvents.unshift(...batch);
+      } else {
+        console.error("Audit batch dropped after max retries:", error);
+        this.retryCount = 0;
+      }
     }
   }
 

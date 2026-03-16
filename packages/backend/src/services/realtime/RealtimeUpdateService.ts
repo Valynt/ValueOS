@@ -480,10 +480,14 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    * Get WebSocket URL
    */
   private getWebSocketUrl(): string {
-    // Connect to backend WebSocket server
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const backendUrl = new URL(window.location.protocol + '//' + window.location.host);
-    backendUrl.port = '3001'; // Backend port
+    // Only override port in local dev — in production the reverse proxy (Caddy) handles
+    // WebSocket upgrades on the standard port and the explicit override would break routing.
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalDev) {
+      backendUrl.port = '3001';
+    }
     return `${protocol}//${backendUrl.host}/ws/sdui`;
   }
 

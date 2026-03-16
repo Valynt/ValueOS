@@ -25,7 +25,7 @@ export function immutableNestedUpdate<T>(
   valueOrUpdater: unknown | ((current: unknown) => unknown)
 ): T {
   const pathArray = typeof path === "string" ? path.split(".") : path;
-  return setNestedValue(obj, pathArray, valueOrUpdater);
+  return setNestedValue(obj, pathArray, valueOrUpdater) as T;
 }
 
 function setNestedValue(obj: unknown, path: (string | number)[], valueOrUpdater: unknown): unknown {

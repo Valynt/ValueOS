@@ -6,7 +6,7 @@
  * The router evaluates rules in priority order and returns the first match.
  */
 
-import { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { DecisionContext } from '@shared/domain/DecisionContext';
 import { AgentType } from '../../../services/agent-types.js';
 
 // ---------------------------------------------------------------------------

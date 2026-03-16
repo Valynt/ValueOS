@@ -316,7 +316,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     });
 
     // Send telemetry event
-    this.sendCircuitBreakerTelemetry("opened", errorCorrelation);
+    this.sendCircuitBreakerTelemetry("opened", errorCorrelation as unknown as Record<string, unknown>);
   }
 
   /**
@@ -418,7 +418,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     onError?.(error, errorInfo);
 
     // Log to error tracking service in production with correlation
-    if (isProduction()) {
+    if (isProduction) {
       captureException(error, {
         extra: {
           componentName,
@@ -613,7 +613,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     }
 
     // Determine if we should show error details
-    const shouldShowDetails = showErrorDetails ?? isDevelopment();
+    const shouldShowDetails = showErrorDetails ?? isDevelopment;
     const canRetry = this.shouldAllowRetry();
     const isCircuitOpen = cbState.state === "open";
     const isCircuitHalfOpen = cbState.state === "half-open";
@@ -727,7 +727,7 @@ export class EnhancedComponentErrorBoundary extends Component<
               )}
 
               {/* Admin reset button in development */}
-              {isDevelopment() && (isCircuitOpen || isCircuitHalfOpen) && (
+              {isDevelopment && (isCircuitOpen || isCircuitHalfOpen) && (
                 <button
                   onClick={this.resetCircuitBreaker}
                   className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"

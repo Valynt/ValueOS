@@ -60,7 +60,7 @@ export interface RenderPageOptions {
   /**
    * Custom fallback component for component errors
    */
-  errorFallback?: React.ComponentType<{ componentName: string; error?: Error }>;
+  errorFallback?: React.ComponentType<{ componentName: string; error?: string }>;
 
   /**
    * Maximum time (ms) to wait for data hydration before showing error
@@ -248,8 +248,8 @@ const SectionRenderer: React.FC<{
       logger.error(`Hydration failed for ${section.component}:`, error);
       onHydrationError?.(error, endpoint);
     },
-    onSuccess: (data: Record<string, unknown>) => {
-      onHydrationComplete?.(section.component, data);
+    onSuccess: (data: unknown) => {
+      onHydrationComplete?.(section.component, data as Record<string, unknown>);
     },
     timeout: options.hydrationTimeout,
     enableRetry: options.enableHydrationRetry,
@@ -290,7 +290,7 @@ const SectionRenderer: React.FC<{
   if (hydrationError && !section.fallback) {
     return (
       <div key={`${section.component}-${index}`} className="space-y-2">
-        <ErrorFallback componentName={section.component} error={hydrationError} />
+        <ErrorFallback componentName={section.component} error={hydrationError.message} />
         {debug && (
           <DebugOverlay
             section={section}

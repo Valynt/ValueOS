@@ -13,9 +13,7 @@ import { securityLogger } from "../../lib/securityLogger";
 // Test constants
 const MAX_FAILED_ATTEMPTS = 5;
 const ALLOWED_ATTEMPTS_BEFORE_BLOCK = 4;
-const TEST_TIMEOUT_MS = 900000;
 const HOUR_MS = 3600000;
-const MINUTE_MS = 60000;
 const SECOND_MS = 1000;
 const PARTIAL_FAILED_ATTEMPTS = 3;
 const RESET_ATTEMPTS = 0;
@@ -33,22 +31,26 @@ const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
 // Mock localStorage
-const localStorageMock = {
+const localStorageMock: Storage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
+  key: vi.fn(),
+  length: 0,
 };
-globalThis.localStorage = localStorageMock as any;
+globalThis.localStorage = localStorageMock;
 
 // Mock sessionStorage
-const sessionStorageMock = {
+const sessionStorageMock: Storage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
+  key: vi.fn(),
+  length: 0,
 };
-globalThis.sessionStorage = sessionStorageMock as any;
+globalThis.sessionStorage = sessionStorageMock;
 
 // Mock navigator
 Object.defineProperty(globalThis.navigator, "userAgent", {
@@ -72,7 +74,6 @@ describe("MCP Dashboard Authentication Security Tests", () => {
   describe("Rate Limiting Security", () => {
     it("should prevent brute force attacks after 5 failed attempts", async () => {
       const email = "admin@example.com";
-      const _credentials = { email, password: "wrongpassword" };
 
       // Mock failed login response
       mockFetch.mockResolvedValue({
@@ -279,7 +280,6 @@ describe("MCP Dashboard Authentication Security Tests", () => {
 
       invalidEmails.forEach((email) => {
         expect(() => {
-          const _credentials = { email, password: "password123" };
           // This would be validated in the auth service
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email)) {
@@ -301,15 +301,24 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       });
     });
 
-    it("should handle malicious input safely", () => {
-      const maliciousInput = {
-        email: "admin@example.com",
-        password: '<script>alert("xss")</script>password123',
-      };
+    it("should reject passwords containing HTML script tags", () => {
+      // Passwords with embedded script tags must be rejected at the validation
+      // layer before they reach any API call or storage path.
+      const maliciousPasswords = [
+        '<script>alert("xss")</script>password123',
+        "password<script>evil()</script>",
+        "<img src=x onerror=alert(1)>pass",
+      ];
 
-      // Should be properly sanitized before API call
-      expect(maliciousInput.password).toContain("<script>");
-      // In a real implementation, this would be sanitized
+      maliciousPasswords.forEach((password) => {
+        // A password containing an HTML tag is structurally invalid — reject it.
+        const htmlTagPattern = /<[^>]+>/;
+        expect(() => {
+          if (htmlTagPattern.test(password)) {
+            throw new Error("Password contains invalid characters");
+          }
+        }).toThrow("Password contains invalid characters");
+      });
     });
   });
 

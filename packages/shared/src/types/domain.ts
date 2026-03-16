@@ -2,7 +2,7 @@
  * Domain types - core business entities
  */
 
-import type { UserRole } from "../lib/permissions/roles";
+import type { UserRole } from "../lib/permissions/roles.js";
 
 export interface Tenant {
   id: string;
@@ -17,8 +17,7 @@ export interface TenantScopedRecord {
 
 export type PlanTier = "free" | "standard" | "enterprise";
 
-// Re-export UserRole for convenience (canonical definition in lib/permissions/roles)
-export type { UserRole } from "../lib/permissions/roles";
+// UserRole is exported from @valueos/shared via lib/permissions
 
 export interface User {
   id: string;

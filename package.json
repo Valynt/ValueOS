@@ -10,6 +10,7 @@
     "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "build": "pnpm --filter valynt-app build && pnpm --filter @valueos/backend build",
     "start": "pnpm --filter @valueos/backend start",
+    "lint": "turbo run lint",
     "check": "turbo run typecheck",
     "format": "prettier --write .",
     "test": "vitest run",
@@ -19,6 +20,7 @@
     "check:frontend-bundle-service-role": "node scripts/ci/check-frontend-bundle-service-role.mjs",
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
+    "db:migrate": "bash scripts/db/apply-migrations.sh",
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",
     "check:kong-cors-origins": "node scripts/ci/check-kong-cors-origins.mjs --mode=production",
     "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs",
@@ -126,6 +128,8 @@
       "wouter@3.7.1": "patches/wouter@3.7.1.patch"
     },
     "overrides": {
+      "@types/react": "^18.3.0",
+      "@types/react-dom": "^18.3.0",
       "tailwindcss>nanoid": "3.3.7",
       "aria-query": "5.3.2",
       "@testing-library/user-event": "14.5.2",

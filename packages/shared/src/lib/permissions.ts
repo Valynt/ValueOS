@@ -42,4 +42,4 @@ export {
   isValidAgentRole,
   normalizeRole,
   getRolesWithPermission,
-} from "./permissions/index";
+} from "./permissions/index.js";

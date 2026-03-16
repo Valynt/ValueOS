@@ -58,6 +58,7 @@ export const OpportunityTemplate: SDUIPageDefinition = {
     },
   ],
   metadata: {
+    theme: "light" as const,
     experienceId: 'opportunity-discovery',
   },
 };
@@ -128,6 +129,7 @@ export const TargetTemplate: SDUIPageDefinition = {
     },
   ],
   metadata: {
+    theme: "light" as const,
     experienceId: 'target-commitment',
   },
 };
@@ -193,6 +195,7 @@ export const RealizationTemplate: SDUIPageDefinition = {
     },
   ],
   metadata: {
+    theme: "light" as const,
     experienceId: 'realization-tracking',
   },
 };
@@ -266,6 +269,7 @@ export const ExpansionTemplate: SDUIPageDefinition = {
     },
   ],
   metadata: {
+    theme: "light" as const,
     experienceId: 'expansion-planning',
   },
 };
@@ -334,6 +338,7 @@ export const IntegrityTemplate: SDUIPageDefinition = {
     },
   ],
   metadata: {
+    theme: "light" as const,
     experienceId: 'integrity-validation',
     debug: false,
   },
@@ -362,6 +367,7 @@ export const CompleteLifecycleTemplate: SDUIPageDefinition = {
     // This is a placeholder for a more complex multi-stage view
   ],
   metadata: {
+    theme: "light" as const,
     experienceId: 'complete-lifecycle',
   },
 };

@@ -4,12 +4,10 @@
  */
 
 // Check once at module load time
-const _isBrowser = typeof window !== "undefined";
+const _isBrowser = typeof globalThis !== "undefined" && "window" in globalThis;
 
-// Vite injects import.meta.env at build time; this interface avoids `any` casts.
-interface ViteImportMeta extends ImportMeta {
-  env?: Record<string, string | undefined>;
-}
+// Vite injects import.meta.env at build time; this type avoids `any` casts.
+type ViteImportMeta = ImportMeta & { env?: Record<string, string | undefined> };
 
 export const REQUIRED_ENV_VARS = [
   "VITE_SUPABASE_URL",
@@ -82,8 +80,9 @@ export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string |
 
 export function setEnvVar(key: string, value: string): void {
   if (_isBrowser) {
-    if (( import.meta as ViteImportMeta)?.env) {
-      ( import.meta as ViteImportMeta).env[key] = value;
+    const metaEnv = (import.meta as ViteImportMeta).env;
+    if (metaEnv) {
+      metaEnv[key] = value;
     }
   } else {
     if (typeof process !== "undefined" && process.env) {
@@ -98,8 +97,9 @@ export function checkIsBrowser(): boolean {
 
 export function __setEnvSourceForTests(envSource: Record<string, string>): void {
   if (_isBrowser) {
-    if (( import.meta as ViteImportMeta)?.env) {
-      Object.assign(( import.meta as ViteImportMeta).env, envSource);
+    const metaEnv = (import.meta as ViteImportMeta).env;
+    if (metaEnv) {
+      Object.assign(metaEnv, envSource);
     }
   } else {
     if (typeof process !== "undefined" && process.env) {

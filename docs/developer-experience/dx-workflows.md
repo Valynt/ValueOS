@@ -1,8 +1,6 @@
 # Dx Workflows
 
-**Last Updated**: 2026-02-08
-
-**Consolidated from 1 source documents**
+> **Note:** The `pnpm run dx` and `pnpm run dx:*` commands referenced in this document are design specifications, not implemented package.json scripts. Services are started via `gitpod automations service start <id>`. Scripts under `scripts/dx/` can be invoked directly with `node scripts/dx/<script>.js`.
 
 ---
 

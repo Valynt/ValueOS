@@ -8,7 +8,7 @@
  * membership to prevent unauthorized cross-tenant access.
  */
 
-import { logger } from "./logger";
+import { logger } from "./logger.js";
 
 /**
  * Verify user belongs to tenant
@@ -31,7 +31,8 @@ import { logger } from "./logger";
 export async function verifyTenantMembership(userId: string, tenantId: string): Promise<boolean> {
   try {
     // Import supabase client dynamically to avoid circular dependencies
-    const { supabase } = await import("./supabase");
+    const { supabase } = await import("./supabase.js");
+    if (!supabase) throw new Error("Supabase client not initialized");
 
     const { data: membership, error: membershipError } = await supabase
       .from("user_tenants")
@@ -118,7 +119,8 @@ export async function verifyTenantMembershipBatch(
   const results = new Map<string, boolean>();
 
   try {
-    const { supabase } = await import("./supabase");
+    const { supabase } = await import("./supabase.js");
+    if (!supabase) throw new Error("Supabase client not initialized");
 
     const { data: memberships, error: membershipsError } = await supabase
       .from("user_tenants")
@@ -179,7 +181,8 @@ export async function verifyTenantMembershipBatch(
  */
 export async function getUserTenantId(userId: string): Promise<string | null> {
   try {
-    const { supabase } = await import("./supabase");
+    const { supabase } = await import("./supabase.js");
+    if (!supabase) throw new Error("Supabase client not initialized");
 
     const { data: membership, error: membershipError } = await supabase
       .from("user_tenants")
@@ -232,7 +235,8 @@ export async function getUserTenantId(userId: string): Promise<string | null> {
  */
 export async function verifyTenantExists(tenantId: string): Promise<boolean> {
   try {
-    const { supabase } = await import("./supabase");
+    const { supabase } = await import("./supabase.js");
+    if (!supabase) throw new Error("Supabase client not initialized");
 
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")

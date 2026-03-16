@@ -7,9 +7,8 @@
  * Phase 3: Stage-specific SDUI generation
  */
 
-import { v4 as uuidv4 } from "uuid";
 
-import type { WorkflowState } from "../../repositories/WorkflowStateRepository";
+import type { WorkflowState } from "@valueos/sdui-types";
 import type { SDUIPageDefinition } from "../schema";
 
 export interface ExpansionTemplateContext {
@@ -40,7 +39,7 @@ export function generateExpansionPage(context: ExpansionTemplateContext): SDUIPa
       version: 1,
       props: {
         response: {
-          id: uuidv4(),
+          id: crypto.randomUUID(),
           agentId: "expansion",
           agentName: "Expansion Agent",
           timestamp: new Date().toISOString(),

@@ -73,10 +73,11 @@ export default function CompanySearch() {
       setSearchResults(mockResults);
 
       // Add to recent searches only if results exist
-      if (mockResults.length > 0) {
+      const firstResult = mockResults[0];
+      if (firstResult !== undefined) {
         const updatedRecent = [
-          mockResults[0],
-          ...recentSearches.filter((c) => c.cik !== mockResults[0].cik),
+          firstResult,
+          ...recentSearches.filter((c) => c.cik !== firstResult.cik),
         ].slice(0, 5);
         setRecentSearches(updatedRecent);
         localStorage.setItem(

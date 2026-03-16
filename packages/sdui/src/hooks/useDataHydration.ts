@@ -298,7 +298,7 @@ export function useDataHydration(
       const errors: Array<{ endpoint: string; error: Error }> = [];
 
       results.forEach((result, index) => {
-        const endpoint = stableEndpoints[index];
+        const endpoint = stableEndpoints[index] ?? `endpoint_${index}`;
 
         if (result.status === "fulfilled") {
           // Merge data - if result is object, spread it; otherwise use endpoint as key
@@ -314,15 +314,15 @@ export function useDataHydration(
 
       // If all requests failed, set error
       if (errors.length === stableEndpoints.length) {
-        const firstError = errors[0].error;
+        const firstError = errors[0]?.error ?? new Error("All hydration endpoints failed");
         setError(firstError);
-        onError?.(firstError, errors[0].endpoint);
+        onError?.(firstError, errors[0]?.endpoint ?? "");
         return;
       }
 
       // If some requests failed, log warnings but continue
       if (errors.length > 0) {
-        logger.warn("Some hydration endpoints failed:", errors);
+        logger.warn("Some hydration endpoints failed", { count: errors.length });
         errors.forEach(({ endpoint, error }) => {
           onError?.(error, endpoint);
         });
@@ -336,7 +336,7 @@ export function useDataHydration(
 
       if (isMountedRef.current) {
         setError(error);
-        onError?.(error, stableEndpoints[0]);
+        onError?.(error, stableEndpoints[0] ?? "");
       }
     } finally {
       if (isMountedRef.current) {
