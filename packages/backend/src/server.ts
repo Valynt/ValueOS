@@ -500,8 +500,13 @@ if (typeof getLatencySnapshot === "function") {
 // CSP Reporting Endpoint
 app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 
-// Secret Health Check Endpoint
-app.get("/health/secrets", secretHealthMiddleware());
+// Secret Health Check Endpoints
+app.get("/health/secrets/public", secretHealthMiddleware({ mode: "public" }));
+app.get(
+  "/health/secrets",
+  serviceIdentityMiddleware,
+  secretHealthMiddleware({ mode: "privileged" })
+);
 
 // Well-known MCP discovery document
 app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
