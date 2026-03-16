@@ -168,3 +168,5 @@ export class ContextStore {
 
 // Singleton
 export const contextStore = new ContextStore();
+
+export { sanitizeForAgent } from './sanitizeForAgent.js';

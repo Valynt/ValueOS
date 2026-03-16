@@ -234,6 +234,16 @@ export class ValueLifecycleOrchestrator {
         return await agent.execute(context.sessionId, input);
       });
 
+      void this.auditLogger.logAgentEvent({
+        agentName: agent.getName(),
+        action: "execute",
+        organizationId: context.organizationId ?? "",
+        sessionId: context.sessionId ?? "",
+        userId: context.userId ?? "system",
+        status: "success",
+        details: { stage, stageInput: Object.keys(input) },
+      });
+
       const previousResult = (context.metadata?.['previousResult']) as StageResult | undefined;
       const stageExecutionId = uuidv4();
       const enrichedResult: StageResult = {
@@ -252,6 +262,19 @@ export class ValueLifecycleOrchestrator {
 
       return enrichedResult;
     } catch (error) {
+      void this.auditLogger.logAgentEvent({
+        agentName: stage,
+        action: "execute",
+        organizationId: context.organizationId ?? "",
+        sessionId: context.sessionId ?? "",
+        userId: context.userId ?? "system",
+        status: "failed",
+        details: {
+          stage,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
       const compensationResults = await this.executeCompensations(
         compensationKey,
         error,

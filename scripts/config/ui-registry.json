@@ -146,6 +146,17 @@
       }
     },
     {
+      "intentType": "show_hallucination_badge",
+      "component": "HallucinationBadge",
+      "fallback": "TextBlock",
+      "description": "Agent trust indicator. Green = hallucination check passed, red = failed, amber = unknown. Shows grounding score on click.",
+      "propMappings": {
+        "hallucination_check": "data.hallucination_check",
+        "grounding_score": "data.grounding_score",
+        "detail": "data.detail"
+      }
+    },
+    {
       "intentType": "show_discovery_card",
       "component": "DiscoveryCard",
       "fallback": "TextBlock",
@@ -358,7 +369,7 @@
     }
   ],
 
-  // Remove deprecated/unused mappings if any (none found in this context)
+
   "tenantOverrides": {
     "enterprise-demo": [
       {

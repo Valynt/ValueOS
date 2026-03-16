@@ -1,9 +1,49 @@
+/**
+ * ModelCardService
+ *
+ * prompt_contract_hash is computed at startup as sha256(policyFileContent)
+ * so it changes whenever the agent's policy file changes. Model names are
+ * sourced from the policy files in policies/agents/.
+ */
+
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { logger } from '../../lib/logger.js'
 import { MODEL_CARD_SCHEMA_VERSION, ModelCard, ModelCardSchema } from '../types/modelCard.js'
 
+/**
+ * Compute sha256 of the agent's policy file content.
+ * Falls back to sha256("no-policy-file") when the file is absent so the
+ * hash is still deterministic and non-fabricated.
+ */
+function computePolicyHash(agentPolicyName: string): string {
+  const policyPath = resolve(process.cwd(), 'policies', 'agents', `${agentPolicyName}.json`);
+  const content = existsSync(policyPath)
+    ? readFileSync(policyPath, 'utf-8')
+    : `no-policy-file:${agentPolicyName}`;
+  return createHash('sha256').update(content).digest('hex');
+}
+
+/**
+ * Read the primary model from the agent's policy file.
+ * Falls back to the provided default when the policy file is absent.
+ */
+function readPrimaryModel(agentPolicyName: string, fallback: string): string {
+  const policyPath = resolve(process.cwd(), 'policies', 'agents', `${agentPolicyName}.json`);
+  if (!existsSync(policyPath)) return fallback;
+  try {
+    const policy = JSON.parse(readFileSync(policyPath, 'utf-8')) as { allowedModels?: string[] };
+    return policy.allowedModels?.[0] ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const MODEL_CARDS: Record<string, ModelCard> = {
   opportunity: {
-    model_version: 'Meta-Llama-3.1-70B-Instruct-Turbo',
+    model_version: readPrimaryModel('opportunity-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'),
     safety_constraints: [
       'Guardrails enforce client redline exclusions and SOC2 privacy controls',
       'Outputs must include evidence-backed assumptions with source links',
@@ -15,10 +55,10 @@ const MODEL_CARDS: Record<string, ModelCard> = {
       'Relies on cached buyer personas when CRM enrichment fails',
     ],
     training_cutoff: '2024-10-01',
-    prompt_contract_hash: '0x9f21c8f7b6d4a3e1c2d5f7a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9',
+    prompt_contract_hash: computePolicyHash('opportunity-agent'),
   },
   target: {
-    model_version: 'OpenAI-gpt-4.1-preview',
+    model_version: readPrimaryModel('target-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'),
     safety_constraints: [
       'PII scrubbing enabled with regional residency enforcement',
       'Risk-adjusted ROI must include sensitivity range',
@@ -30,10 +70,10 @@ const MODEL_CARDS: Record<string, ModelCard> = {
       'Confidence scores drop when procurement data is unavailable',
     ],
     training_cutoff: '2024-06-30',
-    prompt_contract_hash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f7a8b9c0d1e2f3',
+    prompt_contract_hash: computePolicyHash('target-agent'),
   },
   realization: {
-    model_version: 'Claude-3-opus-2024-11-21',
+    model_version: readPrimaryModel('realization-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'),
     safety_constraints: [
       'Change management actions require explicit approval markers',
       'Operational playbooks limited to pre-approved system scopes',
@@ -45,7 +85,7 @@ const MODEL_CARDS: Record<string, ModelCard> = {
       'Does not execute scripts; returns runbook steps only',
     ],
     training_cutoff: '2024-11-21',
-    prompt_contract_hash: '0xc3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f7a8b9c0d1e2f3a1b2',
+    prompt_contract_hash: computePolicyHash('realization-agent'),
   },
 };
 

@@ -195,6 +195,7 @@ Full policy-as-code: `.windsurf/rules/global.md`
 | `packages/backend/src/analytics/ValueLoopAnalytics.ts` | Value loop learning: recommendation acceptance, assumption corrections, evidence persuasiveness |
 | `packages/backend/src/observability/valueLoopMetrics.ts` | Prometheus metrics for value loop stage transitions, agent invocations, hypothesis confidence |
 | `docs/observability/data-asset-inventory.md` | T1/T2/T3 data asset inventory — tables, queues, owners, freshness SLAs, downstream dependency map |
+| `packages/backend/src/services/agents/AgentKillSwitchService.ts` | Per-agent runtime kill switches (Redis-backed). Admin API at `/api/admin/agents`. Check runs in `BaseAgent.secureInvoke` before the circuit breaker. Fails open when Redis is unavailable. |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
 | `packages/backend/src/services/tenant/TenantLimits.ts` | Canonical tenant tier limits (`TIER_LIMITS`, `TIER_FEATURES`) and helper functions (`getTenantLimits`, `hasFeature`, `isWithinLimits`). Re-exported from `TenantProvisioning.ts`. |

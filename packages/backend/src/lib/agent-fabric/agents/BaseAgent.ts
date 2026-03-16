@@ -21,8 +21,16 @@ import type {
   PromptVersionReference,
 } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
+import { AuditLogger } from "../AuditLogger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
-import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
+import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
+import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
+import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../../auth/AgentIdentity.js";
+import { toolRegistry, type ToolExecutionContext, type ToolResult } from "../../../services/tools/ToolRegistry.js";
+import type {
+  HallucinationCheckResult as KFHallucinationCheckResult,
+  KnowledgeFabricValidator,
+} from "../KnowledgeFabricValidator.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
 
@@ -31,9 +39,15 @@ import { MemorySystem } from "../MemorySystem.js";
 // ---------------------------------------------------------------------------
 
 export interface HallucinationSignal {
-  type: 'refusal_pattern' | 'fabricated_data' | 'self_reference' | 'confidence_mismatch' | 'internal_contradiction' | 'ungrounded_claim';
+  type:
+    | "refusal_pattern"
+    | "fabricated_data"
+    | "self_reference"
+    | "confidence_mismatch"
+    | "internal_contradiction"
+    | "ungrounded_claim";
   description: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
 }
 
 export interface HallucinationCheckResult {
@@ -62,6 +76,7 @@ export abstract class BaseAgent {
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
   protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
+  protected auditLogger: AuditLogger;
   // Prompt version references set during execution, included in output metadata.
   protected _promptVersionRefs: PromptVersionReference[] = [];
 
@@ -77,69 +92,74 @@ export abstract class BaseAgent {
     // Subclasses may also override via `public override readonly version = "x.y.z"`.
     // The subclass field initializer runs after super(), so it takes precedence.
     const metadataVersion = config.metadata?.version;
-    this.version = typeof metadataVersion === "string" ? metadataVersion : "1.0.0";
+    this.version =
+      typeof metadataVersion === "string" ? metadataVersion : "1.0.0";
     this.name = config.name;
     this.organizationId = organizationId;
     this.memorySystem = memorySystem;
     this.llmGateway = llmGateway;
     this.circuitBreaker = circuitBreaker;
     this.knowledgeFabricValidator = null;
+    this.auditLogger = new AuditLogger();
   }
 
-    /**
-     * Records prompt version references for the current execution.
-     * Stored on the instance so buildOutput can include them in metadata.
-     */
-    protected setPromptVersionReferences(
-      refs: Array<{ key: string; version: string }>,
-      _approvals?: unknown[],
-    ): void {
-      this._promptVersionRefs = refs.map(r => ({ key: r.key, version: r.version }));
-    }
+  /**
+   * Records prompt version references for the current execution.
+   * Stored on the instance so buildOutput can include them in metadata.
+   */
+  protected setPromptVersionReferences(
+    refs: Array<{ key: string; version: string }>,
+    _approvals?: unknown[]
+  ): void {
+    this._promptVersionRefs = refs.map(r => ({
+      prompt_key: r.key,
+      version: r.version,
+    }));
+  }
 
-    /**
-     * Converts a numeric score to a confidence level string.
-     */
-    protected toConfidenceLevel(score: number): ConfidenceLevel {
-      if (score >= 0.85) return 'very_high';
-      if (score >= 0.7) return 'high';
-      if (score >= 0.5) return 'medium';
-      if (score >= 0.3) return 'low';
-      return 'very_low';
-    }
+  /**
+   * Converts a numeric score to a confidence level string.
+   */
+  protected toConfidenceLevel(score: number): ConfidenceLevel {
+    if (score >= 0.85) return "very_high";
+    if (score >= 0.7) return "high";
+    if (score >= 0.5) return "medium";
+    if (score >= 0.3) return "low";
+    return "very_low";
+  }
 
-    /**
-     * Builds a standardized AgentOutput object.
-     */
-    protected buildOutput(
-      result: Record<string, unknown>,
-      status: AgentOutput['status'],
-      confidence: ConfidenceLevel,
-      startTime: number,
-      extra?: {
-        reasoning?: string;
-        suggested_next_actions?: string[];
-        warnings?: string[];
-        prompt_version_refs?: PromptVersionReference[];
-      },
-    ): AgentOutput {
-      const metadata: AgentOutputMetadata = {
-        execution_time_ms: Date.now() - startTime,
-        model_version: this.version,
-        timestamp: new Date().toISOString(),
-        prompt_version_refs: extra?.prompt_version_refs,
-      };
-      return {
-        agent_id: this.name,
-        agent_type: this.lifecycleStage,
-        lifecycle_stage: this.lifecycleStage,
-        status,
-        result,
-        confidence,
-        metadata,
-        ...(extra || {}),
-      };
+  /**
+   * Builds a standardized AgentOutput object.
+   */
+  protected buildOutput(
+    result: Record<string, unknown>,
+    status: AgentOutput["status"],
+    confidence: ConfidenceLevel,
+    startTime: number,
+    extra?: {
+      reasoning?: string;
+      suggested_next_actions?: string[];
+      warnings?: string[];
+      prompt_version_refs?: PromptVersionReference[];
     }
+  ): AgentOutput {
+    const metadata: AgentOutputMetadata = {
+      execution_time_ms: Date.now() - startTime,
+      model_version: this.version,
+      timestamp: new Date().toISOString(),
+      prompt_version_refs: extra?.prompt_version_refs,
+    };
+    return {
+      agent_id: this.name,
+      agent_type: this.lifecycleStage,
+      lifecycle_stage: this.lifecycleStage,
+      status,
+      result,
+      confidence,
+      metadata,
+      ...(extra || {}),
+    };
+  }
 
   /**
    * Inject a KnowledgeFabricValidator for hallucination detection.
@@ -172,7 +192,10 @@ export abstract class BaseAgent {
     return true;
   }
 
-  async prepareOutput(result: Record<string, unknown>, status: AgentOutputStatus): Promise<AgentOutput> {
+  async prepareOutput(
+    result: Record<string, unknown>,
+    status: AgentOutputStatus
+  ): Promise<AgentOutput> {
     return {
       agent_id: this.name,
       agent_type: this.lifecycleStage as AgentType,
@@ -186,6 +209,27 @@ export abstract class BaseAgent {
         timestamp: new Date().toISOString(),
       },
     };
+  }
+
+  /**
+   * Invoke a tool by name after checking that this agent's policy permits it.
+   * Throws PermissionDeniedError if the tool is not in the agent's allowedTools list.
+   * All agent subclasses must use this method rather than calling toolRegistry directly.
+   */
+  protected async invokeTool(
+    toolName: string,
+    params: Record<string, unknown>,
+    context?: Omit<ToolExecutionContext, "agentType">
+  ): Promise<ToolResult> {
+    const identity = createAgentIdentity(this.name, this.name, this.organizationId);
+    if (!canUseTool(identity, toolName)) {
+      throw new PermissionDeniedError(this.name, toolName);
+    }
+    return toolRegistry.execute(toolName, params, {
+      ...context,
+      agentType: this.name,
+      tenantId: context?.tenantId ?? this.organizationId,
+    });
   }
 
   /**
@@ -210,39 +254,96 @@ export abstract class BaseAgent {
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, unknown>;
       idempotencyKey?: string;
+      /**
+       * The authenticated user who triggered this agent run.
+       * Pass `context.user_id` from LifecycleContext here.
+       * Defaults to "system" only for background/cron invocations.
+       */
+      userId?: string;
     } = {}
-  ): Promise<T & {
-    hallucination_check?: boolean;
-    hallucination_details?: HallucinationCheckResult;
-    /** Token counts from the LLM response. Undefined when the provider does not return usage. */
-    token_usage?: { input_tokens: number; output_tokens: number; total_tokens: number };
-  }> {
+  ): Promise<
+    T & {
+      hallucination_check?: boolean;
+      hallucination_details?: HallucinationCheckResult;
+      /** Token counts from the LLM response. Undefined when the provider does not return usage. */
+      token_usage?: {
+        input_tokens: number;
+        output_tokens: number;
+        total_tokens: number;
+      };
+    }
+  > {
     const {
       trackPrediction = true,
       confidenceThresholds: _confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
       idempotencyKey,
+      userId,
     } = options;
+
+    // Resolve userId: explicit option > context.user_id > "system" fallback.
+    // "system" is only correct for cron/background jobs — agent execute() methods
+    // must pass context.user_id so cost tracking and abuse investigation work.
+    const resolvedUserId =
+      userId ??
+      (typeof context.user_id === "string" ? context.user_id : undefined) ??
+      "system";
 
     // Reset per-invocation state so refs from a prior execute() call don't
     // bleed into this one when the agent instance is reused.
     this._promptVersionRefs = [];
 
+    // Kill switch — admin can disable an agent at runtime without a deploy.
+    // Fails open: if Redis is unavailable the check returns false and execution proceeds.
+    if (await agentKillSwitchService.isKilled(this.name)) {
+      throw new Error(`Agent ${this.name} is currently disabled by kill switch`);
+    }
+
     return this.circuitBreaker.execute(async () => {
+      // Start the timer inside the closure so circuit-breaker queue time is
+      // not included in the reported LLM latency.
+      const invokeStartMs = Date.now();
+
       const traceId =
-        typeof context.trace_id === "string" ? context.trace_id
-          : typeof context.traceId === "string" ? context.traceId
+        typeof context.trace_id === "string"
+          ? context.trace_id
+          : typeof context.traceId === "string"
+            ? context.traceId
             : sessionId;
+
+      // Sanitize context before injecting into the LLM request — removes PII/secret fields.
+      const sanitizedContext = sanitizeForAgent(context as Record<string, unknown>);
+
+      // Resolve the real userId from context; fall back to "system" only when absent.
+      const resolvedUserId =
+        typeof context.userId === "string" && context.userId.length > 0
+          ? context.userId
+          : typeof context.user_id === "string" && context.user_id.length > 0
+            ? context.user_id
+            : "system";
+
+      if (resolvedUserId === "system") {
+        logger.warn(
+          "secureInvoke: no userId in context, falling back to 'system'",
+          {
+            agent: this.name,
+            session_id: sessionId,
+          }
+        );
+      }
 
       const request = {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
           tenantId: this.organizationId,
-          tenant_id: this.organizationId,
           sessionId,
-          userId: "system",
+          userId: resolvedUserId,
           trace_id: traceId,
           idempotencyKey,
+          // agentType drives policy lookup in LLMGateway — prefer the
+          // canonical agentType (factory key) and fall back to name for
+          // legacy agents that don't define it.
+          agentType: (this as { agentType?: AgentType; name: string }).agentType ?? this.name,
           ...context,
         },
       };
@@ -250,7 +351,9 @@ export abstract class BaseAgent {
       const response = await this.llmGateway.complete(request);
 
       // Knowledge Fabric cross-reference (runs in parallel with parse)
-      const kfResultPromise = this.validateWithKnowledgeFabric(response.content);
+      const kfResultPromise = this.validateWithKnowledgeFabric(
+        response.content
+      );
 
       // Validate response with Zod (fails fast on bad JSON)
       let parsedJson: unknown;
@@ -263,7 +366,9 @@ export abstract class BaseAgent {
           error: (err as Error).message,
           content: response.content,
         });
-        throw new Error("LLM response was not valid JSON: " + (err as Error).message);
+        throw new Error(
+          "LLM response was not valid JSON: " + (err as Error).message
+        );
       }
       const parsed = zodSchema.parse(parsedJson);
 
@@ -271,7 +376,7 @@ export abstract class BaseAgent {
       const hallucinationResult = await this.checkHallucination(
         response.content,
         parsed as Record<string, unknown>,
-        sessionId,
+        sessionId
       );
 
       // Merge Knowledge Fabric result
@@ -283,7 +388,7 @@ export abstract class BaseAgent {
         hallucinationResult.requiresEscalation = true;
         hallucinationResult.groundingScore = Math.min(
           hallucinationResult.groundingScore,
-          kfResult.confidence,
+          kfResult.confidence
         );
       }
 
@@ -301,7 +406,8 @@ export abstract class BaseAgent {
             requires_escalation: hallucinationResult.requiresEscalation,
             validation_method: kfResult.method,
             contradiction_count: kfResult.contradictions.length,
-            benchmark_misalignment_count: kfResult.benchmarkMisalignments.length,
+            benchmark_misalignment_count:
+              kfResult.benchmarkMisalignments.length,
           },
           this.organizationId
         );
@@ -326,6 +432,19 @@ export abstract class BaseAgent {
           }
         : undefined;
 
+      // Emit audit entry for this LLM invocation (non-blocking).
+      void this.auditLogger.logLLMInvocation({
+        agentName: this.name,
+        sessionId,
+        tenantId: this.organizationId,
+        userId: resolvedUserId,
+        model: response.model ?? "unknown",
+        latencyMs: Date.now() - invokeStartMs,
+        hallucinationPassed: hallucinationResult.passed,
+        groundingScore: hallucinationResult.groundingScore,
+        tokenUsage,
+      });
+
       return {
         ...parsed,
         hallucination_check: hallucinationResult.passed,
@@ -339,7 +458,9 @@ export abstract class BaseAgent {
   // Knowledge Fabric Validation
   // -------------------------------------------------------------------------
 
-  private async validateWithKnowledgeFabric(content: string): Promise<KFHallucinationCheckResult> {
+  private async validateWithKnowledgeFabric(
+    content: string
+  ): Promise<KFHallucinationCheckResult> {
     if (!this.knowledgeFabricValidator) {
       return {
         passed: true,
@@ -367,7 +488,6 @@ export abstract class BaseAgent {
         contradictions: [],
         benchmarkMisalignments: [],
         method: "knowledge_fabric",
-        requiresEscalation: true,
       };
     }
   }
@@ -388,7 +508,7 @@ export abstract class BaseAgent {
   protected async checkHallucination(
     rawContent: string,
     parsedOutput: Record<string, unknown>,
-    sessionId: string,
+    sessionId: string
   ): Promise<HallucinationCheckResult> {
     const signals: HallucinationSignal[] = [];
 
@@ -406,9 +526,9 @@ export abstract class BaseAgent {
     for (const pattern of refusalPatterns) {
       if (pattern.test(rawContent)) {
         signals.push({
-          type: 'refusal_pattern',
+          type: "refusal_pattern",
           description: `LLM refusal detected: ${pattern.source}`,
-          severity: 'high',
+          severity: "high",
         });
         break;
       }
@@ -426,9 +546,9 @@ export abstract class BaseAgent {
     for (const pattern of selfRefPatterns) {
       if (pattern.test(rawContent)) {
         signals.push({
-          type: 'self_reference',
+          type: "self_reference",
           description: `LLM self-reference detected: ${pattern.source}`,
-          severity: 'medium',
+          severity: "medium",
         });
         break;
       }
@@ -447,14 +567,18 @@ export abstract class BaseAgent {
     this.checkConfidenceCalibration(parsedOutput, signals);
 
     // Compute grounding score
-    const severityWeights: Record<string, number> = { low: 0.1, medium: 0.25, high: 0.5 };
+    const severityWeights: Record<string, number> = {
+      low: 0.1,
+      medium: 0.25,
+      high: 0.5,
+    };
     const totalPenalty = signals.reduce(
       (sum, s) => sum + (severityWeights[s.severity] || 0.1),
-      0,
+      0
     );
     const groundingScore = Math.max(0, Math.min(1, 1 - totalPenalty));
 
-    const hasHighSeverity = signals.some(s => s.severity === 'high');
+    const hasHighSeverity = signals.some(s => s.severity === "high");
     const requiresEscalation = hasHighSeverity || groundingScore < 0.5;
 
     return {
@@ -468,14 +592,15 @@ export abstract class BaseAgent {
   private checkFabricatedData(
     rawContent: string,
     parsedOutput: Record<string, unknown>,
-    signals: HallucinationSignal[],
+    signals: HallucinationSignal[]
   ): void {
-    const fakeUrlPattern = /https?:\/\/(?:www\.)?(?:example\.com|fake|placeholder|lorem)/i;
+    const fakeUrlPattern =
+      /https?:\/\/(?:www\.)?(?:example\.com|fake|placeholder|lorem)/i;
     if (fakeUrlPattern.test(rawContent)) {
       signals.push({
-        type: 'fabricated_data',
-        description: 'Placeholder or fake URL detected in output',
-        severity: 'high',
+        type: "fabricated_data",
+        description: "Placeholder or fake URL detected in output",
+        severity: "high",
       });
     }
 
@@ -483,19 +608,19 @@ export abstract class BaseAgent {
     const roundMatches = rawContent.match(roundNumberPattern);
     if (roundMatches && roundMatches.length > 3) {
       signals.push({
-        type: 'fabricated_data',
+        type: "fabricated_data",
         description: `Multiple suspiciously round numbers detected (${roundMatches.length} instances)`,
-        severity: 'low',
+        severity: "low",
       });
     }
 
-    const percentages = this.extractNumbers(parsedOutput, 'percent');
+    const percentages = this.extractNumbers(parsedOutput, "percent");
     for (const pct of percentages) {
       if (pct > 1000 || pct < -100) {
         signals.push({
-          type: 'fabricated_data',
+          type: "fabricated_data",
           description: `Implausible percentage value: ${pct}%`,
-          severity: 'medium',
+          severity: "medium",
         });
         break;
       }
@@ -504,26 +629,26 @@ export abstract class BaseAgent {
 
   private checkInternalContradictions(
     parsedOutput: Record<string, unknown>,
-    signals: HallucinationSignal[],
+    signals: HallucinationSignal[]
   ): void {
     const ranges = this.extractRanges(parsedOutput);
     for (const range of ranges) {
       if (range.low > range.high) {
         signals.push({
-          type: 'internal_contradiction',
+          type: "internal_contradiction",
           description: `Range inversion: low (${range.low}) > high (${range.high}) in ${range.path}`,
-          severity: 'high',
+          severity: "high",
         });
       }
     }
 
-    const confidences = this.extractNumbers(parsedOutput, 'confidence');
+    const confidences = this.extractNumbers(parsedOutput, "confidence");
     for (const conf of confidences) {
       if (conf < 0 || conf > 1) {
         signals.push({
-          type: 'internal_contradiction',
+          type: "internal_contradiction",
           description: `Confidence value out of bounds: ${conf}`,
-          severity: 'medium',
+          severity: "medium",
         });
       }
     }
@@ -532,12 +657,12 @@ export abstract class BaseAgent {
   private async crossReferenceMemory(
     parsedOutput: Record<string, unknown>,
     sessionId: string,
-    signals: HallucinationSignal[],
+    signals: HallucinationSignal[]
   ): Promise<void> {
     try {
       const memories = await this.memorySystem.retrieve({
         agent_id: this.name,
-        memory_type: 'semantic',
+        memory_type: "semantic",
         limit: 5,
         organization_id: this.organizationId,
       });
@@ -547,24 +672,40 @@ export abstract class BaseAgent {
       const outputStr = JSON.stringify(parsedOutput).toLowerCase();
 
       for (const memory of memories) {
-        if (memory.metadata?.type === 'integrity_validation' && memory.metadata?.veto === true) {
-          if (outputStr.includes('supported') || outputStr.includes('validated')) {
+        if (
+          memory.metadata?.type === "integrity_validation" &&
+          memory.metadata?.veto === true
+        ) {
+          if (
+            outputStr.includes("supported") ||
+            outputStr.includes("validated")
+          ) {
             signals.push({
-              type: 'ungrounded_claim',
-              description: 'Output claims validation success but previous integrity check vetoed',
-              severity: 'medium',
+              type: "ungrounded_claim",
+              description:
+                "Output claims validation success but previous integrity check vetoed",
+              severity: "medium",
             });
           }
         }
       }
     } catch (err) {
-      logger.warn('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
-        agent: this.name,
-        organizationId: this.organizationId,
-        error: (err as Error).message,
-      });
-      if (err && typeof err.message === 'string' && err.message.includes('tenant')) {
-        throw new Error(`Tenant isolation violation in crossReferenceMemory: ${err.message}`);
+      logger.warn(
+        "[BaseAgent.crossReferenceMemory] Memory cross-reference failed",
+        {
+          agent: this.name,
+          organizationId: this.organizationId,
+          error: (err as Error).message,
+        }
+      );
+      if (
+        err &&
+        typeof err.message === "string" &&
+        err.message.includes("tenant")
+      ) {
+        throw new Error(
+          `Tenant isolation violation in crossReferenceMemory: ${err.message}`
+        );
       }
       // Otherwise, skip cross-reference but error is now visible
     }
@@ -572,20 +713,22 @@ export abstract class BaseAgent {
 
   private checkConfidenceCalibration(
     parsedOutput: Record<string, unknown>,
-    signals: HallucinationSignal[],
+    signals: HallucinationSignal[]
   ): void {
-    const confidences = this.extractNumbers(parsedOutput, 'confidence');
-    const evidenceArrays = this.extractArrayLengths(parsedOutput, 'evidence');
+    const confidences = this.extractNumbers(parsedOutput, "confidence");
+    const evidenceArrays = this.extractArrayLengths(parsedOutput, "evidence");
 
     if (confidences.length > 0 && evidenceArrays.length > 0) {
-      const avgConfidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
-      const avgEvidence = evidenceArrays.reduce((a, b) => a + b, 0) / evidenceArrays.length;
+      const avgConfidence =
+        confidences.reduce((a, b) => a + b, 0) / confidences.length;
+      const avgEvidence =
+        evidenceArrays.reduce((a, b) => a + b, 0) / evidenceArrays.length;
 
       if (avgConfidence > 0.85 && avgEvidence < 2) {
         signals.push({
-          type: 'confidence_mismatch',
+          type: "confidence_mismatch",
           description: `High confidence (${avgConfidence.toFixed(2)}) with thin evidence (avg ${avgEvidence.toFixed(1)} items)`,
-          severity: 'medium',
+          severity: "medium",
         });
       }
     }
@@ -595,17 +738,27 @@ export abstract class BaseAgent {
   // Utility methods
   // -------------------------------------------------------------------------
 
-  private extractNumbers(obj: unknown, keyPattern: string, results: number[] = []): number[] {
+  private extractNumbers(
+    obj: unknown,
+    keyPattern: string,
+    results: number[] = []
+  ): number[] {
     if (obj === null || obj === undefined) return results;
-    if (typeof obj === 'number' && !Number.isNaN(obj)) return results;
+    // A bare number is not keyed, so it cannot match keyPattern — skip it.
+    if (typeof obj === "number") return results;
 
     if (Array.isArray(obj)) {
       for (const item of obj) {
         this.extractNumbers(item, keyPattern, results);
       }
-    } else if (typeof obj === 'object') {
-      for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-        if (key.toLowerCase().includes(keyPattern) && typeof value === 'number') {
+    } else if (typeof obj === "object") {
+      for (const [key, value] of Object.entries(
+        obj as Record<string, unknown>
+      )) {
+        if (
+          key.toLowerCase().includes(keyPattern) &&
+          typeof value === "number"
+        ) {
           results.push(value);
         } else {
           this.extractNumbers(value, keyPattern, results);
@@ -617,10 +770,11 @@ export abstract class BaseAgent {
 
   private extractRanges(
     obj: unknown,
-    path: string = '',
-    results: Array<{ low: number; high: number; path: string }> = [],
+    path: string = "",
+    results: Array<{ low: number; high: number; path: string }> = []
   ): Array<{ low: number; high: number; path: string }> {
-    if (obj === null || obj === undefined || typeof obj !== 'object') return results;
+    if (obj === null || obj === undefined || typeof obj !== "object")
+      return results;
 
     if (Array.isArray(obj)) {
       for (let i = 0; i < obj.length; i++) {
@@ -628,8 +782,12 @@ export abstract class BaseAgent {
       }
     } else {
       const record = obj as Record<string, unknown>;
-      if (typeof record.low === 'number' && typeof record.high === 'number') {
-        results.push({ low: record.low, high: record.high, path: path || 'root' });
+      if (typeof record.low === "number" && typeof record.high === "number") {
+        results.push({
+          low: record.low,
+          high: record.high,
+          path: path || "root",
+        });
       }
       for (const [key, value] of Object.entries(record)) {
         this.extractRanges(value, path ? `${path}.${key}` : key, results);
@@ -638,15 +796,22 @@ export abstract class BaseAgent {
     return results;
   }
 
-  private extractArrayLengths(obj: unknown, keyPattern: string, results: number[] = []): number[] {
-    if (obj === null || obj === undefined || typeof obj !== 'object') return results;
+  private extractArrayLengths(
+    obj: unknown,
+    keyPattern: string,
+    results: number[] = []
+  ): number[] {
+    if (obj === null || obj === undefined || typeof obj !== "object")
+      return results;
 
     if (Array.isArray(obj)) {
       for (const item of obj) {
         this.extractArrayLengths(item, keyPattern, results);
       }
     } else {
-      for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(
+        obj as Record<string, unknown>
+      )) {
         if (key.toLowerCase().includes(keyPattern) && Array.isArray(value)) {
           results.push(value.length);
         } else {

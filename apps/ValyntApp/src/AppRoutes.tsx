@@ -64,6 +64,7 @@ const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
 const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
 const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
+const AgentAdminPage = lazy(() => import("./views/Admin/AgentAdminPage"));
 
 
 const TENANT_SCOPED_PREFIX = "/org";
@@ -173,6 +174,7 @@ export function AppRoutes() {
                                 <Route path="models/:id" element={<ModelDetail />} />
                                 <Route path="agents" element={<Agents />} />
                                 <Route path="agents/:id" element={<AgentDetail />} />
+                                <Route path="admin/agents" element={<AgentAdminPage />} />
                                 <Route path="integrations" element={<Integrations />} />
                                 <Route path="settings" element={<SettingsPage />} />
                                 <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />

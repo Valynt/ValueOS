@@ -203,25 +203,47 @@ router.get("/stream", requirePermission("users.read"), async (req: Request, res:
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  let closed = false;
+  let interval: ReturnType<typeof setInterval> | undefined;
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    if (interval !== undefined) clearInterval(interval);
+    res.end();
+  };
+
   const push = async () => {
-    const controls = await complianceControlStatusService.refreshControlStatus(tenantId);
-    const payload = {
-      type: "control_status_updated",
-      generated_at: new Date().toISOString(),
-      summary: complianceControlStatusService.summarize(controls),
-    };
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    if (closed) return;
+    try {
+      const controls = await complianceControlStatusService.refreshControlStatus(tenantId);
+      // Guard again: client may have disconnected during the async DB query.
+      if (closed) return;
+      const payload = {
+        type: "control_status_updated",
+        generated_at: new Date().toISOString(),
+        summary: complianceControlStatusService.summarize(controls),
+      };
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (err) {
+      console.error(
+        "Error in /compliance/stream SSE push",
+        {
+          tenantId,
+          method: req.method,
+          url: req.originalUrl,
+        },
+        err,
+      );
+      cleanup();
+    }
   };
 
   await push();
-  const interval = setInterval(() => {
-    void push();
-  }, 30000);
+  interval = setInterval(() => void push(), 30_000);
 
-  req.on("close", () => {
-    clearInterval(interval);
-    res.end();
-  });
+  req.on("close", cleanup);
+  res.on("error", cleanup);
 });
 
 router.get("/audit-logs", requirePermission("users.read"), async (req: Request, res: Response) => {

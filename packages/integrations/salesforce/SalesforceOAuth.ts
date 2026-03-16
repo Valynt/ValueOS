@@ -90,6 +90,13 @@ const SalesforceTokenResponseSchema = z.object({
 const DEFAULT_LOGIN_URL = "https://login.salesforce.com";
 const DEFAULT_SCOPES = ["api", "refresh_token"];
 
+/**
+ * loginUrl must resolve to a Salesforce-owned domain to prevent SSRF and
+ * client_secret exfiltration. Matches *.salesforce.com and *.force.com.
+ */
+const ALLOWED_LOGIN_URL_PATTERN =
+  /^https:\/\/([a-zA-Z0-9-]+\.)+salesforce\.com(\/|$)|^https:\/\/([a-zA-Z0-9-]+\.)+force\.com(\/|$)/;
+
 export class SalesforceOAuth {
   private readonly config: SalesforceOAuthConfig;
   private readonly loginUrl: string;
@@ -97,6 +104,15 @@ export class SalesforceOAuth {
 
   constructor(config: SalesforceOAuthConfig) {
     const parsed = SalesforceOAuthConfigSchema.parse(config);
+
+    if (parsed.loginUrl && !ALLOWED_LOGIN_URL_PATTERN.test(parsed.loginUrl)) {
+      throw new AuthError(
+        "salesforce",
+        `loginUrl '${parsed.loginUrl}' is not an allowed Salesforce domain. ` +
+          "Must be under *.salesforce.com or *.force.com.",
+      );
+    }
+
     this.config = parsed;
     this.loginUrl = parsed.loginUrl ?? DEFAULT_LOGIN_URL;
     this.scopes = parsed.scopes ?? DEFAULT_SCOPES;

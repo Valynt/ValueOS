@@ -186,17 +186,23 @@ export class AuthorizationPolicyGateway {
 
 export const authorizationPolicyGateway = new AuthorizationPolicyGateway();
 
-// Convenience wrapper: throws if the authorization decision is denied.
-export function assertAuthorized(
-  request: AuthorizationRequest,
-  validator?: DecisionValidator
-): void {
-  const decision = authorizationPolicyGateway.authorize(request, validator);
-  if (!decision.allowed) {
-    throw new PolicyEnforcementError(
-      decision.reason ?? "permission denied",
-      "POLICY_DENIED",
-      decision.policyVersion
-    );
-  }
+/**
+ * Convenience wrapper used by PolicyEnforcement.ts.
+ * Calls authorize() on the singleton gateway and returns the decision.
+ * Throws PolicyEnforcementError (via enforceToolPolicy) when denied.
+ */
+export function assertAuthorized(params: {
+  domain: string;
+  action: string;
+  resource: string;
+  agentType?: string;
+  [key: string]: unknown;
+}): AuthorizationDecision {
+  return authorizationPolicyGateway.authorize({
+    channel: "tool_registry",
+    action: params.action,
+    resource: params.resource,
+    subject: { agentType: params.agentType },
+    metadata: { domain: params.domain },
+  });
 }

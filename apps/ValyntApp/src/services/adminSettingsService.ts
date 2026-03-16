@@ -46,7 +46,8 @@ export interface AuditLogQuery {
   startDate?: string;
   endDate?: string;
   limit: number;
-  offset: number;
+  /** Opaque cursor from a previous response for keyset pagination. offset is not supported. */
+  cursor?: string;
 }
 
 export async function fetchRoleMatrix(): Promise<OrganizationRole[]> {
@@ -74,20 +75,26 @@ export async function deleteRole(roleId: string): Promise<void> {
 }
 
 export async function fetchTeamAuditLogs(query: AuditLogQuery): Promise<AuditLogResponse> {
-  const response = await apiClient.get<AuditLogResponse>("/api/admin/audit-logs", {
-    search: query.search,
-    action: query.action && query.action !== "all" ? query.action : undefined,
-    resourceType: query.resourceType && query.resourceType !== "all" ? query.resourceType : undefined,
-    userId: query.userId && query.userId !== "all" ? query.userId : undefined,
-    startDate: query.startDate,
-    endDate: query.endDate,
-    limit: query.limit,
-    offset: query.offset,
-  });
+  // Uses the tenant-scoped /api/v1/audit-logs endpoint (requires admin:audit permission).
+  const response = await apiClient.get<{ data: AuditLogItem[]; pagination: { has_next_page: boolean; next_cursor: string | null } }>(
+    "/api/v1/audit-logs",
+    {
+      action: query.action && query.action !== "all" ? query.action : undefined,
+      resource_type: query.resourceType && query.resourceType !== "all" ? query.resourceType : undefined,
+      start_date: query.startDate,
+      end_date: query.endDate,
+      limit: query.limit,
+      cursor: query.cursor,
+    },
+  );
 
   if (!response.success || !response.data) {
     throw new Error(response.error?.message ?? "Unable to load audit logs");
   }
 
-  return response.data;
+  return {
+    logs: response.data.data,
+    total: response.data.data.length,
+    hasMore: response.data.pagination.has_next_page,
+  };
 }
