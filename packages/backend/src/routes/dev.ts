@@ -43,8 +43,13 @@ router.use(requireAuth);
  * This is acceptable here because dev routes are already gated by NODE_ENV + feature flag.
  */
 function requireDevAdmin(req: Request, res: Response, next: () => void): void {
-  const user = (req as any).user;
-  const role = user?.role ?? user?.app_metadata?.role;
+  const user = req.user;
+  const roleFromUser = typeof user?.role === "string" ? user.role : undefined;
+  const roleFromMetadata =
+    typeof user?.app_metadata?.role === "string"
+      ? user.app_metadata.role
+      : undefined;
+  const role = roleFromUser ?? roleFromMetadata;
   if (role !== "admin" && role !== "service_role") {
     res.status(403).json({ error: "Admin access required for this dev operation" });
     return;

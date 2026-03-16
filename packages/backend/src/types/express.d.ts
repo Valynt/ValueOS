@@ -8,6 +8,7 @@ declare global {
         id: string;
         email?: string;
         roles?: string[];
+        role?: string;
         tenant_id?: string;
         organization_id?: string;
         sub?: string;
@@ -15,7 +16,7 @@ declare global {
         subscription_tier?: string;
         plan_tier?: string;
         planTier?: string;
-        app_metadata?: { roles?: unknown; tier?: string };
+        app_metadata?: { role?: string; roles?: unknown; tier?: string };
         user_metadata?: { full_name?: string; name?: string };
         [key: string]: unknown;
       };
