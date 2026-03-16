@@ -34,7 +34,7 @@ import { createServer, type IncomingMessage } from "http";
 
 import { parseCorsAllowlist } from "@shared/config/cors";
 
-import { WebSocket, WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer, type RawData } from "ws";
 
 import adminRouter from "./api/admin.js";
 import { agentAdminRouter } from "./api/agentAdmin.js";
@@ -150,7 +150,12 @@ import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
+import { recordDroppedFrame, recordThrottledClient } from "./metrics/websocketSecurityMetrics.js";
+import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
+import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
+const WS_MAX_MESSAGES_PER_SECOND = Number(process.env.WS_MAX_MESSAGES_PER_SECOND ?? "30");
+const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536");
 
 getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
@@ -198,7 +203,14 @@ const onboardingConcurrencyGuard = createConcurrencyBackpressure("/api/onboardin
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
   tenantId: string;
+  connectionId: string;
 }
+
+const websocketLimiter = new WebSocketLimiter({
+  maxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
+  maxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
+});
+let websocketConnectionCounter = 0;
 
 const tenantResolver = new TenantContextResolver();
 
@@ -285,12 +297,65 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   const authedSocket = ws as AuthenticatedWebSocket;
   authedSocket.userId = userId;
   authedSocket.tenantId = tenantId;
+  authedSocket.connectionId = `${tenantId}:${++websocketConnectionCounter}`;
 
-  logger.info("WebSocket client connected", { clientIp, userId, tenantId });
+  logger.info("WebSocket client connected", {
+    clientIp,
+    userId,
+    tenantId,
+    connectionId: authedSocket.connectionId,
+  });
 
-  ws.on("message", (data: Buffer) => {
+  ws.on("message", (data: RawData) => {
+    const payloadBytes =
+      typeof data === "string"
+        ? Buffer.byteLength(data)
+        : data instanceof ArrayBuffer
+          ? data.byteLength
+          : Array.isArray(data)
+            ? data.reduce((total, segment) => total + segment.byteLength, 0)
+            : data.byteLength;
+
+    const limiterResult = websocketLimiter.evaluateMessage(
+      authedSocket.connectionId,
+      authedSocket.tenantId,
+      payloadBytes
+    );
+
+    if (!limiterResult.allowed && limiterResult.reason) {
+      recordDroppedFrame(limiterResult.reason);
+      recordThrottledClient(authedSocket.tenantId);
+      logSecurityEvent({
+        type: "WEBSOCKET_FRAME_BLOCKED",
+        category: "rate_limiting",
+        severity: "high",
+        outcome: "blocked",
+        reason: limiterResult.reason,
+        userId: authedSocket.userId,
+        tenantId: authedSocket.tenantId,
+        ipAddress: clientIp,
+        metadata: {
+          connectionId: authedSocket.connectionId,
+          payloadBytes,
+          maxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
+          maxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
+        },
+      });
+
+      ws.close(WS_POLICY_VIOLATION_CODE, "Policy violation");
+      return;
+    }
+
     try {
-      const message = JSON.parse(data.toString());
+      const textPayload =
+        typeof data === "string"
+          ? data
+          : data instanceof ArrayBuffer
+            ? Buffer.from(data).toString()
+            : Array.isArray(data)
+              ? Buffer.concat(data).toString()
+              : data.toString();
+      const message = JSON.parse(textPayload) as { type?: string; messageId?: string; payload?: unknown };
       logger.debug("WebSocket message received", {
         type: message.type,
         messageId: message.messageId,
@@ -336,10 +401,12 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   });
 
   ws.on("close", () => {
+    websocketLimiter.releaseConnection(authedSocket.connectionId, authedSocket.tenantId);
     logger.info("WebSocket client disconnected", {
       clientIp,
       userId,
       tenantId,
+      connectionId: authedSocket.connectionId,
     });
   });
 
