@@ -206,6 +206,7 @@ export class VersionHistoryService extends BaseService {
           changedBy: rolledBackBy,
           changeDescription: `Rolled back to version ${versionId}`,
           changeType: 'update',
+          organizationId,
         });
 
         this.clearCache();
