@@ -17,6 +17,13 @@ import { BillingApprovalService } from './BillingApprovalService.js';
 const logger = createLogger({ component: 'BillingOverridesService' });
 const approvalService = new BillingApprovalService();
 
+export class BillingOverrideNotFoundError extends Error {
+  constructor(overrideId: string) {
+    super(`Billing override not found or not in pending status: ${overrideId}`);
+    this.name = 'BillingOverrideNotFoundError';
+  }
+}
+
 // ── Zod schemas ──────────────────────────────────────────────────────────────
 
 export const BillingOverrideTypeSchema = z.enum(['contract', 'temporary']);
@@ -136,6 +143,8 @@ export class BillingOverridesService {
 
   /**
    * Approve a pending override. Sets status to 'approved' and records approver.
+   * Throws `BillingOverrideNotFoundError` when the override doesn't exist or
+   * isn't in `pending` status (so callers can return 404/409 rather than 500).
    */
   async approveOverride(
     overrideId: string,
@@ -154,6 +163,11 @@ export class BillingOverridesService {
       .eq('status', 'pending')
       .select()
       .single();
+
+    // PGRST116 = no rows matched — override not found or not in pending status
+    if (error?.code === 'PGRST116' || (!error && !data)) {
+      throw new BillingOverrideNotFoundError(overrideId);
+    }
 
     if (error || !data) {
       throw new Error(`Failed to approve override ${overrideId}: ${error?.message}`);

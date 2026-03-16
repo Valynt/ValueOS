@@ -35,6 +35,9 @@ export function useTenantContextSummary() {
     queryKey: [QUERY_KEY],
     queryFn: async () => {
       const res = await apiClient.get<{ data: TenantContextSummary | null }>("/api/v1/tenant/context");
+      if (!res.success) {
+        throw new Error(res.error?.message ?? "Failed to fetch tenant context");
+      }
       return res.data?.data ?? null;
     },
     staleTime: 60_000,

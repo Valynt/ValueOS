@@ -71,7 +71,14 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
       .eq('organization_id', this.organizationId)
       .single();
 
-    if (error || !data) return null;
+    // PGRST116 = "no rows returned" — genuine not-found, return null
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      logger.error('SupabaseProvenanceStore: findById failed', { error: error.message, id });
+      throw new Error(`Provenance findById failed: ${error.message}`);
+    }
+
+    if (!data) return null;
     return this.mapRow(data);
   }
 

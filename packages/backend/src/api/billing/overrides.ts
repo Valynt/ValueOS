@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
 import {
   billingOverridesService,
+  BillingOverrideNotFoundError,
   CreateOverrideInputSchema,
 } from '../../services/billing/BillingOverridesService.js';
 
@@ -87,6 +88,10 @@ router.post('/:id/approve', async (req: Request, res: Response): Promise<void> =
     const override = await billingOverridesService.approveOverride(id, tenantId, getUserId(req));
     res.json({ success: true, data: override });
   } catch (err) {
+    if (err instanceof BillingOverrideNotFoundError) {
+      res.status(404).json({ error: 'Override not found or not in pending status' });
+      return;
+    }
     logger.error('Failed to approve billing override', { id, error: (err as Error).message });
     res.status(500).json({ error: 'Failed to approve override' });
   }
