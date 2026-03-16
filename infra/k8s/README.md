@@ -240,7 +240,10 @@ kustomize build infra/infra/k8s/overlays/production | kubectl apply -f -
 ```yaml
 # infra/infra/k8s/base/configmap.yaml
 data:
-  redis-url: "redis://redis:6379"
+  redis-url: "rediss://redis:6379"
+  redis-tls-servername: "redis"
+  redis-tls-reject-unauthorized: "true"
+  redis-tls-ca-cert-path: "/etc/redis/tls/ca.crt"
   node-env: "production"
   log-level: "info"
   enable-circuit-breaker: "true"

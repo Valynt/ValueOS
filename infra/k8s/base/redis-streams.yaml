@@ -319,7 +319,13 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: REDIS_URL
-              value: redis://redis-broker-primary:6379
+              value: rediss://redis-broker-primary:6379
+            - name: REDIS_TLS_SERVERNAME
+              value: redis-broker-primary
+            - name: REDIS_TLS_REJECT_UNAUTHORIZED
+              value: "true"
+            - name: REDIS_TLS_CA_CERT_PATH
+              value: /etc/redis/tls/ca.crt
             - name: REDIS_SENTINEL_ENDPOINTS
               value: redis-sentinel:26379
             - name: REDIS_SENTINEL_MASTER_SET
