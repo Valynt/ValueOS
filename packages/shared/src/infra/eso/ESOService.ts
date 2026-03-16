@@ -15,7 +15,7 @@ import {
 
 export interface ESODataPoint {
   source: "SEC" | "BLS" | "Census";
-  data: any;
+  data: unknown;
   timestamp: string;
   id: string;
 }
@@ -50,7 +50,7 @@ export class ESOService {
       if (adapter.startStreaming) {
         try {
           // Set up data callback for this adapter
-          const unsubscribe = adapter.onData?.((data: any) => {
+          const unsubscribe = adapter.onData?.((data) => {
             const dataPoint: ESODataPoint = {
               source: source as "SEC" | "BLS" | "Census",
               data,
@@ -74,7 +74,7 @@ export class ESOService {
    */
   async fetchData(
     source: "SEC" | "BLS" | "Census",
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   ): Promise<ESODataPoint> {
     const adapter = this.adapters.get(source);
     if (!adapter) {
