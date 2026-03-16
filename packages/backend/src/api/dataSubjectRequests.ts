@@ -17,31 +17,19 @@ import { requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
+import { getDsrMappedPiiAssets } from "../observability/dataAssetInventoryRegistry.js";
 
 const logger = createLogger({ component: "DSR-API" });
 const router = createSecureRouter("strict");
 
 router.use(requireAuth, tenantContextMiddleware());
 
-// Tables that may contain PII, keyed by the column holding the user reference.
-// Agent output tables are scoped by organization_id; the erasure query joins
-// through value_cases.created_by to resolve the user-level scope.
-const PII_TABLES: Array<{ table: string; userColumn: string }> = [
-  { table: "users", userColumn: "id" },
-  { table: "cases", userColumn: "user_id" },
-  { table: "messages", userColumn: "user_id" },
-  { table: "agent_sessions", userColumn: "user_id" },
-  { table: "agent_memory", userColumn: "user_id" },
-  { table: "audit_logs", userColumn: "user_id" },
-  // Agent output tables — scoped by created_by (the user who initiated the case)
-  { table: "hypothesis_outputs", userColumn: "created_by" },
-  { table: "integrity_outputs", userColumn: "created_by" },
-  { table: "narrative_drafts", userColumn: "created_by" },
-  { table: "realization_reports", userColumn: "created_by" },
-  { table: "expansion_opportunities", userColumn: "created_by" },
-  { table: "value_tree_nodes", userColumn: "created_by" },
-  { table: "financial_model_snapshots", userColumn: "created_by" },
-];
+const DSR_PII_ASSETS = getDsrMappedPiiAssets();
+
+interface DsrAssetCoverage {
+  included: string[];
+  excluded: Array<{ asset: string; reason: string }>;
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,20 +58,32 @@ async function gatherFootprint(
   tenantId: string,
 ) {
   const footprint: Record<string, unknown[]> = {};
-  for (const { table, userColumn } of PII_TABLES) {
+  const coverage: DsrAssetCoverage = { included: [], excluded: [] };
+
+  for (const entry of DSR_PII_ASSETS) {
+    const { asset, dsr } = entry;
+    if (!dsr.exportable || !dsr.userColumn || !dsr.tenantColumn) {
+      coverage.excluded.push({ asset, reason: "not_exportable" });
+      continue;
+    }
+
     const { data, error } = await supabase
-      .from(table)
+      .from(asset)
       .select("*")
-      .eq(userColumn, userId)
-      .eq("tenant_id", tenantId);
+      .eq(dsr.userColumn, userId)
+      .eq(dsr.tenantColumn, tenantId);
+
     if (error) {
-      logger.warn(`DSR: failed to read ${table}`, { error: error.message });
-      footprint[table] = [];
+      logger.warn(`DSR: failed to read ${asset}`, { error: error.message });
+      footprint[asset] = [];
+      coverage.excluded.push({ asset, reason: `read_error:${error.code ?? "unknown"}` });
     } else {
-      footprint[table] = data ?? [];
+      footprint[asset] = data ?? [];
+      coverage.included.push(asset);
     }
   }
-  return footprint;
+
+  return { footprint, coverage };
 }
 
 async function auditDsr(
@@ -156,11 +156,13 @@ router.post(
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const footprint = await gatherFootprint(supabase, userId, tenantId);
+      const { footprint, coverage } = await gatherFootprint(supabase, userId, tenantId);
 
       try {
         await auditDsr(supabase, "export", actorId, email, tenantId, requestId, {
           tables: Object.keys(footprint),
+          pii_assets_included: coverage.included,
+          pii_assets_excluded: coverage.excluded,
         });
       } catch (auditErr) {
         // Audit failure must not suppress a completed operation. Log for out-of-band remediation.
@@ -176,6 +178,8 @@ router.post(
         email,
         exported_at: new Date().toISOString(),
         data: footprint,
+        pii_assets_included: coverage.included,
+        pii_assets_excluded: coverage.excluded,
       });
     } catch (err) {
       logger.error("DSR export failed", err instanceof Error ? err : undefined, { emailHash });
@@ -239,37 +243,54 @@ router.post(
       await supabase.from("cases").update({ description: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
       await supabase.from("agent_memory").update({ content: "[redacted]" }).eq("user_id", userId).eq("tenant_id", tenantId);
 
-      // 3. Delete agent output rows attributed to this user (GDPR Art. 17 — F-011).
-      //    These tables use created_by for the user reference and tenant_id for isolation.
-      const AGENT_OUTPUT_TABLES = [
-        "hypothesis_outputs",
-        "integrity_outputs",
-        "narrative_drafts",
-        "realization_reports",
-        "expansion_opportunities",
-        "value_tree_nodes",
-        "financial_model_snapshots",
-      ] as const;
+      const coverage: DsrAssetCoverage = {
+        included: ["users", "messages", "cases", "agent_memory"],
+        excluded: [],
+      };
 
-      for (const table of AGENT_OUTPUT_TABLES) {
+      const deleteAssets = DSR_PII_ASSETS.filter(
+        (entry) => entry.dsr.erasure === "delete" && entry.dsr.userColumn && entry.dsr.tenantColumn,
+      );
+
+      for (const entry of deleteAssets) {
+        const table = entry.asset;
+        const userColumn = entry.dsr.userColumn;
+        const tenantColumn = entry.dsr.tenantColumn;
+        if (!userColumn || !tenantColumn) {
+          coverage.excluded.push({ asset: table, reason: "missing_dsr_columns" });
+          continue;
+        }
+
         const { error: delErr } = await supabase
           .from(table)
           .delete()
-          .eq("created_by", userId)
-          .eq("tenant_id", tenantId);
+          .eq(userColumn, userId)
+          .eq(tenantColumn, tenantId);
         if (delErr) {
           logger.warn(`DSR erase: failed to delete from ${table}`, {
             error: delErr.message,
             emailHash,
             tenantId,
           });
+          coverage.excluded.push({ asset: table, reason: `delete_error:${delErr.code ?? "unknown"}` });
+          continue;
+        }
+
+        coverage.included.push(table);
+      }
+
+      for (const entry of DSR_PII_ASSETS) {
+        if (entry.dsr.erasure === "none") {
+          coverage.excluded.push({ asset: entry.asset, reason: "not_erasable" });
         }
       }
 
       try {
         await auditDsr(supabase, "erase", actorId, email, tenantId, requestId, {
           anonymized_to: placeholderEmail,
-          tables_scrubbed: ["users", "messages", "cases", "agent_memory", ...AGENT_OUTPUT_TABLES],
+          tables_scrubbed: coverage.included,
+          pii_assets_included: coverage.included,
+          pii_assets_excluded: coverage.excluded,
         });
       } catch (auditErr) {
         // Audit failure must not suppress a completed operation. Log for out-of-band remediation.
@@ -285,6 +306,8 @@ router.post(
         email,
         anonymized_to: placeholderEmail,
         erased_at: redactedTs,
+        pii_assets_included: coverage.included,
+        pii_assets_excluded: coverage.excluded,
       });
     } catch (err) {
       logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { emailHash });
@@ -321,12 +344,18 @@ router.post(
         return res.status(404).json({ error: "User not found in this tenant" });
       }
 
-      const footprint = await gatherFootprint(supabase, userId, tenantId);
+      const { footprint, coverage } = await gatherFootprint(supabase, userId, tenantId);
       const summary = Object.fromEntries(
         Object.entries(footprint).map(([table, rows]) => [table, (rows as unknown[]).length]),
       );
 
-      return res.json({ email, user_id: userId, record_counts: summary });
+      return res.json({
+        email,
+        user_id: userId,
+        record_counts: summary,
+        pii_assets_included: coverage.included,
+        pii_assets_excluded: coverage.excluded,
+      });
     } catch (err) {
       logger.error("DSR status failed", err instanceof Error ? err : undefined, { emailHash });
       return res.status(500).json({ error: "Status check failed" });
