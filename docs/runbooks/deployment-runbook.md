@@ -49,6 +49,25 @@ status: deprecated
 - Release artifact must be built from `infra/docker/Dockerfile.backend` with build arg `APP=@valueos/backend`.
 - `apps/ValyntApp/src/services/**` is a frozen duplicate tree and is excluded from runtime ownership except `[migration-sync]` mirror commits.
 
+## Deployment Policy (Workflow-Enforced)
+- **Production deployments require successful upstream security and quality gates.** In `.github/workflows/deploy.yml`, `deploy-production` now hard-requires both `quality-gate` and `dast-gate` to be `success`; `skipped` is no longer accepted for production paths.
+- **Emergency bypass (`skip_tests`) is non-production only.** Use of `skip_tests=true` is blocked for production targets and remains available only for staging emergency recovery.
+- **Production bypass requires break-glass workflow.** Any production exception to quality/DAST gates must be executed through a separate break-glass workflow with protected-environment reviewer approval and mandatory post-deploy evidence capture.
+
+## Break-Glass Procedure (Production Only)
+1. Open/confirm an active incident record and document scope, blast radius, and customer impact.
+2. Trigger the dedicated production break-glass workflow (separate from standard `deploy.yml`) targeting the `production` protected environment.
+3. Obtain mandatory approval from protected environment reviewers before rollout begins.
+4. Capture and attach required evidence artifacts:
+   - incident reference/ticket URL
+   - explicit bypass justification
+   - post-deploy validation checklist and completion timestamps
+5. Execute production deploy and monitor the same smoke/SLO checks listed in this runbook.
+6. Complete post-approval follow-up within one business day:
+   - document why normal gates were bypassed
+   - record remediation actions to restore normal gate compliance
+   - file or link corrective backlog items
+
 ## Deployment Steps
 1. **Tag and build**
    - Create release tag: `git tag -a v<version> -m "Release v<version>" && git push origin v<version>`
