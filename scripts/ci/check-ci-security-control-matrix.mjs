@@ -9,28 +9,15 @@ function read(relativePath) {
   return readFileSync(resolve(ROOT, relativePath), 'utf8');
 }
 
-const requiredScannerActions = [
-  {
-    file: '.github/workflows/ci.yml',
-    action: 'gitleaks/gitleaks-action@v2',
-  },
-  {
-    file: '.github/workflows/ci.yml',
-    action: 'returntocorp/semgrep-action@v1',
-  },
-  {
-    file: '.github/workflows/ci.yml',
-    action: 'aquasecurity/trivy-action@0.28.0',
-  },
-  {
-    file: '.github/workflows/codeql.yml',
-    action: 'github/codeql-action/init@v3',
-  },
-  {
-    file: '.github/workflows/codeql.yml',
-    action: 'github/codeql-action/analyze@v3',
-  },
-];
+function readToolManifest() {
+  return JSON.parse(read('scripts/ci/security-tool-versions.json'));
+}
+
+const toolManifest = readToolManifest();
+const requiredScannerActions = toolManifest.scannerActions.map(({ workflow, uses }) => ({
+  file: workflow,
+  action: uses,
+}));
 
 const failures = [];
 

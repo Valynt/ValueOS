@@ -9,6 +9,12 @@ function read(relativePath) {
   return readFileSync(resolve(ROOT, relativePath), 'utf8');
 }
 
+function readToolManifest() {
+  return JSON.parse(read('scripts/ci/security-tool-versions.json'));
+}
+
+const toolManifest = readToolManifest();
+
 const checks = [
   {
     id: 'headers-middleware-registered',
@@ -26,24 +32,13 @@ const checks = [
       'Expected security middleware pack to conditionally apply createSecurityHeadersMiddleware in packages/backend/src/middleware/security/index.ts',
   },
   {
-    id: 'ci-has-semgrep',
-    file: '.github/workflows/ci.yml',
-    test: (content) => content.includes('returntocorp/semgrep-action@v1'),
-    error: 'Expected returntocorp/semgrep-action@v1 in .github/workflows/ci.yml',
-  },
-  {
-    id: 'ci-has-trivy',
-    file: '.github/workflows/ci.yml',
-    test: (content) => content.includes('aquasecurity/trivy-action@0.28.0'),
-    error: 'Expected aquasecurity/trivy-action@0.28.0 in .github/workflows/ci.yml',
-  },
-  {
     id: 'codeql-dedicated-workflow',
     file: '.github/workflows/codeql.yml',
     test: (content) =>
-      content.includes('github/codeql-action/init@v3') &&
-      content.includes('github/codeql-action/analyze@v3'),
-    error: 'Expected dedicated CodeQL init/analyze steps in .github/workflows/codeql.yml',
+      toolManifest.scannerActions
+        .filter(({ id }) => id === 'codeql-init' || id === 'codeql-analyze')
+        .every(({ uses }) => content.includes(uses)),
+    error: 'Expected CodeQL init/analyze refs from scripts/ci/security-tool-versions.json in .github/workflows/codeql.yml',
   },
   {
     id: 'ci-has-tenant-controls-guard',
@@ -52,6 +47,15 @@ const checks = [
     error: 'Expected check-supabase-tenant-controls.mjs in .github/workflows/ci.yml',
   },
 ];
+
+for (const scannerRef of toolManifest.ciWorkflowScannerRefs) {
+  checks.push({
+    id: `ci-has-${scannerRef}`,
+    file: '.github/workflows/ci.yml',
+    test: (content) => content.includes(scannerRef),
+    error: `Expected ${scannerRef} in .github/workflows/ci.yml`,
+  });
+}
 
 const failures = [];
 
