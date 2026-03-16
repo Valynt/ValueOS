@@ -26,7 +26,7 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
 | Code review required | Branch protection on `main` | `.github/CODEOWNERS`, repo settings |
-| CI gates before merge | Lint, typecheck, test, gitleaks | `.github/workflows/ci.yml` |
+| CI gates before merge | Lint, typecheck, tests, tenant isolation gate, security gate, and CodeQL | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, branch protection required checks |
 | Dependency updates | Dependabot + Renovate | `.github/dependabot.yml`, `renovate.json` |
 
 ### CC2 — Communication and Information
@@ -40,9 +40,9 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 
 | Control | Implementation | Evidence |
 |---------|---------------|----------|
-| Secret scanning | Gitleaks in CI + pre-commit | `.gitleaks.toml`, `.github/workflows/ci.yml` (security job) |
-| Dependency vulnerability scanning | Dependabot alerts | `.github/dependabot.yml` |
-| TS error ratchet | Baseline enforcement in CI | `ts-any-baseline.json`, `scripts/ts-any-ratchet.sh` |
+| Secret scanning | Gitleaks in CI + pre-commit | `.gitleaks.toml`, `.github/workflows/ci.yml` (`security-gate` job) |
+| Dependency vulnerability scanning | `pnpm audit` (high/critical fail), Trivy filesystem + image scan (HIGH/CRITICAL fail), Dependabot alerts | `.github/workflows/ci.yml` (`security-gate`), `.github/dependabot.yml` |
+| SAST and code scanning | Semgrep in CI + dedicated CodeQL workflow for JS/TS | `.github/workflows/ci.yml`, `.github/workflows/codeql.yml` |
 
 ### CC5 — Control Activities
 
@@ -114,6 +114,16 @@ Each control maps to SOC2 Type II trust service criteria and points to implement
 | Consent management | Consent registry + middleware | `packages/backend/src/services/consentRegistry.ts` |
 | PII filtering in logs | Sanitization before logging | `packages/backend/src/lib/piiFilter.ts` (referenced by audit service) |
 | DSR compliance tests | Automated test suite | `tests/compliance/dsr-workflow.test.ts` |
+
+## Branch Protection Required Checks
+
+`main` branch protection must include these required checks:
+
+- `pr-fast-blocking-subsets`
+- `post-merge-critical-subsets`
+- `codeql-analyze (js-ts)`
+
+These checks map to quality, security, and code-scanning controls and should remain required for merge to `main`.
 
 ## Incident Response
 

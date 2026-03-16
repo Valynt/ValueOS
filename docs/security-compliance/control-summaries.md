@@ -30,7 +30,7 @@ This document provides a high-level summary of ValueOS security and compliance c
 ## Secure Development and Change Management
 
 - Code review and CI/CD quality controls before production release.
-- Security testing through static/dynamic checks and periodic penetration testing.
+- Security testing through Semgrep SAST, Gitleaks secret scanning, Trivy filesystem/container scanning, and dedicated CodeQL JS/TS analysis in CI.
 - Change tracking and rollback-capable deployment processes.
 
 ## Third-Party and Vendor Assurance
