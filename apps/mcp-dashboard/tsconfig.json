@@ -69,7 +69,5 @@
   "include": [
     "src"
   ],
-  "exclude": [
-    "src/legacy-merge/**"
-  ]
+  "exclude": []
 }

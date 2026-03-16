@@ -124,23 +124,13 @@
     "src"
   ],
   "exclude": [
-    "src/legacy-merge/**",
     "src/**/__tests__/**",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "src/**/*.spec.ts",
     "src/**/*.spec.tsx",
     "src/**/*.stories.ts",
-    "src/**/*.stories.tsx",
-    "src/observability/**",
-    "src/metrics/**",
-    "src/structural/**",
-    "src/reasoning/**",
-    "src/state/**",
-    "src/stories/**",
-    "src/mcp-ground-truth/**",
-    "src/security/bias-probes/**",
-    "src/views/Settings/COMPONENT_FIXES_EXAMPLES.tsx"
+    "src/**/*.stories.tsx"
   ],
   "references": [
     {

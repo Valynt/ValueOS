@@ -1,15 +1,15 @@
 /**
  * Private Company Module - Tier 2 Proxy-Based Estimation
- * 
+ *
  * Generates financial estimates for private companies using proxy data:
  * - Headcount (LinkedIn, ZoomInfo)
  * - Funding data (Crunchbase, Pitchbook)
  * - Web traffic and growth signals
  * - Industry benchmarks for revenue per employee
- * 
+ *
  * Tier 2 classification: High-confidence estimates with explicit confidence scoring
  * and rationale. All outputs include estimation methodology.
- * 
+ *
  * Node Mapping: [NODE: Tier_2_Proxy], [NODE: Private_Entity_Estimation]
  */
 
@@ -35,7 +35,7 @@ interface PrivateCompanyConfig {
 
 /**
  * Private Company Module - Tier 2 Estimation Engine
- * 
+ *
  * Implements MCP tool: get_private_entity_estimates
  * Uses proxy metrics to derive financial estimates with confidence scoring
  */
@@ -57,35 +57,35 @@ export class PrivateCompanyModule extends BaseModule {
     '541512': 200000, // Computer Systems Design Services
     '518210': 350000, // Data Processing, Hosting, and Related Services
     '511210': 400000, // Software Publishers
-    
+
     // Professional Services
     '541611': 180000, // Administrative Management and General Management Consulting
     '541618': 150000, // Other Management Consulting Services
     '541613': 200000, // Marketing Consulting Services
-    
+
     // Financial Services
     '523110': 500000, // Investment Banking and Securities Dealing
     '522110': 300000, // Commercial Banking
     '524113': 250000, // Direct Life Insurance Carriers
-    
+
     // Healthcare
     '621111': 400000, // Offices of Physicians
     '621511': 300000, // Medical Laboratories
     '621610': 200000, // Home Health Care Services
-    
+
     // Manufacturing
     '334111': 350000, // Electronic Computer Manufacturing
     '336411': 400000, // Aircraft Manufacturing
     '325412': 500000, // Pharmaceutical Preparation Manufacturing
-    
+
     // Default fallback
     'default': 200000,
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
-    
-    const privateConfig = config as PrivateCompanyConfig;
+
+    const privateConfig = config as unknown as PrivateCompanyConfig;
     this.crunchbaseApiKey = privateConfig.crunchbaseApiKey;
     this.zoomInfoApiKey = privateConfig.zoomInfoApiKey;
     this.linkedInApiKey = privateConfig.linkedInApiKey;
@@ -121,11 +121,11 @@ export class PrivateCompanyModule extends BaseModule {
       const signals = await this.getGrowthSignals(domain);
 
       // Determine industry code
-      const industryCode = options?.industry_code || 'default';
+      const industryCode = (options as Record<string, string> | undefined)?.industry_code ?? 'default';
 
       // Calculate estimates based on requested metric
       if (!metric || metric === 'revenue_estimate') {
-        return await this.estimateRevenue(profile, signals, industryCode);
+        return await this.estimateRevenue(profile, signals, industryCode as string);
       } else if (metric === 'employee_count') {
         return this.createMetric(
           'employee_count',
@@ -150,8 +150,8 @@ export class PrivateCompanyModule extends BaseModule {
             extraction_method: 'inference',
           },
           {
-            domain,
             ...signals,
+            domain,
           },
           JSON.stringify(signals)
         );
@@ -166,7 +166,7 @@ export class PrivateCompanyModule extends BaseModule {
 
   /**
    * Get company profile from multiple sources
-   * 
+   *
    * Aggregates data from Crunchbase, ZoomInfo, LinkedIn, and web scraping
    */
   private async getCompanyProfile(domain: string): Promise<PrivateCompanyProfile> {
@@ -260,7 +260,7 @@ export class PrivateCompanyModule extends BaseModule {
 
   /**
    * Estimate revenue using proxy metrics
-   * 
+   *
    * Primary method: Headcount × Revenue per Employee (industry benchmark)
    * Confidence scoring based on data quality and recency
    */
@@ -270,8 +270,8 @@ export class PrivateCompanyModule extends BaseModule {
     industryCode: string
   ): Promise<FinancialMetric> {
     // Get industry benchmark
-    const revenuePerEmployee = this.REVENUE_PER_EMPLOYEE_BENCHMARKS[industryCode] || 
-                               this.REVENUE_PER_EMPLOYEE_BENCHMARKS.default;
+    const revenuePerEmployee = this.REVENUE_PER_EMPLOYEE_BENCHMARKS[industryCode] ??
+                               this.REVENUE_PER_EMPLOYEE_BENCHMARKS['default']!;
 
     // Calculate base estimate
     let estimatedRevenue: number | [number, number];
@@ -280,18 +280,18 @@ export class PrivateCompanyModule extends BaseModule {
 
     if (typeof profile.employee_count === 'number') {
       // Exact headcount available
-      estimatedRevenue = profile.employee_count * revenuePerEmployee;
+      estimatedRevenue = profile.employee_count * revenuePerEmployee!;
       confidence = 0.70; // Base confidence for exact headcount
-      rationale = `Estimated using exact headcount (${profile.employee_count}) × industry benchmark ($${revenuePerEmployee.toLocaleString()}/employee)`;
+      rationale = `Estimated using exact headcount (${profile.employee_count}) × industry benchmark ($${revenuePerEmployee!.toLocaleString()}/employee)`;
     } else if (Array.isArray(profile.employee_count)) {
       // Headcount range available
       const [min, max] = profile.employee_count;
       estimatedRevenue = [
-        min * revenuePerEmployee,
-        max * revenuePerEmployee,
+        min * revenuePerEmployee!,
+        max * revenuePerEmployee!,
       ];
       confidence = 0.60; // Lower confidence for range
-      rationale = `Estimated using headcount range (${min}-${max}) × industry benchmark ($${revenuePerEmployee.toLocaleString()}/employee)`;
+      rationale = `Estimated using headcount range (${min}-${max}) × industry benchmark ($${revenuePerEmployee!.toLocaleString()}/employee)`;
     } else {
       throw new GroundTruthError(
         ErrorCodes.NO_DATA_FOUND,
@@ -323,7 +323,7 @@ export class PrivateCompanyModule extends BaseModule {
       const estimatedMid = Array.isArray(estimatedRevenue)
         ? (estimatedRevenue[0] + estimatedRevenue[1]) / 2
         : estimatedRevenue;
-      
+
       // Check if our estimate falls within reported range
       if (estimatedMid >= minRevenue && estimatedMid <= maxRevenue) {
         qualityFactors.push(1.2); // Strong validation
@@ -375,9 +375,9 @@ export class PrivateCompanyModule extends BaseModule {
 
     // Placeholder: Would integrate with Crunchbase API
     // https://data.crunchbase.com/docs/using-the-api
-    
+
     logger.debug('Crunchbase lookup', { domain });
-    
+
     // Mock implementation
     return {
       company_name: domain.split('.')[0],
@@ -393,7 +393,7 @@ export class PrivateCompanyModule extends BaseModule {
 
     // Placeholder: Would integrate with ZoomInfo API
     logger.debug('ZoomInfo lookup', { domain });
-    
+
     return {};
   }
 
@@ -404,7 +404,7 @@ export class PrivateCompanyModule extends BaseModule {
 
     // Placeholder: Would integrate with LinkedIn Company API
     logger.debug('LinkedIn lookup', { domain });
-    
+
     return {};
   }
 
@@ -416,7 +416,7 @@ export class PrivateCompanyModule extends BaseModule {
     // Placeholder: Would implement web scraping with proper rate limiting
     // and robots.txt compliance
     logger.debug('Web scraping', { domain });
-    
+
     return {
       company_name: domain.split('.')[0],
     };
@@ -424,7 +424,7 @@ export class PrivateCompanyModule extends BaseModule {
 
   /**
    * Calculate productivity delta vs industry benchmark
-   * 
+   *
    * Used for Value Driver Tree population
    */
   async calculateProductivityDelta(
@@ -438,19 +438,19 @@ export class PrivateCompanyModule extends BaseModule {
   }> {
     const profile = await this.getCompanyProfile(domain);
     const signals = await this.getGrowthSignals(domain);
-    
-    const benchmark = this.REVENUE_PER_EMPLOYEE_BENCHMARKS[industryCode] || 
+
+    const benchmark = this.REVENUE_PER_EMPLOYEE_BENCHMARKS[industryCode] ||
                      this.REVENUE_PER_EMPLOYEE_BENCHMARKS.default;
 
     // Calculate actual revenue per employee
     let actualRevenuePerEmployee: number;
-    
+
     if (profile.revenue_range && profile.employee_count) {
       const avgRevenue = (profile.revenue_range[0] + profile.revenue_range[1]) / 2;
       const avgHeadcount = Array.isArray(profile.employee_count)
         ? (profile.employee_count[0] + profile.employee_count[1]) / 2
         : profile.employee_count;
-      
+
       actualRevenuePerEmployee = avgRevenue / avgHeadcount;
     } else {
       throw new GroundTruthError(
@@ -459,12 +459,13 @@ export class PrivateCompanyModule extends BaseModule {
       );
     }
 
-    const delta = benchmark - actualRevenuePerEmployee;
-    const deltaPercent = (delta / benchmark) * 100;
+    const benchmarkValue = benchmark ?? 0;
+    const delta = benchmarkValue - actualRevenuePerEmployee;
+    const deltaPercent = benchmarkValue > 0 ? (delta / benchmarkValue) * 100 : 0;
 
     return {
       actual_revenue_per_employee: actualRevenuePerEmployee,
-      benchmark_revenue_per_employee: benchmark,
+      benchmark_revenue_per_employee: benchmarkValue,
       delta,
       delta_percent: deltaPercent,
     };

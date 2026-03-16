@@ -23,6 +23,7 @@ import {
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 import { BaseModule } from "../core/BaseModule";
 
+import type { ModuleRequest, ModuleResponse } from '../types';
 import { logger } from "@/lib/logger";
 
 // ============================================================================
@@ -116,7 +117,10 @@ interface SimilarTracesResponse {
 // ============================================================================
 
 export class ESOModule extends BaseModule {
-  readonly moduleName = "eso";
+  name = 'eso';
+  tier = 'tier3' as const;
+  description = 'Economic Structure Ontology — KPI benchmarks, causal value chains, and VMRT reasoning traces';
+
   readonly moduleVersion = "1.0.0";
 
   private kpiIndex: Map<string, ESOKPINode>;
@@ -130,7 +134,40 @@ export class ESOModule extends BaseModule {
     this.personaIndex = new Map();
   }
 
-  async initialize(): Promise<void> {
+  canHandle(request: ModuleRequest): boolean {
+    // Handles any request with a metric ID that exists in the KPI index,
+    // or any request routed to the ESO tool namespace
+    return !!(
+      request.metric &&
+      (this.kpiIndex.has(request.metric) || request.identifier === 'eso')
+    );
+  }
+
+  async query(request: ModuleRequest): Promise<ModuleResponse> {
+    return this.executeWithMetrics(request, async () => {
+      const metricId = request.metric ?? request.identifier;
+      const kpi = this.kpiIndex.get(metricId);
+      if (!kpi) {
+        throw new Error(`Unknown metric: ${metricId}`);
+      }
+      return this.createMetric(
+        metricId,
+        kpi.benchmarks.p50,
+        {
+          source_type: 'benchmark',
+          extraction_method: 'api',
+        },
+        {
+          unit: kpi.unit,
+          domain: kpi.domain,
+          benchmarks: kpi.benchmarks,
+          improvementDirection: kpi.improvementDirection,
+        },
+      );
+    });
+  }
+
+  override async initialize(): Promise<void> {
     // Index all KPIs
     for (const kpi of ALL_ESO_KPIS) {
       this.kpiIndex.set(kpi.id, kpi);
@@ -410,7 +447,7 @@ export class ESOModule extends BaseModule {
     });
 
     const traces = filtered.slice(0, limit).map((trace) => ({
-      traceId: trace.traceId!,
+      traceId: trace.traceId,
       summary: trace.reasoningSteps?.[0]?.description || "No summary",
       industry: trace.context?.organization?.industry || "unknown",
       outcomeCategory: trace.valueModel?.outcomeCategory || "unknown",

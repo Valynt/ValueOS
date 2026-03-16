@@ -70,7 +70,6 @@
       "@valueos/mcp": [
         "./packages/mcp/index.ts"
       ],
-
       "@valueos/components": [
         "./packages/components/index.ts"
       ],
@@ -80,7 +79,6 @@
       "@infra/*": [
         "./packages/infra/*"
       ],
-
       "@integrations/*": [
         "./packages/integrations/*"
       ],
@@ -166,7 +164,6 @@
     "packages/*/src"
   ],
   "exclude": [
-    "**/legacy-merge/**",
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx",
     "./src/**/*.spec.ts",

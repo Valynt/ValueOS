@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // @ts-expect-error — @vitejs/plugin-react targets vite 6, vitest/config resolves vite 7
   plugins: [react()],
   test: {
     globals: true,
@@ -51,34 +52,11 @@ export default defineConfig({
       // sdui symlink uses this alias for its own CanvasLayout component
       "@sdui/components": path.resolve(__dirname, "../../packages/sdui/src/components"),
       // sdui package tests run under ValyntApp's vitest but the sdui package
-      // doesn't declare @testing-library/* or p-queue/uuid as its own deps —
+      // doesn't declare @testing-library/* as its own deps —
       // resolve them from ValyntApp's node_modules so the symlinked tests work.
       "@testing-library/react": path.resolve(__dirname, "node_modules/@testing-library/react"),
       "@testing-library/jest-dom": path.resolve(__dirname, "node_modules/@testing-library/jest-dom"),
       "@testing-library/user-event": path.resolve(__dirname, "node_modules/@testing-library/user-event"),
-      "p-queue": path.resolve(__dirname, "../../node_modules/.pnpm/p-queue@9.1.0/node_modules/p-queue"),
-      "uuid": path.resolve(__dirname, "../../node_modules/.pnpm/uuid@8.3.2/node_modules/uuid"),
-      // react-dnd is not installed; stub it so components that import it can be tested
-      "react-dnd": path.resolve(__dirname, "./src/test/stubs/react-dnd.ts"),
-      // node-vault is not installed; stub dynamic import to prevent transform-time failure
-      "node-vault": path.resolve(__dirname, "./src/test/stubs/node-vault.ts"),
-      // Packages in the pnpm store but not declared in ValyntApp's deps
-      "@aws-sdk/client-secrets-manager": path.resolve(
-        __dirname,
-        "../../node_modules/.pnpm/@aws-sdk+client-secrets-manager@3.1004.0/node_modules/@aws-sdk/client-secrets-manager"
-      ),
-      "jest-axe": path.resolve(
-        __dirname,
-        "../../node_modules/.pnpm/jest-axe@10.0.0/node_modules/jest-axe"
-      ),
-      "jspdf": path.resolve(
-        __dirname,
-        "../../node_modules/.pnpm/jspdf@4.2.0/node_modules/jspdf"
-      ),
-      "html2canvas": path.resolve(
-        __dirname,
-        "../../node_modules/.pnpm/html2canvas@1.4.1/node_modules/html2canvas"
-      ),
     },
   },
 });

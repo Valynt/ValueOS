@@ -1,6 +1,6 @@
 /**
  * MCP Financial Ground Truth Server - Type Definitions
- * 
+ *
  * Defines all core types for the tiered truth model, data contracts,
  * and module interfaces.
  */
@@ -27,7 +27,7 @@ export interface FinancialMetric {
 }
 
 export interface ProvenanceInfo {
-  source_type: 'sec-edgar' | 'xbrl' | 'market-api' | 'private-data' | 'benchmark' | 'narrative';
+  source_type: 'sec-edgar' | 'xbrl' | 'market-api' | 'private-data' | 'benchmark' | 'narrative' | 'api';
   source_url?: string;
   filing_type?: string;
   accession_number?: string;
@@ -114,6 +114,11 @@ export interface XBRLFact {
   period: string;
   frame?: string;
   taxonomy: string;
+  form?: string;
+  filed?: string;
+  accn?: string;
+  start?: string;
+  end?: string;
 }
 
 export interface XBRLTrendData {
@@ -284,22 +289,22 @@ export interface GroundTruthModule {
   name: string;
   tier: ConfidenceTier;
   description: string;
-  
+
   /**
    * Initialize the module with configuration
    */
   initialize(config: Record<string, unknown>): Promise<void>;
-  
+
   /**
    * Execute a query against this module
    */
   query(request: ModuleRequest): Promise<ModuleResponse>;
-  
+
   /**
    * Check if this module can handle the given request
    */
   canHandle(request: ModuleRequest): boolean;
-  
+
   /**
    * Get module health status
    */

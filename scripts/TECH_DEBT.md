@@ -65,6 +65,7 @@ Add explicit types to catch blocks and parameters.
 3. **Week 3**: Clean up unused vars and implicit any
 4. **Week 4**: Enable `pnpm typecheck:all` in CI for all PRs
 
+
 ## Why This Approach
 
 - **Dev velocity**: App development isn't blocked by script maintenance

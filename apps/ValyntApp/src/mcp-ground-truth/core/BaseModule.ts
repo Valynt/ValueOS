@@ -1,6 +1,6 @@
 /**
  * Base Module Implementation
- * 
+ *
  * Abstract base class for all Ground Truth modules with common functionality
  * for caching, rate limiting, error handling, and provenance tracking.
  */
@@ -21,13 +21,13 @@ export abstract class BaseModule implements GroundTruthModule {
   abstract name: string;
   abstract tier: ConfidenceTier;
   abstract description: string;
-  
-  protected config: Record<string, any> = {};
+
+  protected config: Record<string, unknown> = {};
   protected initialized = false;
   protected requestCount = 0;
   protected lastRequestTime = 0;
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  async initialize(config: Record<string, unknown>): Promise<void> {
     this.config = config;
     this.initialized = true;
     logger.info(`Module ${this.name} initialized`, { tier: this.tier });
@@ -36,7 +36,7 @@ export abstract class BaseModule implements GroundTruthModule {
   abstract query(request: ModuleRequest): Promise<ModuleResponse>;
   abstract canHandle(request: ModuleRequest): boolean;
 
-  async healthCheck(): Promise<{ healthy: boolean; details?: any }> {
+  async healthCheck(): Promise<{ healthy: boolean; details?: unknown }> {
     return {
       healthy: this.initialized,
       details: {
@@ -83,7 +83,7 @@ export abstract class BaseModule implements GroundTruthModule {
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       logger.error(`Module ${this.name} query failed`, {
         identifier: request.identifier,
         metric: request.metric,
@@ -125,7 +125,7 @@ export abstract class BaseModule implements GroundTruthModule {
     rawExtract?: string
   ): FinancialMetric {
     const confidence = this.calculateConfidence(this.tier);
-    
+
     return {
       type: typeof value === 'number' ? 'metric' : Array.isArray(value) ? 'range' : 'text',
       metric_name: metricName,
@@ -137,12 +137,12 @@ export abstract class BaseModule implements GroundTruthModule {
       metadata,
       raw_extract: rawExtract,
       provenance: {
-        source_type: provenance.source_type || 'api',
+        source_type: provenance.source_type ?? 'api',
         source_url: provenance.source_url,
         filing_type: provenance.filing_type,
         accession_number: provenance.accession_number,
         period: provenance.period,
-        extraction_method: provenance.extraction_method || 'api',
+        extraction_method: provenance.extraction_method ?? 'api',
         extracted_at: new Date().toISOString(),
         fingerprint: rawExtract ? this.generateFingerprint(rawExtract) : undefined,
       },
@@ -154,7 +154,7 @@ export abstract class BaseModule implements GroundTruthModule {
    */
   protected calculateConfidence(tier: ConfidenceTier, qualityFactors?: number[]): number {
     let baseConfidence: number;
-    
+
     switch (tier) {
       case 'tier1':
         baseConfidence = 0.95;

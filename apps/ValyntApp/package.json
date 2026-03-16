@@ -100,7 +100,9 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",
     "vite": "^6.1.6",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.17",
+    "@aws-sdk/client-secrets-manager": "^3.1004.0",
+    "jest-axe": "^10.0.0"
   },
   "tsErrorBaseline": 4240
 }

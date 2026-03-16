@@ -1,12 +1,12 @@
 /**
  * Market Data Module - Tier 2 Real-Time Market Intelligence
- * 
+ *
  * Provides real-time and historical market data from multiple providers.
  * Integrates with Alpha Vantage, Polygon.io, and other market data APIs.
- * 
+ *
  * Tier 2 classification: High-confidence but not authoritative (market data
  * is real-time/delayed and subject to revisions).
- * 
+ *
  * Security: IL4 with API key rotation
  */
 
@@ -31,7 +31,7 @@ interface MarketDataConfig {
 
 /**
  * Market Data Module - Tier 2 Market Intelligence
- * 
+ *
  * Implements real-time quotes, fundamentals, and market multiples
  * Node Mapping: [NODE: Market_Data_Module], [NODE: Tier_2_Proxy]
  */
@@ -44,7 +44,6 @@ export class MarketDataModule extends BaseModule {
   private apiKey: string = '';
   private rateLimit: number = 5; // Requests per minute
   private cacheTTL: number = 300; // 5 minutes default
-  private lastRequestTime: number = 0;
   private quoteCache: Map<string, { data: unknown; timestamp: number }> = new Map();
 
   // Provider-specific base URLs
@@ -54,10 +53,10 @@ export class MarketDataModule extends BaseModule {
     tiingo: 'https://api.tiingo.com',
   };
 
-  async initialize(config: Record<string, unknown>): Promise<void> {
+  override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
-    
-    const marketConfig = config as MarketDataConfig;
+
+    const marketConfig = config as unknown as MarketDataConfig;
     this.provider = marketConfig.provider || 'alphavantage';
     this.apiKey = marketConfig.apiKey;
     this.rateLimit = marketConfig.rateLimit || 5;
@@ -82,7 +81,7 @@ export class MarketDataModule extends BaseModule {
     return !!(
       request.identifier &&
       request.identifier.match(/^[A-Z]{1,5}$/) && // Ticker format
-      (request.metric?.includes('quote') || 
+      (request.metric?.includes('quote') ||
        request.metric?.includes('market') ||
        request.metric?.includes('fundamental'))
     );
@@ -188,7 +187,7 @@ export class MarketDataModule extends BaseModule {
    */
   private async getMultiples(ticker: string): Promise<FinancialMetric> {
     const fundamentals = await this.getFundamentals(ticker);
-    
+
     // Extract multiples from fundamentals
     const metadata = fundamentals.metadata as Record<string, unknown> | undefined;
 
@@ -215,7 +214,6 @@ export class MarketDataModule extends BaseModule {
       },
       {
         provider: this.provider,
-        ticker,
         ...multiplesData,
       }
     );
@@ -230,7 +228,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new GroundTruthError(
           ErrorCodes.UPSTREAM_FAILURE,
@@ -286,7 +284,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new GroundTruthError(
           ErrorCodes.UPSTREAM_FAILURE,
@@ -334,7 +332,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new GroundTruthError(
           ErrorCodes.UPSTREAM_FAILURE,
@@ -377,7 +375,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new GroundTruthError(
           ErrorCodes.UPSTREAM_FAILURE,
@@ -422,7 +420,7 @@ export class MarketDataModule extends BaseModule {
 
     try {
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new GroundTruthError(
           ErrorCodes.UPSTREAM_FAILURE,
