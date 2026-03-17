@@ -45,13 +45,13 @@ export interface StageConfig {
  * - Transition triggers (keywords, phrases)
  */
 export const CHAT_WORKFLOW_STAGES: Record<LifecycleStage, StageConfig> = {
-  opportunity: {
-    stage: 'opportunity',
-    displayName: 'Opportunity',
+  discovery: {
+    stage: 'discovery',
+    displayName: 'Discovery',
     description: 'Discover pain points, identify KPIs, create value hypotheses',
-    nextStages: ['target'],
+    nextStages: ['drafting'],
     transitions: {
-      target: {
+      drafting: {
         queryKeywords: [
           'roi',
           'business case',
@@ -63,74 +63,119 @@ export const CHAT_WORKFLOW_STAGES: Record<LifecycleStage, StageConfig> = {
           'build case',
         ],
         responseKeywords: [
-          'ready to target',
-          'move to target',
+          'ready to draft',
+          'move to drafting',
           'build roi model',
           'create business case',
           'quantify value',
         ],
         minConfidence: 0.7,
       },
-      opportunity: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      realization: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      expansion: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      validating: { queryKeywords: [], responseKeywords: [] },
+      composing: { queryKeywords: [], responseKeywords: [] },
+      refining: { queryKeywords: [], responseKeywords: [] },
+      realized: { queryKeywords: [], responseKeywords: [] },
+      expansion: { queryKeywords: [], responseKeywords: [] },
     },
   },
 
-  target: {
-    stage: 'target',
-    displayName: 'Target',
+  drafting: {
+    stage: 'drafting',
+    displayName: 'Drafting',
     description: 'Build ROI models, set targets, create business cases',
-    nextStages: ['realization'],
+    nextStages: ['validating'],
     transitions: {
-      realization: {
+      validating: {
         queryKeywords: [
-          'track',
-          'measure',
-          'monitor',
-          'implement',
-          'deploy',
-          'rollout',
-          'go live',
-          'start tracking',
-          'measure results',
+          'validate',
+          'verify',
+          'check',
+          'review',
+          'confirm',
+          'integrity',
+          'audit',
         ],
         responseKeywords: [
-          'ready to realize',
-          'implementation',
-          'track value',
-          'measure outcomes',
-          'monitor kpis',
+          'ready to validate',
+          'validation',
+          'verify assumptions',
+          'integrity check',
         ],
         minConfidence: 0.7,
       },
-      opportunity: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      target: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      expansion: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      drafting: { queryKeywords: [], responseKeywords: [] },
+      composing: { queryKeywords: [], responseKeywords: [] },
+      refining: { queryKeywords: [], responseKeywords: [] },
+      realized: { queryKeywords: [], responseKeywords: [] },
+      expansion: { queryKeywords: [], responseKeywords: [] },
     },
   },
 
-  realization: {
-    stage: 'realization',
-    displayName: 'Realization',
+  validating: {
+    stage: 'validating',
+    displayName: 'Validating',
+    description: 'Validate assumptions and verify the business case',
+    nextStages: ['composing'],
+    transitions: {
+      composing: {
+        queryKeywords: ['narrative', 'story', 'compose', 'write', 'present'],
+        responseKeywords: ['ready to compose', 'narrative', 'business story'],
+        minConfidence: 0.7,
+      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      drafting: { queryKeywords: [], responseKeywords: [] },
+      validating: { queryKeywords: [], responseKeywords: [] },
+      refining: { queryKeywords: [], responseKeywords: [] },
+      realized: { queryKeywords: [], responseKeywords: [] },
+      expansion: { queryKeywords: [], responseKeywords: [] },
+    },
+  },
+
+  composing: {
+    stage: 'composing',
+    displayName: 'Composing',
+    description: 'Compose the business narrative and value case',
+    nextStages: ['refining'],
+    transitions: {
+      refining: {
+        queryKeywords: ['refine', 'improve', 'adjust', 'tweak', 'update'],
+        responseKeywords: ['ready to refine', 'refinement', 'adjust narrative'],
+        minConfidence: 0.7,
+      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      drafting: { queryKeywords: [], responseKeywords: [] },
+      validating: { queryKeywords: [], responseKeywords: [] },
+      composing: { queryKeywords: [], responseKeywords: [] },
+      realized: { queryKeywords: [], responseKeywords: [] },
+      expansion: { queryKeywords: [], responseKeywords: [] },
+    },
+  },
+
+  refining: {
+    stage: 'refining',
+    displayName: 'Refining',
+    description: 'Refine and finalize the value case',
+    nextStages: ['realized'],
+    transitions: {
+      realized: {
+        queryKeywords: ['finalize', 'complete', 'done', 'approve', 'sign off'],
+        responseKeywords: ['ready to realize', 'finalized', 'approved'],
+        minConfidence: 0.7,
+      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      drafting: { queryKeywords: [], responseKeywords: [] },
+      validating: { queryKeywords: [], responseKeywords: [] },
+      composing: { queryKeywords: [], responseKeywords: [] },
+      refining: { queryKeywords: [], responseKeywords: [] },
+      expansion: { queryKeywords: [], responseKeywords: [] },
+    },
+  },
+
+  realized: {
+    stage: 'realized',
+    displayName: 'Realized',
     description: 'Track actual value delivered against targets',
     nextStages: ['expansion'],
     transitions: {
@@ -154,18 +199,12 @@ export const CHAT_WORKFLOW_STAGES: Record<LifecycleStage, StageConfig> = {
         ],
         minConfidence: 0.7,
       },
-      opportunity: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      target: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      realization: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      drafting: { queryKeywords: [], responseKeywords: [] },
+      validating: { queryKeywords: [], responseKeywords: [] },
+      composing: { queryKeywords: [], responseKeywords: [] },
+      refining: { queryKeywords: [], responseKeywords: [] },
+      realized: { queryKeywords: [], responseKeywords: [] },
     },
   },
 
@@ -175,22 +214,13 @@ export const CHAT_WORKFLOW_STAGES: Record<LifecycleStage, StageConfig> = {
     description: 'Identify upsell and growth opportunities',
     nextStages: [],
     transitions: {
-      opportunity: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      target: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      realization: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
-      expansion: {
-        queryKeywords: [],
-        responseKeywords: [],
-      },
+      discovery: { queryKeywords: [], responseKeywords: [] },
+      drafting: { queryKeywords: [], responseKeywords: [] },
+      validating: { queryKeywords: [], responseKeywords: [] },
+      composing: { queryKeywords: [], responseKeywords: [] },
+      refining: { queryKeywords: [], responseKeywords: [] },
+      realized: { queryKeywords: [], responseKeywords: [] },
+      expansion: { queryKeywords: [], responseKeywords: [] },
     },
   },
 };

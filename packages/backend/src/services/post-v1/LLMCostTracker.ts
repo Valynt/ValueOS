@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "CostGovernanceService.js";
+export * from "./CostGovernanceService.js";

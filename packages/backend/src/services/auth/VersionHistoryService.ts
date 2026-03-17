@@ -31,6 +31,7 @@ export interface VersionCreateInput {
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
   changedBy: string;
+  organizationId?: string;
   changeDescription?: string;
   changeType: 'create' | 'update' | 'delete';
   ipAddress?: string;

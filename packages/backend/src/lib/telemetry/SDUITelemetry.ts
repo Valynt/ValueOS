@@ -5,8 +5,10 @@ import { logger } from "../logger.js";
 
 export interface SDUITelemetryEvent {
   event_type: string;
+  /** Alias for event_type — accepted for backward compatibility. */
+  type?: string;
   component_id?: string;
-  timestamp: string;
+  timestamp?: string;
   metadata?: Record<string, any>;
 }
 

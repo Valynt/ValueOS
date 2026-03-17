@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "WebSocketBroadcastAdapter.js";
+export * from "./WebSocketBroadcastAdapter.js";

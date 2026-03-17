@@ -3,12 +3,17 @@ export * from "./AdversarialValidator.js";
 export * from "./AgentFabricService.js";
 export * from "./AgentPrefetchService.js";
 export * from "./ApprovalWorkflowService.js";
+// AtomicActionExecutor defines BatchResult and ExecutionResult — canonical source.
 export * from "./AtomicActionExecutor.js";
-export * from "./BatchOperations.js";
+// BatchOperations re-defines BatchResult — exclude it to resolve TS2308.
+export type { BatchOperation } from "./BatchOperations.js";
+export { batchOperations } from "./BatchOperations.js";
 export * from "./BenchmarkService.js";
 export * from "./CallAnalysisService.js";
 export * from "./ClientRateLimit.js";
-export * from "./CodeSandbox.js";
+// CodeSandbox re-defines SandboxConfig — SandboxedExecutor is canonical.
+export type { SandboxResult } from "./CodeSandbox.js";
+export { CodeSandbox, codeSandbox } from "./CodeSandbox.js";
 export * from "./ComplianceValidator.js";
 export * from "./ContinuousAuthService.js";
 export * from "./CostAwareRouter.js";
@@ -20,8 +25,20 @@ export * from "./EmailAnalysisService.js";
 export * from "./EnhancedParallelExecutor.js";
 export * from "./EventSourcingService.js";
 export * from "./ExternalCircuitBreaker.js";
+// IntegrityAgentService defines IntegrityCheck — canonical source.
 export * from "./IntegrityAgentService.js";
-export * from "./IntegrityValidationService.js";
+// IntegrityValidationService re-defines IntegrityCheck — exclude it.
+export type {
+  IntegrityValidationRequest,
+  ContentType,
+  ValidationLevel,
+  IntegrityContent,
+  SourceReference,
+  IntegrityValidationResult,
+  CheckType,
+  IntegrityViolation,
+} from "./IntegrityValidationService.js";
+export { IntegrityValidationService } from "./IntegrityValidationService.js";
 export * from "./IntegrityWarningGenerator.js";
 export * from "./IntelligentCoordinator.js";
 export * from "./ManifestoEnforcer.js";
@@ -39,7 +56,10 @@ export * from "./RedisCircuitBreaker.js";
 export * from "./ReflectionEngine.js";
 export * from "./RobustConnectionManager.js";
 export * from "./RotationService.js";
-export * from "./SandboxedExecutor.js";
+// SandboxedExecutor defines ExecutionResult and SandboxConfig — conflicts with AtomicActionExecutor and CodeSandbox.
+// AtomicActionExecutor is canonical for ExecutionResult; CodeSandbox explicit exports already handle SandboxConfig.
+export type { FinancialCalculationTool } from "./SandboxedExecutor.js";
+export { SandboxedExecutor, sandboxedExecutor, financialCalculator } from "./SandboxedExecutor.js";
 export * from "./SecretsService.js";
 export * from "./SecurityAuditService.js";
 export * from "./SelfHealingManager.js";

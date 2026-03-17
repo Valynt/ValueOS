@@ -316,7 +316,10 @@ export interface BreakEvenPoint {
 }
 
 export interface SensitivityAnalysis {
-  parameter: string;
+  parameter?: string;
+  /** Alias for parameter — used by ROIFormulaInterpreter. */
+  variable?: string;
+  baseline?: number;
   scenarios: SensitivityScenario[];
 }
 

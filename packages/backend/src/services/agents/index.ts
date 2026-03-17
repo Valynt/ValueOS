@@ -3,10 +3,23 @@ export * from "./AgentAPI.js";
 export * from "./AgentAuditLogger.js";
 export * from "./AgentChatService.js";
 export * from "./AgentExecutorService.js";
-export * from "./AgentInitializer.js";
+// AgentHealthStatus is defined here and in AgentRegistry — AgentRegistry is canonical.
+// Explicit named exports avoid the TS2308 ambiguity.
+export type { SystemHealth, AgentInitOptions } from "./AgentInitializer.js";
+export {
+  initializeAgents,
+  getAgentHealth,
+  isAgentAvailable,
+  waitForAgents,
+  initializeAgentsWithProgress,
+  getCachedAgentHealth,
+  clearHealthCache,
+} from "./AgentInitializer.js";
 export * from "./AgentIntentConverter.js";
 export * from "./AgentMemoryIntegration.js";
-export * from "./AgentMessageBroker.js";
+// AgentRegistration is defined here and in AgentRegistry — AgentRegistry is canonical.
+export type { AgentMessageRequest, AgentMessageResponse } from "./AgentMessageBroker.js";
+export { AgentMessageBroker, getAgentMessageBroker } from "./AgentMessageBroker.js";
 export * from "./AgentMessageQueue.js";
 export * from "./AgentOutputListener.js";
 export * from "./AgentQueryService.js";

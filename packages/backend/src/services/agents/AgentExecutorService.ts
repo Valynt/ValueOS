@@ -15,9 +15,9 @@ import {
   EVENT_TOPICS,
 } from "@shared/types/events";
 
-import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
+import { createEventConsumer, EventConsumer } from "../realtime/EventConsumer.js"
 import { EventProducer, getEventProducer } from "./EventProducer.js"
-import { EventSourcingService, getEventSourcingService } from "./EventSourcingService.js"
+import { EventSourcingService, getEventSourcingService } from "../post-v1/EventSourcingService.js"
 import { isKafkaEnabled } from "./kafkaConfig.js"
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
 
@@ -157,7 +157,7 @@ export class AgentExecutorService {
 
       // Broadcast to realtime clients in the tenant
       try {
-        const broadcastService = (await import("./RealtimeBroadcastService.js")).getRealtimeBroadcastService();
+        const broadcastService = (await import("../realtime/RealtimeBroadcastService.js")).getRealtimeBroadcastService();
         broadcastService.broadcastToTenant(
           responsePayload.tenantId,
           "agent.reasoning.update",
@@ -233,7 +233,7 @@ export class AgentExecutorService {
       await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, errorResponseEvent as unknown as BaseEvent);
       // Broadcast response to websocket subscribers (tenant-scoped)
       try {
-        const { getRealtimeBroadcastService } = await import("./RealtimeBroadcastService.js");
+        const { getRealtimeBroadcastService } = await import("../realtime/RealtimeBroadcastService.js");
         getRealtimeBroadcastService().broadcastToTenant(
           payload.tenantId,
           "agent.reasoning.update",

@@ -10,7 +10,7 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
     tables,
     from: (table: string) => {
       let currentData = [...getTable(table)];
-      let filters: Array<{ column: string; value: unknown }> = [];
+      let filters: Array<{ column: string; value: unknown; type?: string; values?: unknown[] }> = [];
       let sort: { column: string; ascending: boolean } | null = null;
       let operation = 'select';
       let updateData: Record<string, unknown> | null = null;
@@ -102,7 +102,7 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
   return mock;
 }
 
-function matchesFilters(row: Record<string, unknown>, filters: Array<{ column: string; value: unknown }>) {
+function matchesFilters(row: Record<string, unknown>, filters: Array<{ column: string; value: unknown; type?: string; values?: unknown[] }>) {
     for (const f of filters) {
         if (f.type === 'eq') {
             if (row[f.column] !== f.value) return false;
@@ -113,6 +113,6 @@ function matchesFilters(row: Record<string, unknown>, filters: Array<{ column: s
     return true;
 }
 
-function applyFilters(rows: Record<string, unknown>[], filters: Array<{ column: string; value: unknown }>) {
+function applyFilters(rows: Record<string, unknown>[], filters: Array<{ column: string; value: unknown; type?: string; values?: unknown[] }>) {
     return rows.filter(r => matchesFilters(r, filters));
 }

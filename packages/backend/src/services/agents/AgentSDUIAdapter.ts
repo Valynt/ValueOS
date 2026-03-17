@@ -18,10 +18,10 @@ import { AtomicUIAction, createAddAction } from "@sdui/AtomicUIActions";
 
 import { logger } from "../../lib/logger.js"
 import { AgentOutput } from "../../types/agent-output";
-import { SDUIUpdate } from "../types/sdui-integration";
+import { SDUIUpdate } from "../../types/sdui-integration";
 
 import { agentIntentConverter } from "./AgentIntentConverter.js"
-import { intentRegistry } from "./IntentRegistry.js"
+import { intentRegistry } from "../sdui/IntentRegistry.js"
 
 /**
  * Agent SDUI Adapter

@@ -2,8 +2,8 @@ import { logger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js'
 
 import { AuditLogService } from './AuditLogService.js';
-import { vetoController } from './integrity/VetoController.js';
-import { DomainSagaEventEmitter } from './workflows/SagaAdapters.js';
+import { vetoController } from '../integrity/VetoController.js';
+import { DomainSagaEventEmitter } from '../workflows/SagaAdapters.js';
 
 export interface AssumptionUpdateContext {
   userId?: string;

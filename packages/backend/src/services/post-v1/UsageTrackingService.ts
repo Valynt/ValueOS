@@ -11,7 +11,7 @@ import { getConfig } from "../config/environment.js"
 import { logger } from "../../lib/logger.js"
 import { supabase as publicSupabase } from "../../lib/supabase.js"
 
-import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning.js"
+import { isWithinLimits, TenantLimits, TenantUsage } from "../tenant/TenantProvisioning.js"
 
 
 

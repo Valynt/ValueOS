@@ -3,15 +3,15 @@
  * This service encapsulates business logic and uses repositories for data access.
  */
 import { logger } from "../../lib/logger.js"
-import { KpiTargetRepository } from "../repositories/KpiTargetRepository";
-import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculationRepository";
-import { RoiModelRepository } from "../repositories/RoiModelRepository";
-import { ValueCommitRepository } from "../repositories/ValueCommitRepository";
-import { ValueTreeLinkRepository } from "../repositories/ValueTreeLinkRepository";
-import { ValueTreeNodeRepository } from "../repositories/ValueTreeNodeRepository";
-import { ValueTreeRepository } from "../repositories/ValueTreeRepository";
+import { KpiTargetRepository } from "../../repositories/KpiTargetRepository";
+import { RoiModelCalculationRepository } from "../../repositories/RoiModelCalculationRepository";
+import { RoiModelRepository } from "../../repositories/RoiModelRepository";
+import { ValueCommitRepository } from "../../repositories/ValueCommitRepository";
+import { ValueTreeLinkRepository } from "../../repositories/ValueTreeLinkRepository";
+import { ValueTreeNodeRepository } from "../../repositories/ValueTreeNodeRepository";
+import { ValueTreeRepository } from "../../repositories/ValueTreeRepository";
 import { LifecycleContext } from "../types/agent";
-import { TargetAgentOutput } from "../types/vos";
+import { TargetAgentOutput } from "../../types/vos";
 
 import { auditLogService } from "./AuditLogService.js"
 import { userSettingsService } from "./UserSettingsService.js"

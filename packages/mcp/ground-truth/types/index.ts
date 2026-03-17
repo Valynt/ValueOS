@@ -17,9 +17,11 @@ export interface FinancialMetric {
   type: MetricType;
   metric_name: string;
   value: number | string | [number, number]; // Single value or range
+  unit?: string;
   confidence: number; // 0.0 to 1.0
   tier: ConfidenceTier;
   source: string;
+  source_type?: string;
   timestamp: string; // ISO 8601
   metadata: Record<string, any>;
   raw_extract?: string;
@@ -120,6 +122,8 @@ export interface XBRLFact {
   unit?: string;
   period: string;
   frame?: string;
+  form?: string;
+  filed?: string;
   taxonomy: string;
 }
 

@@ -1,5 +1,9 @@
 interface AssertTenantContextMatchParams {
   expectedTenantId: string;
+  /** Alias for expectedTenantId — accepted for backward compatibility. */
+  expectedOrganizationId?: string;
+  /** Alias for actualTenantId — accepted for backward compatibility. */
+  contextOrganizationId?: string;
   actualTenantId: string | null | undefined;
   source: string;
 }
