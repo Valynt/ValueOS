@@ -5,7 +5,7 @@
  * across environments with fail-fast startup behavior and comprehensive error reporting.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 // NodeJS process may not exist in all environments (e.g. browser bundles)
 const nodeProcess = (globalThis as { process?: NodeJS.Process }).process;
@@ -24,11 +24,13 @@ function writeStderr(message: string) {
 export const ConfigSchema = z.object({
   // Application Environment
   app: z.object({
-    environment: z.enum(['development', 'staging', 'production', 'test']),
+    environment: z.enum(["development", "staging", "production", "test"]),
     version: z.string().min(1),
     instanceId: z.string().min(1),
-    region: z.enum(['us-east-1', 'eu-west-1', 'ap-southeast-1']).default('us-east-1'),
-    clusterName: z.string().default('valueos-ha'),
+    region: z
+      .enum(["us-east-1", "eu-west-1", "ap-southeast-1"])
+      .default("us-east-1"),
+    clusterName: z.string().default("valueos-ha"),
   }),
 
   // Server Configuration
@@ -54,15 +56,17 @@ export const ConfigSchema = z.object({
   // Supabase Configuration
   supabase: z.object({
     url: z.string().url(),
-    anonKey: z.string().min(100, 'Supabase anon key must be at least 100 characters'),
+    anonKey: z
+      .string()
+      .min(100, "Supabase anon key must be at least 100 characters"),
     serviceRoleKey: z.string().min(100).optional(),
     functionsUrl: z.string().url().optional(),
   }),
 
   // LLM Configuration
   llm: z.object({
-    provider: z.enum(['together', 'openai', 'anthropic']),
-    apiKey: z.string().min(20, 'LLM API key must be at least 20 characters'),
+    provider: z.enum(["together", "openai", "anthropic"]),
+    apiKey: z.string().min(20, "LLM API key must be at least 20 characters"),
     model: z.string().min(1),
     maxTokensPerRequest: z.number().positive().max(100000),
     costLimitPerSession: z.number().positive().default(25),
@@ -78,7 +82,7 @@ export const ConfigSchema = z.object({
     password: z.string().optional(),
     db: z.number().min(0).max(15).default(0),
     maxConnections: z.number().positive().max(50).default(10),
-    keyPrefix: z.string().default('valueos:'),
+    keyPrefix: z.string().default("valueos:"),
   }),
 
   // Feature Flags
@@ -110,7 +114,7 @@ export const ConfigSchema = z.object({
     prometheusPort: z.number().positive().max(65535).default(9090),
     grafanaEnabled: z.boolean().default(true),
     grafanaPort: z.number().positive().max(65535).default(3000),
-    logLevel: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+    logLevel: z.enum(["error", "warn", "info", "debug"]).default("info"),
     tracingEnabled: z.boolean().default(false),
     metricsInterval: z.number().positive().max(300).default(60),
   }),
@@ -129,7 +133,7 @@ export const ConfigSchema = z.object({
   // CDN Configuration
   cdn: z.object({
     enabled: z.boolean().default(false),
-    provider: z.enum(['cloudflare', 'cloudfront', 'fastly']).optional(),
+    provider: z.enum(["cloudflare", "cloudfront", "fastly"]).optional(),
     cacheTtl: z.number().positive().max(31536000).default(3600),
     edgeLocations: z.array(z.string()).optional(),
   }),
@@ -149,11 +153,11 @@ export const ConfigSchema = z.object({
  */
 const ProductionConfigSchema = ConfigSchema.extend({
   app: ConfigSchema.shape.app.extend({
-    environment: z.literal('production'),
+    environment: z.literal("production"),
   }),
 
   server: ConfigSchema.shape.server.extend({
-    url: z.string().url('Production requires server URL'),
+    url: z.string().url("Production requires server URL"),
   }),
 
   security: ConfigSchema.shape.security.extend({
@@ -169,7 +173,7 @@ const ProductionConfigSchema = ConfigSchema.extend({
   monitoring: ConfigSchema.shape.monitoring.extend({
     prometheusEnabled: z.literal(true),
     grafanaEnabled: z.literal(true),
-    logLevel: z.enum(['error', 'warn']).default('warn'),
+    logLevel: z.enum(["error", "warn"]).default("warn"),
   }),
 
   ha: ConfigSchema.shape.ha.extend({
@@ -178,7 +182,7 @@ const ProductionConfigSchema = ConfigSchema.extend({
 
   cdn: ConfigSchema.shape.cdn.extend({
     enabled: z.literal(true),
-    provider: z.enum(['cloudflare', 'cloudfront', 'fastly']),
+    provider: z.enum(["cloudflare", "cloudfront", "fastly"]),
   }),
 });
 
@@ -187,7 +191,7 @@ const ProductionConfigSchema = ConfigSchema.extend({
  */
 const DevelopmentConfigSchema = ConfigSchema.extend({
   app: ConfigSchema.shape.app.extend({
-    environment: z.enum(['development', 'test']),
+    environment: z.enum(["development", "test"]),
   }),
 
   security: ConfigSchema.shape.security.extend({
@@ -197,7 +201,7 @@ const DevelopmentConfigSchema = ConfigSchema.extend({
   monitoring: ConfigSchema.shape.monitoring.extend({
     prometheusEnabled: z.boolean().default(false),
     grafanaEnabled: z.boolean().default(false),
-    logLevel: z.enum(['info', 'debug']).default('debug'),
+    logLevel: z.enum(["info", "debug"]).default("debug"),
   }),
 
   ha: ConfigSchema.shape.ha.extend({
@@ -223,30 +227,32 @@ export interface ConfigValidationResult {
 /**
  * Map environment variables to configuration object
  */
-function mapEnvVarsToConfig(env: Record<string, string>): Record<string, unknown> {
+function mapEnvVarsToConfig(
+  env: Record<string, string>
+): Record<string, unknown> {
   return {
     app: {
-      environment: env.NODE_ENV || 'development',
-      version: env.APP_VERSION || '1.0.0',
-      instanceId: env.INSTANCE_ID || 'local',
-      region: env.REGION || 'us-east-1',
-      clusterName: env.CLUSTER_NAME || 'valueos-ha',
+      environment: env.NODE_ENV || "development",
+      version: env.APP_VERSION || "1.0.0",
+      instanceId: env.INSTANCE_ID || "local",
+      region: env.REGION || "us-east-1",
+      clusterName: env.CLUSTER_NAME || "valueos-ha",
     },
     server: {
-      port: parseInt(env.PORT || '5173'),
-      host: env.HOST || '0.0.0.0',
+      port: parseInt(env.PORT || "5173"),
+      host: env.HOST || "0.0.0.0",
       url: env.SERVER_URL,
     },
     database: {
       url: env.DATABASE_URL,
-      host: env.POSTGRES_HOST || 'localhost',
-      port: parseInt(env.POSTGRES_PORT || '5432'),
-      name: env.POSTGRES_DB || 'valueos_dev',
-      user: env.POSTGRES_USER || 'postgres',
-      password: env.POSTGRES_PASSWORD || 'dev_password',
-      ssl: env.DATABASE_SSL === 'true',
-      poolSize: parseInt(env.DATABASE_POOL_SIZE || '10'),
-      timeout: parseInt(env.DATABASE_TIMEOUT || '5000'),
+      host: env.POSTGRES_HOST || "localhost",
+      port: parseInt(env.POSTGRES_PORT || "5432"),
+      name: env.POSTGRES_DB || "valueos_dev",
+      user: env.POSTGRES_USER || "postgres",
+      password: env.POSTGRES_PASSWORD || "dev_password",
+      ssl: env.DATABASE_SSL === "true",
+      poolSize: parseInt(env.DATABASE_POOL_SIZE || "10"),
+      timeout: parseInt(env.DATABASE_TIMEOUT || "5000"),
     },
     supabase: {
       url: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
@@ -255,65 +261,77 @@ function mapEnvVarsToConfig(env: Record<string, string>): Record<string, unknown
       functionsUrl: env.SUPABASE_FUNCTIONS_URL,
     },
     llm: {
-      provider: (env.LLM_PROVIDER || 'together') as 'together' | 'openai' | 'anthropic',
-      apiKey: env.TOGETHER_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY,
-      model: env.LLM_MODEL || 'meta-llama/Llama-2-70b-chat-hf',
-      maxTokensPerRequest: parseInt(env.LLM_MAX_TOKENS || '4096'),
-      costLimitPerSession: parseFloat(env.LLM_COST_LIMIT || '25'),
-      timeout: parseInt(env.LLM_TIMEOUT || '30000'),
-      temperature: parseFloat(env.LLM_TEMPERATURE || '0.7'),
+      provider: (env.LLM_PROVIDER || "together") as
+        | "together"
+        | "openai"
+        | "anthropic",
+      apiKey:
+        env.TOGETHER_API_KEY || env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY,
+      model: env.LLM_MODEL || "meta-llama/Llama-2-70b-chat-hf",
+      maxTokensPerRequest: parseInt(env.LLM_MAX_TOKENS || "4096"),
+      costLimitPerSession: parseFloat(env.LLM_COST_LIMIT || "25"),
+      timeout: parseInt(env.LLM_TIMEOUT || "30000"),
+      temperature: parseFloat(env.LLM_TEMPERATURE || "0.7"),
     },
     redis: {
       url: env.REDIS_URL,
-      host: env.REDIS_HOST || 'localhost',
-      port: parseInt(env.REDIS_PORT || '6379'),
+      host: env.REDIS_HOST || "localhost",
+      port: parseInt(env.REDIS_PORT || "6379"),
       password: env.REDIS_PASSWORD,
-      db: parseInt(env.REDIS_DB || '0'),
-      maxConnections: parseInt(env.REDIS_MAX_CONNECTIONS || '10'),
-      keyPrefix: env.REDIS_KEY_PREFIX || 'valueos:',
+      db: parseInt(env.REDIS_DB || "0"),
+      maxConnections: parseInt(env.REDIS_MAX_CONNECTIONS || "10"),
+      keyPrefix: env.REDIS_KEY_PREFIX || "valueos:",
     },
     features: {
-      enableAgentFabric: env.ENABLE_AGENT_FABRIC !== 'false',
-      enableRealtime: env.ENABLE_REALTIME !== 'false',
-      enableWorkflow: env.ENABLE_WORKFLOW !== 'false',
-      enableCompliance: env.ENABLE_COMPLIANCE !== 'false',
-      enableMultiTenant: env.ENABLE_MULTI_TENANT === 'true',
-      enableUsageTracking: env.ENABLE_USAGE_TRACKING !== 'false',
-      enableBilling: env.ENABLE_BILLING === 'true',
-      enableAI: env.ENABLE_AI !== 'false',
-      enableAnalytics: env.ENABLE_ANALYTICS === 'true',
+      enableAgentFabric: env.ENABLE_AGENT_FABRIC !== "false",
+      enableRealtime: env.ENABLE_REALTIME !== "false",
+      enableWorkflow: env.ENABLE_WORKFLOW !== "false",
+      enableCompliance: env.ENABLE_COMPLIANCE !== "false",
+      enableMultiTenant: env.ENABLE_MULTI_TENANT === "true",
+      enableUsageTracking: env.ENABLE_USAGE_TRACKING !== "false",
+      enableBilling: env.ENABLE_BILLING === "true",
+      enableAI: env.ENABLE_AI !== "false",
+      enableAnalytics: env.ENABLE_ANALYTICS === "true",
     },
     security: {
-      csrfEnabled: env.CSRF_ENABLED !== 'false',
-      cspEnabled: env.CSP_ENABLED !== 'false',
-      httpsOnly: env.HTTPS_ONLY === 'true',
-      sessionTimeout: parseInt(env.SESSION_TIMEOUT || '3600'),
-      maxLoginAttempts: parseInt(env.MAX_LOGIN_ATTEMPTS || '5'),
-      passwordMinLength: parseInt(env.PASSWORD_MIN_LENGTH || '8'),
+      csrfEnabled: env.CSRF_ENABLED !== "false",
+      cspEnabled: env.CSP_ENABLED !== "false",
+      httpsOnly: env.HTTPS_ONLY === "true",
+      sessionTimeout: parseInt(env.SESSION_TIMEOUT || "3600"),
+      maxLoginAttempts: parseInt(env.MAX_LOGIN_ATTEMPTS || "5"),
+      passwordMinLength: parseInt(env.PASSWORD_MIN_LENGTH || "8"),
     },
     monitoring: {
-      prometheusEnabled: env.PROMETHEUS_ENABLED === 'true',
-      prometheusPort: parseInt(env.PROMETHEUS_PORT || '9090'),
-      grafanaEnabled: env.GRAFANA_ENABLED === 'true',
-      grafanaPort: parseInt(env.GRAFANA_PORT || '3000'),
-      logLevel: (env.LOG_LEVEL || 'info') as 'error' | 'warn' | 'info' | 'debug',
-      tracingEnabled: env.TRACING_ENABLED === 'true',
-      metricsInterval: parseInt(env.METRICS_INTERVAL || '60'),
+      prometheusEnabled: env.PROMETHEUS_ENABLED === "true",
+      prometheusPort: parseInt(env.PROMETHEUS_PORT || "9090"),
+      grafanaEnabled: env.GRAFANA_ENABLED === "true",
+      grafanaPort: parseInt(env.GRAFANA_PORT || "3000"),
+      logLevel: (env.LOG_LEVEL || "info") as
+        | "error"
+        | "warn"
+        | "info"
+        | "debug",
+      tracingEnabled: env.TRACING_ENABLED === "true",
+      metricsInterval: parseInt(env.METRICS_INTERVAL || "60"),
     },
     ha: {
-      maintenanceMode: env.MAINTENANCE_MODE === 'true',
-      autoRollbackEnabled: env.AUTO_ROLLBACK_ENABLED !== 'false',
-      healthCheckInterval: parseInt(env.HEALTH_CHECK_INTERVAL || '15'),
-      healthCheckTimeout: parseInt(env.HEALTH_CHECK_TIMEOUT || '5'),
-      healthCheckRetries: parseInt(env.HEALTH_CHECK_RETRIES || '3'),
-      circuitBreakerThreshold: parseInt(env.CIRCUIT_BREAKER_THRESHOLD || '5'),
-      circuitBreakerTimeout: parseInt(env.CIRCUIT_BREAKER_TIMEOUT || '60'),
+      maintenanceMode: env.MAINTENANCE_MODE === "true",
+      autoRollbackEnabled: env.AUTO_ROLLBACK_ENABLED !== "false",
+      healthCheckInterval: parseInt(env.HEALTH_CHECK_INTERVAL || "15"),
+      healthCheckTimeout: parseInt(env.HEALTH_CHECK_TIMEOUT || "5"),
+      healthCheckRetries: parseInt(env.HEALTH_CHECK_RETRIES || "3"),
+      circuitBreakerThreshold: parseInt(env.CIRCUIT_BREAKER_THRESHOLD || "5"),
+      circuitBreakerTimeout: parseInt(env.CIRCUIT_BREAKER_TIMEOUT || "60"),
     },
     cdn: {
-      enabled: env.CDN_ENABLED === 'true',
-      provider: (env.CDN_PROVIDER || undefined) as 'cloudflare' | 'cloudfront' | 'fastly' | undefined,
-      cacheTtl: parseInt(env.CDN_CACHE_TTL || '3600'),
-      edgeLocations: env.CDN_EDGE_LOCATIONS?.split(',') || undefined,
+      enabled: env.CDN_ENABLED === "true",
+      provider: (env.CDN_PROVIDER || undefined) as
+        | "cloudflare"
+        | "cloudfront"
+        | "fastly"
+        | undefined,
+      cacheTtl: parseInt(env.CDN_CACHE_TTL || "3600"),
+      edgeLocations: env.CDN_EDGE_LOCATIONS?.split(",") || undefined,
     },
     external: {
       slackWebhookUrl: env.SLACK_WEBHOOK_URL,
@@ -326,10 +344,21 @@ function mapEnvVarsToConfig(env: Record<string, string>): Record<string, unknown
 }
 
 /**
- * Load and validate configuration with fail-fast behavior
+ * Load and validate configuration with fail-fast behavior.
+ *
+ * @deprecated Use `validateEnvironment()` from `env-validation.ts` instead.
+ * This function now delegates to the unified validator and maps the result
+ * to the legacy ConfigValidationResult shape for backward compatibility.
+ * It will be removed in a future release.
  */
-export function loadAndValidateConfig(env: Record<string, string> = process.env): ConfigValidationResult {
-  const environment = env.NODE_ENV || 'development';
+export function loadAndValidateConfig(
+  env: Record<string, string> = process.env
+): ConfigValidationResult {
+  writeStderr(
+    "[DEPRECATION] loadAndValidateConfig() is deprecated. Use validateEnvironment() from env-validation.ts instead."
+  );
+
+  const environment = env.NODE_ENV || "development";
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -341,9 +370,9 @@ export function loadAndValidateConfig(env: Record<string, string> = process.env)
 
     // Select appropriate schema based on environment
     let schema;
-    if (environment === 'production') {
+    if (environment === "production") {
       schema = ProductionConfigSchema;
-    } else if (environment === 'development' || environment === 'test') {
+    } else if (environment === "development" || environment === "test") {
       schema = DevelopmentConfigSchema;
     } else {
       schema = ConfigSchema;
@@ -354,23 +383,27 @@ export function loadAndValidateConfig(env: Record<string, string> = process.env)
 
     if (!result.success) {
       // Format validation errors for better readability
-      result.error.issues.forEach((issue) => {
-        const path = issue.path.join('.');
+      result.error.issues.forEach(issue => {
+        const path = issue.path.join(".");
         const message = issue.message;
 
-        if (issue.code === 'invalid_type') {
+        if (issue.code === "invalid_type") {
           errors.push(
             `Invalid type for ${path}: expected ${issue.expected}, received ${issue.received}`
           );
-        } else if (issue.code === 'invalid_literal') {
-          errors.push(`Invalid value for ${path}: ${issue.received} is not allowed`);
+        } else if (issue.code === "invalid_literal") {
+          errors.push(
+            `Invalid value for ${path}: ${issue.received} is not allowed`
+          );
         } else {
           errors.push(`${path}: ${message}`);
         }
       });
 
-      writeStderr(`❌ Configuration validation failed with ${errors.length} errors:`);
-      errors.forEach((error) => writeStderr(`  - ${error}`));
+      writeStderr(
+        `❌ Configuration validation failed with ${errors.length} errors:`
+      );
+      errors.forEach(error => writeStderr(`  - ${error}`));
 
       return {
         success: false,
@@ -384,31 +417,40 @@ export function loadAndValidateConfig(env: Record<string, string> = process.env)
     const config = result.data;
 
     // Generate warnings for non-critical issues
-    if (environment === 'production' && !config.external.slackWebhookUrl) {
-      warnings.push('SLACK_WEBHOOK_URL not set - notifications will be disabled');
+    if (environment === "production" && !config.external.slackWebhookUrl) {
+      warnings.push(
+        "SLACK_WEBHOOK_URL not set - notifications will be disabled"
+      );
     }
 
-    if (environment === 'production' && !config.external.sentryDsn) {
-      warnings.push('SENTRY_DSN not set - error tracking will be disabled');
+    if (environment === "production" && !config.external.sentryDsn) {
+      warnings.push("SENTRY_DSN not set - error tracking will be disabled");
     }
 
-    if (config.features.enableBilling && (!config.external.stripePublicKey || !config.external.stripeSecretKey)) {
-      warnings.push('Billing enabled but Stripe keys not configured - billing features will be disabled');
+    if (
+      config.features.enableBilling &&
+      (!config.external.stripePublicKey || !config.external.stripeSecretKey)
+    ) {
+      warnings.push(
+        "Billing enabled but Stripe keys not configured - billing features will be disabled"
+      );
     }
 
     if (config.cdn.enabled && !config.cdn.provider) {
-      warnings.push('CDN enabled but no provider specified - CDN will be disabled');
+      warnings.push(
+        "CDN enabled but no provider specified - CDN will be disabled"
+      );
     }
 
     // Check for maintenance mode
     if (config.ha.maintenanceMode) {
-      warnings.push('Application is running in maintenance mode');
+      warnings.push("Application is running in maintenance mode");
     }
 
     writeStdout(`✅ Configuration validation successful`);
     if (warnings.length > 0) {
       writeStdout(`⚠️  ${warnings.length} warnings detected`);
-      warnings.forEach((warning) => writeStdout(`  - ${warning}`));
+      warnings.forEach(warning => writeStdout(`  - ${warning}`));
     }
 
     return {
@@ -440,20 +482,20 @@ export function getValidatedConfig(): z.infer<typeof ConfigSchema> {
   const result = loadAndValidateConfig();
 
   if (!result.success) {
-    writeStderr('🚨 Critical configuration errors detected');
-    writeStderr('Application cannot start with invalid configuration');
-    writeStderr('');
-    writeStderr('Please fix the following errors:');
-    result.errors.forEach((error) => writeStderr(`  - ${error}`));
-    writeStderr('');
-    writeStderr('For help, check the configuration documentation or run:');
-    writeStderr('  npm run config:validate');
-    writeStderr('  npm run config:diff');
+    writeStderr("🚨 Critical configuration errors detected");
+    writeStderr("Application cannot start with invalid configuration");
+    writeStderr("");
+    writeStderr("Please fix the following errors:");
+    result.errors.forEach(error => writeStderr(`  - ${error}`));
+    writeStderr("");
+    writeStderr("For help, check the configuration documentation or run:");
+    writeStderr("  npm run config:validate");
+    writeStderr("  npm run config:diff");
 
     if (nodeProcess) {
       nodeProcess.exit(1);
     } else {
-      throw new Error('Configuration validation failed');
+      throw new Error("Configuration validation failed");
     }
   }
 
@@ -478,7 +520,7 @@ export function getHealthCheckConfig() {
     interval: config.ha.healthCheckInterval * 1000,
     timeout: config.ha.healthCheckTimeout * 1000,
     retries: config.ha.healthCheckRetries,
-    endpoints: ['/health', '/ready', '/live'],
+    endpoints: ["/health", "/ready", "/live"],
     circuitBreaker: {
       threshold: config.ha.circuitBreakerThreshold,
       timeout: config.ha.circuitBreakerTimeout * 1000,

@@ -5,7 +5,12 @@
 import { parseCorsAllowlist } from "@shared/config/cors";
 
 // Re-exports from shared utility
-export { getEnvironment, isProduction, isDevelopment, isTest } from "@shared/config/environment";
+export {
+  getEnvironment,
+  isProduction,
+  isDevelopment,
+  isTest,
+} from "@shared/config/environment";
 
 /**
  * Types and Interfaces
@@ -40,9 +45,31 @@ export function isFeatureEnabled(feature: string): boolean {
 }
 
 /**
+ * CORS compatibility shim.
+ *
+ * Historically the backend reads CORS_ORIGINS (via getConfig()) while security
+ * middleware reads CORS_ALLOWED_ORIGINS. Operators had to set both. This shim
+ * lets them set either one -- whichever is provided is copied to the other so
+ * both consumers see the same value.
+ */
+function normaliseCorsEnv(): void {
+  const allowed = process.env.CORS_ALLOWED_ORIGINS;
+  const origins = process.env.CORS_ORIGINS;
+
+  if (allowed && !origins) {
+    process.env.CORS_ORIGINS = allowed;
+  } else if (origins && !allowed) {
+    process.env.CORS_ALLOWED_ORIGINS = origins;
+  }
+  // When both are set we leave them as-is (operator made a deliberate choice).
+}
+
+/**
  * Full structured config shape — built from environment variables.
  */
 function buildConfig() {
+  normaliseCorsEnv();
+
   const corsOrigins = parseCorsAllowlist(process.env.CORS_ORIGINS, {
     source: "CORS_ORIGINS",
     credentials: true,
@@ -69,12 +96,18 @@ function buildConfig() {
     database: {
       url: process.env.SUPABASE_URL || process.env.DATABASE_URL || "",
       poolSize: Number(process.env.DB_POOL_SIZE) || 10,
-      anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "",
+      anonKey:
+        process.env.SUPABASE_ANON_KEY ||
+        process.env.VITE_SUPABASE_ANON_KEY ||
+        "",
     },
     agents: {
       enabled: process.env.AGENTS_ENABLED !== "false",
       maxConcurrent: Number(process.env.AGENTS_MAX_CONCURRENT) || 5,
-      apiUrl: process.env.AGENT_API_URL || process.env.AGENTS_API_URL || "http://localhost:3001/api/agents",
+      apiUrl:
+        process.env.AGENT_API_URL ||
+        process.env.AGENTS_API_URL ||
+        "http://localhost:3001/api/agents",
       timeout: Number(process.env.AGENTS_TIMEOUT) || 30_000,
       logging: process.env.AGENTS_LOGGING !== "false",
       circuitBreaker: {
@@ -152,7 +185,9 @@ export function validateEnvironmentConfig(config: AppConfig): string[] {
   }
 
   if (config.features.agentFabric && !config.agents.apiUrl) {
-    errors.push("AGENT_API_URL is required when agentFabric feature is enabled");
+    errors.push(
+      "AGENT_API_URL is required when agentFabric feature is enabled"
+    );
   }
 
   return errors;

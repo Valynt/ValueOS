@@ -7,17 +7,23 @@
 
 import { z } from "zod";
 
-import { writeStderr, writeStdout } from "./environment.js"
+import { writeStderr, writeStdout } from "./environment.js";
 
 /**
  * Base environment schema with common validations
  */
 const baseEnvSchema = z.object({
   // Application Environment
-  NODE_ENV: z.enum(["development", "staging", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "staging", "production", "test"])
+    .default("development"),
 
   // Server Configuration
-  PORT: z.string().transform(Number).pipe(z.number().positive().max(65535)).default("5173"),
+  PORT: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().positive().max(65535))
+    .default("5173"),
   HOST: z.string().ip().default("0.0.0.0"),
 
   // Database Configuration
@@ -37,7 +43,11 @@ const baseEnvSchema = z.object({
   // Redis Configuration
   REDIS_URL: z.string().url().optional(),
   REDIS_HOST: z.string().default("localhost"),
-  REDIS_PORT: z.string().transform(Number).pipe(z.number().positive().max(65535)).default("6379"),
+  REDIS_PORT: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().positive().max(65535))
+    .default("6379"),
 
   // Supabase Configuration
   SUPABASE_URL: z.string().url().optional(),
@@ -51,18 +61,27 @@ const baseEnvSchema = z.object({
 
   // HA Configuration
   INSTANCE_ID: z.string().default("primary"),
-  REGION: z.enum(["us-east-1", "eu-west-1", "ap-southeast-1"]).default("us-east-1"),
+  REGION: z
+    .enum(["us-east-1", "eu-west-1", "ap-southeast-1"])
+    .default("us-east-1"),
   CLUSTER_NAME: z.string().default("valueos-ha"),
 
   // Monitoring and Observability
-  PROMETHEUS_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
+  PROMETHEUS_ENABLED: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("true"),
   PROMETHEUS_PORT: z
     .string()
     .transform(Number)
     .pipe(z.number().positive().max(65535))
     .default("9090"),
   GRAFANA_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
-  GRAFANA_PORT: z.string().transform(Number).pipe(z.number().positive().max(65535)).default("3000"),
+  GRAFANA_PORT: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().positive().max(65535))
+    .default("3000"),
 
   // Security Configuration
   CSRF_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
@@ -70,16 +89,34 @@ const baseEnvSchema = z.object({
   HTTPS_ONLY: z.enum(["true", "false"]).transform(Boolean).default("false"),
 
   // Feature Flags
-  ENABLE_AGENT_FABRIC: z.enum(["true", "false"]).transform(Boolean).default("true"),
+  ENABLE_AGENT_FABRIC: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("true"),
   ENABLE_WORKFLOW: z.enum(["true", "false"]).transform(Boolean).default("true"),
-  ENABLE_COMPLIANCE: z.enum(["true", "false"]).transform(Boolean).default("true"),
-  ENABLE_MULTI_TENANT: z.enum(["true", "false"]).transform(Boolean).default("false"),
-  ENABLE_USAGE_TRACKING: z.enum(["true", "false"]).transform(Boolean).default("true"),
+  ENABLE_COMPLIANCE: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("true"),
+  ENABLE_MULTI_TENANT: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("false"),
+  ENABLE_USAGE_TRACKING: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("true"),
   ENABLE_BILLING: z.enum(["true", "false"]).transform(Boolean).default("false"),
 
   // HA Specific Configuration
-  MAINTENANCE_MODE: z.enum(["true", "false"]).transform(Boolean).default("false"),
-  AUTO_ROLLBACK_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
+  MAINTENANCE_MODE: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("false"),
+  AUTO_ROLLBACK_ENABLED: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("true"),
   HEALTH_CHECK_INTERVAL: z
     .string()
     .transform(Number)
@@ -110,10 +147,25 @@ const baseEnvSchema = z.object({
   TOGETHER_API_BASE_URL: z.string().url().optional(),
   TOGETHER_PRIMARY_MODEL_NAME: z.string().min(1).optional(),
   TOGETHER_SECONDARY_MODEL_NAME: z.string().min(1).optional(),
-  TOGETHER_TIMEOUT_MS: z.string().transform(Number).pipe(z.number().positive()).optional(),
-  LLM_FALLBACK_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
-  LLM_FALLBACK_MAX_ATTEMPTS: z.string().transform(Number).pipe(z.number().nonnegative()).default("1"),
-  LLM_RETRY_BACKOFF_MS: z.string().transform(Number).pipe(z.number().nonnegative()).default("200"),
+  TOGETHER_TIMEOUT_MS: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().positive())
+    .optional(),
+  LLM_FALLBACK_ENABLED: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("true"),
+  LLM_FALLBACK_MAX_ATTEMPTS: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().nonnegative())
+    .default("1"),
+  LLM_RETRY_BACKOFF_MS: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().nonnegative())
+    .default("200"),
   SLACK_WEBHOOK_URL: z.string().url().optional(),
 
   // Development Configuration
@@ -141,7 +193,9 @@ const productionEnvSchema = baseEnvSchema.extend({
   SUPABASE_URL: z.string().url("Production requires SUPABASE_URL"),
   SUPABASE_ANON_KEY: z.string().min(1, "Production requires SUPABASE_ANON_KEY"),
   VITE_SUPABASE_URL: z.string().url("Production requires VITE_SUPABASE_URL"),
-  VITE_SUPABASE_ANON_KEY: z.string().min(1, "Production requires VITE_SUPABASE_ANON_KEY"),
+  VITE_SUPABASE_ANON_KEY: z
+    .string()
+    .min(1, "Production requires VITE_SUPABASE_ANON_KEY"),
 
   // Production monitoring requirements
   PROMETHEUS_ENABLED: z.literal("true").transform(Boolean),
@@ -150,7 +204,10 @@ const productionEnvSchema = baseEnvSchema.extend({
   // Production HA requirements
   AUTO_ROLLBACK_ENABLED: z.literal("true").transform(Boolean),
   CDN_ENABLED: z.literal("true").transform(Boolean),
-  CDN_PROVIDER: z.enum(["cloudflare", "cloudfront", "fastly"], "Production requires CDN_PROVIDER"),
+  CDN_PROVIDER: z.enum(
+    ["cloudflare", "cloudfront", "fastly"],
+    "Production requires CDN_PROVIDER"
+  ),
 });
 
 /**
@@ -168,10 +225,167 @@ const developmentEnvSchema = baseEnvSchema.extend({
 
   // Development defaults
   HTTPS_ONLY: z.enum(["true", "false"]).transform(Boolean).default("false"),
-  PROMETHEUS_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("false"),
-  GRAFANA_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("false"),
+  PROMETHEUS_ENABLED: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("false"),
+  GRAFANA_ENABLED: z
+    .enum(["true", "false"])
+    .transform(Boolean)
+    .default("false"),
   CDN_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("false"),
 });
+
+// ---------------------------------------------------------------------------
+// Composable security rule functions (merged from validateEnv.ts)
+// ---------------------------------------------------------------------------
+
+const SECURE_NODE_ENVS = new Set(["staging", "production"]);
+const STRICT_POSTGRES_SSL_MODES = new Set([
+  "require",
+  "verify-ca",
+  "verify-full",
+]);
+
+function parseUrl(raw: string): URL | null {
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Enforce TLS for database and Redis connections in staging/production.
+ */
+function validateSecureTransport(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) return;
+
+  const dbUrlRaw = env.DATABASE_URL;
+  if (dbUrlRaw) {
+    const dbUrl = parseUrl(dbUrlRaw);
+    if (!dbUrl) {
+      errors.push("Invalid DATABASE_URL format. Must be a valid postgres URL.");
+    } else {
+      const sslMode = (dbUrl.searchParams.get("sslmode") ?? "").toLowerCase();
+      if (!STRICT_POSTGRES_SSL_MODES.has(sslMode)) {
+        errors.push(
+          `In ${nodeEnv}, DATABASE_URL must enable TLS with sslmode=require, verify-ca, or verify-full.`
+        );
+      }
+    }
+  }
+
+  const redisUrlRaw = env.REDIS_URL;
+  if (redisUrlRaw) {
+    const redisUrl = parseUrl(redisUrlRaw);
+    if (!redisUrl) {
+      errors.push("Invalid REDIS_URL format. Must be a valid redis URL.");
+    } else if (redisUrl.protocol !== "rediss:") {
+      errors.push(`In ${nodeEnv}, REDIS_URL must use TLS (rediss://...).`);
+    }
+  }
+
+  const rejectUnauthorized = (
+    env.REDIS_TLS_REJECT_UNAUTHORIZED ?? "true"
+  ).toLowerCase();
+  if (rejectUnauthorized !== "true") {
+    errors.push(
+      `In ${nodeEnv}, REDIS_TLS_REJECT_UNAUTHORIZED must be true to enforce certificate validation.`
+    );
+  }
+
+  if (!env.REDIS_TLS_CA_CERT_PATH && !env.REDIS_TLS_CA_CERT) {
+    errors.push(
+      `In ${nodeEnv}, set REDIS_TLS_CA_CERT_PATH (preferred) or REDIS_TLS_CA_CERT to validate Redis certificates.`
+    );
+  }
+
+  if (!env.REDIS_TLS_SERVERNAME) {
+    errors.push(
+      `In ${nodeEnv}, REDIS_TLS_SERVERNAME is required for Redis certificate hostname validation.`
+    );
+  }
+}
+
+/**
+ * Enforce cache encryption in staging/production.
+ */
+function validateCacheEncryption(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) return;
+
+  if (env.CACHE_ENCRYPTION_ENABLED === "false") {
+    errors.push(`In ${nodeEnv}, CACHE_ENCRYPTION_ENABLED must not be false.`);
+  }
+
+  if (!env.CACHE_ENCRYPTION_KEY) {
+    errors.push(`In ${nodeEnv}, CACHE_ENCRYPTION_KEY is required.`);
+  }
+}
+
+/**
+ * Enforce MFA in production.
+ */
+function validateMFA(
+  env: Record<string, string | undefined>,
+  warnings: string[]
+): void {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (nodeEnv === "production" && env.MFA_ENABLED !== "true") {
+    warnings.push(
+      "MFA_ENABLED is not set to 'true' in production. Set MFA_ENABLED=true to enforce multi-factor authentication."
+    );
+  }
+}
+
+/**
+ * Enforce encryption key presence and strength in production.
+ */
+function validateEncryptionKey(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  const nodeEnv = env.NODE_ENV ?? "development";
+  if (nodeEnv !== "production") return;
+
+  const encryptionKey = env.APP_ENCRYPTION_KEY ?? env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    errors.push(
+      "APP_ENCRYPTION_KEY (or ENCRYPTION_KEY) is required in production"
+    );
+  } else if (
+    !encryptionKey.startsWith("pbkdf2:") &&
+    !encryptionKey.startsWith("hex:") &&
+    !encryptionKey.startsWith("base64:") &&
+    encryptionKey.length < 44
+  ) {
+    errors.push(
+      "APP_ENCRYPTION_KEY is too short. Use one of: hex (64 chars), base64 (44 chars), or pbkdf2:<iterations>:<salt>:<passphrase>"
+    );
+  }
+}
+
+/**
+ * Check for deprecated env var aliases.
+ */
+function validateDeprecatedAliases(
+  env: Record<string, string | undefined>,
+  errors: string[]
+): void {
+  if (env.SUPABASE_SERVICE_KEY) {
+    errors.push(
+      "Deprecated SUPABASE_SERVICE_KEY is set. Use SUPABASE_SERVICE_ROLE_KEY instead."
+    );
+  }
+}
 
 /**
  * Validation result interface
@@ -199,10 +413,21 @@ export function validateEnvironment(
   writeStdout(`🔍 Validating environment configuration for ${nodeEnv}...`);
 
   try {
+    // Run composable security rules (merged from validateEnv.ts)
+    validateDeprecatedAliases(env, errors);
+    validateSecureTransport(env, errors);
+    validateCacheEncryption(env, errors);
+    validateEncryptionKey(env, errors);
+    validateMFA(env, warnings);
+
     // Select appropriate schema based on environment
     let schema;
     if (nodeEnv === "production") {
       schema = productionEnvSchema;
+    } else if (nodeEnv === "staging") {
+      // Staging uses the base schema (same vars) but the composable rules
+      // above already enforce TLS, cache encryption, etc.
+      schema = baseEnvSchema;
     } else if (nodeEnv === "development" || nodeEnv === "test") {
       schema = developmentEnvSchema;
     } else {
@@ -214,7 +439,7 @@ export function validateEnvironment(
 
     if (!result.success) {
       // Format Zod errors for better readability
-      result.error.issues.forEach((issue) => {
+      result.error.issues.forEach(issue => {
         const path = issue.path.join(".");
         const message = issue.message;
 
@@ -223,13 +448,17 @@ export function validateEnvironment(
             `Invalid type for ${path}: expected ${issue.expected}, received ${issue.received}`
           );
         } else if (issue.code === "invalid_literal") {
-          errors.push(`Invalid value for ${path}: ${issue.received} is not allowed`);
+          errors.push(
+            `Invalid value for ${path}: ${issue.received} is not allowed`
+          );
         } else {
           errors.push(`${path}: ${message}`);
         }
       });
 
-      writeStderr(`❌ Environment validation failed with ${errors.length} errors`);
+      writeStderr(
+        `❌ Environment validation failed with ${errors.length} errors`
+      );
       return {
         success: false,
         data: null,
@@ -250,16 +479,25 @@ export function validateEnvironment(
       warnings.push("TOGETHER_API_KEY not set - AI features will be disabled");
     }
 
-    if (nodeEnv === "production" && !validatedData.TOGETHER_PRIMARY_MODEL_NAME) {
-      warnings.push("TOGETHER_PRIMARY_MODEL_NAME not set - default model will be used");
+    if (
+      nodeEnv === "production" &&
+      !validatedData.TOGETHER_PRIMARY_MODEL_NAME
+    ) {
+      warnings.push(
+        "TOGETHER_PRIMARY_MODEL_NAME not set - default model will be used"
+      );
     }
 
     if (nodeEnv === "production" && !validatedData.SLACK_WEBHOOK_URL) {
-      warnings.push("SLACK_WEBHOOK_URL not set - notifications will be disabled");
+      warnings.push(
+        "SLACK_WEBHOOK_URL not set - notifications will be disabled"
+      );
     }
 
     if (validatedData.CDN_ENABLED && !validatedData.CDN_PROVIDER) {
-      warnings.push("CDN enabled but no provider specified - CDN will be disabled");
+      warnings.push(
+        "CDN enabled but no provider specified - CDN will be disabled"
+      );
     }
 
     // Create safe defaults for missing optional values
@@ -273,9 +511,13 @@ export function validateEnvironment(
         validatedData.REDIS_URL ||
         `redis://${validatedData.REDIS_HOST}:${validatedData.REDIS_PORT}`,
       SUPABASE_URL:
-        validatedData.SUPABASE_URL || validatedData.VITE_SUPABASE_URL || "https://your-project.supabase.co",
+        validatedData.SUPABASE_URL ||
+        validatedData.VITE_SUPABASE_URL ||
+        "https://your-project.supabase.co",
       SUPABASE_ANON_KEY:
-        validatedData.SUPABASE_ANON_KEY || validatedData.VITE_SUPABASE_ANON_KEY || "dev-key",
+        validatedData.SUPABASE_ANON_KEY ||
+        validatedData.VITE_SUPABASE_ANON_KEY ||
+        "dev-key",
     };
 
     writeStdout(`✅ Environment validation successful`);
@@ -310,7 +552,9 @@ export function validateEnvironment(
  * Get validated environment with safe defaults
  * This is the main function to use in application code
  */
-export function getValidatedEnvironment(): EnvValidationResult & { config: Record<string, any> } {
+export function getValidatedEnvironment(): EnvValidationResult & {
+  config: Record<string, any>;
+} {
   const result = validateEnvironment();
 
   if (!result.success) {
@@ -326,7 +570,8 @@ export function getValidatedEnvironment(): EnvValidationResult & { config: Recor
         PORT: 5173,
         HOST: "0.0.0.0",
         // Minimal safe defaults
-        DATABASE_URL: "postgresql://postgres:password@localhost:5432/maintenance",
+        DATABASE_URL:
+          "postgresql://postgres:password@localhost:5432/maintenance",
         REDIS_URL: "redis://localhost:6379",
         SUPABASE_URL: "https://your-project.supabase.co",
         SUPABASE_ANON_KEY: "maintenance-key",

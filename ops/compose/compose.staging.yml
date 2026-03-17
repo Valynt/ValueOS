@@ -1,0 +1,195 @@
+# Staging compose for ValueOS -- production-parity with relaxed resource limits.
+# Usage:
+#   docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging up -d --build
+#
+# This file is self-contained (does NOT extend the dev compose) so that staging
+# mirrors production topology: Caddy + nginx-served frontend + compiled backend.
+
+x-staging-common: &staging-common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "15m"
+      max-file: "4"
+
+services:
+  # -- Caddy reverse proxy (ACME staging CA) ---------------------------------
+  caddy:
+    <<: *staging-common
+    image: caddy:2-alpine
+    container_name: valueos-caddy-staging
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../infra/caddy/Caddyfile.staging:/etc/caddy/Caddyfile:ro
+      - ../../infra/caddy/Caddyfile:/etc/caddy/Caddyfile.base:ro
+      - ../../infra/caddy/snippets:/etc/caddy/snippets:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in ops/env/.env.staging}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      TLS_MODE: ${TLS_MODE:-staging}
+      API_UPSTREAM: http://backend:${BACKEND_PORT:-3001}
+      FRONTEND_UPSTREAM: http://frontend:${FRONTEND_PORT:-8080}
+
+  # -- Backend (production build) --------------------------------------------
+  backend:
+    <<: *staging-common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+      target: runtime
+    container_name: valueos-backend-staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: staging
+      APP_ENV: staging
+      API_PORT: ${BACKEND_PORT:-3001}
+      BACKEND_PORT: ${BACKEND_PORT:-3001}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${APP_DOMAIN}}
+      CORS_ORIGINS: ${CORS_ORIGINS:-${CORS_ALLOWED_ORIGINS:-https://${APP_DOMAIN}}}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.staging}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in ops/env/.env.staging}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in ops/env/.env.staging}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in ops/env/.env.staging}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in ops/env/.env.staging}
+      REDIS_TLS_REJECT_UNAUTHORIZED: ${REDIS_TLS_REJECT_UNAUTHORIZED:-true}
+      REDIS_TLS_CA_CERT_PATH: ${REDIS_TLS_CA_CERT_PATH:-}
+      REDIS_TLS_SERVERNAME: ${REDIS_TLS_SERVERNAME:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENABLE_TELEMETRY: ${ENABLE_TELEMETRY:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+    ports:
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:${BACKEND_PORT:-3001}/health/ready",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # -- Frontend (production nginx) -------------------------------------------
+  frontend:
+    <<: *staging-common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: runtime
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in ops/env/.env.staging}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in ops/env/.env.staging}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: valueos-frontend-staging
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # -- Postgres (staging) ----------------------------------------------------
+  postgres:
+    <<: *staging-common
+    image: postgres:15-alpine
+    container_name: valueos-postgres-staging
+    environment:
+      POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in ops/env/.env.staging}
+      POSTGRES_USER: ${PGUSER:?Set PGUSER in ops/env/.env.staging}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in ops/env/.env.staging}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${PGUSER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # -- Redis (staging) -------------------------------------------------------
+  redis:
+    <<: *staging-common
+    image: redis:7-alpine
+    container_name: valueos-redis-staging
+    command: >-
+      redis-server
+      --appendonly yes
+      --maxmemory ${REDIS_MAXMEMORY:-1gb}
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: ${VALUEOS_NETWORK:-valueos-staging-network}

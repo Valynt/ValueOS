@@ -2,6 +2,35 @@
 
 Complete Kubernetes deployment configuration for ValueOS using Kustomize.
 
+> **Readiness Status:** These manifests are **aspirational** and have not been
+> validated against a live cluster for v1. Production deployment currently uses
+> Docker Compose (`ops/compose/`). See `DEPLOY.md` for the canonical deploy path.
+
+## Manifest Readiness
+
+| Manifest                          | Status       | Notes                                                                    |
+| --------------------------------- | ------------ | ------------------------------------------------------------------------ |
+| `base/configmap.yaml`             | Validated    | Base config with overlay-required overrides for `node-env` and `app-env` |
+| `base/backend-deployment.yaml`    | Aspirational | Image tags and resource limits need production tuning                    |
+| `base/frontend-*-deployment.yaml` | Aspirational | Blue-green setup defined but not tested                                  |
+| `base/hpa.yaml`                   | Aspirational | HPA metrics and thresholds need load-test validation                     |
+| `base/network-policies.yaml`      | Aspirational | Needs cluster-level NetworkPolicy controller                             |
+| `base/external-secrets.yaml`      | Aspirational | Requires ExternalSecrets operator + AWS/Vault backend                    |
+| `overlays/staging/`               | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
+| `overlays/production/`            | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
+| `observability/`                  | Aspirational | Full OTEL + Prometheus + Grafana + Loki stack, not deployed              |
+
+### Promotion to production-ready
+
+To promote these manifests to production-ready:
+
+1. Stand up a staging K8s cluster (EKS, GKE, or kind for local)
+2. Install prerequisites: ExternalSecrets operator, NGINX ingress controller, cert-manager
+3. Run `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -`
+4. Deploy to staging cluster and run smoke tests
+5. Validate HPA scaling under load (`tests/test/load/`)
+6. Update this table as manifests are validated
+
 ## Architecture
 
 ```
@@ -53,7 +82,6 @@ infra/k8s/
         └── deployment-patch.yaml
 ```
 
-
 ## Agent Workload Identity (Istio + Kubernetes)
 
 ### ServiceAccount naming convention
@@ -63,6 +91,7 @@ Every agent deployment under `infra/k8s/base/agents/*/deployment.yaml` must use 
 - `<agent-name>-agent`
 
 Examples:
+
 - `opportunity-agent`
 - `financial-modeling-agent`
 - `value-eval-agent`
@@ -90,6 +119,7 @@ node scripts/ci/check-agent-service-accounts.mjs
 ```
 
 This check fails when any agent deployment:
+
 - uses `serviceAccountName: valynt-agent`,
 - reuses a ServiceAccount already assigned to another agent deployment, or
 - references a ServiceAccount not declared in `infra/k8s/base/agents/serviceaccounts.yaml`.
@@ -175,16 +205,19 @@ kubectl get ingress -n valynt-staging
 ### Staging
 
 **Resources:**
+
 - Backend: 1 replica, 100m CPU, 256Mi memory
 - Frontend: 1 replica, 50m CPU, 64Mi memory
 - HPA: Disabled
 
 **Configuration:**
+
 - Namespace: `valynt-staging`
 - Image tag: `develop`
 - Log level: `debug`
 
 **Deploy:**
+
 ```bash
 kustomize build infra/k8s/overlays/staging | kubectl apply -f -
 ```
@@ -192,16 +225,19 @@ kustomize build infra/k8s/overlays/staging | kubectl apply -f -
 ### Production
 
 **Resources:**
+
 - Backend: 3 replicas, 500m CPU, 1Gi memory
 - Frontend: 2 replicas, 200m CPU, 256Mi memory
 - HPA: Enabled (2-10 replicas for backend)
 
 **Configuration:**
+
 - Namespace: `valynt`
 - Image tag: `latest`
 - Log level: `info`
 
 **Deploy:**
+
 ```bash
 kustomize build infra/k8s/overlays/production | kubectl apply -f -
 ```
@@ -292,6 +328,7 @@ targetMemoryUtilizationPercentage: 80
 ```
 
 View HPA status:
+
 ```bash
 kubectl get hpa -n valynt
 ```
@@ -460,6 +497,7 @@ See `.github/workflows/deploy-to-k8s.yml` for details.
 ## Support
 
 For issues or questions:
+
 1. Check pod logs
 2. Review events
 3. Check this documentation

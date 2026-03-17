@@ -1,15 +1,16 @@
 # Staging Deployment Checklist
 
 Pre-flight checklist for the first staging deploy. Infrastructure is Docker Compose
-(`ops/compose/compose.yml`), not Kubernetes. K8s manifests in `infra/k8s/` are aspirational
-and not used for v1.
+(`ops/compose/compose.staging.yml`), not Kubernetes. K8s manifests in `infra/k8s/` are
+aspirational and not used for v1.
 
 ## Prerequisites
 
 - [ ] Supabase project provisioned (or self-hosted instance running)
-- [ ] Redis instance available (managed or Docker)
+- [ ] Redis instance available (managed or Docker) with TLS (`rediss://`)
 - [ ] Domain with DNS pointing to staging server
-- [ ] `.env.production` created from `ops/env/.env.production.template`
+- [ ] `.env.staging` created from `ops/env/.env.staging.template` (run `bash scripts/setup-env.sh staging`)
+- [ ] All required vars populated (the script flags empty critical vars)
 - [ ] Secrets populated: `supabase_service_key.txt`, `openai_api_key.txt`
 
 ## Database
@@ -20,8 +21,8 @@ and not used for v1.
 
 ## Build & Deploy
 
-- [ ] `docker compose -f ops/compose/compose.yml --env-file .env.production up -d --build`
-- [ ] All containers healthy: `docker compose ps`
+- [ ] `docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging up -d --build`
+- [ ] All containers healthy: `docker compose -f ops/compose/compose.staging.yml ps`
 - [ ] Backend responds: `curl -s https://<domain>/api/health/ready`
 - [ ] Frontend loads: `curl -s https://<domain>/health`
 
