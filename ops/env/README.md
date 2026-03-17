@@ -18,12 +18,29 @@ ops/env/.env.prod
 ## Safe to commit (placeholders only)
 
 ```
+ops/env/.env.base                        # Variable reference (every var the app reads)
+ops/env/.env.local.example               # Local dev template
+ops/env/.env.staging.template            # Staging template (production-parity)
+ops/env/.env.production.template         # Production template
+ops/env/.env.test.template               # CI / test template
 ops/env/.env.cloud-dev.example
 ops/env/.env.frontend.cloud-dev.example
 ops/env/.env.backend.cloud-dev.example
-ops/env/.env.local.example
 ops/env/.env.frontend.local.example
 ops/env/.env.backend.local.example
+```
+
+## Quick setup
+
+```bash
+# Interactive -- prompts for environment
+bash scripts/setup-env.sh
+
+# Non-interactive
+bash scripts/setup-env.sh dev      # -> ops/env/.env.local
+bash scripts/setup-env.sh staging  # -> ops/env/.env.staging
+bash scripts/setup-env.sh prod     # -> ops/env/.env.production
+bash scripts/setup-env.sh test     # -> ops/env/.env.test
 ```
 
 ## Bootstrapping cloud-dev
@@ -45,11 +62,11 @@ bash scripts/validate-cloud-dev-env.sh
 
 Each mode uses three files with distinct ownership:
 
-| File | Who reads it | What goes in it |
-|---|---|---|
-| `.env.<mode>` | Both frontend and backend prep scripts | `APP_ENV`, `NODE_ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF` |
-| `.env.frontend.<mode>` | `scripts/env/prepare-frontend-env.sh` only | Port/origin values for Vite mapping. No secrets. |
-| `.env.backend.<mode>` | `scripts/env/prepare-backend-env.sh` only | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, `DATABASE_URL`, `TCT_SECRET`, `WEB_SCRAPER_ENCRYPTION_KEY`, `API_PORT` |
+| File                   | Who reads it                               | What goes in it                                                                                                     |
+| ---------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `.env.<mode>`          | Both frontend and backend prep scripts     | `APP_ENV`, `NODE_ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`                                  |
+| `.env.frontend.<mode>` | `scripts/env/prepare-frontend-env.sh` only | Port/origin values for Vite mapping. No secrets.                                                                    |
+| `.env.backend.<mode>`  | `scripts/env/prepare-backend-env.sh` only  | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, `DATABASE_URL`, `TCT_SECRET`, `WEB_SCRAPER_ENCRYPTION_KEY`, `API_PORT` |
 
 `SUPABASE_SERVICE_ROLE_KEY` and `DATABASE_URL` must never appear in the shared or frontend files.
 
@@ -70,7 +87,7 @@ Each mode uses three files with distinct ownership:
 
 Shell environment variables always override file values.
 
-> **Warning:** If `ops/env/.env.local` exists on disk, `load_mode_env` sources it *after* `ops/env/.env.cloud-dev`, so `.env.local` values silently override cloud-dev values. Remove or rename `.env.local` when switching to cloud-dev mode to avoid unexpected configuration bleed.
+> **Warning:** If `ops/env/.env.local` exists on disk, `load_mode_env` sources it _after_ `ops/env/.env.cloud-dev`, so `.env.local` values silently override cloud-dev values. Remove or rename `.env.local` when switching to cloud-dev mode to avoid unexpected configuration bleed.
 
 ## Port note
 

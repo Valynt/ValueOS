@@ -1,8 +1,41 @@
 # Deploy to Production
 
-> **Note:** Production deployment uses Docker Compose (`ops/compose/compose.yml`).
-> Kubernetes manifests in `infra/k8s/` are aspirational and not validated for v1.
+> **Note:** Production deployment uses Docker Compose. Kubernetes manifests in
+> `infra/k8s/` are aspirational and not validated for v1.
 > See `ops/STAGING_DEPLOY_CHECKLIST.md` for the first-deploy checklist.
+
+## Environment Matrix
+
+| Concern       | Dev                          | Staging                           | Production                             |
+| ------------- | ---------------------------- | --------------------------------- | -------------------------------------- |
+| Compose file  | `ops/compose/compose.yml`    | `ops/compose/compose.staging.yml` | `infra/docker/docker-compose.prod.yml` |
+| Env template  | `ops/env/.env.local.example` | `ops/env/.env.staging.template`   | `ops/env/.env.production.template`     |
+| Env reference | `ops/env/.env.base`          | `ops/env/.env.base`               | `ops/env/.env.base`                    |
+| Caddy config  | `infra/caddy/Caddyfile.dev`  | `infra/caddy/Caddyfile.staging`   | `infra/caddy/Caddyfile.prod`           |
+| TLS           | none                         | ACME staging CA                   | ACME production                        |
+| Replicas      | 1                            | 2                                 | 3+                                     |
+| K8s overlay   | (not used)                   | `infra/k8s/overlays/staging`      | `infra/k8s/overlays/production`        |
+| `NODE_ENV`    | `development`                | `staging`                         | `production`                           |
+| `APP_ENV`     | `local`                      | `staging`                         | `prod`                                 |
+
+### Environment-specific GitHub Secrets
+
+When using the CI deploy workflow (`.github/workflows/deploy.yml`), configure
+these secrets in each GitHub Environment:
+
+**staging** environment:
+
+- `STAGING_DATABASE_URL` -- Postgres connection string with `sslmode=require`
+- `VITE_SUPABASE_URL` -- Supabase project URL for the staging project
+- `VITE_SUPABASE_ANON_KEY` -- Supabase anon key for the staging project
+- `KUBE_CONFIG_STAGING` -- kubeconfig for the staging cluster (if using K8s)
+
+**production** environment:
+
+- `PRODUCTION_DATABASE_URL` -- Postgres connection string with `sslmode=require`
+- `VITE_SUPABASE_URL` -- Supabase project URL for the production project
+- `VITE_SUPABASE_ANON_KEY` -- Supabase anon key for the production project
+- `KUBE_CONFIG_PRODUCTION` -- kubeconfig for the production cluster (if using K8s)
 
 ## Prerequisites
 
@@ -59,7 +92,6 @@ MFA_ENABLED=true
 # infra/secrets/openai_api_key.txt        — OpenAI API key
 ```
 
-
 ## Production Backend Runtime Policy
 
 ValueOS production runtime is standardized on **`packages/backend`**.
@@ -82,6 +114,7 @@ docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.productio
 ```
 
 This starts:
+
 - **Caddy** — reverse proxy with automatic HTTPS (ports 80/443)
 - **Frontend** — Vite-built SPA served by nginx (port 8080 internal)
 - **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 3001 internal)
@@ -104,6 +137,7 @@ curl -s https://app.yourdomain.com/api/health/ready
 ## Supabase Setup
 
 1. Run migrations against your Supabase project:
+
    ```bash
    # Use ops/env/.env.production.template as the starting point for provisioning
    # and export DATABASE_URL before running the command.
@@ -120,7 +154,6 @@ curl -s https://app.yourdomain.com/api/health/ready
 
 > This path does **not** deploy backend runtime. Production API runtime remains `packages/backend`.
 
-
 If you only need the frontend (e.g., deploying to Vercel/Netlify/Cloudflare Pages):
 
 ```bash
@@ -130,7 +163,6 @@ VITE_SUPABASE_ANON_KEY=eyJ... \
 pnpm run build
 # Output is in dist/ — deploy this as a static site with SPA fallback
 ```
-
 
 ## Migration Notes: Certificate Distribution in Containers
 

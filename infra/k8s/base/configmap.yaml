@@ -12,19 +12,23 @@ data:
   redis-tls-servername: "redis"
   redis-tls-reject-unauthorized: "true"
   redis-tls-ca-cert-path: "/etc/redis/tls/ca.crt"
-  
+
   # Application configuration
-  node-env: "production"
+  # IMPORTANT: node-env must be overridden by each overlay (staging/production).
+  # The base value is intentionally set to a placeholder to prevent accidental
+  # production deployments without an explicit overlay.
+  node-env: "MUST_BE_OVERRIDDEN_BY_OVERLAY"
+  app-env: "MUST_BE_OVERRIDDEN_BY_OVERLAY"
   log-level: "info"
-  
+
   # Feature flags
   enable-circuit-breaker: "true"
   enable-rate-limiting: "true"
   enable-audit-logging: "true"
-  
+
   # LLM configuration
   llm-provider: "together"
-  
+
   # Performance settings
   max-request-size: "10mb"
   request-timeout: "30000"
