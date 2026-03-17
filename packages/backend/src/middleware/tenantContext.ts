@@ -30,7 +30,18 @@ const assertValidTctSecret = (): string => {
   // Require explicit TCT_SECRET in all non-development environments
   if (nodeEnv !== "development" && secret === DEFAULT_TCT_SECRET) {
     validateEnv();
-    throw new Error("TCT_SECRET must be configured in non-development environments.");
+    throw new Error(
+      "TCT_SECRET must be configured in non-development environments."
+    );
+  }
+  // SEC-010: Warn when using the default secret even in development —
+  // tokens signed with the well-known default can be forged by any developer.
+  if (secret === DEFAULT_TCT_SECRET) {
+    logger.warn(
+      "TCT_SECRET is using the default value. Tokens can be trivially forged. " +
+        "Set a unique TCT_SECRET in ops/env/.env.backend.local for local development.",
+      { nodeEnv }
+    );
   }
   return secret;
 };
@@ -46,7 +57,13 @@ export interface TCTPayload {
 
 export const tenantContextStorage = new AsyncLocalStorage<TCTPayload>();
 
-type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-lookup" | "request" | "none";
+type TenantCandidateSource =
+  | "tct"
+  | "service-header"
+  | "user-claim"
+  | "user-lookup"
+  | "request"
+  | "none";
 
 type TenantContextUser = {
   role?: string | string[];
@@ -56,7 +73,7 @@ type TenantContextUser = {
 const resolveRoles = (user: TenantContextUser | undefined): string[] => {
   const directRole = user?.role;
   if (Array.isArray(directRole)) {
-    return directRole.filter((role) => typeof role === "string");
+    return directRole.filter(role => typeof role === "string");
   }
   if (typeof directRole === "string" && directRole.length > 0) {
     return [directRole];
@@ -70,7 +87,10 @@ const resolveRoles = (user: TenantContextUser | undefined): string[] => {
 
 const isAgentScopedRequest = (req: Request): boolean => {
   const requestPath = `${req.baseUrl ?? ""}${req.path ?? ""}`;
-  return requestPath.startsWith("/api/agents") || requestPath.startsWith("/api/groundtruth");
+  return (
+    requestPath.startsWith("/api/agents") ||
+    requestPath.startsWith("/api/groundtruth")
+  );
 };
 
 const buildRequestContext = (
@@ -112,11 +132,17 @@ export const tenantContextMiddleware = (enforce = true) => {
     let tctPayload: TCTPayload | null = null;
 
     if (authHeader) {
-      const token = Array.isArray(authHeader) ? authHeader[0] ?? '' : authHeader;
+      const token = Array.isArray(authHeader)
+        ? (authHeader[0] ?? "")
+        : authHeader;
 
       try {
-        tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as unknown as TCTPayload;
-        const requestTenantId = (req as TenantRequest).tenantId as string | undefined;
+        tctPayload = jwt.verify(token, tctSecret, {
+          algorithms: ["HS256"],
+        }) as unknown as TCTPayload;
+        const requestTenantId = (req as TenantRequest).tenantId as
+          | string
+          | undefined;
 
         if (requestTenantId && tctPayload.tid !== requestTenantId) {
           logger.warn("Tenant context tenant mismatch", {
@@ -139,7 +165,9 @@ export const tenantContextMiddleware = (enforce = true) => {
       } catch (error) {
         logger.error("Invalid TCT", error);
         if (enforce) {
-          return res.status(401).json({ error: "Invalid Tenant Context Token" });
+          return res
+            .status(401)
+            .json({ error: "Invalid Tenant Context Token" });
         }
         return next();
       }
@@ -155,7 +183,8 @@ export const tenantContextMiddleware = (enforce = true) => {
           });
           return res.status(403).json({
             error: "Forbidden",
-            message: "Tenant header is restricted to internal service requests.",
+            message:
+              "Tenant header is restricted to internal service requests.",
           });
         }
         resolvedTenantId = tenantHeader;
@@ -163,14 +192,17 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
-    const claimTenantId = (req as TenantRequest).user?.tenant_id || (req as TenantRequest).user?.organization_id;
+    const claimTenantId =
+      (req as TenantRequest).user?.tenant_id ||
+      (req as TenantRequest).user?.organization_id;
     if (!resolvedTenantId && claimTenantId) {
       resolvedTenantId = claimTenantId;
       tenantSource = "user-claim";
     }
 
     if (!resolvedTenantId) {
-      const routeTenantId = (req.params as { tenantId?: string } | undefined)?.tenantId;
+      const routeTenantId = (req.params as { tenantId?: string } | undefined)
+        ?.tenantId;
       if (routeTenantId) {
         resolvedTenantId = routeTenantId;
         tenantSource = "request";
@@ -227,7 +259,10 @@ export const tenantContextMiddleware = (enforce = true) => {
 
     const membershipUserId = tctPayload?.sub ?? userId;
     if (membershipUserId) {
-      const isMember = await verifyTenantMembership(membershipUserId, resolvedTenantId);
+      const isMember = await verifyTenantMembership(
+        membershipUserId,
+        resolvedTenantId
+      );
       if (!isMember) {
         logger.warn("Tenant membership verification failed", {
           userId: membershipUserId,
@@ -252,7 +287,9 @@ export const tenantContextMiddleware = (enforce = true) => {
       next();
     };
 
-    const contextPayload = tctPayload ?? buildRequestContext(resolvedTenantId, req, membershipUserId);
+    const contextPayload =
+      tctPayload ??
+      buildRequestContext(resolvedTenantId, req, membershipUserId);
 
     // Merge tenantId into the shared AsyncLocalStorage context so the logger
     // automatically includes it in every log entry for this request.
