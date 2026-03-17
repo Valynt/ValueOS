@@ -19,7 +19,10 @@
 
 import { logger } from "@shared/lib/logger";
 
-import { immutableNestedUpdate, immutableUpdate } from "../utils/immutableUtils";
+import {
+  immutableNestedUpdate,
+  immutableUpdate,
+} from "../utils/immutableUtils";
 
 import { CanvasDelta, CanvasLayout } from "./types";
 
@@ -27,7 +30,10 @@ export class CanvasPatcher {
   /**
    * Apply delta patches to existing canvas state
    */
-  static applyDelta(currentLayout: CanvasLayout, delta: CanvasDelta): CanvasLayout {
+  static applyDelta(
+    currentLayout: CanvasLayout,
+    delta: CanvasDelta
+  ): CanvasLayout {
     let newLayout = currentLayout;
 
     logger.info("Applying canvas delta", {
@@ -59,7 +65,10 @@ export class CanvasPatcher {
             break;
           case "remove": {
             const segments = op.path.split("/").filter(Boolean);
-            const removeIndex = parseInt(segments[segments.length - 1] || "-1", 10);
+            const removeIndex = parseInt(
+              segments[segments.length - 1] || "-1",
+              10
+            );
             const parentPath = segments.slice(0, -1);
 
             if (parentPath.length > 0 && !isNaN(removeIndex)) {
@@ -69,7 +78,9 @@ export class CanvasPatcher {
                 parentPath,
                 (current: unknown) => {
                   if (Array.isArray(current)) {
-                    return current.filter((_: unknown, i: number) => i !== removeIndex);
+                    return current.filter(
+                      (_: unknown, i: number) => i !== removeIndex
+                    );
                   }
                   return current;
                 }
@@ -77,12 +88,19 @@ export class CanvasPatcher {
             }
             break;
           }
-            break;
           case "update_props":
-            newLayout = this.updateComponentPropsImmutable(newLayout, op.componentId, op.props);
+            newLayout = this.updateComponentPropsImmutable(
+              newLayout,
+              op.componentId,
+              op.props
+            );
             break;
           case "update_data":
-            newLayout = this.updateComponentDataImmutable(newLayout, op.componentId, op.data);
+            newLayout = this.updateComponentDataImmutable(
+              newLayout,
+              op.componentId,
+              op.data
+            );
             break;
           case "reorder":
             newLayout = this.reorderChildrenImmutable(
@@ -114,7 +132,9 @@ export class CanvasPatcher {
     newProps: Record<string, unknown>
   ): CanvasLayout {
     if (layout.type === "Component" && layout.componentId === componentId) {
-      return immutableUpdate(layout, { props: { ...layout.props, ...newProps } });
+      return immutableUpdate(layout, {
+        props: { ...layout.props, ...newProps },
+      });
     }
 
     if ("children" in layout && layout.children) {
@@ -137,7 +157,9 @@ export class CanvasPatcher {
     newData: unknown
   ): CanvasLayout {
     if (layout.type === "Component" && layout.componentId === componentId) {
-      return immutableUpdate(layout, { props: { ...layout.props, data: newData } });
+      return immutableUpdate(layout, {
+        props: { ...layout.props, data: newData },
+      });
     }
 
     if ("children" in layout && layout.children) {
@@ -187,7 +209,9 @@ export class CanvasPatcher {
         const [moved] = newChildren.splice(fromIndex, 1);
         newChildren.splice(toIndex, 0, moved);
 
-        return Array.isArray(node) ? newChildren : immutableUpdate(node, { children: newChildren });
+        return Array.isArray(node)
+          ? newChildren
+          : immutableUpdate(node, { children: newChildren });
       }
 
       const [head, ...tail] = remainingPath;
@@ -202,7 +226,9 @@ export class CanvasPatcher {
           throw new Error(`Invalid path index: ${head}`);
         }
 
-        return node.map((child: unknown, i: number) => (i === index ? reorder(child, tail) : child));
+        return node.map((child: unknown, i: number) =>
+          i === index ? reorder(child, tail) : child
+        );
       }
 
       if (node && typeof node === "object" && head in node) {
@@ -220,7 +246,10 @@ export class CanvasPatcher {
   /**
    * Get component by ID (deep search)
    */
-  static findComponentById(layout: CanvasLayout, componentId: string): CanvasLayout | null {
+  static findComponentById(
+    layout: CanvasLayout,
+    componentId: string
+  ): CanvasLayout | null {
     if (layout.type === "Component" && layout.componentId === componentId) {
       return layout;
     }

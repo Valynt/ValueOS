@@ -1,5 +1,5 @@
-import { test as base } from '@playwright/test';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { test as base } from "@playwright/test";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export interface E2EFixtures {
   supabase: SupabaseClient;
@@ -15,14 +15,15 @@ export interface E2EFixtures {
  * running `pnpm exec playwright test`.
  */
 export const test = base.extend<E2EFixtures>({
+  // eslint-disable-next-line no-empty-pattern -- Playwright fixture API requires destructuring
   supabase: async ({}, use) => {
     const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!url || !key) {
       throw new Error(
-        'E2E DB assertions require SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. ' +
-          'Set them in the environment before running wf-N specs.',
+        "E2E DB assertions require SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. " +
+          "Set them in the environment before running wf-N specs."
       );
     }
 
@@ -30,8 +31,9 @@ export const test = base.extend<E2EFixtures>({
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
     await use(client);
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect } from "@playwright/test";

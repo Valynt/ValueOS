@@ -7,10 +7,11 @@
  * Requires system.admin permission (same as other /api/admin routes).
  */
 
-import { Router, Request, Response } from "express";
-import { agentKillSwitchService } from "../services/agents/AgentKillSwitchService.js";
-import { requirePermission } from "../middleware/rbac.js";
+import { Request, Response, Router } from "express";
+
 import { logger } from "../lib/logger.js";
+import { requirePermission } from "../middleware/rbac.js";
+import { agentKillSwitchService } from "../services/agents/AgentKillSwitchService.js";
 
 const agentAdminRouter = Router();
 

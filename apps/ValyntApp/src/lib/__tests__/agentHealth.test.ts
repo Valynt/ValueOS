@@ -5,7 +5,7 @@
  * `continue` on a non-OK HTTP response.
  */
 
-import { vi, describe, it, expect, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { initializeAgents } from '../agentHealth.js';
 

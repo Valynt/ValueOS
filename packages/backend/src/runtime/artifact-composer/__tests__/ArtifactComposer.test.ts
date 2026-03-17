@@ -1,3 +1,4 @@
+import type { Assumption, BusinessCase, Evidence, ValueHypothesis } from "@valueos/shared/domain";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -6,7 +7,6 @@ import {
   composeStakeholderView,
 } from "../index.js";
 import type { ArtifactComposerInput } from "../index.js";
-import type { BusinessCase, ValueHypothesis, Assumption, Evidence } from "@valueos/shared/domain";
 
 // ---------------------------------------------------------------------------
 // Mocks for ArtifactComposer class tests

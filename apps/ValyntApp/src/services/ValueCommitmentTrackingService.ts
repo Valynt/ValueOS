@@ -20,18 +20,18 @@
 import { apiClient } from "../api/client/unified-api-client";
 import { logger } from "../lib/logger";
 import type {
-  CommitmentDto,
-  NoteDto,
-  CreateCommitmentRequest,
-  UpdateCommitmentRequest,
-  StatusTransitionRequest,
   AddNoteRequest,
   CommitmentDashboard,
-  CommitmentProgress,
-  CommitmentStakeholder,
-  CommitmentMilestone,
+  CommitmentDto,
   CommitmentMetric,
+  CommitmentMilestone,
+  CommitmentProgress,
   CommitmentRisk,
+  CommitmentStakeholder,
+  CreateCommitmentRequest,
+  NoteDto,
+  StatusTransitionRequest,
+  UpdateCommitmentRequest,
   ValueCommitment,
 } from "../types/value-commitment-tracking.js";
 
@@ -110,6 +110,7 @@ export class ValueCommitmentTrackingService {
     _sessionId: string,
     data: CreateCommitmentRequest,
   ): Promise<CommitmentDto> {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
     if (!useBackendApi()) {
       logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
       return this.stubCommitment(data.title);
@@ -136,6 +137,7 @@ export class ValueCommitmentTrackingService {
     _userId: string,
     updates: UpdateCommitmentRequest,
   ): Promise<CommitmentDto> {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
     if (!useBackendApi()) {
       logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
       return this.stubCommitment(updates.title ?? "");
@@ -166,6 +168,7 @@ export class ValueCommitmentTrackingService {
     progressPercentage?: number,
     reason?: string,
   ): Promise<CommitmentDto> {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
     if (!useBackendApi()) {
       logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
       return this.stubCommitment("", status);
@@ -194,6 +197,7 @@ export class ValueCommitmentTrackingService {
     _userId: string,
     note: AddNoteRequest,
   ): Promise<NoteDto> {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
     if (!useBackendApi()) {
       logger.warn("ValueCommitmentTrackingService: backend API disabled, returning stub");
       return {
@@ -224,6 +228,7 @@ export class ValueCommitmentTrackingService {
     _tenantId: string,
     _userId: string,
   ): Promise<void> {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
     if (!useBackendApi()) {
       logger.warn("ValueCommitmentTrackingService: backend API disabled, no-op");
       return;

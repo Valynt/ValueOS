@@ -7,11 +7,11 @@
  */
 
 import { logger } from '../../lib/logger.js';
+import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../types/orchestration.js';
 import type { AgentAPI } from '../AgentAPI.js';
 import type { CostAwareRouter, RoutingDecision } from '../CostAwareRouter.js';
 import type { LLMCostTracker } from '../LLMCostTracker.js';
 import type { ReflectionEngine, ReflectionResult } from '../post-v1/ReflectionEngine.js';
-import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../types/orchestration.js';
 
 import type { RefinementMetadata } from './types.js';
 

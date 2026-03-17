@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type APIResponse } from '@playwright/test';
+import { type APIRequestContext, type APIResponse, expect } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { pollForRow } from './db-query';

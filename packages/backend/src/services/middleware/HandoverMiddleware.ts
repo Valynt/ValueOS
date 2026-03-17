@@ -14,9 +14,9 @@ import {
   AgentMiddlewareContext,
   AgentResponse,
 } from '../../types/orchestration.js';
+import { assertAuthorized } from '../policy/AuthorizationPolicyGateway.js';
 
 import { CapabilityRequest, HandoverResult } from './types.js';
-import { assertAuthorized } from '../policy/AuthorizationPolicyGateway.js';
 
 // ---------------------------------------------------------------------------
 // Dependency interfaces (duck-typed for testability)

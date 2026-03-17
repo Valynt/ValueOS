@@ -7,11 +7,11 @@
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-import { featureFlags } from "../config/featureFlags.js"
 import { secureTokenManager } from "../../lib/auth/SecureTokenManager";
+import type { LifecycleStage } from "../../types/vos";
+import { featureFlags } from "../config/featureFlags.js"
 import { logger } from "../lib/logger.js"
 import { createLogger } from "../lib/logger.js"
-import type { LifecycleStage } from "../../types/vos";
 
 import { TenantAwareService, type TenantContext } from "./TenantAwareService.js"
 

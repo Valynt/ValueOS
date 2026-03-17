@@ -1,11 +1,11 @@
+import {
+  type TCTPayload,
+  tenantContextMiddleware,
+} from "@backend/middleware/tenantContext";
 import express, { type Request, type Response } from "express";
 import { SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  tenantContextMiddleware,
-  type TCTPayload,
-} from "@backend/middleware/tenantContext";
 
 const tctSecret = "test-tct-secret";
 

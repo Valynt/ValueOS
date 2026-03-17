@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "async_hooks";
 
-import { createLogger } from "@shared/lib/logger";
 import { getContext, runWithContext } from "@shared/lib/context";
+import { createLogger } from "@shared/lib/logger";
 import {
   getUserTenantId,
   verifyTenantExists,
@@ -11,6 +11,7 @@ import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
 import { validateEnv } from "../config/validateEnv.js";
+
 import type { AuthenticatedRequest } from "./auth.js";
 
 // Extended request shape used internally by this middleware
@@ -36,6 +37,7 @@ const assertValidTctSecret = (): string => {
   }
   // SEC-010: Warn when using the default secret even in development —
   // tokens signed with the well-known default can be forged by any developer.
+  // eslint-disable-next-line security/detect-possible-timing-attacks -- not a cryptographic comparison
   if (secret === DEFAULT_TCT_SECRET) {
     logger.warn(
       "TCT_SECRET is using the default value. Tokens can be trivially forged. " +

@@ -1,3 +1,4 @@
+import type { ProvenanceRecord } from '../../provenance/index.js';
 import type {
   SemanticFact,
   SemanticFactProvenance,
@@ -5,7 +6,6 @@ import type {
   SemanticFactType,
   SemanticStore,
 } from '../../semantic/index.js';
-import type { ProvenanceRecord } from '../../provenance/index.js';
 import type { VectorChunk, VectorStore } from '../../vector/index.js';
 
 const EMBEDDING_DIMENSION = 1536;

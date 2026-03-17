@@ -14,6 +14,7 @@
  * targets, and for IntegrityAgent to validate.
  */
 
+import { ProvenanceTracker } from '@valueos/memory/provenance';
 import Decimal from 'decimal.js';
 import { z } from 'zod';
 
@@ -27,9 +28,7 @@ import {
   toDecimalArray,
 } from '../../../domain/economic-kernel/economic_kernel.js';
 import { FinancialModelSnapshotRepository } from '../../../repositories/FinancialModelSnapshotRepository.js';
-import { ProvenanceTracker } from '@valueos/memory/provenance';
 import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
-import { createServerSupabaseClient } from '../../supabase.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -37,10 +36,11 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
+import { createServerSupabaseClient } from '../../supabase.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
+import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../promptRegistry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -285,6 +285,7 @@ export class FinancialModelingAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         FinancialModelingOutputSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },

@@ -21,8 +21,8 @@ vi.mock('../../../lib/logger.js', () => ({
 
 // ─── Import after mocks ───────────────────────────────────────────────────────
 
-import { AgentServiceAdapter } from '../AgentAdapters.js';
 import type { LLMGateway } from '../../../lib/agent-fabric/LLMGateway.js';
+import { AgentServiceAdapter } from '../AgentAdapters.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

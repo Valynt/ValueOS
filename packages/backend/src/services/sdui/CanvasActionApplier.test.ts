@@ -11,6 +11,7 @@ vi.mock("../../lib/logger.js", () => ({
 }));
 
 import { applyAtomicActions, findComponentIndices } from "./CanvasActionApplier.js";
+
 import type { SDUIPageDefinition } from "@valueos/sdui";
 import type { AtomicUIAction } from "@sdui/AtomicUIActions";
 

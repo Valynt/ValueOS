@@ -23,9 +23,6 @@ logger.info("[Instrumentation] Environment validation passed");
 // Now safe to import modules that depend on env vars
 logger.info("[Instrumentation] Starting module imports...");
 
-import compression from "compression";
-import cors from "cors";
-import express from "express";
 logger.info("[Instrumentation] Express imported successfully");
 
 logger.info("[Instrumentation] CORS imported successfully");
@@ -33,24 +30,23 @@ logger.info("[Instrumentation] CORS imported successfully");
 import { createServer, type IncomingMessage } from "http";
 
 import { parseCorsAllowlist } from "@shared/config/cors";
-
-import { WebSocket, WebSocketServer, type RawData } from "ws";
+import compression from "compression";
+import cors from "cors";
+import express from "express";
+import { type RawData, WebSocket, WebSocketServer } from "ws";
 
 import adminRouter from "./api/admin.js";
 import { agentAdminRouter } from "./api/agentAdmin.js";
 import agentsRouter from "./api/agents.js";
 import analyticsRouter from "./api/analytics.js";
+import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
+import { auditLogsRouter } from "./api/auditLogs.js";
 import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
-import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
-import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
-import crmRouter from "./api/crm.js";
-import { valueDriversRouter } from "./api/valueDrivers/index.js";
-import { valueCasesRouter } from "./api/valueCases/index.js";
-import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
-import { tenantContextRouter } from "./api/tenantContext.js";
 import complianceRouter from "./api/compliance.js";
+import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
+import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domainPacks.js";
@@ -59,16 +55,19 @@ import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
-import { auditLogsRouter } from "./api/auditLogs.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
-
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
-import { usageRouter } from "./api/usage.js";
 import securityMonitoringRouter from "./api/securityMonitoring.js";
 import teamsRouter from "./api/teams.js";
+import { tenantContextRouter } from "./api/tenantContext.js";
+import { usageRouter } from "./api/usage.js";
+import { valueCasesRouter } from "./api/valueCases/index.js";
+import { valueCommitmentsRouter } from "./api/valueCommitments/router.js";
+import { valueDriversRouter } from "./api/valueDrivers/index.js";
 import workflowRouter from "./api/workflow.js";
+import { getConfig } from "./config/environment.js";
 import {
   secretHealthMiddleware,
   validateSecretsOnStartup,
@@ -78,9 +77,7 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
-import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
-
 import { createServerSupabaseClient } from "./lib/supabase.js";
 import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";
 import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
@@ -121,20 +118,6 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
   }
 }
 
-import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
-import { createRateLimiter, rateLimiters } from "./middleware/rateLimiter.js";
-import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
-import {
-  accessLogMiddleware,
-  globalErrorHandler,
-  notFoundHandler,
-  requestIdMiddleware,
-  setupGlobalErrorHandlers,
-} from "./middleware/globalErrorHandler.js";
-import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
-import { cspNonceMiddleware, cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
-import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
-import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import {
   extractTenantId,
   requireAuth,
@@ -147,12 +130,25 @@ import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforc
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/post-v1/SecurityAuditService.js";
 import { complianceControlCheckService } from "./services/security/ComplianceControlCheckService.js";
-
 import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 import { recordDroppedFrame, recordThrottledClient } from "./metrics/websocketSecurityMetrics.js";
+import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
+import { createConcurrencyBackpressure } from "./middleware/concurrencyBackpressure.js";
+import {
+  accessLogMiddleware,
+  globalErrorHandler,
+  notFoundHandler,
+  requestIdMiddleware,
+  setupGlobalErrorHandlers,
+} from "./middleware/globalErrorHandler.js";
+import { createRateLimiter, rateLimiters } from "./middleware/rateLimiter.js";
+import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
+import { cspNonceMiddleware, cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
+import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
+import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
 import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
 import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
 const WS_POLICY_VIOLATION_CODE = 1008;

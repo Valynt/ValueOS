@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import request from "supertest";
 import express from "express";
+import request from "supertest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../middleware/rbac.js", () => ({
   requirePermission:

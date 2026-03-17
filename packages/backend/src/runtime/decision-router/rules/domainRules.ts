@@ -13,7 +13,8 @@
  */
 
 import { DecisionContext } from '@shared/domain/DecisionContext';
-import { RoutingRule, RoutingRecommendation } from './types.js';
+
+import { RoutingRecommendation, RoutingRule } from './types.js';
 
 // ---------------------------------------------------------------------------
 // P10 — Generate business case when value maturity is low

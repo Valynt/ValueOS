@@ -39,7 +39,7 @@ function buggyExplainCacheKey(
   const tenantId = outerTenantId;
 
   // Inner scope — the shadow that was introduced by the bug
-  // eslint-disable-next-line @typescript-eslint/no-shadow
+   
   const tenantId2 = innerTenantId; // renamed to avoid TS duplicate-declaration error
 
   return {

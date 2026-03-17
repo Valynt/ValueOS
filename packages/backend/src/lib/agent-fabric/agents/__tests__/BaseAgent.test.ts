@@ -55,12 +55,12 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
 } from "../../../../types/agent";
+import { logger } from "../../../logger";
 import { CircuitBreaker } from "../../CircuitBreaker";
 import type { HallucinationCheckResult } from "../../KnowledgeFabricValidator";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
-import { logger } from "../../../logger";
 
 // --- Concrete subclass for testing abstract BaseAgent ---
 

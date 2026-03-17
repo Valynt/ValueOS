@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeAll, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
-import type { MessageBus } from '../../realtime/MessageBus.js';
 import type { CreateCommunicationEvent } from '../../../types/CommunicationEvent.js';
+import type { MessageBus } from '../../realtime/MessageBus.js';
 import type { SpendThresholdEvent } from '../BillingSpendEvaluationService.js';
 import type { TenantExecutionStateService } from '../TenantExecutionStateService.js';
 

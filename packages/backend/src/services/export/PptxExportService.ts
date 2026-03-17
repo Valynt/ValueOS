@@ -18,9 +18,10 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
+
 import { createServerSupabaseClient } from '../../lib/supabase.js';
-import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepository.js';
 import { financialModelSnapshotRepository } from '../../repositories/FinancialModelSnapshotRepository.js';
+import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepository.js';
 import { HypothesisOutputService } from '../value/HypothesisOutputService.js';
 
 const logger = createLogger({ service: 'PptxExportService' });
@@ -216,7 +217,7 @@ export class PptxExportService {
   }
 
   // Slide 1: Cover
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private addCoverSlide(pptx: PptxInstance, title: string, ownerName: string | undefined, createdAt: string): void {
     const slide = pptx.addSlide();
 
@@ -266,7 +267,7 @@ export class PptxExportService {
   }
 
   // Slide 2: Executive Summary
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private addExecutiveSummarySlide(pptx: PptxInstance, content: string | null): void {
     const slide = pptx.addSlide();
 
@@ -306,7 +307,7 @@ export class PptxExportService {
   }
 
   // Slide 3: Financial Model
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private addFinancialSlide(pptx: PptxInstance, roi: number | null, npv: number | null, paybackMonths: number | null): void {
     const slide = pptx.addSlide();
 
@@ -396,7 +397,7 @@ export class PptxExportService {
   // Renders the latest OpportunityAgent hypotheses for this case. All hypotheses provided
   // in the `hypotheses` array are shown as-is; there is currently no concept of a separate
   // “validated” subset or low–high value ranges. Impact is rendered as a single expected value.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private addHypothesesSlide(pptx: PptxInstance, hypotheses: HypothesisItem[]): void {
     const slide = pptx.addSlide();
 

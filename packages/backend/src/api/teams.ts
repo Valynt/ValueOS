@@ -9,9 +9,8 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
-import type { AuthenticatedRequest } from "../middleware/auth.js";
-
 import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks.js"
+import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requirePermission } from "../middleware/rbac.js"

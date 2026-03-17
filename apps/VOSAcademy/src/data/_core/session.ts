@@ -2,8 +2,8 @@ import { COOKIE_NAME } from "@shared/const";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 import type { User } from "../../drizzle/schema";
-import { getUserByOpenId } from "../db";
 import { type AuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
+import { getUserByOpenId } from "../db";
 
 import { ENV } from "./env";
 

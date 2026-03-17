@@ -6,8 +6,8 @@
 
  */
 
+import express, { NextFunction, Request, Response } from 'express';
 import request from 'supertest';
-import express, { Request, Response, NextFunction } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────

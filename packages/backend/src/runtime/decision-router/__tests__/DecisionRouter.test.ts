@@ -16,9 +16,10 @@
  *   - Rule priority: generateBusinessCase (P10) beats lifecycleStage (P50)
  */
 
-import { describe, it, expect } from 'vitest';
-import { DecisionRouter } from '../index.js';
 import { DecisionContext } from '@shared/domain/DecisionContext';
+import { describe, expect, it } from 'vitest';
+
+import { DecisionRouter } from '../index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

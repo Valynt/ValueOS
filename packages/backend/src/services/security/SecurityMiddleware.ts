@@ -8,8 +8,8 @@
  * analytical agents must emit proposals.
  */
 
-import type { NextFunction, Request, Response } from 'express';
 import { SupabaseClient } from '@supabase/supabase-js';
+import type { NextFunction, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../../lib/logger.js'

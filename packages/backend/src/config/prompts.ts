@@ -377,6 +377,7 @@ export function buildPrompt(template: PromptTemplate, variables: Record<string, 
   if (template.variables) {
     for (const variable of template.variables) {
       const value = variables[variable] || `[${variable}]`;
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       prompt = prompt.replace(new RegExp(`{{${variable}}}`, 'g'), value);
     }
   }

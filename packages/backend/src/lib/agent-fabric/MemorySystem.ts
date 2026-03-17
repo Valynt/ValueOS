@@ -11,9 +11,10 @@
  */
 
 import { logger } from "../logger.js";
-import { redactSensitiveText, sanitizeLogPayload, summarizeSensitiveContent } from "./redaction.js";
 
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
+import { redactSensitiveText, sanitizeLogPayload, summarizeSensitiveContent } from "./redaction.js";
+
 
 export interface MemorySystemConfig {
   max_memories: number;

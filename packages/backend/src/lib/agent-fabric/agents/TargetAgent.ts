@@ -11,9 +11,13 @@
  * and SDUI sections (KPIForm + ValueTreeCard).
  */
 
+import { ProvenanceTracker } from '@valueos/memory/provenance';
 import { z } from 'zod';
 
+import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
+import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
 import { getAdvancedCausalEngine } from '../../../services/reasoning/AdvancedCausalEngine.js';
+import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -22,15 +26,12 @@ import type {
   PromptVersionReference,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
-import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
-import { ProvenanceTracker } from '@valueos/memory/provenance';
-import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import { createServerSupabaseClient } from '../../supabase.js';
+import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
+import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
+
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -308,6 +309,7 @@ export class TargetAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt.prompt}\n\n${userPrompt}`,
         TargetAnalysisSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

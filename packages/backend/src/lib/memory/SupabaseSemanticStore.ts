@@ -8,8 +8,6 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '../supabase.js';
-
 import type {
   SemanticFact,
   SemanticFactStatus,
@@ -17,6 +15,8 @@ import type {
   SemanticStore,
 } from '@valueos/memory';
 import type { SemanticFactProvenance } from '@valueos/memory';
+
+import { createServerSupabaseClient } from '../supabase.js';
 
 const logger = createLogger({ service: 'SupabaseSemanticStore' });
 

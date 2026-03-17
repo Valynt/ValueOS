@@ -7,7 +7,8 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
-import { createObservableGauge, createCounter } from "../lib/observability/index.js";
+
+import { createCounter, createObservableGauge } from "../lib/observability/index.js";
 import { supabase } from "../lib/supabase.js";
 
 const logger = createLogger({ component: "DataFreshness" });

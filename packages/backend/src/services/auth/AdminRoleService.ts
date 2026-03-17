@@ -2,9 +2,8 @@ import { USER_ROLE_PERMISSIONS } from "@shared/lib/permissions";
 
 import { publishRbacInvalidation } from "../../lib/rbacInvalidation.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
-
-import { auditLogService } from "../security/AuditLogService.js";
 import { ValidationError } from "../errors.js";
+import { auditLogService } from "../security/AuditLogService.js";
 
 const CUSTOM_ROLE_PREFIX = "custom:";
 

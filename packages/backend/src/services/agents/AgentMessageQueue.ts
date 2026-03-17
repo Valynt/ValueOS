@@ -5,8 +5,8 @@ import {
 } from "../../config/ServiceConfigManager";
 import { logger } from "../../lib/logger.js"
 import { registerShutdownHandler } from "../../lib/shutdown/gracefulShutdown.js"
-
 import { AgentContext, AgentType } from "../agent-types.js"
+
 import { getAgentAPI } from "./AgentAPI.js"
 
 export interface AgentInvocationJob {

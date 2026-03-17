@@ -299,6 +299,7 @@ export class UnifiedApiClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
         const response = await fetch(config.url, {
           ...config,
           signal: controller.signal,

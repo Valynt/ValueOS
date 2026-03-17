@@ -1,16 +1,17 @@
-import express from "express";
 import cors from "cors";
+import express from "express";
 import helmet from "helmet";
+
+import { config } from "./config/index.js";
+import { dashboardRouter } from "./dashboard/router.js";
 import {
   safeClearElement,
-  safeSetPlaceholder,
   safeCreateJobRow,
   safeCreateOptimizationCard,
+  safeSetPlaceholder,
 } from "./safe-html";
 import { logger } from "./utils/logger.js";
 import { webhookRouter } from "./webhooks/router.js";
-import { dashboardRouter } from "./dashboard/router.js";
-import { config } from "./config/index.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;

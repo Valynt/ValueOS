@@ -9,8 +9,9 @@ import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js"
 import { getSupabaseClient } from "../../lib/supabase.js"
-import { siemExportForwarderService } from "./SiemExportForwarderService.js";
+
 import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
+import { siemExportForwarderService } from "./SiemExportForwarderService.js";
 
 // ============================================================================
 // Types

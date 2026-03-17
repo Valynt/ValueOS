@@ -4,9 +4,9 @@
  * Emits billing domain events for downstream consumers.
  */
 
+import type { BillingEvent } from "@shared/types/billing-events";
 import type Stripe from "stripe";
 
-import type { BillingEvent } from "@shared/types/billing-events";
 
 import { GRACE_PERIOD_MS, STRIPE_CONFIG } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"

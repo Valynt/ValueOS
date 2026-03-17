@@ -14,16 +14,16 @@
  * repositories (Account, Opportunity, ValueHypothesis).
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
-import { supabase as defaultSupabase } from '../../lib/supabase.js';
 import { logger } from '../../lib/logger.js';
-import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
+import { supabase as defaultSupabase } from '../../lib/supabase.js';
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 import type { WorkflowState, WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
+import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import type { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from '../../types/execution/workflowExecutionDtos.js';
 import type { ExecutionRequest } from '../../types/execution.js';
-import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 
 export type { WorkflowState, WorkflowStatus };
 

@@ -12,7 +12,11 @@ import { logger } from "../../lib/logger.js";
 import { AgentType } from "./agent-types.js";
 import { getCategorizedCircuitBreakerManager } from "./CircuitBreakerManager.js";
 import { getContextOptimizer } from "./ContextOptimizer.js";
-import { getSystemResourceMonitor, ResourceListener, SystemResources } from "./monitoring/SystemResourceMonitor.js";
+import {
+  getSystemResourceMonitor,
+  ResourceListener,
+  SystemResources,
+} from "./monitoring/SystemResourceMonitor.js";
 import { getSecureSharedContext } from "./SecureSharedContext.js";
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
 
@@ -34,7 +38,7 @@ class Semaphore {
       return;
     }
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.waiting.push(resolve);
     });
   }
@@ -174,7 +178,10 @@ export class EnhancedParallelExecutor implements ResourceListener {
   private resourceScalingEnabled = true;
   private currentPlan: ParallelExecutionPlan | null = null;
 
-  constructor(baseConcurrency: number = 10, enableResourceScaling: boolean = true) {
+  constructor(
+    baseConcurrency: number = 10,
+    enableResourceScaling: boolean = true
+  ) {
     this.baseMaxConcurrency = baseConcurrency;
     this.currentMaxConcurrency = baseConcurrency;
     this.resourceScalingEnabled = enableResourceScaling;
@@ -192,7 +199,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
   onResourceChange(resources: SystemResources): void {
     if (!this.resourceScalingEnabled) return;
 
-    const newConcurrency = this.resourceMonitor.getOptimalConcurrency(this.baseMaxConcurrency);
+    const newConcurrency = this.resourceMonitor.getOptimalConcurrency(
+      this.baseMaxConcurrency
+    );
 
     if (newConcurrency !== this.currentMaxConcurrency) {
       logger.info("Adjusting concurrency based on system resources", {
@@ -211,7 +220,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute parallel plan with optimization
    */
-  async executeParallelPlan(plan: ParallelExecutionPlan): Promise<ParallelExecutionResult> {
+  async executeParallelPlan(
+    plan: ParallelExecutionPlan
+  ): Promise<ParallelExecutionResult> {
     const startTime = Date.now();
     this.currentPlan = plan; // Store current plan for runnable task lookup
     const executedTasks: Set<string> = new Set();
@@ -238,7 +249,11 @@ export class EnhancedParallelExecutor implements ResourceListener {
       // Execute tasks in DAG order
       while (executedTasks.size + failedTasks.size < taskDependencies.size) {
         // Find tasks with zero dependencies (runnable tasks)
-        const runnableTasks = this.findRunnableTasks(taskDependencies, executedTasks, failedTasks);
+        const runnableTasks = this.findRunnableTasks(
+          taskDependencies,
+          executedTasks,
+          failedTasks
+        );
 
         if (runnableTasks.length === 0) {
           // Check for circular dependencies or stuck execution
@@ -247,7 +262,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
               executed: Array.from(executedTasks),
               failed: Array.from(failedTasks),
               remaining: Array.from(taskDependencies.keys()).filter(
-                (id) => !executedTasks.has(id) && !failedTasks.has(id)
+                id => !executedTasks.has(id) && !failedTasks.has(id)
               ),
             });
             break;
@@ -256,7 +271,10 @@ export class EnhancedParallelExecutor implements ResourceListener {
         }
 
         // Execute runnable tasks concurrently
-        const batchResults = await this.executeRunnableTasks(runnableTasks, plan.maxConcurrency);
+        const batchResults = await this.executeRunnableTasks(
+          runnableTasks,
+          plan.maxConcurrency
+        );
 
         // Process results
         for (const result of batchResults) {
@@ -271,14 +289,25 @@ export class EnhancedParallelExecutor implements ResourceListener {
         }
 
         // Stream thinking updates to UI (single stream)
-        await this.streamThinkingUpdate(executedTasks, failedTasks, taskResults);
+        await this.streamThinkingUpdate(
+          executedTasks,
+          failedTasks,
+          taskResults
+        );
       }
 
       const totalDuration = Date.now() - startTime;
-      const totalTokens = allResults.reduce((sum, result) => sum + (result.tokens?.total || 0), 0);
+      const totalTokens = allResults.reduce(
+        (sum, result) => sum + (result.tokens?.total || 0),
+        0
+      );
 
       // Calculate performance metrics
-      const performance = this.calculatePerformanceMetrics(plan, allResults, totalDuration);
+      const performance = this.calculatePerformanceMetrics(
+        plan,
+        allResults,
+        totalDuration
+      );
 
       const result: ParallelExecutionResult = {
         planId: plan.planId,
@@ -303,16 +332,23 @@ export class EnhancedParallelExecutor implements ResourceListener {
 
       return result;
     } catch (error) {
-      logger.error("DAG parallel execution failed", error instanceof Error ? error : undefined, {
-        planId: plan.planId,
-      });
+      logger.error(
+        "DAG parallel execution failed",
+        error instanceof Error ? error : undefined,
+        {
+          planId: plan.planId,
+        }
+      );
 
       return {
         planId: plan.planId,
         success: false,
         results: allResults,
         totalDuration: Date.now() - startTime,
-        totalTokens: allResults.reduce((sum, result) => sum + (result.tokens?.total || 0), 0),
+        totalTokens: allResults.reduce(
+          (sum, result) => sum + (result.tokens?.total || 0),
+          0
+        ),
         executedGroups: [],
         failedGroups: [],
         performance: {
@@ -341,7 +377,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
 
     for (const batch of batches) {
       const batchResults = await Promise.all(
-        batch.map(async (task) => {
+        batch.map(async task => {
           const startTime = Date.now();
           try {
             const result = await runner(task);
@@ -388,7 +424,12 @@ export class EnhancedParallelExecutor implements ResourceListener {
     try {
       switch (group.executionStrategy) {
         case "parallel":
-          results.push(...(await this.executeParallelTasks(group.tasks, group.maxConcurrency)));
+          results.push(
+            ...(await this.executeParallelTasks(
+              group.tasks,
+              group.maxConcurrency
+            ))
+          );
           break;
         case "sequential":
           results.push(...(await this.executeSequentialTasks(group.tasks)));
@@ -397,10 +438,12 @@ export class EnhancedParallelExecutor implements ResourceListener {
           results.push(...(await this.executePipelineTasks(group.tasks)));
           break;
         default:
-          throw new Error(`Unknown execution strategy: ${group.executionStrategy}`);
+          throw new Error(
+            `Unknown execution strategy: ${group.executionStrategy}`
+          );
       }
 
-      const success = results.every((result) => result.success);
+      const success = results.every(result => result.success);
       const duration = Date.now() - startTime;
 
       logger.debug("Group execution completed", {
@@ -412,9 +455,13 @@ export class EnhancedParallelExecutor implements ResourceListener {
 
       return { success, results };
     } catch (error) {
-      logger.error("Group execution failed", error instanceof Error ? error : undefined, {
-        groupId: group.id,
-      });
+      logger.error(
+        "Group execution failed",
+        error instanceof Error ? error : undefined,
+        {
+          groupId: group.id,
+        }
+      );
 
       return { success: false, results };
     }
@@ -434,28 +481,38 @@ export class EnhancedParallelExecutor implements ResourceListener {
     const batches = this.createBatches(tasks, concurrency);
 
     for (const batch of batches) {
-      const batchResults = await Promise.allSettled(batch.map((task) => this.executeTask(task)));
+      const batchResults = await Promise.allSettled(
+        batch.map(task => this.executeTask(task))
+      );
 
       for (const result of batchResults) {
         if (result.status === "fulfilled") {
           results.push(result.value);
         } else {
           let task;
-          if (typeof result.reason === "object" && result.reason !== null && "taskId" in result.reason) {
+          if (
+            typeof result.reason === "object" &&
+            result.reason !== null &&
+            "taskId" in result.reason
+          ) {
             const maybeReason = result.reason as { taskId?: unknown };
             if (typeof maybeReason.taskId === "string") {
-              task = batch.find((t) => t.id === maybeReason.taskId);
+              task = batch.find(t => t.id === maybeReason.taskId);
             }
           }
           const agentType =
-            task?.agentType && Object.values(AgentType).includes(task.agentType as AgentType)
+            task?.agentType &&
+            Object.values(AgentType).includes(task.agentType as AgentType)
               ? (task.agentType as AgentType)
               : "coordinator"; // Default to coordinator instead of unknown
           results.push({
             taskId: task?.id || "unknown",
             agentType,
             success: false,
-            error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+            error:
+              result.reason instanceof Error
+                ? result.reason.message
+                : String(result.reason),
             duration: 0,
           });
         }
@@ -468,7 +525,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute tasks sequentially
    */
-  private async executeSequentialTasks(tasks: ParallelTask[]): Promise<TaskResult[]> {
+  private async executeSequentialTasks(
+    tasks: ParallelTask[]
+  ): Promise<TaskResult[]> {
     const results: TaskResult[] = [];
 
     for (const task of tasks) {
@@ -501,7 +560,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute tasks as a pipeline
    */
-  private async executePipelineTasks(tasks: ParallelTask[]): Promise<TaskResult[]> {
+  private async executePipelineTasks(
+    tasks: ParallelTask[]
+  ): Promise<TaskResult[]> {
     const results: TaskResult[] = [];
     let contextData: Record<string, unknown> = {};
 
@@ -564,7 +625,10 @@ export class EnhancedParallelExecutor implements ResourceListener {
     try {
       // Optimize context if needed
       let optimizedContext = task.context;
-      if (task.context && this.estimateTokens(JSON.stringify(task.context)) > 2000) {
+      if (
+        task.context &&
+        this.estimateTokens(JSON.stringify(task.context)) > 2000
+      ) {
         const optimization = await this.contextOptimizer.optimizeContext(
           task.agentType,
           taskId,
@@ -615,7 +679,10 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Create execution batches for parallel processing
    */
-  private createBatches(tasks: ParallelTask[], batchSize: number): ParallelTask[][] {
+  private createBatches(
+    tasks: ParallelTask[],
+    batchSize: number
+  ): ParallelTask[][] {
     return this.createPriorityBatches(tasks, batchSize);
   }
 
@@ -639,8 +706,11 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Check if dependencies are met
    */
-  private areDependenciesMet(dependencies: string[], executedGroups: string[]): boolean {
-    return dependencies.every((dep) => executedGroups.includes(dep));
+  private areDependenciesMet(
+    dependencies: string[],
+    executedGroups: string[]
+  ): boolean {
+    return dependencies.every(dep => executedGroups.includes(dep));
   }
 
   /**
@@ -651,14 +721,18 @@ export class EnhancedParallelExecutor implements ResourceListener {
     results: TaskResult[],
     totalDuration: number
   ): PerformanceMetrics {
-    const successfulResults = results.filter((r) => r.success);
-    const durations = successfulResults.map((r) => r.duration);
+    const successfulResults = results.filter(r => r.success);
+    const durations = successfulResults.map(r => r.duration);
 
     const averageTaskDuration =
-      durations.length > 0 ? durations.reduce((sum, d) => sum + d, 0) / durations.length : 0;
+      durations.length > 0
+        ? durations.reduce((sum, d) => sum + d, 0) / durations.length
+        : 0;
 
-    const longestTaskDuration = durations.length > 0 ? Math.max(...durations) : 0;
-    const shortestTaskDuration = durations.length > 0 ? Math.min(...durations) : 0;
+    const longestTaskDuration =
+      durations.length > 0 ? Math.max(...durations) : 0;
+    const shortestTaskDuration =
+      durations.length > 0 ? Math.min(...durations) : 0;
 
     // Calculate parallelism efficiency
     const theoreticalSequentialDuration = plan.groups.reduce(
@@ -666,7 +740,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
       0
     );
     const parallelismEfficiency =
-      theoreticalSequentialDuration > 0 ? theoreticalSequentialDuration / totalDuration : 1;
+      theoreticalSequentialDuration > 0
+        ? theoreticalSequentialDuration / totalDuration
+        : 1;
 
     // Calculate resource utilization
     const maxPossibleConcurrency = plan.groups.reduce(
@@ -674,14 +750,18 @@ export class EnhancedParallelExecutor implements ResourceListener {
       0
     );
     const actualConcurrency = plan.groups.reduce(
-      (sum, group) => sum + (group.executionStrategy === "parallel" ? group.tasks.length : 1),
+      (sum, group) =>
+        sum + (group.executionStrategy === "parallel" ? group.tasks.length : 1),
       0
     );
     const resourceUtilization =
-      maxPossibleConcurrency > 0 ? actualConcurrency / maxPossibleConcurrency : 0;
+      maxPossibleConcurrency > 0
+        ? actualConcurrency / maxPossibleConcurrency
+        : 0;
 
     // Calculate throughput
-    const throughput = totalDuration > 0 ? successfulResults.length / (totalDuration / 1000) : 0;
+    const throughput =
+      totalDuration > 0 ? successfulResults.length / (totalDuration / 1000) : 0;
 
     return {
       parallelismEfficiency: Math.min(parallelismEfficiency, 1.0),
@@ -715,11 +795,13 @@ export class EnhancedParallelExecutor implements ResourceListener {
       if (executedTasks.has(taskId) || failedTasks.has(taskId)) continue;
 
       // Check if all dependencies are met
-      const unmetDependencies = dependencies.filter((dep) => !executedTasks.has(dep));
+      const unmetDependencies = dependencies.filter(
+        dep => !executedTasks.has(dep)
+      );
       if (unmetDependencies.length === 0) {
         // Find the task in the plan (need to store current plan)
         for (const group of this.currentPlan?.groups || []) {
-          const task = group.tasks.find((t) => t.id === taskId);
+          const task = group.tasks.find(t => t.id === taskId);
           if (task) {
             runnableTasks.push(task);
             break;
@@ -734,6 +816,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute runnable tasks concurrently
    */
+  // eslint-disable-next-line no-dupe-class-members -- overload with different signature for internal use
   private async executeRunnableTasks(
     tasks: ParallelTask[],
     maxConcurrency: number
@@ -741,7 +824,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
     const results: TaskResult[] = [];
     const semaphore = new Semaphore(maxConcurrency);
 
-    const executePromises = tasks.map(async (task) => {
+    const executePromises = tasks.map(async task => {
       await semaphore.acquire();
       try {
         const result = await this.executeTask(task);
@@ -771,7 +854,8 @@ export class EnhancedParallelExecutor implements ResourceListener {
       total:
         executedTasks.size +
         failedTasks.size +
-        (this.currentPlan?.groups.reduce((sum, g) => sum + g.tasks.length, 0) || 0) -
+        (this.currentPlan?.groups.reduce((sum, g) => sum + g.tasks.length, 0) ||
+          0) -
         executedTasks.size -
         failedTasks.size,
       latestResults: Array.from(taskResults.values()).slice(-5), // Last 5 results
@@ -837,7 +921,10 @@ export function createParallelGroup(
     tasks,
     executionStrategy: "parallel",
     maxConcurrency: 5,
-    estimatedDuration: tasks.reduce((sum, task) => sum + task.estimatedDuration, 0),
+    estimatedDuration: tasks.reduce(
+      (sum, task) => sum + task.estimatedDuration,
+      0
+    ),
     dependencies: [],
     ...options,
   };
@@ -854,13 +941,17 @@ export function createParallelExecutionPlan(
     planId: randomUUID(),
     groups,
     executionOrder,
-    totalEstimatedDuration: groups.reduce((sum, group) => sum + group.estimatedDuration, 0),
-    maxConcurrency: Math.max(...groups.map((g) => g.maxConcurrency)),
+    totalEstimatedDuration: groups.reduce(
+      (sum, group) => sum + group.estimatedDuration,
+      0
+    ),
+    maxConcurrency: Math.max(...groups.map(g => g.maxConcurrency)),
     resourceRequirements: {
-      maxConcurrentAgents: Math.max(...groups.map((g) => g.tasks.length)),
+      maxConcurrentAgents: Math.max(...groups.map(g => g.tasks.length)),
       memoryRequirement: "medium",
       tokenRequirement: groups.reduce(
-        (sum, group) => sum + group.tasks.reduce((taskSum, _task) => taskSum + 1000, 0),
+        (sum, group) =>
+          sum + group.tasks.reduce((taskSum, _task) => taskSum + 1000, 0),
         0
       ),
       securityLevel: "medium",
@@ -879,17 +970,17 @@ export function createParallelExecutionPlan(
 function calculateExecutionOrder(groups: ParallelGroup[]): string[][] {
   const order: string[][] = [];
   const processed = new Set<string>();
-  const remaining = new Set(groups.map((g) => g.id));
+  const remaining = new Set(groups.map(g => g.id));
 
   while (remaining.size > 0) {
     const currentBatch: string[] = [];
 
     for (const groupId of remaining) {
-      const group = groups.find((g) => g.id === groupId);
+      const group = groups.find(g => g.id === groupId);
       if (!group) continue;
 
       // Check if all dependencies are met
-      const depsMet = group.dependencies.every((dep) => processed.has(dep));
+      const depsMet = group.dependencies.every(dep => processed.has(dep));
 
       if (depsMet) {
         currentBatch.push(groupId);

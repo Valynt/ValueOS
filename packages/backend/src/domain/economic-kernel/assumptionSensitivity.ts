@@ -64,7 +64,7 @@ export async function analyseAssumptionSensitivity(
   // Use a variable to prevent Vite's static analyser from resolving decimal.js
   // at transform time in jsdom environments (same pattern as FinancialModelingAgent).
   const decimalPkg = "decimal.js";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const { default: Decimal } = await import(/* @vite-ignore */ decimalPkg) as { default: unknown };
 
   // Build base-case value map

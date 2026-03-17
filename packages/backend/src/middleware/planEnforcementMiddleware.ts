@@ -7,7 +7,6 @@ import { createLogger } from '@shared/lib/logger';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { NextFunction, Request, Response } from 'express';
 
-import type { AuthenticatedRequest } from './auth.js';
 
 interface PlanRequest extends AuthenticatedRequest {
   tenantSettings?: { billing?: { planTier?: string } };
@@ -22,6 +21,8 @@ import { llmCostTracker } from '../services/llm/LLMCostTracker.js';
 import GracePeriodService from '../services/metering/GracePeriodService';
 import UsageCache from '../services/metering/UsageCache';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';
+
+import type { AuthenticatedRequest } from './auth.js';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];

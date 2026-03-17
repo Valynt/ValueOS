@@ -115,6 +115,7 @@ export const a11y = {
   manageFocus: {
     // Move focus to element after render
     focusOnRender: (ref: React.RefObject<HTMLElement>) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
       useEffect(() => {
         if (ref.current) {
           ref.current.focus();
@@ -126,6 +127,7 @@ export const a11y = {
     returnFocus: (shouldReturn: boolean = true) => {
       const previousFocus = document.activeElement as HTMLElement;
 
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
       useEffect(() => {
         return () => {
           if (shouldReturn && previousFocus && 'focus' in previousFocus) {

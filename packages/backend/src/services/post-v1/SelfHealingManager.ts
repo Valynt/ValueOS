@@ -12,9 +12,9 @@
  */
 
 import { logger } from "../../lib/logger.js";
-
 import { AgentRetryManager } from "../agents/resilience/AgentRetryManager.js";
 import { agentTelemetryService } from "../agents/telemetry/AgentTelemetryService.js";
+
 import { getIntelligentCoordinator } from "./IntelligentCoordinator.js";
 import { AuditTrailService } from "./security/AuditTrailService.js";
 

@@ -7,8 +7,8 @@
 
 import { logger } from "../../lib/logger.js"
 import { AgentAuditLog, getAuditLogger } from "../AgentAuditLogger.js"
-import { getSecureSharedContext } from "../SecureSharedContext.js"
 import { MessageBus } from "../realtime/MessageBus.js"
+import { getSecureSharedContext } from "../SecureSharedContext.js"
 
 // ============================================================================
 // Types
@@ -771,6 +771,7 @@ export class SecurityMonitor {
    * can attach error handlers without blocking the alert pipeline.
    */
   private async postWebhook(url: string, body: Record<string, unknown>): Promise<void> {
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -63,6 +63,7 @@ async function verifyBackupCode(candidate: string, stored: string): Promise<bool
 }
 
 import { BaseService } from "../BaseService.js"
+
 import { ValidationError } from "./errors.js"
 import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 

@@ -25,6 +25,7 @@ const runtime: ShutdownRuntime = {
   log: (level, message, meta) => {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
      
+    // eslint-disable-next-line no-console -- logging utility / bootstrap code
     console[level](`[shutdown] ${message}${payload}`);
   },
 };
@@ -112,6 +113,7 @@ export function __resetGracefulShutdownForTests(): void {
   runtime.log = (level, message, meta) => {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
      
+    // eslint-disable-next-line no-console -- logging utility / bootstrap code
     console[level](`[shutdown] ${message}${payload}`);
   };
 }

@@ -8,16 +8,16 @@
  * Sprint 24 requirement: async tenant isolation.
  */
 
+import { type Span, trace, TraceFlags } from '@opentelemetry/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { trace, TraceFlags, type Span } from '@opentelemetry/api';
 
 vi.mock('lz-string', () => ({
   compress: (value: string) => value,
   decompress: (value: string) => value,
 }));
 
-import { MessageBus } from '../MessageBus.js';
 import type { CommunicationEvent, CreateCommunicationEvent } from '../../../types/CommunicationEvent.js';
+import { MessageBus } from '../MessageBus.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -59,6 +59,7 @@ export class ExternalAPIAdapter {
     const timer = setTimeout(() => controller.abort(), timeout);
 
     try {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(url, {
         method,
         headers,

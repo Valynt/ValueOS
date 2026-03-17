@@ -2,7 +2,7 @@
  * Smoke test — ensures vitest has at least one test file to run.
  * Prevents `vitest run` from exiting with "no test files found".
  */
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("github-code-optimizer", () => {
   it("package name is correct", () => {

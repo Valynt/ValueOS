@@ -186,6 +186,7 @@ test.describe("Critical User Flow", () => {
 
     // Verify no unhandled JS exceptions were thrown (Playwright captures these).
     // The test reaching this point without throwing means the app handled the error.
+    // eslint-disable-next-line no-restricted-syntax -- intentional usage
     expect(true).toBe(true);
   });
 });

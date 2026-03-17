@@ -1,14 +1,16 @@
-import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import request from "supertest";
-import { describe, expect, it } from "vitest";
 
 import {
   getAllAgentDeploymentIds,
   mcpCapabilitiesDocumentSchema,
 } from "@mcp/common";
+import express from "express";
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+
+
 import {
   mcpDiscoveryRouter,
   serveMcpCapabilitiesDocument,

@@ -1,26 +1,35 @@
 import { logger } from "@shared/lib/logger";
-import { AgentRequestEvent, createBaseEvent, EVENT_TOPICS } from "@shared/types/events";
+import {
+  AgentRequestEvent,
+  createBaseEvent,
+  EVENT_TOPICS,
+} from "@shared/types/events";
 import { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
+import { getAgentAPIConfig } from "../config/ServiceConfigManager.js";
+import { createAgentFactory } from "../lib/agent-fabric/AgentFactory.js";
+import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-
-import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
-import { createAgentFactory } from "../lib/agent-fabric/AgentFactory.js"
-import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js"
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js"
-import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js"
-import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js"
-import { rateLimiters } from "../middleware/rateLimiter.js"
-import { requirePermission } from "../middleware/rbac.js"
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
-import { usageEnforcement } from "../middleware/usageEnforcement.js"
+import { rateLimiters } from "../middleware/rateLimiter.js";
+import { requirePermission } from "../middleware/rbac.js";
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js";
+import { usageEnforcement } from "../middleware/usageEnforcement.js";
 // In-process agent response cache (non-tenant routing state — Map is acceptable per ADR-0012)
-const _agentResponseCache = new Map<string, { value: unknown; expiresAt: number }>();
+const _agentResponseCache = new Map<
+  string,
+  { value: unknown; expiresAt: number }
+>();
 const AGENT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-function _agentCacheKey(query: string, context: Record<string, unknown>): string {
+function _agentCacheKey(
+  query: string,
+  context: Record<string, unknown>
+): string {
   const { sessionId: _s, timestamp: _t, ...normalized } = context;
   const str = query + JSON.stringify(normalized);
   let hash = 0;
@@ -33,25 +42,37 @@ function _agentCacheKey(query: string, context: Record<string, unknown>): string
 }
 
 const agentCache = {
-  async get(query: string, context: Record<string, unknown>): Promise<unknown | null> {
+  async get(
+    query: string,
+    context: Record<string, unknown>
+  ): Promise<unknown | null> {
     const key = _agentCacheKey(query, context);
     const entry = _agentResponseCache.get(key);
-    if (!entry || Date.now() > entry.expiresAt) { _agentResponseCache.delete(key); return null; }
+    if (!entry || Date.now() > entry.expiresAt) {
+      _agentResponseCache.delete(key);
+      return null;
+    }
     return entry.value;
   },
-  async set(query: string, context: Record<string, unknown>, value: unknown): Promise<void> {
+  async set(
+    query: string,
+    context: Record<string, unknown>,
+    value: unknown
+  ): Promise<void> {
     const key = _agentCacheKey(query, context);
-    _agentResponseCache.set(key, { value, expiresAt: Date.now() + AGENT_CACHE_TTL_MS });
+    _agentResponseCache.set(key, {
+      value,
+      expiresAt: Date.now() + AGENT_CACHE_TTL_MS,
+    });
   },
 };
-import { getEventProducer } from "../services/realtime/EventProducer.js"
-import { getEventSourcingService } from "../services/post-v1/EventSourcingService.js"
-import { isKafkaEnabled } from "../services/kafkaConfig.js"
-import { getMetricsCollector } from "../services/monitoring/MetricsCollector.js"
-import { modelCardService } from "../services/llm/ModelCardService.js"
-
-import type { LifecycleContext, LifecycleStage } from "../types/agent.js"
-import { sanitizeAgentInput } from "../utils/security.js"
+import { isKafkaEnabled } from "../services/kafkaConfig.js";
+import { modelCardService } from "../services/llm/ModelCardService.js";
+import { getMetricsCollector } from "../services/monitoring/MetricsCollector.js";
+import { getEventSourcingService } from "../services/post-v1/EventSourcingService.js";
+import { getEventProducer } from "../services/realtime/EventProducer.js";
+import type { LifecycleContext, LifecycleStage } from "../types/agent.js";
+import { sanitizeAgentInput } from "../utils/security.js";
 
 // Shared factory instance — created lazily on first direct-execution request.
 // Avoids startup cost when Kafka is available.
@@ -62,10 +83,13 @@ let _directFactory: ReturnType<typeof createAgentFactory> | null = null;
 function getDirectFactory(): ReturnType<typeof createAgentFactory> {
   if (!_directFactory) {
     _directFactory = createAgentFactory({
-      llmGateway: new LLMGateway({ provider: "together", model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo" }),
+      llmGateway: new LLMGateway({
+        provider: "together",
+        model: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+      }),
       memorySystem: new MemorySystem(
         { max_memories: 1000, enable_persistence: true },
-        new SupabaseMemoryBackend(),
+        new SupabaseMemoryBackend()
       ),
       circuitBreaker: new CircuitBreaker(),
     });
@@ -75,16 +99,17 @@ function getDirectFactory(): ReturnType<typeof createAgentFactory> {
 
 const router = Router();
 
-
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
-    const [, payload] = token.split('.');
+    const [, payload] = token.split(".");
     if (!payload) return null;
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = Buffer.from(padded, "base64").toString("utf8");
     const parsed = JSON.parse(decoded);
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null;
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }
@@ -94,14 +119,18 @@ function resolveExternalSub(req: Request): string | undefined {
   const authReq = req as AuthenticatedRequest;
   const user = authReq.user as Record<string, unknown> | undefined;
 
-  const direct = user?.['sub'] || user?.['oidc_sub'] || (user?.['user_metadata'] as Record<string, unknown> | undefined)?.['sub'] || (user?.['app_metadata'] as Record<string, unknown> | undefined)?.['sub'];
-  if (typeof direct === 'string' && direct.length > 0) return direct;
+  const direct =
+    user?.["sub"] ||
+    user?.["oidc_sub"] ||
+    (user?.["user_metadata"] as Record<string, unknown> | undefined)?.["sub"] ||
+    (user?.["app_metadata"] as Record<string, unknown> | undefined)?.["sub"];
+  if (typeof direct === "string" && direct.length > 0) return direct;
 
   const authHeader = req.headers.authorization;
-  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+  if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
     const claims = decodeJwtPayload(authHeader.slice(7));
     const claimSub = claims?.sub;
-    if (typeof claimSub === 'string' && claimSub.length > 0) {
+    if (typeof claimSub === "string" && claimSub.length > 0) {
       return claimSub;
     }
   }
@@ -132,7 +161,8 @@ function kafkaUnavailableResponse(res: Response): Response {
     success: false,
     error: {
       code: "KAFKA_DISABLED",
-      message: "Kafka-backed agent execution is disabled in this deployment profile.",
+      message:
+        "Kafka-backed agent execution is disabled in this deployment profile.",
     },
   });
 }
@@ -141,27 +171,31 @@ router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
 // ... rest of the code remains the same ...
-router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) => {
-  const { agentId } = req.params;
-  const modelCard = modelCardService.getModelCard(agentId as string);
+router.get(
+  "/:agentId/info",
+  rateLimiters.loose,
+  (req: Request, res: Response) => {
+    const { agentId } = req.params;
+    const modelCard = modelCardService.getModelCard(agentId as string);
 
-  if (!modelCard) {
-    return res.status(404).json({
-      error: "Model card not found",
-      message: `No model metadata available for agent ${agentId}`,
+    if (!modelCard) {
+      return res.status(404).json({
+        error: "Model card not found",
+        message: `No model metadata available for agent ${agentId}`,
+      });
+    }
+
+    res.setHeader("x-model-card-version", modelCard.schemaVersion);
+
+    return res.json({
+      success: true,
+      data: {
+        agent_id: agentId,
+        model_card: modelCard.modelCard,
+      },
     });
   }
-
-  res.setHeader("x-model-card-version", modelCard.schemaVersion);
-
-  return res.json({
-    success: true,
-    data: {
-      agent_id: agentId,
-      model_card: modelCard.modelCard,
-    },
-  });
-});
+);
 
 /**
  * Invoke an agent asynchronously using event-driven architecture
@@ -183,7 +217,7 @@ router.post(
   rateLimiters.agentExecution,
   // Enforce llm_tokens quota before executing. Returns 402 when the tenant is
   // at their hard cap. Soft limit (80%) logs a warning but does not block.
-  ...usageEnforcement({ metric: 'llm_tokens' }),
+  ...usageEnforcement({ metric: "llm_tokens" }),
   async (req: Request, res: Response) => {
     const { agentId } = req.params;
 
@@ -193,7 +227,9 @@ router.post(
     const invokeSchema = z.object({
       query: z.string().max(2000),
       context: z.any().optional(), // Flexible context
-      parameters: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+      parameters: z
+        .record(z.union([z.string(), z.number(), z.boolean()]))
+        .optional(),
       sessionId: z.string().max(100).optional(),
     });
 
@@ -210,7 +246,8 @@ router.post(
 
     const { query, context, parameters, sessionId } = validationResult.data;
     const { sanitized, safe, severity, violations } = sanitizeAgentInput(query);
-    const sanitizedQuery = typeof sanitized === "string" ? sanitized : String(sanitized);
+    const sanitizedQuery =
+      typeof sanitized === "string" ? sanitized : String(sanitized);
 
     if (!safe) {
       logger.warn("Blocked unsafe agent prompt", {
@@ -230,13 +267,18 @@ router.post(
     // Sanitize string values in parameters to prevent prompt injection.
     // Numbers and booleans are safe scalars; they pass through unchanged.
     // Nested objects are rejected at the schema level above.
-    let sanitizedParameters: Record<string, string | number | boolean> | undefined;
+    let sanitizedParameters:
+      | Record<string, string | number | boolean>
+      | undefined;
     if (parameters) {
       sanitizedParameters = {};
       for (const [key, value] of Object.entries(parameters)) {
         if (typeof value === "string") {
-          const { sanitized: sanitizedValue, safe: paramSafe, violations: paramViolations } =
-            sanitizeAgentInput(value);
+          const {
+            sanitized: sanitizedValue,
+            safe: paramSafe,
+            violations: paramViolations,
+          } = sanitizeAgentInput(value);
           if (!paramSafe) {
             logger.warn("Blocked unsafe agent parameter", {
               agentId,
@@ -250,9 +292,10 @@ router.post(
               message: `Agent parameter '${key}' rejected due to unsafe content`,
             });
           }
-          sanitizedParameters[key] = typeof sanitizedValue === "string"
-            ? sanitizedValue
-            : String(sanitizedValue);
+          sanitizedParameters[key] =
+            typeof sanitizedValue === "string"
+              ? sanitizedValue
+              : String(sanitizedValue);
         } else {
           sanitizedParameters[key] = value;
         }
@@ -271,14 +314,20 @@ router.post(
     // Check Cache
     try {
       const startTime = Date.now();
-      const cachedResponse = await agentCache.get(sanitizedQuery, { ...context, agentId, tenantId });
+      const cachedResponse = await agentCache.get(sanitizedQuery, {
+        ...context,
+        agentId,
+        tenantId,
+      });
       if (cachedResponse) {
         // Record Cache Hit Metric
         try {
           const metrics = getMetricsCollector();
           metrics.recordAgentInvocation(agentId, true, Date.now() - startTime);
           metrics.recordLLMCall("cache", agentId, 0, 0, true);
-        } catch (mErr) { /* ignore */ }
+        } catch (mErr) {
+          /* ignore */
+        }
 
         return res.json({
           success: true,
@@ -292,7 +341,10 @@ router.post(
         });
       }
     } catch (cacheError) {
-      logger.warn("Cache check failed", cacheError instanceof Error ? cacheError : undefined);
+      logger.warn(
+        "Cache check failed",
+        cacheError instanceof Error ? cacheError : undefined
+      );
     }
 
     if (!isKafkaEnabled()) {
@@ -304,24 +356,45 @@ router.post(
       try {
         const factory = getDirectFactory();
         if (!factory.hasFabricAgent(agentId)) {
-          logger.warn("Direct agent execution: unknown agent type", { agentId, tenantId, userId });
+          logger.warn("Direct agent execution: unknown agent type", {
+            agentId,
+            tenantId,
+            userId,
+          });
           return res.status(404).json({
             success: false,
-            error: { code: "AGENT_NOT_FOUND", message: `No fabric implementation for agent "${agentId}"` },
+            error: {
+              code: "AGENT_NOT_FOUND",
+              message: `No fabric implementation for agent "${agentId}"`,
+            },
           });
         }
 
-        logger.info("Direct agent execution started", { agentId, jobId, tenantId, userId, mode: "direct" });
+        logger.info("Direct agent execution started", {
+          agentId,
+          jobId,
+          tenantId,
+          userId,
+          mode: "direct",
+        });
 
         const agent = factory.create(agentId, tenantId);
         const lifecycleContext: LifecycleContext = {
-          workspace_id: (context as Record<string, unknown>)?.workspace_id as string ?? jobId,
+          workspace_id:
+            ((context as Record<string, unknown>)?.workspace_id as string) ??
+            jobId,
           organization_id: tenantId,
           user_id: userId,
           lifecycle_stage: agentId as LifecycleStage,
-          user_inputs: { query: sanitizedQuery, ...(sanitizedParameters ?? {}) },
-          workspace_data: (context as Record<string, unknown>)?.workspace_data as LifecycleContext["workspace_data"] ?? {},
-          previous_stage_outputs: (context as Record<string, unknown>)?.previous_stage_outputs as Record<string, unknown> | undefined,
+          user_inputs: {
+            query: sanitizedQuery,
+            ...(sanitizedParameters ?? {}),
+          },
+          workspace_data:
+            ((context as Record<string, unknown>)
+              ?.workspace_data as LifecycleContext["workspace_data"]) ?? {},
+          previous_stage_outputs: (context as Record<string, unknown>)
+            ?.previous_stage_outputs as Record<string, unknown> | undefined,
           metadata: { job_id: jobId, mode: "direct" },
         };
 
@@ -329,7 +402,10 @@ router.post(
         const durationMs = Date.now() - directStartTime;
 
         logger.info("Direct agent execution completed", {
-          agentId, jobId, tenantId, userId,
+          agentId,
+          jobId,
+          tenantId,
+          userId,
           status: output.status,
           duration_ms: durationMs,
           mode: "direct",
@@ -337,35 +413,45 @@ router.post(
 
         // Record metrics for direct-mode runs.
         // Failed runs are not billed (per billing-v2 spec).
-        const succeeded = output.status === "success" || output.status === "partial_success";
+        const succeeded =
+          output.status === "success" || output.status === "partial_success";
         try {
           const metrics = getMetricsCollector();
-          metrics.recordAgentInvocation(agentId, succeeded, durationMs, tenantId);
+          metrics.recordAgentInvocation(
+            agentId,
+            succeeded,
+            durationMs,
+            tenantId
+          );
 
           if (succeeded) {
             // Prefer token counts from agent output metadata; fall back to a
             // prompt-length estimate when the provider does not return usage.
             const tokenUsage = output.metadata?.token_usage;
             const totalTokens =
-              tokenUsage?.total_tokens ??
-              Math.ceil(sanitizedQuery.length / 4);
+              tokenUsage?.total_tokens ?? Math.ceil(sanitizedQuery.length / 4);
 
             const idempotencyKey = `${sessionId}:${agentId}:${jobId}`;
             metrics.recordUsage({
               tenantId,
-              metric: 'llm_tokens',
+              metric: "llm_tokens",
               quantity: totalTokens,
               path: `/api/agents/${agentId}/invoke`,
               idempotencyKey,
             });
           }
-        } catch { /* metrics are non-fatal */ }
+        } catch {
+          /* metrics are non-fatal */
+        }
 
         return res.json({
           success: true,
           data: {
             jobId,
-            status: output.status === "success" || output.status === "partial_success" ? "completed" : "failed",
+            status:
+              output.status === "success" || output.status === "partial_success"
+                ? "completed"
+                : "failed",
             agentId,
             mode: "direct",
             result: output.result,
@@ -375,15 +461,26 @@ router.post(
           },
         });
       } catch (directErr) {
-        logger.error("Direct agent execution failed", directErr instanceof Error ? directErr : undefined, {
-          agentId, jobId, tenantId, userId,
-          duration_ms: Date.now() - directStartTime,
-          mode: "direct",
-        });
+        logger.error(
+          "Direct agent execution failed",
+          directErr instanceof Error ? directErr : undefined,
+          {
+            agentId,
+            jobId,
+            tenantId,
+            userId,
+            duration_ms: Date.now() - directStartTime,
+            mode: "direct",
+          }
+        );
         return res.status(500).json({
           success: false,
           data: { jobId, status: "failed", agentId, mode: "direct" },
-          error: { code: "AGENT_EXECUTION_FAILED", message: directErr instanceof Error ? directErr.message : "Unknown error" },
+          error: {
+            code: "AGENT_EXECUTION_FAILED",
+            message:
+              directErr instanceof Error ? directErr.message : "Unknown error",
+          },
         });
       }
     }
@@ -396,7 +493,11 @@ router.post(
 
       // Create agent request event
       const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+        ...createBaseEvent(
+          "agent.request" as const,
+          correlationId,
+          "agent-api"
+        ),
         payload: {
           agentId,
           userId,
@@ -412,7 +513,10 @@ router.post(
       };
 
       // Publish event to Kafka
-      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+      await eventProducer.publish(
+        EVENT_TOPICS.AGENT_REQUESTS,
+        agentRequestEvent
+      );
 
       logger.info("Agent request event published", {
         agentId,
@@ -467,7 +571,12 @@ router.post(
 
     const result = bodySchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).json({ success: false, error: { code: "INVALID_REQUEST", message: "Invalid payload" } });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: { code: "INVALID_REQUEST", message: "Invalid payload" },
+        });
     }
 
     const { type, data, sessionId } = result.data;
@@ -480,7 +589,15 @@ router.post(
     // Validate tenant
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
-      return res.status(403).json({ success: false, error: { code: "tenant_required", message: "Tenant context is required" } });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          error: {
+            code: "tenant_required",
+            message: "Tenant context is required",
+          },
+        });
     }
 
     if (!isKafkaEnabled()) {
@@ -507,20 +624,37 @@ router.post(
       };
 
       const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+        ...createBaseEvent(
+          "agent.request" as const,
+          correlationId,
+          "agent-api"
+        ),
         payload,
       };
 
-      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+      await eventProducer.publish(
+        EVENT_TOPICS.AGENT_REQUESTS,
+        agentRequestEvent
+      );
 
-      return res.json({ success: true, data: { jobId: correlationId, status: "queued" } });
+      return res.json({
+        success: true,
+        data: { jobId: correlationId, status: "queued" },
+      });
     } catch (error) {
       logger.error("Failed to publish typed agent execute", error as Error);
-      return res.status(500).json({ success: false, error: { code: "PUBLISH_FAILED", message: "Failed to enqueue request" } });
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: {
+            code: "PUBLISH_FAILED",
+            message: "Failed to enqueue request",
+          },
+        });
     }
   }
 );
-
 
 /**
  * Execute a typed agent action (e.g. { type: 'IntegrityAgent:resolveIssue', data: {...} })
@@ -541,7 +675,16 @@ router.post(
 
     const parsed = bodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.errors } });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid payload",
+            details: parsed.error.errors,
+          },
+        });
     }
 
     const { type, data, sessionId, priority } = parsed.data;
@@ -552,7 +695,15 @@ router.post(
     // Tenant validation
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
-      return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          error: {
+            code: "tenant_required",
+            message: "Tenant context is required",
+          },
+        });
     }
 
     if (!isKafkaEnabled()) {
@@ -566,31 +717,52 @@ router.post(
       const externalSub = resolveExternalSub(req);
 
       const normalizedAction = action
-      ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
-      : undefined;
+        ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
+        : undefined;
 
-    const agentRequestEvent: AgentRequestEvent = {
-      ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
-      payload: {
-        agentId,
-        userId,
-        externalSub,
-        sessionId,
-        tenantId,
-        query: normalizedAction || "execute",
-        context: { action: normalizedAction || 'execute' },
-        parameters: { data, action: normalizedAction },
-        priority: priority || "normal",
-        timeout: getAgentAPIConfig().timeout,
-      },
-    };
+      const agentRequestEvent: AgentRequestEvent = {
+        ...createBaseEvent(
+          "agent.request" as const,
+          correlationId,
+          "agent-api"
+        ),
+        payload: {
+          agentId,
+          userId,
+          externalSub,
+          sessionId,
+          tenantId,
+          query: normalizedAction || "execute",
+          context: { action: normalizedAction || "execute" },
+          parameters: { data, action: normalizedAction },
+          priority: priority || "normal",
+          timeout: getAgentAPIConfig().timeout,
+        },
+      };
 
-      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+      await eventProducer.publish(
+        EVENT_TOPICS.AGENT_REQUESTS,
+        agentRequestEvent
+      );
 
-      return res.json({ success: true, data: { jobId: correlationId, status: 'queued', agentId } });
+      return res.json({
+        success: true,
+        data: { jobId: correlationId, status: "queued", agentId },
+      });
     } catch (error) {
-      logger.error("Agent execute request failed", error instanceof Error ? error : undefined);
-      return res.status(500).json({ success: false, error: { code: 'AGENT_REQ_FAILED', message: 'Failed to publish agent request' } });
+      logger.error(
+        "Agent execute request failed",
+        error instanceof Error ? error : undefined
+      );
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: {
+            code: "AGENT_REQ_FAILED",
+            message: "Failed to publish agent request",
+          },
+        });
     }
   }
 );
@@ -598,188 +770,224 @@ router.post(
 /**
  * Get agent job status
  */
-router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Response) => {
-  const { jobId } = req.params;
+router.get(
+  "/jobs/:jobId",
+  rateLimiters.loose,
+  async (req: Request, res: Response) => {
+    const { jobId } = req.params;
 
-  if (!isKafkaEnabled()) {
-    return kafkaUnavailableResponse(res);
-  }
-
-  try {
-    const eventSourcing = getEventSourcingService();
-
-    // Get audit trail for this job
-    const auditTrail = await eventSourcing.getAuditTrail(jobId);
-
-    if (!auditTrail) {
-      return res.status(404).json({
-        error: "Job not found",
-        message: `No job found with ID ${jobId}`,
-      });
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
     }
 
-    // Check if we have a response event
-    const events = auditTrail.data?.events || [];
-    const responseEvent = events.find((e: AuditEvent) => e.eventType === "agent.response");
+    try {
+      const eventSourcing = getEventSourcingService();
 
-    if (responseEvent) {
-      // Job completed
-      const result = responseEvent.payload.response;
+      // Get audit trail for this job
+      const auditTrail = await eventSourcing.getAuditTrail(jobId);
 
-      // Populate Cache if successful
-      if (result && !responseEvent.payload.error) {
-        const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
-        if (requestEvent?.payload) {
-          const { query, context, agentId, tenantId } = requestEvent.payload;
-          try {
-            await agentCache.set(
-              query,
-              { ...context, agentId, tenantId },
-              result
-            );
-          } catch (cacheError) {
-            logger.warn("Failed to cache agent response", cacheError instanceof Error ? cacheError : undefined);
-          }
-        }
+      if (!auditTrail) {
+        return res.status(404).json({
+          error: "Job not found",
+          message: `No job found with ID ${jobId}`,
+        });
       }
 
-      return res.json({
-        success: true,
-        data: {
+      // Check if we have a response event
+      const events = auditTrail.data?.events || [];
+      const responseEvent = events.find(
+        (e: AuditEvent) => e.eventType === "agent.response"
+      );
+
+      if (responseEvent) {
+        // Job completed
+        const result = responseEvent.payload.response;
+
+        // Populate Cache if successful
+        if (result && !responseEvent.payload.error) {
+          const requestEvent = events.find(
+            (e: AuditEvent) => e.eventType === "agent.request"
+          );
+          if (requestEvent?.payload) {
+            const { query, context, agentId, tenantId } = requestEvent.payload;
+            try {
+              await agentCache.set(
+                query,
+                { ...context, agentId, tenantId },
+                result
+              );
+            } catch (cacheError) {
+              logger.warn(
+                "Failed to cache agent response",
+                cacheError instanceof Error ? cacheError : undefined
+              );
+            }
+          }
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            jobId,
+            status: "completed",
+            result: result,
+            error: responseEvent.payload.error,
+            latency: responseEvent.payload.latency,
+            completedAt: responseEvent.timestamp,
+          },
+        });
+      } else {
+        // Job still processing or queued
+        const requestEvent = events.find(
+          (e: AuditEvent) => e.eventType === "agent.request"
+        );
+        return res.json({
+          success: true,
+          data: {
+            jobId,
+            status: "processing",
+            agentId: requestEvent?.payload?.agentId ?? "unknown",
+            queuedAt: requestEvent?.timestamp,
+            estimatedDuration: "30s",
+            message: "Agent request is being processed",
+          },
+        });
+      }
+    } catch (error) {
+      logger.error(
+        "Job status check failed",
+        error instanceof Error ? error : undefined,
+        {
           jobId,
-          status: "completed",
-          result: result,
-          error: responseEvent.payload.error,
-          latency: responseEvent.payload.latency,
-          completedAt: responseEvent.timestamp,
-        },
-      });
-    } else {
-      // Job still processing or queued
-      const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
-      return res.json({
-        success: true,
-        data: {
-          jobId,
-          status: "processing",
-          agentId: requestEvent?.payload?.agentId ?? 'unknown',
-          queuedAt: requestEvent?.timestamp,
-          estimatedDuration: "30s",
-          message: "Agent request is being processed",
-        },
+        }
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: "Job status check failed",
+        message: error instanceof Error ? error.message : "Unknown error",
       });
     }
-  } catch (error) {
-    logger.error("Job status check failed", error instanceof Error ? error : undefined, {
-      jobId,
-    });
-
-    return res.status(500).json({
-      success: false,
-      error: "Job status check failed",
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return;
   }
-});
+);
 
 /**
  * Stream agent job status (SSE)
  */
-router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: Response) => {
-  const { jobId } = req.params;
+router.get(
+  "/jobs/:jobId/stream",
+  rateLimiters.loose,
+  async (req: Request, res: Response) => {
+    const { jobId } = req.params;
 
-  if (!isKafkaEnabled()) {
-    return kafkaUnavailableResponse(res);
-  }
-
-  // Set SSE headers
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  if (res.flushHeaders) res.flushHeaders();
-
-  const sendEvent = (data: Record<string, unknown>) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
-
-  const eventSourcing = getEventSourcingService();
-  let isActive = true;
-
-  req.on("close", () => {
-    isActive = false;
-  });
-
-  const pollInterval = 1000;
-  const timeout = 120000; // 2 minutes timeout
-  const startTime = Date.now();
-
-  const checkStatus = async () => {
-    if (!isActive) return;
-
-    if (Date.now() - startTime > timeout) {
-      sendEvent({ status: "error", error: "Timeout waiting for job completion" });
-      return res.end();
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
     }
 
-    try {
-      const auditTrail = await eventSourcing.getAuditTrail(jobId);
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    if (res.flushHeaders) res.flushHeaders();
 
-      if (auditTrail) {
-        const events = auditTrail.data?.events || [];
-        const responseEvent = events.find((e: AuditEvent) => e.eventType === "agent.response");
+    const sendEvent = (data: Record<string, unknown>) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
 
-        if (responseEvent) {
-          const result = responseEvent.payload.response;
-          const error = responseEvent.payload.error;
+    const eventSourcing = getEventSourcingService();
+    let isActive = true;
 
-          // Populate Cache if successful
-          if (result && !error) {
-            const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
-            if (requestEvent?.payload) {
-              const { query, context, agentId, tenantId } = requestEvent.payload;
-              try {
-                await agentCache.set(
-                  query,
-                  { ...context, agentId, tenantId },
-                  result
-                );
-              } catch (cacheError) {
-                logger.warn("Failed to cache agent response in SSE", cacheError instanceof Error ? cacheError : undefined);
-              }
-            }
-          }
+    req.on("close", () => {
+      isActive = false;
+    });
 
-          sendEvent({
-            status: "completed",
-            result,
-            error,
-            latency: responseEvent.payload.latency,
-            completedAt: responseEvent.timestamp,
-          });
-          return res.end();
-        } else {
-          // Send processing update
-          const requestEvent = events.find((e: AuditEvent) => e.eventType === "agent.request");
-          sendEvent({
-            status: "processing",
-            agentId: requestEvent?.payload?.agentId ?? 'unknown',
-            queuedAt: requestEvent?.timestamp,
-          });
-        }
+    const pollInterval = 1000;
+    const timeout = 120000; // 2 minutes timeout
+    const startTime = Date.now();
+
+    const checkStatus = async () => {
+      if (!isActive) return;
+
+      if (Date.now() - startTime > timeout) {
+        sendEvent({
+          status: "error",
+          error: "Timeout waiting for job completion",
+        });
+        return res.end();
       }
 
-      setTimeout(checkStatus, pollInterval);
-    } catch (error) {
-      logger.error("SSE Polling error", error instanceof Error ? error : undefined);
-      sendEvent({ status: "error", message: "Internal polling error" });
-      return res.end();
-    }
-  };
+      try {
+        const auditTrail = await eventSourcing.getAuditTrail(jobId);
 
-  // Start polling
-  checkStatus();
-});
+        if (auditTrail) {
+          const events = auditTrail.data?.events || [];
+          const responseEvent = events.find(
+            (e: AuditEvent) => e.eventType === "agent.response"
+          );
+
+          if (responseEvent) {
+            const result = responseEvent.payload.response;
+            const error = responseEvent.payload.error;
+
+            // Populate Cache if successful
+            if (result && !error) {
+              const requestEvent = events.find(
+                (e: AuditEvent) => e.eventType === "agent.request"
+              );
+              if (requestEvent?.payload) {
+                const { query, context, agentId, tenantId } =
+                  requestEvent.payload;
+                try {
+                  await agentCache.set(
+                    query,
+                    { ...context, agentId, tenantId },
+                    result
+                  );
+                } catch (cacheError) {
+                  logger.warn(
+                    "Failed to cache agent response in SSE",
+                    cacheError instanceof Error ? cacheError : undefined
+                  );
+                }
+              }
+            }
+
+            sendEvent({
+              status: "completed",
+              result,
+              error,
+              latency: responseEvent.payload.latency,
+              completedAt: responseEvent.timestamp,
+            });
+            return res.end();
+          } else {
+            // Send processing update
+            const requestEvent = events.find(
+              (e: AuditEvent) => e.eventType === "agent.request"
+            );
+            sendEvent({
+              status: "processing",
+              agentId: requestEvent?.payload?.agentId ?? "unknown",
+              queuedAt: requestEvent?.timestamp,
+            });
+          }
+        }
+
+        setTimeout(checkStatus, pollInterval);
+      } catch (error) {
+        logger.error(
+          "SSE Polling error",
+          error instanceof Error ? error : undefined
+        );
+        sendEvent({ status: "error", message: "Internal polling error" });
+        return res.end();
+      }
+    };
+
+    // Start polling
+    checkStatus();
+  }
+);
 
 // POST /api/agents/integrity/veto - accept/reject/modify a flagged integrity issue
 router.post(
@@ -796,14 +1004,32 @@ router.post(
 
     const parsed = bodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.errors } });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid payload",
+            details: parsed.error.errors,
+          },
+        });
     }
 
-    const { issueId, resolution, modifiedOutput, agentId, sessionId } = parsed.data;
+    const { issueId, resolution, modifiedOutput, agentId, sessionId } =
+      parsed.data;
 
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
-      return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          error: {
+            code: "tenant_required",
+            message: "Tenant context is required",
+          },
+        });
     }
 
     if (!isKafkaEnabled()) {
@@ -818,53 +1044,78 @@ router.post(
 
       // Publish a typed agent request to handle veto resolution
       const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+        ...createBaseEvent(
+          "agent.request" as const,
+          correlationId,
+          "agent-api"
+        ),
         payload: {
-          agentId: agentId || 'IntegrityAgent',
+          agentId: agentId || "IntegrityAgent",
           userId,
           externalSub,
           sessionId,
           tenantId,
-          query: 'resolve_issue',
+          query: "resolve_issue",
           context: { issueId, resolution },
           parameters: { issueId, resolution, modifiedOutput },
-          priority: 'normal',
+          priority: "normal",
           timeout: getAgentAPIConfig().timeout,
         },
       };
 
-      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+      await eventProducer.publish(
+        EVENT_TOPICS.AGENT_REQUESTS,
+        agentRequestEvent
+      );
 
       // Log to audit trail for immediate compliance record
       try {
-        const auditService = require("../services/security/AuditTrailService.js").getAuditTrailService();
+        const auditService =
+          require("../services/security/AuditTrailService.js").getAuditTrailService();
         await auditService.logImmediate({
-          eventType: 'integrity_veto',
-          actorId: userId || externalSub || 'system',
-          externalSub: externalSub || 'system',
-          actorType: externalSub ? 'user' : 'system',
+          eventType: "integrity_veto",
+          actorId: userId || externalSub || "system",
+          externalSub: externalSub || "system",
+          actorType: externalSub ? "user" : "system",
           resourceId: issueId,
-          resourceType: 'integrity_issue',
+          resourceType: "integrity_issue",
           action: `veto_${resolution}`,
-          outcome: 'success',
+          outcome: "success",
           details: { agentId, sessionId, modifiedOutput },
-          ipAddress: (req as AuthenticatedRequest).ip || 'unknown',
-          userAgent: (req as AuthenticatedRequest).headers['user-agent'] || '',
+          ipAddress: (req as AuthenticatedRequest).ip || "unknown",
+          userAgent: (req as AuthenticatedRequest).headers["user-agent"] || "",
           timestamp: Date.now(),
           sessionId: sessionId || correlationId,
           correlationId,
           riskScore: 0.5,
-          complianceFlags: ['integrity_resolution'],
+          complianceFlags: ["integrity_resolution"],
           tenantId,
         });
       } catch (auditErr) {
-        logger.warn('Failed to log integrity veto to audit trail', auditErr instanceof Error ? auditErr : undefined);
+        logger.warn(
+          "Failed to log integrity veto to audit trail",
+          auditErr instanceof Error ? auditErr : undefined
+        );
       }
 
-      return res.json({ success: true, data: { jobId: correlationId, status: 'queued' } });
+      return res.json({
+        success: true,
+        data: { jobId: correlationId, status: "queued" },
+      });
     } catch (error) {
-      logger.error('Integrity veto handler failed', error instanceof Error ? error : undefined);
-      return res.status(500).json({ success: false, error: { code: 'INTEGRITY_VETO_FAILED', message: 'Failed to process veto' } });
+      logger.error(
+        "Integrity veto handler failed",
+        error instanceof Error ? error : undefined
+      );
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: {
+            code: "INTEGRITY_VETO_FAILED",
+            message: "Failed to process veto",
+          },
+        });
     }
   }
 );

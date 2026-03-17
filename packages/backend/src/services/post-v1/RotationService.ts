@@ -2,9 +2,9 @@ import { randomBytes } from 'crypto';
 
 import type { ISecretProvider, SecretMetadata, SecretValue } from '../../config/secrets/ISecretProvider.js'
 import { logger } from '../../lib/logger.js'
+import { BaseService } from '../BaseService.js'
 
 import { auditLogService } from './AuditLogService.js'
-import { BaseService } from '../BaseService.js'
 
 export interface DualUserSecret {
   activeUser: 'primary' | 'secondary';

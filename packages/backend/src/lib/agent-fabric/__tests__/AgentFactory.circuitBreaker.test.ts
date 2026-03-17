@@ -81,8 +81,8 @@ vi.mock("@valueos/memory/provenance", () => ({
 // Imports — CircuitBreaker/Manager from canonical path (NOT mocked above)
 // ---------------------------------------------------------------------------
 
-import { AgentFactory } from "../AgentFactory";
 import { CircuitBreaker, CircuitBreakerManager } from "../../../lib/resilience/CircuitBreaker";
+import { AgentFactory } from "../AgentFactory";
 import { LLMGateway } from "../LLMGateway";
 import { MemorySystem } from "../MemorySystem";
 

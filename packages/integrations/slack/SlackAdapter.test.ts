@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthError, IntegrationError, ValidationError } from "../base/index.js";
+
 import { SlackAdapter } from "./SlackAdapter.js";
 
 const BASE_CONFIG = { provider: "slack" };

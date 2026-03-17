@@ -334,6 +334,7 @@ function ChartRenderer({ content }: { content: ChartContent }) {
             <span className="text-sm font-medium text-slate-600">
               ${point.value}M
             </span>
+            {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- valid ARIA usage */}
             <div
               className="w-16 bg-primary rounded-t-md transition-all duration-500"
               style={{ height: `calc(var(--chart-bar-max, 180px) * ${(point.value / maxValue)})` }}

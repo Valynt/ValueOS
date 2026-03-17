@@ -6,7 +6,7 @@
  * a cross-tenant read returns an empty result set.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the FeatureFlags singleton that fires at core-services barrel import time
 vi.mock("@valueos/core-services", async () => {

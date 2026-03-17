@@ -5,8 +5,8 @@
 
 import { logger } from "../../lib/logger.js"
 import { supabase } from "../../lib/supabase.js"
-
 import { BaseService } from "../BaseService.js"
+
 import { emailService } from "./EmailService.js"
 
 export interface CustomerAccessToken {

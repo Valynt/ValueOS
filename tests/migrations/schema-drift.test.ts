@@ -22,9 +22,10 @@
  * depend on the CI scripts being importable as modules.
  */
 
-import { readdirSync, readFileSync, existsSync } from "fs";
-import { resolve, join } from "path";
-import { describe, it, expect } from "vitest";
+import { existsSync, readdirSync, readFileSync } from "fs";
+import { join, resolve } from "path";
+
+import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../..");
 const MIGRATIONS_DIR = resolve(ROOT, "infra/supabase/supabase/migrations");
@@ -52,6 +53,7 @@ function extractTableNames(sql: string): Set<string> {
 
 function extractTableBody(sql: string, tableName: string): string | null {
   const clean = stripComments(sql);
+  // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
   const headerPattern = new RegExp(
     `CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:public\\.)?${tableName}\\s*\\(`,
     "i"

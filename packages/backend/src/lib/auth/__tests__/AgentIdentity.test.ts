@@ -28,8 +28,8 @@ vi.mock("../../../services/policy/AgentPolicyService.js", () => ({
   })),
 }));
 
-import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../AgentIdentity.js";
 import { logger } from "../../logger.js";
+import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../AgentIdentity.js";
 
 describe("AgentIdentity permissions (F-013)", () => {
   beforeEach(() => vi.clearAllMocks());

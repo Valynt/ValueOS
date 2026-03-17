@@ -5,12 +5,12 @@
 import {
   AuthError,
   EnterpriseAdapter,
-  IntegrationError,
   type FetchOptions,
   type IntegrationConfig,
+  IntegrationError,
   type NormalizedEntity,
-  RateLimitError,
   RateLimiter,
+  RateLimitError,
   ValidationError,
 } from "../base/index.js";
 

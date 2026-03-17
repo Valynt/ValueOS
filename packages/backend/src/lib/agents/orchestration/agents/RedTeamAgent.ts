@@ -11,11 +11,11 @@
 
 import { z } from 'zod';
 
+import type { AgentOutput, LifecycleContext } from '../../../../types/agent.js';
 import { BaseAgent } from '../../../agent-fabric/agents/BaseAgent.js';
 import { CircuitBreaker } from '../../../agent-fabric/CircuitBreaker.js';
 import type { LLMGateway } from '../../../agent-fabric/LLMGateway.js';
 import { MemorySystem } from '../../../agent-fabric/MemorySystem.js';
-import type { AgentOutput, LifecycleContext } from '../../../../types/agent.js';
 
 // ============================================================================
 // Types

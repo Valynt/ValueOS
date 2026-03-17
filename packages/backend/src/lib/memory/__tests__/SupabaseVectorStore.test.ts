@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SupabaseVectorStore } from '../SupabaseVectorStore.js';
 import type { VectorChunk } from '@valueos/memory';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { SupabaseVectorStore } from '../SupabaseVectorStore.js';
 
 // ---------------------------------------------------------------------------
 // Mock Supabase client
@@ -166,7 +167,7 @@ describe('SupabaseVectorStore', () => {
       };
       deleteChain['select'] = () => Promise.resolve({ data: [{ id: 'chunk-1' }], error: null });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       vi.spyOn((store as any).supabase, 'from').mockReturnValue({
         delete: () => deleteChain,
       });

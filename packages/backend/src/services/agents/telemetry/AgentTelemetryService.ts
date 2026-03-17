@@ -1,5 +1,6 @@
-import { Counter, Histogram, metrics } from "@opentelemetry/api";
 import { createHash } from "node:crypto";
+
+import { Counter, Histogram, metrics } from "@opentelemetry/api";
 
 import { logger } from "../../../lib/logger.js";
 import { AgentType } from "../../agent-types.js";

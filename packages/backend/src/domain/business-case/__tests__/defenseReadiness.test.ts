@@ -1,10 +1,10 @@
+import type { Assumption } from "@valueos/shared/domain";
+import type { Evidence } from "@valueos/shared/domain";
 import { describe, expect, it } from "vitest";
 
 import {
   calculateDefenseReadiness,
 } from "../defenseReadiness.js";
-import type { Assumption } from "@valueos/shared/domain";
-import type { Evidence } from "@valueos/shared/domain";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

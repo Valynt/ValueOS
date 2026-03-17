@@ -77,7 +77,7 @@ async function writeEpisodicRecord(
 // hybridSearch() requires a pre-computed embedding (number[1536]).
 // Generate it via the LLM embedding API before calling.
 
-import { VectorMemory, type HybridSearchOptions } from "@valueos/memory";
+import { type HybridSearchOptions, VectorMemory } from "@valueos/memory";
 
 async function vectorSearch(
   vectorMemory: VectorMemory,   // injected — do not construct inline

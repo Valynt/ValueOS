@@ -1,4 +1,5 @@
 import { SpanStatusCode } from "@opentelemetry/api";
+
 import { getTracer } from "../config/telemetry.js";
 import {
   addBreadcrumb,

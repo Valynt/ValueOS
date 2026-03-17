@@ -10,8 +10,8 @@ import { ValueCommitRepository } from "../../repositories/ValueCommitRepository"
 import { ValueTreeLinkRepository } from "../../repositories/ValueTreeLinkRepository";
 import { ValueTreeNodeRepository } from "../../repositories/ValueTreeNodeRepository";
 import { ValueTreeRepository } from "../../repositories/ValueTreeRepository";
-import { LifecycleContext } from "../types/agent";
 import { TargetAgentOutput } from "../../types/vos";
+import { LifecycleContext } from "../types/agent";
 
 import { auditLogService } from "./AuditLogService.js"
 import { userSettingsService } from "./UserSettingsService.js"

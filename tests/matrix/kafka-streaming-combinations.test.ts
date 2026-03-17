@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { messagingModeMatrix, type MessagingModeCase } from "./infra-mode.matrix";
+import { type MessagingModeCase, messagingModeMatrix } from "./infra-mode.matrix";
 import { runInMessagingMode } from "./runInInfraMode";
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthError, IntegrationError, ValidationError } from "../base/index.js";
+
 import { ServiceNowAdapter } from "./ServiceNowAdapter.js";
 
 const INSTANCE_URL = "https://dev12345.service-now.com";

@@ -11,9 +11,11 @@ export interface LogContext {
 
 class Logger {
   debug(message: string, context?: LogContext): void {
+    // eslint-disable-next-line no-console -- logging utility / bootstrap code
     if (import.meta.env.DEV) console.debug("[DEBUG]", message, context);
   }
   info(message: string, context?: LogContext): void {
+    // eslint-disable-next-line no-console -- logging utility / bootstrap code
     console.info("[INFO]", message, context);
   }
   warn(message: string, context?: LogContext): void {

@@ -1,8 +1,8 @@
 import { logger } from '../../lib/logger.js';
+import { securityEventStreamingService } from '../security/SecurityEventStreamingService.js';
 
 import { getAgentPolicyService } from './AgentPolicyService.js';
 import { assertAuthorized } from './AuthorizationPolicyGateway.js';
-import { securityEventStreamingService } from '../security/SecurityEventStreamingService.js';
 
 export type PolicyErrorCode = 'TOOL_DENIED' | 'MODEL_DENIED' | 'BUDGET_EXCEEDED';
 

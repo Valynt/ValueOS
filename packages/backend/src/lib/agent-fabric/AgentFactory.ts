@@ -7,9 +7,10 @@
  * agent construction logic.
  */
 
+import type { LifecycleStage } from "@valueos/shared";
+
 import type { GroundTruthIntegrationService } from "../../services/domain-packs/GroundTruthIntegrationService.js";
 import type { AgentConfig } from "../../types/agent.js";
-import type { LifecycleStage } from "@valueos/shared";
 import { logger } from "../logger.js";
 
 import { BaseAgent } from "./agents/BaseAgent.js";
@@ -23,12 +24,12 @@ import { RealizationAgent } from "./agents/RealizationAgent.js";
 import { TargetAgent } from "./agents/TargetAgent.js";
 import { CircuitBreaker, CircuitBreakerManager } from "./CircuitBreaker.js";
 import { KnowledgeFabricValidator } from "./KnowledgeFabricValidator.js";
-import { LLMGateway } from "./LLMGateway.js";
-import { MemorySystem } from "./MemorySystem.js";
 import {
   agentLabelToLifecycleStage,
   LIFECYCLE_STAGE_TO_AGENT_LABEL,
 } from "./lifecycleStageAdapter.js";
+import { LLMGateway } from "./LLMGateway.js";
+import { MemorySystem } from "./MemorySystem.js";
 
 // Maps agent types to their fabric agent classes.
 const FABRIC_AGENT_CLASSES: Partial<

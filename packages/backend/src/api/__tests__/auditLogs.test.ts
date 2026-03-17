@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import request from "supertest";
 import express from "express";
+import request from "supertest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../middleware/auth.js", () => ({
   requireAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),

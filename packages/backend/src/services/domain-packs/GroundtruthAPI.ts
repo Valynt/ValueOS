@@ -7,7 +7,6 @@
 
 import { getGroundtruthConfig } from '../../lib/env';
 import { logger } from '../../lib/logger.js'
-
 import { ExternalCircuitBreaker } from '../post-v1/ExternalCircuitBreaker.js';
 
 export interface GroundtruthAPIConfig {
@@ -184,6 +183,7 @@ export class GroundtruthAPI {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,

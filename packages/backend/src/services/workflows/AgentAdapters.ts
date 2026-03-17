@@ -1,13 +1,13 @@
+import { z } from "zod";
+
+import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
+import { RedTeamLLMGateway } from "../../lib/agents/orchestration/agents/RedTeamAgent.js";
 import {
   FinancialModelingAgentInterface,
   GroundTruthAgentInterface,
   NarrativeAgentInterface,
   OpportunityAgentInterface,
 } from "../../lib/agents/orchestration/index.js";
-import { RedTeamLLMGateway } from "../../lib/agents/orchestration/agents/RedTeamAgent.js";
-import { z } from "zod";
-
-import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { logger } from "../../lib/logger.js";
 

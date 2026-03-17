@@ -6,8 +6,8 @@
  */
 
 import { logger } from "../../lib/logger.js";
-
 import { authorizationPolicyGateway } from "../policy/AuthorizationPolicyGateway.js";
+
 import { toolRegistry } from "./registry.js";
 import { AgentContext, AuthorizationError } from "./types.js";
 

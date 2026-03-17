@@ -9,6 +9,7 @@ vi.mock('../lib/logger.js', () => ({
 }));
 
 import { supabase } from '../lib/supabase.js';
+
 import { IntegrityOutputRepository } from './IntegrityOutputRepository.js';
 
 const mockFrom = supabase.from as ReturnType<typeof vi.fn>;

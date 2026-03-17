@@ -2,9 +2,9 @@ import { STRUCTURAL_TRUTH_SCHEMA_FIELDS, StructuralTruthModuleSchema } from "@mc
 import { assertProvenance, validateGroundTruthMetadata } from "@mcp/ground-truth/validators/GroundTruthValidator";
 
 import { logger } from "../../lib/logger";
-import { AgentType } from "../agent-types";
-import type { AgentContext, AgentAPI } from "../AgentAPI";
 import type { IntegrityVetoMetadata } from "../../types/orchestration.js";
+import { AgentType } from "../agent-types";
+import type { AgentAPI, AgentContext } from "../AgentAPI";
 
 export interface IntegrityCheckOptions {
   traceId: string;

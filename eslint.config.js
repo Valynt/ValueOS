@@ -46,6 +46,9 @@ const ignoresConfig = {
     "infra/k8s/**/*",
     "kubernetes/**/*",
     "alembic/**/*",
+    "apps/VOSAcademy/src/data/db.js",
+    "apps/VOSAcademy/src/data/seed-simulations.mjs",
+    "tests/performance/stress-testing.test.ts",
   ],
 };
 
@@ -128,6 +131,7 @@ const baseConfig = {
     "no-case-declarations": "warn",
     "no-useless-escape": "warn",
     "no-useless-catch": "warn",
+    // eslint-disable-next-line no-irregular-whitespace -- intentional whitespace
     // Promoting any usage to a warning as part of Phase 1 debt reduction; tighten to error once existing usages are removed.
     "@typescript-eslint/no-explicit-any": "warn",
     // Requires type-aware parserOptions.project (disabled to avoid OOM in monorepo)

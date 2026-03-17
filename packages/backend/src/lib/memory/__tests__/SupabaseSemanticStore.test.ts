@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SupabaseSemanticStore } from '../SupabaseSemanticStore.js';
 import type { SemanticFact } from '@valueos/memory';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { SupabaseSemanticStore } from '../SupabaseSemanticStore.js';
 
 // ---------------------------------------------------------------------------
 // Mock Supabase client
@@ -187,7 +188,7 @@ describe('SupabaseSemanticStore', () => {
       vi.spyOn(
         // Re-mock createServerSupabaseClient for this test only
         // by replacing the from() on the store's internal supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (store as any).supabase,
         'from',
       ).mockImplementation(() => {

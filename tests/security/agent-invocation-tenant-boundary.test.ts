@@ -1,11 +1,11 @@
+import {
+  type TCTPayload,
+  tenantContextMiddleware,
+} from "@backend/middleware/tenantContext";
 import express from "express";
 import { SignJWT } from "jose";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  tenantContextMiddleware,
-  type TCTPayload,
-} from "@backend/middleware/tenantContext";
 
 const tctSecret = "agent-boundary-secret";
 

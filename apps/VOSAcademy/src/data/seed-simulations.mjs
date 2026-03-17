@@ -26,5 +26,5 @@
         "Identify cost savings from automation and efficiency gains",
         "Build risk mitigation case for data quality and compliance",
         "Create 3-year ROI projection with conservative assumptions"
-      },
+      ],
       steps: [

@@ -218,6 +218,7 @@ export class ROIFormulaInterpreter {
     let processed = formula;
 
     for (const [varName, variable] of Object.entries(context.variables)) {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(`\\b${varName}\\b`, 'g');
       processed = processed.replace(regex, String(variable.value));
     }
@@ -392,8 +393,10 @@ export class ROIFormulaInterpreter {
     for (const token of tokens) {
       if (/^[\d.]+$/.test(token)) {
         output.push(token);
+      // eslint-disable-next-line security/detect-possible-timing-attacks -- not a cryptographic comparison
       } else if (token === '(') {
         operators.push(token);
+      // eslint-disable-next-line security/detect-possible-timing-attacks -- not a cryptographic comparison
       } else if (token === ')') {
         while (operators.length > 0 && operators[operators.length - 1] !== '(') {
           output.push(operators.pop()!);

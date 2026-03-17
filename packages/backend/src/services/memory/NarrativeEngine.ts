@@ -106,6 +106,7 @@ export class NarrativeEngine {
       const formattedValue =
         typeof value === "number" ? value.toLocaleString() : String(value);
       output = output.replace(
+        // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
         new RegExp(`{{results.${key}}}`, "g"),
         formattedValue
       );
@@ -114,6 +115,7 @@ export class NarrativeEngine {
     benchmarks.forEach((b) => {
       if (b.label && b.value_at_execution !== undefined) {
         output = output.replace(
+          // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
           new RegExp(`{{benchmarks.${b.label}}}`, "g"),
           b.value_at_execution.toString()
         );
@@ -176,6 +178,7 @@ export class NarrativeEngine {
       let result = body;
       for (const [neutral, domain] of Object.entries(glossary)) {
         // Case-insensitive replacement of neutral terms with domain-specific ones
+        // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
         const pattern = new RegExp(`\\b${neutral.replace(/_/g, '[_ ]')}\\b`, 'gi');
         result = result.replace(pattern, domain);
       }

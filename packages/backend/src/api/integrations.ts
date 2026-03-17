@@ -8,19 +8,18 @@ import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
 import type { AuthenticatedRequest } from "../middleware/auth.js";
-
 import { requireAuth } from "../middleware/auth.js";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { auditLogService } from "../services/security/AuditLogService.js";
-import { handleServiceError } from "../services/errors.js";
 import {
   integrationConnectionService,
   type IntegrationConnectPayload,
 } from "../services/crm/IntegrationConnectionService.js";
 import { integrationControlService } from "../services/crm/IntegrationControlService.js";
+import { handleServiceError } from "../services/errors.js";
+import { auditLogService } from "../services/security/AuditLogService.js";
 
 const logger = createLogger({ component: "IntegrationsAPI" });
 const router = createSecureRouter("strict");

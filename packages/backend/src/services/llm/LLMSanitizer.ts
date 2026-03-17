@@ -264,6 +264,7 @@ export class LLMSanitizer extends BaseService {
     }
 
     for (const tag of LLMSanitizer.BLOCKED_TAGS) {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(`<${tag}[\\s>]`, "i");
       if (regex.test(content)) {
         matches.push(`Blocked tag: ${tag}`);

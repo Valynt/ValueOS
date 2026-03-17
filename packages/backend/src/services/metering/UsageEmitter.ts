@@ -14,13 +14,15 @@
  * - Publishes the same evidence payload to UsageQueueProducer (queue-first).
  */
 
-import { type SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
+
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { BillingMetric } from "../../config/billing.js";
 import { createLogger } from "../../lib/logger.js";
 import { UsageLedgerIngestionService } from "../billing/UsageLedgerIngestionService.js";
+
 import { UsageQueueProducer } from "./UsageQueueProducer.js";
 
 const logger = createLogger({ component: "UsageEmitter" });

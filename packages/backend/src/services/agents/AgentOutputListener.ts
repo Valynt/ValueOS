@@ -9,10 +9,10 @@ import { EventEmitter } from 'events';
 
 import { logger } from '../../lib/logger.js'
 import { AgentOutput } from '../../types/agent-output';
-
-import { agentSDUIAdapter } from './AgentSDUIAdapter.js'
 import { canvasSchemaService } from '../sdui/CanvasSchemaService.js'
 import { getComponentMutationService } from '../sdui/ComponentMutationService.js'
+
+import { agentSDUIAdapter } from './AgentSDUIAdapter.js'
 
 /**
  * Agent output event types

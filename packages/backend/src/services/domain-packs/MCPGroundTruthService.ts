@@ -8,7 +8,6 @@
 import { getGroundtruthConfig, isBrowser } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { getRedisClient } from '../../lib/redisClient.js';
-
 import { ExternalCircuitBreaker } from '../post-v1/ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)
@@ -155,6 +154,7 @@ class MCPGroundTruthService {
           headers['x-api-key'] = config.apiKey;
         }
 
+        // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
         const response = await fetch(url, {
           method: 'POST',
           headers,

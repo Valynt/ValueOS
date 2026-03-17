@@ -65,6 +65,7 @@ describe('Safe Regex Utilities', () => {
 
     it('warns about very long patterns', () => {
       const longPattern = 'a'.repeat(600);
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const result = analyzeRegexSafety(new RegExp(longPattern));
       expect(result.warnings.some(w => w.includes('long'))).toBe(true);
     });

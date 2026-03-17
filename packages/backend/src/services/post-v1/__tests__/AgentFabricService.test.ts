@@ -65,8 +65,8 @@ vi.mock('../../../lib/supabase.js', async () => {
   };
 });
 
-import { agentFabricService } from '../AgentFabricService.js';
 import { supabase } from '../../../lib/supabase.js';
+import { agentFabricService } from '../AgentFabricService.js';
 
 const ORG_A = '11111111-1111-1111-1111-111111111111';
 const ORG_B = '22222222-2222-2222-2222-222222222222';

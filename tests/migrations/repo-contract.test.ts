@@ -11,9 +11,10 @@
  * All tests are deterministic and require no external services.
  */
 
-import { readdirSync, readFileSync, existsSync, statSync } from "fs";
-import { resolve, join, relative } from "path";
-import { describe, it, expect } from "vitest";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
+import { join, relative, resolve } from "path";
+
+import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../..");
 

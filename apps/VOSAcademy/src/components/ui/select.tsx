@@ -50,6 +50,7 @@ export function SelectItem({ value: itemValue, children, ...props }: SelectItemP
   const handleClick = () => context?.onValueChange?.(itemValue);
 
   return (
+    // eslint-disable-next-line jsx-a11y/role-has-required-aria-props -- managed by parent component
     <button type="button" role="option" onClick={handleClick} {...props}>
       {children}
     </button>

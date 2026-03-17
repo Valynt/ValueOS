@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RolloutManager, ProgressiveRollout, RolloutMetrics } from '../progressiveRollout.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ProgressiveRollout, RolloutManager, RolloutMetrics } from '../progressiveRollout.js';
 
 // Mock dependencies
 const { mockInsert } = vi.hoisted(() => {

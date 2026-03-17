@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { type APIRequestContext, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -6,8 +6,8 @@ import {
   assertDBPersistence,
   runWorkflowRequest,
 } from './db-assertions';
-import { assertUIMatchesDB } from './session-assertions';
 import { reloadAndAssertWorkflowSnapshot } from './reload-assertions';
+import { assertUIMatchesDB } from './session-assertions';
 
 export interface WorkflowFixture {
   id: 'WF-1' | 'WF-2' | 'WF-3' | 'WF-4' | 'WF-5';

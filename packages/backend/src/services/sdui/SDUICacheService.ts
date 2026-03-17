@@ -9,8 +9,8 @@
  * storage backends.
  */
 
-import { getRedisClient } from "../lib/redisClient.js";
 import { logger } from "../../lib/logger.js";
+import { getRedisClient } from "../lib/redisClient.js";
 
 const SCHEMA_CAS_TTL = 60 * 60 * 24 * 7; // 7 days — content-addressed, immutable
 const SCHEMA_HEAD_TTL = 60 * 60 * 24;     // 24 hours — head pointer

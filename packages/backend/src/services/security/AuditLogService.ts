@@ -18,16 +18,17 @@ import { logger } from "../../lib/logger.js";
 import { sanitizeForLogging } from "../../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { BaseService } from "../BaseService.js";
-import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
+
 import {
   RequiredAuditPayload,
   requiredAuditPayloadSchema,
 } from "./auditPayloadContract.js";
+import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
 
 // audit_logs is not in the generated Database type — use a typed helper
 // rather than scattering `as any` across every query.
 function auditLogsTable(supabase: SupabaseClient) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return supabase.from("audit_logs" as "audit_logs");
 }
 

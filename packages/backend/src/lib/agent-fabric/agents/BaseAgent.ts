@@ -8,9 +8,11 @@
 
 import { z } from "zod";
 
-import type { AgentType } from "../../../services/agent-types.js";
-import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 import { agentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
+import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
+import type { AgentType } from "../../../services/agent-types.js";
+import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
+import { type ToolExecutionContext, toolRegistry, type ToolResult } from "../../../services/tools/ToolRegistry.js";
 import type {
   AgentConfig,
   AgentOutput,
@@ -21,13 +23,11 @@ import type {
   LifecycleStage,
   PromptVersionReference,
 } from "../../../types/agent.js";
+import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../../auth/AgentIdentity.js";
 import { logger } from "../../logger.js";
+import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
 import { AuditLogger } from "../AuditLogger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
-import { sanitizeForAgent } from "../../../runtime/context-store/sanitizeForAgent.js";
-import { agentKillSwitchService } from "../../../services/agents/AgentKillSwitchService.js";
-import { canUseTool, createAgentIdentity, PermissionDeniedError } from "../../auth/AgentIdentity.js";
-import { toolRegistry, type ToolExecutionContext, type ToolResult } from "../../../services/tools/ToolRegistry.js";
 import type {
   HallucinationCheckResult as KFHallucinationCheckResult,
   KnowledgeFabricValidator,
@@ -367,6 +367,7 @@ export abstract class BaseAgent {
         },
       };
 
+      // eslint-disable-next-line no-restricted-syntax -- intentional usage
       const response = await this.llmGateway.complete(request);
 
       // Knowledge Fabric cross-reference (runs in parallel with parse)

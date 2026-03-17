@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
+
 import { createServerSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ service: 'IntegrityResultRepository' });

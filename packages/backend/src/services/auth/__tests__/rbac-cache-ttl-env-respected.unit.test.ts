@@ -61,7 +61,7 @@ describe("rbac-cache-ttl-env-respected", () => {
     const service = new PermissionService(envCacheTtlMs);
 
     // Access the private cacheTTL via bracket notation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const ttl = (service as any).cacheTTL;
     expect(ttl).toBe(60000);
   });
@@ -75,7 +75,7 @@ describe("rbac-cache-ttl-env-respected", () => {
     // When no env value is provided, pass undefined — the constructor uses its default
     const service = new PermissionService(undefined);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const ttl = (service as any).cacheTTL;
     // Default is ROLE_CACHE_TTL_MS which is defined at the top of the module.
     // We just verify it's a positive number and NOT 0 or NaN.
@@ -89,7 +89,7 @@ describe("rbac-cache-ttl-env-respected", () => {
 
     const mod = await import("../PermissionService.js");
     // The exported singleton should have 120 * 1000 = 120000
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const ttl = (mod.permissionService as any).cacheTTL;
     expect(ttl).toBe(120000);
   });

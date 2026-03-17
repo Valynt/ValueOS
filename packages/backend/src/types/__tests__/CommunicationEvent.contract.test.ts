@@ -1,17 +1,18 @@
 import type {
-  CommunicationEvent as BackendCommunicationEvent,
-  CommunicationEventCore as BackendCommunicationEventCore,
-  CreateCommunicationEvent as BackendCreateCommunicationEvent,
-} from '../CommunicationEvent.js';
+  CommunicationEvent as SharedCommunicationEvent,
+  CommunicationEventCore as SharedCommunicationEventCore,
+  CreateCommunicationEvent as SharedCreateCommunicationEvent,
+} from '@valueos/shared/types/communication-event';
+
 import type {
   CommunicationEvent as FrontendCommunicationEvent,
   CreateCommunicationEvent as FrontendCreateCommunicationEvent,
 } from '../../../../../apps/ValyntApp/src/types/CommunicationEvent';
 import type {
-  CommunicationEvent as SharedCommunicationEvent,
-  CommunicationEventCore as SharedCommunicationEventCore,
-  CreateCommunicationEvent as SharedCreateCommunicationEvent,
-} from '@valueos/shared/types/communication-event';
+  CommunicationEvent as BackendCommunicationEvent,
+  CommunicationEventCore as BackendCommunicationEventCore,
+  CreateCommunicationEvent as BackendCreateCommunicationEvent,
+} from '../CommunicationEvent.js';
 
 describe('CommunicationEvent shared contract', () => {
   it('keeps backend and frontend communication event contracts identical', () => {

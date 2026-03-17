@@ -1,9 +1,9 @@
 import {
-  infraModeMatrix,
-  messagingModeMatrix,
   type InfraMode,
   type InfraModeCase,
+  infraModeMatrix,
   type MessagingModeCase,
+  messagingModeMatrix,
 } from "./infra-mode.matrix";
 
 export interface InfraModeContext {

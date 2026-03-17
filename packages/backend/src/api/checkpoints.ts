@@ -6,10 +6,10 @@
 
 import { Request, Response, Router } from 'express';
 
+import { logger } from '../lib/logger.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { tenantContextMiddleware } from '../middleware/tenantContext.js';
-import { logger } from '../lib/logger.js';
 import { CheckpointMiddleware } from '../services/middleware/CheckpointMiddleware.js';
 
 /**

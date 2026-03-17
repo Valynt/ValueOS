@@ -376,6 +376,7 @@ export class HubSpotModule implements CRMModule {
       throw new Error('HubSpot not connected');
     }
 
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     return fetch(`${this.baseUrl}${path}`, {
       ...options,
       headers: {

@@ -1,6 +1,6 @@
-import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '@shared/lib/logger';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { NextFunction, Request, Response } from 'express';
 
 const logger = createLogger({ component: 'authorization-middleware' });
 

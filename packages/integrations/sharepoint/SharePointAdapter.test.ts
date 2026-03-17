@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthError, IntegrationError, ValidationError } from "../base/index.js";
+
 import { SharePointAdapter } from "./SharePointAdapter.js";
 
 const TENANT = "tenant-a";

@@ -5,10 +5,14 @@
  * Provides cost analytics, alerts, and optimization recommendations.
  */
 
-import { getEnvVar, getLLMCostTrackerConfig, getSupabaseConfig } from "@shared/lib/env";
+import {
+  getEnvVar,
+  getLLMCostTrackerConfig,
+  getSupabaseConfig,
+} from "@shared/lib/env";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-import { logger } from "../../lib/logger.js"
+import { logger } from "../../lib/logger.js";
 
 const TOKENS_PER_MILLION = 1_000_000;
 const SECONDS_PER_MINUTE = 60;
@@ -35,7 +39,10 @@ const TOGETHER_AI_PRICING: Record<string, PricingRate> = {
   "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": { input: 0.18, output: 0.18 },
   "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": { input: 0.88, output: 0.88 },
   // Meta Llama 4
-  "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": { input: 0.27, output: 0.85 },
+  "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": {
+    input: 0.27,
+    output: 0.85,
+  },
   // Qwen
   "Qwen/Qwen2.5-72B-Instruct-Turbo": { input: 0.6, output: 0.6 },
   "Qwen/Qwen2.5-7B-Instruct-Turbo": { input: 0.3, output: 0.3 },
@@ -244,7 +251,7 @@ export class LLMCostTracker {
         }
 
         // Fire and forget cost threshold check with error handling
-        this.checkCostThresholds(normalizedTenantId).catch((err) => {
+        this.checkCostThresholds(normalizedTenantId).catch(err => {
           logger.error("Failed to check cost thresholds", {
             err: err instanceof Error ? err.message : String(err),
             userId: params.userId,
@@ -252,7 +259,7 @@ export class LLMCostTracker {
           });
         });
       })
-      .catch((err) => {
+      .catch(err => {
         logger.error("Failed to track LLM usage (unexpected)", {
           err: err instanceof Error ? err.message : String(err),
           userId: params.userId,
@@ -292,8 +299,7 @@ export class LLMCostTracker {
     }
     return (
       data?.reduce(
-        (sum: number, record: { cost: number }) =>
-          sum + record.cost,
+        (sum: number, record: { cost: number }) => sum + record.cost,
         0
       ) || 0
     );
@@ -458,7 +464,8 @@ export class LLMCostTracker {
       duplicateQuery = duplicateQuery.eq("tenant_id", alert.tenantId);
     }
 
-    const { data: existingAlerts, error: checkError } = await duplicateQuery.limit(1);
+    const { data: existingAlerts, error: checkError } =
+      await duplicateQuery.limit(1);
 
     if (checkError) {
       logger.error("Failed to check for duplicate alerts", checkError);
@@ -616,30 +623,6 @@ export class LLMCostTracker {
       averageCostPerRequest: number;
       requestCount: number;
     };
-
-    for (const record of data) {
-      analytics.totalCost += record.cost;
-      analytics.totalTokens += record.total_tokens;
-
-      // By model
-      analytics.costByModel[record.model] =
-        (analytics.costByModel[record.model] || 0) + record.cost;
-
-      // By user
-      analytics.costByUser[record.user_id] =
-        (analytics.costByUser[record.user_id] || 0) + record.cost;
-
-      // By endpoint
-      analytics.costByEndpoint[record.endpoint] =
-        (analytics.costByEndpoint[record.endpoint] || 0) + record.cost;
-    }
-
-    analytics.averageCostPerRequest =
-      analytics.requestCount > 0
-        ? analytics.totalCost / analytics.requestCount
-        : 0;
-
-    return analytics;
   }
 
   /**

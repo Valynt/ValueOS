@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGuard } from "../auth-guard.js";
 import { toolRegistry } from "../registry.js";
 import {
-  AuthorizationError,
   type AgentContext,
+  AuthorizationError,
   type SemanticTool,
 } from "../types.js";
 

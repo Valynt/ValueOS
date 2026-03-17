@@ -9,18 +9,18 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
+import { PERMISSIONS } from "@shared/lib/permissions";
 import { Request, Response, Router } from "express";
 
 import { auditOperation } from "../middleware/auditHooks.js";
-import { AUDIT_ACTION } from "../types/audit.js";
 import { AuthenticatedRequest, requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { PERMISSIONS } from "@shared/lib/permissions";
 import {
-  TenantContextPayloadSchema,
   tenantContextIngestionService,
+  TenantContextPayloadSchema,
 } from "../services/tenant/TenantContextIngestionService.js";
+import { AUDIT_ACTION } from "../types/audit.js";
 
 const logger = createLogger({ component: "TenantContextAPI" });
 const router = Router();

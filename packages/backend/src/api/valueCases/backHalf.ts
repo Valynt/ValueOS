@@ -13,40 +13,39 @@
  * executed synchronously (direct mode) and return the agent output inline.
  */
 
+import {
+  type ProvenanceStore,
+  ProvenanceTracker,
+} from "@valueos/memory/provenance";
 import { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
-import { CircuitBreaker } from "../../lib/agent-fabric/CircuitBreaker.js";
 import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
+import { AuditLogger } from "../../lib/agent-fabric/AuditLogger.js";
+import { CircuitBreaker } from "../../lib/agent-fabric/CircuitBreaker.js";
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
+import { LLMGateway as FabricLLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
+import { MemorySystem as FabricMemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
-
 import { logger } from "../../lib/logger.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { AuthenticatedRequest, requireAuth } from "../../middleware/auth.js";
 import { rateLimiters } from "../../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../../middleware/tenantDbContext.js";
+import { agentExecutionLineageRepository } from "../../repositories/AgentExecutionLineageRepository.js";
+import { ExpansionOpportunityRepository } from "../../repositories/ExpansionOpportunityRepository.js";
 import { IntegrityResultRepository } from "../../repositories/IntegrityResultRepository.js";
 import { NarrativeDraftRepository } from "../../repositories/NarrativeDraftRepository.js";
 import { RealizationReportRepository } from "../../repositories/RealizationReportRepository.js";
-import { ExpansionOpportunityRepository } from "../../repositories/ExpansionOpportunityRepository.js";
-import { agentExecutionLineageRepository } from "../../repositories/AgentExecutionLineageRepository.js";
 import { getPdfExportService } from "../../services/export/PdfExportService.js";
 import { getPptxExportService } from "../../services/export/PptxExportService.js";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
-import { LLMGateway as FabricLLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
-import { MemorySystem as FabricMemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
-import { AuditLogger } from "../../lib/agent-fabric/AuditLogger.js";
 import {
-  ValueLifecycleOrchestrator,
   type LifecycleContext as OrchestratorLifecycleContext,
+  ValueLifecycleOrchestrator,
 } from "../../services/post-v1/ValueLifecycleOrchestrator.js";
-import {
-  ProvenanceTracker,
-  type ProvenanceStore,
-} from "@valueos/memory/provenance";
 import { SupabaseProvenanceStore } from "../../services/workflows/SagaAdapters.js";
 import type { LifecycleContext, LifecycleStage } from "../../types/agent.js";
 
@@ -603,7 +602,7 @@ function getBackHalfProvenanceTracker(): ProvenanceTracker {
     // this package and SagaAdapters — both use @supabase/supabase-js but
     // with different generic instantiations.
     const client = createServerSupabaseClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const store = new SupabaseProvenanceStore(
       client as any
     ) as unknown as ProvenanceStore;

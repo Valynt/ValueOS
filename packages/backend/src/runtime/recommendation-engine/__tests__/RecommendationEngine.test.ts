@@ -18,8 +18,8 @@ vi.mock('../../../services/realtime/RealtimeBroadcastService.js', () => ({
 // ---------------------------------------------------------------------------
 
 import {
-  DomainEventBus,
   _resetDomainEventBusForTests,
+  DomainEventBus,
   getDomainEventBus,
 } from '../../../events/DomainEventBus.js';
 import type {
@@ -30,8 +30,8 @@ import type {
 } from '../../../events/DomainEventSchemas.js';
 import { DecisionRouter } from '../../decision-router/index.js';
 import {
-  RecommendationEngine,
   _resetRecommendationEngineForTests,
+  RecommendationEngine,
 } from '../RecommendationEngine.js';
 
 // ---------------------------------------------------------------------------

@@ -315,6 +315,7 @@ export async function fetchWithRateLimit(
   }
 
   // Make request
+  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
   const response = await fetch(url, options);
 
   // Add rate limit headers to response

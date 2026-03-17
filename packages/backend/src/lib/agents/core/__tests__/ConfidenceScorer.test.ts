@@ -1,12 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
+  computeAggregateConfidence,
+  computeConfidence,
   computeFreshness,
   computeReliability,
   computeTransparency,
-  computeConfidence,
-  computeAggregateConfidence,
-  scoreClaimConfidence,
   type ConfidenceInput,
+  scoreClaimConfidence,
 } from '../ConfidenceScorer.js';
 import { classifyEvidence, type EvidenceItem } from '../EvidenceTiering.js';
 

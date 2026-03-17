@@ -17,6 +17,7 @@
 
 import { z } from 'zod';
 
+import { ExpansionOpportunityRepository } from '../../../repositories/ExpansionOpportunityRepository.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -24,11 +25,11 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-import { ExpansionOpportunityRepository } from '../../../repositories/ExpansionOpportunityRepository.js';
+import { resolvePromptTemplate } from '../promptRegistry.js';
+import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../promptRegistry.js';
+
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -341,6 +342,7 @@ export class ExpansionAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         ExpansionAnalysisSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

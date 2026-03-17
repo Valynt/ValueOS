@@ -10,10 +10,11 @@
  * - Industry standard tool interfaces
  */
 
+import { authorizationPolicyGateway } from "../policy/AuthorizationPolicyGateway.js";
+import { PolicyEnforcementError } from "../policy/PolicyEnforcement.js";
 import { logger } from "../utils/logger.js";
 
-import { PolicyEnforcementError } from "../policy/PolicyEnforcement.js";
-import { authorizationPolicyGateway } from "../policy/AuthorizationPolicyGateway.js";
+
 import { getMetricsCollector } from "./MetricsCollector.js";
 
 /**

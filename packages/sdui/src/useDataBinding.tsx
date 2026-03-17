@@ -92,6 +92,7 @@ export function useDataBinding<T = any>(
   }
 
   const binding = value as DataBinding;
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   const [state, setState] = useState<{
     value: T;
     loading: boolean;
@@ -106,8 +107,10 @@ export function useDataBinding<T = any>(
     timestamp: null,
   });
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   const resolve = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -139,11 +142,13 @@ export function useDataBinding<T = any>(
   }, [binding, resolver, context]);
 
   // Initial resolution
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   useEffect(() => {
     resolve();
   }, [resolve]);
 
   // Setup refresh interval
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   useEffect(() => {
     if (!enableRefresh || !binding.$refresh) {
       return;

@@ -9,9 +9,10 @@
  *   - new_schema_change_without_migration_fails (filename hygiene)
  */
 
-import { readdirSync, readFileSync, existsSync } from "fs";
-import { resolve, join } from "path";
-import { describe, it, expect } from "vitest";
+import { existsSync, readdirSync, readFileSync } from "fs";
+import { join, resolve } from "path";
+
+import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../..");
 const MIGRATIONS_DIR = resolve(ROOT, "infra/supabase/supabase/migrations");

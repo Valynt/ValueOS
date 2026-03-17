@@ -67,6 +67,7 @@ export function ConfidenceDisplay({
       onMouseLeave={() => setShowBreakdown(false)}
       onFocus={() => breakdown && setShowBreakdown(true)}
       onBlur={() => setShowBreakdown(false)}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable for keyboard navigation
       tabIndex={breakdown ? 0 : undefined}
       role="meter"
       aria-valuenow={pct}

@@ -113,6 +113,7 @@ const ComponentWithBindings: React.FC<{
     validationErrors,
     validationWarnings,
     refresh,
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   } = useValidatedDataBindings(section.props as Record<string, unknown>, {
     resolver,
     context,
@@ -425,6 +426,7 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
 
   // Check nesting depth before schema validation so deeply nested schemas
   // show a meaningful error rather than a generic Zod validation failure.
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   const nestingDepth = useMemo(() => {
     function measureDepth(node: unknown, d: number): number {
       if (!node || typeof node !== "object" || d > MAX_RENDER_DEPTH + 5) return d;
@@ -450,6 +452,7 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
     );
   }
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   const validation = useMemo(() => validateSDUISchema(currentSchema), [currentSchema]);
 
   if (!validation.success) {

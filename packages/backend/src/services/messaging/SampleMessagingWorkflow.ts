@@ -1,8 +1,8 @@
 import { logger } from '../../utils/logger.js'
 
 import { EventPayloadMap } from './EventSchemas.js'
-import { redisStreamBroker, StreamEvent } from './RedisStreamBroker.js'
 import type { EventName } from './EventSchemas.js'
+import { redisStreamBroker, StreamEvent } from './RedisStreamBroker.js'
 
 const messageLogger = logger.withContext({ component: 'sample-messaging-workflow' });
 

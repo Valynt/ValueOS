@@ -42,12 +42,12 @@ vi.mock("../../../../services/agents/AgentKillSwitchService.js", () => ({
 
 // --- Imports ---
 
+import { agentKillSwitchService } from "../../../../services/agents/AgentKillSwitchService.js";
 import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../../types/agent";
 import { CircuitBreaker } from "../../CircuitBreaker";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
-import { agentKillSwitchService } from "../../../../services/agents/AgentKillSwitchService.js";
 
 const killSwitchMock = vi.mocked(agentKillSwitchService);
 

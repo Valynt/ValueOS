@@ -43,6 +43,7 @@ export class WebhookSiemAdapter implements SiemSinkAdapter {
   }
 
   async send(event: SiemExportEvent): Promise<void> {
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch(this.config.endpoint, {
       method: "POST",
       headers: {
@@ -67,6 +68,7 @@ export class HttpIngestionSiemAdapter implements SiemSinkAdapter {
   }
 
   async send(event: SiemExportEvent): Promise<void> {
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch(this.config.endpoint, {
       method: "POST",
       headers: {

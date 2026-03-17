@@ -14,8 +14,8 @@
  * - Full observability and audit logging
  */
 
-import { SDUIPageDefinition, validateSDUISchema } from "@valueos/sdui";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
+import { SDUIPageDefinition, validateSDUISchema } from "@valueos/sdui";
 import { v4 as uuidv4 } from "uuid";
 
 import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
@@ -26,15 +26,14 @@ import type { LifecycleContext } from "../types/agent.js";
 import { AgentType } from "./agent-types.js"
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
-import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 import { CircuitBreakerManager } from "./CircuitBreaker.js"
-
 import {
   GroundtruthAPI,
   GroundtruthAPIConfig,
   GroundtruthRequestOptions,
   GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
+import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 
 // ============================================================================
 // Types
@@ -630,6 +629,7 @@ export class UnifiedAgentAPI {
   ): Promise<UnifiedAgentResponse> {
     const url = this.resolveAgentInvokeUrl(request.agent);
 
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch(url, {
       method: "POST",
       headers: {

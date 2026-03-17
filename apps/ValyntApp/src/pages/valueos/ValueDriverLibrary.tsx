@@ -26,10 +26,10 @@ import { cn } from "@/lib/utils";
 import {
   DriverStatus,
   PERSONA_TAG_LABELS,
+  useValueDrivers,
   VALUE_DRIVER_TYPE_LABELS,
   ValueDriver,
   ValueDriverType,
-  useValueDrivers,
 } from "@/types/valueDriver";
 
 const TYPE_COLORS: Record<ValueDriverType, string> = {

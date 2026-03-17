@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ExecutionRuntime } from '../../runtime/execution-runtime/index.js'
 import { ExecutionRequest } from '../../types/execution';
 import { ActionContext, CanonicalAction } from '../../types/sdui-integration';
 import { ActionRouter } from '../ActionRouter.js'
@@ -11,7 +12,6 @@ import { AgentAPI } from '../AgentAPI.js'
 import { assumptionService } from '../AssumptionService.js'
 import { AuditLogService } from '../AuditLogService.js'
 import { ComponentMutationService } from '../ComponentMutationService.js'
-import { ExecutionRuntime } from '../../runtime/execution-runtime/index.js'
 
 // Mock dependencies
 vi.mock('../AuditLogService');

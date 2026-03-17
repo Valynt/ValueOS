@@ -11,8 +11,8 @@
  */
 
 import { logger } from "../../lib/logger.js"
-
 import { BaseService } from "../utils/BaseService.js"
+
 import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export interface TrustedDevice {

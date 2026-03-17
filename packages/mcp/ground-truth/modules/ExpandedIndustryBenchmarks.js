@@ -394,7 +394,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "623110": {
+    "623110_alt": {
         naics_code: "623110",
         industry_name: "Nursing Care Facilities",
         year: 2024,
@@ -415,7 +415,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "621410": {
+    "621410_alt": {
         naics_code: "621410",
         industry_name: "Family Planning Centers",
         year: 2024,
@@ -436,7 +436,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "621511": {
+    "621511_alt": {
         naics_code: "621511",
         industry_name: "Medical Laboratories",
         year: 2024,
@@ -457,7 +457,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "621210": {
+    "621210_alt": {
         naics_code: "621210",
         industry_name: "Offices of Dentists",
         year: 2024,
@@ -694,7 +694,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "211120": {
+    "211120_alt": {
         naics_code: "211120",
         industry_name: "Crude Petroleum Extraction",
         year: 2024,
@@ -715,7 +715,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "221112": {
+    "221112_alt": {
         naics_code: "221112",
         industry_name: "Fossil Fuel Electric Power Generation",
         year: 2024,
@@ -736,7 +736,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "333131": {
+    "333131_alt": {
         naics_code: "333131",
         industry_name: "Mining Machinery and Equipment Manufacturing",
         year: 2024,
@@ -757,7 +757,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "332111": {
+    "332111_alt": {
         naics_code: "332111",
         industry_name: "Iron and Steel Forging",
         year: 2024,
@@ -994,7 +994,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "541310": {
+    "541310_alt": {
         naics_code: "541310",
         industry_name: "Architectural Services",
         year: 2024,
@@ -1015,7 +1015,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "531210": {
+    "531210_alt": {
         naics_code: "531210",
         industry_name: "Offices of Real Estate Agents and Brokers",
         year: 2024,
@@ -1036,7 +1036,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "524113": {
+    "524113_alt": {
         naics_code: "524113",
         industry_name: "Direct Life Insurance Carriers",
         year: 2024,
@@ -1057,7 +1057,7 @@ export const EXPANDED_INDUSTRY_BENCHMARKS = {
             },
         },
     },
-    "522110": {
+    "522110_alt": {
         naics_code: "522110",
         industry_name: "Commercial Banking",
         year: 2024,

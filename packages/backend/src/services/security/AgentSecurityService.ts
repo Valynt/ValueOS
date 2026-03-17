@@ -980,6 +980,7 @@ export class AgentSecurityService extends EventEmitter {
     // Check resource match
     if (
       permission.resource !== "*" &&
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       !resource.match(new RegExp(permission.resource.replace("*", ".*")))
     ) {
       return false;

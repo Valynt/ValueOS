@@ -5,6 +5,7 @@ vi.mock('../lib/supabase.js', () => ({
 }));
 
 import { supabase } from '../lib/supabase.js';
+
 import { FinancialModelSnapshotRepository } from './FinancialModelSnapshotRepository.js';
 
 const mockFrom = supabase.from as ReturnType<typeof vi.fn>;

@@ -5,9 +5,9 @@ vi.mock('../../utils/logger.js', () => ({
 }));
 
 import {
-  DomainEventBus,
   _resetDomainEventBusForTests,
   buildEventEnvelope,
+  DomainEventBus,
   getDomainEventBus,
 } from '../DomainEventBus.js';
 import type { OpportunityUpdatedPayload } from '../DomainEventSchemas.js';

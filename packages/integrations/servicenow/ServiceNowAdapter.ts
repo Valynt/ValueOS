@@ -6,16 +6,17 @@
  * All entities include tenant isolation via credentials.tenantId.
  */
 
+import { z } from "zod";
+
 import {
   AuthError,
   EnterpriseAdapter,
   IntegrationError,
-  RateLimitError,
   RateLimiter,
+  RateLimitError,
   ValidationError,
 } from "../base/index.js";
 import type { FetchOptions, IntegrationConfig, NormalizedEntity } from "../base/index.js";
-import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Constants

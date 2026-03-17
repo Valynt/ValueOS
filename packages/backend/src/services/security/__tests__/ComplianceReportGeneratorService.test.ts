@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import type { ControlStatusRecord } from "../ComplianceControlStatusService.js";
 import {
   ComplianceReportGeneratorService,
   MissingEvidenceError,
 } from "../ComplianceReportGeneratorService.js";
-import type { ControlStatusRecord } from "../ComplianceControlStatusService.js";
 
 interface MockInsertResult {
   data: Record<string, unknown>;

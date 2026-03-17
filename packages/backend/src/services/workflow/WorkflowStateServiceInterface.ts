@@ -6,6 +6,7 @@
  */
 
 import { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
+
 import type { SessionInitOptions } from './WorkflowStateService.js';
 
 export type { SessionInitOptions };

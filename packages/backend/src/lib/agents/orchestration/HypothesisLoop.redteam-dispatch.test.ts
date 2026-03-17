@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { HypothesisLoop, type FinancialModelingAgentInterface, type GroundTruthAgentInterface, type NarrativeAgentInterface, type OpportunityAgentInterface } from './HypothesisLoop.js';
 import type { DLQEntry } from '../core/DeadLetterQueue.js';
-import { SagaState, SagaTrigger, type SagaSnapshot, type SagaTriggerType } from '../core/ValueCaseSaga.js';
+import { type SagaSnapshot, SagaState, SagaTrigger, type SagaTriggerType } from '../core/ValueCaseSaga.js';
+
 import type { RedTeamAnalyzer, RedTeamOutput } from './agents/RedTeamAgent.js';
+import { type FinancialModelingAgentInterface, type GroundTruthAgentInterface, HypothesisLoop, type NarrativeAgentInterface, type OpportunityAgentInterface } from './HypothesisLoop.js';
 
 class InMemorySaga {
   private state = SagaState.INITIATED;

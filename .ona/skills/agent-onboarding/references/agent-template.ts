@@ -103,6 +103,7 @@ Generate a JSON object with: result, confidence (high/medium/low), reasoning.`;
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         XOutputSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 }, // adjust per risk tier

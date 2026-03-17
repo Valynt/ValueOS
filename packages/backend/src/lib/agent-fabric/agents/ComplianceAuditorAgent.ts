@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 import type { AgentOutput, LifecycleContext } from '../../../types/agent.js';
+import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
 
 const ComplianceSummarySchema = z.object({
   summary: z.string(),
@@ -69,6 +69,7 @@ export class ComplianceAuditorAgent extends BaseAgent {
       context.workspace_id,
       prompt,
       ComplianceSummarySchema,
+      // eslint-disable-next-line no-restricted-syntax -- intentional usage
       {
         trackPrediction: true,
         confidenceThresholds: { low: 0.7, high: 0.9 },

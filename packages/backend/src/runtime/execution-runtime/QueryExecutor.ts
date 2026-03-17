@@ -6,20 +6,20 @@
  * getAsyncQueryResult in Sprint 4.
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { v4 as uuidv4 } from 'uuid';
 
-import { getTracer } from '../../config/telemetry.js';
 import { featureFlags } from '../../config/featureFlags.js';
-import { logger } from '../../lib/logger.js';
-import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
-import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
-import type { AgentType } from '../../services/agent-types.js';
+import { getTracer } from '../../config/telemetry.js';
 import { createAgentFactory } from '../../lib/agent-fabric/AgentFactory.js';
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
+import { logger } from '../../lib/logger.js';
 import { CircuitBreaker } from '../../lib/resilience/CircuitBreaker.js';
+import type { AgentType } from '../../services/agent-types.js';
+import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
+import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import type { LifecycleContext } from '../../types/agent.js';
 
 // AgentContext shape used for direct factory invocation (ADR-0014)
@@ -40,10 +40,12 @@ interface BuildAgentContextInput {
 }
 import type { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
 import type { AgentResponse, ExecutionEnvelope, ProcessQueryResult } from '../../types/orchestration.js';
-import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
+import type { PolicyEngine } from '../policy-engine/index.js';
+
 import type { DecisionContext } from '@shared/domain/DecisionContext';
 import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity';
+
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
 
 // ============================================================================

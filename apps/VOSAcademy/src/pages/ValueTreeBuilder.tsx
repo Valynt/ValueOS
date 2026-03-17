@@ -169,11 +169,10 @@ export default function ValueTreeBuilder() {
     return (
       <div key={node.id} className="relative">
         <div
-          className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
-            node.type === 'outcome' ? 'border-blue-200 bg-blue-50 dark:bg-blue-950' :
-            node.type === 'capability' ? 'border-green-200 bg-green-50 dark:bg-green-950' :
-            'border-purple-200 bg-purple-50 dark:bg-purple-950'
-          }`}
+          className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${node.type === 'outcome' ? 'border-blue-200 bg-blue-50 dark:bg-blue-950' :
+              node.type === 'capability' ? 'border-green-200 bg-green-50 dark:bg-green-950' :
+                'border-purple-200 bg-purple-50 dark:bg-purple-950'
+            }`}
           style={{ marginLeft: `${indent}px` }}
         >
           <div className="flex items-start justify-between">
@@ -290,7 +289,7 @@ export default function ValueTreeBuilder() {
                   <div className="flex items-start justify-between mb-2">
                     <Badge variant={
                       exercise.difficulty === "beginner" ? "secondary" :
-                      exercise.difficulty === "intermediate" ? "default" : "destructive"
+                        exercise.difficulty === "intermediate" ? "default" : "destructive"
                     }>
                       {exercise.difficulty}
                     </Badge>
@@ -590,9 +589,10 @@ export default function ValueTreeBuilder() {
                 <CardTitle id="objectives-heading" className="text-lg">Learning Objectives</CardTitle>
               </CardHeader>
               <CardContent>
+                {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role for older screen readers */}
                 <ul className="space-y-2" role="list" aria-label="Learning objectives">
                   {selectedExercise.objectives.map((objective, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm" role="listitem">
+                    <li key={index} className="flex items-start gap-2 text-sm" role="listitem"> {/* eslint-disable-line jsx-a11y/no-redundant-roles -- explicit role for older screen readers */}
                       <Icons.CheckCircle2 className="w-4 h-4 mt-0.5 text-green-600 flex-shrink-0" aria-hidden="true" />
                       {objective}
                     </li>

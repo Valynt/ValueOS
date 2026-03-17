@@ -7,6 +7,7 @@
  */
 
 import { DecisionContext } from '@shared/domain/DecisionContext';
+
 import { AgentType } from '../../../services/agent-types.js';
 
 // ---------------------------------------------------------------------------

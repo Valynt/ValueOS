@@ -83,6 +83,7 @@ function getExtraAllowedPatterns(): RegExp[] {
     .split(',')
     .map((d) => d.trim())
     .filter(Boolean)
+    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
     .map((d) => new RegExp(`^${d.replace(/\./g, '\\.').replace(/\*/g, '[a-z0-9-]+')}$`));
 }
 

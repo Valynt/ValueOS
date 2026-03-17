@@ -109,6 +109,7 @@ class ExtractionService {
     `;
 
     return withRetries(async () => {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(
         "https://api.together.xyz/v1/chat/completions",
         {

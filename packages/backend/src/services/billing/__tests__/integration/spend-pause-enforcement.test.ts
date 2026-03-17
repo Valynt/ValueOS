@@ -5,10 +5,10 @@ vi.mock('lz-string', () => ({
   decompress: (value: string) => value,
 }));
 
+import { MessageBus } from '../../../realtime/MessageBus.js';
 import { BillingExecutionControlService } from '../../BillingExecutionControlService.js';
 import { BillingSpendEvaluationService } from '../../BillingSpendEvaluationService.js';
 import { TenantExecutionStateService } from '../../TenantExecutionStateService.js';
-import { MessageBus } from '../../../realtime/MessageBus.js';
 
 vi.mock('../../../AuditLogService.js', () => ({
   auditLogService: {

@@ -62,7 +62,7 @@ export function useAnnouncer() {
     if (!announcerRef.current) return;
 
     announcerRef.current.setAttribute('aria-live', priority);
-    announcerRef.current. = message;
+    announcerRef.current.textContent = message;
 
     // Clear after announcement
     setTimeout(() => {
@@ -154,25 +154,25 @@ export function handleListNavigation(
     case KeyboardKeys.ARROW_DOWN:
       event.preventDefault();
       return Math.min(currentIndex + 1, items.length - 1);
-    
+
     case KeyboardKeys.ARROW_UP:
       event.preventDefault();
       return Math.max(currentIndex - 1, 0);
-    
+
     case KeyboardKeys.HOME:
       event.preventDefault();
       return 0;
-    
+
     case KeyboardKeys.END:
       event.preventDefault();
       return items.length - 1;
-    
+
     case KeyboardKeys.ENTER:
     case KeyboardKeys.SPACE:
       event.preventDefault();
       onSelect?.(currentIndex);
       return currentIndex;
-    
+
     default:
       return currentIndex;
   }
@@ -206,7 +206,7 @@ export function ScreenReaderOnly({ children }: { children: React.ReactNode }) {
 /**
  * Visually hidden but accessible label
  */
-export function VisuallyHidden({ as: Component = 'span', children, ...props }: { as?: React.ElementType; children?: React.ReactNode; [key: string]: unknown }) {
+export function VisuallyHidden({ as: Component = 'span', children, ...props }: { as?: React.ElementType; children?: React.ReactNode;[key: string]: unknown }) {
   return (
     <Component
       className="absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0"

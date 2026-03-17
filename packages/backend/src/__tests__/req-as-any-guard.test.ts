@@ -55,7 +55,7 @@ async function findViolations({ pattern }: GuardConfig): Promise<string[]> {
     } else if (err.code === 'ENOENT') {
       // rg is not available in this environment; treat as a skipped test
       // rather than an opaque failure.
-      // eslint-disable-next-line no-console
+       
       console.warn('Skipping request-cast guardrail test because `rg` (ripgrep) is not installed.');
       return [];
     } else {

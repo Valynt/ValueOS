@@ -280,6 +280,7 @@ function isBlacklisted(file: string, blacklist: string[]): boolean {
   return blacklist.some(pattern => {
     if (pattern.includes('*')) {
       // Simple glob matching
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(pattern.replace(/\*/g, '.*'));
       return regex.test(file);
     }

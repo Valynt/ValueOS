@@ -10,7 +10,8 @@ vi.mock("../lib/observability/index.js", () => ({
 }));
 
 import { supabase } from "../lib/supabase.js";
-import { checkTableFreshness, checkAllT1TableFreshness, T1_TABLES } from "./dataFreshness.js";
+
+import { checkAllT1TableFreshness, checkTableFreshness, T1_TABLES } from "./dataFreshness.js";
 
 const mockFrom = supabase.from as ReturnType<typeof vi.fn>;
 

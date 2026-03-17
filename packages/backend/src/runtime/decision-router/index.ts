@@ -11,18 +11,21 @@
  * The legacy selectAgentForQuery() method is removed.
  */
 
+import { DecisionContext } from '@shared/domain/DecisionContext';
+
+import { runInTelemetrySpan } from '../../observability/telemetryStandards.js';
 import { AgentType } from '../../services/agent-types.js';
 import { AgentRegistry, RoutingContext } from '../../services/agents/AgentRegistry.js';
 import { AgentRoutingLayer, StageRoute } from '../../services/agents/AgentRoutingLayer.js';
 import { AgentRoutingScorer } from '../../services/agents/AgentRoutingScorer.js';
 import { WorkflowDAG } from '../../types/workflow.js';
-import { DecisionContext } from '@shared/domain/DecisionContext';
+
 import {
+  DOMAIN_ROUTING_RULES,
   RoutingRecommendation,
   RoutingRule,
-  DOMAIN_ROUTING_RULES,
 } from './rules/index.js';
-import { runInTelemetrySpan } from '../../observability/telemetryStandards.js';
+
 
 export type { StageRoute, RoutingRecommendation, RoutingRule };
 export { AgentRegistry, AgentRoutingLayer, AgentRoutingScorer };
