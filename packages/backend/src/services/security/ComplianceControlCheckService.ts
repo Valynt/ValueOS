@@ -7,6 +7,7 @@ import {
   type EvidenceType,
 } from "./ComplianceControlMappingRegistry.js";
 
+
 export type AutomatedControlCheckStatus = "pass" | "fail";
 
 export interface AutomatedControlCheckResult {
@@ -37,6 +38,9 @@ const FRESHNESS_BUDGET_MINUTES: Record<EvidenceType, number> = {
   security_audit_log_archive: 60 * 24 * 30,
   control_status: 60 * 24,
 };
+
+const CONCURRENT_TENANT_CHECKS = 5;
+
 
 export class ComplianceControlCheckService {
   private readonly supabase = createServerSupabaseClient();
@@ -87,17 +91,36 @@ export class ComplianceControlCheckService {
       return (data?.timestamp as string | undefined) ?? null;
     }
 
-    const { data, error } = await this.supabase
-      .from("audit_logs")
-      .select("timestamp")
-      .eq("tenant_id", tenantId)
-      .eq("archived", true)
-      .order("timestamp", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    if (evidenceType === "audit_logs_archive") {
+      const { data, error } = await this.supabase
+        .from("audit_logs")
+        .select("timestamp")
+        .eq("tenant_id", tenantId)
+        .eq("archived", true)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (error) return null;
-    return (data?.timestamp as string | undefined) ?? null;
+      if (error) return null;
+      return (data?.timestamp as string | undefined) ?? null;
+    }
+
+    if (evidenceType === "security_audit_log_archive") {
+      const { data, error } = await this.supabase
+        .from("audit_logs")
+        .select("timestamp")
+        .eq("tenant_id", tenantId)
+        .eq("archived", true)
+        .in("resource_type", ["security_alert", "security_event", "security_incident", "security_audit_log"])
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) return null;
+      return (data?.timestamp as string | undefined) ?? null;
+    }
+
+    return null;
   }
 
   async runChecksForTenant(tenantId: string, trigger: "scheduled" | "manual" = "scheduled"): Promise<AutomatedControlCheckSnapshot> {
@@ -136,7 +159,7 @@ export class ComplianceControlCheckService {
             : "Required evidence artifact is missing.",
         last_evidence_at: latest,
         max_age_minutes: maxAge,
-        freshness_minutes: freshness ? Number(freshness.toFixed(2)) : null,
+        freshness_minutes: freshness !== null ? Number(freshness.toFixed(2)) : null,
       });
     }
 
@@ -151,13 +174,22 @@ export class ComplianceControlCheckService {
       results,
     };
 
-    await this.supabase.from("compliance_control_audit").insert({
+    const { error: runAuditInsertError } = await this.supabase.from("compliance_control_audit").insert({
       tenant_id: tenantId,
       control_id: "automated_control_checks",
       event_type: "automated_control_check_ran",
       event_payload: snapshot,
       evidence_ts: checkedAt,
     });
+
+    if (runAuditInsertError) {
+      logger.error("Failed to insert automated_control_check_ran audit record", {
+        tenant_id: tenantId,
+        run_id: snapshot.run_id,
+        error: runAuditInsertError,
+      });
+    }
+
 
     await auditLogService.createEntry({
       userId: "system",
@@ -176,7 +208,7 @@ export class ComplianceControlCheckService {
     });
 
     if (failingChecks.length > 0) {
-      await this.supabase.from("compliance_control_audit").insert({
+      const { error: alertInsertError } = await this.supabase.from("compliance_control_audit").insert({
         tenant_id: tenantId,
         control_id: "automated_control_checks",
         event_type: "automated_control_check_alert_raised",
@@ -187,6 +219,15 @@ export class ComplianceControlCheckService {
         },
         evidence_ts: checkedAt,
       });
+
+      if (alertInsertError) {
+        logger.error("Failed to insert automated_control_check_alert_raised record", {
+          tenant_id: tenantId,
+          run_id: snapshot.run_id,
+          failing_checks_count: failingChecks.length,
+          error: alertInsertError,
+        });
+      }
     }
 
     return snapshot;
@@ -218,16 +259,34 @@ export class ComplianceControlCheckService {
     }
 
     const tenants = (data as Array<{ id: string }> | null) ?? [];
-    for (const tenant of tenants) {
-      await this.runChecksForTenant(tenant.id, "scheduled");
+    for (let i = 0; i < tenants.length; i += CONCURRENT_TENANT_CHECKS) {
+      const batch = tenants.slice(i, i + CONCURRENT_TENANT_CHECKS);
+      await Promise.all(
+        batch.map(async (tenant) => {
+          try {
+            await this.runChecksForTenant(tenant.id, "scheduled");
+          } catch (err) {
+            logger.warn("ComplianceControlCheckService: scheduled sweep failed for tenant", {
+              tenantId: tenant.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }),
+      );
     }
   }
 
   start(intervalMs = 15 * 60 * 1000): void {
     if (this.interval) return;
     this.interval = setInterval(() => {
-      void this.runScheduledSweep();
+      void this.runScheduledSweep().catch((error) => {
+        logger.error("ComplianceControlCheckService: scheduled sweep failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }, intervalMs);
+    // Do not keep the process alive solely because of this background interval
+    this.interval.unref?.();
   }
 
   stop(): void {
@@ -237,4 +296,46 @@ export class ComplianceControlCheckService {
   }
 }
 
-export const complianceControlCheckService = new ComplianceControlCheckService();
+let _complianceControlCheckService: ComplianceControlCheckService | null = null;
+
+function getComplianceControlCheckServiceInstance(): ComplianceControlCheckService {
+  if (_complianceControlCheckService === null) {
+    _complianceControlCheckService = new ComplianceControlCheckService();
+  }
+  return _complianceControlCheckService;
+}
+
+const complianceControlCheckServiceProxyHandler: ProxyHandler<ComplianceControlCheckService> = {
+  get(_target, prop, _receiver) {
+    const instance = getComplianceControlCheckServiceInstance();
+    const value = (instance as Record<PropertyKey, unknown>)[prop];
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(instance);
+    }
+    return value;
+  },
+  set(_target, prop, value) {
+    const instance = getComplianceControlCheckServiceInstance();
+    (instance as Record<PropertyKey, unknown>)[prop] = value;
+    return true;
+  },
+  has(_target, prop) {
+    const instance = getComplianceControlCheckServiceInstance();
+    return prop in instance;
+  },
+  ownKeys(_target) {
+    const instance = getComplianceControlCheckServiceInstance();
+    return Reflect.ownKeys(instance);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const instance = getComplianceControlCheckServiceInstance();
+    const descriptor = Object.getOwnPropertyDescriptor(instance, prop);
+    if (!descriptor) return undefined;
+    return { ...descriptor, configurable: true };
+  },
+};
+
+export const complianceControlCheckService: ComplianceControlCheckService = new Proxy(
+  {} as ComplianceControlCheckService,
+  complianceControlCheckServiceProxyHandler,
+);
