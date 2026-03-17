@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+
 import {
   EntityGraph,
+  EntityGraphEdgeSchema,
   EntityGraphError,
   KpiDependencySchema,
-  EntityGraphEdgeSchema,
 } from "../EntityGraph.js";
 import type { EntityNode, GraphEdge } from "../EntityGraph.js";
 

@@ -8,8 +8,9 @@
  *                               the wireframe NotificationProvider
  */
 
-import { createBrowserSupabaseClient } from "../supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+
+import { createBrowserSupabaseClient } from "../supabase";
 
 // RealtimeService is browser-only — obtain the client lazily so SSR/test
 // environments that never call createBrowserSupabaseClient() don't throw.

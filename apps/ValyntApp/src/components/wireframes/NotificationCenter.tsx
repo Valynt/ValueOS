@@ -3,11 +3,6 @@
  * Pattern: Real-time activity feed with agent actions, policy alerts, evidence updates
  * Features: Category filters, unread badges, timestamp grouping, mark-as-read, live pulse
  */
-import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
-import { apiClient } from "@/api/client/unified-api-client";
-import { getRealtimeService } from "@/lib/realtime/supabaseRealtime";
-import type { NotificationBroadcastPayload } from "@/lib/realtime/supabaseRealtime";
-import { useWireframeAuth } from "./WireframeAuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell, X, Sparkles, Shield, FlaskConical, Scale,
@@ -15,6 +10,13 @@ import {
   Activity, TrendingUp, Eye, Filter, Check,
   Microscope, FileText, Layers, ChevronRight
 } from "lucide-react";
+import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
+
+import { useWireframeAuth } from "./WireframeAuthContext";
+
+import { apiClient } from "@/api/client/unified-api-client";
+import { getRealtimeService } from "@/lib/realtime/supabaseRealtime";
+import type { NotificationBroadcastPayload } from "@/lib/realtime/supabaseRealtime";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */

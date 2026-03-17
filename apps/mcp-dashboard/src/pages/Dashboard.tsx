@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { getDashboardPageData } from "../services/pageDataClient";
 
 import {
   FinancialLineChart,
@@ -16,6 +15,7 @@ import {
   NotificationList,
 } from "../components/charts/FinancialCharts";
 import { useWebSocket } from "../index";
+import { getDashboardPageData } from "../services/pageDataClient";
 
 interface DashboardStats {
   totalRequests: number;

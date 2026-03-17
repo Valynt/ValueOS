@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,8 +11,9 @@ vi.mock("@/api/client/unified-api-client", () => ({
   },
 }));
 
-import { apiClient } from "@/api/client/unified-api-client";
 import { useSubscription } from "../useSubscription";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 const mockGet = vi.mocked(apiClient.get);
 const mockPost = vi.mocked(apiClient.post);

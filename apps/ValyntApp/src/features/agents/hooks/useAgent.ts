@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 
-import { apiClient } from "@/api/client/unified-api-client";
 import type { AgentMessage, AgentSession, AgentStatus } from "../types";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 export function useAgent(agentId: string) {
   const [status, setStatus] = useState<AgentStatus>("idle");

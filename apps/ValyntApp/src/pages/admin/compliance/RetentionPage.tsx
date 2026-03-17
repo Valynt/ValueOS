@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { RetentionRule } from "./types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import { RetentionRule } from "./types";
 
 export function RetentionPage() {
   const { data } = useQuery({

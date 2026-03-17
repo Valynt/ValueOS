@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { DsrQueueItem } from "./types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import { DsrQueueItem } from "./types";
 
 export function DsrPage() {
   const { data } = useQuery({

@@ -1,5 +1,4 @@
 import { logger } from "../../../lib/logger";
-
 import { DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";

@@ -24,7 +24,7 @@ const runtime: ShutdownRuntime = {
   exit: (code) => process.exit(code),
   log: (level, message, meta) => {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
-    // eslint-disable-next-line no-console
+     
     console[level](`[shutdown] ${message}${payload}`);
   },
 };
@@ -111,7 +111,7 @@ export function __resetGracefulShutdownForTests(): void {
   runtime.exit = (code) => process.exit(code);
   runtime.log = (level, message, meta) => {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
-    // eslint-disable-next-line no-console
+     
     console[level](`[shutdown] ${message}${payload}`);
   };
 }

@@ -17,8 +17,8 @@
  * dedicated GET endpoints; they return mock data in both flag states.
  */
 
-import { logger } from "../lib/logger";
 import { apiClient } from "../api/client/unified-api-client";
+import { logger } from "../lib/logger";
 import type {
   CommitmentDto,
   NoteDto,

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+
 import { useHumanCheckpointDependencies } from "./HumanCheckpointDependencies";
 
 export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onResume, auth: authProp, broker: brokerProp, }) => {

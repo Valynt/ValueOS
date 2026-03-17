@@ -13,7 +13,6 @@ import { Calendar, CreditCard, Download, TrendingUp } from 'lucide-react';
 import React from 'react';
 
 import { apiClient } from '../../api/client/unified-api-client';
-
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,

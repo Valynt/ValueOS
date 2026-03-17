@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { apiClient } from "@/api/client/unified-api-client";
 import type { Project } from "../types";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 export function useProjects(workspaceId?: string) {
   const [projects, setProjects] = useState<Project[]>([]);

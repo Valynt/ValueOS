@@ -22,8 +22,8 @@ import {
 } from "../../types/eso-data";
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 import { BaseModule } from "../core/BaseModule";
-
 import type { ModuleRequest, ModuleResponse } from '../types';
+
 import { logger } from "@/lib/logger";
 
 // ============================================================================

@@ -38,11 +38,11 @@ vi.mock('../../lib/logger', () => ({
 // Import after mocks are registered
 // ---------------------------------------------------------------------------
 
+import type { CommitmentDto } from '../../types/value-commitment-tracking';
 import {
   ValueCommitmentTrackingService,
   CommitmentApiError,
 } from '../ValueCommitmentTrackingService';
-import type { CommitmentDto } from '../../types/value-commitment-tracking';
 
 // ---------------------------------------------------------------------------
 // Constants

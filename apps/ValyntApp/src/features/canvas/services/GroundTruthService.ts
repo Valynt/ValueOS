@@ -75,7 +75,7 @@ const MAX_CACHE_ENTRIES = 200;
 
 export class GroundTruthService {
   private static instance: GroundTruthService;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private mcpServer: { executeTool: (name: string, args: Record<string, unknown>) => Promise<any> } | null = null;
   private cache = new Map<string, CacheEntry<unknown>>();
 

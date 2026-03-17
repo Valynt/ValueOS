@@ -7,8 +7,9 @@ vi.mock("@/api/client/unified-api-client", () => ({
   },
 }));
 
-import { apiClient } from "@/api/client/unified-api-client";
 import { createLLMClient } from "./client";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 const mockPost = vi.mocked(apiClient.post);
 

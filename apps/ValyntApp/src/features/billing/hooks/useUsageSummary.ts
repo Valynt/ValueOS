@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { BillingSummaryResponseSchema } from "@valueos/shared";
 
+import type { UsageMetric } from "../types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import type { UsageMetric } from "../types";
 
 // ---------------------------------------------------------------------------
 // Extended type — adds metricKey for threshold logic and React list keying

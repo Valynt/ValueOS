@@ -6,8 +6,8 @@ import {
   Target,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { useRealizationReport, useRunRealizationAgent } from "@/hooks/useRealization";
+import { cn } from "@/lib/utils";
 
 export function RealizationStage({ caseId }: { caseId?: string }) {
   const { data: report, isLoading, error } = useRealizationReport(caseId);

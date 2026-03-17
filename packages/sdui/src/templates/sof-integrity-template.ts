@@ -27,7 +27,7 @@ export function generateSOFIntegrityPage(data: {
   const activeLoops = allLoops.filter((loop) => loop.realization_stage === 'active');
   const closedLoops = allLoops.filter((loop) => loop.closure_status === 'closed');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const components: SDUIPageDefinition['sections'] = ([
     // Header
     {

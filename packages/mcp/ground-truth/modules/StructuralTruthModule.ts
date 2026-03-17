@@ -9,9 +9,9 @@
  */
 
 import {
+  assessImprovementFeasibility,
   checkBenchmarkAlignment,
   classifyClaimSeverity,
-  assessImprovementFeasibility,
   computeCompositeHealth,
   computeConfidenceScore,
 } from "@backend/types/eso";
@@ -24,10 +24,10 @@ import type {
   ImpactNode,
 } from "@backend/types/eso";
 import {
+  adjustBenchmarkForSize,
   ALL_ESO_KPIS,
   EXTENDED_ESO_EDGES,
   EXTENDED_PERSONA_MAPS,
-  adjustBenchmarkForSize,
 } from "@backend/types/eso-data";
 import { ALL_VMRT_SEEDS } from "@backend/types/vos-pt1-seed";
 import { z } from "zod";

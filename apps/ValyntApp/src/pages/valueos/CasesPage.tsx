@@ -25,8 +25,8 @@ import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCasesList, usePortfolioValue } from "@/hooks/useCases";
-import { cn } from "@/lib/utils";
 import type { ValueCaseWithRelations } from "@/lib/supabase/types";
+import { cn } from "@/lib/utils";
 
 type CaseStatus = "draft" | "in-progress" | "committed" | "closed" | "review" | "published";
 type ViewMode = "grid" | "list";

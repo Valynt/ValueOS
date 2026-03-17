@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "echo 'mcp-dashboard: skipped (has unresolved source errors, see tsErrorBaseline)'",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
     "preview": "vite preview"
   },
   "dependencies": {

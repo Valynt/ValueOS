@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext } from "react";
+import React, { createContext, ReactNode, useContext } from "react";
 
 export interface HumanCheckpointEventPayload {
   schemaVersion: string;
