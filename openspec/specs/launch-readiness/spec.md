@@ -5,7 +5,7 @@ Define the minimum launch-readiness checklist and documentation standards that e
 ## Requirements
 ### Requirement: Launch readiness document exists
 
-`docs/launch-readiness.md` SHALL exist and SHALL contain the following sections: Scope, Blockers, Launch-safe known issues, Post-launch work, Commands, Environment variables, Smoke test.
+`docs/launch-readiness.md` SHALL exist and SHALL contain the following sections: Scope, Blockers, Resolved, Launch-safe known issues, Post-launch work, Commands, Environment variables, Smoke test.
 
 #### Scenario: Engineer checks launch status
 
