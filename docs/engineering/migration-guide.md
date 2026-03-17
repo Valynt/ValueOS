@@ -15,7 +15,7 @@
 
 ## Legacy Business Cases Deprecation Plan
 
-*Source: `engineering/migration/DEPRECATION_PLAN.md`*
+_Source: `engineering/migration/DEPRECATION_PLAN.md`_
 
 ## Context
 
@@ -71,7 +71,7 @@ The `business_cases` table is a legacy artifact that has been superseded by the 
 
 ## Migration Quick Reference
 
-*Source: `engineering/migrations/MIGRATION_QUICK_REFERENCE.md`*
+_Source: `engineering/migrations/MIGRATION_QUICK_REFERENCE.md`_
 
 **Keep this handy!** 📌
 
@@ -459,7 +459,55 @@ Need to change schema?
 
 ---
 
-**Last Updated:** December 1, 2025
-**Print this page and keep it visible!** 🖨️
+**Last Updated:** March 2026
+
+---
+
+## Migration Squash Strategy
+
+_Added per audit recommendation #6 (comprehensive repo audit, March 2026)._
+
+### Problem
+
+The repository contains **208 SQL migration files**. Long migration chains increase:
+
+- Schema application time for fresh environments.
+- Risk of migration chain breakage (dependency ordering issues).
+- Cognitive load when debugging schema-related bugs.
+
+### Strategy: Quarterly Epoch Baselines
+
+1. **Quarterly baseline snapshot:** At the start of each quarter, create a single consolidated migration file that represents the full schema state as of that date. Name it `YYYYMMDD000000_epoch_baseline_QN.sql` (e.g., `20260401000000_epoch_baseline_Q2_2026.sql`).
+
+2. **Generate the baseline:**
+
+   ```bash
+   # Dump the current schema (no data) from the test database
+   pg_dump --schema-only --no-owner --no-privileges \
+     -d valueos_test > supabase/migrations/YYYYMMDD000000_epoch_baseline_QN.sql
+   ```
+
+3. **Move superseded migrations:** After creating the baseline, move all migration files older than the previous baseline into a `supabase/migrations/_consolidated/` directory. These are retained for audit trail but are not applied to fresh environments.
+
+4. **Update the migration chain integrity test:** The CI check at `.github/workflows/migration-chain-integrity.yml` must be updated to start from the latest epoch baseline rather than the first migration.
+
+5. **Rollback files:** Epoch baselines do not have rollback files. Rollbacks for the consolidated period are handled by restoring from the most recent pre-baseline database backup.
+
+### Schedule
+
+| Quarter | Baseline File                               | Consolidates Migrations Before |
+| ------- | ------------------------------------------- | ------------------------------ |
+| Q2 2026 | `20260401000000_epoch_baseline_Q2_2026.sql` | All files before 2026-04-01    |
+| Q3 2026 | `20260701000000_epoch_baseline_Q3_2026.sql` | All files before 2026-07-01    |
+| Q4 2026 | `20261001000000_epoch_baseline_Q4_2026.sql` | All files before 2026-10-01    |
+
+### Validation
+
+After creating a baseline:
+
+1. Apply the baseline to a clean database.
+2. Run `pnpm run test:rls` to verify RLS policies are intact.
+3. Run the full test suite to verify schema correctness.
+4. Commit the baseline and the `_consolidated/` move in a single PR.
 
 ---
