@@ -6,13 +6,13 @@
  * SECURITY: Now uses SecureMessageBus for all event communication
  */
 
-import { ServiceMessageBusAdapter } from "../lib/agent-fabric/ServiceMessageBusAdapter";
+import { ServiceMessageBusAdapter } from "../../lib/agent-fabric/ServiceMessageBusAdapter";
 import { logger } from "../../lib/logger.js"
-import { StageStatus } from "../types/workflow";
-import { StageCompletionEvent, WorkflowProgress } from "../types/workflow-sdui";
+import { StageStatus } from "../../types/workflow";
+import { StageCompletionEvent, WorkflowProgress } from "../../types/workflow-sdui";
 
 import { canvasSchemaService } from "./CanvasSchemaService.js"
-import { getStageById } from "./workflows/WorkflowDAGDefinitions.js"
+import { getStageById } from "../workflows/WorkflowDAGDefinitions.js"
 import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter.js"
 
 /**

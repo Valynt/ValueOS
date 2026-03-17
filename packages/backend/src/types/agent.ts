@@ -76,6 +76,8 @@ export interface AgentConstraints {
 
 export interface LifecycleContext {
   workspace_id: string;
+  /** Alias for workspace_id — used by some callers. */
+  session_id?: string;
   organization_id: string;
   user_id: string;
   lifecycle_stage: LifecycleStage;
@@ -83,6 +85,8 @@ export interface LifecycleContext {
   workspace_data: WorkspaceData;
   user_inputs: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  /** Free-form query string passed by some callers. */
+  query?: string;
 }
 
 export interface WorkspaceData {
@@ -91,6 +95,8 @@ export interface WorkspaceData {
   realization?: Record<string, unknown>;
   expansion?: Record<string, unknown>;
   integrity?: Record<string, unknown>;
+  businessCase?: Record<string, unknown>;
+  [key: string]: Record<string, unknown> | undefined;
 }
 
 // ============================================================================

@@ -88,7 +88,7 @@ class MCPGroundTruthService {
   private async doInitialize(): Promise<void> {
     try {
       // Dynamic import to avoid loading MCP code unless needed
-      const { createDevServer } = await import('../mcp-ground-truth');
+      const { createDevServer } = await import('../../mcp-ground-truth');
       this.server = await createDevServer();
       this.initialized = true;
       if (this.server) {

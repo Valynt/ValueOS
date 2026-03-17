@@ -22,7 +22,7 @@ import { generateSOFOpportunityPage } from "@sdui/templates/sof-opportunity-temp
 import { generateSOFRealizationPage } from "@sdui/templates/sof-realization-template";
 import { generateSOFTargetPage } from "@sdui/templates/sof-target-template";
 
-import { hashObject, shortHash } from "../lib/contentHash";
+import { hashObject, shortHash } from "../../lib/contentHash";
 import { logger } from "../../lib/logger.js"
 import { getSupabaseClient } from "../../lib/supabase.js"
 import {
@@ -33,14 +33,14 @@ import {
   WorkspaceContext,
   WorkspaceData,
   WorkspaceState,
-} from "../types/sdui-integration";
-import { OutcomeHypothesis } from "../types/sof";
-import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../types/structural-data";
-import { VMRTAssumption } from "../types/vmrt";
-import { FormulaResult, ManifestoValidationResult } from "../types/vos";
-import { ROIModel, ROIModelCalculation } from "../types/vos";
-import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
-import { LifecycleStage } from "../types/workflow";
+} from "../../types/sdui-integration";
+import { OutcomeHypothesis } from "../../types/sof";
+import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../../types/structural-data";
+import { VMRTAssumption } from "../../types/vmrt";
+import { FormulaResult, ManifestoValidationResult } from "../../types/vos";
+import { ROIModel, ROIModelCalculation } from "../../types/vos";
+import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
+import { LifecycleStage } from "../../types/workflow";
 
 import { SDUICacheService } from "./SDUICacheService.js";
 import { ROIFormulaInterpreter } from "./ROIFormulaInterpreter.js"
@@ -440,9 +440,9 @@ export class CanvasSchemaService {
         currentWorkflowId: workflowExecution?.workflow_definition_id,
         currentStageId: workflowExecution?.current_stage || undefined,
         data: {} as WorkspaceData,
-        ui_state: { loading: false, errors: [], notifications: [] } as unknown as import("../types/sdui-integration").UIState,
-        validation_state: { is_valid: true, errors: [], warnings: [] } as unknown as import("../types/sdui-integration").ValidationState,
-        sync_status: { synced: true, last_sync: new Date().toISOString() } as unknown as import("../types/sdui-integration").SyncStatus,
+        ui_state: { loading: false, errors: [], notifications: [] } as unknown as import("../../types/sdui-integration").UIState,
+        validation_state: { is_valid: true, errors: [], warnings: [] } as unknown as import("../../types/sdui-integration").ValidationState,
+        sync_status: { synced: true, last_sync: new Date().toISOString() } as unknown as import("../../types/sdui-integration").SyncStatus,
         metadata: {
           ...context.metadata,
           userId: context.userId ?? context.user_id,
@@ -473,9 +473,9 @@ export class CanvasSchemaService {
         lifecycleStage: context.lifecycleStage ?? context.lifecycle_stage ?? "opportunity",
         current_view: "opportunity",
         data: {} as WorkspaceData,
-        ui_state: { loading: false, errors: [], notifications: [] } as unknown as import("../types/sdui-integration").UIState,
-        validation_state: { is_valid: true, errors: [], warnings: [] } as unknown as import("../types/sdui-integration").ValidationState,
-        sync_status: { synced: true, last_sync: new Date().toISOString() } as unknown as import("../types/sdui-integration").SyncStatus,
+        ui_state: { loading: false, errors: [], notifications: [] } as unknown as import("../../types/sdui-integration").UIState,
+        validation_state: { is_valid: true, errors: [], warnings: [] } as unknown as import("../../types/sdui-integration").ValidationState,
+        sync_status: { synced: true, last_sync: new Date().toISOString() } as unknown as import("../../types/sdui-integration").SyncStatus,
         metadata: context.metadata || {},
         last_updated: new Date().toISOString(),
         version: 1,
@@ -1504,7 +1504,7 @@ export class CanvasSchemaService {
       organization_id: action.context?.organization_id ?? "",
       user_id: action.context?.user_id ?? "",
       lifecycle_stage: "opportunity",
-      permissions: { can_edit: true, can_view: true, can_delete: false, can_share: false } as unknown as import("../types/sdui-integration").WorkspacePermissions,
+      permissions: { can_edit: true, can_view: true, can_delete: false, can_share: false } as unknown as import("../../types/sdui-integration").WorkspacePermissions,
     };
 
     // Extract stage from action payload if available

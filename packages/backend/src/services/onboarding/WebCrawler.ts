@@ -25,6 +25,9 @@ export interface CrawlResult {
 export interface CrawledPage {
   url: string;
   text: string;
+  title?: string;
+  /** Raw HTML or markdown content — alias for text used by some callers. */
+  content?: string;
 }
 
 // ---------------------------------------------------------------------------

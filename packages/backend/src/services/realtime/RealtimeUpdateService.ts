@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../../lib/logger.js'
-import { SDUIUpdate, WorkspaceState } from '../types/sdui-integration';
+import { SDUIUpdate, WorkspaceState } from '../../types/sdui-integration';
 
 import { WebSocketManager, WebSocketMessage } from './WebSocketManager.js'
 import { workspaceStateService } from './WorkspaceStateService.js'

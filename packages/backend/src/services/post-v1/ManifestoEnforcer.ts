@@ -13,7 +13,7 @@ import {
   ManifestoCheckResult,
   ManifestoViolation,
   ManifestoWarning,
-} from '../types/sdui-integration';
+} from '../../types/sdui-integration';
 
 /**
  * Validation result with details

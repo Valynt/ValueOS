@@ -15,7 +15,7 @@
 import { SDUIPageDefinition } from "@valueos/sdui";
 
 import { logger } from "../../lib/logger.js"
-import { WorkflowState } from "../repositories/WorkflowStateRepository";
+import { WorkflowState } from "../../repositories/WorkflowStateRepository";
 
 import { AdversarialValidator } from "./AdversarialValidator.js"
 

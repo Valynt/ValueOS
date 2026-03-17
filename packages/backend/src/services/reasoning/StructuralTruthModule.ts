@@ -39,11 +39,11 @@ const StructuralTruthSchema = z.object({
   }),
   // Audit trail
   auditTrail: z
-    .array({
+    .array(z.object({
       event: z.string(),
       timestamp: z.string().uuid(),
       agent: z.string().optional(),
-    })
+    }))
     .optional(),
 });
 

@@ -17,14 +17,14 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 
 import { logger } from "../../lib/logger.js"
-import { WorkflowStateRepository } from "../repositories/WorkflowStateRepository";
+import { WorkflowStateRepository } from "../../repositories/WorkflowStateRepository";
 import { sanitizeInput } from "../security/InputSanitizer.js"
 import {
   ExecutionRequest,
   normalizeExecutionRequest,
-} from "../types/execution";
+} from "../../types/execution";
 
-import { TimeoutError } from "./errors.js"
+import { TimeoutError } from "../errors.js"
 import type { AgentResponse } from "../types/orchestration.js";
 import { createExecutionRuntime } from "../runtime/execution-runtime/index.js";
 import { ContextStore } from "../runtime/context-store/index.js";

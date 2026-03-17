@@ -196,8 +196,11 @@ export interface ISecretProvider {
  * Provider factory configuration
  */
 export interface ProviderConfig {
-  provider: 'aws' | 'vault';
+  provider?: 'aws' | 'vault';
+  /** Alias for provider — accepted for backward compatibility. */
+  type?: 'aws' | 'vault';
   region?: string;
+  environment?: string;
   vaultAddress?: string;
   vaultNamespace?: string;
   cacheTTL?: number;

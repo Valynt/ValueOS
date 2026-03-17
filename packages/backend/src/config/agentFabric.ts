@@ -24,6 +24,11 @@ export interface AgentFabricConfig {
       together: {
         baseUrl: string;
         timeout: number;
+        primaryModel?: string;
+        secondaryModel?: string;
+        fallbackEnabled?: boolean;
+        fallbackMaxAttempts?: number;
+        retryBackoffMs?: number;
       };
       openai: {
         baseUrl: string;

@@ -10,7 +10,7 @@ import {
   getTraceContextForLogging,
   metrics,
   traceLLMOperation
-} from '../config/telemetry';
+} from '../../config/telemetry';
 import { logger } from '../utils/logger.js'
 
 import { LLMFallbackService, LLMRequest, LLMResponse } from './LLMFallback.js'

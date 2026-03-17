@@ -497,11 +497,17 @@ export class AgentChatService {
     contextPrompt?: string
   ): string {
     const stageContext: Record<LifecycleStage, string> = {
-      opportunity:
+      discovery:
         "Focus on discovering pain points, understanding the customer context, and identifying potential value drivers.",
-      target:
+      drafting:
         "Focus on building quantifiable ROI models, setting realistic targets, and creating compelling business cases.",
-      realization:
+      validating:
+        "Focus on validating assumptions, verifying claims, and ensuring integrity of the business case.",
+      composing:
+        "Focus on composing the business narrative and value case for stakeholder presentation.",
+      refining:
+        "Focus on refining and finalizing the value case based on feedback.",
+      realized:
         "Focus on tracking actual results against targets, explaining variances, and documenting achieved value.",
       expansion:
         "Focus on identifying upsell opportunities, new use cases, and additional value that can be realized.",

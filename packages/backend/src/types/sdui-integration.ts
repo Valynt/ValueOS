@@ -117,7 +117,9 @@ export interface WorkspaceData {
   realization?: RealizationData;
   expansion?: ExpansionData;
   integrity?: IntegrityData;
+  businessCase?: Record<string, unknown> | null;
   metadata?: Record<string, any>;
+  [key: string]: unknown;
 }
 
 export interface OpportunityData {
@@ -366,12 +368,15 @@ export interface ActionHandler<TInput = unknown, TOutput = unknown> {
 }
 
 export interface ManifestoViolation {
-  ruleId: string;
-  ruleName: string;
+  ruleId?: string;
+  ruleName?: string;
+  /** Short rule identifier used by ManifestoEnforcer. */
+  rule?: string;
   severity: "error" | "warning" | "info";
   message: string;
   path?: string;
   suggestion?: string;
+  context?: Record<string, unknown>;
 }
 
 export interface SchemaCacheEntry {

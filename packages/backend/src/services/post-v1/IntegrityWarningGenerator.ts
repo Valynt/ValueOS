@@ -10,7 +10,7 @@ import {
 } from '@sdui/AtomicUIActions';
 
 import { logger } from '../../lib/logger.js'
-import { ManifestoCheckResult } from '../types/sdui-integration';
+import { ManifestoCheckResult } from '../../types/sdui-integration';
 
 interface Violation {
   rule: string;
@@ -84,7 +84,7 @@ export class IntegrityWarningGenerator {
             showOverrideButton: true,
           },
         },
-        { position: 'top', append: false },
+        { index: 0 },
         'Show integrity violations'
       )
     );
@@ -107,7 +107,7 @@ export class IntegrityWarningGenerator {
             ],
           },
         },
-        { position: 'top', append: false },
+        { index: 0 },
         'Show violation alert'
       )
     );
@@ -147,7 +147,7 @@ export class IntegrityWarningGenerator {
               ],
             },
           },
-          { position: 'top', append: true },
+          { index: 0 },
           'Show high-priority warnings'
         )
       );
@@ -170,7 +170,7 @@ export class IntegrityWarningGenerator {
               dismissible: true,
             },
           },
-          { position: 'bottom', append: true },
+          { append: true },
           'Show suggestions banner'
         )
       );
@@ -202,7 +202,7 @@ export class IntegrityWarningGenerator {
           },
         },
       },
-      { position: 'modal', append: false },
+      { append: false },
       'Show integrity review panel'
     );
   }
@@ -235,7 +235,7 @@ export class IntegrityWarningGenerator {
           },
         },
       },
-      { position: 'modal', append: false },
+      { append: false },
       'Show override request form'
     );
   }
@@ -247,18 +247,18 @@ export class IntegrityWarningGenerator {
     return [
       {
         type: 'remove_component',
-        target: { type: 'IntegrityReviewPanel', props: { workspaceId } },
-        reason: 'Clear integrity warnings',
+        selector: { type: 'IntegrityReviewPanel' },
+        description: 'Clear integrity warnings',
       },
       {
         type: 'remove_component',
-        target: { type: 'Alert', props: { variant: 'error' } },
-        reason: 'Clear violation alerts',
+        selector: { type: 'Alert' },
+        description: 'Clear violation alerts',
       },
       {
         type: 'remove_component',
-        target: { type: 'Alert', props: { variant: 'warning' } },
-        reason: 'Clear warning alerts',
+        selector: { type: 'Alert' },
+        description: 'Clear warning alerts',
       },
     ];
   }

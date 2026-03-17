@@ -31,7 +31,7 @@ import {
   SessionStats,
   UpdateSessionOptions,
   validateSession,
-} from './PlaygroundSessionSchema';
+} from '../workflow/PlaygroundSessionSchema';
 
 interface AgentSessionOrganizationRow {
   organization_id: string;
