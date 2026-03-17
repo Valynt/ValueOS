@@ -46,11 +46,12 @@ class ConversationHistoryService {
   private tableName = 'conversation_history';
 
   /**
-   * Get conversation history for a case
+   * Get conversation history for a case.
+   * tenantId is required to enforce tenant isolation — queries without it are rejected.
    */
-  async getHistory(caseId: string): Promise<ConversationHistory | null> {
+  async getHistory(caseId: string, tenantId: string): Promise<ConversationHistory | null> {
     // Check cache first
-    const cached = conversationCache.get(caseId);
+    const cached = conversationCache.get(`${tenantId}:${caseId}`);
     if (cached) {
       return cached;
     }
@@ -60,6 +61,7 @@ class ConversationHistoryService {
         .from(this.tableName)
         .select('*')
         .eq('case_id', caseId)
+        .eq('tenant_id', tenantId)
         .single();
 
       if (error) {
@@ -81,7 +83,7 @@ class ConversationHistoryService {
         updatedAt: new Date(data.updated_at),
       };
 
-      conversationCache.set(caseId, history);
+      conversationCache.set(`${tenantId}:${caseId}`, history);
       return history;
     } catch (error: unknown) {
       logger.error('Error fetching conversation history', error instanceof Error ? error : undefined);
@@ -90,9 +92,10 @@ class ConversationHistoryService {
   }
 
   /**
-   * Add a message to the conversation
+   * Add a message to the conversation.
+   * tenantId is required to enforce tenant isolation.
    */
-  async addMessage(caseId: string, message: Omit<ConversationMessage, 'id' | 'timestamp'>): Promise<ConversationMessage> {
+  async addMessage(caseId: string, tenantId: string, message: Omit<ConversationMessage, 'id' | 'timestamp'>): Promise<ConversationMessage> {
     const newMessage: ConversationMessage = {
       ...message,
       id: crypto.randomUUID(),
@@ -101,7 +104,7 @@ class ConversationHistoryService {
 
     try {
       // Get existing history
-      let history = await this.getHistory(caseId);
+      let history = await this.getHistory(caseId, tenantId);
 
       if (!history) {
         // Create new history
@@ -119,10 +122,10 @@ class ConversationHistoryService {
       history.updatedAt = new Date();
 
       // Update cache
-      conversationCache.set(caseId, history);
+      conversationCache.set(`${tenantId}:${caseId}`, history);
 
       // Persist to database (fire and forget, don't block)
-      this.persistHistory(history).catch((err: unknown) => {
+      this.persistHistory(history, tenantId).catch((err: unknown) => {
         logger.warn('Failed to persist conversation history', { error: err });
       });
 
@@ -134,37 +137,25 @@ class ConversationHistoryService {
   }
 
   /**
-   * Persist history to database
+   * Persist history to database.
+   * tenantId is included in the upsert payload and the conflict key
+   * to ensure rows are scoped per tenant.
    */
-  private async persistHistory(history: ConversationHistory): Promise<void> {
+  private async persistHistory(history: ConversationHistory, tenantId: string): Promise<void> {
     try {
       const { error } = await (supabase as any)
         .from(this.tableName)
         .upsert({
           id: history.id,
+          tenant_id: tenantId,
           case_id: history.caseId,
           messages: history.messages,
           created_at: history.createdAt.toISOString(),
           updated_at: history.updatedAt.toISOString(),
-        }, { onConflict: 'case_id' });
+        }, { onConflict: 'case_id,tenant_id' });
 
       if (error) {
-        // If table doesn't exist, try creating it first
-        if (error.code === '42P01') {
-          await this.createTable();
-          // Retry
-          await (supabase as any)
-            .from(this.tableName)
-            .upsert({
-              id: history.id,
-              case_id: history.caseId,
-              messages: history.messages,
-              created_at: history.createdAt.toISOString(),
-              updated_at: history.updatedAt.toISOString(),
-            }, { onConflict: 'case_id' });
-        } else {
-          throw error;
-        }
+        throw error;
       }
     } catch (error: unknown) {
       logger.error('Error persisting conversation history', error instanceof Error ? error : undefined);
@@ -173,35 +164,29 @@ class ConversationHistoryService {
   }
 
   /**
-   * Create the conversation_history table if it doesn't exist
+   * Get recent messages for context.
+   * tenantId is required to enforce tenant isolation.
    */
-  private async createTable(): Promise<void> {
-    // This would normally be done via migration, but for demo purposes
-    // we'll create via RPC if the table doesn't exist
-    logger.info('Conversation history table may not exist, will use local cache only');
-  }
-
-  /**
-   * Get recent messages for context
-   */
-  async getRecentMessages(caseId: string, limit: number = 10): Promise<ConversationMessage[]> {
-    const history = await this.getHistory(caseId);
+  async getRecentMessages(caseId: string, tenantId: string, limit: number = 10): Promise<ConversationMessage[]> {
+    const history = await this.getHistory(caseId, tenantId);
     if (!history) return [];
 
     return history.messages.slice(-limit);
   }
 
   /**
-   * Clear conversation history for a case
+   * Clear conversation history for a case.
+   * tenantId is required to enforce tenant isolation.
    */
-  async clearHistory(caseId: string): Promise<void> {
-    conversationCache.delete(caseId);
+  async clearHistory(caseId: string, tenantId: string): Promise<void> {
+    conversationCache.delete(`${tenantId}:${caseId}`);
 
     try {
       await (supabase as any)
         .from(this.tableName)
         .delete()
-        .eq('case_id', caseId);
+        .eq('case_id', caseId)
+        .eq('tenant_id', tenantId);
     } catch (error: unknown) {
       logger.warn('Failed to clear conversation history from database', { error });
     }

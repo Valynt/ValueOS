@@ -6,6 +6,7 @@
  */
 
 import { Request, Response, Router } from 'express';
+import { z } from 'zod';
 
 import { assertKnownApprovedModel, MODEL_POLICY_VERSION, ModelDeniedError } from '../config/models.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -41,6 +42,15 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
   ...meta,
 });
 
+const LLMChatSchema = z.object({
+  prompt: z.string().min(1).max(32_000),
+  model: z.string().min(1),
+  maxTokens: z.number().int().min(1).max(8192).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  stream: z.boolean().optional(),
+  dealId: z.string().uuid().optional(),
+});
+
 /**
  * POST /api/llm/chat
  * 
@@ -55,7 +65,12 @@ router.post(
   llmRateLimiter,
   async (req: Request, res: Response) => {
   try {
-    const { prompt, model, maxTokens, temperature, stream, dealId } = req.body;
+    const parsed = LLMChatSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+      return;
+    }
+    const { prompt, model, maxTokens, temperature, stream, dealId } = parsed.data;
     
     // Validate request
     if (!prompt || typeof prompt !== 'string') {

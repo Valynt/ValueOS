@@ -5,7 +5,7 @@
 
 import express from 'express';
 
-import { requireAuth } from '../../middleware/auth.js'
+import { requireAuth, requireMFA } from '../../middleware/auth.js'
 import { requirePermission } from '../../middleware/rbac.js'
 import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js'
@@ -37,6 +37,7 @@ router.use('/webhooks', webhooksRouter);
 router.use(
   '/subscription',
   requireAuth,
+  requireMFA,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   requirePermission('billing:manage'),
@@ -69,6 +70,7 @@ router.use(
 router.use(
   '/plan-change',
   requireAuth,
+  requireMFA,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   requirePermission('billing:manage'),
@@ -77,6 +79,7 @@ router.use(
 router.use(
   '/payment-methods',
   requireAuth,
+  requireMFA,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   requirePermission('billing:manage'),
@@ -86,6 +89,7 @@ router.use(
 router.use(
   '/execution-control',
   requireAuth,
+  requireMFA,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   requirePermission('billing:manage'),
@@ -97,6 +101,7 @@ router.use(
 router.use(
   '/overrides',
   requireAuth,
+  requireMFA,
   tenantContextMiddleware(),
   requirePermission('billing:manage'),
   overridesRouter

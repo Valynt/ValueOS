@@ -431,9 +431,14 @@ backHalfRouter.post('/:id/export/pptx', ...auth, async (req: Request, res: Respo
 let _provenanceTracker: ProvenanceTracker | null = null;
 function getBackHalfProvenanceTracker(): ProvenanceTracker {
   if (!_provenanceTracker) {
+    // Provenance tracking is an internal background operation (not user-request-scoped),
+    // so service_role is appropriate here per AGENTS.md §3.
+    // Cast bridges the SupabaseClient generic parameter mismatch between
+    // this package and SagaAdapters — both use @supabase/supabase-js but
+    // with different generic instantiations.
+    const client = createServerSupabaseClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = createServerSupabaseClient() as any;
-    const store = new SupabaseProvenanceStore(client) as unknown as ProvenanceStore;
+    const store = new SupabaseProvenanceStore(client as any) as unknown as ProvenanceStore;
     _provenanceTracker = new ProvenanceTracker(store);
   }
   return _provenanceTracker;

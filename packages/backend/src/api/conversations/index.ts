@@ -11,13 +11,14 @@ import { z, ZodError } from 'zod';
 
 import { logger } from "../../lib/logger.js";
 import { requireAuth } from '../../middleware/auth.js'
+import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
 import { requireRole } from '../../middleware/rbac.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
 import { 
+  ConversationsRepository,
   DatabaseError,
-  getConversationsRepository,
   NotFoundError,
 } from './repository';
 import { 
@@ -44,11 +45,8 @@ interface AuthenticatedRequest extends Request {
 
 const router = Router();
 
-// Simple logger
-const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, data || ''),
-  error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, data || ''),
-};
+const standardLimiter = createRateLimiter(RateLimitTier.STANDARD);
+const strictLimiter = createRateLimiter(RateLimitTier.STRICT);
 
 // ============================================================================
 // Middleware
@@ -227,7 +225,7 @@ async function createMessage(req: Request, res: Response, next: NextFunction): P
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getConversationsRepository();
+    const repository = ConversationsRepository.fromRequest(req);
     const message = await repository.create(
       authReq.tenantId || 'default',
       authReq.user?.id || 'anonymous',
@@ -251,7 +249,7 @@ async function createMessagesBatch(req: Request, res: Response, next: NextFuncti
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getConversationsRepository();
+    const repository = ConversationsRepository.fromRequest(req);
     const { caseId, workflowId, messages } = req.body;
     
     const created = await repository.createBatch(
@@ -279,7 +277,7 @@ async function listMessages(req: Request, res: Response, next: NextFunction): Pr
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getConversationsRepository();
+    const repository = ConversationsRepository.fromRequest(req);
     const messages = await repository.getByCase(
       authReq.tenantId || 'default',
       req.query as any
@@ -303,7 +301,7 @@ async function loadSession(req: Request, res: Response, next: NextFunction): Pro
   const { caseId } = req.params;
 
   try {
-    const repository = getConversationsRepository();
+    const repository = ConversationsRepository.fromRequest(req);
     const session = await repository.loadSession(
       authReq.tenantId || 'default',
       caseId
@@ -327,7 +325,7 @@ async function saveSession(req: Request, res: Response, next: NextFunction): Pro
   const { caseId } = req.params;
 
   try {
-    const repository = getConversationsRepository();
+    const repository = ConversationsRepository.fromRequest(req);
     const { messages } = req.body;
 
     // Delete existing messages for this case
@@ -371,7 +369,7 @@ async function clearSession(req: Request, res: Response, next: NextFunction): Pr
   const { caseId } = req.params;
 
   try {
-    const repository = getConversationsRepository();
+    const repository = ConversationsRepository.fromRequest(req);
     const count = await repository.deleteByCase(authReq.tenantId || 'default', caseId);
 
     res.status(200).json({
@@ -401,6 +399,7 @@ router.use(tenantContextMiddleware(), tenantDbContextMiddleware());
 // POST /messages - Create single message
 router.post(
   '/messages',
+  strictLimiter,
   requireRole(['admin', 'member']),
   validateBody(CreateMessageSchema),
   createMessage
@@ -409,6 +408,7 @@ router.post(
 // POST /messages/batch - Create multiple messages
 router.post(
   '/messages/batch',
+  strictLimiter,
   requireRole(['admin', 'member']),
   validateBody(BatchCreateMessagesSchema),
   createMessagesBatch
@@ -417,6 +417,7 @@ router.post(
 // GET /messages - List messages
 router.get(
   '/messages',
+  standardLimiter,
   requireRole(['admin', 'member', 'viewer']),
   validateQuery(ListMessagesQuerySchema),
   listMessages
@@ -425,6 +426,7 @@ router.get(
 // GET /session/:caseId - Load session
 router.get(
   '/session/:caseId',
+  standardLimiter,
   requireRole(['admin', 'member', 'viewer']),
   validateUuidParam('caseId'),
   loadSession
@@ -433,6 +435,7 @@ router.get(
 // POST /session/:caseId - Save session
 router.post(
   '/session/:caseId',
+  strictLimiter,
   requireRole(['admin', 'member']),
   validateUuidParam('caseId'),
   validateBody(SaveSessionSchema),
@@ -442,6 +445,7 @@ router.post(
 // DELETE /session/:caseId - Clear session
 router.delete(
   '/session/:caseId',
+  strictLimiter,
   requireRole(['admin', 'member']),
   validateUuidParam('caseId'),
   clearSession
