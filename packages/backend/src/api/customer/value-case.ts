@@ -103,11 +103,13 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     const roiModel = await roiModelService.getByValueCase(tenantId, valueCaseId);
     // Fetch derived KPIs
     const kpiTargets = await kpiTargetService.deriveForValueCase(tenantId, valueCaseId);
-    // Fetch opportunities
+    // Fetch opportunities — filter on both value_case_id and tenant_id to
+    // prevent cross-tenant exposure via shared value_case_id space.
     const opportunitiesResult = await supabaseClient
       .from("opportunities")
       .select("id, type, title, description, priority, impact_score")
-      .eq("value_case_id", valueCaseId);
+      .eq("value_case_id", valueCaseId)
+      .eq("tenant_id", tenantId);
 
     // Build response (adapt as needed)
     const response: ValueCaseResponse = {

@@ -11,13 +11,14 @@ import { z, ZodError } from 'zod';
 
 import { logger } from "../../lib/logger.js";
 import { requireAuth } from '../../middleware/auth.js'
+import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
 import { requireRole } from '../../middleware/rbac.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
 import { 
+  ArtifactsRepository,
   DatabaseError,
-  getArtifactsRepository,
   NotFoundError,
 } from './repository';
 import { 
@@ -27,15 +28,10 @@ import {
   ListArtifactsQuerySchema,
   UpdateArtifactSchema,
 } from './types';
-const standardLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
-const strictLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
+const standardLimiter = createRateLimiter(RateLimitTier.STANDARD);
+const strictLimiter = createRateLimiter(RateLimitTier.STRICT);
 
-// Simple logger for now
-const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, data || ''),
-  error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, data || ''),
-  warn: (msg: string, data?: Record<string, unknown>) => console.warn(`[WARN] ${msg}`, data || ''),
-};
+
 
 // ============================================================================
 // Types
@@ -231,7 +227,7 @@ async function createArtifact(req: Request, res: Response, next: NextFunction): 
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     const artifact = await repository.create(authReq.tenantId!, req.body);
 
     res.status(201).json({
@@ -251,7 +247,7 @@ async function createArtifactsBatch(req: Request, res: Response, next: NextFunct
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     const { valueCaseId, artifacts } = req.body;
     const created = await repository.createBatch(authReq.tenantId!, valueCaseId, artifacts);
 
@@ -272,7 +268,7 @@ async function listArtifacts(req: Request, res: Response, next: NextFunction): P
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     const result = await repository.list(authReq.tenantId!, req.query as any);
 
     res.status(200).json({
@@ -293,7 +289,7 @@ async function getArtifact(req: Request, res: Response, next: NextFunction): Pro
   const { artifactId } = req.params;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     const artifact = await repository.getById(authReq.tenantId!, artifactId);
 
     res.status(200).json({
@@ -314,7 +310,7 @@ async function getArtifactsByCase(req: Request, res: Response, next: NextFunctio
   const { caseId } = req.params;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     const artifacts = await repository.getByValueCase(authReq.tenantId!, caseId);
 
     res.status(200).json({
@@ -335,7 +331,7 @@ async function updateArtifact(req: Request, res: Response, next: NextFunction): 
   const { artifactId } = req.params;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     const artifact = await repository.update(authReq.tenantId!, artifactId, req.body);
 
     res.status(200).json({
@@ -356,7 +352,7 @@ async function deleteArtifact(req: Request, res: Response, next: NextFunction): 
   const { artifactId } = req.params;
 
   try {
-    const repository = getArtifactsRepository();
+    const repository = ArtifactsRepository.fromRequest(req);
     await repository.delete(authReq.tenantId!, artifactId);
 
     res.status(204).send();

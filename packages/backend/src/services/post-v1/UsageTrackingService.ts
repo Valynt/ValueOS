@@ -293,6 +293,10 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
+// NOTE: publicSupabase is itself a service_role client (see packages/backend/src/lib/supabase.ts).
+// This alias exists because usage tracking writes to tenant_usage require service_role to bypass
+// RLS — usage records are written by the system, not by the user making the request.
+// Do not replace with a user-scoped client here.
 const serviceRoleSupabase = publicSupabase;
 
 /**

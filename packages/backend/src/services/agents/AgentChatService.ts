@@ -337,6 +337,7 @@ export class AgentChatService {
       // Create assistant message
       const assistantMessage = await conversationHistoryService.addMessage(
         request.caseId,
+        request.tenantId || "default",
         {
           role: "assistant",
           content: parsedData.analysisSummary,

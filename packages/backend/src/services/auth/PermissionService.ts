@@ -382,4 +382,7 @@ export class PermissionService extends TenantAwareService {
   }
 }
 
-export const permissionService = new PermissionService();
+const envCacheTtlMs = process.env.RBAC_CACHE_TTL_SECONDS
+  ? Number(process.env.RBAC_CACHE_TTL_SECONDS) * 1000
+  : undefined;
+export const permissionService = new PermissionService(envCacheTtlMs);
