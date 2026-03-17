@@ -3,7 +3,7 @@
  * Tests all 25+ pre-registered SDUI components
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, it, vi } from 'vitest';
 
 import {
   getRegistryEntry,

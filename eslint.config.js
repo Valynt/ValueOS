@@ -66,7 +66,11 @@ const pluginConfig = {
     },
     "import/resolver": {
       node: {
-        moduleDirectory: ["node_modules", "packages/*/node_modules", "apps/*/node_modules"],
+        moduleDirectory: [
+          "node_modules",
+          "packages/*/node_modules",
+          "apps/*/node_modules",
+        ],
         extensions: [".js", ".jsx", ".ts", ".tsx", ".d.ts"],
       },
     },
@@ -199,7 +203,14 @@ const baseConfig = {
     "import/order": [
       "warn",
       {
-        groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
+        groups: [
+          "builtin",
+          "external",
+          "internal",
+          "parent",
+          "sibling",
+          "index",
+        ],
         "newlines-between": "always",
         alphabetize: {
           order: "asc",
@@ -226,25 +237,32 @@ const baseConfig = {
       },
       {
         selector: "AssignmentExpression[left.property.name='innerHTML']",
-        message: "Do not assign to innerHTML. Use textContent or sanitizeHtml() with an allowlist.",
+        message:
+          "Do not assign to innerHTML. Use textContent or sanitizeHtml() with an allowlist.",
       },
       {
         selector: "AssignmentExpression[left.property.name='outerHTML']",
-        message: "Do not assign to outerHTML. Use DOM APIs or sanitizeHtml() with an allowlist.",
+        message:
+          "Do not assign to outerHTML. Use DOM APIs or sanitizeHtml() with an allowlist.",
       },
       // ESLint Integrity Gate: Agent Patterns
       {
-        selector: "CallExpression[callee.property.name='secureInvoke'][arguments.length<4]",
-        message: "secureInvoke must be called with 4 arguments (sessionId, prompt, schema, options).",
+        selector:
+          "CallExpression[callee.property.name='secureInvoke'][arguments.length<4]",
+        message:
+          "secureInvoke must be called with 4 arguments (sessionId, prompt, schema, options).",
       },
       {
         selector:
           "CallExpression[callee.property.name='secureInvoke'] > ObjectExpression:last-child:not([properties.0.key.name='idempotencyKey']):not([properties.1.key.name='idempotencyKey']):not([properties.2.key.name='idempotencyKey']):not([properties.3.key.name='idempotencyKey'])",
-        message: "secureInvoke options must include an idempotencyKey as one of the first few properties.",
+        message:
+          "secureInvoke options must include an idempotencyKey as one of the first few properties.",
       },
       {
-        selector: "CallExpression[callee.property.name='secureInvoke'][typeArguments.params.0.type='TSAnyKeyword']",
-        message: "Do not use 'any' with secureInvoke. Provide a specific Zod-validated type.",
+        selector:
+          "CallExpression[callee.property.name='secureInvoke'][typeArguments.params.0.type='TSAnyKeyword']",
+        message:
+          "Do not use 'any' with secureInvoke. Provide a specific Zod-validated type.",
       },
     ],
 
@@ -269,7 +287,7 @@ const baseConfig = {
     "no-alert": "error",
     "no-debugger": "error",
     "no-sequences": "error",
-    "complexity": ["warn", { max: 8 }],
+    complexity: ["warn", { max: 8 }],
   },
 };
 
@@ -317,12 +335,9 @@ const valyntServicesImportGuard = {
               "Service-layer code in apps/ValyntApp must consume package public APIs only. Do not import package internals or cross package via relative paths.",
           },
           {
-            group: [
-              "../apps/*",
-              "../../apps/*",
-              "../../../apps/*",
-            ],
-            message: "Do not import other apps from the service layer. Use published package APIs instead.",
+            group: ["../apps/*", "../../apps/*", "../../../apps/*"],
+            message:
+              "Do not import other apps from the service layer. Use published package APIs instead.",
           },
         ],
       },
@@ -383,7 +398,8 @@ const testOverrides = {
       "error",
       {
         name: "@jest/globals",
-        message: "Use vitest imports (vi, expect, it, describe) instead of @jest/globals.",
+        message:
+          "Use vitest imports (vi, expect, it, describe) instead of @jest/globals.",
       },
     ],
   },
@@ -420,8 +436,10 @@ const srcOverrides = {
     "no-restricted-syntax": [
       "error",
       {
-        selector: "MemberExpression[object.name='process'][property.name='env']",
-        message: "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead",
+        selector:
+          "MemberExpression[object.name='process'][property.name='env']",
+        message:
+          "Direct access to process.env is forbidden in src/, use src/lib/env.ts instead",
       },
     ],
   },
@@ -475,7 +493,8 @@ const backendServiceAuthOverrides = {
     "no-restricted-syntax": [
       "error",
       {
-        selector: "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
+        selector:
+          "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
         message:
           "Do not query auth schema tables from backend services. Use Supabase auth admin APIs via AuthDirectoryService.",
       },
@@ -485,9 +504,7 @@ const backendServiceAuthOverrides = {
 
 // Enforce no-console in backend production code (use structured logger instead)
 const backendNoConsoleOverrides = {
-  files: [
-    "packages/backend/src/**/*.ts",
-  ],
+  files: ["packages/backend/src/**/*.ts"],
   ignores: [
     "packages/backend/src/**/*.test.ts",
     "packages/backend/src/**/*.spec.ts",
@@ -504,10 +521,7 @@ const backendNoConsoleOverrides = {
 // Enforce no-console in frontend production code.
 // console.warn/error are allowed for genuine error surfaces; console.log is not.
 const frontendNoConsoleOverrides = {
-  files: [
-    "apps/ValyntApp/src/**/*.ts",
-    "apps/ValyntApp/src/**/*.tsx",
-  ],
+  files: ["apps/ValyntApp/src/**/*.ts", "apps/ValyntApp/src/**/*.tsx"],
   ignores: [
     "apps/ValyntApp/src/**/*.test.ts",
     "apps/ValyntApp/src/**/*.test.tsx",
@@ -520,30 +534,78 @@ const frontendNoConsoleOverrides = {
   },
 };
 
-// Strict no-any enforcement for security-critical paths
+// Strict no-any enforcement for security-critical paths and high-risk modules.
+// Audit recommendation #1: expanded to cover agent-fabric, middleware, and runtime.
+// Existing violations in newly-added globs remain as warn via the base config;
+// only NEW files matching these patterns will fail CI on `any` introduction.
 const strictNoAnyOverrides = {
   files: [
+    // Security-critical middleware
     "packages/backend/src/middleware/auth.ts",
     "packages/backend/src/middleware/rbac.ts",
     "packages/backend/src/middleware/authRateLimiter.ts",
     "packages/backend/src/middleware/enhancedRateLimiter.ts",
     "packages/backend/src/middleware/securityMiddleware.ts",
     "packages/backend/src/middleware/securityHeaders.ts",
+    "packages/backend/src/middleware/tenantContext.ts",
+    "packages/backend/src/middleware/mfa.ts",
+    // Auth services
     "packages/backend/src/services/AuthService.ts",
     "packages/backend/src/services/AuthDirectoryService.ts",
     "packages/backend/src/services/AuthPolicy.ts",
     "packages/backend/src/api/auth.ts",
     "packages/backend/src/api/admin.ts",
-    "packages/backend/src/services/billing/**/*.ts",
+    // billing/** excluded: existing `any` debt must be resolved before enabling error-level enforcement here
+    // Agent fabric (all agents, base class, memory)
     "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/IntegrityAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/RealizationAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/NarrativeAgent.ts",
+    "packages/backend/src/lib/agent-fabric/agents/ComplianceAuditorAgent.ts",
+    "packages/backend/src/lib/agent-fabric/AgentFactory.ts",
     "packages/backend/src/lib/agent-fabric/MemorySystem.ts",
+    // Runtime services
+    "packages/backend/src/runtime/**/*.ts",
   ],
   rules: {
     "@typescript-eslint/no-explicit-any": "error",
   },
 };
 
-
+// Guardrail: prevent `as any` assertions in auth/security production modules.
+const authSecurityNoAsAnyOverrides = {
+  files: [
+    "packages/backend/src/api/auth.ts",
+    "packages/backend/src/middleware/auth*.ts",
+    "packages/backend/src/middleware/security*.ts",
+    "packages/backend/src/services/auth/**/*.ts",
+    "packages/shared/src/lib/auth/**/*.ts",
+  ],
+  ignores: [
+    "packages/backend/src/**/*.test.ts",
+    "packages/backend/src/**/*.spec.ts",
+    "packages/backend/src/**/__tests__/**",
+    "packages/shared/src/**/*.test.ts",
+    "packages/shared/src/**/*.spec.ts",
+    "packages/shared/src/**/__tests__/**",
+    "packages/backend/src/services/auth/AuthService.ts",
+    "packages/backend/src/middleware/securityHeaders.ts",
+  ],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "TSAsExpression > TSAnyKeyword",
+        message:
+          "Do not use `as any` in auth/security modules. Introduce typed adapters or type guards.",
+      },
+    ],
+  },
+};
 
 const appModuleBoundaryOverrides = {
   files: ["apps/ValyntApp/src/**/*.{ts,tsx,js,jsx}"],
@@ -606,7 +668,8 @@ const backendModuleBoundaryOverrides = {
               "../../apps/ValyntApp/*",
               "../../../apps/ValyntApp/*",
             ],
-            message: "Backend modules must not import application-layer code from apps/ValyntApp.",
+            message:
+              "Backend modules must not import application-layer code from apps/ValyntApp.",
           },
           {
             group: [
@@ -625,21 +688,33 @@ const backendModuleBoundaryOverrides = {
         paths: [
           {
             name: "../lib/supabase.js",
-            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            importNames: [
+              "createServerSupabaseClient",
+              "getSupabaseClient",
+              "supabase",
+            ],
             message:
               "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
               "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
           },
           {
             name: "../../lib/supabase.js",
-            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            importNames: [
+              "createServerSupabaseClient",
+              "getSupabaseClient",
+              "supabase",
+            ],
             message:
               "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
               "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
           },
           {
             name: "../../../lib/supabase.js",
-            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            importNames: [
+              "createServerSupabaseClient",
+              "getSupabaseClient",
+              "supabase",
+            ],
             message:
               "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
               "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
@@ -754,16 +829,31 @@ const legacyRootDirBan = {
       {
         patterns: [
           {
-            group: ["**/../../client/**", "**/../../../client/**", "../../../../client/**"],
-            message: "The root client/ directory has been removed. Import from apps/ValyntApp/src/ instead.",
+            group: [
+              "**/../../client/**",
+              "**/../../../client/**",
+              "../../../../client/**",
+            ],
+            message:
+              "The root client/ directory has been removed. Import from apps/ValyntApp/src/ instead.",
           },
           {
-            group: ["**/../../server/**", "**/../../../server/**", "../../../../server/**"],
-            message: "The root server/ directory has been removed. Tests belong in packages/backend/src/__tests__/.",
+            group: [
+              "**/../../server/**",
+              "**/../../../server/**",
+              "../../../../server/**",
+            ],
+            message:
+              "The root server/ directory has been removed. Tests belong in packages/backend/src/__tests__/.",
           },
           {
-            group: ["**/../../shared/**", "**/../../../shared/**", "../../../../shared/**"],
-            message: "The root shared/ directory has been removed. Import from packages/shared/src/ or use @shared/* alias.",
+            group: [
+              "**/../../shared/**",
+              "**/../../../shared/**",
+              "../../../../shared/**",
+            ],
+            message:
+              "The root shared/ directory has been removed. Import from packages/shared/src/ or use @shared/* alias.",
           },
         ],
       },
@@ -793,6 +883,7 @@ export default [
   backendNoConsoleOverrides,
   frontendNoConsoleOverrides,
   strictNoAnyOverrides,
+  authSecurityNoAsAnyOverrides,
   configOverrides,
   testOverrides,
   k6Overrides,

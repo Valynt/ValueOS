@@ -100,6 +100,16 @@ export interface MergedContext {
   assumptions: MergedAssumption[];
 }
 
+export class DomainPackAccessError extends Error {
+  public readonly statusCode: 403 | 404;
+
+  constructor(packId: string, statusCode: 403 | 404 = 404) {
+    super(`Domain pack ${packId} is unavailable for this tenant`);
+    this.name = "DomainPackAccessError";
+    this.statusCode = statusCode;
+  }
+}
+
 // ============================================================================
 // Base System Fallback Defaults
 // ============================================================================
@@ -140,25 +150,39 @@ export class DomainPackService {
   /**
    * Get a single domain pack with its KPIs and assumptions.
    */
-  async getPackWithLayers(packId: string): Promise<{
+  async getPackWithLayers(packId: string, tenantId: string): Promise<{
     pack: DomainPack;
     kpis: PackKPI[];
     assumptions: PackAssumption[];
   }> {
-    const [packResult, kpisResult, assumptionsResult] = await Promise.all([
-      this.supabase.from("domain_packs").select("*").eq("id", packId).single(),
-      this.supabase.from("domain_pack_kpis").select("*").eq("pack_id", packId).order("sort_order"),
-      this.supabase.from("domain_pack_assumptions").select("*").eq("pack_id", packId).order("sort_order"),
+    const packResult = await this.supabase
+      .from("domain_packs")
+      .select("*")
+      .eq("id", packId)
+      .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
+      .single();
+
+    if (packResult.error || !packResult.data) {
+      throw new DomainPackAccessError(packId);
+    }
+
+    const resolvedPack = packResult.data as DomainPack;
+    const [kpisResult, assumptionsResult] = await Promise.all([
+      this.supabase.from("domain_pack_kpis").select("*").eq("pack_id", resolvedPack.id).order("sort_order"),
+      this.supabase.from("domain_pack_assumptions").select("*").eq("pack_id", resolvedPack.id).order("sort_order"),
     ]);
 
-    if (packResult.error) {
-      throw new Error(`Domain pack not found: ${packResult.error.message}`);
+    const kpis = (kpisResult.data ?? []) as PackKPI[];
+    const assumptions = (assumptionsResult.data ?? []) as PackAssumption[];
+
+    if (kpis.some((kpi) => kpi.pack_id !== resolvedPack.id) || assumptions.some((assumption) => assumption.pack_id !== resolvedPack.id)) {
+      throw new Error(`Domain pack layer integrity violation for pack ${resolvedPack.id}`);
     }
 
     return {
-      pack: packResult.data as DomainPack,
-      kpis: (kpisResult.data ?? []) as PackKPI[],
-      assumptions: (assumptionsResult.data ?? []) as PackAssumption[],
+      pack: resolvedPack,
+      kpis,
+      assumptions,
     };
   }
 
@@ -168,7 +192,7 @@ export class DomainPackService {
    */
   async setPackForCase(caseId: string, packId: string, organizationId: string): Promise<void> {
     // Load the pack with all layers to create a snapshot
-    const packData = await this.getPackWithLayers(packId);
+    const packData = await this.getPackWithLayers(packId, organizationId);
 
     const snapshot = {
       schemaVersion: 1,
@@ -280,7 +304,7 @@ export class DomainPackService {
     let packAssumptions: PackAssumption[] = [];
 
     if (packId) {
-      const packData = await this.getPackWithLayers(packId);
+      const packData = await this.getPackWithLayers(packId, organizationId);
       pack = packData.pack;
       packKpis = packData.kpis;
       packAssumptions = packData.assumptions;
@@ -461,8 +485,8 @@ export class DomainPackService {
    * Get the KPI definitions from a pack for injection into agent prompts.
    * Returns a formatted string suitable for system message context.
    */
-  async getAgentKPIContext(packId: string): Promise<string> {
-    const { kpis } = await this.getPackWithLayers(packId);
+  async getAgentKPIContext(packId: string, tenantId: string): Promise<string> {
+    const { kpis } = await this.getPackWithLayers(packId, tenantId);
 
     if (kpis.length === 0) return "";
 

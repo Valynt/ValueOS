@@ -405,6 +405,19 @@ describe("useCompanyContext", () => {
         error: null,
       });
 
+      // Helper: chainable stub that resolves to { data: [], error: null }
+      // Supports multiple .eq() calls by returning itself
+      const makeListStub = () => {
+        const resolved = Promise.resolve({ data: [], error: null });
+        const chain: Record<string, unknown> = {};
+        chain.eq = vi.fn().mockReturnValue(chain);
+        chain.then = resolved.then.bind(resolved);
+        chain.catch = resolved.catch.bind(resolved);
+        chain.finally = resolved.finally.bind(resolved);
+        const select = vi.fn().mockReturnValue(chain);
+        return { select };
+      };
+
       vi.mocked(supabase.from).mockImplementation((table: string) => {
         if (table === "company_contexts") {
           return {
@@ -423,7 +436,8 @@ describe("useCompanyContext", () => {
             insert: vi.fn().mockResolvedValue({ error: null }),
           } as unknown as ReturnType<typeof supabase.from>;
         }
-        return {} as unknown as ReturnType<typeof supabase.from>;
+        // All other tables (products, competitors, personas, etc.) return empty lists
+        return makeListStub() as unknown as ReturnType<typeof supabase.from>;
       });
 
       const { result } = renderHook(() => useCompleteOnboarding(mockTenantId, mockContextId), {

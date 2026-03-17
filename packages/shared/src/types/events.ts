@@ -1,6 +1,6 @@
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js";
 
-import type { BillingEvent } from "./billing-events";
+import type { BillingEvent } from "./billing-events.js";
 /**
  * Typed Domain Events
  *

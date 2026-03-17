@@ -133,7 +133,7 @@ Update status when stories are implemented or acceptance criteria change.
 - Subsequent agent runs reference this context automatically
 - Context can be updated without re-running existing cases
 
-**Status:** ✅ Delivered Sprint 34 — `POST /api/v1/tenant/context` endpoint mounted (`tenantContextRouter`), `TenantContextPage` settings UI wired at `/settings/tenant-context`, "Company Context" tab added to `SettingsLayout`.
+**Status:** ✅ Delivered — `POST /api/v1/tenant/context` endpoint mounted, `CompanyContextPage` added as "Company Context" tab in `SettingsPage`. Hook: `useTenantContext.ts`. Tests: `hooks/__tests__/useTenantContext.test.ts` (5 tests).
 
 ---
 

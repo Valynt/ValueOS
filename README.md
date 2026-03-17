@@ -1,6 +1,6 @@
 # ValueOS
 
-AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a six-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
+AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through an eight-agent fabric backed by Supabase, Redis, and CloudEvents messaging.
 
 ## Repository Layout
 
@@ -38,31 +38,54 @@ infra/
 
 - Node.js >= 20.19.0
 - pnpm >= 9.15.0
-- Docker and Docker Compose
+- A Gitpod/Ona environment (cloud-dev is the primary development target)
 
 ## Quickstart
 
+This repo is designed to run in a Gitpod/Ona cloud-dev environment. Open it there and the backend and frontend start automatically.
+
+For manual setup:
+
+**1. Set up environment variables**
+
 ```bash
-# Install dependencies
+cp ops/env/.env.cloud-dev.example          ops/env/.env.cloud-dev
+cp ops/env/.env.frontend.cloud-dev.example ops/env/.env.frontend.cloud-dev
+cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
+```
+
+Fill in credentials from your Supabase dashboard (Project Settings → API). See [ops/env/README.md](ops/env/README.md) for the full variable reference and load order.
+
+**2. Install dependencies**
+
+```bash
 pnpm install
-
-# Start frontend and backend together
-pnpm run dev
-
-# Or start each runtime independently
-pnpm run dev:frontend   # apps/ValyntApp — React + Vite on port 5173
-pnpm run dev:backend    # packages/backend — Express API
 ```
 
-### Environment variables
-
-Copy the template and fill in your Supabase and LLM provider credentials:
+**3. Run preflight checks**
 
 ```bash
-cp .env.example .env.local
+pnpm run dx:check
 ```
 
-See [docs/environments/local-development.md](docs/environments/local-development.md) for the full variable reference.
+**4. Apply database migrations**
+
+```bash
+pnpm run db:migrate
+```
+
+**5. Start services**
+
+```bash
+gitpod automations service start backend frontend
+```
+
+Or start each independently:
+
+```bash
+pnpm run dev:frontend   # apps/ValyntApp — React + Vite on port 5173
+pnpm run dev:backend    # packages/backend — Express API on port 3001
+```
 
 ## Key Commands
 
@@ -76,7 +99,8 @@ See [docs/environments/local-development.md](docs/environments/local-development
 | `pnpm run check` | Run TypeScript no-emit checks |
 | `pnpm test` | Run unit tests (Vitest) |
 | `pnpm run format` | Format code with Prettier |
-| `pnpm run db:push` | Generate and apply Drizzle migrations |
+| `pnpm run db:migrate` | Apply database migrations |
+| `pnpm run dx:check` | Run preflight environment checks |
 
 ## Architecture
 
@@ -96,11 +120,13 @@ ValueOS is a modular monolith deployed to Kubernetes.
 |    PolicyEngine     — safety, compliance, HITL          |
 |    ContextStore     — assembles domain state for agents |
 |    ArtifactComposer — generates business case outputs   |
+|    RecommendationEngine — next-best-action generation   |
 +---------------------------------------------------------+
 |  Agent Fabric (packages/backend/src/lib/agent-fabric/)  |
-|  6 lifecycle agents · BaseAgent · secureInvoke          |
+|  8 agents · BaseAgent · secureInvoke                    |
 |  OpportunityAgent · TargetAgent · FinancialModelingAgent|
 |  IntegrityAgent · RealizationAgent · ExpansionAgent     |
+|  NarrativeAgent · ComplianceAuditorAgent                |
 +---------------------------------------------------------+
 |  Domain Model (packages/shared/src/domain/)             |
 |  9 Zod-typed objects: Account, Opportunity, Stakeholder,|

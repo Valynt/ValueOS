@@ -9,6 +9,7 @@
  */
 
 import { createBrowserSupabaseClient } from "../supabase";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 // RealtimeService is browser-only — obtain the client lazily so SSR/test
 // environments that never call createBrowserSupabaseClient() don't throw.
@@ -103,9 +104,9 @@ export class RealtimeService {
     callback: (element: CanvasElement, event: ElementEvent) => void
   ): () => void {
     const channelName = `canvas-elements:${valueCaseId}`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channel = (getClient() as any).channel(channelName);
-    channel.on(
+    const channel: RealtimeChannel = getClient().channel(channelName);
+    channel
+      .on(
         "postgres_changes",
         {
           event: "*",
@@ -136,26 +137,22 @@ export class RealtimeService {
     valueCaseId: string,
     currentUser: PresenceUser,
     onUsersChange: (users: PresenceUser[]) => void
-  ): { unsubscribe: () => void; channel: unknown } {
+  ): { unsubscribe: () => void; channel: RealtimeChannel } {
     const channelName = `presence:${valueCaseId}`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channel = (getClient() as any).channel(channelName);
+    const channel: RealtimeChannel = getClient().channel(channelName);
     channel
       .on("presence", { event: "sync" }, () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const state = (channel as any).presenceState() as Record<string, PresenceUser[]>;
+        const state = channel.presenceState() as Record<string, PresenceUser[]>;
         const users = Object.values(state).flat();
         onUsersChange(users);
       })
       .on("presence", { event: "join" }, () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const state = (channel as any).presenceState() as Record<string, PresenceUser[]>;
+        const state = channel.presenceState() as Record<string, PresenceUser[]>;
         const users = Object.values(state).flat();
         onUsersChange(users);
       })
       .on("presence", { event: "leave" }, () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const state = (channel as any).presenceState() as Record<string, PresenceUser[]>;
+        const state = channel.presenceState() as Record<string, PresenceUser[]>;
         const users = Object.values(state).flat();
         onUsersChange(users);
       })
@@ -163,7 +160,7 @@ export class RealtimeService {
 
     // Track presence immediately — the channel will buffer the track call
     // until the subscription is confirmed by the server.
-    void channel.track(currentUser);
+    void channel.track(currentUser as Record<string, unknown>);
 
     return {
       channel,
@@ -172,8 +169,7 @@ export class RealtimeService {
         void channel.unsubscribe();
         // Ensure the channel is fully removed from the client to avoid leaks,
         // matching the behavior of other subscription helpers in this file.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        void (getClient() as any).removeChannel(channel);
+        void getClient().removeChannel(channel);
       },
     };
   }
@@ -190,13 +186,9 @@ export class RealtimeService {
    * creates a new unsubscribed channel, so callers must pass the already-
    * subscribed channel reference to avoid a no-op track call.
    */
-  async updatePresence(
-    channel: unknown,
-    update: Partial<PresenceUser>
-  ): Promise<void> {
+  async updatePresence(channel: RealtimeChannel, update: Partial<PresenceUser>): Promise<void> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (channel as any).track(update);
+      await channel.track(update as Record<string, unknown>);
     } catch {
       // Channel may not be subscribed yet — ignore
     }
@@ -217,8 +209,7 @@ export class RealtimeService {
     onNotification: (payload: NotificationBroadcastPayload) => void
   ): () => void {
     const channelName = `notifications:${organizationId}`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const channel = (getClient() as any)
+    const channel: RealtimeChannel = getClient()
       .channel(channelName)
       .on(
         "broadcast",

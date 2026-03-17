@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 vi.mock("@valueos/agents/orchestration", () => ({
@@ -25,28 +25,12 @@ vi.mock("@valueos/agents/orchestration", () => ({
 
 import { AgentFabric } from "./agent-fabric";
 
-const ORIGINAL_ENV = { ...process.env };
-
-afterEach(() => {
-  process.env = { ...ORIGINAL_ENV };
-});
-
-describe("AgentFabric stub guard", () => {
-  it("throws unless AGENT_FABRIC_ALLOW_STUB=true", async () => {
-    process.env.NODE_ENV = "test";
-    delete process.env.AGENT_FABRIC_ALLOW_STUB;
-
+describe("AgentFabric", () => {
+  it("throws when factoryDeps are not set", async () => {
     const fabric = new AgentFabric("url", "anon", "provider");
 
-    await expect(fabric.processUserInput("hi")).rejects.toThrow(/AGENT_FABRIC_ALLOW_STUB=true/);
-  });
-
-  it("always blocks in production", async () => {
-    process.env.NODE_ENV = "production";
-    process.env.AGENT_FABRIC_ALLOW_STUB = "true";
-
-    const fabric = new AgentFabric("url", "anon", "provider");
-
-    await expect(fabric.processUserInput("hi")).rejects.toThrow(/disabled/);
+    await expect(fabric.processUserInput("hi", "org-1")).rejects.toThrow(
+      /requires factoryDeps/,
+    );
   });
 });

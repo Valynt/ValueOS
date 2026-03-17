@@ -269,7 +269,7 @@ export class SlackAdapter extends EnterpriseAdapter {
       externalId: channel.id,
       provider: this.provider,
       type: "channel",
-      data: channel as Record<string, unknown>,
+      data: channel as unknown as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: channel.updated ? String(channel.updated) : undefined,
@@ -285,7 +285,7 @@ export class SlackAdapter extends EnterpriseAdapter {
       externalId: user.id,
       provider: this.provider,
       type: "user",
-      data: user as Record<string, unknown>,
+      data: user as unknown as Record<string, unknown>,
       metadata: {
         fetchedAt: new Date(),
         version: user.updated ? String(user.updated) : undefined,

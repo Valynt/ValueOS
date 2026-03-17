@@ -428,10 +428,16 @@ export class MigrationRunner {
         }
       }
 
-      // Final validation
+      // Final validation — skip the "at least one section" check for empty
+      // schemas so callers can migrate placeholder/empty pages without error.
       const finalValidation = validateSDUISchema(migratedSchema);
       if (!finalValidation.success) {
-        throw new Error(`Final schema validation failed: ${finalValidation.errors.join(", ")}`);
+        const nonEmptySectionErrors = finalValidation.errors.filter(
+          (e) => !e.includes("At least one section")
+        );
+        if (nonEmptySectionErrors.length > 0) {
+          throw new Error(`Final schema validation failed: ${nonEmptySectionErrors.join(", ")}`);
+        }
       }
 
       // Calculate final schema hash
@@ -439,7 +445,7 @@ export class MigrationRunner {
 
       result.success = true;
       result.schemaHash = finalHash;
-      result.warnings = finalValidation.warnings;
+      result.warnings = finalValidation.success ? finalValidation.warnings : [];
 
       logger.info("Migration completed successfully", {
         fromVersion,
@@ -473,7 +479,15 @@ export class MigrationRunner {
   async rollback(checkpointId: string): Promise<MigrationResult> {
     const checkpoint = this.checkpoints.get(checkpointId);
     if (!checkpoint) {
-      throw new Error(`Checkpoint ${checkpointId} not found`);
+      return {
+        success: false,
+        fromVersion: 0,
+        toVersion: 0,
+        appliedMigrations: [],
+        duration: 0,
+        rollbackAvailable: false,
+        errors: [`Checkpoint ${checkpointId} not found`],
+      };
     }
 
     logger.info("Starting rollback", {
@@ -496,9 +510,23 @@ export class MigrationRunner {
     try {
       let rolledBackSchema = { ...checkpoint.originalSchema };
 
+      // Determine which migrations to reverse. If the checkpoint was created
+      // before runMigration populated appliedMigrations, infer the path from
+      // the version range stored on the checkpoint.
+      const migrationIds =
+        checkpoint.appliedMigrations.length > 0
+          ? checkpoint.appliedMigrations
+          : migrations
+              .filter(
+                (m) =>
+                  m.fromVersion >= checkpoint.fromVersion &&
+                  m.toVersion <= checkpoint.toVersion
+              )
+              .map((m) => `${m.fromVersion}→${m.toVersion}`);
+
       // Apply rollback migrations in reverse order
-      for (let i = checkpoint.appliedMigrations.length - 1; i >= 0; i--) {
-        const migrationId = checkpoint.appliedMigrations[i];
+      for (let i = migrationIds.length - 1; i >= 0; i--) {
+        const migrationId = migrationIds[i];
         if (!migrationId) continue;
 
         const [from, to] = migrationId.split("→").map(Number);
@@ -571,8 +599,8 @@ export class MigrationRunner {
     // Store checkpoint (maintain max size)
     this.checkpoints.set(checkpoint.id, checkpoint);
     if (this.checkpoints.size > this.maxCheckpoints) {
-      const oldestKey = this.checkpoints.keys().next().value;
-      this.checkpoints.delete(oldestKey);
+      const oldestKey = this.checkpoints.keys().next().value as string | undefined;
+      if (oldestKey !== undefined) this.checkpoints.delete(oldestKey);
     }
 
     logger.info("Migration checkpoint created", {
@@ -596,7 +624,17 @@ export class MigrationRunner {
    * Calculate schema hash for integrity checking
    */
   private calculateSchemaHash(schema: SDUIPageDefinition): string {
-    const schemaString = JSON.stringify(schema, Object.keys(schema).sort());
+    // Use a replacer that sorts keys at every level so the hash is
+    // deterministic regardless of insertion order, and includes all nested values.
+    const sortedReplacer = (_key: string, value: unknown) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
+        );
+      }
+      return value;
+    };
+    const schemaString = JSON.stringify(schema, sortedReplacer);
     return createHash("sha256").update(schemaString).digest("hex");
   }
 

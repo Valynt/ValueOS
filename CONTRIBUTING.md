@@ -75,6 +75,7 @@ Each PR should include:
 - **Screenshots or recordings** for UI changes.
 - **Rollback approach** for production-impacting changes, with runbook link when possible.
 - **ADR reference** when changing architecture boundaries or core patterns.
+- **ADR index integrity**: if a PR adds, removes, renames, or updates an ADR in `docs/engineering/adr/`, update `docs/engineering/adr-index.md` in the same PR with accurate status/date/area metadata.
 
 PR size guideline:
 
@@ -113,6 +114,7 @@ If your area has additional checks documented in service-level docs/runbooks, ru
 - Any material architectural change must include either:
   - a new ADR, or
   - an update to an existing ADR + explicit approval in PR discussion.
+- **Docs consistency checklist (required):** when runtime boundaries, canonical agent/runtime inventories, or ownership paths change, update all canonical docs in the same PR (`README.md`, `AGENTS.md`, relevant `docs/architecture/*`, and infra docs that reference paths/names).
 - Keep layering clear:
   - UI concerns stay in frontend layers.
   - Business logic remains in domain/service layers.

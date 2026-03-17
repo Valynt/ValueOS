@@ -33,6 +33,19 @@ import {
   validateSession,
 } from './PlaygroundSessionSchema';
 
+interface AgentSessionOrganizationRow {
+  organization_id: string;
+}
+
+function isAgentSessionOrganizationRow(data: unknown): data is AgentSessionOrganizationRow {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const record = data as Record<string, unknown>;
+  return typeof record.organization_id === 'string';
+}
+
 /**
  * Playground Session Service
  */
@@ -142,19 +155,48 @@ export class PlaygroundSessionService {
   async loadSession(sessionId: string, organizationId?: string): Promise<PlaygroundSession | null> {
     await this.ensureConnected();
 
-      let orgId = organizationId;
-      if (!orgId) {
-        try {
-          const { data, error } = await supabase.from('agent_sessions').select('organization_id').eq('id', sessionId).single();
-          if (!error && data) {
-            orgId = (data as any).organization_id;
-          }
-        } catch (err) {
-          logger.warn('Unable to fetch session organizationId when loading session', { sessionId, error: err instanceof Error ? err.message : String(err) });
-        }
-      }
+    let orgId = organizationId;
+    if (!orgId) {
+      try {
+        const { data, error } = await supabase
+          .from('agent_sessions')
+          .select('organization_id')
+          .eq('id', sessionId)
+          .single();
 
-      const key = REDIS_KEYS.session(sessionId, orgId);
+        if (error) {
+          logger.warn('Error fetching session organizationId when loading session', {
+            sessionId,
+            error: error.message,
+          });
+          return null;
+        }
+
+        if (!data || !isAgentSessionOrganizationRow(data)) {
+          logger.warn('No valid organizationId found for session when loading session', {
+            sessionId,
+          });
+          return null;
+        }
+
+        orgId = data.organization_id;
+      } catch (err) {
+        logger.warn('Unable to fetch session organizationId when loading session', {
+          sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      }
+    }
+
+    if (!orgId) {
+      logger.warn('Missing organizationId for playground session; refusing to load from Redis', {
+        sessionId,
+      });
+      return null;
+    }
+
+    const key = REDIS_KEYS.session(sessionId, orgId);
     const data = await this.client.get(key);
 
     if (!data) {
@@ -201,7 +243,7 @@ export class PlaygroundSessionService {
   async saveSession(session: PlaygroundSession): Promise<void> {
     await this.ensureConnected();
 
-      const key = REDIS_KEYS.session(session.sessionId, session.organizationId);
+    const key = REDIS_KEYS.session(session.sessionId, session.organizationId);
     const data = JSON.stringify(session);
 
     // Calculate TTL

@@ -7,8 +7,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-import { logger } from "./logger";
-import { createServerSupabaseClient } from "./supabase";
+import { logger } from "./logger.js";
+import { createServerSupabaseClient } from "./supabase.js";
 
 export interface MemoryEntry {
   id: string;
@@ -145,8 +145,10 @@ export class SemanticMemoryService {
         throw new Error(`Together AI API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.data[0].embedding;
+      const data = await response.json() as { data: Array<{ embedding: number[] }> };
+      const embedding = data.data[0]?.embedding;
+      if (!embedding) throw new Error("No embedding returned from API");
+      return embedding;
     } catch (error) {
       logger.error("Failed to generate embedding", error as Error);
       throw error;

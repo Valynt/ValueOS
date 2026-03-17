@@ -9,6 +9,12 @@ function read(relativePath) {
   return readFileSync(resolve(ROOT, relativePath), 'utf8');
 }
 
+function readToolManifest() {
+  return JSON.parse(read('scripts/ci/security-tool-versions.json'));
+}
+
+const toolManifest = readToolManifest();
+
 const checks = [
   {
     id: 'headers-middleware-registered',
@@ -26,23 +32,30 @@ const checks = [
       'Expected security middleware pack to conditionally apply createSecurityHeadersMiddleware in packages/backend/src/middleware/security/index.ts',
   },
   {
-    id: 'ci-has-sast-job',
-    file: '.github/workflows/ci.yml',
-    // SAST via semgrep-action OR security-antipatterns guard script
+    id: 'codeql-dedicated-workflow',
+    file: '.github/workflows/codeql.yml',
     test: (content) =>
-      (content.includes('sast:') && content.includes('semgrep/semgrep-action@v1')) ||
-      content.includes('check-security-antipatterns.mjs'),
-    error: 'Expected SAST coverage in .github/workflows/ci.yml (semgrep-action or check-security-antipatterns.mjs)',
+      toolManifest.scannerActions
+        .filter(({ id }) => id === 'codeql-init' || id === 'codeql-analyze')
+        .every(({ uses }) => content.includes(uses)),
+    error: 'Expected CodeQL init/analyze refs from scripts/ci/security-tool-versions.json in .github/workflows/codeql.yml',
   },
   {
     id: 'ci-has-tenant-controls-guard',
     file: '.github/workflows/ci.yml',
-    // Tenant isolation guard replaced the dedicated SCA job in the sprint10 refactor.
-    // TODO: restore aquasecurity/trivy-action for dependency vulnerability + license scanning.
     test: (content) => content.includes('check-supabase-tenant-controls.mjs'),
     error: 'Expected check-supabase-tenant-controls.mjs in .github/workflows/ci.yml',
   },
 ];
+
+for (const scannerRef of toolManifest.ciWorkflowScannerRefs) {
+  checks.push({
+    id: `ci-has-${scannerRef}`,
+    file: '.github/workflows/ci.yml',
+    test: (content) => content.includes(scannerRef),
+    error: `Expected ${scannerRef} in .github/workflows/ci.yml`,
+  });
+}
 
 const failures = [];
 

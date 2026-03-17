@@ -16,6 +16,8 @@ build/
 ops/env/.env.local
 ops/env/.env.cloud-dev
 ops/env/.env.test
+ops/env/.env.staging
+ops/env/.env.production
 ops/env/.env.prod
 ops/env/.env.frontend.local
 ops/env/.env.frontend.cloud-dev
@@ -129,5 +131,5 @@ temp/
 *.sqlite3
 
 # Linux core dumps
-core
+/core
 core.*

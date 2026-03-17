@@ -98,6 +98,24 @@ function parseCategoryReadme(readmePath) {
   };
 }
 
+function parseAdrIndexEntries(indexPath) {
+  const absoluteIndexPath = path.resolve(repoRoot, indexPath);
+  const markdown = readFileSync(absoluteIndexPath, 'utf8');
+  const adrLinkRegex = /\[[^\]]+\]\((\.\/adr\/[^)]+\.md)\)/g;
+  const entries = [];
+
+  for (const match of markdown.matchAll(adrLinkRegex)) {
+    const target = normalizeLocalLink(match[1]);
+    if (!target) {
+      continue;
+    }
+
+    entries.push(path.normalize(path.join(path.dirname(indexPath), target)));
+  }
+
+  return [...new Set(entries)].sort();
+}
+
 const errors = [];
 const checks = [];
 
@@ -129,6 +147,22 @@ if (declaredTotal !== null && declaredTotal !== expectedDocs.length) {
     readme: securityReadmePath,
     declaredTotal,
     actualTotal: expectedDocs.length,
+  });
+}
+
+const adrIndexPath = 'docs/engineering/adr-index.md';
+const expectedAdrDocs = getDirectoryMarkdownFiles('docs/engineering/adr');
+const indexedAdrDocs = parseAdrIndexEntries(adrIndexPath);
+
+const missingAdrEntries = expectedAdrDocs.filter((doc) => !indexedAdrDocs.includes(doc));
+const extraAdrEntries = indexedAdrDocs.filter((doc) => !expectedAdrDocs.includes(doc));
+
+if (missingAdrEntries.length > 0 || extraAdrEntries.length > 0) {
+  errors.push({
+    type: 'adr-index-mismatch',
+    index: adrIndexPath,
+    missingAdrEntries,
+    extraAdrEntries,
   });
 }
 
@@ -189,6 +223,15 @@ if (errors.length > 0) {
         ` - [${error.sourceFile}] Migration lineage reference not found on disk: \`${error.ref}\``,
       );
     }
+
+    if (error.type === 'adr-index-mismatch') {
+      if (error.missingAdrEntries.length > 0) {
+        console.error(` - [${error.index}] Missing ADR index entries: ${error.missingAdrEntries.join(', ')}`);
+      }
+      if (error.extraAdrEntries.length > 0) {
+        console.error(` - [${error.index}] ADR index references missing files: ${error.extraAdrEntries.join(', ')}`);
+      }
+    }
   }
 
   process.exit(1);
@@ -197,3 +240,4 @@ if (errors.length > 0) {
 console.log('✅ Docs integrity check passed.');
 console.log(`Checked ${checks.length} markdown link target(s).`);
 console.log(`Verified security-compliance category index (${expectedDocs.length} documents).`);
+console.log(`Verified ADR index coverage (${expectedAdrDocs.length} ADR documents).`);

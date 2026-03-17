@@ -1,9 +1,9 @@
 /**
  * SEC EDGAR Module - Tier 1 Authoritative Data Source
- * 
+ *
  * Provides deterministic access to SEC filings with zero-hallucination guarantees.
  * All data is sourced directly from sec.gov with full provenance tracking.
- * 
+ *
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Compliance: SOX, RegTech, Zero-Trust Architecture
  */
@@ -29,7 +29,7 @@ interface EDGARConfig {
 
 /**
  * EDGAR Module - Tier 1 Canonical Source
- * 
+ *
  * Implements MCP tool: get_authoritative_financials
  * Node Mapping: [NODE: Tier_1_Canonical], [NODE: EDGAR_API]
  */
@@ -41,12 +41,11 @@ export class EDGARModule extends BaseModule {
   private userAgent: string = '';
   private baseUrl: string = 'https://data.sec.gov';
   private rateLimit: number = 10; // SEC enforces 10 requests/second
-  private lastRequestTime: number = 0;
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
-    
-    const edgarConfig = config as EDGARConfig;
+
+    const edgarConfig = config as unknown as EDGARConfig;
     this.userAgent = edgarConfig.userAgent || 'ValueCanvas contact@valuecanvas.com';
     this.baseUrl = edgarConfig.baseUrl || this.baseUrl;
     this.rateLimit = edgarConfig.rateLimit || this.rateLimit;
@@ -90,11 +89,12 @@ export class EDGARModule extends BaseModule {
       }
 
       // Search for relevant filings
+      const opts = options as Record<string, string> | undefined;
       const filings = await this.searchFilings({
         cik,
-        filing_type: options?.filing_type || '10-K',
-        date_from: options?.date_from,
-        date_to: options?.date_to,
+        filing_type: opts?.filing_type ?? '10-K',
+        date_from: opts?.date_from,
+        date_to: opts?.date_to,
       });
 
       if (filings.length === 0) {
@@ -106,6 +106,12 @@ export class EDGARModule extends BaseModule {
 
       // Get the most recent filing
       const filing = filings[0];
+      if (!filing) {
+        throw new GroundTruthError(
+          ErrorCodes.NO_DATA_FOUND,
+          `No filings found for CIK ${cik}`
+        );
+      }
 
       // Extract requested metrics
       if (metric) {
@@ -153,17 +159,17 @@ export class EDGARModule extends BaseModule {
 
   /**
    * Search for SEC filings
-   * 
+   *
    * Uses SEC EDGAR API to find filings matching criteria
    */
   private async searchFilings(params: EDGARSearchParams): Promise<EDGARFiling[]> {
     await this.enforceRateLimit();
 
     const { cik, filing_type = '10-K', date_from, date_to } = params;
-    
+
     // Pad CIK to 10 digits
-    const paddedCIK = cik.padStart(10, '0');
-    
+    const paddedCIK = cik!.padStart(10, '0');
+
     // SEC submissions endpoint
     const url = `${this.baseUrl}/submissions/CIK${paddedCIK}.json`;
 
@@ -257,7 +263,7 @@ export class EDGARModule extends BaseModule {
 
   /**
    * Extract specific metric from filing
-   * 
+   *
    * Implements deterministic extraction with pattern matching
    */
   private async extractMetric(
@@ -307,7 +313,7 @@ export class EDGARModule extends BaseModule {
 
   /**
    * Extract metric value from filing text using pattern matching
-   * 
+   *
    * This is a simplified implementation. Production would use:
    * - XBRL parsing for structured data
    * - NLP-based extraction for unstructured sections
@@ -353,7 +359,7 @@ export class EDGARModule extends BaseModule {
       if (match && match[1]) {
         const valueStr = match[1].replace(/,/g, '');
         const value = parseFloat(valueStr);
-        
+
         if (!isNaN(value)) {
           // Extract surrounding context (100 chars before and after)
           const matchIndex = text.indexOf(match[0]);
@@ -371,7 +377,7 @@ export class EDGARModule extends BaseModule {
 
   /**
    * Convert ticker symbol to CIK
-   * 
+   *
    * Uses SEC ticker lookup API
    */
   private async tickerToCIK(ticker: string): Promise<string | null> {
@@ -380,7 +386,7 @@ export class EDGARModule extends BaseModule {
     try {
       // SEC company tickers JSON
       const url = `${this.baseUrl}/files/company_tickers.json`;
-      
+
       const response = await fetch(url, {
         headers: {
           'User-Agent': this.userAgent,
@@ -396,7 +402,7 @@ export class EDGARModule extends BaseModule {
       }
 
       const data = await response.json();
-      
+
       // Find matching ticker
       for (const key in data) {
         const company = data[key];

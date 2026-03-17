@@ -5,7 +5,7 @@
  * rollback capabilities, schema diffing, and validation.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, it } from "vitest";
 
 import { logger } from "../../lib/logger";
 import {
@@ -527,6 +527,11 @@ describe("Legacy Migration Functions", () => {
 });
 
 describe("Integration Tests", () => {
+  let runner: MigrationRunner;
+  beforeEach(() => {
+    runner = new MigrationRunner();
+  });
+
   it("should handle complete migration lifecycle", async () => {
     const originalSchema: SDUIPageDefinition = {
       type: "page",

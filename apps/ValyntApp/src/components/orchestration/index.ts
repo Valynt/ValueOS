@@ -1,6 +1,10 @@
 /**
  * Orchestration Layer
- * State management for the agentic flow
+ * State management and visualization for the agentic flow
  */
 
+export { AgentInsightCard } from "./AgentInsightCard";
 export { AgentStatusIndicator } from "./AgentStatusIndicator";
+export { PipelineCompletionSummary } from "./PipelineCompletionSummary";
+export { PipelineProgressBar } from "./PipelineProgressBar";
+export { PipelineStepper } from "./PipelineStepper";

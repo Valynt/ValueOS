@@ -316,7 +316,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     });
 
     // Send telemetry event
-    this.sendCircuitBreakerTelemetry("opened", errorCorrelation);
+    this.sendCircuitBreakerTelemetry("opened", errorCorrelation as unknown as Record<string, unknown>);
   }
 
   /**

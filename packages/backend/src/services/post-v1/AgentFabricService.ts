@@ -239,11 +239,33 @@ export class AgentFabricService {
       { data: financialModel },
       { data: assumptions },
     ] = await Promise.all([
-      supabase.from('company_profiles').select('*').eq('value_case_id', valueCaseId).single(),
-      supabase.from('value_maps').select('*').eq('value_case_id', valueCaseId),
-      supabase.from('kpi_hypotheses').select('*').eq('value_case_id', valueCaseId),
-      supabase.from('financial_models').select('*').eq('value_case_id', valueCaseId).single(),
-      supabase.from('assumptions').select('*').eq('value_case_id', valueCaseId),
+      supabase
+        .from('company_profiles')
+        .select('*')
+        .eq('value_case_id', valueCaseId)
+        .eq('organization_id', organizationId)
+        .single(),
+      supabase
+        .from('value_maps')
+        .select('*')
+        .eq('value_case_id', valueCaseId)
+        .eq('organization_id', organizationId),
+      supabase
+        .from('kpi_hypotheses')
+        .select('*')
+        .eq('value_case_id', valueCaseId)
+        .eq('organization_id', organizationId),
+      supabase
+        .from('financial_models')
+        .select('*')
+        .eq('value_case_id', valueCaseId)
+        .eq('organization_id', organizationId)
+        .single(),
+      supabase
+        .from('assumptions')
+        .select('*')
+        .eq('value_case_id', valueCaseId)
+        .eq('organization_id', organizationId),
     ]);
 
     return {

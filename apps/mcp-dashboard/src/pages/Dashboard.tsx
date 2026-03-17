@@ -48,8 +48,8 @@ export default function Dashboard() {
   useEffect(() => {
     // Subscribe to real-time data
     const unsubscribeMarket = subscribe("market.overview", (data) => {
-      if (data.data.marketData) {
-        setMarketData(data.data.marketData);
+      if (Array.isArray(data.data.marketData)) {
+        setMarketData(data.data.marketData as MarketData[]);
       }
     });
 

@@ -1,9 +1,11 @@
 /**
  * Base Module Implementation
- * 
+ *
  * Abstract base class for all Ground Truth modules with common functionality
  * for caching, rate limiting, error handling, and provenance tracking.
  */
+
+import { createHash } from 'crypto';
 
 import { logger } from '../../lib/logger';
 import {
@@ -21,7 +23,7 @@ export abstract class BaseModule implements GroundTruthModule {
   abstract name: string;
   abstract tier: ConfidenceTier;
   abstract description: string;
-  
+
   protected config: Record<string, any> = {};
   protected initialized = false;
   protected requestCount = 0;
@@ -83,7 +85,7 @@ export abstract class BaseModule implements GroundTruthModule {
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       logger.error(`Module ${this.name} query failed`, {
         identifier: request.identifier,
         metric: request.metric,
@@ -125,7 +127,7 @@ export abstract class BaseModule implements GroundTruthModule {
     rawExtract?: string
   ): FinancialMetric {
     const confidence = this.calculateConfidence(this.tier);
-    
+
     return {
       type: typeof value === 'number' ? 'metric' : Array.isArray(value) ? 'range' : 'text',
       metric_name: metricName,
@@ -154,7 +156,7 @@ export abstract class BaseModule implements GroundTruthModule {
    */
   protected calculateConfidence(tier: ConfidenceTier, qualityFactors?: number[]): number {
     let baseConfidence: number;
-    
+
     switch (tier) {
       case 'tier1':
         baseConfidence = 0.95;
@@ -176,17 +178,10 @@ export abstract class BaseModule implements GroundTruthModule {
   }
 
   /**
-   * Generate fingerprint for raw data
+   * Generate SHA-256 fingerprint for raw data provenance
    */
   protected generateFingerprint(data: string): string {
-    // Simple hash function for fingerprinting
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-      const char = data.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
+    return createHash('sha256').update(data).digest('hex');
   }
 
   /**

@@ -158,7 +158,7 @@ export interface VectorStore {
   getProvenance(chunkId: string): Promise<ProvenanceRecord | null>;
 
   /** Delete all chunks for an artifact (used during re-indexing) */
-  deleteByArtifactId(artifactId: string): Promise<number>;
+  deleteByArtifactId(artifactId: string, tenantId: string): Promise<number>;
 }
 
 // ============================================================================
@@ -238,8 +238,8 @@ export class VectorMemory {
   /**
    * Re-index an artifact by deleting existing chunks and inserting new ones.
    */
-  async reindex(artifactId: string, inputs: ChunkInput[]): Promise<VectorChunk[]> {
-    await this.store.deleteByArtifactId(artifactId);
+  async reindex(artifactId: string, tenantId: string, inputs: ChunkInput[]): Promise<VectorChunk[]> {
+    await this.store.deleteByArtifactId(artifactId, tenantId);
     return this.indexChunks(inputs);
   }
 

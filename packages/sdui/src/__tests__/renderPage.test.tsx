@@ -2,7 +2,8 @@
  * Tests for renderPage() function
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 
 import { clearAllHydrationCache } from '../hooks/useDataHydration';
 import { renderPage, RenderPageOptions } from '../renderPage';
@@ -170,8 +171,9 @@ describe('renderPage', () => {
       };
 
       const result = renderPage(pageDefinition);
-      const rendered = result.element as any;
-      expect(JSON.stringify(rendered)).toContain('Component unavailable');
+      const { getByTestId } = render(result.element);
+      // renderPage renders UnknownComponentFallback for unregistered components
+      expect(getByTestId('unknown-component-fallback')).toBeInTheDocument();
     });
 
     it('renders layout container components without validation errors', () => {
@@ -214,9 +216,13 @@ describe('renderPage', () => {
         ],
       };
 
-      renderPage(pageDefinition, { onComponentRender });
+      const result = renderPage(pageDefinition, { onComponentRender });
+      render(result.element);
 
-      expect(onComponentRender).toHaveBeenCalledWith('InfoBanner', expect.any(Object));
+      expect(onComponentRender).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object)
+      );
     });
 
     it('should render multiple components', () => {

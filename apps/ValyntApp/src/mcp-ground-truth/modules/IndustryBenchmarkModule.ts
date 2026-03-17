@@ -1,14 +1,14 @@
 /**
  * Industry Benchmark Module - Tier 3 Contextual Intelligence
- * 
+ *
  * Provides industry benchmarks, wage data, and productivity metrics from:
  * - U.S. Census Bureau (Economic Census)
  * - Bureau of Labor Statistics (BLS)
  * - Industry research firms (Gartner, IDC, McKinsey)
- * 
+ *
  * Tier 3 classification: Contextual data for comparison and validation.
  * Not used for direct financial assertions but for benchmarking and analysis.
- * 
+ *
  * Node Mapping: [NODE: Industry_Benchmark_Module], [NODE: Tier_3_Narrative]
  */
 
@@ -33,7 +33,7 @@ interface BenchmarkConfig {
 
 /**
  * Industry Benchmark Module - Tier 3 Contextual Data
- * 
+ *
  * Provides industry-wide benchmarks for comparative analysis
  * Used in Value Driver Tree calculations and productivity gap analysis
  */
@@ -83,7 +83,7 @@ export class IndustryBenchmarkModule extends BaseModule {
         source: 'Industry Analysis',
       },
     ],
-    
+
     // SaaS/Software Publishers
     '511210': [
       {
@@ -133,7 +133,7 @@ export class IndustryBenchmarkModule extends BaseModule {
       employment_count: 1847900,
       year: 2024,
     },
-    
+
     // Data Scientists
     '15-2051': {
       occupation_code: '15-2051',
@@ -147,7 +147,7 @@ export class IndustryBenchmarkModule extends BaseModule {
       employment_count: 168200,
       year: 2024,
     },
-    
+
     // Sales Representatives (Technical)
     '41-4011': {
       occupation_code: '41-4011',
@@ -161,7 +161,7 @@ export class IndustryBenchmarkModule extends BaseModule {
       employment_count: 300000,
       year: 2024,
     },
-    
+
     // Marketing Managers
     '11-2021': {
       occupation_code: '11-2021',
@@ -177,10 +177,10 @@ export class IndustryBenchmarkModule extends BaseModule {
     },
   };
 
-  async initialize(config: Record<string, unknown>): Promise<void> {
+  override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
-    
-    const benchmarkConfig = config as BenchmarkConfig;
+
+    const benchmarkConfig = config as unknown as BenchmarkConfig;
     this.blsApiKey = benchmarkConfig.blsApiKey;
     this.censusApiKey = benchmarkConfig.censusApiKey;
     this.enableStaticData = benchmarkConfig.enableStaticData ?? true;
@@ -215,7 +215,7 @@ export class IndustryBenchmarkModule extends BaseModule {
       if (isNAICS) {
         return await this.getIndustryBenchmark(identifier, metric);
       } else if (isOccupation) {
-        return await this.getWageData(identifier, options?.metro_area);
+        return await this.getWageData(identifier, (options as Record<string, string> | undefined)?.metro_area);
       }
 
       throw new GroundTruthError(
@@ -243,7 +243,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     // Try static data first
     if (this.enableStaticData && this.STATIC_BENCHMARKS[naicsCode]) {
       const benchmarks = this.STATIC_BENCHMARKS[naicsCode];
-      
+
       // Filter by metric if specified
       const filtered = metric
         ? benchmarks.filter(b => b.metric_name === metric)
@@ -257,8 +257,14 @@ export class IndustryBenchmarkModule extends BaseModule {
       }
 
       const benchmark = filtered[0];
+      if (!benchmark) {
+        throw new GroundTruthError(
+          ErrorCodes.NO_DATA_FOUND,
+          `No benchmark data for NAICS ${naicsCode}, metric ${metric}`
+        );
+      }
       this.setCachedData(cacheKey, benchmark);
-      
+
       return this.createMetricFromBenchmark(benchmark, false);
     }
 
@@ -298,7 +304,7 @@ export class IndustryBenchmarkModule extends BaseModule {
     if (this.enableStaticData && this.STATIC_WAGE_DATA[occupationCode]) {
       const wageData = this.STATIC_WAGE_DATA[occupationCode];
       this.setCachedData(cacheKey, wageData);
-      
+
       return this.createMetricFromWageData(wageData, false);
     }
 
@@ -362,7 +368,7 @@ export class IndustryBenchmarkModule extends BaseModule {
 
     for (const [metricName, companyValue] of Object.entries(companyMetrics)) {
       const benchmark = benchmarks.find(b => b.metric_name === metricName);
-      
+
       if (benchmark) {
         const industryMedian = Array.isArray(benchmark.value)
           ? (benchmark.value[0] + benchmark.value[1]) / 2

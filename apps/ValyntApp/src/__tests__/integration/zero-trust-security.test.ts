@@ -16,47 +16,124 @@ describe("Zero Trust Security Integration Test", () => {
   });
 
   describe("Permission Computation", () => {
-    it("computes CFO permissions correctly", () => {
-      const permissions = computePermissions(["CFO"]);
-      expect(permissions).toContain("VIEW_FINANCIALS");
-      expect(permissions).toContain("APPROVE_RISK");
-      expect(permissions).not.toContain("ADMIN_SYSTEM");
+    // --- Tenant roles ---
+    it("owner gets full admin permissions", () => {
+      const permissions = computePermissions(["owner"]);
+      expect(permissions).toContain("admin");
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).toContain("delete");
     });
 
-    it("computes ADMIN permissions correctly", () => {
+    it("tenant admin gets editor-level permissions (no system admin flag)", () => {
+      const permissions = computePermissions(["admin"]);
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).toContain("delete");
+      expect(permissions).not.toContain("admin");
+    });
+
+    it("member gets read+write permissions", () => {
+      const permissions = computePermissions(["member"]);
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).not.toContain("delete");
+      expect(permissions).not.toContain("admin");
+    });
+
+    it("viewer gets read-only permissions", () => {
+      const permissions = computePermissions(["viewer"]);
+      expect(permissions).toEqual(["read"]);
+    });
+
+    // --- RBAC roles (ROLE_ prefix) ---
+    it("ROLE_ADMIN gets full owner-level permissions", () => {
+      const permissions = computePermissions(["ROLE_ADMIN"]);
+      expect(permissions).toContain("admin");
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).toContain("delete");
+    });
+
+    it("ROLE_EDITOR gets editor-level permissions (no system admin flag)", () => {
+      const permissions = computePermissions(["ROLE_EDITOR"]);
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).toContain("delete");
+      expect(permissions).not.toContain("admin");
+    });
+
+    it("ROLE_OPERATOR gets member-level permissions", () => {
+      const permissions = computePermissions(["ROLE_OPERATOR"]);
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).not.toContain("delete");
+      expect(permissions).not.toContain("admin");
+    });
+
+    it("ROLE_AUDITOR gets read-only permissions", () => {
+      const permissions = computePermissions(["ROLE_AUDITOR"]);
+      expect(permissions).toEqual(["read"]);
+    });
+
+    it("ROLE_VIEWER gets read-only permissions", () => {
+      const permissions = computePermissions(["ROLE_VIEWER"]);
+      expect(permissions).toEqual(["read"]);
+    });
+
+    // RBAC roles are case-insensitive on the ROLE_ prefix
+    it("role_operator (lowercase) resolves correctly", () => {
+      const permissions = computePermissions(["role_operator"]);
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+    });
+
+    // --- Legacy uppercase aliases (pre-ROLE_ JWT claims) ---
+    it("legacy ADMIN string maps to owner-level permissions", () => {
       const permissions = computePermissions(["ADMIN"]);
-      expect(permissions).toContain("VIEW_FINANCIALS");
-      expect(permissions).toContain("VIEW_TECHNICAL_DEBT");
-      expect(permissions).toContain("EXECUTE_AGENT");
-      expect(permissions).toContain("APPROVE_RISK");
-      expect(permissions).toContain("ADMIN_SYSTEM");
+      expect(permissions).toContain("admin");
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).toContain("delete");
     });
 
-    it("computes DEVELOPER permissions correctly", () => {
-      const permissions = computePermissions(["DEVELOPER"]);
-      expect(permissions).toContain("VIEW_TECHNICAL_DEBT");
-      expect(permissions).toContain("EXECUTE_AGENT");
-      expect(permissions).not.toContain("VIEW_FINANCIALS");
-    });
-
-    it("computes ANALYST permissions correctly", () => {
+    it("legacy ANALYST string maps to member-level permissions", () => {
       const permissions = computePermissions(["ANALYST"]);
-      expect(permissions).toContain("VIEW_FINANCIALS");
-      expect(permissions).toContain("VIEW_TECHNICAL_DEBT");
-      expect(permissions).not.toContain("ADMIN_SYSTEM");
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).not.toContain("delete");
+      expect(permissions).not.toContain("admin");
     });
 
-    it("combines permissions from multiple roles", () => {
-      const permissions = computePermissions(["CFO", "DEVELOPER"]);
-      expect(permissions).toContain("VIEW_FINANCIALS");
-      expect(permissions).toContain("VIEW_TECHNICAL_DEBT");
-      expect(permissions).toContain("EXECUTE_AGENT");
-      expect(permissions).toContain("APPROVE_RISK");
-    });
-
+    // --- Unknown / unrecognised roles ---
     it("returns empty array for unknown roles", () => {
       const permissions = computePermissions(["UNKNOWN_ROLE"]);
       expect(permissions).toEqual([]);
+    });
+
+    it("CFO (unrecognised in new model) returns empty array", () => {
+      const permissions = computePermissions(["CFO"]);
+      expect(permissions).toEqual([]);
+    });
+
+    it("DEVELOPER (unrecognised in new model) returns empty array", () => {
+      const permissions = computePermissions(["DEVELOPER"]);
+      expect(permissions).toEqual([]);
+    });
+
+    // --- Multi-role merging ---
+    it("combines permissions from multiple roles (highest wins)", () => {
+      const permissions = computePermissions(["viewer", "ROLE_OPERATOR"]);
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+    });
+
+    it("owner + viewer resolves to full permissions", () => {
+      const permissions = computePermissions(["owner", "viewer"]);
+      expect(permissions).toContain("admin");
+      expect(permissions).toContain("read");
+      expect(permissions).toContain("write");
+      expect(permissions).toContain("delete");
     });
   });
 
@@ -82,17 +159,11 @@ describe("Zero Trust Security Integration Test", () => {
   describe("Database Schema", () => {
     it("security_audit_events table should exist", async () => {
       // This will fail gracefully if migration hasn't run
-      const { error } = await supabase
-        .from("security_audit_events")
-        .select("*")
-        .limit(0);
+      const { error } = await supabase.from("security_audit_events").select("*").limit(0);
 
       // Error is expected if table doesn't exist yet
       if (error) {
-        console.warn(
-          "security_audit_events table not yet migrated:",
-          error.message
-        );
+        console.warn("security_audit_events table not yet migrated:", error.message);
       }
     });
   });
@@ -101,27 +172,27 @@ describe("Zero Trust Security Integration Test", () => {
     it("provides manual testing steps", () => {
       const instructions = `
         MANUAL TESTING STEPS:
-        
+
         1. Run database migration:
            $ npx supabase db push
-           
+
         2. Create test user in Supabase Dashboard:
            - Go to Authentication > Users
            - Add new user manually
            - Set user_metadata: { "roles": ["CFO"], "org_id": "test-org" }
-        
+
         3. Test ProtectedComponent:
            - Login with test user
            - Visit page with ProtectedComponent
            - Verify access granted for correct permissions
            - Check browser console for security audit logs
-           
+
         4. Test Access Denial:
            - Change user roles to ["DEVELOPER"] in Supabase
            - Refresh page
            - Verify "Access Restricted" message appears
            - Check /api/security/audit for logged event
-        
+
         5. Verify Audit Logging:
            - As ADMIN user, call GET /api/security/audit
            - Verify ACCESS_DENIED events are logged

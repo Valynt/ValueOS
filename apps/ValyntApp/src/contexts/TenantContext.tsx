@@ -15,6 +15,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
@@ -28,7 +29,7 @@ import { useAuth } from "./AuthContext";
 
 const logger = createLogger({ component: "TenantContext" });
 
- 
+
 
 /**
  * Tenant context state
@@ -247,16 +248,29 @@ export function TenantProvider({ children, onTenantSwitch }: TenantProviderProps
     [tenants]
   );
 
+  // Grace period for background auth to settle after page load.
+  // secureTokenManager.getStoredSession() always returns null (security design),
+  // so AuthContext sets loading=false before the real session resolves via
+  // initializeBackgroundAuth(). Without this grace period, TenantGate would
+  // redirect to /create-org before the session has a chance to resolve.
+  const AUTH_SETTLE_MS = 2000;
+
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       refreshTenants();
-    } else {
+      return;
+    }
+
+    // Delay clearing tenants to allow background auth to settle
+    const timer = setTimeout(() => {
       clearAndBroadcastTenantCacheReset();
       setTenants([]);
       setCurrentTenant(null);
       setIsLoading(false);
       clearStoredTenantId();
-    }
+    }, AUTH_SETTLE_MS);
+
+    return () => clearTimeout(timer);
   }, [isAuthenticated, user?.id, refreshTenants]);
 
   useEffect(() => {

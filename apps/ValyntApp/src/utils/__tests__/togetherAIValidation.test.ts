@@ -173,15 +173,13 @@ describe("Together AI Validation Utilities", () => {
       expect(result.info).toHaveProperty("apiKey");
     });
 
-    it("should succeed when properly configured", () => {
+    it("should succeed when TOGETHER_API_KEY is set", () => {
+      vi.stubEnv("TOGETHER_API_KEY", "test-key-abc");
+
       const result = validateTogetherAIStartup();
 
-      // Should have no critical errors
-      const hasCriticalErrors = result.errors.some(
-        (e) => !e.toLowerCase().includes("warning")
-      );
-
-      expect(result.success || !hasCriticalErrors).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
   });
 });

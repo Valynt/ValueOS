@@ -165,6 +165,17 @@ describe('WorkflowExecutor._validateWorkflowDAG', () => {
   it('throws when final_stages reference missing stages', () => {
     expect(() => (executor as never)._validateWorkflowDAG({ stages: [{ id: 's1' }], initial_stage: 's1', final_stages: ['missing'] })).toThrow('final_stages reference missing stages');
   });
+  it('throws when transitions contain a cycle', () => {
+    expect(() => (executor as never)._validateWorkflowDAG({
+      stages: [{ id: 's1' }, { id: 's2' }],
+      initial_stage: 's1',
+      final_stages: ['s2'],
+      transitions: [
+        { from_stage: 's1', to_stage: 's2' },
+        { from_stage: 's2', to_stage: 's1' },
+      ],
+    })).toThrow('contains cycle');
+  });
   it('returns the dag when valid', () => {
     const dag = makeDAG();
     expect((executor as never)._validateWorkflowDAG(dag)).toBe(dag);

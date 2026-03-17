@@ -258,7 +258,7 @@ export interface ExtendedRegistryEntry {
   /**
    * React component
    */
-  component: ComponentType<unknown>;
+  component: ComponentType<any>;
 
   /**
    * Supported versions
@@ -309,7 +309,7 @@ export interface ExtendedRegistryEntry {
 /**
  * Result of component resolution
  */
-export interface ComponentResolutionResult {
+export interface ComponentLookupResult {
   /**
    * Whether component was found
    */

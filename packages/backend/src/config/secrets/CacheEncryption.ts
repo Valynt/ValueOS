@@ -43,15 +43,28 @@ export class CacheEncryption {
   private cacheTTL: number;
   private encryptionEnabled: boolean;
 
+  private static readonly LOCAL_DEV_OR_TEST_ENVS = new Set(['development', 'test', 'local-dev']);
+
   constructor(config?: Partial<EncryptionConfig>) {
     this.algorithm = config?.algorithm || 'aes-256-gcm';
     this.cacheTTL = config?.cacheTTL || 300000; // 5 minutes
-    
-    // Initialize encryption key
-    this.encryptionKey = this.deriveEncryptionKey();
-    
+
+    const nodeEnv = process.env.NODE_ENV ?? 'development';
+    const isLocalDevOrTest = CacheEncryption.LOCAL_DEV_OR_TEST_ENVS.has(nodeEnv);
+
     // Check if encryption is enabled
     this.encryptionEnabled = process.env.CACHE_ENCRYPTION_ENABLED !== 'false';
+
+    if (!this.encryptionEnabled && !isLocalDevOrTest) {
+      throw new Error(
+        `Cache encryption cannot be disabled in ${nodeEnv}. Set CACHE_ENCRYPTION_ENABLED=true and provide CACHE_ENCRYPTION_KEY.`
+      );
+    }
+
+    // Initialize encryption key only when encryption is enabled
+    this.encryptionKey = this.encryptionEnabled
+      ? this.deriveEncryptionKey(isLocalDevOrTest, nodeEnv)
+      : Buffer.alloc(32);
 
     if (this.encryptionEnabled) {
       logger.info('Cache encryption initialized', {
@@ -66,7 +79,7 @@ export class CacheEncryption {
   /**
    * Derive encryption key from environment or KMS
    */
-  private deriveEncryptionKey(): Buffer {
+  private deriveEncryptionKey(isLocalDevOrTest: boolean, nodeEnv: string): Buffer {
     // In production, this should fetch from KMS (AWS KMS, GCP KMS, etc.)
     // For now, derive from environment variable or generate
     
@@ -79,8 +92,14 @@ export class CacheEncryption {
         .digest();
     }
 
+    if (!isLocalDevOrTest) {
+      throw new Error(
+        `CACHE_ENCRYPTION_KEY is required when cache encryption is enabled in ${nodeEnv}.`
+      );
+    }
+
     // Generate random key (WARNING: not persistent across restarts)
-    logger.warn('No CACHE_ENCRYPTION_KEY set - generating random key (not persistent)');
+    logger.warn('No CACHE_ENCRYPTION_KEY set in local development/test - generating random key (not persistent)');
     return randomBytes(32);
   }
 

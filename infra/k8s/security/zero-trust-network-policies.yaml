@@ -201,7 +201,7 @@ spec:
           name: istio-system
     ports:
     - protocol: TCP
-      port: 8000
+      port: 3001
 ---
 # Allow ingress controller to reach active frontend service
 apiVersion: networking.k8s.io/v1

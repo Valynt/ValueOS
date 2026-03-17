@@ -13,8 +13,16 @@
     "packages/sdui-types/tsconfig.strict-zone.json",
     "packages/mcp/tsconfig.strict-zone.json"
   ],
-  "comment": "Strict islands phase 2: expanded to shared, sdui-types, and mcp packages (all at 0 TS errors). These zones must remain at 0 TS errors.",
-  "migration_note": "Expand strict_zones one package at a time after each zone reaches zero TS errors under its strict-zone tsconfig.",
+  "eslint_strict_any_zones": [
+    "packages/backend/src/middleware",
+    "packages/backend/src/lib/agent-fabric",
+    "packages/backend/src/runtime",
+    "packages/backend/src/services/billing",
+    "packages/backend/src/api/auth.ts",
+    "packages/backend/src/api/admin.ts"
+  ],
+  "comment": "Strict islands phase 2: expanded to shared, sdui-types, and mcp packages (all at 0 TS errors). ESLint strict-any zones expanded per audit rec #1 to cover agent-fabric, middleware, and runtime.",
+  "migration_note": "Expand strict_zones one package at a time after each zone reaches zero TS errors under its strict-zone tsconfig. ESLint strict-any zones are expanded independently -- see eslint.config.js strictNoAnyOverrides.",
   "ratchet": {
     "baseline_file": ".quality/tsc-baseline.json",
     "command": "pnpm exec tsc --noEmit --pretty false"

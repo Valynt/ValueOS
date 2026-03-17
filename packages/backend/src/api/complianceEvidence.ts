@@ -18,13 +18,10 @@ const appendEvidenceSchema = z.object({
 });
 
 function getTenantId(req: Request): string {
-  const tenantId = (req as Request & { tenantId?: string; organizationId?: string }).tenantId
-    ?? (req as Request & { tenantId?: string; organizationId?: string }).organizationId
-    ?? (req.headers['x-tenant-id'] as string | undefined)
-    ?? (req.headers['x-organization-id'] as string | undefined);
+  const tenantId = req.tenantId ?? req.organizationId;
 
   if (!tenantId) {
-    throw new Error('tenant_id is required');
+    throw new Error('Trusted tenant context is required');
   }
 
   return tenantId;
@@ -84,4 +81,3 @@ complianceEvidenceRouter.get('/export', async (req: Request, res: Response) => {
     });
   }
 });
-

@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * MCP Financial Ground Truth Server - Basic Usage Examples
- * 
+ *
  * This file demonstrates common usage patterns for the MCP server.
  */
 
@@ -192,6 +192,64 @@ async function example8_BatchQueries() {
 }
 
 /**
+ * Example 9: Cross-tier corroboration
+ */
+async function example9_CorroborateMetric() {
+  console.log('\n=== Example 9: Cross-Tier Corroboration ===\n');
+
+  const server = await createDevServer();
+
+  // Corroborate Apple's revenue across all tiers
+  const result = await server.executeTool('corroborate_metric', {
+    entity_id: '0000320193',
+    metric: 'revenue_total',
+    period: 'FY2024',
+  });
+
+  console.log('Corroboration Report:');
+  console.log(JSON.stringify(result, null, 2));
+}
+
+/**
+ * Example 10: Multi-claim verification with granular per-claim results
+ */
+async function example10_MultiClaimVerification() {
+  console.log('\n=== Example 10: Multi-Claim Verification ===\n');
+
+  const server = await createDevServer();
+
+  // Verify multiple claims in a single sentence
+  const result = await server.executeTool('verify_claim_aletheia', {
+    claim_text:
+      'Apple reported revenue of $383 billion and net income of $94 billion in FY2024',
+    context_entity: '0000320193',
+    strict_mode: true,
+  });
+
+  console.log('Multi-Claim Verification Report:');
+  console.log(JSON.stringify(result, null, 2));
+}
+
+/**
+ * Example 11: Risk mitigation value driver
+ */
+async function example11_RiskMitigationDriver() {
+  console.log('\n=== Example 11: Risk Mitigation Driver ===\n');
+
+  const server = await createDevServer();
+
+  const result = await server.executeTool('populate_value_driver_tree', {
+    target_cik: '0000320193',
+    benchmark_naics: '541511',
+    driver_node_id: 'risk_mitigation',
+    simulation_period: '2025-2027',
+  });
+
+  console.log('Risk Mitigation Value Driver:');
+  console.log(JSON.stringify(result, null, 2));
+}
+
+/**
  * Run all examples
  */
 async function runAllExamples() {
@@ -204,6 +262,9 @@ async function runAllExamples() {
     await example6_CustomConfiguration();
     await example7_ErrorHandling();
     await example8_BatchQueries();
+    await example9_CorroborateMetric();
+    await example10_MultiClaimVerification();
+    await example11_RiskMitigationDriver();
 
     console.log('\n=== All examples completed successfully ===\n');
   } catch (error) {
@@ -225,4 +286,7 @@ export {
   example6_CustomConfiguration,
   example7_ErrorHandling,
   example8_BatchQueries,
+  example9_CorroborateMetric,
+  example10_MultiClaimVerification,
+  example11_RiskMitigationDriver,
 };

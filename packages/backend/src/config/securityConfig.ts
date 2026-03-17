@@ -193,7 +193,7 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
     enabled: true,
     allowedHosts: ["api.supabase.co", "*.supabase.co", "api.openai.com"],
     blockedHosts: ["localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254"],
-    allowedPorts: [80, 443, 3000, 8000, 5432],
+    allowedPorts: [80, 443, 3000, 3001, 8000, 5432],
     timeout: 10000, // 10 seconds
   },
 };
@@ -335,7 +335,20 @@ export async function generateCSRFToken(
 }
 
 /**
- * Validate URL against SSRF protection rules
+ * Validate URL against SSRF protection rules.
+ *
+ * DNS TOCTOU WARNING: This function resolves the hostname and checks that none
+ * of the returned IPs are private/reserved. However, DNS is re-resolved at
+ * request time by the HTTP client, so a DNS rebinding attack can return a
+ * different IP after this check passes.
+ *
+ * Mitigations required at the call site:
+ *  1. Set a short TTL on the validation result — do not cache it across
+ *     requests or reuse it for a second fetch.
+ *  2. Use an HTTP client configured with a custom socket factory (e.g. via
+ *     `dns-prefetch` + IP pinning, or a proxy that enforces IP-level ACLs) so
+ *     that the actual connection is also blocked from reaching private ranges.
+ *  3. Treat this function as a first-pass filter, not a complete SSRF defence.
  */
 export async function validateSSRFUrl(
   url: string,

@@ -13,7 +13,7 @@
     "build": "node ./scripts/generate-tokens.mjs && tsc -p tsconfig.json",
     "generate-tokens": "node ./scripts/generate-tokens.mjs",
     "verify-tokens": "node ./scripts/generate-tokens.mjs --verify",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:design-tokens": "node ./scripts/generate-tokens.mjs --verify",
     "changeset": "changeset"

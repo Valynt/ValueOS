@@ -102,10 +102,14 @@ export function createTenantVectorFixture(): TenantVectorFixture {
     async getProvenance(): Promise<ProvenanceRecord | null> {
       return null;
     },
-    async deleteByArtifactId(artifactId): Promise<number> {
+    async deleteByArtifactId(artifactId, tenantId): Promise<number> {
+      if (tenantId === '') {
+        throw new Error('tenantId is required');
+      }
+
       let deleted = 0;
       for (const [chunkId, chunk] of chunks.entries()) {
-        if (chunk.artifactId === artifactId) {
+        if (chunk.artifactId === artifactId && chunk.tenantId === tenantId) {
           chunks.delete(chunkId);
           deleted += 1;
         }

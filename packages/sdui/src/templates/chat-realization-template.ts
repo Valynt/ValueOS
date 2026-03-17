@@ -8,7 +8,6 @@
  */
 
 import type { WorkflowState } from "@valueos/sdui-types";
-import { v4 as uuidv4 } from "uuid";
 
 import type { SDUIPageDefinition } from "../schema";
 
@@ -40,7 +39,7 @@ export function generateRealizationPage(context: RealizationTemplateContext): SD
       version: 1,
       props: {
         response: {
-          id: uuidv4(),
+          id: crypto.randomUUID(),
           agentId: "realization",
           agentName: "Realization Agent",
           timestamp: new Date().toISOString(),

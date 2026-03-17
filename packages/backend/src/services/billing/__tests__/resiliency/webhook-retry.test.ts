@@ -13,7 +13,7 @@ import { createWebhookEvent } from "../__helpers__/billing-factories.js"
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
-  waitForCondition,,
+  waitForCondition,
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"

@@ -2,11 +2,7 @@
  * AgentFabric — Root entry point for value case generation
  *
  * This module is the public API surface for agent-based value case generation.
- * It delegates to the AgentFactory + HypothesisLoop pipeline when available,
- * and falls back to a clearly-gated stub for local development only.
- *
- * IMPORTANT: The stub path is blocked in production and requires an explicit
- * environment variable to enable in non-production environments.
+ * It delegates to the AgentFactory + HypothesisLoop pipeline.
  */
 import {
   LoopResultSchema,
@@ -14,6 +10,7 @@ import {
 } from "./agents/orchestration/index.js";
 import { logger } from "./logger.js";
 import type { AgentFactoryDeps } from "./agent-fabric/AgentFactory.js";
+import type { LifecycleContext } from "../types/agent.js";
 import { createAgentFactory } from "./agent-fabric/AgentFactory.js";
 
 // ============================================================================
@@ -54,8 +51,6 @@ export interface ExecutionMetadata {
   total_latency_ms: number;
   agent_contributions: Record<string, unknown>;
   loop_contract_valid: boolean;
-  /** When true, the result came from the stub path, not real agents */
-  is_stub: boolean;
 }
 
 // ============================================================================
@@ -79,8 +74,7 @@ export class AgentFabric {
   }
 
   /**
-   * Inject real agent factory dependencies. When set, processUserInput
-   * delegates to the full agent pipeline instead of the stub.
+   * Inject real agent factory dependencies required for processUserInput.
    */
   setFactoryDeps(deps: AgentFactoryDeps): void {
     this.factoryDeps = deps;
@@ -96,18 +90,19 @@ export class AgentFabric {
   /**
    * Generate a value case from user input.
    *
-   * When factoryDeps are injected, this delegates to the real agent pipeline.
-   * Otherwise, it falls back to the development stub (blocked in production).
+   * Requires factoryDeps (via setFactoryDeps) and an organizationId.
    */
   async processUserInput(
     userInput: string,
-    organizationId?: string,
+    organizationId: string,
   ): Promise<AgentFabricResult> {
-    if (this.factoryDeps && organizationId) {
-      return this.executeWithAgentPipeline(userInput, organizationId);
+    if (!this.factoryDeps) {
+      throw new Error(
+        "AgentFabric requires factoryDeps. Call setFactoryDeps() before processUserInput().",
+      );
     }
 
-    return this.executeStub(userInput);
+    return this.executeWithAgentPipeline(userInput, organizationId);
   }
 
   // --------------------------------------------------------------------------
@@ -128,16 +123,19 @@ export class AgentFabric {
     // Run opportunity agent to generate initial hypotheses
     const opportunityAgent = factory.create("opportunity", organizationId);
     const opportunityResult = await opportunityAgent.execute({
-      input: userInput,
-      valueCaseId: executionId,
-      organizationId,
-      sessionId: executionId,
+      workspace_id: executionId,
+      organization_id: organizationId,
+      user_id: "system",
+      lifecycle_stage: opportunityAgent.lifecycleStage as LifecycleContext["lifecycle_stage"],
+      workspace_data: {},
+      user_inputs: { query: userInput },
+      metadata: { valueCaseId: executionId },
     });
     agentContributions.opportunity = opportunityResult;
-    totalTokens += (opportunityResult.metadata as Record<string, number>)?.tokensUsed ?? 0;
+    totalTokens += opportunityResult.metadata.token_usage?.total_tokens ?? 0;
 
     // Validate hypotheses against the LoopResult contract
-    const rawHypotheses = (opportunityResult.data as Record<string, unknown>)?.hypotheses;
+    const rawHypotheses = (opportunityResult.result as Record<string, unknown>)?.hypotheses;
     const hypotheses = (Array.isArray(rawHypotheses) ? rawHypotheses : []).map(
       (h: Record<string, unknown>) =>
         ValueHypothesisSchema.parse({
@@ -160,15 +158,18 @@ export class AgentFabric {
     if (factory.hasFabricAgent("financial-modeling")) {
       const finAgent = factory.create("financial-modeling", organizationId);
       const finResult = await finAgent.execute({
-        input: JSON.stringify(hypotheses),
-        valueCaseId: executionId,
-        organizationId,
-        sessionId: executionId,
+        workspace_id: executionId,
+        organization_id: organizationId,
+        user_id: "system",
+        lifecycle_stage: finAgent.lifecycleStage as LifecycleContext["lifecycle_stage"],
+        workspace_data: {},
+        user_inputs: { query: JSON.stringify(hypotheses) },
+        metadata: { valueCaseId: executionId },
       });
       agentContributions["financial-modeling"] = finResult;
-      totalTokens += (finResult.metadata as Record<string, number>)?.tokensUsed ?? 0;
+      totalTokens += finResult.metadata.token_usage?.total_tokens ?? 0;
 
-      const fm = (finResult.data as Record<string, unknown>)?.financialModel as
+      const fm = (finResult.result as Record<string, unknown>)?.financialModel as
         | Record<string, unknown>
         | undefined;
       if (fm) {
@@ -196,7 +197,7 @@ export class AgentFabric {
     });
 
     const totalLatencyMs = Date.now() - startTime;
-    const oppData = opportunityResult.data as Record<string, unknown> | undefined;
+    const oppData = opportunityResult.result as Record<string, unknown> | undefined;
 
     return {
       value_case_id: executionId,
@@ -213,7 +214,7 @@ export class AgentFabric {
       financial_model: financialModel,
       assumptions:
         (oppData?.assumptions as AgentFabricResult["assumptions"]) ?? [],
-      quality_score: (opportunityResult.metadata as Record<string, number>)?.qualityScore ?? 0,
+      quality_score: ((opportunityResult.metadata as unknown as Record<string, unknown>)?.qualityScore as number) ?? 0,
       execution_metadata: {
         execution_id: executionId,
         iteration_count: 1,
@@ -221,90 +222,7 @@ export class AgentFabric {
         total_latency_ms: totalLatencyMs,
         agent_contributions: agentContributions,
         loop_contract_valid: loopContract.success,
-        is_stub: false,
       },
     };
   }
-
-  // --------------------------------------------------------------------------
-  // Development stub (gated)
-  // --------------------------------------------------------------------------
-
-  private async executeStub(userInput: string): Promise<AgentFabricResult> {
-    if (isProductionBuild()) {
-      throw new Error(
-        "AgentFabric stub is disabled in production. " +
-          "Inject factoryDeps via setFactoryDeps() for real agent execution.",
-      );
-    }
-
-    if (process.env.AGENT_FABRIC_ALLOW_STUB !== "true") {
-      throw new Error(
-        "AgentFabric stub requires AGENT_FABRIC_ALLOW_STUB=true " +
-          "for local non-production usage. " +
-          "In production, inject factoryDeps via setFactoryDeps().",
-      );
-    }
-
-    logger.warn("AgentFabric executing in STUB mode", {
-      input_length: userInput.length,
-    });
-
-    const hypothesis = ValueHypothesisSchema.parse({
-      id: "hyp-stub-1",
-      description: userInput,
-      confidence: 0.8,
-      category: "opportunity",
-      estimatedValue: 100000,
-    });
-
-    const loopContract = LoopResultSchema.safeParse({
-      valueCaseId: "value-case-stub",
-      tenantId: "stub-tenant",
-      hypotheses: [hypothesis],
-      valueTree: null,
-      evidenceBundle: null,
-      narrative: null,
-      objections: [],
-      revisionCount: 0,
-      finalState: "DRAFT",
-      success: true,
-    });
-
-    return {
-      value_case_id: "value-case-stub",
-      company_profile: {
-        company_name: "Prospect (stub)",
-        industry: "Unknown",
-      },
-      value_maps: [],
-      kpi_hypotheses: [
-        { kpi_name: "Conversion Rate", target_value: 5 },
-      ],
-      financial_model: {
-        roi_percentage: 15,
-        npv_amount: 1500000,
-        payback_months: 12,
-        cost_breakdown: {
-          implementation: 500000,
-          operations: 250000,
-        },
-      },
-      assumptions: [],
-      quality_score: 12,
-      execution_metadata: {
-        execution_id: "stub-exec",
-        iteration_count: 1,
-        total_tokens: 0,
-        total_latency_ms: 0,
-        agent_contributions: { opportunity: hypothesis },
-        loop_contract_valid: loopContract.success,
-        is_stub: true,
-      },
-    };
-  }
-}
-
-function isProductionBuild(): boolean {
-  return process.env.NODE_ENV === "production";
 }

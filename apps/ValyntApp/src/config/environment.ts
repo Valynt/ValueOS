@@ -229,7 +229,7 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
     },
 
     agents: {
-      apiUrl: getEnv('VITE_AGENT_API_URL', 'http://localhost:8000/api/agents'),
+      apiUrl: getEnv('VITE_AGENT_API_URL', 'http://localhost:3001/api/agents'),
       timeout: getNumberEnv('VITE_AGENT_API_TIMEOUT', 30000),
       circuitBreaker: {
         enabled: getBoolEnv('VITE_AGENT_CIRCUIT_BREAKER_ENABLED', true),
@@ -239,7 +239,7 @@ export function loadEnvironmentConfig(): EnvironmentConfig {
       logging: getBoolEnv('VITE_AGENT_LOGGING_ENABLED', false),
       websocketUrl: getEnv('VITE_AGENT_WEBSOCKET_URL', env === 'production' 
         ? 'wss://api.valuecanvas.com/ws/agents' 
-        : 'ws://localhost:8000/ws/agents'),
+        : 'ws://localhost:3001/ws/agents'),
     },
 
     groundtruth: {
@@ -341,7 +341,6 @@ export function validateEnvironmentConfig(config: EnvironmentConfig): string[] {
 
   // Production-specific validations
   if (config.app.env === 'production') {
-    const devMocksRaw = getEnv('DEV_MOCKS_ENABLED');
     if (!config.database.url) {
       errors.push('VITE_SUPABASE_URL is required in production');
     }
@@ -354,11 +353,9 @@ export function validateEnvironmentConfig(config: EnvironmentConfig): string[] {
     if (config.security.httpsOnly && !config.app.url.startsWith('https://')) {
       errors.push('VITE_APP_URL must use HTTPS in production');
     }
-    if (!devMocksRaw) {
-      errors.push('DEV_MOCKS_ENABLED must be explicitly set to false in production');
-    }
+    // Block mocks in production — the env var must be absent or explicitly false.
     if (config.dev.mocksEnabled) {
-      errors.push('DEV_MOCKS_ENABLED must be false in production');
+      errors.push('DEV_MOCKS_ENABLED must be false (or unset) in production');
     }
   }
 

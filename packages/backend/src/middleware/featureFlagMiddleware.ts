@@ -10,21 +10,6 @@ import { featureFlags } from '@valueos/core-services';
 import { logger } from '../utils/logger.js'
 
 /**
- * Extend Express Request to include feature flag context
- */
-declare global {
-  namespace Express {
-    interface Request {
-      featureFlags?: {
-        isEnabled: (key: string) => Promise<boolean>;
-        getVariant: (key: string) => Promise<string | null>;
-        getConfig: (key: string) => Promise<Record<string, any> | null>;
-      };
-    }
-  }
-}
-
-/**
  * Middleware to add feature flag helpers to request
  */
 export function featureFlagContext() {
@@ -122,8 +107,8 @@ export function withFeatureFlagVariant(flagKey: string) {
       const variant = await req.featureFlags.getVariant(flagKey);
       const config = await req.featureFlags.getConfig(flagKey);
 
-      (req as any).featureFlagVariant = variant;
-      (req as any).featureFlagConfig = config;
+      req.featureFlagVariant = variant;
+      req.featureFlagConfig = config;
 
       return next();
     } catch (error) {

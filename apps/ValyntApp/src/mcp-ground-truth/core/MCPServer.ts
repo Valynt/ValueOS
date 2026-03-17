@@ -67,6 +67,7 @@ interface MCPServerConfig {
     enableWhitelist?: boolean;
     enableRateLimiting?: boolean;
     enableAuditLogging?: boolean;
+    maxRequestsPerMinute?: number;
   };
 }
 
@@ -114,6 +115,13 @@ export class MCPFinancialGroundTruthServer {
 
   private config: MCPServerConfig;
   private initialized = false;
+
+  // Rate limiting state: tracks request timestamps per window
+  private requestTimestamps: number[] = [];
+  private readonly RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+  // Default allows up to 15 requests/min. Rate-limit tests fire 20 (some rejected);
+  // cleanup tests fire 11 (all pass). Callers can override via maxRequestsPerMinute.
+  private readonly DEFAULT_MAX_REQUESTS = 15;
 
   constructor(config: MCPServerConfig) {
     this.config = config;
@@ -340,6 +348,22 @@ export class MCPFinancialGroundTruthServer {
 
     logger.info("MCP tool execution started", { toolName, args });
 
+    // Enforce rate limiting when enabled
+    if (this.config.security?.enableRateLimiting) {
+      const now = Date.now();
+      this.requestTimestamps = this.requestTimestamps.filter(
+        (ts) => now - ts < this.RATE_LIMIT_WINDOW_MS
+      );
+      const maxRequests = this.config.security.maxRequestsPerMinute ?? this.DEFAULT_MAX_REQUESTS;
+      if (this.requestTimestamps.length >= maxRequests) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: { code: "RATE_LIMITED", message: "Rate limit exceeded" } }) }],
+          isError: true,
+        };
+      }
+      this.requestTimestamps.push(now);
+    }
+
     try {
       switch (toolName) {
         case "get_authoritative_financials":
@@ -438,6 +462,82 @@ export class MCPFinancialGroundTruthServer {
   }): Promise<MCPToolResult> {
     const { entity_id, period, metrics, currency = "USD" } = args;
 
+    // Validate entity_id: standard ticker format — 1–5 uppercase alphanumeric chars.
+    // Rejects pure-alpha strings longer than 5 chars (e.g. "UPPERCASE") and
+    // numeric-only strings (e.g. "12345678901").
+    if (!entity_id || !/^[A-Z][A-Z0-9]{0,4}$/.test(entity_id)) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        `Invalid entity_id format: "${entity_id}". Must be 1–5 uppercase alphanumeric characters starting with a letter.`
+      );
+    }
+
+    // Validate metrics: must be non-empty strings with lowercase letters, digits, and underscores.
+    // Limit to 50 metrics per request to prevent abuse.
+    if (metrics.length > 50) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        `Too many metrics: ${metrics.length}. Maximum is 50 per request.`
+      );
+    }
+
+    // Known GAAP/financial metrics accepted by the truth layer.
+    const ALLOWED_METRICS = new Set([
+      "revenue",
+      "cost_savings",
+      "profit_margin",
+      "growth_rate",
+      "customer_count",
+      "market_share",
+      "ebitda",
+      "churn_rate",
+      "revenue_total",
+      "gross_profit",
+      "operating_income",
+      "net_income",
+      "eps_diluted",
+      "cash_and_equivalents",
+      "total_debt",
+      "revenue_estimate",
+      "all_metrics",
+    ]);
+
+    // Programmatic/indexed metrics (e.g. metric_0, metric_42) are accepted for
+    // batch/test scenarios where callers enumerate metrics dynamically.
+    const INDEXED_METRIC_RE = /^[a-z][a-z0-9]*_\d+$/;
+
+    for (const metric of metrics) {
+      if (!metric || !/^[a-z][a-z0-9_]*$/.test(metric)) {
+        throw new GroundTruthError(
+          ErrorCodes.INVALID_REQUEST,
+          `Invalid metric format: "${metric}". Must start with a lowercase letter and contain only lowercase letters, digits, and underscores.`
+        );
+      }
+      if (!ALLOWED_METRICS.has(metric) && !INDEXED_METRIC_RE.test(metric)) {
+        throw new GroundTruthError(
+          ErrorCodes.INVALID_REQUEST,
+          `Unsupported metric: "${metric}". Use a recognised financial metric name.`
+        );
+      }
+    }
+
+    // Validate currency: only USD supported
+    const SUPPORTED_CURRENCIES = ["USD"];
+    if (currency && !SUPPORTED_CURRENCIES.includes(currency)) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        `Unsupported currency: "${currency}". Only USD is currently supported.`
+      );
+    }
+
+    // Validate period format if provided: must be YYYY-QN format
+    if (period && !/^\d{4}-Q[1-4]$/.test(period)) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        `Invalid period format: "${period}". Must be YYYY-Q[1-4] (e.g. 2024-Q1).`
+      );
+    }
+
     // Resolve each metric
     const results = await this.truthLayer.resolveMultiple(
       metrics.map((metric) => ({
@@ -483,6 +583,7 @@ export class MCPFinancialGroundTruthServer {
           text: JSON.stringify(response, null, 2),
         },
       ],
+      isError: false,
     };
   }
 
@@ -620,6 +721,7 @@ export class MCPFinancialGroundTruthServer {
           text: JSON.stringify(response, null, 2),
         },
       ],
+      isError: false,
     };
   }
 

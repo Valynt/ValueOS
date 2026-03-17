@@ -34,6 +34,26 @@ To prevent accidental regressions, CI includes `pnpm run ci:governance:self-chec
 
 Optional workflows (`test.yml`, `deploy.yml`, `release.yml`) are checked only when present and may be absent without failing the governance self-check.
 
+
+## Tenant isolation CI policy (fork-safe)
+
+`ci.yml` enforces tenant-boundary evidence with two complementary lanes:
+
+- `tenant-isolation-static-gate` (**secrets-free, deterministic fallback**) runs on all PRs (including forks) and validates tenant controls using repository-local checks:
+  - `node scripts/ci/check-supabase-tenant-controls.mjs`
+  - `node scripts/ci/check-migration-schema-consistency.mjs`
+  - `bash scripts/ci/check-permissive-rls.sh`
+- `tenant-isolation-gate` (**secret-backed runtime tests**) runs in trusted contexts (push/release/workflow_dispatch and same-repo PRs) and executes full Vitest tenant isolation + compliance suites with Supabase secrets.
+
+### Merge gating behavior for PRs
+
+The `pr-fast-blocking-subsets` job requires **at least one** tenant-isolation lane to finish with `success`:
+
+- `tenant-isolation-static-gate` OR
+- `tenant-isolation-gate`
+
+A `skipped` runtime lane on fork PRs is acceptable only when the static fallback lane succeeds. If both tenant lanes are not `success`, PR merge eligibility is blocked.
+
 ## Workflows
 
 ### 1. Terraform Validation (`terraform-validate.yml`)

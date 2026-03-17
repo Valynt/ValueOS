@@ -24,6 +24,9 @@ patches:
         path: /data/node-env
         value: production
       - op: replace
+        path: /data/app-env
+        value: prod
+      - op: replace
         path: /data/log-level
         value: info
 

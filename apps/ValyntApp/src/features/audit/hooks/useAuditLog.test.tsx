@@ -10,6 +10,7 @@ import { useAuditLog } from "./useAuditLog";
 vi.mock("../../../api/client/unified-api-client", () => ({
   apiClient: {
     get: vi.fn(),
+    fetchRaw: vi.fn(),
   },
 }));
 
@@ -19,24 +20,38 @@ describe("useAuditLog exportLogs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(clickSpy);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        headers: new Headers({
-          "content-type": "text/csv",
-          "content-disposition": 'attachment; filename="audit-export.csv"',
-        }),
-        blob: vi.fn().mockResolvedValue(new Blob(["id,action\n1,export"], { type: "text/csv" })),
-      })
-    );
+
+    vi.mocked(apiClient.fetchRaw).mockResolvedValue({
+      ok: true,
+      headers: new Headers({
+        "content-type": "text/csv",
+        "content-disposition": 'attachment; filename="audit-export.csv"',
+      }),
+      blob: vi.fn().mockResolvedValue(new Blob(["id,action\n1,export"], { type: "text/csv" })),
+    } as unknown as Response);
+
+    // jsdom may not define blob URL helpers; define them before spying.
+    if (typeof URL.createObjectURL !== "function") {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        writable: true,
+        value: vi.fn(),
+      });
+    }
+
+    if (typeof URL.revokeObjectURL !== "function") {
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        writable: true,
+        value: vi.fn(),
+      });
+    }
 
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:export-url");
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => { });
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -47,7 +62,7 @@ describe("useAuditLog exportLogs", () => {
       await result.current.exportLogs({ userId: "user-1" }, "csv");
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiClient.fetchRaw).toHaveBeenCalledWith(
       "/api/admin/audit-logs/export?userId=user-1&format=csv",
       expect.objectContaining({ method: "GET" })
     );
@@ -58,11 +73,11 @@ describe("useAuditLog exportLogs", () => {
   });
 
   it("downloads JSON exports from backend download URL", async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
+    vi.mocked(apiClient.fetchRaw).mockResolvedValueOnce({
       ok: true,
       headers: new Headers({ "content-type": "application/json" }),
       json: vi.fn().mockResolvedValue({ downloadUrl: "https://files.example.com/audit.json" }),
-    } as Response);
+    } as unknown as Response);
 
     const { result } = renderHook(() => useAuditLog());
 
@@ -70,7 +85,7 @@ describe("useAuditLog exportLogs", () => {
       await result.current.exportLogs(undefined, "json");
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiClient.fetchRaw).toHaveBeenCalledWith(
       "/api/admin/audit-logs/export?format=json",
       expect.objectContaining({ method: "GET" })
     );
@@ -79,19 +94,27 @@ describe("useAuditLog exportLogs", () => {
   });
 
   it("sets a friendly export error when API export fails", async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
+    vi.mocked(apiClient.fetchRaw).mockResolvedValueOnce({
       ok: false,
       status: 500,
       headers: new Headers(),
-    } as Response);
+    } as unknown as Response);
 
     const { result } = renderHook(() => useAuditLog());
 
-    await expect(
-      act(async () => {
+    let caughtError: unknown = null;
+    await act(async () => {
+      try {
         await result.current.exportLogs(undefined, "csv");
-      })
-    ).rejects.toThrow("Unable to export audit logs right now. Please try again in a moment or contact support if the issue persists.");
+      } catch (err) {
+        caughtError = err;
+      }
+    });
+
+    expect(caughtError).toBeInstanceOf(Error);
+    expect((caughtError as Error).message).toBe(
+      "Unable to export audit logs right now. Please try again in a moment or contact support if the issue persists."
+    );
 
     await waitFor(() => {
       expect(result.current.exportError).toBe(

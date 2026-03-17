@@ -169,6 +169,25 @@ export class UnifiedApiClient {
     });
   }
 
+  /**
+   * postRaw — POST and return the raw Response without JSON parsing.
+   * Use for binary responses (e.g. file downloads) where the caller
+   * needs to call response.blob() or response.arrayBuffer() directly.
+   * Does not throw on non-2xx — callers must check response.ok.
+   */
+  async postRaw(url: string, data?: unknown, config?: Partial<RequestConfig>): Promise<Response> {
+    const requestId = this.generateRequestId();
+    const requestConfig: RequestConfig = { method: "POST", url, data, ...config };
+    const { url: builtUrl, ...fetchInit } = this.buildRequestConfig(requestConfig, requestId);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+    try {
+      return await fetch(builtUrl, { ...fetchInit, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   // ============================================================================
   // Core Request Method
   // ============================================================================

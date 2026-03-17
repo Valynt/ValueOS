@@ -224,7 +224,7 @@ export class FallbackComponentRegistry {
       "componentVersion" in context &&
       typeof (context as Record<string, unknown>).componentVersion === "number"
     ) {
-      const cv = (context as Record<string, number>).componentVersion;
+      const cv = (context as Record<string, number>).componentVersion ?? -1;
       if (!conditions.versions.includes(cv)) {
         return false;
       }

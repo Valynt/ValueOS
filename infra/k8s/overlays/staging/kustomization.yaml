@@ -26,6 +26,9 @@ patches:
         path: /data/node-env
         value: staging
       - op: replace
+        path: /data/app-env
+        value: staging
+      - op: replace
         path: /data/log-level
         value: debug
 

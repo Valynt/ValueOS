@@ -38,6 +38,21 @@ vi.mock("../../CircuitBreaker.js", () => ({
   },
 }));
 
+vi.mock("../../AuditLogger.js", () => ({
+  AuditLogger: class {
+    constructor() {}
+    logLLMInvocation = vi.fn().mockResolvedValue(undefined);
+    logMemoryStore = vi.fn().mockResolvedValue(undefined);
+    logVetoDecision = vi.fn().mockResolvedValue(undefined);
+  },
+}));
+
+vi.mock("../../../../services/agents/AgentKillSwitchService.js", () => ({
+  agentKillSwitchService: {
+    isKilled: vi.fn().mockResolvedValue(false),
+  },
+}));
+
 // --- Imports ---
 
 import { z } from "zod";
@@ -61,7 +76,13 @@ class TestAgent extends BaseAgent {
     sessionId: string,
     prompt: string,
     schema: z.ZodSchema<T>,
-    options?: Record<string, unknown>,
+    options?: {
+      trackPrediction?: boolean;
+      confidenceThresholds?: { low: number; high: number };
+      context?: Record<string, unknown>;
+      idempotencyKey?: string;
+      storeRawModelOutputInMemory?: boolean;
+    },
   ) {
     return this.secureInvoke(sessionId, prompt, schema, options);
   }

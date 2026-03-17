@@ -1,10 +1,10 @@
 /**
  * XBRL Parser Module - Tier 1 Structured Financial Data
- * 
+ *
  * Provides deterministic access to XBRL-tagged financial data from SEC filings.
  * XBRL (eXtensible Business Reporting Language) is the standardized format for
  * financial reporting, ensuring consistent, machine-readable data.
- * 
+ *
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Standard: XBRL US GAAP Taxonomy
  */
@@ -30,10 +30,10 @@ interface XBRLConfig {
 
 /**
  * XBRL Module - Tier 1 Structured Data Source
- * 
+ *
  * Implements MCP tool: get_authoritative_financials (structured variant)
  * Node Mapping: [NODE: XBRL_Parser], [NODE: Tier_1_Canonical]
- * 
+ *
  * Uses SEC's XBRL API for standardized financial facts:
  * https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
  */
@@ -45,7 +45,6 @@ export class XBRLModule extends BaseModule {
   private userAgent: string = '';
   private baseUrl: string = 'https://data.sec.gov/api/xbrl';
   private rateLimit: number = 10;
-  private lastRequestTime: number = 0;
   private factsCache: Map<string, unknown> = new Map();
 
   // Standard XBRL US GAAP taxonomy mappings
@@ -68,10 +67,10 @@ export class XBRLModule extends BaseModule {
     cost_of_revenue: 'CostOfRevenue',
   };
 
-  async initialize(config: Record<string, unknown>): Promise<void> {
+  override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
-    
-    const xbrlConfig = config as XBRLConfig;
+
+    const xbrlConfig = config as unknown as XBRLConfig;
     this.userAgent = xbrlConfig.userAgent || 'ValueCanvas contact@valuecanvas.com';
     this.baseUrl = xbrlConfig.baseUrl || this.baseUrl;
     this.rateLimit = xbrlConfig.rateLimit || this.rateLimit;
@@ -95,13 +94,13 @@ export class XBRLModule extends BaseModule {
     return this.executeWithMetrics(request, async () => {
       this.validateRequest(request, ['identifier', 'metric']);
 
-      const { identifier: cik, metric, period, options } = request;
+      const { identifier: cik, metric, period } = request;
 
       // Get company facts
       const facts = await this.getCompanyFacts(cik);
 
       // Map metric name to XBRL tag
-      const xbrlTag = this.GAAP_MAPPINGS[metric] || metric;
+      const xbrlTag = this.GAAP_MAPPINGS[metric!] || metric!;
 
       // Extract specific fact
       const fact = this.extractFact(facts, xbrlTag, period);
@@ -114,7 +113,7 @@ export class XBRLModule extends BaseModule {
       }
 
       return this.createMetric(
-        metric,
+        metric!,
         fact.value,
         {
           source_type: 'xbrl',
@@ -138,7 +137,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Get all XBRL facts for a company
-   * 
+   *
    * Uses SEC's companyfacts API endpoint
    * Caches results to minimize API calls
    */
@@ -203,7 +202,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Extract specific fact from company facts data
-   * 
+   *
    * Handles multiple taxonomies (us-gaap, dei, etc.) and periods
    */
   private extractFact(
@@ -218,13 +217,13 @@ export class XBRLModule extends BaseModule {
 
     // Search in us-gaap taxonomy first (most common)
     const taxonomies = ['us-gaap', 'dei', 'ifrs-full'];
-    
+
     for (const taxonomy of taxonomies) {
       if (!facts[taxonomy] || !(facts[taxonomy] as Record<string, unknown>)[tag]) {
         continue;
       }
 
-      const tagData = (facts[taxonomy] as Record<string, any>)[tag];
+      const tagData = (facts[taxonomy] as Record<string, unknown>)[tag] as Record<string, unknown>;
       const units = tagData.units as Record<string, Array<Record<string, unknown>>> | undefined;
 
       if (!units) {
@@ -234,8 +233,8 @@ export class XBRLModule extends BaseModule {
       // Get the appropriate unit (USD for monetary values, shares for counts, etc.)
       const unitKeys = Object.keys(units);
       const preferredUnits = ['USD', 'shares', 'pure'];
-      
-      let selectedUnit = unitKeys[0];
+
+      let selectedUnit: string | undefined = unitKeys[0];
       for (const preferred of preferredUnits) {
         if (unitKeys.includes(preferred)) {
           selectedUnit = preferred;
@@ -243,7 +242,7 @@ export class XBRLModule extends BaseModule {
         }
       }
 
-      const unitData = units[selectedUnit];
+      const unitData = selectedUnit ? units[selectedUnit] : undefined;
       if (!unitData || unitData.length === 0) {
         continue;
       }
@@ -252,7 +251,7 @@ export class XBRLModule extends BaseModule {
       let filteredData = unitData;
       if (period) {
         filteredData = unitData.filter((item: Record<string, unknown>) => {
-          return item.fy?.toString() === period || 
+          return item.fy?.toString() === period ||
                  item.fp === period ||
                  item.frame === period;
         });
@@ -263,18 +262,18 @@ export class XBRLModule extends BaseModule {
       }
 
       // Get most recent fact
-      const sortedData = filteredData.sort((a, b) => {
+      const sortedData = filteredData.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
         return new Date(b.filed as string).getTime() - new Date(a.filed as string).getTime();
       });
 
-      const mostRecent = sortedData[0];
+      const mostRecent = sortedData[0]!;
 
       return {
         tag,
         label: typeof tagData.label === 'string' ? tagData.label : tag,
-        value: mostRecent.val,
+        value: mostRecent.val as number | string,
         unit: selectedUnit,
-        period: mostRecent.fy ? `FY${mostRecent.fy}` : mostRecent.frame || 'Unknown',
+        period: mostRecent.fy ? `FY${mostRecent.fy}` : (mostRecent.frame as string) || 'Unknown',
         frame: mostRecent.frame as string | undefined,
         taxonomy,
         form: mostRecent.form as string | undefined,
@@ -290,7 +289,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Get trend data for a specific metric over multiple periods
-   * 
+   *
    * Implements time-series analysis for financial metrics
    */
   async getTrend(
@@ -309,15 +308,18 @@ export class XBRLModule extends BaseModule {
 
     // Extract all available periods for this metric
     const taxonomies = ['us-gaap', 'dei', 'ifrs-full'];
-    
+
     for (const taxonomy of taxonomies) {
       if (!facts.facts || typeof facts.facts !== 'object' || !((facts.facts as Record<string, unknown>)[taxonomy] && ((facts.facts as Record<string, unknown>)[taxonomy] as Record<string, unknown>)[xbrlTag])) {
         continue;
       }
 
-      const tagData = ((facts.facts as Record<string, Record<string, unknown>>)[taxonomy])[xbrlTag] as {
+      const taxonomyData = (facts.facts as Record<string, Record<string, unknown>>)[taxonomy];
+      if (!taxonomyData) continue;
+      const tagData = taxonomyData[xbrlTag] as {
         units?: Record<string, Array<Record<string, unknown>>>
-      };
+      } | undefined;
+      if (!tagData) continue;
 
       const units = tagData.units;
 
@@ -326,30 +328,31 @@ export class XBRLModule extends BaseModule {
       }
 
       // Get USD unit data (most common for financial metrics)
-      const unitData = units.USD || units[Object.keys(units)[0]];
+      const firstKey = Object.keys(units)[0];
+      const unitData = units.USD || (firstKey ? units[firstKey] : undefined);
       if (!unitData) {
         continue;
       }
 
-      trendData.unit = Object.keys(units)[0];
+      trendData.unit = Object.keys(units)[0] ?? 'USD';
 
       // Sort by filing date
       const sortedData = unitData
-        .filter((item) => item.val !== null && item.val !== undefined)
-        .sort((a, b) => {
+        .filter((item: Record<string, unknown>) => item.val !== null && item.val !== undefined)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
           return new Date(a.filed as string).getTime() - new Date(b.filed as string).getTime();
         });
 
       // Limit to requested number of periods
-      const limitedData = periods 
-        ? sortedData.slice(-periods) 
+      const limitedData = periods
+        ? sortedData.slice(-periods)
         : sortedData;
 
       for (const item of limitedData) {
-        const periodLabel = item.fy 
+        const periodLabel = item.fy
           ? `FY${item.fy}${item.fp ? `-${item.fp}` : ''}`
-          : item.frame || 'Unknown';
-        
+          : (item.frame as string) || 'Unknown';
+
         trendData.periods.push(periodLabel);
         trendData.values.push(item.val as number);
       }
@@ -375,7 +378,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Get multiple facts at once for efficiency
-   * 
+   *
    * Batch retrieval for multiple metrics
    */
   async getMultipleFacts(
@@ -420,7 +423,7 @@ export class XBRLModule extends BaseModule {
 
   /**
    * Calculate financial ratios from XBRL data
-   * 
+   *
    * Derives common financial ratios from base metrics
    */
   async calculateRatios(

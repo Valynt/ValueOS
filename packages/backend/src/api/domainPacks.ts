@@ -13,7 +13,7 @@ import { z } from "zod";
 import { requireAuth } from "../middleware/auth.js";
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { DomainPackService } from "../services/domain-packs/index.js";
+import { DomainPackAccessError, DomainPackService } from "../services/domain-packs/index.js";
 
 const logger = createLogger({ component: "DomainPacksAPI" });
 const router = Router();
@@ -50,9 +50,17 @@ router.get("/", async (req: Request, res: Response) => {
 router.get("/:packId", async (req: Request, res: Response) => {
   try {
     const { packId } = req.params;
-    const result = await service.getPackWithLayers(packId);
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ error: "Tenant context required" });
+    }
+
+    const result = await service.getPackWithLayers(packId, tenantId);
     return res.json(result);
   } catch (err) {
+    if (err instanceof DomainPackAccessError) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
     logger.error("Failed to get domain pack", err instanceof Error ? err : undefined);
     return res.status(404).json({ error: "Domain pack not found" });
   }
@@ -81,6 +89,9 @@ router.post("/value-cases/:caseId/set-pack", async (req: Request, res: Response)
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid request", details: err.errors });
+    }
+    if (err instanceof DomainPackAccessError) {
+      return res.status(err.statusCode).json({ error: err.message });
     }
     logger.error("Failed to set domain pack", err instanceof Error ? err : undefined);
     return res.status(500).json({ error: "Failed to set domain pack" });

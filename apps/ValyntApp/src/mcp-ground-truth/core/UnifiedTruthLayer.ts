@@ -1,14 +1,14 @@
 /**
  * Unified Truth Layer - Tiered Resolution Engine
- * 
+ *
  * Orchestrates all Ground Truth modules with deterministic resolution hierarchy:
  * 1. Tier 1 (EDGAR/XBRL) - Authoritative, legally binding
  * 2. Tier 2 (Market/Private) - High-confidence estimates
  * 3. Tier 3 (Benchmarks) - Contextual intelligence
- * 
+ *
  * Implements the "Zero-Hallucination" guarantee by enforcing strict
  * data provenance and confidence scoring.
- * 
+ *
  * Node Mapping: [NODE: Unified_Truth_Layer], [NODE: Data_Tier_Resolver]
  */
 
@@ -34,7 +34,7 @@ interface UnifiedTruthConfig {
 
 /**
  * Unified Truth Layer
- * 
+ *
  * Central orchestration layer that implements the tiered truth model
  * and ensures zero-hallucination guarantees.
  */
@@ -66,7 +66,7 @@ export class UnifiedTruthLayer {
    */
   registerModule(module: GroundTruthModule): void {
     this.modules.set(module.name, module);
-    
+
     const tierModules = this.tierModules.get(module.tier) || [];
     tierModules.push(module);
     this.tierModules.set(module.tier, tierModules);
@@ -79,7 +79,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Resolve a truth request using tiered resolution
-   * 
+   *
    * This is the primary entry point for all financial data queries.
    * Implements the deterministic resolution hierarchy.
    */
@@ -126,15 +126,19 @@ export class UnifiedTruthLayer {
             );
 
             if (response.success && response.data) {
-              const metric = Array.isArray(response.data) 
-                ? response.data[0] 
+              const metric = Array.isArray(response.data)
+                ? response.data[0]
                 : response.data;
+
+              if (!metric) {
+                continue;
+              }
 
               // Check if this is the preferred tier
               if (tier === request.prefer_tier || !request.prefer_tier) {
                 // Found data at preferred tier
                 const executionTime = Date.now() - startTime;
-                
+
                 logger.info('Truth resolution succeeded', {
                   identifier: request.identifier,
                   metric: request.metric,
@@ -177,7 +181,7 @@ export class UnifiedTruthLayer {
       );
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       logger.error('Truth resolution failed', {
         identifier: request.identifier,
         metric: request.metric,
@@ -192,7 +196,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Resolve multiple metrics in a single call
-   * 
+   *
    * Optimized for batch queries
    */
   async resolveMultiple(
@@ -223,7 +227,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Verify a claim against the ground truth database
-   * 
+   *
    * Implements MCP tool: verify_claim_aletheia
    * Node Mapping: [NODE: Aletheia_Verification_Loop]
    */
@@ -308,7 +312,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Populate value driver tree node
-   * 
+   *
    * Implements MCP tool: populate_value_driver_tree
    * Node Mapping: [NODE: Value_Driver_Tree], [NODE: Auto_Population_Agent]
    */
@@ -483,7 +487,7 @@ export class UnifiedTruthLayer {
 
   /**
    * Extract numeric claims from text
-   * 
+   *
    * Simple pattern matching for financial claims
    * Production would use NLP/LLM for better extraction
    */
@@ -499,7 +503,7 @@ export class UnifiedTruthLayer {
     let match;
 
     while ((match = revenuePattern.exec(text)) !== null) {
-      let value = parseFloat(match[1].replace(/,/g, ''));
+      let value = parseFloat(match[1]!.replace(/,/g, ''));
       const unit = match[2]?.toLowerCase();
 
       if (unit === 'million' || unit === 'm') {

@@ -3,49 +3,105 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
-    "types": ["vitest/globals", "node", "@testing-library/jest-dom"],
-
+    "types": [
+      "vitest/globals",
+      "node",
+      "@testing-library/jest-dom"
+    ],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@app/*": ["./src/app/*"],
-      "@pages/*": ["./src/pages/*"],
-      "@layouts/*": ["./src/layouts/*"],
-      "@components/*": ["./src/components/*"],
-      "@features/*": ["./src/features/*"],
-      "@services/*": ["./src/services/*"],
-      "@lib/*": ["./src/lib/*"],
-      "@hooks/*": ["./src/hooks/*"],
-      "@types/*": ["./src/types/*"],
-      "@assets/*": ["./src/assets/*"],
-      "@valueos/shared": ["../../packages/shared/src"],
-      "@valueos/shared/*": ["../../packages/shared/src/*"],
-      "@shared/*": ["../../packages/shared/src/*"],
-      "@valueos/sdui-types": ["../../packages/sdui/src/schema.ts"],
-      "@valueos/sdui": ["../../packages/sdui/src/index.ts"],
-      "@valueos/components": ["../../packages/components/index.ts"],
-      "@valueos/components/*": ["../../packages/components/*"],
-
-      "@valueos/infra": ["../../packages/infra/index.ts"],
-      "@valueos/memory": ["../../packages/memory/index.ts"],
-      "@valueos/integrations": ["../../packages/integrations/index.ts"],
-      "@valueos/mcp": ["../../packages/mcp/index.ts"],
-      "@backend/*": ["../../packages/backend/src/*"],
-      "@sdui/*": ["../../packages/sdui/src/*"],
-      "@mcp/*": ["../../packages/mcp/*"],
-      "@mcp-common/*": ["../../packages/mcp/common/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@app/*": [
+        "./src/app/*"
+      ],
+      "@pages/*": [
+        "./src/pages/*"
+      ],
+      "@layouts/*": [
+        "./src/layouts/*"
+      ],
+      "@components/*": [
+        "./src/components/*"
+      ],
+      "@features/*": [
+        "./src/features/*"
+      ],
+      "@services/*": [
+        "./src/services/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ],
+      "@hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@types/*": [
+        "./src/types/*"
+      ],
+      "@assets/*": [
+        "./src/assets/*"
+      ],
+      "@valueos/shared": [
+        "../../packages/shared/src"
+      ],
+      "@valueos/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@valueos/sdui-types": [
+        "../../packages/sdui/src/schema.ts"
+      ],
+      "@valueos/sdui": [
+        "../../packages/sdui/src/index.ts"
+      ],
+      "@valueos/components": [
+        "../../packages/components/index.ts"
+      ],
+      "@valueos/components/*": [
+        "../../packages/components/*"
+      ],
+      "@valueos/infra": [
+        "../../packages/infra/index.ts"
+      ],
+      "@valueos/memory": [
+        "../../packages/memory/index.ts"
+      ],
+      "@valueos/integrations": [
+        "../../packages/integrations/index.ts"
+      ],
+      "@valueos/mcp": [
+        "../../packages/mcp/index.ts"
+      ],
+      "@backend/*": [
+        "../../packages/backend/src/*"
+      ],
+      "@sdui/*": [
+        "../../packages/sdui/src/*"
+      ],
+      "@mcp/*": [
+        "../../packages/mcp/*"
+      ],
+      "@mcp-common/*": [
+        "../../packages/mcp/common/*"
+      ]
     },
-
     /* Strict TypeScript Configuration */
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -64,7 +120,21 @@
     "exactOptionalPropertyTypes": false,
     "noImplicitThis": true
   },
-  "include": ["src"],
-  "exclude": ["src/legacy-merge/**"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/**/*.stories.ts",
+    "src/**/*.stories.tsx"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

@@ -6,7 +6,7 @@ import {
   type ComplianceFramework,
   type EvidenceType,
 } from "./ComplianceControlMappingRegistry.js";
-import { randomUUID } from "node:crypto";
+
 
 export type AutomatedControlCheckStatus = "pass" | "fail";
 
@@ -40,6 +40,7 @@ const FRESHNESS_BUDGET_MINUTES: Record<EvidenceType, number> = {
 };
 
 const CONCURRENT_TENANT_CHECKS = 5;
+
 
 export class ComplianceControlCheckService {
   private readonly supabase = createServerSupabaseClient();
@@ -164,7 +165,7 @@ export class ComplianceControlCheckService {
 
     const failingChecks = results.filter((item) => item.status === "fail");
     const snapshot: AutomatedControlCheckSnapshot = {
-      run_id: randomUUID(),
+      run_id: crypto.randomUUID(),
       tenant_id: tenantId,
       checked_at: checkedAt,
       trigger,
@@ -188,6 +189,7 @@ export class ComplianceControlCheckService {
         error: runAuditInsertError,
       });
     }
+
 
     await auditLogService.createEntry({
       userId: "system",

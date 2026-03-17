@@ -5,7 +5,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, it, vi } from "vitest";
 
 import { supabase } from "../../../lib/supabase";
 import AuthCallback from "../AuthCallback";

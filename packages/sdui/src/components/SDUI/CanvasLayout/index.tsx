@@ -120,36 +120,56 @@ function SplitLayout({
   const activeRatios = canDrag ? dynamicRatios : ratioDefaults;
   const totalRatio = activeRatios.reduce((sum, value) => sum + value, 0) || 1;
 
-  const onResize = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (!canDrag) {
-      return;
-    }
+  // Ref to the container div so window mousemove can read its bounds
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
-    const container = event.currentTarget.parentElement;
-    if (!container) {
-      return;
-    }
-
+  const applyPointer = React.useCallback((clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return;
     const bounds = container.getBoundingClientRect();
-    const pointer = isVertical ? event.clientX - bounds.left : event.clientY - bounds.top;
+    const pointer = isVertical ? clientX - bounds.left : clientY - bounds.top;
     const total = isVertical ? bounds.width : bounds.height;
-
-    if (total <= 0) {
-      return;
-    }
-
+    if (total <= 0) return;
     const normalized = pointer / total;
+    // Clamp so neither pane falls below minRatio
     const constrained = Math.max(minRatio, Math.min(1 - minRatio, normalized));
-    setDynamicRatios([constrained, 1 - constrained]);
-  };
+    const r0 = Math.round(constrained * 100) / 100;
+    const r1 = Math.round((1 - constrained) * 100) / 100;
+    setDynamicRatios([r0, r1]);
+  }, [isVertical, minRatio]);
+
+  const onSeparatorMouseDown = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!canDrag) return;
+    event.preventDefault();
+
+    // Apply immediately at mousedown position
+    applyPointer(event.clientX, event.clientY);
+
+    const onMouseMove = (e: MouseEvent) => applyPointer(e.clientX, e.clientY);
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, [canDrag, applyPointer]);
 
   const stackClasses = stackAt ? STACK_CLASS_MAP[stackAt][direction] : isVertical ? "flex-row" : "flex-col";
 
+  // When drag-resize is active, expose the current ratios as gridTemplateColumns
+  // so tests (and CSS grid consumers) can read the live split state directly.
+  const gridTemplateColumns =
+    canDrag && isVertical
+      ? activeRatios.map((r) => `${r}fr`).join(" ")
+      : undefined;
+
   return (
     <div
+      ref={containerRef}
       data-testid={isVertical ? "canvas-vertical-split" : "canvas-horizontal-split"}
       className={`relative flex w-full ${stackClasses} ${className}`}
-      style={{ gap: `${gap}px` }}
+      style={{ gap: `${gap}px`, gridTemplateColumns }}
     >
       {childNodes.map((child, index) => {
         const basis = `${(activeRatios[index] ?? 1 / childNodes.length) / totalRatio * 100}%`;
@@ -171,12 +191,7 @@ function SplitLayout({
           role="separator"
           aria-orientation={isVertical ? "vertical" : "horizontal"}
           aria-label={isVertical ? "Resize columns" : "Resize rows"}
-          onMouseDown={onResize}
-          onMouseMove={(event) => {
-            if (event.buttons === 1) {
-              onResize(event);
-            }
-          }}
+          onMouseDown={onSeparatorMouseDown}
           className={`absolute z-10 flex items-center justify-center rounded-md bg-border/60 text-muted-foreground hover:bg-border ${
             isVertical
               ? "top-1/2 h-12 w-3 -translate-y-1/2"
@@ -184,8 +199,8 @@ function SplitLayout({
           }`}
           style={
             isVertical
-              ? { left: `calc(${(activeRatios[0] / totalRatio) * 100}% - 6px)` }
-              : { top: `calc(${(activeRatios[0] / totalRatio) * 100}% - 6px)` }
+              ? { left: `calc(${((activeRatios[0] ?? 0) / totalRatio) * 100}% - 6px)` }
+              : { top: `calc(${((activeRatios[0] ?? 0) / totalRatio) * 100}% - 6px)` }
           }
         >
           {isVertical ? <GripVertical className="h-3 w-3" /> : <GripHorizontal className="h-3 w-3" />}

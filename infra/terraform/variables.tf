@@ -1,5 +1,12 @@
 # ValueOS Terraform Variables
 
+# ECS (archived — active pipeline uses Kubernetes)
+variable "enable_ecs" {
+  description = "Set to true only to intentionally provision the archived ECS modules. Defaults to false so archived infra cannot be applied unintentionally."
+  type        = bool
+  default     = false
+}
+
 # General
 variable "project_name" {
   description = "Project name"

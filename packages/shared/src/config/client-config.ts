@@ -18,7 +18,7 @@ const ClientConfigSchema = z.object({
     anonKey: z.string(),
   }),
   api: z.object({
-    baseUrl: z.string().default("/api"),
+    baseUrl: z.string().default(""),
     timeout: z.number().default(30000),
     retryAttempts: z.number().default(3),
   }),
@@ -45,16 +45,16 @@ function parseNumber(value?: string): number | undefined {
 }
 
 function normalizeApiBaseUrl(value?: string): string {
-  if (!value) return "/api";
+  if (!value) return "";
   const trimmed = value.trim();
-  if (!trimmed) return "/api";
+  if (!trimmed) return "";
 
   if (/^https?:\/\//i.test(trimmed)) {
     return trimmed.replace(/\/$/, "");
   }
 
   const normalizedPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  return normalizedPath.replace(/\/$/, "") || "/api";
+  return normalizedPath.replace(/\/$/, "") || "";
 }
 
 class ClientConfigLoader {
@@ -94,7 +94,7 @@ class ClientConfigLoader {
         anonKey: getClientEnvVar("VITE_SUPABASE_ANON_KEY") ?? "",
       },
       api: {
-        baseUrl: normalizeApiBaseUrl(getClientEnvVar("VITE_API_BASE_URL") || "/api"),
+        baseUrl: normalizeApiBaseUrl(getClientEnvVar("VITE_API_BASE_URL") || ""),
         timeout: parseNumber(getClientEnvVar("VITE_API_TIMEOUT")) ?? 30000,
         retryAttempts: parseNumber(getClientEnvVar("VITE_API_RETRY_ATTEMPTS")) ?? 3,
       },

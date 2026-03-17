@@ -8,8 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest run --passWithNoTests --watch",
+    "test": "vitest run",
+    "test:watch": "vitest run --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },

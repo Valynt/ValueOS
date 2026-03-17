@@ -323,6 +323,7 @@ export interface TruthResolutionRequest {
   period?: string;
   prefer_tier?: ConfidenceTier;
   fallback_enabled?: boolean;
+  corroborate?: boolean; // Query all tiers and cross-reference
 }
 
 export interface TruthResolutionResult {
@@ -330,6 +331,89 @@ export interface TruthResolutionResult {
   resolution_path: string[]; // Which modules were tried
   fallback_used: boolean;
   alternatives?: FinancialMetric[]; // Other tier results
+  corroboration?: CrossTierCorroboration;
+  telemetry: ResolutionTelemetry;
+  staleness?: StalenessInfo;
+}
+
+// ============================================================================
+// Cross-Tier Corroboration
+// ============================================================================
+
+export interface CrossTierCorroboration {
+  corroborated: boolean;
+  tiers_queried: ConfidenceTier[];
+  tiers_confirmed: ConfidenceTier[];
+  synthesized_confidence: number; // Bayesian-combined confidence
+  max_discrepancy: number; // Largest value divergence across tiers
+  sources: Array<{
+    tier: ConfidenceTier;
+    module: string;
+    value: number | string | [number, number];
+    confidence: number;
+  }>;
+}
+
+// ============================================================================
+// Resolution Telemetry
+// ============================================================================
+
+export interface ResolutionTelemetry {
+  total_duration_ms: number;
+  module_traces: ModuleTrace[];
+  cache_hits: number;
+  cache_misses: number;
+  tiers_attempted: ConfidenceTier[];
+  strategy: 'sequential' | 'parallel';
+}
+
+export interface ModuleTrace {
+  module: string;
+  tier: ConfidenceTier;
+  duration_ms: number;
+  outcome: 'success' | 'skip' | 'error' | 'timeout';
+  cache_hit: boolean;
+  error_code?: string;
+}
+
+// ============================================================================
+// Staleness Detection
+// ============================================================================
+
+export interface StalenessInfo {
+  data_age_hours: number;
+  freshness_score: number; // 1.0 = fresh, 0.0 = stale
+  threshold_hours: number;
+  is_stale: boolean;
+  extracted_at: string;
+}
+
+// ============================================================================
+// Claim Verification Report
+// ============================================================================
+
+export interface ClaimVerificationReport {
+  overall_verdict: 'verified' | 'partially_verified' | 'refuted' | 'unverifiable';
+  overall_confidence: number;
+  claims_total: number;
+  claims_verified: number;
+  claims_refuted: number;
+  claims_unverifiable: number;
+  per_claim: ClaimVerificationDetail[];
+}
+
+export interface ClaimVerificationDetail {
+  claim_text: string;
+  metric: string;
+  claimed_value: number;
+  ground_truth_value?: number | string | [number, number];
+  ground_truth_source?: string;
+  ground_truth_tier?: ConfidenceTier;
+  discrepancy?: number;
+  tolerance: number;
+  verdict: 'verified' | 'refuted' | 'unverifiable';
+  confidence: number;
+  evidence?: FinancialMetric;
 }
 
 // ============================================================================
@@ -356,4 +440,15 @@ export const ErrorCodes = {
   CACHE_ERROR: "CACHE_ERROR",
   PARSE_ERROR: "PARSE_ERROR",
   TIMEOUT: "TIMEOUT",
+  STALE_DATA: "STALE_DATA",
 } as const;
+
+// ============================================================================
+// Staleness Thresholds (hours) per tier
+// ============================================================================
+
+export const DEFAULT_STALENESS_THRESHOLDS: Record<ConfidenceTier, number> = {
+  tier1: 720, // 30 days — SEC filings are quarterly
+  tier2: 168, // 7 days — market/private data
+  tier3: 48,  // 2 days — benchmarks refresh frequently
+};

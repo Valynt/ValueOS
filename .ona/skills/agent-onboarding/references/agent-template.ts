@@ -168,9 +168,7 @@ Generate a JSON object with: result, confidence (high/medium/low), reasoning.`;
           ? "medium"
           : "low";
 
-    // buildOutput is the canonical return method — use it, not prepareOutput.
-    // prepareOutput is a legacy stub that hardcodes "medium" confidence and 0ms
-    // execution time; it exists only for backward compatibility.
+    // buildOutput is the canonical return method. prepareOutput is @deprecated.
     return this.buildOutput(
       { result: llmResult.result },
       "success",

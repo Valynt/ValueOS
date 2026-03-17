@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { rateLimiters, RateLimitTier, type RateLimitTierValue } from './rateLimiter.js'
 import { requestAuditMiddleware } from './requestAuditMiddleware.js'
 import {
+  cspNonceMiddleware,
   csrfProtectionMiddleware,
   csrfTokenMiddleware,
   securityHeadersMiddleware,
@@ -19,6 +20,7 @@ export function createSecureRouter(
 ): ReturnType<typeof Router> {
   const router = Router();
   router.use(requestAuditMiddleware());
+  router.use(cspNonceMiddleware);
   router.use(securityHeadersMiddleware);
   router.use(serviceIdentityMiddleware);
   router.use(csrfTokenMiddleware);

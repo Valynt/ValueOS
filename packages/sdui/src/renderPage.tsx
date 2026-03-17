@@ -9,7 +9,7 @@ import { LoadingFallback } from "./components/LoadingFallback";
 import { useDataHydration } from "./hooks/useDataHydration";
 import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
 import { MotionMasterProvider } from "./MotionMaster";
-import { resolveComponentFromLegacyRegistry as resolveComponent } from "./registry";
+import { getRegistryEntry, resolveComponentFromLegacyRegistry as resolveComponent } from "./registry";
 import {
   SDUIComponentSection,
   SDUIPageDefinition,
@@ -60,7 +60,7 @@ export interface RenderPageOptions {
   /**
    * Custom fallback component for component errors
    */
-  errorFallback?: React.ComponentType<{ componentName: string; error?: Error }>;
+  errorFallback?: React.ComponentType<{ componentName: string; error?: string }>;
 
   /**
    * Maximum time (ms) to wait for data hydration before showing error
@@ -111,6 +111,13 @@ export interface RenderPageOptions {
    * @default true
    */
   enableLazyLoading?: boolean;
+
+  /**
+   * Skip registry-based component name validation.
+   * Set to true when using a custom/dynamic component registry.
+   * @default false
+   */
+  skipComponentValidation?: boolean;
 }
 
 /**
@@ -225,9 +232,10 @@ const SectionRenderer: React.FC<{
     errorFallback: ErrorFallback = SectionErrorFallback,
   } = options;
 
-  // Resolve component from lazy registry first, fallback to synchronous registry
+  // Resolve component: try lazy registry first, then synchronous registry
   const entry =
-    options.enableLazyLoading !== false ? resolveComponentLazy(section) : resolveComponent(section);
+    (options.enableLazyLoading !== false ? resolveComponentLazy(section) : undefined) ??
+    resolveComponent(section);
 
   // Use data hydration hook if hydrateWith is specified
   const {
@@ -240,8 +248,8 @@ const SectionRenderer: React.FC<{
       logger.error(`Hydration failed for ${section.component}:`, error);
       onHydrationError?.(error, endpoint);
     },
-    onSuccess: (data: Record<string, unknown>) => {
-      onHydrationComplete?.(section.component, data);
+    onSuccess: (data: unknown) => {
+      onHydrationComplete?.(section.component, data as Record<string, unknown>);
     },
     timeout: options.hydrationTimeout,
     enableRetry: options.enableHydrationRetry,
@@ -282,7 +290,7 @@ const SectionRenderer: React.FC<{
   if (hydrationError && !section.fallback) {
     return (
       <div key={`${section.component}-${index}`} className="space-y-2">
-        <ErrorFallback componentName={section.component} error={hydrationError} />
+        <ErrorFallback componentName={section.component} error={hydrationError.message} />
         {debug && (
           <DebugOverlay
             section={section}
@@ -464,6 +472,25 @@ export function renderPage(
   const page = validation.page;
   const warnings = validation.warnings;
 
+  // Step 3b: Validate component names against the registry (fail-closed).
+  // Skipped when the caller opts out (e.g. for dynamic/test registries).
+  if (!options.skipComponentValidation) {
+    const unknownComponents: string[] = [];
+    for (const section of page.sections) {
+      if (section.type === "component" && section.component) {
+        if (!getRegistryEntry(section.component)) {
+          unknownComponents.push(section.component);
+        }
+      }
+    }
+    if (unknownComponents.length > 0) {
+      throw new SDUIValidationError(
+        `Unknown component references: ${unknownComponents.join(", ")}`,
+        unknownComponents.map((c) => `Unknown component: ${c}`)
+      );
+    }
+  }
+
   // Step 4: Calculate metadata
   const hydratedComponentCount = page.sections.filter(
     (section) =>
@@ -473,8 +500,25 @@ export function renderPage(
       section.hydrateWith.length > 0
   ).length;
 
+  // Count all components recursively (including nested children).
+  // Operates on the raw input because Zod strips unknown keys like `children`.
+  function countComponentsRaw(sections: unknown[]): number {
+    return sections.reduce((total: number, section: unknown) => {
+      if (!section || typeof section !== "object") return total;
+      const s = section as Record<string, unknown>;
+      const childCount = Array.isArray(s.children) ? countComponentsRaw(s.children) : 0;
+      return total + 1 + childCount;
+    }, 0);
+  }
+
+  const rawSections = Array.isArray(
+    (pageDefinition as Record<string, unknown>).sections
+  )
+    ? ((pageDefinition as Record<string, unknown>).sections as unknown[])
+    : page.sections;
+
   const metadata = {
-    componentCount: page.sections.length,
+    componentCount: countComponentsRaw(rawSections),
     hydratedComponentCount,
     version: page.version,
   };

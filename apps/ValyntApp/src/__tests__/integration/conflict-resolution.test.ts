@@ -489,7 +489,9 @@ describe('Conflict Resolution Integration Tests', () => {
       });
 
       expect(reconciled.size).toBe(2);
-      expect(reconciled.get('elem-1')?.content.text).toBe('Offline edit 1');
+      // LWW: user2's elem-1 has updatedAt +500ms vs user1's +0ms → user2 wins
+      expect(reconciled.get('elem-1')?.content.text).toBe('Online edit');
+      // elem-2 only exists in user1's changes → user1 wins
       expect(reconciled.get('elem-2')?.content.text).toBe('Offline edit 2');
     });
   });

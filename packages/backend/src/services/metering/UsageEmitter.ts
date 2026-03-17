@@ -51,6 +51,7 @@ const usageEvidenceSchema = z.object({
 type UsageEvidencePayload = z.infer<typeof usageEvidenceSchema>;
 
 interface FailedUsageEvent {
+  id?: string;
   payload: UsageEvidencePayload;
   retryCount: number;
   lastError: string;
@@ -58,6 +59,9 @@ interface FailedUsageEvent {
 }
 
 const MAX_RETRY_COUNT = 3;
+const MAX_RETRY_BATCH_SIZE = 100;
+const REPLAY_COMPLETED_MARKER = "__replay_completed__";
+const REPLAY_EVENT_TYPE = "usage_event_replay";
 const failedEventsBuffer: FailedUsageEvent[] = [];
 
 class UsageEmitter {
@@ -143,7 +147,7 @@ class UsageEmitter {
           metric: validatedPayload.metric,
           amount: validatedPayload.amount,
         });
-        this.addToDeadLetterQueue(validatedPayload, insertError.message);
+        await this.addToDeadLetterQueue(validatedPayload, insertError.message);
         // continue: ledger ingestion can still proceed
       }
 
@@ -167,11 +171,18 @@ class UsageEmitter {
         metric: validatedPayload.metric,
         amount: validatedPayload.amount,
       });
-      this.addToDeadLetterQueue(validatedPayload, (err as Error).message);
+      await this.addToDeadLetterQueue(validatedPayload, (err as Error).message);
     }
   }
 
-  private addToDeadLetterQueue(payload: UsageEvidencePayload, errorMessage: string): void {
+  private async addToDeadLetterQueue(payload: UsageEvidencePayload, errorMessage: string): Promise<void> {
+    await this.persistToDeadLetterTable({
+      payload,
+      retryCount: 0,
+      lastError: errorMessage,
+      timestamp: new Date().toISOString(),
+    });
+
     if (failedEventsBuffer.length >= 10000) {
       logger.warn("Dead-letter queue full, dropping oldest event");
       failedEventsBuffer.shift();
@@ -198,12 +209,29 @@ class UsageEmitter {
   async retryFailedEvents(): Promise<{ retried: number; failed: number; dropped: number }> {
     const results = { retried: 0, failed: 0, dropped: 0 };
 
-    const eventsToRetry = [...failedEventsBuffer];
+    const durableEvents = await this.fetchRetriableDeadLetterEvents();
+    const eventsToRetry = [...durableEvents, ...failedEventsBuffer];
+    const seenIdempotencyKeys = new Set<string>();
     failedEventsBuffer.length = 0;
 
-    for (const event of eventsToRetry) {
+    const dedupedEventsToRetry = eventsToRetry.filter((event) => {
+      if (seenIdempotencyKeys.has(event.payload.idempotencyKey)) {
+        return false;
+      }
+
+      seenIdempotencyKeys.add(event.payload.idempotencyKey);
+      return true;
+    });
+
+
+    for (const event of dedupedEventsToRetry) {
+      if (await this.hasReplayBeenCompleted(event)) {
+        await this.markDeadLetterReplayComplete(event);
+        results.dropped++;
+        continue;
+      }
+
       if (event.retryCount >= MAX_RETRY_COUNT) {
-        await this.persistToDeadLetterTable(event);
         results.dropped++;
         continue;
       }
@@ -211,17 +239,187 @@ class UsageEmitter {
       try {
         // Re-run full emit pipeline (queue + evidence + ledger)
         await this.emitUsage(event.payload);
+        await this.recordReplayCompletion(event);
+        await this.markDeadLetterReplayComplete(event);
 
         results.retried++;
       } catch (err) {
         event.retryCount++;
         event.lastError = (err as Error).message;
-        failedEventsBuffer.push(event);
+        await this.persistRetryAttempt(event);
+
+        if (failedEventsBuffer.length < 10000) {
+          failedEventsBuffer.push(event);
+        }
+
         results.failed++;
       }
     }
 
     return results;
+  }
+
+  private async fetchRetriableDeadLetterEvents(): Promise<FailedUsageEvent[]> {
+    const query = this.supabase
+      .from("dead_letter_events")
+      .select("id, tenant_id, payload, retry_count, error_message, created_at")
+      .eq("event_type", "usage_event")
+      .lt("retry_count", MAX_RETRY_COUNT)
+      .neq("error_message", REPLAY_COMPLETED_MARKER)
+      .order("created_at", { ascending: true })
+      .limit(MAX_RETRY_BATCH_SIZE);
+
+    const { data, error } = await query;
+
+    if (error) {
+      logger.error("Failed to fetch dead-letter events for retry", error);
+      return [];
+    }
+
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    const parsedEvents: FailedUsageEvent[] = [];
+
+    for (const row of data) {
+      const candidatePayload =
+        typeof row.payload === "object" && row.payload !== null
+          ? (row.payload as Record<string, unknown>)
+          : {};
+
+      const parsedPayload = usageEvidenceSchema.safeParse({
+        tenantId: String(row.tenant_id ?? candidatePayload.tenant_id ?? ""),
+        metric: candidatePayload.metric,
+        amount: candidatePayload.amount,
+        requestId: candidatePayload.request_id,
+        agentUuid: candidatePayload.agent_uuid,
+        workloadIdentity: candidatePayload.workload_identity,
+        idempotencyKey: candidatePayload.idempotency_key,
+        metadata: candidatePayload.metadata,
+      });
+
+      if (!parsedPayload.success) {
+        logger.warn("Skipping malformed dead-letter usage payload", {
+          deadLetterId: row.id,
+        });
+        continue;
+      }
+
+      parsedEvents.push({
+        id: typeof row.id === "string" ? row.id : undefined,
+        payload: parsedPayload.data,
+        retryCount: typeof row.retry_count === "number" ? row.retry_count : 0,
+        lastError: typeof row.error_message === "string" ? row.error_message : "",
+        timestamp: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+      });
+    }
+
+    return parsedEvents;
+  }
+
+  private async hasReplayBeenCompleted(event: FailedUsageEvent): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from("dead_letter_events")
+      .select("id")
+      .eq("event_type", REPLAY_EVENT_TYPE)
+      .eq("tenant_id", event.payload.tenantId)
+      .contains("payload", {
+        idempotency_key: event.payload.idempotencyKey,
+        status: "completed",
+      })
+      .limit(1);
+
+    if (error) {
+      logger.error("Failed to evaluate replay idempotency", error, {
+        tenantId: event.payload.tenantId,
+        idempotencyKey: event.payload.idempotencyKey,
+      });
+      return false;
+    }
+
+    return Array.isArray(data) && data.length > 0;
+  }
+
+  private async recordReplayCompletion(event: FailedUsageEvent): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const { error } = await this.supabase.from("dead_letter_events").insert({
+      event_type: REPLAY_EVENT_TYPE,
+      tenant_id: event.payload.tenantId,
+      payload: {
+        idempotency_key: event.payload.idempotencyKey,
+        request_id: event.payload.requestId,
+        original_dead_letter_id: event.id,
+        status: "completed",
+      },
+      error_message: "replay_completed",
+      retry_count: event.retryCount,
+      created_at: nowIso,
+    });
+
+    if (error) {
+      logger.error("Failed to persist replay completion marker", error, {
+        tenantId: event.payload.tenantId,
+        idempotencyKey: event.payload.idempotencyKey,
+      });
+    }
+  }
+
+  private async markDeadLetterReplayComplete(event: FailedUsageEvent): Promise<void> {
+    if (!event.id) {
+      return;
+    }
+
+    const { error } = await this.supabase
+      .from("dead_letter_events")
+      .update({
+        retry_count: MAX_RETRY_COUNT,
+        error_message: REPLAY_COMPLETED_MARKER,
+      })
+      .eq("id", event.id);
+
+    if (error) {
+      logger.error("Failed to mark dead-letter row as replayed", error, {
+        deadLetterId: event.id,
+      });
+    }
+  }
+
+  private async persistRetryAttempt(event: FailedUsageEvent): Promise<void> {
+    if (event.id) {
+      const { error } = await this.supabase
+        .from("dead_letter_events")
+        .update({
+          retry_count: event.retryCount,
+          error_message: event.lastError,
+          payload: {
+            metric: event.payload.metric,
+            amount: event.payload.amount,
+            request_id: event.payload.requestId,
+            agent_uuid: event.payload.agentUuid,
+            workload_identity: event.payload.workloadIdentity,
+            idempotency_key: event.payload.idempotencyKey,
+            metadata: event.payload.metadata,
+            original_timestamp: event.timestamp,
+            retry_metadata: {
+              retry_count: event.retryCount,
+              last_error: event.lastError,
+              updated_at: new Date().toISOString(),
+            },
+          },
+        })
+        .eq("id", event.id);
+
+      if (!error) {
+        return;
+      }
+
+      logger.error("Failed to update dead-letter retry metadata", error, {
+        deadLetterId: event.id,
+      });
+    }
+
+    await this.persistToDeadLetterTable(event);
   }
 
   private async persistToDeadLetterTable(event: FailedUsageEvent): Promise<void> {
@@ -238,6 +436,11 @@ class UsageEmitter {
           idempotency_key: event.payload.idempotencyKey,
           metadata: event.payload.metadata,
           original_timestamp: event.timestamp,
+          retry_metadata: {
+            retry_count: event.retryCount,
+            last_error: event.lastError,
+            updated_at: new Date().toISOString(),
+          },
         },
         error_message: event.lastError,
         retry_count: event.retryCount,

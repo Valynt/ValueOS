@@ -6,6 +6,7 @@
  */
 
 import { logger } from "../../lib/logger.js"
+import { type Request, type RequestHandler, type Response } from "express";
 
 import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory.js"
 import {
@@ -500,10 +501,7 @@ export class SecretValidator {
   /**
    * Get secret health check for monitoring
    */
-  async getSecretHealthCheck(): Promise<{
-    status: "healthy" | "degraded" | "unhealthy";
-    details: Record<string, any>;
-  }> {
+  async getSecretHealthCheck(): Promise<SecretHealthCheck> {
     const result = await this.validateAllSecrets();
 
     let status: "healthy" | "degraded" | "unhealthy";
@@ -573,6 +571,21 @@ export class SecretValidator {
   }
 }
 
+export type SecretHealthStatus = "healthy" | "degraded" | "unhealthy";
+
+export interface SecretHealthCheck {
+  status: SecretHealthStatus;
+  details: {
+    totalSecrets: number;
+    validSecrets: number;
+    missingSecrets: number;
+    invalidSecrets: number;
+    warnings: number;
+    criticalFailures: number;
+    secretVolumeWatcherActive: boolean;
+  };
+}
+
 /**
  * Validate secrets at application startup
  */
@@ -608,16 +621,39 @@ export async function validateSecretsOnStartup(): Promise<void> {
  */
 const secretValidator = new SecretValidator();
 
-export function secretHealthMiddleware() {
-  return async (_req: any, res: any) => {
+type SecretHealthMode = "public" | "privileged";
+
+interface SecretHealthMiddlewareOptions {
+  mode?: SecretHealthMode;
+}
+
+function mapPublicStatus(status: SecretHealthStatus): "ok" | "degraded" {
+  return status === "healthy" ? "ok" : "degraded";
+}
+
+function getHttpStatusCode(status: SecretHealthStatus): number {
+  return status === "unhealthy" ? 503 : 200;
+}
+
+export function secretHealthMiddleware(
+  options: SecretHealthMiddlewareOptions = {}
+): RequestHandler {
+  const mode: SecretHealthMode = options.mode ?? "public";
+
+  return async (_req: Request, res: Response) => {
     try {
       const health = await secretValidator.getSecretHealthCheck();
-      const statusCode =
-        health.status === "healthy"
-          ? 200
-          : health.status === "degraded"
-            ? 200
-            : 503;
+      const statusCode = getHttpStatusCode(health.status);
+
+      if (mode === "public") {
+        res.status(statusCode).json({
+          service: "secret-validator",
+          status: mapPublicStatus(health.status),
+          timestamp: new Date().toISOString(),
+        });
+
+        return;
+      }
 
       res.status(statusCode).json({
         service: "secret-validator",
@@ -628,7 +664,7 @@ export function secretHealthMiddleware() {
     } catch (error) {
       res.status(503).json({
         service: "secret-validator",
-        status: "unhealthy",
+        status: mode === "public" ? "degraded" : "unhealthy",
         timestamp: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Unknown error",
       });

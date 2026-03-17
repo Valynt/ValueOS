@@ -27,7 +27,7 @@ import {
   toDecimalArray,
 } from '../../../domain/economic-kernel/economic_kernel.js';
 import { FinancialModelSnapshotRepository } from '../../../repositories/FinancialModelSnapshotRepository.js';
-import { ProvenanceTracker } from '@memory/provenance/index.js';
+import { ProvenanceTracker } from '@valueos/memory/provenance';
 import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import { createServerSupabaseClient } from '../../supabase.js';
 import type {

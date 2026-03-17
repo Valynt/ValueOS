@@ -14,7 +14,7 @@ import {
 } from "../__helpers__/billing-factories";
 import {
   cleanupBillingTables,
-  getTestSupabaseClient,,
+  getTestSupabaseClient,
   supabaseAvailable
 } from "../__helpers__/db-helpers";
 import { performance as perfHelpers } from "../__helpers__/test-fixtures.js"

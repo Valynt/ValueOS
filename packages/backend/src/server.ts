@@ -34,7 +34,7 @@ import { createServer, type IncomingMessage } from "http";
 
 import { parseCorsAllowlist } from "@shared/config/cors";
 
-import { WebSocket, WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer, type RawData } from "ws";
 
 import adminRouter from "./api/admin.js";
 import { agentAdminRouter } from "./api/agentAdmin.js";
@@ -62,6 +62,7 @@ import llmRouter from "./api/llm.js";
 import { auditLogsRouter } from "./api/auditLogs.js";
 import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
+
 import { projectsRouter } from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
 import { usageRouter } from "./api/usage.js";
@@ -131,7 +132,7 @@ import {
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler.js";
 import { serviceIdentityMiddleware, validateServiceIdentityConfig } from "./middleware/serviceIdentityMiddleware.js";
-import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
+import { cspNonceMiddleware, cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import {
@@ -151,7 +152,12 @@ import { permissionService } from "./services/auth/PermissionService.js";
 import { isConsentRegistryConfigured } from "./services/auth/consentRegistry.js";
 import { TenantContextResolver } from "./services/tenant/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
+import { recordDroppedFrame, recordThrottledClient } from "./metrics/websocketSecurityMetrics.js";
+import { logSecurityEvent } from "./security/enhancedSecurityLogger.js";
+import { WebSocketLimiter } from "./services/realtime/WebSocketLimiter.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
+const WS_MAX_MESSAGES_PER_SECOND = Number(process.env.WS_MAX_MESSAGES_PER_SECOND ?? "30");
+const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536");
 
 getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
@@ -199,7 +205,14 @@ const onboardingConcurrencyGuard = createConcurrencyBackpressure("/api/onboardin
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
   tenantId: string;
+  connectionId: string;
 }
+
+const websocketLimiter = new WebSocketLimiter({
+  maxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
+  maxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
+});
+let websocketConnectionCounter = 0;
 
 const tenantResolver = new TenantContextResolver();
 
@@ -286,12 +299,65 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   const authedSocket = ws as AuthenticatedWebSocket;
   authedSocket.userId = userId;
   authedSocket.tenantId = tenantId;
+  authedSocket.connectionId = `${tenantId}:${++websocketConnectionCounter}`;
 
-  logger.info("WebSocket client connected", { clientIp, userId, tenantId });
+  logger.info("WebSocket client connected", {
+    clientIp,
+    userId,
+    tenantId,
+    connectionId: authedSocket.connectionId,
+  });
 
-  ws.on("message", (data: Buffer) => {
+  ws.on("message", (data: RawData) => {
+    const payloadBytes =
+      typeof data === "string"
+        ? Buffer.byteLength(data)
+        : data instanceof ArrayBuffer
+          ? data.byteLength
+          : Array.isArray(data)
+            ? data.reduce((total, segment) => total + segment.byteLength, 0)
+            : data.byteLength;
+
+    const limiterResult = websocketLimiter.evaluateMessage(
+      authedSocket.connectionId,
+      authedSocket.tenantId,
+      payloadBytes
+    );
+
+    if (!limiterResult.allowed && limiterResult.reason) {
+      recordDroppedFrame(limiterResult.reason);
+      recordThrottledClient(authedSocket.tenantId);
+      logSecurityEvent({
+        type: "WEBSOCKET_FRAME_BLOCKED",
+        category: "rate_limiting",
+        severity: "high",
+        outcome: "blocked",
+        reason: limiterResult.reason,
+        userId: authedSocket.userId,
+        tenantId: authedSocket.tenantId,
+        ipAddress: clientIp,
+        metadata: {
+          connectionId: authedSocket.connectionId,
+          payloadBytes,
+          maxPayloadBytes: WS_MAX_PAYLOAD_BYTES,
+          maxMessagesPerSecond: WS_MAX_MESSAGES_PER_SECOND,
+        },
+      });
+
+      ws.close(WS_POLICY_VIOLATION_CODE, "Policy violation");
+      return;
+    }
+
     try {
-      const message = JSON.parse(data.toString());
+      const textPayload =
+        typeof data === "string"
+          ? data
+          : data instanceof ArrayBuffer
+            ? Buffer.from(data).toString()
+            : Array.isArray(data)
+              ? Buffer.concat(data).toString()
+              : data.toString();
+      const message = JSON.parse(textPayload) as { type?: string; messageId?: string; payload?: unknown };
       logger.debug("WebSocket message received", {
         type: message.type,
         messageId: message.messageId,
@@ -337,10 +403,12 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   });
 
   ws.on("close", () => {
+    websocketLimiter.releaseConnection(authedSocket.connectionId, authedSocket.tenantId);
     logger.info("WebSocket client disconnected", {
       clientIp,
       userId,
       tenantId,
+      connectionId: authedSocket.connectionId,
     });
   });
 
@@ -381,6 +449,7 @@ app.use((req, _res, next) => {
 });
 app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
+app.use(cspNonceMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
 app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
@@ -433,8 +502,13 @@ if (typeof getLatencySnapshot === "function") {
 // CSP Reporting Endpoint
 app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 
-// Secret Health Check Endpoint
-app.get("/health/secrets", secretHealthMiddleware());
+// Secret Health Check Endpoints
+app.get("/health/secrets/public", secretHealthMiddleware({ mode: "public" }));
+app.get(
+  "/health/secrets",
+  serviceIdentityMiddleware,
+  secretHealthMiddleware({ mode: "privileged" })
+);
 
 // Well-known MCP discovery document
 app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
@@ -446,6 +520,7 @@ app.use("/api", rateLimiters.standard);
 app.use("/api/auth", rateLimiters.auth);
 
 apiRouter.use("/billing", billingRouter);
+apiRouter.use("/tenant/context", tenantContextRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
 apiRouter.use(
   "/initiatives",

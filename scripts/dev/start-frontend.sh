@@ -9,4 +9,4 @@ MODE="${APP_ENV:-${1:-local}}"
 source "$PROJECT_ROOT/scripts/env/prepare-frontend-env.sh" "$MODE"
 
 cd "$PROJECT_ROOT"
-exec pnpm --filter valynt-app exec vite -- --host 0.0.0.0 --port "$FRONTEND_PORT"
+exec pnpm --filter valynt-app exec vite -- --host :: --port "$FRONTEND_PORT"

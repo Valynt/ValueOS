@@ -1,9 +1,1 @@
-export { SettingsLayout } from "./SettingsLayout";
-export { ProfilePage } from "./ProfilePage";
-export { SecurityPage } from "./SecurityPage";
-export { NotificationsPage } from "./NotificationsPage";
-export { AppearancePage } from "./AppearancePage";
-export { TeamSettings } from "./TeamSettings";
-export { BillingSettings } from "./BillingSettings";
-export { IntegrationsPage } from "./IntegrationsPage";
-export { BrandingPage } from "./BrandingPage";
+export { default as SettingsPage } from "../../views/Settings/SettingsView";

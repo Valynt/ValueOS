@@ -8,6 +8,7 @@
 import { AuditActor, enhancedAuditLogger } from '../lib/audit/index';
 
 import { DataBinding, DataSourceContext, ResolvedBinding } from './DataBindingSchema';
+import { incrementSecurityMetric } from './security/metrics';
 import { hasPermission, TenantContext, TenantContextError } from './TenantContext';
 
 /**
@@ -82,19 +83,14 @@ export function validateTenantBinding(
   binding: TenantAwareDataBinding,
   context: TenantContext
 ): void {
-  // Check permission
-  if (!checkDataSourcePermission(binding, context)) {
-    const permission = binding.$permission || DATA_SOURCE_PERMISSIONS[binding.$source];
-    throw new TenantContextError(
-      `Permission denied: User lacks '${permission}' permission for data source '${binding.$source}'`,
-      context.tenantId,
-      context
-    );
-  }
-
-  // Validate tenant ID if specified
+  // Validate tenant ID first — tenant isolation takes precedence over permission checks.
   if (binding.$tenantId && binding.$tenantId !== context.tenantId) {
     if (binding.$strictIsolation !== false) {
+      incrementSecurityMetric('tenant_violation', {
+        bindingTenant: binding.$tenantId,
+        contextTenant: context.tenantId,
+        source: binding.$source,
+      });
       throw new TenantContextError(
         `Tenant isolation violation: Binding requires tenant '${binding.$tenantId}' but context is '${context.tenantId}'`,
         context.tenantId,
@@ -103,9 +99,26 @@ export function validateTenantBinding(
     }
   }
 
+  // Check permission (guard against missing permissions array)
+  const permissions = context.permissions ?? [];
+  const contextWithPermissions: TenantContext = { ...context, permissions };
+  if (!checkDataSourcePermission(binding, contextWithPermissions)) {
+    const permission = binding.$permission || DATA_SOURCE_PERMISSIONS[binding.$source];
+    throw new TenantContextError(
+      `Permission denied: User lacks '${permission}' permission for data source '${binding.$source}'`,
+      context.tenantId,
+      context
+    );
+  }
+
   // Validate organization ID if specified
   if (binding.$organizationId && binding.$organizationId !== context.organizationId) {
     if (binding.$strictIsolation !== false) {
+      incrementSecurityMetric('tenant_violation', {
+        bindingOrg: binding.$organizationId,
+        contextOrg: context.organizationId,
+        source: binding.$source,
+      });
       throw new TenantContextError(
         `Organization isolation violation: Binding requires org '${binding.$organizationId}' but context is '${context.organizationId}'`,
         context.tenantId,
@@ -287,7 +300,7 @@ export function createTenantCacheKey(
  */
 export function createTenantBinding(
   path: string,
-  source: string,
+  source: import("./DataBindingSchema").DataSourceType,
   tenantContext: TenantContext,
   options?: Partial<Omit<TenantAwareDataBinding, '$bind' | '$source'>>
 ): TenantAwareDataBinding {

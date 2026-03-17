@@ -10,6 +10,8 @@
 import { logger } from "@shared/lib/logger";
 import DOMPurify from "dompurify";
 
+import { incrementSecurityMetric } from "./metrics";
+
 /**
  * DOMPurify configuration for different security contexts
  */
@@ -133,6 +135,7 @@ export function sanitizeString(
   // Block javascript: URLs explicitly (DOMPurify only blocks in HTML attributes)
   if (value.toLowerCase().trim().startsWith("javascript:")) {
     xssBlockCount++;
+    incrementSecurityMetric("xss_blocked", { reason: "javascript_url" });
     logger.warn("XSS attempt blocked: javascript: URL", {
       original: value.substring(0, 100),
       blocked: xssBlockCount,
@@ -146,6 +149,7 @@ export function sanitizeString(
   // Detect if content was modified (potential XSS attempt)
   if (sanitized !== value) {
     xssBlockCount++;
+    incrementSecurityMetric("xss_blocked", { reason: "dompurify", policy });
     logger.warn("XSS attempt blocked during sanitization", {
       original: value.substring(0, 100),
       sanitized: sanitized.substring(0, 100),

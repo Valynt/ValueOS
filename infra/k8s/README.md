@@ -1,13 +1,42 @@
-# ValueCanvas Kubernetes Deployment
+# ValueOS Kubernetes Deployment
 
-Complete Kubernetes deployment configuration for ValueCanvas using Kustomize.
+Complete Kubernetes deployment configuration for ValueOS using Kustomize.
+
+> **Readiness Status:** These manifests are **aspirational** and have not been
+> validated against a live cluster for v1. Production deployment currently uses
+> Docker Compose (`ops/compose/`). See `DEPLOY.md` for the canonical deploy path.
+
+## Manifest Readiness
+
+| Manifest                          | Status       | Notes                                                                    |
+| --------------------------------- | ------------ | ------------------------------------------------------------------------ |
+| `base/configmap.yaml`             | Validated    | Base config with overlay-required overrides for `node-env` and `app-env` |
+| `base/backend-deployment.yaml`    | Aspirational | Image tags and resource limits need production tuning                    |
+| `base/frontend-*-deployment.yaml` | Aspirational | Blue-green setup defined but not tested                                  |
+| `base/hpa.yaml`                   | Aspirational | HPA metrics and thresholds need load-test validation                     |
+| `base/network-policies.yaml`      | Aspirational | Needs cluster-level NetworkPolicy controller                             |
+| `base/external-secrets.yaml`      | Aspirational | Requires ExternalSecrets operator + AWS/Vault backend                    |
+| `overlays/staging/`               | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
+| `overlays/production/`            | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
+| `observability/`                  | Aspirational | Full OTEL + Prometheus + Grafana + Loki stack, not deployed              |
+
+### Promotion to production-ready
+
+To promote these manifests to production-ready:
+
+1. Stand up a staging K8s cluster (EKS, GKE, or kind for local)
+2. Install prerequisites: ExternalSecrets operator, NGINX ingress controller, cert-manager
+3. Run `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -`
+4. Deploy to staging cluster and run smoke tests
+5. Validate HPA scaling under load (`tests/test/load/`)
+6. Update this table as manifests are validated
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      AWS ALB Ingress                         │
-│                   (app.valuecanvas.com)                      │
+│                   (app.valueos.com)                      │
 └────────────────────┬────────────────────────────────────────┘
                      │
         ┌────────────┴────────────┐
@@ -16,7 +45,7 @@ Complete Kubernetes deployment configuration for ValueCanvas using Kustomize.
 ┌───────────────┐         ┌───────────────┐
 │   Frontend    │         │    Backend    │
 │   (Nginx)     │────────▶│   (Express)   │
-│   Port: 80    │         │   Port: 8000  │
+│   Port: 80    │         │   Port: 3001  │
 └───────────────┘         └───────┬───────┘
                                   │
                      ┌────────────┴────────────┐
@@ -31,7 +60,7 @@ Complete Kubernetes deployment configuration for ValueCanvas using Kustomize.
 ## Directory Structure
 
 ```
-infra/infra/k8s/
+infra/k8s/
 ├── base/                    # Base Kubernetes manifests
 │   ├── namespace.yaml
 │   ├── serviceaccount.yaml
@@ -53,7 +82,6 @@ infra/infra/k8s/
         └── deployment-patch.yaml
 ```
 
-
 ## Agent Workload Identity (Istio + Kubernetes)
 
 ### ServiceAccount naming convention
@@ -63,6 +91,7 @@ Every agent deployment under `infra/k8s/base/agents/*/deployment.yaml` must use 
 - `<agent-name>-agent`
 
 Examples:
+
 - `opportunity-agent`
 - `financial-modeling-agent`
 - `value-eval-agent`
@@ -90,6 +119,7 @@ node scripts/ci/check-agent-service-accounts.mjs
 ```
 
 This check fails when any agent deployment:
+
 - uses `serviceAccountName: valynt-agent`,
 - reuses a ServiceAccount already assigned to another agent deployment, or
 - references a ServiceAccount not declared in `infra/k8s/base/agents/serviceaccounts.yaml`.
@@ -108,7 +138,7 @@ This check fails when any agent deployment:
 
 ```bash
 aws eks update-kubeconfig \
-  --name valuecanvas-staging-cluster \
+  --name valynt-staging-cluster \
   --region us-east-1
 ```
 
@@ -122,30 +152,30 @@ kubectl get namespaces
 ### 3. Create secrets
 
 ```bash
-kubectl create secret generic valuecanvas-secrets \
+kubectl create secret generic valynt-secrets \
   --from-literal=supabase-url="https://xxx.supabase.co" \
   --from-literal=supabase-anon-key="eyJ..." \
   --from-literal=supabase-service-key="eyJ..." \
   --from-literal=together-api-key="xxx" \
   --from-literal=openai-api-key="sk-xxx" \
   --from-literal=jwt-secret="xxx" \
-  --namespace=valuecanvas-staging
+  --namespace=valynt-staging
 
 # Model selection and fallback controls can be provided as non-secret ConfigMap entries or as plain env-vars in the deployment.
-kubectl create configmap valuecanvas-llm-config \
+kubectl create configmap valynt-llm-config \
   --from-literal=together-primary-model="moonshotai/Kimi-K2-Thinking" \
   --from-literal=together-secondary-model="openai/gpt-oss-120b" \
   --from-literal=llm-fallback-enabled="true" \
   --from-literal=llm-fallback-max-attempts="1" \
   --from-literal=llm-retry-backoff-ms="200" \
-  -n valuecanvas-staging
+  -n valynt-staging
 
 # Alternatively place model names in the secret if you prefer a single secret store.
 ```
 
 ### 4. Update image references
 
-Edit `infra/infra/k8s/overlays/staging/kustomization.yaml`:
+Edit `infra/k8s/overlays/staging/kustomization.yaml`:
 
 ```yaml
 images:
@@ -158,16 +188,16 @@ images:
 ### 5. Deploy to staging
 
 ```bash
-cd infra/infra/k8s/overlays/staging
+cd infra/k8s/overlays/staging
 kustomize build . | kubectl apply -f -
 ```
 
 ### 6. Verify deployment
 
 ```bash
-kubectl get pods -n valuecanvas-staging
-kubectl get services -n valuecanvas-staging
-kubectl get ingress -n valuecanvas-staging
+kubectl get pods -n valynt-staging
+kubectl get services -n valynt-staging
+kubectl get ingress -n valynt-staging
 ```
 
 ## Deployment Environments
@@ -175,42 +205,48 @@ kubectl get ingress -n valuecanvas-staging
 ### Staging
 
 **Resources:**
+
 - Backend: 1 replica, 100m CPU, 256Mi memory
 - Frontend: 1 replica, 50m CPU, 64Mi memory
 - HPA: Disabled
 
 **Configuration:**
-- Namespace: `valuecanvas-staging`
+
+- Namespace: `valynt-staging`
 - Image tag: `develop`
 - Log level: `debug`
 
 **Deploy:**
+
 ```bash
-kustomize build infra/infra/k8s/overlays/staging | kubectl apply -f -
+kustomize build infra/k8s/overlays/staging | kubectl apply -f -
 ```
 
 ### Production
 
 **Resources:**
+
 - Backend: 3 replicas, 500m CPU, 1Gi memory
 - Frontend: 2 replicas, 200m CPU, 256Mi memory
 - HPA: Enabled (2-10 replicas for backend)
 
 **Configuration:**
-- Namespace: `valuecanvas-production`
+
+- Namespace: `valynt`
 - Image tag: `latest`
 - Log level: `info`
 
 **Deploy:**
+
 ```bash
-kustomize build infra/infra/k8s/overlays/production | kubectl apply -f -
+kustomize build infra/k8s/overlays/production | kubectl apply -f -
 ```
 
 ## Components
 
 ### Frontend (Nginx + React)
 
-- **Image:** `valuecanvas-frontend`
+- **Image:** `valueos-frontend`
 - **Port:** 80
 - **Resources:** 50-200m CPU, 64-256Mi memory
 - **Health Check:** `/health`
@@ -218,8 +254,8 @@ kustomize build infra/infra/k8s/overlays/production | kubectl apply -f -
 
 ### Backend (Express API)
 
-- **Image:** `valuecanvas-backend`
-- **Port:** 8000
+- **Image:** `valueos-backend`
+- **Port:** 3001
 - **Resources:** 100-500m CPU, 256Mi-1Gi memory
 - **Health Check:** `/health`
 - **Metrics:** `/metrics` (Prometheus)
@@ -238,9 +274,12 @@ kustomize build infra/infra/k8s/overlays/production | kubectl apply -f -
 ### ConfigMap
 
 ```yaml
-# infra/infra/k8s/base/configmap.yaml
+# infra/k8s/base/configmap.yaml
 data:
-  redis-url: "redis://redis:6379"
+  redis-url: "rediss://redis:6379"
+  redis-tls-servername: "redis"
+  redis-tls-reject-unauthorized: "true"
+  redis-tls-ca-cert-path: "/etc/redis/tls/ca.crt"
   node-env: "production"
   log-level: "info"
   enable-circuit-breaker: "true"
@@ -252,13 +291,13 @@ data:
 Secrets are managed via Kubernetes secrets or AWS Secrets Manager:
 
 ```bash
-kubectl create secret generic valuecanvas-secrets \
+kubectl create secret generic valynt-secrets \
   --from-literal=supabase-url=<value> \
   --from-literal=supabase-anon-key=<value> \
   --from-literal=supabase-service-key=<value> \
   --from-literal=together-api-key=<value> \
   --from-literal=jwt-secret=<value> \
-  --namespace=valuecanvas-staging
+  --namespace=valynt-staging
 ```
 
 ## Scaling
@@ -269,12 +308,12 @@ kubectl create secret generic valuecanvas-secrets \
 # Scale backend
 kubectl scale deployment backend-staging \
   --replicas=3 \
-  -n valuecanvas-staging
+  -n valynt-staging
 
 # Scale frontend
 kubectl scale deployment frontend-staging \
   --replicas=2 \
-  -n valuecanvas-staging
+  -n valynt-staging
 ```
 
 ### Auto-Scaling (HPA)
@@ -289,8 +328,9 @@ targetMemoryUtilizationPercentage: 80
 ```
 
 View HPA status:
+
 ```bash
-kubectl get hpa -n valuecanvas-production
+kubectl get hpa -n valynt
 ```
 
 ## Monitoring
@@ -298,27 +338,27 @@ kubectl get hpa -n valuecanvas-production
 ### Pod Status
 
 ```bash
-kubectl get pods -n valuecanvas-staging -w
+kubectl get pods -n valynt-staging -w
 ```
 
 ### Logs
 
 ```bash
 # Backend logs
-kubectl logs -f deployment/backend-staging -n valuecanvas-staging
+kubectl logs -f deployment/backend-staging -n valynt-staging
 
 # Frontend logs
-kubectl logs -f deployment/frontend-staging -n valuecanvas-staging
+kubectl logs -f deployment/frontend-staging -n valynt-staging
 
 # All pods
-kubectl logs -f -l app=backend -n valuecanvas-staging
+kubectl logs -f -l app=backend -n valynt-staging
 ```
 
 ### Metrics
 
 ```bash
 # Pod metrics
-kubectl top pods -n valuecanvas-staging
+kubectl top pods -n valynt-staging
 
 # Node metrics
 kubectl top nodes
@@ -327,7 +367,7 @@ kubectl top nodes
 ### Events
 
 ```bash
-kubectl get events -n valuecanvas-staging --sort-by='.lastTimestamp'
+kubectl get events -n valynt-staging --sort-by='.lastTimestamp'
 ```
 
 ## Troubleshooting
@@ -336,13 +376,13 @@ kubectl get events -n valuecanvas-staging --sort-by='.lastTimestamp'
 
 ```bash
 # Check pod status
-kubectl describe pod <pod-name> -n valuecanvas-staging
+kubectl describe pod <pod-name> -n valynt-staging
 
 # Check events
-kubectl get events -n valuecanvas-staging
+kubectl get events -n valynt-staging
 
 # Check logs
-kubectl logs <pod-name> -n valuecanvas-staging
+kubectl logs <pod-name> -n valynt-staging
 ```
 
 ### Image pull errors
@@ -355,7 +395,7 @@ aws ecr get-login-password --region us-east-1 | \
 
 # Check image exists
 aws ecr describe-images \
-  --repository-name valuecanvas-backend \
+  --repository-name valueos-backend \
   --region us-east-1
 ```
 
@@ -363,7 +403,7 @@ aws ecr describe-images \
 
 ```bash
 # Check ingress status
-kubectl describe ingress valuecanvas-staging -n valuecanvas-staging
+kubectl describe ingress valynt-staging -n valynt-staging
 
 # Check ALB controller logs
 kubectl logs -n kube-system deployment/aws-load-balancer-controller
@@ -373,11 +413,11 @@ kubectl logs -n kube-system deployment/aws-load-balancer-controller
 
 ```bash
 # Test from pod
-kubectl exec -it deployment/backend-staging -n valuecanvas-staging -- \
-  curl -v http://backend:8000/health
+kubectl exec -it deployment/backend-staging -n valynt-staging -- \
+  curl -v http://backend:3001/health
 
 # Check secrets
-kubectl get secret valuecanvas-secrets -n valuecanvas-staging -o yaml
+kubectl get secret valynt-secrets -n valynt-staging -o yaml
 ```
 
 ## Rollback
@@ -386,15 +426,15 @@ kubectl get secret valuecanvas-secrets -n valuecanvas-staging -o yaml
 
 ```bash
 # View rollout history
-kubectl rollout history deployment/backend-staging -n valuecanvas-staging
+kubectl rollout history deployment/backend-staging -n valynt-staging
 
 # Rollback to previous version
-kubectl rollout undo deployment/backend-staging -n valuecanvas-staging
+kubectl rollout undo deployment/backend-staging -n valynt-staging
 
 # Rollback to specific revision
 kubectl rollout undo deployment/backend-staging \
   --to-revision=2 \
-  -n valuecanvas-staging
+  -n valynt-staging
 ```
 
 ## Cleanup
@@ -402,13 +442,13 @@ kubectl rollout undo deployment/backend-staging \
 ### Delete staging environment
 
 ```bash
-kubectl delete namespace valuecanvas-staging
+kubectl delete namespace valynt-staging
 ```
 
 ### Delete production environment
 
 ```bash
-kubectl delete namespace valuecanvas-production
+kubectl delete namespace valynt
 ```
 
 ## CI/CD Integration
@@ -457,6 +497,7 @@ See `.github/workflows/deploy-to-k8s.yml` for details.
 ## Support
 
 For issues or questions:
+
 1. Check pod logs
 2. Review events
 3. Check this documentation

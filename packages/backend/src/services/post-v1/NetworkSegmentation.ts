@@ -67,7 +67,11 @@ export class NetworkSegmentationManager {
    * Initialize default network policies for different agent types
    */
   private initializeDefaultPolicies(): void {
-    // LLM Agent Policy - Restrictive external API access
+    // LLM Agent Policy - Restrictive external API access.
+    // NOTE: localhost / 127.0.0.1 are intentionally absent. The SSRF guard in
+    // validateRequest() blocks all private-network addresses unconditionally,
+    // so listing them here would be dead configuration that creates a
+    // misleading security posture.
     this.addPolicy({
       id: "llm-agent-policy",
       name: "LLM Agent Network Policy",
@@ -79,11 +83,9 @@ export class NetworkSegmentationManager {
         "api.together.xyz",
         "api.replicate.com",
         "*.supabase.co",
-        "localhost",
-        "127.0.0.1",
       ],
       blockedDomains: ["*.malicious.com", "*.phishing.com", "internal.*", "*.local"],
-      allowedPorts: [80, 443, 3000, 8000, 5432],
+      allowedPorts: [80, 443, 3000, 3001, 8000, 5432],
       maxRequestsPerMinute: 50,
       maxConcurrentConnections: 5,
       timeoutMs: 30000,
@@ -104,8 +106,6 @@ export class NetworkSegmentationManager {
         "*.supabase.co",
         "*.vercel-storage.com",
         "*.s3.amazonaws.com",
-        "localhost",
-        "127.0.0.1",
       ],
       blockedDomains: ["*.external-api.com", "*.social-media.com", "*.advertising.com"],
       allowedPorts: [80, 443, 5432, 6379],
@@ -125,9 +125,9 @@ export class NetworkSegmentationManager {
       name: "Workflow Agent Network Policy",
       description: "Policy for workflow orchestration and internal communications",
       agentTypes: ["workflow-agent", "orchestrator-agent", "scheduler-agent"],
-      allowedDomains: ["*.supabase.co", "localhost", "127.0.0.1", "*.internal"],
+      allowedDomains: ["*.supabase.co", "*.internal"],
       blockedDomains: ["*.external.com", "*.internet.com", "*.public-api.com"],
-      allowedPorts: [80, 443, 3000, 8000, 5432, 6379],
+      allowedPorts: [80, 443, 3000, 3001, 8000, 5432, 6379],
       maxRequestsPerMinute: 200,
       maxConcurrentConnections: 20,
       timeoutMs: 45000,
@@ -144,7 +144,7 @@ export class NetworkSegmentationManager {
       name: "Restricted Agent Network Policy",
       description: "Highly restrictive policy for sensitive operations",
       agentTypes: ["security-agent", "audit-agent", "compliance-agent"],
-      allowedDomains: ["*.supabase.co", "localhost", "127.0.0.1"],
+      allowedDomains: ["*.supabase.co"],
       blockedDomains: [
         "*", // Block everything except explicitly allowed
       ],
@@ -359,11 +359,8 @@ export class NetworkSegmentationManager {
       try {
         const response = await this.makeRequest(request, policy);
 
-        // Success - return response
-        return {
-          ...response,
-          duration: Date.now() - Date.now(), // Would be calculated in makeRequest
-        };
+        // duration is already measured inside makeRequest; return as-is.
+        return response;
       } catch (error: unknown) {
         lastError = error as Error;
 

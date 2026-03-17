@@ -29,7 +29,7 @@ tags:
   - name: Projects
     description: Project management
   - name: Admin
-    description: Admin and tenant management endpoints
+    description: Admin and tenant management endpoints (DLQ management, diagnostics)
   - name: Integrations
     description: CRM and enterprise integration connections
   - name: Compliance
@@ -608,6 +608,147 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /api/v1/cases/{caseId}/run-loop:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Run the full HypothesisLoop for a case
+      operationId: runHypothesisLoop
+      tags: [Value Cases]
+      description: |
+        Executes the full agent loop (opportunity → model → integrity → narrative).
+        Streams progress via SSE when `Accept: text/event-stream` is set;
+        otherwise returns a JSON summary on completion.
+      responses:
+        "200":
+          description: Loop completed (JSON mode)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  finalState: { type: string }
+                  revisionCount: { type: integer }
+                  error: { type: string }
+            text/event-stream:
+              schema:
+                type: string
+                description: "SSE stream of LoopProgress events, terminated by `{ done: true }`."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/export/pptx:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+    post:
+      summary: Export a value case as a PPTX presentation
+      operationId: exportCasePptx
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: PPTX file stream
+          content:
+            application/vnd.openxmlformats-officedocument.presentationml.presentation:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/cases/{caseId}/provenance/{claimId}:
+    parameters:
+      - $ref: "#/components/parameters/CaseId"
+      - name: claimId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Get the provenance chain for a claim
+      operationId: getClaimProvenance
+      tags: [Value Cases]
+      responses:
+        "200":
+          description: Provenance chain (empty array if no records)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        claimId: { type: string }
+                        valueCaseId: { type: string }
+                        sourceType: { type: string }
+                        sourceId: { type: string }
+                        derivedAt: { type: string, format: date-time }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/admin/dlq:
+    get:
+      summary: List dead-letter queue tasks
+      operationId: listDlqTasks
+      tags: [Admin]
+      responses:
+        "200":
+          description: DLQ task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        taskId: { type: string }
+                        payload: { type: object }
+                        failedAt: { type: string, format: date-time }
+                        retryCount: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/admin/dlq/{taskId}/retry:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Retry a dead-letter queue task
+      operationId: retryDlqTask
+      tags: [Admin]
+      responses:
+        "200":
+          description: Task requeued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  taskId: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ---------------------------------------------------------------------------
   # Agents
   # ---------------------------------------------------------------------------
@@ -1074,152 +1215,6 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
-  # ---------------------------------------------------------------------------
-  # Value Cases
-  # ---------------------------------------------------------------------------
-  /api/v1/cases:
-    post:
-      summary: Create a value case
-      operationId: createValueCase
-      tags: [Value Cases]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateValueCaseRequest"
-      responses:
-        "201":
-          description: Value case created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValueCaseEnvelope"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-    get:
-      summary: List value cases for the tenant
-      operationId: listValueCases
-      tags: [Value Cases]
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [draft, active, archived]
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-      responses:
-        "200":
-          description: List of value cases
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValueCaseListEnvelope"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/cases/{caseId}:
-    parameters:
-      - name: caseId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get a value case by ID
-      operationId: getValueCase
-      tags: [Value Cases]
-      responses:
-        "200":
-          description: Value case
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValueCaseEnvelope"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    patch:
-      summary: Update a value case
-      operationId: updateValueCase
-      tags: [Value Cases]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateValueCaseRequest"
-      responses:
-        "200":
-          description: Updated value case
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValueCaseEnvelope"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    delete:
-      summary: Delete a value case
-      operationId: deleteValueCase
-      tags: [Value Cases]
-      responses:
-        "204":
-          description: Deleted
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/v1/cases/{caseId}/hypothesis:
-    parameters:
-      - name: caseId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    get:
-      summary: Get the latest hypothesis output for a case
-      operationId: getCaseHypothesis
-      tags: [Value Cases]
-      responses:
-        "200":
-          description: Hypothesis output
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HypothesisOutput"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
 
   # ---------------------------------------------------------------------------
   # Agent Invocation
@@ -2411,49 +2406,6 @@ components:
       type: string
       enum: [draft, active, archived]
 
-    ValueCase:
-      type: object
-      required: [id, title, status, organization_id, created_at, updated_at]
-      properties:
-        id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          example: "Cloud Migration ROI"
-        description:
-          type: string
-        status:
-          $ref: "#/components/schemas/ValueCaseStatus"
-        organization_id:
-          type: string
-          format: uuid
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    ValueCaseEnvelope:
-      type: object
-      properties:
-        data:
-          $ref: "#/components/schemas/ValueCase"
-
-    ValueCaseListEnvelope:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/ValueCase"
-        total:
-          type: integer
-        limit:
-          type: integer
-        offset:
-          type: integer
 
     CreateValueCaseRequest:
       type: object
@@ -2478,58 +2430,9 @@ components:
         status:
           $ref: "#/components/schemas/ValueCaseStatus"
 
-    HypothesisOutput:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        case_id:
-          type: string
-          format: uuid
-        hypotheses:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              statement:
-                type: string
-              confidence:
-                type: string
-                enum: [high, medium, low]
-              reasoning:
-                type: string
-        created_at:
-          type: string
-          format: date-time
-
     # -------------------------------------------------------------------------
     # Agent schemas
     # -------------------------------------------------------------------------
-    AgentInvokeRequest:
-      type: object
-      required: [query]
-      properties:
-        query:
-          type: string
-          maxLength: 2000
-          example: "Generate value hypotheses for a cloud migration project"
-        context:
-          type: object
-          additionalProperties: true
-        parameters:
-          type: object
-          additionalProperties:
-            oneOf:
-              - type: string
-              - type: number
-              - type: boolean
-        sessionId:
-          type: string
-          maxLength: 100
-
     AgentInvokeResponse:
       type: object
       properties:
@@ -2543,18 +2446,6 @@ components:
         status:
           type: string
           enum: [queued, completed, failed]
-
-    AgentInfo:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        lifecycleStage:
-          type: string
-        version:
-          type: string
 
     AgentJobStatus:
       type: object

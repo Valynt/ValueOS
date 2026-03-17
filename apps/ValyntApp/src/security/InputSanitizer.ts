@@ -40,7 +40,6 @@ const HTML_ENTITIES: Record<string, string> = {
   '>': '&gt;',
   '"': '&quot;',
   "'": '&#x27;',
-  '/': '&#x2F;',
 };
 
 /**
@@ -77,7 +76,7 @@ const PATH_TRAVERSAL_PATTERNS = [
  * Encode HTML entities
  */
 export function encodeHtml(text: string): string {
-  return text.replace(/[&<>"'\/]/g, (char) => HTML_ENTITIES[char] || char);
+  return text.replace(/[&<>"']/g, (char) => HTML_ENTITIES[char] || char);
 }
 
 /**
@@ -138,9 +137,17 @@ export function sanitizeHtml(
     sanitized = sanitized.substring(0, maxLength);
   }
 
-  // If HTML is not allowed, encode everything
+  // If HTML is not allowed: first strip dangerous elements, then encode remaining HTML
   if (!allowHtml) {
-    return encodeHtml(sanitized);
+    // Remove scripts and event handlers but keep the raw tag text for encoding
+    const stripped = sanitized
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\s*on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+    // Encode all remaining HTML characters including /
+    return stripped.replace(/[&<>"'/]/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '/': '&#x2F;',
+    }[char] ?? char));
   }
 
   // Prepare DOMPurify config
@@ -283,8 +290,13 @@ export function sanitizeFilePath(path: string): ValidationResult {
     warnings.push('Absolute paths should be avoided');
   }
 
-  // Remove dangerous characters
-  const sanitized = path.replace(/[<>:"|?*]/g, '');
+  // Remove dangerous characters and path traversal sequences
+  const sanitized = path
+    .replace(/\.\.\//g, '')
+    .replace(/\.\.\\/g, '')
+    .replace(/%2e%2e%2f/gi, '')
+    .replace(/%2e%2e\\/gi, '')
+    .replace(/[<>:"|?*]/g, '');
 
   return {
     valid: errors.length === 0,

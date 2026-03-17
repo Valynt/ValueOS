@@ -45,6 +45,7 @@ export class ComponentTargeting {
 
     for (let i = 0; i < layout.sections.length; i++) {
       const section = layout.sections[i];
+      if (!section || section.type !== "component") continue;
       const match = this.matchComponent(section, i, selector);
 
       if (match) {
@@ -63,7 +64,7 @@ export class ComponentTargeting {
    */
   findBestMatch(layout: SDUIPageDefinition, selector: ComponentSelector): ComponentMatch | null {
     const matches = this.findComponents(layout, selector);
-    return matches.length > 0 ? matches[0] : null;
+    return matches.length > 0 ? (matches[0] ?? null) : null;
   }
 
   /**
@@ -281,7 +282,9 @@ export class ComponentTargeting {
    * Get component ID
    */
   private getComponentId(section: SDUIComponentSection, index: number): string {
-    // Use component name + index as ID
+    // Prefer explicit props.id, fall back to component_index
+    const propsId = (section.props as Record<string, unknown>)?.id;
+    if (typeof propsId === "string") return propsId;
     return `${section.component}_${index}`;
   }
 
@@ -313,7 +316,7 @@ export class ComponentTargeting {
     const indexPatterns = [/first/i, /second/i, /third/i, /fourth/i, /fifth/i];
 
     for (let i = 0; i < indexPatterns.length; i++) {
-      if (indexPatterns[i].test(descLower)) {
+      if (indexPatterns[i]?.test(descLower)) {
         index = i;
         break;
       }
@@ -321,7 +324,7 @@ export class ComponentTargeting {
 
     // Extract numeric index
     const numMatch = descLower.match(/(\d+)(st|nd|rd|th)?/);
-    if (numMatch) {
+    if (numMatch?.[1]) {
       index = parseInt(numMatch[1], 10) - 1; // Convert to 0-based
     }
 
@@ -355,6 +358,7 @@ export class ComponentTargeting {
     }
 
     const section = layout.sections[index];
+    if (!section || section.type !== "component") return null;
     return {
       section,
       index,
@@ -371,6 +375,7 @@ export class ComponentTargeting {
 
     for (let i = 0; i < layout.sections.length; i++) {
       const section = layout.sections[i];
+      if (!section || section.type !== "component") continue;
       const propValue = this.getNestedProp(section.props, propPath);
 
       if (this.valuesMatch(propValue, value)) {

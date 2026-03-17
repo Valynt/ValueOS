@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, it, vi } from 'vitest';
 
 import * as settingsRegistry from '../../../lib/settingsRegistry';
 import { UserNotifications } from '../UserNotifications';

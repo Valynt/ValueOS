@@ -387,7 +387,9 @@ class SecurityHeaders {
    */
   private sendCSPViolationReport(violation: any): void {
     if (process.env.NODE_ENV === "production") {
-      // Send to monitoring service
+      // Raw fetch retained: CSP violation reports fire from a SecurityPolicyViolationEvent
+      // handler that runs outside React context. apiClient requires auth context.
+      // Migrate when apiClient exposes an unauthenticated reporting method.
       fetch("/api/security/csp-violation", {
         method: "POST",
         headers: {

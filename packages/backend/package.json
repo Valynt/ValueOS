@@ -13,7 +13,7 @@
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=2704",
+    "lint": "eslint src/ --max-warnings=2600",
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
   },
   "dependencies": {
@@ -25,6 +25,7 @@
     "@types/compression": "^1.8.1",
     "@types/qrcode": "^1.5.6",
     "@valueos/core-services": "workspace:*",
+    "@valueos/memory": "workspace:*",
     "@valueos/shared": "workspace:*",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",

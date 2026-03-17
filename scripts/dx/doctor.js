@@ -912,6 +912,21 @@ async function checkDevEdgeRouting() {
   }
 }
 
+
+function printToolVersions() {
+  const nodeVersion = process.version;
+  let pnpmVersion = "unknown";
+  try {
+    pnpmVersion = execSync("pnpm --version", { stdio: ["pipe", "pipe", "pipe"] })
+      .toString()
+      .trim();
+  } catch {
+    // pnpm not on PATH — non-fatal
+  }
+  console.log(`  Node.js: ${nodeVersion}`);
+  console.log(`  pnpm:    ${pnpmVersion === "unknown" ? "not found" : `v${pnpmVersion}`}`);
+}
+
 async function main() {
   if (!["local", "docker"].includes(mode)) {
     console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);

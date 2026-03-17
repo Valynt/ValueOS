@@ -92,7 +92,7 @@ graph TB
 
 ## Agent Lifecycle Pipeline
 
-How the 5 agents collaborate on a value case:
+How the core 5 lifecycle agents collaborate on a value case (within the 8-agent fabric):
 
 ```mermaid
 graph LR

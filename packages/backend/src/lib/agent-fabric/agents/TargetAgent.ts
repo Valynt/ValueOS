@@ -24,7 +24,7 @@ import type {
 import { logger } from '../../logger.js';
 import { ValueTreeRepository } from '../../../repositories/ValueTreeRepository.js';
 import type { ValueTreeNodeWrite } from '../../../repositories/ValueTreeRepository.js';
-import { ProvenanceTracker } from '@memory/provenance/index.js';
+import { ProvenanceTracker } from '@valueos/memory/provenance';
 import { SupabaseProvenanceStore } from '../../../services/workflows/SagaAdapters.js';
 import { createServerSupabaseClient } from '../../supabase.js';
 

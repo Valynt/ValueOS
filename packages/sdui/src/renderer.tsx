@@ -88,11 +88,12 @@ const ComponentWithBindings: React.FC<{
   context?: DataSourceContext;
   debugOverlay?: boolean;
 }> = ({ section, Component, resolver, context, debugOverlay }) => {
-  // If no resolver or context, render without binding resolution
+  // If no resolver or context, render with sanitized props (no binding resolution)
   if (!resolver || !context) {
+    const sanitized = sanitizeProps(section.props as Record<string, unknown>, section.component);
     return (
       <>
-        <Component {...(section.props as Record<string, unknown>)} />
+        <Component {...sanitized} />
         {debugOverlay && (
           <HydrationTrace
             section={section}
@@ -130,7 +131,7 @@ const ComponentWithBindings: React.FC<{
 
   // Check for validation errors
   if (validationErrors.length > 0) {
-    logger.error("Component prop validation failed", {
+    logger.error("Component prop validation failed", undefined, {
       component: section.component,
       version: section.version,
       errors: validationErrors,
@@ -242,7 +243,7 @@ const renderSection = (
     "type" in section &&
     typeof (section as Record<string, unknown>).type === "string" &&
     ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(
-      (section as Record<string, string>).type
+      (section as Record<string, unknown>).type as string
     )
   ) {
     const sec = section as Record<string, unknown> & { type: string; children?: unknown[]; slots?: Record<string, unknown> };
@@ -309,6 +310,10 @@ const renderSection = (
   let entry;
   if (shouldLazyLoad) {
     entry = resolveComponentLazy(componentSection);
+    // Fall back to versionedRegistry when LazyComponentRegistry has no metadata
+    if (!entry || !entry.component) {
+      entry = resolveComponentWithVersion(componentSection.component, componentSection.version);
+    }
   } else {
     entry = resolveComponentWithVersion(componentSection.component, componentSection.version);
   }
@@ -414,6 +419,33 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
     return (
       <div className="space-y-4" data-testid="sdui-renderer">
         <p className="text-sm text-gray-500">No schema provided</p>
+      </div>
+    );
+  }
+
+  // Check nesting depth before schema validation so deeply nested schemas
+  // show a meaningful error rather than a generic Zod validation failure.
+  const nestingDepth = useMemo(() => {
+    function measureDepth(node: unknown, d: number): number {
+      if (!node || typeof node !== "object" || d > MAX_RENDER_DEPTH + 5) return d;
+      const n = node as Record<string, unknown>;
+      const children = Array.isArray(n.children) ? (n.children as unknown[]) : [];
+      const sections = Array.isArray(n.sections) ? (n.sections as unknown[]) : [];
+      const all = [...children, ...sections];
+      if (all.length === 0) return d;
+      return Math.max(...all.map((c) => measureDepth(c, d + 1)));
+    }
+    return measureDepth(currentSchema, 0);
+  }, [currentSchema]);
+
+  if (nestingDepth > MAX_RENDER_DEPTH) {
+    incrementSecurityMetric("recursion_limit", { depth: nestingDepth });
+    return (
+      <div className="p-4 border border-red-500 bg-red-50 text-red-900">
+        <p className="font-semibold">Layout too deeply nested</p>
+        <p className="text-sm">
+          Maximum nesting depth ({MAX_RENDER_DEPTH}) exceeded. This may indicate a malformed schema.
+        </p>
       </div>
     );
   }

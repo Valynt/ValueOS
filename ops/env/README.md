@@ -1,101 +1,117 @@
-# ValueOS Environment Modes and Precedence
+# ValueOS Environment Files
 
-## Canonical precedence (highest -> lowest)
+All env files live in `ops/env/`. Files without `.example` in the name are gitignored and contain real secrets. Never commit them.
 
-1. Shell environment (exported variables in your terminal / CI runner)
-2. Mode env file (`ops/env/.env.<mode>`)
-3. Secure defaults from committed templates (for example `ops/env/.env.local.example`) copied into your local mode env file
+## Gitignored (contain secrets)
 
-## Canonical mode files
+```
+ops/env/.env.cloud-dev
+ops/env/.env.frontend.cloud-dev
+ops/env/.env.backend.cloud-dev
+ops/env/.env.local
+ops/env/.env.frontend.local
+ops/env/.env.backend.local
+ops/env/.env.test
+ops/env/.env.prod
+```
 
-- `local` -> `ops/env/.env.local`
-- `cloud-dev` -> `ops/env/.env.cloud-dev`
-- `test` -> `ops/env/.env.test`
-- `prod` -> `ops/env/.env.prod`
+## Safe to commit (placeholders only)
 
-Start from `ops/env/.env.local.example` and copy to the mode file you run.
+```
+ops/env/.env.base                        # Variable reference (every var the app reads)
+ops/env/.env.local.example               # Local dev template
+ops/env/.env.staging.template            # Staging template (production-parity)
+ops/env/.env.production.template         # Production template
+ops/env/.env.test.template               # CI / test template
+ops/env/.env.cloud-dev.example
+ops/env/.env.frontend.cloud-dev.example
+ops/env/.env.backend.cloud-dev.example
+ops/env/.env.frontend.local.example
+ops/env/.env.backend.local.example
+```
 
-## Frontend and backend split files
+## Quick setup
 
-To keep backend secrets out of frontend startup environments, use split files:
+```bash
+# Interactive -- prompts for environment
+bash scripts/setup-env.sh
 
-- Frontend-safe values by mode:
-  - `ops/env/.env.frontend.local`
-  - `ops/env/.env.frontend.cloud-dev`
-  - `ops/env/.env.frontend.test`
-  - `ops/env/.env.frontend.prod`
-- Backend-only overlays by mode:
-  - `ops/env/.env.backend.local`
-  - `ops/env/.env.backend.cloud-dev`
-  - `ops/env/.env.backend.test`
-  - `ops/env/.env.backend.prod`
+# Non-interactive
+bash scripts/setup-env.sh dev      # -> ops/env/.env.local
+bash scripts/setup-env.sh staging  # -> ops/env/.env.staging
+bash scripts/setup-env.sh prod     # -> ops/env/.env.production
+bash scripts/setup-env.sh test     # -> ops/env/.env.test
+```
 
-Starter templates:
+## Bootstrapping cloud-dev
 
-- `ops/env/.env.frontend.local.example`
-- `ops/env/.env.frontend.cloud-dev.example`
-- `ops/env/.env.backend.local.example`
-- `ops/env/.env.backend.cloud-dev.example`
+```bash
+cp ops/env/.env.cloud-dev.example          ops/env/.env.cloud-dev
+cp ops/env/.env.frontend.cloud-dev.example ops/env/.env.frontend.cloud-dev
+cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
+# Fill in real values from Supabase dashboard → Project Settings → API
+```
 
-Current behavior:
+Validate after filling:
 
-- Frontend prep script reads only `ops/env/.env.frontend.<mode>` and refuses `VITE_SUPABASE_SERVICE_ROLE_KEY`.
-- Backend prep script reads canonical mode env and then overlays `ops/env/.env.backend.<mode>` when present.
+```bash
+bash scripts/validate-cloud-dev-env.sh
+```
 
-## Loader behavior by subsystem
+## Variable ownership
 
-### Docker Compose
+Each mode uses three files with distinct ownership:
 
-- `docker-compose.yml` wraps `ops/compose/compose.yml`.
-- Canonical invocation uses:
-  - `--env-file ops/env/.env.local` (or other mode file)
-  - `--env-file ops/env/.env.ports` (generated ports)
-- Compose services fail fast for required secrets (for example `DATABASE_URL`) using `${VAR:?...}` syntax; do not rely on inline fallback credentials in compose files.
+| File                   | Who reads it                               | What goes in it                                                                                                     |
+| ---------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `.env.<mode>`          | Both frontend and backend prep scripts     | `APP_ENV`, `NODE_ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`                                  |
+| `.env.frontend.<mode>` | `scripts/env/prepare-frontend-env.sh` only | Port/origin values for Vite mapping. No secrets.                                                                    |
+| `.env.backend.<mode>`  | `scripts/env/prepare-backend-env.sh` only  | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, `DATABASE_URL`, `TCT_SECRET`, `WEB_SCRAPER_ENCRYPTION_KEY`, `API_PORT` |
 
-### Frontend (Vite)
+`SUPABASE_SERVICE_ROLE_KEY` and `DATABASE_URL` must never appear in the shared or frontend files.
 
-- Humans set canonical names only (for example `API_BASE_URL`).
-- `scripts/env/prepare-frontend-env.sh` reads `ops/env/.env.frontend.<mode>` and maps canonical names to Vite-required names:
-  - `API_BASE_URL -> VITE_API_BASE_URL`
-  - `SUPABASE_URL -> VITE_SUPABASE_URL`
-  - `SUPABASE_ANON_KEY -> VITE_SUPABASE_ANON_KEY`
-- Start frontend via `scripts/dev/start-frontend.sh` (or package script alias).
+## Load order
 
-Do not place `SUPABASE_SERVICE_ROLE_KEY` in frontend env files.
+### Backend (`scripts/env/prepare-backend-env.sh`)
 
-### Backend runtime
+1. `ops/env/.env.<mode>` (shared)
+2. `ops/env/.env.backend.<mode>` (overlay — backend secrets win)
+3. `validate_mode_env` fails fast on missing required vars
 
-- `scripts/env/prepare-backend-env.sh` validates mode requirements and exports:
-  - `PORT <- BACKEND_PORT`
-  - `CORS_ALLOWED_ORIGINS`
-  - `DATABASE_URL` (or constructs from `PG*` atomics)
-- Backend prep also reads optional secret overlays from `ops/env/.env.backend.<mode>`.
-- Start backend via `scripts/dev/start-backend.sh` (or package script alias).
+### Frontend (`scripts/env/prepare-frontend-env.sh`)
 
-### Bash/Node scripts
+1. `ops/env/.env.frontend.<mode>`
+2. Falls back to `ops/env/.env.<mode>` if frontend file is missing
+3. Strips `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, and all `PG*` vars before Vite starts
+4. Maps canonical names to `VITE_*` prefixed names
 
-- Bash scripts should source `scripts/lib/require-env.sh`, call `load_mode_env`, then `validate_mode_env`.
-- Migration scripts must use `DATABASE_URL` as canonical DB target.
-- Migration note: `DB_URL` and `DB_*` atomics are deprecated. Keep `DATABASE_URL` as source of truth; if a legacy consumer still reads `DB_URL`, derive it directly from `DATABASE_URL` and avoid separate host/user/password envs.
+Shell environment variables always override file values.
 
-## Mode requirements
+> **Warning:** If `ops/env/.env.local` exists on disk, `load_mode_env` sources it _after_ `ops/env/.env.cloud-dev`, so `.env.local` values silently override cloud-dev values. Remove or rename `.env.local` when switching to cloud-dev mode to avoid unexpected configuration bleed.
 
-### `local`
+## Port note
 
-- Required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- Required DB target: `DATABASE_URL` (set in your mode env file).
-- `REDIS_URL` / `NATS_URL` optional.
+The Express backend binds to `API_PORT` (default `3001`), read by `packages/backend/src/config/settings.ts`. `BACKEND_PORT` in env files is used only to construct `BACKEND_ORIGIN` and `CORS_ALLOWED_ORIGINS` in the prep scripts — it does not change what port the server listens on. Set both to `3001` to keep them consistent.
+
+## Required variables by mode
 
 ### `cloud-dev`
 
-- Required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`
-- Required DB target: `DATABASE_URL` (set in your mode env file).
+Shared: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`
+Backend: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, `DATABASE_URL`, `TCT_SECRET`, `WEB_SCRAPER_ENCRYPTION_KEY`
+
+No local Postgres, Redis, or NATS required. These services are either hosted (Supabase) or optional (Redis/NATS — app degrades gracefully when absent).
+
+### `local`
+
+Shared: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+Backend: `DATABASE_URL`
+Optional: `REDIS_URL`, `NATS_URL`
 
 ### `test`
 
-- Required: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+Required: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 
 ### `prod`
 
-- Required: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- Typically injected by your deployment platform (not committed to git).
+All vars injected by the deployment platform. Never committed.

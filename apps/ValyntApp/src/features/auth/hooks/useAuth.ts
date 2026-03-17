@@ -3,8 +3,6 @@ import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 
-// Kept only for removal on logout — never written after Sprint 25.
-const LEGACY_USER_STORAGE_KEY = "manus-runtime-user-info";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -39,9 +37,6 @@ export function useAuth(options?: UseAuthOptions) {
       }
       throw error;
     } finally {
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
-      }
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }

@@ -4,7 +4,7 @@ vitestExpect.extend(matchers);
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before component import so vi.mock hoisting works

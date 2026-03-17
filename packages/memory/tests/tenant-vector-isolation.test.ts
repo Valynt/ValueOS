@@ -58,6 +58,52 @@ describe('VectorMemory tenant isolation boundaries', () => {
     ).rejects.toThrow('chunk metadata must include tenant_id matching tenantId');
   });
 
+  it('deletes only chunks scoped to the provided tenant when artifact IDs match', async () => {
+    const fixture = createTenantVectorFixture();
+
+    await fixture.writeChunk({
+      tenantId: TENANT_ALPHA_ID,
+      artifactId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      content: 'alpha duplicate artifact chunk',
+      embedding: createEmbedding(21),
+    });
+
+    await fixture.writeChunk({
+      tenantId: TENANT_BETA_ID,
+      artifactId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      content: 'beta duplicate artifact chunk',
+      embedding: createEmbedding(22),
+    });
+
+    const deleted = await fixture.store.deleteByArtifactId(
+      'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      TENANT_ALPHA_ID,
+    );
+
+    expect(deleted).toBe(1);
+
+    const alphaResults = await fixture.store.vectorSearch(createEmbedding(21), TENANT_ALPHA_ID, {
+      threshold: 0,
+      limit: 10,
+    });
+    const betaResults = await fixture.store.vectorSearch(createEmbedding(22), TENANT_BETA_ID, {
+      threshold: 0,
+      limit: 10,
+    });
+
+    expect(alphaResults).toHaveLength(0);
+    expect(betaResults).toHaveLength(1);
+    expect(betaResults[0]?.chunk.tenantId).toBe(TENANT_BETA_ID);
+  });
+
+  it('fails fast when deleteByArtifactId is called with an empty tenant ID', async () => {
+    const fixture = createTenantVectorFixture();
+
+    await expect(
+      fixture.store.deleteByArtifactId('ffffffff-ffff-4fff-8fff-ffffffffffff', ''),
+    ).rejects.toThrow('tenantId is required');
+  });
+
   it('prevents cross-tenant similarity leakage in hybrid retrieval', async () => {
     const fixture = createTenantVectorFixture();
     const vectorMemory = new VectorMemory(fixture.store);

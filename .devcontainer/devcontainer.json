@@ -4,45 +4,37 @@
   "features": {
     "ghcr.io/devcontainers/features/node": {
       "version": "20.19.5"
-    },
-    "ghcr.io/devcontainers/features/docker-in-docker": {}
+    }
   },
-  "forwardPorts": [5173, 8000, 24678, 5432, 6379, 4222, 8222],
+  "forwardPorts": [5173, 3001, 24678],
   "portsAttributes": {
     "5173": {
       "label": "ValyntApp (Vite)",
       "onAutoForward": "notify"
     },
-    "8000": {
+    "3001": {
       "label": "Backend API",
       "onAutoForward": "notify"
     },
     "24678": {
       "label": "Vite HMR",
       "onAutoForward": "silent"
-    },
-    "5432": {
-      "label": "PostgreSQL",
-      "onAutoForward": "silent"
-    },
-    "6379": {
-      "label": "Redis",
-      "onAutoForward": "silent"
-    },
-    "4222": {
-      "label": "NATS",
-      "onAutoForward": "silent"
-    },
-    "8222": {
-      "label": "NATS Monitoring",
-      "onAutoForward": "silent"
     }
   },
   "containerEnv": {
     "NODE_ENV": "development",
+    "APP_ENV": "local",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
-    "ENCRYPTION_AT_REST_ENABLED": "false"
+    "ENCRYPTION_AT_REST_ENABLED": "false",
+    "TCT_SECRET": "local-dev-tct-secret-change-in-prod",
+    "WEB_SCRAPER_ENCRYPTION_KEY": "0000000000000000000000000000000000000000000000000000000000000000",
+    "SUPABASE_URL": "http://localhost:54321",
+    "SUPABASE_ANON_KEY": "set-in-ops-env-env.backend.local",
+    "SUPABASE_KEY": "set-in-ops-env-env.backend.local",
+    "SUPABASE_SERVICE_ROLE_KEY": "set-in-ops-env-env.backend.local",
+    "SUPABASE_PROJECT_REF": "set-in-ops-env-env.backend.local",
+    "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/valueos"
   },
   "remoteEnv": {
     "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"
@@ -54,9 +46,6 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
-        "ms-azuretools.vscode-docker",
-        "ms-vscode-remote.remote-containers",
-        "ms-playwright.playwright",
         "vitest.explorer",
         "redhat.vscode-yaml",
         "tamasfe.even-better-toml"

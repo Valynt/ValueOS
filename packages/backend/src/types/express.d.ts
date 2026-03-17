@@ -1,5 +1,18 @@
 import "express";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PoolClient, QueryResult, QueryResultRow } from "pg";
+
+type TenantDbContext = {
+  client: PoolClient;
+  query: <TRow extends QueryResultRow = QueryResultRow>(
+    queryTextOrConfig: string,
+    values?: unknown[]
+  ) => Promise<QueryResult<TRow>>;
+  tx: <TRow extends QueryResultRow = QueryResultRow>(
+    queryTextOrConfig: string,
+    values?: unknown[]
+  ) => Promise<QueryResult<TRow>>;
+};
 
 declare global {
   namespace Express {
@@ -8,6 +21,7 @@ declare global {
         id: string;
         email?: string;
         roles?: string[];
+        role?: string;
         tenant_id?: string;
         organization_id?: string;
         sub?: string;
@@ -15,7 +29,7 @@ declare global {
         subscription_tier?: string;
         plan_tier?: string;
         planTier?: string;
-        app_metadata?: { roles?: unknown; tier?: string };
+        app_metadata?: { role?: string; roles?: unknown; tier?: string };
         user_metadata?: { full_name?: string; name?: string };
         [key: string]: unknown;
       };
@@ -37,6 +51,7 @@ declare global {
       serviceIdentityVerified?: boolean;
       useFallbackModel?: boolean;
       supabase?: SupabaseClient;
+      db?: TenantDbContext;
       supabaseUser?: unknown;
       usageContext?: {
         tenantId: string;
@@ -50,6 +65,13 @@ declare global {
         traceId: string;
         spanId: string;
       };
+      featureFlags?: {
+        isEnabled: (key: string) => Promise<boolean>;
+        getVariant: (key: string) => Promise<string | null>;
+        getConfig: (key: string) => Promise<Record<string, unknown> | null>;
+      };
+      featureFlagVariant?: string | null;
+      featureFlagConfig?: Record<string, unknown> | null;
       _auditMiddlewareAttached?: boolean;
     }
   }

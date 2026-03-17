@@ -8,11 +8,16 @@
 import { render, screen } from '@testing-library/react';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import React from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, it } from 'vitest';
 
-import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
-import { SDUIRenderer } from '../../sdui/renderer';
-import { SDUIPageDefinition } from '../../sdui/schema';
+import { hotSwapComponent, resetRegistry, versionedRegistry } from '../registry';
+
+function registerForRenderer(name: string, component: React.ComponentType<unknown>): void {
+  (component as React.ComponentType<unknown> & { displayName?: string }).displayName = name;
+  versionedRegistry.register({ component, version: 1, description: `Test: ${name}` });
+}
+import { SDUIRenderer } from '../renderer';
+import { SDUIPageDefinition } from '../schema';
 
 expect.extend(toHaveNoViolations);
 
@@ -45,7 +50,7 @@ describe('AccessibilityCompliance - ARIA Attributes', () => {
       </button>
     );
 
-    hotSwapComponent('Button', ButtonComponent);
+    registerForRenderer('Button', ButtonComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -71,7 +76,7 @@ describe('AccessibilityCompliance - ARIA Attributes', () => {
       </div>
     );
 
-    hotSwapComponent('Live', LiveComponent);
+    registerForRenderer('Live', LiveComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -100,7 +105,7 @@ describe('AccessibilityCompliance - ARIA Attributes', () => {
       />
     );
 
-    hotSwapComponent('Form', FormComponent);
+    registerForRenderer('Form', FormComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -133,7 +138,7 @@ describe('AccessibilityCompliance - Keyboard Navigation', () => {
       </div>
     );
 
-    hotSwapComponent('Nav', NavComponent);
+    registerForRenderer('Nav', NavComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -160,7 +165,7 @@ describe('AccessibilityCompliance - Keyboard Navigation', () => {
       </div>
     );
 
-    hotSwapComponent('Hidden', HiddenComponent);
+    registerForRenderer('Hidden', HiddenComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -194,7 +199,7 @@ describe('AccessibilityCompliance - Focus Management', () => {
       </button>
     );
 
-    hotSwapComponent('Focus', FocusComponent);
+    registerForRenderer('Focus', FocusComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -228,7 +233,7 @@ describe('AccessibilityCompliance - Semantic HTML', () => {
       </div>
     );
 
-    hotSwapComponent('Heading', HeadingComponent);
+    registerForRenderer('Heading', HeadingComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -255,7 +260,7 @@ describe('AccessibilityCompliance - Semantic HTML', () => {
       </ul>
     );
 
-    hotSwapComponent('List', ListComponent);
+    registerForRenderer('List', ListComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -285,7 +290,7 @@ describe('AccessibilityCompliance - Color Contrast', () => {
       </div>
     );
 
-    hotSwapComponent('Contrast', ContrastComponent);
+    registerForRenderer('Contrast', ContrastComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',
@@ -316,7 +321,7 @@ describe('AccessibilityCompliance - Error Handling', () => {
       </div>
     );
 
-    hotSwapComponent('Error', ErrorComponent);
+    registerForRenderer('Error', ErrorComponent);
 
     const schema: SDUIPageDefinition = {
       type: 'page',

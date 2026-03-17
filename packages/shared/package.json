@@ -6,17 +6,41 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./domain": "./src/domain/index.ts",
-    "./lib/*": "./src/lib/*",
-    "./config/*": "./src/config/*",
-    "./types/*": "./src/types/*",
-    "./platform": "./src/lib/platform/index.ts",
-    "./platform/browser": "./src/lib/platform/browser.ts",
-    "./platform/server": "./src/lib/platform/server.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./domain": {
+      "types": "./dist/domain/index.d.ts",
+      "import": "./dist/domain/index.js"
+    },
+    "./lib/*": {
+      "types": "./dist/lib/*.d.ts",
+      "import": "./dist/lib/*.js"
+    },
+    "./config/*": {
+      "types": "./dist/config/*.d.ts",
+      "import": "./dist/config/*.js"
+    },
+    "./types/*": {
+      "types": "./dist/types/*.d.ts",
+      "import": "./dist/types/*.js"
+    },
+    "./platform": {
+      "types": "./dist/lib/platform/index.d.ts",
+      "import": "./dist/lib/platform/index.js"
+    },
+    "./platform/browser": {
+      "types": "./dist/lib/platform/browser.d.ts",
+      "import": "./dist/lib/platform/browser.js"
+    },
+    "./platform/server": {
+      "types": "./dist/lib/platform/server.d.ts",
+      "import": "./dist/lib/platform/server.js"
+    }
   },
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/"
   },

@@ -14,7 +14,13 @@ export interface RequestContext {
   [key: string]: unknown;
 }
 
-let storage: any = null;
+
+type AsyncLocalStorageLike<T> = {
+  run(context: T, fn: () => unknown): unknown;
+  getStore(): T | undefined;
+};
+
+let storage: AsyncLocalStorageLike<RequestContext> | null = null;
 
 /**
  * Initialize the context storage (Node.js only)
@@ -36,7 +42,7 @@ export async function initializeContext(): Promise<void> {
  */
 export function runWithContext<T>(context: RequestContext, fn: () => T): T {
   if (storage) {
-    return storage.run(context, fn);
+    return storage.run(context, fn) as T;
   }
   return fn();
 }

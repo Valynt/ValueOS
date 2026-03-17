@@ -1,5 +1,5 @@
 import { logger } from "@shared/lib/logger";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Options for configuring data hydration behavior
@@ -110,7 +110,7 @@ const hydrationCache = new Map<string, CacheEntry>();
  * Default data fetcher using fetch API
  */
 const defaultFetcher = async (endpoint: string): Promise<unknown> => {
-  const response = await fetch(endpoint);
+  const response = await globalThis.fetch(endpoint);
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -180,6 +180,10 @@ export function useDataHydration(
     enableCache = true,
     cacheTtl = 300000, // 5 minutes
   } = options;
+
+  // Stabilize endpoints array so a new literal on each render doesn't re-trigger effects
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableEndpoints = useMemo(() => endpoints, [endpoints.join(',')]);
 
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -271,7 +275,7 @@ export function useDataHydration(
    * Fetch data from all endpoints and merge results
    */
   const hydrate = useCallback(async () => {
-    if (!enabled || endpoints.length === 0) {
+    if (!enabled || stableEndpoints.length === 0) {
       return;
     }
 
@@ -281,7 +285,7 @@ export function useDataHydration(
     try {
       // Fetch all endpoints concurrently
       const results = await Promise.allSettled(
-        endpoints.map((endpoint) => fetchEndpoint(endpoint))
+        stableEndpoints.map((endpoint) => fetchEndpoint(endpoint))
       );
 
       // Check if component is still mounted
@@ -294,7 +298,7 @@ export function useDataHydration(
       const errors: Array<{ endpoint: string; error: Error }> = [];
 
       results.forEach((result, index) => {
-        const endpoint = endpoints[index];
+        const endpoint = stableEndpoints[index] ?? `endpoint_${index}`;
 
         if (result.status === "fulfilled") {
           // Merge data - if result is object, spread it; otherwise use endpoint as key
@@ -309,16 +313,16 @@ export function useDataHydration(
       });
 
       // If all requests failed, set error
-      if (errors.length === endpoints.length) {
-        const firstError = errors[0].error;
+      if (errors.length === stableEndpoints.length) {
+        const firstError = errors[0]?.error ?? new Error("All hydration endpoints failed");
         setError(firstError);
-        onError?.(firstError, errors[0].endpoint);
+        onError?.(firstError, errors[0]?.endpoint ?? "");
         return;
       }
 
       // If some requests failed, log warnings but continue
       if (errors.length > 0) {
-        logger.warn("Some hydration endpoints failed:", errors);
+        logger.warn("Some hydration endpoints failed", { count: errors.length });
         errors.forEach(({ endpoint, error }) => {
           onError?.(error, endpoint);
         });
@@ -332,14 +336,14 @@ export function useDataHydration(
 
       if (isMountedRef.current) {
         setError(error);
-        onError?.(error, endpoints[0]);
+        onError?.(error, stableEndpoints[0] ?? "");
       }
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  }, [enabled, endpoints, fetchEndpoint, onSuccess, onError]);
+  }, [enabled, stableEndpoints, fetchEndpoint, onSuccess, onError]);
 
   /**
    * Manual retry function
@@ -353,10 +357,10 @@ export function useDataHydration(
    * Clear cache for current endpoints
    */
   const clearCache = useCallback(() => {
-    endpoints.forEach((endpoint) => {
+    stableEndpoints.forEach((endpoint) => {
       hydrationCache.delete(endpoint);
     });
-  }, [endpoints]);
+  }, [stableEndpoints]);
 
   /**
    * Effect to trigger hydration when endpoints change

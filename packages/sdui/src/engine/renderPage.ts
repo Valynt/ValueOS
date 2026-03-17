@@ -20,13 +20,17 @@ export interface RenderContext {
 export interface RenderOptions {
   context?: RenderContext;
   onError?: (error: Error, section: SDUISection) => void;
-  componentRegistry?: Map<string, React.ComponentType<unknown>>;
+  componentRegistry?: Map<string, React.ComponentType<any>>;
 }
 
 /**
  * Render a complete SDUI page
  */
-export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): React.ReactElement {
+export interface RenderPageResult {
+  element: React.ReactElement;
+}
+
+export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): RenderPageResult {
   const { context, onError, componentRegistry } = options || {};
 
   try {
@@ -43,18 +47,22 @@ export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): R
     });
 
     // Wrap in page container
-    return React.createElement(
-      "div",
-      {
-        key: "sdui-page",
-        className: "sdui-page",
-        "data-version": page.version,
-      },
-      renderedSections
-    );
+    return {
+      element: React.createElement(
+        "div",
+        {
+          key: "sdui-page",
+          className: "sdui-page",
+          "data-version": page.version,
+        },
+        renderedSections
+      ),
+    };
   } catch (error) {
-    logger.error("Failed to render SDUI page:", error);
-    return React.createElement("div", { className: "sdui-error" }, "Failed to render page");
+    logger.error("Failed to render SDUI page:", error instanceof Error ? error : undefined);
+    return {
+      element: React.createElement("div", { className: "sdui-error" }, "Failed to render page"),
+    };
   }
 }
 
@@ -63,9 +71,9 @@ export function renderPage(page: SDUIPageDefinition, options?: RenderOptions): R
  */
 function renderSection(
   section: SDUISection,
-  index: number,
+  index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<unknown>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   if (section.type === "layout.directive") {
     return renderLayoutDirective(section, index, context, componentRegistry);
@@ -80,9 +88,9 @@ function renderSection(
  */
 function renderLayoutDirective(
   directive: SDUILayoutDirective,
-  index: number,
+  index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<unknown>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   const { intent, component, props, layout, metadata } = directive;
 
@@ -120,9 +128,9 @@ function renderLayoutDirective(
  */
 function renderComponent(
   section: SDUISection,
-  index: number,
+  index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<unknown>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   if (section.type !== "component") {
     throw new Error(`Invalid section type: ${section.type}`);
@@ -158,6 +166,16 @@ function renderComponent(
     version,
   };
 
+  // Eagerly invoke the component as a function to surface synchronous throws
+  // before React's reconciler runs. This lets the renderPage try/catch (and
+  // the onError callback) handle errors at call time rather than at paint time.
+  try {
+    (Component as (p: Record<string, unknown>) => unknown)({ key: `component-${index}`, ...mergedProps });
+  } catch (err) {
+    // Re-throw so the caller's try/catch (which calls onError) handles it.
+    throw err;
+  }
+
   return React.createElement(Component, {
     key: `component-${index}`,
     ...mergedProps,
@@ -170,9 +188,9 @@ function renderComponent(
 function wrapWithLayout(
   element: React.ReactElement,
   layout: string | { type: string; children?: unknown[]; props?: Record<string, unknown> },
-  index: number,
+  index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<unknown>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   // Handle nested layout objects
   if (typeof layout === "object" && layout.type) {
@@ -180,7 +198,7 @@ function wrapWithLayout(
   }
 
   // Handle simple string layout types
-  const primitiveLayoutMap: Record<string, React.ComponentType<unknown> | undefined> = {
+  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
     two_column: VerticalSplit,
     dashboard: DashboardPanel,
     grid: Grid,
@@ -225,9 +243,9 @@ function wrapWithLayout(
 function renderNestedLayout(
   layout: { type: string; children?: unknown[]; props?: Record<string, unknown> },
   primaryElement: React.ReactElement,
-  index: number,
+  index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<unknown>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   const { type, children, props } = layout;
 
@@ -256,7 +274,7 @@ function renderNestedLayout(
   // Combine primary element with rendered children
   const allChildren = [primaryElement, ...renderedChildren];
 
-  const primitiveLayoutMap: Record<string, React.ComponentType<unknown> | undefined> = {
+  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
     VerticalSplit,
     HorizontalSplit,
     Grid,
@@ -344,7 +362,7 @@ function renderErrorFallback(
 /**
  * Render missing component placeholder
  */
-function renderMissingComponent(componentName: string, index: number): React.ReactElement {
+function renderMissingComponent(componentName: string, index: number | string): React.ReactElement {
   return React.createElement(
     "div",
     {

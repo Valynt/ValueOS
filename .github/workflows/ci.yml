@@ -6,11 +6,11 @@ on:
   push:
     branches: [main, develop]
     tags:
-      - 'v*'
+      - "v*"
   release:
     types: [published]
   schedule:
-    - cron: '0 3 * * *'
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -57,24 +57,44 @@ jobs:
       - name: Check runtime sentinels
         run: pnpm check:runtime-sentinels
 
+      - name: Gateway CORS wildcard guard
+        run: pnpm check:kong-cors-origins
+
       - name: Lint
         run: npx turbo run lint
 
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Backend request cast guardrails
+        run: pnpm --filter @valueos/backend exec vitest run src/__tests__/req-as-any-guard.test.ts
+
+      - name: Generated src artifacts guard
+        run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
+
       - name: Unit suite + schema guard
         run: |
-          npx vitest run --coverage --coverage.thresholds.lines=60 --coverage.thresholds.functions=50 --coverage.thresholds.branches=50 --coverage.thresholds.statements=60
+          npx vitest run --coverage --coverage.thresholds.lines=75 --coverage.thresholds.functions=70 --coverage.thresholds.branches=70 --coverage.thresholds.statements=75
           node scripts/ci/check-migration-hygiene.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
+          node scripts/ci/check-migration-rollbacks.mjs
           node scripts/ci/verify-critical-architecture-migrations.mjs
+
+      - name: Workflow DAG acyclicity guard
+        run: pnpm run test:workflow-dag-validation
 
       - name: TypeScript any-count gate
         run: bash scripts/check-any-count.sh
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+
+      - name: OpenAPI single-root guard
+        run: node scripts/ci/check-openapi-single-root.mjs
+
+      - name: OpenAPI structural validation
+        run: node scripts/ci/check-openapi-structure.mjs
+
 
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
@@ -118,6 +138,13 @@ jobs:
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
 
+      - name: CI security control-matrix guard
+        run: node scripts/ci/check-ci-security-control-matrix.mjs
+
+      - name: CI scanner action version manifest guard
+        run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
+
+
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
 
@@ -145,7 +172,59 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-  # Critical invariant: no cross-tenant data access
+  # Critical invariant: no cross-tenant data access (secrets-free static lane)
+  tenant-isolation-static-gate:
+    name: tenant-isolation-static-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Static tenant boundary guards
+        run: |
+          node scripts/ci/check-supabase-tenant-controls.mjs
+          node scripts/ci/check-migration-schema-consistency.mjs
+          bash scripts/ci/check-permissive-rls.sh
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/tenant-isolation-static-gate
+          cat > artifacts/ci-lanes/tenant-isolation-static-gate/summary.md <<EOF
+          # tenant-isolation-static-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-tenant-isolation-static-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/tenant-isolation-static-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Critical invariant: no cross-tenant data access (secret-backed runtime lane)
   tenant-isolation-gate:
     name: tenant-isolation-gate
     runs-on: ubuntu-latest
@@ -199,7 +278,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          npx vitest run tests/compliance/dsr-workflow.test.ts \
+          npx vitest run tests/compliance/dsr-workflow.test.ts packages/backend/src/api/__tests__/dataSubjectRequests.piiTables.test.ts \
             --reporter=verbose \
             --reporter=junit \
             --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml
@@ -334,6 +413,38 @@ jobs:
             --metrics-out artifacts/accessibility/a11y-metrics.json \
             --summary-out artifacts/accessibility/a11y-trend-summary.md
 
+      - name: Enforce WCAG severity budgets
+        if: always()
+        run: |
+          node scripts/ci/check-a11y-severity-budgets.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --budget .github/metrics/wcag-severity-budgets.json \
+            --metrics-out artifacts/accessibility/wcag-severity-metrics.json
+
+      - name: Generate i18n key extraction catalog
+        if: always()
+        run: |
+          node scripts/ci/extract-i18n-catalog.mjs \
+            --out artifacts/i18n/extracted-keys.json
+
+      - name: Verify localization coverage
+        if: always()
+        run: |
+          node scripts/ci/check-i18n-keys.mjs \
+            --json-out artifacts/i18n/coverage-dashboard.json
+
+      - name: Verify pseudo-localization readiness
+        if: always()
+        run: |
+          node scripts/ci/check-pseudo-localization.mjs \
+            --json-out artifacts/i18n/pseudo-localization-report.json
+
+      - name: Build frontend quality dashboard artifacts
+        if: always()
+        run: |
+          node scripts/ci/collect-frontend-quality-dashboard.mjs \
+            --dashboard-out artifacts/frontend-quality/dashboard.md \
+            --json-out artifacts/frontend-quality/dashboard.json
       - name: Upload accessibility artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -342,6 +453,8 @@ jobs:
           path: |
             playwright-report/
             artifacts/accessibility/
+            artifacts/i18n/
+            artifacts/frontend-quality/
           if-no-files-found: warn
           retention-days: 30
 
@@ -421,11 +534,55 @@ jobs:
           sarif_file: semgrep.sarif
           category: semgrep
 
+      - name: Build backend container image for Trivy
+        run: docker build -f infra/docker/Dockerfile.backend -t valueos-backend:ci .
+
+      - name: Trivy filesystem scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Trivy container image scan (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: image
+          image-ref: valueos-backend:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload Trivy filesystem SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
       - name: SBOM — generate CycloneDX
         run: |
-          npm install -g @cyclonedx/cyclonedx-npm@latest --silent
-          cyclonedx-npm --output-format json --output-file sbom.json
-        continue-on-error: true
+          pnpm exec cyclonedx-npm --output-format json --output-file sbom.json
+
+      - name: SBOM — verify artifact exists and is non-empty
+        run: |
+          if [ ! -s sbom.json ]; then
+            echo "SBOM generation failed: sbom.json is missing or empty" >&2
+            exit 1
+          fi
 
       - name: Upload security artifacts
         if: always()
@@ -435,6 +592,8 @@ jobs:
           path: |
             npm-audit-report.json
             semgrep.sarif
+            trivy-fs.sarif
+            trivy-image.sarif
             sbom.json
           if-no-files-found: warn
           retention-days: 90
@@ -459,6 +618,7 @@ jobs:
     if: github.event_name == 'pull_request'
     needs:
       - unit-component-schema
+      - tenant-isolation-static-gate
       - tenant-isolation-gate
       - security-gate
       - accessibility-audit
@@ -466,8 +626,20 @@ jobs:
       - name: Enforce PR release blockers
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          tenant_static="${{ needs.tenant-isolation-static-gate.result }}"
+          tenant_runtime="${{ needs.tenant-isolation-gate.result }}"
+
+          echo "tenant-isolation-static-gate:${tenant_static}"
+          echo "tenant-isolation-gate:${tenant_runtime}"
+
+          if [ "$tenant_static" != "success" ] && [ "$tenant_runtime" != "success" ]; then
+            echo "Failing PR gate: at least one tenant-isolation lane must be success."
+            exit 1
+          fi
+
           for lane in \
             "unit-component-schema:${{ needs.unit-component-schema.result }}" \
+            "tenant-isolation-static-gate:${{ needs.tenant-isolation-static-gate.result }}" \
             "tenant-isolation-gate:${{ needs.tenant-isolation-gate.result }}" \
             "security-gate:${{ needs.security-gate.result }}" \
             "accessibility-audit:${{ needs.accessibility-audit.result }}"; do

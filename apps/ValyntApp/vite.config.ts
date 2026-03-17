@@ -24,14 +24,6 @@ const usePolling = process.env.VITE_USE_POLLING === "true";
 
 const toKb = (bytes: number) => bytes / 1024;
 
-type OutputChunk = {
-  type: "chunk";
-  fileName: string;
-  code: string;
-  isEntry?: boolean;
-  isDynamicEntry?: boolean;
-};
-
 const performanceBudgetPlugin = (): Plugin => ({
   name: "performance-budget",
   generateBundle(_options, bundle) {
@@ -39,10 +31,11 @@ const performanceBudgetPlugin = (): Plugin => ({
     const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 700);
 
     const chunks = Object.values(bundle).filter(
-      (asset): asset is OutputChunk => asset.type === "chunk" && typeof asset.code === "string"
+      (asset): asset is typeof asset & { type: "chunk"; code: string } =>
+        asset.type === "chunk" && "code" in asset && typeof asset.code === "string"
     );
 
-    const initialChunks = chunks.filter((chunk) => chunk.isEntry && !chunk.isDynamicEntry);
+    const initialChunks = chunks.filter((chunk) => "isEntry" in chunk && chunk.isEntry && !("isDynamicEntry" in chunk && chunk.isDynamicEntry));
 
     const oversizedChunks = chunks
       .map((chunk) => ({ fileName: chunk.fileName, sizeKb: toKb(chunk.code.length) }))
@@ -71,6 +64,8 @@ export default defineConfig({
   resolve: {
     extensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
     alias: {
+      // Shim Node.js crypto for server-side modules that live in the frontend tree
+      crypto: path.resolve(__dirname, "./src/lib/crypto-shim.ts"),
       "@": path.resolve(__dirname, "./src"),
       "@app": path.resolve(__dirname, "./src/app"),
       "@pages": path.resolve(__dirname, "./src/pages"),
@@ -119,7 +114,7 @@ export default defineConfig({
           process.env.VITE_API_PROXY_TARGET ||
           process.env.API_BASE_URL ||
           process.env.BACKEND_ORIGIN ||
-          "http://127.0.0.1:8000",
+          "http://127.0.0.1:3001",
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {

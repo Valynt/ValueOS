@@ -15,6 +15,8 @@ import { z } from 'zod';
  * Supported data source types
  */
 export type DataSourceType =
+  | 'static'                // Inline static value ($value field)
+  | 'agent'                 // Agent invocation result
   | 'realization_engine'    // RealizationAgent metrics
   | 'system_mapper'         // SystemMapperAgent entities/relationships
   | 'intervention_designer' // TargetAgent interventions
@@ -45,6 +47,11 @@ export interface DataBinding {
   $source: DataSourceType;
 
   /**
+   * Inline static value (used when $source is 'static')
+   */
+  $value?: unknown;
+
+  /**
    * Fallback value if binding fails
    */
   $fallback?: unknown;
@@ -59,7 +66,7 @@ export interface DataBinding {
    * Transform function name (optional)
    * Applied to the resolved value before rendering
    */
-  $transform?: TransformFunction;
+  $transform?: TransformFunction | string;
 
   /**
    * Additional parameters for the data source
@@ -103,6 +110,8 @@ export type TransformFunction =
 export const DataBindingSchema = z.object({
   $bind: z.string().min(1, 'Binding path cannot be empty'),
   $source: z.enum([
+    'static',
+    'agent',
     'realization_engine',
     'system_mapper',
     'intervention_designer',
@@ -114,23 +123,27 @@ export const DataBindingSchema = z.object({
     'mcp_tool',
     'realtime_stream',
   ]),
+  $value: z.any().optional(),
   $fallback: z.any().optional(),
   $refresh: z.number().positive().optional(),
-  $transform: z.enum([
-    'currency',
-    'percentage',
-    'number',
-    'date',
-    'relative_time',
-    'round',
-    'uppercase',
-    'lowercase',
-    'truncate',
-    'array_length',
-    'sum',
-    'average',
-    'max',
-    'min',
+  $transform: z.union([
+    z.enum([
+      'currency',
+      'percentage',
+      'number',
+      'date',
+      'relative_time',
+      'round',
+      'uppercase',
+      'lowercase',
+      'truncate',
+      'array_length',
+      'sum',
+      'average',
+      'max',
+      'min',
+    ]),
+    z.string(), // custom registered transforms
   ]).optional(),
   $params: z.record(z.any()).optional(),
   $cache: z.string().optional(),

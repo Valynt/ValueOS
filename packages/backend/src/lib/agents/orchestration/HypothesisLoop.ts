@@ -99,6 +99,24 @@ export interface LoopProgress {
   status: 'pending' | 'running' | 'completed' | 'failed';
   message?: string;
   timestamp: string;
+  /** Total steps in the pipeline (always 7). */
+  totalSteps: number;
+  /** Agent responsible for this step. */
+  agentName?: string;
+  /** Current revision cycle (0 = first pass). */
+  revisionCycle?: number;
+  /** Max revision cycles allowed. */
+  maxRevisionCycles?: number;
+  /** Aggregate confidence score from the agent output (0–1). */
+  confidence?: number;
+  /** Elapsed wall-clock time for this step in milliseconds. */
+  durationMs?: number;
+  /** Lightweight summary of the step's partial result. */
+  partialResult?: {
+    itemCount?: number;
+    totalValue?: number;
+    highlights?: string[];
+  };
 }
 
 export interface EvidenceReportItem {
@@ -397,7 +415,8 @@ export class HypothesisLoop {
 
     try {
       // Step 1: Hypothesis
-      this.emitProgress(sse, 1, 'Hypothesis', 'running');
+      this.currentRevisionCycle = 0;
+      this.emitProgress(sse, 1, 'Hypothesis', 'running', 'Identifying value drivers...', { agentName: 'OpportunityAgent' });
       hypotheses = await this.executeWithGuard(
         `${valueCaseId}:hypothesis`,
         async () => {
@@ -418,7 +437,17 @@ export class HypothesisLoop {
         correlationId,
         'opportunity'
       );
-      this.emitProgress(sse, 1, 'Hypothesis', 'completed', `Found ${hypotheses.length} hypotheses`);
+      const avgHypConfidence = hypotheses.length > 0
+        ? hypotheses.reduce((s, h) => s + h.confidence, 0) / hypotheses.length
+        : 0;
+      this.emitProgress(sse, 1, 'Hypothesis', 'completed', `Found ${hypotheses.length} hypotheses`, {
+        agentName: 'OpportunityAgent',
+        confidence: avgHypConfidence,
+        partialResult: {
+          itemCount: hypotheses.length,
+          highlights: hypotheses.slice(0, 3).map((h) => h.description.slice(0, 80)),
+        },
+      });
 
       // Transition to DRAFTING
       await this.saga.transition(valueCaseId, SagaTrigger.OPPORTUNITY_INGESTED, correlationId);
@@ -427,7 +456,8 @@ export class HypothesisLoop {
       let needsRevision = true;
       while (needsRevision && revisionCount <= this.config.maxRevisionCycles) {
         // Step 2: Model
-        this.emitProgress(sse, 2, 'Model', 'running');
+        this.currentRevisionCycle = revisionCount;
+        this.emitProgress(sse, 2, 'Model', 'running', 'Building financial value tree...', { agentName: 'FinancialModelingAgent' });
         const modelResult = await this.executeWithGuard(
           `${valueCaseId}:model:${revisionCount}`,
           async () => {
@@ -452,13 +482,23 @@ export class HypothesisLoop {
           modelResult.financial_models,
           hypotheses
         );
-        this.emitProgress(sse, 2, 'Model', 'completed');
+        this.emitProgress(sse, 2, 'Model', 'completed', `Value tree: ${valueTree.nodes.length} nodes, $${Math.round(valueTree.totalValue).toLocaleString()}`, {
+          agentName: 'FinancialModelingAgent',
+          confidence: valueTree.nodes.length > 0
+            ? valueTree.nodes.reduce((s, n) => s + n.confidenceScore, 0) / valueTree.nodes.length
+            : 0,
+          partialResult: {
+            itemCount: valueTree.nodes.length,
+            totalValue: valueTree.totalValue,
+            highlights: valueTree.nodes.slice(0, 3).map((n) => n.label),
+          },
+        });
 
         // Transition to VALIDATING
         await this.saga.transition(valueCaseId, SagaTrigger.HYPOTHESIS_CONFIRMED, correlationId);
 
         // Step 3: Evidence
-        this.emitProgress(sse, 3, 'Evidence', 'running');
+        this.emitProgress(sse, 3, 'Evidence', 'running', 'Gathering grounding evidence...', { agentName: 'GroundTruthAgent' });
         const evidenceResult = await this.executeWithGuard(
           `${valueCaseId}:evidence:${revisionCount}`,
           async () => {
@@ -478,13 +518,23 @@ export class HypothesisLoop {
           analysis: evidenceResult.analysis,
           timestamp: new Date().toISOString(),
         };
-        this.emitProgress(sse, 3, 'Evidence', 'completed');
+        const avgEvidenceConf = evidenceBundle.items.length > 0
+          ? evidenceBundle.items.reduce((s, e) => s + e.confidence, 0) / evidenceBundle.items.length
+          : 0;
+        this.emitProgress(sse, 3, 'Evidence', 'completed', `${evidenceBundle.items.length} evidence items collected`, {
+          agentName: 'GroundTruthAgent',
+          confidence: avgEvidenceConf,
+          partialResult: {
+            itemCount: evidenceBundle.items.length,
+            highlights: evidenceBundle.items.slice(0, 3).map((e) => e.title),
+          },
+        });
 
         // Transition to COMPOSING
         await this.saga.transition(valueCaseId, SagaTrigger.INTEGRITY_PASSED, correlationId);
 
         // Step 4: Narrative
-        this.emitProgress(sse, 4, 'Narrative', 'running');
+        this.emitProgress(sse, 4, 'Narrative', 'running', 'Composing executive narrative...', { agentName: 'NarrativeAgent' });
         const narrativeResult = await this.executeWithGuard(
           `${valueCaseId}:narrative:${revisionCount}`,
           async () => {
@@ -511,10 +561,20 @@ export class HypothesisLoop {
           })),
           timestamp: new Date().toISOString(),
         };
-        this.emitProgress(sse, 4, 'Narrative', 'completed');
+        const avgNarrConf = narrative.sections.length > 0
+          ? narrative.sections.reduce((s, sec) => s + sec.confidenceScore, 0) / narrative.sections.length
+          : 0;
+        this.emitProgress(sse, 4, 'Narrative', 'completed', `"${narrative.title}" — ${narrative.sections.length} sections`, {
+          agentName: 'NarrativeAgent',
+          confidence: avgNarrConf,
+          partialResult: {
+            itemCount: narrative.sections.length,
+            highlights: [narrative.title, narrative.executiveSummary.slice(0, 120)],
+          },
+        });
 
         // Step 5: Objection (Red Team)
-        this.emitProgress(sse, 5, 'Objection', 'running');
+        this.emitProgress(sse, 5, 'Objection', 'running', 'Red team stress-testing claims...', { agentName: 'RedTeamAgent' });
         const redTeamResult = await this.executeWithGuard<RedTeamOutput>(
           `${valueCaseId}:redteam:${revisionCount}`,
           async () => {
@@ -533,18 +593,32 @@ export class HypothesisLoop {
           'red-team'
         );
         allObjections = redTeamResult.objections;
-        this.emitProgress(sse, 5, 'Objection', 'completed', `${allObjections.length} objections found`);
+        const criticalCount = allObjections.filter((o) => o.severity === 'critical').length;
+        this.emitProgress(sse, 5, 'Objection', 'completed',
+          `${allObjections.length} objections (${criticalCount} critical)`, {
+          agentName: 'RedTeamAgent',
+          partialResult: {
+            itemCount: allObjections.length,
+            highlights: allObjections.slice(0, 3).map((o) => o.description.slice(0, 80)),
+          },
+        });
 
         // Step 6: Revision check
         const hasCritical = allObjections.some((o) => o.severity === 'critical');
         if (hasCritical && revisionCount < this.config.maxRevisionCycles) {
-          this.emitProgress(sse, 6, 'Revision', 'running', `Revision cycle ${revisionCount + 1}`);
+          this.emitProgress(sse, 6, 'Revision', 'running',
+            `Revision cycle ${revisionCount + 1} — addressing ${criticalCount} critical objections`, {
+            agentName: 'RedTeamAgent',
+            partialResult: { itemCount: criticalCount },
+          });
           revisionCount++;
 
           // Direct transition COMPOSING → DRAFTING via REDTEAM_OBJECTION
           await this.saga.transition(valueCaseId, SagaTrigger.REDTEAM_OBJECTION, correlationId);
 
-          this.emitProgress(sse, 6, 'Revision', 'completed', `Re-entering at DRAFTING`);
+          this.emitProgress(sse, 6, 'Revision', 'completed', `Re-entering at DRAFTING (cycle ${revisionCount}/${this.config.maxRevisionCycles})`, {
+            partialResult: { itemCount: revisionCount },
+          });
           // Loop continues
         } else {
           needsRevision = false;
@@ -552,7 +626,7 @@ export class HypothesisLoop {
       }
 
       // Step 7: Approval — transition to REFINING then FINALIZED
-      this.emitProgress(sse, 7, 'Approval', 'running');
+      this.emitProgress(sse, 7, 'Approval', 'running', 'Finalizing value case...', {});
       // Move to REFINING first (COMPOSING → REFINING via FEEDBACK_RECEIVED)
       const currentState = await this.saga.getState(valueCaseId);
       if (currentState?.state === 'COMPOSING') {
@@ -560,7 +634,13 @@ export class HypothesisLoop {
       }
       // Then FINALIZED (REFINING → FINALIZED via VE_APPROVED)
       await this.saga.transition(valueCaseId, SagaTrigger.VE_APPROVED, correlationId);
-      this.emitProgress(sse, 7, 'Approval', 'completed', 'Value case finalized');
+      this.emitProgress(sse, 7, 'Approval', 'completed', 'Value case finalized', {
+        partialResult: {
+          itemCount: hypotheses.length,
+          totalValue: valueTree?.totalValue,
+          highlights: narrative ? [narrative.title] : [],
+        },
+      });
 
       return {
         valueCaseId,
@@ -709,20 +789,41 @@ export class HypothesisLoop {
     };
   }
 
+  private stepTimers: Map<number, number> = new Map();
+  private currentRevisionCycle = 0;
+
   private emitProgress(
     sse: SSEEmitter | undefined,
     step: number,
     stepName: string,
     status: LoopProgress['status'],
-    message?: string
+    message?: string,
+    extra?: Partial<Pick<LoopProgress, 'agentName' | 'confidence' | 'partialResult'>>
   ): void {
     if (!sse) return;
+
+    if (status === 'running') {
+      this.stepTimers.set(step, Date.now());
+    }
+
+    const startTime = this.stepTimers.get(step);
+    const durationMs = startTime && status !== 'running'
+      ? Date.now() - startTime
+      : undefined;
+
     sse.send({
       step,
       stepName,
       status,
       message,
       timestamp: new Date().toISOString(),
+      totalSteps: 7,
+      agentName: extra?.agentName,
+      revisionCycle: this.currentRevisionCycle,
+      maxRevisionCycles: this.config.maxRevisionCycles,
+      confidence: extra?.confidence,
+      durationMs,
+      partialResult: extra?.partialResult,
     });
   }
 }

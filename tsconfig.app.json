@@ -55,6 +55,9 @@
       "@valueos/memory": [
         "./packages/memory/index.ts"
       ],
+      "@valueos/memory/*": [
+        "./packages/memory/*/index.ts"
+      ],
       "@valueos/sdui": [
         "./packages/sdui/src/index.ts"
       ],
@@ -67,7 +70,6 @@
       "@valueos/mcp": [
         "./packages/mcp/index.ts"
       ],
-
       "@valueos/components": [
         "./packages/components/index.ts"
       ],
@@ -77,10 +79,6 @@
       "@infra/*": [
         "./packages/infra/*"
       ],
-      "@memory/*": [
-        "./packages/memory/*"
-      ],
-
       "@integrations/*": [
         "./packages/integrations/*"
       ],
@@ -137,7 +135,11 @@
       ]
     },
     /* Linting - Strict Configuration */
-    "strict": false,
+    "strict": true,
+    // Strictness rollout plan (detailed milestones in docs/engineering/code-standards.md):
+    // Phase 1: Keep strict baseline enabled at root; use per-package override files for temporary exceptions.
+    // Phase 2: Ratchet down `any` counts in backend/shared via CI (scripts/ci/any-ratchet.mjs).
+    // Phase 3: Remove per-package overrides once strict/noImplicitAny compile cleanly.
     // Disabled: codebase has 400+ violations. Re-enable after fixing array index access patterns.
     "noUncheckedIndexedAccess": false,
     // Disabled temporarily to reduce TS6133 errors - re-enable after debt < 500
@@ -147,7 +149,7 @@
     "noImplicitReturns": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": false,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
@@ -162,7 +164,6 @@
     "packages/*/src"
   ],
   "exclude": [
-    "**/legacy-merge/**",
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx",
     "./src/**/*.spec.ts",

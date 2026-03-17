@@ -18,7 +18,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { DecisionRouter } from '../index.js';
-import { DecisionContext } from '@shared/domain/DecisionContext.js';
+import { DecisionContext } from '@shared/domain/DecisionContext';
 
 // ---------------------------------------------------------------------------
 // Helpers

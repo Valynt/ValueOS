@@ -91,8 +91,16 @@ Update this table when ownership is transferred.
 
 ---
 
-_Last updated: Sprint 15. Update when new tables, queues, or memory partitions are added._
+_Last updated: Sprint 16. Update when new tables, queues, or memory partitions are added._
 _Linked from: `AGENTS.md` Key File Pointers_
+
+## DSR / PII mapping source of truth
+
+Machine-readable inventory for DSR enforcement lives in:
+
+- `packages/backend/src/observability/dataAssetInventoryRegistry.ts`
+
+CI validates that any `contains_pii` Supabase table in the registry has a DSR mapping (`userColumn`, `tenantColumn`, export enabled, and erasure mode).
 
 ## Observability Metric Label Contract (Tenant Isolation)
 

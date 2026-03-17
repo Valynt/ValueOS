@@ -9,4 +9,6 @@ else
   echo "  go install github.com/gitleaks/gitleaks/v8@latest  # Go"
 fi
 
+node scripts/ci/check-generated-src-artifacts.mjs --staged
+
 npx lint-staged

@@ -78,6 +78,10 @@ export class MyAgent extends BaseAgent {
   public readonly name = "MyAgent";
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
+    const startTime = Date.now();
+    const sessionId = context.workspace_id;
+    const prompt = `Analyse the following opportunity: ${JSON.stringify(context.workspace_data)}`;
+
     const schema = z.object({
       result: z.string(),
       confidence: z.enum(["high", "medium", "low"]),
@@ -92,10 +96,16 @@ export class MyAgent extends BaseAgent {
     });
 
     await this.memorySystem.storeSemanticMemory(
-      sessionId, this.name, "episodic", content, metadata, this.organizationId
+      sessionId,
+      this.name,
+      "episodic",
+      result.result,
+      { confidence: result.confidence, reasoning: result.reasoning },
+      this.organizationId,
     );
 
-    return this.prepareOutput(result, "success");
+    const confidenceLevel = this.toConfidenceLevel(result.confidence ?? 0.5);
+    return this.buildOutput(result, "success", confidenceLevel, startTime);
   }
 }
 ```
@@ -139,16 +149,39 @@ Canonical locations for extracted modules:
 ## Dev Commands
 
 ```bash
-pnpm run dx              # Full stack: Supabase + migrations + backend + frontend (Caddy HTTPS)
-pnpm run dx:doctor       # Diagnose dev environment issues
-pnpm run dev:frontend    # Frontend only
-pnpm run dev:backend     # Backend only
-pnpm run db:migrate      # Run database migrations
-pnpm run lint            # ESLint (cached)
+# Full stack (via Gitpod automations — starts postgres, redis, nats, backend, frontend)
+gitpod automations service start backend
+gitpod automations service start frontend
+
+# Individual services
+pnpm run dev:frontend    # Frontend only (Vite, port 5173)
+pnpm run dev:backend     # Backend only (Express, port 3001)
+
+# Database
+pnpm run db:migrate      # Run database migrations (alias for db:apply-migrations)
+
+# Quality
+pnpm run lint            # ESLint across all packages (turbo run lint)
+pnpm run check           # TypeScript typecheck (turbo run typecheck)
 pnpm test                # Vitest (sequential, fileParallelism: false)
 pnpm run test:rls        # RLS policy validation
 bash scripts/test-agent-security.sh  # Agent security suite
+
+# Diagnostics
+node scripts/dx/doctor.js  # Diagnose dev environment issues
 ```
+
+## Dev Environment Notes
+
+**Backend port:** The Express server binds to `API_PORT` (default **3001**), not 8000. Defined in `packages/backend/src/config/settings.ts`. Health check: `http://localhost:3001/health`. Do not assume port 8000 in ready checks, proxy configs, or test setup.
+
+**`SUPABASE_KEY` env var:** Three server-side files (`packages/core-services/src/FeatureFlags.ts`, `packages/backend/src/services/post-v1/PromptVersionControl.ts`, `packages/backend/src/services/realtime/MessageQueue.ts`) read `process.env.SUPABASE_KEY` rather than `SUPABASE_ANON_KEY`. Both must be set to the same anon key value in local env files and `containerEnv`. If the backend crashes at startup with `supabaseKey is required`, `SUPABASE_KEY` is missing.
+
+**Required env vars for local dev** (set in `ops/env/.env.backend.local`; `.devcontainer/devcontainer.json` `containerEnv` holds safe placeholder defaults only — real credentials must not be committed there):
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_KEY` (anon key alias), `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
+- `TCT_SECRET` — token-signing secret; backend startup fails fast if missing
+- `WEB_SCRAPER_ENCRYPTION_KEY` — 32-byte hex key; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
 ## Testing Conventions
 

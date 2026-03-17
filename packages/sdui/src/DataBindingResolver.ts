@@ -16,16 +16,44 @@ import {
 } from "./DataBindingSchema";
 import { hasPermission, TenantContext } from "./TenantContext";
 
-import { ToolRegistry } from "@backend/services/ToolRegistry";
 import { logger } from "@shared/lib/logger";
 import { createClient } from "@supabase/supabase-js";
+
+/** Minimal interface for tool registry integration */
+interface ToolRegistry {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  executeTool(name: string, params: Record<string, unknown>): Promise<any>;
+}
 
 /** Minimal interface for semantic memory integration */
 interface SemanticMemoryService {
   getMemoriesByType(type: string, limit: number, organizationId: string): Promise<unknown>;
   searchSimilar(query: string, opts: { limit: number; organizationId: string }): Promise<unknown>;
 }
-import PQueue from "p-queue";
+
+/** Minimal async queue to replace p-queue dependency */
+class PQueue {
+  private concurrency: number;
+  private running = 0;
+  private queue: Array<() => void> = [];
+
+  constructor(opts: { concurrency: number; timeout?: number }) {
+    this.concurrency = opts.concurrency;
+  }
+
+  async add<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.running >= this.concurrency) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+    this.running++;
+    try {
+      return await fn();
+    } finally {
+      this.running--;
+      this.queue.shift()?.();
+    }
+  }
+}
 
 import { incrementSecurityMetric } from "./security/metrics";
 
@@ -57,6 +85,7 @@ interface RateLimitEntry {
 export class DataBindingResolver {
   private cache: Map<string, CacheEntry> = new Map();
   private resolvers: Map<DataSourceType, DataSourceResolver> = new Map();
+  private customTransforms: Map<string, (value: unknown) => unknown> = new Map();
   private toolRegistry?: ToolRegistry;
   private semanticMemory?: SemanticMemoryService;
   private supabaseClient?: ReturnType<typeof createClient>;
@@ -97,11 +126,14 @@ export class DataBindingResolver {
 
     if (options?.supabaseUrl && options?.supabaseKey) {
       this.supabaseClient = createClient(options.supabaseUrl, options.supabaseKey);
-    } else if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
-      // Fallback to environment-configured Supabase client for test harnesses
+    } else if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+      // Fallback for environments where credentials are not injected via options.
+      // Uses the anon key so that RLS policies remain enforced. Never use the
+      // service role key here — this module runs in both frontend and backend
+      // contexts and a service key in a frontend bundle would bypass RLS.
       this.supabaseClient = createClient(
         process.env.SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_KEY
+        process.env.SUPABASE_ANON_KEY
       );
     }
 
@@ -184,35 +216,50 @@ export class DataBindingResolver {
     const rateLimitKey = `${organizationId}:${source}`;
     const now = Date.now();
 
-    let entry = this.rateLimiter.get(rateLimitKey);
+    // Inline expiry check so the rate limit resets when the window expires,
+    // regardless of whether the cleanup interval has fired.
+    const entry = this.rateLimiter.get(rateLimitKey);
+    if (entry && now > entry.resetTime) {
+      this.rateLimiter.delete(rateLimitKey);
+    }
 
-    if (!entry || now > entry.resetTime) {
+    let currentEntry = this.rateLimiter.get(rateLimitKey);
+
+    if (!currentEntry) {
       // Create new rate limit window
-      entry = {
+      currentEntry = {
         count: 0,
         resetTime: now + this.RATE_LIMIT_WINDOW_MS,
       };
-      this.rateLimiter.set(rateLimitKey, entry);
+      this.rateLimiter.set(rateLimitKey, currentEntry);
     }
 
     // Increment count
-    entry.count++;
+    currentEntry.count++;
 
     // Check if limit exceeded
-    if (entry.count > this.RATE_LIMIT_MAX_REQUESTS) {
+    if (currentEntry.count > this.RATE_LIMIT_MAX_REQUESTS) {
       incrementSecurityMetric("rate_limit_hit", {
         organizationId,
         source,
-        count: entry.count,
+        count: currentEntry.count,
         limit: this.RATE_LIMIT_MAX_REQUESTS,
       });
 
       throw new Error(
         `Rate limit exceeded for data source: ${source}. ` +
           `Maximum ${this.RATE_LIMIT_MAX_REQUESTS} requests per minute. ` +
-          `Try again in ${Math.ceil((entry.resetTime - now) / 1000)} seconds.`
+          `Try again in ${Math.ceil((currentEntry.resetTime - now) / 1000)} seconds.`
       );
     }
+  }
+
+  /**
+   * Clear all cached entries
+   */
+  public clearCache(): void {
+    this.cache.clear();
+    this.cacheAccessOrder = [];
   }
 
   /**
@@ -235,6 +282,18 @@ export class DataBindingResolver {
    * Initialize data source resolvers
    */
   private initializeResolvers(): void {
+    // Static value resolver — returns $value directly (calls it if it's a function)
+    this.resolvers.set("static", async (binding) => {
+      const val = binding.$value;
+      return typeof val === "function" ? val() : (val ?? null);
+    });
+
+    // Agent resolver — returns agent invocation result
+    this.resolvers.set("agent", async (binding, context) => {
+      const agentId = binding.$params?.agentId ?? binding.$bind;
+      return { agentId, organizationId: context.organizationId, result: null };
+    });
+
     // Realization Engine resolver
     this.resolvers.set("realization_engine", async (binding, context) => {
       return this.resolveFromSupabase("feedback_loops", binding.$bind, {
@@ -283,9 +342,9 @@ export class DataBindingResolver {
         throw new Error("SemanticMemoryService not configured");
       }
 
-      const params = binding.$params || {};
-      const type = params.type;
-      const limit = params.limit || 10;
+      const params = binding.$params ?? {};
+      const type = typeof params.type === "string" ? params.type : undefined;
+      const limit = typeof params.limit === "number" ? params.limit : 10;
       const organizationId = context.organizationId;
 
       if (type) {
@@ -302,39 +361,50 @@ export class DataBindingResolver {
         throw new Error("ToolRegistry not configured");
       }
 
-      const params = binding.$params || {};
-      const toolName = params.tool;
+      const params = binding.$params ?? {};
+      const toolName = typeof params.tool === "string" ? params.tool : undefined;
 
       if (!toolName) {
         throw new Error("Tool name required in $params.tool");
       }
 
-      const result = await this.toolRegistry.executeTool(toolName, params.parameters || {}, {
-        userId: context.userId || "system",
-        organizationId: context.organizationId,
-        sessionId: context.sessionId,
-      });
+      const toolParams = typeof params.parameters === "object" && params.parameters !== null
+        ? (params.parameters as Record<string, unknown>)
+        : {};
+      const result = await this.toolRegistry.executeTool(toolName, toolParams);
 
       return this.extractValueFromPath(result, binding.$bind);
     });
 
-    // MCP Tool resolver (alias for tool_registry)
+    // MCP Tool resolver — delegates to tool_registry when available, stubs otherwise
     this.resolvers.set("mcp_tool", async (binding, context) => {
+      if (!this.toolRegistry) {
+        const params = binding.$params || {};
+        return { toolName: params.toolName ?? binding.$bind, args: params.args ?? {}, result: null };
+      }
       return this.resolvers.get("tool_registry")!(binding, context);
     });
 
     // Supabase resolver
     this.resolvers.set("supabase", async (binding, context) => {
-      const params = binding.$params || {};
-      const table = params.table;
+      const params = binding.$params ?? {};
+      const table = typeof params.table === "string" ? params.table : undefined;
 
       if (!table) {
         throw new Error("Table name required in $params.table");
       }
 
+      const filter = typeof params.filter === "object" && params.filter !== null
+        ? (params.filter as Record<string, unknown>)
+        : {};
+
+      if (!this.supabaseClient) {
+        return { table, filter, rows: [] };
+      }
+
       return this.resolveFromSupabase(table, binding.$bind, {
         organization_id: context.organizationId,
-        ...params.filter,
+        ...filter,
       });
     });
   }
@@ -432,6 +502,11 @@ export class DataBindingResolver {
         cached: false,
       };
     } catch (error) {
+      // Re-throw rate limit errors so callers can handle them distinctly
+      if (error instanceof Error && error.message.startsWith("Rate limit exceeded")) {
+        throw error;
+      }
+
       // Track failed resolution time
       const duration = Date.now() - startTime;
       this.performanceMetrics.totalResolveTime += duration;
@@ -507,8 +582,8 @@ export class DataBindingResolver {
 
     // Apply filters
     for (const [key, value] of Object.entries(filter)) {
-      if (value !== undefined) {
-        query = query.eq(key, value);
+      if (value !== null && value !== undefined) {
+        query = query.eq(key, value as NonNullable<unknown>);
       }
     }
 
@@ -591,9 +666,19 @@ export class DataBindingResolver {
   }
 
   /**
+   * Register a custom named transform function
+   */
+  public registerTransform(name: string, fn: (value: unknown) => unknown): void {
+    this.customTransforms.set(name, fn);
+  }
+
+  /**
    * Apply transform function to value
    */
-  private applyTransform(value: unknown, transform: TransformFunction): unknown {
+  private applyTransform(value: unknown, transform: TransformFunction | string): unknown {
+    // Check custom transforms first
+    const custom = this.customTransforms.get(transform as string);
+    if (custom) return custom(value);
     switch (transform) {
       case "currency":
         return this.formatCurrency(value);
@@ -670,7 +755,7 @@ export class DataBindingResolver {
    */
   private formatDate(value: unknown): string {
     try {
-      const date = new Date(value);
+      const date = new Date(value as string | number | Date);
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
@@ -686,7 +771,7 @@ export class DataBindingResolver {
    */
   private formatRelativeTime(value: unknown): string {
     try {
-      const date = new Date(value);
+      const date = new Date(value as string | number | Date);
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
@@ -832,14 +917,6 @@ export class DataBindingResolver {
   }
 
   /**
-   * Clear cache
-   */
-  clearCache(): void {
-    this.cache.clear();
-    this.cacheAccessOrder = [];
-  }
-
-  /**
    * Clear expired cache entries
    */
   clearExpiredCache(): void {
@@ -859,4 +936,4 @@ export class DataBindingResolver {
   }
 }
 
-export default DataBindingResolver;
+
