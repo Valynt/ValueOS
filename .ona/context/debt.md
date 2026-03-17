@@ -45,25 +45,41 @@ Source of truth for sprint planning. Linked GitHub issues where they exist.
 
 ### DEBT-ANY-BURNDOWN: TypeScript `any` cast burn-down (Audit Rec #9, #13)
 
-**Status:** Active -- burn-down plan defined, sprint targets set.
-**Current count:** 1,522 (as of March 2026 audit).
+**Status:** Active — burn-down in progress. Re-measured 2026-08-xx (grep `:\s*any\b|as any\b|<any>`, production files only, excludes `__tests__`, `*.test.*`, `*.spec.*`, `*.d.ts`).
 **Target:** <100 by end of Q4 2026.
 **Tracking:** `docs/debt/ts-any-dashboard.md`
 
-**Sprint targets (burn-down order):**
+**Re-measured counts (entering Sprint 43):**
 
-| Sprint | Package               | Target Reduction | Expected Remaining |
-| ------ | --------------------- | ---------------- | ------------------ |
-| S43-44 | `packages/shared`     | -54 (all)        | 1,468              |
-| S43-44 | `packages/components` | -31 (all)        | 1,437              |
-| S45-46 | `packages/infra`      | -21 (all)        | 1,416              |
-| S45-46 | `apps/VOSAcademy`     | -81 (all)        | 1,335              |
-| S47-50 | `packages/mcp`        | -158 (all)       | 1,177              |
-| S51-54 | `packages/sdui`       | -179 (all)       | 998                |
-| S55-60 | `apps/ValyntApp`      | -251 (all)       | 747                |
-| S61-72 | `packages/backend`    | -647             | <100               |
+| Package               | Count  | Status                        |
+| --------------------- | -----: | ----------------------------- |
+| `packages/backend`    | 153    | Active — Sprint 46 target <50 |
+| `apps/ValyntApp`      | 58     | Active — Sprint 45 target <20 |
+| `apps/VOSAcademy`     | 66     | Active — Sprint 44 target 0   |
+| `packages/sdui`       | 37     | Active — Sprint 43 target 0   |
+| `packages/shared`     | 26     | Active — Sprint 43 target 0   |
+| `packages/mcp`        | 0      | ✅ Resolved                   |
+| `packages/components` | 0      | ✅ Resolved                   |
+| `packages/infra`      | verify | Re-measure before Sprint 45   |
 
-**CI enforcement:** The any-ratchet (`scripts/check-any-count.sh`) prevents increases. After each sprint block, update the ratchet baseline to lock in the reduction. The `--max-warnings` cap in `packages/backend/package.json` has been ratcheted from 2,704 to 2,600 (Rec #16) and will decrease by 100 per sprint.
+> ⚠️ The March 2026 baseline table (1,522 total) is superseded by the re-measured counts above. Sprints S43-50 targets in the original table were based on stale counts — `packages/mcp` (-158) and `packages/components` (-31) are already at 0 and do not need scheduling.
+
+**Sprint targets (burn-down order, updated):**
+
+| Sprint | Package               | Target | Notes                                      |
+| ------ | --------------------- | ------ | ------------------------------------------ |
+| ~~S43-44~~ | ~~`packages/shared`~~     | ~~-54 (all)~~ | ✅ Resolved — 0 usages confirmed |
+| ~~S43-44~~ | ~~`packages/components`~~ | ~~-31 (all)~~ | ✅ Resolved — 0 usages confirmed |
+| ~~S47-50~~ | ~~`packages/mcp`~~        | ~~-158 (all)~~ | ✅ Resolved — 0 usages confirmed |
+| S43    | `packages/shared`     | 26 → 0 | Re-measured; replaces original S43-44 row  |
+| S43    | `packages/sdui`       | 37 → 0 | Pulled forward from original S51-54        |
+| S44    | `apps/VOSAcademy`     | 66 → 0 | Re-measured; replaces original S45-46 row  |
+| S45    | `apps/ValyntApp`      | 58 → <20 | Re-measured; replaces original S55-60 row |
+| S46    | `packages/backend`    | 153 → <50 | Re-measured; replaces original S61-72 row |
+| Post-46 | `apps/ValyntApp`     | <20 → 0 | Deferred — complex event handler types     |
+| Post-46 | `packages/backend`   | <50 → 0 | Deferred — systematic service layer audit  |
+
+**CI enforcement:** The any-ratchet (`scripts/check-any-count.sh`) prevents increases. After each sprint block, update the ratchet baseline to lock in the reduction. Ratchet must be updated to reflect re-measured baselines before Sprint 43 begins — the original 2026-03 baselines are no longer valid.
 
 ---
 
@@ -90,22 +106,17 @@ Code execution sandbox is scaffolded with placeholder `fetch` calls instead of t
 
 ## Ongoing — TypeScript `any` debt
 
-**Baseline (2026-02-13):** 1,977 `any` usages across the codebase. Target: <100.
-**Updated (2026-03-16, Sprint 35):** Re-measured actuals (grep `: any\b|as any\b|<any>` with TypeScript include globs, production files only).
+**Re-measured (2026-08-xx, entering Sprint 43):** See `DEBT-ANY-BURNDOWN` table above for current per-package counts. The Sprint 35 snapshot below is retained for historical reference only — use the re-measured counts for planning.
 
-| Module             | Count (Sprint 35, 2026-03-16)                                     | Next target            |
-| ------------------ | ----------------------------------------------------------------- | ---------------------- |
-| `packages/backend` | ~200 (was 446 entering Sprint 33; Sprint 33–35 reductions: -250+) | <150 by Sprint 37      |
-| `apps/ValyntApp`   | ~195 (target <200 met)                                            | <150                   |
-| `packages/sdui`    | ~48 (target <150 well exceeded)                                   | maintain <50           |
-| `apps/VOSAcademy`  | 99                                                                | <50 (deferred post-GA) |
-| `packages/mcp`     | 0                                                                 | maintain 0             |
-
-**Sprint 35 reductions:**
-
-- `SecurityAnomalyService.ts` 6→0 (restructured query filter application — conditionals applied before `.limit()`, typed `FilterableAlertQuery`/`DuplicateCheckQuery`/`SuppressionCheckQuery` interfaces)
-- `supabaseRealtime.ts` 8→0 (imported `RealtimeChannel` from `@supabase/supabase-js`; removed all `(getClient() as any).channel()` and `(channel as any)` casts)
-- `errorHandling.ts` 4→0 (extracted `FileError` class; `createFileError` returns typed `FileError` instance)
+| Module                | Count (Sprint 35, 2026-03-16) | Count (re-measured 2026-08-xx) |
+| --------------------- | ----------------------------: | -----------------------------: |
+| `packages/backend`    | ~200                          | 153                            |
+| `apps/ValyntApp`      | ~195                          | 58                             |
+| `packages/sdui`       | ~48                           | 37                             |
+| `apps/VOSAcademy`     | 99                            | 66                             |
+| `packages/mcp`        | 0                             | 0 ✅                           |
+| `packages/components` | —                             | 0 ✅                           |
+| `packages/shared`     | —                             | 26                             |
 
 **Rule:** Do not introduce new `any`. Use `unknown` + type guards. Replace `any` in files you touch.
 Dashboard: `docs/debt/ts-any-dashboard.md`
