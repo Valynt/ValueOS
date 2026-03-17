@@ -93,6 +93,6 @@ export interface AuditEvent {
   entity: string;
   entityId: string;
   timestamp: string;
-  before: unknown;
-  after: unknown;
+  before: any;
+  after: any;
 }

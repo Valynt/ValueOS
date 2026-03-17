@@ -26,9 +26,9 @@ export function ResetPasswordPage() {
     try {
       await resetPassword(email);
       setSuccess(true);
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Password reset error:', err);
-      setError((err instanceof Error ? err.message : null) || 'Failed to send reset email. Please try again.');
+      setError(err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }

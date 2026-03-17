@@ -231,7 +231,7 @@ export function sanitizeUserInput(
  * Sanitize LLM messages for agent communication
  */
 export function sanitizeLLMMessage(
-  message: { role: string; content: string; [key: string]: unknown }
+  message: { role: string; content: string; [key: string]: any }
 ): { sanitized: typeof message; changes: string[] } {
   const changes: string[] = [];
 

@@ -53,7 +53,7 @@ export class WorkflowSDUIAdapter {
     workflowId: string,
     fromStage: string | null,
     toStage: string,
-    context: Record<string, unknown>
+    context: any
   ): Promise<SDUIUpdate> {
     logger.info('Handling workflow stage transition', {
       workflowId,
@@ -360,7 +360,7 @@ export class WorkflowSDUIAdapter {
   async onWorkflowComplete(
     workflowId: string,
     executionId: string,
-    context: Record<string, unknown>
+    context: any
   ): Promise<AtomicUIAction[]> {
     logger.info('Handling workflow completion', {
       workflowId,

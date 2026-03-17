@@ -546,7 +546,7 @@ export class RateLimitMetricsService extends TenantAwareService {
   /**
    * Determine system health
    */
-  private determineSystemHealth(blockRate: number, circuitStats: { openCircuits: number }): 'healthy' | 'degraded' | 'critical' {
+  private determineSystemHealth(blockRate: number, circuitStats: any): 'healthy' | 'degraded' | 'critical' {
     if (blockRate > 25 || circuitStats.openCircuits > 3) return 'critical';
     if (blockRate > 10 || circuitStats.openCircuits > 0) return 'degraded';
     return 'healthy';
@@ -627,7 +627,7 @@ export class RateLimitMetricsService extends TenantAwareService {
     status: 'healthy' | 'degraded' | 'critical';
     metrics: {
       activeConnections: number;
-      circuitBreakerStats: ReturnType<typeof redisCircuitBreaker.getStats>;
+      circuitBreakerStats: any;
       cacheSize: number;
       averageResponseTime: number;
       errorRate: number;

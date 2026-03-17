@@ -203,7 +203,7 @@ export class CostAwareRouter {
     decision: RoutingDecision,
     prompt: string,
     context: RoutingContext
-  ): Promise<unknown> {
+  ): Promise<any> {
     if (decision.fallbackToBasic) {
       logger.info("Using fallback AI service", {
         tenantId: context.tenantId,

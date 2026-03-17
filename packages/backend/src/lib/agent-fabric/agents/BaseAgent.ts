@@ -10,7 +10,6 @@ import { z } from "zod";
 
 import type { AgentType } from "../../../services/agent-types.js";
 import { assertTenantContextMatch } from "../../tenant/assertTenantContextMatch.js";
-import { agentExecutionLineageRepository } from "../../../repositories/AgentExecutionLineageRepository.js";
 import type {
   AgentConfig,
   AgentOutput,
@@ -463,24 +462,6 @@ export abstract class BaseAgent {
         groundingScore: hallucinationResult.groundingScore,
         tokenUsage,
       });
-
-      // Append execution lineage row (non-blocking — failure must not propagate).
-      void agentExecutionLineageRepository
-        .appendLineage({
-          session_id: sessionId,
-          agent_name: this.name,
-          organization_id: this.organizationId,
-          memory_reads: [],
-          tool_calls: [],
-          db_writes: [],
-        })
-        .catch((err: unknown) => {
-          logger.warn("secureInvoke: lineage write failed", {
-            agent: this.name,
-            session_id: sessionId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
 
       return {
         ...parsed,

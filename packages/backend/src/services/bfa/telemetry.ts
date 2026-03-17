@@ -234,7 +234,7 @@ export class BfaTelemetry {
   /**
    * Calculate approximate size of data
    */
-  private static calculateSize(data: unknown): number {
+  private static calculateSize(data: any): number {
     return JSON.stringify(data).length;
   }
 

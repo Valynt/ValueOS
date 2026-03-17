@@ -77,7 +77,7 @@ export function LazyImage({
 // Caching utilities
 export class Cache {
   private static instance: Cache;
-  private cache = new Map<string, { data: unknown; timestamp: number; ttl: number }>();
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
   static getInstance(): Cache {
     if (!Cache.instance) {
@@ -86,7 +86,7 @@ export class Cache {
     return Cache.instance;
   }
 
-  set(key: string, data: unknown, ttl = 5 * 60 * 1000): void { // Default 5 minutes
+  set(key: string, data: any, ttl = 5 * 60 * 1000): void { // Default 5 minutes
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -219,12 +219,12 @@ export function usePerformanceMonitor(componentName: string) {
 // Bundle splitting and lazy loading utilities
 export const lazyLoad = {
   // Lazy load a component
-  component: (importFunc: () => Promise<{ default: React.ComponentType<Record<string, unknown>> }>) => {
+  component: (importFunc: () => Promise<{ default: React.ComponentType<any> }>) => {
     return React.lazy(importFunc);
   },
 
   // Preload a component
-  preload: (importFunc: () => Promise<unknown>) => {
+  preload: (importFunc: () => Promise<any>) => {
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'script';

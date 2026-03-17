@@ -21,7 +21,8 @@ import { createClient } from "@supabase/supabase-js";
 
 /** Minimal interface for tool registry integration */
 interface ToolRegistry {
-  executeTool(name: string, params: Record<string, unknown>): Promise<unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  executeTool(name: string, params: Record<string, unknown>): Promise<any>;
 }
 
 /** Minimal interface for semantic memory integration */

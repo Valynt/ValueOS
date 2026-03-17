@@ -5,7 +5,7 @@
 
 import { createLogger } from "../../lib/logger.js"
 
-import { RateLimitConfig, RateLimitResult, rateLimitService } from "./RateLimitService.js"
+import { RateLimitConfig, rateLimitService } from "./RateLimitService.js"
 
 const logger = createLogger({ component: "ClientRateLimit" });
 
@@ -13,7 +13,7 @@ export interface ClientRateLimitOptions extends Omit<
   RateLimitConfig,
   "handler"
 > {
-  onLimitExceeded?: (key: string, result: unknown) => void;
+  onLimitExceeded?: (key: string, result: any) => void;
   onLimitWarning?: (key: string, remaining: number) => void;
   warningThreshold?: number; // Warn when remaining requests <= this number
 }
@@ -92,7 +92,7 @@ export class ClientRateLimit {
   /**
    * Get rate limit status for an action
    */
-  getLimitStatus(key: string): RateLimitResult | null {
+  getLimitStatus(key: string): any {
     const options = this.limits.get(key);
     if (!options) return null;
 

@@ -589,7 +589,7 @@ Generate atomic actions to fulfill this request.`,
   /**
    * Validate layout structure
    */
-  private validateLayout(layout: unknown): {
+  private validateLayout(layout: any): {
     valid: boolean;
     errors: string[];
   } {
@@ -600,24 +600,23 @@ Generate atomic actions to fulfill this request.`,
       return { valid: false, errors };
     }
 
-    const l = layout as Record<string, unknown>;
-
-    if (l.type !== 'page') {
+    if (layout.type !== 'page') {
       errors.push('Layout type must be "page"');
     }
 
-    if (!Array.isArray(l.sections)) {
+    if (!Array.isArray(layout.sections)) {
       errors.push('Layout must have sections array');
-    } else if (l.sections.length === 0) {
+    } else if (layout.sections.length === 0) {
       errors.push('Layout must have at least one section');
     } else {
-      for (const section of l.sections as Array<Record<string, unknown>>) {
+      // Validate each section
+      for (const section of layout.sections) {
         if (!section.component) {
           errors.push('Section missing component name');
         } else {
           const validation = validateComponentSelection(
-            section.component as string,
-            (section.props as Record<string, unknown>) || {}
+            section.component,
+            section.props || {}
           );
           errors.push(...validation.errors);
         }

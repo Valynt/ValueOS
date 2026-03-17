@@ -43,7 +43,7 @@ class BrowserEventEmitter {
     this.off(event, listener);
   }
 
-  emit(event: string, ...args: unknown[]): void {
+  emit(event: string, ...args: any[]): void {
     const eventListeners = this.listeners.get(event);
     if (eventListeners) {
       eventListeners.forEach(listener => listener(...args));
@@ -74,7 +74,7 @@ export type ConnectionState =
  */
 export interface WebSocketMessage {
   type: string;
-  payload: unknown;
+  payload: any;
   timestamp: number;
   messageId: string;
 }

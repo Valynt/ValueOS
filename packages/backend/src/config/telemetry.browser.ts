@@ -24,7 +24,7 @@ const noopSpan = {
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (_name: string, _options: unknown, fn: (span: Span) => unknown) => fn(noopSpan)
+  startActiveSpan: (_name: string, _options: any, fn: (span: Span) => any) => fn(noopSpan)
 };
 
 /**

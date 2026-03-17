@@ -330,7 +330,7 @@ export function parseCookies(cookieHeader?: string): Record<string, string> {
 /**
  * Get session token from request
  */
-export function getSessionFromRequest(req: { headers?: { cookie?: string } }): string | null {
+export function getSessionFromRequest(req: any): string | null {
   const cookies = parseCookies(req.headers?.cookie);
   return cookies[COOKIE_NAME] || null;
 }

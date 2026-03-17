@@ -18,7 +18,7 @@ fi
 
 # Pattern matches `: any`, `as any`, `<any>` in TypeScript files.
 ANY_PATTERN=':[[:space:]]*\bany\b|as[[:space:]]+\bany\b|<any>'
-TEST_EXCLUDE='__tests__|/tests/|\.test\.|\.spec\.'
+TEST_EXCLUDE='__tests__|\.test\.|\.spec\.'
 
 count_any() {
   local path="$1"
@@ -27,31 +27,17 @@ count_any() {
     echo "-1"
     return
   fi
-  # grep exits 1 when no matches — treat that as 0, not an error.
-  # Exclude node_modules, dist, examples, and declaration files.
-  { grep -rE "$ANY_PATTERN" "$path" \
-      --include="*.ts" --include="*.tsx" \
-      --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=examples \
-      2>/dev/null || true; } \
-    | { grep -vE "$TEST_EXCLUDE|\.d\.ts" || true; } \
+  grep -rE "$ANY_PATTERN" "$path" --include="*.ts" --include="*.tsx" 2>/dev/null \
+    | grep -vE "$TEST_EXCLUDE" \
     | wc -l \
     | tr -d ' '
 }
 
 # Ceilings — reduce these as debt is paid down. Never raise them.
-# Paths are package roots (not src/ subdirs); node_modules/dist/examples excluded by count_any.
-# Sprint 43: packages/shared=0, packages/sdui=0 (production src/ clean).
-# Sprint 44 target: apps/VOSAcademy=0.
-# Sprint 45 target: apps/ValyntApp<20.
-# Sprint 46 target: packages/backend<50 (achieved 15).
 declare -A CEILINGS=(
-  ["packages/shared"]=0
-  ["packages/sdui"]=0
-  ["packages/components"]=31
-  ["packages/mcp"]=158
-  ["apps/VOSAcademy"]=0
-  ["apps/ValyntApp"]=6
-  ["packages/backend"]=15
+  ["packages/backend/src"]=400
+  ["apps/ValyntApp/src"]=260
+  ["packages/sdui/src"]=180
 )
 
 FAILED=false

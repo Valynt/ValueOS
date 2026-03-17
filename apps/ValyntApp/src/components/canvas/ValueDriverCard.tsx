@@ -15,7 +15,7 @@ interface ValueDriverCardProps {
   component: CanvasComponent;
   onEdit: () => void;
   onDelete: () => void;
-  onValueChange: (value: number) => void;
+  onValueChange: (value: any) => void;
 }
 
 export const ValueDriverCard: React.FC<ValueDriverCardProps> = ({

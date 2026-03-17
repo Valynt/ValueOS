@@ -8,7 +8,6 @@
  * analytical agents must emit proposals.
  */
 
-import type { NextFunction, Request, Response } from 'express';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -415,7 +414,7 @@ export function createSecurityMiddleware(supabase: SupabaseClient): SecurityMidd
 // ============================================================================
 
 export function createAuthMiddleware(security: SecurityMiddleware) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: any, res: any, next: any) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     const agentType = req.headers['x-agent-type'] as SecurityAgentRole;
     const sessionId = req.headers['x-session-id'] as string;

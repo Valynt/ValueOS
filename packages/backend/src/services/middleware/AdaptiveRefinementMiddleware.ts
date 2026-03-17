@@ -66,7 +66,7 @@ export class AdaptiveRefinementMiddleware implements AgentMiddleware {
 
     // Pass through errors and clarification responses
     if (
-      (response.type as string) === 'clarification_needed' ||
+      response.type === ('clarification_needed' as any) ||
       (response.payload && (response.payload as Record<string, unknown>).error)
     ) {
       return response;

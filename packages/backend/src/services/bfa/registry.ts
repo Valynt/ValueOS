@@ -5,14 +5,14 @@
  * Provides permission checking and tool discovery capabilities.
  */
 
-import { AgentContext, AuthPolicy, SemanticTool, ToolRegistry } from './types.js'
+import { AgentContext, SemanticTool, ToolRegistry } from './types.js'
 
 /**
  * In-memory implementation of the tool registry
  */
 export class InMemoryToolRegistry implements ToolRegistry {
   private tools = new Map<string, SemanticTool<any, any>>();
-  private toolMetadata = new Map<string, { description: string; policy: AuthPolicy }>();
+  private toolMetadata = new Map<string, { description: string; policy: any }>();
 
   /**
    * Register a new semantic tool
@@ -35,7 +35,7 @@ export class InMemoryToolRegistry implements ToolRegistry {
   /**
    * List all available tools with metadata
    */
-  list(): Array<{ id: string; description: string; policy: AuthPolicy }> {
+  list(): Array<{ id: string; description: string; policy: any }> {
     return Array.from(this.toolMetadata.entries()).map(([id, metadata]) => ({
       id,
       description: metadata.description,

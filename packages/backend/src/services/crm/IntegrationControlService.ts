@@ -221,7 +221,7 @@ export class IntegrationControlService {
                 try {
                     let parsed = JSON.parse(value);
 
-                    const redactKeys = (obj: Record<string, unknown>): Record<string, unknown> => {
+                    const redactKeys = (obj: any): any => {
                         if (!obj || typeof obj !== 'object') return obj;
                         for (const k in obj) {
                              const lowerK = k.toLowerCase();

@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-
 import { getDb } from "../db";
 
 import { publicProcedure, router } from "./trpc";
@@ -17,7 +15,7 @@ export const systemRouter = router({
       const db = await getDb();
       if (db) {
         // Try a simple query
-        await db.execute(sql`SELECT 1`);
+        await db.execute('SELECT 1' as any);
         checks.database = "ok";
       } else {
         checks.database = "error";

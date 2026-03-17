@@ -1231,5 +1231,5 @@ export interface SchedulingResult {
   tenantId: string;
   allocation: number;
   nextAllocation: number;
-  resources: unknown[];
+  resources: any[];
 }

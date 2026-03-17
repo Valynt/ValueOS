@@ -5,7 +5,7 @@
  * Enables agents to recall past successful patterns, decisions, and outcomes.
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 import { logger } from "./logger.js";
 import { createServerSupabaseClient } from "./supabase.js";
@@ -48,11 +48,11 @@ export interface SemanticSearchResult {
 }
 
 export class SemanticMemoryService {
-  private _supabase: SupabaseClient | null = null;
+  private _supabase: any = null;
   private embeddingModel = "togethercomputer/m2-bert-80M-8k-retrieval"; // Together AI embedding model
   private embeddingDimension = 768;
 
-  private get supabase(): SupabaseClient {
+  private get supabase(): any {
     if (!this._supabase) {
       this._supabase = createServerSupabaseClient();
     }
@@ -290,16 +290,16 @@ export class SemanticMemoryService {
         resultsCount: data?.length || 0,
       });
 
-      return (data || []).map((row: Record<string, unknown>) => ({
+      return (data || []).map((row: any) => ({
         entry: {
-          id: row.id as string,
-          type: row.type as MemoryEntry["type"],
-          content: row.content as string,
-          embedding: row.embedding as number[],
-          metadata: row.metadata as MemoryEntry["metadata"],
-          createdAt: new Date(row.created_at as string),
+          id: row.id,
+          type: row.type,
+          content: row.content,
+          embedding: row.embedding,
+          metadata: row.metadata,
+          createdAt: new Date(row.created_at),
         },
-        similarity: row.similarity as number,
+        similarity: row.similarity,
       }));
     } catch (error) {
       logger.error("Semantic search failed", error as Error);
@@ -445,8 +445,8 @@ export class SemanticMemoryService {
   async storeWorkflowResult(data: {
     workflowId: string;
     workflowType: string;
-    input: unknown;
-    output: unknown;
+    input: any;
+    output: any;
     score: number;
     duration: number;
     userId: string;
@@ -560,17 +560,15 @@ export class SemanticMemoryService {
       let oldestDate: Date | null = null;
       let newestDate: Date | null = null;
 
-      data?.forEach((row: Record<string, unknown>) => {
-        const rowType = row.type as string;
-        byType[rowType] = (byType[rowType] || 0) + 1;
+      data?.forEach((row: any) => {
+        byType[row.type] = (byType[row.type] || 0) + 1;
 
-        const meta = row.metadata as Record<string, unknown> | undefined;
-        if (meta?.score !== undefined) {
-          totalScore += meta.score as number;
+        if (row.metadata?.score !== undefined) {
+          totalScore += row.metadata.score;
           scoreCount++;
         }
 
-        const date = new Date(row.created_at as string);
+        const date = new Date(row.created_at);
         if (!oldestDate || date < oldestDate) oldestDate = date;
         if (!newestDate || date > newestDate) newestDate = date;
       });

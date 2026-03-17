@@ -57,7 +57,7 @@ export const SOFComponentRegistry = {
  * Get SOF component by type
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getSOFComponent(type: string): React.ComponentType<Record<string, unknown>> | undefined {
+export function getSOFComponent(type: string): React.ComponentType<any> | undefined {
   return SOFComponentRegistry[type as keyof typeof SOFComponentRegistry];
 }
 

@@ -87,7 +87,7 @@ export async function fetchUserTenants(userId: string): Promise<TenantApiRespons
       return { data: [], error: null };
     }
 
-    const tenants: TenantInfo[] = data.map((row: Record<string, unknown>) => ({
+    const tenants: TenantInfo[] = data.map((row: any) => ({
       id: row.tenant_id,
       name: row.tenants?.name || "Unknown Tenant",
       slug: row.tenants?.slug || row.tenant_id,

@@ -313,7 +313,7 @@ export class AlertingService {
   /**
    * Aggregate metrics across all agents
    */
-  private aggregateAgentMetrics(metrics: Array<Record<string, unknown>>): {
+  private aggregateAgentMetrics(metrics: any[]): {
     successRate: number;
     hallucinationRate: number;
     lowConfidenceRate: number;

@@ -7,20 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { trpc } from "@/lib/trpc";
 
 
-interface SimulationRec { simulationTitle: string; priority: string; reason: string; }
-interface PillarRec { pillarNumber: number; pillarTitle: string; priority: string; reason: string; }
-interface ImprovementArea { area: string; currentScore: number; targetScore: number; priority: string; actionItems?: string[]; }
-interface RecommendationsShape {
-  overallGuidance?: string;
-  nextSimulations?: SimulationRec[];
-  pillarsToStudy?: PillarRec[];
-  improvementAreas?: ImprovementArea[];
-}
-
 export function RecommendationsCard() {
   const [, setLocation] = useLocation();
-  const { data: rawRecommendations, isLoading } = trpc.simulations.getRecommendations.useQuery();
-  const recommendations = rawRecommendations as RecommendationsShape | undefined;
+  const { data: recommendations, isLoading } = trpc.simulations.getRecommendations.useQuery();
 
   if (isLoading) {
     return (
@@ -83,7 +72,7 @@ export function RecommendationsCard() {
               <h4 className="font-semibold">Recommended Simulations</h4>
             </div>
             <div className="space-y-3">
-              {recommendations.nextSimulations.map((sim, index) => (
+              {recommendations.nextSimulations.map((sim: any, index: number) => (
                 <div key={index} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h5 className="font-medium text-sm">{sim.simulationTitle}</h5>
@@ -114,7 +103,7 @@ export function RecommendationsCard() {
               <h4 className="font-semibold">Recommended Pillars</h4>
             </div>
             <div className="space-y-3">
-              {recommendations.pillarsToStudy.map((pillar, index) => (
+              {recommendations.pillarsToStudy.map((pillar: any, index: number) => (
                 <div key={index} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h5 className="font-medium text-sm">
@@ -147,7 +136,7 @@ export function RecommendationsCard() {
               <h4 className="font-semibold">Areas for Improvement</h4>
             </div>
             <div className="space-y-3">
-              {recommendations.improvementAreas.map((area, index) => (
+              {recommendations.improvementAreas.map((area: any, index: number) => (
                 <div key={index} className="p-3 border rounded-lg">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1">

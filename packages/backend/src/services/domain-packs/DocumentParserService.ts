@@ -102,7 +102,7 @@ class DocumentParserService {
         !('success' in result) ||
         !('text' in result) ||
         !('metadata' in result) ||
-        !(result as Record<string, unknown>).success
+        !(result as any).success
       ) {
         const res = result as Record<string, unknown>;
         throw new Error((typeof res.error === 'string' ? res.error : 'Document parsing failed'));

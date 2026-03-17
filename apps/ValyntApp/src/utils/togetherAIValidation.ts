@@ -168,7 +168,7 @@ export function validateTogetherAPIKey(): {
   const hasKey =
     (typeof process !== "undefined" && !!process.env.TOGETHER_API_KEY) ||
     (typeof import.meta !== "undefined" &&
-      !!(((import.meta as Record<string, unknown>)?.env) as Record<string, string> | undefined)?.TOGETHER_API_KEY);
+      !!(import.meta as any)?.env?.TOGETHER_API_KEY);
 
   return {
     isConfigured: hasKey,

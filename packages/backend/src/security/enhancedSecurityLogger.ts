@@ -289,7 +289,7 @@ export const securityEvents = {
   },
 
   // CSP Events
-  cspViolation: (violation: Record<string, unknown>, ipAddress?: string) => {
+  cspViolation: (violation: any, ipAddress?: string) => {
     logSecurityEvent({
       type: "CSP_VIOLATION",
       category: "web_security",

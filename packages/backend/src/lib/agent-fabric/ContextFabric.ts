@@ -3,7 +3,7 @@
  */
 
 export class ContextFabric {
-  buildContext(data: Record<string, unknown>): Record<string, unknown> {
+  buildContext(data: any): any {
     return { ...data, context: 'built' };
   }
 }

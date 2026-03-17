@@ -12,7 +12,6 @@
  * - Graceful logout on timeout
  */
 
-import type { Request } from "express";
 import { logger } from "../../lib/logger.js"
 import {
   getSessionTimeoutForRole,
@@ -142,7 +141,7 @@ export class SessionTimeoutService {
   /**
    * Get session info from request (Express)
    */
-  getSessionInfo(req: Request): SessionInfo | null {
+  getSessionInfo(req: any): SessionInfo | null {
     if (!req.session || !req.user) {
       return null;
     }
@@ -159,7 +158,7 @@ export class SessionTimeoutService {
   /**
    * Update session in request (Express)
    */
-  updateSessionInfo(req: Request, session: SessionInfo): void {
+  updateSessionInfo(req: any, session: SessionInfo): void {
     if (req.session) {
       req.session.createdAt = session.createdAt;
       req.session.lastActivity = session.lastActivity;

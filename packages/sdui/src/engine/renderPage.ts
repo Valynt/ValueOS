@@ -20,7 +20,7 @@ export interface RenderContext {
 export interface RenderOptions {
   context?: RenderContext;
   onError?: (error: Error, section: SDUISection) => void;
-  componentRegistry?: Map<string, React.ComponentType<Record<string, unknown>>>;
+  componentRegistry?: Map<string, React.ComponentType<any>>;
 }
 
 /**
@@ -73,7 +73,7 @@ function renderSection(
   section: SDUISection,
   index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<Record<string, unknown>>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   if (section.type === "layout.directive") {
     return renderLayoutDirective(section, index, context, componentRegistry);
@@ -90,7 +90,7 @@ function renderLayoutDirective(
   directive: SDUILayoutDirective,
   index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<Record<string, unknown>>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   const { intent, component, props, layout, metadata } = directive;
 
@@ -130,7 +130,7 @@ function renderComponent(
   section: SDUISection,
   index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<Record<string, unknown>>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   if (section.type !== "component") {
     throw new Error(`Invalid section type: ${section.type}`);
@@ -190,7 +190,7 @@ function wrapWithLayout(
   layout: string | { type: string; children?: unknown[]; props?: Record<string, unknown> },
   index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<Record<string, unknown>>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   // Handle nested layout objects
   if (typeof layout === "object" && layout.type) {
@@ -198,7 +198,7 @@ function wrapWithLayout(
   }
 
   // Handle simple string layout types
-  const primitiveLayoutMap: Record<string, React.ComponentType<Record<string, unknown>> | undefined> = {
+  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
     two_column: VerticalSplit,
     dashboard: DashboardPanel,
     grid: Grid,
@@ -245,7 +245,7 @@ function renderNestedLayout(
   primaryElement: React.ReactElement,
   index: number | string,
   context?: RenderContext,
-  componentRegistry?: Map<string, React.ComponentType<Record<string, unknown>>>
+  componentRegistry?: Map<string, React.ComponentType<any>>
 ): React.ReactElement {
   const { type, children, props } = layout;
 
@@ -274,7 +274,7 @@ function renderNestedLayout(
   // Combine primary element with rendered children
   const allChildren = [primaryElement, ...renderedChildren];
 
-  const primitiveLayoutMap: Record<string, React.ComponentType<Record<string, unknown>> | undefined> = {
+  const primitiveLayoutMap: Record<string, React.ComponentType<any> | undefined> = {
     VerticalSplit,
     HorizontalSplit,
     Grid,

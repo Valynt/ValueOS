@@ -237,7 +237,7 @@ class GuestPermissionManager {
    * Validate permissions object
    */
   public validatePermissions(
-    permissions: unknown
+    permissions: any
   ): permissions is GuestPermissions {
     if (typeof permissions !== "object" || permissions === null) {
       return false;

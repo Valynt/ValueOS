@@ -35,7 +35,7 @@ export const pillars = pgTable("pillars", {
     overview: string;
     learningObjectives: string[];
     keyTakeaways: string[];
-    resources: unknown[];
+    resources: any[];
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

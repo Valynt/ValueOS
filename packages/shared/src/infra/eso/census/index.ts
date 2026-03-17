@@ -2,18 +2,11 @@ import { DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
-interface CensusTransformed {
-  source: "Census";
-  data: unknown;
-  timestamp: string;
-  dataset?: string;
-}
-
-export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransformed> {
+export class CensusAdapter implements DataIngestionAdapter {
   name = "Census";
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
-  private dataCallbacks: Set<(data: CensusTransformed) => void> = new Set();
+  private dataCallbacks: Set<(data: any) => void> = new Set();
   private isStreaming = false;
   private pollTimer?: NodeJS.Timeout;
   private lastDataTimestamps: Map<string, string> = new Map();
@@ -31,7 +24,7 @@ export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransf
     dataset: string;
     variables: string[];
     geography?: string;
-  }): Promise<unknown> {
+  }): Promise<any> {
     const cacheKey = `census-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -66,7 +59,8 @@ export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransf
     return data;
   }
 
-  async transformData(rawData: unknown): Promise<CensusTransformed> {
+  async transformData(rawData: any): Promise<any> {
+    // Transform Census data to standardized format
     return {
       source: "Census",
       data: rawData,
@@ -107,8 +101,7 @@ export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransf
           // In production, you'd check for actual data changes
           if (!lastTimestamp || Date.now() - new Date(lastTimestamp).getTime() > pollInterval) {
             this.lastDataTimestamps.set(dataKey, currentTimestamp);
-            const transformed = await this.transformData(data);
-            this.notifyDataCallbacks({ ...transformed, dataset: dataset.dataset });
+            this.notifyDataCallbacks({ ...data, dataset: dataset.dataset });
           }
         }
       } catch (error) {
@@ -131,12 +124,12 @@ export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransf
     }
   }
 
-  onData(callback: (data: CensusTransformed) => void): () => void {
+  onData(callback: (data: any) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: CensusTransformed) {
+  private notifyDataCallbacks(data: any) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

@@ -2,11 +2,11 @@
  * Simple in-memory cache with TTL
  */
 export class Cache {
-  private cache = new Map<string, { data: unknown; expiry: number }>();
+  private cache = new Map<string, { data: any; expiry: number }>();
 
   constructor(private defaultTTL: number = 300000) {} // 5 minutes default
 
-  get(key: string): unknown | null {
+  get(key: string): any | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
 
@@ -18,7 +18,7 @@ export class Cache {
     return entry.data;
   }
 
-  set(key: string, data: unknown, ttl?: number): void {
+  set(key: string, data: any, ttl?: number): void {
     const expiry = Date.now() + (ttl || this.defaultTTL);
     this.cache.set(key, { data, expiry });
   }

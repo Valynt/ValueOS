@@ -39,15 +39,11 @@ export interface OAuthTokens {
 export interface OAuthStartResult {
   authUrl: string;
   state: string;
-  /** PKCE code verifier — must be stored server-side and passed to exchangeCodeForTokens. */
-  codeVerifier?: string;
 }
 
 export interface OAuthCallbackParams {
   code: string;
   state: string;
-  /** PKCE code verifier retrieved from server-side state store. */
-  codeVerifier?: string;
 }
 
 // ============================================================================

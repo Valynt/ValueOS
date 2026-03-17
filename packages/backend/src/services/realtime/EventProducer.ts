@@ -126,7 +126,7 @@ export class EventProducer {
         "event-version": event.version,
         "correlation-id": event.correlationId,
         source: event.source,
-        "x-tenant-context": (typeof event.tct === "string" ? event.tct : "") || "",
+        "x-tenant-context": (event as any).tct || "",
       },
     };
 
@@ -189,7 +189,7 @@ export class EventProducer {
         "event-version": event.version,
         "correlation-id": event.correlationId,
         source: event.source,
-        "x-tenant-context": (typeof event.tct === "string" ? event.tct : "") || "",
+        "x-tenant-context": (event as any).tct || "",
       },
     }));
 

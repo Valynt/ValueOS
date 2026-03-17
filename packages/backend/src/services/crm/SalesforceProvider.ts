@@ -6,7 +6,7 @@
  * delta sync via SOQL, and field mapping to canonical types.
  */
 
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import type { Request } from 'express';
 
@@ -75,13 +75,6 @@ export class SalesforceProvider implements CrmProviderInterface {
   getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();
 
-    // Generate PKCE code verifier (43–128 chars, URL-safe base64).
-    const codeVerifier = randomBytes(32).toString('base64url');
-    // S256 challenge: BASE64URL(SHA256(ASCII(code_verifier)))
-    const codeChallenge = createHash('sha256')
-      .update(codeVerifier)
-      .digest('base64url');
-
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: config.clientId,
@@ -89,14 +82,11 @@ export class SalesforceProvider implements CrmProviderInterface {
       scope: 'api refresh_token',
       state: nonce,
       prompt: 'consent',
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
     });
 
     return {
       authUrl: `${SF_AUTH_URL}?${params.toString()}`,
       state: nonce,
-      codeVerifier,
     };
   }
 
@@ -106,21 +96,13 @@ export class SalesforceProvider implements CrmProviderInterface {
   ): Promise<OAuthTokens> {
     const config = getConfig();
 
-    const bodyParams: Record<string, string> = {
+    const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code: params.code,
       client_id: config.clientId,
+      client_secret: config.clientSecret,
       redirect_uri: redirectUri,
-    };
-
-    // Include code_verifier for PKCE flows; fall back to client_secret for legacy.
-    if (params.codeVerifier) {
-      bodyParams.code_verifier = params.codeVerifier;
-    } else {
-      bodyParams.client_secret = config.clientSecret;
-    }
-
-    const body = new URLSearchParams(bodyParams);
+    });
 
     const response = await fetch(SF_TOKEN_URL, {
       method: 'POST',

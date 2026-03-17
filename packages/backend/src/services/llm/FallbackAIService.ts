@@ -24,7 +24,7 @@ export class FallbackAIService {
   /**
    * Generate a basic analysis when AI services are unavailable
    */
-  static generateFallbackAnalysis(query: string, context?: Record<string, unknown>): AIResponseSchema {
+  static generateFallbackAnalysis(query: string, context?: any): AIResponseSchema {
     logger.warn('Using fallback AI service', { queryLength: query.length });
 
     const queryLower = query.toLowerCase();
@@ -91,8 +91,8 @@ export class FallbackAIService {
   /**
    * Check if fallback should be used based on error patterns
    */
-  static shouldUseFallback(error: unknown): boolean {
-    const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  static shouldUseFallback(error: any): boolean {
+    const errorMessage = error?.message?.toLowerCase() || '';
 
     // Network errors, rate limits, and service unavailable should trigger fallback
     const fallbackTriggers = [

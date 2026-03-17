@@ -2,7 +2,6 @@ import { logger } from '../../utils/logger.js'
 
 import { EventPayloadMap } from './EventSchemas.js'
 import { redisStreamBroker, StreamEvent } from './RedisStreamBroker.js'
-import type { EventName } from './EventSchemas.js'
 
 const messageLogger = logger.withContext({ component: 'sample-messaging-workflow' });
 
@@ -39,7 +38,7 @@ export async function enqueueDataExport(input: {
 }
 
 export async function startSampleWorker(): Promise<void> {
-  await redisStreamBroker.startConsumer(async (event: StreamEvent<EventName>) => {
+  await redisStreamBroker.startConsumer(async (event: StreamEvent<any>) => {
     switch (event.name) {
       case 'notifications.email.requested':
         await handleEmailRequest(event as StreamEvent<'notifications.email.requested'>);

@@ -14,7 +14,7 @@ interface AgentChatProps {
   isOpen: boolean;
   onClose: () => void;
   context: AgentChatContext;
-  onApplySuggestion?: (suggestion: unknown) => void;
+  onApplySuggestion?: (suggestion: any) => void;
 }
 
 export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: AgentChatProps) {

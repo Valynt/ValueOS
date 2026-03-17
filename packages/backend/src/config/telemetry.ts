@@ -486,7 +486,7 @@ export function tracingMiddleware() {
     });
 
     const activeCtx = trace.setSpan(context.active(), span);
-    (context as { with: (ctx: unknown, fn: () => void) => void }).with(activeCtx, () => {
+    (context as any).with(activeCtx, () => {
       req.traceContext = {
         traceId: span.spanContext().traceId,
         spanId: span.spanContext().spanId,

@@ -20,7 +20,7 @@ export function assertTenantMember(ctx: { user?: UserMeta }, tenantId: string) {
 export function assertCapability(
   ctx: { user?: UserMeta },
   capability: string,
-  opts?: { tenantId?: string; target?: unknown }
+  opts?: { tenantId?: string; target?: any }
 ) {
   if (!ctx.user || !ctx.user.capabilities?.includes(capability)) {
     deny("capability_denied", `Missing capability: ${capability}`);
@@ -38,12 +38,11 @@ export function deny(code: string, message: string): never {
   throw new AuthenticationError(`${code}: ${message}`);
 }
 
-export function toAuthError(err: unknown) {
-  const e = err as Record<string, unknown>;
+export function toAuthError(err: any) {
   return {
-    code: (typeof e?.code === "string" ? e.code : undefined) ?? "auth_error",
-    httpStatus: (typeof e?.httpStatus === "number" ? e.httpStatus : undefined) ?? 401,
-    message: (typeof e?.message === "string" ? e.message : undefined) ?? "Authentication failed",
+    code: err.code || "auth_error",
+    httpStatus: err.httpStatus || 401,
+    message: err.message || "Authentication failed",
     safeMessage: "Authentication failed. Please try again.",
   };
 }

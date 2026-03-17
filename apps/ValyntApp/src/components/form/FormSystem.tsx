@@ -27,7 +27,7 @@ export function useFormWithValidation<T extends FieldValues>(
 
   return useForm<T>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: schema ? zodResolver(schema as Parameters<typeof zodResolver>[0]) : undefined,
+    resolver: schema ? zodResolver(schema as any) : undefined,
     defaultValues,
     mode,
   });

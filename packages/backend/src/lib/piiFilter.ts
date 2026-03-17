@@ -1,6 +1,6 @@
 
 import { redactSensitiveData } from './redaction.js'
 
-export function sanitizeForLogging(data: unknown): unknown {
+export function sanitizeForLogging(data: any): any {
   return redactSensitiveData(data);
 }

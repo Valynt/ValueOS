@@ -495,7 +495,7 @@ export class AgentCache extends EventEmitter {
     }
   }
 
-  private calculateSize(value: unknown): number {
+  private calculateSize(value: any): number {
     try {
       // Rough estimation of serialized size
       const serialized = JSON.stringify(value);

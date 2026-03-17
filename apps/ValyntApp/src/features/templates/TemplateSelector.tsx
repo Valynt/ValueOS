@@ -22,7 +22,7 @@ import type { TemplateCategory, ValueCaseTemplate } from './types';
 
 import { cn } from '@/lib/utils';
 
-const CATEGORY_ICONS: Record<TemplateCategory, React.ComponentType<Record<string, unknown>>> = {
+const CATEGORY_ICONS: Record<TemplateCategory, React.ComponentType<any>> = {
   general: BarChart3,
   saas: Zap,
   infrastructure: DollarSign,

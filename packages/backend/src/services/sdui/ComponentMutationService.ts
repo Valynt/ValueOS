@@ -76,7 +76,7 @@ export class ComponentMutationService {
           result = await this.applyBatchAction(newLayout, action);
           break;
         default:
-          throw new Error(`Unknown action type: ${(action as Record<string, unknown>).type}`);
+          throw new Error(`Unknown action type: ${(action as any).type}`);
       }
 
       result.duration_ms = Date.now() - startTime;
@@ -448,7 +448,7 @@ export class ComponentMutationService {
     }
 
     // Navigate to parent object
-    let current: Record<string, unknown> = section as Record<string, unknown>;
+    let current: any = section;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
       if (part.type === 'property') {

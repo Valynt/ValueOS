@@ -12,12 +12,12 @@ export class RoiModelCalculationRepository {
     this.supabase = createServerSupabaseClient();
   }
 
-  async findById(id: string): Promise<unknown> {
+  async findById(id: string): Promise<any | null> {
     logger.debug('RoiModelCalculationRepository findById', { id });
     return null;
   }
 
-  async create(data: unknown): Promise<unknown> {
+  async create(data: any): Promise<any> {
     logger.debug('RoiModelCalculationRepository create', { data });
     return data;
   }

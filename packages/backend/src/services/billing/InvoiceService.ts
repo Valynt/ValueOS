@@ -230,7 +230,7 @@ class InvoiceService {
   /**
    * Get upcoming invoice preview from Stripe
    */
-  async getUpcomingInvoice(tenantId: string): Promise<unknown> {
+  async getUpcomingInvoice(tenantId: string): Promise<any> {
     try {
       const { data: customer } = await supabase
         .from("billing_customers")
