@@ -7,7 +7,7 @@ export interface ManifestoRule {
   name: string;
   description: string;
   severity: 'error' | 'warning' | 'info';
-  check: (data: any) => boolean;
+  check: (data: unknown) => boolean;
 }
 
 export const MANIFESTO_RULES: ManifestoRule[] = [

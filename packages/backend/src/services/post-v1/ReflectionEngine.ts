@@ -588,7 +588,7 @@ export class ReflectionEngine {
   /**
    * Refine output based on reflection results
    */
-  async refine(context: RefinementContext): Promise<any> {
+  async refine(context: RefinementContext): Promise<unknown> {
     const { originalOutput, reflectionResult, agentType, userId, organizationId } = context;
 
     // Generate refinement prompt

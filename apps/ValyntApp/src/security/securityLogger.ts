@@ -73,7 +73,7 @@ export const securityEvents = {
     });
   },
 
-  cspViolation: (violation: any) => {
+  cspViolation: (violation: unknown) => {
     logSecurityEvent({
       type: "CSP_VIOLATION",
       outcome: "blocked",

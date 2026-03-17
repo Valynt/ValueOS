@@ -3,9 +3,12 @@
 import { lazy } from 'react';
 import React from 'react';
 
-type IconSource = React.ComponentType<any> | (() => any);
+/** Props accepted by all icon wrapper components. */
+export type IconProps = React.SVGProps<SVGSVGElement> & { className?: string };
 
-const iconCache = new WeakMap<IconSource, React.ComponentType<any>>();
+type IconSource = React.ComponentType<IconProps> | (() => Promise<{ default: React.ComponentType<IconProps> }>);
+
+const iconCache = new WeakMap<IconSource, React.ComponentType<IconProps>>();
 
 // Lazy load icons to avoid blocking issues
 const IconLoader = {
@@ -66,9 +69,8 @@ export const SafeIcon = React.forwardRef<HTMLElement, {
   icon: IconSource;
   name: string;
   className?: string;
-  [key: string]: any;
-}>(({ icon, name, className = '', onError, ...props }, ref) => {
-  const [IconComponent, setIconComponent] = React.useState<React.ComponentType<any> | null>(() => {
+} & IconProps>(({ icon, name, className = '', onError, ...props }, ref) => {
+  const [IconComponent, setIconComponent] = React.useState<React.ComponentType<IconProps> | null>(() => {
     return iconCache.get(icon) || null;
   });
   const [hasError, setHasError] = React.useState(false);
@@ -91,7 +93,8 @@ export const SafeIcon = React.forwardRef<HTMLElement, {
         const loaded = await Promise.resolve(
           typeof icon === 'function' ? icon() : icon
         );
-        const Component = (loaded as any)?.default || loaded;
+        const loaded_ = loaded as { default?: React.ComponentType<IconProps> } | React.ComponentType<IconProps>;
+        const Component = (loaded_ as { default?: React.ComponentType<IconProps> }).default ?? (loaded_ as React.ComponentType<IconProps>);
         if (isMounted && Component) {
           iconCache.set(icon, Component);
           setIconComponent(() => Component);
@@ -126,7 +129,7 @@ export const SafeIcon = React.forwardRef<HTMLElement, {
   try {
     return (
       <IconComponent
-        ref={ref as any}
+        ref={ref as React.Ref<SVGSVGElement>}
         className={className}
         onError={handleError}
         aria-hidden={false}
@@ -142,38 +145,38 @@ export const SafeIcon = React.forwardRef<HTMLElement, {
 
 // Export optimized icon set
 export const Icons = {
-  Home: (props: any) => <SafeIcon icon={IconLoader.Home} name="Home" {...props} />,
-  BookOpen: (props: any) => <SafeIcon icon={IconLoader.BookOpen} name="Book Open" {...props} />,
-  Gamepad2: (props: any) => <SafeIcon icon={IconLoader.Gamepad2} name="Gamepad" {...props} />,
-  Brain: (props: any) => <SafeIcon icon={IconLoader.Brain} name="Brain" {...props} />,
-  BarChart3: (props: any) => <SafeIcon icon={IconLoader.BarChart3} name="Bar Chart" {...props} />,
-  User: (props: any) => <SafeIcon icon={IconLoader.User} name="User" {...props} />,
-  Plus: (props: any) => <SafeIcon icon={IconLoader.Plus} name="Plus" {...props} />,
-  Search: (props: any) => <SafeIcon icon={IconLoader.Search} name="Search" {...props} />,
-  Menu: (props: any) => <SafeIcon icon={IconLoader.Menu} name="Menu" {...props} />,
-  X: (props: any) => <SafeIcon icon={IconLoader.X} name="Close" {...props} />,
-  ChevronLeft: (props: any) => <SafeIcon icon={IconLoader.ChevronLeft} name="Chevron Left" {...props} />,
-  ChevronRight: (props: any) => <SafeIcon icon={IconLoader.ChevronRight} name="Chevron Right" {...props} />,
-  CheckCircle2: (props: any) => <SafeIcon icon={IconLoader.CheckCircle2} name="Check Circle" {...props} />,
-  Trophy: (props: any) => <SafeIcon icon={IconLoader.Trophy} name="Trophy" {...props} />,
-  Target: (props: any) => <SafeIcon icon={IconLoader.Target} name="Target" {...props} />,
-  DollarSign: (props: any) => <SafeIcon icon={IconLoader.DollarSign} name="Dollar Sign" {...props} />,
-  TreePine: (props: any) => <SafeIcon icon={IconLoader.TreePine} name="Tree Pine" {...props} />,
-  Loader2: (props: any) => <SafeIcon icon={IconLoader.Loader2} name="Loader" {...props} />,
-  AlertTriangle: (props: any) => <SafeIcon icon={IconLoader.AlertTriangle} name="Alert Triangle" {...props} />,
-  RefreshCw: (props: any) => <SafeIcon icon={IconLoader.RefreshCw} name="Refresh" {...props} />,
-  HelpCircle: (props: any) => <SafeIcon icon={IconLoader.HelpCircle} name="Help Circle" {...props} />,
-  Info: (props: any) => <SafeIcon icon={IconLoader.Info} name="Info" {...props} />,
-  MessageSquare: (props: any) => <SafeIcon icon={IconLoader.MessageSquare} name="Message Square" {...props} />,
-  Award: (props: any) => <SafeIcon icon={IconLoader.Award} name="Award" {...props} />,
-  FileText: (props: any) => <SafeIcon icon={IconLoader.FileText} name="File Text" {...props} />,
-  Settings: (props: any) => <SafeIcon icon={IconLoader.Settings} name="Settings" {...props} />,
-  LogOut: (props: any) => <SafeIcon icon={IconLoader.LogOut} name="Logout" {...props} />,
-  TrendingUp: (props: any) => <SafeIcon icon={IconLoader.TrendingUp} name="Trending Up" {...props} />,
-  CheckCircle: (props: any) => <SafeIcon icon={IconLoader.CheckCircle} name="Check Circle" {...props} />,
-  Fingerprint: (props: any) => <SafeIcon icon={IconLoader.Fingerprint} name="Fingerprint" {...props} />,
-  Minus: (props: any) => <SafeIcon icon={IconLoader.Minus} name="Minus" {...props} />,
-  Clock: (props: any) => <SafeIcon icon={IconLoader.Clock} name="Clock" {...props} />,
-  Zap: (props: any) => <SafeIcon icon={IconLoader.Zap} name="Zap" {...props} />,
-  Star: (props: any) => <SafeIcon icon={IconLoader.Star} name="Star" {...props} />,
+  Home: (props: IconProps) => <SafeIcon icon={IconLoader.Home} name="Home" {...props} />,
+  BookOpen: (props: IconProps) => <SafeIcon icon={IconLoader.BookOpen} name="Book Open" {...props} />,
+  Gamepad2: (props: IconProps) => <SafeIcon icon={IconLoader.Gamepad2} name="Gamepad" {...props} />,
+  Brain: (props: IconProps) => <SafeIcon icon={IconLoader.Brain} name="Brain" {...props} />,
+  BarChart3: (props: IconProps) => <SafeIcon icon={IconLoader.BarChart3} name="Bar Chart" {...props} />,
+  User: (props: IconProps) => <SafeIcon icon={IconLoader.User} name="User" {...props} />,
+  Plus: (props: IconProps) => <SafeIcon icon={IconLoader.Plus} name="Plus" {...props} />,
+  Search: (props: IconProps) => <SafeIcon icon={IconLoader.Search} name="Search" {...props} />,
+  Menu: (props: IconProps) => <SafeIcon icon={IconLoader.Menu} name="Menu" {...props} />,
+  X: (props: IconProps) => <SafeIcon icon={IconLoader.X} name="Close" {...props} />,
+  ChevronLeft: (props: IconProps) => <SafeIcon icon={IconLoader.ChevronLeft} name="Chevron Left" {...props} />,
+  ChevronRight: (props: IconProps) => <SafeIcon icon={IconLoader.ChevronRight} name="Chevron Right" {...props} />,
+  CheckCircle2: (props: IconProps) => <SafeIcon icon={IconLoader.CheckCircle2} name="Check Circle" {...props} />,
+  Trophy: (props: IconProps) => <SafeIcon icon={IconLoader.Trophy} name="Trophy" {...props} />,
+  Target: (props: IconProps) => <SafeIcon icon={IconLoader.Target} name="Target" {...props} />,
+  DollarSign: (props: IconProps) => <SafeIcon icon={IconLoader.DollarSign} name="Dollar Sign" {...props} />,
+  TreePine: (props: IconProps) => <SafeIcon icon={IconLoader.TreePine} name="Tree Pine" {...props} />,
+  Loader2: (props: IconProps) => <SafeIcon icon={IconLoader.Loader2} name="Loader" {...props} />,
+  AlertTriangle: (props: IconProps) => <SafeIcon icon={IconLoader.AlertTriangle} name="Alert Triangle" {...props} />,
+  RefreshCw: (props: IconProps) => <SafeIcon icon={IconLoader.RefreshCw} name="Refresh" {...props} />,
+  HelpCircle: (props: IconProps) => <SafeIcon icon={IconLoader.HelpCircle} name="Help Circle" {...props} />,
+  Info: (props: IconProps) => <SafeIcon icon={IconLoader.Info} name="Info" {...props} />,
+  MessageSquare: (props: IconProps) => <SafeIcon icon={IconLoader.MessageSquare} name="Message Square" {...props} />,
+  Award: (props: IconProps) => <SafeIcon icon={IconLoader.Award} name="Award" {...props} />,
+  FileText: (props: IconProps) => <SafeIcon icon={IconLoader.FileText} name="File Text" {...props} />,
+  Settings: (props: IconProps) => <SafeIcon icon={IconLoader.Settings} name="Settings" {...props} />,
+  LogOut: (props: IconProps) => <SafeIcon icon={IconLoader.LogOut} name="Logout" {...props} />,
+  TrendingUp: (props: IconProps) => <SafeIcon icon={IconLoader.TrendingUp} name="Trending Up" {...props} />,
+  CheckCircle: (props: IconProps) => <SafeIcon icon={IconLoader.CheckCircle} name="Check Circle" {...props} />,
+  Fingerprint: (props: IconProps) => <SafeIcon icon={IconLoader.Fingerprint} name="Fingerprint" {...props} />,
+  Minus: (props: IconProps) => <SafeIcon icon={IconLoader.Minus} name="Minus" {...props} />,
+  Clock: (props: IconProps) => <SafeIcon icon={IconLoader.Clock} name="Clock" {...props} />,
+  Zap: (props: IconProps) => <SafeIcon icon={IconLoader.Zap} name="Zap" {...props} />,
+  Star: (props: IconProps) => <SafeIcon icon={IconLoader.Star} name="Star" {...props} />,
 };

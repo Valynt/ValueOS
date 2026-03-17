@@ -49,7 +49,7 @@ export function useCanvasEvent(componentId?: string) {
       // Auto-inject componentId if not in event
       const enrichedEvent: CanvasEvent =
         componentId && !('componentId' in event)
-          ? { ...event, componentId } as any
+          ? ({ ...event, componentId } as CanvasEvent)
           : event;
 
       eventBus.emit(enrichedEvent, canvasId, {

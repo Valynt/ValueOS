@@ -28,7 +28,7 @@ import {
 // rather than scattering `as any` across every query.
 function auditLogsTable(supabase: SupabaseClient) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (supabase as any).from("audit_logs");
+  return supabase.from("audit_logs" as "audit_logs");
 }
 
 /** Shape of a persisted audit log row returned from the database. */

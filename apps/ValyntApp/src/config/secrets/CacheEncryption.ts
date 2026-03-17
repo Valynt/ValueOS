@@ -87,7 +87,7 @@ export class CacheEncryption {
   /**
    * Encrypt cache entry
    */
-  encrypt(data: any, tenantId: string): EncryptedCacheEntry {
+  encrypt(data: unknown, tenantId: string): EncryptedCacheEntry {
     if (!this.encryptionEnabled) {
       // Return unencrypted (for development only)
       return {
@@ -143,7 +143,7 @@ export class CacheEncryption {
   /**
    * Decrypt cache entry
    */
-  decrypt(entry: EncryptedCacheEntry, tenantId: string): any {
+  decrypt(entry: EncryptedCacheEntry, tenantId: string): unknown {
     if (!this.encryptionEnabled) {
       // Return unencrypted (for development only)
       return JSON.parse(entry.encrypted.toString());

@@ -8,6 +8,7 @@
  * Created: 2024-11-29
  */
 
+import type { Request, Response } from 'express';
 import { Counter, Gauge, Histogram, Register } from 'prom-client';
 
 import { logger } from '../../lib/logger.js'
@@ -273,7 +274,7 @@ export const secretMetrics = new SecretMetrics();
  * Express middleware to expose metrics endpoint
  */
 export function metricsMiddleware() {
-  return async (_req: any, res: any) => {
+  return async (_req: Request, res: Response) => {
     try {
       res.set('Content-Type', secretMetrics.getRegister().contentType);
       res.end(await secretMetrics.getMetrics());

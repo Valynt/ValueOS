@@ -35,7 +35,7 @@ export interface RateLimitConfig {
   maxRequests: number;
   skipSuccessfulRequests: boolean;
   skipFailedRequests: boolean;
-  keyGenerator?: (req: any) => string;
+  keyGenerator?: (req: Record<string, unknown>) => string;
 }
 
 /**

@@ -171,7 +171,7 @@ export function useSettingsErrorHandler() {
  */
 export function validateSettingValue(
   key: string,
-  value: any,
+  value: unknown,
   metadata?: {
     type: string;
     min?: number;

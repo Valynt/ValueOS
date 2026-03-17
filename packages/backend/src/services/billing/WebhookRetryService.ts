@@ -18,7 +18,7 @@ interface WebhookEvent {
   id: string;
   stripe_event_id: string;
   event_type: string;
-  payload: any;
+  payload: unknown;
   processed: boolean;
   error_message?: string;
   retry_count: number;

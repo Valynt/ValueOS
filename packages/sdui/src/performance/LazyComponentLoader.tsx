@@ -21,7 +21,7 @@ export interface LazyLoadConfig {
   /**
    * Import function
    */
-  loader: () => Promise<{ default: ComponentType<any> }>;
+  loader: () => Promise<{ default: ComponentType<Record<string, unknown>> }>;
 
   /**
    * Loading fallback component
@@ -52,7 +52,7 @@ export interface LazyLoadConfig {
 /**
  * Lazy component cache
  */
-const lazyComponentCache = new Map<string, React.LazyExoticComponent<ComponentType<any>>>();
+const lazyComponentCache = new Map<string, React.LazyExoticComponent<ComponentType<Record<string, unknown>>>>();
 
 /**
  * Preload cache
@@ -62,14 +62,14 @@ const preloadCache = new Set<string>();
 /**
  * Create lazy component with retry logic
  */
-function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<ComponentType<any>> {
+function createLazyComponent(config: LazyLoadConfig): React.LazyExoticComponent<ComponentType<Record<string, unknown>>> {
   // Check cache
   if (lazyComponentCache.has(config.name)) {
     return lazyComponentCache.get(config.name)!;
   }
 
   // Create loader with retry logic
-  const loaderWithRetry = async (): Promise<{ default: ComponentType<any> }> => {
+  const loaderWithRetry = async (): Promise<{ default: ComponentType<Record<string, unknown>> }> => {
     const { retryAttempts = 3, retryDelay = 1000 } = config;
     let lastError: Error | null = null;
 

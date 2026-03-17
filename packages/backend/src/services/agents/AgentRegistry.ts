@@ -86,7 +86,7 @@ export interface RoutingContext {
   region?: string;
   required_capabilities?: string[];
   previous_agent_id?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const LOAD_INCREMENT_PER_ASSIGNMENT = 0.1;

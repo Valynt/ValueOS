@@ -258,7 +258,7 @@ export interface ExtendedRegistryEntry {
   /**
    * React component
    */
-  component: ComponentType<any>;
+  component: ComponentType<Record<string, unknown>>;
 
   /**
    * Supported versions

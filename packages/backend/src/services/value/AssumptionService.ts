@@ -140,7 +140,7 @@ export class AssumptionService {
   /**
    * Get an assumption by ID
    */
-  async getAssumption(assumptionId: string): Promise<any> {
+  async getAssumption(assumptionId: string): Promise<unknown> {
     const { data, error } = await supabase
       .from('assumptions')
       .select('*')

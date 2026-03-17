@@ -288,10 +288,8 @@ async function listDrivers(req: Request, res: Response, next: NextFunction): Pro
     const repository = getValueDriversRepository();
     
     // Non-admin users can only see published drivers
-    const query = req.query as any;
-    if (!authReq.user?.roles?.includes('admin')) {
-      query.status = 'published';
-    }
+    const parsedQuery = ListValueDriversQuerySchema.parse(req.query);
+    const query = { ...parsedQuery, ...(!authReq.user?.roles?.includes('admin') ? { status: 'published' as const } : {}) };
 
     const result = await repository.list(authReq.tenantId!, query);
 

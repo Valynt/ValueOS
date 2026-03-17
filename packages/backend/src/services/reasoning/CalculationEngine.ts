@@ -8,8 +8,8 @@ export interface CalculationDependency {
 
 export interface CalculationUpdate {
   componentId: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   formula?: string;
 }
 

@@ -162,7 +162,7 @@ export class CanvasPatcher {
   ): CanvasLayout {
     const parts = parentPath.split("/").filter(Boolean);
 
-    const reorder = (node: any, remainingPath: string[]): any => {
+    const reorder = (node: unknown, remainingPath: string[]): unknown => {
       if (remainingPath.length === 0) {
         const children = Array.isArray(node)
           ? node
@@ -202,7 +202,7 @@ export class CanvasPatcher {
           throw new Error(`Invalid path index: ${head}`);
         }
 
-        return node.map((child: any, i: number) => (i === index ? reorder(child, tail) : child));
+        return node.map((child: unknown, i: number) => (i === index ? reorder(child, tail) : child));
       }
 
       if (node && typeof node === "object" && head in node) {
@@ -214,7 +214,7 @@ export class CanvasPatcher {
       throw new Error(`Cannot traverse path: ${head}`);
     };
 
-    return reorder(layout, parts);
+    return reorder(layout, parts) as CanvasLayout;
   }
 
   /**

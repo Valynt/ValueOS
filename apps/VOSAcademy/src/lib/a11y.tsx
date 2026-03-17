@@ -148,7 +148,7 @@ export const a11y = {
 
     // Handle arrow key navigation for custom components
     handleArrowNavigation: (
-      items: any[],
+      items: unknown[],
       currentIndex: number,
       setCurrentIndex: (index: number) => void
     ) => (e: React.KeyboardEvent) => {

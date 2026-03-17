@@ -4,7 +4,7 @@ export interface ComponentHealth {
   status: HealthStatus;
   available: boolean;
   message?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ConfigHealth {

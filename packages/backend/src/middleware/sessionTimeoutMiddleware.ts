@@ -139,7 +139,7 @@ export async function sessionTimeoutMiddleware(
     const userId = claims?.sub;
     const issuedAt = getNumericClaim(claims?.iat);
     const expiresAt = getNumericClaim(claims?.exp);
-    const sessionIdClaim = (claims as any)?.session_id;
+    const sessionIdClaim = claims?.session_id;
     const now = Math.floor(Date.now() / 1000);
 
     if (!userId || !issuedAt || !expiresAt) {
@@ -271,7 +271,7 @@ export async function strictSessionTimeoutMiddleware(
     const claims = verified.claims as JwtPayload;
     const userId = claims?.sub;
     const issuedAt = getNumericClaim(claims?.iat);
-    const sessionIdClaim = (claims as any)?.session_id;
+    const sessionIdClaim = claims?.session_id;
 
     if (!userId || !issuedAt) {
       return res.status(401).json({ error: 'Invalid token' });

@@ -2,7 +2,7 @@ import type { LLMProvider } from "../lib/agent-fabric/llm-types.js"
 import type { LLMGateConfig } from "../lib/llm-gating/types";
 
 // Use a local helper to avoid relying on global ImportMeta typings
-const env = (import.meta as any)?.env ?? {};
+const env = (import.meta as { env?: Record<string, string> })?.env ?? {};
 
 // Together AI is the only supported provider
 const provider: LLMProvider =
