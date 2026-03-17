@@ -3,6 +3,7 @@ import { Component, ErrorInfo, ReactNode } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { captureException } from "@/lib/sentry";
 
 interface Props {
   children: ReactNode;
@@ -32,6 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    // Forward to error tracking service so production errors are not silently swallowed.
+    captureException(error);
     this.props.onError?.(error, errorInfo);
   }
 
