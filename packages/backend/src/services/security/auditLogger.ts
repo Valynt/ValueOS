@@ -1,86 +1,55 @@
 /**
  * Security Audit Logger
- * Sends security events to backend for SOC 2 Immutable Logging (CC6.8)
+ * Sends security events to the AuditLogService for SOC 2 Immutable Logging (CC6.8).
+ *
+ * Previously used navigator.sendBeacon / localStorage (browser-only APIs) which
+ * caused all server-side security events to be silently dropped. Replaced with
+ * direct calls to auditLogService.logAudit() so events are persisted server-side.
  */
 
 import { logger } from "../../lib/logger.js";
-import { SecurityAuditEvent } from "../../types/security";
+import { SecurityAuditEvent } from "../../types/security.js";
+import { auditLogService } from "./AuditLogService.js";
 
-/**
- * Sends security events to the backend for SOC 2 Immutable Logging.
- * This must not be blocked by ad-blockers.
- */
-export const logSecurityEvent = async (
-  event: SecurityAuditEvent
-): Promise<void> => {
-  // In development, console.warn for visibility
-  if (process.env.NODE_ENV === "development") {
-    console.warn(`[SECURITY AUDIT] ${event.action}: ${event.resource}`, event);
-  }
-
-  // Fire-and-forget beacon to backend security endpoint
+export const logSecurityEvent = async (event: SecurityAuditEvent): Promise<void> => {
   try {
-    const blob = new Blob([JSON.stringify(event)], {
-      type: "application/json",
+    await auditLogService.logAudit({
+      userId: event.userId ?? "system",
+      userName: event.userId ?? "system",
+      userEmail: "",
+      action: event.action,
+      resourceType: event.resourceType ?? event.resource,
+      resourceId: event.resource,
+      details: {
+        ...event.details,
+        ...event.metadata,
+        severity: event.severity,
+        sessionId: event.sessionId,
+        ipAddress: event.ipAddress,
+        userAgent: event.userAgent,
+        organizationId: event.organizationId,
+        tenantId: event.tenantId,
+      },
+      status: event.outcome === "blocked" || event.outcome === "failure" ? "failed" : "success",
+      timestamp: event.timestamp,
+      ipAddress: event.ipAddress,
+      userAgent: event.userAgent,
     });
-
-    // Use sendBeacon for reliable delivery (works even during page unload)
-    const success = navigator.sendBeacon("/api/security/audit", blob);
-
-    if (!success && process.env.NODE_ENV === "development") {
-      console.warn("sendBeacon failed, falling back to fetch");
-
-      // Fallback to fetch for development
-      await fetch("/api/security/audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(event),
-        keepalive: true, // Ensure delivery even if page is closing
-      });
-    }
-  } catch (e) {
-    // Fail safe - do not crash app if logging fails
-    console.error("Failed to dispatch security audit log", e);
-
-    // In production, you might want to queue failed events for retry
-    if (typeof window !== "undefined" && "localStorage" in window) {
-      try {
-        const queue = JSON.parse(
-          localStorage.getItem("security_audit_queue") || "[]"
-        );
-        queue.push(event);
-        localStorage.setItem(
-          "security_audit_queue",
-          JSON.stringify(queue.slice(-50))
-        ); // Keep last 50
-      } catch (storageError) {
-        console.error("Failed to queue audit event", storageError);
-      }
-    }
+  } catch (error: unknown) {
+    // Non-fatal: log the delivery failure but do not throw — security logging
+    // must not break the calling code path.
+    logger.error("Failed to deliver security audit event", error instanceof Error ? error : undefined, {
+      action: event.action,
+      severity: event.severity,
+    });
   }
 };
 
 /**
- * Retry queued audit events (call on app startup)
+ * Flush any pending events. No-op in the server-side implementation —
+ * events are delivered synchronously via auditLogService.logAudit().
+ * Kept for interface compatibility with any callers that invoke flushQueue().
  */
-export const retryQueuedAuditEvents = async (): Promise<void> => {
-  if (typeof window === "undefined" || !("localStorage" in window)) return;
-
-  try {
-    const queue = JSON.parse(
-      localStorage.getItem("security_audit_queue") || "[]"
-    );
-
-    if (queue.length > 0) {
-      logger.info(`Retrying ${queue.length} queued security audit events`);
-
-      for (const event of queue) {
-        await logSecurityEvent(event);
-      }
-
-      localStorage.removeItem("security_audit_queue");
-    }
-  } catch (e) {
-    console.error("Failed to retry queued audit events", e);
-  }
+export const flushQueue = async (): Promise<void> => {
+  // No-op: server-side delivery is synchronous, no queue to flush.
 };

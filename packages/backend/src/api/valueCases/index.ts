@@ -30,8 +30,8 @@ import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/v
 import { 
   ConflictError,
   DatabaseError,
-  getValueCasesRepository,
   NotFoundError,
+  ValueCasesRepository,
 } from './repository';
 import { 
   ApiErrorResponse,
@@ -242,7 +242,7 @@ async function createCase(req: Request, res: Response, next: NextFunction): Prom
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getValueCasesRepository();
+    const repository = ValueCasesRepository.fromRequest(req);
     const valueCase = await repository.create(
       authReq.tenantId!,
       authReq.user!.id,
@@ -266,7 +266,7 @@ async function listCases(req: Request, res: Response, next: NextFunction): Promi
   const authReq = req as AuthenticatedRequest;
 
   try {
-    const repository = getValueCasesRepository();
+    const repository = ValueCasesRepository.fromRequest(req);
     const result = await repository.list(authReq.tenantId!, req.query as any);
 
     res.status(200).json({
@@ -287,7 +287,7 @@ async function getCase(req: Request, res: Response, next: NextFunction): Promise
   const { caseId } = req.params;
 
   try {
-    const repository = getValueCasesRepository();
+    const repository = ValueCasesRepository.fromRequest(req);
     const valueCase = await repository.getById(authReq.tenantId!, caseId);
 
     res.status(200).json({
@@ -308,7 +308,7 @@ async function updateCase(req: Request, res: Response, next: NextFunction): Prom
   const { caseId } = req.params;
 
   try {
-    const repository = getValueCasesRepository();
+    const repository = ValueCasesRepository.fromRequest(req);
     const valueCase = await repository.update(authReq.tenantId!, caseId, req.body);
 
     res.status(200).json({
@@ -329,7 +329,7 @@ async function deleteCase(req: Request, res: Response, next: NextFunction): Prom
   const { caseId } = req.params;
 
   try {
-    const repository = getValueCasesRepository();
+    const repository = ValueCasesRepository.fromRequest(req);
     await repository.delete(authReq.tenantId!, caseId);
 
     res.status(204).send();

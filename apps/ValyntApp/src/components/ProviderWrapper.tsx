@@ -1,5 +1,6 @@
 import React, { ErrorInfo, ReactNode } from "react";
 
+import { captureException } from "../lib/sentry";
 import ErrorBoundary from "./ErrorBoundary";
 
 interface ProviderWrapperProps {
@@ -12,23 +13,15 @@ interface ProviderWrapperProps {
  */
 const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
   const handleAuthError = (error: Error, _errorInfo: ErrorInfo) => {
-    // Log authentication errors with appropriate severity
-    console.warn("Authentication provider error:", error.name);
-
-    // In production, you might want to send this to an error reporting service
-    if (process.env.NODE_ENV === "production") {
-      // Example: Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
-    }
+    captureException(error);
   };
 
   const handleNetworkError = (error: Error, _errorInfo: ErrorInfo) => {
-    // Log network-related errors
-    console.warn("Network provider error:", error.name);
+    captureException(error);
   };
 
   const handleCriticalError = (error: Error, _errorInfo: ErrorInfo) => {
-    // Log critical errors that might affect the entire app
-    console.error("Critical provider error:", error.name);
+    captureException(error);
   };
 
   return (

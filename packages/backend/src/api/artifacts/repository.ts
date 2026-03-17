@@ -6,9 +6,10 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
 
 import {
   Artifact,
@@ -20,12 +21,7 @@ import {
   PaginatedResponse,
   UpdateArtifactRequest,
 } from './types';
-// Simple logger
-const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, JSON.stringify(data || {})),
-  error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, JSON.stringify(data || {})),
-  warn: (msg: string, data?: Record<string, unknown>) => console.warn(`[WARN] ${msg}`, JSON.stringify(data || {})),
-};
+
 
 // ============================================================================
 // Repository Errors
@@ -84,8 +80,19 @@ export class ArtifactsRepository {
   private supabase: SupabaseClient;
   private tableName = 'memory_artifacts';
 
-  constructor() {
-    this.supabase = createServerSupabaseClient();
+  constructor(supabase?: SupabaseClient) {
+    this.supabase = supabase ?? createServerSupabaseClient();
+  }
+
+  static fromRequest(req: Request): ArtifactsRepository {
+    if (req.supabase) {
+      return new ArtifactsRepository(req.supabase);
+    }
+    const token = (req.session as Record<string, unknown> | undefined)?.access_token;
+    if (typeof token === 'string') {
+      return new ArtifactsRepository(createUserSupabaseClient(token));
+    }
+    throw new Error('ArtifactsRepository.fromRequest: no user-scoped Supabase client available on request');
   }
 
   /**

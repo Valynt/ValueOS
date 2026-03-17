@@ -18,6 +18,23 @@ export interface ValidationResult {
 const REQUIRED_VARS = [
   { name: "DATABASE_URL", fix: "Run: pnpm run dx:env --mode local --force" },
   { name: "SUPABASE_URL", fix: "Run: pnpm run dx:env --mode local --force" },
+  {
+    name: "SUPABASE_KEY",
+    fix: "Set SUPABASE_KEY to the same value as SUPABASE_ANON_KEY. See ops/env/README.md.",
+  },
+  {
+    name: "WEB_SCRAPER_ENCRYPTION_KEY",
+    fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" and set in ops/env/.env.backend.<mode>",
+  },
+];
+
+// TCT_SECRET is required in all environments except test mode.
+// In test mode, AuthService generates an ephemeral secret when TCT_ALLOW_EPHEMERAL_SECRET=true.
+const REQUIRED_VARS_NON_TEST = [
+  {
+    name: "TCT_SECRET",
+    fix: "Generate with: openssl rand -hex 32 and set in ops/env/.env.backend.<mode>. For test mode only, set TCT_ALLOW_EPHEMERAL_SECRET=true.",
+  },
 ];
 
 const RECOMMENDED_VARS = [
@@ -109,6 +126,8 @@ function validateSecureTransportRules(errors: string[]): void {
 export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const isTestMode = nodeEnv === "test" || process.env.LOCAL_TEST_MODE === "true";
 
   for (const { deprecated, canonical } of DEPRECATED_ALIASES) {
     if (process.env[deprecated]) {
@@ -123,6 +142,15 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  // Check vars required outside test mode
+  if (!isTestMode) {
+    for (const { name, fix } of REQUIRED_VARS_NON_TEST) {
+      if (!process.env[name]) {
+        errors.push(`Missing ${name}. Fix: ${fix}`);
+      }
+    }
+  }
+
   // Check recommended variables (warnings only)
   for (const { name, fix } of RECOMMENDED_VARS) {
     if (!process.env[name]) {
@@ -131,7 +159,6 @@ export function validateEnv(): ValidationResult {
   }
 
   // Production: require Together API key to prevent misconfiguration
-  const nodeEnv = process.env.NODE_ENV ?? "development";
   if (nodeEnv === "production" && !process.env.TOGETHER_API_KEY) {
     errors.push("TOGETHER_API_KEY is required in production");
   }

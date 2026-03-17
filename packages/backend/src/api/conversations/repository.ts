@@ -6,9 +6,10 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
 
 import {
   ConversationSession,
@@ -19,11 +20,7 @@ import {
   MessageRole,
 } from './types';
 
-// Simple logger
-const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, JSON.stringify(data || {})),
-  error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, JSON.stringify(data || {})),
-};
+
 
 // ============================================================================
 // Repository Errors
@@ -76,8 +73,19 @@ export class ConversationsRepository {
   private supabase: SupabaseClient;
   private tableName = 'messages';
 
-  constructor() {
-    this.supabase = createServerSupabaseClient();
+  constructor(supabase?: SupabaseClient) {
+    this.supabase = supabase ?? createServerSupabaseClient();
+  }
+
+  static fromRequest(req: Request): ConversationsRepository {
+    if (req.supabase) {
+      return new ConversationsRepository(req.supabase);
+    }
+    const token = (req.session as Record<string, unknown> | undefined)?.access_token;
+    if (typeof token === 'string') {
+      return new ConversationsRepository(createUserSupabaseClient(token));
+    }
+    throw new Error('ConversationsRepository.fromRequest: no user-scoped Supabase client available on request');
   }
 
   /**
