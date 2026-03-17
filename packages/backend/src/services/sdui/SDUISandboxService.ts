@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js'
-import { SDUISanitizer } from '../lib/security/SDUISanitizer';
+import { SDUISanitizer } from '../../lib/security/SDUISanitizer';
 
 export interface ComponentValidationResult {
   valid: boolean;

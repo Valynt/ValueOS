@@ -95,6 +95,7 @@ export interface UnifiedAgentResponse<T = any> {
     timestamp: string;
     model?: string;
     traceId: string;
+    cached?: boolean;
     tokens?: {
       prompt: number;
       completion: number;

@@ -25,11 +25,11 @@ export interface LLMConfig {
 }
 
 export interface LLMResponse {
-  id: string;
-  object: string;
-  created: number;
+  id?: string;
+  object?: string;
+  created?: number;
   model: string;
-  choices: {
+  choices?: {
     index: number;
     message: LLMMessage;
     finish_reason: string;
@@ -39,6 +39,12 @@ export interface LLMResponse {
     completion_tokens: number;
     total_tokens: number;
   };
+  /** Simplified response fields used by proxy clients. */
+  content?: string;
+  tokens_used?: number;
+  latency_ms?: number;
+  tool_calls?: unknown[];
+  finish_reason?: string;
 }
 
 export type LLMStreamCallback = (chunk: string) => void;

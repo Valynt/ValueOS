@@ -2,8 +2,8 @@ import type {
   ISecretProvider,
   SecretMetadata,
   SecretValue,
-} from "../config/secrets/ISecretProvider.js";
-import { createProviderFromEnv } from "../config/secrets/ProviderFactory.js";
+} from "../../config/secrets/ISecretProvider.js";
+import { createProviderFromEnv } from "../../config/secrets/ProviderFactory.js";
 
 import { AuthorizationError } from "./errors.js";
 import { RbacService, RbacUser, SecretPermission } from "./RbacService.js";

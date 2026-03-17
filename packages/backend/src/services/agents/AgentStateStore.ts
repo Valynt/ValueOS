@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentState } from "./types";
+import type { AgentEvent, AgentState } from "./agent-types.js";
 
 import { getIoRedisClient } from "../../lib/ioredisClient.js";
 

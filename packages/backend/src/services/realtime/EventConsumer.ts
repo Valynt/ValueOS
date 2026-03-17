@@ -10,7 +10,7 @@ import jwt from "jsonwebtoken";
 import { Consumer, EachMessagePayload, Kafka, logLevel, Producer } from "kafkajs";
 
 import { logger } from "../../lib/logger.js"
-import { TCTPayload, tenantContextStorage } from "../middleware/tenantContext.js"
+import { TCTPayload, tenantContextStorage } from "../../middleware/tenantContext.js"
 
 
 import { buildKafkaClientConfig, isKafkaEnabled } from "./kafkaConfig.js"

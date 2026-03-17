@@ -11,8 +11,8 @@ import { logger } from '../../lib/logger.js'
 import { AgentOutput } from '../../types/agent-output';
 
 import { agentSDUIAdapter } from './AgentSDUIAdapter.js'
-import { canvasSchemaService } from './CanvasSchemaService.js'
-import { getComponentMutationService } from './ComponentMutationService.js'
+import { canvasSchemaService } from '../sdui/CanvasSchemaService.js'
+import { getComponentMutationService } from '../sdui/ComponentMutationService.js'
 
 /**
  * Agent output event types

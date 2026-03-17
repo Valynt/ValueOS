@@ -1,7 +1,7 @@
 import {
   SandboxedExecutor as CoreSandboxedExecutor,
   type SandboxedExecutionResult,
-} from "../SandboxedExecutor.js";
+} from "../agents/SandboxedExecutor.js";
 
 export interface SandboxConfig {
   language: "python" | "javascript";

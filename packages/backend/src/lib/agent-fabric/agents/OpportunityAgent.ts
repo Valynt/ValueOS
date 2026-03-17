@@ -324,7 +324,7 @@ export class OpportunityAgent extends BaseAgent {
           metrics_count: Object.keys(result.metrics).length,
         });
       }
-      return { analysis: result, promptRefs };
+      return result;
     } catch (err) {
       logger.warn('Ground truth fetch failed, proceeding without grounding', {
         entity_id: entityId,

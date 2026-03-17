@@ -8,11 +8,11 @@
 import { SDUIPageDefinition } from '@valueos/sdui';
 
 import { logger } from '../../lib/logger.js'
-import { LifecycleStage } from '../types/workflow';
+import { LifecycleStage } from '../../types/workflow';
 import {
   StageCompletionEvent,
   WorkflowProgress,
-} from '../types/workflow-sdui';
+} from '../../types/workflow-sdui';
 
 // StageTransitionEvent is not in workflow-sdui; define locally
 interface StageTransitionEvent {
@@ -226,7 +226,7 @@ export class WorkflowSDUIAdapter {
         userId: 'system',
         lifecycle_stage: stage,
         lifecycleStage: stage,
-        permissions: {} as import('../types/sdui-integration').WorkspacePermissions,
+        permissions: {} as import('../../types/sdui-integration').WorkspacePermissions,
       });
 
       logger.info('Generated stage-specific schema', {

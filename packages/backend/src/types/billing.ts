@@ -161,11 +161,18 @@ export interface UsageAggregate {
 
 export interface UsageSummary {
   organization_id: string;
+  /** Alias for organization_id — accepted for backward compatibility. */
+  tenant_id?: string;
   period_start: string;
   period_end: string;
   metrics: Record<string, UsageAggregate>;
   total_overage_cost: number;
   estimated_invoice_amount: number;
+  usage?: Record<string, number>;
+  quotas?: Record<string, number>;
+  percentages?: Record<string, number>;
+  overages?: Record<string, number>;
+  costs?: Record<string, number>;
 }
 
 // ============================================================================

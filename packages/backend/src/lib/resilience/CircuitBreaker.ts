@@ -136,7 +136,7 @@ export class CircuitBreakerManager {
   async execute<T>(
     name: string,
     fn: () => Promise<T>,
-    _options?: { timeoutMs?: number },
+    _options?: { timeoutMs?: number; failureRateThreshold?: number },
   ): Promise<T> {
     return this.getBreaker(name).execute(fn);
   }

@@ -58,6 +58,7 @@ export interface AuditLogCreateInput {
   action: string;
   resourceType: string;
   resourceId: string;
+  tenantId?: string;
   details?: Record<string, unknown>;
   /** Snapshot of the resource state before the mutation. Stored in details.before_state. */
   beforeState?: Record<string, unknown>;

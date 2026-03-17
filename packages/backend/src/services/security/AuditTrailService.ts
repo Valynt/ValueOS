@@ -20,7 +20,9 @@ export interface AuditEvent {
   id?: string;
   eventType: AuditEventType;
   actorId: string;
-  externalSub: string;
+  externalSub?: string;
+  /** Alias for externalSub — accepted for backward compatibility. */
+  auth0Sub?: string;
   actorType: ActorType;
   resourceId: string;
   resourceType: ResourceType;

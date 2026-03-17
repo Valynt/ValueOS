@@ -12,6 +12,9 @@ export interface PublishUsageEventInput {
   metric: BillingMetric;
   amount: number;
   requestId: string;
+  agentUuid?: string;
+  workloadIdentity?: string;
+  evidenceLink?: string;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string;
 }

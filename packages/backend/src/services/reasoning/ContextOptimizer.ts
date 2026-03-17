@@ -193,8 +193,8 @@ export class ContextOptimizer implements MemoryPressureListener {
     maxTokens: number
   ): Promise<string> {
     // Import MemorySystem here to avoid circular dependencies
-    const { createMemorySystem } = await import("../lib/agent-fabric/MemorySystem.js");
-    const { SupabaseMemoryBackend } = await import("../lib/agent-fabric/SupabaseMemoryBackend.js");
+    const { createMemorySystem } = await import("../../lib/agent-fabric/MemorySystem.js");
+    const { SupabaseMemoryBackend } = await import("../../lib/agent-fabric/SupabaseMemoryBackend.js");
 
     const memorySystem = createMemorySystem(
       { max_memories: 1000, enable_persistence: true },

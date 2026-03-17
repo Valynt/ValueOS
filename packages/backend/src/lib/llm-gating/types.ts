@@ -5,10 +5,26 @@
  */
 
 export interface LLMGateConfig {
-  max_requests_per_minute: number;
-  max_tokens_per_request: number;
-  allowed_models: string[];
-  require_approval: boolean;
+  max_requests_per_minute?: number;
+  max_tokens_per_request?: number;
+  allowed_models?: string[];
+  require_approval?: boolean;
+  enabled?: boolean;
+  cost?: {
+    enabled?: boolean;
+    warningThreshold?: number;
+    downgradeThreshold?: number;
+    blockThreshold?: number;
+    perRequestLimit?: number;
+    allowGracePeriod?: boolean;
+  };
+  compliance?: {
+    enablePIIDetection?: boolean;
+    blockingPIITypes?: string[];
+    allowRedactedPII?: boolean;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
 }
 
 export interface LLMGateDecision {

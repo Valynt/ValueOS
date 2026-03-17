@@ -11,6 +11,7 @@ type TelemetryEvent = {
   agentType: AgentType;
   sessionId?: string;
   userId?: string;
+  organizationId?: string;
   data?: Record<string, unknown>;
   severity?: TelemetrySeverity;
 };

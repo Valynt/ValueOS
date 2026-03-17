@@ -12,7 +12,7 @@ import type {
   UIGenerationMetrics,
   UIGenerationTrajectory,
   UIInteractionEvent,
-} from '../types/UIGenerationMetrics';
+} from '../../types/UIGenerationMetrics';
 
 export class UIGenerationTracker {
   /**

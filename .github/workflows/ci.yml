@@ -144,6 +144,7 @@ jobs:
       - name: CI scanner action version manifest guard
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
 
+
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
 

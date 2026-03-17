@@ -251,6 +251,12 @@ export interface BatchAction {
    * Idempotency key for deduplication
    */
   idempotencyKey?: string;
+
+  /** Execute all actions atomically — roll back on any failure. */
+  atomic?: boolean;
+
+  /** Reason for the batch — used for audit logging. */
+  reason?: string;
 }
 
 /**

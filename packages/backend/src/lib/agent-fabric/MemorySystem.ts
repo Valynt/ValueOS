@@ -44,6 +44,8 @@ export interface MemoryQuery {
   agent_id: string;
   workspace_id?: string;
   allow_cross_workspace?: boolean;
+  /** Alias for allow_cross_workspace — accepted for backward compatibility. */
+  include_cross_workspace?: boolean;
   cross_workspace_reason?: string;
   query_text?: string;
   memory_type?: MemoryType;

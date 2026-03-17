@@ -95,6 +95,8 @@ export interface ToolResult {
     cost?: number;
     tokensUsed?: number;
     cached?: boolean;
+    policyVersion?: string;
+    decisionId?: string;
   };
 }
 

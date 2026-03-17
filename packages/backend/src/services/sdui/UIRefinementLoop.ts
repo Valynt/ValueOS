@@ -17,11 +17,11 @@ import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
 import type { SDUIPageDefinition } from '@valueos/sdui';
 
 import { llmConfig } from '../config/llm.js'
-import { CircuitBreaker as AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
+import { CircuitBreaker as AgentCircuitBreaker } from '../../lib/agent-fabric/CircuitBreaker';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
+import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper';
 import { logger } from '../../lib/logger.js'
-import type { Subgoal } from '../types/Subgoal';
+import type { Subgoal } from '../../types/Subgoal';
 
 import { ComponentMutationService } from './ComponentMutationService.js'
 import { getUIGenerationTracker } from './UIGenerationTracker.js'
@@ -83,7 +83,7 @@ export class UIRefinementLoop {
     subgoal: Subgoal,
     initialLayout: SDUIPageDefinition,
     circuitBreaker?: AgentCircuitBreaker,
-    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
+    taskContext?: import('../../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<RefinementResult> {
     let currentLayout = initialLayout;
     let currentScore = await this.evaluateLayout(currentLayout, subgoal, circuitBreaker, taskContext);
@@ -154,7 +154,7 @@ export class UIRefinementLoop {
     layout: SDUIPageDefinition,
     subgoal: Subgoal,
     _circuitBreaker?: AgentCircuitBreaker,
-    _taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
+    _taskContext?: import('../../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<UIEvaluationResult> {
     const prompt = `You are a UI/UX expert evaluating interface designs. Evaluate the UI layout and provide:
 1. Overall score (0-100)
@@ -220,7 +220,7 @@ Evaluate the layout's effectiveness for this task.`;
     evaluation: UIEvaluationResult,
     subgoal: Subgoal,
     circuitBreaker?: AgentCircuitBreaker,
-    _taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
+    _taskContext?: import('../../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<SDUIPageDefinition> {
     // Check if we should use partial mutations
     if (this.config.usePartialMutations && this.shouldUsePartialMutation(evaluation)) {
@@ -257,7 +257,7 @@ Evaluate the layout's effectiveness for this task.`;
     currentLayout: SDUIPageDefinition,
     evaluation: UIEvaluationResult,
     circuitBreaker?: AgentCircuitBreaker,
-    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
+    taskContext?: import('../../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<SDUIPageDefinition> {
     const messages = [
       {
@@ -364,7 +364,7 @@ Generate minimal atomic actions to fix these specific issues.`,
     evaluation: UIEvaluationResult,
     subgoal: Subgoal,
     circuitBreaker?: AgentCircuitBreaker,
-    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
+    taskContext?: import('../../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<SDUIPageDefinition> {
     const messages = [
       {
@@ -444,7 +444,7 @@ Generate an improved layout that addresses these issues.`,
     currentLayout: SDUIPageDefinition,
     userRequest: string,
     circuitBreaker?: AgentCircuitBreaker,
-    taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
+    taskContext?: import('../../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<{ layout: SDUIPageDefinition; changes: string[] }> {
     // Allow optional context object via last arg if passed in as object in future
     logger.info('Processing user mutation request', { request: userRequest });

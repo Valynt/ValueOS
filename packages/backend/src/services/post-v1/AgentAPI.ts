@@ -1,2 +1,2 @@
 // Re-export shim
-export * from "UnifiedAgentAPI.js";
+export * from "../agents/UnifiedAgentAPI.js";

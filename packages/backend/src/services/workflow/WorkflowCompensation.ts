@@ -5,7 +5,7 @@ import {
   ExecutedStep,
   LifecycleStage,
   RollbackState
-} from '../types/workflow';
+} from '../../types/workflow';
 
 type CompensationHandler = (context: CompensationContext) => Promise<void>;
 

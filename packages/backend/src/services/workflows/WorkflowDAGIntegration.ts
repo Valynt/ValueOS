@@ -22,8 +22,8 @@ import {
 } from "../../types/workflow";
 import { AgentType, getAgentAPI } from "../AgentAPI.js"
 import { CircuitBreakerManager } from "../CircuitBreaker.js"
-import { workflowCompensation } from "../WorkflowCompensation.js"
-import { workflowStateMachine } from "../WorkflowStateMachine.js"
+import { workflowCompensation } from "../workflow/WorkflowCompensation.js"
+import { workflowStateMachine } from "../workflow/WorkflowStateMachine.js"
 
 import {
   ALL_WORKFLOW_DEFINITIONS,
