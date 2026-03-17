@@ -37,7 +37,7 @@ export interface MemoryEntry {
     source_url?: string;
     chunk_index?: number;
     total_chunks?: number;
-    tier?: 'tier1' | 'tier2' | 'tier3';
+    tier?: "tier1" | "tier2" | "tier3";
   };
   createdAt: Date;
 }
@@ -64,14 +64,21 @@ export class SemanticMemoryService {
   /**
    * Split text into chunks using recursive character splitting for better context preservation.
    */
-  chunkText(text: string, size: number = 2000, overlap: number = 200): string[] {
+  chunkText(
+    text: string,
+    size: number = 2000,
+    overlap: number = 200
+  ): string[] {
     if (!text) return [];
     if (text.length <= size) return [text];
 
     const chunks: string[] = [];
     const separators = ["\n##", "\n#", "\n\n", "\n", ". ", " ", ""];
 
-    const splitRecursive = (currentText: string, separatorIdx: number): string[] => {
+    const splitRecursive = (
+      currentText: string,
+      separatorIdx: number
+    ): string[] => {
       if (currentText.length <= size) return [currentText];
 
       const separator = separators[separatorIdx];
@@ -79,18 +86,18 @@ export class SemanticMemoryService {
 
       const parts = currentText.split(separator);
       const result: string[] = [];
-      let currentChunk = '';
+      let currentChunk = "";
 
       for (const part of parts) {
         if ((currentChunk + separator + part).length <= size) {
-          currentChunk += (currentChunk ? separator : '') + part;
+          currentChunk += (currentChunk ? separator : "") + part;
         } else {
           if (currentChunk) result.push(currentChunk);
 
           if (part.length > size) {
             // Part itself is too big, recurse with next separator
             result.push(...splitRecursive(part, separatorIdx + 1));
-            currentChunk = '';
+            currentChunk = "";
           } else {
             currentChunk = part;
           }
@@ -145,7 +152,9 @@ export class SemanticMemoryService {
         throw new Error(`Together AI API error: ${response.status}`);
       }
 
-      const data = await response.json() as { data: Array<{ embedding: number[] }> };
+      const data = (await response.json()) as {
+        data: Array<{ embedding: number[] }>;
+      };
       const embedding = data.data[0]?.embedding;
       if (!embedding) throw new Error("No embedding returned from API");
       return embedding;
@@ -245,11 +254,17 @@ export class SemanticMemoryService {
     } = {}
   ): Promise<SemanticSearchResult[]> {
     try {
-      // Generate query embedding
-      const queryEmbedding = await this.generateEmbedding(query);
-
       const organizationId = options.organizationId ?? options.tenantId;
       const sessionId = options.sessionId ?? options.workflowId;
+
+      if (!organizationId) {
+        throw new Error(
+          "SemanticMemory.search requires organizationId (or tenantId) for tenant isolation"
+        );
+      }
+
+      // Generate query embedding
+      const queryEmbedding = await this.generateEmbedding(query);
 
       // Perform vector similarity search
       const { data, error } = await this.supabase.rpc(
