@@ -59,7 +59,7 @@ export class ConfigurationManager {
     this.config = this.getDefaultConfig();
   }
 
-  public checkSafety(agentId: string, request: any): { safe: boolean; reason?: string } {
+  public checkSafety(agentId: string, request: unknown): { safe: boolean; reason?: string } {
     const globalPolicy = this.config.safety.global;
     const agentPolicy = this.config.safety.perAgent[agentId] || {};
     const effectivePolicy = { ...globalPolicy, ...agentPolicy };

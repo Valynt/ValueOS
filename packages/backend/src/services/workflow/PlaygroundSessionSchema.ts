@@ -486,7 +486,7 @@ export const PlaygroundSessionSchema = z.object({
 /**
  * Validate session data
  */
-export function validateSession(data: any): {
+export function validateSession(data: unknown): {
   valid: boolean;
   errors: string[];
 } {

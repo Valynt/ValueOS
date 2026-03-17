@@ -15,7 +15,15 @@ export interface RedisRateLimiterOptions {
   prefix?: string;
 }
 
-export function createRedisRateLimiter(redisClient: any, opts: RedisRateLimiterOptions = {}): RateLimiterProvider {
+interface RedisLike {
+  eval?: (...args: unknown[]) => Promise<unknown>;
+  sendCommand?: (args: string[]) => Promise<unknown>;
+  incr?: (key: string) => Promise<number>;
+  pttl?: (key: string) => Promise<number>;
+  pexpire?: (key: string, ms: number) => Promise<unknown>;
+}
+
+export function createRedisRateLimiter(redisClient: RedisLike, opts: RedisRateLimiterOptions = {}): RateLimiterProvider {
   const windowMs = opts.windowMs || Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
   const maxAttempts = opts.maxAttempts || Number(process.env.AUTH_RATE_LIMIT_MAX) || 5;
   const keyPrefix = opts.prefix || 'auth:';

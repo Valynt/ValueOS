@@ -14,7 +14,7 @@ function hasSpatialProps(c: CanvasComponent): c is SpatialComponent {
 export interface BatchOperation {
   type: 'align' | 'distribute' | 'resize' | 'delete' | 'duplicate' | 'group';
   componentIds: string[];
-  params?: any;
+  params?: Record<string, unknown>;
 }
 
 export interface BatchResult {

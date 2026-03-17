@@ -269,7 +269,7 @@ async function listArtifacts(req: Request, res: Response, next: NextFunction): P
 
   try {
     const repository = ArtifactsRepository.fromRequest(req);
-    const result = await repository.list(authReq.tenantId!, req.query as any);
+    const result = await repository.list(authReq.tenantId!, ListArtifactsQuerySchema.parse(req.query));
 
     res.status(200).json({
       ...result,

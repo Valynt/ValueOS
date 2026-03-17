@@ -738,7 +738,7 @@ export class AuthService extends BaseService {
         }
 
         const roles = [data.role || "member"];
-        const tier = (data.tenants as any)?.settings?.tier || "free";
+        const tier = ((data.tenants as Record<string, unknown>)?.settings as Record<string, unknown>)?.tier as string || "free";
 
         const payload: TCTPayload = {
           iss: "valueos-control-plane",

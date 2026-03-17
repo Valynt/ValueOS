@@ -446,7 +446,7 @@ router.get('/health', (_req: Request, res: Response) => {
 
 router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const sanitizedError = sanitizeForLogging(err);
-  logger.error('Documentation API Error', err, { context: sanitizedError as any });
+  logger.error('Documentation API Error', err, { context: sanitizedError as Record<string, unknown> });
 
   const message =
     settings.NODE_ENV === "development"

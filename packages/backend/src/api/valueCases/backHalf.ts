@@ -7,6 +7,7 @@
  * POST /api/v1/cases/:id/narrative/run    — trigger NarrativeAgent
  * GET  /api/v1/cases/:id/realization      — latest realization report
  * POST /api/v1/cases/:id/realization/run  — trigger RealizationAgent
+ * GET  /api/v1/cases/:id/lineage          — paginated agent execution lineage
  *
  * All endpoints require authentication and tenant context. Agent runs are
  * executed synchronously (direct mode) and return the agent output inline.
@@ -29,6 +30,7 @@ import { IntegrityResultRepository } from '../../repositories/IntegrityResultRep
 import { NarrativeDraftRepository } from '../../repositories/NarrativeDraftRepository.js';
 import { RealizationReportRepository } from '../../repositories/RealizationReportRepository.js';
 import { ExpansionOpportunityRepository } from '../../repositories/ExpansionOpportunityRepository.js';
+import { agentExecutionLineageRepository } from '../../repositories/AgentExecutionLineageRepository.js';
 import { getPdfExportService } from '../../services/export/PdfExportService.js';
 import { getPptxExportService } from '../../services/export/PptxExportService.js';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
@@ -437,8 +439,8 @@ function getBackHalfProvenanceTracker(): ProvenanceTracker {
     // this package and SagaAdapters — both use @supabase/supabase-js but
     // with different generic instantiations.
     const client = createServerSupabaseClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const store = new SupabaseProvenanceStore(client as any) as unknown as ProvenanceStore;
+    // Generic parameter mismatch between package instantiations — both use @supabase/supabase-js.
+    const store = new SupabaseProvenanceStore(client as never) as unknown as ProvenanceStore;
     _provenanceTracker = new ProvenanceTracker(store);
   }
   return _provenanceTracker;
@@ -543,3 +545,4 @@ backHalfRouter.post('/:id/run-loop', ...auth, async (req: Request, res: Response
     return res.status(500).json({ success: false, error: 'Hypothesis loop failed' });
   }
 });
+

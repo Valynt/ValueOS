@@ -4,7 +4,7 @@ import React, { useState } from "react";
 interface Column<T> {
   key: keyof T;
   label: string;
-  render?: (value: any, item: T) => React.ReactNode;
+  render?: (value: unknown, item: T) => React.ReactNode;
 }
 
 interface EntityTableProps<T> {

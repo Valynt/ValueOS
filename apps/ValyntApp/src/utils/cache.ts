@@ -17,7 +17,7 @@ export interface CacheEntry<T> {
 }
 
 class CacheManager {
-  private memoryCache: Map<string, CacheEntry<any>> = new Map();
+  private memoryCache: Map<string, CacheEntry<unknown>> = new Map();
   private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly CACHE_VERSION = "1.0";
 

@@ -85,7 +85,7 @@ export interface UnifiedAgentResponse<T = any> {
   /** Response type */
   type?: "component" | "message" | "suggestion" | "sdui-page";
   /** Response payload */
-  payload?: any;
+  payload?: unknown;
   /** Status (for workflow) */
   status?: string;
   /** Response metadata */

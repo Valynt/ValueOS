@@ -36,7 +36,7 @@ export async function getRedisClient(): Promise<RedisClientType | null> {
  * Lightweight connection indicator.
  */
 export function isRedisConnected(): boolean {
-  return Boolean(cachedClient?.isOpen || (cachedClient as any)?.isReady);
+  return Boolean(cachedClient?.isOpen || (cachedClient as { isReady?: boolean } | null)?.isReady);
 }
 
 /**

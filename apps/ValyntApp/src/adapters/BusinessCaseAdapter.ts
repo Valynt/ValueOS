@@ -344,7 +344,7 @@ export class IntegrationManager {
     newPersona: string,
     currentData: TemplateDataSource
   ): Promise<string> {
-    const context = { ...currentData.context, persona: newPersona as any };
+    const context = { ...currentData.context, persona: newPersona as string };
     return this.templateSelector(context);
   }
 
@@ -354,7 +354,7 @@ export class IntegrationManager {
   async addTrustOverlay(
     templateData: TemplateDataSource,
     businessCase: BusinessCaseResult
-  ): Promise<TemplateDataSource & { trustOverlay: any[] }> {
+  ): Promise<TemplateDataSource & { trustOverlay: unknown[] }> {
     const trustOverlay = templateData.metrics.map(metric => ({
       metric: metric.name,
       value: metric.value,

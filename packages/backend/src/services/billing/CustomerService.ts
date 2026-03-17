@@ -34,8 +34,8 @@ class CustomerService {
       this.stripe = this.stripeService.getClient();
     } catch (error) {
       logger.warn('Stripe service not available, billing features disabled');
-      this.stripe = null as any;
-      this.stripeService = null as any;
+      this.stripe = null!;
+      this.stripeService = null!;
     }
   }
 

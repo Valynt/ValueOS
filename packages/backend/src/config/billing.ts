@@ -6,7 +6,7 @@
 
 const env =
   typeof import.meta !== "undefined"
-    ? ((import.meta as any).env ?? {})
+    ? ((import.meta as { env?: Record<string, string> }).env ?? {})
     : (process.env ?? {});
 
 const getEnv = (key: string, defaultValue: string = "") =>

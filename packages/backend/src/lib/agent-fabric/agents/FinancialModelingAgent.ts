@@ -123,8 +123,7 @@ interface ComputedModel {
 let _provenanceTracker: ProvenanceTracker | null = null;
 function getProvenanceTracker(): ProvenanceTracker {
   if (!_provenanceTracker) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = createServerSupabaseClient() as any;
+    const client = createServerSupabaseClient();
     const store = new SupabaseProvenanceStore(client);
     _provenanceTracker = new ProvenanceTracker(store);
   }

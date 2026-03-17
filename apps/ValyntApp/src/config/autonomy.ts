@@ -5,7 +5,7 @@
  * Prevents unauthorized or expensive operations without human oversight.
  */
 
-const env = typeof import.meta !== 'undefined' ? (import.meta as any).env ?? {} : process.env ?? {};
+const env = (typeof import.meta !== 'undefined' ? ((import.meta as Record<string, unknown>).env ?? {}) : (process.env ?? {})) as Record<string, string>;
 
 const getEnv = (key: string, defaultValue: string) => (env[key] ?? defaultValue) as string;
 
