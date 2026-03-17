@@ -9,7 +9,7 @@
     "build": "echo 'sdui: consumed as TS source via path aliases; skipping emit'",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@sentry/react": "^10.43.0",

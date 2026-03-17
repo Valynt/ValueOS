@@ -43,6 +43,30 @@ Source of truth for sprint planning. Linked GitHub issues where they exist.
 
 ---
 
+### DEBT-ANY-BURNDOWN: TypeScript `any` cast burn-down (Audit Rec #9, #13)
+
+**Status:** Active -- burn-down plan defined, sprint targets set.
+**Current count:** 1,522 (as of March 2026 audit).
+**Target:** <100 by end of Q4 2026.
+**Tracking:** `docs/debt/ts-any-dashboard.md`
+
+**Sprint targets (burn-down order):**
+
+| Sprint | Package               | Target Reduction | Expected Remaining |
+| ------ | --------------------- | ---------------- | ------------------ |
+| S43-44 | `packages/shared`     | -54 (all)        | 1,468              |
+| S43-44 | `packages/components` | -31 (all)        | 1,437              |
+| S45-46 | `packages/infra`      | -21 (all)        | 1,416              |
+| S45-46 | `apps/VOSAcademy`     | -81 (all)        | 1,335              |
+| S47-50 | `packages/mcp`        | -158 (all)       | 1,177              |
+| S51-54 | `packages/sdui`       | -179 (all)       | 998                |
+| S55-60 | `apps/ValyntApp`      | -251 (all)       | 747                |
+| S61-72 | `packages/backend`    | -647             | <100               |
+
+**CI enforcement:** The any-ratchet (`scripts/check-any-count.sh`) prevents increases. After each sprint block, update the ratchet baseline to lock in the reduction. The `--max-warnings` cap in `packages/backend/package.json` has been ratcheted from 2,704 to 2,600 (Rec #16) and will decrease by 100 per sprint.
+
+---
+
 ## P2 — Medium (feature completeness)
 
 ~~### DEBT-008: Enterprise integrations — ServiceNow, Slack, SharePoint not implemented~~
