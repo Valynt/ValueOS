@@ -1,7 +1,7 @@
 # launch-readiness Specification
 
 ## Purpose
-TBD - created by archiving change canonical-boot-path. Update Purpose after archive.
+Define the minimum launch-readiness checklist and documentation standards that every repository MUST meet before being considered launchable, centered on a `docs/launch-readiness.md` file that clearly surfaces blockers, required commands, environment configuration, and post-deploy smoke tests.
 ## Requirements
 ### Requirement: Launch readiness document exists
 
