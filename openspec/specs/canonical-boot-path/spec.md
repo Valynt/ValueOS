@@ -1,7 +1,7 @@
 # canonical-boot-path Specification
 
 ## Purpose
-TBD - created by archiving change canonical-boot-path. Update Purpose after archive.
+This specification defines a single, canonical end-to-end boot and setup path for the repository so that a new engineer can reliably go from a fresh clone to a running system using the documented commands, environment configuration, database migrations, and preflight checks.
 ## Requirements
 ### Requirement: Single setup path
 
