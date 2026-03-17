@@ -7,7 +7,7 @@
  * realtime broadcast) and is used by ActionRouter for agent-driven tree edits.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { logger } from '../../lib/logger.js'
 
@@ -73,9 +73,9 @@ export class ConcurrentModificationError extends Error {
 
 export class ValueTreeService {
   private locks: Map<string, Promise<void>> = new Map();
-  private supabase: any;
+  private supabase: SupabaseClient;
 
-  constructor(supabaseClient: any) {
+  constructor(supabaseClient: SupabaseClient) {
     this.supabase = supabaseClient;
   }
 

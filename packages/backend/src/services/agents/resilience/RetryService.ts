@@ -216,7 +216,7 @@ export class RetryService {
   /**
    * Create a retryable function wrapper
    */
-  static createRetryableFunction<T extends (...args: any[]) => Promise<any>>(
+  static createRetryableFunction<T extends (...args: unknown[]) => Promise<unknown>>(
     fn: T,
     defaultOptions: RetryOptions = {}
   ): T {

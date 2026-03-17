@@ -24,6 +24,8 @@ export interface OAuthStateMeta {
   provider: CrmProvider;
   redirectUri: string;
   createdAt: number;
+  /** PKCE code verifier — stored server-side, never sent to the browser. */
+  codeVerifier?: string;
 }
 
 // In-memory fallback store
@@ -132,6 +134,40 @@ export async function consumeOAuthState(
   }
 
   return entry.meta;
+}
+
+/**
+ * Update the codeVerifier for an existing state entry.
+ * Used to back-fill the PKCE verifier after the auth URL is generated.
+ */
+export async function updateOAuthStateCodeVerifier(
+  nonce: string,
+  codeVerifier: string,
+): Promise<void> {
+  if (redisClient) {
+    try {
+      const raw = await redisClient.get(`${REDIS_PREFIX}${nonce}`);
+      if (raw) {
+        const meta: OAuthStateMeta = JSON.parse(raw);
+        meta.codeVerifier = codeVerifier;
+        await redisClient.set(
+          `${REDIS_PREFIX}${nonce}`,
+          JSON.stringify(meta),
+          { EX: STATE_TTL_SECONDS },
+        );
+        return;
+      }
+    } catch (err) {
+      logger.warn('Redis OAuth state update failed, trying memory', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  const entry = memoryStore.get(nonce);
+  if (entry) {
+    entry.meta.codeVerifier = codeVerifier;
+  }
 }
 
 /**

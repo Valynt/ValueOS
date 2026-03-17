@@ -336,7 +336,8 @@ export class AWSSecretProvider implements ISecretProvider {
     ];
 
     // Check AWS error codes
-    const errorCode = (error as any).name || (error as any).code;
+    const e = error as Record<string, unknown>;
+    const errorCode = (typeof e?.name === "string" ? e.name : undefined) ?? (typeof e?.code === "string" ? e.code : undefined);
     return nonRetryableCodes.includes(errorCode);
   }
 

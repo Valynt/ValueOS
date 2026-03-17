@@ -2,7 +2,7 @@ import { ValueTree, ValueTreeNode } from '../dto';
 import { ValueTreeSchema } from '../schemas/valueTree.schema';
 
 // Accepts DB rows, returns validated ValueTree domain object
-export function fromValueDrivers(valueCaseId: string, rows: any[]): ValueTree {
+export function fromValueDrivers(valueCaseId: string, rows: Array<Record<string, unknown>>): ValueTree {
   // Map DB rows to ValueTreeNode
   const nodes: ValueTreeNode[] = rows.map(row => ({
     id: row.id,

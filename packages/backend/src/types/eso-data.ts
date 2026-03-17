@@ -388,7 +388,7 @@ export interface FieldMapping {
   target_field: string;
   data_type: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'array';
   required: boolean;
-  default_value?: any;
+  default_value?: unknown;
 }
 
 export interface DataTransformation {

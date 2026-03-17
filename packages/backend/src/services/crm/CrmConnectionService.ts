@@ -9,7 +9,7 @@ import { createLogger } from '../../lib/logger.js';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 import { getCrmProvider } from './CrmProviderRegistry.js';
-import { consumeOAuthState, createOAuthState } from './OAuthStateStore.js';
+import { consumeOAuthState, createOAuthState, updateOAuthStateCodeVerifier } from './OAuthStateStore.js';
 import { decryptToken, encryptToken, needsReEncryption, tokenFingerprint } from './tokenEncryption.js';
 import type {
   CrmConnectionRow,
@@ -39,7 +39,10 @@ export class CrmConnectionService {
     provider: CrmProvider,
     redirectUri: string,
   ): Promise<{ authUrl: string; state: string }> {
-    // Generate opaque nonce — tenant ID is NOT embedded in the state parameter
+    const impl = getCrmProvider(provider);
+
+    // Persist state first to get the canonical nonce, then build the auth URL
+    // with that nonce. Back-fill the PKCE codeVerifier after getAuthUrl returns it.
     const nonce = await createOAuthState({
       tenantId,
       provider,
@@ -47,8 +50,11 @@ export class CrmConnectionService {
       createdAt: Date.now(),
     });
 
-    const impl = getCrmProvider(provider);
     const result = impl.getAuthUrl(nonce, redirectUri);
+
+    if (result.codeVerifier) {
+      await updateOAuthStateCodeVerifier(nonce, result.codeVerifier);
+    }
 
     logger.info('OAuth flow started', {
       tenantId,
@@ -97,7 +103,10 @@ export class CrmConnectionService {
     }
 
     const impl = getCrmProvider(provider);
-    const tokens = await impl.exchangeCodeForTokens({ code, state }, redirectUri);
+    const tokens = await impl.exchangeCodeForTokens(
+      { code, state, codeVerifier: stateMeta.codeVerifier },
+      redirectUri,
+    );
 
     // Validate minimum required scopes
     const required = REQUIRED_SCOPES[provider] || [];

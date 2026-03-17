@@ -25,6 +25,24 @@ import { HypothesisOutputService } from '../value/HypothesisOutputService.js';
 
 const logger = createLogger({ service: 'PptxExportService' });
 
+/** Minimal duck-type for a pptxgenjs presentation instance. */
+interface PptxInstance {
+  layout: string;
+  author: string;
+  company: string;
+  subject: string;
+  title: string;
+  ShapeType: Record<string, unknown>;
+  addSlide(): PptxSlide;
+  write(opts: { outputType: string }): Promise<Buffer>;
+}
+
+interface PptxSlide {
+  addShape(type: unknown, opts: Record<string, unknown>): void;
+  addText(text: string, opts: Record<string, unknown>): void;
+  addTable(rows: unknown[], opts: Record<string, unknown>): void;
+}
+
 const EXPORTS_BUCKET = 'exports';
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
 
@@ -171,19 +189,17 @@ export class PptxExportService {
     hypotheses: HypothesisItem[];
   }): Promise<Buffer> {
     // Dynamic import keeps pptxgenjs optional at startup
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let PptxGenJS: any;
+    let PptxGenJS: new () => PptxInstance;
     try {
       const mod = await import('pptxgenjs');
-      PptxGenJS = mod.default;
+      PptxGenJS = mod.default as unknown as new () => PptxInstance;
     } catch {
       throw new Error(
         'pptxgenjs is not installed. Run: pnpm add pptxgenjs --filter @valueos/backend',
       );
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pptx: InstanceType<typeof PptxGenJS> = new PptxGenJS();
+    const pptx: PptxInstance = new PptxGenJS();
     pptx.layout = 'LAYOUT_WIDE'; // 13.33" × 7.5"
     pptx.author = 'ValueOS';
     pptx.company = 'ValueOS';
@@ -201,7 +217,7 @@ export class PptxExportService {
 
   // Slide 1: Cover
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addCoverSlide(pptx: InstanceType<any>, title: string, ownerName: string | undefined, createdAt: string): void {
+  private addCoverSlide(pptx: PptxInstance, title: string, ownerName: string | undefined, createdAt: string): void {
     const slide = pptx.addSlide();
 
     // Dark background
@@ -251,7 +267,7 @@ export class PptxExportService {
 
   // Slide 2: Executive Summary
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addExecutiveSummarySlide(pptx: InstanceType<any>, content: string | null): void {
+  private addExecutiveSummarySlide(pptx: PptxInstance, content: string | null): void {
     const slide = pptx.addSlide();
 
     // Light background
@@ -291,7 +307,7 @@ export class PptxExportService {
 
   // Slide 3: Financial Model
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addFinancialSlide(pptx: InstanceType<any>, roi: number | null, npv: number | null, paybackMonths: number | null): void {
+  private addFinancialSlide(pptx: PptxInstance, roi: number | null, npv: number | null, paybackMonths: number | null): void {
     const slide = pptx.addSlide();
 
     slide.addShape(pptx.ShapeType.rect, {
@@ -381,7 +397,7 @@ export class PptxExportService {
   // in the `hypotheses` array are shown as-is; there is currently no concept of a separate
   // “validated” subset or low–high value ranges. Impact is rendered as a single expected value.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addHypothesesSlide(pptx: InstanceType<any>, hypotheses: HypothesisItem[]): void {
+  private addHypothesesSlide(pptx: PptxInstance, hypotheses: HypothesisItem[]): void {
     const slide = pptx.addSlide();
 
     slide.addShape(pptx.ShapeType.rect, {

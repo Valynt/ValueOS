@@ -5,7 +5,7 @@
 import { logger } from '../../lib/logger.js';
 
 export class LifecycleCompensationHandlers {
-  async compensate(stageId: string, context: any): Promise<void> {
+  async compensate(stageId: string, context: Record<string, unknown>): Promise<void> {
     logger.info('Compensating lifecycle stage', { stageId });
   }
 }

@@ -115,7 +115,7 @@ class CallAnalysisService {
         throw new Error(response.error || "Transcription failed");
       }
 
-      const result = response.data as any;
+      const result = response.data as Record<string, unknown>;
 
       if (!result.success) {
         throw new Error(result.error || "Transcription failed");

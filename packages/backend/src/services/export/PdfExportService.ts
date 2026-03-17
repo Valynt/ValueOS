@@ -121,8 +121,7 @@ export class PdfExportService {
     title: string | undefined,
   ): Promise<Buffer> {
     // Dynamic import keeps Puppeteer optional — the service starts without it.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let puppeteer: any;
+    let puppeteer: { default: { launch: (...args: unknown[]) => Promise<unknown> } };
     try {
       // Use a variable to prevent tsc from resolving the module at compile time
       const moduleName = 'puppeteer';

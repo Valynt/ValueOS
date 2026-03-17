@@ -124,7 +124,7 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
 
       // 2. Query for historical intent matches
       const historicalResults = await this.vectorSearch.searchByEmbedding(embedding, {
-        type: 'intent_classification' as any, // extended type
+        type: 'intent_classification' as string,
         threshold: this.config.historicalMatchThreshold,
         limit: this.config.maxHistoricalMatches,
         useCache: true,

@@ -301,7 +301,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
     ),
     {
       // zundo options
-      handleSet: (handleSet: any) => (payload: any, replace: any) => {
+      handleSet: (handleSet: (payload: unknown, replace?: boolean) => void) => (payload: unknown, replace?: boolean) => {
         // Only include actions that should be undoable
         const undoableActions = [
           "addNode",
@@ -330,7 +330,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
 
 // Export hooks for undo/redo
 export const useTemporalStore = () => {
-  const store = (useValueCanvasStore as any).temporal;
+  const store = (useValueCanvasStore as unknown as { temporal: { undo: () => void; redo: () => void; clear: () => void; pastStates: unknown[]; futureStates: unknown[] } }).temporal;
   return {
     undo: store.undo,
     redo: store.redo,

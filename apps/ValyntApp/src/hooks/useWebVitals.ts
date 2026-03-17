@@ -56,8 +56,9 @@ function sendToAnalytics(name: string, metric: Metric) {
   });
 
   // Also send to Google Analytics 4 if available
-  if (typeof window !== "undefined" && (window as any).gtag) {
-    (window as any).gtag("event", name, {
+  type WindowWithGtag = Window & { gtag?: (event: string, name: string, params: Record<string, unknown>) => void };
+  if (typeof window !== "undefined" && (window as WindowWithGtag).gtag) {
+    (window as WindowWithGtag).gtag!("event", name, {
       event_category: "Web Vitals",
       event_label: metric.name,
       value: Math.round(metric.value),

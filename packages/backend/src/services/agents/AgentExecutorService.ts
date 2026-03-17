@@ -306,7 +306,7 @@ export class AgentExecutorService {
    * Create agent performance projection updater
    */
   private createAgentPerformanceUpdater() {
-    return (currentData: any, event: Event) => {
+    return (currentData: Record<string, unknown> | null, event: Event) => {
       const agentEvent = event as unknown as AgentRequestEvent;
       if (!currentData) {
         currentData = {
@@ -322,10 +322,8 @@ export class AgentExecutorService {
         };
       }
 
-      currentData.totalRequests += 1;
-
-      // This would be updated when response event is processed
-      // For now, just track request counts
+      (currentData as Record<string, number>).totalRequests =
+        ((currentData.totalRequests as number) ?? 0) + 1;
 
       return currentData;
     };
@@ -335,7 +333,13 @@ export class AgentExecutorService {
    * Create agent error projection updater
    */
   private createAgentErrorUpdater(error: Error) {
-    return (currentData: any, event: Event) => {
+    type ErrorData = {
+      agentId: unknown;
+      errorCount: number;
+      recentErrors: Array<{ timestamp: string; error: string; correlationId: string | undefined }>;
+      errorTypes: Record<string, number>;
+    };
+    return (currentData: ErrorData | null, event: Event) => {
       const agentEvent = event as unknown as AgentRequestEvent;
       if (!currentData) {
         currentData = {
@@ -348,7 +352,7 @@ export class AgentExecutorService {
 
       currentData.errorCount += 1;
       const errorType = error.name || "Unknown";
-      currentData.errorTypes[errorType] = (currentData.errorTypes[errorType] || 0) + 1;
+      currentData.errorTypes[errorType] = (currentData.errorTypes[errorType] ?? 0) + 1;
 
       currentData.recentErrors.push({
         timestamp: new Date().toISOString(),
@@ -356,7 +360,6 @@ export class AgentExecutorService {
         correlationId: event.correlationId,
       });
 
-      // Keep only last 50 errors
       if (currentData.recentErrors.length > 50) {
         currentData.recentErrors = currentData.recentErrors.slice(-50);
       }

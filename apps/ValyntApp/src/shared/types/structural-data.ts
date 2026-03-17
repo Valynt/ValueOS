@@ -311,7 +311,7 @@ export interface DashboardFilter {
   type: "date" | "select" | "text" | "number";
   field: string;
   options?: string[];
-  default_value?: any;
+  default_value?: unknown;
 }
 
 // ============================================================================

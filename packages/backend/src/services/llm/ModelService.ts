@@ -91,7 +91,7 @@ export class ModelService {
   }> {
     // Resolve audit actor once
     const auditActor = await this.resolveAuditActor();
-    const auditPromises: Promise<any>[] = [];
+    const auditPromises: Promise<void>[] = [];
 
     // Track created artifacts for rollback
     const createdArtifacts: {
@@ -173,7 +173,7 @@ export class ModelService {
             link_type: "drives",
             weight: link.weight || 1.0,
             metadata: {},
-          } as any);
+          });
         }
       }
 

@@ -80,7 +80,7 @@ export class CrmHealthService {
 
     if (error || !data) return [];
 
-    return data.map((row: any) => ({
+    return data.map((row: Record<string, unknown>) => ({
       tenantId: row.tenant_id,
       provider: row.provider,
       status: row.status,
@@ -94,7 +94,7 @@ export class CrmHealthService {
     }));
   }
 
-  private computeAlerts(data: any): HealthAlert[] {
+  private computeAlerts(data: Record<string, unknown>): HealthAlert[] {
     const alerts: HealthAlert[] = [];
 
     // Sync lag alerts

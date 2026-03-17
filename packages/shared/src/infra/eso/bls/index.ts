@@ -2,12 +2,18 @@ import { DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { Cache } from "../utils/cache.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 
-export class BLSAdapter implements DataIngestionAdapter {
+interface BLSTransformed {
+  source: "BLS";
+  data: unknown;
+  timestamp: string;
+}
+
+export class BLSAdapter implements DataIngestionAdapter<unknown, BLSTransformed> {
   name = "BLS";
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: any) => void> = new Set();
+  private dataCallbacks: Set<(data: BLSTransformed) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private pollTimer?: NodeJS.Timeout;
@@ -26,7 +32,7 @@ export class BLSAdapter implements DataIngestionAdapter {
     seriesId: string;
     startYear?: string;
     endYear?: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     const cacheKey = `bls-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -62,8 +68,7 @@ export class BLSAdapter implements DataIngestionAdapter {
     return data;
   }
 
-  async transformData(rawData: any): Promise<any> {
-    // Transform BLS data to standardized format
+  async transformData(rawData: unknown): Promise<BLSTransformed> {
     return {
       source: "BLS",
       data: rawData,
@@ -89,17 +94,23 @@ export class BLSAdapter implements DataIngestionAdapter {
         const seriesIds = params.seriesIds || ["CES0000000001"]; // Default: Total nonfarm employment
 
         for (const seriesId of seriesIds) {
-          const data = await this.fetchData({ seriesId });
+          const raw = await this.fetchData({ seriesId });
+          const transformed = await this.transformData(raw);
 
-          // Check if data has been updated
+          // Check if data has been updated — navigate the BLS response shape safely
+          const blsRaw = raw as Record<string, unknown> | null;
+          const results = blsRaw?.Results as Record<string, unknown> | undefined;
+          const series = results?.series as Array<Record<string, unknown>> | undefined;
+          const firstSeries = series?.[0];
+          const dataPoints = firstSeries?.data as Array<Record<string, unknown>> | undefined;
+          const firstPoint = dataPoints?.[0];
           const latestTimestamp =
-            data?.Results?.series?.[0]?.data?.[0]?.year +
-            data?.Results?.series?.[0]?.data?.[0]?.period;
+            firstPoint ? String(firstPoint.year ?? "") + String(firstPoint.period ?? "") : "";
           const lastTimestamp = this.lastDataTimestamps.get(seriesId);
 
           if (latestTimestamp !== lastTimestamp) {
             this.lastDataTimestamps.set(seriesId, latestTimestamp);
-            this.notifyDataCallbacks(data);
+            this.notifyDataCallbacks(transformed);
           }
         }
       } catch (error) {
@@ -127,12 +138,12 @@ export class BLSAdapter implements DataIngestionAdapter {
     }
   }
 
-  onData(callback: (data: any) => void): () => void {
+  onData(callback: (data: BLSTransformed) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: any) {
+  private notifyDataCallbacks(data: BLSTransformed) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

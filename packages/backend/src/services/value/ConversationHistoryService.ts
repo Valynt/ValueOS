@@ -57,8 +57,8 @@ class ConversationHistoryService {
     }
 
     try {
-      const { data, error } = await (supabase as any)
-        .from(this.tableName)
+      const { data, error } = await supabase
+        .from(this.tableName as 'conversation_history')
         .select('*')
         .eq('case_id', caseId)
         .eq('tenant_id', tenantId)
@@ -143,8 +143,8 @@ class ConversationHistoryService {
    */
   private async persistHistory(history: ConversationHistory, tenantId: string): Promise<void> {
     try {
-      const { error } = await (supabase as any)
-        .from(this.tableName)
+      const { error } = await supabase
+        .from(this.tableName as 'conversation_history')
         .upsert({
           id: history.id,
           tenant_id: tenantId,
@@ -182,8 +182,8 @@ class ConversationHistoryService {
     conversationCache.delete(`${tenantId}:${caseId}`);
 
     try {
-      await (supabase as any)
-        .from(this.tableName)
+      await supabase
+        .from(this.tableName as 'conversation_history')
         .delete()
         .eq('case_id', caseId)
         .eq('tenant_id', tenantId);

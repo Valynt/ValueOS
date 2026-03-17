@@ -7,7 +7,7 @@
 
 import { createDevServer as createServer } from '@mcp/ground-truth';
 
-export async function createDevServer(): Promise<any> {
+export async function createDevServer(): Promise<unknown> {
   try {
     return await createServer();
   } catch (error) {

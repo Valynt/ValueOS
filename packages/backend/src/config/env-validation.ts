@@ -392,11 +392,11 @@ function validateDeprecatedAliases(
  */
 export interface EnvValidationResult {
   success: boolean;
-  data: any;
+  data: unknown;
   errors: string[];
   warnings: string[];
   maintenanceMode: boolean;
-  safeDefaults: Record<string, any>;
+  safeDefaults: Record<string, unknown>;
 }
 
 /**
