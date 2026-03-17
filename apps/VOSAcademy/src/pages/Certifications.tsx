@@ -149,7 +149,7 @@ export default function Certifications() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             <CertificationDisplay
-              certifications={(certifications || []).filter((cert): cert is NonNullable<typeof cert> & { id: number; pillarNumber: number; score: number; tier: "bronze" | "silver" | "gold"; pillarTitle: string; earnedAt: string; expiresAt: any } =>
+              certifications={(certifications || []).filter((cert): cert is NonNullable<typeof cert> & { id: number; pillarNumber: number; score: number; tier: "bronze" | "silver" | "gold"; pillarTitle: string; earnedAt: string; expiresAt: string | null } =>
                 cert != null && typeof cert.id === 'number'
               ).map(cert => ({
                 ...cert,

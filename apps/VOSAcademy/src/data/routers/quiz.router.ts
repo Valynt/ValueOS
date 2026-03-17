@@ -178,7 +178,7 @@ export const quizRouter = router({
           completionPercentage: 100,
           lastAccessed: new Date(),
           completedAt: new Date(),
-        } as any);
+        });
       }
       
       return {

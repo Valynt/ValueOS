@@ -270,7 +270,7 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Calculate provenance score for memory relevance
    */
-  private calculateProvenanceScore(memory: any): number {
+  private calculateProvenanceScore(memory: Record<string, unknown>): number {
     let score = memory.importance || 0.5;
 
     // Boost score based on recency
@@ -884,7 +884,7 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Handle memory pressure changes
    */
-  onPressureChange(pressure: MemoryPressure, stats: any): void {
+  onPressureChange(pressure: MemoryPressure, stats: Record<string, unknown>): void {
     const newCacheSize = this.memoryMonitor.getRecommendedCacheSize();
     const cleanupPercentage = this.memoryMonitor.getCleanupPercentage();
 

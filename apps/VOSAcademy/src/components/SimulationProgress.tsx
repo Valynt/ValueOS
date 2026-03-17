@@ -152,7 +152,7 @@ export function SimulationProgress() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {analytics.scenarioStats.map((stat: any) => (
+              {analytics.scenarioStats.map((stat) => (
                 <tr key={stat.scenarioId} className="hover:bg-muted/50">
                   <td className="py-3">{stat.scenarioTitle}</td>
                   <td className="py-3">{stat.attempts}</td>
@@ -172,7 +172,7 @@ export function SimulationProgress() {
           <CardDescription>Your latest simulation submissions</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {analytics.recentAttempts.map((attempt: any, index: number) => (
+          {analytics.recentAttempts.map((attempt, index) => (
             <div key={index} className="p-4 rounded-lg border bg-card">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">

@@ -76,7 +76,7 @@ class AcademyService {
         description: m.description,
         order: m.display_order,
         estimatedMinutes: m.estimated_minutes,
-        lessons: (m.academy_lessons || []).map((l: any) => ({
+        lessons: (m.academy_lessons || []).map((l: Record<string, unknown>) => ({
           id: l.id,
           moduleId: m.id,
           title: l.title,

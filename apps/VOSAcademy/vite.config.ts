@@ -1,8 +1,11 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig, loadEnv } from "vite";
+
+type NextFunction = (err?: unknown) => void;
 
 // ESM-safe __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -21,9 +24,9 @@ export default defineConfig(({ mode }) => {
         name: "api-server",
         configureServer(server) {
           // OAuth login handler
-          server.middlewares.use("/api/oauth/login", async (req: any, res: any, next: any) => {
+          server.middlewares.use("/api/oauth/login", async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
             try {
-              const errorHandlingModule = await import("./src/data/_core/error-handling" as any);
+              const errorHandlingModule = await import(/* @vite-ignore */ "./src/data/_core/error-handling");
               const loginRateLimitResult = await errorHandlingModule.checkRateLimit(
                 errorHandlingModule.buildRateLimitKey(
                   "auth:oauth-login",
@@ -44,7 +47,7 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
-              const oauthModule = await import("./src/data/_core/oauth" as any);
+              const oauthModule = await import(/* @vite-ignore */ "./src/data/_core/oauth");
               const result = await oauthModule.handleOAuthLogin(req, res);
 
               res.statusCode = 302;
@@ -59,7 +62,7 @@ export default defineConfig(({ mode }) => {
           });
 
           // OAuth callback handler
-          server.middlewares.use("/api/oauth/callback", async (req: any, res: any, next: any) => {
+          server.middlewares.use("/api/oauth/callback", async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
             try {
               const url = new URL(req.url || "", `http://${req.headers.host}`);
               const code = url.searchParams.get("code");
@@ -71,7 +74,7 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
-              const errorHandlingModule = await import("./src/data/_core/error-handling" as any);
+              const errorHandlingModule = await import(/* @vite-ignore */ "./src/data/_core/error-handling");
               const callbackRateLimitResult = await errorHandlingModule.checkRateLimit(
                 errorHandlingModule.buildRateLimitKey(
                   "auth:oauth-callback",
@@ -92,7 +95,7 @@ export default defineConfig(({ mode }) => {
                 return;
               }
 
-              const oauthModule = await import("./src/data/_core/oauth" as any);
+              const oauthModule = await import(/* @vite-ignore */ "./src/data/_core/oauth");
               const result = await oauthModule.handleOAuthCallback(code, state, req, res);
 
               // Redirect to appropriate page
@@ -108,15 +111,15 @@ export default defineConfig(({ mode }) => {
           });
 
           // tRPC handler
-          server.middlewares.use("/api/trpc", async (req: any, res: any, next: any) => {
+          server.middlewares.use("/api/trpc", async (req: IncomingMessage, res: ServerResponse, next: NextFunction) => {
             try {
               const { createHTTPHandler } = await import("@trpc/server/adapters/standalone");
-              const routersModule = await import("./src/data/routers/index" as any);
-              const trpcModule = await import("./src/data/_core/trpc" as any);
+              const routersModule = await import(/* @vite-ignore */ "./src/data/routers/index");
+              const trpcModule = await import(/* @vite-ignore */ "./src/data/_core/trpc");
 
               const trpcHandler = createHTTPHandler({
                 router: routersModule.appRouter,
-                createContext: (opts: any) => trpcModule.createContext(opts),
+                createContext: (opts) => trpcModule.createContext(opts),
               });
 
               trpcHandler(req, res);

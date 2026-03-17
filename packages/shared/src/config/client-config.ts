@@ -28,7 +28,8 @@ export type ClientConfig = z.infer<typeof ClientConfigSchema>;
 
 const isBrowser = typeof window !== "undefined";
 const envSource =
-  (import.meta as any)?.env ?? (typeof process !== "undefined" ? process.env : undefined);
+  (import.meta as Record<string, unknown>)?.env as Record<string, string> | undefined ??
+  (typeof process !== "undefined" ? process.env : undefined);
 
 function getClientEnvVar(key: string): string | undefined {
   if (!key.startsWith("VITE_")) {

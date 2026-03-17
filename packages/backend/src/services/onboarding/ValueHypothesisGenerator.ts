@@ -20,7 +20,7 @@ export interface ValueHypothesis {
 }
 
 export async function generateValueHypotheses(
-  products: any[],
+  products: unknown[],
   context: ExtractionContext,
   llmGateway: LLMGatewayInterface,
   tenantId: string,
@@ -93,7 +93,7 @@ Generate up to 5 grounded value hypotheses.
 
     return (Array.isArray(raw) ? raw : [raw]) as ValueHypothesis[];
   } catch (err) {
-    logger.error('Failed to generate value hypotheses', { tenantId, error: (err as any).message });
+    logger.error('Failed to generate value hypotheses', { tenantId, error: err instanceof Error ? err.message : String(err) });
     return [];
   }
 }

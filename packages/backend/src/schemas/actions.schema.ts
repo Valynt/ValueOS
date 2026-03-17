@@ -129,7 +129,7 @@ export class ActionValidationError extends Error {
 export function validateCanonicalAction(action: unknown): z.infer<typeof CanonicalActionSchema> {
   const result = CanonicalActionSchema.safeParse(action);
   if (!result.success) {
-    const actionType = (action as any)?.type || "unknown";
+    const actionType = (action as Record<string, unknown>)?.type || "unknown";
     throw new ActionValidationError(
       `Invalid action of type '${actionType}': ${result.error.message}`,
       result.error.issues,

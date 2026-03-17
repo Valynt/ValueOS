@@ -63,7 +63,15 @@ export function generateOpportunityPage(context: OpportunityTemplateContext): SD
   // Heuristic: Extract hypotheses from the text content
   // Looking for patterns like "**Title**: Description" or "1. Title: Description"
   const hypothesisRegex = /(?:^|\n)(?:-|\d+\.)\s+\*\*?([^\*:]+)\*\*?:?\s+(.+)(?:\n|$)/g;
-  const hypotheses: any[] = [];
+  interface HypothesisItem {
+    id: number;
+    title: string;
+    description: string;
+    confidence: number;
+    source: string;
+    kpiImpact: string;
+  }
+  const hypotheses: HypothesisItem[] = [];
   let match;
 
   while ((match = hypothesisRegex.exec(content)) !== null) {

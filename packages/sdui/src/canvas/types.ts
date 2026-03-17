@@ -13,7 +13,7 @@ import { z } from 'zod';
 // CanvasLayout is defined after the schema via z.infer — the explicit ZodType annotation
 // breaks the circular reference by deferring inference to z.lazy.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const CanvasLayoutSchema: z.ZodType<any> = z.lazy(() =>
+export const CanvasLayoutSchema: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('type', [
     // Vertical split with ratio control
     z.object({

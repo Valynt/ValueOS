@@ -78,7 +78,7 @@ export const TeamSettings: React.FC = () => {
     }));
   };
 
-  const handleWorkflowChange = (key: keyof WorkflowSettings, value: any) => {
+  const handleWorkflowChange = (key: keyof WorkflowSettings, value: WorkflowSettings[typeof key]) => {
     setWorkflow((prev) => ({
       ...prev,
       [key]: value,

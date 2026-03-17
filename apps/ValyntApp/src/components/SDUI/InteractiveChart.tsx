@@ -20,7 +20,7 @@ import {
 export interface ChartDataPoint {
   name: string;
   value: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface InteractiveChartProps {

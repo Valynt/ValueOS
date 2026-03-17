@@ -280,7 +280,7 @@ async function listMessages(req: Request, res: Response, next: NextFunction): Pr
     const repository = ConversationsRepository.fromRequest(req);
     const messages = await repository.getByCase(
       authReq.tenantId || 'default',
-      req.query as any
+      ListMessagesQuerySchema.parse(req.query)
     );
 
     res.status(200).json({
@@ -332,7 +332,7 @@ async function saveSession(req: Request, res: Response, next: NextFunction): Pro
     await repository.deleteByCase(authReq.tenantId || 'default', caseId);
 
     // Create new messages
-    const messagesToCreate = messages.map((msg: any) => ({
+    const messagesToCreate = messages.map((msg: Record<string, unknown>) => ({
       role: msg.role === 'agent' ? 'assistant' : msg.role, // Map 'agent' to 'assistant'
       content: msg.content,
       metadata: msg.metadata,

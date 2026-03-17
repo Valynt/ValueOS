@@ -7,6 +7,8 @@ import { CurriculumModule, getCurriculumForRole, getRecommendedModules } from '.
 
 import { canAccessPillar, getModuleStatus, getProgressStats } from './progress-logic';
 
+type ProgressStats = ReturnType<typeof getProgressStats>;
+
 export interface UserContext {
   role: string;
   maturityLevel: number;
@@ -119,7 +121,7 @@ export function getAdaptiveContent(userContext: UserContext): AdaptiveContentRes
  * Generates insights about user's progress
  */
 function generateProgressInsights(
-  progressStats: any,
+  progressStats: ProgressStats,
   userContext: UserContext
 ): string[] {
   const insights: string[] = [];
@@ -343,7 +345,7 @@ function identifyBlockedContent(userContext: UserContext): Array<{ id: string; t
 /**
  * Generates personalized messages based on user context
  */
-function generatePersonalizedMessages(userContext: UserContext, progressStats: any): string[] {
+function generatePersonalizedMessages(userContext: UserContext, progressStats: ProgressStats): string[] {
   const messages: string[] = [];
 
   // Welcome message for new users

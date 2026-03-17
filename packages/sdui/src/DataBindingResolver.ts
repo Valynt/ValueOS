@@ -22,8 +22,7 @@ import {
 
 /** Minimal interface for tool registry integration */
 interface ToolRegistry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  executeTool(name: string, params: Record<string, unknown>): Promise<any>;
+  executeTool(name: string, params: Record<string, unknown>): Promise<unknown>;
 }
 
 /** Minimal interface for semantic memory integration */

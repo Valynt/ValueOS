@@ -259,7 +259,7 @@ async function createStrictRateLimiter() {
 
       ...(client ? {
         store: new RedisStore({
-          client: client as any,
+          sendCommand: (...args: string[]) => client.call(...args) as Promise<unknown>,
           prefix: 'rl:expensive:'
         })
       } : {}),

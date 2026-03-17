@@ -48,7 +48,7 @@ class WorkflowExecutionStore {
     return status || "RUNNING";
   }
 
-  async addEvent(id: string, event: any): Promise<void> {
+  async addEvent(id: string, event: unknown): Promise<void> {
     const history = await this.getHistory(id);
     history.push(event);
     await redis.set(`workflow:${id}:history`, JSON.stringify(history));

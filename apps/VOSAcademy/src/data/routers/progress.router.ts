@@ -42,7 +42,7 @@ export const progressRouter = router({
         completionPercentage: input.completionPercentage,
         lastAccessed: new Date(),
         completedAt: input.completedAt,
-      } as any);
+      });
       
       return { success: true };
     }),

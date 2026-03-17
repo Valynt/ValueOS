@@ -8,7 +8,7 @@ export function Analytics() {
 
     // GTM Initialization
     // Refactored to avoid innerHTML usage (SEC-003)
-    (function(w: any, d: any, s: string, l: string, i: string){
+    (function(w: Window & Record<string, unknown>, d: Document, s: string, l: string, i: string){
       w[l] = w[l] || [];
       w[l].push({
         'gtm.start': new Date().getTime(),

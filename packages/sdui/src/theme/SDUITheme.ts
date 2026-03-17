@@ -252,7 +252,7 @@ export function generateInlineStyles(
   }
   
   if (state && typeof baseStyles === 'object' && state in baseStyles) {
-    return { ...baseStyles, ...(baseStyles as any)[state] } as React.CSSProperties;
+    return { ...baseStyles, ...(baseStyles as Record<string, unknown>)[state] } as React.CSSProperties;
   }
   
   return baseStyles as React.CSSProperties;

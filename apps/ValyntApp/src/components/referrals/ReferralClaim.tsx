@@ -18,7 +18,7 @@ import { apiClient } from '@/api/client/unified-api-client';
 
 
 interface ReferralClaimProps {
-  onReferralClaimed?: (referralData: any) => void;
+  onReferralClaimed?: (referralData: unknown) => void;
   defaultEmail?: string;
 }
 
@@ -29,7 +29,7 @@ export const ReferralClaim: React.FC<ReferralClaimProps> = ({
   const [referralCode, setReferralCode] = useState('');
   const [email, setEmail] = useState(defaultEmail);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [claimedReferral, setClaimedReferral] = useState<any>(null);
+  const [claimedReferral, setClaimedReferral] = useState<unknown>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<boolean | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);

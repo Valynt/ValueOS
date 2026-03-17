@@ -472,7 +472,7 @@ class GuestAccessService {
    * Generate magic link URL
    */
   private generateMagicLink(token: string): string {
-    const baseUrl = (import.meta as any).env.VITE_APP_URL || 'http://localhost:5173';
+    const baseUrl = ((import.meta as Record<string, unknown>).env as Record<string, string>).VITE_APP_URL || 'http://localhost:5173';
     return `${baseUrl}/guest/access?token=${token}`;
   }
 

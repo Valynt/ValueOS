@@ -140,7 +140,7 @@ const ROLE_ADAPTATION_RULES: RoleAdaptationRules = {
  * Adapt a question for a specific user role
  */
 export function adaptQuestionForRole(
-  baseQuestion: any,
+  baseQuestion: AdaptedQuestion,
   userRole?: string,
   userMaturityLevel: number = 0
 ): AdaptedQuestion {
@@ -187,7 +187,7 @@ export function adaptQuestionForRole(
   }
 
   // Adapt options based on role terminology
-  const adaptedOptions = baseQuestion.options.map((option: any) => {
+  const adaptedOptions = baseQuestion.options.map((option) => {
     let adaptedLabel = option.label;
     Object.entries(rules.terminology).forEach(([generic, specific]) => {
       const regex = new RegExp(`\\b${generic}\\b`, 'gi');
@@ -220,7 +220,7 @@ export function adaptQuestionForRole(
  * Get role-specific question pool
  */
 export function getRoleSpecificQuestions(
-  baseQuestions: any[],
+  baseQuestions: AdaptedQuestion[],
   userRole?: string,
   userMaturityLevel: number = 0
 ): AdaptedQuestion[] {
