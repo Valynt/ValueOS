@@ -1,9 +1,5 @@
 import { createMCPServer } from "../../../mcp-ground-truth";
-import type {
-  ClaimSeverity,
-  CompanySize,
-  ESOIndustry,
-} from "../../../types/eso";
+import type { ClaimSeverity, CompanySize, ESOIndustry } from "../../../types/eso";
 
 // ============================================================================
 // Response Types
@@ -76,7 +72,9 @@ const MAX_CACHE_ENTRIES = 200;
 export class GroundTruthService {
   private static instance: GroundTruthService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private mcpServer: { executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown> } | null = null;
+  private mcpServer: {
+    executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  } | null = null;
   private cache = new Map<string, CacheEntry<unknown>>();
 
   private constructor() {}
@@ -91,11 +89,11 @@ export class GroundTruthService {
   public async initialize(): Promise<void> {
     if (this.mcpServer) return;
 
-    this.mcpServer = await createMCPServer({
+    this.mcpServer = (await createMCPServer({
       industryBenchmark: {
         enableStaticData: true,
       },
-    }) as { executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown> };
+    })) as { executeTool: (name: string, args: Record<string, unknown>) => Promise<unknown> };
   }
 
   // --------------------------------------------------------------------------
@@ -132,7 +130,7 @@ export class GroundTruthService {
   public async getMetricBenchmark(
     metricId: string,
     industry?: ESOIndustry,
-    companySize?: CompanySize,
+    companySize?: CompanySize
   ): Promise<GroundTruthMetric | null> {
     const cacheKey = `metric:${metricId}:${industry ?? ""}:${companySize ?? ""}`;
     const cached = this.getCached<GroundTruthMetric>(cacheKey);
@@ -141,10 +139,11 @@ export class GroundTruthService {
     await this.initialize();
 
     try {
-      const result = await this.mcpServer!.executeTool(
-        "eso_get_metric_value",
-        { metricId, industry, companySize },
-      );
+      const result = await this.mcpServer!.executeTool("eso_get_metric_value", {
+        metricId,
+        industry,
+        companySize,
+      });
 
       if (result?.success && result.data) {
         const d = result.data;
@@ -174,7 +173,7 @@ export class GroundTruthService {
   public async getMetricBenchmarks(
     metricIds: string[],
     industry?: ESOIndustry,
-    companySize?: CompanySize,
+    companySize?: CompanySize
   ): Promise<Map<string, GroundTruthMetric>> {
     const results = new Map<string, GroundTruthMetric>();
     const promises = metricIds.map(async (id) => {
@@ -191,15 +190,15 @@ export class GroundTruthService {
 
   public async validateClaim(
     metricId: string,
-    claimedValue: number,
+    claimedValue: number
   ): Promise<ValidationResult | null> {
     await this.initialize();
 
     try {
-      const result = await this.mcpServer!.executeTool(
-        "eso_classify_severity",
-        { metricId, claimedValue },
-      );
+      const result = await this.mcpServer!.executeTool("eso_classify_severity", {
+        metricId,
+        claimedValue,
+      });
       if (result) return result as unknown as ValidationResult;
     } catch (error) {
       console.error(`Failed to validate claim for ${metricId}`, error);
@@ -214,15 +213,16 @@ export class GroundTruthService {
   public async assessFeasibility(
     metricId: string,
     currentValue: number,
-    targetValue: number,
+    targetValue: number
   ): Promise<FeasibilityResult | null> {
     await this.initialize();
 
     try {
-      const result = await this.mcpServer!.executeTool(
-        "eso_assess_feasibility",
-        { metricId, currentValue, targetValue },
-      );
+      const result = await this.mcpServer!.executeTool("eso_assess_feasibility", {
+        metricId,
+        currentValue,
+        targetValue,
+      });
       if (result) return result as unknown as FeasibilityResult;
     } catch (error) {
       console.error(`Failed to assess feasibility for ${metricId}`, error);
@@ -235,15 +235,12 @@ export class GroundTruthService {
   // --------------------------------------------------------------------------
 
   public async scoreCompositeHealth(
-    metrics: Array<{ metricId: string; value: number }>,
+    metrics: Array<{ metricId: string; value: number }>
   ): Promise<CompositeHealthResult | null> {
     await this.initialize();
 
     try {
-      const result = await this.mcpServer!.executeTool(
-        "eso_composite_health",
-        { metrics },
-      );
+      const result = await this.mcpServer!.executeTool("eso_composite_health", { metrics });
       if (result) return result as unknown as CompositeHealthResult;
     } catch (error) {
       console.error("Failed to compute composite health", error);

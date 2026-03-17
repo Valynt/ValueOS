@@ -7,9 +7,9 @@ import { BrowserRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as tenantApi from "../../api/tenant";
+import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 import { AuthProvider } from "../AuthContext";
 import { TenantProvider, useTenant } from "../TenantContext";
-import { TENANT_CACHE_CLEAR_EVENT } from "../../lib/tenantCacheIsolation";
 
 vi.mock("../../api/tenant", () => ({
   fetchUserTenants: vi.fn(),

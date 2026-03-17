@@ -5,6 +5,11 @@
  * Supports caching, transforms, live refresh, and tenant-aware permissions.
  */
 
+import { hasPermission, TenantContext } from "./TenantContext";
+
+import { logger } from "@shared/lib/logger";
+import { createClient } from "@supabase/supabase-js";
+
 import {
   DataBinding,
   DataSourceContext,
@@ -14,10 +19,6 @@ import {
   TransformFunction,
   validateDataBinding,
 } from "./DataBindingSchema";
-import { hasPermission, TenantContext } from "./TenantContext";
-
-import { logger } from "@shared/lib/logger";
-import { createClient } from "@supabase/supabase-js";
 
 /** Minimal interface for tool registry integration */
 interface ToolRegistry {

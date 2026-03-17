@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query";
+
 import { apiClient } from "@/api/client/unified-api-client";
 /**
  * useAgentJob
@@ -9,7 +11,6 @@ import { apiClient } from "@/api/client/unified-api-client";
  * the caller can pass a pre-resolved `directResult` to skip polling entirely.
  */
 
-import { useQuery } from "@tanstack/react-query";
 
 export type AgentJobStatus = "queued" | "processing" | "completed" | "failed" | "error" | "unavailable";
 

@@ -1,5 +1,6 @@
-import * as React from "react";
 import { Eye, EyeOff } from "lucide-react";
+import * as React from "react";
+
 import { Input, type InputProps } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 

@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 /**
  * Security Logger for Authentication Events
  * Provides comprehensive logging for security monitoring and audit trails

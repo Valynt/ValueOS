@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BackendSubscriptionSchema } from "@valueos/shared";
 
+import type { PlanTier, Subscription, SubscriptionStatus } from "../types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import type { PlanTier, Subscription, SubscriptionStatus } from "../types";
 
 // ---------------------------------------------------------------------------
 // Shape translation

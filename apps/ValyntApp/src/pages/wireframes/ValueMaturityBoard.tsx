@@ -7,14 +7,17 @@
  * Responsive: Desktop = horizontal Kanban, Tablet = scrollable, Mobile = vertical stacked accordion
  */
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useCallback, useEffect } from "react";
 import {
   AlertTriangle, TrendingUp, Clock, ChevronDown, ShieldAlert,
   CheckCircle2, XCircle, ArrowRight, GripVertical, Zap
 } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+
+import { useMaturityCards } from "./useWireframeData";
+
 import { AnnotatedSection, ANNOTATIONS } from "@/components/wireframes/AnnotationOverlay";
 import { ResponsivePageLayout } from "@/components/wireframes/ResponsiveNav";
-import { useMaturityCards } from "./useWireframeData";
+
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */

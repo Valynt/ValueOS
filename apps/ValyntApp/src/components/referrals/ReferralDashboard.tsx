@@ -7,11 +7,12 @@ import { Copy, Gift, Share2, TrendingUp, Users } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
-import { apiClient } from '@/api/client/unified-api-client';
 
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+
+import { apiClient } from '@/api/client/unified-api-client';
 
 
 interface ReferralStats {

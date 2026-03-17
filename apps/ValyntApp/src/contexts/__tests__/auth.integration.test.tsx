@@ -62,8 +62,8 @@ vi.mock("../../lib/logger", () => ({
   }),
 }));
 
-import { supabase } from "../../lib/supabase";
 import { secureTokenManager } from "../../lib/auth/SecureTokenManager";
+import { supabase } from "../../lib/supabase";
 import { AuthProvider, useAuth } from "../AuthContext";
 
 const wrapper = ({ children }: { children: ReactNode }) => (

@@ -80,15 +80,14 @@ vi.mock("../../../lib/logger.js", () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────────────
 // Use dynamic import so the mock registrations above take effect first
-const { conversationHistoryService } =
-  await import("../ConversationHistoryService.js");
+const { conversationHistoryService } = await import(
+  "../ConversationHistoryService.js"
+);
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 describe("conversation-history-tenant-isolation", () => {
   beforeEach(() => {
-    // Clear the internal cache between tests so we always hit the "database"
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (conversationHistoryService as any).constructor.prototype;
+    // No internal cache to clear — the mock always hits the "database"
   });
 
   afterEach(() => {

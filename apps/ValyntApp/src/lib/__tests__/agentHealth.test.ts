@@ -6,6 +6,7 @@
  */
 
 import { vi, describe, it, expect, afterEach } from 'vitest';
+
 import { initializeAgents } from '../agentHealth.js';
 
 afterEach(() => {

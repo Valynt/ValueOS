@@ -9,9 +9,9 @@
  * - useIngestTenantContext: invalidates the summary query on success
  */
 
-import { createElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockGet, mockPost } = vi.hoisted(() => ({

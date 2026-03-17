@@ -17,9 +17,7 @@ export interface RedisCacheResult {
 
 let _connected = false;
 
-export async function initializeRedisCache(
-  _config: RedisCacheConfig
-): Promise<RedisCacheResult> {
+export async function initializeRedisCache(_config: RedisCacheConfig): Promise<RedisCacheResult> {
   return { connected: false, error: "No Redis configured in this environment" };
 }
 
@@ -35,7 +33,7 @@ export async function setCache(
   return false;
 }
 
-export async function getCache(_key: string): Promise<unknown> {
+export async function getCache<T = unknown>(_key: string): Promise<T | null> {
   return null;
 }
 

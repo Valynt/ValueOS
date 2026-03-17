@@ -7,8 +7,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { DataBinding, DataSourceContext } from "./DataBindingSchema";
 import { DataBindingResolver } from "./DataBindingResolver";
+import { DataBinding, DataSourceContext } from "./DataBindingSchema";
 
 export interface UseDataBindingsOptions {
   resolver: DataBindingResolver;

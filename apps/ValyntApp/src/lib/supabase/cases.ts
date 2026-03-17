@@ -5,6 +5,8 @@
  * All queries enforce tenant isolation via tenant_id filter.
  */
 
+import { createClient } from "@supabase/supabase-js";
+
 import type {
   PortfolioValue,
   ValueCaseInsert,
@@ -12,7 +14,6 @@ import type {
   ValueCaseWithRelations,
 } from "./types";
 
-import { createClient } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
 

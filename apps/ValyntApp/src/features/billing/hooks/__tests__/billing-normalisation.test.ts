@@ -40,8 +40,8 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 // Import mapping functions after mocks are registered.
-import { mapPlanTier, mapSubscription, mapSubscriptionStatus } from "../useSubscription";
 import { mapInvoice, mapInvoiceStatus } from "../useInvoices";
+import { mapPlanTier, mapSubscription, mapSubscriptionStatus } from "../useSubscription";
 import { mapUsageSummary } from "../useUsageSummary";
 
 // ---------------------------------------------------------------------------

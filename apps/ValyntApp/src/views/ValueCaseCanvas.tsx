@@ -20,12 +20,12 @@ import { ModelStage } from "./canvas/ModelStage";
 import { NarrativeStage } from "./canvas/NarrativeStage";
 import { RealizationStage } from "./canvas/RealizationStage";
 
+import { useToast } from "@/components/ui/use-toast";
 import type { AgentJobResult } from "@/hooks/useAgentJob";
-import { useCase } from "@/hooks/useCases";
 import { usePptxExport } from "@/hooks/useCaseExport";
+import { useCase } from "@/hooks/useCases";
 import { useMergedContext } from "@/hooks/useDomainPacks";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/components/ui/use-toast";
 
 // Workflow stages — the core loop
 const stages = [

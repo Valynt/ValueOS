@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { PolicyHistoryEntry } from "./types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import { PolicyHistoryEntry } from "./types";
 
 export function PolicyHistoryPage() {
   const { data, isLoading } = useQuery({

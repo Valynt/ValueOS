@@ -1,6 +1,7 @@
 import React, { ErrorInfo, ReactNode } from "react";
 
 import { captureException } from "../lib/sentry";
+
 import ErrorBoundary from "./ErrorBoundary";
 
 interface ProviderWrapperProps {

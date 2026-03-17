@@ -19,10 +19,11 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { cn } from "@/lib/utils";
 
 import type { BriefHypothesis, BriefOpportunity, OpportunityBrief } from "./useOpportunityBrief";
 import { useOpportunityBrief } from "./useOpportunityBrief";
+
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Helpers

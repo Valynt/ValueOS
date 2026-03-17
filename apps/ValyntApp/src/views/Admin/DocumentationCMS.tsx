@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
-import { supabase } from "../../lib/supabase";
 import { useOrganization } from "../../hooks/useOrganization";
+import { supabase } from "../../lib/supabase";
 
 interface DocPage {
   id: string;

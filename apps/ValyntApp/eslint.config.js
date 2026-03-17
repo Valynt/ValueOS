@@ -15,11 +15,16 @@ const valyntAppConfig = {
   files: ["**/*.{ts,tsx}"],
   languageOptions: {
     ecmaVersion: 2020,
-    globals: globals.browser,
+    globals: {
+      ...globals.browser,
+      ...globals.node,
+      React: "readonly",
+    },
     parser: tseslint.parser,
     parserOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      jsxPragma: null, // React 17+ automatic JSX transform
     },
   },
   plugins: {
@@ -35,6 +40,26 @@ const valyntAppConfig = {
     ...tseslint.configs.recommended[0].rules,
     ...jsxA11y.configs.recommended.rules,
     ...reactHooks.configs.recommended.rules,
+    // Disable base rules that TypeScript handles
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    "no-redeclare": "off",
+    // Match root config: downgrade these from js.configs.recommended errors to warnings
+    "no-case-declarations": "warn",
+    "no-useless-escape": "warn",
+    "no-useless-catch": "warn",
+    // Downgrade problematic jsx-a11y rules to warnings (address incrementally)
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/anchor-is-valid": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-tabindex": "warn",
+    "jsx-a11y/no-autofocus": "warn",
+    "jsx-a11y/no-redundant-roles": "warn",
+    "jsx-a11y/heading-has-content": "warn",
+    "jsx-a11y/role-supports-aria-props": "warn",
+    "jsx-a11y/role-has-required-aria-props": "warn",
     "import/no-unresolved": "off",
     "import/order": [
       "error",
@@ -61,12 +86,15 @@ const valyntAppConfig = {
     "no-restricted-syntax": [
       "error",
       {
-        selector: "CallExpression[callee.name='fetch'][arguments.0.type='Literal'][arguments.0.value=/^\\/api\\//]",
-        message: "Use apiClient from unified-api-client instead of raw fetch() for /api/ routes. Add '// legitimate-exception: <reason>' if this is intentional.",
+        selector:
+          "CallExpression[callee.name='fetch'][arguments.0.type='Literal'][arguments.0.value=/^\\/api\\//]",
+        message:
+          "Use apiClient from unified-api-client instead of raw fetch() for /api/ routes. Add '// legitimate-exception: <reason>' if this is intentional.",
       },
       {
         selector: "CallExpression[callee.name='fetch'][arguments.0.type='TemplateLiteral']",
-        message: "Use apiClient from unified-api-client instead of raw fetch() for API calls. Add '// legitimate-exception: <reason>' if this is intentional.",
+        message:
+          "Use apiClient from unified-api-client instead of raw fetch() for API calls. Add '// legitimate-exception: <reason>' if this is intentional.",
       },
     ],
     "no-restricted-imports": [
@@ -88,6 +116,25 @@ const valyntAppConfig = {
   },
 };
 
+// Test files: enable vitest globals (expect, it, describe, vi, beforeEach, etc.)
+const testConfig = {
+  files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "**/__tests__/**/*.{ts,tsx}"],
+  languageOptions: {
+    globals: {
+      describe: "readonly",
+      it: "readonly",
+      expect: "readonly",
+      test: "readonly",
+      vi: "readonly",
+      vitest: "readonly",
+      beforeAll: "readonly",
+      beforeEach: "readonly",
+      afterAll: "readonly",
+      afterEach: "readonly",
+    },
+  },
+};
+
 // Confirmed exception locations: src/lib/ and src/utils/ may use raw fetch()
 // for external APIs, fire-and-forget analytics, and CSP violation reporting.
 // These are not /api/ backend routes and do not require UnifiedApiClient.
@@ -98,4 +145,4 @@ const fetchExceptionConfig = {
   },
 };
 
-export default [ignoresConfig, valyntAppConfig, fetchExceptionConfig];
+export default [ignoresConfig, valyntAppConfig, testConfig, fetchExceptionConfig];

@@ -7,9 +7,10 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
+import { SDUIPageDefinition } from '../schema';
+
 import { CanvasPatcher } from './CanvasPatcher';
 import { CanvasDelta, CanvasLayout } from './types';
-import { SDUIPageDefinition } from '../schema';
 
 interface CanvasState {
   // Current canvas

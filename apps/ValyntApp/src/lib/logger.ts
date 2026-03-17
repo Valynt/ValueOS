@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 // Structured logger stub for browser/service contexts.
 // This file is the ONLY place where console.log is permitted (via eslint-disable).
 // All other production code must import { logger } from this module.

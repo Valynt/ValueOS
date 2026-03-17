@@ -1,6 +1,6 @@
-import { featureFlags } from "../../config/featureFlags.js"
-import { logger } from "../../lib/logger.js"
-import { supabase } from "../../lib/supabase.js"
+import { featureFlags } from "../../config/featureFlags.js";
+import { logger } from "../../lib/logger.js";
+import { supabase } from "../../lib/supabase.js";
 import { CanvasComponent } from "../../types";
 
 export interface BusinessCase {
@@ -284,13 +284,23 @@ class PersistenceService {
       return [];
     }
 
-    return data.map((component: { id: string; type: string; position_x: number; position_y: number; width: number; height: number; props: Record<string, unknown> }) => ({
-      id: component.id,
-      type: component.type,
-      position: { x: component.position_x, y: component.position_y },
-      size: { width: component.width, height: component.height },
-      props: component.props,
-    }));
+    return data.map(
+      (component: {
+        id: string;
+        type: string;
+        position_x: number;
+        position_y: number;
+        width: number;
+        height: number;
+        props: Record<string, unknown>;
+      }) => ({
+        id: component.id,
+        type: component.type,
+        position: { x: component.position_x, y: component.position_y },
+        size: { width: component.width, height: component.height },
+        props: component.props,
+      })
+    );
   }
 
   async logHistory(
@@ -305,18 +315,22 @@ class PersistenceService {
     actionType: "created" | "updated" | "deleted" | "moved" | "resized",
     actor: string,
     changes: unknown
-  ): Promise<void> {
-    if (arguments.length === 5) {
-      // Full signature
-      const [organizationId, componentId, actionType, actor, changes] = arguments as [
-        string,
-        string,
-        "created" | "updated" | "deleted" | "moved" | "resized",
-        string,
-        unknown
-      ];
+  ): Promise<void>;
+  async logHistory(...args: unknown[]): Promise<void> {
+    if (args.length === 5) {
+      // Full signature (organizationId, componentId, actionType, actor, changes)
+      const [organizationId, componentId, actionType, actor, changes] =
+        args as [
+          string,
+          string,
+          "created" | "updated" | "deleted" | "moved" | "resized",
+          string,
+          unknown,
+        ];
       if (!organizationId) {
-        logger.error("logHistory called without organizationId — skipping to prevent cross-tenant leak");
+        logger.error(
+          "logHistory called without organizationId — skipping to prevent cross-tenant leak"
+        );
         return;
       }
       const { error } = await supabase.from("component_history").insert({
@@ -333,15 +347,11 @@ class PersistenceService {
         );
       }
       return;
-    } else if (arguments.length === 4) {
+    } else if (args.length === 4) {
       // Deprecated signature (componentId, actionType, actor, changes)
-      const [componentId, actionType, actor, changes] = arguments as [
-        string,
-        "created" | "updated" | "deleted" | "moved" | "resized",
-        string,
-        unknown
-      ];
-      logger.error("logHistory called without organizationId — skipping to prevent cross-tenant leak");
+      logger.error(
+        "logHistory called without organizationId — skipping to prevent cross-tenant leak"
+      );
       return;
     }
   }
@@ -406,7 +416,9 @@ class PersistenceService {
     metadata: Record<string, unknown> = {}
   ): Promise<void> {
     if (!organizationId) {
-      logger.error("logAgentActivity called without organizationId — skipping to prevent cross-tenant leak");
+      logger.error(
+        "logAgentActivity called without organizationId — skipping to prevent cross-tenant leak"
+      );
       return;
     }
 
@@ -451,7 +463,7 @@ class PersistenceService {
   }
 
   flushSaveQueue(): void {
-    this.saveQueue.forEach((timeout) => clearTimeout(timeout));
+    this.saveQueue.forEach(timeout => clearTimeout(timeout));
     this.saveQueue.clear();
   }
 }

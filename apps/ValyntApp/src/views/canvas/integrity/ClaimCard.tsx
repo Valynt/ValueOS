@@ -1,8 +1,9 @@
 import { ExternalLink, FileSearch, RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
 
+import { statusConfig, tierColorMap, type DisplayClaim } from "./integrityUtils";
+
 import { cn } from "@/lib/utils";
 
-import { statusConfig, tierColorMap, type DisplayClaim } from "./integrityUtils";
 
 interface ClaimCardProps {
   claim: DisplayClaim;
