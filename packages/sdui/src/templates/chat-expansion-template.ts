@@ -9,6 +9,7 @@
 
 
 import type { WorkflowState } from "@valueos/sdui-types";
+
 import type { SDUIPageDefinition } from "../schema";
 
 export interface ExpansionTemplateContext {

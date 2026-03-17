@@ -9,12 +9,12 @@ import {
   Zap,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import {
   useExpansionOpportunities,
   useRunExpansionAgent,
   type ExpansionOpportunity,
 } from "@/hooks/useExpansion";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Helpers

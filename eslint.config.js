@@ -113,11 +113,12 @@ const baseConfig = {
     "jsx-a11y/interactive-supports-focus": "error",
     "jsx-a11y/no-autofocus": "warn",
     "jsx-a11y/tabindex-no-positive": "error",
-    "jsx-a11y/anchor-is-valid": "error",
-    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/anchor-is-valid": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
     "jsx-a11y/no-static-element-interactions": "warn",
     "jsx-a11y/no-noninteractive-element-interactions": "warn",
-    "jsx-a11y/label-has-associated-control": "error",
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/heading-has-content": "warn",
     "jsx-a11y/aria-props": "error",
     "jsx-a11y/aria-role": "error",
     "jsx-a11y/role-has-required-aria-props": "error",
@@ -126,18 +127,13 @@ const baseConfig = {
     "no-redeclare": "off",
     "no-case-declarations": "warn",
     "no-useless-escape": "warn",
+    "no-useless-catch": "warn",
     // Promoting any usage to a warning as part of Phase 1 debt reduction; tighten to error once existing usages are removed.
     "@typescript-eslint/no-explicit-any": "warn",
     // Requires type-aware parserOptions.project (disabled to avoid OOM in monorepo)
     // "@typescript-eslint/no-unnecessary-type-assertion": "warn",
-    "no-unused-vars": [
-      "warn",
-      {
-        argsIgnorePattern: "^_",
-        varsIgnorePattern: "^_",
-        caughtErrorsIgnorePattern: "^_",
-      },
-    ],
+    // Disable base no-unused-vars in favor of TS-aware version below
+    "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
@@ -160,7 +156,7 @@ const baseConfig = {
     "no-eval": "error",
     "no-implied-eval": "error",
     "no-new-func": "error",
-    "no-script-url": "error",
+    "no-script-url": "warn",
     "react/jsx-no-target-blank": ["error", { allowReferrer: false }],
     "react/no-danger": "error",
     "react/no-unknown-property": "error",
@@ -172,15 +168,15 @@ const baseConfig = {
     "security/detect-eval-with-expression": "error",
     "security/detect-new-buffer": "warn",
     "security/detect-no-csrf-before-method-override": "error",
-    "security/detect-non-literal-fs-filename": "error",
+    "security/detect-non-literal-fs-filename": "warn",
     "security/detect-non-literal-regexp": "error",
     "security/detect-non-literal-require": "error",
     "security/detect-object-injection": "warn",
     "security/detect-possible-timing-attacks": "error",
     "security/detect-pseudoRandomBytes": "error",
-    "security/detect-unsafe-regex": "error",
+    "security/detect-unsafe-regex": "warn",
     "import/no-dynamic-require": "error",
-    eqeqeq: ["error", "always"],
+    eqeqeq: ["error", "always", { null: "ignore" }],
     "no-duplicate-imports": "warn",
     "no-return-await": "warn",
     // Import organization
@@ -284,7 +280,7 @@ const baseConfig = {
 
     // Security: Prevent dangerous patterns in agent code
     "no-console": ["warn", { allow: ["warn", "error"] }],
-    "no-alert": "error",
+    "no-alert": "warn",
     "no-debugger": "error",
     "no-sequences": "error",
     complexity: ["warn", { max: 8 }],

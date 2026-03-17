@@ -20,11 +20,11 @@ import {
   isProduction,
   validateEnvironmentConfig,
 } from "./config/environment";
+import { initializeAgents, SystemHealth } from "./lib/agentHealth";
 import { checkDatabaseConnection } from "./lib/database";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
 import { initializeSentry } from "./lib/sentry";
 import { initializeSecurity, validateSecurity } from "./security";
-import { initializeAgents, SystemHealth } from "./lib/agentHealth";
 
 /**
  * Bootstrap result

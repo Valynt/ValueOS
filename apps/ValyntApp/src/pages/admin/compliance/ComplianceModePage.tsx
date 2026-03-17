@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { ComplianceModeStatus } from "./types";
+import { useComplianceLiveStatus } from "./useComplianceLiveStatus";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import { useComplianceLiveStatus } from "./useComplianceLiveStatus";
-import { ComplianceModeStatus } from "./types";
 
 function ageLabel(minutes: number): string {
   if (minutes < 60) return `${Math.round(minutes)}m ago`;

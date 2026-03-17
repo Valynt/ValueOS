@@ -1,5 +1,6 @@
-import { Redis } from 'ioredis';
 import { readFileSync } from 'node:fs';
+
+import { Redis } from 'ioredis';
 
 import { createLogger } from './logger.js';
 

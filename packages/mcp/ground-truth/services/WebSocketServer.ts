@@ -11,16 +11,16 @@
  * subscription management, and scalable broadcasting.
  */
 
+import { createSecretKey } from "crypto";
 import { Server as HTTPServer } from "http";
 import { Server as HTTPSServer } from "https";
 
-import { parseCorsAllowlist } from "../../../shared/src/config/cors";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
+import { type JWTPayload, jwtVerify } from "jose";
 import { Server, Socket } from "socket.io";
-import { createSecretKey } from "crypto";
-import { jwtVerify, type JWTPayload } from "jose";
 
+import { parseCorsAllowlist } from "../../../shared/src/config/cors";
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 

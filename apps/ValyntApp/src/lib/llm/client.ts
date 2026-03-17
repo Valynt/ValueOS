@@ -1,6 +1,7 @@
+import type { LLMConfig, LLMMessage, LLMRequest, LLMResponse } from "./types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import type { LLMConfig, LLMMessage, LLMRequest, LLMResponse } from "./types";
 
 const defaultConfig: LLMConfig = {
   provider: "openai",

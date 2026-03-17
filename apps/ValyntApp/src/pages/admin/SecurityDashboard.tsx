@@ -4,8 +4,6 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-import { apiClient } from "@/api/client/unified-api-client";
 import {
   Activity,
   AlertTriangle,
@@ -15,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { apiClient } from "@/api/client/unified-api-client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,13 +1,14 @@
 import { RotateCcw, Shield, XCircle } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-import { useTenant } from "@/contexts/TenantContext";
-import { useIntegrityOutput } from "@/hooks/useIntegrityOutput";
 
 import { ClaimCard } from "./integrity/ClaimCard";
 import { IntegrityEmptyState } from "./integrity/IntegrityEmptyState";
 import { IntegrityLoading } from "./integrity/IntegrityLoading";
 import { toDisplayClaim } from "./integrity/integrityUtils";
+
+import { useTenant } from "@/contexts/TenantContext";
+import { useIntegrityOutput } from "@/hooks/useIntegrityOutput";
+import { cn } from "@/lib/utils";
 
 interface IntegrityStageProps {
   caseId?: string;

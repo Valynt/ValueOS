@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { InvoicesResponseSchema } from "@valueos/shared";
 import type { BackendInvoice } from "@valueos/shared";
 
+import type { Invoice } from "../types";
+
 import { apiClient } from "@/api/client/unified-api-client";
 
-import type { Invoice } from "../types";
 
 // ---------------------------------------------------------------------------
 // Shape translation

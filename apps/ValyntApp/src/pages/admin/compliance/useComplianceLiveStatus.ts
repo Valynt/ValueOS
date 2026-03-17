@@ -1,10 +1,11 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { ComplianceControlStatusResponse } from "./types";
 
 import { apiClient } from "@/api/client/unified-api-client";
 
-import { ComplianceControlStatusResponse } from "./types";
 
 async function fetchControlStatus(): Promise<ComplianceControlStatusResponse> {
   const res = await apiClient.get<ComplianceControlStatusResponse>("/api/admin/compliance/control-status");

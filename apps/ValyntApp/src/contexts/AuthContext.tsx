@@ -6,7 +6,6 @@
 import { Session, User } from "@supabase/supabase-js";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
-import { apiClient } from "@/api/client/unified-api-client";
 
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
@@ -14,6 +13,8 @@ import { getSupabaseConfig } from "../lib/env";
 import { createLogger } from "../lib/logger";
 import { supabase } from "../lib/supabase";
 import { computePermissions, UserClaims } from "../types/security";
+
+import { apiClient } from "@/api/client/unified-api-client";
 
 const logger = createLogger({ component: "AuthContext" });
 

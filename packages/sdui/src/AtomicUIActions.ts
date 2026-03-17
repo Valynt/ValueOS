@@ -576,7 +576,7 @@ export default AtomicUIActionSchema;
 // AtomicUIActions class — imperative API for layout mutations
 // ---------------------------------------------------------------------------
 
-import type { SDUIPageDefinition, SDUIComponentSection } from "./schema";
+import type { SDUIComponentSection, SDUIPageDefinition } from "./schema";
 
 type SimpleSelector = { id?: string; type?: string; index?: number };
 

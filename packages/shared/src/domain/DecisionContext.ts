@@ -14,11 +14,12 @@
  */
 
 import { z } from "zod";
-import { OpportunityLifecycleStageSchema } from "./Opportunity.js";
-import { HypothesisConfidenceSchema } from "./ValueHypothesis.js";
-import { EvidenceTierSchema } from "./Evidence.js";
+
 import { BusinessCaseStatusSchema } from "./BusinessCase.js";
+import { EvidenceTierSchema } from "./Evidence.js";
+import { OpportunityLifecycleStageSchema } from "./Opportunity.js";
 import { StakeholderRoleSchema } from "./Stakeholder.js";
+import { HypothesisConfidenceSchema } from "./ValueHypothesis.js";
 
 // ---------------------------------------------------------------------------
 // Sub-schemas

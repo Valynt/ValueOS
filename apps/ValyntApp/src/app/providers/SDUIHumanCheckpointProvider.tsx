@@ -1,8 +1,8 @@
-import { ReactNode, useMemo } from "react";
 import {
   HumanCheckpointDependenciesProvider,
   HumanCheckpointEventPayload,
 } from "@valueos/sdui";
+import { ReactNode, useMemo } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { humanCheckpointBroker } from "@/lib/humanCheckpointBroker";

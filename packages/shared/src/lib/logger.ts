@@ -337,8 +337,8 @@ export function setupMonitoring() {
     // Add Sentry integration if available
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
+       
       const Sentry = typeof (globalThis as Record<string, unknown>)['window'] === "undefined" ? require("@sentry/node") : null;
 
       if (Sentry) {

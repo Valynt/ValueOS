@@ -1,16 +1,19 @@
 /**
  * Compliance Validator Service
- * 
+ *
  * Validates reports and documents against VOS Manifesto principles.
  * Generates compliance stamps with evidence and confidence scores.
  */
 
-import { ComplianceMetadata, ComplianceRule } from '../../components/Compliance/ComplianceStamp';
-import { supabase } from '../../lib/supabase.js'
+import {
+  ComplianceMetadata,
+  ComplianceRule,
+} from "../../components/Compliance/ComplianceStamp";
+import { supabase } from "../../lib/supabase.js";
 
 export interface ValidationContext {
   reportId: string;
-  reportType: 'value_commit' | 'roi_model' | 'qbr' | 'value_case';
+  reportType: "value_commit" | "roi_model" | "qbr" | "value_case";
   content: Record<string, unknown>;
   userId: string;
   organizationId: string;
@@ -24,7 +27,7 @@ export interface ManifestoRule {
   validator: (context: ValidationContext) => Promise<{
     passed: boolean;
     evidence: string[];
-    confidence: 'high' | 'medium' | 'low';
+    confidence: "high" | "medium" | "low";
     details?: string;
   }>;
 }
@@ -35,281 +38,322 @@ export interface ManifestoRule {
 
 const MANIFESTO_RULES: ManifestoRule[] = [
   {
-    id: 'value-first-principle',
-    name: 'Value-First Principle',
-    category: 'Core Principles',
-    description: 'Value is defined by customer outcomes, not seller features',
-    validator: async (context) => {
+    id: "value-first-principle",
+    name: "Value-First Principle",
+    category: "Core Principles",
+    description: "Value is defined by customer outcomes, not seller features",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for outcome-focused language
       const content = JSON.stringify(context.content).toLowerCase();
-      
-      if (content.includes('outcome') || content.includes('result') || content.includes('impact')) {
-        evidence.push('Document contains outcome-focused language');
+
+      if (
+        content.includes("outcome") ||
+        content.includes("result") ||
+        content.includes("impact")
+      ) {
+        evidence.push("Document contains outcome-focused language");
       } else {
         passed = false;
-        evidence.push('Missing outcome-focused language');
-        confidence = 'low';
+        evidence.push("Missing outcome-focused language");
+        confidence = "low";
       }
 
       // Check for customer perspective
-      if (content.includes('customer') || content.includes('client')) {
-        evidence.push('Customer perspective is present');
+      if (content.includes("customer") || content.includes("client")) {
+        evidence.push("Customer perspective is present");
       } else {
         passed = false;
-        evidence.push('Lacks customer perspective');
+        evidence.push("Lacks customer perspective");
       }
 
       // Check for feature-centric language (negative indicator)
-      if (content.includes('feature') && !content.includes('outcome')) {
-        evidence.push('Warning: Feature-centric language detected without outcomes');
-        confidence = 'medium';
+      if (content.includes("feature") && !content.includes("outcome")) {
+        evidence.push(
+          "Warning: Feature-centric language detected without outcomes"
+        );
+        confidence = "medium";
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'unified-language',
-    name: 'Unified Value Language',
-    category: 'Core Principles',
-    description: 'Consistent terminology and definitions across all artifacts',
-    validator: async (context) => {
+    id: "unified-language",
+    name: "Unified Value Language",
+    category: "Core Principles",
+    description: "Consistent terminology and definitions across all artifacts",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for standard value terminology
       const content = JSON.stringify(context.content).toLowerCase();
-      const standardTerms = ['roi', 'kpi', 'baseline', 'target', 'realization'];
+      const standardTerms = ["roi", "kpi", "baseline", "target", "realization"];
       const foundTerms = standardTerms.filter(term => content.includes(term));
 
       if (foundTerms.length >= 3) {
-        evidence.push(`Uses standard value terminology: ${foundTerms.join(', ')}`);
+        evidence.push(
+          `Uses standard value terminology: ${foundTerms.join(", ")}`
+        );
       } else {
         passed = false;
-        evidence.push('Insufficient use of standard value terminology');
-        confidence = 'medium';
+        evidence.push("Insufficient use of standard value terminology");
+        confidence = "medium";
       }
 
       // Check for consistent metric definitions
-      if ('metrics' in context.content || 'kpis' in context.content) {
-        evidence.push('Metrics are explicitly defined');
+      if ("metrics" in context.content || "kpis" in context.content) {
+        evidence.push("Metrics are explicitly defined");
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'provenance-tracking',
-    name: 'Provenance Tracking',
-    category: 'Integrity',
-    description: 'All claims have documented sources and assumptions',
-    validator: async (context) => {
+    id: "provenance-tracking",
+    name: "Provenance Tracking",
+    category: "Integrity",
+    description: "All claims have documented sources and assumptions",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for assumptions documentation
-      if ('assumptions' in context.content && Array.isArray(context.content.assumptions)) {
-        const assumptions = context.content.assumptions as Array<Record<string, unknown>>;
+      if (
+        "assumptions" in context.content &&
+        Array.isArray(context.content.assumptions)
+      ) {
+        const assumptions = context.content.assumptions as Array<
+          Record<string, unknown>
+        >;
         evidence.push(`${assumptions.length} assumptions documented`);
-        
+
         // Check if assumptions have sources
-        const withSources = assumptions.filter((a) => a.source !== undefined);
+        const withSources = assumptions.filter(a => a.source !== undefined);
         if (withSources.length > 0) {
-          evidence.push(`${withSources.length} assumptions have documented sources`);
+          evidence.push(
+            `${withSources.length} assumptions have documented sources`
+          );
         } else {
           passed = false;
-          evidence.push('Assumptions lack source documentation');
-          confidence = 'low';
+          evidence.push("Assumptions lack source documentation");
+          confidence = "low";
         }
       } else {
         passed = false;
-        evidence.push('No assumptions documented');
-        confidence = 'low';
+        evidence.push("No assumptions documented");
+        confidence = "low";
       }
 
       // Check for data sources
-      if ('dataSources' in context.content || 'sources' in context.content) {
-        evidence.push('Data sources are documented');
+      if ("dataSources" in context.content || "sources" in context.content) {
+        evidence.push("Data sources are documented");
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'quantified-value',
-    name: 'Quantified Value',
-    category: 'Measurement',
-    description: 'Value is expressed in measurable, quantifiable terms',
-    validator: async (context) => {
+    id: "quantified-value",
+    name: "Quantified Value",
+    category: "Measurement",
+    description: "Value is expressed in measurable, quantifiable terms",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for numeric values
       const content = JSON.stringify(context.content);
       const hasNumbers = /\d+/.test(content);
 
       if (hasNumbers) {
-        evidence.push('Contains quantifiable metrics');
+        evidence.push("Contains quantifiable metrics");
       } else {
         passed = false;
-        evidence.push('Lacks quantifiable metrics');
-        confidence = 'low';
+        evidence.push("Lacks quantifiable metrics");
+        confidence = "low";
       }
 
       // Check for financial metrics
-      if ('roi' in context.content || 'npv' in context.content || 'payback' in context.content) {
-        evidence.push('Financial metrics are present');
+      if (
+        "roi" in context.content ||
+        "npv" in context.content ||
+        "payback" in context.content
+      ) {
+        evidence.push("Financial metrics are present");
       }
 
       // Check for KPIs
-      if ('kpis' in context.content && Array.isArray(context.content.kpis)) {
+      if ("kpis" in context.content && Array.isArray(context.content.kpis)) {
         const kpisArray = context.content.kpis as unknown[];
         evidence.push(`${kpisArray.length} KPIs defined`);
       } else {
         passed = false;
-        evidence.push('No KPIs defined');
-        confidence = 'medium';
+        evidence.push("No KPIs defined");
+        confidence = "medium";
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'baseline-target',
-    name: 'Baseline & Target Definition',
-    category: 'Measurement',
-    description: 'Clear baseline and target values for all metrics',
-    validator: async (context) => {
+    id: "baseline-target",
+    name: "Baseline & Target Definition",
+    category: "Measurement",
+    description: "Clear baseline and target values for all metrics",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for baseline values
       const content = JSON.stringify(context.content).toLowerCase();
-      if (content.includes('baseline') || content.includes('current state')) {
-        evidence.push('Baseline values are documented');
+      if (content.includes("baseline") || content.includes("current state")) {
+        evidence.push("Baseline values are documented");
       } else {
         passed = false;
-        evidence.push('Missing baseline values');
-        confidence = 'low';
+        evidence.push("Missing baseline values");
+        confidence = "low";
       }
 
       // Check for target values
-      if (content.includes('target') || content.includes('goal')) {
-        evidence.push('Target values are documented');
+      if (content.includes("target") || content.includes("goal")) {
+        evidence.push("Target values are documented");
       } else {
         passed = false;
-        evidence.push('Missing target values');
-        confidence = 'low';
+        evidence.push("Missing target values");
+        confidence = "low";
       }
 
       // Check for measurement period
-      if (content.includes('timeline') || content.includes('period') || content.includes('quarter')) {
-        evidence.push('Measurement period is defined');
+      if (
+        content.includes("timeline") ||
+        content.includes("period") ||
+        content.includes("quarter")
+      ) {
+        evidence.push("Measurement period is defined");
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'stakeholder-alignment',
-    name: 'Stakeholder Alignment',
-    category: 'Governance',
-    description: 'Value proposition aligns with stakeholder personas',
-    validator: async (context) => {
+    id: "stakeholder-alignment",
+    name: "Stakeholder Alignment",
+    category: "Governance",
+    description: "Value proposition aligns with stakeholder personas",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for stakeholder identification
       const content = JSON.stringify(context.content).toLowerCase();
-      const personas = ['economic buyer', 'technical buyer', 'end user', 'champion'];
+      const personas = [
+        "economic buyer",
+        "technical buyer",
+        "end user",
+        "champion",
+      ];
       const foundPersonas = personas.filter(p => content.includes(p));
 
       if (foundPersonas.length > 0) {
         evidence.push(`Addresses ${foundPersonas.length} stakeholder personas`);
       } else {
         passed = false;
-        evidence.push('No stakeholder personas identified');
-        confidence = 'medium';
+        evidence.push("No stakeholder personas identified");
+        confidence = "medium";
       }
 
       // Check for approval workflow
-      if ('approvals' in context.content || 'stakeholders' in context.content) {
-        evidence.push('Stakeholder approval process documented');
+      if ("approvals" in context.content || "stakeholders" in context.content) {
+        evidence.push("Stakeholder approval process documented");
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'risk-mitigation',
-    name: 'Risk Mitigation',
-    category: 'Governance',
-    description: 'Risks are identified and mitigation strategies defined',
-    validator: async (context) => {
+    id: "risk-mitigation",
+    name: "Risk Mitigation",
+    category: "Governance",
+    description: "Risks are identified and mitigation strategies defined",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for risk documentation
-      if ('risks' in context.content && Array.isArray(context.content.risks)) {
+      if ("risks" in context.content && Array.isArray(context.content.risks)) {
         const risks = context.content.risks as Array<Record<string, unknown>>;
         evidence.push(`${risks.length} risks identified`);
-        
+
         // Check for mitigation strategies
-        const withMitigation = risks.filter((r) => r.mitigation !== undefined);
+        const withMitigation = risks.filter(r => r.mitigation !== undefined);
         if (withMitigation.length > 0) {
-          evidence.push(`${withMitigation.length} risks have mitigation strategies`);
+          evidence.push(
+            `${withMitigation.length} risks have mitigation strategies`
+          );
         } else {
           passed = false;
-          evidence.push('Risks lack mitigation strategies');
-          confidence = 'medium';
+          evidence.push("Risks lack mitigation strategies");
+          confidence = "medium";
         }
       } else {
         passed = false;
-        evidence.push('No risks documented');
-        confidence = 'low';
+        evidence.push("No risks documented");
+        confidence = "low";
       }
 
       return { passed, evidence, confidence };
     },
   },
   {
-    id: 'continuous-tracking',
-    name: 'Continuous Tracking',
-    category: 'Realization',
-    description: 'Mechanisms for ongoing value tracking and reporting',
-    validator: async (context) => {
+    id: "continuous-tracking",
+    name: "Continuous Tracking",
+    category: "Realization",
+    description: "Mechanisms for ongoing value tracking and reporting",
+    validator: async context => {
       const evidence: string[] = [];
       let passed = true;
-      let confidence: 'high' | 'medium' | 'low' = 'high';
+      let confidence: "high" | "medium" | "low" = "high";
 
       // Check for tracking mechanisms
       const content = JSON.stringify(context.content).toLowerCase();
-      if (content.includes('dashboard') || content.includes('tracking') || content.includes('monitoring')) {
-        evidence.push('Tracking mechanisms are defined');
+      if (
+        content.includes("dashboard") ||
+        content.includes("tracking") ||
+        content.includes("monitoring")
+      ) {
+        evidence.push("Tracking mechanisms are defined");
       } else {
         passed = false;
-        evidence.push('No tracking mechanisms defined');
-        confidence = 'medium';
+        evidence.push("No tracking mechanisms defined");
+        confidence = "medium";
       }
 
       // Check for reporting cadence
-      if (content.includes('weekly') || content.includes('monthly') || content.includes('quarterly')) {
-        evidence.push('Reporting cadence is defined');
+      if (
+        content.includes("weekly") ||
+        content.includes("monthly") ||
+        content.includes("quarterly")
+      ) {
+        evidence.push("Reporting cadence is defined");
       }
 
       // Check for variance analysis
-      if (content.includes('variance') || content.includes('actual vs target')) {
-        evidence.push('Variance analysis is included');
+      if (
+        content.includes("variance") ||
+        content.includes("actual vs target")
+      ) {
+        evidence.push("Variance analysis is included");
       }
 
       return { passed, evidence, confidence };
@@ -325,7 +369,9 @@ export class ComplianceValidator {
   /**
    * Validate a report against all Manifesto rules
    */
-  async validateReport(context: ValidationContext): Promise<ComplianceMetadata> {
+  async validateReport(
+    context: ValidationContext
+  ): Promise<ComplianceMetadata> {
     const rules: ComplianceRule[] = [];
     let totalConfidence = 0;
     let evidenceCount = 0;
@@ -333,12 +379,12 @@ export class ComplianceValidator {
     // Run all validators
     for (const rule of MANIFESTO_RULES) {
       const result = await rule.validator(context);
-      
+
       rules.push({
         id: rule.id,
         name: rule.name,
         category: rule.category,
-        status: result.passed ? 'passed' : 'failed',
+        status: result.passed ? "passed" : "failed",
         description: rule.description,
         evidence: result.evidence,
         confidence: result.confidence,
@@ -346,22 +392,27 @@ export class ComplianceValidator {
       });
 
       // Calculate confidence score
-      const confidenceValue = result.confidence === 'high' ? 1 : result.confidence === 'medium' ? 0.6 : 0.3;
+      const confidenceValue =
+        result.confidence === "high"
+          ? 1
+          : result.confidence === "medium"
+            ? 0.6
+            : 0.3;
       totalConfidence += confidenceValue;
       evidenceCount += result.evidence.length;
     }
 
     // Determine overall status
-    const passedCount = rules.filter(r => r.status === 'passed').length;
-    const failedCount = rules.filter(r => r.status === 'failed').length;
-    
-    let overallStatus: 'compliant' | 'non-compliant' | 'partial';
+    const passedCount = rules.filter(r => r.status === "passed").length;
+    const failedCount = rules.filter(r => r.status === "failed").length;
+
+    let overallStatus: "compliant" | "non-compliant" | "partial";
     if (failedCount === 0) {
-      overallStatus = 'compliant';
+      overallStatus = "compliant";
     } else if (passedCount === 0) {
-      overallStatus = 'non-compliant';
+      overallStatus = "non-compliant";
     } else {
-      overallStatus = 'partial';
+      overallStatus = "partial";
     }
 
     const metadata: ComplianceMetadata = {
@@ -369,7 +420,7 @@ export class ComplianceValidator {
       reportType: context.reportType,
       generatedAt: new Date().toISOString(),
       generatedBy: context.userId,
-      manifestoVersion: '1.0.0',
+      manifestoVersion: "1.0.0",
       overallStatus,
       rules,
       evidenceCount,
@@ -389,14 +440,14 @@ export class ComplianceValidator {
     metadata: ComplianceMetadata,
     context: ValidationContext
   ): Promise<void> {
-    await supabase.from('compliance_results').insert({
+    await supabase.from("compliance_results").insert({
       report_id: context.reportId,
       report_type: context.reportType,
       user_id: context.userId,
       organization_id: context.organizationId,
       overall_status: metadata.overallStatus,
-      rules_passed: metadata.rules.filter(r => r.status === 'passed').length,
-      rules_failed: metadata.rules.filter(r => r.status === 'failed').length,
+      rules_passed: metadata.rules.filter(r => r.status === "passed").length,
+      rules_failed: metadata.rules.filter(r => r.status === "failed").length,
       confidence_score: metadata.confidenceScore,
       evidence_count: metadata.evidenceCount,
       manifesto_version: metadata.manifestoVersion,
@@ -410,10 +461,10 @@ export class ComplianceValidator {
    */
   async getComplianceHistory(reportId: string): Promise<ComplianceMetadata[]> {
     const { data, error } = await supabase
-      .from('compliance_results')
-      .select('*')
-      .eq('report_id', reportId)
-      .order('created_at', { ascending: false });
+      .from("compliance_results")
+      .select("*")
+      .eq("report_id", reportId)
+      .order("created_at", { ascending: false });
 
     if (error || !data) {
       return [];
@@ -425,10 +476,12 @@ export class ComplianceValidator {
       generatedAt: String(row.created_at),
       generatedBy: String(row.user_id),
       manifestoVersion: String(row.manifesto_version),
-      overallStatus: (row.overall_status as 'compliant' | 'non-compliant' | 'partial') ?? 'non-compliant',
+      overallStatus:
+        (row.overall_status as "compliant" | "non-compliant" | "partial") ??
+        "non-compliant",
       rules: (row.rules_detail as ComplianceRule[]) ?? [],
-      evidenceCount: Number(row.evidence_count) ?? 0,
-      confidenceScore: Number(row.confidence_score) ?? 0,
+      evidenceCount: Number(row.evidence_count) || 0,
+      confidenceScore: Number(row.confidence_score) || 0,
     }));
   }
 
@@ -444,9 +497,9 @@ export class ComplianceValidator {
     commonFailures: Array<{ rule: string; count: number }>;
   }> {
     const { data, error } = await supabase
-      .from('compliance_results')
-      .select('*')
-      .eq('organization_id', organizationId);
+      .from("compliance_results")
+      .select("*")
+      .eq("organization_id", organizationId);
 
     if (error || !data) {
       return {
@@ -460,16 +513,24 @@ export class ComplianceValidator {
     }
 
     const totalReports = data.length;
-    const compliantReports = data.filter(r => r.overall_status === 'compliant').length;
-    const partialReports = data.filter(r => r.overall_status === 'partial').length;
-    const nonCompliantReports = data.filter(r => r.overall_status === 'non-compliant').length;
-    const averageConfidence = data.reduce((sum, r) => sum + (r.confidence_score as number || 0), 0) / totalReports;
+    const compliantReports = data.filter(
+      r => r.overall_status === "compliant"
+    ).length;
+    const partialReports = data.filter(
+      r => r.overall_status === "partial"
+    ).length;
+    const nonCompliantReports = data.filter(
+      r => r.overall_status === "non-compliant"
+    ).length;
+    const averageConfidence =
+      data.reduce((sum, r) => sum + ((r.confidence_score as number) || 0), 0) /
+      totalReports;
 
     // Calculate common failures
     const failureCount: Record<string, number> = {};
     data.forEach(result => {
-      (result.rules_detail as ComplianceRule[] || []).forEach((rule) => {
-        if (rule.status === 'failed') {
+      ((result.rules_detail as ComplianceRule[]) || []).forEach(rule => {
+        if (rule.status === "failed") {
           failureCount[rule.name] = (failureCount[rule.name] || 0) + 1;
         }
       });

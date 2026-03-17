@@ -26,7 +26,7 @@ export function useFormWithValidation<T extends FieldValues>(
   const { schema, defaultValues, mode = "onChange" } = options;
 
   return useForm<T>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     resolver: schema ? zodResolver(schema as any) : undefined,
     defaultValues,
     mode,

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, GripVertical, GripHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, GripHorizontal, GripVertical } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 export type ResponsiveBreakpoint = "sm" | "md" | "lg" | "xl";

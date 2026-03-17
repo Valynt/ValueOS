@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.ts";
 import type { EDGARModule } from "../modules/EDGARModule";
 import type { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import type { XBRLModule } from "../modules/XBRLModule";
 import type { FinancialMetric, ModuleResponse } from "../types";
+
+import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.ts";
 
 const createMetric = (
   metricName: string,

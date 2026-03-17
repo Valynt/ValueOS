@@ -6,8 +6,8 @@
 import { lazy, type ReactElement, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
-import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { SDUIHumanCheckpointProvider } from "./app/providers/SDUIHumanCheckpointProvider";
+import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { ProtectedRoute } from "./app/routes/route-guards";
 import { TenantGate } from "./app/routes/TenantGate";
 import { CommandPaletteProvider } from "./components/CommandPalette";

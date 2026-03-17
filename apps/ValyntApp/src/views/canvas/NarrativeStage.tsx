@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { cn } from "@/lib/utils";
 import { useNarrativeDraft, useRunNarrativeAgent } from "@/hooks/useNarrative";
+import { cn } from "@/lib/utils";
 
 // Collapsible section
 function Section({
