@@ -18,9 +18,11 @@
 
 These must be resolved before launch. Each is a true boot or critical-path failure.
 
-- [ ] `TCT_SECRET` and `WEB_SCRAPER_ENCRYPTION_KEY` are required at backend startup but not mentioned in the README quickstart or validated in `validateEnv.ts` — a new engineer will hit a silent crash with no actionable message. **Fix:** add both to `REQUIRED_VARS` in `packages/backend/src/config/validateEnv.ts` with fix instructions.
-- [ ] `SUPABASE_KEY` (alias for `SUPABASE_ANON_KEY`) is read by three backend files but is not listed as a required var anywhere visible to a new engineer — backend crashes at startup with `supabaseKey is required`. **Fix:** document in `ops/env/README.md` and add to `REQUIRED_VARS`.
-- [ ] `scripts/dx/doctor.js` crashes with `printToolVersions is not defined` — the preflight check exits non-zero before completing any checks. **Fix:** resolve the undefined reference in `scripts/dx/doctor.js`.
+~~- [ ] `TCT_SECRET` and `WEB_SCRAPER_ENCRYPTION_KEY` are required at backend startup but not mentioned in the README quickstart or validated in `validateEnv.ts` — a new engineer will hit a silent crash with no actionable message.~~ ✅ Resolved — see Resolved section.
+
+~~- [ ] `SUPABASE_KEY` (alias for `SUPABASE_ANON_KEY`) is read by three backend files but is not listed as a required var anywhere visible to a new engineer — backend crashes at startup with `supabaseKey is required`.~~ ✅ Resolved — see Resolved section.
+
+~~- [ ] `scripts/dx/doctor.js` crashes with `printToolVersions is not defined` — the preflight check exits non-zero before completing any checks.~~ ✅ Resolved — see Resolved section.
 
 ---
 
@@ -104,6 +106,10 @@ Run after each deploy to confirm the system is healthy.
 
 | Item | Resolved in |
 |---|---|
-| `pnpm run db:push` in README (script does not exist) | PR #1752 / this change |
-| README quickstart pointed to root `.env.example` instead of `ops/env/` | PR #1752 / this change |
-| `pnpm run dx:check` not available as a script | This change |
+| `pnpm run db:push` in README (script does not exist) | PR #1753 |
+| README quickstart pointed to root `.env.example` instead of `ops/env/` | PR #1753 |
+| `pnpm run dx:check` not available as a script | PR #1753 |
+| `TCT_SECRET` missing from `validateEnv.ts` `REQUIRED_VARS` — silent crash at startup | PR #1755 |
+| `WEB_SCRAPER_ENCRYPTION_KEY` missing from `validateEnv.ts` `REQUIRED_VARS` — silent crash at startup | PR #1755 |
+| `SUPABASE_KEY` alias missing from `validateEnv.ts` `REQUIRED_VARS` — silent crash at startup | PR #1755 |
+| `scripts/dx/doctor.js` crashes with `printToolVersions is not defined` | PR #1755 |
