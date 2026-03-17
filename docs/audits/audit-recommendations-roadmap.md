@@ -21,10 +21,10 @@ Tracking document for all 17 recommendations from the [comprehensive repo audit 
 | #   | Recommendation                                  | Status  | Evidence / Notes                                                                                                                             |
 | --- | ----------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 6   | Migration squash strategy                       | Done    | Documented in `docs/engineering/migration-guide.md` -- quarterly epoch baselines, `_consolidated/` archive, validation steps.                |
-| 7   | Live-backend E2E CI lane                        | Done    | `live-backend-e2e` job added to `.github/workflows/ci.yml` with Postgres + Redis services, backend boot, Playwright critical-flow specs.     |
-| 8   | Bundle size budget gate                         | Done    | `scripts/ci/check-bundle-size.mjs` (2 MB budget) added to `accessibility-audit` lane in CI.                                                  |
-| 9   | Begin `any` debt burn-down                      | Done    | Sprint-by-sprint burn-down plan added to `.ona/context/debt.md` (DEBT-ANY-BURNDOWN). Start with `packages/shared` and `packages/components`. |
-| 10  | Lighthouse CI / Web Vitals monitoring           | Done    | `@lhci/cli` step added to `accessibility-audit` lane with performance (0.7), accessibility (0.9), best-practices (0.8) thresholds.           |
+| 7   | Live-backend E2E CI lane                        | Deferred | CI workflow changes were local-only and not pushed (GitHub App token lacks `workflows` permission). Script is ready; requires a developer with workflow permissions to push `.github/workflows/ci.yml`. |
+| 8   | Bundle size budget gate                         | Deferred | `scripts/ci/check-bundle-size.mjs` (2 MB budget) is committed. CI wiring in `.github/workflows/ci.yml` was local-only and not pushed — same blocker as #7.                                           |
+| 9   | Begin `any` debt burn-down                      | Done     | Sprint-by-sprint burn-down plan added to `.ona/context/debt.md` (DEBT-ANY-BURNDOWN). Start with `packages/shared` and `packages/components`. |
+| 10  | Lighthouse CI / Web Vitals monitoring           | Deferred | `@lhci/cli` step was added locally to `.github/workflows/ci.yml` but not pushed — same blocker as #7.                                                                                                 |
 | 11  | Validate observability stack against production | Planned | See [Observability Validation Plan](#observability-validation-plan) below.                                                                   |
 
 ## Long-term (3-12 months)
@@ -134,6 +134,7 @@ Per `docs/security-compliance/bug-bounty-cvd-program.md`, the pen test program i
 
 ## Changelog
 
-| Date       | Change                                                    |
-| ---------- | --------------------------------------------------------- |
-| 2026-03-17 | Initial roadmap created from audit recommendations #1-17. |
+| Date       | Change                                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| 2026-03-17 | Initial roadmap created from audit recommendations #1-17.                                                   |
+| 2026-03-17 | Corrected #7, #8, #10 from Done → Deferred: CI workflow changes were local-only (missing workflows permission). |
