@@ -1,7 +1,7 @@
 # env-contract Specification
 
 ## Purpose
-TBD - created by archiving change canonical-boot-path. Update Purpose after archive.
+Define the canonical environment configuration contract for the repository, including the three-file env system, required variable validation at startup, secret-handling rules, and documented aliases such as `SUPABASE_KEY`.
 ## Requirements
 ### Requirement: Three-file env system is the only documented path
 
