@@ -112,8 +112,10 @@ module "cache" {
 }
 
 # ECS Cluster — ARCHIVED: not used by active deploy pipeline (K8s).
-# Retained for supporting infra reference. See modules/_archived/README.md.
+# Only provisioned when var.enable_ecs = true (default: false).
+# See modules/_archived/README.md.
 module "ecs" {
+  count  = var.enable_ecs ? 1 : 0
   source = "./modules/_archived/ecs"
 
   name_prefix = local.name_prefix
@@ -122,11 +124,13 @@ module "ecs" {
 }
 
 # Frontend Service — ARCHIVED: not used by active deploy pipeline (K8s).
+# Only provisioned when var.enable_ecs = true (default: false).
 module "frontend" {
+  count  = var.enable_ecs ? 1 : 0
   source = "./modules/_archived/ecs-service"
 
   name_prefix            = "${local.name_prefix}-frontend"
-  cluster_id             = module.ecs.cluster_id
+  cluster_id             = module.ecs[0].cluster_id
   vpc_id                 = module.networking.vpc_id
   private_subnet_ids     = module.networking.private_subnet_ids
   public_subnet_ids      = module.networking.public_subnet_ids
@@ -153,11 +157,13 @@ module "frontend" {
 }
 
 # Backend Service — ARCHIVED: not used by active deploy pipeline (K8s).
+# Only provisioned when var.enable_ecs = true (default: false).
 module "backend" {
+  count  = var.enable_ecs ? 1 : 0
   source = "./modules/_archived/ecs-service"
 
   name_prefix            = "${local.name_prefix}-backend"
-  cluster_id             = module.ecs.cluster_id
+  cluster_id             = module.ecs[0].cluster_id
   vpc_id                 = module.networking.vpc_id
   private_subnet_ids     = module.networking.private_subnet_ids
   public_subnet_ids      = module.networking.public_subnet_ids
@@ -196,8 +202,8 @@ module "cdn" {
   name_prefix = local.name_prefix
   domain_name = var.domain_name
 
-  frontend_lb_dns = module.frontend.load_balancer_dns
-  backend_lb_dns  = module.backend.load_balancer_dns
+  frontend_lb_dns = var.enable_ecs ? module.frontend[0].load_balancer_dns : ""
+  backend_lb_dns  = var.enable_ecs ? module.backend[0].load_balancer_dns : ""
 
   tags = local.common_tags
 }
@@ -208,9 +214,9 @@ module "monitoring" {
 
   name_prefix = local.name_prefix
 
-  ecs_cluster_name = module.ecs.cluster_name
-  frontend_service_name = module.frontend.service_name
-  backend_service_name = module.backend.service_name
+  ecs_cluster_name      = var.enable_ecs ? module.ecs[0].cluster_name : ""
+  frontend_service_name = var.enable_ecs ? module.frontend[0].service_name : ""
+  backend_service_name  = var.enable_ecs ? module.backend[0].service_name : ""
 
   database_identifier = module.database.identifier
   cache_cluster_id = module.cache.cluster_id
@@ -260,21 +266,21 @@ output "cache_arn" {
 }
 
 output "frontend_service_arn" {
-  description = "Frontend ECS service ARN"
-  value       = module.frontend.service_arn
+  description = "Frontend ECS service ARN (null when enable_ecs = false)"
+  value       = var.enable_ecs ? module.frontend[0].service_arn : null
 }
 
 output "backend_service_arn" {
-  description = "Backend ECS service ARN"
-  value       = module.backend.service_arn
+  description = "Backend ECS service ARN (null when enable_ecs = false)"
+  value       = var.enable_ecs ? module.backend[0].service_arn : null
 }
 
 output "frontend_target_group_arn" {
-  description = "Frontend ALB target group ARN"
-  value       = module.frontend.target_group_arn
+  description = "Frontend ALB target group ARN (null when enable_ecs = false)"
+  value       = var.enable_ecs ? module.frontend[0].target_group_arn : null
 }
 
 output "backend_target_group_arn" {
-  description = "Backend ALB target group ARN"
-  value       = module.backend.target_group_arn
+  description = "Backend ALB target group ARN (null when enable_ecs = false)"
+  value       = var.enable_ecs ? module.backend[0].target_group_arn : null
 }

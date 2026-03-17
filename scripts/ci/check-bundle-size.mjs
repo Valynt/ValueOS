@@ -23,11 +23,16 @@ function parseArgs() {
   const args = process.argv.slice(2);
   let budget = DEFAULT_BUDGET_BYTES;
   const budgetIdx = args.indexOf("--budget");
-  if (budgetIdx !== -1 && args[budgetIdx + 1]) {
-    budget = parseInt(args[budgetIdx + 1], 10);
-    if (Number.isNaN(budget) || budget <= 0) {
+  if (budgetIdx !== -1) {
+    const raw = args[budgetIdx + 1];
+    if (!raw || raw.startsWith("--")) {
+      console.error("--budget requires a value (bytes), e.g. --budget 2097152");
+      process.exit(1);
+    }
+    budget = parseInt(raw, 10);
+    if (Number.isNaN(budget) || budget <= 0 || String(budget) !== String(parseInt(raw, 10)) || raw.includes(".")) {
       console.error(
-        "Invalid --budget value. Must be a positive integer (bytes)."
+        `Invalid --budget value "${raw}". Must be a positive integer (bytes).`
       );
       process.exit(1);
     }
@@ -67,6 +72,13 @@ function formatBytes(bytes) {
 
 const { budget } = parseArgs();
 const assets = getJsAssetSizes(DIST_DIR);
+
+if (assets.length === 0) {
+  console.error(`No .js/.mjs files found in ${DIST_DIR}.`);
+  console.error("Run 'pnpm --filter valynt-app build' first, or check that DIST_DIR is correct.");
+  process.exit(1);
+}
+
 const totalSize = assets.reduce((sum, a) => sum + a.size, 0);
 
 console.log("Bundle size report (JS assets):");

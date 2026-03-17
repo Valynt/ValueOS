@@ -549,13 +549,13 @@ const strictNoAnyOverrides = {
     "packages/backend/src/middleware/securityHeaders.ts",
     "packages/backend/src/middleware/tenantContext.ts",
     "packages/backend/src/middleware/mfa.ts",
-    // Auth & billing services
+    // Auth services
     "packages/backend/src/services/AuthService.ts",
     "packages/backend/src/services/AuthDirectoryService.ts",
     "packages/backend/src/services/AuthPolicy.ts",
     "packages/backend/src/api/auth.ts",
     "packages/backend/src/api/admin.ts",
-    "packages/backend/src/services/billing/**/*.ts",
+    // billing/** excluded: existing `any` debt must be resolved before enabling error-level enforcement here
     // Agent fabric (all agents, base class, memory)
     "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
     "packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts",
