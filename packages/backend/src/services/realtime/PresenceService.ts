@@ -91,7 +91,7 @@ export class PresenceService extends TenantAwareService {
   ): Promise<void> {
     return this.executeRequest(
       async () => {
-        const updates: Record<string, unknown> = {
+        const updates: any = {
           action,
           last_heartbeat: new Date().toISOString(),
         };

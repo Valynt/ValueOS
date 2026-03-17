@@ -42,7 +42,7 @@ function Router() {
   return (
     <Switch>
       {publicRoutes.map((route) => (
-        <Route key={route.path} path={route.path} component={route.component as React.ComponentType<object>} />
+        <Route key={route.path} path={route.path} component={route.component as any} />
       ))}
       {protectedRoutes.map((route) => (
         <Route key={route.path} path={route.path}>

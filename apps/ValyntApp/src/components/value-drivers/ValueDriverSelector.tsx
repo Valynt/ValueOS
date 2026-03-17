@@ -55,7 +55,7 @@ export function ValueDriverSelector({
   // Only show published drivers
   const availableDrivers = allDrivers.filter((d) => {
     if (d.status !== "published") return false;
-    if (personaFilter && !d.personaTags.includes(personaFilter as string)) return false;
+    if (personaFilter && !d.personaTags.includes(personaFilter as any)) return false;
     if (searchQuery) {
       return (
         d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

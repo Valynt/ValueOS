@@ -46,7 +46,7 @@ export interface ConsumerGroupConfig {
   agentType: string;
   groupSize: number;
   ackOnStateUpdate: boolean;
-  stateMachine?: unknown; // Reference to agent's state machine
+  stateMachine?: any; // Reference to agent's state machine
 }
 
 export class SecureMessageBus extends EventEmitter {

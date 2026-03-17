@@ -51,7 +51,7 @@ const StructuralTruthSchema = z.object({
 export const StructuralTruthModuleSchema = StructuralTruthSchema;
 
 // Validation function
-export function validateStructuralTruth(payload: unknown): boolean {
+export function validateStructuralTruth(payload: any): boolean {
   try {
     StructuralTruthModuleSchema.parse(payload);
     return true;

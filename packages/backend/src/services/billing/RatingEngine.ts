@@ -11,7 +11,7 @@ import { type SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 
 import type { EntitlementSnapshot } from "./EntitlementSnapshotService.js";
-import type { MeterPricing, PriceVersion, PriceVersionDefinition } from "./PriceVersionService.js";
+import type { MeterPricing, PriceVersion } from "./PriceVersionService.js";
 
 const logger = createLogger({ component: "RatingEngine" });
 
@@ -60,7 +60,7 @@ export interface RatingContext {
 export interface RatingResult {
   lineItems: RatedLineItem[];
   totalAmount: number;
-  adjustments: unknown[]; // For future extensions
+  adjustments: any[]; // For future extensions
 }
 
 // ============================================================================
@@ -170,7 +170,7 @@ class RatingEngine {
    * Get meter pricing from price version definition.
    */
   private getMeterPricing(
-    definition: PriceVersionDefinition,
+    definition: any,
     meterKey: string
   ): MeterPricing | null {
     return definition.meters?.[meterKey] ?? null;

@@ -285,7 +285,7 @@ export class AtomicActionExecutor {
     }
 
     return schema.sections.findIndex((s) => {
-      if (selector.id && s.component !== selector.id && !("id" in s && (s as Record<string, unknown>).id === selector.id)) return false;
+      if (selector.id && s.component !== selector.id && (s as any).id !== selector.id) return false;
       if (selector.type && s.component !== selector.type) return false;
       if (selector.props) {
         for (const [k, v] of Object.entries(selector.props)) {

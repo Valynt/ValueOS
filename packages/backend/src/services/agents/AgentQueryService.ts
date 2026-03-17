@@ -297,7 +297,7 @@ export class AgentQueryService {
    * @param options Query options
    * @returns Agent response
    */
-  async queryAgent(prompt: string, options: Record<string, unknown> = {}): Promise<unknown> {
+  async queryAgent(prompt: string, options: any = {}): Promise<any> {
     const controller = new AbortController();
     const { signal } = controller;
     const timeout = 30000;

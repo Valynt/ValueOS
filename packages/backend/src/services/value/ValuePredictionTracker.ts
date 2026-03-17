@@ -317,7 +317,7 @@ export class ValuePredictionTracker {
 
       if (error) throw error;
 
-      return (data || []).map((p: Record<string, unknown>) => {
+      return (data || []).map((p: any) => {
         const createdAt = new Date(p.created_at);
         const daysOld = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         

@@ -1004,7 +1004,7 @@ Please provide a clear, concise explanation suitable for a user.`,
       }
 
       // Check for 'id' property if it exists at top level (unlikely for SDUISection but possible in some schemas)
-      if ((section as Record<string, unknown>).id === componentId) {
+      if ((section as any).id === componentId) {
         return { component: section, path: `sections[${i}]` };
       }
 

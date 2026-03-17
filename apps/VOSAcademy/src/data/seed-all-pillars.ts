@@ -243,14 +243,14 @@ async function seedAllPillars() {
       description: pillar.description,
       duration: pillar.duration,
       content: pillar.content,
-    }).onConflictDoUpdate({
+    } as any).onConflictDoUpdate({
       target: pillars.pillarNumber,
       set: {
         title: pillar.title,
         description: pillar.description,
         duration: pillar.duration,
         content: pillar.content,
-      },
+      } as any
     });
     
     console.log(`✓ Created/Updated Pillar ${pillar.pillarNumber}: ${pillar.title}`);
@@ -279,7 +279,7 @@ async function seedAllPillars() {
       fileUrl: resource.fileUrl,
       pillarId: resource.pillarId,
       vosRole: resource.vosRole,
-    });
+    } as any);
   }
   
   console.log(`\n✓ Created ${resourceData.length} downloadable resources`);

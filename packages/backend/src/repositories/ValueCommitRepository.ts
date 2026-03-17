@@ -12,12 +12,12 @@ export class ValueCommitRepository {
     this.supabase = createServerSupabaseClient();
   }
 
-  async findById(id: string): Promise<unknown> {
+  async findById(id: string): Promise<any | null> {
     logger.debug('ValueCommitRepository findById', { id });
     return null;
   }
 
-  async create(data: unknown): Promise<unknown> {
+  async create(data: any): Promise<any> {
     logger.debug('ValueCommitRepository create', { data });
     return data;
   }

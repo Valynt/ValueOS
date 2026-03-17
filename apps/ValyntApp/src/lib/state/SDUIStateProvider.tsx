@@ -7,7 +7,7 @@ interface SDUIStateContextType {
 
 const SDUIStateContext = createContext<SDUIStateContextType | undefined>(undefined);
 
-export function SDUIStateProvider({ children, _supabase }: { children: ReactNode; supabase?: unknown }) {
+export function SDUIStateProvider({ children, _supabase }: { children: ReactNode; supabase: any }) {
   return <SDUIStateContext.Provider value={{}}>{children}</SDUIStateContext.Provider>;
 }
 

@@ -21,8 +21,8 @@ import type { ComponentHealth, ConfigHealth, HealthStatus } from '../../types/he
  * Get environment variable safely (without exposing value)
  */
 function isEnvConfigured(key: string): boolean {
-  if (typeof import.meta !== 'undefined' && (import.meta as { env?: Record<string, unknown> })?.env) {
-    return Boolean((import.meta as { env?: Record<string, unknown> }).env?.[key]);
+  if (typeof import.meta !== 'undefined' && (import.meta as any)?.env) {
+    return Boolean((import.meta as any).env[key]);
   }
   if (typeof process !== 'undefined' && process.env) {
     return Boolean(process.env[key]);

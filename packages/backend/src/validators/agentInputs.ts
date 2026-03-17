@@ -2,7 +2,7 @@
  * Agent Input Validators
  */
 
-export function validateAgentInput(input: unknown): { valid: boolean; errors: string[] } {
+export function validateAgentInput(input: any): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
   if (!input.workspace_id) errors.push('Missing workspace_id');

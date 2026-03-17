@@ -7,7 +7,6 @@
  * POST /api/v1/cases/:id/narrative/run    — trigger NarrativeAgent
  * GET  /api/v1/cases/:id/realization      — latest realization report
  * POST /api/v1/cases/:id/realization/run  — trigger RealizationAgent
- * GET  /api/v1/cases/:id/lineage          — paginated agent execution lineage
  *
  * All endpoints require authentication and tenant context. Agent runs are
  * executed synchronously (direct mode) and return the agent output inline.
@@ -32,7 +31,6 @@ import { IntegrityResultRepository } from "../../repositories/IntegrityResultRep
 import { NarrativeDraftRepository } from "../../repositories/NarrativeDraftRepository.js";
 import { RealizationReportRepository } from "../../repositories/RealizationReportRepository.js";
 import { ExpansionOpportunityRepository } from "../../repositories/ExpansionOpportunityRepository.js";
-import { agentExecutionLineageRepository } from "../../repositories/AgentExecutionLineageRepository.js";
 import { getPdfExportService } from "../../services/export/PdfExportService.js";
 import { getPptxExportService } from "../../services/export/PptxExportService.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
@@ -741,4 +739,3 @@ backHalfRouter.post(
     }
   }
 );
-

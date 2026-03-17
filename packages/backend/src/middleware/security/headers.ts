@@ -262,7 +262,7 @@ export function createSecurityHeadersMiddleware(options: SecurityHeadersOptions 
       for (const [key, values] of Object.entries(options.additionalCspSources)) {
         const directive = key as keyof CspConfig;
         if (Array.isArray(cspConfig[directive]) && Array.isArray(values)) {
-          (cspConfig as Record<string, unknown>)[directive] = [
+          (cspConfig as any)[directive] = [
             ...(cspConfig[directive] as string[]),
             ...values,
           ];

@@ -13,7 +13,7 @@ export interface RoutingRequest {
   tenantId: string;
   agentType: string;
   input: string;
-  context?: Record<string, unknown>;
+  context?: any;
   priority?: 'critical' | 'high' | 'medium' | 'low';
 }
 

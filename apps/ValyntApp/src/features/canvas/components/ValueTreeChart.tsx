@@ -36,7 +36,7 @@ export function ValueTreeChart({ data }: ValueTreeChartProps) {
   // Real-time data binding for value tree data
   const { value: boundData, loading } = useDataBinding(data, {
     resolver: {
-      resolve: async (binding: unknown) => ({ success: true, value: binding, cached: false, timestamp: null }),
+      resolve: async (binding: any) => ({ success: true, value: binding, cached: false, timestamp: null }),
     },
     context: {},
     enableRefresh: true,

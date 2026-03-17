@@ -43,27 +43,24 @@ class StripeService {
   /**
    * Handle Stripe API errors consistently
    */
-  public handleError(error: unknown, context: string): never {
+  public handleError(error: any, context: string): never {
     logger.error(`Stripe error in ${context}`, error);
 
-    const e = error as Record<string, unknown>;
-    const msg = typeof e?.message === "string" ? e.message : "Unknown error";
-
-    if (e?.type === "StripeCardError") {
-      throw new Error(`Card error: ${msg}`);
-    } else if (e?.type === "StripeRateLimitError") {
+    if (error.type === "StripeCardError") {
+      throw new Error(`Card error: ${error.message}`);
+    } else if (error.type === "StripeRateLimitError") {
       throw new Error("Too many requests to Stripe API. Please try again later.");
-    } else if (e?.type === "StripeInvalidRequestError") {
-      throw new Error(`Invalid request: ${msg}`);
-    } else if (e?.type === "StripeAPIError") {
+    } else if (error.type === "StripeInvalidRequestError") {
+      throw new Error(`Invalid request: ${error.message}`);
+    } else if (error.type === "StripeAPIError") {
       throw new Error("Stripe API error. Please try again later.");
-    } else if (e?.type === "StripeConnectionError") {
+    } else if (error.type === "StripeConnectionError") {
       throw new Error("Connection error. Please check your internet connection.");
-    } else if (e?.type === "StripeAuthenticationError") {
+    } else if (error.type === "StripeAuthenticationError") {
       throw new Error("Stripe authentication failed. Please contact support.");
     }
 
-    throw new Error(`Stripe error: ${msg}`);
+    throw new Error(`Stripe error: ${error.message || "Unknown error"}`);
   }
 
   /**

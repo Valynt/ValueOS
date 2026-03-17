@@ -12,12 +12,12 @@ export class ValueTreeLinkRepository {
     this.supabase = createServerSupabaseClient();
   }
 
-  async findById(id: string): Promise<unknown> {
+  async findById(id: string): Promise<any | null> {
     logger.debug('ValueTreeLinkRepository findById', { id });
     return null;
   }
 
-  async create(data: unknown): Promise<unknown> {
+  async create(data: any): Promise<any> {
     logger.debug('ValueTreeLinkRepository create', { data });
     return data;
   }

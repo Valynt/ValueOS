@@ -24,7 +24,6 @@ import { requirePermission } from '../middleware/rbac.js';
 import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { auditLogService } from '../services/security/AuditLogService.js';
 import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
-import { getCrmProvider } from '../services/crm/CrmProviderRegistry.js';
 import { crmHealthService } from '../services/crm/CrmHealthService.js';
 import { crmIntegrationService } from '../services/crm/CRMIntegrationService.js';
 import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
@@ -519,56 +518,6 @@ router.post(
     } catch (error) {
       logger.error('Sync trigger failed', error instanceof Error ? error : undefined);
       return res.status(500).json({ error: 'Failed to trigger sync' });
-    }
-  },
-);
-
-// ============================================================================
-// Opportunity Search (provider-scoped, uses canonical CRM provider)
-// ============================================================================
-
-/**
- * GET /api/crm/:provider/opportunities
- *
- * Returns open opportunities from the connected provider for the tenant.
- * Supports optional ?q= search filter applied server-side on name/account.
- * Uses the canonical CrmProviderInterface.fetchDeltaOpportunities.
- */
-router.get(
-  '/:provider/opportunities',
-  ...authMiddleware,
-  requirePermission('integrations:view'),
-  async (req: Request, res: Response) => {
-    try {
-      const provider = parseProvider(req);
-      const tenantId = getTenantId(req);
-
-      const connection = await crmConnectionService.getConnection(tenantId, provider);
-      if (!connection) {
-        return res.json({ opportunities: [] });
-      }
-
-      const tokens = await crmConnectionService.getTokens(tenantId, provider);
-      if (!tokens) {
-        return res.status(401).json({ error: 'CRM tokens unavailable — please reconnect' });
-      }
-
-      const impl = getCrmProvider(provider);
-      const delta = await impl.fetchDeltaOpportunities(tokens, null);
-
-      const q = typeof req.query.q === 'string' ? req.query.q.toLowerCase() : '';
-      const filtered = q
-        ? delta.opportunities.filter(
-            (o) =>
-              o.name.toLowerCase().includes(q) ||
-              (o.companyName ?? '').toLowerCase().includes(q),
-          )
-        : delta.opportunities;
-
-      return res.json({ opportunities: filtered });
-    } catch (error) {
-      logger.error('Failed to fetch CRM opportunities', error instanceof Error ? error : undefined);
-      return res.status(500).json({ error: 'Failed to fetch opportunities' });
     }
   },
 );

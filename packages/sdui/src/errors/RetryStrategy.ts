@@ -288,9 +288,8 @@ export function isNetworkError(error: Error): boolean {
 /**
  * Check if error is server error (5xx)
  */
-export function isServerError(error: unknown): boolean {
-  const e = error as Record<string, unknown>;
-  return typeof e?.status === "number" && e.status >= 500 && e.status < 600;
+export function isServerError(error: any): boolean {
+  return error.status >= 500 && error.status < 600;
 }
 
 /**

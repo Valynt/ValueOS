@@ -61,19 +61,12 @@ class MarketDataStreamAdapter {
   }
 }
 
-interface SECTransformed {
-  source: "SEC-EDGAR";
-  ingestionType: "sec_filing";
-  data: unknown;
-  timestamp: string;
-}
-
-export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed> {
+export class SECAdapter implements DataIngestionAdapter {
   name = "SEC";
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: SECTransformed) => void> = new Set();
+  private dataCallbacks: Set<(data: any) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private marketDataAdapter: MarketDataStreamAdapter;
@@ -88,7 +81,7 @@ export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed>
     this.marketDataAdapter = new MarketDataStreamAdapter(config.marketData || {}, config.apiKey);
   }
 
-  async fetchData(params: { cik?: string; type?: string } = {}): Promise<unknown> {
+  async fetchData(params: { cik?: string; type?: string } = {}): Promise<any> {
     const cacheKey = `sec-${JSON.stringify(params)}`;
     if (this.cache) {
       const cached = this.cache.get(cacheKey);
@@ -126,7 +119,7 @@ export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed>
     return data;
   }
 
-  async transformData(rawData: unknown): Promise<SECTransformed> {
+  async transformData(rawData: any): Promise<any> {
     return {
       source: "SEC-EDGAR",
       ingestionType: "sec_filing",
@@ -139,9 +132,7 @@ export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed>
     if (this.isStreaming) return;
 
     const symbols = params.symbols?.length ? params.symbols : ["AAPL", "MSFT", "GOOGL"];
-    this.ws = this.marketDataAdapter.connect(symbols, (data) => {
-      void this.transformData(data).then((transformed) => this.notifyDataCallbacks(transformed));
-    });
+    this.ws = this.marketDataAdapter.connect(symbols, (data) => this.notifyDataCallbacks(data));
 
     this.ws.onopen = () => {
       logger.info("Market data websocket connected");
@@ -170,12 +161,12 @@ export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed>
     this.isStreaming = false;
   }
 
-  onData(callback: (data: SECTransformed) => void): () => void {
+  onData(callback: (data: any) => void): () => void {
     this.dataCallbacks.add(callback);
     return () => this.dataCallbacks.delete(callback);
   }
 
-  private notifyDataCallbacks(data: SECTransformed) {
+  private notifyDataCallbacks(data: any) {
     this.dataCallbacks.forEach((callback) => {
       try {
         callback(data);

@@ -267,7 +267,7 @@ async function listCases(req: Request, res: Response, next: NextFunction): Promi
 
   try {
     const repository = ValueCasesRepository.fromRequest(req);
-    const result = await repository.list(authReq.tenantId!, ListValueCasesQuerySchema.parse(req.query));
+    const result = await repository.list(authReq.tenantId!, req.query as any);
 
     res.status(200).json({
       ...result,

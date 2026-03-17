@@ -3,7 +3,7 @@
  */
 
 export class SDUISanitizer {
-  sanitize(input: unknown): unknown {
+  sanitize(input: any): any {
     if (typeof input === 'string') {
       return input.replace(/<script/gi, '&lt;script');
     }

@@ -118,7 +118,7 @@ export function validateTenantContext(context: unknown): context is TenantContex
     return false;
   }
 
-  const ctx = context as Record<string, unknown>;
+  const ctx = context as any;
   return (
     typeof ctx.tenantId === 'string' &&
     typeof ctx.organizationId === 'string' &&
@@ -126,7 +126,7 @@ export function validateTenantContext(context: unknown): context is TenantContex
     Array.isArray(ctx.permissions) &&
     typeof ctx.theme === 'object' &&
     typeof ctx.featureFlags === 'object' &&
-    ['us', 'eu', 'apac'].includes(ctx.dataResidency as string)
+    ['us', 'eu', 'apac'].includes(ctx.dataResidency)
   );
 }
 

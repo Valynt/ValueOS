@@ -148,7 +148,7 @@ export class DemoAnalyticsService {
       .filter((e) => e.event_type === 'started')
       .forEach((start) => {
         // All steps start with initial start count
-        const metadata = start.metadata as Record<string, unknown>;
+        const metadata = start.metadata as any;
         const totalSteps = metadata?.total_steps || 5;
         for (let i = 1; i <= totalSteps; i++) {
           stepStarts.set(`step-${i}`, (stepStarts.get(`step-${i}`) || 0) + 1);

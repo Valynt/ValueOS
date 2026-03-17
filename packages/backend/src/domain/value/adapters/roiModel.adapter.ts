@@ -1,7 +1,7 @@
 import { RoiModel } from '../dto';
 import { RoiModelSchema } from '../schemas/roiModel.schema';
 
-export function fromFinancialModel(valueCaseId: string, row: Record<string, unknown>): RoiModel {
+export function fromFinancialModel(valueCaseId: string, row: any): RoiModel {
   const model: RoiModel = {
     valueCaseId,
     assumptions: row.assumptions ?? {},

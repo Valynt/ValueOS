@@ -26,19 +26,12 @@ export interface Alert {
   triggerCount: number;
 }
 
-export interface ServiceStats {
-  total?: number;
-  successRate?: number;
-  p95Latency?: number;
-  [key: string]: unknown;
-}
-
 export interface AlertRule {
   service: string;
   name: string;
   description: string;
   severity: AlertSeverity;
-  condition: (stats: ServiceStats) => boolean;
+  condition: (stats: any) => boolean;
   cooldownMs: number; // Minimum time between alerts
 }
 
@@ -86,7 +79,7 @@ class AlertManager {
     this.rules.push(rule);
   }
 
-  evaluateRules(serviceStats: Record<string, ServiceStats>): Alert[] {
+  evaluateRules(serviceStats: Record<string, any>): Alert[] {
     const newAlerts: Alert[] = [];
     const now = Date.now();
 

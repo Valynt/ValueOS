@@ -359,8 +359,8 @@ const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
 };
 
 // Component load cache
-const componentCache = new Map<string, ComponentType<Record<string, unknown>>>();
-const loadingPromises = new Map<string, Promise<ComponentType<Record<string, unknown>>>>();
+const componentCache = new Map<string, ComponentType<any>>();
+const loadingPromises = new Map<string, Promise<ComponentType<any>>>();
 
 // Loading fallback component
 const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ componentName }) => (
@@ -473,8 +473,8 @@ export class LazyComponentRegistry {
    */
   private static async loadComponent(
     componentName: string,
-    lazyLoader: React.LazyExoticComponent<ComponentType<Record<string, unknown>>>
-  ): Promise<ComponentType<Record<string, unknown>>> {
+    lazyLoader: React.LazyExoticComponent<ComponentType<any>>
+  ): Promise<ComponentType<any>> {
     try {
       // Trigger the lazy load
       const Component = lazyLoader;

@@ -387,7 +387,7 @@ export async function getUsageHistory(
     }
 
     if (data) {
-      return data.map((item: Record<string, unknown>) => ({
+      return data.map((item: any) => ({
         organizationId: item.organization_id,
         period: item.period,
         users: item.users || 0,

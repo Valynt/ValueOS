@@ -6,7 +6,7 @@
 
 import http from 'http';
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { Job, Queue, QueueEvents, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
@@ -61,7 +61,7 @@ export class LLMQueueService {
   private queue: Queue<LLMJobData, LLMJobResult>;
   private worker: Worker<LLMJobData, LLMJobResult>;
   private events: QueueEvents;
-  private supabase: SupabaseClient;
+  private supabase: any;
   private metricsRegistry: Registry;
   private queueDepthGauge: Gauge;
   private queueDepth: number = 0;

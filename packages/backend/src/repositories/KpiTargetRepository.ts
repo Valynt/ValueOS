@@ -12,12 +12,12 @@ export class KpiTargetRepository {
     this.supabase = createServerSupabaseClient();
   }
 
-  async findById(id: string): Promise<unknown> {
+  async findById(id: string): Promise<any | null> {
     logger.debug('KpiTargetRepository findById', { id });
     return null;
   }
 
-  async create(data: unknown): Promise<unknown> {
+  async create(data: any): Promise<any> {
     logger.debug('KpiTargetRepository create', { data });
     return data;
   }

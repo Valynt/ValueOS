@@ -169,7 +169,7 @@ const developmentEnvSchema = baseEnvSchema.extend({
  */
 export interface EnvValidationResult {
   success: boolean;
-  data: unknown;
+  data: any;
   errors: string[];
   warnings: string[];
   maintenanceMode: boolean;

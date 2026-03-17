@@ -2,7 +2,6 @@
  * Accessibility Utilities
  * Helper functions and hooks for accessibility improvements
  */
-import React from 'react';
 
 import { useEffect, useRef } from 'react';
 
@@ -206,7 +205,7 @@ export function ScreenReaderOnly({ children }: { children: React.ReactNode }) {
 /**
  * Visually hidden but accessible label
  */
-export function VisuallyHidden({ as: Component = 'span', children, ...props }: { as?: React.ElementType; children?: React.ReactNode; [key: string]: unknown }) {
+export function VisuallyHidden({ as: Component = 'span', children, ...props }: any) {
   return (
     <Component
       className="absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0"

@@ -247,7 +247,7 @@ export const useSchemaStore = create<SchemaState>()(
         getSectionById: (sectionId) => {
           const schema = get().current;
           if (!schema) return null;
-          return schema.sections.find((section) => "id" in section && (section as Record<string, unknown>).id === sectionId);
+          return schema.sections.find((section) => (section as any).id === sectionId);
         },
       }),
       {
