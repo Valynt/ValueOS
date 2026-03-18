@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  GitGraph,
   LogOut,
   Settings,
   Sparkles,
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 const primaryNavItems = [
   { path: "/dashboard", label: "My Work", icon: Zap },
   { path: "/opportunities", label: "Cases", icon: Briefcase },
+  { path: "/living-value-graph", label: "Value Graph", icon: GitGraph },
 ];
 
 // Platform surfaces — shown below a divider, less prominent.

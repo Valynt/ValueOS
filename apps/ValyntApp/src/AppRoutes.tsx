@@ -65,6 +65,7 @@ const CreateOrganization = lazy(() => import("./views/CreateOrganization"));
 const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 const AgentAdminPage = lazy(() => import("./views/Admin/AgentAdminPage"));
+const LivingValueGraphPage = lazy(() => import("./views/LivingValueGraphPage"));
 
 
 const TENANT_SCOPED_PREFIX = "/org";
@@ -140,66 +141,68 @@ export function AppRoutes() {
                         <CommandPaletteProvider>
                           <Suspense fallback={<LoadingSpinner />}>
                             <Routes>
-                        {/* Public Auth Routes */}
-                        {publicRoutePaths.map((path) => (
-                          <Route
-                            key={path}
-                            path={path}
-                            element={resolvePublicElement(path)}
-                          />
-                        ))}
+                              {/* Public Auth Routes */}
+                              {publicRoutePaths.map((path) => (
+                                <Route
+                                  key={path}
+                                  path={path}
+                                  element={resolvePublicElement(path)}
+                                />
+                              ))}
 
-                        {/* Root redirect */}
-                        <Route path="/" element={<TenantAwareRedirect leafPath="dashboard" />} />
-                        <Route path="/home" element={<TenantAwareRedirect leafPath="dashboard" />} />
+                              {/* Root redirect */}
+                              <Route path="/" element={<TenantAwareRedirect leafPath="dashboard" />} />
+                              <Route path="/home" element={<TenantAwareRedirect leafPath="dashboard" />} />
 
-                        {/* Protected routes */}
-                        <Route element={<ProtectedRoute />}>
-                          {/* Org creation — shown when user has no tenants */}
-                          <Route path="/create-org" element={<CreateOrganization />} />
+                              {/* Protected routes */}
+                              <Route element={<ProtectedRoute />}>
+                                {/* Org creation — shown when user has no tenants */}
+                                <Route path="/create-org" element={<CreateOrganization />} />
 
-                          {/* Tenant gate: redirects to /create-org if no tenants */}
-                          <Route element={<TenantGate />}>
-                            {/* Onboarding — own layout, no gate */}
-                            <Route path="/onboarding" element={<CompanyOnboarding />} />
+                                {/* Tenant gate: redirects to /create-org if no tenants */}
+                                <Route element={<TenantGate />}>
+                                  {/* Onboarding — own layout, no gate */}
+                                  <Route path="/onboarding" element={<CompanyOnboarding />} />
 
-                            {/* Main app — gated by onboarding completion */}
-                            <Route path="/org/:tenantSlug" element={<OnboardingGate />}>
-                              <Route element={<MainLayout />}>
-                                <Route path="dashboard" element={<Dashboard />} />
-                                <Route path="opportunities" element={<Opportunities />} />
-                                <Route path="opportunities/:id" element={<OpportunityDetail />} />
-                                <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
-                                <Route path="models" element={<Models />} />
-                                <Route path="models/:id" element={<ModelDetail />} />
-                                <Route path="agents" element={<Agents />} />
-                                <Route path="agents/:id" element={<AgentDetail />} />
-                                <Route path="admin/agents" element={<AgentAdminPage />} />
-                                <Route path="integrations" element={<Integrations />} />
-                                <Route path="settings" element={<SettingsPage />} />
-                                <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
-                                <Route path="company" element={<CompanyKnowledge />} />
+                                  {/* Main app — gated by onboarding completion */}
+                                  <Route path="/org/:tenantSlug" element={<OnboardingGate />}>
+                                    <Route element={<MainLayout />}>
+                                      <Route path="dashboard" element={<Dashboard />} />
+                                      <Route path="opportunities" element={<Opportunities />} />
+                                      <Route path="opportunities/:id" element={<OpportunityDetail />} />
+                                      <Route path="opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                                      <Route path="models" element={<Models />} />
+                                      <Route path="models/:id" element={<ModelDetail />} />
+                                      <Route path="agents" element={<Agents />} />
+                                      <Route path="agents/:id" element={<AgentDetail />} />
+                                      <Route path="admin/agents" element={<AgentAdminPage />} />
+                                      <Route path="integrations" element={<Integrations />} />
+                                      <Route path="settings" element={<SettingsPage />} />
+                                      <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
+                                      <Route path="company" element={<CompanyKnowledge />} />
+                                      <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
+                                    </Route>
+                                  </Route>
+
+                                  {/* Legacy non-tenant routes bridge to canonical tenant URL */}
+                                  <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/models" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/agents" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/agents/:id" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/integrations" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/settings" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/workspace/:caseId" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/company" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/living-value-graph/*" element={<LegacyTenantRouteBridge />} />
+                                </Route>
                               </Route>
-                            </Route>
 
-                            {/* Legacy non-tenant routes bridge to canonical tenant URL */}
-                            <Route path="/dashboard" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/opportunities" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/opportunities/:id" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/opportunities/:oppId/cases/:caseId" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/models" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/models/:id" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/agents" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/agents/:id" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/integrations" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/settings" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/workspace/:caseId" element={<LegacyTenantRouteBridge />} />
-                            <Route path="/company" element={<LegacyTenantRouteBridge />} />
-                          </Route>
-                        </Route>
-
-                        {/* Catch-all */}
-                        <Route path="*" element={<TenantAwareRedirect leafPath="dashboard" />} />
+                              {/* Catch-all */}
+                              <Route path="*" element={<TenantAwareRedirect leafPath="dashboard" />} />
                             </Routes>
                           </Suspense>
                         </CommandPaletteProvider>

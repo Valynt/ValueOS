@@ -1,0 +1,18 @@
+# ValueOS Docker Compose - Standalone Development Environment
+# This is a thin wrapper that includes the devcontainer compose
+# Use this for WSL2-only containerized development
+#
+# Usage:
+#   docker compose -f .devcontainer/docker-compose.yml up -d
+#   
+# Or use the Makefile:
+#   make -f .devcontainer/Makefile up
+
+include:
+  - docker-compose.devcontainer.yml
+
+# No additional services defined here - everything is in docker-compose.devcontainer.yml
+# This file exists for:
+# 1. Backward compatibility with existing workflows
+# 2. Easier path references when running from different directories
+# 3. Future extensibility for devcontainer-specific overrides

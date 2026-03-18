@@ -7,20 +7,31 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$ROOT/ops/env/.env.local"
 DEST="$ROOT/.env"
+TEMPLATE="$ROOT/.devcontainer/.env.template"
 
+# If .env already exists, we're done
 if [[ -f "$DEST" ]]; then
   echo "✅ .env already exists at $DEST — no changes made."
   exit 0
 fi
 
-if [[ ! -f "$SRC" ]]; then
-  echo "❌ Source env file not found: $SRC" >&2
-  echo "Run: pnpm run dx:env --mode local --force" >&2
-  exit 1
+# Try to create from ops/env/.env.local (preferred)
+if [[ -f "$SRC" ]]; then
+  cp "$SRC" "$DEST"
+  chmod 600 "$DEST" 2>/dev/null || true
+  echo "✅ Created $DEST from ops/env/.env.local"
+  exit 0
 fi
 
-cp "$SRC" "$DEST"
-chmod 600 "$DEST" 2>/dev/null || true
+# Fallback: create from template with warnings
+if [[ -f "$TEMPLATE" ]]; then
+  cp "$TEMPLATE" "$DEST"
+  chmod 600 "$DEST" 2>/dev/null || true
+  echo "⚠️  Created $DEST from template (REVIEW AND CUSTOMIZE!)"
+  echo "⚠️  The template contains default/placeholder secrets."
+  echo "⚠️  Run: pnpm run dx:env --mode local --force for proper secrets"
+  exit 0
+fi
 
-echo "✅ Created $DEST from $SRC (safe, gitignored)."
-echo "Next: Reopen the repository in the DevContainer (VS Code → Dev Containers: Reopen in Container)."
+echo "❌ No env source available (tried: $SRC, $TEMPLATE)" >&2
+exit 1

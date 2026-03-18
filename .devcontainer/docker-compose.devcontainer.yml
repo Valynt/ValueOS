@@ -1,0 +1,371 @@
+# ValueOS Fully Containerized Development Environment
+# This compose file provides 100% Linux-to-production parity
+# All services run inside containers - WSL2 acts only as a lightweight Linux kernel host
+# Windows is invisible to the development workflow
+#
+# Usage:
+#   docker compose -f docker-compose.devcontainer.yml up -d
+#
+# All ports are exposed through localhost - no Windows interaction required
+# Source code is mounted via WSL2's 9P filesystem for native Linux performance
+
+name: valueos-dev
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # ============================================================================
+  # DEVELOPMENT WORKSPACE
+  # ============================================================================
+  devcontainer:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.optimized
+    container_name: valueos-devcontainer
+    volumes:
+      # Mount source code from WSL2 filesystem (9P protocol)
+      # This ensures Windows host is invisible - pure Linux path
+      - ..:/workspaces/ValueOS:cached
+      # Persist pnpm store for faster reinstalls
+      - dev_pnpm_store:/home/vscode/.local/share/pnpm
+      # Persist VS Code extensions
+      - dev_vscode_extensions:/home/vscode/.vscode-server
+      # Persist bash history
+      - dev_bash_history:/home/vscode/.bash_history
+      # Docker socket for Docker-in-Docker (REMOVED - security risk)
+      # If you need Docker access, use Docker Desktop CLI from host
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Node.js environment (non-sensitive defaults only)
+      NODE_ENV: development
+      APP_ENV: local
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      PNPM_HOME: /home/vscode/.local/share/pnpm
+
+      # Tool paths
+      PATH: /home/vscode/.local/share/pnpm:/usr/local/bin:${PATH}
+
+      # All secrets loaded from env_file (.env)
+      # Do NOT add secrets here - they would be visible in docker inspect
+
+    ports:
+      # Frontend dev server (essential)
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
+      # Vite HMR (required for hot reload)
+      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
+      # Backend API (essential)
+      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+    # Security: no-new-privileges prevents privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /workspaces/ValueOS
+    command: sleep infinity
+    networks:
+      - valueos-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kong:
+        condition: service_started
+
+  # ============================================================================
+  # POSTGRESQL (Supabase-compatible)
+  # ============================================================================
+  postgres:
+    <<: *common
+    image: supabase/postgres:15.1.0.153
+    container_name: valueos-postgres
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-valueos}
+      POSTGRES_USER: ${PGUSER:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_EXP: 3600
+    ports:
+      # Database port - exposed for local dev tools (psql, pgAdmin)
+      # Internal compose network also available at postgres:5432
+      - "${PGPORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../infra/supabase/supabase/db/init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-postgres} -d ${PGDATABASE:-valueos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # REDIS
+  # ============================================================================
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    container_name: valueos-redis
+    command: >-
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # SUPABASE AUTH (GoTrue)
+  # ============================================================================
+  auth:
+    <<: *common
+    image: supabase/gotrue:v2.143.0
+    container_name: valueos-auth
+    environment:
+      GOTRUE_DB_DRIVER: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${PGDATABASE:-valueos}
+      DB_USER: ${PGUSER:-postgres}
+      DB_PASSWORD: ${PGPASSWORD:-postgres}
+      SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
+      GOTRUE_API_URL: http://auth:9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:${AUTH_PORT:-9999}}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@valueos.local
+      GOTRUE_SMTP_HOST: mailhog
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_USER: ""
+      GOTRUE_SMTP_PASS: ""
+      GOTRUE_SMTP_SENDER_NAME: ValueOS
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # SUPABASE REST API (PostgREST)
+  # ============================================================================
+  rest:
+    <<: *common
+    image: postgrest/postgrest:v12.0.2
+    container_name: valueos-rest
+    environment:
+      PGRST_DB_URI: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
+      PGRST_DB_SCHEMA: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:${KONG_PROXY_PORT:-54321}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # SUPABASE REALTIME
+  # ============================================================================
+  realtime:
+    <<: *common
+    image: supabase/realtime:v2.25.50
+    container_name: valueos-realtime
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${PGDATABASE:-valueos}
+      DB_USER: ${PGUSER:-postgres}
+      DB_PASSWORD: ${PGPASSWORD:-postgres}
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-UP501zJgO9sOoCVlU9xM4u1NRFv3ZP5d1H9X8s2O9qQ2gK9k7tQ4v1e9v9r8s7}
+      FLY_ALLOC_ID: realtime
+      FLY_APP_NAME: realtime
+      FLY_REGION: local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # SUPABASE STORAGE
+  # ============================================================================
+  storage:
+    <<: *common
+    image: supabase/storage-api:v0.46.4
+    container_name: valueos-storage
+    environment:
+      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYtn_Ic}
+      SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN98LU}
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: valueos
+      REGION: local
+      GLOBAL_S3_BUCKET: valueos-bucket
+      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    volumes:
+      - storage_data:/var/lib/storage
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # SUPABASE STUDIO
+  # ============================================================================
+  studio:
+    <<: *common
+    image: supabase/studio:20240422-5f20d97
+    container_name: valueos-studio
+    environment:
+      SUPABASE_URL: http://kong:8000
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
+      DEFAULT_PROJECT_NAME: ValueOS
+      SUPABASE_PUBLIC_URL: http://localhost:${KONG_PROXY_PORT:-54321}
+    ports:
+      - "${STUDIO_PORT:-54324}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meta:
+        condition: service_started
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # SUPABASE PG-META (Database metadata)
+  # ============================================================================
+  meta:
+    <<: *common
+    image: supabase/postgres-meta:v0.80.0
+    container_name: valueos-meta
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: postgres
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${PGDATABASE:-valueos}
+      PG_META_DB_USER: ${PGUSER:-postgres}
+      PG_META_DB_PASSWORD: ${PGPASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # KONG API GATEWAY
+  # ============================================================================
+  kong:
+    <<: *common
+    image: kong:3.6
+    container_name: valueos-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:8002
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+    volumes:
+      - ../config/kong.yml:/var/lib/kong/kong.yml:ro
+    ports:
+      - "${KONG_PROXY_PORT:-54321}:8000"
+      - "${KONG_ADMIN_PORT:-8001}:8001"
+      - "${KONG_GUI_PORT:-8002}:8002"
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+      - meta
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # EDGE FUNCTIONS (Supabase Functions)
+  # ============================================================================
+  functions:
+    <<: *common
+    image: supabase/edge-runtime:v1.53.3
+    container_name: valueos-functions
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYtn_Ic}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN98LU}
+      VERIFY_JWT: "true"
+    volumes:
+      - ../supabase/functions:/home/deno/functions:ro
+    networks:
+      - valueos-dev
+
+  # ============================================================================
+  # MAILHOG (Email testing)
+  # ============================================================================
+  mailhog:
+    <<: *common
+    image: mailhog/mailhog:latest
+    container_name: valueos-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - valueos-dev
+
+# ============================================================================
+# PERSISTENT VOLUMES
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  storage_data:
+    driver: local
+  dev_pnpm_store:
+    driver: local
+  dev_vscode_extensions:
+    driver: local
+  dev_bash_history:
+    driver: local
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  valueos-dev:
+    name: valueos-dev
+    driver: bridge
