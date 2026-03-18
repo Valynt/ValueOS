@@ -5,7 +5,7 @@ ARG NODE_VERSION=20.19.5
 ARG PNPM_VERSION=10.4.1
 ARG KUBECTL_VERSION=1.32.2
 ARG TERRAFORM_VERSION=1.10.5
-ARG NODE_DOWNLOAD_SHA256=b4e336584d62abefad31baecff7af167268be9bb7dd11f1297112e6eed3ca0d5
+ARG NODE_DOWNLOAD_SHA256=315046739a513a70e03a4a55a8afda8cf979f30852e576075c340084e3f8ac0f
 
 FROM ${BASE_IMAGE}
 
@@ -65,11 +65,14 @@ RUN set -eux; \
 
 # Install pnpm global packages
 RUN set -eux; \
+    SHELL=/bin/bash pnpm setup; \
+    export PNPM_HOME="/root/.local/share/pnpm"; \
+    export PATH="$PNPM_HOME:$PATH"; \
     pnpm add -g \
       turbo \
       ts-node \
       tsx \
-      @anthropic-ai/claude-cli \
+      @anthropic-ai/claude-code \
       supabase; \
     echo "pnpm global packages installed"
 
@@ -103,7 +106,8 @@ RUN set -eux; \
     # Add user to docker group for Docker socket access
     groupadd -f docker; \
     usermod -aG docker ${USERNAME}; \
-    rm -rf /tmp/* /var/tmp/*
+    rm -rf /tmp/* /var/tmp/*; \
+    corepack enable
 
 # Health check for container readiness
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
@@ -115,6 +119,3 @@ WORKDIR /workspaces/ValueOS
 # Setup pnpm home and path
 ENV PNPM_HOME=/home/vscode/.local/share/pnpm
 ENV PATH=${PNPM_HOME}:/usr/local/bin:${PATH}
-
-# Enable corepack for Yarn/PNPM fallback
-RUN corepack enable
