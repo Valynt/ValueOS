@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 /**
  * Sanitize HTML content to prevent XSS attacks.
@@ -112,6 +112,7 @@ export function InlineEditor({
           onInput={(e) => setContent(e.currentTarget.textContent || "")}
           className="min-h-[100px] whitespace-pre-wrap outline-none"
           suppressContentEditableWarning
+          // eslint-disable-next-line react/no-danger -- Content is sanitized via sanitizeHtmlContent()
           dangerouslySetInnerHTML={{ __html: sanitizeHtmlContent(content) }}
         />
 

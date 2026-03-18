@@ -5,7 +5,6 @@
  */
 
 import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "../agentContract";
-
 import type { SDUIPageDefinition } from "../schema";
 
 /**

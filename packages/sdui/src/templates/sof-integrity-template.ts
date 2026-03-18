@@ -5,7 +5,6 @@
  */
 
 import type { FeedbackLoop, InterventionPoint, SystemMap } from '../agentContract';
-
 import type { SDUIPageDefinition } from '../schema';
 
 /**

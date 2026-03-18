@@ -6,6 +6,8 @@
  * temporal effects (phased impact over time).
  */
 
+import { ESOIndustry, ESOPersona } from "@backend/types/eso";
+
 import {
   ALL_BUSINESS_ACTIONS,
   BusinessAction,
@@ -13,7 +15,6 @@ import {
   getBusinessAction,
   KPIImpact,
 } from "../data/business-actions";
-import { ESOPersona, ESOIndustry } from "@backend/types/eso";
 
 /** Company size for context-aware simulation */
 export type CompanySize = "startup" | "scaleup" | "enterprise";

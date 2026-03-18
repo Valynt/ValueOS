@@ -26,7 +26,8 @@
     "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs",
     "check:any-ratchet": "node scripts/ci/any-ratchet.mjs",
     "dx:check": "node scripts/dx/doctor.js",
-    "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts && SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\""
+    "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\"",
+    "security:scan": "bash scripts/security/scan.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
@@ -101,6 +102,7 @@
   "devDependencies": {
     "@apidevtools/swagger-parser": "12.1.0",
     "@cyclonedx/cyclonedx-npm": "^4.2.1",
+    "@eslint/js": "^9.39.4",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.2.1",
@@ -113,8 +115,14 @@
     "add": "^2.0.6",
     "autoprefixer": "^10.4.20",
     "esbuild": "^0.27.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-n": "^17.24.0",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-security": "^3.0.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint-plugin-security": "^4.0.0",
     "eslint-plugin-storybook": "^10.2.19",
     "globals": "^16.5.0",
     "pnpm": "^10.32.1",
@@ -125,8 +133,14 @@
     "turbo": "^2.8.17",
     "tw-animate-css": "^1.4.0",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.57.0",
     "vite": "^7.1.11",
     "vitest": "^3.2.4"
+  },
+  "engines": {
+    "npm": "please-use-pnpm",
+    "yarn": "please-use-pnpm",
+    "pnpm": ">=10.4.1"
   },
   "packageManager": "pnpm@10.4.1+sha512.c753b6c3ad7afa13af388fa6d808035a008e30ea9993f58c6663e2bc5ff21679aa834db094987129aa4d488b86df57f7b634981b2f827cdcacc698cc0cfb88af",
   "pnpm": {

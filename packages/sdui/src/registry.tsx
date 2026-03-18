@@ -30,43 +30,43 @@ import {
   // Fallbacks
 } from "./components/SDUI";
 import { ComponentPreview } from "./components/SDUI";
+import { ArtifactPreview } from "./components/SDUI/ArtifactPreview";
+import { AssumptionRegister } from "./components/SDUI/AssumptionRegister";
 import {
   DashboardPanel,
   Grid,
   HorizontalSplit,
   VerticalSplit,
 } from "./components/SDUI/CanvasLayout";
+import { CheckpointTimeline } from "./components/SDUI/CheckpointTimeline";
 import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+import { EvidenceGapList } from "./components/SDUI/EvidenceGapList";
+import { GapResolution } from "./components/SDUI/GapResolution";
 import { HallucinationBadge } from "./components/SDUI/HallucinationBadge";
+import { HypothesisCard } from "./components/SDUI/HypothesisCard";
+import { InlineEditor } from "./components/SDUI/InlineEditor";
 import { InteractiveChart } from "./components/SDUI/InteractiveChart";
 import { KPIForm } from "./components/SDUI/KPIForm";
+import { KPITargetCard } from "./components/SDUI/KPITargetCard";
 import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+import { ScenarioComparison } from "./components/SDUI/ScenarioComparison";
+import { StakeholderMap } from "./components/SDUI/StakeholderMap";
 import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
 import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
 import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
 import { SDUIComponentSection } from "./schema";
 
 // V1 Surface Widgets - Deal Assembly
-import { GapResolution } from "./components/SDUI/GapResolution";
-import { StakeholderMap } from "./components/SDUI/StakeholderMap";
 
 // V1 Surface Widgets - Value Modeling
-import { AssumptionRegister } from "./components/SDUI/AssumptionRegister";
-import { HypothesisCard } from "./components/SDUI/HypothesisCard";
-import { ScenarioComparison } from "./components/SDUI/ScenarioComparison";
 import { SensitivityTornado } from "./components/SDUI/SensitivityTornado";
 
 // V1 Surface Widgets - Integrity
-import { EvidenceGapList } from "./components/SDUI/EvidenceGapList";
 import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
 
 // V1 Surface Widgets - Executive Output
-import { ArtifactPreview } from "./components/SDUI/ArtifactPreview";
-import { InlineEditor } from "./components/SDUI/InlineEditor";
 
 // V1 Surface Widgets - Realization
-import { CheckpointTimeline } from "./components/SDUI/CheckpointTimeline";
-import { KPITargetCard } from "./components/SDUI/KPITargetCard";
 
 // V1 Surface Widgets - Billing
 import { PlanComparison } from "./components/SDUI/PlanComparison";

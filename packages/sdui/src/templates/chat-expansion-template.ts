@@ -9,7 +9,6 @@
 
 
 import type { WorkflowState } from "../agentContract";
-
 import type { SDUIPageDefinition } from "../schema";
 
 export interface ExpansionTemplateContext {

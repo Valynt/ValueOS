@@ -20,8 +20,8 @@ import { createHash } from "crypto";
 import { z } from "zod";
 
 import { logger } from "../../lib/logger";
-import { simulateBusinessActions, compareScenarios } from "../lib/SimulationEngine";
 import { analyzeFinancials, projectCashFlows } from "../lib/FinancialEngine";
+import { compareScenarios, simulateBusinessActions } from "../lib/SimulationEngine";
 import { EDGARModule } from "../modules/EDGARModule";
 import { EntityMappingModule } from "../modules/EntityMappingModule";
 import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";

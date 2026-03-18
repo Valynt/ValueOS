@@ -8,7 +8,6 @@
  */
 
 import type { LifecycleStage, WorkflowState } from '../agentContract';
-
 import type { SDUIPageDefinition } from '../schema';
 
 import { generateExpansionPage } from './chat-expansion-template';
