@@ -10,14 +10,35 @@ interface AgentStatus {
 
 async function fetchAgents(): Promise<AgentStatus[]> {
   const res = await apiClient.get<{ agents: AgentStatus[] }>("/api/admin/agents");
+
+  if (!res.success || !res.data) {
+    const message =
+      (res as { error?: unknown }).error instanceof Error
+        ? res.error.message
+        : typeof (res as { error?: unknown }).error === "string"
+          ? res.error
+          : "Failed to fetch agents";
+    throw new Error(message);
+  }
+
   return res.data.agents;
 }
 
 async function setKillSwitch(name: string, killed: boolean): Promise<void> {
-  await apiClient.post(
+  const res = await apiClient.post(
     `/api/admin/agents/${encodeURIComponent(name)}/kill-switch`,
     { killed },
   );
+
+  if (!res.success) {
+    const message =
+      (res as { error?: unknown }).error instanceof Error
+        ? res.error.message
+        : typeof (res as { error?: unknown }).error === "string"
+          ? res.error
+          : "Failed to update kill switch";
+    throw new Error(message);
+  }
 }
 
 export default function AgentAdminPage() {
