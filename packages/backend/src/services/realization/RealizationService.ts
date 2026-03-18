@@ -266,6 +266,80 @@ export class RealizationService {
   }
 
   /**
+   * Get the latest realization report for a case.
+   * Returns KPI variance, milestones, risks, and overall realization rate.
+   * Used by the RealizationDashboard component.
+   */
+  async getLatestReport(
+    caseId: string,
+    organizationId: string,
+  ): Promise<{
+    kpis: Array<{
+      name: string;
+      committed_value: number;
+      realized_value: number;
+      unit: string;
+      variance_percentage: number;
+      direction: "over" | "under" | "on_target";
+    }>;
+    milestones: Array<{ title: string; status: string; due_date: string }>;
+    risks: Array<{ description: string; severity: string }>;
+    overall_realization_rate: number | null;
+    recommendations: string[];
+    report_date: string;
+  } | null> {
+    const { data, error } = await supabase
+      .from("realization_reports")
+      .select("*")
+      .eq("value_case_id", caseId)
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logger.error("RealizationService.getLatestReport failed", {
+        case_id: caseId,
+        error: error.message,
+      });
+      throw new Error(`Failed to fetch realization report: ${error.message}`);
+    }
+
+    if (!data) return null;
+
+    const report = data as {
+      kpis: Array<{
+        kpi_name: string;
+        committed_value: number;
+        realized_value: number;
+        unit: string;
+        variance_percentage: number;
+        direction: "over" | "under" | "on_target";
+      }>;
+      milestones: Array<{ title: string; status: string; due_date: string }>;
+      risks: Array<{ description: string; severity: string }>;
+      variance_analysis: { overall_realization_rate?: number; recommendations?: string[] };
+      created_at: string;
+    };
+
+    return {
+      kpis: (report.kpis ?? []).map((k) => ({
+        name: k.kpi_name,
+        committed_value: k.committed_value,
+        realized_value: k.realized_value,
+        unit: k.unit,
+        variance_percentage: k.variance_percentage,
+        direction: k.direction,
+      })),
+      milestones: report.milestones ?? [],
+      risks: report.risks ?? [],
+      overall_realization_rate: report.variance_analysis?.overall_realization_rate ?? null,
+      recommendations: report.variance_analysis?.recommendations ?? [],
+      report_date: report.created_at,
+    };
+  }
+
+  /**
    * Get KPI targets for a case.
    */
   async getKpiTargets(caseId: string, organizationId: string): Promise<KpiTarget[]> {

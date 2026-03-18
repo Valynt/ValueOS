@@ -2,14 +2,16 @@
  * Deal Assembly API Routes
  *
  * REST endpoints for deal assembly pipeline:
- * - POST /api/cases/:caseId/assemble — trigger deal assembly
- * - GET /api/cases/:caseId/context — retrieve assembled DealContext
- * - PATCH /api/cases/:caseId/context/gaps — submit user-provided gap fills
+ * - POST /api/cases/:caseId/assemble           — trigger deal assembly
+ * - GET  /api/cases/:caseId/context            — retrieve assembled DealContext
+ * - PATCH /api/cases/:caseId/context/gaps      — submit user-provided gap fills
+ * - POST /api/cases/:caseId/run-hypothesis-loop — run the full value lifecycle
  *
  * Reference: openspec/changes/deal-assembly-pipeline/tasks.md §8
  */
 
 import { Router, type IRouter } from "express";
+import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { requireAuth } from "../middleware/auth.js";
@@ -202,7 +204,6 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const tenantId = req.tenantId as string;
       const organizationId = req.organizationId as string;
 
       await dealAssemblyService.confirmAssembly(caseId, organizationId);
@@ -212,6 +213,153 @@ router.post(
         case_id: caseId,
         status: "confirmed",
         confirmed_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Hypothesis Loop
+// ---------------------------------------------------------------------------
+
+const HypothesisLoopRequestSchema = z.object({
+  session_id: z.string().optional(),
+});
+
+/**
+ * POST /api/cases/:caseId/run-hypothesis-loop
+ *
+ * Runs the full value lifecycle saga for a case:
+ *   INITIATED → DRAFTING → VALIDATING → COMPOSING → REFINING → FINALIZED
+ *
+ * Each stage is executed by the corresponding fabric agent (OpportunityAgent,
+ * TargetAgent, IntegrityAgent, NarrativeAgent, RealizationAgent). The saga
+ * state and all agent outputs are persisted to the database.
+ *
+ * Returns the final saga state and a summary of outputs produced.
+ */
+router.post(
+  "/cases/:caseId/run-hypothesis-loop",
+  requireAuth,
+  tenantContextMiddleware,
+  async (req, res, next) => {
+    try {
+      const { caseId } = req.params;
+      const tenantId = req.tenantId as string;
+      const organizationId = req.organizationId as string;
+      const userId = (req as { userId?: string }).userId ?? "unknown";
+
+      const body = HypothesisLoopRequestSchema.safeParse(req.body);
+      const sessionId = (body.success && body.data.session_id)
+        ? body.data.session_id
+        : uuidv4();
+
+      // Verify the case belongs to this tenant before running any agents.
+      // Prevents IDOR: a user from tenant A triggering work on tenant B's case.
+      const { createServerSupabaseClient } = await import("../lib/supabase.js");
+      const supabaseOwnerCheck = createServerSupabaseClient();
+      const { data: caseRow, error: caseErr } = await supabaseOwnerCheck
+        .from("value_cases")
+        .select("id")
+        .eq("id", caseId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (caseErr) {
+        logger.error("Ownership check query failed", { caseId, tenantId, error: caseErr.message });
+        res.status(500).json({ error: "Internal error verifying case ownership" });
+        return;
+      }
+      if (!caseRow) {
+        res.status(404).json({ error: "Case not found" });
+        return;
+      }
+
+      logger.info("Hypothesis loop requested", {
+        caseId,
+        tenantId,
+        userId,
+        sessionId,
+      });
+
+      // Lazy-import to avoid circular deps at module load time
+      const { ValueLifecycleOrchestrator } = await import(
+        "../services/post-v1/ValueLifecycleOrchestrator.js"
+      );
+      const { LLMGateway } = await import(
+        "../lib/agent-fabric/LLMGateway.js"
+      );
+      const { MemorySystem } = await import(
+        "../lib/agent-fabric/MemorySystem.js"
+      );
+      const { SupabaseMemoryBackend } = await import(
+        "../lib/agent-fabric/SupabaseMemoryBackend.js"
+      );
+      const { AuditLogger } = await import(
+        "../lib/agent-fabric/AuditLogger.js"
+      );
+
+      // Reuse the client already created for the ownership check above.
+      const supabaseClient = supabaseOwnerCheck;
+
+      const llmGateway = new LLMGateway({
+        provider: "together",
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      });
+
+      const memorySystem = new MemorySystem(
+        { max_memories: 1000, enable_persistence: true },
+        new SupabaseMemoryBackend(),
+      );
+
+      const auditLogger = new AuditLogger();
+
+      const orchestrator = new ValueLifecycleOrchestrator(
+        supabaseClient,
+        llmGateway,
+        memorySystem,
+        auditLogger,
+      );
+
+      const result = await orchestrator.runHypothesisLoop(caseId, {
+        userId,
+        tenantId,
+        organizationId,
+        sessionId,
+      });
+
+      if (!result.success) {
+        logger.warn("Hypothesis loop completed with failure", {
+          caseId,
+          tenantId,
+          finalState: result.finalState,
+          error: result.error,
+        });
+
+        res.status(422).json({
+          success: false,
+          case_id: caseId,
+          final_state: result.finalState,
+          error: result.error ?? "Hypothesis loop did not reach FINALIZED state",
+        });
+        return;
+      }
+
+      logger.info("Hypothesis loop completed successfully", {
+        caseId,
+        tenantId,
+        finalState: result.finalState,
+        sessionId,
+      });
+
+      res.json({
+        success: true,
+        case_id: caseId,
+        final_state: result.finalState,
+        session_id: sessionId,
+        message: "Value lifecycle completed. Outputs persisted to database.",
       });
     } catch (err) {
       next(err);

@@ -4,6 +4,19 @@ import type { AgentMessage, AgentSession, AgentStatus } from "../types";
 
 import { apiClient } from "@/api/client/unified-api-client";
 
+interface InvokeResponse {
+  jobId?: string;
+  status?: string;
+  result?: {
+    data?: unknown;
+    reasoning?: { steps?: Array<{ description: string }> };
+    confidence?: string;
+    metadata?: { tokenUsage?: { total?: number } };
+  };
+  message?: string;
+  cached?: boolean;
+}
+
 export function useAgent(agentId: string) {
   const [status, setStatus] = useState<AgentStatus>("idle");
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -24,14 +37,6 @@ export function useAgent(agentId: string) {
 
   const sendMessage = useCallback(
     async (content: string) => {
-      // Feature flag: Show preview mode until backend is wired
-      const AGENT_PREVIEW_MODE = import.meta.env.VITE_AGENT_PREVIEW_MODE === "true";
-      if (!AGENT_PREVIEW_MODE) {
-        setError("Agent functionality is in preview mode. Coming soon!");
-        setStatus("error");
-        return;
-      }
-
       const userMessage: AgentMessage = {
         id: `msg_${Date.now()}`,
         agentId,
@@ -42,43 +47,75 @@ export function useAgent(agentId: string) {
 
       setMessages((prev) => [...prev, userMessage]);
       setStatus("thinking");
+      setError(null);
 
       try {
-        // Simulate streaming agent response
-        const responseId = `msg_${Date.now() + 1}`;
-        const fullContent = `I've analyzed your request regarding "${content}". Based on ESO benchmarks for your industry, I recommend focusing on efficiency gains in manual data entry, which typically shows a 15-20% improvement potential.`;
+        const sessionId = session?.id ?? `session_${Date.now()}`;
 
-        let currentContent = "";
-        const words = fullContent.split(" ");
+        const response = await apiClient.post<InvokeResponse>(
+          `/api/agents/${agentId}/invoke`,
+          {
+            query: content,
+            sessionId,
+            context: {},
+          },
+        );
 
-        for (let i = 0; i < words.length; i++) {
-          currentContent += (i === 0 ? "" : " ") + words[i];
-          const streamingMessage: AgentMessage = {
-            id: responseId,
-            agentId,
-            type: "agent",
-            content: currentContent,
-            timestamp: new Date().toISOString(),
-            metadata: {
-              confidence: "high",
-            },
-          };
-
-          setMessages((prev) => {
-            const filtered = prev.filter((m) => m.id !== responseId);
-            return [...filtered, streamingMessage];
-          });
-
-          await new Promise((resolve) => setTimeout(resolve, 50)); // Stream speed
+        if (!response.success || !response.data) {
+          throw new Error(response.error ?? "Agent invocation failed");
         }
 
+        const payload = response.data;
+
+        // Extract text content from the agent result
+        let agentContent: string;
+        const result = payload.result;
+        if (result?.data && typeof result.data === "object") {
+          const data = result.data as Record<string, unknown>;
+          agentContent =
+            (data.narrative as string) ??
+            (data.summary as string) ??
+            (data.content as string) ??
+            JSON.stringify(result.data, null, 2);
+        } else if (typeof result?.data === "string") {
+          agentContent = result.data;
+        } else {
+          agentContent = payload.message ?? "Agent completed successfully.";
+        }
+
+        const confidence =
+          (result?.confidence as "high" | "medium" | "low" | undefined) ??
+          "medium";
+
+        const agentMessage: AgentMessage = {
+          id: `msg_${Date.now() + 1}`,
+          agentId,
+          type: "agent",
+          content: agentContent,
+          timestamp: new Date().toISOString(),
+          metadata: { confidence },
+        };
+
+        setMessages((prev) => [...prev, agentMessage]);
         setStatus("idle");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to send message");
+        const message =
+          err instanceof Error ? err.message : "Agent request failed";
+        setError(message);
         setStatus("error");
+
+        // Surface the error as a system message so the user sees it in context
+        const errorMessage: AgentMessage = {
+          id: `msg_err_${Date.now()}`,
+          agentId,
+          type: "system",
+          content: `Error: ${message}`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
       }
     },
-    [agentId]
+    [agentId, session],
   );
 
   const executeAction = useCallback(async (actionId: string) => {
