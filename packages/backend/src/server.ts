@@ -37,6 +37,7 @@ import { type RawData, WebSocket, WebSocketServer } from "ws";
 
 import adminRouter from "./api/admin.js";
 import { agentAdminRouter } from "./api/agentAdmin.js";
+import artifactsRouter from "./api/artifacts.js";
 import agentsRouter from "./api/agents.js";
 import analyticsRouter from "./api/analytics.js";
 import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
@@ -84,6 +85,7 @@ import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookServ
 import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
+import { createArtifactGenerationWorker } from "./workers/ArtifactGenerationWorker.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
@@ -567,6 +569,12 @@ app.use(
   documentRouter
 );
 app.use("/api/docs", docsApiRouter);
+app.use(
+  "/api",
+  requireAuth,
+  tenantContextMiddleware(),
+  artifactsRouter
+);
 app.use("/api/referrals", referralsRouter);
 app.use(
   "/api/usage",
@@ -769,6 +777,13 @@ async function startServer(): Promise<void> {
       logger.info("[Instrumentation] CRM workers initialized (in-process, dev only)");
     } catch (workerErr) {
       logger.warn("[Instrumentation] CRM workers failed to start:", { error: workerErr });
+    }
+
+    try {
+      createArtifactGenerationWorker();
+      logger.info("[Instrumentation] Artifact generation worker initialized (in-process, dev only)");
+    } catch (workerErr) {
+      logger.warn("[Instrumentation] Artifact generation worker failed to start:", { error: workerErr });
     }
   } else {
     logger.info("[Instrumentation] Workers run as separate process; skipping in-process init");

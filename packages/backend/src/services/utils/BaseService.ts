@@ -67,7 +67,8 @@ export abstract class BaseService {
 
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  // Protected so subclasses can override with a different TTL via `protected override readonly CACHE_TTL`.
+  protected readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly DEDUP_TIMEOUT = 1000; // 1 second
 
   private readonly defaultRetryConfig: RetryConfig = {

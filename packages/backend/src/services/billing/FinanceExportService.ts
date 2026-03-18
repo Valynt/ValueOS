@@ -535,17 +535,88 @@ export class FinanceExportService {
   }
 
   /**
-   * Generate export file (simplified - would integrate with file storage)
+   * Generate an export file in the requested format, upload it to Supabase
+   * Storage, and return a time-limited signed URL (1 hour).
+   *
+   * Supported formats: csv, json
    */
   private async generateExportFile(
     records: Record<string, unknown>[],
     format: string,
     exportId: string
   ): Promise<string> {
-    // In a real implementation, this would generate and upload the file
-    // For now, return a mock URL
+    const EXPORTS_BUCKET = 'finance-exports';
+    const SIGNED_URL_TTL_SECONDS = 3600; // 1 hour
+
+    let fileContent: string;
+    let contentType: string;
+
+    if (format === 'csv') {
+      if (records.length === 0) {
+        fileContent = '';
+      } else {
+        const headers = Object.keys(records[0]);
+        const rows = records.map((r) =>
+          headers
+            .map((h) => {
+              const val = r[h];
+              if (val === null || val === undefined) return '';
+              const str = String(val);
+              // Escape fields that contain commas, quotes, or newlines.
+              return str.includes(',') || str.includes('"') || str.includes('\n')
+                ? `"${str.replace(/"/g, '""')}"`
+                : str;
+            })
+            .join(',')
+        );
+        fileContent = [headers.join(','), ...rows].join('\n');
+      }
+      contentType = 'text/csv';
+    } else if (format === 'json') {
+      fileContent = JSON.stringify(records, null, 2);
+      contentType = 'application/json';
+    } else {
+      throw new Error(`Unsupported export format: ${format}`);
+    }
+
     const fileName = `finance_export_${exportId}.${format}`;
-    return `https://storage.example.com/exports/${fileName}`;
+    const storagePath = `exports/${fileName}`;
+    const fileBuffer = Buffer.from(fileContent, 'utf-8');
+
+    const { error: uploadError } = await this.supabase.storage
+      .from(EXPORTS_BUCKET)
+      .upload(storagePath, fileBuffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      logger.error('FinanceExportService: upload failed', {
+        exportId,
+        storagePath,
+        error: uploadError.message,
+      });
+      throw new Error(`Finance export upload failed: ${uploadError.message}`);
+    }
+
+    const { data: signedData, error: signError } = await this.supabase.storage
+      .from(EXPORTS_BUCKET)
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+    if (signError || !signedData?.signedUrl) {
+      throw new Error(
+        `Failed to create signed URL for finance export: ${signError?.message ?? 'unknown'}`
+      );
+    }
+
+    logger.info('FinanceExportService: export file generated and uploaded', {
+      exportId,
+      format,
+      storagePath,
+      recordCount: records.length,
+    });
+
+    return signedData.signedUrl;
   }
 
   /**

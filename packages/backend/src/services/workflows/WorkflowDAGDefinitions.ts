@@ -15,6 +15,9 @@
 
 import { RetryConfig, WorkflowDAG, WorkflowStage, WorkflowStageType } from '../../types/workflow';
 import { logger } from '../../lib/logger.js';
+import { supabase } from '../../lib/supabase.js';
+import { valueTreeRepository, ValueTreeNodeWrite } from '../../repositories/ValueTreeRepository.js';
+import { workflowStateRepository } from '../../repositories/WorkflowStateRepository.js';
 
 // ============================================================================
 // Retry Configurations
@@ -624,33 +627,120 @@ export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
 
 /**
  * Compensation handler for Value Modeling Workflow.
- * Reverts value tree to previous version on failure.
+ *
+ * On failure, this handler:
+ * 1. Restores value_tree_nodes to the pre-modeling snapshot stored in
+ *    workflow_states.state_data.preModelingSnapshot (if present).
+ * 2. Deletes any partial scenario rows written during the failed run.
+ * 3. Resets the workflow state status to 'rolled_back'.
+ *
+ * If the rollback itself fails, the workflow state is marked
+ * 'compensation_failed' so operators can identify and recover it manually.
  */
 export async function compensateValueModelingWorkflow(
   failedStageId: string,
   context: Record<string, unknown>
 ): Promise<void> {
-  logger.info('Compensating Value Modeling Workflow', { failedStageId, caseId: context.caseId });
+  const caseId = context.caseId as string | undefined;
+  const organizationId = context.organizationId as string | undefined;
+  const workflowStateId = context.workflowStateId as string | undefined;
 
-  // Revert value tree to previous version
-  if (context.caseId && context.organizationId) {
-    try {
-      // In production, this would:
-      // 1. Fetch previous value tree version from history
-      // 2. Restore value_tree_nodes to previous state
-      // 3. Clean up any partial scenario data
-      // 4. Reset assumptions to pre-modeling state
+  logger.info('compensateValueModelingWorkflow: starting', {
+    failedStageId,
+    caseId,
+    organizationId,
+    workflowStateId,
+  });
 
-      logger.info('Reverted value tree to previous version', {
-        caseId: context.caseId,
-        stage: failedStageId,
+  if (!caseId || !organizationId) {
+    logger.error('compensateValueModelingWorkflow: missing caseId or organizationId — cannot compensate', {
+      failedStageId,
+      context,
+    });
+    return;
+  }
+
+  try {
+    // Step 1: Restore value tree from pre-modeling snapshot if one was saved.
+    // The workflow executor is expected to store the snapshot in state_data
+    // before the first modeling stage runs.
+    const preModelingSnapshot = context.preModelingSnapshot as ValueTreeNodeWrite[] | undefined;
+
+    if (preModelingSnapshot && preModelingSnapshot.length > 0) {
+      await valueTreeRepository.replaceNodesForCase(caseId, organizationId, preModelingSnapshot);
+      logger.info('compensateValueModelingWorkflow: value tree restored from snapshot', {
+        caseId,
+        nodeCount: preModelingSnapshot.length,
       });
-    } catch (err) {
-      logger.error('Failed to compensate value modeling', {
-        caseId: context.caseId,
-        error: (err as Error).message,
+    } else {
+      // No snapshot — delete the partial nodes written during the failed run
+      // rather than leaving the tree in a corrupt intermediate state.
+      await valueTreeRepository.deleteNodesForCase(caseId, organizationId);
+      logger.warn('compensateValueModelingWorkflow: no pre-modeling snapshot found; deleted partial nodes', {
+        caseId,
       });
-      throw err;
+    }
+
+    // Step 2: Delete partial scenario data written during the failed run.
+    // Scenarios are keyed by (case_id, organization_id, source = 'value_modeling').
+    const { error: scenarioDeleteError } = await supabase
+      .from('value_scenarios')
+      .delete()
+      .eq('case_id', caseId)
+      .eq('organization_id', organizationId)
+      .eq('source', 'value_modeling');
+
+    if (scenarioDeleteError) {
+      // Non-fatal: log and continue — the tree is already restored.
+      logger.warn('compensateValueModelingWorkflow: failed to delete partial scenarios', {
+        caseId,
+        error: scenarioDeleteError.message,
+      });
+    } else {
+      logger.info('compensateValueModelingWorkflow: partial scenarios deleted', { caseId });
+    }
+
+    // Step 3: Mark the workflow state as rolled_back.
+    if (workflowStateId) {
+      await workflowStateRepository.updateStatus(workflowStateId, organizationId, 'rolled_back');
+      logger.info('compensateValueModelingWorkflow: workflow state marked rolled_back', {
+        workflowStateId,
+      });
+    }
+
+    logger.info('compensateValueModelingWorkflow: compensation complete', {
+      caseId,
+      failedStageId,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    logger.error('compensateValueModelingWorkflow: compensation failed', {
+      caseId,
+      failedStageId,
+      error: message,
+    });
+
+    // Mark the workflow state as compensation_failed so operators can identify
+    // and manually recover it. Do not rethrow — the compensation path must not
+    // itself throw unhandled exceptions into the saga executor.
+    if (workflowStateId && organizationId) {
+      try {
+        await workflowStateRepository.update(workflowStateId, organizationId, {
+          status: 'failed',
+          state_data: {
+            ...(context as Record<string, unknown>),
+            compensation_failed: true,
+            compensation_error: message,
+            compensation_failed_at: new Date().toISOString(),
+          },
+        });
+      } catch (markErr) {
+        logger.error('compensateValueModelingWorkflow: failed to mark compensation_failed state', {
+          workflowStateId,
+          error: markErr instanceof Error ? markErr.message : String(markErr),
+        });
+      }
     }
   }
 }

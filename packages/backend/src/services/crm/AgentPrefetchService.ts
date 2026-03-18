@@ -228,25 +228,147 @@ export class AgentPrefetchService {
   }
 
   /**
-   * Fetch similar deals. Stub for future vector search implementation.
+   * Fetch similar deals via pgvector similarity search against semantic_memory.
+   *
+   * Queries the semantic_memory table for chunks whose embedding is close to
+   * the opportunity's description embedding. Falls back to a keyword search
+   * when no embedding is available for the opportunity.
    */
   private async fetchSimilarDeals(
-    _tenantId: string,
-    _opportunityExternalId: string,
+    tenantId: string,
+    opportunityExternalId: string,
   ): Promise<SimilarDealSuggestion[]> {
-    // Future: use VectorSearchService to find similar deals
-    return [];
+    // Look up the opportunity's embedding from semantic_memory (stored during CRM sync).
+    const { data: memoryRows, error: memoryError } = await this.supabase
+      .from('semantic_memory')
+      .select('embedding, content, metadata')
+      .eq('tenant_id', tenantId)
+      .contains('metadata', { externalId: opportunityExternalId, sourceType: 'crm-opportunity' })
+      .limit(1);
+
+    if (memoryError) {
+      logger.warn('AgentPrefetchService: failed to fetch opportunity embedding', {
+        opportunityExternalId,
+        error: memoryError.message,
+      });
+      return [];
+    }
+
+    const embedding = memoryRows?.[0]?.embedding as number[] | null | undefined;
+
+    if (!embedding || embedding.length === 0) {
+      logger.info('AgentPrefetchService: no embedding found for opportunity — skipping similar deals', {
+        opportunityExternalId,
+      });
+      return [];
+    }
+
+    // Use pgvector cosine similarity to find the top-5 similar deal chunks.
+    // The RPC function `match_semantic_memory` must exist in the database.
+    const { data: similarRows, error: similarError } = await this.supabase.rpc(
+      'match_semantic_memory',
+      {
+        query_embedding: embedding,
+        match_threshold: 0.75,
+        match_count: 5,
+        filter_tenant_id: tenantId,
+        filter_source_type: 'crm-opportunity',
+      },
+    );
+
+    if (similarError) {
+      logger.warn('AgentPrefetchService: vector similarity search failed', {
+        error: similarError.message,
+      });
+      return [];
+    }
+
+    type SimilarRow = {
+      content: string;
+      similarity: number;
+      metadata: Record<string, unknown>;
+    };
+
+    return ((similarRows ?? []) as SimilarRow[])
+      .filter((r) => r.metadata?.externalId !== opportunityExternalId) // exclude self
+      .map((r) => ({
+        dealName: (r.metadata?.name as string) ?? 'Unknown Deal',
+        amount: (r.metadata?.amount as number) ?? 0,
+        outcome: (r.metadata?.stage as string) ?? 'unknown',
+        similarity: Math.round(r.similarity * 100) / 100,
+        confidence: {
+          dataQuality: 0.75,
+          assumptionStability: 0.65,
+          historicalAlignment: r.similarity,
+        },
+      }));
   }
 
   /**
-   * Fetch objection patterns. Stub for future RedTeam integration.
+   * Fetch objection patterns from the objection_patterns table, filtered by
+   * the account's industry and the tenant.
+   *
+   * Returns an empty array (with a structured log) if the table does not yet
+   * contain data for this industry — never silently returns empty without
+   * explanation.
    */
   private async fetchObjectionPatterns(
-    _tenantId: string,
-    _account: CanonicalAccount | null,
+    tenantId: string,
+    account: CanonicalAccount | null,
   ): Promise<ObjectionSuggestion[]> {
-    // Future: query objection patterns from RedTeam agent
-    return [];
+    const industry = account?.industry;
+
+    let query = this.supabase
+      .from('objection_patterns')
+      .select('objection, category, suggested_response, frequency, confidence_data_quality, confidence_assumption_stability, confidence_historical_alignment')
+      .eq('tenant_id', tenantId)
+      .order('frequency', { ascending: false })
+      .limit(10);
+
+    if (industry) {
+      query = query.eq('industry', industry);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      logger.warn('AgentPrefetchService: failed to fetch objection patterns', {
+        tenantId,
+        industry,
+        error: error.message,
+      });
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      logger.info('AgentPrefetchService: no objection patterns found for industry', {
+        tenantId,
+        industry: industry ?? 'any',
+      });
+      return [];
+    }
+
+    type ObjectionRow = {
+      objection: string;
+      category: string;
+      suggested_response: string;
+      frequency: number;
+      confidence_data_quality: number;
+      confidence_assumption_stability: number;
+      confidence_historical_alignment: number;
+    };
+
+    return (data as ObjectionRow[]).map((r) => ({
+      objection: r.objection,
+      category: r.category,
+      suggestedResponse: r.suggested_response,
+      frequency: r.frequency,
+      confidence: {
+        dataQuality: r.confidence_data_quality ?? 0.6,
+        assumptionStability: r.confidence_assumption_stability ?? 0.6,
+        historicalAlignment: r.confidence_historical_alignment ?? 0.5,
+      },
+    }));
   }
 
   // ---- Helpers ----
