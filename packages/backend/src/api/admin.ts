@@ -122,9 +122,9 @@ router.get("/audit-logs", requirePermission("audit.read"), async (req: Request, 
     });
 
     await auditLogService.logAudit({
-      userId: req.user.id,
-      userName: req.user.email ?? "unknown",
-      userEmail: req.user.email ?? "",
+      userId: req.user?.id ?? "unknown",
+      userName: req.user?.email ?? "unknown",
+      userEmail: req.user?.email ?? "",
       action: "audit.logs.query",
       resourceType: "audit_logs",
       resourceId: tenantId,
@@ -169,6 +169,9 @@ router.post(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -178,7 +181,7 @@ router.post(
       const user = await adminUserService.inviteUserToTenant(
         {
           id: actor.id,
-          email: actor.email,
+          email: actor.email ?? "",
           name: actorName,
         },
         {
@@ -208,6 +211,9 @@ router.patch(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -217,7 +223,7 @@ router.patch(
       await adminUserService.updateUserRole(
         {
           id: actor.id,
-          email: actor.email,
+          email: actor.email ?? "",
           name: actorName,
         },
         {
@@ -250,6 +256,9 @@ router.delete(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -259,7 +268,7 @@ router.delete(
       await adminUserService.removeUserFromTenant(
         {
           id: actor.id,
-          email: actor.email,
+          email: actor.email ?? "",
           name: actorName,
         },
         {
@@ -300,6 +309,9 @@ router.post(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName =
         actor?.user_metadata?.full_name ||
         actor?.user_metadata?.name ||
@@ -307,7 +319,7 @@ router.post(
         "Admin User";
 
       await adminUserService.transferOwnership(
-        { id: actor.id, email: actor.email, name: actorName },
+        { id: actor.id, email: actor.email ?? "", name: actorName },
         { newOwnerId: parsed.data.newOwnerId, tenantId },
       );
 
@@ -334,10 +346,13 @@ router.post(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       const role = await adminRoleService.createCustomRole(
-        { id: actor.id, email: actor.email, name: actorName },
+        { id: actor.id, email: actor.email ?? "", name: actorName },
         {
           tenantId,
           name: req.body.name,
@@ -367,10 +382,13 @@ router.patch(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       const role = await adminRoleService.updateCustomRole(
-        { id: actor.id, email: actor.email, name: actorName },
+        { id: actor.id, email: actor.email ?? "", name: actorName },
         req.params.roleId!,
         {
           tenantId,
@@ -399,10 +417,13 @@ router.delete(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       await adminRoleService.deleteCustomRole(
-        { id: actor.id, email: actor.email, name: actorName },
+        { id: actor.id, email: actor.email ?? "", name: actorName },
         tenantId,
         req.params.roleId!
       );
@@ -443,10 +464,13 @@ router.post(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       await adminRoleService.assignPermissionsToRole(
-        { id: actor.id, email: actor.email, name: actorName },
+        { id: actor.id, email: actor.email ?? "", name: actorName },
         {
           tenantId,
           roleId: req.params.roleId!,
@@ -479,10 +503,13 @@ router.delete(
       }
 
       const actor = req.user;
+      if (!actor) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
       const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
 
       await adminRoleService.removePermissionsFromRole(
-        { id: actor.id, email: actor.email, name: actorName },
+        { id: actor.id, email: actor.email ?? "", name: actorName },
         {
           tenantId,
           roleId: req.params.roleId!,
@@ -518,7 +545,7 @@ router.post(
   async (req: Request, res: Response) => {
     const { tenantId } = req.params;
     const { reason } = req.body as { reason?: string };
-    const requestedBy = (req as unknown as { userId?: string }).userId ?? "unknown";
+    const requestedBy = req.userId ?? "unknown";
 
     if (!reason) return res.status(400).json({ error: "reason is required" });
 

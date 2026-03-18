@@ -8,23 +8,13 @@ import { z } from "zod";
 import { createUserSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router, tenantScopedProcedure } from "../trpc.js";
+import { getSupabaseClient } from "../utils.js";
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabaseClient>; accessToken?: string }) {
-  if (ctx.supabase) {
-    return ctx.supabase;
-  }
-  if (ctx.accessToken) {
-    return createUserSupabaseClient(ctx.accessToken);
-  }
-  throw new TRPCError({
-    code: "INTERNAL_SERVER_ERROR",
-    message: "No Supabase client available",
-  });
-}
+// getSupabaseClient is now imported from ../utils.js
 
 // ============================================================================
 // In-memory pillar data (ported from VOSAcademy curriculum)

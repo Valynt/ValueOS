@@ -1,5 +1,7 @@
 export type ComplianceFramework = "GDPR" | "HIPAA" | "CCPA" | "SOC2" | "ISO27001";
 
+/* eslint-disable security/detect-object-injection -- Typed array/object access with controlled indices */
+
 export type EvidenceType =
   | "audit_logs"
   | "security_audit_log"

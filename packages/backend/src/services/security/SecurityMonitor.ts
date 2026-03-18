@@ -5,6 +5,8 @@
  * automated alerting, and threat detection.
  */
 
+/* eslint-disable security/detect-object-injection -- Controlled environment variable access with hardcoded keys */
+
 import { logger } from "../../lib/logger.js"
 import { AgentAuditLog, getAuditLogger } from "../AgentAuditLogger.js"
 import { MessageBus } from "../realtime/MessageBus.js"
@@ -771,7 +773,7 @@ export class SecurityMonitor {
    * can attach error handlers without blocking the alert pipeline.
    */
   private async postWebhook(url: string, body: Record<string, unknown>): Promise<void> {
-     
+
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

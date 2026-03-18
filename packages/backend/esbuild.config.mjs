@@ -14,7 +14,6 @@ const alias = {
   '@valueos/infra':       p('packages/infra'),
   '@valueos/memory':      p('packages/memory'),
   '@valueos/sdui':        p('packages/sdui/src'),
-  '@valueos/sdui-types':  p('packages/sdui-types'),
   '@valueos/integrations':p('packages/integrations'),
   '@valueos/mcp':         p('packages/mcp'),
 

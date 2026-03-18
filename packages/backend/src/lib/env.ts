@@ -5,6 +5,8 @@
  * backend runtime configuration validation.
  */
 
+/* eslint-disable security/detect-object-injection -- Controlled environment variable access with hardcoded arrays */
+
 export {
   getEnvVar,
   setEnvVar,

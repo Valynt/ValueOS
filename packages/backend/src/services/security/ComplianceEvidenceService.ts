@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'crypto';
 
 import { supabase } from '../../lib/supabase.js';
 
+/* eslint-disable security/detect-object-injection -- Typed property access on database records */
+
 export interface ComplianceEvidenceInput {
   tenantId: string;
   actorPrincipal: string;

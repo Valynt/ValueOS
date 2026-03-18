@@ -2,6 +2,8 @@
  * Environment Configuration - Re-export from shared
  */
 
+/* eslint-disable security/detect-object-injection -- Controlled feature flag access with template literal */
+
 import { parseCorsAllowlist } from "@shared/config/cors";
 
 // Re-exports from shared utility

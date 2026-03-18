@@ -1,19 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { supabase } from "../../../../src/lib/supabase";
-import { ActivateCustomer } from "../../../../src/services/bfa/tools/onboarding/activate-customer";
-import { AgentContext } from "../../../../src/services/bfa/types";
+// Mock must be defined before imports
+vi.mock("../../../../packages/backend/src/lib/supabase", async () => {
+  const mockEq = vi.fn().mockReturnThis();
+  const mockSingle = vi.fn().mockResolvedValue({ data: null, error: null });
 
-// Mock dependencies
-vi.mock("../../../../src/lib/supabase", () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn(),
-    })),
-  },
-}));
+  return {
+    supabase: {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: mockEq,
+          single: mockSingle,
+        })),
+        update: vi.fn(() => ({
+          eq: mockEq,
+        })),
+        eq: mockEq,
+      })),
+    },
+  };
+});
+
+import { supabase } from "../../../../packages/backend/src/lib/supabase";
+import { ActivateCustomer } from "../../../../packages/backend/src/services/bfa/tools/onboarding/activate-customer";
+import { AgentContext } from "../../../../packages/backend/src/services/bfa/types";
 
 describe("ActivateCustomer Security Tests", () => {
   let tool: ActivateCustomer;
@@ -80,10 +90,9 @@ describe("ActivateCustomer Security Tests", () => {
 
       // Verify that every 'eq' call includes tenant_id
       expect(supabase.from).toHaveBeenCalledWith("customers");
-      expect(vi.mocked(supabase.from("customers").eq)).toHaveBeenCalledWith(
-        "tenant_id",
-        "test-tenant-id"
-      );
+      // Verify tenant isolation: the eq function should be called with tenant_id
+      const mockEq = vi.mocked(supabase).from("customers").select("").eq;
+      expect(mockEq).toHaveBeenCalledWith("tenant_id", "test-tenant-id");
     });
   });
 

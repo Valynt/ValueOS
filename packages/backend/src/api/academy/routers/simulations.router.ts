@@ -8,6 +8,7 @@ import { z } from "zod";
 import { createUserSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
+import { getSupabaseClient } from "../utils.js";
 
 // ============================================================================
 // Types
@@ -68,18 +69,7 @@ interface Certification {
 // Helpers
 // ============================================================================
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabaseClient>; accessToken?: string }) {
-  if (ctx.supabase) {
-    return ctx.supabase;
-  }
-  if (ctx.accessToken) {
-    return createUserSupabaseClient(ctx.accessToken);
-  }
-  throw new TRPCError({
-    code: "INTERNAL_SERVER_ERROR",
-    message: "No Supabase client available",
-  });
-}
+// getSupabaseClient is now imported from ../utils.js
 
 function calculateScoringResult(responses: SimulationResponse[]): ScoringResult {
   if (responses.length === 0) {
@@ -619,7 +609,13 @@ export const simulationsRouter = router({
    */
   getRecommendations: protectedProcedure.query(async ({ ctx }) => {
     const client = getSupabaseClient(ctx);
-    const attempts = await getUserSimulationAttempts(client, ctx.user.id);
+    if (!ctx.tenantId) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Tenant context required",
+      });
+    }
+    const attempts = await getUserSimulationAttempts(client, ctx.user.id, ctx.tenantId);
     const scenarios = await getAllSimulationScenarios(client);
     const aiRecommendationsEnabled = process.env.SIMULATION_AI_RECOMMENDATIONS_ENABLED === "true";
 

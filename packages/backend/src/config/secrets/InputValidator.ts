@@ -5,6 +5,8 @@
  * Prevents injection attacks, ensures data integrity, and provides consistent error handling
  */
 
+/* eslint-disable security/detect-object-injection -- Controlled environment variable access with validation */
+
 import { logger } from "../../lib/logger.js"
 
 export class ValidationError extends Error {

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { createUserSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
+import { getSupabaseClient } from "../utils.js";
 
 // ============================================================================
 // Types
@@ -60,18 +61,7 @@ interface SimulationAttempt {
 // Helpers
 // ============================================================================
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabaseClient>; accessToken?: string }) {
-  if (ctx.supabase) {
-    return ctx.supabase;
-  }
-  if (ctx.accessToken) {
-    return createUserSupabaseClient(ctx.accessToken);
-  }
-  throw new TRPCError({
-    code: "INTERNAL_SERVER_ERROR",
-    message: "No Supabase client available",
-  });
-}
+// getSupabaseClient is now imported from ../utils.js
 
 /**
  * Generate personalized quiz feedback based on score and maturity level

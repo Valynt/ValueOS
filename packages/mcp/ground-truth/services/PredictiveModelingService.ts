@@ -174,7 +174,7 @@ export class PredictiveModelingService {
     } catch (error) {
       logger.error(
         "Forecast generation failed",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
       throw error;
     }
@@ -221,7 +221,7 @@ export class PredictiveModelingService {
     } catch (error) {
       logger.error(
         "Anomaly detection failed",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
       throw error;
     }
@@ -279,7 +279,7 @@ export class PredictiveModelingService {
     } catch (error) {
       logger.error(
         "Trend analysis failed",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
       throw error;
     }
@@ -345,7 +345,7 @@ export class PredictiveModelingService {
         : 0;
 
     // Assess growth stability (coefficient of variation of growth rates)
-    const growthRates: unknown[] = [];
+    const growthRates: number[] = [];
     for (let i = 1; i < values.length; i++) {
       if (values[i - 1] > 0) {
         growthRates.push((values[i] - values[i - 1]) / values[i - 1]);
@@ -490,7 +490,7 @@ export class PredictiveModelingService {
   ): AnomalyResult["anomalies"] {
     const { data, sensitivity = "medium" } = request;
     const values = data.values;
-    const anomalies = [];
+    const anomalies: AnomalyResult["anomalies"] = [];
 
     if (values.length < 3) return anomalies;
 
@@ -850,7 +850,7 @@ export class PredictiveModelingService {
   ): "accelerating" | "decelerating" | "stable" | "erratic" {
     if (values.length < 4) return "stable";
 
-    const growthRates: unknown[] = [];
+    const growthRates: number[] = [];
     for (let i = 1; i < values.length; i++) {
       if (values[i - 1] > 0) {
         growthRates.push((values[i] - values[i - 1]) / values[i - 1]);

@@ -1,16 +1,32 @@
 {
   "files": [],
   "references": [
-    { "path": "./apps/ValyntApp" },
-    { "path": "./apps/VOSAcademy" },
-    { "path": "./apps/mcp-dashboard" },
-    { "path": "./packages/backend" },
-    { "path": "./packages/shared" },
-    { "path": "./packages/sdui" },
-    { "path": "./packages/memory" },
-    { "path": "./packages/mcp" },
-    { "path": "./packages/infra" },
-    { "path": "./packages/integrations" },
-    { "path": "./packages/core-services" }
+    {
+      "path": "./apps/ValyntApp"
+    },
+    {
+      "path": "./apps/mcp-dashboard"
+    },
+    {
+      "path": "./packages/backend"
+    },
+    {
+      "path": "./packages/shared"
+    },
+    {
+      "path": "./packages/sdui"
+    },
+    {
+      "path": "./packages/memory"
+    },
+    {
+      "path": "./packages/mcp"
+    },
+    {
+      "path": "./packages/infra"
+    },
+    {
+      "path": "./packages/integrations"
+    }
   ]
 }

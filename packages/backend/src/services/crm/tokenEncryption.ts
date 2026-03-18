@@ -7,6 +7,8 @@
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
+/* eslint-disable security/detect-object-injection -- Controlled environment variable access */
+
 import { logger } from '../../lib/logger.js';
 
 const ALGORITHM = 'aes-256-gcm';

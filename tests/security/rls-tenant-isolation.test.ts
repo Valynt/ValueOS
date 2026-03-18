@@ -23,18 +23,17 @@ describe("RLS Tenant Isolation - Critical Security Tests", () => {
   let user2Id: string;
 
   beforeAll(async () => {
-    // Create clients with different tenant contexts
-    // In production, these would be JWT tokens with different tenant_id claims
+    // Skip if required env vars are not set
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    adminClient = createClient(
-      process.env.VITE_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    if (!process.env.SUPABASE_SERVICE_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.warn("Skipping RLS setup - SUPABASE_SERVICE_KEY not set");
+    if (!supabaseUrl || !serviceKey) {
+      console.warn("Skipping RLS tests - VITE_SUPABASE_URL or SUPABASE_SERVICE_KEY not set");
       return;
     }
+
+    // Create clients with different tenant contexts
+    adminClient = createClient(supabaseUrl, serviceKey);
 
     // Generate valid UUIDs for tenants to ensure compatibility with UUID columns
     TENANT_1_ID = crypto.randomUUID();

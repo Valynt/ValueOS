@@ -27,7 +27,7 @@ vi.mock("@supabase/supabase-js", async () => {
   };
 });
 
-import { BenchmarkService } from "@valueos/core-services";
+import { BenchmarkService } from "../../core/index.js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------

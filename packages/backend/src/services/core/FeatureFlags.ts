@@ -57,12 +57,17 @@ export class FeatureFlagsService {
     }
   }
 
-  /** Stop the background cache refresh. Call in tests and on server shutdown. */
+  /** Stop the background cache refresh and clear all rollout timers. Call in tests and on server shutdown. */
   destroy(): void {
     if (this.refreshTimer !== undefined) {
       clearInterval(this.refreshTimer);
       this.refreshTimer = undefined;
     }
+    // Clear all rollout timers to prevent leaks
+    for (const timer of this.rolloutTimers) {
+      clearTimeout(timer);
+    }
+    this.rolloutTimers.clear();
   }
 
   async createFlag(data: {
@@ -117,9 +122,13 @@ export class FeatureFlagsService {
     key: string,
     updates: Partial<Omit<FeatureFlag, 'id' | 'key' | 'metadata'>>
   ): Promise<void> {
+    // Safely update metadata.updatedAt
     const { error } = await this.supabase
       .from('feature_flags')
-      .update({ ...updates, 'metadata.updatedAt': new Date() })
+      .update({
+        ...updates,
+        metadata: { updatedAt: new Date() }
+      })
       .eq('key', key);
 
     if (error) throw error;
@@ -283,6 +292,8 @@ export class FeatureFlagsService {
     }
   }
 
+  private rolloutTimers = new Set<ReturnType<typeof setTimeout>>();
+
   async gradualRollout(key: string, targetPercentage: number, incrementPercentage = 10, intervalMinutes = 60): Promise<void> {
     const flag = await this.getFlag(key);
     if (!flag) throw new Error('Flag not found');
@@ -291,7 +302,11 @@ export class FeatureFlagsService {
     await this.updateFlag(key, { rolloutPercentage: newPercentage });
 
     if (newPercentage < targetPercentage) {
-      setTimeout(() => this.gradualRollout(key, targetPercentage, incrementPercentage, intervalMinutes), intervalMinutes * 60 * 1000);
+      const timer = setTimeout(() => {
+        this.rolloutTimers.delete(timer);
+        this.gradualRollout(key, targetPercentage, incrementPercentage, intervalMinutes);
+      }, intervalMinutes * 60 * 1000);
+      this.rolloutTimers.add(timer);
     }
   }
 }

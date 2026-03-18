@@ -5,6 +5,8 @@
  * Fail-fast pattern: detect misconfiguration before the application crashes unexpectedly.
  */
 
+/* eslint-disable security/detect-object-injection -- Controlled environment variable access with hardcoded configuration */
+
 export interface ValidationResult {
   valid: boolean;
   /** Alias for valid */

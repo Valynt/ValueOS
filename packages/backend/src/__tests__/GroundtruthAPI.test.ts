@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+/* eslint-disable security/detect-object-injection -- Test file using controlled environment variable access */
+
 vi.mock('@shared/lib/env', () => ({
   getEnvVar: (key: string) => process.env[key],
   setEnvVar: (key: string, value: string) => {

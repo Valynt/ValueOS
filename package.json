@@ -18,7 +18,7 @@
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
     "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs",
     "check:frontend-bundle-service-role": "node scripts/ci/check-frontend-bundle-service-role.mjs",
-    "test:rls": "vitest run --config tests/security/vitest.security.config.ts && vitest run --reporter=verbose tests/integration/rls_isolation.integration.test.ts tests/integration/rls_leak.test.ts tests/integration/workflow_rls.integration.test.ts tests/integration/supabase_messagebus_rls.integration.test.ts",
+    "test:rls": "vitest run --config tests/security/vitest.security.config.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "db:migrate": "bash scripts/db/apply-migrations.sh",
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",

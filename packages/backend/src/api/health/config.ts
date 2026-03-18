@@ -1,13 +1,15 @@
 /**
  * Configuration Health Check
- * 
+ *
  * Provides a health check utility for verifying configuration status
  * without exposing sensitive values.
- * 
+ *
  * Usage:
  * - Call getConfigHealth() to get current status
  * - Useful for debugging, monitoring, and startup verification
  */
+
+/* eslint-disable security/detect-object-injection -- Controlled environment variable access */
 
 import { createLogger } from '@shared/lib/logger';
 
