@@ -85,8 +85,18 @@ describe("useSubscription", () => {
 
     const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
-    // Wait for error state (error can be Error instance or object)
-    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    // Wait for error state - check multiple times with longer timeout
+    await waitFor(() => {
+      console.log("Current state:", {
+        error: result.current.error,
+        errorType: typeof result.current.error,
+        isError: result.current.error instanceof Error,
+        subscription: result.current.subscription
+      });
+      return result.current.error !== null;
+    }, { timeout: 5000 });
+
+    expect(result.current.error).toBeInstanceOf(Error);
     expect((result.current.error as Error).message).toBe("Network error");
     expect(result.current.subscription).toBeNull();
   });
