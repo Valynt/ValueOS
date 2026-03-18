@@ -76,7 +76,7 @@ export function EvidenceGapList({ data, onAction }: WidgetProps) {
       {sortedGaps.length === 0 ? (
         <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
           <Shield className="w-5 h-5 text-green-600" />
-          <p className="text-green-800">All evidence requirements met!</p>
+          <p className="text-green-800">No evidence gaps</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -84,7 +84,7 @@ export function EvidenceGapList({ data, onAction }: WidgetProps) {
             <div
               key={gap.id}
               className="p-4 rounded-lg border hover:border-primary/30 transition-colors cursor-pointer"
-              onClick={() => onAction?.("viewGap", { gapId: gap.id })}
+              onClick={() => onAction?.("select", { gapId: gap.id })}
             >
               <div className="flex items-start justify-between mb-2">
                 <div>
@@ -96,32 +96,30 @@ export function EvidenceGapList({ data, onAction }: WidgetProps) {
                     gap.impact
                   )}`}
                 >
-                  {gap.impact} impact
+                  {gap.impact.charAt(0).toUpperCase() + gap.impact.slice(1)} impact
                 </span>
               </div>
 
               <div className="flex items-center gap-4 mt-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Current:</span>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full border ${getTierBadge(
                       gap.currentTier
                     )}`}
                   >
-                    {gap.currentTier === "none" ? "None" : gap.currentTier.replace("tier", "T")}
+                    Current: {gap.currentTier === "none" ? "None" : gap.currentTier.replace("tier", "Tier ")}
                   </span>
                 </div>
 
                 <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Required:</span>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full border ${getTierBadge(
                       gap.requiredTier
                     )}`}
                   >
-                    {gap.requiredTier.replace("tier", "T")}
+                    Required: {gap.requiredTier.replace("tier", "Tier ")}
                   </span>
                 </div>
               </div>

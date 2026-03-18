@@ -13,7 +13,7 @@
 // Re-exported here for backward compatibility. ADR-0010.
 export type { LifecycleStage } from '@valueos/shared';
 
-export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion";
+export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion" | "integrity";
 
 export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back" | "waiting_approval";
 
@@ -37,7 +37,7 @@ export interface WorkflowStage {
   id: string;
   name: string;
   description?: string;
-  agent_type: LifecycleStage;
+  agent_type: WorkflowStageType;
   timeout_seconds: number;
   retry_config?: RetryConfig;
   compensation_handler?: string;
@@ -100,7 +100,7 @@ export type WorkflowExecutionStatus =
 
 export interface ExecutedStep {
   stage_id: string;
-  stage_type: LifecycleStage;
+  stage_type: WorkflowStageType;
   compensator?: string;
   status: "completed" | "failed";
   started_at: string;

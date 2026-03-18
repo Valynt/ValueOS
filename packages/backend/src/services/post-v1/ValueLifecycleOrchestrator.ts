@@ -17,7 +17,7 @@ import { RealizationAgent } from "../../lib/agent-fabric/agents/RealizationAgent
 import { TargetAgent } from "../../lib/agent-fabric/agents/TargetAgent";
 import { AuditLogger } from "../../lib/agent-fabric/AuditLogger";
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
-import { ValidationError } from "../../lib/errors.js";
+import { ValidationError as LibValidationError } from "../../lib/errors.js";
 import { logger } from "../../lib/logger.js"
 import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker";
 import { TargetAgentInputSchema } from "../validators/agentInputs.js";
@@ -25,7 +25,9 @@ import { TargetAgentInputSchema } from "../validators/agentInputs.js";
 
 
 // Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts. ADR-0010.
+import type { LifecycleStage as SharedLifecycleStage } from '@valueos/shared';
 export type { LifecycleStage } from '@valueos/shared';
+import type { WorkflowStageType } from '../types/workflow';
 
 /**
  * Saga-aligned lifecycle states from the design brief.
@@ -63,7 +65,7 @@ export interface StageResult {
 }
 
 export interface StageLineage {
-  stage: LifecycleStage;
+  stage: WorkflowStageType;
   parentExecutionId?: string;
   replayed?: boolean;
 }
@@ -97,7 +99,7 @@ interface DLQRecoveryMetrics {
 
 export class LifecycleError extends Error {
   constructor(
-    public stage: LifecycleStage,
+    public stage: WorkflowStageType,
     message: string,
     public originalError?: Error,
     public compensation?: CompensationOutcome[],
@@ -108,7 +110,7 @@ export class LifecycleError extends Error {
   }
 }
 
-export class ValidationError extends Error {
+export class ValidationError extends LibValidationError {
   constructor(message: string) {
     super(message);
     this.name = "ValidationError";
@@ -150,8 +152,8 @@ import {
 
 // ... (other imports remain the same) ...
 
-const REPLAYABLE_STAGES = new Set<LifecycleStage>(["opportunity", "target", "expansion"]);
-const DESTRUCTIVE_STAGES = new Set<LifecycleStage>(["integrity", "realization"]);
+const REPLAYABLE_STAGES = new Set<WorkflowStageType>(["opportunity", "target", "expansion"]);
+const DESTRUCTIVE_STAGES = new Set<WorkflowStageType>(["integrity", "realization"]);
 
 export class ValueLifecycleOrchestrator {
   private circuitBreaker: CircuitBreaker;
@@ -215,7 +217,7 @@ export class ValueLifecycleOrchestrator {
   }
 
   async executeLifecycleStage(
-    stage: LifecycleStage,
+    stage: WorkflowStageType,
     input: StageInput,
     context: LifecycleContext
   ): Promise<StageResult> {
@@ -312,7 +314,7 @@ export class ValueLifecycleOrchestrator {
   }
 
   private registerStageCompensations(
-    stage: LifecycleStage,
+    stage: WorkflowStageType,
     persistedResult: Record<string, unknown> | null,
     enrichedResult: StageResult,
     input: StageInput,
@@ -703,8 +705,8 @@ export class ValueLifecycleOrchestrator {
   /**
    * Map legacy LifecycleStage to SagaLifecycleState
    */
-  static mapStageToSagaState(stage: LifecycleStage): SagaLifecycleState {
-    const mapping: Record<LifecycleStage, SagaLifecycleState> = {
+  static mapStageToSagaState(stage: WorkflowStageType): SagaLifecycleState {
+    const mapping: Record<WorkflowStageType, SagaLifecycleState> = {
       opportunity: 'INITIATED',
       target: 'DRAFTING',
       expansion: 'VALIDATING',
@@ -714,7 +716,7 @@ export class ValueLifecycleOrchestrator {
     return mapping[stage];
   }
 
-  private getAgentForStage(stage: LifecycleStage, context: LifecycleContext): BaseAgent {
+  private getAgentForStage(stage: WorkflowStageType, context: LifecycleContext): BaseAgent {
     const agentConfig: AgentConfig = {
       id: `${stage}-agent`,
       name: stage,
@@ -739,7 +741,7 @@ export class ValueLifecycleOrchestrator {
       },
     };
 
-    const agents: Record<LifecycleStage, new (
+    const agents: Record<WorkflowStageType, new (
       config: AgentConfig,
       organizationId: string,
       memorySystem: MemorySystem,
@@ -765,7 +767,7 @@ export class ValueLifecycleOrchestrator {
   }
 
   private async validatePrerequisites(
-    stage: LifecycleStage,
+    stage: WorkflowStageType,
     input: StageInput,
     context: LifecycleContext
   ): Promise<void> {
@@ -784,7 +786,7 @@ export class ValueLifecycleOrchestrator {
     }
 
     // Fallback to old logic for other stages
-    const prerequisites: Record<LifecycleStage, string[]> = {
+    const prerequisites: Record<WorkflowStageType, string[]> = {
       opportunity: [],
       target: [], // Handled by Zod now
       expansion: ["value_tree_id"],
@@ -802,7 +804,7 @@ export class ValueLifecycleOrchestrator {
   }
 
   private async persistStageResults(
-    stage: LifecycleStage,
+    stage: WorkflowStageType,
     result: StageResult,
     context: LifecycleContext
   ): Promise<Record<string, unknown> | null> {
@@ -825,7 +827,7 @@ export class ValueLifecycleOrchestrator {
     return data;
   }
 
-  private async deleteStageResults(stage: LifecycleStage, resultId: string): Promise<void> {
+  private async deleteStageResults(stage: WorkflowStageType, resultId: string): Promise<void> {
     logger.info("Compensating: deleting stage results", { stage, resultId });
     const tableName = `${stage}_results`;
     const { error } = await this.supabase
@@ -848,11 +850,11 @@ export class ValueLifecycleOrchestrator {
     const _exhaustiveCheck: WorkflowStatus = "running"; // keeps the import live
   }
 
-  private isReplayableStage(stage: LifecycleStage): boolean {
+  private isReplayableStage(stage: WorkflowStageType): boolean {
     return REPLAYABLE_STAGES.has(stage);
   }
 
-  private isDestructiveStage(stage: LifecycleStage): boolean {
+  private isDestructiveStage(stage: WorkflowStageType): boolean {
     return DESTRUCTIVE_STAGES.has(stage);
   }
 
@@ -970,8 +972,8 @@ export class ValueLifecycleOrchestrator {
     }
   }
 
-  private hasNextStage(stage: LifecycleStage): boolean {
-    const stageOrder: LifecycleStage[] = [
+  private hasNextStage(stage: WorkflowStageType): boolean {
+    const stageOrder: WorkflowStageType[] = [
       "opportunity",
       "target",
       "expansion",
@@ -984,7 +986,7 @@ export class ValueLifecycleOrchestrator {
   }
 
   private async scheduleNextStage(
-    currentStage: LifecycleStage,
+    currentStage: WorkflowStageType,
     persistedData: Record<string, unknown> | null,
     context: LifecycleContext
   ): Promise<void> {

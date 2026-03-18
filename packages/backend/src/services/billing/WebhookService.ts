@@ -24,7 +24,7 @@ import StripeService from "./StripeService.js"
 const logger = createLogger({ component: "WebhookService" });
 
 class WebhookService {
-  private stripe: Stripe;
+  private stripe: Stripe | null;
 
   /**
    * Listeners for billing domain events emitted during webhook processing.

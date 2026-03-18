@@ -19,13 +19,13 @@ export interface SensitivityItem {
 }
 
 export interface SensitivityTornadoData {
-  items: SensitivityItem[];
+  tornadoData: SensitivityItem[];
   baseScenario: string;
 }
 
 export function SensitivityTornado({ data, onAction }: WidgetProps) {
   const widgetData = data as unknown as SensitivityTornadoData;
-  const items = widgetData.items ?? [];
+  const items = widgetData.tornadoData ?? [];
 
   // Sort by leverage (highest first)
   const sortedItems = [...items].sort((a, b) => b.leverage - a.leverage);
@@ -35,7 +35,11 @@ export function SensitivityTornado({ data, onAction }: WidgetProps) {
     ...items.map((i) => Math.max(Math.abs(i.impactPositive), Math.abs(i.impactNegative)))
   );
 
-  const formatPercent = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+  const formatImpact = (value: number) => {
+    const absValue = Math.abs(value);
+    const formatted = `$${absValue.toLocaleString()}`;
+    return value >= 0 ? `+${formatted}` : `-${formatted}`;
+  };
 
   return (
     <div className="rounded-xl border bg-card p-6">
@@ -65,7 +69,7 @@ export function SensitivityTornado({ data, onAction }: WidgetProps) {
               <div
                 key={item.assumptionId}
                 className="group cursor-pointer"
-                onClick={() => onAction?.("navigateToAssumption", { assumptionId: item.assumptionId })}
+                onClick={() => onAction?.("navigate", { assumptionId: item.assumptionId })}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium flex-1">{item.assumptionName}</span>
@@ -79,7 +83,7 @@ export function SensitivityTornado({ data, onAction }: WidgetProps) {
                       className="h-6 bg-red-400 rounded-l flex items-center justify-end px-2 text-xs text-white font-medium transition-all hover:bg-red-500"
                       style={{ width: `${negativeWidth}%` }}
                     >
-                      {negativeWidth > 20 && formatPercent(item.impactNegative)}
+                      {negativeWidth > 20 && formatImpact(item.impactNegative)}
                     </div>
                   </div>
 
@@ -92,7 +96,7 @@ export function SensitivityTornado({ data, onAction }: WidgetProps) {
                       className="h-6 bg-green-400 rounded-r flex items-center px-2 text-xs text-white font-medium transition-all hover:bg-green-500"
                       style={{ width: `${positiveWidth}%` }}
                     >
-                      {positiveWidth > 20 && formatPercent(item.impactPositive)}
+                      {positiveWidth > 20 && formatImpact(item.impactPositive)}
                     </div>
                   </div>
                 </div>
@@ -100,7 +104,7 @@ export function SensitivityTornado({ data, onAction }: WidgetProps) {
                 {/* Leverage indicator */}
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-muted-foreground">
-                    Leverage: {item.leverage.toFixed(2)}
+                    {item.leverage.toFixed(1)}x
                   </span>
                   <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                     <div

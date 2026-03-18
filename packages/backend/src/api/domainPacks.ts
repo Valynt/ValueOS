@@ -10,10 +10,10 @@ import { supabase } from "@shared/lib/supabase";
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 
-import { requireAuth } from "../middleware/auth.js";
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { DomainPackAccessError, DomainPackService } from "../services/domain-packs/index.js";
+import { requireAuth } from "../middleware/auth";
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { DomainPackAccessError, DomainPackService } from "../services/domain-packs/index";
 
 const logger = createLogger({ component: "DomainPacksAPI" });
 const router = Router();

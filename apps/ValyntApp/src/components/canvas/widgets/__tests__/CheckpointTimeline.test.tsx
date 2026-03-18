@@ -17,7 +17,7 @@ describe("CheckpointTimeline", () => {
   ];
 
   it("renders all checkpoints with dates", () => {
-    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints }} />);
+    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints, unit: "$" }} />);
 
     expect(screen.getByText("Mar 1, 2024")).toBeInTheDocument();
     expect(screen.getByText("Jun 1, 2024")).toBeInTheDocument();
@@ -26,23 +26,23 @@ describe("CheckpointTimeline", () => {
   });
 
   it("displays expected range for each checkpoint", () => {
-    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints }} />);
+    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints, unit: "$" }} />);
 
     expect(screen.getByText("$100,000 - $120,000")).toBeInTheDocument();
     expect(screen.getByText("$200,000 - $250,000")).toBeInTheDocument();
   });
 
   it("shows status indicators correctly", () => {
-    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints }} />);
+    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints, unit: "$" }} />);
 
-    expect(screen.getByText("Measured")).toBeInTheDocument();
+    expect(screen.getByText("On Target")).toBeInTheDocument();
     expect(screen.getByText("Pending")).toBeInTheDocument();
     expect(screen.getByText("Missed")).toBeInTheDocument();
     expect(screen.getByText("Exceeded")).toBeInTheDocument();
   });
 
   it("shows actual values for measured checkpoints", () => {
-    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints }} />);
+    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints, unit: "$" }} />);
 
     expect(screen.getByText("$110,000")).toBeInTheDocument();
     expect(screen.getByText("$280,000")).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("CheckpointTimeline", () => {
   });
 
   it("displays notes when available", () => {
-    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints }} />);
+    render(<CheckpointTimeline id="checkpoint-timeline" data={{ checkpoints: mockCheckpoints, unit: "$" }} />);
 
     expect(screen.getByText("On track")).toBeInTheDocument();
     expect(screen.getByText("Below target")).toBeInTheDocument();

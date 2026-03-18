@@ -39,6 +39,7 @@ import {
   type VerificationResult,
   type Claim,
 } from '../../../services/ground-truth/ClaimVerificationService.js';
+import { ReadinessScorer } from '../../../services/integrity/ReadinessScorer.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -130,6 +131,7 @@ export class IntegrityAgent extends BaseAgent {
   public override readonly version = "1.0.0";
 
   private readonly integrityRepo = new IntegrityResultRepository();
+  private readonly readinessScorer = new ReadinessScorer();
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const startTime = Date.now();
@@ -172,6 +174,20 @@ export class IntegrityAgent extends BaseAgent {
     // Step 5b: Persist output to integrity_outputs table so it survives restarts
     await this.persistOutput(context, analysis, integrityResult, vetoDecision);
 
+    // Step 5c: Calculate readiness score for the case
+    let readiness: Awaited<ReturnType<ReadinessScorer['calculateReadiness']>> | undefined;
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (valueCaseId && context.organization_id) {
+      try {
+        readiness = await this.readinessScorer.calculateReadiness(valueCaseId, context.organization_id);
+      } catch (err) {
+        logger.warn('IntegrityAgent: failed to calculate readiness score', {
+          case_id: valueCaseId,
+          error: (err as Error).message,
+        });
+      }
+    }
+
     // Step 6: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis, integrityResult, vetoDecision);
 
@@ -198,11 +214,11 @@ export class IntegrityAgent extends BaseAgent {
       policy_trace: deterministicPolicy.policyTrace,
       claims_checked: total,
       claims_supported: supported,
+      readiness,
       sdui_sections: sduiSections,
     };
 
     // Persist integrity result to DB for frontend retrieval.
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
     if (valueCaseId && context.organization_id) {
       try {
         await this.integrityRepo.createResult(valueCaseId, context.organization_id, {
@@ -284,6 +300,10 @@ export class IntegrityAgent extends BaseAgent {
 
     try {
       const supabaseClient = context.supabaseClient;
+      if (!supabaseClient) {
+        logger.warn('IntegrityAgent: supabaseClient not available in context');
+        return empty;
+      }
       return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
     } catch (err) {
       logger.warn('IntegrityAgent: failed to load domain pack context', {

@@ -26,6 +26,7 @@ import { integrityOutputRepository } from '../../repositories/IntegrityOutputRep
 import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js'
 import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/value/CaseValueTreeService.js'
 import { hypothesisOutputService } from '../../services/value/HypothesisOutputService.js'
+import { ReadinessScorer } from '../../services/integrity/ReadinessScorer.js';
 
 import {
   ConflictError,
@@ -570,6 +571,37 @@ router.get(
     try {
       const output = await integrityOutputRepository.getForCase(caseId, organizationId);
       res.json({ data: output });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ============================================================================
+// Readiness Routes
+// ============================================================================
+
+const readinessScorer = new ReadinessScorer();
+
+// GET /cases/:caseId/readiness — readiness score for a case
+router.get(
+  '/:caseId/readiness',
+  standardLimiter,
+  requireRole(['admin', 'member', 'viewer']),
+  validateUuidParam('caseId'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const authReq = req as AuthenticatedRequest;
+    const { caseId } = req.params;
+    const organizationId = authReq.tenantId ?? authReq.user?.tenant_id as string | undefined;
+
+    if (!organizationId) {
+      res.status(401).json({ error: 'Missing tenant context' });
+      return;
+    }
+
+    try {
+      const readiness = await readinessScorer.calculateReadiness(caseId, organizationId);
+      res.json({ data: readiness });
     } catch (err) {
       next(err);
     }

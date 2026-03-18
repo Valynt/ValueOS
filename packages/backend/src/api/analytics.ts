@@ -4,11 +4,11 @@ import express, { Router } from "express";
 import {
   RecordEventInputSchema,
   ValueLoopAnalytics,
-} from "../analytics/ValueLoopAnalytics.js";
-import { optionalAuth, requireAuth } from "../middleware/auth.js";
-import { createRateLimiter } from "../middleware/rateLimiter.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { ReadThroughCacheService } from "../services/cache/ReadThroughCacheService.js";
+} from "../analytics/ValueLoopAnalytics";
+import { optionalAuth, requireAuth } from "../middleware/auth";
+import { createRateLimiter } from "../middleware/rateLimiter";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { ReadThroughCacheService } from "../services/cache/ReadThroughCacheService";
 
 const logger = createLogger({ component: "analytics-api" });
 const analyticsRouter: Router = express.Router();

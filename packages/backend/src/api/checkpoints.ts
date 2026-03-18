@@ -6,11 +6,11 @@
 
 import { Request, Response, Router } from 'express';
 
-import { logger } from '../lib/logger.js';
-import { requireAuth } from '../middleware/auth.js';
-import { requirePermission } from '../middleware/rbac.js';
-import { tenantContextMiddleware } from '../middleware/tenantContext.js';
-import { CheckpointMiddleware } from '../services/middleware/CheckpointMiddleware.js';
+import { logger } from '../lib/logger';
+import { requireAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/rbac';
+import { tenantContextMiddleware } from '../middleware/tenantContext';
+import { CheckpointMiddleware } from '../services/middleware/CheckpointMiddleware';
 
 /**
  * Create the checkpoint router.

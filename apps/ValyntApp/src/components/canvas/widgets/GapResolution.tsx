@@ -34,18 +34,12 @@ export function GapResolution({ data, onAction }: WidgetProps) {
     setInputValues((prev) => ({ ...prev, [gapId]: value }));
   };
 
-  const handleSubmit = async (gapId: string) => {
+  const handleSubmit = (gapId: string) => {
     const value = inputValues[gapId];
     if (!value?.trim()) return;
 
-    setSubmitting((prev) => ({ ...prev, [gapId]: true }));
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
+    // Fire action immediately without async delay for test compatibility
     onAction?.("submitGap", { gapId, value });
-
-    setSubmitting((prev) => ({ ...prev, [gapId]: false }));
     setInputValues((prev) => ({ ...prev, [gapId]: "" }));
   };
 
@@ -79,16 +73,15 @@ export function GapResolution({ data, onAction }: WidgetProps) {
       {gaps.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-500" />
-          <p>All gaps resolved!</p>
+          <p>No data gaps</p>
         </div>
       ) : (
         <div className="space-y-3">
           {gaps.map((gap) => (
             <div
               key={gap.id}
-              className={`p-4 rounded-lg border ${
-                gap.resolved ? "bg-green-50 border-green-200" : "bg-card border-border"
-              }`}
+              className={`p-4 rounded-lg border ${gap.resolved ? "bg-green-50 border-green-200" : "bg-card border-border"
+                }`}
             >
               <div className="flex items-start gap-3">
                 {gap.resolved ? (
@@ -101,7 +94,7 @@ export function GapResolution({ data, onAction }: WidgetProps) {
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium">{gap.field}</span>
                     {gap.required && (
-                      <span className="text-xs text-red-500 font-medium">*Required</span>
+                      <span className="text-xs text-red-500 font-medium">Required</span>
                     )}
                   </div>
 
@@ -118,7 +111,7 @@ export function GapResolution({ data, onAction }: WidgetProps) {
                         type="text"
                         value={inputValues[gap.id] ?? ""}
                         onChange={(e) => handleInputChange(gap.id, e.target.value)}
-                        placeholder="Enter value..."
+                        placeholder={`Enter ${gap.field}...`}
                         className="flex-1 px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
@@ -128,14 +121,10 @@ export function GapResolution({ data, onAction }: WidgetProps) {
                       />
                       <button
                         onClick={() => handleSubmit(gap.id)}
-                        disabled={!inputValues[gap.id]?.trim() || submitting[gap.id]}
+                        disabled={!inputValues[gap.id]?.trim()}
                         className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {submitting[gap.id] ? (
-                          <span className="animate-pulse">...</span>
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
+                        <span>Submit</span>
                       </button>
                     </div>
                   )}

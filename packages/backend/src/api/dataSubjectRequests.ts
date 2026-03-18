@@ -10,13 +10,13 @@ import { createHash } from "crypto";
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
-import { createServerSupabaseClient } from "../lib/supabase.js";
-import type { AuthenticatedRequest } from "../middleware/auth.js";
-import { requireAuth } from "../middleware/auth.js";
-import { requirePermission } from "../middleware/rbac.js";
-import { createSecureRouter } from "../middleware/secureRouter.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { getDsrMappedPiiAssets } from "../observability/dataAssetInventoryRegistry.js";
+import { createServerSupabaseClient } from "../lib/supabase";
+import type { AuthenticatedRequest } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
+import { createSecureRouter } from "../middleware/secureRouter";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { getDsrMappedPiiAssets } from "../observability/dataAssetInventoryRegistry";
 
 const logger = createLogger({ component: "DSR-API" });
 const router = createSecureRouter("strict");

@@ -62,16 +62,25 @@ export function CheckpointTimeline({ data }: WidgetProps) {
   const formatValue = (value: number) => {
     if (unit === "$" || unit === "USD") {
       if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-      if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
       return `$${value.toLocaleString()}`;
     }
     if (unit === "%") return `${value.toFixed(1)}%`;
     return `${value.toLocaleString()} ${unit}`;
   };
 
+  // Parse YYYY-MM-DD as local date to avoid timezone issues
+  const parseLocalDate = (dateStr: string): Date => {
+    const parts = dateStr.split("-").map((s) => parseInt(s, 10));
+    if (parts.length < 3 || parts.some((p) => isNaN(p))) {
+      throw new Error(`Invalid date format: ${dateStr}`);
+    }
+    const [year, month, day] = parts as [number, number, number];
+    return new Date(year, month - 1, day);
+  };
+
   // Sort by date
   const sortedCheckpoints = [...checkpoints].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()
   );
 
   return (
@@ -89,7 +98,7 @@ export function CheckpointTimeline({ data }: WidgetProps) {
       {sortedCheckpoints.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No checkpoints defined</p>
+          <p>No checkpoints scheduled</p>
         </div>
       ) : (
         <div className="relative">
@@ -112,15 +121,16 @@ export function CheckpointTimeline({ data }: WidgetProps) {
                 {/* Date */}
                 <div className="mt-3 text-center">
                   <p className="text-sm font-medium">
-                    {new Date(checkpoint.date).toLocaleDateString("en-US", {
+                    {parseLocalDate(checkpoint.date).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
+                      year: "numeric",
                     })}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(checkpoint.date).getFullYear()}
-                  </p>
                 </div>
+
+                {/* Status label */}
+                <p className="mt-2 text-xs font-medium capitalize">{checkpoint.status}</p>
 
                 {/* Expected range */}
                 <div className="mt-2 text-center">
@@ -136,13 +146,12 @@ export function CheckpointTimeline({ data }: WidgetProps) {
                   <div className="mt-1 text-center">
                     <p className="text-xs text-muted-foreground">Actual</p>
                     <p
-                      className={`text-sm font-bold ${
-                        checkpoint.status === "missed"
-                          ? "text-red-600"
-                          : checkpoint.status === "exceeded"
-                            ? "text-blue-600"
-                            : "text-green-600"
-                      }`}
+                      className={`text-sm font-bold ${checkpoint.status === "missed"
+                        ? "text-red-600"
+                        : checkpoint.status === "exceeded"
+                          ? "text-blue-600"
+                          : "text-green-600"
+                        }`}
                     >
                       {formatValue(checkpoint.actualValue)}
                     </p>

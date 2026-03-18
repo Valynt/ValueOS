@@ -390,12 +390,12 @@ export class ServiceConfigManager {
     };
 
     return {
-      agentAPI: agentAPIEnv as Partial<ServiceConfiguration["agentAPI"]>,
-      eventExecutor: eventExecutorEnv as Partial<ServiceConfiguration["eventExecutor"]>,
-      agentMessageQueue: agentMessageQueueEnv as Partial<ServiceConfiguration["agentMessageQueue"]>,
-      rateLimiter: rateLimiterEnv as Partial<ServiceConfiguration["rateLimiter"]>,
-      eventSourcing: eventSourcingEnv as Partial<ServiceConfiguration["eventSourcing"]>,
-    };
+      agentAPI: agentAPIEnv,
+      eventExecutor: eventExecutorEnv,
+      agentMessageQueue: agentMessageQueueEnv,
+      rateLimiter: rateLimiterEnv,
+      eventSourcing: eventSourcingEnv,
+    } as Partial<ServiceConfiguration>;
   }
 
   /**

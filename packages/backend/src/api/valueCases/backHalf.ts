@@ -24,9 +24,7 @@ import { z } from "zod";
 import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
 import { AuditLogger } from "../../lib/agent-fabric/AuditLogger.js";
 import { CircuitBreaker } from "../../lib/agent-fabric/CircuitBreaker.js";
-import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { LLMGateway as FabricLLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
-import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { MemorySystem as FabricMemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { logger } from "../../lib/logger.js";
@@ -237,7 +235,7 @@ backHalfRouter.post(
   rateLimiters.strict,
   ...auth,
   async (req: Request, res: Response) => {
-    return runAgent(req, res, "integrity", "integrity");
+    return runAgent(req, res, "integrity", "integrity" as LifecycleStage);
   }
 );
 
@@ -282,7 +280,7 @@ backHalfRouter.post(
   rateLimiters.strict,
   ...auth,
   async (req: Request, res: Response) => {
-    return runAgent(req, res, "narrative", "narrative");
+    return runAgent(req, res, "narrative", "narrative" as LifecycleStage);
   }
 );
 
@@ -327,7 +325,7 @@ backHalfRouter.post(
   rateLimiters.strict,
   ...auth,
   async (req: Request, res: Response) => {
-    return runAgent(req, res, "realization", "realization");
+    return runAgent(req, res, "realization", "realization" as LifecycleStage);
   }
 );
 

@@ -69,13 +69,12 @@ export function PlanComparison({ data, onAction }: WidgetProps) {
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className={`relative rounded-lg border p-5 ${
-                plan.isCurrent
+              className={`relative rounded-lg border p-5 ${plan.isCurrent
                   ? "bg-primary/5 border-primary ring-1 ring-primary/20"
                   : plan.popular
                     ? "bg-amber-50/50 border-amber-200"
                     : "bg-card border-border"
-              }`}
+                }`}
             >
               {/* Badges */}
               <div className="flex items-center gap-2 mb-3">
@@ -137,7 +136,7 @@ export function PlanComparison({ data, onAction }: WidgetProps) {
                 </button>
               ) : (
                 <button
-                  onClick={() => onAction?.("selectPlan", { planId: plan.id })}
+                  onClick={() => onAction?.("upgrade", { planId: plan.id })}
                   className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                 >
                   {plan.price > (plans.find((p) => p.isCurrent)?.price || 0) ? "Upgrade" : "Downgrade"}

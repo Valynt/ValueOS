@@ -2,20 +2,20 @@ import { logger } from '@shared/lib/logger';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
 
-import { requireAuth } from '../middleware/auth.js'
-import { createBillingAccessEnforcement } from '../middleware/billingAccessEnforcement.js'
-import { validateRequest, type ValidationSchema } from '../middleware/inputValidation.js'
-import { rateLimiters } from '../middleware/rateLimiter.js'
-import { requirePermission } from '../middleware/rbac.js'
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
-import { tenantContextMiddleware } from '../middleware/tenantContext.js'
-import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
-import { createExecutionRuntime } from '../runtime/execution-runtime/index.js';
+import { requireAuth } from '../middleware/auth'
+import { createBillingAccessEnforcement } from '../middleware/billingAccessEnforcement'
+import { validateRequest, type ValidationSchema } from '../middleware/inputValidation'
+import { rateLimiters } from '../middleware/rateLimiter'
+import { requirePermission } from '../middleware/rbac'
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware'
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware'
+import { tenantContextMiddleware } from '../middleware/tenantContext'
+import { tenantDbContextMiddleware } from '../middleware/tenantDbContext'
+import { createExecutionRuntime } from '../runtime/execution-runtime/index';
 import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
-} from "../services/cache/ReadThroughCacheService.js"
+} from "../services/cache/ReadThroughCacheService"
 
 const router = Router();
 router.use(securityHeadersMiddleware);

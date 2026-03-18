@@ -102,6 +102,24 @@ describe("ReadinessScorer", () => {
       expect(result.validation_rate).toBe(0.8);
       expect(result.is_presentation_ready).toBe(true);
     });
+
+    it("should handle boundary case at exactly 0.8 grounding score", async () => {
+      const assumptions = Array.from({ length: 5 }, (_, i) =>
+        factories.assumption({
+          tenant_id: "tenant-1",
+          case_id: "case-1",
+          source_type: "customer-confirmed",
+          confidence_score: 0.8,
+          benchmark_reference_id: "bm-1",
+        }),
+      );
+
+      mockSupabase._mockData.set("assumptions", assumptions);
+
+      const result = await scorer.calculateReadiness("case-1", "tenant-1");
+      expect(result.mean_grounding_score).toBe(0.8);
+      expect(result.is_presentation_ready).toBe(true);
+    });
   });
 
   describe("Idempotency", () => {

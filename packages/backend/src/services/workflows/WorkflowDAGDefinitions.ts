@@ -13,7 +13,7 @@
  * - Timeout protection
  */
 
-import { LifecycleStage, RetryConfig, WorkflowDAG, WorkflowStage } from '../../types/workflow';
+import { RetryConfig, WorkflowDAG, WorkflowStage, WorkflowStageType } from '../../types/workflow';
 import { logger } from '../../lib/logger.js';
 
 // ============================================================================
@@ -76,7 +76,7 @@ export const RETRY_CONFIGS = {
 function createStage(
   id: string,
   name: string,
-  agent_type: LifecycleStage,
+  agent_type: WorkflowStageType,
   timeout_seconds: number,
   retry_config: RetryConfig = RETRY_CONFIGS.STANDARD,
   compensation_handler?: string,
@@ -733,8 +733,7 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
   });
 
   // Check for unreachable stages
-  const entryStage = workflow.initial_stage ?? workflow.entry_stage ?? '';
-  const reachableStages = new Set<string>([entryStage]);
+  const reachableStages = new Set<string>([workflow.initial_stage ?? workflow.entry_stage ?? '']);
   let changed = true;
   while (changed) {
     changed = false;

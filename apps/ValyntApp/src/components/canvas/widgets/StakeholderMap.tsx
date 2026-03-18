@@ -25,7 +25,7 @@ export interface StakeholderMapData {
   stakeholders: Stakeholder[];
 }
 
-export function StakeholderMap({ data }: WidgetProps) {
+export function StakeholderMap({ data, onAction }: WidgetProps) {
   const widgetData = data as unknown as StakeholderMapData;
   const stakeholders = widgetData.stakeholders ?? [];
 
@@ -64,7 +64,15 @@ export function StakeholderMap({ data }: WidgetProps) {
           {stakeholders.map((stakeholder) => (
             <div
               key={stakeholder.id}
-              className={`p-4 rounded-lg border ${getPriorityColor(stakeholder.priority)} transition-all hover:shadow-sm`}
+              className={`p-4 rounded-lg border ${getPriorityColor(stakeholder.priority)} transition-all hover:shadow-sm cursor-pointer`}
+              onClick={() => onAction?.("select", { stakeholderId: stakeholder.id })}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  onAction?.("select", { stakeholderId: stakeholder.id });
+                }
+              }}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">

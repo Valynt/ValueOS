@@ -12,12 +12,12 @@ import { Request, Response } from "express";
 import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks"
 import { AUDIT_ACTION } from "../types/audit"
 import type { AuthenticatedRequest } from "../middleware/auth";
-import { requireAuth } from "../middleware/auth.js"
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
-import { requirePermission } from "../middleware/rbac.js"
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { tenantContextMiddleware } from "../middleware/tenantContext.js"
-import { adminUserService } from "../services/auth/AdminUserService.js"
+import { requireAuth } from "../middleware/auth"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation"
+import { requirePermission } from "../middleware/rbac"
+import { createSecureRouter } from "../middleware/secureRouter"
+import { tenantContextMiddleware } from "../middleware/tenantContext"
+import { adminUserService } from "../services/auth/AdminUserService"
 
 const logger = createLogger({ component: "TeamsAPI" });
 const router = createSecureRouter("strict");
@@ -65,7 +65,7 @@ router.get(
       logger.error("Failed to fetch team members", error instanceof Error ? error : undefined, {
         tenantId: req.params.tenantId, // Use params for logging if middleware failed
       });
-      res.status(500).json({ error: "Failed to fetch team members" });
+      res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Failed to fetch team members" } });
     }
   }
 );
@@ -86,15 +86,15 @@ router.post(
       const tenantId = (req as AuthenticatedRequest).tenantId as string;
       const actor = (req as AuthenticatedRequest).user;
       const actorName =
-        actor?.user_metadata?.full_name ||
-        actor?.user_metadata?.name ||
+        (actor?.user_metadata as Record<string, string>)?.full_name ||
+        (actor?.user_metadata as Record<string, string>)?.name ||
         actor?.email ||
         "Admin User";
 
       const result = await adminUserService.inviteUserToTenant(
         {
-          id: actor.id,
-          email: actor.email,
+          id: actor.id || "",
+          email: actor.email || "",
           name: actorName,
         },
         {
@@ -120,7 +120,7 @@ router.post(
         tenantId: req.params.tenantId,
         email: sanitizeForLogging(req.body.email) as string,
       });
-      res.status(500).json({ error: "Failed to invite user" });
+      res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Failed to invite user" } });
     }
   }
 );
@@ -141,15 +141,15 @@ router.patch(
       const tenantId = (req as AuthenticatedRequest).tenantId as string;
       const actor = (req as AuthenticatedRequest).user;
       const actorName =
-        actor?.user_metadata?.full_name ||
-        actor?.user_metadata?.name ||
+        (actor?.user_metadata as Record<string, string>)?.full_name ||
+        (actor?.user_metadata as Record<string, string>)?.name ||
         actor?.email ||
         "Admin User";
 
       await adminUserService.updateUserRole(
         {
-          id: actor.id,
-          email: actor.email,
+          id: actor.id || "",
+          email: actor.email || "",
           name: actorName,
         },
         {
@@ -165,7 +165,7 @@ router.patch(
         tenantId: req.params.tenantId,
         userId: req.params.userId,
       });
-      res.status(500).json({ error: "Failed to update role" });
+      res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Failed to update role" } });
     }
   }
 );
@@ -185,15 +185,15 @@ router.delete(
       const tenantId = (req as AuthenticatedRequest).tenantId as string;
       const actor = (req as AuthenticatedRequest).user;
       const actorName =
-        actor?.user_metadata?.full_name ||
-        actor?.user_metadata?.name ||
+        (actor?.user_metadata as Record<string, string>)?.full_name ||
+        (actor?.user_metadata as Record<string, string>)?.name ||
         actor?.email ||
         "Admin User";
 
       await adminUserService.removeUserFromTenant(
         {
-          id: actor.id,
-          email: actor.email,
+          id: actor.id || "",
+          email: actor.email || "",
           name: actorName,
         },
         {
@@ -208,7 +208,7 @@ router.delete(
         tenantId: req.params.tenantId,
         userId: req.params.userId,
       });
-      res.status(500).json({ error: "Failed to remove member" });
+      res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Failed to remove member" } });
     }
   }
 );
@@ -228,16 +228,16 @@ router.delete(
       const tenantId = (req as AuthenticatedRequest).tenantId as string;
       const actor = (req as AuthenticatedRequest).user;
       const actorName =
-        actor?.user_metadata?.full_name ||
-        actor?.user_metadata?.name ||
+        (actor?.user_metadata as Record<string, string>)?.full_name ||
+        (actor?.user_metadata as Record<string, string>)?.name ||
         actor?.email ||
         "Admin User";
 
       // Cancelling an invite is effectively removing the user from the tenant
       await adminUserService.removeUserFromTenant(
         {
-          id: actor.id,
-          email: actor.email,
+          id: actor.id || "",
+          email: actor.email || "",
           name: actorName,
         },
         {
@@ -252,7 +252,7 @@ router.delete(
         tenantId: req.params.tenantId,
         userId: req.params.userId,
       });
-      res.status(500).json({ error: "Failed to cancel invite" });
+      res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Failed to cancel invite" } });
     }
   }
 );

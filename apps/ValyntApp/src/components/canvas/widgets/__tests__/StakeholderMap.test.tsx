@@ -33,9 +33,9 @@ describe("StakeholderMap", () => {
   it("shows priority badges correctly", () => {
     render(<StakeholderMap id="stakeholder-map" data={{ stakeholders: mockStakeholders }} />);
 
-    expect(screen.getByText("High")).toBeInTheDocument();
-    expect(screen.getByText("Medium")).toBeInTheDocument();
-    expect(screen.getByText("Low")).toBeInTheDocument();
+    expect(screen.getByText("high")).toBeInTheDocument();
+    expect(screen.getByText("medium")).toBeInTheDocument();
+    expect(screen.getByText("low")).toBeInTheDocument();
   });
 
   it("emits action when stakeholder is clicked", () => {
@@ -55,6 +55,6 @@ describe("StakeholderMap", () => {
   it("renders empty state when no stakeholders", () => {
     render(<StakeholderMap id="stakeholder-map" data={{ stakeholders: [] }} />);
 
-    expect(screen.getByText("No stakeholders found")).toBeInTheDocument();
+    expect(screen.getByText("No stakeholders identified yet")).toBeInTheDocument();
   });
 });

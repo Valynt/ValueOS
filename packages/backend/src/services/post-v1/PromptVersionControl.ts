@@ -1,8 +1,60 @@
 /**
- * Prompt Version Control System
- *
- * Manages versioning, A/B testing, and optimization of LLM prompts
+ * Database table type definitions for Supabase client
  */
+interface Database {
+  prompt_versions: {
+    Row: {
+      id: string;
+      organization_id: string;
+      prompt_key: string;
+      version: number;
+      template: string;
+      variables: string[];
+      metadata: Record<string, unknown>;
+      performance: Record<string, unknown>;
+      status: 'draft' | 'testing' | 'active' | 'deprecated';
+      created_at: string;
+      activated_at?: string;
+      deprecated_at?: string;
+    };
+    Insert: Omit<Database['prompt_versions']['Row'], 'id'>;
+    Update: Partial<Database['prompt_versions']['Row']>;
+  };
+  prompt_executions: {
+    Row: {
+      id: string;
+      organization_id: string;
+      prompt_version_id: string;
+      user_id: string;
+      variables: Record<string, unknown>;
+      rendered_prompt: string;
+      response?: string;
+      latency?: number;
+      cost?: number;
+      tokens?: { prompt: number; completion: number; total: number };
+      success?: boolean;
+      error?: string;
+      feedback?: { rating: number; comment?: string };
+      created_at: string;
+    };
+    Insert: Omit<Database['prompt_executions']['Row'], 'id' | 'response' | 'latency' | 'cost' | 'tokens' | 'success' | 'error' | 'feedback'>;
+    Update: Partial<Database['prompt_executions']['Row']>;
+  };
+  ab_tests: {
+    Row: {
+      id: string;
+      organization_id: string;
+      name: string;
+      prompt_key: string;
+      variants: { name: string; versionId: string; weight: number }[];
+      status: 'draft' | 'running' | 'completed';
+      start_date?: string;
+      end_date?: string;
+    };
+    Insert: Omit<Database['ab_tests']['Row'], 'id'>;
+    Update: Partial<Database['ab_tests']['Row']>;
+  };
+}
 
 import crypto from 'crypto';
 
@@ -83,11 +135,11 @@ export interface ABTest {
 }
 
 export class PromptVersionControlService {
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: ReturnType<typeof createClient<Database>>;
   private cache: Map<string, PromptVersion> = new Map();
 
   constructor() {
-    this.supabase = createClient(
+    this.supabase = createClient<Database>(
       process.env.SUPABASE_URL || '',
       process.env.SUPABASE_KEY || ''
     );
@@ -112,7 +164,7 @@ export class PromptVersionControlService {
       .eq('organization_id', organizationId)
       .eq('prompt_key', data.promptKey)
       .order('version', { ascending: false })
-      .limit(1);
+      .limit(1) as { data: Array<{ version: number }> | null };
 
     const nextVersion = existingVersions && existingVersions.length > 0
       ? existingVersions[0].version + 1
@@ -129,7 +181,7 @@ export class PromptVersionControlService {
         metadata: data.metadata,
         performance: {},
         status: 'draft',
-        created_at: new Date(),
+        created_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -213,7 +265,7 @@ export class PromptVersionControlService {
     // Deactivate current active version within this tenant
     await this.supabase
       .from('prompt_versions')
-      .update({ status: 'deprecated', deprecated_at: new Date() })
+      .update({ status: 'deprecated', deprecated_at: new Date().toISOString() })
       .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('status', 'active');
@@ -221,7 +273,7 @@ export class PromptVersionControlService {
     // Activate new version
     const { error } = await this.supabase
       .from('prompt_versions')
-      .update({ status: 'active', activated_at: new Date() })
+      .update({ status: 'active', activated_at: new Date().toISOString() })
       .eq('organization_id', organizationId)
       .eq('prompt_key', promptKey)
       .eq('version', version);
@@ -305,9 +357,9 @@ export class PromptVersionControlService {
         user_id: userId,
         variables,
         rendered_prompt: renderedPrompt,
-        created_at: new Date(),
+        created_at: new Date().toISOString(),
       })
-      .select()
+      .select('id')
       .single();
 
     if (error) throw error;
@@ -384,7 +436,7 @@ export class PromptVersionControlService {
       .select('prompt_version_id')
       .eq('organization_id', organizationId)
       .eq('id', executionId)
-      .single();
+      .single() as { data: { prompt_version_id: string } | null };
 
     if (!execution) return;
 
@@ -411,7 +463,7 @@ export class PromptVersionControlService {
     // Update version — scoped to tenant
     await this.supabase
       .from('prompt_versions')
-      .update({ performance })
+      .update({ performance: performance as Record<string, unknown> })
       .eq('organization_id', organizationId)
       .eq('id', execution.prompt_version_id);
   }

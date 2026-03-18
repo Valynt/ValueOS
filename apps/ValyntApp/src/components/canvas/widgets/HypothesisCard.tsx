@@ -85,9 +85,9 @@ export function HypothesisCard({ data, onAction }: WidgetProps) {
           <div className="mb-4">
             <p className="text-sm text-muted-foreground mb-2">Impact Range</p>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold">
-                ${hypothesis.impactRange.low.toLocaleString()} - ${hypothesis.impactRange.high.toLocaleString()}
-              </span>
+              <span className="text-lg font-bold">${hypothesis.impactRange.low.toLocaleString()}</span>
+              <span className="text-muted-foreground">-</span>
+              <span className="text-lg font-bold">${hypothesis.impactRange.high.toLocaleString()}</span>
             </div>
           </div>
 

@@ -8,11 +8,11 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 
-import { requireAuth } from "../middleware/auth.js";
-import { requirePermission } from "../middleware/rbac.js";
-import { createSecureRouter } from "../middleware/secureRouter.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { auditLogService } from "../services/security/AuditLogService.js";
+import { requireAuth } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
+import { createSecureRouter } from "../middleware/secureRouter";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { auditLogService } from "../services/security/AuditLogService";
 
 const router = createSecureRouter("strict");
 

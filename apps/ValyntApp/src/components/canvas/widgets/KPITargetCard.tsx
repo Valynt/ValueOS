@@ -27,20 +27,18 @@ export interface KPITarget {
 }
 
 export interface KPITargetCardData {
-  targets: KPITarget[];
+  kpiTargets: KPITarget[];
 }
 
 export function KPITargetCard({ data }: WidgetProps) {
   const widgetData = data as unknown as KPITargetCardData;
-  const targets = widgetData.targets ?? [];
+  const targets = widgetData.kpiTargets ?? [];
 
   const formatValue = (value: number, unit: string) => {
     if (unit === "$" || unit === "USD") {
-      if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-      if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
       return `$${value.toLocaleString()}`;
     }
-    if (unit === "%") return `${value.toFixed(1)}%`;
+    if (unit === "%") return `${value.toFixed(0)}%`;
     return `${value.toLocaleString()} ${unit}`;
   };
 
@@ -48,6 +46,21 @@ export function KPITargetCard({ data }: WidgetProps) {
     if (target > baseline) return <TrendingUp className="w-4 h-4 text-green-500" />;
     if (target < baseline) return <TrendingDown className="w-4 h-4 text-red-500" />;
     return <Minus className="w-4 h-4 text-gray-500" />;
+  };
+
+  // Parse YYYY-MM-DD as local date to avoid timezone issues
+  const parseLocalDate = (dateStr: string): Date => {
+    const parts = dateStr.split("-").map((s) => parseInt(s, 10));
+    if (parts.length < 3 || parts.some((p) => isNaN(p))) {
+      throw new Error(`Invalid date format: ${dateStr}`);
+    }
+    const [year, month, day] = parts as [number, number, number];
+    return new Date(year, month - 1, day);
+  };
+
+  const formatTimelineDate = (dateStr: string) => {
+    const date = parseLocalDate(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   return (
@@ -92,9 +105,8 @@ export function KPITargetCard({ data }: WidgetProps) {
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    isOnTrack ? "bg-green-500" : "bg-amber-500"
-                  }`}
+                  className={`h-full rounded-full transition-all duration-500 ${isOnTrack ? "bg-green-500" : "bg-amber-500"
+                    }`}
                   style={{ width: `${Math.min(target.progress, 100)}%` }}
                 />
               </div>
@@ -107,8 +119,8 @@ export function KPITargetCard({ data }: WidgetProps) {
 
             {/* Timeline */}
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-              <span>{new Date(target.timeline.startDate).toLocaleDateString()}</span>
-              <span>{new Date(target.timeline.targetDate).toLocaleDateString()}</span>
+              <span>{formatTimelineDate(target.timeline.startDate)}</span>
+              <span>{formatTimelineDate(target.timeline.targetDate)}</span>
             </div>
 
             {/* Source badge */}

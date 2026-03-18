@@ -24,8 +24,12 @@ describe("EvidenceGapList", () => {
   it("shows current and required tier for each gap", () => {
     render(<EvidenceGapList id="evidence-gap-list" data={{ gaps: mockGaps }} />);
 
-    expect(screen.getByText("Current: Tier 3")).toBeInTheDocument();
+    // Combined tier labels - use getAllByText for labels that appear multiple times
+    const currentTier3 = screen.getAllByText("Current: Tier 3");
+    expect(currentTier3.length).toBe(2); // Both gaps have tier3 current
+
     expect(screen.getByText("Required: Tier 2")).toBeInTheDocument();
+    expect(screen.getByText("Required: Tier 1")).toBeInTheDocument();
   });
 
   it("displays suggested action for each gap", () => {

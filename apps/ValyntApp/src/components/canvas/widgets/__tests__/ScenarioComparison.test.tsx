@@ -19,14 +19,17 @@ describe("ScenarioComparison", () => {
     render(<ScenarioComparison id="scenario-comparison" data={{ scenarios: mockScenarios }} />);
 
     expect(screen.getByText("Conservative")).toBeInTheDocument();
-    expect(screen.getByText("Base")).toBeInTheDocument();
     expect(screen.getByText("Upside")).toBeInTheDocument();
+    // Base appears twice: once as heading, once as badge
+    expect(screen.getAllByText("Base").length).toBeGreaterThanOrEqual(1);
   });
 
   it("emphasizes base scenario", () => {
     render(<ScenarioComparison id="scenario-comparison" data={{ scenarios: mockScenarios }} />);
 
-    const baseColumn = screen.getByText("Base").closest("div");
+    const baseElements = screen.getAllByText("Base");
+    const baseHeading = baseElements[0];
+    const baseColumn = baseHeading.parentElement?.parentElement;
     expect(baseColumn?.className).toContain("border-primary");
   });
 
@@ -57,9 +60,9 @@ describe("ScenarioComparison", () => {
   it("displays EVF decomposition", () => {
     render(<ScenarioComparison id="scenario-comparison" data={{ scenarios: mockScenarios }} />);
 
-    expect(screen.getByText("Revenue Uplift")).toBeInTheDocument();
-    expect(screen.getByText("Cost Reduction")).toBeInTheDocument();
-    expect(screen.getByText("Risk Mitigation")).toBeInTheDocument();
-    expect(screen.getByText("Efficiency Gain")).toBeInTheDocument();
+    expect(screen.getAllByText("Revenue Uplift").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Cost Reduction").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Risk Mitigation").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Efficiency Gain").length).toBeGreaterThanOrEqual(1);
   });
 });

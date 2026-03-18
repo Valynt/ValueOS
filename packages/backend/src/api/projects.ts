@@ -8,17 +8,17 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "../lib/errors";
-import { asyncHandler } from "../middleware/globalErrorHandler.js";
+import { asyncHandler } from "../middleware/globalErrorHandler";
 import {
   type ProjectRecord,
   projectRepository,
   projectStatuses,
-} from "../repositories/ProjectRepository.js";
+} from "../repositories/ProjectRepository";
 import {
   getTenantIdFromRequest,
   ReadThroughCacheService,
-} from "../services/cache/ReadThroughCacheService.js";
-import { auditLogService } from "../services/security/index.js";
+} from "../services/cache/ReadThroughCacheService";
+import { auditLogService } from "../services/security/index";
 
 const router = Router();
 

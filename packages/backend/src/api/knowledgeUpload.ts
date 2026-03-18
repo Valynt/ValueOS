@@ -1,11 +1,11 @@
 import { Request, Response, Router } from 'express';
 
-import { requireConsent } from '../middleware/consentMiddleware.js'
-import { enforceLineage } from '../middleware/lineageValidationMiddleware.js'
-import { requirePermission } from '../middleware/rbac.js'
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
-import { consentRegistry } from '../services/auth/consentRegistry.js'
-import { logger } from '../utils/logger.js'
+import { requireConsent } from '../middleware/consentMiddleware'
+import { enforceLineage } from '../middleware/lineageValidationMiddleware'
+import { requirePermission } from '../middleware/rbac'
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware'
+import { consentRegistry } from '../services/auth/consentRegistry'
+import { logger } from '../utils/logger'
 
 const router = Router();
 router.use(securityHeadersMiddleware);

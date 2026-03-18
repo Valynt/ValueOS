@@ -33,17 +33,9 @@ export function ScenarioComparison({ data }: WidgetProps) {
   const widgetData = data as unknown as ScenarioComparisonData;
   const scenarios = widgetData.scenarios ?? [];
 
-  const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    }
-    if (value >= 1000) {
-      return `$${(value / 1000).toFixed(0)}K`;
-    }
-    return `$${value.toLocaleString()}`;
-  };
+  const formatCurrency = (value: number) => `$${value.toLocaleString()}`;
 
-  const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+  const formatPercent = (value: number) => `${value.toFixed(0)}%`;
 
   const scenarioOrder: Scenario["name"][] = ["conservative", "base", "upside"];
   const orderedScenarios = scenarioOrder
@@ -69,14 +61,13 @@ export function ScenarioComparison({ data }: WidgetProps) {
           {orderedScenarios.map((scenario) => (
             <div
               key={scenario.id}
-              className={`rounded-lg border p-4 ${
-                scenario.isBase
-                  ? "bg-primary/5 border-primary/30 ring-1 ring-primary/20"
-                  : "bg-card border-border"
-              }`}
+              className={`rounded-lg border p-4 ${scenario.isBase
+                ? "bg-primary/5 border-primary ring-1 ring-primary/20"
+                : "bg-card border-border"
+                }`}
             >
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold capitalize">{scenario.name}</h4>
+                <h4 className="font-semibold">{scenario.name.charAt(0).toUpperCase() + scenario.name.slice(1)}</h4>
                 {scenario.isBase && (
                   <span className="text-xs px-2 py-0.5 bg-primary text-primary-foreground rounded-full font-medium">
                     Base

@@ -29,7 +29,7 @@ export interface ReadinessGaugeData {
 }
 
 export function ReadinessGauge({ data }: WidgetProps) {
-  const widgetData = data as unknown as ReadinessGaugeData;
+  const widgetData = (data as unknown as { readiness: ReadinessGaugeData }).readiness ?? {} as ReadinessGaugeData;
   const compositeScore = widgetData.compositeScore ?? 0;
   const status = widgetData.status ?? "draft";
   const components = widgetData.components;
@@ -68,7 +68,7 @@ export function ReadinessGauge({ data }: WidgetProps) {
         <div>
           <h3 className="font-semibold text-lg">Defense Readiness</h3>
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass}`}>
-            {status.replace("-", " ").toUpperCase()}
+            {status === "presentation-ready" ? "Ready" : status.replace("-", " ").toUpperCase()}
           </span>
         </div>
       </div>
@@ -104,7 +104,7 @@ export function ReadinessGauge({ data }: WidgetProps) {
                 style={{ transition: "stroke-dashoffset 0.5s ease" }}
               />
             </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className={`absolute inset-0 flex flex-col items-center justify-center ${getScoreColor(compositeScore)}`}>
               <span className="text-2xl font-bold">{Math.round(compositeScore * 100)}%</span>
               <span className="text-xs text-muted-foreground">Composite</span>
             </div>
@@ -135,10 +135,9 @@ export function ReadinessGauge({ data }: WidgetProps) {
               />
               <ComponentBar
                 icon={<AlertTriangle className="w-4 h-4" />}
-                label="Unsupported Count"
+                label="Unsupported"
                 score={components.unsupportedCount.score}
                 colorClass={getScoreBg(components.unsupportedCount.score)}
-                inverted
               />
             </>
           )}
@@ -148,7 +147,7 @@ export function ReadinessGauge({ data }: WidgetProps) {
       {blockers.length > 0 && (
         <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm font-medium text-red-800 mb-1">
-            Blockers ({blockers.length})
+            {blockers.length} blockers
           </p>
           <ul className="text-sm text-red-700 space-y-0.5">
             {blockers.map((blocker, index) => (

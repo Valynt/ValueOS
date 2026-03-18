@@ -71,11 +71,18 @@ export function ArtifactPreview({ data, onAction }: WidgetProps) {
 
   // Parse content to identify financial figures (simple regex-based approach)
   const renderContent = (content: string) => {
+    // Guard against empty claimIds
+    if (!artifact.claimIds?.length) {
+      return content.split("\n").map((line, index) => (
+        <p key={index} className="mb-2">{line}</p>
+      ));
+    }
+
     // Split by lines and render with claim IDs on potential financial figures
     return content.split("\n").map((line, index) => {
       // Simple heuristic: lines containing $ or % or numbers might have financial figures
       const hasFinancialFigure = /\$[\d,]+|[\d]+%?/.test(line);
-      const claimId = hasFinancialFigure && artifact.claimIds[index % artifact.claimIds.length];
+      const claimId = hasFinancialFigure ? artifact.claimIds[index % artifact.claimIds.length] : null;
 
       return (
         <p key={index} className="mb-2">
@@ -83,7 +90,7 @@ export function ArtifactPreview({ data, onAction }: WidgetProps) {
             <span
               data-claim-id={claimId}
               className="cursor-pointer hover:bg-primary/10 rounded px-1 transition-colors"
-              onClick={() => onAction?.("claimClick", { claimId })}
+              onClick={() => onAction?.("showProvenance", { claimId })}
               title="Click to trace provenance"
             >
               {line}
@@ -139,7 +146,7 @@ export function ArtifactPreview({ data, onAction }: WidgetProps) {
       </div>
 
       {/* Readiness watermark */}
-      {artifact.status === "draft" && artifact.readinessAtGeneration < 0.8 && (
+      {(artifact.status === "draft" || artifact.readinessAtGeneration < 0.8) && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm text-amber-800">
             <strong>DRAFT</strong> — Generated at {Math.round(artifact.readinessAtGeneration * 100)}%
@@ -154,7 +161,7 @@ export function ArtifactPreview({ data, onAction }: WidgetProps) {
       </div>
 
       {/* Claim IDs legend */}
-      {artifact.claimIds.length > 0 && (
+      {artifact.claimIds?.length > 0 && (
         <div className="mt-6 pt-4 border-t">
           <p className="text-xs text-muted-foreground mb-2">
             Click highlighted text to trace provenance
@@ -177,4 +184,4 @@ export function ArtifactPreview({ data, onAction }: WidgetProps) {
   );
 }
 
-export default ArtifactPreview;
+export { ArtifactPreview };

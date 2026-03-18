@@ -32,13 +32,10 @@ function _agentCacheKey(
 ): string {
   const { sessionId: _s, timestamp: _t, ...normalized } = context;
   const str = query + JSON.stringify(normalized);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    hash = (hash << 5) - hash + c;
-    hash = hash & hash;
-  }
-  return `${String(context["agentType"] ?? "unknown")}:${Math.abs(hash).toString(36)}`;
+  // Use SHA-256 for strong collision resistance
+  const hash = createHash('sha256').update(str).digest('hex').slice(0, 16);
+  const tenantId = context["tenantId"] || context["organization_id"] || "unknown";
+  return `${String(context["agentType"] ?? "unknown")}:${tenantId}:${hash}`;
 }
 
 const agentCache = {
@@ -97,7 +94,7 @@ function getDirectFactory(): ReturnType<typeof createAgentFactory> {
   return _directFactory;
 }
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -492,9 +489,9 @@ router.post(
       const externalSub = resolveExternalSub(req);
 
       // Create agent request event
-      const agentRequestEvent: AgentRequestEvent = {
+      const agentRequestEvent = {
         ...createBaseEvent(
-          "agent.request" as const,
+          "agent.request" as EventType,
           correlationId,
           "agent-api"
         ),
@@ -510,7 +507,7 @@ router.post(
           priority: "normal",
           timeout: getAgentAPIConfig().timeout, // Centralized timeout config
         },
-      };
+      } as AgentRequestEvent;
 
       // Publish event to Kafka
       await eventProducer.publish(
@@ -559,109 +556,6 @@ router.post(
 );
 
 // New typed execute endpoint: POST /api/agents/execute
-router.post(
-  "/execute",
-  rateLimiters.agentExecution,
-  async (req: Request, res: Response) => {
-    const bodySchema = z.object({
-      type: z.string().max(200).describe("AgentType:action"),
-      data: z.any().optional(),
-      sessionId: z.string().max(100).optional(),
-    });
-
-    const result = bodySchema.safeParse(req.body);
-    if (!result.success) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: { code: "INVALID_REQUEST", message: "Invalid payload" },
-        });
-    }
-
-    const { type, data, sessionId } = result.data;
-
-    // Split type like "IntegrityAgent:resolveIssue"
-    const [agentIdRaw, actionRaw] = type.split(":");
-    const agentId = agentIdRaw;
-    const action = actionRaw || "execute";
-
-    // Validate tenant
-    const tenantId = (req as AuthenticatedRequest).tenantId;
-    if (!tenantId) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          error: {
-            code: "tenant_required",
-            message: "Tenant context is required",
-          },
-        });
-    }
-
-    if (!isKafkaEnabled()) {
-      return kafkaUnavailableResponse(res);
-    }
-
-    try {
-      const eventProducer = getEventProducer();
-      const correlationId = uuidv4();
-      const userId = (req as AuthenticatedRequest).user?.id;
-      const externalSub = resolveExternalSub(req);
-
-      const payload = {
-        agentId,
-        userId,
-        externalSub,
-        sessionId,
-        tenantId,
-        query: type,
-        context: { action, data },
-        parameters: { action, data },
-        priority: "normal",
-        timeout: getAgentAPIConfig().timeout,
-      };
-
-      const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent(
-          "agent.request" as const,
-          correlationId,
-          "agent-api"
-        ),
-        payload,
-      };
-
-      await eventProducer.publish(
-        EVENT_TOPICS.AGENT_REQUESTS,
-        agentRequestEvent
-      );
-
-      return res.json({
-        success: true,
-        data: { jobId: correlationId, status: "queued" },
-      });
-    } catch (error) {
-      logger.error("Failed to publish typed agent execute", error as Error);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          error: {
-            code: "PUBLISH_FAILED",
-            message: "Failed to enqueue request",
-          },
-        });
-    }
-  }
-);
-
-/**
- * Execute a typed agent action (e.g. { type: 'IntegrityAgent:resolveIssue', data: {...} })
- * This is a convenience endpoint that allows callers to invoke agent actions without
- * knowing the internal agent-specific route. It publishes an AgentRequestEvent to the
- * agent request topic, preserving tenant and user context.
- */
 router.post(
   "/execute",
   rateLimiters.agentExecution,
@@ -720,9 +614,9 @@ router.post(
         ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
         : undefined;
 
-      const agentRequestEvent: AgentRequestEvent = {
+      const agentRequestEvent = {
         ...createBaseEvent(
-          "agent.request" as const,
+          "agent.request" as string,
           correlationId,
           "agent-api"
         ),
@@ -738,7 +632,7 @@ router.post(
           priority: priority || "normal",
           timeout: getAgentAPIConfig().timeout,
         },
-      };
+      } as AgentRequestEvent;
 
       await eventProducer.publish(
         EVENT_TOPICS.AGENT_REQUESTS,
@@ -806,9 +700,9 @@ router.get(
         // Populate Cache if successful
         if (result && !responseEvent.payload.error) {
           const requestEvent = events.find(
-            (e: AuditEvent) => e.eventType === "agent.request"
+            (e: AuditEvent) => e.eventType === ("agent.request" as string)
           );
-          if (requestEvent?.payload) {
+          if (requestEvent?.payload?.query) {
             const { query, context, agentId, tenantId } = requestEvent.payload;
             try {
               await agentCache.set(
@@ -934,7 +828,7 @@ router.get(
               const requestEvent = events.find(
                 (e: AuditEvent) => e.eventType === "agent.request"
               );
-              if (requestEvent?.payload) {
+              if (requestEvent?.payload?.query) {
                 const { query, context, agentId, tenantId } =
                   requestEvent.payload;
                 try {

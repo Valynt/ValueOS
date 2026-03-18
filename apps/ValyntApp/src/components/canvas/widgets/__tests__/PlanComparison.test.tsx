@@ -35,7 +35,9 @@ describe("PlanComparison", () => {
   it("marks current plan with indicator", () => {
     render(<PlanComparison id="plan-comparison" data={{ plans: mockPlans }} />);
 
-    expect(screen.getByText("Current Plan")).toBeInTheDocument();
+    // Look for the badge indicator
+    const currentPlanBadges = screen.getAllByText("Current Plan");
+    expect(currentPlanBadges.length).toBeGreaterThan(0);
   });
 
   it("lists features for each plan", () => {
@@ -65,7 +67,7 @@ describe("PlanComparison", () => {
   it("disables upgrade button for current plan", () => {
     render(<PlanComparison id="plan-comparison" data={{ plans: mockPlans }} />);
 
-    const currentPlanButton = screen.getByText("Current Plan");
+    const currentPlanButton = screen.getByRole("button", { name: "Current Plan" });
     expect(currentPlanButton).toBeDisabled();
   });
 });

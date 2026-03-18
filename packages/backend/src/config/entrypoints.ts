@@ -1,5 +1,5 @@
 import { Permission } from '../services/auth/PermissionService.js'
-import { LifecycleStage } from '../types/workflow';
+import { WorkflowStageType } from '../types/workflow';
 
 export type EntryPoint =
   | 'sdui:action-router'
@@ -15,7 +15,7 @@ export type KernelIntent =
 export interface IntentBinding {
   intent: KernelIntent;
   requiredPermissions: Permission[];
-  allowedStages: LifecycleStage[];
+  allowedStages: WorkflowStageType[];
   description?: string;
 }
 
@@ -26,7 +26,7 @@ export interface EntryPointConfig {
   auditChannel: string;
 }
 
-const ALL_STAGES: LifecycleStage[] = [
+const ALL_STAGES: WorkflowStageType[] = [
   'opportunity',
   'target',
   'realization',
@@ -112,10 +112,10 @@ export class EntryPointViolationError extends Error {
     public readonly detail: {
       entryPoint: EntryPoint;
       intent: KernelIntent;
-      stage?: LifecycleStage;
+      stage?: WorkflowStageType;
       providedPermissions?: Permission[];
       requiredPermissions?: Permission[];
-      allowedStages?: LifecycleStage[];
+      allowedStages?: WorkflowStageType[];
       reason: 'intent_not_allowed' | 'permission_denied' | 'stage_not_allowed';
     }
   ) {
@@ -159,7 +159,7 @@ export function assertEntryPointAccess({
   entryPoint: EntryPoint;
   intent: KernelIntent;
   permissions: Permission[];
-  stage?: LifecycleStage;
+  stage?: WorkflowStageType;
 }): IntentBinding {
   const binding = getIntentBinding(entryPoint, intent);
 

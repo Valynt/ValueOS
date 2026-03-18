@@ -18,10 +18,10 @@ import { NextFunction, Router } from 'express';
 import { ZodError } from 'zod';
 
 
-import { AuthenticatedRequest, requireAuth } from '../../middleware/auth.js';
-import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js';
-import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
-import { valueCommitmentBackendService } from '../../services/value/ValueCommitmentBackendService.js';
+import { AuthenticatedRequest, requireAuth } from '../../middleware/auth';
+import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
+import { tenantContextMiddleware } from '../../middleware/tenantContext';
+import { valueCommitmentBackendService } from '../../services/value/ValueCommitmentBackendService';
 
 import {
   AddNoteSchema,
@@ -30,7 +30,7 @@ import {
   toCommitmentDto,
   toNoteDto,
   UpdateCommitmentSchema,
-} from './schemas.js';
+} from './schemas';
 
 const logger = createLogger({ component: 'ValueCommitmentsRouter' });
 
