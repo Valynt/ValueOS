@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { apiClient } from "../../api/client/unified-api-client";
+
 interface AgentStatus {
   name: string;
   policy_version: string;
@@ -7,25 +9,36 @@ interface AgentStatus {
 }
 
 async function fetchAgents(): Promise<AgentStatus[]> {
-   
-  const res = await fetch("/api/admin/agents", { credentials: "include" });
-  if (!res.ok) throw new Error(`Failed to fetch agents (${res.status})`);
-  const data = (await res.json()) as { agents: AgentStatus[] };
-  return data.agents;
+  const res = await apiClient.get<{ agents: AgentStatus[] }>("/api/admin/agents");
+
+  if (!res.success || !res.data) {
+    const message =
+      (res as { error?: unknown }).error instanceof Error
+        ? res.error.message
+        : typeof (res as { error?: unknown }).error === "string"
+          ? res.error
+          : "Failed to fetch agents";
+    throw new Error(message);
+  }
+
+  return res.data.agents;
 }
 
 async function setKillSwitch(name: string, killed: boolean): Promise<void> {
-   
-  const res = await fetch(
+  const res = await apiClient.post(
     `/api/admin/agents/${encodeURIComponent(name)}/kill-switch`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ killed }),
-    },
+    { killed },
   );
-  if (!res.ok) throw new Error(`Failed to update kill switch (${res.status})`);
+
+  if (!res.success) {
+    const message =
+      (res as { error?: unknown }).error instanceof Error
+        ? res.error.message
+        : typeof (res as { error?: unknown }).error === "string"
+          ? res.error
+          : "Failed to update kill switch";
+    throw new Error(message);
+  }
 }
 
 export default function AgentAdminPage() {

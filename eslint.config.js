@@ -868,13 +868,10 @@ const legacyRootDirBan = {
 // requires a security review comment explaining why it is safe.
 //
 // Approved surfaces:
-//   SafeHtml.tsx          — the canonical HTML injection surface; always routes through sanitizeHtml()
-//   InlineEditor.tsx (×2) — plain-text escape only (textContent → innerHTML); not a rich-HTML surface
+//   SafeHtml.tsx — the canonical HTML injection surface; always routes through sanitizeHtml()
 const dangerouslySetInnerHtmlAllowlist = {
   files: [
     "apps/ValyntApp/src/components/security/SafeHtml.tsx",
-    "apps/ValyntApp/src/sdui/components/SDUI/InlineEditor.tsx",
-    "packages/sdui/src/components/SDUI/InlineEditor.tsx",
   ],
   rules: {
     "react/no-danger": "off",

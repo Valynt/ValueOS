@@ -1,13 +1,19 @@
 /**
  * Rate Limiter
- * 
+ *
  * Implements rate limiting using the sliding window algorithm.
  * Protects against brute force attacks and API abuse.
+ *
+ * SECURITY AUDIT (2026-03-18): WARNING - This rate limiter uses an in-memory
+ * Map and window.setInterval, making it client-side only. It can be trivially
+ * bypassed by disabling JavaScript or calling APIs directly. A server-side
+ * rate limiter (e.g., Redis-backed) MUST be used for actual protection.
+ * This client-side implementation should only serve as a UX convenience.
  */
 
-import * as React from 'react';
+import * as React from "react";
 
-import { getSecurityConfig } from './SecurityConfig';
+import { getSecurityConfig } from "./SecurityConfig";
 
 /**
  * Rate limit entry
@@ -38,7 +44,7 @@ export class RateLimitExceededError extends Error {
     public window: number
   ) {
     super(`Rate limit exceeded. Try again in ${retryAfter}ms`);
-    this.name = 'RateLimitExceededError';
+    this.name = "RateLimitExceededError";
   }
 }
 
@@ -52,7 +58,7 @@ export class RateLimiter {
   constructor(
     private maxRequests: number,
     private windowMs: number,
-    private keyPrefix: string = 'ratelimit'
+    private keyPrefix: string = "ratelimit"
   ) {
     // Start cleanup interval
     this.startCleanup();
@@ -78,7 +84,7 @@ export class RateLimiter {
     }
 
     // Remove old requests outside the window
-    entry.requests = entry.requests.filter(timestamp => timestamp > windowStart);
+    entry.requests = entry.requests.filter((timestamp) => timestamp > windowStart);
     entry.count = entry.requests.length;
 
     // Check if limit exceeded
@@ -113,11 +119,7 @@ export class RateLimiter {
     const result = this.check(key);
 
     if (!result.allowed) {
-      throw new RateLimitExceededError(
-        result.retryAfter || 0,
-        this.maxRequests,
-        this.windowMs
-      );
+      throw new RateLimitExceededError(result.retryAfter || 0, this.maxRequests, this.windowMs);
     }
 
     return result;
@@ -199,13 +201,9 @@ const rateLimiters = new Map<string, RateLimiter>();
 /**
  * Get or create a rate limiter
  */
-function getRateLimiter(
-  name: string,
-  maxRequests: number,
-  windowMs: number
-): RateLimiter {
+function getRateLimiter(name: string, maxRequests: number, windowMs: number): RateLimiter {
   const key = `${name}:${maxRequests}:${windowMs}`;
-  
+
   if (!rateLimiters.has(key)) {
     rateLimiters.set(key, new RateLimiter(maxRequests, windowMs, name));
   }
@@ -218,7 +216,7 @@ function getRateLimiter(
  */
 export function checkGlobalRateLimit(key: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.global;
-  const limiter = getRateLimiter('global', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("global", config.maxRequests, config.windowMs);
   return limiter.check(key);
 }
 
@@ -227,7 +225,7 @@ export function checkGlobalRateLimit(key: string): RateLimitResult {
  */
 export function checkUserRateLimit(userId: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.perUser;
-  const limiter = getRateLimiter('user', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("user", config.maxRequests, config.windowMs);
   return limiter.check(userId);
 }
 
@@ -236,7 +234,7 @@ export function checkUserRateLimit(userId: string): RateLimitResult {
  */
 export function checkOrgRateLimit(orgId: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.perOrg;
-  const limiter = getRateLimiter('org', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("org", config.maxRequests, config.windowMs);
   return limiter.check(orgId);
 }
 
@@ -245,7 +243,7 @@ export function checkOrgRateLimit(orgId: string): RateLimitResult {
  */
 export function checkAuthRateLimit(identifier: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.auth;
-  const limiter = getRateLimiter('auth', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("auth", config.maxRequests, config.windowMs);
   return limiter.check(identifier);
 }
 
@@ -254,7 +252,7 @@ export function checkAuthRateLimit(identifier: string): RateLimitResult {
  */
 export function consumeGlobalRateLimit(key: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.global;
-  const limiter = getRateLimiter('global', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("global", config.maxRequests, config.windowMs);
   return limiter.consume(key);
 }
 
@@ -263,7 +261,7 @@ export function consumeGlobalRateLimit(key: string): RateLimitResult {
  */
 export function consumeUserRateLimit(userId: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.perUser;
-  const limiter = getRateLimiter('user', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("user", config.maxRequests, config.windowMs);
   return limiter.consume(userId);
 }
 
@@ -272,7 +270,7 @@ export function consumeUserRateLimit(userId: string): RateLimitResult {
  */
 export function consumeOrgRateLimit(orgId: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.perOrg;
-  const limiter = getRateLimiter('org', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("org", config.maxRequests, config.windowMs);
   return limiter.consume(orgId);
 }
 
@@ -281,15 +279,24 @@ export function consumeOrgRateLimit(orgId: string): RateLimitResult {
  */
 export function consumeAuthRateLimit(identifier: string): RateLimitResult {
   const config = getSecurityConfig().rateLimit.auth;
-  const limiter = getRateLimiter('auth', config.maxRequests, config.windowMs);
+  const limiter = getRateLimiter("auth", config.maxRequests, config.windowMs);
   return limiter.consume(identifier);
 }
 
 /**
  * Reset rate limit
  */
-export function resetRateLimit(type: 'global' | 'user' | 'org' | 'auth', key: string): void {
-  const config = getSecurityConfig().rateLimit[type === 'global' ? 'global' : type === 'user' ? 'perUser' : type === 'org' ? 'perOrg' : 'auth'];
+export function resetRateLimit(type: "global" | "user" | "org" | "auth", key: string): void {
+  const config =
+    getSecurityConfig().rateLimit[
+      type === "global"
+        ? "global"
+        : type === "user"
+          ? "perUser"
+          : type === "org"
+            ? "perOrg"
+            : "auth"
+    ];
   const limiter = getRateLimiter(type, config.maxRequests, config.windowMs);
   limiter.reset(key);
 }
@@ -315,14 +322,14 @@ export async function fetchWithRateLimit(
   }
 
   // Make request
-   
+
   const response = await fetch(url, options);
 
   // Add rate limit headers to response
   const headers = new Headers(response.headers);
-  headers.set('X-RateLimit-Limit', String(getSecurityConfig().rateLimit.global.maxRequests));
-  headers.set('X-RateLimit-Remaining', String(result.remaining));
-  headers.set('X-RateLimit-Reset', String(result.resetAt));
+  headers.set("X-RateLimit-Limit", String(getSecurityConfig().rateLimit.global.maxRequests));
+  headers.set("X-RateLimit-Remaining", String(result.remaining));
+  headers.set("X-RateLimit-Reset", String(result.resetAt));
 
   return new Response(response.body, {
     status: response.status,
@@ -335,7 +342,7 @@ export async function fetchWithRateLimit(
  * React hook for rate limiting
  */
 export function useRateLimit(
-  type: 'global' | 'user' | 'org' | 'auth',
+  type: "global" | "user" | "org" | "auth",
   key: string
 ): {
   allowed: boolean;
@@ -354,18 +361,18 @@ export function useRateLimit(
 
   const check = React.useCallback(() => {
     let result: RateLimitResult;
-    
+
     switch (type) {
-      case 'global':
+      case "global":
         result = checkGlobalRateLimit(key);
         break;
-      case 'user':
+      case "user":
         result = checkUserRateLimit(key);
         break;
-      case 'org':
+      case "org":
         result = checkOrgRateLimit(key);
         break;
-      case 'auth':
+      case "auth":
         result = checkAuthRateLimit(key);
         break;
     }
@@ -376,18 +383,18 @@ export function useRateLimit(
 
   const consume = React.useCallback(() => {
     let result: RateLimitResult;
-    
+
     switch (type) {
-      case 'global':
+      case "global":
         result = consumeGlobalRateLimit(key);
         break;
-      case 'user':
+      case "user":
         result = consumeUserRateLimit(key);
         break;
-      case 'org':
+      case "org":
         result = consumeOrgRateLimit(key);
         break;
-      case 'auth':
+      case "auth":
         result = consumeAuthRateLimit(key);
         break;
     }

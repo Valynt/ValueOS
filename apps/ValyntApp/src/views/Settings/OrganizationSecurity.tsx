@@ -1,9 +1,10 @@
+/* eslint-disable import/order -- resolver cannot classify external vs relative imports consistently */
 import {
   AlertCircle, Check, Clock, Globe, Key, Lock, Plus, Shield, Trash2, Users
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-
 import { SettingsSection } from '../../components/settings';
+/* eslint-enable import/order */
 
 interface AllowedDomain {
   id: string;

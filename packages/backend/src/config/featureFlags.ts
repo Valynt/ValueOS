@@ -142,7 +142,7 @@ function loadFeatureFlags(): FeatureFlags {
     ),
     ENABLE_AGENT_PLACEHOLDER_MODE: parseBoolean(
       process.env.ENABLE_AGENT_PLACEHOLDER_MODE,
-      process.env.NODE_ENV !== "production" // Default: disabled in prod
+      false // Default: disabled in all environments; set ENABLE_AGENT_PLACEHOLDER_MODE=true only in test
     ),
     ENABLE_CLIENT_LLM_STREAMING: parseBoolean(
       process.env.ENABLE_CLIENT_LLM_STREAMING,
@@ -150,7 +150,7 @@ function loadFeatureFlags(): FeatureFlags {
     ),
     ENABLE_DOMAIN_PACK_CONTEXT: parseBoolean(
       process.env.ENABLE_DOMAIN_PACK_CONTEXT,
-      false // Default: disabled until repository is wired
+      true // Default: enabled; agents receive domain pack KPI context when a pack is assigned
     ),
   };
 

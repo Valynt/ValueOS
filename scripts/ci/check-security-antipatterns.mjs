@@ -85,8 +85,6 @@ for (const file of composeFiles) {
 // introduces it must be added to this list after a security review.
 const DANGEROUS_HTML_ALLOWLIST = new Set([
   'apps/ValyntApp/src/components/security/SafeHtml.tsx',
-  'apps/ValyntApp/src/sdui/components/SDUI/InlineEditor.tsx',
-  'packages/sdui/src/components/SDUI/InlineEditor.tsx',
 ]);
 
 function listSourceFiles() {

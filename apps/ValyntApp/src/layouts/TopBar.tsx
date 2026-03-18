@@ -145,7 +145,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
   }, []);
 
   return (
-    <header className="h-16 border-b border-zinc-200 bg-white flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4 flex-shrink-0 overflow-x-clip">
+    <header className="h-14 border-b border-zinc-100 bg-white/95 backdrop-blur-sm flex items-center justify-between px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4 flex-shrink-0 overflow-x-clip">
       {/* Left: mobile menu + org/tenant switcher */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onMenuClick && (
@@ -163,15 +163,12 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
 
         {/* Tenant badge */}
         {currentTenant && (
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 bg-zinc-50 text-[11px] text-zinc-600 font-medium">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-100 bg-zinc-50 text-[11px] text-zinc-500 font-medium">
             <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: currentTenant.color || "#18C3A5" }}
             />
             <span className="truncate max-w-[6rem]">{currentTenant.name}</span>
-            {currentTenant.role && currentTenant.role !== "member" && (
-              <span className="text-zinc-400 capitalize">{currentTenant.role}</span>
-            )}
           </div>
         )}
       </div>
@@ -231,10 +228,10 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         <button
           aria-label="Open notifications"
           onClick={() => trackFeatureUsage("notifications")}
-          className="relative min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-zinc-100 transition-colors inline-flex items-center justify-center"
+          className="relative min-h-9 min-w-9 p-2 rounded-xl hover:bg-zinc-100 transition-colors inline-flex items-center justify-center"
         >
-          <Bell className="w-[18px] h-[18px] text-zinc-500" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+          <Bell className="w-[17px] h-[17px] text-zinc-400" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
         </button>
 
         {/* Agent quick action */}
@@ -244,9 +241,9 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
             trackFeatureUsage("ask_agent");
             onAgentOpen?.();
           }}
-          className="flex items-center justify-center gap-2 px-3 sm:px-4 min-h-11 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors whitespace-nowrap"
+          className="flex items-center justify-center gap-2 px-3 sm:px-4 h-9 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 active:scale-[0.98] transition-all duration-150 whitespace-nowrap"
         >
-          <Sparkles className="w-4 h-4" />
+          <Sparkles className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Ask Agent</span>
         </button>
       </div>

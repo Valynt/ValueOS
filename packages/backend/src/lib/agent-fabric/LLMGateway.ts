@@ -69,6 +69,13 @@ export type LLMRequestMetadata = TenantMetadata & {
   user_id?: string;
   sessionId?: string;
   session_id?: string;
+  /**
+   * Reference to the prompt version used for this request.
+   * Set by callers that use PromptVersionControl. Recorded in telemetry
+   * so every LLM call is traceable to a specific prompt version.
+   * Format: "<promptKey>@<version>" e.g. "opportunity-agent-system@v3"
+   */
+  promptVersionRef?: string;
   [key: string]: unknown;
 };
 
@@ -604,6 +611,7 @@ export class LLMGateway {
         duration_ms: response.metadata?.duration_ms,
         tokens: response.usage?.total_tokens,
         tenant_id: tenantId,
+        prompt_version_ref: request.metadata.promptVersionRef ?? null,
       });
 
       return response;

@@ -1,106 +1,35 @@
-// ValueOS Hardened DevContainer Configuration
-// Security-hardened, deterministic, minimal host coupling
-// WSL2 serves only as Linux kernel host - all tools in container
 {
-  "name": "ValueOS (Hardened)",
-  // Use Docker Compose for full containerization - WSL2 is just the kernel host
-  "dockerComposeFile": [
-    "docker-compose.devcontainer.yml"
-  ],
-  // The devcontainer service is where the IDE attaches
-  "service": "devcontainer",
-  // Workspace mount path (inside the container)
-  "workspaceFolder": "/workspaces/ValueOS",
-  // Port forwarding - reduced to essential ports only
-  // All other services accessed via internal compose network
-  "forwardPorts": [
-    5173, // Frontend (Vite)
-    3001, // Backend API
-    54321, // Supabase Kong Proxy
-    54324, // Supabase Studio
-    8025 // MailHog Web UI
-  ],
-  "portsAttributes": {
-    "5173": {
-      "label": "Frontend (Vite)",
-      "onAutoForward": "notify"
-    },
-    "3001": {
-      "label": "Backend API",
-      "onAutoForward": "notify"
-    },
-    "54321": {
-      "label": "Supabase Kong",
-      "onAutoForward": "silent"
-    },
-    "54324": {
-      "label": "Supabase Studio",
-      "onAutoForward": "silent"
-    },
-    "8025": {
-      "label": "MailHog Web",
-      "onAutoForward": "silent"
-    }
+  "name": "ValueOS",
+  "build": {
+    "context": "..",
+    "dockerfile": ".devcontainer/Dockerfile.optimized"
   },
-  // Container environment - minimal non-sensitive values only
-  // Secrets must be provided via .env file (gitignored)
+  "workspaceFolder": "/workspaces/ValueOS",
+  "remoteUser": "vscode",
   "containerEnv": {
     "NODE_ENV": "development",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm"
   },
-  // Remote user - matches Dockerfile (non-root)
-  "remoteUser": "vscode",
-  // Features - empty because custom Dockerfile provides all tools
-  // This ensures deterministic, reproducible tool versions
+  "forwardPorts": [5173, 3001],
+  "portsAttributes": {
+    "5173": { "label": "Frontend (Vite)", "onAutoForward": "notify" },
+    "3001": { "label": "Backend API", "onAutoForward": "notify" }
+  },
   "features": {},
-  // VS Code customizations
   "customizations": {
     "vscode": {
-      "settings": {
-        // TypeScript
-        "typescript.preferences.includePackageJsonAutoImports": "on",
-        "typescript.suggest.autoImports": true,
-        // Terminal
-        "terminal.integrated.defaultProfile.linux": "bash",
-        // Files
-        "files.watcherExclude": {
-          "**/node_modules/**": true,
-          "**/.git/objects/**": true,
-          "**/.git/subtree-cache/**": true,
-          "**/dist/**": true,
-          "**/build/**": true
-        }
-      },
       "extensions": [
-        // Code quality
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        // Styling
         "bradlc.vscode-tailwindcss",
-        // Testing
         "vitest.explorer",
-        // Languages
         "redhat.vscode-yaml",
-        "tamasfe.even-better-toml",
-        // Docker
-        "ms-azuretools.vscode-docker",
-        // Database
-        "cweijan.vscode-postgresql-client2",
-        // Git
-        "eamodio.gitlens",
-        // AI assistance
-        "github.copilot"
+        "eamodio.gitlens"
       ]
     }
   },
-  // Lifecycle scripts - idempotent, graceful failure allowed on init
-  "initializeCommand": "bash .devcontainer/scripts/ensure-dotenv.sh",
-  "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
-  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
-  // Mounts - empty (handled by docker-compose)
-  // No additional host bind mounts to maintain isolation
-  "mounts": [],
-  // Shutdown - stops all compose services
-  "shutdownAction": "stopCompose"
+  "mounts": [
+    "source=valueos-pnpm-store,target=/home/vscode/.local/share/pnpm,type=volume"
+  ]
 }
