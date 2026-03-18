@@ -28,12 +28,13 @@ export type AgentOutputCallback = (output: AgentOutput) => void | Promise<void>;
  * Agent Output Listener Service
  */
 export class AgentOutputListener extends EventEmitter {
-  override private listeners: Map<string, AgentOutputCallback[]>;
+  // Named `agentListeners` to avoid shadowing EventEmitter's `listeners` method.
+  private agentListeners: Map<string, AgentOutputCallback[]>;
   private enabled: boolean;
 
   constructor() {
     super();
-    this.listeners = new Map();
+    this.agentListeners = new Map();
     this.enabled = true;
   }
 
@@ -57,10 +58,10 @@ export class AgentOutputListener extends EventEmitter {
    * Register callback for agent output
    */
   onAgentOutput(agentId: string, callback: AgentOutputCallback): void {
-    if (!this.listeners.has(agentId)) {
-      this.listeners.set(agentId, []);
+    if (!this.agentListeners.has(agentId)) {
+      this.agentListeners.set(agentId, []);
     }
-    this.listeners.get(agentId)!.push(callback);
+    this.agentListeners.get(agentId)!.push(callback);
     logger.debug('Registered agent output callback', { agentId });
   }
 
@@ -120,7 +121,7 @@ export class AgentOutputListener extends EventEmitter {
    */
   private async callCallbacks(output: AgentOutput): Promise<void> {
     // Call agent-specific callbacks
-    const agentCallbacks = this.listeners.get(output.agent_id) || [];
+    const agentCallbacks = this.agentListeners.get(output.agent_id) || [];
     for (const callback of agentCallbacks) {
       try {
         await callback(output);
@@ -133,7 +134,7 @@ export class AgentOutputListener extends EventEmitter {
     }
 
     // Call wildcard callbacks
-    const wildcardCallbacks = this.listeners.get('*') || [];
+    const wildcardCallbacks = this.agentListeners.get('*') || [];
     for (const callback of wildcardCallbacks) {
       try {
         await callback(output);
@@ -210,7 +211,7 @@ export class AgentOutputListener extends EventEmitter {
    * Remove callback
    */
   removeCallback(agentId: string, callback: AgentOutputCallback): void {
-    const callbacks = this.listeners.get(agentId);
+    const callbacks = this.agentListeners.get(agentId);
     if (callbacks) {
       const index = callbacks.indexOf(callback);
       if (index !== -1) {
@@ -224,7 +225,7 @@ export class AgentOutputListener extends EventEmitter {
    * Clear all callbacks
    */
   clearCallbacks(): void {
-    this.listeners.clear();
+    this.agentListeners.clear();
     logger.info('Cleared all agent output callbacks');
   }
 }

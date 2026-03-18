@@ -11,6 +11,7 @@
 import { z } from "zod";
 
 import { logger } from "../../lib/logger.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -193,20 +194,60 @@ export class ChunkEmbedPipeline {
    * Store chunks in semantic_memory
    */
   async storeChunks(chunks: Chunk[]): Promise<void> {
-    // In production, this would insert into semantic_memory table
-    // For now, log the operation
-    logger.info("Storing chunks in semantic_memory", {
+    if (chunks.length === 0) return;
+
+    const tenantId = chunks[0]?.metadata.tenantId;
+    const documentId = chunks[0]?.metadata.documentId;
+
+    logger.info("ChunkEmbedPipeline: inserting chunks into semantic_memory", {
       chunkCount: chunks.length,
-      tenantId: chunks[0]?.metadata.tenantId,
-      documentId: chunks[0]?.metadata.documentId,
+      tenantId,
+      documentId,
     });
 
-    // TODO: Implement actual database insertion
-    // This would insert into the semantic_memory table with:
-    // - content (text)
-    // - embedding (vector)
-    // - metadata (jsonb)
-    // - tenant_id (for RLS)
+    const supabase = createServerSupabaseClient();
+
+    const rows = chunks.map((chunk) => ({
+      content: chunk.content,
+      embedding: chunk.embedding ?? null,
+      metadata: {
+        documentId: chunk.metadata.documentId,
+        chunkIndex: chunk.metadata.chunkIndex,
+        totalChunks: chunk.metadata.totalChunks,
+        source: chunk.metadata.source,
+        sourceType: chunk.metadata.sourceType,
+        title: chunk.metadata.title,
+        url: chunk.metadata.url,
+        language: chunk.metadata.language,
+        tokenCount: chunk.metadata.tokenCount,
+      },
+      tenant_id: chunk.metadata.tenantId,
+    }));
+
+    // Insert in batches of 100 to stay within Supabase request size limits.
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+
+      const { error } = await supabase.from("semantic_memory").insert(batch);
+
+      if (error) {
+        logger.error("ChunkEmbedPipeline: failed to insert chunk batch", {
+          tenantId,
+          documentId,
+          batchStart: i,
+          batchSize: batch.length,
+          error: error.message,
+        });
+        throw new Error(`Failed to store chunks in semantic_memory: ${error.message}`);
+      }
+    }
+
+    logger.info("ChunkEmbedPipeline: chunks stored successfully", {
+      chunkCount: chunks.length,
+      tenantId,
+      documentId,
+    });
   }
 
   // -------------------------------------------------------------------------

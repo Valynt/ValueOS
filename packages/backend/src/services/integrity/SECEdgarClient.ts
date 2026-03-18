@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
+import { getIoRedisClient } from "../../lib/ioredisClient.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -86,74 +87,219 @@ export class SECEdgarClient {
     }
   }
 
+  // SEC EDGAR public endpoints — no auth required, but User-Agent header is mandatory.
+  private readonly TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
+  private readonly SUBMISSIONS_URL = "https://data.sec.gov/submissions";
+  private readonly SEC_USER_AGENT = "ValueOS/1.0 (contact@valueos.io)";
+  private readonly TICKERS_CACHE_KEY = "sec:company_tickers";
+
   /**
-   * Resolve CIK from ticker or company name.
+   * Resolve CIK from ticker symbol.
+   *
+   * Fetches the SEC company_tickers.json (cached in Redis for 24 h) and
+   * performs a case-insensitive ticker lookup. Returns null when the ticker
+   * is not found — never returns a fabricated CIK.
    */
   private async resolveCIK(input: SECFetchInput): Promise<string | null> {
-    // In production, this queries SEC company tickers JSON or a mapping service
-    // For now, return mock CIK based on ticker
-    if (input.ticker) {
-      // Mock CIK generation (10 digits, zero-padded)
-      const mockCik = String(input.ticker.length * 1234567).padStart(10, "0");
-      return mockCik;
+    if (!input.ticker) return null;
+
+    const ticker = input.ticker.toUpperCase();
+
+    try {
+      const redis = getIoRedisClient();
+
+      // Try cache first.
+      const cached = await redis.get(this.TICKERS_CACHE_KEY);
+      let tickerMap: Record<string, { cik_str: string; ticker: string; title: string }>;
+
+      if (cached) {
+        tickerMap = JSON.parse(cached) as typeof tickerMap;
+      } else {
+        // Fetch from SEC EDGAR.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
+
+        let response: Response;
+        try {
+          response = await fetch(this.TICKERS_URL, {
+            headers: { "User-Agent": this.SEC_USER_AGENT },
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        if (!response.ok) {
+          logger.error("SECEdgarClient: failed to fetch company tickers", {
+            status: response.status,
+          });
+          return null;
+        }
+
+        // The response is an object keyed by numeric index, not by ticker.
+        const raw = (await response.json()) as Record<
+          string,
+          { cik_str: string; ticker: string; title: string }
+        >;
+
+        // Re-index by ticker for O(1) lookup and cache.
+        tickerMap = {};
+        for (const entry of Object.values(raw)) {
+          tickerMap[entry.ticker.toUpperCase()] = entry;
+        }
+
+        await redis.set(
+          this.TICKERS_CACHE_KEY,
+          JSON.stringify(tickerMap),
+          "EX",
+          this.CACHE_TTL_SECONDS,
+        );
+
+        logger.info("SECEdgarClient: company tickers cached", {
+          count: Object.keys(tickerMap).length,
+        });
+      }
+
+      const entry = tickerMap[ticker];
+      if (!entry) {
+        logger.warn("SECEdgarClient: ticker not found in SEC company list", { ticker });
+        return null;
+      }
+
+      // CIK must be zero-padded to 10 digits for EDGAR API calls.
+      return entry.cik_str.padStart(10, "0");
+    } catch (err) {
+      logger.error("SECEdgarClient: resolveCIK failed", {
+        ticker,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
     }
-    return null;
   }
 
   /**
-   * Fetch filings for a specific CIK.
+   * Fetch real filings for a CIK from the SEC EDGAR submissions API.
+   *
+   * Uses https://data.sec.gov/submissions/CIK{cik}.json which returns the
+   * full filing history. Filters by requested form types and returns the
+   * most recent `limit` filings.
    */
   private async fetchFilingsForCIK(
     cik: string,
     formTypes: string[],
     limit: number,
   ): Promise<SECFiling[]> {
+    const cacheKey = `sec:filings:${cik}:${formTypes.sort().join(",")}`;
+
+    try {
+      const redis = getIoRedisClient();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached) as SECFiling[];
+      }
+    } catch {
+      // Cache miss or Redis unavailable — proceed to fetch.
+    }
+
+    const url = `${this.SUBMISSIONS_URL}/CIK${cik}.json`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.REQUEST_TIMEOUT_MS);
+
+    let submissionsData: Record<string, unknown>;
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": this.SEC_USER_AGENT },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          logger.warn("SECEdgarClient: CIK not found in EDGAR", { cik });
+          return [];
+        }
+        throw new Error(`SEC EDGAR submissions API returned ${response.status}`);
+      }
+
+      submissionsData = (await response.json()) as Record<string, unknown>;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const companyName = (submissionsData.name as string) ?? "Unknown";
+    const ticker = ((submissionsData.tickers as string[]) ?? [])[0] ?? undefined;
+
+    const recent = (submissionsData.filings as Record<string, unknown>)?.recent as
+      | Record<string, unknown[]>
+      | undefined;
+
+    if (!recent) return [];
+
+    const forms = (recent.form ?? []) as string[];
+    const dates = (recent.filingDate ?? []) as string[];
+    const accessions = (recent.accessionNumber ?? []) as string[];
+    const periodDates = (recent.reportDate ?? []) as string[];
+
     const filings: SECFiling[] = [];
 
-    // Mock implementation - in production would call SEC EDGAR API
-    for (let i = 0; i < limit; i++) {
-      const formType = formTypes[i % formTypes.length] as "10-K" | "10-Q" | "8-K" | "DEF 14A";
-      const filingDate = new Date();
-      filingDate.setMonth(filingDate.getMonth() - i * 3);
+    for (let i = 0; i < forms.length && filings.length < limit; i++) {
+      const form = forms[i];
+      if (!formTypes.includes(form)) continue;
+
+      const accession = accessions[i]?.replace(/-/g, "") ?? "";
+      const filingUrl = `https://www.sec.gov/Archives/edgar/data/${parseInt(cik, 10)}/${accession}/`;
 
       const filing: SECFiling = {
         cik,
-        ticker: "MOCK",
-        company_name: "Mock Company Inc.",
-        form_type: formType,
-        filing_date: filingDate.toISOString(),
-        period_end_date: filingDate.toISOString(),
-        accession_number: `0000000000-${i}`,
-        filing_url: `${this.BASE_URL}/data/${cik}/${i}/index.json`,
-        extracted_sections: await this.extractKeySections(formType),
+        ticker,
+        company_name: companyName,
+        form_type: form as SECFiling["form_type"],
+        filing_date: new Date(dates[i] ?? Date.now()).toISOString(),
+        period_end_date: periodDates[i]
+          ? new Date(periodDates[i]).toISOString()
+          : undefined,
+        accession_number: accessions[i] ?? "",
+        filing_url: filingUrl,
+        extracted_sections: this.extractKeySections(form),
         fetched_at: new Date().toISOString(),
       };
 
       filings.push(filing);
     }
 
+    // Cache the result.
+    try {
+      const redis = getIoRedisClient();
+      await redis.set(cacheKey, JSON.stringify(filings), "EX", this.CACHE_TTL_SECONDS);
+    } catch {
+      // Non-fatal — continue without caching.
+    }
+
     return filings;
   }
 
   /**
-   * Extract key business sections from filing.
+   * Return the standard section labels for a given form type.
+   * These are structural labels, not content — actual content is fetched
+   * from the filing document when needed.
    */
-  private async extractKeySections(formType: string): Promise<Record<string, string>> {
-    const sections: Record<string, string> = {};
-
+  private extractKeySections(formType: string): Record<string, string> {
     if (formType === "10-K") {
-      sections["Item 1"] = "Business - Company overview, products, markets";
-      sections["Item 1A"] = "Risk Factors - Key risks affecting business";
-      sections["Item 7"] = "MD&A - Management's Discussion and Analysis";
-      sections["Item 7A"] = "Market Risk Disclosures";
-      sections["Item 8"] = "Financial Statements";
-    } else if (formType === "10-Q") {
-      sections["Part I, Item 2"] = "Management's Discussion and Analysis";
-      sections["Part I, Item 3"] = "Quantitative and Qualitative Market Risk Disclosures";
-      sections["Part I, Item 4"] = "Controls and Procedures";
+      return {
+        "Item 1": "Business",
+        "Item 1A": "Risk Factors",
+        "Item 7": "Management's Discussion and Analysis",
+        "Item 7A": "Quantitative and Qualitative Disclosures About Market Risk",
+        "Item 8": "Financial Statements and Supplementary Data",
+      };
     }
-
-    return sections;
+    if (formType === "10-Q") {
+      return {
+        "Part I, Item 2": "Management's Discussion and Analysis",
+        "Part I, Item 3": "Quantitative and Qualitative Disclosures About Market Risk",
+        "Part I, Item 4": "Controls and Procedures",
+      };
+    }
+    return {};
   }
 
   /**

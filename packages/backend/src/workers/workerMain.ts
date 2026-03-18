@@ -13,6 +13,7 @@
 
 import { createLogger } from '../lib/logger.js';
 
+import { createArtifactGenerationWorker } from './ArtifactGenerationWorker.js';
 import { initCrmWorkers } from './crmWorker.js';
 import { initResearchWorker } from './researchWorker.js';
 
@@ -37,6 +38,15 @@ try {
   logger.info('CRM workers initialized');
 } catch (err) {
   logger.warn('CRM workers failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
+try {
+  createArtifactGenerationWorker();
+  logger.info('Artifact generation worker initialized');
+} catch (err) {
+  logger.warn('Artifact generation worker failed to start', {
     error: err instanceof Error ? err.message : String(err),
   });
 }

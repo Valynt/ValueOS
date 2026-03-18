@@ -311,11 +311,49 @@ export class ExternalServiceError extends AppError {
 }
 
 // ============================================================================
+// Governance Error
+// ============================================================================
+
+/**
+ * Thrown by ActionRouter when enforceRules() returns allowed: false.
+ * Maps to HTTP 403. Carries the structured policy decision for client handling.
+ */
+export class GovernanceError extends AppError {
+  public readonly reasonCode: string;
+  public readonly audit: {
+    policyVersion: string;
+    evaluatedAt: string;
+    matchedRules: string[];
+  };
+
+  constructor(
+    message: string,
+    reasonCode: string,
+    audit: { policyVersion: string; evaluatedAt: string; matchedRules: string[] },
+    cause?: Error
+  ) {
+    super({
+      code: ErrorCode.FORBIDDEN,
+      message,
+      isOperational: true,
+      cause,
+      details: { reasonCode, audit },
+    });
+    this.reasonCode = reasonCode;
+    this.audit = audit;
+  }
+}
+
+// ============================================================================
 // Error Type Guards
 // ============================================================================
 
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
+}
+
+export function isGovernanceError(error: unknown): error is GovernanceError {
+  return error instanceof GovernanceError;
 }
 
 export function isOperationalError(error: unknown): boolean {

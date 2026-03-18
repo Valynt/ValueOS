@@ -5,10 +5,29 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { LLMGateway } from "../../../lib/agent-fabric/LLMGateway.js";
 import { createUserSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 import { getSupabaseClient } from "../utils.js";
+
+// ---------------------------------------------------------------------------
+// Evaluation response schema — validated before returning to the client
+// ---------------------------------------------------------------------------
+
+const EvaluationResultSchema = z.object({
+  score: z.number().min(0).max(100),
+  categoryBreakdown: z.object({
+    technical: z.number(),
+    crossFunctional: z.number(),
+    aiAugmentation: z.number(),
+  }),
+  strengths: z.array(z.string()),
+  improvements: z.array(z.string()),
+  feedback: z.string(),
+});
+
+type EvaluationResult = z.infer<typeof EvaluationResultSchema>;
 
 // ============================================================================
 // Types
@@ -483,22 +502,114 @@ export const simulationsRouter = router({
         });
       }
 
-      // Simplified evaluation - in real implementation would use LLM
-      // TODO: Integrate with backend LLM gateway when available
       logger.info("[Academy] Simulation response evaluation requested", {
         scenarioId: input.scenarioId,
         stepNumber: input.stepNumber,
         scenarioType: scenario.type,
       });
 
-      // Return mock evaluation for now
-      return {
-        score: 75,
-        categoryBreakdown: { technical: 30, crossFunctional: 23, aiAugmentation: 22 },
-        strengths: ["Shows understanding of concepts"],
-        improvements: ["Could provide more detail"],
-        feedback: "Good effort! Consider expanding on your analysis.",
-      };
+      const tenantId = ctx.tenantId;
+      if (!tenantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tenant context required." });
+      }
+
+      // Build the evaluation prompt from the scenario definition and user response.
+      const scenarioContext = JSON.stringify({
+        title: scenario.title,
+        description: scenario.description,
+        type: scenario.type,
+        difficulty: scenario.difficulty_level,
+        step: input.stepNumber,
+        evaluationCriteria: scenario.evaluation_criteria ?? {},
+      });
+
+      const systemPrompt = `You are an expert evaluator for a B2B value engineering simulation.
+Evaluate the user's response to the simulation scenario step.
+Return ONLY a valid JSON object with this exact structure:
+{
+  "score": <integer 0-100>,
+  "categoryBreakdown": {
+    "technical": <integer 0-40>,
+    "crossFunctional": <integer 0-30>,
+    "aiAugmentation": <integer 0-30>
+  },
+  "strengths": [<string>, ...],
+  "improvements": [<string>, ...],
+  "feedback": "<one paragraph of constructive feedback>"
+}
+The three category scores must sum to the total score.
+Be specific, actionable, and calibrated to the scenario difficulty.`;
+
+      const userPrompt = `Scenario context:
+${scenarioContext}
+
+User response to step ${input.stepNumber}:
+${input.userResponse}
+
+Evaluate this response and return the JSON object.`;
+
+      const llm = new LLMGateway({
+        provider: "openai",
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        max_tokens: 800,
+      });
+
+      let rawContent: string;
+      try {
+        const llmResponse = await llm.complete({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          metadata: {
+            tenantId,
+            agentType: "academy-evaluator",
+            sessionId: `academy-eval-${input.scenarioId}-${input.stepNumber}`,
+          },
+        });
+        rawContent = llmResponse.content;
+      } catch (llmErr) {
+        logger.error("[Academy] LLM evaluation failed", {
+          scenarioId: input.scenarioId,
+          stepNumber: input.stepNumber,
+          error: llmErr instanceof Error ? llmErr.message : String(llmErr),
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Evaluation service unavailable. Please try again.",
+        });
+      }
+
+      // Parse and validate the LLM response.
+      let evaluation: EvaluationResult;
+      try {
+        // Strip markdown code fences if the model wrapped the JSON.
+        const jsonText = rawContent
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/, "")
+          .trim();
+        const parsed = JSON.parse(jsonText) as unknown;
+        evaluation = EvaluationResultSchema.parse(parsed);
+      } catch (parseErr) {
+        logger.error("[Academy] Failed to parse LLM evaluation response", {
+          scenarioId: input.scenarioId,
+          rawContent,
+          error: parseErr instanceof Error ? parseErr.message : String(parseErr),
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Evaluation response was malformed. Please try again.",
+        });
+      }
+
+      logger.info("[Academy] Simulation response evaluated", {
+        scenarioId: input.scenarioId,
+        stepNumber: input.stepNumber,
+        score: evaluation.score,
+      });
+
+      return evaluation;
     }),
 
   /**
