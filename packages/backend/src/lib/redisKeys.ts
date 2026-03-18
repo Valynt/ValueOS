@@ -2,4 +2,4 @@
  * Redis Keys - Re-export from shared
  */
 
-export { getRedisKey } from '@shared/lib/redisKeys';
+export { getRedisKey, ns } from '@shared/lib/redisKeys';

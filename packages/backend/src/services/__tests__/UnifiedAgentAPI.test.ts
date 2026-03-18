@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getEnvVar } from '../../lib/env';
+import { __setEnvSourceForTests, getEnvVar } from '../../lib/env';
 import {
   getUnifiedAgentAPI,
   resetUnifiedAgentAPI,

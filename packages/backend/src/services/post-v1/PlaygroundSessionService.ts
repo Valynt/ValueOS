@@ -729,6 +729,5 @@ export function getPlaygroundSessionService(
   return sessionServiceInstance;
 }
 
-export { PlaygroundSessionService };
 /** @deprecated Use named import `PlaygroundSessionService` instead. */
 export default PlaygroundSessionService;

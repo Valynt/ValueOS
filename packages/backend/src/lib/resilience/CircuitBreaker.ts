@@ -105,6 +105,22 @@ export class CircuitBreaker {
     this.lastFailure = 0;
   }
 
+  recordSuccess(): void {
+    this.onSuccess();
+  }
+
+  recordFailure(): void {
+    this.onFailure();
+  }
+
+  getFailureCount(): number {
+    return this.failures;
+  }
+
+  getLastFailureTime(): string | null {
+    return this.lastFailure > 0 ? new Date(this.lastFailure).toISOString() : null;
+  }
+
   private onSuccess(): void {
     this.successes++;
     if (this.state === "half_open") {
