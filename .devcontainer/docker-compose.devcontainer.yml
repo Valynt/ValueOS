@@ -244,7 +244,7 @@ services:
   # ============================================================================
   studio:
     <<: *common
-    image: supabase/studio:20240422-5f20d97
+    image: supabase/studio:latest
     container_name: valueos-studio
     environment:
       SUPABASE_URL: http://kong:8000
