@@ -45,7 +45,9 @@ const DEFAULT_CONFIG: DOMPurify.Config = {
     'height',
   ],
   ALLOW_DATA_ATTR: false,
-  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+  // Explicit scheme allowlist: only https, http, mailto, and tel are permitted.
+  // Relative URLs, data: URIs, javascript:, and all other schemes are rejected.
+  ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel):/i,
 };
 
 // Add a hook to enforce rel="noopener noreferrer" on target="_blank" links

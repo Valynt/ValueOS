@@ -80,6 +80,54 @@ for (const file of composeFiles) {
   }
 }
 
+// ─── dangerouslySetInnerHTML allowlist (SEC-002) ─────────────────────────────
+// Only the files below may use dangerouslySetInnerHTML. Any other file that
+// introduces it must be added to this list after a security review.
+const DANGEROUS_HTML_ALLOWLIST = new Set([
+  'apps/ValyntApp/src/components/security/SafeHtml.tsx',
+  'apps/ValyntApp/src/sdui/components/SDUI/InlineEditor.tsx',
+  'packages/sdui/src/components/SDUI/InlineEditor.tsx',
+]);
+
+function listSourceFiles() {
+  try {
+    const output = execSync(
+      "rg --files -g '*.tsx' -g '*.ts' -g '*.jsx' -g '*.js' " +
+        "--glob '!**/__tests__/**' --glob '!**/*.test.*' --glob '!**/*.spec.*' " +
+        "--glob '!**/node_modules/**' --glob '!**/dist/**'",
+      { cwd: ROOT, encoding: 'utf8' }
+    ).trim();
+    return output ? output.split('\n') : [];
+  } catch (err) {
+    // rg (ripgrep) is required for the dangerouslySetInnerHTML allowlist check.
+    // Fail loudly rather than silently skipping the gate.
+    console.error('❌ listSourceFiles: ripgrep (rg) is required but failed to run.');
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+}
+
+for (const file of listSourceFiles()) {
+  const absPath = resolve(ROOT, file);
+  if (!existsSync(absPath)) continue;
+  const content = readFileSync(absPath, 'utf8');
+  if (!content.includes('dangerouslySetInnerHTML')) continue;
+
+  // Normalise to forward-slash relative path for allowlist comparison
+  const relPath = file.replace(/\\/g, '/');
+  if (!DANGEROUS_HTML_ALLOWLIST.has(relPath)) {
+    findings.push({
+      file,
+      line: 0,
+      rule: 'unapproved-dangerous-html',
+      message:
+        'dangerouslySetInnerHTML used outside the approved allowlist. ' +
+        'Route rich HTML through SafeHtml.tsx or add this file to DANGEROUS_HTML_ALLOWLIST ' +
+        'in scripts/ci/check-security-antipatterns.mjs after security review.',
+    });
+  }
+}
+
 if (findings.length > 0) {
   console.error('❌ Security anti-pattern checks failed:\n');
   for (const finding of findings) {

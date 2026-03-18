@@ -1,8 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
 /**
- * Sanitize HTML content to prevent XSS attacks.
- * Escapes HTML entities to ensure content is treated as text.
+ * Plain-text escape for the contentEditable region.
+ *
+ * SEC NOTE (intentional exception): This is NOT a rich-HTML surface. It assigns
+ * content as textContent (safe) and reads back innerHTML purely to get the
+ * browser's entity-encoded representation of plain text. The result contains no
+ * HTML tags — only escaped characters like &amp;, &lt;, &gt;. This is reviewed
+ * and approved as a non-rich-HTML dangerouslySetInnerHTML use. If this component
+ * ever needs to render rich HTML, it must be replaced with <SafeHtml>.
  */
 function sanitizeHtmlContent(content: string): string {
   const div = document.createElement("div");
@@ -112,7 +118,6 @@ export function InlineEditor({
           onInput={(e) => setContent(e.currentTarget.textContent || "")}
           className="min-h-[100px] whitespace-pre-wrap outline-none"
           suppressContentEditableWarning
-          // eslint-disable-next-line react/no-danger -- Content is sanitized via sanitizeHtmlContent()
           dangerouslySetInnerHTML={{ __html: sanitizeHtmlContent(content) }}
         />
 

@@ -16,7 +16,6 @@ export function SafeHtml({ html, className, style }: SafeHtmlProps) {
     <div
       className={className}
       style={style}
-      // eslint-disable-next-line react/no-danger -- sanitized content
       dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
     />
   );
