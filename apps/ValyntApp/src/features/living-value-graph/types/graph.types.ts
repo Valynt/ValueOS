@@ -53,8 +53,10 @@ export interface Graph {
   computedAt: string | null;
   globalMetrics: {
     npv: number;
-    roi: number;
-    paybackMonths: number;
+    /** Populated only when the financial model snapshot has been loaded. */
+    roi?: number;
+    /** Populated only when the financial model snapshot has been loaded. */
+    paybackMonths?: number;
     confidence: number;
     defensibilityScore: number;
   };

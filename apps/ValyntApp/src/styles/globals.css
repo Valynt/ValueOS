@@ -23,6 +23,36 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Smooth font rendering */
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Thin, unobtrusive scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 80%);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 65%);
+  }
+
+  /* Prevent layout shift from scrollbar appearing */
+  body {
+    scrollbar-gutter: stable;
+  }
+}
+
 @layer utilities {
   .icon-sm {
     @apply h-4 w-4;
