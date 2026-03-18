@@ -1,9 +1,11 @@
 /* eslint-disable react/no-danger -- SEC-002: sole sanctioned dangerouslySetInnerHTML surface; all input passes through DOMPurify */
+import type { CSSProperties } from 'react';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 type SafeHtmlProps = {
   html: string;
   className?: string;
+  style?: CSSProperties;
 };
 
 /**
@@ -16,10 +18,11 @@ type SafeHtmlProps = {
  * Sanitization is handled by DOMPurify with an explicit allowlist — no bypass
  * flags, no conditional sanitization, no trusted-input shortcuts.
  */
-export function SafeHtml({ html, className }: SafeHtmlProps) {
+export function SafeHtml({ html, className, style }: SafeHtmlProps) {
   return (
     <div
       className={className}
+      style={style}
       dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
     />
   );
