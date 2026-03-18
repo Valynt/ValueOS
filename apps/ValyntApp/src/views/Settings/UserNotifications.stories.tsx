@@ -2,7 +2,6 @@
  * Storybook Stories for UserNotifications Component
  */
 
-// eslint-disable-next-line storybook/no-renderer-packages -- Storybook v8 migration pending
 import type { Meta, StoryObj } from '@storybook/react';
 
 import { settingsRegistry } from '../../lib/settingsRegistry';

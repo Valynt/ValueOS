@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { apiClient } from "../../api/client/unified-api-client";
+
 interface AgentStatus {
   name: string;
   policy_version: string;
@@ -7,25 +9,15 @@ interface AgentStatus {
 }
 
 async function fetchAgents(): Promise<AgentStatus[]> {
-   
-  const res = await fetch("/api/admin/agents", { credentials: "include" });
-  if (!res.ok) throw new Error(`Failed to fetch agents (${res.status})`);
-  const data = (await res.json()) as { agents: AgentStatus[] };
-  return data.agents;
+  const res = await apiClient.get<{ agents: AgentStatus[] }>("/api/admin/agents");
+  return res.data.agents;
 }
 
 async function setKillSwitch(name: string, killed: boolean): Promise<void> {
-   
-  const res = await fetch(
+  await apiClient.post(
     `/api/admin/agents/${encodeURIComponent(name)}/kill-switch`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ killed }),
-    },
+    { killed },
   );
-  if (!res.ok) throw new Error(`Failed to update kill switch (${res.status})`);
 }
 
 export default function AgentAdminPage() {
