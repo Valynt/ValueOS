@@ -2,7 +2,8 @@
  * HypothesisGenerator
  *
  * Generates value hypotheses from deal context with extracted value driver candidates.
- * Validates against benchmark ranges and assigns confidence scores.
+ * Uses LLM reasoning to estimate impact ranges and validates against benchmark
+ * p25/p75 distributions. Heuristic multipliers are not used.
  *
  * Reference: openspec/changes/value-modeling-engine/tasks.md §2
  */
@@ -10,6 +11,7 @@
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -49,6 +51,8 @@ export interface HypothesisGenerationInput {
   }>;
   industry?: string;
   companySize?: string;
+  /** Optional LLMGateway instance. If omitted, a default instance is created. */
+  llmGateway?: LLMGateway;
 }
 
 export interface HypothesisGenerationResult {
@@ -58,12 +62,37 @@ export interface HypothesisGenerationResult {
 }
 
 // ---------------------------------------------------------------------------
+// LLM impact estimation schema
+// ---------------------------------------------------------------------------
+
+const LLMImpactEstimateSchema = z.object({
+  estimated_impact_min: z.number().describe("Conservative lower bound of impact (same unit as impact_unit)"),
+  estimated_impact_max: z.number().describe("Optimistic upper bound of impact (same unit as impact_unit)"),
+  impact_unit: z.string().describe("Unit of measurement, e.g. 'percent', 'USD', 'hours/week'"),
+  reasoning: z.string().describe("One-paragraph explanation of how the range was derived"),
+  assumptions: z.array(z.string()).describe("Key assumptions underlying the estimate"),
+});
+
+type LLMImpactEstimate = z.infer<typeof LLMImpactEstimateSchema>;
+
+// ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 export class HypothesisGenerator {
+  private readonly llm: LLMGateway;
+
+  constructor(llmGateway?: LLMGateway) {
+    this.llm = llmGateway ?? new LLMGateway({
+      provider: "together",
+      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    });
+  }
+
   /**
    * Generate value hypotheses from deal context.
+   * Impact ranges are derived from LLM reasoning grounded against benchmark
+   * p25/p75 distributions — not from heuristic multipliers.
    */
   async generate(input: HypothesisGenerationInput): Promise<HypothesisGenerationResult> {
     logger.info(`Generating value hypotheses for case ${input.caseId}`);
@@ -80,28 +109,43 @@ export class HypothesisGenerator {
         continue;
       }
 
-      // Check against benchmark plausibility
+      // Fetch benchmark distribution for plausibility grounding
       const benchmarkCheck = await this.checkBenchmarkPlausibility(
         input.tenantId,
         candidate.name,
-        candidate.signal_strength,
         input.industry,
         input.companySize,
       );
 
+      // Use LLM to reason about impact range
+      const impactEstimate = await this.estimateImpactWithLLM(
+        candidate,
+        input.tenantId,
+        input.industry,
+        input.companySize,
+        benchmarkCheck.benchmarkRange,
+      );
+
       const now = new Date().toISOString();
       const evidenceTier = this.calculateEvidenceTier(candidate);
+
+      // Plausibility check: is the LLM estimate within benchmark p25-p75?
+      const isPlausible = benchmarkCheck.benchmarkRange
+        ? impactEstimate.estimated_impact_max >= benchmarkCheck.benchmarkRange.p25 &&
+          impactEstimate.estimated_impact_min <= benchmarkCheck.benchmarkRange.p75
+        : true; // No benchmark available — accept with lower confidence
+
       const hypothesis: ValueHypothesis = {
         id: crypto.randomUUID(),
         tenant_id: input.tenantId,
         case_id: input.caseId,
         value_driver: candidate.name,
         description: candidate.description,
-        estimated_impact_min: this.estimateImpactMin(candidate.signal_strength),
-        estimated_impact_max: this.estimateImpactMax(candidate.signal_strength),
-        impact_unit: candidate.suggested_kpi || "percent",
+        estimated_impact_min: impactEstimate.estimated_impact_min,
+        estimated_impact_max: impactEstimate.estimated_impact_max,
+        impact_unit: impactEstimate.impact_unit,
         evidence_tier: evidenceTier,
-        confidence_score: this.calculateConfidence(candidate, benchmarkCheck.isPlausible),
+        confidence_score: this.calculateConfidence(candidate, isPlausible),
         benchmark_reference_id: benchmarkCheck.benchmarkId,
         status: "pending",
         source_context_ids: [input.dealContextId],
@@ -109,51 +153,176 @@ export class HypothesisGenerator {
         updated_at: now,
       };
 
-      if (!benchmarkCheck.isPlausible) {
-        flags.push(`Hypothesis ${candidate.name} flagged: outside benchmark range`);
+      if (!isPlausible) {
+        flags.push(
+          `Hypothesis "${candidate.name}" flagged: LLM estimate [${impactEstimate.estimated_impact_min}–${impactEstimate.estimated_impact_max}] outside benchmark p25/p75 range`,
+        );
       }
 
       hypotheses.push(hypothesis);
     }
 
-    // Persist hypotheses
     await this.persistHypotheses(hypotheses);
 
-    logger.info(`Generated ${hypotheses.length} hypotheses, rejected ${rejectedCount} for case ${input.caseId}`);
+    logger.info(
+      `Generated ${hypotheses.length} hypotheses, rejected ${rejectedCount} for case ${input.caseId}`,
+    );
 
     return { hypotheses, rejectedCount, flags };
   }
 
   /**
-   * Check if estimated impact is within plausible benchmark range.
+   * Use the LLM to reason about impact range for a value driver candidate.
+   * Returns a structured estimate with reasoning and assumptions.
+   */
+  private async estimateImpactWithLLM(
+    candidate: {
+      name: string;
+      description: string;
+      signal_strength: number;
+      evidence_count: number;
+      suggested_kpi?: string;
+    },
+    tenantId: string,
+    industry?: string,
+    companySize?: string,
+    benchmarkRange?: { p25: number; p75: number; unit?: string } | null,
+  ): Promise<LLMImpactEstimate> {
+    const benchmarkContext = benchmarkRange
+      ? `Industry benchmark for this metric: p25=${benchmarkRange.p25}, p75=${benchmarkRange.p75}${benchmarkRange.unit ? ` (${benchmarkRange.unit})` : ""}.`
+      : "No industry benchmark available for this metric.";
+
+    const prompt = `You are a value engineering analyst estimating the financial impact of a business value driver.
+
+Value Driver: ${candidate.name}
+Description: ${candidate.description}
+Signal Strength: ${candidate.signal_strength} (0=weak, 1=strong)
+Evidence Count: ${candidate.evidence_count} data points
+Suggested KPI: ${candidate.suggested_kpi ?? "not specified"}
+Industry: ${industry ?? "not specified"}
+Company Size: ${companySize ?? "not specified"}
+${benchmarkContext}
+
+Estimate the realistic impact range for this value driver. Be conservative on the lower bound and realistic (not aspirational) on the upper bound. Ground your estimate in the benchmark range if provided.
+
+Respond with a JSON object matching this schema exactly:
+{
+  "estimated_impact_min": <number>,
+  "estimated_impact_max": <number>,
+  "impact_unit": "<string: 'percent', 'USD', 'hours/week', etc.>",
+  "reasoning": "<one paragraph explaining how you derived the range>",
+  "assumptions": ["<assumption 1>", "<assumption 2>", ...]
+}`;
+
+    try {
+      const response = await this.llm.complete({
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 512,
+        response_format: { type: "json_object" },
+        metadata: { tenantId },
+      });
+
+      const raw = JSON.parse(response.content) as unknown;
+      const parsed = LLMImpactEstimateSchema.safeParse(raw);
+
+      if (!parsed.success) {
+        logger.warn("LLM impact estimate failed schema validation, using signal-based fallback", {
+          candidate: candidate.name,
+          errors: parsed.error.issues,
+        });
+        return this.signalBasedFallbackEstimate(candidate, benchmarkRange);
+      }
+
+      return parsed.data;
+    } catch (err) {
+      logger.warn("LLM impact estimation failed, using signal-based fallback", {
+        candidate: candidate.name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return this.signalBasedFallbackEstimate(candidate, benchmarkRange);
+    }
+  }
+
+  /**
+   * Signal-based fallback used only when the LLM call fails.
+   * Uses benchmark p25/p75 if available; otherwise applies conservative
+   * signal-proportional ranges. This is a last-resort path, not the primary path.
+   */
+  private signalBasedFallbackEstimate(
+    candidate: { name: string; signal_strength: number; suggested_kpi?: string },
+    benchmarkRange?: { p25: number; p75: number; unit?: string } | null,
+  ): LLMImpactEstimate {
+    if (benchmarkRange) {
+      const range = benchmarkRange.p75 - benchmarkRange.p25;
+      return {
+        estimated_impact_min: benchmarkRange.p25 + range * 0.1 * candidate.signal_strength,
+        estimated_impact_max: benchmarkRange.p25 + range * candidate.signal_strength,
+        impact_unit: benchmarkRange.unit ?? candidate.suggested_kpi ?? "percent",
+        reasoning: "Estimated from benchmark p25/p75 distribution scaled by signal strength (LLM unavailable).",
+        assumptions: ["LLM unavailable; estimate derived from benchmark distribution"],
+      };
+    }
+
+    // No benchmark and no LLM — use conservative signal-proportional range
+    const base = candidate.signal_strength * 10;
+    return {
+      estimated_impact_min: Math.round(base * 0.5),
+      estimated_impact_max: Math.round(base * 1.5),
+      impact_unit: candidate.suggested_kpi ?? "percent",
+      reasoning: "Conservative estimate based on signal strength only (LLM and benchmark unavailable).",
+      assumptions: ["LLM unavailable", "No benchmark data available", "Estimate is directional only"],
+    };
+  }
+
+  /**
+   * Fetch benchmark p25/p75 distribution for plausibility grounding.
    */
   private async checkBenchmarkPlausibility(
     tenantId: string,
     driverName: string,
-    signalStrength: number,
     industry?: string,
     companySize?: string,
-  ): Promise<{ isPlausible: boolean; benchmarkId?: string }> {
-    // Query benchmarks from database
-    const { data: benchmarks } = await supabase
+  ): Promise<{
+    isPlausible: boolean;
+    benchmarkId?: string;
+    benchmarkRange?: { p25: number; p75: number; unit?: string } | null;
+  }> {
+    const query = supabase
       .from("benchmarks")
-      .select("id, metric_name, p25, p75, industry, company_size_tier")
-      .eq("tenant_id", tenantId)
+      .select("id, metric_name, p25, p75, unit, industry, company_size_tier")
       .ilike("metric_name", `%${driverName}%`)
       .limit(1);
 
+    // Prefer tenant-specific benchmarks; fall back to global
+    const { data: tenantBenchmarks } = await query.eq("tenant_id", tenantId);
+    const { data: globalBenchmarks } = !tenantBenchmarks?.length
+      ? await supabase
+          .from("benchmarks")
+          .select("id, metric_name, p25, p75, unit, industry, company_size_tier")
+          .ilike("metric_name", `%${driverName}%`)
+          .is("tenant_id", null)
+          .limit(1)
+      : { data: null };
+
+    const benchmarks = tenantBenchmarks?.length ? tenantBenchmarks : globalBenchmarks;
+
     if (!benchmarks || benchmarks.length === 0) {
-      // No benchmark found - assume plausible with warning
-      return { isPlausible: true };
+      return { isPlausible: true, benchmarkRange: null };
     }
 
-    const benchmark = benchmarks[0];
+    const benchmark = benchmarks[0] as {
+      id: string;
+      p25: number;
+      p75: number;
+      unit?: string;
+    };
 
-    // Simple plausibility check against p25-p75 range
-    const estimatedImpact = this.estimateImpactMax(signalStrength);
-    const isPlausible = estimatedImpact >= benchmark.p25 && estimatedImpact <= benchmark.p75;
-
-    return { isPlausible, benchmarkId: benchmark.id };
+    return {
+      isPlausible: true, // Plausibility is checked after LLM estimation
+      benchmarkId: benchmark.id,
+      benchmarkRange: { p25: benchmark.p25, p75: benchmark.p75, unit: benchmark.unit },
+    };
   }
 
   /**
@@ -166,20 +335,12 @@ export class HypothesisGenerator {
   }
 
   /**
-   * Calculate confidence score based on signal strength and plausibility.
+   * Calculate confidence score based on signal strength and benchmark plausibility.
    */
   private calculateConfidence(candidate: { signal_strength: number }, isPlausible: boolean): number {
     let confidence = candidate.signal_strength;
     if (!isPlausible) confidence *= 0.7; // Penalty for implausible range
     return Math.min(0.95, Math.max(0.3, confidence));
-  }
-
-  private estimateImpactMin(signalStrength: number): number {
-    return Math.round(signalStrength * 5); // 5-50% range
-  }
-
-  private estimateImpactMax(signalStrength: number): number {
-    return Math.round(signalStrength * 15 + 10); // 10-85% range
   }
 
   /**

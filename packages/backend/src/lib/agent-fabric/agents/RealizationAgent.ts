@@ -207,6 +207,47 @@ export class RealizationAgent extends BaseAgent {
       }
     }
 
+    // Record outcomes in the RealizationFeedbackLoop so variance is tracked
+    // and agent retraining is triggered when prediction accuracy degrades.
+    const valueCommitId = context.user_inputs?.value_commit_id as string | undefined;
+    if (valueCommitId && context.organization_id && context.user_id) {
+      try {
+        const { RealizationFeedbackLoop } = await import(
+          '../../../services/post-v1/RealizationFeedbackLoop.js'
+        ) as { RealizationFeedbackLoop: typeof import('../../../services/post-v1/RealizationFeedbackLoop.js').RealizationFeedbackLoop };
+        const { createServerSupabaseClient } = await import('../../../lib/supabase.js');
+
+        const feedbackLoop = new RealizationFeedbackLoop(createServerSupabaseClient());
+
+        // Record the overall realization rate as the actual outcome
+        await feedbackLoop.recordActualOutcome(
+          valueCommitId,
+          {
+            actual_value: analysis.overall_realization_rate * 100,
+            notes: analysis.variance_summary,
+            recorded_date: new Date(),
+            evidence: analysis.proof_points.map((p) => p.kpi_name),
+          },
+          {
+            userId: context.user_id,
+            organizationId: context.organization_id,
+            sessionId: context.workspace_id,
+          },
+        );
+
+        logger.info('RealizationAgent: feedback loop outcome recorded', {
+          valueCommitId,
+          overall_realization_rate: analysis.overall_realization_rate,
+        });
+      } catch (feedbackErr) {
+        // Feedback loop failure must not block the realization output
+        logger.warn('RealizationAgent: feedback loop recording failed', {
+          valueCommitId,
+          error: (feedbackErr as Error).message,
+        });
+      }
+    }
+
     // Publish a milestone event for each proof point so the RecommendationEngine
     // and other subscribers can react to individual KPI outcomes.
     const opportunityId = (context.user_inputs?.opportunity_id as string | undefined)

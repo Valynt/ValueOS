@@ -92,6 +92,10 @@ export const V1_SERVICES = new Set([
   "FinancialCalculator",
   "CalculationEngine",
   "AssumptionService",
+  "BenchmarkService",
+  "RealizationFeedbackLoop",
+  "PromptVersionControl",
+  "IntegrityAgentService",
 
   // Security (required)
   "AuditLogService",
@@ -142,6 +146,9 @@ export const V1_SERVICES = new Set([
   "CRMIntegrationService",
   "CRMFieldMapper",
   "CRMOAuthService",
+  "CallAnalysisService",
+  "EmailAnalysisService",
+  "WebScraperService",
 
   // Ground truth
   "GroundTruthIntegrationService",
@@ -179,6 +186,15 @@ export const V1_SERVICES = new Set([
 
 /**
  * Post-v1 services. These are explicitly deferred and should be feature-flagged.
+ *
+ * Services promoted to V1_SERVICES (removed from this set):
+ *   - CallAnalysisService    — required for call transcript ingestion in DealAssemblyAgent
+ *   - EmailAnalysisService   — required for email thread context in deal assembly
+ *   - WebScraperService      — required for web research in DealAssemblyAgent
+ *   - BenchmarkService       — required for hypothesis plausibility validation
+ *   - RealizationFeedbackLoop — required for post-sale variance tracking
+ *   - PromptVersionControl   — required for auditable prompt management
+ *   - IntegrityAgentService  — required for Academy lab evaluation
  */
 export const POST_V1_SERVICES = new Set([
   "ChaosEngineering",
@@ -197,7 +213,6 @@ export const POST_V1_SERVICES = new Set([
   "DeviceFingerprintService",
   "WebAuthnService",
   "ComplianceValidator",
-  "IntegrityAgentService",
   "IntegrityValidationService",
   "IntegrityWarningGenerator",
   "ManifestoEnforcer",
@@ -206,10 +221,7 @@ export const POST_V1_SERVICES = new Set([
   "SelfHealingManager",
   "ProblemMonitor",
   "OfflineEvaluation",
-  "BenchmarkService",
-  "PromptVersionControl",
   "ReflectionEngine",
-  "RealizationFeedbackLoop",
   "IntelligentCoordinator",
   "EnhancedParallelExecutor",
   "AtomicActionExecutor",
@@ -234,9 +246,6 @@ export const POST_V1_SERVICES = new Set([
   "RotationService",
   "AcademyService",
   "ApprovalWorkflowService",
-  "CallAnalysisService",
-  "EmailAnalysisService",
-  "WebScraperService",
   "PlaygroundAutoSave",
   "PlaygroundSessionService",
   "AgentPrefetchService",
