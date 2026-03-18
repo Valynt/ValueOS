@@ -11,7 +11,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-// Shell Layer
 import { logger } from "../../lib/logger";
 
 import {
@@ -22,8 +21,6 @@ import {
 import { AgentStatusIndicator } from "@/components/orchestration";
 import { CommandBar, Sidebar, TopBar } from "@/components/shell";
 import type { ValueCase } from "@/components/shell";
-
-// Orchestration Layer
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
 

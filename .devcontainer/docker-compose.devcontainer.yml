@@ -25,6 +25,7 @@ services:
   # ============================================================================
   devcontainer:
     <<: *common
+    network_mode: host
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile.optimized
@@ -55,33 +56,18 @@ services:
       # All secrets loaded from env_file (.env)
       # Do NOT add secrets here - they would be visible in docker inspect
 
-    ports:
-      # Frontend dev server (essential)
-      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
-      # Vite HMR (required for hot reload)
-      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
-      # Backend API (essential)
-      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
     # Security: no-new-privileges prevents privilege escalation
     security_opt:
       - no-new-privileges:true
     working_dir: /workspaces/ValueOS
     command: sleep infinity
-    networks:
-      - valueos-dev
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kong:
-        condition: service_started
 
   # ============================================================================
   # POSTGRESQL (Supabase-compatible)
   # ============================================================================
   postgres:
     <<: *common
+    network_mode: host
     image: supabase/postgres:15.1.0.153
     container_name: valueos-postgres
     environment:
@@ -91,10 +77,6 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXP: 3600
-    ports:
-      # Database port - exposed for local dev tools (psql, pgAdmin)
-      # Internal compose network also available at postgres:5432
-      - "${PGPORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../infra/supabase/supabase/init-scripts:/docker-entrypoint-initdb.d
@@ -104,14 +86,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # REDIS
   # ============================================================================
   redis:
     <<: *common
+    network_mode: host
     image: redis:7-alpine
     container_name: valueos-redis
     command: >-
@@ -119,8 +100,6 @@ services:
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -129,14 +108,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # SUPABASE AUTH (GoTrue)
   # ============================================================================
   auth:
     <<: *common
+    network_mode: host
     image: supabase/gotrue:v2.143.0
     container_name: valueos-auth
     environment:
@@ -174,14 +152,13 @@ services:
         condition: service_healthy
       mailhog:
         condition: service_started
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # SUPABASE REST API (PostgREST)
   # ============================================================================
   rest:
     <<: *common
+    network_mode: host
     image: postgrest/postgrest:v12.0.2
     container_name: valueos-rest
     environment:
@@ -193,14 +170,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # SUPABASE REALTIME
   # ============================================================================
   realtime:
     <<: *common
+    network_mode: host
     image: supabase/realtime:v2.25.50
     container_name: valueos-realtime
     environment:
@@ -218,14 +194,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # SUPABASE STORAGE
   # ============================================================================
   storage:
     <<: *common
+    network_mode: host
     image: supabase/storage-api:v0.46.4
     container_name: valueos-storage
     environment:
@@ -246,14 +221,13 @@ services:
         condition: service_started
     volumes:
       - storage_data:/var/lib/storage
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # SUPABASE STUDIO
   # ============================================================================
   studio:
     <<: *common
+    network_mode: host
     image: supabase/studio:latest
     container_name: valueos-studio
     environment:
@@ -262,21 +236,18 @@ services:
       POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
       DEFAULT_PROJECT_NAME: ValueOS
       SUPABASE_PUBLIC_URL: http://localhost:${KONG_PROXY_PORT:-54321}
-    ports:
-      - "${STUDIO_PORT:-54324}:3000"
     depends_on:
       postgres:
         condition: service_healthy
       meta:
         condition: service_started
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # SUPABASE PG-META (Database metadata)
   # ============================================================================
   meta:
     <<: *common
+    network_mode: host
     image: supabase/postgres-meta:v0.80.0
     container_name: valueos-meta
     environment:
@@ -289,14 +260,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # KONG API GATEWAY
   # ============================================================================
   kong:
     <<: *common
+    network_mode: host
     image: kong:3.6
     container_name: valueos-kong
     environment:
@@ -311,24 +281,19 @@ services:
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
     volumes:
       - ../config/kong.yml:/var/lib/kong/kong.yml:ro
-    ports:
-      - "${KONG_PROXY_PORT:-54321}:8000"
-      - "${KONG_ADMIN_PORT:-8001}:8001"
-      - "${KONG_GUI_PORT:-8002}:8002"
     depends_on:
       - auth
       - rest
       - realtime
       - storage
       - meta
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # EDGE FUNCTIONS (Supabase Functions)
   # ============================================================================
   functions:
     <<: *common
+    network_mode: host
     image: supabase/edge-runtime:v1.53.3
     container_name: valueos-functions
     command: start --main-service /home/deno/functions/main
@@ -343,21 +308,16 @@ services:
     depends_on:
       kong:
         condition: service_started
-    networks:
-      - valueos-dev
 
   # ============================================================================
   # MAILHOG (Email testing)
   # ============================================================================
   mailhog:
     <<: *common
+    network_mode: host
     image: mailhog/mailhog:latest
     container_name: valueos-mailhog
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    networks:
-      - valueos-dev
+
 
 # ============================================================================
 # PERSISTENT VOLUMES
@@ -376,10 +336,4 @@ volumes:
   dev_bash_history:
     driver: local
 
-# ============================================================================
-# NETWORKS
-# ============================================================================
-networks:
-  valueos-dev:
-    name: valueos-dev
-    driver: bridge
+
