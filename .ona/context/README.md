@@ -37,6 +37,15 @@ Good context has seven layers (from Zilliz / Philschmid):
 - **After solving a non-obvious problem**: add a note to `memory.md`.
 - **After making an architectural decision**: add an ADR to `docs/engineering/adr/` and update `decisions.md`.
 
+## When to update each file
+
+- **`decisions.md`** — after a new ADR is accepted, or when an undocumented decision is made that future agents need to know about.
+- **`debt.md`** — when debt is resolved (mark it in the Resolved section) or newly discovered. Link GitHub issues. Re-measure `any` counts with grep before writing targets — do not trust table values as current.
+- **`user-stories.md`** — when a story's implementation status changes (a stage moves from ❌ to ✅).
+- **`traceability.md`** — when a new DB table, repository, endpoint, hook, or UI component is added for a lifecycle stage.
+- **`memory.md`** — after solving a non-obvious problem, removing a recurring anti-pattern, or completing a significant migration.
+- **`tools.md`** — when a new tool is registered or an existing tool's interface changes.
+
 ## Relationship to other context sources
 
 These files complement, not replace, existing sources:
