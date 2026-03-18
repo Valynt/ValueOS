@@ -11,6 +11,8 @@ const DEFAULT_CONFIG: DOMPurify.Config = {
   FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
   ALLOW_DATA_ATTR: false,
+  // Explicit scheme allowlist: only https, http, mailto, and tel are permitted.
+  // Relative URLs, data: URIs, javascript:, and all other schemes are rejected.
   ALLOWED_URI_REGEXP: /^(?:https?|mailto|tel):/i,
 };
 
