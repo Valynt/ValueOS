@@ -146,11 +146,13 @@ services:
       DB_NAME: ${PGDATABASE:-valueos}
       DB_USER: ${PGUSER:-postgres}
       DB_PASSWORD: ${PGPASSWORD:-postgres}
+      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}?sslmode=disable
       SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       GOTRUE_API_URL: http://auth:9999
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:${AUTH_PORT:-9999}}
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_SMTP_ADMIN_EMAIL: admin@valueos.local
