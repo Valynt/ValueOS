@@ -36,25 +36,21 @@ export const WireframeAuthContext = React.createContext<WireframeAuthContextType
  * (e.g. in Storybook or unit tests).
  */
 export function useWireframeAuth(): WireframeAuthContextType {
-  try {
-    const auth = useAuth();
-    const wireframeUser: WireframeUser | null = auth.user
-      ? {
-        id: auth.user.id,
-        name: auth.user.user_metadata?.full_name ?? auth.user.email ?? "User",
-        email: auth.user.email ?? "",
-        role: auth.userClaims?.roles?.[0] ?? "member",
-      }
-      : null;
+  const fallbackContext = React.useContext(WireframeAuthContext);
+  const auth = useAuth();
+  const wireframeUser: WireframeUser | null = auth.user
+    ? {
+      id: auth.user.id,
+      name: auth.user.user_metadata?.full_name ?? auth.user.email ?? "User",
+      email: auth.user.email ?? "",
+      role: auth.userClaims?.roles?.[0] ?? "member",
+    }
+    : null;
 
-    return {
-      user: wireframeUser,
-      isAuthenticated: auth.isAuthenticated,
-      organizationId: auth.userClaims?.org_id ?? null,
-      accessToken: auth.session?.access_token ?? null,
-    };
-  } catch {
-    // Outside AuthProvider — fall back to context value (useful in tests/Storybook)
-    return React.useContext(WireframeAuthContext);
-  }
+  return {
+    user: wireframeUser,
+    isAuthenticated: auth.isAuthenticated,
+    organizationId: auth.userClaims?.org_id ?? null,
+    accessToken: auth.session?.access_token ?? null,
+  };
 }

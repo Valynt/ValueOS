@@ -38,7 +38,7 @@ describe("LLM route existence", () => {
     process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || "http://localhost";
     process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "anon-key";
 
-    const serverModule = await import("../../server");
+    const serverModule = await import("../../index");
     app = serverModule.default;
   });
 

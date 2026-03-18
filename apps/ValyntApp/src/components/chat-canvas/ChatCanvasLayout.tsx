@@ -27,9 +27,6 @@ import type { ValueCase } from "@/components/shell";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
 
-// Canvas Layer
-
-
 // Mock data for demonstration
 const mockCases: ValueCase[] = [
   { id: "1", name: "Acme Corp ROI Analysis", status: "in-progress", updatedAt: "2 hours ago" },

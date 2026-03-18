@@ -1,9 +1,9 @@
 import { logger } from "@shared/lib/logger";
 import {
-  AgentRequestEvent,
-  createBaseEvent,
+  BaseEvent,
   EVENT_TOPICS,
 } from "@shared/types/events";
+import { createHash } from "node:crypto";
 import { Request, Response, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -150,6 +150,41 @@ interface AuditEvent {
     error?: string;
     latency?: number;
     [key: string]: unknown;
+  };
+}
+
+type AuditTrailProjection = {
+  data?: {
+    events?: AuditEvent[];
+  };
+};
+
+type AgentRequestPayload = {
+  agentId: string;
+  userId: string;
+  externalSub?: string;
+  sessionId: string;
+  tenantId: string;
+  query: string;
+  context?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
+  priority: string;
+  timeout: number;
+};
+
+function buildAgentRequestEvent(
+  correlationId: string,
+  payload: AgentRequestPayload
+): BaseEvent {
+  return {
+    type: "agent.request",
+    eventType: "agent.request",
+    eventId: correlationId,
+    version: "1.0.0",
+    timestamp: new Date(),
+    source: "agent-api",
+    correlationId,
+    payload,
   };
 }
 
@@ -488,26 +523,18 @@ router.post(
       const userId = (req as AuthenticatedRequest).user?.id;
       const externalSub = resolveExternalSub(req);
 
-      // Create agent request event
-      const agentRequestEvent = {
-        ...createBaseEvent(
-          "agent.request" as EventType,
-          correlationId,
-          "agent-api"
-        ),
-        payload: {
-          agentId,
-          userId,
-          externalSub,
-          sessionId,
-          tenantId,
-          query: sanitizedQuery,
-          context,
-          parameters: sanitizedParameters,
-          priority: "normal",
-          timeout: getAgentAPIConfig().timeout, // Centralized timeout config
-        },
-      } as AgentRequestEvent;
+      const agentRequestEvent = buildAgentRequestEvent(correlationId, {
+        agentId,
+        userId: userId ?? externalSub ?? "unknown",
+        externalSub,
+        sessionId: sessionId ?? correlationId,
+        tenantId,
+        query: sanitizedQuery,
+        context: (context as Record<string, unknown> | undefined) ?? {},
+        parameters: sanitizedParameters,
+        priority: "normal",
+        timeout: getAgentAPIConfig().timeout,
+      });
 
       // Publish event to Kafka
       await eventProducer.publish(
@@ -614,25 +641,18 @@ router.post(
         ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
         : undefined;
 
-      const agentRequestEvent = {
-        ...createBaseEvent(
-          "agent.request" as string,
-          correlationId,
-          "agent-api"
-        ),
-        payload: {
-          agentId,
-          userId,
-          externalSub,
-          sessionId,
-          tenantId,
-          query: normalizedAction || "execute",
-          context: { action: normalizedAction || "execute" },
-          parameters: { data, action: normalizedAction },
-          priority: priority || "normal",
-          timeout: getAgentAPIConfig().timeout,
-        },
-      } as AgentRequestEvent;
+      const agentRequestEvent = buildAgentRequestEvent(correlationId, {
+        agentId,
+        userId: userId ?? externalSub ?? "unknown",
+        externalSub,
+        sessionId: sessionId ?? correlationId,
+        tenantId,
+        query: normalizedAction || "execute",
+        context: { action: normalizedAction || "execute" },
+        parameters: { data, action: normalizedAction },
+        priority: priority || "normal",
+        timeout: getAgentAPIConfig().timeout,
+      });
 
       await eventProducer.publish(
         EVENT_TOPICS.AGENT_REQUESTS,
@@ -669,6 +689,17 @@ router.get(
   rateLimiters.loose,
   async (req: Request, res: Response) => {
     const { jobId } = req.params;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+
+    if (!tenantId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "tenant_required",
+          message: "Tenant context is required",
+        },
+      });
+    }
 
     if (!isKafkaEnabled()) {
       return kafkaUnavailableResponse(res);
@@ -678,7 +709,11 @@ router.get(
       const eventSourcing = getEventSourcingService();
 
       // Get audit trail for this job
-      const auditTrail = await eventSourcing.getAuditTrail(jobId);
+      const auditTrail =
+        (await eventSourcing.getAuditTrail(
+          tenantId,
+          jobId
+        )) as AuditTrailProjection | null;
 
       if (!auditTrail) {
         return res.status(404).json({
@@ -688,7 +723,7 @@ router.get(
       }
 
       // Check if we have a response event
-      const events = auditTrail.data?.events || [];
+      const events = auditTrail?.data?.events ?? [];
       const responseEvent = events.find(
         (e: AuditEvent) => e.eventType === "agent.response"
       );
@@ -773,6 +808,17 @@ router.get(
   rateLimiters.loose,
   async (req: Request, res: Response) => {
     const { jobId } = req.params;
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+
+    if (!tenantId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "tenant_required",
+          message: "Tenant context is required",
+        },
+      });
+    }
 
     if (!isKafkaEnabled()) {
       return kafkaUnavailableResponse(res);
@@ -799,7 +845,7 @@ router.get(
     const timeout = 120000; // 2 minutes timeout
     const startTime = Date.now();
 
-    const checkStatus = async () => {
+    const checkStatus = async (): Promise<void> => {
       if (!isActive) return;
 
       if (Date.now() - startTime > timeout) {
@@ -811,10 +857,14 @@ router.get(
       }
 
       try {
-        const auditTrail = await eventSourcing.getAuditTrail(jobId);
+        const auditTrail =
+          (await eventSourcing.getAuditTrail(
+            tenantId,
+            jobId
+          )) as AuditTrailProjection | null;
 
         if (auditTrail) {
-          const events = auditTrail.data?.events || [];
+          const events = auditTrail?.data?.events ?? [];
           const responseEvent = events.find(
             (e: AuditEvent) => e.eventType === "agent.response"
           );
@@ -879,7 +929,8 @@ router.get(
     };
 
     // Start polling
-    checkStatus();
+    void checkStatus();
+    return;
   }
 );
 
@@ -936,26 +987,18 @@ router.post(
       const userId = (req as AuthenticatedRequest).user?.id;
       const externalSub = resolveExternalSub(req);
 
-      // Publish a typed agent request to handle veto resolution
-      const agentRequestEvent: AgentRequestEvent = {
-        ...createBaseEvent(
-          "agent.request" as const,
-          correlationId,
-          "agent-api"
-        ),
-        payload: {
-          agentId: agentId || "IntegrityAgent",
-          userId,
-          externalSub,
-          sessionId,
-          tenantId,
-          query: "resolve_issue",
-          context: { issueId, resolution },
-          parameters: { issueId, resolution, modifiedOutput },
-          priority: "normal",
-          timeout: getAgentAPIConfig().timeout,
-        },
-      };
+      const agentRequestEvent = buildAgentRequestEvent(correlationId, {
+        agentId: agentId || "IntegrityAgent",
+        userId: userId ?? externalSub ?? "unknown",
+        externalSub,
+        sessionId: sessionId ?? correlationId,
+        tenantId,
+        query: "resolve_issue",
+        context: { issueId, resolution },
+        parameters: { issueId, resolution, modifiedOutput },
+        priority: "normal",
+        timeout: getAgentAPIConfig().timeout,
+      });
 
       await eventProducer.publish(
         EVENT_TOPICS.AGENT_REQUESTS,

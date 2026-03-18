@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { CRMConnector } from "../../../services/deal/CRMConnector.js";
+import { CRMConnector, CRMOpportunitySchema } from "../CRMConnector.js";
 
 describe("CRMConnector", () => {
   const connector = new CRMConnector();
@@ -36,7 +36,6 @@ describe("CRMConnector", () => {
 
   describe("Zod schema validation", () => {
     it("should validate CRMOpportunity schema", () => {
-      const { CRMOpportunitySchema } = require("../../../services/deal/CRMConnector.js");
       const valid = {
         id: "opp-1",
         name: "Test Opportunity",

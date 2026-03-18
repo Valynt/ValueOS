@@ -11,6 +11,9 @@ interface DefensibilityPanelProps {
 }
 
 export function DefensibilityPanel({ node }: DefensibilityPanelProps) {
+  const nodeDefensibilityAll = useDefensibilityStore((state) => state.nodeDefensibility);
+  const getNodeCoverage = useDefensibilityStore((state) => state.getNodeCoverage);
+
   if (!node) {
     return (
       <div className="p-4">
@@ -20,8 +23,8 @@ export function DefensibilityPanel({ node }: DefensibilityPanelProps) {
     );
   }
 
-  const nodeDefensibility = useDefensibilityStore((state) => state.nodeDefensibility[node.id]);
-  const coverage = useDefensibilityStore((state) => state.getNodeCoverage(node.id));
+  const nodeDefensibility = nodeDefensibilityAll[node.id];
+  const coverage = getNodeCoverage(node.id);
 
   if (!nodeDefensibility) {
     return (
