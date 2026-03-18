@@ -19,20 +19,20 @@ NC='\033[0m' # No Color
 
 # Function to print colored output
 print_status() {
-    local status=$1
-    local message=$2
-    case $status in
+    local status="$1"
+    local message="$2"
+    case "$status" in
         "success")
-            echo -e "${GREEN}✅ $message${NC}"
+            echo -e "${GREEN}✅ ${message}${NC}"
             ;;
         "error")
-            echo -e "${RED}❌ $message${NC}"
+            echo -e "${RED}❌ ${message}${NC}"
             ;;
         "warning")
-            echo -e "${YELLOW}⚠️  $message${NC}"
+            echo -e "${YELLOW}⚠️  ${message}${NC}"
             ;;
         "info")
-            echo -e "ℹ️  $message"
+            echo -e "ℹ️  ${message}"
             ;;
     esac
 }
@@ -40,6 +40,18 @@ print_status() {
 # Function to check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Verify both Docker CLI and Compose plugin are available
+require_docker_compose() {
+    if ! command_exists docker; then
+        print_status "error" "Docker CLI not found. Please install Docker first."
+        return 1
+    fi
+    if ! docker compose version >/dev/null 2>&1; then
+        print_status "error" "Docker Compose plugin not found. Please install docker-compose-plugin."
+        return 1
+    fi
 }
 
 # Function to install missing tools
@@ -65,13 +77,11 @@ install_missing_tools() {
 fix_dependency_vulnerabilities() {
     print_status "info" "Fixing critical dependency vulnerabilities..."
 
-    # Check if pnpm is available
     if ! command_exists pnpm; then
         print_status "error" "pnpm not found. Please install pnpm first."
         return 1
     fi
 
-    # Run pnpm audit fix
     print_status "info" "Running pnpm audit fix..."
     if pnpm audit --fix; then
         print_status "success" "Dependency vulnerabilities fixed"
@@ -79,7 +89,6 @@ fix_dependency_vulnerabilities() {
         print_status "warning" "Some vulnerabilities may require manual intervention"
     fi
 
-    # Show remaining vulnerabilities
     print_status "info" "Checking remaining vulnerabilities..."
     pnpm audit --audit-level moderate || true
 }
@@ -88,11 +97,9 @@ fix_dependency_vulnerabilities() {
 fix_build_issues() {
     print_status "info" "Fixing build issues..."
 
-    # Install missing reactflow dependency
     print_status "info" "Installing missing reactflow dependency..."
     pnpm add reactflow || print_status "warning" "reactflow installation failed"
 
-    # Clear pnpm cache and reinstall
     print_status "info" "Clearing pnpm cache..."
     pnpm store prune || true
 
@@ -104,19 +111,15 @@ fix_environment_config() {
     print_status "info" "Fixing environment configuration..."
 
     local env_file=".env"
-    local env_local_file=".env.local"
 
-    # Check if .env file exists
     if [[ ! -f "$env_file" ]]; then
         print_status "error" ".env file not found"
         return 1
     fi
 
-    # Backup current .env file
     cp "$env_file" "${env_file}.backup.$(date +%Y%m%d_%H%M%S)"
     print_status "info" "Backed up .env file"
 
-    # Check for required variables and add if missing
     local required_vars=(
         "DATABASE_URL=postgresql://postgres:postgres@postgres:5432/valueos"
         "SUPABASE_URL=http://localhost:54321"
@@ -127,12 +130,12 @@ fix_environment_config() {
     )
 
     for var in "${required_vars[@]}"; do
-        local key=$(echo "$var" | cut -d'=' -f1)
-        local value=$(echo "$var" | cut -d'=' -f2-)
+        local key="${var%%=*}"
+        local value="${var#*=}"
 
-        if ! grep -q "^$key=" "$env_file"; then
-            echo "$var" >> "$env_file"
-            print_status "warning" "Added missing $key to .env"
+        if ! grep -q "^${key}=" "$env_file"; then
+            echo "${key}=${value}" >> "$env_file"
+            print_status "warning" "Added missing ${key} to .env"
         fi
     done
 
@@ -143,40 +146,57 @@ fix_environment_config() {
 restart_failed_services() {
     print_status "info" "Restarting failed services..."
 
-    # Check if docker compose is available
-    if ! command_exists docker; then
-        print_status "error" "Docker not found. Please install Docker first."
+    if ! require_docker_compose; then
         return 1
     fi
 
-    # Get failed services
-    local failed_services=$(docker compose ps --filter "status=exited" --format "table {{.Names}}" | tail -n +2)
-
-    if [[ -n "$failed_services" ]]; then
-        print_status "info" "Found failed services: $failed_services"
-
-        # Restart failed services
-        for service in $failed_services; do
-            print_status "info" "Restarting service: $service"
-            docker compose restart "$service" || print_status "warning" "Failed to restart $service"
-        done
-    else
-        print_status "success" "No failed services found"
+    local ps_output
+    if ! ps_output="$(docker compose ps --filter "status=exited" --format "{{.Names}}" 2>/dev/null)"; then
+        print_status "warning" "Could not query container status"
+        return 1
     fi
 
-    # Wait for services to stabilize
-    sleep 10
+    if [[ -z "$ps_output" ]]; then
+        print_status "success" "No failed services found"
+        return 0
+    fi
 
-    # Check service health
-    print_status "info" "Checking service health..."
-    docker compose ps
+    local -a failed_services=()
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && failed_services+=("$name")
+    done <<< "$ps_output"
+
+    print_status "info" "Found ${#failed_services[@]} failed service(s)"
+
+    for service in "${failed_services[@]}"; do
+        print_status "info" "Restarting service: ${service}"
+        docker compose restart "$service" || print_status "warning" "Failed to restart ${service}"
+    done
+
+    local max_wait=30
+    local interval=5
+    local elapsed=0
+    print_status "info" "Waiting up to ${max_wait}s for services to stabilize..."
+    while (( elapsed < max_wait )); do
+        sleep "$interval"
+        elapsed=$(( elapsed + interval ))
+        local still_exited
+        still_exited="$(docker compose ps --filter "status=exited" --format "{{.Names}}" 2>/dev/null)" || true
+        if [[ -z "$still_exited" ]]; then
+            print_status "success" "All restarted services are running"
+            docker compose ps
+            return 0
+        fi
+    done
+
+    print_status "warning" "Some services remain unhealthy after ${max_wait}s:"
+    docker compose ps --filter "status=exited" 2>/dev/null || true
 }
 
 # Function to run security validation
 run_security_validation() {
     print_status "info" "Running security validation..."
 
-    # Run RLS tests
     print_status "info" "Running RLS policy validation..."
     if pnpm run test:rls; then
         print_status "success" "RLS validation passed"
@@ -184,7 +204,6 @@ run_security_validation() {
         print_status "warning" "RLS validation failed - check test output"
     fi
 
-    # Run security checks if available
     if [[ -f "scripts/test-agent-security.sh" ]]; then
         print_status "info" "Running agent security tests..."
         if bash scripts/test-agent-security.sh; then
@@ -194,7 +213,6 @@ run_security_validation() {
         fi
     fi
 
-    # Run CI security checks
     local security_scripts=(
         "check:runtime-sentinels"
         "check:browser-provider-secrets"
@@ -202,11 +220,11 @@ run_security_validation() {
     )
 
     for script in "${security_scripts[@]}"; do
-        print_status "info" "Running $script..."
+        print_status "info" "Running ${script}..."
         if pnpm run "$script" 2>/dev/null; then
-            print_status "success" "$script passed"
+            print_status "success" "${script} passed"
         else
-            print_status "warning" "$script failed or requires manual intervention"
+            print_status "warning" "${script} failed or requires manual intervention"
         fi
     done
 }
@@ -216,35 +234,43 @@ generate_security_report() {
     print_status "info" "Generating security status report..."
 
     local report_file="security-remediation-report-$(date +%Y%m%d_%H%M%S).md"
+    local report_date
+    report_date="$(date)"
 
-    cat > "$report_file" << EOF
+    cat > "$report_file" << 'REPORT_EOF'
 # ValueOS Security Remediation Report
-**Date:** $(date)
+REPORT_EOF
+
+    cat >> "$report_file" << REPORT_META
+**Date:** ${report_date}
 **Generated by:** Automated Remediation Script
 
+REPORT_META
+
+    cat >> "$report_file" << 'REPORT_EOF'
 ## Actions Taken
-$(print_status "info" "Installing missing security tools..." && echo "✅ Completed")
-$(print_status "info" "Fixing dependency vulnerabilities..." && echo "✅ Completed")
-$(print_status "info" "Fixing build issues..." && echo "✅ Completed")
-$(print_status "info" "Fixing environment configuration..." && echo "✅ Completed")
-$(print_status "info" "Restarting failed services..." && echo "✅ Completed")
+- Installing missing security tools: Completed
+- Fixing dependency vulnerabilities: Completed
+- Fixing build issues: Completed
+- Fixing environment configuration: Completed
+- Restarting failed services: Completed
 
 ## Current Status
 
 ### Dependency Vulnerabilities
-\`\`\`bash
+```bash
 pnpm audit --audit-level moderate
-\`\`\`
+```
 
 ### Service Health
-\`\`\`bash
+```bash
 docker compose ps
-\`\`\`
+```
 
 ### Environment Variables
-\`\`\`bash
+```bash
 grep -E "(DATABASE_URL|SUPABASE_URL|JWT_SECRET)" .env | sed 's/=.*/=***/'
-\`\`\`
+```
 
 ## Remaining Actions
 1. Review and update any remaining dependency vulnerabilities
@@ -254,27 +280,24 @@ grep -E "(DATABASE_URL|SUPABASE_URL|JWT_SECRET)" .env | sed 's/=.*/=***/'
 5. Complete compliance documentation
 
 ## Next Steps
-1. Run manual security validation: \`pnpm run test:rls\`
-2. Review audit report: \`cat SECURITY_AUDIT_REPORT.md\`
+1. Run manual security validation: `pnpm run test:rls`
+2. Review audit report: `cat SECURITY_AUDIT_REPORT.md`
 3. Schedule follow-up security review
 4. Implement automated security monitoring
+REPORT_EOF
 
-EOF
-
-    print_status "success" "Security report generated: $report_file"
+    print_status "success" "Security report generated: ${report_file}"
 }
 
 # Main execution function
 main() {
     print_status "info" "Starting critical security remediation..."
 
-    # Check if we're in the right directory
     if [[ ! -f "package.json" ]]; then
         print_status "error" "package.json not found. Please run this script from the ValueOS root directory."
         exit 1
     fi
 
-    # Run remediation steps
     install_missing_tools
     fix_dependency_vulnerabilities
     fix_build_issues
@@ -288,5 +311,4 @@ main() {
     print_status "warning" "Some issues may require manual intervention - see SECURITY_AUDIT_REPORT.md for details."
 }
 
-# Run main function
 main "$@"

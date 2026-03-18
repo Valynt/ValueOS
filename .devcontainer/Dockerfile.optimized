@@ -64,10 +64,10 @@ RUN set -eux; \
     npm --version; \
     pnpm --version
 
-# Install pnpm global packages
+# Install pnpm global packages into the vscode user's PNPM_HOME
 RUN set -eux; \
-    SHELL=/bin/bash pnpm setup; \
-    export PNPM_HOME="/root/.local/share/pnpm"; \
+    mkdir -p /home/vscode/.local/share/pnpm; \
+    export PNPM_HOME="/home/vscode/.local/share/pnpm"; \
     export PATH="$PNPM_HOME:$PATH"; \
     pnpm add -g \
       turbo \
@@ -75,7 +75,7 @@ RUN set -eux; \
       tsx \
       @anthropic-ai/claude-code \
       supabase; \
-    echo "pnpm global packages installed"
+    chown -R 1000:1000 /home/vscode/.local
 
 # Install Kubernetes and Terraform tools
 RUN set -eux; \

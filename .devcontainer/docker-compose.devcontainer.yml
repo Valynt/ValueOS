@@ -89,7 +89,7 @@ services:
       POSTGRES_USER: ${PGUSER:-postgres}
       POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXP: 3600
     ports:
       # Database port - exposed for local dev tools (psql, pgAdmin)
@@ -151,8 +151,8 @@ services:
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       GOTRUE_API_URL: http://auth:9999
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:${AUTH_PORT:-9999}}
-      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
-      GOTRUE_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_SMTP_ADMIN_EMAIL: admin@valueos.local
@@ -161,6 +161,12 @@ services:
       GOTRUE_SMTP_USER: ""
       GOTRUE_SMTP_PASS: ""
       GOTRUE_SMTP_SENDER_NAME: ValueOS
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9999/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -180,7 +186,7 @@ services:
       PGRST_DB_URI: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
       PGRST_DB_SCHEMA: public,storage
       PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:${KONG_PROXY_PORT:-54321}
     depends_on:
       postgres:
@@ -202,7 +208,7 @@ services:
       DB_USER: ${PGUSER:-postgres}
       DB_PASSWORD: ${PGPASSWORD:-postgres}
       PORT: 4000
-      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-UP501zJgO9sOoCVlU9xM4u1NRFv3ZP5d1H9X8s2O9qQ2gK9k7tQ4v1e9v9r8s7}
       FLY_ALLOC_ID: realtime
       FLY_APP_NAME: realtime
@@ -222,7 +228,7 @@ services:
     container_name: valueos-storage
     environment:
       DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}
-      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYtn_Ic}
       SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN98LU}
       STORAGE_BACKEND: file
@@ -230,7 +236,7 @@ services:
       TENANT_ID: valueos
       REGION: local
       GLOBAL_S3_BUCKET: valueos-bucket
-      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -324,13 +330,16 @@ services:
     image: supabase/edge-runtime:v1.53.3
     container_name: valueos-functions
     environment:
-      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       SUPABASE_URL: http://kong:8000
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYtn_Ic}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN98LU}
       VERIFY_JWT: "true"
     volumes:
       - ../supabase/functions:/home/deno/functions:ro
+    depends_on:
+      kong:
+        condition: service_started
     networks:
       - valueos-dev
 

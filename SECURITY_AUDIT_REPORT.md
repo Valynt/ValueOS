@@ -1,6 +1,6 @@
 # ValueOS Development Environment Security Audit Report
 
-**Date:** March 18, 2026
+**Date:** March 18, 2026 (point-in-time snapshot; vulnerability data may be stale)
 **Auditor:** AI Security Agent
 **Scope:** Development container and entire development environment
 **Classification:** Internal Use Only
@@ -35,7 +35,7 @@ Total: 13 vulnerabilities found
 
 ### Critical Vulnerabilities (Immediate Action Required)
 
-#### CRITICAL-001: jsPDF HTML Injection (CVE-2024-XXXX)
+#### CRITICAL-001: jsPDF HTML Injection (see pnpm audit for current advisory ID)
 - **Package:** jspdf <=4.2.0
 - **Impact:** HTML injection in new window paths
 - **Affected Paths:**
@@ -384,7 +384,7 @@ With prompt remediation of identified vulnerabilities and implementation of reco
 
 ---
 
-**Next Review:** April 18, 2026
+**Next Review:** Re-run `pnpm audit` and `docker compose ps` for current status
 **Responsible Team:** Platform Security
 **Approval Required:** CTO, CISO
 **Distribution:** Engineering Leadership, Security Team, Compliance Team
