@@ -304,8 +304,8 @@ export class TenantIsolationService {
       }
 
       // Apply data filtering if needed
-      if (allowed && filteredData) {
-        filteredData = await this.applyDataFiltering(request, filteredData);
+      if (allowed && filteredData && typeof filteredData === 'object' && filteredData !== null) {
+        filteredData = await this.applyDataFiltering(request, filteredData as Record<string, unknown>);
       }
 
       const result = this.createIsolationResult(
@@ -470,12 +470,12 @@ export class TenantIsolationService {
     const warnings: string[] = [];
 
     if (rule.rowLevelSecurity) {
-      filteredData = await this.applyRowLevelSecurity(request, filteredData);
+      filteredData = await this.applyRowLevelSecurity(request, filteredData as Record<string, unknown>);
       warnings.push("Row-level security applied");
     }
 
     if (rule.columnLevelSecurity) {
-      filteredData = await this.applyColumnLevelSecurity(request, filteredData);
+      filteredData = await this.applyColumnLevelSecurity(request, filteredData as Record<string, unknown>);
       warnings.push("Column-level security applied");
     }
 
@@ -549,10 +549,10 @@ export class TenantIsolationService {
     query: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     // Add tenant_id filter to query
-    const filteredQuery = {
+    const filteredQuery: Record<string, unknown> = {
       ...query,
       filters: {
-        ...query.filters,
+        ...(typeof query.filters === 'object' && query.filters !== null ? query.filters : {}),
         tenant_id: request.tenantContext.tenantId,
       },
     };
@@ -680,6 +680,7 @@ export class TenantIsolationService {
         allowedRequests: this.metrics.allowedRequests,
         blockedRequests: this.metrics.blockedRequests,
         averageProcessingTime: this.metrics.averageProcessingTime,
+        // eslint-disable-next-line security/detect-object-injection -- Map converted to plain object for logging
         ruleViolations: Object.fromEntries(this.metrics.ruleViolations),
       });
     }, 300000); // Every 5 minutes
@@ -749,6 +750,7 @@ export class TenantIsolationService {
       activeTenants: this.tenants.size,
       activeRules: this.isolationRules.size,
       cacheSize: this.tenantCache.size,
+      // eslint-disable-next-line security/detect-object-injection -- Map converted to plain object for logging
       ruleViolations: Object.fromEntries(this.metrics.ruleViolations),
     };
   }

@@ -2,11 +2,15 @@
   "version": "2026-07-01",
   "agent": "default",
   "allowedModels": [
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
     "Qwen/Qwen2.5-72B-Instruct-Turbo"
   ],
-  "allowedTools": ["web_search", "document_lookup", "calculator"],
+  "allowedTools": [
+    "web_search",
+    "document_lookup",
+    "calculator"
+  ],
   "maxTokens": 8000,
   "maxCostUsd": 2.00
 }

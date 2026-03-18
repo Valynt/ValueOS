@@ -17,7 +17,7 @@
 
 import { DecisionContext } from "@shared/domain/DecisionContext.js";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { securityLogger } from "@valueos/core-services";
+import { securityLogger } from "../../services/core/SecurityLogger.js";
 
 import { getAutonomyConfig } from "../../config/autonomy.js";
 import { logger } from "../../lib/logger.js";

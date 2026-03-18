@@ -1,6 +1,6 @@
 /**
  * Canvas Hooks
- * 
+ *
  * React hooks for canvas components to interact with the event bus
  */
 
@@ -24,16 +24,16 @@ export const CanvasContext = createContext<CanvasContextValue | null>(null);
 
 /**
  * Hook to emit canvas events
- * 
+ *
  * @example
  * ```tsx
  * const MyComponent = ({ componentId }) => {
  *   const emitEvent = useCanvasEvent(componentId);
- *   
+ *
  *   const handleClick = () => {
  *     emitEvent({ type: 'component_click', componentId, data: { foo: 'bar' } });
  *   };
- *   
+ *
  *   return <div onClick={handleClick}>Click me</div>;
  * };
  * ```
@@ -49,7 +49,7 @@ export function useCanvasEvent(componentId?: string) {
       // Auto-inject componentId if not in event
       const enrichedEvent: CanvasEvent =
         componentId && !('componentId' in event)
-          ? ({ ...event, componentId } as CanvasEvent)
+          ? ({ ...event, componentId } as unknown as CanvasEvent)
           : event;
 
       eventBus.emit(enrichedEvent, canvasId, {
@@ -64,23 +64,23 @@ export function useCanvasEvent(componentId?: string) {
 
 /**
  * Hook to get canvas context
- * 
+ *
  * @example
  * ```tsx
  * const MyComponent = () => {
  *   const { canvasId, sessionId } = useCanvasContext();
- *   
+ *
  *   return <div>Canvas: {canvasId}</div>;
  * };
  * ```
  */
 export function useCanvasContext() {
   const context = useContext(CanvasContext);
-  
+
   if (!context) {
     throw new Error('useCanvasContext must be used within CanvasContext.Provider');
   }
-  
+
   return context;
 }
 

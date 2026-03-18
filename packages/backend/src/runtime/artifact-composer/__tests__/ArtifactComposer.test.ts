@@ -17,7 +17,7 @@ vi.mock('@valueos/sdui', () => ({
   validateSDUISchema: vi.fn(function () { return { success: true }; }),
 }));
 
-vi.mock('@valueos/core-services', () => ({
+vi.mock('../../../services/core/SecurityLogger.js', () => ({
   securityLogger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 

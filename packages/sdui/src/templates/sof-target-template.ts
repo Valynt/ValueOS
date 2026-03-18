@@ -4,7 +4,7 @@
  * Extended Target template with Intervention Designer and Outcome Hypotheses.
  */
 
-import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "@valueos/sdui-types";
+import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "../agentContract";
 
 import type { SDUIPageDefinition } from "../schema";
 

@@ -4,6 +4,9 @@ export * from "./registry";
 export * from "./schema";
 export * from "./templates";
 
+// Agent contract types (migrated from @valueos/sdui-types)
+export * from "./agentContract";
+
 // Real-time schema updates
 export { useSchemaStore } from "./SchemaStore";
 export { SchemaPatcher } from "./SchemaPatcher";

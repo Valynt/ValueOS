@@ -1,6 +1,6 @@
 /**
  * SDUI Dark Theme System
- * 
+ *
  * Based on Sales AI Enterprise MCP Platform UI Style Guide:
  * - Dark background (#121212)
  * - Neon green accents (#39FF14)
@@ -16,31 +16,31 @@ export const SDUIColors = {
   dark: '#121212',
   neon: '#39FF14',
   neonDark: '#0A3A0A',
-  
+
   // Surface colors
   card: '#333333',
   cardHover: '#3A3A3A',
   border: '#444444',
   borderHover: '#555555',
-  
+
   // Text colors
   textPrimary: '#FFFFFF',
   textSecondary: '#B3B3B3',
   textTertiary: '#808080',
   textInverse: '#121212',
-  
+
   // Status colors
   success: '#39FF14',
   warning: '#FFB800',
   error: '#FF3B30',
   info: '#0A84FF',
-  
+
   // Semantic colors
   background: '#121212',
   backgroundElevated: '#1A1A1A',
   surface: '#333333',
   surfaceHover: '#3A3A3A',
-  
+
   // Overlay colors
   overlay: 'rgba(18, 18, 18, 0.8)',
   overlayLight: 'rgba(18, 18, 18, 0.6)',
@@ -245,16 +245,19 @@ export function generateInlineStyles(
   state?: 'hover' | 'focus' | 'active'
 ): React.CSSProperties {
   const baseStyles = SDUIComponentStyles[component];
-  
+
   if (typeof baseStyles === 'object' && 'primary' in baseStyles) {
     // Handle button variants
     return baseStyles.primary as React.CSSProperties;
   }
-  
+
   if (state && typeof baseStyles === 'object' && state in baseStyles) {
-    return { ...baseStyles, ...(baseStyles as Record<string, unknown>)[state] } as React.CSSProperties;
+    const stateStyles = (baseStyles as Record<string, unknown>)[state];
+    if (typeof stateStyles === 'object' && stateStyles !== null) {
+      return { ...baseStyles, ...stateStyles } as React.CSSProperties;
+    }
   }
-  
+
   return baseStyles as React.CSSProperties;
 }
 

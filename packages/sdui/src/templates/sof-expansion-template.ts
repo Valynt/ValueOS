@@ -4,7 +4,7 @@
  * Extended Expansion template with System Replication and Scaling Analysis.
  */
 
-import type { FeedbackLoop, InterventionPoint, SystemMap } from "@valueos/sdui-types";
+import type { FeedbackLoop, InterventionPoint, SystemMap } from '../agentContract';
 
 import type { SDUIPageDefinition } from "../schema";
 

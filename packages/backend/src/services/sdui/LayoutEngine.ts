@@ -1,5 +1,4 @@
-// Migrated to @valueos/core-services in Sprint 6.
-// This re-export exists for backward compatibility during the transition.
-// Update imports to use '@valueos/core-services' directly.
-export { layoutEngine } from '@valueos/core-services';
-export type { LayoutSuggestion, AlignmentInfo } from '@valueos/core-services';
+// Migrated to @valueos/backend/src/services/core in Sprint 43.
+// This re-export exists for backward compatibility.
+export { layoutEngine } from '../core/LayoutEngine.js';
+export type { LayoutSuggestion, AlignmentInfo } from '../core/LayoutEngine.js';

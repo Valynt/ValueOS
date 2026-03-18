@@ -171,10 +171,16 @@ export class EnhancedInputValidator {
         additionalProperties: false
       },
       sanitizers: [
-        (data) => ({
-          ...data,
-          content: this.sanitizeLLMContent(data.content)
-        })
+        (data: unknown) => {
+          if (typeof data !== 'object' || data === null || !('content' in data)) {
+            return data;
+          }
+          const dataWithContent = data as { content: unknown };
+          return {
+            ...dataWithContent,
+            content: this.sanitizeLLMContent(String(dataWithContent.content))
+          };
+        }
       ]
     });
 
@@ -323,7 +329,8 @@ export class EnhancedInputValidator {
   addRule(rule: ValidationRule): void {
     // Compile the schema
     const validate = this.ajv.compile(rule.schema);
-    (rule as Record<string, unknown>).validate = validate;
+    const ruleWithValidate = rule as unknown as { validate: typeof validate };
+    ruleWithValidate.validate = validate;
 
     this.rules.set(rule.id, rule);
     logger.info('Validation rule added', { ruleId: rule.id, name: rule.name });
@@ -360,7 +367,16 @@ export class EnhancedInputValidator {
     }
 
     // Run schema validation
-    const validate = (rule as Record<string, unknown>).validate;
+    const ruleWithValidate = rule as unknown as {
+      validate?: ((data: unknown) => boolean) & { errors?: Array<{ instancePath: string; message?: string }> | null }
+    };
+    const validate = ruleWithValidate.validate;
+    if (!validate) {
+      return {
+        isValid: false,
+        errors: [`Validation rule '${ruleId}' has no compiled validator`]
+      };
+    }
     const isValid = validate(data);
 
     if (!isValid && validate.errors) {
@@ -465,7 +481,7 @@ export class EnhancedInputValidator {
   /**
    * Add custom validation keyword
    */
-  addKeyword(keyword: string, definition: unknown): void {
+  addKeyword(keyword: string, definition: Parameters<Ajv['addKeyword']>[1]): void {
     this.ajv.addKeyword(keyword, definition);
     logger.info('Custom validation keyword added', { keyword });
   }

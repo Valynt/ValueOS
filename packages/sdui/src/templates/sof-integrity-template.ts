@@ -4,7 +4,7 @@
  * Extended Integrity template with Governance Integration and System Health Monitoring.
  */
 
-import type { FeedbackLoop, InterventionPoint, SystemMap } from '@valueos/sdui-types';
+import type { FeedbackLoop, InterventionPoint, SystemMap } from '../agentContract';
 
 import type { SDUIPageDefinition } from '../schema';
 
@@ -27,7 +27,7 @@ export function generateSOFIntegrityPage(data: {
   const activeLoops = allLoops.filter((loop) => loop.realization_stage === 'active');
   const closedLoops = allLoops.filter((loop) => loop.closure_status === 'closed');
 
-   
+
   const components: SDUIPageDefinition['sections'] = ([
     // Header
     {

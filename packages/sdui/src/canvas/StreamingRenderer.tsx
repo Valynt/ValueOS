@@ -121,60 +121,64 @@ const CanvasLayoutRenderer: React.FC<{ layout: CanvasLayout; depth?: number }> =
     );
   }
 
+  const layoutObj = layout as Record<string, unknown>;
   const renderChildren = (children: CanvasLayout[] | undefined) =>
     children?.map((child, i) => <CanvasLayoutRenderer key={i} layout={child} depth={depth + 1} />);
 
-  const slotNodes = "slots" in layout && layout.slots
+  const slotNodes = "slots" in layoutObj && layoutObj.slots
     ? {
-        primary: layout.slots.primary ? <CanvasLayoutRenderer layout={layout.slots.primary} depth={depth + 1} /> : undefined,
-        secondary: layout.slots.secondary ? <CanvasLayoutRenderer layout={layout.slots.secondary} depth={depth + 1} /> : undefined,
-        header: layout.slots.header ? <CanvasLayoutRenderer layout={layout.slots.header} depth={depth + 1} /> : undefined,
-        footer: layout.slots.footer ? <CanvasLayoutRenderer layout={layout.slots.footer} depth={depth + 1} /> : undefined,
-      }
+      primary: (layoutObj.slots as Record<string, unknown>).primary ? <CanvasLayoutRenderer layout={(layoutObj.slots as Record<string, unknown>).primary as CanvasLayout} depth={depth + 1} /> : undefined,
+      secondary: (layoutObj.slots as Record<string, unknown>).secondary ? <CanvasLayoutRenderer layout={(layoutObj.slots as Record<string, unknown>).secondary as CanvasLayout} depth={depth + 1} /> : undefined,
+      header: (layoutObj.slots as Record<string, unknown>).header ? <CanvasLayoutRenderer layout={(layoutObj.slots as Record<string, unknown>).header as CanvasLayout} depth={depth + 1} /> : undefined,
+      footer: (layoutObj.slots as Record<string, unknown>).footer ? <CanvasLayoutRenderer layout={(layoutObj.slots as Record<string, unknown>).footer as CanvasLayout} depth={depth + 1} /> : undefined,
+    }
     : undefined;
 
-  switch (layout.type) {
+  switch (layoutObj.type) {
     case "VerticalSplit":
       return (
-        <VerticalSplit ratios={layout.ratios} gap={layout.gap} stackAt={layout.stackAt} dragResize={layout.dragResize} minRatio={layout.minRatio} slots={slotNodes}>
-          {renderChildren(layout.children)}
+        <VerticalSplit ratios={layoutObj.ratios as number[]} gap={layoutObj.gap as number} stackAt={layoutObj.stackAt as 'sm' | 'md' | 'lg' | 'xl' | false} dragResize={layoutObj.dragResize as boolean} minRatio={layoutObj.minRatio as number} slots={slotNodes}>
+          {renderChildren(layoutObj.children as CanvasLayout[])}
         </VerticalSplit>
       );
 
     case "HorizontalSplit":
       return (
-        <HorizontalSplit ratios={layout.ratios} gap={layout.gap} stackAt={layout.stackAt} dragResize={layout.dragResize} minRatio={layout.minRatio} slots={slotNodes}>
-          {renderChildren(layout.children)}
+        <HorizontalSplit ratios={layoutObj.ratios as number[]} gap={layoutObj.gap as number} stackAt={layoutObj.stackAt as 'sm' | 'md' | 'lg' | 'xl' | false} dragResize={layoutObj.dragResize as boolean} minRatio={layoutObj.minRatio as number} slots={slotNodes}>
+          {renderChildren(layoutObj.children as CanvasLayout[])}
         </HorizontalSplit>
       );
 
     case "Grid":
       return (
-        <Grid columns={layout.columns} rows={layout.rows} gap={layout.gap} responsive={layout.responsive} responsiveColumns={layout.responsiveColumns}>
-          {renderChildren(layout.children)}
+        <Grid columns={layoutObj.columns as number} rows={layoutObj.rows as number} gap={layoutObj.gap as number} responsive={layoutObj.responsive as boolean} responsiveColumns={layoutObj.responsiveColumns as Record<string, number>}>
+          {renderChildren(layoutObj.children as CanvasLayout[])}
         </Grid>
       );
 
     case "DashboardPanel":
       return (
-        <DashboardPanel title={layout.title} collapsible={layout.collapsible} defaultCollapsed={layout.defaultCollapsed} slots={slotNodes}>
-          {renderChildren(layout.children)}
+        <DashboardPanel title={layoutObj.title as string} collapsible={layoutObj.collapsible as boolean} defaultCollapsed={layoutObj.defaultCollapsed as boolean} slots={slotNodes}>
+          {renderChildren(layoutObj.children as CanvasLayout[])}
         </DashboardPanel>
       );
 
     case "Component": {
-      const result = resolveComponentWithVersion(layout.component, layout.version);
+      const componentName = layoutObj.component as string;
+      const version = layoutObj.version as number;
+      const props = layoutObj.props as Record<string, unknown>;
+      const result = resolveComponentWithVersion(componentName, version);
       if (!result || !result.component) {
         return (
           <div className="p-3 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
-            Component not found: {layout.component}
+            Component not found: {componentName}
           </div>
         );
       }
       const Component = result.component;
       return (
-        <ComponentErrorBoundary componentName={layout.component}>
-          <Component {...(layout.props ?? {})} />
+        <ComponentErrorBoundary componentName={componentName}>
+          <Component {...(props ?? {})} />
         </ComponentErrorBoundary>
       );
     }
@@ -206,7 +210,7 @@ const StreamingSkeletons: React.FC<{ chunks: Partial<CanvasLayout>[] }> = ({ chu
     <div className="space-y-4 p-4 animate-pulse">
       {chunks.map((chunk, i) => {
         const componentName =
-          chunk.type === "Component" ? (chunk as Record<string, unknown>).component as string : undefined;
+          (chunk as Record<string, unknown>).type === "Component" ? (chunk as Record<string, unknown>).component as string : undefined;
         const heightClass =
           (componentName && SKELETON_HEIGHTS[componentName]) || "h-48";
 

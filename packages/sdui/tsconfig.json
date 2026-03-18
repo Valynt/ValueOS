@@ -3,7 +3,11 @@
     "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx",
     "outDir": "dist",
     "declaration": true,
@@ -20,18 +24,46 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@shared/*": ["../shared/src/*"],
-      "@backend/*": ["../backend/src/*"],
-      "@infra/*": ["../infra/*"],
-      "@memory/*": ["../memory/*"],
-      "@agents/*": ["../agents/*"],
-      "@integrations/*": ["../integrations/*"],
-      "@mcp/*": ["../mcp/*"],
-      "@sdui/*": ["./src/*"],
-      "@valueos/sdui-types": ["../sdui-types/index.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@shared/*": [
+        "../shared/src/*"
+      ],
+      "@backend/*": [
+        "../backend/src/*"
+      ],
+      "@infra/*": [
+        "../infra/*"
+      ],
+      "@memory/*": [
+        "../memory/*"
+      ],
+      "@agents/*": [
+        "../agents/*"
+      ],
+      "@integrations/*": [
+        "../integrations/*"
+      ],
+      "@mcp/*": [
+        "../mcp/*"
+      ],
+      "@sdui/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["src/**/*", "config/**/*", "lib/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx", "**/*.stories.tsx", "**/*.stories.ts"]
+  "include": [
+    "src/**/*",
+    "config/**/*",
+    "lib/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.stories.tsx",
+    "**/*.stories.ts"
+  ]
 }

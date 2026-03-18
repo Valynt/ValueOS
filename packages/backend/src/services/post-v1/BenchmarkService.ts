@@ -1,5 +1,4 @@
-// Migrated to @valueos/core-services in Sprint 6.
-// This re-export exists for backward compatibility during the transition.
-// Update imports to use '@valueos/core-services' directly.
-export { BenchmarkService } from '@valueos/core-services';
-export type { Benchmark, BenchmarkComparison, BenchmarkImportResult } from '@valueos/core-services';
+// Migrated to @valueos/backend/src/services/core in Sprint 43.
+// This re-export exists for backward compatibility.
+export { BenchmarkService } from '../core/BenchmarkService.js';
+export type { Benchmark, BenchmarkComparison, BenchmarkImportResult } from '../core/BenchmarkService.js';

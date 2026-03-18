@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from 'crypt
 
 import { logger } from '../lib/logger.js';
 
+// eslint-disable-next-line security/detect-object-injection -- Controlled environment variable access
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;

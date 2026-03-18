@@ -4,7 +4,7 @@
  * Extended Realization template with Feedback Loop Viewer and System Stability.
  */
 
-import type { FeedbackLoop, InterventionPoint, SystemMap } from "@valueos/sdui-types";
+import type { FeedbackLoop, InterventionPoint, SystemMap } from "../agentContract";
 
 import type { SDUIPageDefinition } from "../schema";
 

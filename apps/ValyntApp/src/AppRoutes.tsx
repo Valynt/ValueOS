@@ -67,6 +67,9 @@ const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 const AgentAdminPage = lazy(() => import("./views/Admin/AgentAdminPage"));
 const LivingValueGraphPage = lazy(() => import("./views/LivingValueGraphPage"));
 
+// Academy v2 (migrated from VOSAcademy)
+const AcademyV2Routes = lazy(() => import("./features/academy-v2/routes"));
+
 
 const TENANT_SCOPED_PREFIX = "/org";
 
@@ -181,6 +184,7 @@ export function AppRoutes() {
                                       <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
                                       <Route path="company" element={<CompanyKnowledge />} />
                                       <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
+                                      <Route path="academy/*" element={<AcademyV2Routes />} />
                                     </Route>
                                   </Route>
 

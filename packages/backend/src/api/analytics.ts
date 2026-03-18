@@ -118,26 +118,31 @@ tenantAnalyticsRouter.post(
   "/events",
   express.json(),
   async (req, res) => {
-    const tenantId = req.tenantId;
-    if (!tenantId) {
-      return res.status(401).json({ error: "Tenant context required" });
-    }
-    const requestedOrganizationId = req.body?.organizationId as string | undefined;
-    if (requestedOrganizationId && requestedOrganizationId !== tenantId) {
-      return res.status(403).json({ error: "Tenant context mismatch" });
-    }
+    try {
+      const tenantId = req.tenantId;
+      if (!tenantId) {
+        return res.status(401).json({ error: "Tenant context required" });
+      }
+      const requestedOrganizationId = req.body?.organizationId as string | undefined;
+      if (requestedOrganizationId && requestedOrganizationId !== tenantId) {
+        return res.status(403).json({ error: "Tenant context mismatch" });
+      }
 
-    const parsed = RecordEventInputSchema.safeParse({
-      ...req.body,
-      organizationId: tenantId,
-    });
+      const parsed = RecordEventInputSchema.safeParse({
+        ...req.body,
+        organizationId: tenantId,
+      });
 
-    if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid event payload", details: parsed.error.flatten() });
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid event payload", details: parsed.error.flatten() });
+      }
+
+      await ValueLoopAnalytics.record(parsed.data);
+      return res.status(201).json({ success: true });
+    } catch (error) {
+      logger.error("Failed to record value loop event", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Internal server error" });
     }
-
-    await ValueLoopAnalytics.record(parsed.data);
-    return res.status(201).json({ success: true });
   },
 );
 
@@ -145,14 +150,19 @@ tenantAnalyticsRouter.post(
 tenantAnalyticsRouter.get(
   "/insights",
   async (req, res) => {
-    const tenantId = req.tenantId;
-    if (!tenantId) {
-      return res.status(401).json({ error: "Tenant context required" });
-    }
-    const windowDays = Math.min(Number(req.query.days ?? 30), 90);
+    try {
+      const tenantId = req.tenantId;
+      if (!tenantId) {
+        return res.status(401).json({ error: "Tenant context required" });
+      }
+      const windowDays = Math.min(Number(req.query.days ?? 30), 90);
 
-    const insights = await ValueLoopAnalytics.getInsights(tenantId, windowDays);
-    return res.status(200).json({ success: true, data: insights });
+      const insights = await ValueLoopAnalytics.getInsights(tenantId, windowDays);
+      return res.status(200).json({ success: true, data: insights });
+    } catch (error) {
+      logger.error("Failed to get value loop insights", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Internal server error" });
+    }
   },
 );
 

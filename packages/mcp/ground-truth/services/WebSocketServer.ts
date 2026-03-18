@@ -144,15 +144,15 @@ export class WebSocketServer {
       const pubClient = new Redis(redisUrl, { lazyConnect: false, maxRetriesPerRequest: 3 });
       const subClient = pubClient.duplicate();
 
-      pubClient.on("error", (err) => logger.error("MCP WS Redis pub error", err));
-      subClient.on("error", (err) => logger.error("MCP WS Redis sub error", err));
+      pubClient.on("error", (err) => logger.error("MCP WS Redis pub error", { error: err.message }));
+      subClient.on("error", (err) => logger.error("MCP WS Redis sub error", { error: err.message }));
 
       this.io.adapter(createAdapter(pubClient, subClient));
       logger.info("MCP WebSocketServer: Redis adapter attached");
     } catch (err) {
       logger.error(
         "MCP WebSocketServer: failed to attach Redis adapter, using in-memory",
-        err instanceof Error ? err : undefined
+        { error: err instanceof Error ? err.message : String(err) }
       );
     }
   }
@@ -194,7 +194,7 @@ export class WebSocketServer {
       } catch (error) {
         logger.error(
           "WebSocket authentication error",
-          error instanceof Error ? error : undefined
+          { error: error instanceof Error ? error.message : String(error) }
         );
         next(new Error("Authentication error"));
       }
@@ -305,8 +305,8 @@ export class WebSocketServer {
     } catch (error) {
       logger.error(
         "Subscription handling error",
-        error instanceof Error ? error : undefined,
         {
+          error: error instanceof Error ? error.message : String(error),
           socketId: socket.id,
           channels: message.channels,
         }

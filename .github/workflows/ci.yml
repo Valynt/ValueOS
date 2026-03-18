@@ -673,7 +673,101 @@ jobs:
             echo "$lane"
             status="${lane#*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
-              echo "Failing release gate due to lane status: $lane"
               exit 1
             fi
+            sleep 1
           done
+
+          # Validate health endpoint
+          echo "Testing /health endpoint..."
+          HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:3001/health)
+          HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
+          BODY=$(echo "$HEALTH_RESPONSE" | sed '$d')
+
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+
+          # Cleanup
+          kill $BACKEND_PID 2>/dev/null || true
+
+          # Validate response
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Health check failed: expected 200, got $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "✅ Health check passed"
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/health-check-gate
+          cat > artifacts/ci-lanes/health-check-gate/summary.md <<EOF
+          # health-check-gate
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-health-check-gate-${{ github.run_id }}
+          path: artifacts/ci-lanes/health-check-gate/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  # DevContainer build validation: ensures devcontainer builds successfully
+  devcontainer-build:
+    name: devcontainer-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Copy env template
+        run: cp .devcontainer/.env.template .devcontainer/.env
+
+      - name: Build DevContainer image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: .devcontainer/Dockerfile.optimized
+          push: false
+          load: true
+          tags: valueos-devcontainer:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Validate container health
+        run: |
+          docker run --rm valueos-devcontainer:ci node --version
+          docker run --rm valueos-devcontainer:ci pnpm --version
+
+      - name: Emit lane summary
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-lanes/devcontainer-build
+          cat > artifacts/ci-lanes/devcontainer-build/summary.md <<EOF
+          # devcontainer-build
+          - workflow: ${{ github.workflow }}
+          - run_id: ${{ github.run_id }}
+          - run_attempt: ${{ github.run_attempt }}
+          - lane_status: ${{ job.status }}
+          - sha: ${{ github.sha }}
+          EOF
+
+      - name: Upload lane artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-devcontainer-build-${{ github.run_id }}
+          path: artifacts/ci-lanes/devcontainer-build/**
+          if-no-files-found: warn
+          retention-days: 30

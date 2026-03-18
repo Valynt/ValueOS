@@ -77,6 +77,7 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
 import { createServerSupabaseClient } from "./lib/supabase.js";
 import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";
@@ -589,6 +590,9 @@ app.use("/api/v1/value-cases", valueCasesRouter);
 app.use("/api/v1/value-commitments", valueCommitmentsRouter);
 app.use("/api/v1/tenant/context", tenantContextRouter);
 app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
+
+// Academy tRPC endpoint (mounted under /api/academy)
+app.use("/api/academy", requireAuth, tenantContextMiddleware(), academyTrpcMiddleware);
 
 // Mount checkpoint HITL endpoints
 // getCheckpointMiddleware() always returned null in the UAO facade; preserve that behaviour.

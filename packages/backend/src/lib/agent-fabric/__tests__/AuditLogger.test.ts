@@ -29,7 +29,7 @@ describe("AuditLogger", () => {
         sessionId: "sess-001",
         tenantId: "tenant-abc",
         userId: "user-xyz",
-        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         latencyMs: 1234,
         hallucinationPassed: true,
         groundingScore: 0.92,

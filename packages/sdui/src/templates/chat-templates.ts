@@ -7,7 +7,7 @@
  * Phase 3: SDUI Template System
  */
 
-import type { LifecycleStage, WorkflowState } from '@valueos/sdui-types';
+import type { LifecycleStage, WorkflowState } from '../agentContract';
 
 import type { SDUIPageDefinition } from '../schema';
 

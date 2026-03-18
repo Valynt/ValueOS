@@ -7,7 +7,7 @@
  * Phase 3: Stage-specific SDUI generation
  */
 
-import type { WorkflowState } from "@valueos/sdui-types";
+import type { WorkflowState } from "../agentContract";
 
 import type { SDUIPageDefinition } from "../schema";
 

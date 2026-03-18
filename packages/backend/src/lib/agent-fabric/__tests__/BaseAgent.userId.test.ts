@@ -12,7 +12,7 @@ vi.mock("../LLMGateway.js", () => ({
   LLMGateway: class {
     complete = vi.fn().mockResolvedValue({
       content: JSON.stringify({ result: "ok", hallucination_check: true }),
-      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
       finish_reason: "stop",
       usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
     });

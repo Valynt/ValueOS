@@ -131,15 +131,16 @@ export class CanvasPatcher {
     componentId: string,
     newProps: Record<string, unknown>
   ): CanvasLayout {
-    if (layout.type === "Component" && layout.componentId === componentId) {
-      return immutableUpdate(layout, {
-        props: { ...layout.props, ...newProps },
+    const layoutNode = layout as Record<string, unknown>;
+    if (layoutNode.type === "Component" && layoutNode.componentId === componentId) {
+      return immutableUpdate(layout as Record<string, any>, {
+        props: { ...(layoutNode.props as Record<string, unknown>), ...newProps },
       });
     }
 
-    if ("children" in layout && layout.children) {
-      return immutableUpdate(layout, {
-        children: layout.children.map((child: CanvasLayout) =>
+    if ("children" in layoutNode && Array.isArray(layoutNode.children)) {
+      return immutableUpdate(layout as Record<string, any>, {
+        children: (layoutNode.children as CanvasLayout[]).map((child: CanvasLayout) =>
           this.updateComponentPropsImmutable(child, componentId, newProps)
         ),
       });
@@ -156,15 +157,16 @@ export class CanvasPatcher {
     componentId: string,
     newData: unknown
   ): CanvasLayout {
-    if (layout.type === "Component" && layout.componentId === componentId) {
-      return immutableUpdate(layout, {
-        props: { ...layout.props, data: newData },
+    const layoutNode = layout as Record<string, unknown>;
+    if (layoutNode.type === "Component" && layoutNode.componentId === componentId) {
+      return immutableUpdate(layout as Record<string, any>, {
+        props: { ...(layoutNode.props as Record<string, unknown>), data: newData },
       });
     }
 
-    if ("children" in layout && layout.children) {
-      return immutableUpdate(layout, {
-        children: layout.children.map((child: CanvasLayout) =>
+    if ("children" in layoutNode && Array.isArray(layoutNode.children)) {
+      return immutableUpdate(layout as Record<string, any>, {
+        children: (layoutNode.children as CanvasLayout[]).map((child: CanvasLayout) =>
           this.updateComponentDataImmutable(child, componentId, newData)
         ),
       });
@@ -185,11 +187,12 @@ export class CanvasPatcher {
     const parts = parentPath.split("/").filter(Boolean);
 
     const reorder = (node: unknown, remainingPath: string[]): unknown => {
+      const nodeObj = node as Record<string, unknown>;
       if (remainingPath.length === 0) {
         const children = Array.isArray(node)
           ? node
-          : "children" in node
-            ? node.children
+          : "children" in nodeObj
+            ? nodeObj.children as unknown[]
             : undefined;
 
         if (!Array.isArray(children)) {
@@ -211,7 +214,7 @@ export class CanvasPatcher {
 
         return Array.isArray(node)
           ? newChildren
-          : immutableUpdate(node, { children: newChildren });
+          : immutableUpdate(node as Record<string, any>, { children: newChildren });
       }
 
       const [head, ...tail] = remainingPath;
@@ -231,9 +234,9 @@ export class CanvasPatcher {
         );
       }
 
-      if (node && typeof node === "object" && head in node) {
-        return immutableUpdate(node, {
-          [head]: reorder(node[head], tail),
+      if (node && typeof node === "object" && head in nodeObj) {
+        return immutableUpdate(node as Record<string, any>, {
+          [head]: reorder(nodeObj[head], tail),
         });
       }
 
@@ -250,12 +253,13 @@ export class CanvasPatcher {
     layout: CanvasLayout,
     componentId: string
   ): CanvasLayout | null {
-    if (layout.type === "Component" && layout.componentId === componentId) {
+    const layoutNode = layout as Record<string, unknown>;
+    if (layoutNode.type === "Component" && layoutNode.componentId === componentId) {
       return layout;
     }
 
-    if ("children" in layout && layout.children) {
-      for (const child of layout.children) {
+    if ("children" in layoutNode && Array.isArray(layoutNode.children)) {
+      for (const child of layoutNode.children as CanvasLayout[]) {
         const found = this.findComponentById(child, componentId);
         if (found) return found;
       }
@@ -271,12 +275,13 @@ export class CanvasPatcher {
     const ids: string[] = [];
 
     const traverse = (node: CanvasLayout): void => {
-      if (node.type === "Component") {
-        ids.push(node.componentId);
+      const nodeObj = node as Record<string, unknown>;
+      if (nodeObj.type === "Component") {
+        ids.push(nodeObj.componentId as string);
       }
 
-      if ("children" in node && node.children) {
-        node.children.forEach(traverse);
+      if ("children" in nodeObj && Array.isArray(nodeObj.children)) {
+        (nodeObj.children as CanvasLayout[]).forEach(traverse);
       }
     };
 

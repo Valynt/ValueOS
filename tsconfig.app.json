@@ -58,12 +58,6 @@
       "@valueos/memory/*": [
         "./packages/memory/*/index.ts"
       ],
-      "@valueos/sdui": [
-        "./packages/sdui/src/index.ts"
-      ],
-      "@valueos/sdui-types": [
-        "./packages/sdui-types/index.ts"
-      ],
       "@valueos/integrations": [
         "./packages/integrations/index.ts"
       ],

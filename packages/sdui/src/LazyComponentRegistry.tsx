@@ -359,8 +359,8 @@ const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
 };
 
 // Component load cache
-const componentCache = new Map<string, ComponentType<Record<string, unknown>>>();
-const loadingPromises = new Map<string, Promise<ComponentType<Record<string, unknown>>>>();
+const componentCache = new Map<string, React.ComponentType<any>>();
+const loadingPromises = new Map<string, Promise<React.ComponentType<any>>>();
 
 // Loading fallback component
 const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ componentName }) => (
@@ -473,8 +473,8 @@ export class LazyComponentRegistry {
    */
   private static async loadComponent(
     componentName: string,
-    lazyLoader: React.LazyExoticComponent<ComponentType<Record<string, unknown>>>
-  ): Promise<ComponentType<Record<string, unknown>>> {
+    lazyLoader: React.LazyExoticComponent<React.ComponentType<any>>
+  ): Promise<React.ComponentType<any>> {
     try {
       // Trigger the lazy load
       const Component = lazyLoader;
@@ -505,8 +505,7 @@ export class LazyComponentRegistry {
       return Component;
     } catch (error: unknown) {
       throw new Error(
-        `Failed to load component ${componentName}: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to load component ${componentName}: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }
@@ -606,7 +605,7 @@ export function resolveComponentLazy(section: SDUIComponentSection): RegistryEnt
     </Suspense>
   );
   return {
-    component: WrappedComponent,
+    component: WrappedComponent as React.ComponentType<any>,
     ...metadata,
   };
 }

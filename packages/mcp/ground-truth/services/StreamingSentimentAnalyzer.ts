@@ -270,8 +270,8 @@ export class StreamingSentimentAnalyzer {
     } catch (error) {
       logger.error(
         "Incremental sentiment analysis failed",
-        error instanceof Error ? error : undefined,
         {
+          error: error instanceof Error ? error.message : String(error),
           sessionId: session.sessionId,
         }
       );
@@ -329,8 +329,8 @@ export class StreamingSentimentAnalyzer {
     } catch (error) {
       logger.error(
         "Final sentiment analysis failed",
-        error instanceof Error ? error : undefined,
         {
+          error: error instanceof Error ? error.message : String(error),
           sessionId: session.sessionId,
         }
       );

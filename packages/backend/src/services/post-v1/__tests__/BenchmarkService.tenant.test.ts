@@ -9,9 +9,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the FeatureFlags singleton that fires at core-services barrel import time
-vi.mock("@valueos/core-services", async () => {
-  const actual = await vi.importActual<typeof import("@valueos/core-services")>(
-    "@valueos/core-services"
+vi.mock("../../core/FeatureFlags.js", async () => {
+  const actual = await vi.importActual<typeof import("../../core/FeatureFlags.js")>(
+    "../../core/FeatureFlags.js"
   );
   return { ...actual };
 });

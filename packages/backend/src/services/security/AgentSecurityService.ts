@@ -10,7 +10,8 @@ import { EventEmitter } from "events";
 
 import { v4 as uuidv4 } from "uuid";
 
-import { logger } from "../../lib/logger.js"
+import { logger } from "../../lib/logger.js";
+import { safeRecordGet } from "../../utils/safePropertyAccess.js"
 
 
 // ============================================================================
@@ -1004,7 +1005,9 @@ export class AgentSecurityService extends EventEmitter {
   ): boolean {
     if (!context) return true;
 
-    const value = context[condition.type];
+    // Safe property access with validation
+    const allowedKeys = Object.keys(context);
+    const value = safeRecordGet(context, condition.type, allowedKeys);
 
     switch (condition.operator) {
       case "equals":
@@ -1081,15 +1084,15 @@ export class AgentSecurityService extends EventEmitter {
   private calculateRiskScore(context: SecurityContext): number {
     let score = 0.1; // Base score
 
-    // Trust level impact
-    const trustScores = {
+    // Trust level impact - use explicit lookup instead of dynamic property access
+    const trustScores: Record<string, number> = {
       untrusted: 0.8,
       low: 0.6,
       medium: 0.4,
       high: 0.2,
       privileged: 0.1,
     };
-    score += trustScores[context.trustLevel] || 0.5;
+    score += trustScores[context.trustLevel] ?? 0.5;
 
     // Role impact
     if (context.roles.includes("admin")) score += 0.2;
@@ -1102,13 +1105,13 @@ export class AgentSecurityService extends EventEmitter {
   }
 
   private calculateIncidentRisk(severity: IncidentSeverity): number {
-    const riskScores = {
+    const riskScores: Record<string, number> = {
       low: 0.2,
       medium: 0.4,
       high: 0.7,
       critical: 0.9,
     };
-    return riskScores[severity];
+    return riskScores[severity] ?? 0.5;
   }
 
   private async logAuditEvent(event: Omit<AuditTrail, "id">): Promise<void> {

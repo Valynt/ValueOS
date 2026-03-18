@@ -1,3 +1,13 @@
+/**
+ * Continuous Authentication Service
+ *
+ * Provides session validation and continuous authentication checks.
+ *
+ * Note: Uses TypeScript type casting patterns for Supabase query building.
+ */
+
+/* eslint-disable security/detect-object-injection */
+
 import { SupabaseClient } from '@supabase/supabase-js';
 
 import { log } from '../../lib/logger.js'

@@ -76,7 +76,8 @@ class CallAnalysisService {
   private apiAdapter: ReturnType<typeof createExternalAPIAdapter>;
 
   constructor() {
-    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    // BACKWARD COMPAT: Pass config object, not (provider, boolean)
+    this.llm = new LLMGateway({ provider: "together", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo" });
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
     this.functionUrl = `${supabaseUrl}/functions/v1/transcribe-audio`;
     this.apiAdapter = createExternalAPIAdapter("CallAnalysisService", "call-analysis");
@@ -118,13 +119,13 @@ class CallAnalysisService {
       const result = response.data as Record<string, unknown>;
 
       if (!result.success) {
-        throw new Error(result.error || "Transcription failed");
+        throw new Error(String(result.error) || "Transcription failed");
       }
 
       return {
-        transcript: result.transcript,
-        duration: result.duration || 0,
-        language: result.language || "en",
+        transcript: String(result.transcript || ""),
+        duration: Number(result.duration) || 0,
+        language: String(result.language) || "en",
       };
     } catch (error) {
       logger.error("Transcription failed", error instanceof Error ? error : undefined);
@@ -134,8 +135,9 @@ class CallAnalysisService {
 
   /**
    * Analyze a sales call transcript using LLM
+   * @param tenantId - Required tenant identifier for cost tracking and isolation
    */
-  async analyzeTranscript(transcript: string, duration: number): Promise<CallAnalysis> {
+  async analyzeTranscript(transcript: string, duration: number, tenantId?: string): Promise<CallAnalysis> {
     // Truncate if too long (keep ~12000 chars for context window)
     const truncatedTranscript =
       transcript.length > 12000
@@ -165,7 +167,7 @@ Provide comprehensive analysis as JSON.`;
         {
           serviceName: "CallAnalysisService",
           operation: "analyze-transcript",
-          organizationId: "call-analysis", // Default fallback
+          organizationId: tenantId ?? "system-call-analysis", // NON-PRODUCTION: requires explicit tenant
           temperature: 0.3,
           max_tokens: 3000, // Corrected parameter name
         }

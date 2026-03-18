@@ -2,10 +2,12 @@
   "version": "2026-07-01",
   "agent": "narrative",
   "allowedModels": [
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     "Qwen/Qwen2.5-72B-Instruct-Turbo"
   ],
-  "allowedTools": ["document_lookup"],
+  "allowedTools": [
+    "document_lookup"
+  ],
   "maxTokens": 8000,
   "maxCostUsd": 1.00,
   "confidenceThresholds": {

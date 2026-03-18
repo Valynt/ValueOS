@@ -7,7 +7,7 @@
  */
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { securityLogger } from '@valueos/core-services';
+import { securityLogger } from '../../services/core/SecurityLogger.js';
 import { v4 as uuidv4 } from 'uuid';
 
 import { getTracer } from '../../config/telemetry.js';

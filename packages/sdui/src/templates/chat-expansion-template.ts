@@ -8,7 +8,7 @@
  */
 
 
-import type { WorkflowState } from "@valueos/sdui-types";
+import type { WorkflowState } from "../agentContract";
 
 import type { SDUIPageDefinition } from "../schema";
 

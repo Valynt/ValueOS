@@ -2,10 +2,13 @@
   "version": "2026-07-01",
   "agent": "integrity",
   "allowedModels": [
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
   ],
-  "allowedTools": ["document_lookup", "calculator"],
+  "allowedTools": [
+    "document_lookup",
+    "calculator"
+  ],
   "maxTokens": 4000,
   "maxCostUsd": 0.75,
   "confidenceThresholds": {

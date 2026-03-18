@@ -36,17 +36,52 @@ infra/
 
 ## Prerequisites
 
-- Node.js >= 20.19.0
-- pnpm >= 9.15.0
-- A Gitpod/Ona environment (cloud-dev is the primary development target)
+- Docker Desktop with WSL2 backend (Windows) or Docker Engine (Linux)
+- VS Code with Dev Containers extension (or Windsurf)
+- 8GB RAM minimum (16GB recommended)
 
-## Quickstart
+## Quickstart (DevContainer)
 
-This repo is designed to run in a Gitpod/Ona cloud-dev environment. Open it there and the backend and frontend start automatically.
+The recommended development environment runs entirely in Docker containers with full Linux-to-production parity.
 
-For manual setup:
+**1. Clone and open in container**
 
-**1. Set up environment variables**
+```bash
+# From WSL2 terminal (Windows) or native terminal (Linux/Mac)
+cd ~
+git clone <repository-url> ValueOS
+cd ValueOS
+code .
+# Then: F1 → "Dev Containers: Reopen in Container"
+```
+
+**2. Set up environment**
+
+```bash
+cp .devcontainer/.env.template .devcontainer/.env
+# Optional: edit .devcontainer/.env to customize ports
+```
+
+**3. Install dependencies and start**
+
+```bash
+pnpm install
+pnpm run dev        # Starts frontend (5173) and backend (3001)
+```
+
+The devcontainer provides:
+- PostgreSQL 15, Redis 7, Supabase stack (Auth, REST, Realtime, Storage, Studio)
+- Node.js 20, pnpm 10, all build tools
+- MailHog for email testing
+- No local installation required
+
+See [.devcontainer/README.md](.devcontainer/README.md) for detailed setup, troubleshooting, and advanced configuration.
+
+---
+
+## Alternative: Cloud-Dev Setup
+
+For teams preferring cloud-based Supabase (instead of local containerized stack):
 
 ```bash
 cp ops/env/.env.cloud-dev.example          ops/env/.env.cloud-dev
@@ -54,38 +89,16 @@ cp ops/env/.env.frontend.cloud-dev.example ops/env/.env.frontend.cloud-dev
 cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
 ```
 
-Fill in credentials from your Supabase dashboard (Project Settings → API). See [ops/env/README.md](ops/env/README.md) for the full variable reference and load order.
+Fill in credentials from your Supabase dashboard (Project Settings → API). See [ops/env/README.md](ops/env/README.md) for details.
 
-**2. Install dependencies**
-
+Then start with:
 ```bash
 pnpm install
+pnpm run dev:frontend
+pnpm run dev:backend  # In another terminal
 ```
 
-**3. Run preflight checks**
-
-```bash
-pnpm run dx:check
-```
-
-**4. Apply database migrations**
-
-```bash
-pnpm run db:migrate
-```
-
-**5. Start services**
-
-```bash
-gitpod automations service start backend frontend
-```
-
-Or start each independently:
-
-```bash
-pnpm run dev:frontend   # apps/ValyntApp — React + Vite on port 5173
-pnpm run dev:backend    # packages/backend — Express API on port 3001
-```
+---
 
 ## Key Commands
 

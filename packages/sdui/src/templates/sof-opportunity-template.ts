@@ -4,7 +4,7 @@
  * Extended Opportunity template with System Mapping panel.
  */
 
-import type { SystemMap } from "@valueos/sdui-types";
+import type { FeedbackLoop, InterventionPoint, SystemMap } from "../agentContract";
 
 import type { SDUIPageDefinition } from "../schema";
 

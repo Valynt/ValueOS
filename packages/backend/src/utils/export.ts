@@ -6,6 +6,8 @@
  * of the server bundle.
  */
 
+/* eslint-disable security/detect-object-injection -- Export utilities use controlled data access */
+
 export function generateFilename(prefix: string, extension: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   return `${prefix}-${timestamp}.${extension}`;

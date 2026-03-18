@@ -65,9 +65,6 @@
       "@shared/*": [
         "../../packages/shared/src/*"
       ],
-      "@valueos/sdui-types": [
-        "../../packages/sdui/src/schema.ts"
-      ],
       "@valueos/sdui": [
         "../../packages/sdui/src/index.ts"
       ],

@@ -1,6 +1,6 @@
 /**
  * Agent LLM Output Constraints
- * 
+ *
  * Generates JSON schemas for OpenAI function calling to prevent hallucination
  * Validates agent output before rendering
  */
@@ -126,14 +126,14 @@ export function generateAgentConstraintSchema(): AgentFunctionSchema {
 export function validateAgentOutput(output: unknown): AgentOutputValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
+
   if (!output || typeof output !== 'object') {
     return {
       valid: false,
       errors: ['Agent output must be an object'],
     };
   }
-  
+
   const layout = (output as Record<string, unknown>).layout;
   if (!layout) {
     return {
@@ -141,7 +141,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
       errors: ['Agent output missing layout'],
     };
   }
-  
+
   // Validate all components in the tree
   function validateNode(node: unknown, path: string = 'root'): void {
     if (!node || typeof node !== 'object') {
@@ -149,14 +149,14 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
       return;
     }
     const nodeObj = node as Record<string, unknown>;
-    
+
     if (!nodeObj.type || typeof nodeObj.type !== 'string') {
       errors.push(`Missing type at ${path}`);
       return;
     }
-    
+
     const type = nodeObj.type;
-    
+
     // Validate component type
     if (type === 'Component') {
       const component = nodeObj.component;
@@ -164,19 +164,19 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
         errors.push(`Missing component name at ${path}`);
         return;
       }
-      
+
       if (!ALLOWED_CANVAS_COMPONENTS.includes(component as typeof ALLOWED_CANVAS_COMPONENTS[number])) {
         errors.push(
           `Invalid component "${component}" at ${path}. ` +
           `Allowed components: ${ALLOWED_CANVAS_COMPONENTS.join(', ')}`
         );
       }
-      
+
       if (!nodeObj.componentId || typeof nodeObj.componentId !== 'string') {
         warnings.push(`Missing componentId at ${path} - will generate one`);
       }
     }
-    
+
     // Validate layout types
     if (['VerticalSplit', 'HorizontalSplit', 'Grid', 'DashboardPanel'].includes(type)) {
       const children = nodeObj.children;
@@ -184,12 +184,12 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
         errors.push(`Layout at ${path} missing children array`);
         return;
       }
-      
+
       // Recursively validate children
       children.forEach((child, i) => {
         validateNode(child, `${path}.children[${i}]`);
       });
-      
+
       // Type-specific validation
       if (type === 'VerticalSplit' || type === 'HorizontalSplit') {
         const ratios = nodeObj.ratios;
@@ -199,7 +199,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
           warnings.push(`${type} at ${path} has mismatched ratios and children count`);
         }
       }
-      
+
       if (type === 'Grid') {
         const columns = nodeObj.columns;
         if (typeof columns !== 'number' || columns < 1 || columns > 12) {
@@ -208,7 +208,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
       }
     }
   }
-  
+
   try {
     validateNode(layout);
   } catch (e) {
@@ -217,7 +217,7 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
       errors: [(e as Error).message],
     };
   }
-  
+
   return {
     valid: errors.length === 0,
     errors: errors.length > 0 ? errors : undefined,
@@ -230,28 +230,31 @@ export function validateAgentOutput(output: unknown): AgentOutputValidation {
  */
 export function sanitizeAgentOutput(layout: CanvasLayout): CanvasLayout {
   let idCounter = 0;
-  
+
   function sanitizeNode(node: CanvasLayout): CanvasLayout {
+    const nodeObj = node as Record<string, unknown>;
     // Auto-generate componentId if missing
-    if (node.type === 'Component' && !node.componentId) {
-      node.componentId = `auto_${++idCounter}_${Date.now()}`;
+    if (nodeObj.type === 'Component' && !nodeObj.componentId) {
+      nodeObj.componentId = `auto_${++idCounter}_${Date.now()}`;
     }
-    
+
     // Recursively sanitize children
-    if (node.children && Array.isArray(node.children)) {
-      node.children = node.children.map(sanitizeNode);
+    if (nodeObj.children && Array.isArray(nodeObj.children)) {
+      nodeObj.children = (nodeObj.children as CanvasLayout[]).map(sanitizeNode);
     }
-    
+
     // Fix ratio mismatches
-    if ((node.type === 'VerticalSplit' || node.type === 'HorizontalSplit') && node.children) {
-      if (!node.ratios || node.ratios.length !== node.children.length) {
+    if ((nodeObj.type === 'VerticalSplit' || nodeObj.type === 'HorizontalSplit') && nodeObj.children) {
+      const children = nodeObj.children as CanvasLayout[];
+      const ratios = nodeObj.ratios as number[] | undefined;
+      if (!ratios || ratios.length !== children.length) {
         // Generate equal ratios
-        node.ratios = Array(node.children.length).fill(1);
+        nodeObj.ratios = Array(children.length).fill(1);
       }
     }
-    
+
     return node;
   }
-  
+
   return sanitizeNode(layout);
 }

@@ -126,8 +126,8 @@ export class SentimentAnalysisService {
     } catch (error) {
       logger.error(
         "Sentiment analysis failed",
-        error instanceof Error ? error : undefined,
         {
+          error: error instanceof Error ? error.message : String(error),
           documentType: request.documentType,
         }
       );
@@ -450,8 +450,8 @@ Provide a balanced analysis of the document's sentiment, risks, and business out
     } catch (error) {
       logger.error(
         "Failed to parse sentiment response",
-        error instanceof Error ? error : undefined,
         {
+          error: error instanceof Error ? error.message : String(error),
           documentType,
           contentLength: content.length,
         }

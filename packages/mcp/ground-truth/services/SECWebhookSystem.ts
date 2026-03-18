@@ -167,7 +167,7 @@ export class SECWebhookSystem {
       } catch (error) {
         logger.error(
           "Error checking for new SEC filings",
-          error instanceof Error ? error : undefined
+          { error: error instanceof Error ? error.message : String(error) }
         );
       }
     }, 30000);
@@ -208,7 +208,7 @@ export class SECWebhookSystem {
     } catch (error) {
       logger.error(
         "Error checking SEC RSS feed",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
   }
@@ -237,7 +237,7 @@ export class SECWebhookSystem {
     } catch (error) {
       logger.error(
         "Error parsing SEC RSS feed",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
 
@@ -295,8 +295,8 @@ export class SECWebhookSystem {
     } catch (error) {
       logger.error(
         "Error parsing RSS item",
-        error instanceof Error ? error : undefined,
         {
+          error: error instanceof Error ? error.message : String(error),
           itemSnippet: itemXml.substring(0, 200),
         }
       );
@@ -608,7 +608,7 @@ export class SECWebhookSystem {
     } catch (error) {
       logger.error(
         "Error loading webhook subscriptions",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
   }
@@ -623,7 +623,7 @@ export class SECWebhookSystem {
     } catch (error) {
       logger.error(
         "Error saving webhook subscriptions",
-        error instanceof Error ? error : undefined
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
   }

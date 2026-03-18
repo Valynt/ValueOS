@@ -1,10 +1,10 @@
 /**
  * Feature Flag Middleware
- * 
+ *
  * Express middleware for feature flag evaluation and enforcement
  */
 
-import { featureFlags } from '@valueos/core-services';
+import { featureFlags } from '../services/core/FeatureFlags.js';
 import { NextFunction, Request, Response } from 'express';
 
 import { logger } from '../utils/logger.js'

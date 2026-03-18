@@ -43,7 +43,7 @@ function readPrimaryModel(agentPolicyName: string, fallback: string): string {
 
 const MODEL_CARDS: Record<string, ModelCard> = {
   opportunity: {
-    model_version: readPrimaryModel('opportunity-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'),
+    model_version: readPrimaryModel('opportunity-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'),
     safety_constraints: [
       'Guardrails enforce client redline exclusions and SOC2 privacy controls',
       'Outputs must include evidence-backed assumptions with source links',
@@ -58,7 +58,7 @@ const MODEL_CARDS: Record<string, ModelCard> = {
     prompt_contract_hash: computePolicyHash('opportunity-agent'),
   },
   target: {
-    model_version: readPrimaryModel('target-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'),
+    model_version: readPrimaryModel('target-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'),
     safety_constraints: [
       'PII scrubbing enabled with regional residency enforcement',
       'Risk-adjusted ROI must include sensitivity range',
@@ -73,7 +73,7 @@ const MODEL_CARDS: Record<string, ModelCard> = {
     prompt_contract_hash: computePolicyHash('target-agent'),
   },
   realization: {
-    model_version: readPrimaryModel('realization-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'),
+    model_version: readPrimaryModel('realization-agent', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'),
     safety_constraints: [
       'Change management actions require explicit approval markers',
       'Operational playbooks limited to pre-approved system scopes',
