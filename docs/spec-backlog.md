@@ -1,7 +1,7 @@
 # Spec Backlog — Unimplemented Work
 
-**Generated:** 2026-07-15  
-**Method:** Cross-referenced all spec files, sprint plans, and context layer against codebase state.  
+**Generated:** 2026-07-15
+**Method:** Cross-referenced all spec files, sprint plans, and context layer against codebase state.
 **Sources scanned:** `spec.md`, `spec-auth-hardening.md`, `spec-production-readiness.md`, `refactor-spec.md`, `docs/features/billing-v2-implementation-plan.md`, `docs/sprint-plan-*.md`, `.ona/context/user-stories.md`, `.ona/context/debt.md`
 
 Items marked ✅ were found implemented in the codebase and are excluded. Items below are confirmed open.
@@ -307,7 +307,7 @@ Four standard RLS policies using `security.user_has_tenant_access`. Paired rollb
 
 **File:** `ci.yml` / `quality-baselines.json`
 
-Current: lines=60, functions=50, branches=50, statements=60.  
+Current: lines=60, functions=50, branches=50, statements=60.
 Target: lines=75, functions=70, branches=70, statements=75.
 
 - Run suite to confirm actual coverage before raising
@@ -463,12 +463,9 @@ These items appear in specs but are blocked on non-engineering decisions. Do not
 | Item | Source | Blocker |
 |---|---|---|
 | Salesforce OAuth adapter | `user-stories.md` US-008 | OAuth scope decision pending |
-| ServiceNow / Slack / SharePoint adapters | `debt.md` DEBT-008 | Product decision pending (note: `debt.md` marks these resolved — verify actual state before scheduling) |
-| SandboxedExecutor E2B SDK | `debt.md` DEBT-011 | Product decision pending |
-| VOSAcademy content loader | `debt.md` DEBT-012 | Content strategy pending |
 | Kafka rollout | Multiple sprint plans | Infrastructure decision pending |
 | `DeviceFingerprintService` GeoIP / threat intelligence | Sprint 24–27 deferred list | Product decision pending |
-| `EnhancedParallelExecutor` WebSocket progress | Sprint 24–27 deferred list | Product decision pending |
+| `EnhancedParallelExecutor` WebSocket progress | Sprint 24–27 deferred list | Infrastructure decision pending |
 | ADR-0005 Theme Precedence | `decisions.md` | Proposed, not accepted |
 | DR drill execution | TASK-016 | Requires staging environment access |
 | Production launch checklist execution | TASK-021 | Requires production credentials |

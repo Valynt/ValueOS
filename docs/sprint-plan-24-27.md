@@ -68,12 +68,10 @@ This document merges two planning inputs. Conflicts resolved as follows:
 
 ### What is deferred (post-Sprint 27)
 
-- DEBT-008 — ServiceNow, Slack, SharePoint (product decision pending)
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
 - US-007 tenant onboarding UI (Sprint 27 delivers the backend service; UI is next horizon)
 - US-008 Salesforce adapter
-- PPTX export; Kafka rollout
+- PPTX export
+- Kafka rollout
 - Grafana alerting rules wired to incident runbooks
 - `DeviceFingerprintService` GeoIP / threat intelligence
 - `EnhancedParallelExecutor` progress-to-UI via WebSocket

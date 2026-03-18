@@ -56,9 +56,6 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - Grafana alerting rules (dashboard in Sprint 13; alert rules post-beta)
 - `DeviceFingerprintService` GeoIP / threat intelligence
 - `EnhancedParallelExecutor` progress-to-UI via WebSocket
-- DEBT-008 — ServiceNow, Slack, SharePoint integrations (product decision pending)
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
 
 ---
 
@@ -74,7 +71,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 15-1 — Fix `valueCasesRouter` mount (P0 blocker, traceability Stage 1)
 
-**Debt ref:** Stage 1 traceability gap  
+**Debt ref:** Stage 1 traceability gap
 **Acceptance criteria:**
 - `server.ts` imports `valueCasesRouter` and mounts it at `/api/v1/value-cases` with `requireAuth` and `tenantContextMiddleware()` → all Stage 1–3 GET endpoints return 200 with real data
 - `GET /api/v1/value-cases/:caseId/hypothesis` returns persisted hypothesis output for a known case
@@ -82,7 +79,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 15-2 — Data asset inventory with criticality tiers
 
-**Checklist refs:** §2 (asset inventory), §13 (ownership)  
+**Checklist refs:** §2 (asset inventory), §13 (ownership)
 **Acceptance criteria:**
 - `docs/observability/data-asset-inventory.md` lists every production table, agent output table, BullMQ queue, and `semantic_memory` partition with: owner team, criticality tier (T1/T2/T3), expected freshness SLA, and upstream agent
 - T1 assets (business-critical): `hypothesis_outputs`, `value_tree_nodes`, `financial_model_snapshots`, `integrity_outputs`, `narrative_drafts`, `realization_reports`, `expansion_opportunities`, `semantic_memory`, `agent_audit_log`
@@ -91,7 +88,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 15-3 — Freshness monitoring for T1 agent output tables
 
-**Checklist refs:** §4 (freshness monitoring)  
+**Checklist refs:** §4 (freshness monitoring)
 **Acceptance criteria:**
 - `packages/backend/src/observability/dataFreshness.ts` exports `checkTableFreshness(table, thresholdMinutes, orgId)` — queries `MAX(updated_at)` per tenant-scoped table and emits `data_freshness_lag_minutes` Prometheus gauge with labels `{table, tier}`
 - Freshness check runs on a 5-minute cron for all T1 tables
@@ -101,7 +98,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 15-4 — Volume monitoring for T1 tables
 
-**Checklist refs:** §5 (volume monitoring)  
+**Checklist refs:** §5 (volume monitoring)
 **Acceptance criteria:**
 - `packages/backend/src/observability/dataVolume.ts` exports `checkTableVolume(table, orgId)` — queries row count delta over the last 24h and emits `data_volume_row_delta` Prometheus gauge with labels `{table, tier}`
 - Sudden drop >50% from 7-day rolling average emits `data_volume_anomaly_total` counter
@@ -110,7 +107,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 15-5 — Pipeline execution observability for BullMQ queues
 
-**Checklist refs:** §9 (pipeline execution observability)  
+**Checklist refs:** §9 (pipeline execution observability)
 **Acceptance criteria:**
 - `packages/backend/src/observability/queueMetrics.ts` wraps BullMQ event hooks: `completed`, `failed`, `stalled`, `active` — emits `queue_job_total{queue, status}` Prometheus counter
 - Job duration tracked via `queue_job_duration_seconds` histogram with `{queue}` label
@@ -118,7 +115,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - `GET /health/dependencies` includes `queues` key listing each queue name and its last-failed-job timestamp
 - `pnpm test` green; `pnpm run test:rls` green
 
-**Risk:** BullMQ event hook API may differ across versions.  
+**Risk:** BullMQ event hook API may differ across versions.
 **Contingency:** Fall back to polling `queue.getJobCounts()` on a 30-second interval if event hooks are unavailable.
 
 ### Sprint 15 — Dependency strip
@@ -143,7 +140,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 16-1 — Schema drift detection for T1 tables
 
-**Checklist refs:** §6 (schema observability)  
+**Checklist refs:** §6 (schema observability)
 **Acceptance criteria:**
 - `packages/backend/src/observability/schemaDrift.ts` exports `captureSchemaSnapshot(tables[])` — queries `information_schema.columns` for each table and stores a JSON snapshot to `docs/observability/schema-snapshots/`
 - `detectSchemaDrift(table, snapshot)` compares current schema against snapshot; returns diff with change type: `added_column | removed_column | type_changed | nullability_changed`
@@ -169,7 +166,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 16-3 — Data quality rules for T1 agent output tables
 
-**Checklist refs:** §7 (data quality monitoring)  
+**Checklist refs:** §7 (data quality monitoring)
 **Acceptance criteria:**
 - `packages/backend/src/observability/dataQuality.ts` defines quality rules per T1 table:
   - `hypothesis_outputs`: `hypotheses` array non-empty, `confidence` in `['high','medium','low']`, `organization_id` non-null
@@ -182,7 +179,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 16-4 — Incident process for data failures
 
-**Checklist refs:** §11 (data incident management)  
+**Checklist refs:** §11 (data incident management)
 **Acceptance criteria:**
 - `docs/observability/incident-runbooks/` contains runbooks for: stale T1 table, schema drift breaking change, agent output zero-row write, queue job stalled >10 minutes, `semantic_memory` embedding lag
 - Each runbook: severity level, detection signal (which metric/alert fires), diagnosis steps, remediation steps, escalation path
@@ -190,12 +187,12 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - `DEBT-010` resolved: `SecurityMonitor` alert channels (`sendEmailAlert`, `sendSlackAlert`, `sendPagerDutyAlert`) implemented — fire-and-forget with error logging, missing env vars log WARN and do not throw
 - Unit tests for all three alert channel methods: mock HTTP, verify payload shape
 
-**Risk:** `SLACK_WEBHOOK_URL` and `PAGERDUTY_ROUTING_KEY` may not be set in all environments.  
+**Risk:** `SLACK_WEBHOOK_URL` and `PAGERDUTY_ROUTING_KEY` may not be set in all environments.
 **Contingency:** All alert methods degrade gracefully — log WARN with full payload when env var absent. Frontend flow is never blocked by missing alert credentials.
 
 ### KR 16-5 — Test gate: schema snapshot + quality checks in CI
 
-**Checklist refs:** §22 (testing and validation strategy)  
+**Checklist refs:** §22 (testing and validation strategy)
 **Acceptance criteria:**
 - `pnpm run schema:snapshot` added to CI pipeline; fails on unacknowledged breaking changes
 - `pnpm run data:quality` runs quality checks against local Supabase; fails if violation rate >0% on T1 tables in a clean seed
@@ -242,7 +239,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 17-2 — BullMQ consumer lag and stall observability
 
-**Checklist refs:** §18 (streaming and real-time data observability), §9 (pipeline execution)  
+**Checklist refs:** §18 (streaming and real-time data observability), §9 (pipeline execution)
 **Acceptance criteria:**
 - `packages/backend/src/observability/queueHealth.ts` exports `checkQueueLag(queue)` — returns `{ waiting: number; active: number; delayed: number; failed: number; stalledCount: number }`
 - `queue_consumer_lag{queue}` Prometheus gauge = waiting + delayed job count; alert threshold: >50 jobs waiting for >5 minutes
@@ -252,7 +249,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 17-3 — Vector memory freshness and embedding drift
 
-**Checklist refs:** §19 (AI/ML and agentic data observability)  
+**Checklist refs:** §19 (AI/ML and agentic data observability)
 **Acceptance criteria:**
 - `packages/backend/src/observability/vectorHealth.ts` exports `checkEmbeddingFreshness(orgId)` — queries `semantic_memory` for rows where `updated_at < NOW() - INTERVAL '24 hours'` and `status = 'active'`; emits `vector_embedding_stale_total{org_tier}` counter
 - Orphaned embedding detection: `checkOrphanedEmbeddings(orgId)` — finds `semantic_memory` rows whose `value_case_id` no longer exists in `value_cases`; emits `vector_orphaned_embedding_total` counter
@@ -262,7 +259,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 17-4 — Realization and Expansion stage persistence (DEBT-004, DEBT-009)
 
-**Debt refs:** DEBT-004 / #1345, DEBT-009  
+**Debt refs:** DEBT-004 / #1345, DEBT-009
 **Acceptance criteria:**
 - `realization_outputs` migration: `id`, `organization_id`, `case_id`, `session_id`, `milestones jsonb`, `metrics jsonb`, `risks jsonb`, `realization_pct numeric`, `source_agent text`, `created_at`, `updated_at`; RLS via `security.user_has_tenant_access()`
 - `expansion_outputs` migration: `id`, `organization_id`, `case_id`, `session_id`, `opportunities jsonb`, `gap_analysis jsonb`, `expansion_seeds jsonb`, `source_agent text`, `created_at`; RLS
@@ -272,12 +269,12 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - `RealizationStage.tsx` and `ExpansionStage.tsx` wired to real endpoints — no hardcoded data
 - `pnpm run test:rls` green for both new tables
 
-**Risk:** `ValueCommitmentTrackingService` (DEBT-007) has 12+ TODO stubs; full resolution may exceed sprint capacity.  
+**Risk:** `ValueCommitmentTrackingService` (DEBT-007) has 12+ TODO stubs; full resolution may exceed sprint capacity.
 **Contingency:** Implement `realization_outputs` persistence path first (unblocks the stage); stub resolution for `ValueCommitmentTrackingService` continues in Sprint 18 if not complete.
 
 ### KR 17-5 — Test gate: observability suite
 
-**Checklist refs:** §22 (testing and validation)  
+**Checklist refs:** §22 (testing and validation)
 **Acceptance criteria:**
 - `pnpm run test:observability` script added — runs all observability unit tests in `packages/backend/src/observability/__tests__/`
 - Tests cover: freshness check, volume check, schema drift, quality rules, confidence drift, queue lag, vector orphan detection
@@ -334,7 +331,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 18-3 — Cost attribution by data domain
 
-**Checklist refs:** §16 (cost and efficiency visibility)  
+**Checklist refs:** §16 (cost and efficiency visibility)
 **Acceptance criteria:**
 - `packages/backend/src/observability/costAttribution.ts` exports `recordLLMCost(agent, tokens, model, orgId)` — called by `BaseAgent.secureInvoke` after each LLM call; emits `llm_cost_tokens_total{agent, model}` counter
 - `recordStorageCost(table, rowsWritten, orgId)` — called by each repository write; emits `storage_writes_total{table}` counter
@@ -344,7 +341,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 18-4 — Compliance observability for sensitive data access
 
-**Checklist refs:** §17 (security and compliance observability)  
+**Checklist refs:** §17 (security and compliance observability)
 **Acceptance criteria:**
 - `packages/backend/src/observability/complianceMonitor.ts` exports `auditSensitiveAccess(table, operation, actorId, orgId)` — called on read/write to `semantic_memory`, `agent_audit_log`, and any table tagged `sensitivity: high` in the asset inventory
 - Unexpected permission changes: `detectPermissionDrift()` — compares current RLS policies against a stored baseline snapshot; emits `rls_policy_drift_total` counter on deviation
@@ -354,7 +351,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 
 ### KR 18-5 — SLO definitions and attainment measurement
 
-**Checklist refs:** §10 (data reliability SLAs and SLOs)  
+**Checklist refs:** §10 (data reliability SLAs and SLOs)
 **Acceptance criteria:**
 - `docs/observability/slo-definitions.md` defines SLOs for T1 data products:
   - Freshness: hypothesis/integrity/narrative/realization outputs updated within 5 minutes of agent run completing
@@ -365,7 +362,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - `GET /api/v1/admin/slo-report` (admin-only) — returns current attainment for all defined SLOs, scoped to `organization_id`
 - `pnpm test` green; `pnpm run test:rls` green
 
-**Risk:** SLO attainment computation requires Prometheus query API; may not be available in all dev environments.  
+**Risk:** SLO attainment computation requires Prometheus query API; may not be available in all dev environments.
 **Contingency:** Fall back to direct Supabase queries for attainment calculation in environments without Prometheus. The `sloTracker` accepts a pluggable `MetricsReader` interface.
 
 ### Sprint 18 — Dependency strip
@@ -409,9 +406,6 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - Grafana alerting rules (dashboard in Sprint 13; alert rules post-beta)
 - `DeviceFingerprintService` GeoIP / threat intelligence
 - `EnhancedParallelExecutor` progress-to-UI via WebSocket
-- DEBT-008 — ServiceNow, Slack, SharePoint integrations (product decision pending)
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
 - Grafana alerting rules wired to incident runbooks (runbooks in Sprint 16; alert rules post-beta)
 - Checklist §25 maturity review — quarterly observability gap review process
 - Checklist §20 alert fatigue tracking — false-positive rate measurement

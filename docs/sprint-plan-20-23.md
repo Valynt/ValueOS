@@ -57,10 +57,6 @@ None. No P0 items remain open.
 
 ### What is deferred (post-Sprint 23)
 
-- DEBT-008 — ServiceNow, Slack, SharePoint integrations (product decision pending)
-- DEBT-010 — SecurityMonitor alert channels (resolved Sprint 16)
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
 - PPTX export
 - Kafka rollout
 - Grafana alerting rules wired to incident runbooks
@@ -347,7 +343,6 @@ These rules apply to every PR across all four sprints. Sourced from `AGENTS.md`.
 
 | Item | Reason |
 |---|---|
-| DEBT-008 — ServiceNow, Slack, SharePoint | Product decision pending |
 | DEBT-011 — SandboxedExecutor E2B SDK | Product decision pending |
 | DEBT-012 — VOSAcademy content loader | Content strategy pending |
 | PPTX export | No traceability row; product decision pending |

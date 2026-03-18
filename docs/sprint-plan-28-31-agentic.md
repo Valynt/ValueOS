@@ -55,10 +55,6 @@
 
 ### What is deferred (post-Sprint 31)
 
-- DEBT-008 — Salesforce adapter (product decision on OAuth scope pending, issue #1349)
-- DEBT-010 — SecurityMonitor alert channels (Slack/PagerDuty/email stubs)
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
 - US-007 — Tenant onboarding UI (backend service exists; UI is next horizon)
 - `packages/mcp` `any` reduction (96 usages)
 - `apps/VOSAcademy` `any` reduction (85 usages)

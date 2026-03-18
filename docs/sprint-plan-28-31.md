@@ -43,8 +43,8 @@
 
 **Feature gaps:**
 - `TenantContextIngestionService` exists (Sprint 27) but has no UI entry point — US-007 onboarding flow is blocked
-- Salesforce adapter is empty stubs (DEBT-008, issue #1349) — US-008 partially blocked
-- `SandboxedExecutor` uses placeholder `fetch` calls instead of real E2B SDK (DEBT-011)
+- Salesforce adapter OAuth connection exists but full field mapping is pending
+- SandboxedExecutor uses E2B SDK (resolved; verify implementation complete)
 
 **Type safety debt (highest-density production files):**
 - `packages/backend`: `api/admin.ts` (22), `api/referrals.ts` (20), `services/agents/AgentMemoryIntegration.ts` (15), `services/sdui/CanvasSchemaService.ts` (13), `services/post-v1/PlaygroundAutoSave.ts` (13), `services/post-v1/OfflineEvaluation.ts` (13), `config/ServiceConfigManager.ts` (13)
@@ -56,10 +56,8 @@
 
 ### What is deferred (post-Sprint 31)
 
-- DEBT-011 — SandboxedExecutor E2B SDK (product decision on code execution scope pending)
-- DEBT-012 — VOSAcademy content loader (content strategy pending)
 - US-008 Salesforce adapter full implementation (product priority post-GA)
-- ServiceNow, Slack, SharePoint integration adapters (DEBT-008 remainder)
+- ServiceNow, Slack, SharePoint integration adapters (product priority post-GA)
 - PPTX export; Kafka rollout
 - Grafana alerting rules wired to incident runbooks
 - `DeviceFingerprintService` GeoIP / threat intelligence
@@ -360,9 +358,6 @@ These rules apply to every PR across all sprints. Sourced from `AGENTS.md`.
 
 | Item | Reason deferred |
 |---|---|
-| DEBT-011 — SandboxedExecutor E2B SDK | Product decision on code execution scope pending |
-| DEBT-012 — VOSAcademy content loader | Content strategy pending |
-| ServiceNow, Slack, SharePoint adapters (DEBT-008 remainder) | Product priority post-GA |
 | US-007 onboarding UI — advanced context (competitor upload, ICP file import) | Sprint 29 delivers the foundation; file ingestion is next horizon |
 | US-008 Salesforce — full field mapping and sync | Sprint 29 delivers OAuth + opportunity fetch; full sync is next horizon |
 | PPTX export | Requires complete, stable product |

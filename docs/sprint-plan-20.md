@@ -1,7 +1,7 @@
 # Sprint Plan — Sprint 20: Commitment Tracking DB and Backend API
 
-**Author:** Ona (AI Engineering Agent)  
-**Date:** 2026-06-18  
+**Author:** Ona (AI Engineering Agent)
+**Date:** 2026-06-18
 **Baseline:** Post-Sprint 19. All six lifecycle stages are real and persistent. Billing frontend wired (Sprints 15–19). No P0 debt items open.
 
 ---
@@ -32,9 +32,6 @@ The prior sprint plan (sprint-plan-20-23.md) described Sprint 20 as replacing st
 
 ### What is deferred (post-Sprint 20)
 
-- DEBT-008 — ServiceNow, Slack, SharePoint integrations
-- DEBT-010 — SecurityMonitor alert channels
-- DEBT-011 — SandboxedExecutor E2B SDK
 - DEBT-012 — VOSAcademy content loader
 - Partition scheduler cron job (Sprint 22)
 - RBAC degraded-security runbook (Sprint 22)

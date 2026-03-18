@@ -18,7 +18,7 @@ Most AI systems have memory that is ephemeral, hidden, or loosely governed. Valu
 
 ### Current State
 
-**Strong:** Hypothesis and modeling stages are real and persist data. Five runtime services are in place. Six-agent fabric is real. SDUI infrastructure is strong. Multi-tenancy and RLS are directionally solid.
+**Strong:** Hypothesis and modeling stages are real and persist data. Six runtime services are in place. Six-agent fabric is real. SDUI infrastructure is strong. Multi-tenancy and RLS are directionally solid.
 
 **Incomplete:** Integrity, Narrative, and Realization canvas stages rely on hardcoded/demo UI. Narrative is not a first-class agent-fabric citizen. IntegrityAgent, RealizationAgent, and ExpansionAgent rely on memory persistence that is not guaranteed in a fresh DB (`semantic_memory` exists only in archived migrations). `changePlan()` is a stub. Audit, alerting, and observability contain important placeholders.
 

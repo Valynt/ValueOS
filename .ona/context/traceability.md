@@ -183,7 +183,7 @@ Frontend hook
 | `/api/v1/value-cases/:caseId/value-tree` | PATCH | member+ | Update value tree |
 | `/api/v1/value-cases/:caseId/model-snapshots/latest` | GET | viewer+ | Latest financial snapshot |
 
-**Router:** `packages/backend/src/api/valueCases/index.ts` → exported as `valueCasesRouter`  
+**Router:** `packages/backend/src/api/valueCases/index.ts` → exported as `valueCasesRouter`
 ✅ Mounted in `server.ts` at `/api/v1/cases` and `/api/v1/value-cases`.
 
 ---
@@ -194,11 +194,11 @@ Frontend hook
 |---|---|---|
 | HubSpot | ✅ implemented | `packages/integrations/hubspot/HubSpotAdapter.ts` |
 | Salesforce | ✅ implemented | `packages/integrations/salesforce/SalesforceAdapter.ts` — `SalesforceAdapter extends EnterpriseAdapter` |
-| ServiceNow | ❌ not started | — |
+| ServiceNow | ✅ implemented | `packages/integrations/servicenow/ServiceNowAdapter.ts` — `ServiceNowAdapter extends EnterpriseAdapter` |
 | Slack | ✅ implemented | `packages/integrations/slack/SlackAdapter.ts` — `SlackAdapter extends EnterpriseAdapter` |
 | SharePoint | ✅ implemented | `packages/integrations/sharepoint/SharePointAdapter.ts` — `SharePointAdapter extends EnterpriseAdapter` |
 
-API: `GET|POST /api/integrations` → `integrationsRouter` (mounted in server.ts)  
+API: `GET|POST /api/integrations` → `integrationsRouter` (mounted in server.ts)
 CRM: `GET|POST /api/crm` → `crmRouter` (mounted in server.ts)
 
 ### CRM connection persistence
