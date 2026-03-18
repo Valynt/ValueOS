@@ -13,6 +13,7 @@
  * - Timeout protection
  */
 
+import type { LifecycleStage } from '@valueos/shared';
 import { RetryConfig, WorkflowDAG, WorkflowStage, WorkflowStageType } from '../../types/workflow';
 import { logger } from '../../lib/logger.js';
 

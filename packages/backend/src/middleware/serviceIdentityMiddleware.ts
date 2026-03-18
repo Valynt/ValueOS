@@ -332,7 +332,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       path: req.originalUrl || req.url,
       nodeEnv: process.env.NODE_ENV,
     });
-    return res.status(503).json({ error: 'Service identity cryptographic assertions not configured' });
+    return void res.status(503).json({ error: 'Service identity cryptographic assertions not configured' });
   }
 
   if (!configuredAssertions && !serviceIdentityToken) {
@@ -345,7 +345,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       logger.error('Service identity middleware reached with no configured assertions', {
         path: req.originalUrl || req.url,
       });
-      return res.status(503).json({ error: 'Service identity not configured' });
+      return void res.status(503).json({ error: 'Service identity not configured' });
     }
     return next();
   }
@@ -355,12 +355,12 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
 
   if (!timestamp || Math.abs(Date.now() - timestamp) > MAX_CLOCK_SKEW_MS) {
     logger.warn('Service identity rejected: invalid timestamp', { path: req.originalUrl || req.url });
-    return res.status(401).json({ error: 'Request timestamp invalid or expired' });
+    return void res.status(401).json({ error: 'Request timestamp invalid or expired' });
   }
 
   if (!nonce) {
     logger.warn('Service identity rejected: missing nonce', { path: req.originalUrl || req.url });
-    return res.status(401).json({ error: 'Request nonce required' });
+    return void res.status(401).json({ error: 'Request nonce required' });
   }
 
   const identity =
@@ -378,7 +378,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
   const resolvedIdentity = identity || legacyIdentity;
   if (!resolvedIdentity) {
     logger.warn('Service identity rejected: no valid assertion', { path: req.originalUrl || req.url });
-    return res.status(401).json({ error: 'Service identity verification failed' });
+    return void res.status(401).json({ error: 'Service identity verification failed' });
   }
 
   const revokedServices = getRevokedServices(config);
@@ -387,7 +387,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       servicePrincipal: resolvedIdentity.principal,
       issuer: resolvedIdentity.issuer,
     });
-    return res.status(403).json({ error: 'Service principal revoked' });
+    return void res.status(403).json({ error: 'Service principal revoked' });
   }
 
   const requireRedis = process.env.NODE_ENV === 'production';
@@ -397,7 +397,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
         servicePrincipal: resolvedIdentity.principal,
         issuer: resolvedIdentity.issuer,
       });
-      return res.status(401).json({ error: 'Replay detected' });
+      return void res.status(401).json({ error: 'Replay detected' });
     }
 
     (req as ServiceRequest).serviceIdentityVerified = true;
@@ -419,12 +419,12 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       logger.error('Service identity replay protection unavailable', error, {
         servicePrincipal: resolvedIdentity.principal,
       });
-      return res.status(503).json({ error: 'Replay protection unavailable' });
+      return void res.status(503).json({ error: 'Replay protection unavailable' });
     }
     logger.error('Service identity nonce validation failed', error, {
       servicePrincipal: resolvedIdentity.principal,
     });
-    return res.status(500).json({ error: 'Nonce validation failed' });
+    return void res.status(500).json({ error: 'Nonce validation failed' });
   });
 }
 

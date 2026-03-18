@@ -55,3 +55,9 @@ export interface WorkflowStepState {
   error?: string;
   metadata?: Record<string, unknown>;
 }
+
+export interface MarkdownContent { type: "markdown"; text: string; }
+export interface JsonContent { type: "json"; data: unknown; }
+export interface TableContent { type: "table"; headers: string[]; rows: unknown[][]; }
+export interface ChartContent { type: "chart"; chartType: string; data: unknown; options?: Record<string, unknown>; }
+export type ArtifactContent = MarkdownContent | JsonContent | TableContent | ChartContent;

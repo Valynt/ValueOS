@@ -205,7 +205,7 @@ export class DeviceFingerprintService extends BaseService {
     try {
       const redis = await getRedisClient();
       const key = ns(tenantId, `${USER_DEVICES_KEY_PREFIX}${userId}`);
-      const deviceIds = await redis.sMembers(key);
+      const deviceIds = await redis.smembers(key);
 
       const devices: DeviceInfo[] = [];
       for (const deviceId of deviceIds) {
@@ -299,7 +299,7 @@ export class DeviceFingerprintService extends BaseService {
       await redis.del(ns(tenantId, `${DEVICE_KEY_PREFIX}${deviceId}`));
 
       // Remove from user's device set
-      await redis.sRem(ns(tenantId, `${USER_DEVICES_KEY_PREFIX}${userId}`), deviceId);
+      await redis.srem(ns(tenantId, `${USER_DEVICES_KEY_PREFIX}${userId}`), deviceId);
 
       // Invalidate sessions for this device
       await this.sessionStore.invalidateDeviceSessions(deviceId, tenantId);
@@ -503,10 +503,10 @@ export class DeviceFingerprintService extends BaseService {
       );
 
       // Store device info with 90 day TTL
-      await redis.setEx(key, 90 * 24 * 60 * 60, JSON.stringify(device));
+      await redis.setex(key, 90 * 24 * 60 * 60, JSON.stringify(device));
 
       // Add to user's device set
-      await redis.sAdd(userKey, device.deviceId);
+      await redis.sadd(userKey, device.deviceId);
     } catch (error) {
       this.log('error', 'Failed to store device info', {
         deviceId: device.deviceId,

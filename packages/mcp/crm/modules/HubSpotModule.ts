@@ -196,7 +196,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot searchDeals failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return { deals: [], total: 0, hasMore: false };
     }
@@ -218,7 +218,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot getDeal failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return null;
     }
@@ -268,7 +268,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot getDealContacts failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return [];
     }
@@ -320,7 +320,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot getDealActivities failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return [];
     }
@@ -346,7 +346,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot getCompany failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return null;
     }
@@ -381,7 +381,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot searchCompanies failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return [];
     }
@@ -408,7 +408,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot updateDealProperties failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return false;
     }
@@ -442,7 +442,7 @@ export class HubSpotModule implements CRMModule {
     } catch (error) {
       logger.error(
         "HubSpot addDealNote failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return false;
     }
@@ -510,7 +510,7 @@ export class HubSpotModule implements CRMModule {
       } catch (refreshError) {
         logger.error(
           "Failed to refresh HubSpot token",
-          refreshError instanceof Error ? refreshError : undefined
+          refreshError instanceof Error ? { error: refreshError.message, stack: refreshError.stack } : undefined
         );
         // Continue with the original 401 response
       }

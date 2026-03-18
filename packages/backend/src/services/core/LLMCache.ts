@@ -4,7 +4,7 @@
 
 import crypto from 'crypto';
 
-import { createClient, RedisClientType } from 'redis';
+import Redis, { type Redis as RedisClientType } from 'ioredis';
 
 export interface CacheConfig {
   ttl: number;
@@ -35,22 +35,22 @@ export class LLMCache {
       ...config,
     };
 
-    this.client = createClient({
-      url: process.env.REDIS_URL ?? 'redis://localhost:6379',
-      socket: { reconnectStrategy: (retries) => Math.min(retries * 50, 500) },
+    this.client = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+      retryStrategy: (retries) => Math.min(retries * 50, 500),
     });
 
     this.client.on('error', () => { this.connected = false; });
     this.client.on('connect', () => { this.connected = true; });
-    this.client.on('disconnect', () => { this.connected = false; });
+    this.client.on('close', () => { this.connected = false; });
   }
 
   async connect(): Promise<void> {
-    if (!this.connected) await this.client.connect();
+    // ioredis connects automatically
+    this.connected = true;
   }
 
   async disconnect(): Promise<void> {
-    if (this.connected) await this.client.disconnect();
+    if (this.connected) await this.client.quit();
   }
 
   private generateCacheKey(prompt: string, model: string, options?: unknown): string {
@@ -140,7 +140,7 @@ export class LLMCache {
 
       if (keys.length > 0) {
         // Batch all GETs into a single MGET round-trip.
-        const values = await this.client.mGet(keys);
+        const values = await this.client.mget(keys);
         for (const raw of values) {
           if (raw) {
             const entry: LLMCacheEntry = JSON.parse(raw);

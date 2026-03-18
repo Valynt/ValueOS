@@ -90,6 +90,9 @@ export interface WorkflowExecution {
 /** @deprecated Use WorkflowStage instead */
 export type DAGNode = WorkflowStage;
 
+/** Alias for WorkflowDAG — use WorkflowDAG for new code. */
+export type DAGDefinitionSpec = WorkflowDAG;
+
 export interface OrchestrationConfig {
   maxConcurrency: number;
   timeoutMs: number;

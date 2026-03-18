@@ -65,7 +65,7 @@ const RATE_LIMITS = {
 /**
  * Get user tier from request
  */
-function getUserTier(req: RateLimitRequest): keyof typeof RATE_LIMITS {
+function getUserTier(req: Request): keyof typeof RATE_LIMITS {
   if (!req.user) return 'anonymous';
 
   // Admin users get their own tier with higher limits
@@ -80,7 +80,7 @@ function getUserTier(req: RateLimitRequest): keyof typeof RATE_LIMITS {
 /**
  * Generate rate limit key based on user ID or IP using unified service
  */
-function keyGenerator(req: RateLimitRequest): string {
+function keyGenerator(req: Request): string {
   const tier = getUserTier(req);
 
   return RateLimitKeyService.generateSecureKey(req as Request, {
@@ -92,7 +92,7 @@ function keyGenerator(req: RateLimitRequest): string {
 /**
  * Custom handler for rate limit exceeded
  */
-async function rateLimitHandler(req: RateLimitRequest, res: Response) {
+async function rateLimitHandler(req: Request, res: Response, _next: import('express').NextFunction, _options: unknown): Promise<void> {
   const tier = getUserTier(req);
   const limit = RATE_LIMITS[tier];
 
@@ -145,7 +145,7 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
 /**
  * Skip rate limiting for certain conditions
  */
-function skipRateLimit(req: RateLimitRequest): boolean {
+function skipRateLimit(req: Request): boolean {
   // Skip for health checks
   if (req.path === '/health') return true;
 
@@ -168,7 +168,7 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
   const config = RATE_LIMITS[tier];
 
   try {
-    const client = await redisCircuitBreaker.execute({
+    const client = await (redisCircuitBreaker.execute({
       operation: () => getRedisClient(),
       operationName: 'redis-get-client',
       timeout: 5000,
@@ -176,7 +176,7 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
         logger.warn('Redis unavailable, falling back to in-memory rate limiting');
         return null;
       }
-    });
+    }) as unknown as Promise<import('ioredis').Redis | null>);
 
     return rateLimit({
       windowMs: config.windowMs,
@@ -189,7 +189,8 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
       // rate-limit-redis v4 requires a sendCommand function, not a raw client.
       ...(client ? {
         store: new RedisStore({
-          sendCommand: (...args: string[]) => client.call(...args) as Promise<unknown>,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          sendCommand: (...args: string[]) => (client as any).call(...args),
           prefix: `rl:${tier}:`
         })
       } : {}),
@@ -218,7 +219,7 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
 /**
  * Dynamic rate limiter that selects limit based on user tier
  */
-export const llmRateLimiter = async (req: RateLimitRequest, res: Response, next: NextFunction) => {
+export const llmRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
   const tier = getUserTier(req);
 
   let limiterPromise = limiterPromises.get(tier);
@@ -287,7 +288,7 @@ async function createStrictRateLimiter() {
  * Stricter rate limiter for expensive operations
  * (e.g., long-form content generation, complex analysis)
  */
-export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response, next: NextFunction) => {
+export const strictLlmRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
   if (!strictLimiterPromise) {
     strictLimiterPromise = createStrictRateLimiter();
   }

@@ -6,6 +6,9 @@
  */
 
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
+import { createServerSupabaseClient } from '../../lib/supabase';
+
+const supabase = createServerSupabaseClient();
 import type TaskContext from '../../lib/agent-fabric/TaskContext';
 import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js'

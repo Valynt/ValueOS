@@ -19,6 +19,7 @@ import type {
   ISecretProvider,
   RotationPolicy,
   SecretMetadata,
+  SecretValue,
 } from "./ISecretProvider";
 
 /**

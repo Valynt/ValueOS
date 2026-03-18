@@ -204,7 +204,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce searchDeals failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return { deals: [], total: 0, hasMore: false };
     }
@@ -227,7 +227,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce getDeal failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return null;
     }
@@ -258,7 +258,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce getDealContacts failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return [];
     }
@@ -305,7 +305,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce getDealActivities failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return [];
     }
@@ -330,7 +330,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce getCompany failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return null;
     }
@@ -358,7 +358,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce searchCompanies failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return [];
     }
@@ -385,7 +385,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce updateDealProperties failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return false;
     }
@@ -442,7 +442,7 @@ export class SalesforceModule implements CRMModule {
     } catch (error) {
       logger.error(
         "Salesforce addDealNote failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return false;
     }
@@ -514,7 +514,7 @@ export class SalesforceModule implements CRMModule {
       } catch (refreshError) {
         logger.error(
           "Failed to refresh Salesforce token",
-          refreshError instanceof Error ? refreshError : undefined
+          refreshError instanceof Error ? { error: refreshError.message, stack: refreshError.stack } : undefined
         );
         // Continue with the original 401 response
       }

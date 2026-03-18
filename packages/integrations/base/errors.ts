@@ -8,7 +8,7 @@ export class IntegrationError extends Error {
     public readonly code: string,
     public readonly provider: string,
     public readonly retryable: boolean = false,
-    public readonly cause?: Error
+    public override readonly cause?: Error
   ) {
     super(message);
     this.name = "IntegrationError";

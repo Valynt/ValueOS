@@ -124,6 +124,9 @@ export interface XBRLFact {
   frame?: string;
   form?: string;
   filed?: string;
+  accn?: string;
+  start?: string;
+  end?: string;
   taxonomy: string;
 }
 

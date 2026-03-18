@@ -11,7 +11,8 @@
 
 // Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts.
 // Re-exported here for backward compatibility. ADR-0010.
-export type { LifecycleStage } from '@valueos/shared';
+import type { LifecycleStage } from '@valueos/shared';
+export type { LifecycleStage };
 
 // ============================================================================
 // Manifesto Validation
@@ -400,4 +401,38 @@ export interface ValueCase {
   created_at: string;
   updated_at: string;
   organization_id: string;
+}
+
+export interface FormulaVariable {
+  name: string;
+  value: number;
+  unit?: string;
+  description?: string;
+}
+
+export interface FormulaStep {
+  expression: string;
+  result: number;
+  description?: string;
+  calculation?: string;
+  [key: string]: unknown;
+}
+
+export interface FormulaResult {
+  value: number;
+  unit?: string;
+  steps: FormulaStep[];
+  intermediateSteps?: FormulaStep[];
+  confidence?: number;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface FormulaContext {
+  variables: Record<string, FormulaVariable>;
+  metadata?: Record<string, unknown>;
+  functions?: Record<string, (...args: unknown[]) => unknown>;
+  root?: Record<string, unknown>;
+  calculation?: Record<string, unknown>;
+  [key: string]: unknown;
 }

@@ -91,7 +91,7 @@ export class EventBus {
     } catch (error) {
       logger.error(
         "Failed to connect EventBus to Redis",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       throw error;
     }
@@ -112,7 +112,7 @@ export class EventBus {
     } catch (error) {
       logger.error(
         "Error disconnecting EventBus",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
     }
   }
@@ -153,14 +153,11 @@ export class EventBus {
 
       return eventId;
     } catch (error) {
-      logger.error(
-        "Failed to publish event",
-        error instanceof Error ? error : undefined,
-        {
-          eventType: event.type,
-          source: event.source,
-        }
-      );
+      logger.error("Failed to publish event", {
+        ...(error instanceof Error ? { error: error.message, stack: error.stack } : {}),
+        eventType: event.type,
+        source: event.source,
+      });
       throw error;
     }
   }
@@ -317,13 +314,10 @@ export class EventBus {
       const event: Event = JSON.parse(message);
       await this.processEvent(event);
     } catch (error) {
-      logger.error(
-        "Error processing incoming event",
-        error instanceof Error ? error : undefined,
-        {
-          message: message.substring(0, 200),
-        }
-      );
+      logger.error("Error processing incoming event", {
+        ...(error instanceof Error ? { error: error.message, stack: error.stack } : {}),
+        message: message.substring(0, 200),
+      });
     }
   }
 
@@ -350,15 +344,12 @@ export class EventBus {
     // Process handlers concurrently
     const promises = allHandlers.map((handler) =>
       this.executeHandler(handler, event).catch((error) => {
-        logger.error(
-          "Event handler failed",
-          error instanceof Error ? error : undefined,
-          {
-            eventId: event.id,
-            eventType: event.type,
-            handler: handler.eventType,
-          }
-        );
+        logger.error("Event handler failed", {
+          ...(error instanceof Error ? { error: error.message, stack: error.stack } : {}),
+          eventId: event.id,
+          eventType: event.type,
+          handler: handler.eventType,
+        });
       })
     );
 
@@ -375,14 +366,11 @@ export class EventBus {
     try {
       await handler.handler(event);
     } catch (error) {
-      logger.error(
-        "Event handler execution failed",
-        error instanceof Error ? error : undefined,
-        {
-          eventType: event.type,
-          handlerPriority: handler.priority,
-        }
-      );
+      logger.error("Event handler execution failed", {
+        ...(error instanceof Error ? { error: error.message, stack: error.stack } : {}),
+        eventType: event.type,
+        handlerPriority: handler.priority,
+      });
       throw error;
     }
   }
@@ -491,7 +479,7 @@ export function setEventBus(eventBus: EventBus): void {
     defaultEventBus.disconnect().catch((error) => {
       logger.error(
         "Error disconnecting previous event bus",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
     });
   }

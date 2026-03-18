@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 
-import type { RedisClientType } from 'redis';
+import type { Redis as RedisClientType } from 'ioredis';
 
 /**
  * Nonce store with in-memory storage.

@@ -209,7 +209,8 @@ Respond with a JSON object containing:
     messages: LabMessage[],
     criteria: LabSuccessCriterion[],
     agentType: string,
-    scenario: string
+    scenario: string,
+    taskContext?: TaskContext
   ): Promise<LabEvaluationResult> {
     try {
       const conversationText = messages
@@ -450,7 +451,7 @@ Provide your assessment.`;
     };
   }
 
-  private async generateQuizFeedback(incorrectQuestions: QuestionResult[]): Promise<string> {
+  private async generateQuizFeedback(incorrectQuestions: QuestionResult[], taskContext?: TaskContext): Promise<string> {
     try {
       const questionsText = incorrectQuestions
         .map(q => `- Question ${q.questionId}: User answered "${q.userAnswer}", correct was "${q.correctAnswer}"`)

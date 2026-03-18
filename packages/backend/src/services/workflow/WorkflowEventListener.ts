@@ -36,13 +36,13 @@ export type WorkflowEventCallback = (event: unknown) => void | Promise<void>;
  * Workflow Event Listener Service
  */
 export class WorkflowEventListener extends ServiceMessageBusAdapter {
-  private listeners: Map<WorkflowEventType, WorkflowEventCallback[]>;
+  private _eventCallbacks: Map<WorkflowEventType, WorkflowEventCallback[]>;
   private enabled: boolean;
   private workflowProgress: Map<string, WorkflowProgress>;
 
   constructor() {
-    super("workflow-listener", "workflow-system");
-    this.listeners = new Map();
+    super();
+    this._eventCallbacks = new Map();
     this.enabled = true;
     this.workflowProgress = new Map();
   }
@@ -66,11 +66,11 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
   /**
    * Register callback for workflow event
    */
-  on(eventType: WorkflowEventType, callback: WorkflowEventCallback): this {
-    if (!this.listeners.has(eventType)) {
-      this.listeners.set(eventType, []);
+  override on(eventType: WorkflowEventType, callback: WorkflowEventCallback): this {
+    if (!this._eventCallbacks.has(eventType)) {
+      this._eventCallbacks.set(eventType, []);
     }
-    this.listeners.get(eventType)!.push(callback);
+    this._eventCallbacks.get(eventType)!.push(callback);
     logger.debug("Registered workflow event callback", { eventType });
     return super.on(eventType, callback);
   }
@@ -89,20 +89,18 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
 
     try {
       // Initialize progress tracking
+      const ctx = context as Record<string, unknown>;
       this.workflowProgress.set(workflowId, {
-        workflowId,
-        currentStage: context.initialStage || "initial",
+        workflow_id: workflowId,
+        currentStage: (ctx["initialStage"] as string) || "initial",
         currentStageIndex: 0,
-        totalStages: context.totalStages || 0,
+        totalStages: (ctx["totalStages"] as number) || 0,
         completedStages: [],
         status: "in_progress",
         percentComplete: 0,
       });
 
-      // Emit event via SecureMessageBus
       await this.emitSecure("workflow:started", { workflowId, executionId, context });
-
-      // Trigger SDUI update
       await this.triggerSDUIUpdate(workflowId, context);
 
       logger.info("Workflow started event handled", { workflowId });
@@ -137,9 +135,10 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
       const progress = this.workflowProgress.get(workflowId);
       if (progress) {
         progress.currentStage = toStage;
-        progress.currentStageIndex += 1;
+        const idx = (progress.currentStageIndex ?? 0) + 1;
+        progress.currentStageIndex = idx;
         progress.percentComplete = progress.totalStages
-          ? Math.round((progress.currentStageIndex / progress.totalStages) * 100)
+          ? Math.round((idx / progress.totalStages) * 100)
           : progress.percentComplete;
         this.workflowProgress.set(workflowId, progress);
       }
@@ -160,9 +159,9 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
         context
       );
 
-      // Apply SDUI update
       if (sduiUpdate.type === "full_schema") {
-        const workspaceId = context.workspaceId || context.workspace_id;
+        const ctx2 = context as Record<string, unknown>;
+        const workspaceId = (ctx2["workspaceId"] ?? ctx2["workspace_id"]) as string | undefined;
         if (workspaceId) {
           canvasSchemaService.invalidateCache(workspaceId);
         }
@@ -382,7 +381,8 @@ export class WorkflowEventListener extends ServiceMessageBusAdapter {
    * Trigger SDUI update for workflow
    */
   private async triggerSDUIUpdate(_workflowId: string, context: unknown): Promise<void> {
-    const workspaceId = context.workspaceId || context.workspace_id;
+    const ctx = context as Record<string, unknown>;
+    const workspaceId = (ctx["workspaceId"] ?? ctx["workspace_id"]) as string | undefined;
     if (workspaceId) {
       canvasSchemaService.invalidateCache(workspaceId);
     }

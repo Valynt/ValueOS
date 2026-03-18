@@ -161,3 +161,32 @@ export class CheckpointRejectedError extends Error {
     this.name = 'CheckpointRejectedError';
   }
 }
+
+export type {
+  ClarificationPayload,
+  HistoricalIntentMatch,
+  IntentGraph,
+  IntentNode,
+  IntentParameter,
+} from '../../types/intent';
+
+export interface RefinementMetadata {
+  wasRefined: boolean;
+  originalScore?: number;
+  refinedScore?: number;
+  originalModel?: string;
+  refinedModel?: string;
+  refinementReason?: string;
+  refinementPlan?: string;
+  costIncrease?: number;
+  [key: string]: unknown;
+}
+
+export interface ReasoningStep {
+  step: number;
+  description: string;
+  input?: unknown;
+  output?: unknown;
+  duration_ms?: number;
+  model?: string;
+}

@@ -7,7 +7,7 @@
 
 import { logger } from "@shared/lib/logger";
 import { getRedisClient } from "@shared/lib/redisClient";
-import { RedisClientType } from "redis";
+import type { Redis as RedisClientType } from 'ioredis';
 
 export interface RateLimitEntry {
   count: number;
@@ -55,7 +55,7 @@ export class RedisRateLimitStore {
       pipeline.incr(redisKey);
 
       // Set expiry if not set (only on first increment)
-      pipeline.pExpire(redisKey, windowMs);
+      pipeline.pexpire(redisKey, windowMs);
 
       // Execute pipeline
       const results = await pipeline.exec();
@@ -158,12 +158,9 @@ export class RedisRateLimitStore {
       let cursor = 0;
 
       do {
-        const reply = await this.redis.scan(cursor, {
-          MATCH: this.prefix + pattern,
-          COUNT: 100,
-        });
-        cursor = reply.cursor;
-        collected.push(...reply.keys.map((k) => k.replace(this.prefix, "")));
+        const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', this.prefix + pattern, 'COUNT', 100);
+        cursor = parseInt(nextCursor, 10);
+        collected.push(...keys.map((k) => k.replace(this.prefix, "")));
       } while (cursor !== 0);
 
       return collected;
@@ -193,12 +190,9 @@ export class RedisRateLimitStore {
       let cursor = 0;
 
       do {
-        const reply = await this.redis.scan(cursor, {
-          MATCH: this.prefix + "*",
-          COUNT: 100,
-        });
-        cursor = reply.cursor;
-        allKeys.push(...reply.keys);
+        const [nextCursor2, scanKeys] = await this.redis.scan(cursor, 'MATCH', this.prefix + '*', 'COUNT', 100);
+        cursor = parseInt(nextCursor2, 10);
+        allKeys.push(...scanKeys);
       } while (cursor !== 0);
 
       const stats: Array<{ key: string; count: number; ttl: number }> = [];

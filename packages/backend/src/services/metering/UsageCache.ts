@@ -5,7 +5,7 @@
 
 import { getEnvVar } from "@shared/lib/env";
 import { type SupabaseClient } from "@supabase/supabase-js";
-import Redis, { type RedisClientType } from "redis";
+import Redis, { type Redis as RedisClientType } from "ioredis";
 
 import { BILLING_METRICS, USAGE_CACHE_TTL } from "../../config/billing.js"
 import type { BillingMetric } from "../../config/billing.js"
@@ -24,23 +24,21 @@ let redisConnectionPromise: Promise<RedisClientType | void> | null = null;
 // Initialize Redis connection asynchronously with proper error handling
 function initializeRedis(): void {
   try {
-    redisClient = Redis.createClient({
-      url: getEnvVar("REDIS_URL", { defaultValue: "redis://localhost:6379" }),
-    });
+    redisClient = new Redis(getEnvVar("REDIS_URL", { defaultValue: "redis://localhost:6379" }));
 
     // Handle connection errors
     redisClient.on("error", (err) => {
-      logger.warn("Redis connection error", { error: err.message });
+      logger.warn("Redis connection error", { error: (err as Error).message });
     });
 
     redisClient.on("ready", () => {
       logger.info("Redis connected for usage cache");
     });
 
-    // Connect asynchronously and handle errors
-    redisConnectionPromise = redisClient.connect().catch((err) => {
+    // ioredis connects automatically; wrap in a resolved promise for API compatibility
+    redisConnectionPromise = Promise.resolve().catch((err) => {
       logger.warn("Redis connection failed, using in-memory cache", {
-        error: err.message,
+        error: (err as Error).message,
       });
       redisClient = null;
     });
@@ -262,7 +260,7 @@ class UsageCache {
   private async set(key: string, value: number): Promise<void> {
     try {
       if (redisClient && redisClient.isReady) {
-        await redisClient.setEx(key, USAGE_CACHE_TTL, value.toString());
+        await redisClient.setex(key, USAGE_CACHE_TTL, value.toString());
       } else {
         // In-memory cache
         memoryCache.set(key, {

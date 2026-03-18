@@ -18,7 +18,7 @@
 import { createLogger } from "@shared/lib/logger";
 import { getRedisClient } from "@shared/lib/redisClient";
 import { NextFunction, Request, Response } from "express";
-import { RedisClientType } from "redis";
+import type { Redis as RedisClientType } from 'ioredis';
 
 import { createCounter } from "../lib/observability/index.js";
 
@@ -199,7 +199,7 @@ export class AuthRateLimitStore {
   private async redisIncr(key: string, windowMs: number): Promise<number> {
     const pipeline = this.redis!.multi();
     pipeline.incr(key);
-    pipeline.pExpire(key, windowMs, 'NX'); // set TTL only on first write
+    pipeline.pexpire(key, windowMs, 'NX'); // set TTL only on first write
     const results = await pipeline.exec();
     return (results?.[0] as number) ?? 1;
   }
@@ -208,7 +208,7 @@ export class AuthRateLimitStore {
     const pipeline = this.redis!.multi();
     pipeline.incr(key);
     // Keep failure key alive for the lockout window so it survives window resets.
-    pipeline.pExpire(key, lockoutDurationMs * 2, 'GT');
+    pipeline.pexpire(key, lockoutDurationMs * 2, 'GT');
     const results = await pipeline.exec();
     return (results?.[0] as number) ?? 1;
   }

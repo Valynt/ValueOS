@@ -126,7 +126,7 @@ export function fileUploadSecurityMiddleware(config: Partial<FileUploadConfig> =
         count: allFiles.length,
         maxAllowed: mergedConfig.maxFilesPerRequest,
       });
-      return res.status(400).json({
+      return void res.status(400).json({
         error: "Too many files uploaded",
         maxAllowed: mergedConfig.maxFilesPerRequest,
       });
@@ -140,7 +140,7 @@ export function fileUploadSecurityMiddleware(config: Partial<FileUploadConfig> =
           filename: file.originalname,
           error: validation.error,
         });
-        return res.status(400).json({
+        return void res.status(400).json({
           error: "File validation failed",
           details: validation.error,
         });
@@ -168,12 +168,12 @@ export function contentTypeValidationMiddleware(
   const contentType = req.headers["content-type"];
 
   if (!contentType) {
-    return res.status(400).json({ error: "Content-Type header required" });
+    return void res.status(400).json({ error: "Content-Type header required" });
   }
 
   // Only allow multipart/form-data for file uploads
   if (!contentType.startsWith("multipart/form-data")) {
-    return res.status(400).json({
+    return void res.status(400).json({
       error: "Invalid Content-Type for file upload",
       allowed: "multipart/form-data",
     });

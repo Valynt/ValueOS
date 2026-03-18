@@ -151,7 +151,6 @@ export class PrivateCompanyModule extends BaseModule {
             extraction_method: "inference",
           },
           {
-            domain,
             ...signals,
           },
           JSON.stringify(signals)

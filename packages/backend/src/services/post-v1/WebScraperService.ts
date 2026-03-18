@@ -3,7 +3,7 @@ import { promisify } from "util";
 
 import * as cheerio from "cheerio";
 import * as ipaddr from "ipaddr.js";
-import { createClient, type RedisClientType } from "redis";
+import Redis, { type Redis as RedisClientType } from "ioredis";
 
 import { logger } from "../../lib/logger.js";
 
@@ -253,9 +253,9 @@ export class WebScraperService {
     // Initialize Redis for distributed rate limiting
     if (redisUrl) {
       try {
-        this.redis = createClient({ url: redisUrl });
+        this.redis = new Redis(redisUrl);
         this.redis.on("error", (err) => logger.error("Redis connection error", err));
-        this.redisConnectionPromise = this.redis.connect();
+        this.redisConnectionPromise = Promise.resolve();
       } catch (error) {
         logger.warn("Failed to initialize Redis, falling back to in-memory rate limiting", {
           error,

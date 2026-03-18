@@ -44,4 +44,11 @@ export interface WorkflowProgress {
   total_stages: number;
   progress_percentage: number;
   estimated_completion?: string;
+  // camelCase aliases
+  currentStage?: string;
+  currentStageIndex?: number;
+  completedStages?: string[];
+  totalStages?: number;
+  percentComplete?: number;
+  status?: string;
 }

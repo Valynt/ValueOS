@@ -6,7 +6,11 @@
  */
 
 import { Request, Response, Router } from "express";
+import { authenticate } from "../middleware/auth";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { RealizationService } from "../services/realization/RealizationService.js";
+
+const requireTenantAccess = tenantContextMiddleware(true);
 
 const router: Router = Router();
 const realizationService = new RealizationService();
@@ -52,7 +56,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
       const { scenarioId, scenarioName, kpiTargets, assumptions, handoffNotes } = req.body;
 
       const baselineId = await realizationService.createBaseline(
@@ -86,7 +90,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
 
       const checkpoints = await realizationService.getCheckpoints(caseId, organizationId);
 
@@ -136,7 +140,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
 
       const targets = await realizationService.getKpiTargets(caseId, organizationId);
 

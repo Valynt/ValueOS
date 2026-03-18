@@ -220,11 +220,10 @@ export class AgentAPI {
       agentTypes.forEach((agent) => {
         this.circuitBreakers.set(
           agent,
-          new CircuitBreaker(
-            `agent-${agent}`,
-            this.config.failureThreshold,
-            this.config.cooldownPeriod
-          )
+          new CircuitBreaker({
+            failureThreshold: this.config.failureThreshold,
+            cooldownPeriod: this.config.cooldownPeriod,
+          })
         );
       });
     }
@@ -244,15 +243,16 @@ export class AgentAPI {
    * Sanitize outbound agent payloads to guard against prompt injection and XSS.
    */
   private sanitizeRequestBody(body: unknown): unknown {
-    const sanitizedQuery = body.query
-      ? sanitizeString(
-          llmSanitizer.sanitizePrompt(String(body.query), { maxLength: 4000 }).content,
+    const b = body as Record<string, unknown>;
+    const sanitizedQuery = b.query
+      ? (sanitizeString(
+          llmSanitizer.sanitizePrompt(String(b.query), { maxLength: 4000 }).content,
           { maxLength: 4000, stripScripts: true }
-        ).sanitized
-      : body.query;
+        ) as unknown as { sanitized: string }).sanitized
+      : b.query;
 
     return sanitizeObject({
-      ...body,
+      ...b,
       query: sanitizedQuery,
     });
   }
@@ -262,13 +262,14 @@ export class AgentAPI {
    */
   private normalizeTokenUsage(tokens?: unknown): { prompt?: number; completion?: number; total?: number } | undefined {
     if (!tokens) return undefined;
+    const t = tokens as Record<string, unknown>;
 
     const clamp = (value: number | undefined, max = 20000) =>
       Math.min(Math.max(Number(value || 0), 0), max);
 
-    const prompt = clamp(tokens.prompt);
-    const completion = clamp(tokens.completion);
-    const total = clamp(tokens.total || prompt + completion);
+    const prompt = clamp(t.prompt as number | undefined);
+    const completion = clamp(t.completion as number | undefined);
+    const total = clamp((t.total as number | undefined) || prompt + completion);
 
     return { prompt, completion, total };
   }

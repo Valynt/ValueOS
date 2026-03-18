@@ -13,6 +13,8 @@ export interface CircuitBreakerConfig {
   halfOpenRequests: number;
   /** Alias for resetTimeout — used by Redis and secrets subsystems. */
   recoveryTimeout?: number;
+  /** Alias for resetTimeout — used by agent fabric. */
+  cooldownPeriod?: number;
   /** Monitoring window in ms — informational, not enforced by this implementation. */
   monitoringPeriod?: number;
   /** Number of successes needed to close from half-open. Defaults to halfOpenRequests. */

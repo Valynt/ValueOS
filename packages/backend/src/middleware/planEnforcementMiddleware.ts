@@ -23,6 +23,7 @@ import UsageCache from '../services/metering/UsageCache';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';
 
 import type { AuthenticatedRequest } from './auth.js';
+import { realtimeUpdateService } from '../services/realtime/RealtimeUpdateService';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];

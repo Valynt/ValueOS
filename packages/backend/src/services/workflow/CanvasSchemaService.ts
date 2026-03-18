@@ -1,2 +1,2 @@
-// Re-export shim
-export * from "../post-v1/CanvasSchemaService.js";
+// Re-export shim — canonical: sdui/CanvasSchemaService
+export { CanvasSchemaService, canvasSchemaService } from "../sdui/CanvasSchemaService";

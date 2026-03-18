@@ -2,11 +2,15 @@
  * ServiceMessageBusAdapter
  */
 
-export class ServiceMessageBusAdapter {
-  constructor() {}
+import { EventEmitter } from 'events';
+
+export class ServiceMessageBusAdapter extends EventEmitter {
+  constructor() {
+    super();
+  }
 
   protected async emitSecure(event: string, data: unknown): Promise<void> {
-    // Base implementation - subclasses can override for actual message bus integration
+    this.emit(event, data);
   }
 }
 

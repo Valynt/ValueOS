@@ -125,7 +125,7 @@ class WebhookService {
       const event = this.stripe.webhooks.constructEvent(
         payload,
         signature,
-        STRIPE_CONFIG.webhookSecret
+        STRIPE_CONFIG.webhookSecret!
       );
 
       return event;
@@ -281,7 +281,7 @@ class WebhookService {
    * Handle invoice events
    */
   private async handleInvoiceEvent(event: Stripe.Event): Promise<void> {
-    const invoice = event.data.object;
+    const invoice = event.data.object as Stripe.Invoice;
     await InvoiceService.storeInvoice(invoice);
     logger.info("Invoice event processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
@@ -291,7 +291,7 @@ class WebhookService {
    * Handle payment succeeded
    */
   private async handlePaymentSucceeded(event: Stripe.Event): Promise<void> {
-    const invoice = event.data.object;
+    const invoice = event.data.object as Stripe.Invoice;
 
     // Update invoice status
     await InvoiceService.updateInvoiceWithCustomerStatus(invoice, "active");
@@ -333,7 +333,7 @@ class WebhookService {
    * Handle payment failed
    */
   private async handlePaymentFailed(event: Stripe.Event): Promise<void> {
-    const invoice = event.data.object;
+    const invoice = event.data.object as Stripe.Invoice;
 
     // Update invoice
     await InvoiceService.updateInvoice(invoice);
@@ -398,7 +398,7 @@ class WebhookService {
    * Handle subscription updated
    */
   private async handleSubscriptionUpdated(event: Stripe.Event): Promise<void> {
-    const subscription = event.data.object;
+    const subscription = event.data.object as Stripe.Subscription;
 
     // Fetch previous state before updating
     const { data: prevSub } = await supabase
@@ -486,7 +486,7 @@ class WebhookService {
    * Handle subscription deleted
    */
   private async handleSubscriptionDeleted(event: Stripe.Event): Promise<void> {
-    const subscription = event.data.object;
+    const subscription = event.data.object as Stripe.Subscription;
 
     // Update subscription status
     await supabase
@@ -531,14 +531,14 @@ class WebhookService {
    * Handle charge succeeded
    */
   private async handleChargeSucceeded(event: Stripe.Event): Promise<void> {
-    logger.info("Charge succeeded", { chargeId: event.data.object.id });
+    logger.info("Charge succeeded", { chargeId: (event.data.object as Stripe.Charge).id });
   }
 
   /**
    * Handle charge failed
    */
   private async handleChargeFailed(event: Stripe.Event): Promise<void> {
-    logger.warn("Charge failed", { chargeId: event.data.object.id });
+    logger.warn("Charge failed", { chargeId: (event.data.object as Stripe.Charge).id });
   }
 
   /**

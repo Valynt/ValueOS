@@ -19,6 +19,8 @@
  * - Communication: communicator, narrative
  * - Coordination: coordinator, value-eval
  */
+export type { AgentState, AgentEvent } from '../lib/agent/types';
+
 export type AgentType =
   | 'opportunity'
   | 'target'

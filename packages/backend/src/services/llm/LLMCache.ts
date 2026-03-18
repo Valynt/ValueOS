@@ -7,7 +7,7 @@
 
 import crypto from 'crypto';
 
-import { createClient, RedisClientType } from 'redis';
+import Redis, { type Redis as RedisClientType } from 'ioredis';
 
 import { logger } from '../utils/logger.js'
 
@@ -40,11 +40,8 @@ export class LLMCache {
       ...config
     };
     
-    this.client = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-      socket: {
-        reconnectStrategy: (retries: number) => Math.min(retries * 50, 500)
-      }
+    this.client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      retryStrategy: (retries: number) => Math.min(retries * 50, 500),
     });
     
     this.client.on('error', (err: unknown) => {
@@ -68,7 +65,7 @@ export class LLMCache {
    */
   async connect(): Promise<void> {
     if (!this.connected) {
-      await this.client.connect();
+      // ioredis connects automatically;
     }
   }
   
@@ -77,7 +74,7 @@ export class LLMCache {
    */
   async disconnect(): Promise<void> {
     if (this.connected) {
-      await this.client.disconnect();
+      await this.client.quit();
     }
   }
   
@@ -130,7 +127,7 @@ export class LLMCache {
       // authoritative hit counter; entry.hitCount is intentionally not mutated.
       const statsKey = `${this.config.keyPrefix}stats`;
       const tx = this.client.multi();
-      tx.hIncrBy(statsKey, 'totalHits', 1);
+      tx.hincrby(statsKey, 'totalHits', 1);
       tx.hIncrByFloat(statsKey, 'totalCostSaved', entry.cost);
       await tx.exec();
 
@@ -180,7 +177,7 @@ export class LLMCache {
       const statsKey = `${this.config.keyPrefix}stats`;
       await Promise.all([
         this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl }),
-        this.client.hIncrBy(statsKey, 'totalEntries', 1),
+        this.client.hincrby(statsKey, 'totalEntries', 1),
       ]);
 
       logger.cache('set', key, {
@@ -263,7 +260,7 @@ export class LLMCache {
     try {
       const statsKey = `${this.config.keyPrefix}stats`;
       const [statsHash, memInfo] = await Promise.all([
-        this.client.hGetAll(statsKey),
+        this.client.hgetall(statsKey),
         this.client.info('memory'),
       ]);
 

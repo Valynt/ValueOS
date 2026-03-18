@@ -242,13 +242,15 @@ export function generateTrustBadge(
     return null;
   }
 
-  const latestStep = relevantSteps[relevantSteps.length - 1];
+  // Safe: length > 0 checked above
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const latestStep = relevantSteps[relevantSteps.length - 1]!;
 
   return {
     metric: metricName,
-    value: latestStep.outputs[metricName]?.value || 'Derived',
+    value: latestStep.outputs[metricName]?.value ?? 'Derived',
     confidence: latestStep.confidence,
-    formula: latestStep.inputs.formula || 'N/A',
+    formula: latestStep.inputs.formula ?? 'N/A',
     hash: latestStep.hash,
     timestamp: latestStep.timestamp,
     sources: latestStep.sources,
@@ -316,7 +318,7 @@ export class IntegrationManager {
     const templateData = this.adapter(businessCase);
 
     // 2. Select appropriate template
-    const templateName = this.templateSelector(templateData.context);
+    const templateName = this.templateSelector(templateData.context as Parameters<typeof selectTemplateByContext>[0]);
 
     // 3. Generate trust badges for all metrics
     const trustBadges = templateData.metrics.map(metric => ({
@@ -344,7 +346,7 @@ export class IntegrationManager {
     newPersona: string,
     currentData: TemplateDataSource
   ): Promise<string> {
-    const context = { ...currentData.context, persona: newPersona as string };
+    const context = { ...currentData.context, persona: newPersona } as Parameters<typeof selectTemplateByContext>[0];
     return this.templateSelector(context);
   }
 

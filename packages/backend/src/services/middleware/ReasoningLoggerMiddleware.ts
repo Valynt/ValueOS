@@ -8,7 +8,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../../lib/logger.js';
-import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../types/orchestration.js';
+import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse, ExecutionEnvelope } from '../../types/orchestration.js';
 
 import { PrivacyScrubber } from './PrivacyScrubber.js';
 import type { ReasoningStep } from './types.js';

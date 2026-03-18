@@ -58,8 +58,8 @@ export interface LLMJobResult {
  * LLM Queue Service
  */
 export class LLMQueueService {
-  private queue: Queue<LLMJobData, LLMJobResult>;
-  private worker: Worker<LLMJobData, LLMJobResult>;
+  private queue: Queue<LLMJobData, LLMJobResult, string>;
+  private worker: Worker<LLMJobData, LLMJobResult, string>;
   private events: QueueEvents;
   private supabase: SupabaseClient;
   private metricsRegistry: Registry;

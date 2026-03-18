@@ -19,7 +19,6 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
@@ -97,6 +96,12 @@
       ],
       "@mcp-common/*": [
         "../../packages/mcp/common/*"
+      ],
+      "@valueos/templates": [
+        "./src/types/stubs/index.d.ts"
+      ],
+      "@valueos/business-case": [
+        "./src/types/stubs/index.d.ts"
       ]
     },
     /* Strict TypeScript Configuration */
@@ -123,10 +128,5 @@
   "exclude": [
     "src/**/*.stories.ts",
     "src/**/*.stories.tsx"
-  ],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    }
   ]
 }

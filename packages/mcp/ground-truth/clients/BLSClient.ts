@@ -193,7 +193,7 @@ export class BLSClient {
       };
 
       if (quarter) {
-        params.quarter = quarter;
+        (params as Record<string, unknown>)["quarter"] = quarter;
       }
 
       if (this.apiKey) {

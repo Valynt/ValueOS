@@ -104,3 +104,19 @@ export interface SafetyLimits {
   allowedModels: string[];
   costBudgetUsd: number;
 }
+
+// Domain types re-exported for convenience by apps/ValyntApp/src/types/vos.ts
+export interface Agent { id: string; name: string; type: AgentType; status: string; }
+export interface AgentSession { id: string; agentId: string; startedAt: string; endedAt?: string; }
+export interface AgentMemory { sessionId: string; entries: Array<{ role: string; content: string }>; }
+export interface Workflow { id: string; name: string; stages: string[]; status: string; }
+export interface WorkflowExecution { id: string; workflowId: string; status: string; startedAt: string; }
+export interface AuditLog { id: string; action: string; userId: string; timestamp: string; metadata?: Record<string, unknown>; }
+export interface ValueCase { id: string; title: string; tenantId: string; status: string; }
+export interface CompanyProfile { id: string; name: string; industry?: string; size?: string; }
+export interface ValueMap { id: string; valueCaseId: string; nodes: unknown[]; }
+export interface KPIHypothesis { id: string; metric: string; baseline: number; target: number; confidence: number; }
+export interface FinancialModel { id: string; valueCaseId: string; totalValue: number; currency: string; }
+export interface Assumption { id: string; description: string; validated: boolean; confidence: number; }
+
+

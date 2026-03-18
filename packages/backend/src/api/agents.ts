@@ -189,7 +189,7 @@ function buildAgentRequestEvent(
 }
 
 function kafkaUnavailableResponse(res: Response): Response {
-  return res.status(503).json({
+  return void res.status(503).json({
     success: false,
     error: {
       code: "KAFKA_DISABLED",
@@ -211,7 +211,7 @@ router.get(
     const modelCard = modelCardService.getModelCard(agentId as string);
 
     if (!modelCard) {
-      return res.status(404).json({
+      return void res.status(404).json({
         error: "Model card not found",
         message: `No model metadata available for agent ${agentId}`,
       });
@@ -219,7 +219,7 @@ router.get(
 
     res.setHeader("x-model-card-version", modelCard.schemaVersion);
 
-    return res.json({
+    return void res.json({
       success: true,
       data: {
         agent_id: agentId,
@@ -269,7 +269,7 @@ router.post(
     const validationResult = invokeSchema.safeParse(req.body);
 
     if (!validationResult.success) {
-      return res.status(400).json({
+      return void res.status(400).json({
         error: "Invalid request",
         message: "Request validation failed",
         details: validationResult.error.errors,
@@ -290,7 +290,7 @@ router.post(
         tenantId: (req as AuthenticatedRequest).tenantId,
       });
 
-      return res.status(400).json({
+      return void res.status(400).json({
         error: "Invalid request",
         message: "Agent prompt rejected due to unsafe content",
       });
@@ -319,7 +319,7 @@ router.post(
               userId: (req as AuthenticatedRequest).user?.id,
               tenantId: (req as AuthenticatedRequest).tenantId,
             });
-            return res.status(400).json({
+            return void res.status(400).json({
               error: "Invalid request",
               message: `Agent parameter '${key}' rejected due to unsafe content`,
             });
@@ -337,7 +337,7 @@ router.post(
     // Add tenant context validation
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {
-      return res.status(403).json({
+      return void res.status(403).json({
         error: "tenant_required",
         message: "Tenant context is required for agent invocation",
       });
@@ -361,7 +361,7 @@ router.post(
           /* ignore */
         }
 
-        return res.json({
+        return void res.json({
           success: true,
           data: {
             jobId: "cached-result",
@@ -393,7 +393,7 @@ router.post(
             tenantId,
             userId,
           });
-          return res.status(404).json({
+          return void res.status(404).json({
             success: false,
             error: {
               code: "AGENT_NOT_FOUND",
@@ -476,7 +476,7 @@ router.post(
           /* metrics are non-fatal */
         }
 
-        return res.json({
+        return void res.json({
           success: true,
           data: {
             jobId,
@@ -505,7 +505,7 @@ router.post(
             mode: "direct",
           }
         );
-        return res.status(500).json({
+        return void res.status(500).json({
           success: false,
           data: { jobId, status: "failed", agentId, mode: "direct" },
           error: {
@@ -551,7 +551,7 @@ router.post(
       });
 
       // Return job ID for tracking
-      return res.json({
+      return void res.json({
         success: true,
         data: {
           jobId: correlationId,
@@ -573,7 +573,7 @@ router.post(
         }
       );
 
-      return res.status(500).json({
+      return void res.status(500).json({
         success: false,
         error: "Agent request failed",
         message: error instanceof Error ? error.message : "Unknown error",
@@ -659,7 +659,7 @@ router.post(
         agentRequestEvent
       );
 
-      return res.json({
+      return void res.json({
         success: true,
         data: { jobId: correlationId, status: "queued", agentId },
       });
@@ -692,7 +692,7 @@ router.get(
     const tenantId = (req as AuthenticatedRequest).tenantId;
 
     if (!tenantId) {
-      return res.status(403).json({
+      return void res.status(403).json({
         success: false,
         error: {
           code: "tenant_required",
@@ -716,7 +716,7 @@ router.get(
         )) as AuditTrailProjection | null;
 
       if (!auditTrail) {
-        return res.status(404).json({
+        return void res.status(404).json({
           error: "Job not found",
           message: `No job found with ID ${jobId}`,
         });
@@ -754,7 +754,7 @@ router.get(
           }
         }
 
-        return res.json({
+        return void res.json({
           success: true,
           data: {
             jobId,
@@ -770,7 +770,7 @@ router.get(
         const requestEvent = events.find(
           (e: AuditEvent) => e.eventType === "agent.request"
         );
-        return res.json({
+        return void res.json({
           success: true,
           data: {
             jobId,
@@ -791,7 +791,7 @@ router.get(
         }
       );
 
-      return res.status(500).json({
+      return void res.status(500).json({
         success: false,
         error: "Job status check failed",
         message: error instanceof Error ? error.message : "Unknown error",
@@ -811,7 +811,7 @@ router.get(
     const tenantId = (req as AuthenticatedRequest).tenantId;
 
     if (!tenantId) {
-      return res.status(403).json({
+      return void res.status(403).json({
         success: false,
         error: {
           code: "tenant_required",
@@ -853,7 +853,7 @@ router.get(
           status: "error",
           error: "Timeout waiting for job completion",
         });
-        return res.end();
+        return void res.end();
       }
 
       try {
@@ -903,7 +903,7 @@ router.get(
               latency: responseEvent.payload.latency,
               completedAt: responseEvent.timestamp,
             });
-            return res.end();
+            return void res.end();
           } else {
             // Send processing update
             const requestEvent = events.find(
@@ -924,7 +924,7 @@ router.get(
           error instanceof Error ? error : undefined
         );
         sendEvent({ status: "error", message: "Internal polling error" });
-        return res.end();
+        return void res.end();
       }
     };
 
@@ -1035,7 +1035,7 @@ router.post(
         );
       }
 
-      return res.json({
+      return void res.json({
         success: true,
         data: { jobId: correlationId, status: "queued" },
       });

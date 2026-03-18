@@ -12,13 +12,13 @@ import { z } from "zod";
 
 import type { AgentOutput, LifecycleContext } from "../../../types/agent";
 import { logger } from "../../logger";
-import { vectorSearchService } from "../../memory/VectorSearchService";
-import { mcpGroundTruthService } from "../../MCPGroundTruthService";
+import { vectorSearchService } from "../../../services/memory/VectorSearchService";
+import { mcpGroundTruthService } from "../../../services/MCPGroundTruthService";
 import {
   claimVerificationService,
   type VerificationResult,
   type Claim,
-} from "../../ground-truth/ClaimVerificationService";
+} from "../../../services/ground-truth/ClaimVerificationService";
 
 import { BaseAgent } from "./BaseAgent";
 
@@ -63,9 +63,9 @@ interface GroundTruthClaim {
 // ---------------------------------------------------------------------------
 
 export class GroundTruthAnalyzer extends BaseAgent {
-  public readonly lifecycleStage = "validating";
-  public readonly version = "1.0.0";
-  public readonly name = "ground-truth-analyzer";
+  public override readonly lifecycleStage = "validating";
+  public override readonly version = "1.0.0";
+  public override readonly name = "ground-truth-analyzer";
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const start = Date.now();

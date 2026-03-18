@@ -385,3 +385,11 @@ export interface SchemaCacheEntry {
   timestamp: number;
   ttl: number;
 }
+
+export interface ManifestoWarning {
+  ruleId: string;
+  message: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  componentId?: string;
+  field?: string;
+}

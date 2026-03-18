@@ -9,20 +9,23 @@
 
 import { getRedisClient as getSharedRedisClient } from "@shared/lib/redisClient";
 import { getRedisKey } from "@shared/lib/redisKeys";
-import { RedisClientType } from "redis";
+import type { Redis } from "ioredis";
 
 import { logger } from "./logger.js";
 
-let cachedClient: RedisClientType | null = null;
+// Re-export the ioredis Redis type as RedisClientType for backward compatibility
+export type RedisClientType = Redis;
+
+let cachedClient: Redis | null = null;
 
 /**
  * Get (or establish) a shared Redis client.
  * Returns null if Redis is unavailable, allowing callers to gracefully
  * degrade to in-memory fallbacks.
  */
-export async function getRedisClient(): Promise<RedisClientType | null> {
+export async function getRedisClient(): Promise<Redis | null> {
   try {
-    cachedClient = await getSharedRedisClient();
+    cachedClient = getSharedRedisClient();
     return cachedClient;
   } catch (error) {
     logger.warn("Redis unavailable, using in-memory fallback", {
