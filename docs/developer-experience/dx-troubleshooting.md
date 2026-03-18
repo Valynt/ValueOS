@@ -1,6 +1,6 @@
 # Dx Troubleshooting
 
-> **Note:** Several `pnpm run dx:*` commands referenced in this document do not exist as package.json scripts. The actual commands for starting/stopping services are `gitpod automations service start <id>` and `gitpod automations service stop <id>`. Scripts under `scripts/dx/` can be invoked directly with `node scripts/dx/<script>.js`. See `.ona/automations.yaml` for the canonical service definitions.
+> **Note:** Several `pnpm run dx:*` commands referenced in this document do not exist as package.json scripts. The actual commands for starting/stopping services are `gitpod automations service start <id>` and `gitpod automations service stop <id>`. Scripts under `scripts/dx/` can be invoked directly with `node scripts/dx/<script>.js`. See `.windsurf/automations.yaml` for the canonical service definitions.
 
 ---
 

@@ -78,10 +78,29 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     END
     \$\$;
 
-    -- Enable required extensions
-    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-    CREATE EXTENSION IF NOT EXISTS "pgjwt";
+    -- Enable required extensions (may already exist in supabase/postgres image)
+    -- Wrapped to survive supautils hook that blocks pg_read_file
+    DO \$\$
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    EXCEPTION WHEN others THEN
+        RAISE NOTICE 'pgcrypto: skipped (%)', SQLERRM;
+    END
+    \$\$;
+    DO \$\$
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS "pgjwt";
+    EXCEPTION WHEN others THEN
+        RAISE NOTICE 'pgjwt: skipped (%)', SQLERRM;
+    END
+    \$\$;
+    DO \$\$
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS "vector";
+    EXCEPTION WHEN others THEN
+        RAISE NOTICE 'vector: skipped (%)', SQLERRM;
+    END
+    \$\$;
 
     -- Grant execute permissions on extensions
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;

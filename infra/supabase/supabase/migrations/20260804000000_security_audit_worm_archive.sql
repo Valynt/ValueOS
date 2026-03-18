@@ -1,6 +1,7 @@
 -- Security audit retention with immutable archive manifest + integrity verification.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pgcrypto;
+EXCEPTION WHEN others THEN RAISE NOTICE 'pgcrypto: skipped (%)' , SQLERRM; END $$;
 
 CREATE TABLE IF NOT EXISTS public.security_audit_archive_batch (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

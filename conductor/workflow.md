@@ -1,3 +1,5 @@
+> **Superseded by [V1 Product Design Brief](../openspec/specs/v1-product-vision/spec.md)** — retained for historical reference.
+
 # Workflow: Hypothesis-First Agentic Saga
 
 ValueOS utilizes a domain-specific state machine and an iterative loop to drive Value Engineering cases.

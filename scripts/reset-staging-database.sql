@@ -26,21 +26,21 @@ DECLARE
     is_prod BOOLEAN := false;
 BEGIN
     SELECT current_database() INTO db_name;
-    
+
     -- Check if database name suggests production
     IF db_name LIKE '%prod%' OR db_name LIKE '%production%' THEN
         is_prod := true;
     END IF;
-    
+
     -- Check if ENVIRONMENT variable is set
     IF current_setting('app.environment', true) = 'production' THEN
         is_prod := true;
     END IF;
-    
+
     IF is_prod THEN
         RAISE EXCEPTION 'SAFETY CHECK FAILED: This appears to be a PRODUCTION database (%). Aborting reset.', db_name;
     END IF;
-    
+
     RAISE NOTICE '  ✅ Database: % (safe to reset)', db_name;
     RAISE NOTICE '';
 END $$;
@@ -82,11 +82,11 @@ DECLARE
 BEGIN
     RAISE NOTICE '  Current user schemas and object counts:';
     RAISE NOTICE '';
-    
-    FOR schema_name IN 
-        SELECT nspname 
-        FROM pg_namespace 
-        WHERE nspname NOT IN ('pg_catalog', 'information_schema', 
+
+    FOR schema_name IN
+        SELECT nspname
+        FROM pg_namespace
+        WHERE nspname NOT IN ('pg_catalog', 'information_schema',
                              'auth', 'storage', 'realtime', 'graphql', 'graphql_public',
                              'vault', 'extensions', 'supabase_migrations', 'supabase_functions',
                              'pg_toast', 'pg_temp_1', 'pg_toast_temp_1')
@@ -96,13 +96,13 @@ BEGIN
         SELECT count(*) INTO obj_count
         FROM pg_tables
         WHERE schemaname = schema_name;
-        
+
         IF obj_count > 0 THEN
             RAISE NOTICE '    Schema: % - % tables', schema_name, obj_count;
             total_objects := total_objects + obj_count;
         END IF;
     END LOOP;
-    
+
     RAISE NOTICE '';
     RAISE NOTICE '  Total user objects to drop: %', total_objects;
     RAISE NOTICE '';
@@ -122,11 +122,11 @@ DECLARE
     drop_count INTEGER := 0;
 BEGIN
     -- Target schemas to clean (preserving Supabase system schemas)
-    FOR schema_rec IN 
-        SELECT nspname 
-        FROM pg_namespace 
+    FOR schema_rec IN
+        SELECT nspname
+        FROM pg_namespace
         WHERE nspname IN ('public', 'internal', 'audit', 'security')
-        ORDER BY CASE 
+        ORDER BY CASE
             WHEN nspname = 'public' THEN 1
             WHEN nspname = 'internal' THEN 2
             WHEN nspname = 'audit' THEN 3
@@ -134,51 +134,51 @@ BEGIN
         END
     LOOP
         RAISE NOTICE '  Processing schema: %', schema_rec.nspname;
-        
+
         -- Drop views first (they may depend on tables)
-        FOR obj_rec IN 
+        FOR obj_rec IN
             SELECT table_name
             FROM information_schema.views
             WHERE table_schema = schema_rec.nspname
         LOOP
-            EXECUTE format('DROP VIEW IF EXISTS %I.%I CASCADE', 
+            EXECUTE format('DROP VIEW IF EXISTS %I.%I CASCADE',
                 schema_rec.nspname, obj_rec.table_name);
             drop_count := drop_count + 1;
         END LOOP;
-        
+
         -- Drop functions
         FOR obj_rec IN
             SELECT proname, oidvectortypes(proargtypes) as argtypes
             FROM pg_proc
             WHERE pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = schema_rec.nspname)
         LOOP
-            EXECUTE format('DROP FUNCTION IF EXISTS %I.%I(%s) CASCADE', 
+            EXECUTE format('DROP FUNCTION IF EXISTS %I.%I(%s) CASCADE',
                 schema_rec.nspname, obj_rec.proname, obj_rec.argtypes);
             drop_count := drop_count + 1;
         END LOOP;
-        
+
         -- Drop tables (CASCADE will drop dependent triggers, constraints, etc.)
         FOR obj_rec IN
             SELECT tablename
             FROM pg_tables
             WHERE schemaname = schema_rec.nspname
         LOOP
-            EXECUTE format('DROP TABLE IF EXISTS %I.%I CASCADE', 
+            EXECUTE format('DROP TABLE IF EXISTS %I.%I CASCADE',
                 schema_rec.nspname, obj_rec.tablename);
             drop_count := drop_count + 1;
         END LOOP;
-        
+
         -- Drop sequences
         FOR obj_rec IN
             SELECT sequence_name
             FROM information_schema.sequences
             WHERE sequence_schema = schema_rec.nspname
         LOOP
-            EXECUTE format('DROP SEQUENCE IF EXISTS %I.%I CASCADE', 
+            EXECUTE format('DROP SEQUENCE IF EXISTS %I.%I CASCADE',
                 schema_rec.nspname, obj_rec.sequence_name);
             drop_count := drop_count + 1;
         END LOOP;
-        
+
         -- Drop types
         FOR obj_rec IN
             SELECT typname
@@ -187,14 +187,14 @@ BEGIN
             WHERE n.nspname = schema_rec.nspname
             AND t.typtype = 'e' -- enums
         LOOP
-            EXECUTE format('DROP TYPE IF EXISTS %I.%I CASCADE', 
+            EXECUTE format('DROP TYPE IF EXISTS %I.%I CASCADE',
                 schema_rec.nspname, obj_rec.typname);
             drop_count := drop_count + 1;
         END LOOP;
-        
+
         RAISE NOTICE '    ✅ Cleaned schema: %', schema_rec.nspname;
     END LOOP;
-    
+
     RAISE NOTICE '';
     RAISE NOTICE '  Total objects dropped: %', drop_count;
     RAISE NOTICE '';
@@ -249,14 +249,12 @@ CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 COMMENT ON EXTENSION vector IS 'Vector similarity search for embeddings (pgvector)';
 
 -- Install other required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA extensions;
 
 \echo '  ✅ Extensions installed:'
 \echo '    - vector (for semantic search)'
-\echo '    - uuid-ossp (for UUID generation)'
-\echo '    - pgcrypto (for encryption)'
+\echo '    - pgcrypto (for encryption — gen_random_uuid() is built-in on PG13+)'
 \echo '    - pg_stat_statements (for query monitoring)'
 \echo ''
 
@@ -271,7 +269,7 @@ DO $$
 BEGIN
     -- Enable RLS by default on public schema
     -- Note: Individual tables will enable RLS when created by migrations
-    
+
     RAISE NOTICE '  ℹ️  RLS will be enabled per-table by migrations';
     RAISE NOTICE '  ℹ️  Default deny-all policy recommended until real policies added';
     RAISE NOTICE '';
@@ -293,17 +291,17 @@ BEGIN
     -- Count remaining user objects
     SELECT count(*) INTO user_tables
     FROM pg_tables
-    WHERE schemaname NOT IN ('pg_catalog', 'information_schema', 
+    WHERE schemaname NOT IN ('pg_catalog', 'information_schema',
                             'auth', 'storage', 'realtime', 'graphql', 'graphql_public',
                             'vault', 'extensions', 'supabase_migrations', 'supabase_functions');
-    
+
     SELECT count(*) INTO user_functions
     FROM pg_proc p
     JOIN pg_namespace n ON p.pronamespace = n.oid
     WHERE n.nspname NOT IN ('pg_catalog', 'information_schema',
                            'auth', 'storage', 'realtime', 'graphql', 'graphql_public',
                            'vault', 'extensions', 'supabase_migrations', 'supabase_functions');
-    
+
     IF user_tables = 0 AND user_functions = 0 THEN
         RAISE NOTICE '  ✅ SUCCESS: Database reset to clean slate';
         RAISE NOTICE '    - User tables: 0';
@@ -313,13 +311,13 @@ BEGIN
         RAISE NOTICE '    - User tables: %', user_tables;
         RAISE NOTICE '    - User functions: %', user_functions;
     END IF;
-    
+
     RAISE NOTICE '';
-    
+
     -- Verify system schemas are intact
     RAISE NOTICE '  Verified system schemas intact:';
     system_schemas := ARRAY['auth', 'storage', 'extensions', 'public', 'internal'];
-    
+
     FOR i IN 1..array_length(system_schemas, 1) LOOP
         IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = system_schemas[i]) THEN
             RAISE NOTICE '    ✅ %', system_schemas[i];
@@ -327,7 +325,7 @@ BEGIN
             RAISE WARNING '    ❌ % (missing!)', system_schemas[i];
         END IF;
     END LOOP;
-    
+
     RAISE NOTICE '';
 END $$;
 
@@ -343,17 +341,17 @@ DECLARE
     ext RECORD;
 BEGIN
     RAISE NOTICE '  Installed extensions:';
-    
-    FOR ext IN 
+
+    FOR ext IN
         SELECT extname, extversion, nspname as schema
         FROM pg_extension e
         JOIN pg_namespace n ON e.extnamespace = n.oid
-        WHERE extname IN ('vector', 'uuid-ossp', 'pgcrypto', 'pg_stat_statements')
+        WHERE extname IN ('vector', 'pgcrypto', 'pg_stat_statements')
         ORDER BY extname
     LOOP
         RAISE NOTICE '    ✅ % (v%) in schema %', ext.extname, ext.extversion, ext.schema;
     END LOOP;
-    
+
     RAISE NOTICE '';
 END $$;
 
@@ -371,7 +369,7 @@ BEGIN
     -- Check if storage schema exists
     IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'storage') THEN
         SELECT count(*) INTO bucket_count FROM storage.buckets;
-        
+
         IF bucket_count > 0 THEN
             RAISE NOTICE '  ⚠️  MANUAL ACTION REQUIRED:';
             RAISE NOTICE '    Storage buckets found: %', bucket_count;

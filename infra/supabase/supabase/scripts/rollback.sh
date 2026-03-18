@@ -43,7 +43,7 @@ fi
 
 # Get applied migrations in reverse order
 if ! $DRY_RUN; then
-  APPLIED=$(PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT name FROM public.schema_migrations ORDER BY applied_at DESC" | xargs)
+  APPLIED=$(PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT name FROM public.app_schema_migrations ORDER BY applied_at DESC" | xargs)
 else
   APPLIED=""
 fi
@@ -66,7 +66,7 @@ for ((i=0; i<STEPS; i++)); do
   if [ -f "$rollback_file" ]; then
     if ! $DRY_RUN; then
       PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f "$rollback_file"
-      PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "DELETE FROM public.schema_migrations WHERE name = '$filename';"
+      PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "DELETE FROM public.app_schema_migrations WHERE name = '$filename';"
     fi
   else
     echo "No rollback file found for $filename. Manual rollback required."

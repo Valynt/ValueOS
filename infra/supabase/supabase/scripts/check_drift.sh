@@ -17,7 +17,7 @@ if ! PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c '
 fi
 
 # 2. Get list of applied migrations from DB
-APPLIED=$(PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT name FROM public.schema_migrations ORDER BY name;" 2>/dev/null | xargs)
+APPLIED=$(PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT name FROM public.app_schema_migrations ORDER BY name;" 2>/dev/null | xargs)
 
 # 3. Get list of local migration files
 LOCAL_FILES=$(ls $MIGRATIONS_DIR/*.sql | xargs -n 1 basename | sort)

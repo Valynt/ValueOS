@@ -527,4 +527,44 @@ export const api = {
     temperature?: number;
     dealId?: string;
   }) => apiClient.post("/api/llm/chat", data),
+
+  // Deal Assembly
+  getDealContext: (caseId: string) => apiClient.get(`/api/cases/${caseId}/context`),
+  submitGapFill: (caseId: string, data: unknown) => apiClient.patch(`/api/cases/${caseId}/context/gaps`, data),
+  triggerAssembly: (caseId: string) => apiClient.post(`/api/cases/${caseId}/assemble`),
+
+  // Value Modeling
+  getHypotheses: (caseId: string) => apiClient.get(`/api/cases/${caseId}/hypotheses`),
+  acceptHypothesis: (caseId: string, hypothesisId: string) => apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/accept`),
+  rejectHypothesis: (caseId: string, hypothesisId: string) => apiClient.post(`/api/cases/${caseId}/hypotheses/${hypothesisId}/reject`),
+  getAssumptions: (caseId: string) => apiClient.get(`/api/cases/${caseId}/assumptions`),
+  updateAssumption: (caseId: string, assumptionId: string, data: unknown) => apiClient.patch(`/api/cases/${caseId}/assumptions/${assumptionId}`, data),
+  getScenarios: (caseId: string) => apiClient.get(`/api/cases/${caseId}/scenarios`),
+  getSensitivity: (caseId: string) => apiClient.get(`/api/cases/${caseId}/sensitivity`),
+
+  // Integrity
+  getReadiness: (caseId: string) => apiClient.get(`/api/cases/${caseId}/readiness`),
+  getPlausibility: (caseId: string) => apiClient.get(`/api/cases/${caseId}/plausibility`),
+
+  // Executive Outputs
+  getArtifacts: (caseId: string) => apiClient.get(`/api/cases/${caseId}/artifacts`),
+  getArtifact: (caseId: string, artifactId: string) => apiClient.get(`/api/cases/${caseId}/artifacts/${artifactId}`),
+  editArtifact: (caseId: string, artifactId: string, data: unknown) => apiClient.patch(`/api/cases/${caseId}/artifacts/${artifactId}`, data),
+  generateArtifacts: (caseId: string) => apiClient.post(`/api/cases/${caseId}/artifacts/generate`),
+  getProvenance: (caseId: string, claimId: string) => apiClient.get(`/api/cases/${caseId}/provenance/${claimId}`),
+
+  // Realization
+  getBaseline: (caseId: string) => apiClient.get(`/api/cases/${caseId}/baseline`),
+  getCheckpoints: (caseId: string) => apiClient.get(`/api/cases/${caseId}/baseline/checkpoints`),
+  approveCase: (caseId: string) => apiClient.post(`/api/cases/${caseId}/approve`),
+
+  // Billing
+  getBillingSummary: () => apiClient.get("/billing/summary"),
+  getPlans: () => apiClient.get("/billing/plans"),
+  previewPlanChange: (data: unknown) => apiClient.post("/billing/plan-change/preview", data),
+  submitPlanChange: (data: unknown) => apiClient.post("/billing/plan-change/submit", data),
+  getInvoices: () => apiClient.get("/billing/invoices"),
+  getUsage: () => apiClient.get("/billing/usage"),
+  getApprovals: () => apiClient.get("/billing/approvals"),
+  decideApproval: (approvalId: string, decision: "approve" | "reject") => apiClient.post(`/billing/approvals/${approvalId}/decide`, { decision }),
 };

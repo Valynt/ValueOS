@@ -133,3 +133,10 @@ temp/
 # Linux core dumps
 /core
 core.*
+
+# Generated/artifact files
+.deps_installed
+dump.rdb
+ts-*-baseline.json
+ts-signal-report.json
+quality-baselines.json

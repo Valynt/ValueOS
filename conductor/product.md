@@ -1,3 +1,5 @@
+> **Superseded by [V1 Product Design Brief](../openspec/specs/v1-product-vision/spec.md)** — retained for historical reference.
+
 # Product Definition: ValueOS
 
 ## Executive Summary

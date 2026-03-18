@@ -18,7 +18,7 @@ React 18 + Vite + Tailwind. TypeScript strict mode. State via Zustand stores. Da
 
 **Functional components only.** No class components.
 
-**SDUI components** must be registered in both `config/ui-registry.json` and `packages/sdui/src/registry.tsx`. See `.ona/skills/sdui-component/SKILL.md`.
+**SDUI components** must be registered in both `config/ui-registry.json` and `packages/sdui/src/registry.tsx`. See `.windsurf/skills/sdui-component/SKILL.md`.
 
 **Path aliases** (from `tsconfig.app.json`):
 - `@/*` → `src/*`

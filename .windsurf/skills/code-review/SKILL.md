@@ -1,251 +1,70 @@
 ---
 name: code-review
-description: Provides a checklist and style guide for reviewing code before merging
+description: Review code changes in ValueOS against project standards. Use when asked to review a PR, review a diff, check code quality, or audit changes before merging. Covers tenant isolation, TypeScript strictness, agent conventions, security, and test coverage.
 ---
 
 # Code Review
 
-This skill provides a comprehensive checklist and style guide for conducting thorough code reviews before merging pull requests.
+Review changes against ValueOS standards. Work through each checklist section in order — stop and flag blockers before continuing.
 
-## When to Run
+## Checklist
 
-Run this skill when:
-- Reviewing a pull request before merge
-- Conducting peer code reviews
-- Validating code quality for releases
-- Auditing code for security or performance issues
+### 1. Tenant isolation (blocker)
+- Every new Supabase query includes `.eq("organization_id", orgId)` or `.eq("tenant_id", tenantId)`
+- Every vector/memory query filters on `tenant_id` in metadata
+- No `service_role` client used outside AuthService, tenant provisioning, or cron jobs
+- Cross-tenant data transfer is impossible in the new code paths
 
-## Code Review Principles
+### 2. TypeScript strictness (blocker)
+- No new `any` — use `unknown` + type guards or specific interfaces
+- No `(req as any)` casts — new request properties go in `express.d.ts`
+- No default exports — named exports only
+- Zod schemas used for all runtime-validated inputs
 
-### 1. Respect and Collaboration
-- Focus on code quality, not personal criticism
-- Assume good intent from the author
-- Provide actionable feedback with explanations
-- Balance being thorough with being efficient
+### 3. Agent conventions (if touching agent code)
+- Agent extends `BaseAgent`, defines `lifecycleStage`, `version`, `name`
+- LLM calls use `this.secureInvoke(...)` — no direct `llmGateway.complete()`
+- Memory stored with `this.organizationId` (not hardcoded tenant)
+- Zod schema includes `hallucination_check: boolean`
+- Prompts use Handlebars templates, not string concatenation
+- Confidence thresholds match risk level (financial 0.7–0.9, commitment 0.6–0.85, discovery 0.5–0.8)
 
-### 2. Quality Standards
-- Code must be correct, maintainable, and efficient
-- Changes should align with project architecture
-- Tests should be comprehensive and passing
-- Documentation should be clear and complete
+### 4. Security
+- No PII logged (SSN, CC, email lists, phone, passport, DOB, healthcare IDs)
+- No secrets or API keys hardcoded or committed
+- Dangerous commands not introduced (DROP/TRUNCATE without WHERE, `rm -rf`, `eval`, `kill -9`)
+- Audit trail present for create/update/delete/export/approve/reject/grant/revoke actions
 
-### 3. Risk Assessment
-- Consider impact on production systems
-- Evaluate security implications
-- Assess performance and scalability
-- Review for backward compatibility
+### 5. Test coverage
+- New agent logic has a corresponding test mocking `LLMGateway` and `MemorySystem`
+- New DB queries have RLS coverage (`pnpm run test:rls`)
+- New API endpoints have at least a happy-path test
+- Tests are co-located (`*.test.ts` / `*.spec.ts`) and use Vitest globals
 
-## Pre-Review Preparation
+### 6. Code quality
+- Service files that grew past ~1000 lines have cohesive sub-concerns extracted
+- No duplicate service files without documented distinction in file headers and `debt.md`
+- SDUI components registered in both `config/ui-registry.json` and `packages/sdui/src/registry.tsx`
+- Tools implement `Tool<TInput, TOutput>` and are registered statically in `ToolRegistry.ts`
 
-### Understand the Context
-- [ ] Read the pull request description thoroughly
-- [ ] Understand the problem being solved
-- [ ] Review related issues or user stories
-- [ ] Check if this is part of a larger feature
+### 7. Context layer maintenance
+- If a new DB table, endpoint, hook, or UI component was added → `traceability.md` updated
+- If an architectural decision was made → `decisions.md` updated
+- If debt was resolved → `debt.md` updated
+- If a non-obvious problem was solved → `memory.md` updated
 
-### Environment Setup
-- [ ] Pull the branch locally
-- [ ] Run the application to understand changes
-- [ ] Execute relevant tests
-- [ ] Check for any environment-specific considerations
+## Output format
 
-## Code Review Checklist
+For each section, report one of:
+- ✅ — passes
+- ⚠️ — concern worth noting but not a blocker
+- ❌ — blocker; must be fixed before merge
 
-### Functionality & Logic
+End with a summary: overall verdict (approve / request changes / needs discussion) and the top 3 action items if any.
 
-#### Core Requirements
-- [ ] Code solves the stated problem correctly
-- [ ] Business logic is sound and complete
-- [ ] Edge cases are handled appropriately
-- [ ] Error conditions are managed gracefully
-- [ ] User input validation is comprehensive
+## Anti-patterns
 
-#### Algorithm & Performance
-- [ ] Algorithms are efficient and appropriate
-- [ ] No obvious performance bottlenecks
-- [ ] Database queries are optimized
-- [ ] Memory usage is reasonable
-- [ ] Scalability considerations addressed
-
-### Code Quality & Standards
-
-#### Readability & Maintainability
-- [ ] Code is self-documenting with clear naming
-- [ ] Functions/methods have single responsibilities
-- [ ] Code follows established patterns
-- [ ] Comments explain complex logic, not obvious code
-- [ ] No hardcoded values or magic numbers
-
-#### Structure & Organization
-- [ ] Files are appropriately organized
-- [ ] Classes/modules have clear boundaries
-- [ ] Dependencies are minimal and clear
-- [ ] Code follows project conventions
-- [ ] No unnecessary duplication
-
-### Testing & Verification
-
-#### Test Coverage
-- [ ] Unit tests cover all new functionality
-- [ ] Edge cases and error paths tested
-- [ ] Integration tests validate system interactions
-- [ ] Existing tests still pass
-- [ ] Test names are descriptive
-
-#### Test Quality
-- [ ] Tests are isolated and independent
-- [ ] Mock usage is appropriate (not over-mocked)
-- [ ] Tests verify behavior, not implementation
-- [ ] Performance and load tests included where relevant
-
-### Security Considerations
-
-#### Input Validation
-- [ ] All user inputs are validated and sanitized
-- [ ] SQL injection prevention (parameterized queries)
-- [ ] XSS prevention in web components
-- [ ] CSRF protection for state-changing operations
-
-#### Authentication & Authorization
-- [ ] Proper authentication checks in place
-- [ ] Authorization rules correctly implemented
-- [ ] Session management is secure
-- [ ] Password handling follows security standards
-
-#### Data Protection
-- [ ] Sensitive data is encrypted at rest
-- [ ] Secure communication protocols used
-- [ ] No sensitive data logged inappropriately
-- [ ] GDPR/privacy compliance maintained
-
-### Documentation & Communication
-
-#### Code Documentation
-- [ ] Public APIs are documented
-- [ ] Complex algorithms have explanatory comments
-- [ ] Breaking changes documented
-- [ ] Migration guides provided if needed
-
-#### PR Documentation
-- [ ] Pull request description is clear and complete
-- [ ] Screenshots/videos included for UI changes
-- [ ] Breaking changes clearly marked
-- [ ] Testing instructions provided
-
-## Review Process
-
-### 1. Automated Checks First
-- [ ] Linting passes without errors
-- [ ] Tests pass in CI/CD pipeline
-- [ ] Security scans complete without critical issues
-- [ ] Code coverage meets minimum requirements
-
-### 2. Manual Review Steps
-- [ ] Review code changes file by file
-- [ ] Test functionality locally
-- [ ] Check for security vulnerabilities
-- [ ] Validate performance implications
-- [ ] Review related documentation
-
-### 3. Author Response
-- [ ] Address all review comments
-- [ ] Explain decisions where reviewer disagrees
-- [ ] Provide additional tests if requested
-- [ ] Update documentation as needed
-
-### 4. Final Approval
-- [ ] All blocking issues resolved
-- [ ] Tests pass and coverage maintained
-- [ ] Documentation updated
-- [ ] No outstanding security concerns
-
-## Common Issues to Flag
-
-### Critical Issues (Block Merge)
-- Security vulnerabilities
-- Data corruption potential
-- Breaking API changes without migration
-- Performance degradation >20%
-- Test coverage <80%
-
-### Major Issues (Require Discussion)
-- Significant architectural changes
-- Complex algorithms without explanation
-- Unusual dependency additions
-- Database schema changes with migration risks
-
-### Minor Issues (Suggestions)
-- Code style inconsistencies
-- Opportunities for refactoring
-- Additional test coverage suggestions
-- Documentation improvements
-
-## Review Time Guidelines
-
-### By Change Size
-- **Small (1-2 files, <50 lines)**: 15-30 minutes
-- **Medium (3-5 files, 50-200 lines)**: 30-60 minutes
-- **Large (6+ files, 200+ lines)**: 60-120 minutes
-- **Complex (architecture changes)**: 120+ minutes
-
-### Review Focus Areas
-- **Functionality**: Does it work correctly?
-- **Security**: Are there vulnerabilities?
-- **Performance**: Any bottlenecks introduced?
-- **Maintainability**: Easy to understand and modify?
-- **Testing**: Sufficient coverage and quality?
-
-## Communication Guidelines
-
-### Constructive Feedback
-```markdown
-❌ "This code is terrible"
-✅ "This logic could be simplified by using the existing helper function in utils.js"
-```
-
-### Actionable Requests
-```markdown
-❌ "Add error handling"
-✅ "Please add error handling for the case where the API returns a 500 status"
-```
-
-### Positive Reinforcement
-- Acknowledge good practices
-- Highlight well-written code
-- Recognize thorough testing
-- Appreciate clear documentation
-
-## Review Automation
-
-### Recommended Tools
-- ESLint/Prettier for code style
-- SonarQube for code quality metrics
-- Snyk/OWASP for security scanning
-- Codecov for coverage reporting
-- Dependabot for dependency updates
-
-### Custom Review Scripts
-```bash
-# Pre-review checklist script
-./scripts/pre-review-checklist.sh
-
-# Automated style and quality checks
-./scripts/code-quality-gate.sh
-
-# Security vulnerability scan
-./scripts/security-scan.sh
-```
-
-## Follow-up Actions
-
-### Post-Merge Validation
-- Monitor production metrics for 24 hours
-- Check error rates and performance
-- Validate user-reported issues resolved
-- Update documentation if needed
-
-### Continuous Improvement
-- Document lessons learned from reviews
-- Update review guidelines based on findings
-- Train team on common issues
-- Refine automated checks based on manual findings
+- Do not approve code with missing tenant isolation — this is a data leak
+- Do not approve new `any` usages that push a package over its ratchet ceiling
+- Do not skip the agent conventions section when agent files are in the diff
+- Do not flag style preferences as blockers — only flag rule violations

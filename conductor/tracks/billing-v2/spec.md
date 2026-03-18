@@ -1,3 +1,5 @@
+> **Superseded by [Billing spec](../../../openspec/specs/billing/spec.md)**. Retained for implementation detail reference.
+
 # Billing V2: ValueOS-Native Billing Implementation Plan
 
 **Date:** 2026-02-13

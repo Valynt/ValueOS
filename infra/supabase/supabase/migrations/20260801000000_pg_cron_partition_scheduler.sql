@@ -6,7 +6,9 @@ SET search_path = public, pg_temp;
 BEGIN;
 
 -- Enable pg_cron when available in the environment.
-CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- Wrapped to survive Supabase supautils hook.
+DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pg_cron;
+EXCEPTION WHEN others THEN RAISE NOTICE 'pg_cron: skipped (%)' , SQLERRM; END $$;
 
 DO $$
 DECLARE

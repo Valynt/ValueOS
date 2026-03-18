@@ -1,3 +1,5 @@
+> **Superseded.** Behaviors consolidated into OpenSpec domain specs: [deal-assembly](../../../openspec/specs/deal-assembly/spec.md), [value-modeling](../../../openspec/specs/value-modeling/spec.md), [trust-and-validation](../../../openspec/specs/trust-and-validation/spec.md). Retained for historical reference.
+
 # Spec: ValueOS Agentic Workflow Engine
 
 

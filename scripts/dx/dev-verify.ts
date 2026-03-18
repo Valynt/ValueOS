@@ -365,7 +365,7 @@ async function checkMigrations(): Promise<void> {
     `PGPASSWORD=${CONFIG.db.password} psql -h ${CONFIG.db.host} -p ${CONFIG.db.port} ` +
       `-U ${CONFIG.db.user} -d ${CONFIG.db.database} -t -A -c "` +
       "SELECT 'supabase', COUNT(*) FROM supabase_migrations.schema_migrations " +
-      "UNION ALL SELECT 'public', COUNT(*) FROM public.schema_migrations;\""
+      "UNION ALL SELECT 'public', COUNT(*) FROM public.app_schema_migrations;\""
   );
 
   if (!success) {

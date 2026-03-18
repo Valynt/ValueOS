@@ -75,7 +75,7 @@ k6 run \
 Notes:
 ```
 
-If any p95 exceeds 450 ms, file a debt item in `.ona/context/debt.md`.
+If any p95 exceeds 450 ms, file a debt item in `.windsurf/context/debt.md`.
 
 ---
 

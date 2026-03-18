@@ -350,7 +350,7 @@ Per [`docs/runbooks/disaster-recovery.md`](docs/runbooks/disaster-recovery.md):
 ### Knowledge Sharing
 
 - **11 ADRs** covering governance, multi-tenant isolation, circuit breakers, memory architecture, agent fabric design, CI security gate model, and service deduplication.
-- **Context engineering layer** at `.ona/context/` (decisions, debt, user-stories, traceability, memory, tools).
+- **Context engineering layer** at `.windsurf/context/` (decisions, debt, user-stories, traceability, memory, tools).
 - Sprint plans documented in `docs/` (sprints 11-42 visible).
 - Engineering guides: code standards, database, frontend development, messaging, migration, SDUI, testing.
 

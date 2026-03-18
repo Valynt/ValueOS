@@ -1,25 +1,37 @@
 /**
- * Security utilities - stub declaration.
- * TODO: Replace with full implementation.
+ * Security utilities — thin re-export bridge.
+ *
+ * The canonical implementations live in `src/security/`. This file
+ * re-exports the subset that legacy callers (e.g. UserSecurity.tsx)
+ * import from `utils/security`. New code should import directly from
+ * `@/security` instead.
  */
-export function sanitizeInput(input: string): string {
-  return input.replace(/[<>'"]/g, "");
-}
 
-export function validateCSRFToken(_token: string): boolean {
-  return true;
-}
+export {
+  validatePassword,
+  hashPassword,
+  verifyPassword,
+  type PasswordValidationResult,
+} from "../security/PasswordValidator";
 
-export function hashPassword(_password: string): string {
-  return "";
-}
+export { sanitizeInput } from "../security/InputSanitizer";
 
-export function verifyPassword(_hash: string, _password: string): boolean {
-  return false;
-}
+export { validateCSRFToken } from "../security/CSRFProtection";
 
-export interface SecurityConfig {
-  csrfEnabled: boolean;
-  rateLimitEnabled: boolean;
-  maxAttempts: number;
-}
+export {
+  getSecurityConfig,
+  type SecurityConfig,
+} from "../security/SecurityConfig";
+
+/**
+ * Convenience alias used by UserSecurity.tsx for inline password-policy
+ * checks (e.g. `defaultPasswordPolicy.minLength`).
+ */
+export const defaultPasswordPolicy = {
+  minLength: 12,
+  maxLength: 128,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireNumbers: true,
+  requireSpecialChars: true,
+} as const;

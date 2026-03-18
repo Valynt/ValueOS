@@ -53,15 +53,15 @@ fi
 # Grants match infra/supabase/supabase/init-scripts/02-create-migrations-table.sh
 # so the table is consistent whether created here or by the init script.
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -q -c "
-  CREATE TABLE IF NOT EXISTS public.schema_migrations (
+  CREATE TABLE IF NOT EXISTS public.app_schema_migrations (
     name        TEXT PRIMARY KEY,
     applied_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     checksum    TEXT
   );
-  ALTER TABLE public.schema_migrations ENABLE ROW LEVEL SECURITY;
-  GRANT SELECT ON public.schema_migrations TO anon, authenticated;
-  GRANT ALL   ON public.schema_migrations TO service_role, supabase_admin;
-" || { echo "[migrations] Failed to create schema_migrations tracking table" >&2; exit 1; }
+  ALTER TABLE public.app_schema_migrations ENABLE ROW LEVEL SECURITY;
+  GRANT SELECT ON public.app_schema_migrations TO anon, authenticated;
+  GRANT ALL   ON public.app_schema_migrations TO service_role, supabase_admin;
+" || { echo "[migrations] Failed to create app_schema_migrations tracking table" >&2; exit 1; }
 
 # Collect files into a temp file to avoid subshell variable scoping issues with
 # process substitution, and to keep the loop POSIX-compatible.
@@ -87,7 +87,7 @@ while IFS= read -r file; do
   # Use shell-quoted interpolation for -c commands; :'var' only works in file/stdin mode.
   _safe_base="$(printf '%s' "$base" | sed "s/'/''/g")"
   _already="$(psql "$DATABASE_URL" -tAX -c \
-    "SELECT 1 FROM public.schema_migrations WHERE name = '$_safe_base' LIMIT 1;" 2>/dev/null || true)"
+    "SELECT 1 FROM public.app_schema_migrations WHERE name = '$_safe_base' LIMIT 1;" 2>/dev/null || true)"
 
   if [[ "$_already" == "1" ]]; then
     _skipped=$((_skipped + 1))
@@ -97,7 +97,7 @@ while IFS= read -r file; do
   echo "[migrations] -> $base"
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -X -f "$file"
   psql "$DATABASE_URL" -X -q -c \
-    "INSERT INTO public.schema_migrations (name) VALUES ('$_safe_base') ON CONFLICT (name) DO NOTHING;" \
+    "INSERT INTO public.app_schema_migrations (name) VALUES ('$_safe_base') ON CONFLICT (name) DO NOTHING;" \
     || true
   _applied=$((_applied + 1))
 done < "$_tmplist"

@@ -9,7 +9,8 @@ SET search_path = public, pg_temp;
 -- Extensions (idempotent)
 -- ---------------------------------------------------------------------------
 
-CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA "public";
+DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA "public";
+EXCEPTION WHEN others THEN RAISE NOTICE 'vector: skipped (%)' , SQLERRM; END $$;
 
 -- ---------------------------------------------------------------------------
 -- 1. semantic_memory

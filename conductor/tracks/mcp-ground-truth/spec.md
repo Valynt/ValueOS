@@ -1,3 +1,5 @@
+> **Superseded by [Ground Truth spec](../../../openspec/specs/ground-truth/spec.md)**. Retained for implementation detail reference.
+
 # MCP Financial Ground Truth System - Complete Enhancement Implementation Plan
 
 This comprehensive plan outlines the implementation of 5 major enhancements to transform the MCP Financial Ground Truth System into a production-ready enterprise platform with advanced capabilities.

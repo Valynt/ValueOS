@@ -158,7 +158,7 @@ This planning horizon applies the data observability checklist to ValueOS's spec
 - `docs/observability/lineage.md` documents lineage for each T1 stage at two levels:
   - **Job level:** which agent (job) writes to which table, including the BullMQ queue name and agent class
   - **Table level:** for each T1 table, which API endpoints read from it and which frontend hooks/components consume those endpoints
-- Lineage entries reference `.ona/context/traceability.md` (no duplication — lineage.md adds blast-radius annotations only)
+- Lineage entries reference `.windsurf/context/traceability.md` (no duplication — lineage.md adds blast-radius annotations only)
 - Each entry includes: "if this table is stale or missing, these jobs, endpoints, and UI components are affected"
 - Lineage is machine-readable: `docs/observability/lineage.json` with schema `{ table, written_by: string[], read_by_endpoints: string[], consumed_by_components: string[] }`
 - `packages/backend/src/observability/lineageRegistry.ts` exports `getDownstreamImpact(table): { endpoints: string[]; components: string[] }` — used by incident runbooks to populate blast-radius in alert payloads

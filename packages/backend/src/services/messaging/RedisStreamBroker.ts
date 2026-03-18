@@ -444,6 +444,15 @@ export class RedisStreamBroker {
     };
   }
 
+  /**
+   * Manually acknowledge a message by its stream entry ID.
+   * Used by SecureMessageBus for state-update-based acking.
+   */
+  async acknowledge(messageId: string): Promise<void> {
+    await this.redis.xack(this.streamName, this.groupName, messageId);
+    this.log.info("Manually acknowledged message", { messageId, stream: this.streamName });
+  }
+
   private async registerIdempotencyKey(key: string): Promise<boolean> {
     if (!key) return true;
     const inserted = await this.redis.set(

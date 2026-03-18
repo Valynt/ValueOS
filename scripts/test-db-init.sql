@@ -3,7 +3,6 @@
 
 -- Create test extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create auth schema (required for RLS policies)
 CREATE SCHEMA IF NOT EXISTS auth;
@@ -33,7 +32,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb AS $$
 BEGIN
     RETURN jsonb_build_object(
-        'role', 'authenticated', 
+        'role', 'authenticated',
         'organization_id', 'org-0001',
         'user_id', '00000000-0000-0000-0000-000000000001'
     );
@@ -41,7 +40,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create basic roles
-DO $$ 
+DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
         CREATE ROLE authenticated;

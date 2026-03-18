@@ -1,17 +1,22 @@
 /**
- * LLM Gateway - stub declaration.
- * TODO: Replace with full implementation.
+ * LLM Gateway — type-only module.
+ *
+ * The frontend never calls LLMs directly; all inference goes through
+ * the backend agent fabric. This file only exports the types that
+ * ConfigurationManager.ts needs for provider configuration shapes.
  */
-export interface LLMGatewayConfig {
-  provider: string;
+
+export type LLMProvider = "openai" | "anthropic" | "together" | "google";
+
+export interface LLMProviderConfig {
+  apiKeyEnvVar: string;
   model: string;
-  apiKey?: string;
+  maxTokens?: number;
+  temperature?: number;
 }
 
-export class LLMGateway {
-  constructor(_config?: LLMGatewayConfig) {}
-
-  async complete(_prompt: string, _options?: Record<string, unknown>): Promise<string> {
-    return "";
-  }
+export interface LLMGatewayConfig {
+  provider: LLMProvider;
+  model: string;
+  apiKey?: string;
 }

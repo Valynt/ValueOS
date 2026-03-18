@@ -66,7 +66,7 @@ These items close gaps that are acceptable for a controlled pilot but must be re
 - Item 1 (SEC-009–011) relates to `spec-production-readiness.md` TASK-002 (MFA env var) and `spec.md` F-005 (auth fallback)
 - Item 2 (GDPR-001–003) relates to `spec.md` F-011 (DSR erasure table list)
 - Item 3 (SOC2-001–003) relates to `docs/security-compliance/control-traceability-matrix.md`
-- Item 4 relates to `docs/debt/ts-any-dashboard.md` and existing debt tracking in `.ona/context/debt.md`
+- Item 4 relates to `docs/debt/ts-any-dashboard.md` and existing debt tracking in `.windsurf/context/debt.md`
 
 ---
 
@@ -113,7 +113,7 @@ Tier 2 coverage ─── Tier 3 coverage 85/80
 Progress on these items should be tracked in:
 
 - **Sprint plans:** `sprint-plan-*.md` files in repo root
-- **Debt tracking:** `.ona/context/debt.md` and `docs/debt/ts-any-dashboard.md`
+- **Debt tracking:** `.windsurf/context/debt.md` and `docs/debt/ts-any-dashboard.md`
 - **Security findings:** `docs/security-compliance/evidence-index.md`
 - **Control matrix:** `docs/security-compliance/control-traceability-matrix.md`
 

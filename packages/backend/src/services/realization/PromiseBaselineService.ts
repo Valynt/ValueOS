@@ -1,0 +1,451 @@
+/**
+ * PromiseBaselineService
+ *
+ * Creates immutable baselines from approved scenarios for handoff to CS.
+ * Manages KPI targets, checkpoints, and handoff notes.
+ *
+ * Reference: openspec/changes/promise-baseline-handoff/tasks.md §2
+ */
+
+import { z } from "zod";
+import { logger } from "../lib/logger.js";
+import { supabase } from "../lib/supabase.js";
+
+// ---------------------------------------------------------------------------
+// Schemas
+// ---------------------------------------------------------------------------
+
+export const PromiseBaselineSchema = z.object({
+  id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  case_id: z.string().uuid(),
+  scenario_id: z.string().uuid(),
+  scenario_type: z.enum(["conservative", "base", "upside"]),
+  status: z.enum(["active", "amended", "archived"]),
+  created_by_user_id: z.string().uuid(),
+  approved_at: z.string().datetime(),
+  handoff_notes: z.string().optional(),
+  created_at: z.string().datetime(),
+  superseded_at: z.string().datetime().optional(),
+  superseded_by_id: z.string().uuid().optional(),
+});
+
+export const KpiTargetSchema = z.object({
+  id: z.string().uuid(),
+  baseline_id: z.string().uuid(),
+  metric_name: z.string(),
+  baseline_value: z.number(),
+  target_value: z.number(),
+  unit: z.string(),
+  timeline_months: z.number().int(),
+  source_classification: z.string(),
+  confidence_score: z.number().min(0).max(1),
+  value_driver_id: z.string().uuid().optional(),
+});
+
+export type PromiseBaseline = z.infer<typeof PromiseBaselineSchema>;
+export type KpiTarget = z.infer<typeof KpiTargetSchema>;
+
+export interface CreateBaselineInput {
+  tenantId: string;
+  caseId: string;
+  scenarioId: string;
+  userId: string;
+  approvedScenarioType: "conservative" | "base" | "upside";
+}
+
+export interface CreateBaselineResult {
+  baselineId: string;
+  kpiTargets: KpiTarget[];
+  checkpoints: Array<{
+    id: string;
+    kpiTargetId: string;
+    measurementDate: string;
+  }>;
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+export class PromiseBaselineService {
+  /**
+   * Create a promise baseline from an approved scenario.
+   */
+  async createFromApprovedCase(input: CreateBaselineInput): Promise<CreateBaselineResult> {
+    logger.info(`Creating baseline for case ${input.caseId} from scenario ${input.scenarioId}`);
+
+    // Verify scenario exists
+    const { data: scenario, error: scenarioError } = await supabase
+      .from("scenarios")
+      .select("*")
+      .eq("id", input.scenarioId)
+      .eq("tenant_id", input.tenantId)
+      .single();
+
+    if (scenarioError || !scenario) {
+      throw new Error(`Scenario not found: ${input.scenarioId}`);
+    }
+
+    // Create baseline record
+    const baselineId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    const { error: baselineError } = await supabase.from("promise_baselines").insert({
+      id: baselineId,
+      tenant_id: input.tenantId,
+      case_id: input.caseId,
+      scenario_id: input.scenarioId,
+      scenario_type: input.approvedScenarioType,
+      status: "active",
+      created_by_user_id: input.userId,
+      approved_at: now,
+      created_at: now,
+    });
+
+    if (baselineError) {
+      throw new Error(`Failed to create baseline: ${baselineError.message}`);
+    }
+
+    // Fetch assumptions to create KPI targets
+    const { data: assumptions } = await supabase
+      .from("assumptions")
+      .select("id, name, value, unit, source_type, confidence_score")
+      .eq("case_id", input.caseId)
+      .eq("tenant_id", input.tenantId);
+
+    // Create KPI targets from assumptions
+    const kpiTargets: KpiTarget[] = [];
+    for (const assumption of assumptions || []) {
+      const targetValue = this.calculateTargetValue(
+        assumption.value,
+        scenario.evf_decomposition_json,
+        input.approvedScenarioType,
+      );
+
+      const kpiTarget: KpiTarget = {
+        id: crypto.randomUUID(),
+        baseline_id: baselineId,
+        metric_name: assumption.name,
+        baseline_value: assumption.value,
+        target_value: targetValue,
+        unit: assumption.unit,
+        timeline_months: 12, // Default 12-month timeline
+        source_classification: assumption.source_type,
+        confidence_score: assumption.confidence_score,
+      };
+
+      kpiTargets.push(kpiTarget);
+    }
+
+    // Persist KPI targets
+    await this.persistKpiTargets(kpiTargets, input.tenantId);
+
+    // Schedule checkpoints
+    const checkpoints = await this.scheduleCheckpoints(baselineId, kpiTargets, input.tenantId);
+
+    // Generate handoff notes
+    await this.generateHandoffNotes(baselineId, input.tenantId, input.caseId);
+
+    logger.info(`Baseline ${baselineId} created with ${kpiTargets.length} KPI targets and ${checkpoints.length} checkpoints`);
+
+    return { baselineId, kpiTargets, checkpoints };
+  }
+
+  /**
+   * Get baseline with all related data.
+   */
+  async getBaseline(baselineId: string, tenantId: string): Promise<{
+    baseline: PromiseBaseline;
+    kpiTargets: KpiTarget[];
+    checkpoints: Array<{
+      id: string;
+      kpi_target_id: string;
+      measurement_date: string;
+      expected_value_min: number;
+      expected_value_max: number;
+      status: string;
+    }>;
+    handoffNotes: Array<{
+      section: string;
+      content: string;
+    }>;
+  }> {
+    // Fetch baseline
+    const { data: baseline, error: baselineError } = await supabase
+      .from("promise_baselines")
+      .select("*")
+      .eq("id", baselineId)
+      .eq("tenant_id", tenantId)
+      .single();
+
+    if (baselineError || !baseline) {
+      throw new Error(`Baseline not found: ${baselineId}`);
+    }
+
+    // Fetch KPI targets
+    const { data: kpiTargets } = await supabase
+      .from("promise_kpi_targets")
+      .select("*")
+      .eq("baseline_id", baselineId)
+      .eq("tenant_id", tenantId);
+
+    // Fetch checkpoints
+    const { data: checkpoints } = await supabase
+      .from("promise_checkpoints")
+      .select("*")
+      .eq("baseline_id", baselineId)
+      .eq("tenant_id", tenantId)
+      .order("measurement_date");
+
+    // Fetch handoff notes
+    const { data: handoffNotes } = await supabase
+      .from("promise_handoff_notes")
+      .select("*")
+      .eq("baseline_id", baselineId)
+      .eq("tenant_id", tenantId);
+
+    return {
+      baseline: PromiseBaselineSchema.parse(baseline),
+      kpiTargets: (kpiTargets || []).map((k) => KpiTargetSchema.parse(k)),
+      checkpoints: (checkpoints || []).map((c) => ({
+        id: c.id,
+        kpi_target_id: c.kpi_target_id,
+        measurement_date: c.measurement_date,
+        expected_value_min: c.expected_value_min,
+        expected_value_max: c.expected_value_max,
+        status: c.status,
+      })),
+      handoffNotes: (handoffNotes || []).map((n) => ({
+        section: n.section,
+        content: n.content_text,
+      })),
+    };
+  }
+
+  /**
+   * Amend a baseline (creates new version, archives old).
+   */
+  async amendBaseline(
+    baselineId: string,
+    tenantId: string,
+    userId: string,
+    amendments: {
+      kpiAdjustments?: Array<{ kpiTargetId: string; newTarget: number; reason: string }>;
+    },
+  ): Promise<string> {
+    logger.info(`Amending baseline ${baselineId}`);
+
+    // Fetch original baseline
+    const { data: original } = await supabase
+      .from("promise_baselines")
+      .select("*")
+      .eq("id", baselineId)
+      .eq("tenant_id", tenantId)
+      .single();
+
+    if (!original) {
+      throw new Error(`Baseline not found: ${baselineId}`);
+    }
+
+    // Create new baseline version
+    const newBaselineId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await supabase.from("promise_baselines").insert({
+      id: newBaselineId,
+      tenant_id: tenantId,
+      case_id: original.case_id,
+      scenario_id: original.scenario_id,
+      scenario_type: original.scenario_type,
+      status: "active",
+      created_by_user_id: userId,
+      approved_at: now,
+      handoff_notes: `Amended from baseline ${baselineId}. ${JSON.stringify(amendments)}`,
+      created_at: now,
+    });
+
+    // Archive original
+    await supabase
+      .from("promise_baselines")
+      .update({
+        status: "amended",
+        superseded_at: now,
+        superseded_by_id: newBaselineId,
+      })
+      .eq("id", baselineId)
+      .eq("tenant_id", tenantId);
+
+    // Copy and adjust KPI targets
+    const { data: originalKpis } = await supabase
+      .from("promise_kpi_targets")
+      .select("*")
+      .eq("baseline_id", baselineId)
+      .eq("tenant_id", tenantId);
+
+    for (const kpi of originalKpis || []) {
+      const adjustment = amendments.kpiAdjustments?.find(
+        (a) => a.kpiTargetId === kpi.id,
+      );
+
+      await supabase.from("promise_kpi_targets").insert({
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        baseline_id: newBaselineId,
+        metric_name: kpi.metric_name,
+        baseline_value: kpi.baseline_value,
+        target_value: adjustment?.newTarget || kpi.target_value,
+        unit: kpi.unit,
+        timeline_months: kpi.timeline_months,
+        source_classification: kpi.source_classification,
+        confidence_score: kpi.confidence_score,
+      });
+    }
+
+    return newBaselineId;
+  }
+
+  /**
+   * Calculate target value based on EVF decomposition.
+   */
+  private calculateTargetValue(
+    baselineValue: number,
+    evfDecomposition: { revenue_uplift: number; cost_reduction: number; risk_mitigation: number; efficiency_gain: number },
+    scenarioType: string,
+  ): number {
+    // Apply scenario multiplier
+    const multiplier = scenarioType === "conservative" ? 0.7 :
+                       scenarioType === "upside" ? 1.3 : 1.0;
+
+    // Calculate improvement based on EVF factors
+    const totalImprovement = evfDecomposition.revenue_uplift +
+                               evfDecomposition.cost_reduction +
+                               evfDecomposition.risk_mitigation +
+                               evfDecomposition.efficiency_gain;
+
+    return baselineValue * (1 + (totalImprovement / 100) * multiplier);
+  }
+
+  /**
+   * Persist KPI targets.
+   */
+  private async persistKpiTargets(targets: KpiTarget[], tenantId: string): Promise<void> {
+    if (targets.length === 0) return;
+
+    const { error } = await supabase.from("promise_kpi_targets").insert(
+      targets.map((t) => ({
+        id: t.id,
+        tenant_id: tenantId,
+        baseline_id: t.baseline_id,
+        metric_name: t.metric_name,
+        baseline_value: t.baseline_value,
+        target_value: t.target_value,
+        unit: t.unit,
+        timeline_months: t.timeline_months,
+        source_classification: t.source_classification,
+        confidence_score: t.confidence_score,
+      })),
+    );
+
+    if (error) {
+      logger.error(`Failed to persist KPI targets: ${error.message}`);
+    }
+  }
+
+  /**
+   * Schedule checkpoints for KPI targets.
+   */
+  private async scheduleCheckpoints(
+    baselineId: string,
+    kpiTargets: KpiTarget[],
+    tenantId: string,
+  ): Promise<Array<{ id: string; kpiTargetId: string; measurementDate: string }>> {
+    const checkpoints: Array<{ id: string; kpiTargetId: string; measurementDate: string }> = [];
+    const now = new Date();
+
+    for (const target of kpiTargets) {
+      // Create quarterly checkpoints
+      const quarters = Math.ceil(target.timeline_months / 3);
+
+      for (let q = 1; q <= quarters; q++) {
+        const checkpointDate = new Date(now);
+        checkpointDate.setMonth(checkpointDate.getMonth() + q * 3);
+
+        // Calculate expected progress (linear interpolation)
+        const progressPct = q / quarters;
+        const expectedValue = target.baseline_value + (target.target_value - target.baseline_value) * progressPct;
+
+        const checkpointId = crypto.randomUUID();
+
+        await supabase.from("promise_checkpoints").insert({
+          id: checkpointId,
+          tenant_id: tenantId,
+          baseline_id: baselineId,
+          kpi_target_id: target.id,
+          measurement_date: checkpointDate.toISOString().split("T")[0],
+          expected_value_min: expectedValue * 0.9,
+          expected_value_max: expectedValue * 1.1,
+          status: "pending",
+          created_at: now.toISOString(),
+        });
+
+        checkpoints.push({
+          id: checkpointId,
+          kpiTargetId: target.id,
+          measurementDate: checkpointDate.toISOString(),
+        });
+      }
+    }
+
+    return checkpoints;
+  }
+
+  /**
+   * Generate handoff notes for CS team.
+   */
+  private async generateHandoffNotes(
+    baselineId: string,
+    tenantId: string,
+    caseId: string,
+  ): Promise<void> {
+    const now = new Date().toISOString();
+
+    // Fetch case context
+    const { data: caseData } = await supabase
+      .from("value_cases")
+      .select("title, account_id")
+      .eq("id", caseId)
+      .single();
+
+    const notes = [
+      {
+        section: "deal_context",
+        content: `Value case: ${caseData?.title || "Untitled"}. Baseline created from approved scenario.`,
+      },
+      {
+        section: "buyer_priorities",
+        content: "Key priorities identified during value case development. See value driver analysis.",
+      },
+      {
+        section: "implementation_assumptions",
+        content: "Assumptions validated during modeling phase. Monitor during implementation.",
+      },
+      {
+        section: "key_risks",
+        content: "Risk factors identified. See scenario sensitivity analysis.",
+      },
+    ];
+
+    for (const note of notes) {
+      await supabase.from("promise_handoff_notes").insert({
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        baseline_id: baselineId,
+        section: note.section,
+        content_text: note.content,
+        generated_by_agent: true,
+        created_at: now,
+      });
+    }
+  }
+}

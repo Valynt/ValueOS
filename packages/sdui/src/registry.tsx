@@ -46,6 +46,32 @@ import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
 import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
 import { SDUIComponentSection } from "./schema";
 
+// V1 Surface Widgets - Deal Assembly
+import { GapResolution } from "./components/SDUI/GapResolution";
+import { StakeholderMap } from "./components/SDUI/StakeholderMap";
+
+// V1 Surface Widgets - Value Modeling
+import { AssumptionRegister } from "./components/SDUI/AssumptionRegister";
+import { HypothesisCard } from "./components/SDUI/HypothesisCard";
+import { ScenarioComparison } from "./components/SDUI/ScenarioComparison";
+import { SensitivityTornado } from "./components/SDUI/SensitivityTornado";
+
+// V1 Surface Widgets - Integrity
+import { EvidenceGapList } from "./components/SDUI/EvidenceGapList";
+import { ReadinessGauge } from "./components/SDUI/ReadinessGauge";
+
+// V1 Surface Widgets - Executive Output
+import { ArtifactPreview } from "./components/SDUI/ArtifactPreview";
+import { InlineEditor } from "./components/SDUI/InlineEditor";
+
+// V1 Surface Widgets - Realization
+import { CheckpointTimeline } from "./components/SDUI/CheckpointTimeline";
+import { KPITargetCard } from "./components/SDUI/KPITargetCard";
+
+// V1 Surface Widgets - Billing
+import { PlanComparison } from "./components/SDUI/PlanComparison";
+import { UsageMeter } from "./components/SDUI/UsageMeter";
+
 /**
  * Versioned component entry with compatibility information
  */
@@ -675,6 +701,137 @@ versionedRegistry.register({
   description: "Displays agent hallucination check result. Green = passed, red = failed, amber = unknown. Shows grounding score on click.",
   optionalProps: ["hallucination_check", "grounding_score", "detail"],
   tags: ["ui", "agent", "trust", "badge"],
+});
+
+// V1 Surface Widgets - Deal Assembly
+versionedRegistry.register({
+  component: StakeholderMap,
+  version: 1,
+  description: "Grid showing stakeholders with role, priority, and source badge.",
+  requiredProps: ["stakeholders"],
+  optionalProps: ["onSelect"],
+  tags: ["ui", "deal-assembly", "stakeholder"],
+});
+
+versionedRegistry.register({
+  component: GapResolution,
+  version: 1,
+  description: "List of missing data items with inline input fields, submit action, and resolved state.",
+  requiredProps: ["gaps"],
+  optionalProps: ["onSubmit", "onResolve"],
+  tags: ["ui", "deal-assembly", "gap"],
+});
+
+// V1 Surface Widgets - Value Modeling
+versionedRegistry.register({
+  component: HypothesisCard,
+  version: 1,
+  description: "Value driver card with impact range, evidence tier, confidence badge, and Accept/Edit/Reject actions.",
+  requiredProps: ["hypothesis"],
+  optionalProps: ["onAccept", "onEdit", "onReject"],
+  tags: ["ui", "value-modeling", "hypothesis"],
+});
+
+versionedRegistry.register({
+  component: AssumptionRegister,
+  version: 1,
+  description: "Sortable table with assumption name, value, unit, source, confidence, benchmark reference, and unsupported flag highlight.",
+  requiredProps: ["assumptions"],
+  optionalProps: ["onEdit", "onSort", "filterBySource"],
+  tags: ["ui", "value-modeling", "assumption"],
+});
+
+versionedRegistry.register({
+  component: ScenarioComparison,
+  version: 1,
+  description: "Three-column layout showing ROI, NPV, payback, and EVF decomposition per scenario with base emphasized.",
+  requiredProps: ["scenarios"],
+  optionalProps: ["onSelect"],
+  tags: ["ui", "value-modeling", "scenario"],
+});
+
+versionedRegistry.register({
+  component: SensitivityTornado,
+  version: 1,
+  description: "Horizontal bar chart showing assumption impact with clickable bars that navigate to assumption details.",
+  requiredProps: ["items"],
+  optionalProps: ["onItemClick"],
+  tags: ["ui", "value-modeling", "sensitivity", "chart"],
+});
+
+// V1 Surface Widgets - Integrity
+versionedRegistry.register({
+  component: ReadinessGauge,
+  version: 1,
+  description: "Circular gauge for composite readiness score with four component bars (validation rate, grounding, benchmark coverage, unsupported count).",
+  requiredProps: ["compositeScore", "status", "components"],
+  tags: ["ui", "integrity", "readiness", "gauge"],
+});
+
+versionedRegistry.register({
+  component: EvidenceGapList,
+  version: 1,
+  description: "List of claims with insufficient evidence showing current tier, required tier, and suggested action.",
+  requiredProps: ["gaps"],
+  optionalProps: ["onAction"],
+  tags: ["ui", "integrity", "evidence", "gap"],
+});
+
+// V1 Surface Widgets - Executive Output
+versionedRegistry.register({
+  component: ArtifactPreview,
+  version: 1,
+  description: "Formatted rendering of artifact content with data-claim-id attributes on financial figures for click-to-trace provenance.",
+  requiredProps: ["artifact"],
+  optionalProps: ["onClaimClick"],
+  tags: ["ui", "executive-output", "artifact"],
+});
+
+versionedRegistry.register({
+  component: InlineEditor,
+  version: 1,
+  description: "contentEditable region with save/cancel, diff highlight on modified sections, and reason prompt on save.",
+  requiredProps: ["initialContent", "onSave"],
+  optionalProps: ["onCancel", "sectionId"],
+  tags: ["ui", "executive-output", "editor"],
+});
+
+// V1 Surface Widgets - Realization
+versionedRegistry.register({
+  component: KPITargetCard,
+  version: 1,
+  description: "Metric card showing baseline to target with timeline, source badge, and progress indicator for post-sale tracking.",
+  requiredProps: ["target"],
+  optionalProps: ["onTrack"],
+  tags: ["ui", "realization", "kpi"],
+});
+
+versionedRegistry.register({
+  component: CheckpointTimeline,
+  version: 1,
+  description: "Horizontal timeline with measurement dates, expected ranges, and status indicators (pending/measured/missed/exceeded).",
+  requiredProps: ["checkpoints", "unit"],
+  optionalProps: ["onCheckpointClick"],
+  tags: ["ui", "realization", "timeline", "checkpoint"],
+});
+
+// V1 Surface Widgets - Billing
+versionedRegistry.register({
+  component: UsageMeter,
+  version: 1,
+  description: "Horizontal bar showing used/cap with percentage. Color shifts at 80% (yellow) and 100% (red). Includes reset date.",
+  requiredProps: ["meterKey", "meterName", "used", "cap", "unit", "resetDate"],
+  optionalProps: ["trend"],
+  tags: ["ui", "billing", "usage", "meter"],
+});
+
+versionedRegistry.register({
+  component: PlanComparison,
+  version: 1,
+  description: "Side-by-side plan cards with features, pricing, current plan indicator, and upgrade/downgrade CTA.",
+  requiredProps: ["plans", "currentPlanId"],
+  optionalProps: ["onUpgrade"],
+  tags: ["ui", "billing", "plan"],
 });
 
 // Register fallback components

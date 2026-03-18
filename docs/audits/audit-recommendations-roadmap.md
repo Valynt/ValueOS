@@ -23,7 +23,7 @@ Tracking document for all 17 recommendations from the [comprehensive repo audit 
 | 6   | Migration squash strategy                       | Done    | Documented in `docs/engineering/migration-guide.md` -- quarterly epoch baselines, `_consolidated/` archive, validation steps.                |
 | 7   | Live-backend E2E CI lane                        | Deferred | CI workflow changes were local-only and not pushed (GitHub App token lacks `workflows` permission). Script is ready; requires a developer with workflow permissions to push `.github/workflows/ci.yml`. |
 | 8   | Bundle size budget gate                         | Deferred | `scripts/ci/check-bundle-size.mjs` (2 MB budget) is committed. CI wiring in `.github/workflows/ci.yml` was local-only and not pushed — same blocker as #7.                                           |
-| 9   | Begin `any` debt burn-down                      | Done     | Sprint-by-sprint burn-down plan added to `.ona/context/debt.md` (DEBT-ANY-BURNDOWN). Start with `packages/shared` and `packages/components`. |
+| 9   | Begin `any` debt burn-down                      | Done     | Sprint-by-sprint burn-down plan added to `.windsurf/context/debt.md` (DEBT-ANY-BURNDOWN). Start with `packages/shared` and `packages/components`. |
 | 10  | Lighthouse CI / Web Vitals monitoring           | Deferred | `@lhci/cli` step was added locally to `.github/workflows/ci.yml` but not pushed — same blocker as #7.                                                                                                 |
 | 11  | Validate observability stack against production | Planned | See [Observability Validation Plan](#observability-validation-plan) below.                                                                   |
 
@@ -32,7 +32,7 @@ Tracking document for all 17 recommendations from the [comprehensive repo audit 
 | #   | Recommendation                        | Status  | Evidence / Notes                                                                                                             |
 | --- | ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | 12  | Consolidate messaging infrastructure  | Planned | ADR-0018 establishes canonical choices. Deprecation of standalone Redis Streams / Kafka for internal messaging is next step. |
-| 13  | Achieve `any` count < 100             | Planned | Sprint targets defined in `.ona/context/debt.md`. Target: <100 by Q4 2026.                                                   |
+| 13  | Achieve `any` count < 100             | Planned | Sprint targets defined in `.windsurf/context/debt.md`. Target: <100 by Q4 2026.                                                   |
 | 14  | Add diagrams-as-code                  | Done    | Mermaid architecture diagram added at `docs/architecture/system-overview.md`.                                                |
 | 15  | Complete third-party penetration test | Planned | See [Penetration Test Execution Plan](#penetration-test-execution-plan) below.                                               |
 | 16  | Reduce backend lint warning cap       | Done    | `--max-warnings` ratcheted from 2,704 to 2,600 in `packages/backend/package.json`. Decrease by 100 per sprint until 0.       |

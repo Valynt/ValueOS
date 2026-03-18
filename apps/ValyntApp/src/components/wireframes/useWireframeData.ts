@@ -1,6 +1,6 @@
 /**
- * Wireframe Data hook - stub declaration.
- * TODO: Replace with full implementation.
+ * @deprecated This file has no consumers — safe to delete.
+ * Verified via grep: no file imports from components/wireframes/useWireframeData.
  */
 export function useWireframeData() {
   return {

@@ -55,6 +55,7 @@ interface SimulationAttempt {
   userId: string;
   scenarioId: number;
   overallScore: number;
+  pillarId: number | null;
 }
 
 // ============================================================================
@@ -248,7 +249,7 @@ async function getUserSimulationAttempts(
 ): Promise<SimulationAttempt[]> {
   const { data, error } = await client
     .from("simulation_attempts")
-    .select("id, user_id, scenario_id, overall_score")
+    .select("id, user_id, scenario_id, overall_score, simulation_scenarios(pillar_id)")
     .eq("organization_id", organizationId)
     .eq("user_id", userId);
 
@@ -257,12 +258,16 @@ async function getUserSimulationAttempts(
     return [];
   }
 
-  return (data || []).map((a) => ({
-    id: a.id,
-    userId: a.user_id,
-    scenarioId: a.scenario_id,
-    overallScore: a.overall_score,
-  }));
+  return (data || []).map((a) => {
+    const scenario = a.simulation_scenarios as unknown as { pillar_id: number | null } | null;
+    return {
+      id: a.id,
+      userId: a.user_id,
+      scenarioId: a.scenario_id,
+      overallScore: a.overall_score,
+      pillarId: scenario?.pillar_id ?? null,
+    };
+  });
 }
 
 async function hasCertification(
@@ -477,8 +482,12 @@ export const quizRouter = router({
         // Filter simulations that are linked to this pillar - requires scenario metadata
         // For now, exclude simulations that don't match the pillar context
         const pillarSimulations = simulationAttempts.filter((attempt) => {
-          // TODO: Implement proper pillar filtering when scenario metadata includes pillar_id
-          // For now, return all attempts as potentially relevant
+          if (attempt.pillarId !== null) {
+            return attempt.pillarId === input.pillarId;
+          }
+          // Scenarios without pillar metadata are included as a fallback
+          // so early adopters who created simulations before the field existed
+          // are not penalised.
           return true;
         });
 

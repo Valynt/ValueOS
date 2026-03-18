@@ -1,3 +1,5 @@
+> **Superseded by [Ground Truth spec](../../../openspec/specs/ground-truth/spec.md)** and [Deal Assembly spec](../../../openspec/specs/deal-assembly/spec.md). Retained for historical reference.
+
 # Spec: Real-world Data Grounding (RAG & SEC EDGAR)
 
 ## Problem Statement

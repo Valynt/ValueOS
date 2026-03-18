@@ -2,7 +2,7 @@
 
 **Generated:** 2026-07-15
 **Method:** Cross-referenced all spec files, sprint plans, and context layer against codebase state.
-**Sources scanned:** `spec.md`, `spec-auth-hardening.md`, `spec-production-readiness.md`, `refactor-spec.md`, `docs/features/billing-v2-implementation-plan.md`, `docs/sprint-plan-*.md`, `.ona/context/user-stories.md`, `.ona/context/debt.md`
+**Sources scanned:** `spec.md`, `spec-auth-hardening.md`, `spec-production-readiness.md`, `refactor-spec.md`, `docs/features/billing-v2-implementation-plan.md`, `docs/sprint-plan-*.md`, `.windsurf/context/user-stories.md`, `.windsurf/context/debt.md`
 
 Items marked ✅ were found implemented in the codebase and are excluded. Items below are confirmed open.
 

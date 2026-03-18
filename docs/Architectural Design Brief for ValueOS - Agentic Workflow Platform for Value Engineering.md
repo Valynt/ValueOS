@@ -1,3 +1,5 @@
+> **Superseded by [V1 Product Design Brief](../openspec/specs/v1-product-vision/spec.md)** — retained for historical reference.
+
 # Architectural Design Brief: The Perfect Agentic Workflow for Value Engineering (ValueOS)
 
 ### 1. Executive Summary
@@ -71,7 +73,7 @@ Agents are treated as first-class microservices with rigorous versioning and obs
     -   **Token Usage**: Cumulative and per-agent.
     -   **Cost Tracking**: Real-time USD cost per case.
     -   **Duration**: Latency of each step in the Saga.
--   **Failure Handling**: 
+-   **Failure Handling**:
     -   **Circuit Breakers**: If an LLM provider has >10% error rate, the system fails over to a secondary model.
     -   **Dead-Letter Queues (DLQ)**: Failed agent tasks are moved to a DLQ for manual inspection by the Engineering team.
 

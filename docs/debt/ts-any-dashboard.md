@@ -15,7 +15,7 @@ _Generated: 2026-08-18 (Sprint 43)_
 - Canonical explicit-`any` pattern: `:\s*any`, `as any`, `<any>`
 - Included files: `apps/**`, `packages/**`, `src/**` with `.ts`/`.tsx` suffixes
 - Excluded paths/files: `node_modules`, `dist`, `__tests__`, `*.test.*`, `*.spec.*`, `*.d.ts`
-- Source of truth: `.ona/context/debt.md` section `DEBT-ANY-BURNDOWN`
+- Source of truth: `.windsurf/context/debt.md` section `DEBT-ANY-BURNDOWN`
 
 ## Module burn-down
 

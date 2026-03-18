@@ -166,9 +166,9 @@ export function validateEnv(): ValidationResult {
   }
 
   // Production: MFA must be enabled. A disabled MFA flag in production is a
-  // security misconfiguration — warn loudly so it surfaces in logs and health checks.
+  // security misconfiguration — fail fast to prevent insecure deployments.
   if (nodeEnv === "production" && process.env.MFA_ENABLED !== "true") {
-    warnings.push(
+    errors.push(
       "MFA_ENABLED is not set to 'true' in production. Set MFA_ENABLED=true to enforce multi-factor authentication for all users."
     );
   }

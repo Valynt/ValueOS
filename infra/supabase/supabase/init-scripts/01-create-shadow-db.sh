@@ -18,10 +18,29 @@ EOSQL
 
 # Initialize shadow database with same roles
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${POSTGRES_DB}_shadow" <<-EOSQL
-    -- Enable required extensions
-    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-    CREATE EXTENSION IF NOT EXISTS "pgjwt";
+    -- Enable required extensions (may already exist in supabase/postgres image)
+    -- Wrapped to survive supautils hook that blocks pg_read_file
+    DO \$\$
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    EXCEPTION WHEN others THEN
+        RAISE NOTICE 'pgcrypto: skipped (%)', SQLERRM;
+    END
+    \$\$;
+    DO \$\$
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS "pgjwt";
+    EXCEPTION WHEN others THEN
+        RAISE NOTICE 'pgjwt: skipped (%)', SQLERRM;
+    END
+    \$\$;
+    DO \$\$
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS "vector";
+    EXCEPTION WHEN others THEN
+        RAISE NOTICE 'vector: skipped (%)', SQLERRM;
+    END
+    \$\$;
 
     -- Create schemas
     CREATE SCHEMA IF NOT EXISTS auth;

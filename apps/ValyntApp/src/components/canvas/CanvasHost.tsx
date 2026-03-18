@@ -40,10 +40,42 @@ const ValueSummaryCard = React.lazy(() => import("./widgets/ValueSummaryCard"));
 const AgentResponseCard = React.lazy(() => import("./widgets/AgentResponseCard"));
 const ChatInputWidget = React.lazy(() => import("./widgets/ChatInput"));
 
+// V1 Surface Widgets
+const StakeholderMap = React.lazy(() => import("./widgets/StakeholderMap"));
+const GapResolution = React.lazy(() => import("./widgets/GapResolution"));
+const HypothesisCard = React.lazy(() => import("./widgets/HypothesisCard"));
+const AssumptionRegister = React.lazy(() => import("./widgets/AssumptionRegister"));
+const ScenarioComparison = React.lazy(() => import("./widgets/ScenarioComparison"));
+const SensitivityTornado = React.lazy(() => import("./widgets/SensitivityTornado"));
+const ReadinessGauge = React.lazy(() => import("./widgets/ReadinessGauge"));
+const EvidenceGapList = React.lazy(() => import("./widgets/EvidenceGapList"));
+const ArtifactPreview = React.lazy(() => import("./widgets/ArtifactPreview"));
+const InlineEditor = React.lazy(() => import("./widgets/InlineEditor"));
+const KPITargetCard = React.lazy(() => import("./widgets/KPITargetCard"));
+const CheckpointTimeline = React.lazy(() => import("./widgets/CheckpointTimeline"));
+const UsageMeter = React.lazy(() => import("./widgets/UsageMeter"));
+const PlanComparison = React.lazy(() => import("./widgets/PlanComparison"));
+
 // Register built-in SDUI widget types
 registerWidget("value-summary", ValueSummaryCard as unknown as ComponentType<WidgetProps>);
 registerWidget("agent-response", AgentResponseCard as unknown as ComponentType<WidgetProps>);
 registerWidget("chat-input", ChatInputWidget as unknown as ComponentType<WidgetProps>);
+
+// Register V1 Surface Widgets
+registerWidget("stakeholder-map", StakeholderMap as unknown as ComponentType<WidgetProps>);
+registerWidget("gap-resolution", GapResolution as unknown as ComponentType<WidgetProps>);
+registerWidget("hypothesis-card", HypothesisCard as unknown as ComponentType<WidgetProps>);
+registerWidget("assumption-register", AssumptionRegister as unknown as ComponentType<WidgetProps>);
+registerWidget("scenario-comparison", ScenarioComparison as unknown as ComponentType<WidgetProps>);
+registerWidget("sensitivity-tornado", SensitivityTornado as unknown as ComponentType<WidgetProps>);
+registerWidget("readiness-gauge", ReadinessGauge as unknown as ComponentType<WidgetProps>);
+registerWidget("evidence-gap-list", EvidenceGapList as unknown as ComponentType<WidgetProps>);
+registerWidget("artifact-preview", ArtifactPreview as unknown as ComponentType<WidgetProps>);
+registerWidget("inline-editor", InlineEditor as unknown as ComponentType<WidgetProps>);
+registerWidget("kpi-target-card", KPITargetCard as unknown as ComponentType<WidgetProps>);
+registerWidget("checkpoint-timeline", CheckpointTimeline as unknown as ComponentType<WidgetProps>);
+registerWidget("usage-meter", UsageMeter as unknown as ComponentType<WidgetProps>);
+registerWidget("plan-comparison", PlanComparison as unknown as ComponentType<WidgetProps>);
 
 // Widget loading fallback
 function WidgetSkeleton() {

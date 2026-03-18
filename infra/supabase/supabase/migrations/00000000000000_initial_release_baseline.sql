@@ -5,9 +5,14 @@
 -- superuser privileges.
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+-- pgcrypto: gen_random_uuid() is built-in on PG13+; pgcrypto still needed for
+-- crypt(), digest(), etc. Wrapped to survive Supabase supautils hook.
+DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+EXCEPTION WHEN others THEN RAISE NOTICE 'pgcrypto: skipped (%)' , SQLERRM; END $$;
+
+-- pgvector for embedding columns
+DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+EXCEPTION WHEN others THEN RAISE NOTICE 'vector: skipped (%)' , SQLERRM; END $$;
 
 -- ============================================================================
 -- Billing V2 Foundation

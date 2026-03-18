@@ -44,7 +44,7 @@ Optional: `handlers/` (webhooks), `services/` (business logic), `jobs/` (BullMQ 
 pnpm scaffold:integration <provider-name>
 ```
 
-Full architecture spec: `.ona/skills/service-integration-architecture/SKILL.md`
+Full architecture spec: `.windsurf/skills/service-integration-architecture/SKILL.md`
 
 ## Import Rules
 

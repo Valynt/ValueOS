@@ -67,6 +67,14 @@ const ValueCaseWorkspace = lazy(() => import("./views/ValueCaseWorkspace"));
 const AgentAdminPage = lazy(() => import("./views/Admin/AgentAdminPage"));
 const LivingValueGraphPage = lazy(() => import("./views/LivingValueGraphPage"));
 
+// V1 Surface Views
+const DealAssemblyWorkspace = lazy(() => import("./views/DealAssemblyWorkspace"));
+const ValueModelWorkbench = lazy(() => import("./views/ValueModelWorkbench"));
+const IntegrityDashboard = lazy(() => import("./views/IntegrityDashboard"));
+const ExecutiveOutputStudio = lazy(() => import("./views/ExecutiveOutputStudio"));
+const RealizationTracker = lazy(() => import("./views/RealizationTracker"));
+const BillingPortal = lazy(() => import("./views/BillingPortal"));
+
 // Academy v2 (migrated from VOSAcademy)
 const AcademyV2Routes = lazy(() => import("./features/academy-v2/routes"));
 
@@ -139,7 +147,7 @@ export function AppRoutes() {
               <DrawerProvider>
                 <I18nProvider>
                   <ToastProvider>
-                    <SDUIStateProvider supabase={supabase}>
+                    <SDUIStateProvider _supabase={supabase}>
                       <SDUIHumanCheckpointProvider>
                         <CommandPaletteProvider>
                           <Suspense fallback={<LoadingSpinner />}>
@@ -182,6 +190,12 @@ export function AppRoutes() {
                                       <Route path="integrations" element={<Integrations />} />
                                       <Route path="settings" element={<SettingsPage />} />
                                       <Route path="workspace/:caseId" element={<ValueCaseWorkspace />} />
+                                      <Route path="workspace/:caseId/assembly" element={<DealAssemblyWorkspace />} />
+                                      <Route path="workspace/:caseId/model" element={<ValueModelWorkbench />} />
+                                      <Route path="workspace/:caseId/integrity" element={<IntegrityDashboard />} />
+                                      <Route path="workspace/:caseId/outputs" element={<ExecutiveOutputStudio />} />
+                                      <Route path="workspace/:caseId/realization" element={<RealizationTracker />} />
+                                      <Route path="billing" element={<BillingPortal />} />
                                       <Route path="company" element={<CompanyKnowledge />} />
                                       <Route path="living-value-graph/:opportunityId?/:caseId?" element={<LivingValueGraphPage />} />
                                       <Route path="academy/*" element={<AcademyV2Routes />} />
@@ -200,6 +214,12 @@ export function AppRoutes() {
                                   <Route path="/integrations" element={<LegacyTenantRouteBridge />} />
                                   <Route path="/settings" element={<LegacyTenantRouteBridge />} />
                                   <Route path="/workspace/:caseId" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/workspace/:caseId/assembly" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/workspace/:caseId/model" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/workspace/:caseId/integrity" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/workspace/:caseId/outputs" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/workspace/:caseId/realization" element={<LegacyTenantRouteBridge />} />
+                                  <Route path="/billing" element={<LegacyTenantRouteBridge />} />
                                   <Route path="/company" element={<LegacyTenantRouteBridge />} />
                                   <Route path="/living-value-graph/*" element={<LegacyTenantRouteBridge />} />
                                 </Route>

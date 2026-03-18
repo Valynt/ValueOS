@@ -97,7 +97,7 @@ services:
       - "${PGPORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../infra/supabase/supabase/db/init-scripts:/docker-entrypoint-initdb.d
+      - ../infra/supabase/supabase/init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-postgres} -d ${PGDATABASE:-valueos}"]
       interval: 10s
@@ -141,6 +141,8 @@ services:
     container_name: valueos-auth
     environment:
       GOTRUE_DB_DRIVER: postgres
+      API_PORT: 9999
+      GOTRUE_API_PORT: 9999
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${PGDATABASE:-valueos}
@@ -329,6 +331,7 @@ services:
     <<: *common
     image: supabase/edge-runtime:v1.53.3
     container_name: valueos-functions
+    command: start --main-service /home/deno/functions/main
     environment:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       SUPABASE_URL: http://kong:8000

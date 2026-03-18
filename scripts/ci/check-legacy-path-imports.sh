@@ -28,7 +28,7 @@ for file in "${changed_files[@]}"; do
   [[ -f "$file" ]] || continue
 
   # Docs and context notes are validated separately.
-  if [[ "$file" == docs/* || "$file" == .ona/context/* ]]; then
+  if [[ "$file" == docs/* || "$file" == .windsurf/context/* ]]; then
     continue
   fi
 

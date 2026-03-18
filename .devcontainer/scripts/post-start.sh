@@ -59,6 +59,20 @@ for i in {1..30}; do
 done
 
 # ============================================================================
+# Database Migrations
+# ============================================================================
+log "Applying database migrations..."
+if command -v pnpm &> /dev/null && [[ -f "package.json" ]]; then
+  if pnpm run db:migrate 2>&1; then
+    log "✅ Database migrations applied"
+  else
+    warn "Database migrations failed — run manually: pnpm run db:migrate"
+  fi
+else
+  warn "pnpm or package.json not found — skipping migrations"
+fi
+
+# ============================================================================
 # Environment Verification
 # ============================================================================
 log "Verifying environment..."

@@ -219,17 +219,12 @@ export class SecureMessageBus extends EventEmitter {
     });
   }
 
-  // Manual acknowledgment for state-update based acking
   async acknowledgeMessage(agentType: string, messageId: string): Promise<void> {
-    // For now, we rely on the broker's automatic acking
-    // In a full implementation, this would need broker support for manual acking
+    const broker = this.activeBrokers.get(agentType);
+    if (broker) {
+      await broker.acknowledge(messageId);
+    }
     this.log.info("Acknowledged message", { agentType, messageId });
-
-    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement manual acking in RedisStreamBroker if needed
-    // const broker = this.activeBrokers.get(agentType);
-    // if (broker) {
-    //   await broker.acknowledge(messageId);
-    // }
   }
 }
 

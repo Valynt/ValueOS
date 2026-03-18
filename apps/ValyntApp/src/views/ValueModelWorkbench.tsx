@@ -1,0 +1,132 @@
+/**
+ * ValueModelWorkbench
+ *
+ * Page view for value modeling: hypotheses, assumptions, scenarios, sensitivity tabs.
+ * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.2
+ */
+
+import React, { useState } from "react";
+import { useParams } from "react-router-dom";
+import { AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
+import {
+  useHypotheses,
+  useAcceptHypothesis,
+  useRejectHypothesis,
+  useAssumptions,
+  useScenarios,
+  useSensitivity,
+} from "@/hooks/useValueModeling";
+
+export function ValueModelWorkbench() {
+  const { caseId } = useParams<{ caseId: string }>();
+  const [activeTab, setActiveTab] = useState("hypotheses");
+
+  const { data: hypotheses, isLoading: hypothesesLoading, error: hypothesesError } = useHypotheses(caseId);
+  const { data: assumptions, isLoading: assumptionsLoading, error: assumptionsError } = useAssumptions(caseId);
+  const { data: scenarios, isLoading: scenariosLoading, error: scenariosError } = useScenarios(caseId);
+  const { data: sensitivity, isLoading: sensitivityLoading, error: sensitivityError } = useSensitivity(caseId);
+
+  const acceptHypothesis = useAcceptHypothesis();
+  const rejectHypothesis = useRejectHypothesis();
+
+  const handleWidgetAction = (widgetId: string, action: string, payload?: unknown) => {
+    if (action === "accept") {
+      const { hypothesisId } = payload as { hypothesisId: string };
+      if (caseId) acceptHypothesis.mutate({ caseId, hypothesisId });
+    } else if (action === "reject") {
+      const { hypothesisId } = payload as { hypothesisId: string };
+      if (caseId) rejectHypothesis.mutate({ caseId, hypothesisId });
+    }
+  };
+
+  const isLoading = hypothesesLoading || assumptionsLoading || scenariosLoading || sensitivityLoading;
+  const error = hypothesesError || assumptionsError || scenariosError || sensitivityError;
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="m-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Failed to load value model</AlertTitle>
+        <AlertDescription>{error?.message || "Unknown error occurred"}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const hypothesesWidget: SDUIWidget = {
+    id: "hypothesis-cards",
+    componentType: "hypothesis-card",
+    props: { hypotheses: hypotheses ?? [] },
+  };
+
+  const assumptionsWidget: SDUIWidget = {
+    id: "assumption-register",
+    componentType: "assumption-register",
+    props: { assumptions: assumptions ?? [] },
+  };
+
+  const scenariosWidget: SDUIWidget = {
+    id: "scenario-comparison",
+    componentType: "scenario-comparison",
+    props: { scenarios: scenarios ?? [] },
+  };
+
+  const sensitivityWidget: SDUIWidget = {
+    id: "sensitivity-tornado",
+    componentType: "sensitivity-tornado",
+    props: { items: sensitivity?.tornadoData ?? [], baseScenario: sensitivity?.baseScenario },
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="px-6 py-4 border-b bg-card">
+        <h1 className="text-xl font-semibold">Value Model Workbench</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Build and refine the economic case for this opportunity
+        </p>
+      </div>
+
+      <div className="flex-1 p-6 overflow-y-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
+            <TabsTrigger value="assumptions">Assumptions</TabsTrigger>
+            <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+            <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="hypotheses" className="mt-6">
+            <CanvasHost widgets={[hypothesesWidget]} onWidgetAction={handleWidgetAction} />
+          </TabsContent>
+
+          <TabsContent value="assumptions" className="mt-6">
+            <CanvasHost widgets={[assumptionsWidget]} onWidgetAction={handleWidgetAction} />
+          </TabsContent>
+
+          <TabsContent value="scenarios" className="mt-6">
+            <CanvasHost widgets={[scenariosWidget]} onWidgetAction={handleWidgetAction} />
+          </TabsContent>
+
+          <TabsContent value="sensitivity" className="mt-6">
+            <CanvasHost widgets={[sensitivityWidget]} onWidgetAction={handleWidgetAction} />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+
+export default ValueModelWorkbench;

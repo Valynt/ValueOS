@@ -3,14 +3,18 @@
  *
  * Fetches the latest realization report for a value case and provides
  * a mutation to invoke the RealizationAgent.
+ *
+ * Also includes V1 surface hooks for baseline, checkpoints, and case approval.
+ * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §4.5
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiClient } from "@/api/client/unified-api-client";
+import { api, apiClient } from "@/api/client/unified-api-client";
+import { useTenant } from "@/contexts/TenantContext";
 
 // ---------------------------------------------------------------------------
-// Types
+// Legacy Types
 // ---------------------------------------------------------------------------
 
 export interface Milestone {
@@ -71,13 +75,60 @@ export interface AgentRunResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// V1 Surface Types
 // ---------------------------------------------------------------------------
 
-// fetchJSON removed — use apiClient (Phase 8 / ADR-0014)
+export type CheckpointStatus = "pending" | "measured" | "missed" | "exceeded";
+
+export interface KPITarget {
+  id: string;
+  metricName: string;
+  baseline: number;
+  target: number;
+  unit: string;
+  timeline: {
+    startDate: string;
+    targetDate: string;
+  };
+  source: string;
+  progress: number; // 0-100
+}
+
+export interface Checkpoint {
+  id: string;
+  date: string;
+  expectedRange: {
+    min: number;
+    max: number;
+  };
+  actualValue?: number;
+  status: CheckpointStatus;
+  notes?: string;
+}
+
+export interface BaselineData {
+  caseId: string;
+  scenarioName: string;
+  approvalDate?: string;
+  version: string;
+  kpiTargets: KPITarget[];
+  assumptions: Array<{
+    id: string;
+    name: string;
+    value: number;
+    unit: string;
+    source: string;
+  }>;
+  handoffNotes: {
+    dealContext: string;
+    buyerPriorities: string;
+    implementationAssumptions: string;
+    keyRisks: string;
+  };
+}
 
 // ---------------------------------------------------------------------------
-// Hooks
+// Legacy Hooks
 // ---------------------------------------------------------------------------
 
 export function useRealizationReport(caseId: string | undefined) {
@@ -117,3 +168,78 @@ export function useRunRealizationAgent(caseId: string | undefined) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// V1 Surface Hooks — Baseline, Checkpoints, Approval
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch baseline data for a case.
+ * GET /api/cases/:caseId/baseline
+ */
+export function useBaseline(caseId: string | undefined) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
+
+  return useQuery<BaselineData>({
+    queryKey: ["baseline", caseId, tenantId],
+    queryFn: async () => {
+      const response = await api.getBaseline(caseId!);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || "Failed to fetch baseline");
+      }
+      return response.data as BaselineData;
+    },
+    enabled: !!caseId && !!tenantId,
+    staleTime: 60_000, // Baseline rarely changes
+  });
+}
+
+/**
+ * Fetch checkpoints for a case baseline.
+ * GET /api/cases/:caseId/baseline/checkpoints
+ */
+export function useCheckpoints(caseId: string | undefined) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
+
+  return useQuery<Checkpoint[]>({
+    queryKey: ["checkpoints", caseId, tenantId],
+    queryFn: async () => {
+      const response = await api.getCheckpoints(caseId!);
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || "Failed to fetch checkpoints");
+      }
+      return response.data as Checkpoint[];
+    },
+    enabled: !!caseId && !!tenantId,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Approve a case and lock the baseline.
+ * POST /api/cases/:caseId/approve
+ */
+export function useApproveCase(caseId: string | undefined) {
+  const queryClient = useQueryClient();
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id;
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await api.approveCase(caseId!);
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to approve case");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate baseline to reflect approval
+      queryClient.invalidateQueries({ queryKey: ["baseline", caseId, tenantId] });
+      // Also invalidate case data as status changes
+      queryClient.invalidateQueries({ queryKey: ["case", caseId, tenantId] });
+    },
+  });
+}
+

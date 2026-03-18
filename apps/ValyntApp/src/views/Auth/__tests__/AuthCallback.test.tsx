@@ -35,7 +35,7 @@ describe("AuthCallback Component", () => {
   });
 
   describe("Successful OAuth Callback", () => {
-    it("should exchange OAuth token for session and redirect to home", async () => {
+    it("should exchange OAuth token for session and redirect to dashboard", async () => {
       // Arrange
       const mockSession = {
         access_token: "mock-token",

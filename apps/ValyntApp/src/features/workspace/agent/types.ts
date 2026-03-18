@@ -1,6 +1,5 @@
 /**
- * Agent workspace types - stub declarations.
- * TODO: Replace with full implementations when agent workspace feature is complete.
+ * Agent workspace types — used by the agent workspace UI feature.
  */
 
 export type AgentPhase =

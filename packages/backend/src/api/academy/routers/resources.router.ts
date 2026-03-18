@@ -172,12 +172,32 @@ export const resourcesRouter = router({
   trackDownload: protectedProcedure
     .input(z.object({ resourceId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const client = getSupabaseClient(ctx);
+
+      const { error } = await client.from("resource_downloads").insert({
+        user_id: ctx.user.id,
+        resource_id: input.resourceId,
+        organization_id: ctx.tenantId,
+        downloaded_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        logger.error("[Academy] Failed to track resource download", {
+          userId: ctx.user.id,
+          resourceId: input.resourceId,
+          error,
+        });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to track download",
+        });
+      }
+
       logger.info("[Academy] Resource download tracked", {
         userId: ctx.user.id,
         resourceId: input.resourceId,
       });
 
-      // TODO: Implement download tracking in database
       return { success: true };
     }),
 });

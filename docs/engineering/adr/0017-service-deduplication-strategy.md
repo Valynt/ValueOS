@@ -18,7 +18,7 @@
     - Retry/resilience types → `*Types.ts` co-located with the implementation.
   - **Extraction over deletion.** When a file exceeds ~1000 lines, extract cohesive sub-concerns into separate files. The original file re-exports everything for backward compatibility. Callers do not need to update imports.
   - **Legacy directory removal.** Root-level directories that duplicate monorepo packages (`client/`, `server/`, `shared/`) are removed after migrating active code to the canonical package location. An ESLint `no-restricted-imports` rule is added to prevent re-introduction.
-  - **Debt tracking.** Resolved de-duplication work is recorded in `.ona/context/debt.md` under the Resolved section with the date and a description of what was done.
+  - **Debt tracking.** Resolved de-duplication work is recorded in `.windsurf/context/debt.md` under the Resolved section with the date and a description of what was done.
 
 - **Consequences:**
   - The `ValueTreeService` case (two intentionally distinct files) is documented and will not be incorrectly consolidated in future sprints.

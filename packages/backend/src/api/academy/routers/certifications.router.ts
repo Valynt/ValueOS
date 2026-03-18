@@ -2,6 +2,8 @@
  * Certifications Router
  * Handles certification awards, retrieval, and PDF generation with tenant isolation
  */
+import crypto from "node:crypto";
+
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -68,17 +70,19 @@ function determineCertificationTier(cert: { score?: number | null }): "bronze" |
 }
 
 /**
- * Generate a secure share token using HMAC
- * This is a placeholder - actual implementation should use crypto.createHmac
- * with a secret key stored in environment variables
+ * Generate a secure share token using HMAC-SHA256.
+ * Requires SHARE_TOKEN_SECRET env var (minimum 32 characters).
  */
 function generateSecureShareToken(userId: string, certId: number, awardedAt: string): string {
-  // TODO: Implement proper HMAC signing with a secret key
-  // For now, return a placeholder that indicates this needs proper implementation
+  const secret = process.env.SHARE_TOKEN_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "SHARE_TOKEN_SECRET is missing or too short (minimum 32 characters)",
+    });
+  }
   const data = `${userId}:${certId}:${new Date(awardedAt).getTime()}`;
-  // This is NOT secure - just a placeholder format
-  // Production should use: crypto.createHmac('sha256', process.env.SHARE_TOKEN_SECRET).update(data).digest('base64url')
-  return `pending_hmac_${Buffer.from(data).toString("base64url")}`;
+  return crypto.createHmac("sha256", secret).update(data).digest("base64url");
 }
 
 // ============================================================================
@@ -143,6 +147,89 @@ async function getUserById(client: ReturnType<typeof createUserSupabaseClient>, 
   }
 
   return data;
+}
+
+// ============================================================================
+// PDF Generation
+// ============================================================================
+
+interface CertificateInput {
+  userName: string;
+  pillarTitle: string;
+  vosRole: string;
+  tier: "bronze" | "silver" | "gold";
+  score: number;
+  awardedAt: Date;
+  certificateId: string;
+}
+
+const TIER_COLORS: Record<string, { r: number; g: number; b: number }> = {
+  gold: { r: 212, g: 175, b: 55 },
+  silver: { r: 168, g: 169, b: 173 },
+  bronze: { r: 176, g: 141, b: 87 },
+};
+
+function generateCertificatePDF(data: CertificateInput): string {
+  // Dynamic import kept synchronous via require — jsPDF is a dependency
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { jsPDF } = require("jspdf") as typeof import("jspdf");
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const width = doc.internal.pageSize.getWidth();
+  const height = doc.internal.pageSize.getHeight();
+  const color = TIER_COLORS[data.tier] ?? TIER_COLORS.bronze;
+
+  // Border
+  doc.setDrawColor(color.r, color.g, color.b);
+  doc.setLineWidth(2);
+  doc.rect(10, 10, width - 20, height - 20);
+
+  // Title
+  doc.setFontSize(28);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Certificate of Achievement", width / 2, 45, { align: "center" });
+
+  // ValueOS Academy
+  doc.setFontSize(14);
+  doc.setTextColor(100, 100, 100);
+  doc.text("ValueOS Academy", width / 2, 55, { align: "center" });
+
+  // Recipient
+  doc.setFontSize(22);
+  doc.setTextColor(color.r, color.g, color.b);
+  doc.text(data.userName, width / 2, 85, { align: "center" });
+
+  // Description
+  doc.setFontSize(12);
+  doc.setTextColor(60, 60, 60);
+  doc.text(
+    `Has successfully completed the ${data.pillarTitle} pillar`,
+    width / 2,
+    100,
+    { align: "center" },
+  );
+  doc.text(
+    `Role: ${data.vosRole}  |  Tier: ${data.tier.toUpperCase()}  |  Score: ${data.score}%`,
+    width / 2,
+    110,
+    { align: "center" },
+  );
+
+  // Date & ID
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    `Awarded: ${data.awardedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`,
+    width / 2,
+    130,
+    { align: "center" },
+  );
+  doc.text(`Certificate ID: ${data.certificateId}`, width / 2, 138, {
+    align: "center",
+  });
+
+  // Return base64-encoded PDF
+  return doc.output("datauristring").split(",")[1];
 }
 
 // ============================================================================
@@ -264,20 +351,20 @@ export const certificationsRouter = router({
         tier: cert.tier as "bronze" | "silver" | "gold",
         score: cert.score || 100,
         awardedAt: new Date(cert.awardedAt),
-        certificateId: `VOS-${cert.id}-${Date.now().toString(36).toUpperCase()}`,
+        certificateId: `VOS-${cert.id}-${cert.awardedAt}`,
       };
 
-      // TODO: Implement PDF generation
-      // For now, return placeholder data
       logger.info("[Academy] Certificate generation requested", {
         userId: ctx.user.id,
         certificationId: cert.id,
         format: input.format,
       });
 
+      const certificateBlob = generateCertificatePDF(certificateData);
+
       return {
         certificateData,
-        certificateBlob: null, // Would be base64 encoded PDF
+        certificateBlob,
         downloadUrl: `/api/certificates/${cert.id}/download`,
       };
     }),

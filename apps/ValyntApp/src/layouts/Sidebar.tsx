@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   GitGraph,
   LogOut,
   Settings,
@@ -32,6 +33,7 @@ const platformNavItems = [
   { path: "/models", label: "Models", icon: Boxes },
   { path: "/agents", label: "Agents", icon: Bot },
   { path: "/company", label: "Company Intel", icon: Building2 },
+  { path: "/billing", label: "Billing", icon: CreditCard },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

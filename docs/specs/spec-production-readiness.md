@@ -1,7 +1,9 @@
+> **Superseded by [Production Readiness spec](../../openspec/specs/production-readiness/spec.md)**. Retained for task-level detail reference.
+
 # Spec: Production Readiness Sprint Plan
 
-**Based on:** Manus AI Senior Technical Lead review (2026-03-12)  
-**Codebase audit date:** 2026-03-12  
+**Based on:** Manus AI Senior Technical Lead review (2026-03-12)
+**Codebase audit date:** 2026-03-12
 **Format:** Flat prioritized task list. Items marked ✅ VERIFIED are already correctly implemented — the task is to confirm and document, not re-implement.
 
 ---
@@ -157,7 +159,7 @@ The ValueOS platform has strong foundational security and CI controls but carrie
 
 #### TASK-009: TypeScript `any` debt reduction (QUAL-003)
 
-**Current measured count (2026-03-12):** ~1,087 production `any` usages (packages + apps, excluding test files).  
+**Current measured count (2026-03-12):** ~1,087 production `any` usages (packages + apps, excluding test files).
 **Target:** ≤815 (25% reduction from current actuals).
 
 **Per-package breakdown:**
@@ -220,7 +222,7 @@ The ValueOS platform has strong foundational security and CI controls but carrie
 
 #### TASK-012: Increase CI coverage thresholds (CI-001)
 
-**Current thresholds** (in `ci.yml`): lines=60, functions=50, branches=50, statements=60.  
+**Current thresholds** (in `ci.yml`): lines=60, functions=50, branches=50, statements=60.
 **Target:** lines=75, functions=70, branches=70, statements=75.
 
 **Task:**

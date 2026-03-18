@@ -1,3 +1,5 @@
+> **Superseded by [Onboarding spec](../../../openspec/specs/onboarding/spec.md)**. Retained for historical reference.
+
 # Spec: Enhanced Onboarding — Agentic Research-Assisted Onboarding
 
 ## Problem Statement

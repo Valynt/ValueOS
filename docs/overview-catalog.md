@@ -80,13 +80,13 @@ These files are specifically designed to give AI coding agents structured contex
 
 | File | Size | Purpose |
 |---|---|---|
-| `.ona/context/README.md` | 2.5 KB | Explains the 7-layer context engineering approach and how AI agents should use the context files. |
-| `.ona/context/decisions.md` | 10.8 KB | Architectural Decision Record (ADR) digest — all key decisions and their rationale. |
-| `.ona/context/traceability.md` | 11.1 KB | Full-stack traceability map: agent lifecycle stage → DB table → API endpoint → UI component. |
-| `.ona/context/memory.md` | 8.5 KB | Persistent lessons learned — patterns that worked and anti-patterns to avoid. |
-| `.ona/context/tools.md` | 6 KB | Tool inventory — MCP Tools vs. BFA Semantic Tools, their interfaces, registries, and how to add new ones. |
-| `.ona/context/debt.md` | 9.5 KB | Prioritized technical debt inventory with linked GitHub issues. |
-| `.ona/context/user-stories.md` | 8.3 KB | Core user stories with acceptance criteria and implementation status. |
+| `.windsurf/context/README.md` | 2.5 KB | Explains the 7-layer context engineering approach and how AI agents should use the context files. |
+| `.windsurf/context/decisions.md` | 10.8 KB | Architectural Decision Record (ADR) digest — all key decisions and their rationale. |
+| `.windsurf/context/traceability.md` | 11.1 KB | Full-stack traceability map: agent lifecycle stage → DB table → API endpoint → UI component. |
+| `.windsurf/context/memory.md` | 8.5 KB | Persistent lessons learned — patterns that worked and anti-patterns to avoid. |
+| `.windsurf/context/tools.md` | 6 KB | Tool inventory — MCP Tools vs. BFA Semantic Tools, their interfaces, registries, and how to add new ones. |
+| `.windsurf/context/debt.md` | 9.5 KB | Prioritized technical debt inventory with linked GitHub issues. |
+| `.windsurf/context/user-stories.md` | 8.3 KB | Core user stories with acceptance criteria and implementation status. |
 | `.github/copilot-instructions.md` | — | GitHub Copilot-specific instructions referencing AGENTS.md, with quick context, non-negotiables, and dev commands. |
 | `GEMINI.md` | 4.3 KB | Gemini AI agent-specific instructions. |
 | `.windsurf/rules/global.md` | — | Global rules for Windsurf/Cascade AI agents. |
@@ -116,5 +116,5 @@ These documents provide overviews of specific feature areas.
 6. **`conductor/product.md`** + **`conductor/tech-stack.md`** — Product vision and tech stack.
 7. **`docs/getting-started/glossary.md`** — Learn the domain vocabulary.
 8. **`docs/getting-started/02-quickstart.md`** — Get the environment running.
-9. **`.ona/context/traceability.md`** — Understand full-stack slices before touching code.
+9. **`.windsurf/context/traceability.md`** — Understand full-stack slices before touching code.
 10. **`CONTRIBUTING.md`** — Know the contribution process.

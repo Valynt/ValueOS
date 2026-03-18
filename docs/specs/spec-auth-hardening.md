@@ -1,3 +1,5 @@
+> **Superseded by [Auth spec](../../openspec/specs/auth/spec.md)**. Retained for implementation detail reference.
+
 # Spec: Auth Lifecycle Hardening
 
 ## Problem Statement
