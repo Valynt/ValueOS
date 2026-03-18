@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
-import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 /**
  * Determine certification tier based on score

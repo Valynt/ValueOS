@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- required for this module
 import { getRedisClient } from '../../shared/src/lib/redisClient.js';
 
 const DEFAULT_TTL_SECONDS = 24 * 60 * 60;

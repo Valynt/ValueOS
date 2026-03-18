@@ -13,9 +13,9 @@
  * Fails open: if Redis is unavailable, agents are allowed to run.
  */
 
+import { logger } from "../../lib/logger.js";
 import { getRedisClient } from "../../lib/redis.js";
 import { getAgentPolicyService } from "../policy/AgentPolicyService.js";
-import { logger } from "../../lib/logger.js";
 
 const KEY_PREFIX = "agent_kill_switch:";
 const KNOWN_AGENTS = [

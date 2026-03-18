@@ -20,12 +20,14 @@ import {
 import { logger } from "../../lib/logger.js";
 import { EnforcementResult, enforceRules } from "../../lib/rules";
 import { getSupabaseClient } from "../../lib/supabase.js";
+import { createExecutionRuntime } from "../../runtime/execution-runtime/index.js";
 import {
   ActionValidationError,
   validateActionContext,
   validateCanonicalAction,
 } from "../../schemas/actions.schema.js";
 import { normalizeExecutionRequest } from "../../types/execution";
+import type { IExecutionRuntime } from "../../types/execution/IExecutionRuntime.js";
 import {
   downloadBlob,
   exportToCSV,
@@ -34,19 +36,17 @@ import {
   exportToPNG,
   generateFilename,
 } from "../../utils/export";
+import { assumptionService } from "../AssumptionService.js";
+import { AuditLogService } from "../AuditLogService.js";
+import { atomicActionExecutor } from "../post-v1/AtomicActionExecutor.js";
+import { manifestoEnforcer } from "../post-v1/ManifestoEnforcer.js";
+import { canvasSchemaService } from "../sdui/CanvasSchemaService.js";
+import { ComponentMutationService } from "../sdui/ComponentMutationService.js";
+import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "../ValueTreeService.js";
+import { workspaceStateService } from "../WorkspaceStateService.js";
 
 import type { AgentType } from "./agent-types.js";
 import { AgentAPI, getAgentAPI } from "./AgentAPI.js";
-import { assumptionService } from "../AssumptionService.js";
-import { atomicActionExecutor } from "../post-v1/AtomicActionExecutor.js";
-import { AuditLogService } from "../AuditLogService.js";
-import { canvasSchemaService } from "../sdui/CanvasSchemaService.js";
-import { ComponentMutationService } from "../sdui/ComponentMutationService.js";
-import { manifestoEnforcer } from "../post-v1/ManifestoEnforcer.js";
-import { createExecutionRuntime } from "../../runtime/execution-runtime/index.js";
-import type { IExecutionRuntime } from "../../types/execution/IExecutionRuntime.js";
-import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "../ValueTreeService.js";
-import { workspaceStateService } from "../WorkspaceStateService.js";
 
 
 

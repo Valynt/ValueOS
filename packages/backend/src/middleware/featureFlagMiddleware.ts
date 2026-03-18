@@ -4,9 +4,9 @@
  * Express middleware for feature flag evaluation and enforcement
  */
 
+import { featureFlags } from '@valueos/core-services';
 import { NextFunction, Request, Response } from 'express';
 
-import { featureFlags } from '@valueos/core-services';
 import { logger } from '../utils/logger.js'
 
 /**

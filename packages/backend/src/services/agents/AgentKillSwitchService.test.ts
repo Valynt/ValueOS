@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Redis — getRedisClient is async and returns a client or null
 const store: Record<string, string> = {};

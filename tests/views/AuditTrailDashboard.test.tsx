@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 /**
  * VOS-SUPER-003: Audit Trail Dashboard - Comprehensive Test Suite
  * Tests for audit trail functionality, security, performance, and accessibility
@@ -6,6 +5,7 @@ import { vi } from 'vitest';
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
+import { vi } from 'vitest';
 
 import { secureMessageBus } from '../../lib/agent-fabric/SecureMessageBus';
 import { PermissionMiddleware } from '../../lib/auth/PermissionMiddleware';

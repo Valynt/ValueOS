@@ -44,9 +44,9 @@ vi.mock('../analytics/ValueLoopAnalytics.js', () => ({
   RecordEventInputSchema: { safeParse: vi.fn().mockReturnValue({ success: false }) },
 }));
 
-import request from 'supertest';
 import type { Express } from 'express';
 import express from 'express';
+import request from 'supertest';
 
 // ─── App factory ──────────────────────────────────────────────────────────────
 

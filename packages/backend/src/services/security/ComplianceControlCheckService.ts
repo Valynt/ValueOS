@@ -1,5 +1,6 @@
-import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { logger } from "../../lib/logger.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
+
 import { auditLogService } from "./AuditLogService.js";
 import {
   complianceControlMappingRegistry,

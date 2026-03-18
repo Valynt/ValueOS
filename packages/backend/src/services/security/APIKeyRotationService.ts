@@ -20,6 +20,7 @@
  */
 
 import { createLogger } from "../../lib/logger.js";
+
 import { auditLogService } from "./AuditLogService.js";
 
 const logger = createLogger({ component: "APIKeyRotationService" });
@@ -497,6 +498,7 @@ export class APIKeyRotationService {
           },
         ],
       };
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       await fetch(slackWebhook, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

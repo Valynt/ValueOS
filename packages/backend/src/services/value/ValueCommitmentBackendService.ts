@@ -14,17 +14,17 @@
 
 import { createLogger } from '@shared/lib/logger';
 
-import { supabase } from '../../lib/supabase.js';
-import { auditLogService } from '../security/AuditLogService.js';
-import { NotFoundError, ServiceError, ErrorCode } from '../errors.js';
 import {
-  ALLOWED_TRANSITIONS,
   type AddNoteInput,
+  ALLOWED_TRANSITIONS,
   type CommitmentStatus,
   type CreateCommitmentInput,
   type StatusTransitionInput,
   type UpdateCommitmentInput,
 } from '../../api/valueCommitments/schemas.js';
+import { supabase } from '../../lib/supabase.js';
+import { ErrorCode, NotFoundError, ServiceError } from '../errors.js';
+import { auditLogService } from '../security/AuditLogService.js';
 
 const logger = createLogger({ component: 'ValueCommitmentBackendService' });
 

@@ -10,11 +10,11 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { SDUIPageDefinition } from "@valueos/sdui";
 import {
   generateChatSDUIPage,
   hasTemplateForStage,
 } from "@sdui/templates/chat-templates";
+import { SDUIPageDefinition } from "@valueos/sdui";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
@@ -33,14 +33,14 @@ import {
   WorkflowStateRepository,
 } from "../../repositories/WorkflowStateRepository";
 import type { LifecycleStage } from "../../types/vos";
-
+import { createToolExecutor, getAllTools } from "../domain-packs/MCPTools.js"
+import { FallbackAIService } from "../llm/FallbackAIService.js"
+import { geminiProxyService } from "../llm/GeminiProxyService.js"
 import {
   conversationHistoryService,
   ConversationMessage,
 } from "../value/ConversationHistoryService";
-import { FallbackAIService } from "../llm/FallbackAIService.js"
-import { geminiProxyService } from "../llm/GeminiProxyService.js"
-import { createToolExecutor, getAllTools } from "../domain-packs/MCPTools.js"
+
 import { RetryService } from "./resilience/RetryService.js"
 
 // ============================================================================

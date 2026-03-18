@@ -13,6 +13,7 @@ vi.mock("../lib/observability/index.js", () => ({
 }));
 
 import { supabase } from "../lib/supabase.js";
+
 import { checkTableVolume, recordPartialLoad } from "./dataVolume.js";
 
 const mockFrom = supabase.from as ReturnType<typeof vi.fn>;

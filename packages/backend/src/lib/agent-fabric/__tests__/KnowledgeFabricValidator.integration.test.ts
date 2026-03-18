@@ -45,12 +45,12 @@ vi.mock("../CircuitBreaker.js", () => ({
 // ---------------------------------------------------------------------------
 
 import type { AgentConfig } from "../../../types/agent.js";
-import { CircuitBreaker } from "../CircuitBreaker.js";
-import { LLMGateway } from "../LLMGateway.js";
-import { KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
-import { MemorySystem } from "../MemorySystem.js";
 import { BaseAgent } from "../agents/BaseAgent.js";
 import type { AgentOutput, LifecycleContext } from "../agents/BaseAgent.js";
+import { CircuitBreaker } from "../CircuitBreaker.js";
+import { KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
+import { LLMGateway } from "../LLMGateway.js";
+import { MemorySystem } from "../MemorySystem.js";
 
 // ---------------------------------------------------------------------------
 // Constants

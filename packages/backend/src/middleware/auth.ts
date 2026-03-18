@@ -23,9 +23,9 @@ export interface AuthenticatedRequest extends Request {
   correlationId?: string;
   organizationId?: string;
 }
-import { auditLogService } from '../services/security/AuditLogService.js';
 import { authService } from '../services/auth/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'
+import { auditLogService } from '../services/security/AuditLogService.js';
 
 import { createLogger, LogContext } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';

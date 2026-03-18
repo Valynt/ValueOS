@@ -3,8 +3,8 @@ import ReactDOM from "react-dom/client";
 
 import App from "./App";
 import "./index.css";
-import { TrpcProvider } from "./lib/trpc";
 import { initFrontendObservability } from "./lib/observability";
+import { TrpcProvider } from "./lib/trpc";
 
 // Unregister service workers immediately to fix WebContainer conflicts
 if ("serviceWorker" in navigator) {

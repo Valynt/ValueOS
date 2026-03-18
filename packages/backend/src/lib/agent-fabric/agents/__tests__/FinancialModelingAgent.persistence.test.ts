@@ -28,8 +28,8 @@ vi.mock("../../../../repositories/FinancialModelSnapshotRepository.js", () => ({
 
 // --- Imports ---
 
-import { logger } from "../../../logger.js";
 import { FinancialModelSnapshotRepository } from "../../../../repositories/FinancialModelSnapshotRepository.js";
+import { logger } from "../../../logger.js";
 
 // ---------------------------------------------------------------------------
 // Persistence helper — mirrors FinancialModelingAgent.persistSnapshot exactly

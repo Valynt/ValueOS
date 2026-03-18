@@ -5,8 +5,8 @@
  */
 
 import {
-  assertModelAllowed as registryAssertAllowed,
   getActiveModelIds,
+  assertModelAllowed as registryAssertAllowed,
   ModelDeniedError as RegistryModelDeniedError,
 } from '../lib/agent-fabric/ModelRegistry.js';
 

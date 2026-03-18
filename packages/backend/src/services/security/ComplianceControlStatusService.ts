@@ -13,8 +13,8 @@
  *   audit_integrity_checks — integrity_outputs.veto_triggered count in last 30 days
  */
 
-import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { logger } from "../../lib/logger.js";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
 
 export type ComplianceFramework = "SOC2" | "GDPR" | "HIPAA" | "ISO27001";
 export type ControlStatus = "pass" | "warn" | "fail";

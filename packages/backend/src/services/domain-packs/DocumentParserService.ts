@@ -81,6 +81,7 @@ class DocumentParserService {
       const formData = new FormData();
       formData.append('file', file);
 
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(this.functionUrl, {
         method: 'POST',
         headers: session ? {
@@ -193,6 +194,7 @@ class DocumentParserService {
       let text = decoder.decode(arrayBuffer);
       
       // Clean up
+      // eslint-disable-next-line no-control-regex -- intentional control character handling
       text = text.replace(/\x00/g, '').trim();
       
       // Check if readable

@@ -8,7 +8,7 @@ export function Analytics() {
 
     // GTM Initialization
     // Refactored to avoid innerHTML usage (SEC-003)
-    (function(w: Window & Record<string, unknown>, d: Document, s: string, l: string, i: string){
+    (function (w: Window & Record<string, unknown>, d: Document, s: string, l: string, i: string) {
       w[l] = w[l] || [];
       w[l].push({
         'gtm.start': new Date().getTime(),
@@ -17,7 +17,7 @@ export function Analytics() {
 
       const f = d.getElementsByTagName(s)[0];
       const j = d.createElement(s);
-      const dl = l != 'dataLayer' ? '&l=' + l : '';
+      const dl = l !== 'dataLayer' ? '&l=' + l : '';
 
       j.async = true;
       j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;

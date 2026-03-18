@@ -354,6 +354,7 @@ export function createSearchPattern(
   const flags = caseInsensitive ? 'i' : '';
 
   try {
+    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
     return new RegExp(pattern, flags);
   } catch {
     return null;

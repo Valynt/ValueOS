@@ -8,8 +8,8 @@
  * Supabase in production. These tests exercise the full HTTP layer via supertest.
  */
 
+import express, { NextFunction, Request, Response } from 'express';
 import request from 'supertest';
-import express, { Request, Response, NextFunction } from 'express';
 import { describe, expect, it, vi } from 'vitest';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────

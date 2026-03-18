@@ -413,6 +413,7 @@ export class IntentRegistry {
       case 'lt':
         return typeof value === 'number' && value < (condition.value as number);
       case 'matches':
+        // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
         return new RegExp(String(condition.value)).test(String(value));
       default:
         return false;

@@ -8,8 +8,8 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-
 import type { ProvenanceRecord, ProvenanceStore } from '@valueos/memory/provenance';
+
 import { createServerSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ component: 'SupabaseProvenanceStore' });

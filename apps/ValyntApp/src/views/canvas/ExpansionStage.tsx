@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 
 import {
+  type ExpansionOpportunity,
   useExpansionOpportunities,
   useRunExpansionAgent,
-  type ExpansionOpportunity,
 } from "@/hooks/useExpansion";
 import { cn } from "@/lib/utils";
 

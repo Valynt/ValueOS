@@ -174,6 +174,7 @@ export class EDGARModule extends BaseModule {
     const url = `${this.baseUrl}/submissions/CIK${paddedCIK}.json`;
 
     try {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(url, {
         headers: {
           'User-Agent': this.userAgent,
@@ -274,6 +275,7 @@ export class EDGARModule extends BaseModule {
     await this.enforceRateLimit();
 
     try {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(filing.file_url, {
         headers: {
           'User-Agent': this.userAgent,
@@ -387,6 +389,7 @@ export class EDGARModule extends BaseModule {
       // SEC company tickers JSON
       const url = `${this.baseUrl}/files/company_tickers.json`;
 
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(url, {
         headers: {
           'User-Agent': this.userAgent,
@@ -478,6 +481,7 @@ export class EDGARModule extends BaseModule {
       );
     }
 
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch(fileUrl, { headers: { "User-Agent": this.userAgent } });
     if (!response.ok) {
       throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch filing: ${response.status}`);
@@ -486,6 +490,7 @@ export class EDGARModule extends BaseModule {
     const text = (await response.text()).replace(/\s+/g, " ").toLowerCase();
     const counts = normalizedKeywords.map((keyword) => {
       const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(`\\b${escaped}\\b`, "gi");
       const matches = text.match(regex);
       return { keyword, count: matches?.length ?? 0 };

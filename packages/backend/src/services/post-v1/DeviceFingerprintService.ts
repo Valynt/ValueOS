@@ -12,9 +12,9 @@ import { createLogger } from '@shared/lib/logger';
 import { getRedisClient } from '@shared/lib/redisClient';
 import { ns } from '@shared/lib/redisKeys';
 
+import { BaseService } from '../BaseService.js';
 import { DeviceFingerprint, getSessionStore } from '../security/RedisSessionStore.js';
 
-import { BaseService } from '../BaseService.js';
 import { securityLogger } from './SecurityLogger.js';
 
 const logger = createLogger({ component: 'DeviceFingerprintService' });

@@ -11,9 +11,10 @@
  * All entries include tenantId per the 2026-08-04 audit_logs decision.
  */
 
-import { logger } from "../logger.js";
-import { redactSensitiveText } from "./redaction.js";
 import { AuditLogService } from "../../services/security/AuditLogService.js";
+import { logger } from "../logger.js";
+
+import { redactSensitiveText } from "./redaction.js";
 
 /**
  * Recursively redact PII from all string values in an audit details object.

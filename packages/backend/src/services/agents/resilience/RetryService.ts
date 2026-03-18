@@ -9,8 +9,8 @@
  * - Comprehensive telemetry
  */
 
-import { logger } from '../../lib/logger.js'
 import { sduiTelemetry, TelemetryEventType } from '../../../lib/telemetry/SDUITelemetry';
+import { logger } from '../../lib/logger.js'
 
 export interface RetryOptions {
   maxAttempts?: number;

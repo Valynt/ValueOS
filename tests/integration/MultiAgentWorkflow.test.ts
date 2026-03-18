@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 /**
  * Multi-Agent Workflow Integration Tests
  *
@@ -6,25 +6,29 @@ import { vi } from 'vitest';
  * and system-wide orchestration scenarios.
  */
 
-
-import { SecureMessageBus } from '../src/lib/agent-fabric/SecureMessageBus';
-import { AgentType } from '../src/services/agent-types';
-import { createParallelExecutionPlan, createParallelGroup, createParallelTask, EnhancedParallelExecutor } from '../src/services/EnhancedParallelExecutor';
-import { IntelligentCoordinator } from '../src/services/IntelligentCoordinator';
-import { getSystemResourceMonitor } from '../src/services/monitoring/SystemResourceMonitor';
-import { SecureSharedContext } from '../src/services/SecureSharedContext';
-import { SecurityMonitor } from '../src/services/security/SecurityMonitor';
+import { SecureMessageBus } from "../src/lib/agent-fabric/SecureMessageBus";
+import { AgentType } from "../src/services/agent-types";
+import {
+  createParallelExecutionPlan,
+  createParallelGroup,
+  createParallelTask,
+  EnhancedParallelExecutor,
+} from "../src/services/EnhancedParallelExecutor";
+import { IntelligentCoordinator } from "../src/services/IntelligentCoordinator";
+import { getSystemResourceMonitor } from "../src/services/monitoring/SystemResourceMonitor";
+import { SecureSharedContext } from "../src/services/SecureSharedContext";
+import { SecurityMonitor } from "../src/services/security/SecurityMonitor";
 
 // ============================================================================
 // Mock Setup
 // ============================================================================
 
 // Mock console methods
-const mockConsoleWarn = vi.spyOn(console, 'warn').mockImplementation();
-const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();
+const mockConsoleWarn = vi.spyOn(console, "warn").mockImplementation();
+const mockConsoleError = vi.spyOn(console, "error").mockImplementation();
 
 // Mock logger
-vi.mock('../src/lib/logger', () => ({
+vi.mock("../src/lib/logger", () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -34,35 +38,94 @@ vi.mock('../src/lib/logger', () => ({
 }));
 
 // Mock external dependencies
-vi.mock('../src/services/UnifiedAgentAPI', () => ({
+vi.mock("../src/services/UnifiedAgentAPI", () => ({
   getUnifiedAgentAPI: () => ({
     invoke: vi.fn().mockImplementation(async ({ agent, query }) => {
       // Simulate different agent behaviors
       const responses = {
-        coordinator: { success: true, data: { workflowId: 'test-workflow', status: 'coordinated' } },
-        opportunity: { success: true, data: { opportunities: ['op1', 'op2'], value: 1000 } },
-        target: { success: true, data: { targets: ['target1'], metrics: { roi: 2.5 } } },
-        realization: { success: true, data: { realizations: ['real1'], progress: 0.8 } },
-        expansion: { success: true, data: { expansions: ['exp1'], potential: 500 } },
-        integrity: { success: true, data: { validation: 'passed', compliance: 'compliant' } },
-        research: { success: true, data: { research: 'completed', insights: ['insight1'] } },
-        benchmark: { success: true, data: { benchmarks: ['bench1'], comparisons: {} } },
-        'company-intelligence': { success: true, data: { intelligence: 'gathered', company: 'test' } },
-        'financial-modeling': { success: true, data: { models: ['model1'], projections: {} } },
-        'value-mapping': { success: true, data: { mappings: ['map1'], value: 2000 } },
-        communicator: { success: true, data: { message: 'generated', format: 'report' } },
-        narrative: { success: true, data: { narrative: 'created', story: 'test story' } },
-        groundtruth: { success: true, data: { verification: 'verified', accuracy: 0.95 } },
-        'system-mapper': { success: true, data: { mapping: 'complete', systems: ['sys1'] } },
-        'intervention-designer': { success: true, data: { interventions: ['int1'], design: 'test' } },
-        'outcome-engineer': { success: true, data: { outcomes: ['out1'], engineering: 'complete' } },
-        'value-eval': { success: true, data: { evaluation: 'positive', score: 8.5 } },
+        coordinator: {
+          success: true,
+          data: { workflowId: "test-workflow", status: "coordinated" },
+        },
+        opportunity: {
+          success: true,
+          data: { opportunities: ["op1", "op2"], value: 1000 },
+        },
+        target: {
+          success: true,
+          data: { targets: ["target1"], metrics: { roi: 2.5 } },
+        },
+        realization: {
+          success: true,
+          data: { realizations: ["real1"], progress: 0.8 },
+        },
+        expansion: {
+          success: true,
+          data: { expansions: ["exp1"], potential: 500 },
+        },
+        integrity: {
+          success: true,
+          data: { validation: "passed", compliance: "compliant" },
+        },
+        research: {
+          success: true,
+          data: { research: "completed", insights: ["insight1"] },
+        },
+        benchmark: {
+          success: true,
+          data: { benchmarks: ["bench1"], comparisons: {} },
+        },
+        "company-intelligence": {
+          success: true,
+          data: { intelligence: "gathered", company: "test" },
+        },
+        "financial-modeling": {
+          success: true,
+          data: { models: ["model1"], projections: {} },
+        },
+        "value-mapping": {
+          success: true,
+          data: { mappings: ["map1"], value: 2000 },
+        },
+        communicator: {
+          success: true,
+          data: { message: "generated", format: "report" },
+        },
+        narrative: {
+          success: true,
+          data: { narrative: "created", story: "test story" },
+        },
+        groundtruth: {
+          success: true,
+          data: { verification: "verified", accuracy: 0.95 },
+        },
+        "system-mapper": {
+          success: true,
+          data: { mapping: "complete", systems: ["sys1"] },
+        },
+        "intervention-designer": {
+          success: true,
+          data: { interventions: ["int1"], design: "test" },
+        },
+        "outcome-engineer": {
+          success: true,
+          data: { outcomes: ["out1"], engineering: "complete" },
+        },
+        "value-eval": {
+          success: true,
+          data: { evaluation: "positive", score: 8.5 },
+        },
       };
 
-      const response = responses[agent as keyof typeof responses] || { success: false, error: 'Unknown agent' };
+      const response = responses[agent as keyof typeof responses] || {
+        success: false,
+        error: "Unknown agent",
+      };
 
       // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
+      await new Promise(resolve =>
+        setTimeout(resolve, Math.random() * 100 + 50)
+      );
 
       return response;
     }),
@@ -70,7 +133,7 @@ vi.mock('../src/services/UnifiedAgentAPI', () => ({
 }));
 
 // Mock audit logger
-vi.mock('../src/services/AgentAuditLogger', () => ({
+vi.mock("../src/services/AgentAuditLogger", () => ({
   getAuditLogger: () => ({
     log: vi.fn().mockResolvedValue(undefined),
     query: vi.fn().mockResolvedValue([]),
@@ -78,27 +141,27 @@ vi.mock('../src/services/AgentAuditLogger', () => ({
 }));
 
 // Mock crypto utilities
-vi.mock('../src/lib/crypto/CryptoUtils', () => ({
-  signMessage: vi.fn().mockResolvedValue('mock-signature'),
+vi.mock("../src/lib/crypto/CryptoUtils", () => ({
+  signMessage: vi.fn().mockResolvedValue("mock-signature"),
   verifySignature: vi.fn().mockResolvedValue(true),
   encrypt: vi.fn().mockReturnValue({
-    data: 'encrypted-data',
-    iv: 'mock-iv',
-    algorithm: 'aes-256-gcm',
-    tag: 'mock-tag',
+    data: "encrypted-data",
+    iv: "mock-iv",
+    algorithm: "aes-256-gcm",
+    tag: "mock-tag",
   }),
-  decrypt: vi.fn().mockReturnValue('decrypted-data'),
-  generateNonce: vi.fn().mockReturnValue('mock-nonce'),
+  decrypt: vi.fn().mockReturnValue("decrypted-data"),
+  generateNonce: vi.fn().mockReturnValue("mock-nonce"),
   isEncrypted: vi.fn().mockReturnValue(false),
-  generateEncryptionKey: vi.fn().mockReturnValue('mock-key'),
+  generateEncryptionKey: vi.fn().mockReturnValue("mock-key"),
 }));
 
 // Mock agent identity
-vi.mock('../src/lib/auth/AgentIdentity', () => ({
+vi.mock("../src/lib/auth/AgentIdentity", () => ({
   hasPermission: vi.fn().mockReturnValue(true),
 }));
 
-describe('Multi-Agent Workflow Integration', () => {
+describe("Multi-Agent Workflow Integration", () => {
   let executor: EnhancedParallelExecutor;
   let coordinator: IntelligentCoordinator;
   let secureContext: SecureSharedContext;
@@ -123,70 +186,112 @@ describe('Multi-Agent Workflow Integration', () => {
     vi.clearAllMocks();
   });
 
-  describe('Complete ValueOS Workflow', () => {
-    it('should execute full value creation workflow', async () => {
+  describe("Complete ValueOS Workflow", () => {
+    it("should execute full value creation workflow", async () => {
       // Create parallel execution plan for value creation workflow
-      const researchTask = createParallelTask('research', 'Research market opportunities', {
-        priority: 'high' as const,
-        estimatedDuration: 30000,
-      });
+      const researchTask = createParallelTask(
+        "research",
+        "Research market opportunities",
+        {
+          priority: "high" as const,
+          estimatedDuration: 30000,
+        }
+      );
 
-      const benchmarkTask = createParallelTask('benchmark', 'Benchmark against competitors', {
-        priority: 'high' as const,
-        estimatedDuration: 25000,
-        dependencies: [researchTask.id],
-      });
+      const benchmarkTask = createParallelTask(
+        "benchmark",
+        "Benchmark against competitors",
+        {
+          priority: "high" as const,
+          estimatedDuration: 25000,
+          dependencies: [researchTask.id],
+        }
+      );
 
-      const opportunityTask = createParallelTask('opportunity', 'Identify opportunities', {
-        priority: 'critical' as const,
-        estimatedDuration: 20000,
-        dependencies: [researchTask.id],
-      });
+      const opportunityTask = createParallelTask(
+        "opportunity",
+        "Identify opportunities",
+        {
+          priority: "critical" as const,
+          estimatedDuration: 20000,
+          dependencies: [researchTask.id],
+        }
+      );
 
-      const targetTask = createParallelTask('target', 'Set value targets', {
-        priority: 'critical' as const,
+      const targetTask = createParallelTask("target", "Set value targets", {
+        priority: "critical" as const,
         estimatedDuration: 15000,
         dependencies: [opportunityTask.id],
       });
 
-      const financialTask = createParallelTask('financial-modeling', 'Create financial models', {
-        priority: 'high' as const,
-        estimatedDuration: 35000,
-        dependencies: [targetTask.id],
-      });
+      const financialTask = createParallelTask(
+        "financial-modeling",
+        "Create financial models",
+        {
+          priority: "high" as const,
+          estimatedDuration: 35000,
+          dependencies: [targetTask.id],
+        }
+      );
 
-      const valueMappingTask = createParallelTask('value-mapping', 'Map value drivers', {
-        priority: 'medium' as const,
-        estimatedDuration: 20000,
-        dependencies: [financialTask.id],
-      });
+      const valueMappingTask = createParallelTask(
+        "value-mapping",
+        "Map value drivers",
+        {
+          priority: "medium" as const,
+          estimatedDuration: 20000,
+          dependencies: [financialTask.id],
+        }
+      );
 
-      const integrityTask = createParallelTask('integrity', 'Validate compliance', {
-        priority: 'critical' as const,
-        estimatedDuration: 10000,
-        dependencies: [valueMappingTask.id],
-      });
+      const integrityTask = createParallelTask(
+        "integrity",
+        "Validate compliance",
+        {
+          priority: "critical" as const,
+          estimatedDuration: 10000,
+          dependencies: [valueMappingTask.id],
+        }
+      );
 
-      const communicatorTask = createParallelTask('communicator', 'Generate report', {
-        priority: 'medium' as const,
-        estimatedDuration: 15000,
-        dependencies: [integrityTask.id],
-      });
+      const communicatorTask = createParallelTask(
+        "communicator",
+        "Generate report",
+        {
+          priority: "medium" as const,
+          estimatedDuration: 15000,
+          dependencies: [integrityTask.id],
+        }
+      );
 
       // Create execution groups
-      const researchGroup = createParallelGroup('Research Phase', [researchTask]);
-      const analysisGroup = createParallelGroup('Analysis Phase', [benchmarkTask, opportunityTask], {
-        executionStrategy: 'parallel' as const,
-        dependencies: [researchGroup.id],
-      });
-      const valueGroup = createParallelGroup('Value Creation', [targetTask, financialTask, valueMappingTask], {
-        executionStrategy: 'pipeline' as const,
-        dependencies: [analysisGroup.id],
-      });
-      const validationGroup = createParallelGroup('Validation', [integrityTask], {
-        dependencies: [valueGroup.id],
-      });
-      const outputGroup = createParallelGroup('Output', [communicatorTask], {
+      const researchGroup = createParallelGroup("Research Phase", [
+        researchTask,
+      ]);
+      const analysisGroup = createParallelGroup(
+        "Analysis Phase",
+        [benchmarkTask, opportunityTask],
+        {
+          executionStrategy: "parallel" as const,
+          dependencies: [researchGroup.id],
+        }
+      );
+      const valueGroup = createParallelGroup(
+        "Value Creation",
+        [targetTask, financialTask, valueMappingTask],
+        {
+          executionStrategy: "pipeline" as const,
+          dependencies: [analysisGroup.id],
+        }
+      );
+      const validationGroup = createParallelGroup(
+        "Validation",
+        [integrityTask],
+        {
+          dependencies: [valueGroup.id],
+        }
+      );
+      const outputGroup = createParallelGroup("Output", [communicatorTask], {
         dependencies: [validationGroup.id],
       });
 
@@ -223,33 +328,41 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(stats.sharedContextStats).toBeDefined();
     }, 60000);
 
-    it('should handle workflow failures gracefully', async () => {
+    it("should handle workflow failures gracefully", async () => {
       // Create a plan with a failing task
-      const failingTask = createParallelTask('research', 'This will fail', {
-        priority: 'high' as const,
+      const failingTask = createParallelTask("research", "This will fail", {
+        priority: "high" as const,
         estimatedDuration: 10000,
       });
 
-      const dependentTask = createParallelTask('opportunity', 'Depends on failing task', {
-        priority: 'medium' as const,
-        estimatedDuration: 10000,
-        dependencies: [failingTask.id],
-      });
+      const dependentTask = createParallelTask(
+        "opportunity",
+        "Depends on failing task",
+        {
+          priority: "medium" as const,
+          estimatedDuration: 10000,
+          dependencies: [failingTask.id],
+        }
+      );
 
       // Mock failure for research task
-      const { getUnifiedAgentAPI } = require('../src/services/UnifiedAgentAPI');
+      const { getUnifiedAgentAPI } = require("../src/services/UnifiedAgentAPI");
       const mockAPI = getUnifiedAgentAPI();
       mockAPI.invoke.mockImplementation(async ({ agent }) => {
-        if (agent === 'research') {
-          throw new Error('Research task failed');
+        if (agent === "research") {
+          throw new Error("Research task failed");
         }
         return { success: true, data: {} };
       });
 
-      const failingGroup = createParallelGroup('Failing Group', [failingTask]);
-      const dependentGroup = createParallelGroup('Dependent Group', [dependentTask], {
-        dependencies: [failingGroup.id],
-      });
+      const failingGroup = createParallelGroup("Failing Group", [failingTask]);
+      const dependentGroup = createParallelGroup(
+        "Dependent Group",
+        [dependentTask],
+        {
+          dependencies: [failingGroup.id],
+        }
+      );
 
       const plan = createParallelExecutionPlan([failingGroup, dependentGroup]);
 
@@ -264,53 +377,55 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(failedResults.length).toBeGreaterThan(0);
     }, 30000);
 
-    it('should adapt concurrency based on system resources', async () => {
+    it("should adapt concurrency based on system resources", async () => {
       // Mock high resource usage
       const mockResources = {
         cpu: { usage: 90, loadAverage: [2.5, 2.3, 2.1], coreCount: 4 },
-        memory: { used: 8000, total: 10000, percentage: 80, pressure: 'high' },
+        memory: { used: 8000, total: 10000, percentage: 80, pressure: "high" },
         heap: { used: 700, total: 1000, percentage: 70 },
         timestamp: Date.now(),
       };
 
       // Monitor resource changes
-      const initialConcurrency = executor['currentMaxConcurrency'];
+      const initialConcurrency = executor["currentMaxConcurrency"];
       resourceMonitor.addListener({
-        onResourceChange: vi.fn().mockImplementation((resources) => {
+        onResourceChange: vi.fn().mockImplementation(resources => {
           // Simulate resource pressure detection
           if (resources.memory.percentage > 75) {
-            executor['currentMaxConcurrency'] = Math.floor(initialConcurrency * 0.5);
+            executor["currentMaxConcurrency"] = Math.floor(
+              initialConcurrency * 0.5
+            );
           }
         }),
       });
 
       // Trigger resource pressure simulation
-      resourceMonitor['listeners'].forEach((listener: any) => {
+      resourceMonitor["listeners"].forEach((listener: any) => {
         listener.onResourceChange(mockResources);
       });
 
-      const adjustedConcurrency = executor['currentMaxConcurrency'];
+      const adjustedConcurrency = executor["currentMaxConcurrency"];
       expect(adjustedConcurrency).toBeLessThan(initialConcurrency);
     });
   });
 
-  describe('Security Boundaries Integration', () => {
-    it('should enforce security boundaries across agent communication', async () => {
+  describe("Security Boundaries Integration", () => {
+    it("should enforce security boundaries across agent communication", async () => {
       const securityContext = {
-        tenantId: 'test-tenant',
-        userId: 'test-user',
-        permissions: ['context.read', 'context.write', 'workflow.execute'],
-        trustLevel: 'medium',
-        sessionId: 'test-session',
-        traceId: 'test-trace',
+        tenantId: "test-tenant",
+        userId: "test-user",
+        permissions: ["context.read", "context.write", "workflow.execute"],
+        trustLevel: "medium",
+        sessionId: "test-session",
+        traceId: "test-trace",
       };
 
       // Test secure context sharing
       const shareResult = await secureContext.shareContext({
-        fromAgent: 'coordinator',
-        toAgent: 'opportunity',
-        contextKey: 'test-context',
-        data: { sensitiveInfo: 'test data' },
+        fromAgent: "coordinator",
+        toAgent: "opportunity",
+        contextKey: "test-context",
+        data: { sensitiveInfo: "test data" },
         securityContext,
         auditMetadata: {},
       });
@@ -319,19 +434,19 @@ describe('Multi-Agent Workflow Integration', () => {
 
       // Test context retrieval
       const retrievedContext = await secureContext.retrieveSharedContext(
-        'coordinator',
-        'opportunity',
-        'test-context',
+        "coordinator",
+        "opportunity",
+        "test-context",
         securityContext
       );
 
-      expect(retrievedContext).toEqual({ sensitiveInfo: 'test data' });
+      expect(retrievedContext).toEqual({ sensitiveInfo: "test data" });
 
       // Test unauthorized access
       const unauthorizedAccess = await secureContext.retrieveSharedContext(
-        'communicator', // Not allowed
-        'opportunity',
-        'test-context',
+        "communicator", // Not allowed
+        "opportunity",
+        "test-context",
         securityContext
       );
 
@@ -342,13 +457,13 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(metrics.totalEvents).toBeGreaterThanOrEqual(0);
     });
 
-    it('should handle secure message bus communication', async () => {
+    it("should handle secure message bus communication", async () => {
       const mockAgent = {
-        id: 'test-agent',
+        id: "test-agent",
         keys: {
-          privateKey: 'mock-private-key',
-          publicKey: 'mock-public-key',
-          encryptionKey: 'mock-encryption-key',
+          privateKey: "mock-private-key",
+          publicKey: "mock-public-key",
+          encryptionKey: "mock-encryption-key",
         },
       };
 
@@ -357,8 +472,8 @@ describe('Multi-Agent Workflow Integration', () => {
       // Test secure message sending
       const message = await messageBus.send(
         mockAgent,
-        'opportunity',
-        { action: 'process_data', sensitive: true },
+        "opportunity",
+        { action: "process_data", sensitive: true },
         { encrypted: true }
       );
 
@@ -368,30 +483,32 @@ describe('Multi-Agent Workflow Integration', () => {
 
       // Test message reception
       const payload = await messageBus.receive(message);
-      expect(payload).toEqual({ action: 'process_data', sensitive: true });
+      expect(payload).toEqual({ action: "process_data", sensitive: true });
 
       // Test replay protection
-      await expect(messageBus.receive(message)).rejects.toThrow('Replay attack detected');
+      await expect(messageBus.receive(message)).rejects.toThrow(
+        "Replay attack detected"
+      );
 
       messageBus.destroy();
     });
 
-    it('should detect and respond to security events', async () => {
+    it("should detect and respond to security events", async () => {
       // Simulate security events
       const event1 = securityMonitor.recordEvent(
-        'context_share_denied',
-        'high',
-        'test-agent',
-        'Unauthorized context share attempt',
-        { fromAgent: 'malicious-agent', toAgent: 'secure-agent' }
+        "context_share_denied",
+        "high",
+        "test-agent",
+        "Unauthorized context share attempt",
+        { fromAgent: "malicious-agent", toAgent: "secure-agent" }
       );
 
       const event2 = securityMonitor.recordEvent(
-        'message_signature_invalid',
-        'high',
-        'test-agent',
-        'Invalid message signature detected',
-        { messageId: 'fake-message' }
+        "message_signature_invalid",
+        "high",
+        "test-agent",
+        "Invalid message signature detected",
+        { messageId: "fake-message" }
       );
 
       // Verify event recording
@@ -403,27 +520,31 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(alerts.length).toBeGreaterThan(0);
 
       // Test alert acknowledgment
-      const acknowledged = securityMonitor.acknowledgeAlert(alerts[0].id, 'security-team');
+      const acknowledged = securityMonitor.acknowledgeAlert(
+        alerts[0].id,
+        "security-team"
+      );
       expect(acknowledged).toBe(true);
 
       // Test event resolution
-      const resolved = securityMonitor.resolveEvent(event1.id, 'security-team');
+      const resolved = securityMonitor.resolveEvent(event1.id, "security-team");
       expect(resolved).toBe(true);
     });
   });
 
-  describe('Intelligent Routing Integration', () => {
-    it('should route requests to optimal execution plans', async () => {
+  describe("Intelligent Routing Integration", () => {
+    it("should route requests to optimal execution plans", async () => {
       const request = {
-        agent: 'coordinator' as AgentType,
-        query: 'Analyze market opportunities and create value creation strategy',
+        agent: "coordinator" as AgentType,
+        query:
+          "Analyze market opportunities and create value creation strategy",
         context: {
-          industry: 'technology',
-          companySize: 'medium',
-          timeframe: '6-months',
+          industry: "technology",
+          companySize: "medium",
+          timeframe: "6-months",
         },
-        sessionId: 'test-session',
-        userId: 'test-user',
+        sessionId: "test-session",
+        userId: "test-user",
       };
 
       const plan = await coordinator.routeRequest(request);
@@ -435,21 +556,21 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(plan.reasoning).toBeDefined();
 
       // Verify plan includes appropriate agents
-      expect(plan.agents).toContain('coordinator');
-      expect(plan.agents).toContain('research');
-      expect(plan.agents).toContain('opportunity');
+      expect(plan.agents).toContain("coordinator");
+      expect(plan.agents).toContain("research");
+      expect(plan.agents).toContain("opportunity");
 
       // Verify context sharing plan
-      expect(plan.contextSharing.sharedContext).toContain('sessionId');
+      expect(plan.contextSharing.sharedContext).toContain("sessionId");
       expect(plan.contextSharing.securityValidations.length).toBeGreaterThan(0);
     });
 
-    it('should cache and reuse execution plans', async () => {
+    it("should cache and reuse execution plans", async () => {
       const request = {
-        agent: 'coordinator' as AgentType,
-        query: 'Standard market analysis request',
-        context: { industry: 'technology' },
-        sessionId: 'test-session',
+        agent: "coordinator" as AgentType,
+        query: "Standard market analysis request",
+        context: { industry: "technology" },
+        sessionId: "test-session",
       };
 
       // First request should generate new plan
@@ -460,58 +581,63 @@ describe('Multi-Agent Workflow Integration', () => {
       const plan2 = await coordinator.routeRequest(request);
 
       expect(plan2.planId).not.toBe(plan1Id); // New ID but adapted from cache
-      expect(plan2.reasoning).toContain('adapted from cache');
+      expect(plan2.reasoning).toContain("adapted from cache");
 
       // Verify cache statistics
       const cacheStats = coordinator.getCacheStats();
       expect(cacheStats.hitRate).toBeGreaterThan(0);
     });
 
-    it('should handle complex multi-domain requests', async () => {
+    it("should handle complex multi-domain requests", async () => {
       const complexRequest = {
-        agent: 'coordinator' as AgentType,
-        query: 'Comprehensive enterprise analysis including financial modeling, compliance validation, and strategic planning',
+        agent: "coordinator" as AgentType,
+        query:
+          "Comprehensive enterprise analysis including financial modeling, compliance validation, and strategic planning",
         context: {
-          companySize: 'enterprise',
-          industry: 'finance',
-          regulatory: ['sox', 'gdpr'],
-          timeframe: '12-months',
-          budget: 'high',
+          companySize: "enterprise",
+          industry: "finance",
+          regulatory: ["sox", "gdpr"],
+          timeframe: "12-months",
+          budget: "high",
         },
-        sessionId: 'test-session',
+        sessionId: "test-session",
       };
 
       const plan = await coordinator.routeRequest(complexRequest);
 
-      expect(plan.complexity).toBe('enterprise');
-      expect(plan.strategy).toBe('dag'); // Complex strategy for enterprise requests
+      expect(plan.complexity).toBe("enterprise");
+      expect(plan.strategy).toBe("dag"); // Complex strategy for enterprise requests
       expect(plan.agents.length).toBeGreaterThan(5);
 
       // Verify inclusion of specialized agents
-      expect(plan.agents).toContain('financial-modeling');
-      expect(plan.agents).toContain('integrity');
-      expect(plan.agents).toContain('communicator');
+      expect(plan.agents).toContain("financial-modeling");
+      expect(plan.agents).toContain("integrity");
+      expect(plan.agents).toContain("communicator");
 
       // Verify security level
-      expect(plan.contextSharing.securityValidations.some(v =>
-        v.requiredPermissions.includes('security.elevated')
-      )).toBe(true);
+      expect(
+        plan.contextSharing.securityValidations.some(v =>
+          v.requiredPermissions.includes("security.elevated")
+        )
+      ).toBe(true);
     });
   });
 
-  describe('System Resource Management Integration', () => {
-    it('should scale concurrency based on system load', async () => {
+  describe("System Resource Management Integration", () => {
+    it("should scale concurrency based on system load", async () => {
       // Create a large number of parallel tasks
       const tasks = [];
       for (let i = 0; i < 50; i++) {
-        tasks.push(createParallelTask('research', `Research task ${i}`, {
-          priority: 'medium' as const,
-          estimatedDuration: 5000,
-        }));
+        tasks.push(
+          createParallelTask("research", `Research task ${i}`, {
+            priority: "medium" as const,
+            estimatedDuration: 5000,
+          })
+        );
       }
 
-      const group = createParallelGroup('Large Scale Test', tasks, {
-        executionStrategy: 'parallel' as const,
+      const group = createParallelGroup("Large Scale Test", tasks, {
+        executionStrategy: "parallel" as const,
         maxConcurrency: 20,
       });
 
@@ -520,14 +646,14 @@ describe('Multi-Agent Workflow Integration', () => {
       // Mock system under high load
       const highLoadResources = {
         cpu: { usage: 85, loadAverage: [3.0, 2.8, 2.6], coreCount: 4 },
-        memory: { used: 7500, total: 10000, percentage: 75, pressure: 'high' },
+        memory: { used: 7500, total: 10000, percentage: 75, pressure: "high" },
         heap: { used: 800, total: 1000, percentage: 80 },
         timestamp: Date.now(),
       };
 
       // Simulate resource pressure
-      const initialConcurrency = executor['currentMaxConcurrency'];
-      resourceMonitor['listeners'].forEach((listener: any) => {
+      const initialConcurrency = executor["currentMaxConcurrency"];
+      resourceMonitor["listeners"].forEach((listener: any) => {
         listener.onResourceChange(highLoadResources);
       });
 
@@ -537,33 +663,40 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(result.results).toHaveLength(50);
 
       // Verify concurrency was adjusted
-      const adjustedConcurrency = executor['currentMaxConcurrency'];
+      const adjustedConcurrency = executor["currentMaxConcurrency"];
       expect(adjustedConcurrency).toBeLessThan(initialConcurrency);
     }, 45000);
 
-    it('should handle memory pressure gracefully', async () => {
+    it("should handle memory pressure gracefully", async () => {
       // Create memory-intensive tasks
       const memoryIntensiveTasks = [];
       for (let i = 0; i < 10; i++) {
-        memoryIntensiveTasks.push(createParallelTask('research', `Memory intensive task ${i}`, {
-          priority: 'low' as const,
-          estimatedDuration: 10000,
-        }));
+        memoryIntensiveTasks.push(
+          createParallelTask("research", `Memory intensive task ${i}`, {
+            priority: "low" as const,
+            estimatedDuration: 10000,
+          })
+        );
       }
 
-      const group = createParallelGroup('Memory Test', memoryIntensiveTasks);
+      const group = createParallelGroup("Memory Test", memoryIntensiveTasks);
       const plan = createParallelExecutionPlan([group]);
 
       // Mock memory pressure
       const memoryPressureResources = {
         cpu: { usage: 60, loadAverage: [2.0, 1.8, 1.6], coreCount: 4 },
-        memory: { used: 9000, total: 10000, percentage: 90, pressure: 'critical' },
+        memory: {
+          used: 9000,
+          total: 10000,
+          percentage: 90,
+          pressure: "critical",
+        },
         heap: { used: 950, total: 1000, percentage: 95 },
         timestamp: Date.now(),
       };
 
       // Simulate memory pressure
-      resourceMonitor['listeners'].forEach((listener: any) => {
+      resourceMonitor["listeners"].forEach((listener: any) => {
         listener.onResourceChange(memoryPressureResources);
       });
 
@@ -577,27 +710,29 @@ describe('Multi-Agent Workflow Integration', () => {
     }, 30000);
   });
 
-  describe('Error Recovery and Resilience', () => {
-    it('should recover from temporary failures', async () => {
+  describe("Error Recovery and Resilience", () => {
+    it("should recover from temporary failures", async () => {
       const tasks = [];
       for (let i = 0; i < 5; i++) {
-        tasks.push(createParallelTask('research', `Task ${i}`, {
-          priority: 'medium' as const,
-          estimatedDuration: 5000,
-        }));
+        tasks.push(
+          createParallelTask("research", `Task ${i}`, {
+            priority: "medium" as const,
+            estimatedDuration: 5000,
+          })
+        );
       }
 
-      const group = createParallelGroup('Recovery Test', tasks);
+      const group = createParallelGroup("Recovery Test", tasks);
       const plan = createParallelExecutionPlan([group]);
 
       // Mock intermittent failures
-      const { getUnifiedAgentAPI } = require('../src/services/UnifiedAgentAPI');
+      const { getUnifiedAgentAPI } = require("../src/services/UnifiedAgentAPI");
       const mockAPI = getUnifiedAgentAPI();
       let callCount = 0;
       mockAPI.invoke.mockImplementation(async ({ agent }) => {
         callCount++;
         if (callCount === 2) {
-          throw new Error('Temporary failure');
+          throw new Error("Temporary failure");
         }
         return { success: true, data: {} };
       });
@@ -609,23 +744,29 @@ describe('Multi-Agent Workflow Integration', () => {
       expect(result.results.filter(r => r.success).length).toBe(5);
     }, 30000);
 
-    it('should maintain security during error conditions', async () => {
+    it("should maintain security during error conditions", async () => {
       // Create tasks that might fail
       const tasks = [
-        createParallelTask('research', 'Research task', { priority: 'high' as const }),
-        createParallelTask('integrity', 'Validation task', { priority: 'critical' as const }),
-        createParallelTask('communicator', 'Output task', { priority: 'medium' as const }),
+        createParallelTask("research", "Research task", {
+          priority: "high" as const,
+        }),
+        createParallelTask("integrity", "Validation task", {
+          priority: "critical" as const,
+        }),
+        createParallelTask("communicator", "Output task", {
+          priority: "medium" as const,
+        }),
       ];
 
-      const group = createParallelGroup('Security Test', tasks);
+      const group = createParallelGroup("Security Test", tasks);
       const plan = createParallelExecutionPlan([group]);
 
       // Mock security-related failures
-      const { getUnifiedAgentAPI } = require('../src/services/UnifiedAgentAPI');
+      const { getUnifiedAgentAPI } = require("../src/services/UnifiedAgentAPI");
       const mockAPI = getUnifiedAgentAPI();
       mockAPI.invoke.mockImplementation(async ({ agent }) => {
-        if (agent === 'integrity') {
-          throw new Error('Security validation failed');
+        if (agent === "integrity") {
+          throw new Error("Security validation failed");
         }
         return { success: true, data: {} };
       });
@@ -641,9 +782,10 @@ describe('Multi-Agent Workflow Integration', () => {
   });
 });
 
-describe('End-to-End System Integration', () => {
-  it('should handle complete enterprise workflow with security and resource management', async () => {
-    const executor = new EnhancedParallelExecutor(15, true);
+describe("End-to-End System Integration", () => {
+  it("should handle complete enterprise workflow with security and resource management", async () => {
+    let executor: EnhancedParallelExecutor | null =
+      new EnhancedParallelExecutor(15, true);
     const coordinator = getIntelligentCoordinator();
     const secureContext = new SecureSharedContext();
     const messageBus = SecureMessageBus.getInstance();
@@ -653,46 +795,53 @@ describe('End-to-End System Integration', () => {
     try {
       // 1. Route complex enterprise request
       const enterpriseRequest = {
-        agent: 'coordinator' as AgentType,
-        query: 'Enterprise-wide value optimization including financial analysis, compliance validation, and strategic planning',
+        agent: "coordinator" as AgentType,
+        query:
+          "Enterprise-wide value optimization including financial analysis, compliance validation, and strategic planning",
         context: {
-          companySize: 'enterprise',
-          industry: 'finance',
-          regulatory: ['sox', 'gdpr', 'pci-dss'],
-          timeframe: '18-months',
-          budget: 'unlimited',
-          stakeholders: ['board', 'investors', 'regulators'],
+          companySize: "enterprise",
+          industry: "finance",
+          regulatory: ["sox", "gdpr", "pci-dss"],
+          timeframe: "18-months",
+          budget: "unlimited",
+          stakeholders: ["board", "investors", "regulators"],
         },
-        sessionId: 'enterprise-session',
-        userId: 'enterprise-user',
+        sessionId: "enterprise-session",
+        userId: "enterprise-user",
       };
 
       const plan = await coordinator.routeRequest(enterpriseRequest);
-      expect(plan.complexity).toBe('enterprise');
+      expect(plan.complexity).toBe("enterprise");
       expect(plan.agents.length).toBeGreaterThan(8);
 
       // 2. Set up secure context sharing
       const securityContext = {
-        tenantId: 'enterprise-tenant',
-        userId: 'enterprise-user',
-        permissions: ['context.read', 'context.write', 'workflow.execute', 'security.elevated', 'audit.read'],
-        trustLevel: 'privileged',
-        sessionId: 'enterprise-session',
-        traceId: 'enterprise-trace',
+        tenantId: "enterprise-tenant",
+        userId: "enterprise-user",
+        permissions: [
+          "context.read",
+          "context.write",
+          "workflow.execute",
+          "security.elevated",
+          "audit.read",
+        ],
+        trustLevel: "privileged",
+        sessionId: "enterprise-session",
+        traceId: "enterprise-trace",
       };
 
       // Share initial context
       const contextResult = await secureContext.shareContext({
-        fromAgent: 'coordinator',
-        toAgent: 'financial-modeling',
-        contextKey: 'enterprise-analysis',
+        fromAgent: "coordinator",
+        toAgent: "financial-modeling",
+        contextKey: "enterprise-analysis",
         data: {
-          companyData: 'sensitive-financial-data',
-          strategicInfo: 'confidential-strategy',
-          complianceRequirements: ['sox', 'gdpr']
+          companyData: "sensitive-financial-data",
+          strategicInfo: "confidential-strategy",
+          complianceRequirements: ["sox", "gdpr"],
         },
         securityContext,
-        auditMetadata: { workflow: 'enterprise-optimization' },
+        auditMetadata: { workflow: "enterprise-optimization" },
       });
 
       expect(contextResult).toBe(true);
@@ -700,23 +849,32 @@ describe('End-to-End System Integration', () => {
       // 3. Execute the workflow with resource monitoring
       const workflowTasks = plan.agents.map(agent =>
         createParallelTask(agent, `Execute ${agent} analysis`, {
-          priority: agent === 'integrity' || agent === 'groundtruth' ? 'critical' : 'medium',
+          priority:
+            agent === "integrity" || agent === "groundtruth"
+              ? "critical"
+              : "medium",
           estimatedDuration: 30000,
         })
       );
 
-      const workflowGroup = createParallelGroup('Enterprise Workflow', workflowTasks, {
-        executionStrategy: plan.strategy as any,
-        maxConcurrency: 10,
-      });
+      const workflowGroup = createParallelGroup(
+        "Enterprise Workflow",
+        workflowTasks,
+        {
+          executionStrategy: plan.strategy as any,
+          maxConcurrency: 10,
+        }
+      );
 
       const workflowPlan = createParallelExecutionPlan([workflowGroup]);
 
       // Simulate resource pressure during execution
       const resourceListener = {
-        onResourceChange: vi.fn().mockImplementation((resources) => {
+        onResourceChange: vi.fn().mockImplementation(resources => {
           // Log resource changes for verification
-          console.log(`Resource change: CPU=${resources.cpu.usage}%, Memory=${resources.memory.percentage}%`);
+          console.log(
+            `Resource change: CPU=${resources.cpu.usage}%, Memory=${resources.memory.percentage}%`
+          );
         }),
       };
 
@@ -739,20 +897,21 @@ describe('End-to-End System Integration', () => {
 
       // 7. Verify context sharing worked
       const retrievedContext = await secureContext.retrieveSharedContext(
-        'coordinator',
-        'financial-modeling',
-        'enterprise-analysis',
+        "coordinator",
+        "financial-modeling",
+        "enterprise-analysis",
         securityContext
       );
 
       expect(retrievedContext).toBeDefined();
-      expect(retrievedContext?.companyData).toBe('sensitive-financial-data');
+      expect(retrievedContext?.companyData).toBe("sensitive-financial-data");
 
-      console.log('Enterprise workflow completed successfully');
+      console.log("Enterprise workflow completed successfully");
       console.log(`Execution time: ${result.totalDuration}ms`);
-      console.log(`Parallelism efficiency: ${result.performance.parallelismEfficiency}`);
+      console.log(
+        `Parallelism efficiency: ${result.performance.parallelismEfficiency}`
+      );
       console.log(`Security events: ${securityMetrics.totalEvents}`);
-
     } finally {
       // Cleanup
       executor = null as any;

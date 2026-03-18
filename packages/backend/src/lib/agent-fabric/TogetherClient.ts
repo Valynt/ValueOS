@@ -5,9 +5,9 @@
  * All Together API calls (chat, streaming, embeddings) go through this instance.
  */
 
+import { getEnvVar } from '@shared/lib/env';
 import Together from 'together-ai';
 
-import { getEnvVar } from '@shared/lib/env';
 
 let _client: Together | null = null;
 

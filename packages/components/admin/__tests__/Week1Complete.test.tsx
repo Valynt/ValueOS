@@ -1,3 +1,4 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 /**
  * Week 1 Complete Tests
@@ -10,7 +11,6 @@ import { vi } from 'vitest';
  * 5. Unsaved changes warning ✅
  */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ConfigurationPanel } from '../ConfigurationPanel';
 import '@testing-library/jest-dom';

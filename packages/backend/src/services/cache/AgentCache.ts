@@ -254,6 +254,7 @@ export class AgentCache extends EventEmitter {
       }
     } else {
       // Clear by pattern
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(pattern.replace(/\*/g, ".*"));
 
       for (const key of this.l1Cache.keys()) {

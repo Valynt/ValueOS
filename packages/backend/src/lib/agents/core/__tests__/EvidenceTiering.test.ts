@@ -1,12 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
-  classifyEvidence,
   buildEvidenceBundle,
-  getTierWeight,
-  getMaxAgeDays,
-  TIER_WEIGHTS,
-  TIER_MAX_AGE_DAYS,
+  classifyEvidence,
   type EvidenceItem,
+  getMaxAgeDays,
+  getTierWeight,
+  TIER_MAX_AGE_DAYS,
+  TIER_WEIGHTS,
 } from '../EvidenceTiering.js';
 
 function makeItem(overrides: Partial<EvidenceItem> = {}): EvidenceItem {

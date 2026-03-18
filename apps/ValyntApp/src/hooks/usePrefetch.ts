@@ -8,6 +8,7 @@ export const usePrefetch = () => {
     // For React Router, we can preload route components
     // This is a simplified implementation - in practice, you'd integrate
     // with your route definitions and lazy loading
+    // eslint-disable-next-line no-console -- logging utility / bootstrap code
     console.debug("Prefetching route:", route);
 
     // Example: preload critical components based on route

@@ -13,8 +13,8 @@ import { secureLLMComplete } from '../../lib/llm/secureLLMWrapper.js';
 import { logger } from '../../lib/logger.js';
 import { supabase } from '../../lib/supabase.js';
 import type { IntentCategory } from '../../types/intent.js';
-import type { AgentType } from '../agent-types.js';
 import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../types/orchestration.js';
+import type { AgentType } from '../agent-types.js';
 import type { VectorSearchService } from '../memory/VectorSearchService.js';
 
 import type { EmbeddingService } from './EmbeddingService.js';

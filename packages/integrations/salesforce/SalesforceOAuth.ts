@@ -17,6 +17,7 @@
  *   - Tokens are never logged
  */
 import { z } from "zod";
+
 import { AuthError } from "../base/errors.js";
 
 // ============================================================================

@@ -6,8 +6,8 @@
  * on retry orchestration logic.
  */
 
-import type { AgentResponse } from "../core/IAgent.js";
 import type { AgentType } from "../../agent-types.js";
+import type { AgentResponse } from "../core/IAgent.js";
 import type { IAgent } from "../core/IAgent.js";
 
 export interface RetryOptions {

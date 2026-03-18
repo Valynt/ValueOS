@@ -5,8 +5,8 @@
  * Prevents prompt regressions and validates agent performance.
  */
 
-import { logger } from '../utils/logger.js'
 import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { logger } from '../utils/logger.js'
 
 export interface GoldenExample {
   id: string;
@@ -283,6 +283,7 @@ export class OfflineEvaluationService {
    */
   private regexMatch(text: unknown, pattern: string): number {
     try {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(pattern);
       return regex.test(String(text)) ? 1.0 : 0.0;
     } catch {

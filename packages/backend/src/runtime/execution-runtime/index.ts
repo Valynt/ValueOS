@@ -11,27 +11,27 @@
  * This index wires them together and exposes a single ExecutionRuntime class.
  */
 
-import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
-import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
-import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
-import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
 import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBackend.js';
-
-import type { AgentType } from '../../services/agent-types.js';
+import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
 import type { WorkflowState } from '../../repositories/WorkflowStateRepository.js';
+import type { AgentType } from '../../services/agent-types.js';
+import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
+import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
+import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
+import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
+import type { IExecutionRuntime } from '../../types/execution/IExecutionRuntime.js';
+import type { ExecutionEnvelope, ProcessQueryResult, WorkflowExecutionResult } from '../../types/orchestration.js';
 import type { WorkflowContextDTO } from '../../types/workflow/orchestration.js';
-import type { WorkflowStageContextDTO, StageExecutionResultDTO, StageRouteDTO } from '../../types/workflow/runner.js';
+import type { StageExecutionResultDTO, StageRouteDTO, WorkflowStageContextDTO } from '../../types/workflow/runner.js';
 import type { WorkflowDAG, WorkflowStage } from '../../types/workflow.js';
 import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
-import type { ExecutionEnvelope, ProcessQueryResult, WorkflowExecutionResult } from '../../types/orchestration.js';
-import type { PolicyEngine } from '../policy-engine/index.js';
 import type { DecisionRouter } from '../decision-router/index.js';
+import type { PolicyEngine } from '../policy-engine/index.js';
 
 import { QueryExecutor, type QueryExecutorConfig } from './QueryExecutor.js';
 import { WorkflowExecutor, type WorkflowExecutorConfig } from './WorkflowExecutor.js';
-import type { IExecutionRuntime } from '../../types/execution/IExecutionRuntime.js';
-import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
+
 
 export { QueryExecutor, WorkflowExecutor };
 export type { QueryExecutorConfig, WorkflowExecutorConfig };

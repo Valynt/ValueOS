@@ -1,7 +1,7 @@
 import { Sandbox } from "@e2b/code-interpreter";
+import { createLogger } from "@shared/lib/logger";
 import { z } from "zod";
 
-import { createLogger } from "@shared/lib/logger";
 
 const logger = createLogger({ component: "SandboxedExecutor" });
 

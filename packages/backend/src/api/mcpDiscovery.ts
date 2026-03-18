@@ -1,11 +1,11 @@
-import express from "express";
 import {
   buildAgentCapabilitiesDocument,
   getEnabledAgentDeploymentIds,
+  type KnownToolId,
   mcpCapabilitiesDocumentSchema,
   toolSchemaMetadataByToolId,
-  type KnownToolId,
 } from "@mcp/common";
+import express from "express";
 
 const router = express.Router();
 

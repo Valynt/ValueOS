@@ -9,8 +9,9 @@
  * - 500 Internal Server Error
  */
 
-import { describe, it, expect } from 'vitest';
-import { testAdminClient, testSupabaseClient, TEST_TENANT_A } from '../../setup';
+import { describe, expect, it } from 'vitest';
+
+import { TEST_TENANT_A, testAdminClient, testSupabaseClient } from '../../setup';
 import { createTestWorkflow, generateTestId } from '../../test-utils';
 
 describe('API Error Scenarios', () => {

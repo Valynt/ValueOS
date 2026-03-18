@@ -1,6 +1,6 @@
+import { getIoRedisClient } from "../ioredisClient.js";
 import { Logger, logger } from "../logger";
 
-import { getIoRedisClient } from "../ioredisClient.js";
 import { secureMessageBus } from "./SecureMessageBus";
 
 export class FabricMonitor {

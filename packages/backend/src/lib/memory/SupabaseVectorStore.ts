@@ -11,10 +11,10 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '../supabase.js';
-
 import type { ProvenanceRecord } from '@valueos/memory';
 import type { VectorChunk, VectorStore } from '@valueos/memory';
+
+import { createServerSupabaseClient } from '../supabase.js';
 
 const logger = createLogger({ service: 'SupabaseVectorStore' });
 

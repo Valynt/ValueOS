@@ -27,12 +27,12 @@ import { RedisClientType } from "redis";
 
 import { logger } from "../../lib/logger.js"
 import { getRedisClient } from "../../lib/redisClient";
-
-import { awsCacheMonitor } from "./CachePerformanceMonitor.js"
 import {
   CircuitBreaker,
   type CircuitBreakerConfig,
 } from "../../lib/resilience/CircuitBreaker.js";
+
+import { awsCacheMonitor } from "./CachePerformanceMonitor.js"
 
 function createConfigurableCircuitBreaker(config: Partial<CircuitBreakerConfig>): CircuitBreaker {
   return new CircuitBreaker(config);

@@ -12,6 +12,7 @@ import ValueCanvas from '../ValueCanvas';
 // Mock the ChatCanvasLayout component
 vi.mock('../../components/chat-canvas/ChatCanvasLayout', () => ({
   ChatCanvasLayout: ({ initialAction }: { initialAction: any }) => (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable for keyboard navigation
     <div data-testid="chat-canvas-layout" tabIndex={0}>
       {initialAction ? (
         <div data-testid="initial-action" data-type={initialAction.type}>
@@ -281,7 +282,7 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
 
       const actionElement = screen.getByTestId('initial-action');
       expect(actionElement).toHaveAttribute('data-type', 'template');
-      
+
       // Should include templateId and other state properties
       const textContent = actionElement.textContent || '';
       expect(textContent).toContain('roi-calculator');
@@ -386,7 +387,7 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
 
       // Should not render dangerous HTML
       const images = screen.queryAllByRole('img');
-      const hasDangerousImg = images.some(img => 
+      const hasDangerousImg = images.some(img =>
         img.getAttribute('src') === 'x'
       );
       expect(hasDangerousImg).toBe(false);
@@ -405,7 +406,7 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
 
       // Should not execute malicious code
       const svgs = screen.queryAllByRole('img');
-      const hasDangerousSvg = svgs.some(img => 
+      const hasDangerousSvg = svgs.some(img =>
         img.getAttribute('onload') !== null
       );
       expect(hasDangerousSvg).toBe(false);
@@ -790,7 +791,7 @@ describe('ValueCanvas - Story Arc Canvas Template', () => {
       renderWithRouter();
 
       const layout = screen.getByTestId('chat-canvas-layout');
-      
+
       // Simulate touch events
       fireEvent.touchStart(layout);
       fireEvent.touchEnd(layout);

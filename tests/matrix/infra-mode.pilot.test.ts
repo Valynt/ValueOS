@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { infraModeMatrix } from "./infra-mode.matrix";
-import { runInInfraMode } from "./runInInfraMode";
 import { canonicalizePersistedValue } from "../shared/canonicalizePersistedValue";
 import { snapshotHash } from "../shared/snapshotHash";
 import { testNamespace } from "../shared/testNamespace";
+
+import { infraModeMatrix } from "./infra-mode.matrix";
+import { runInInfraMode } from "./runInInfraMode";
 
 const wf1Fixture = {
   workflow: "WF-1",

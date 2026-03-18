@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { SemanticMemory } from '../semantic/index.js';
+
 import {
-  TENANT_ALPHA_ID,
-  TENANT_BETA_ID,
   createEmbedding,
   createTenantSemanticFixture,
+  TENANT_ALPHA_ID,
+  TENANT_BETA_ID,
 } from './utils/tenantMemoryFixtures.js';
 
 describe('SemanticMemory tenant retrieval boundaries', () => {

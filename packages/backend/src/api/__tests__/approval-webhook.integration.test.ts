@@ -4,12 +4,12 @@ import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createApprovalWebhookRouter } from '../approvalWebhooks.js';
 import { ApprovalWebhookService } from '../../services/approvals/ApprovalWebhookService.js';
-import { NotificationAdapterService } from '../../services/approvals/NotificationAdapterService.js';
 import { NotificationActionSigner } from '../../services/approvals/NotificationActionSigner.js';
-import type { AgentMiddlewareContext } from '../../types/orchestration.js';
+import { NotificationAdapterService } from '../../services/approvals/NotificationAdapterService.js';
 import { CheckpointMiddleware } from '../../services/middleware/CheckpointMiddleware.js';
+import type { AgentMiddlewareContext } from '../../types/orchestration.js';
+import { createApprovalWebhookRouter } from '../approvalWebhooks.js';
 
 function buildContext(): AgentMiddlewareContext {
   return {

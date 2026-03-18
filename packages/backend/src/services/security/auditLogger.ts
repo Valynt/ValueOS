@@ -9,6 +9,7 @@
 
 import { logger } from "../../lib/logger.js";
 import { SecurityAuditEvent } from "../../types/security.js";
+
 import { auditLogService } from "./AuditLogService.js";
 
 export const logSecurityEvent = async (event: SecurityAuditEvent): Promise<void> => {

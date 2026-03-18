@@ -252,6 +252,7 @@ function getLanguageFromExtension(ext: string): string {
 function isBlacklisted(path: string, blacklist: string[]): boolean {
   return blacklist.some(pattern => {
     if (pattern.includes('*')) {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\//g, '\\/'));
       return regex.test(path);
     }

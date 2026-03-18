@@ -157,6 +157,7 @@ export class XBRLModule extends BaseModule {
     const url = `${this.baseUrl}/companyfacts/CIK${paddedCIK}.json`;
 
     try {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       const response = await fetch(url, {
         headers: {
           'User-Agent': this.userAgent,

@@ -16,7 +16,7 @@
  *   was dead code — the stream never opened.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Minimal Express-like Response mock
@@ -36,7 +36,9 @@ function makeMockRes() {
       res._body = body;
       return res;
     },
-    flushHeaders() { /* no-op */ },
+    flushHeaders() {
+      /* no-op */
+    },
   };
   return res;
 }
@@ -45,42 +47,54 @@ function makeMockRes() {
 // Bug 1: /info endpoint
 // ---------------------------------------------------------------------------
 
-describe('agents /info — setHeader must not short-circuit the response', () => {
+describe("agents /info — setHeader must not short-circuit the response", () => {
   // Mirrors the buggy code path: `return res.setHeader(...)` exits before json()
   function buggyInfoHandler(
     modelCard: { schemaVersion: string; modelCard: unknown },
-    res: ReturnType<typeof makeMockRes>,
+    res: ReturnType<typeof makeMockRes>
   ) {
-    return res.setHeader('x-model-card-version', modelCard.schemaVersion);
-    // @ts-expect-error unreachable — mirrors the original bug
-    return res.json({ success: true, data: { model_card: modelCard.modelCard } });
+    return res.setHeader("x-model-card-version", modelCard.schemaVersion);
+    // eslint-disable-next-line no-unreachable -- intentional: mirrors the original bug
+    return res.json({
+      success: true,
+      data: { model_card: modelCard.modelCard },
+    });
   }
 
   // Mirrors the fixed code path: setHeader without return, then json()
   function fixedInfoHandler(
     modelCard: { schemaVersion: string; modelCard: unknown },
-    res: ReturnType<typeof makeMockRes>,
+    res: ReturnType<typeof makeMockRes>
   ) {
-    res.setHeader('x-model-card-version', modelCard.schemaVersion);
-    return res.json({ success: true, data: { model_card: modelCard.modelCard } });
+    res.setHeader("x-model-card-version", modelCard.schemaVersion);
+    return res.json({
+      success: true,
+      data: { model_card: modelCard.modelCard },
+    });
   }
 
-  it('buggy: header is set but body is never written', () => {
+  it("buggy: header is set but body is never written", () => {
     const res = makeMockRes();
-    buggyInfoHandler({ schemaVersion: '2.0.0', modelCard: { name: 'OpportunityAgent' } }, res);
+    buggyInfoHandler(
+      { schemaVersion: "2.0.0", modelCard: { name: "OpportunityAgent" } },
+      res
+    );
 
-    expect(res._headers['x-model-card-version']).toBe('2.0.0');
+    expect(res._headers["x-model-card-version"]).toBe("2.0.0");
     expect(res._body).toBeUndefined(); // json() was never called
   });
 
-  it('fixed: both header and JSON body are written', () => {
+  it("fixed: both header and JSON body are written", () => {
     const res = makeMockRes();
-    fixedInfoHandler({ schemaVersion: '2.0.0', modelCard: { name: 'OpportunityAgent' } }, res);
+    fixedInfoHandler(
+      { schemaVersion: "2.0.0", modelCard: { name: "OpportunityAgent" } },
+      res
+    );
 
-    expect(res._headers['x-model-card-version']).toBe('2.0.0');
+    expect(res._headers["x-model-card-version"]).toBe("2.0.0");
     expect(res._body).toEqual({
       success: true,
-      data: { model_card: { name: 'OpportunityAgent' } },
+      data: { model_card: { name: "OpportunityAgent" } },
     });
   });
 });
@@ -89,41 +103,38 @@ describe('agents /info — setHeader must not short-circuit the response', () =>
 // Bug 2: SSE stream handler
 // ---------------------------------------------------------------------------
 
-describe('agents SSE stream — all three headers must be set before flushing', () => {
+describe("agents SSE stream — all three headers must be set before flushing", () => {
   // Mirrors the buggy code: each `return res.setHeader(...)` exits immediately
   function buggySSESetup(res: ReturnType<typeof makeMockRes>) {
-    return res.setHeader('Content-Type', 'text/event-stream');
-    // @ts-expect-error unreachable — mirrors the original bug
-    return res.setHeader('Cache-Control', 'no-cache');
-    // @ts-expect-error unreachable — mirrors the original bug
-    return res.setHeader('Connection', 'keep-alive');
-    // @ts-expect-error unreachable — mirrors the original bug
-    res.flushHeaders();
+    return res.setHeader("Content-Type", "text/event-stream");
+    return res.setHeader("Cache-Control", "no-cache"); // eslint-disable-line no-unreachable
+    return res.setHeader("Connection", "keep-alive"); // eslint-disable-line no-unreachable
+    res.flushHeaders(); // eslint-disable-line no-unreachable
   }
 
   // Mirrors the fixed code: no return on setHeader calls
   function fixedSSESetup(res: ReturnType<typeof makeMockRes>) {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
   }
 
-  it('buggy: only Content-Type is set; Cache-Control and Connection are missing', () => {
+  it("buggy: only Content-Type is set; Cache-Control and Connection are missing", () => {
     const res = makeMockRes();
     buggySSESetup(res);
 
-    expect(res._headers['content-type']).toBe('text/event-stream');
-    expect(res._headers['cache-control']).toBeUndefined();
-    expect(res._headers['connection']).toBeUndefined();
+    expect(res._headers["content-type"]).toBe("text/event-stream");
+    expect(res._headers["cache-control"]).toBeUndefined();
+    expect(res._headers["connection"]).toBeUndefined();
   });
 
-  it('fixed: all three SSE headers are present', () => {
+  it("fixed: all three SSE headers are present", () => {
     const res = makeMockRes();
     fixedSSESetup(res);
 
-    expect(res._headers['content-type']).toBe('text/event-stream');
-    expect(res._headers['cache-control']).toBe('no-cache');
-    expect(res._headers['connection']).toBe('keep-alive');
+    expect(res._headers["content-type"]).toBe("text/event-stream");
+    expect(res._headers["cache-control"]).toBe("no-cache");
+    expect(res._headers["connection"]).toBe("keep-alive");
   });
 });

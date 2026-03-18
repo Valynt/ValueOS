@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthError } from "../base/errors.js";
+
 import { SalesforceOAuth } from "./SalesforceOAuth.js";
 
 const BASE_CONFIG = {

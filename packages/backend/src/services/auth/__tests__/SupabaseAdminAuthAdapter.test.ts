@@ -1,6 +1,6 @@
+import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth";
 import { describe, expect, it, vi } from "vitest";
 
-import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth";
 
 describe("SupabaseAdminAuthAdapter", () => {
   it("returns null when Supabase returns no user", async () => {

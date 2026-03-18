@@ -18,11 +18,12 @@
  *   ENABLE_TELEMETRY             — set to "false" to disable entirely
  */
 
-import { NodeSDK } from "@opentelemetry/sdk-node";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { Resource } from "@opentelemetry/resources";
-import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION, SEMRESATTRS_DEPLOYMENT_ENVIRONMENT } from "@opentelemetry/semantic-conventions";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { SEMRESATTRS_DEPLOYMENT_ENVIRONMENT, SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
+
 import { logger } from "../lib/logger.js";
 
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? "valueos-backend";

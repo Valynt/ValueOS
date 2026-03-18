@@ -245,6 +245,7 @@ export class PromptVersionControlService {
     let rendered = template;
 
     for (const [key, value] of Object.entries(variables)) {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const placeholder = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
       rendered = rendered.replace(placeholder, String(value));
     }

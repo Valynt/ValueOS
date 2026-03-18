@@ -13,7 +13,10 @@
  * clients authenticated for that tenant.
  */
 
-import { logger } from '../../utils/logger.js';
+import { context, trace } from '@opentelemetry/api';
+import type { DecisionContext } from '@shared/domain/DecisionContext';
+import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity';
+
 import { getDomainEventBus } from '../../events/DomainEventBus.js';
 import type {
   DomainEventName,
@@ -22,12 +25,11 @@ import type {
   OpportunityUpdatedPayload,
   RealizationMilestoneReachedPayload,
 } from '../../events/DomainEventSchemas.js';
-import { DecisionRouter } from '../decision-router/index.js';
-import { getRealtimeBroadcastService } from '../../services/realtime/RealtimeBroadcastService.js';
-import type { DecisionContext } from '@shared/domain/DecisionContext';
-import { OpportunityLifecycleStageSchema } from '@shared/domain/Opportunity';
 import { runInTelemetrySpanAsync } from '../../observability/telemetryStandards.js';
-import { context, trace } from '@opentelemetry/api';
+import { getRealtimeBroadcastService } from '../../services/realtime/RealtimeBroadcastService.js';
+import { logger } from '../../utils/logger.js';
+import { DecisionRouter } from '../decision-router/index.js';
+
 
 // ---------------------------------------------------------------------------
 // Recommendation shape pushed to the UI

@@ -12,8 +12,8 @@
 const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 // Browser imports - use dynamic imports to avoid bundling issues
-import type { NextFunction, Request, Response } from "express";
 import type { Span as SpanType } from "@opentelemetry/api";
+import type { NextFunction, Request, Response } from "express";
 let trace: {
   trace: unknown;
   getTracer(name: string, version?: string): unknown;

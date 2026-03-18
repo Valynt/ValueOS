@@ -10,9 +10,8 @@ import { createHash } from "crypto";
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
-import type { AuthenticatedRequest } from "../middleware/auth.js";
-
 import { createServerSupabaseClient } from "../lib/supabase.js";
+import type { AuthenticatedRequest } from "../middleware/auth.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";

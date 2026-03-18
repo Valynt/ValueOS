@@ -2,10 +2,10 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { CompanySize, ESOIndustry } from "../../../types/eso";
 import {
-  GroundTruthService,
   type CompositeHealthResult,
   type FeasibilityResult,
   type GroundTruthMetric,
+  GroundTruthService,
   type ValidationResult,
 } from "../services/GroundTruthService";
 

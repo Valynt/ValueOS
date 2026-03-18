@@ -8,7 +8,7 @@
  * - No retry on permanent failures
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('Agent Retry Logic', () => {
   describe('Exponential Backoff', () => {

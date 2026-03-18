@@ -22,14 +22,14 @@ import { requireAuth } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimiter.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { tenantContextMiddleware } from '../middleware/tenantContext.js';
-import { auditLogService } from '../services/security/AuditLogService.js';
 import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
-import { getCrmProvider } from '../services/crm/CrmProviderRegistry.js';
 import { crmHealthService } from '../services/crm/CrmHealthService.js';
 import { crmIntegrationService } from '../services/crm/CRMIntegrationService.js';
+import { getCrmProvider } from '../services/crm/CrmProviderRegistry.js';
 import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
 import { consumeOAuthState } from '../services/crm/OAuthStateStore.js';
 import { CrmProviderSchema } from '../services/crm/types.js';
+import { auditLogService } from '../services/security/AuditLogService.js';
 import { getCrmSyncQueue, getCrmWebhookQueue } from '../workers/crmWorker.js';
 
 const logger = createLogger({ component: 'CrmAPI' });

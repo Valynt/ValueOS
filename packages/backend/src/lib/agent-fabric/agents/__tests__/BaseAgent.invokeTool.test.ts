@@ -63,13 +63,13 @@ vi.mock("../../../../services/tools/ToolRegistry.js", () => ({
 
 // --- Imports ---
 
+import { toolRegistry } from "../../../../services/tools/ToolRegistry.js";
 import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../../types/agent";
+import { PermissionDeniedError } from "../../../auth/AgentIdentity.js";
 import { CircuitBreaker } from "../../CircuitBreaker";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
 import { BaseAgent } from "../BaseAgent";
-import { toolRegistry } from "../../../../services/tools/ToolRegistry.js";
-import { PermissionDeniedError } from "../../../auth/AgentIdentity.js";
 
 // --- Concrete subclass ---
 

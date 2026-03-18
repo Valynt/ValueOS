@@ -119,10 +119,9 @@ import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { AgentConfig } from "../types/agent";
 
 import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
+
 import type { WorkflowStatus } from "../../repositories/WorkflowStateRepository.js";
-
 import { DLQAlert } from "../../lib/agent-fabric/FabricMonitor";
-
 import {
   DeadLetterQueue,
   IdempotencyGuard,

@@ -13,22 +13,23 @@
  *   DELETE /:commitmentId                 delete (draft only)
  */
 
+import { createLogger } from '@shared/lib/logger';
 import { NextFunction, Router } from 'express';
 import { ZodError } from 'zod';
 
-import { createLogger } from '@shared/lib/logger';
 
 import { AuthenticatedRequest, requireAuth } from '../../middleware/auth.js';
-import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js';
+import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
 import { valueCommitmentBackendService } from '../../services/value/ValueCommitmentBackendService.js';
+
 import {
   AddNoteSchema,
   CreateCommitmentSchema,
   StatusTransitionSchema,
-  UpdateCommitmentSchema,
   toCommitmentDto,
   toNoteDto,
+  UpdateCommitmentSchema,
 } from './schemas.js';
 
 const logger = createLogger({ component: 'ValueCommitmentsRouter' });

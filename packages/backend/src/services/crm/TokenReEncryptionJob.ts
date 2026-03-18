@@ -26,6 +26,7 @@
 import { createLogger } from '@shared/lib/logger';
 
 import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import { decryptToken, encryptToken, needsReEncryption } from './tokenEncryption.js';
 
 const logger = createLogger({ service: 'TokenReEncryptionJob' });

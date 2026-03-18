@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SettingsSection } from '../../components/settings';
 
 import { useDebounce } from '@/hooks/useDebounce';
-import { fetchTeamAuditLogs, type AuditLogItem } from '@/services/adminSettingsService';
+import { type AuditLogItem, fetchTeamAuditLogs } from '@/services/adminSettingsService';
 
 const ACTION_TYPES = [
   { value: 'all', label: 'All Actions' },

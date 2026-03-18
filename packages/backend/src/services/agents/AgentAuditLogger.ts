@@ -12,7 +12,6 @@ import {
 } from "../../lib/crypto/CryptoUtils";
 import { logger } from "../../lib/logger.js"
 import { supabase } from "../../lib/supabase.js"
-
 import { AgentContext, AgentType } from "../agent-types.js"
 
 /**

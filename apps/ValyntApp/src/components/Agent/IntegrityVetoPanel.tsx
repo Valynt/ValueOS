@@ -130,6 +130,7 @@ export function IntegrityVetoPanel({
       </div>
 
       {/* Violation list */}
+      {/* eslint-disable-next-line jsx-a11y/no-redundant-roles -- explicit role for older screen readers */}
       <ul className="space-y-2" role="list">
         {sortedItems.map((violation) => {
           const config = severityConfig[violation.severity];

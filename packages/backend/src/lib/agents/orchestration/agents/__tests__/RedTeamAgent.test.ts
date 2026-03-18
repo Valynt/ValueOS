@@ -4,9 +4,9 @@ import { BaseAgent } from '../../../../agent-fabric/agents/BaseAgent.js';
 import { MemorySystem } from '../../../../agent-fabric/MemorySystem.js';
 import {
   RedTeamAgent,
-  RedTeamOutputSchema,
   type RedTeamInput,
   type RedTeamLLMGateway,
+  RedTeamOutputSchema,
 } from '../RedTeamAgent.js';
 
 const VALID_INPUT: RedTeamInput = {

@@ -8,9 +8,9 @@
  * All writes are tenant-scoped. Reads are aggregated per organization.
  */
 
+import { createLogger } from "@shared/lib/logger";
 import { z } from "zod";
 
-import { createLogger } from "@shared/lib/logger";
 import { createServerSupabaseClient } from "../lib/supabase.js";
 
 const logger = createLogger({ component: "ValueLoopAnalytics" });

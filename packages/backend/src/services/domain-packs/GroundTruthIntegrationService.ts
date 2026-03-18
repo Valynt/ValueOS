@@ -12,9 +12,9 @@ import { ESOModule } from "@mcp/ground-truth/modules/ESOModule";
 
 import { logger } from "../../lib/logger.js";
 import {
+  assessImprovementFeasibility,
   checkBenchmarkAlignment,
   classifyClaimSeverity,
-  assessImprovementFeasibility,
   computeCompositeHealth,
   computeConfidenceScore,
 } from "../../types/eso";
@@ -28,7 +28,7 @@ import type {
   FeasibilityResult,
   FinancialDriver,
 } from "../../types/eso";
-import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS, adjustBenchmarkForSize } from "../../types/eso-data";
+import { adjustBenchmarkForSize, ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../../types/eso-data";
 import type { VMRT } from "../../types/vmrt";
 import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 

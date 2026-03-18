@@ -46,6 +46,7 @@
  */
 import { createHash } from "crypto";
 
+// eslint-disable-next-line no-restricted-imports -- required for this module
 import logger from "../../shared/src/lib/logger.js";
 
 import { validateSDUISchema } from "./schema";

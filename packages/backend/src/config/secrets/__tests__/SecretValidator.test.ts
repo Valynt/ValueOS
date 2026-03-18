@@ -2,7 +2,7 @@ import express from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SecretValidator, secretHealthMiddleware } from "../SecretValidator.js";
+import { secretHealthMiddleware, SecretValidator } from "../SecretValidator.js";
 
 const baseEnv = {
   NODE_ENV: "production",

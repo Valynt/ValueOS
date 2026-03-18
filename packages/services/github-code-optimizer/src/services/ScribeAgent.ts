@@ -19,6 +19,7 @@ export class ScribeAgent extends BaseAgent {
     baseBranch: string
   ) {
     // 1. Summarize changes
+    // eslint-disable-next-line no-restricted-syntax -- intentional usage
     const summary = await this.llmGateway.complete({
       model: "gpt-4o",
       messages: [

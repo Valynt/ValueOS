@@ -1,4 +1,4 @@
-import { AckPolicy, connect, DeliverPolicy, type JsMsg, JSONCodec, type NatsConnection, type StreamConfig, type ConsumerConfig, type JetStreamClient, type JetStreamManager } from 'nats';
+import { AckPolicy, connect, type ConsumerConfig, DeliverPolicy, type JetStreamClient, type JetStreamManager, type JsMsg, JSONCodec, type NatsConnection, type StreamConfig } from 'nats';
 
 import { createLogger } from '../../lib/logger.js';
 

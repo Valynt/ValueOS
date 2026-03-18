@@ -167,6 +167,7 @@ export function adaptQuestionForRole(
   let adaptedExplanation = baseQuestion.explanation;
 
   Object.entries(rules.terminology).forEach(([generic, specific]) => {
+    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
     const regex = new RegExp(`\\b${generic}\\b`, 'gi');
     adaptedQuestionText = adaptedQuestionText.replace(regex, specific);
     adaptedExplanation = adaptedExplanation.replace(regex, specific);
@@ -190,6 +191,7 @@ export function adaptQuestionForRole(
   const adaptedOptions = baseQuestion.options.map((option) => {
     let adaptedLabel = option.label;
     Object.entries(rules.terminology).forEach(([generic, specific]) => {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(`\\b${generic}\\b`, 'gi');
       adaptedLabel = adaptedLabel.replace(regex, specific);
     });
@@ -306,6 +308,7 @@ export function adaptLearningObjectives(
   return objectives.map(objective => {
     let adapted = objective;
     Object.entries(rules.terminology).forEach(([generic, specific]) => {
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(`\\b${generic}\\b`, 'gi');
       adapted = adapted.replace(regex, specific);
     });

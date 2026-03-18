@@ -13,9 +13,10 @@
  *   - critical architecture controls are present in all declared environments
  */
 
-import { readFileSync, existsSync, readdirSync } from "fs";
-import { resolve, join } from "path";
-import { describe, it, expect } from "vitest";
+import { existsSync, readdirSync, readFileSync } from "fs";
+import { join, resolve } from "path";
+
+import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../..");
 
@@ -103,10 +104,10 @@ describe("environment_migration_contract_is_consistent", () => {
 
     // Extract the run block for each environment
     const stagingMatch = workflow.match(
-      /Run database migrations \(staging\)[\s\S]*?run:\s*\|([\s\S]*?)(?=\n      - name:)/
+      /Run database migrations \(staging\)[\s\S]*?run:\s*\|([\s\S]*?)(?=\n {6}- name:)/
     );
     const productionMatch = workflow.match(
-      /Run database migrations \(production\)[\s\S]*?run:\s*\|([\s\S]*?)(?=\n      - name:)/
+      /Run database migrations \(production\)[\s\S]*?run:\s*\|([\s\S]*?)(?=\n {6}- name:)/
     );
 
     expect(stagingMatch, "Could not find staging migration step").toBeTruthy();

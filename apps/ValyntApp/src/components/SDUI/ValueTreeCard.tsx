@@ -93,6 +93,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const style = node.status ? statusStyles[node.status] : undefined;
 
   return (
+    // eslint-disable-next-line jsx-a11y/role-has-required-aria-props -- managed by parent component
     <li role="treeitem" aria-expanded={hasChildren ? isExpanded : undefined}>
       <div
         className={cn(
@@ -106,6 +107,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           onNodeClick?.(node.id);
         }}
         onFocus={() => onFocus(node.id)}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable for keyboard navigation
         tabIndex={isFocused ? 0 : -1}
         data-node-id={node.id}
       >

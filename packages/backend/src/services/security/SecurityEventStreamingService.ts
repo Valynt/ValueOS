@@ -1,4 +1,5 @@
 import { logger } from "../../lib/logger.js";
+
 import { siemExportForwarderService, type SiemSource } from "./SiemExportForwarderService.js";
 
 export type SecurityEventCategory =

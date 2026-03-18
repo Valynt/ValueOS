@@ -9,8 +9,8 @@
 export type { AgentType, AgentContext } from './agent-types.js'
 import { SDUIPageDefinition, validateSDUISchema } from '@valueos/sdui';
 
-import { getConfig } from '../config/environment.js'
 import { logger } from '../../lib/logger.js'
+import { getConfig } from '../config/environment.js'
 import { addServiceIdentityHeader } from '../middleware/serviceIdentityMiddleware.js'
 import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security/index.js'
 
@@ -284,6 +284,7 @@ export class AgentAPI {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const baseFetch = (globalThis.fetch || fetch).bind(globalThis);
 
     try {

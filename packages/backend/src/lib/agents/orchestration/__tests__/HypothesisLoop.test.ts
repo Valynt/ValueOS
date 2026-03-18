@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  HypothesisLoop,
-  type FinancialModelingAgentInterface,
-  type GroundTruthAgentInterface,
-  type NarrativeAgentInterface,
-  type OpportunityAgentInterface,
-} from '../HypothesisLoop.js';
 import type { DLQEntry } from '../../core/DeadLetterQueue.js';
 import {
+  type SagaSnapshot,
   SagaState,
   SagaTrigger,
-  type SagaSnapshot,
   type SagaTriggerType,
 } from '../../core/ValueCaseSaga.js';
 import type { RedTeamAnalyzer, RedTeamOutput } from '../agents/RedTeamAgent.js';
+import {
+  type FinancialModelingAgentInterface,
+  type GroundTruthAgentInterface,
+  HypothesisLoop,
+  type NarrativeAgentInterface,
+  type OpportunityAgentInterface,
+} from '../HypothesisLoop.js';
 
 // ---------------------------------------------------------------------------
 // In-memory saga stub (mirrors the one in the redteam-dispatch test)

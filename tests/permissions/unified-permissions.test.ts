@@ -15,6 +15,7 @@ import {
   // Types
   Permission,
   Resource,
+  // eslint-disable-next-line sort-imports -- import order is intentional
   Action,
   UserRole,
   AgentRole,

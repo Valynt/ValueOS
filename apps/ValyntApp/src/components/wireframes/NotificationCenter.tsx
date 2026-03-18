@@ -3,14 +3,14 @@
  * Pattern: Real-time activity feed with agent actions, policy alerts, evidence updates
  * Features: Category filters, unread badges, timestamp grouping, mark-as-read, live pulse
  */
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Bell, X, Sparkles, Shield, FlaskConical, Scale,
-  AlertTriangle, CheckCircle2, Clock, ArrowRight,
-  Activity, TrendingUp, Eye, Filter, Check,
-  Microscope, FileText, Layers, ChevronRight
+  Activity, AlertTriangle, ArrowRight, Bell, Check, CheckCircle2,
+  ChevronRight, Clock, Eye, FileText,
+  Filter, FlaskConical, Layers, Microscope, Scale,
+  Shield, Sparkles, TrendingUp, X
 } from "lucide-react";
-import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { useWireframeAuth } from "./WireframeAuthContext";
 

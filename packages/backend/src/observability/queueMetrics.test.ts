@@ -18,6 +18,7 @@ vi.mock("../lib/observability/index.js", () => ({
 }));
 
 import { attachQueueMetrics, getQueueHealth } from "./queueMetrics.js";
+
 import type { Job, Queue, Worker } from "bullmq";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -60,6 +60,7 @@ function getCompiledRegex(pattern: string): RegExp | null {
   }
 
   try {
+    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
     const regex = new RegExp(pattern);
     regexCache.set(pattern, regex);
     return regex;

@@ -39,6 +39,7 @@ vi.mock("decimal.js", () => {
 
 import { analyseAssumptionSensitivity } from "../assumptionSensitivity.js";
 import { sensitivityAnalysis } from "../economic_kernel.js";
+
 import type { Assumption } from "@valueos/shared/domain";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

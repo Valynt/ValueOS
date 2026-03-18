@@ -12,6 +12,7 @@ async function call(app: express.Application, path: string, headers: Record<stri
   servers.push(server);
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
   const { port } = server.address() as AddressInfo;
+  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
   const response = await fetch(`http://127.0.0.1:${port}${path}`, { headers });
   const body = await response.json();
   return { response, body };

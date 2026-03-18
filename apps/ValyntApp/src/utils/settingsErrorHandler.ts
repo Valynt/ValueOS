@@ -289,6 +289,7 @@ export interface ErrorBoundaryState {
  * @returns Error boundary state and handlers
  */
 export function createErrorBoundaryState() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   const [state, setState] = React.useState<ErrorBoundaryState>({
     hasError: false,
     error: null,

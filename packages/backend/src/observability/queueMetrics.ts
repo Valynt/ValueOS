@@ -14,8 +14,9 @@
  *       a live worker connection.
  */
 
-import type { Job, Queue, Worker } from "bullmq";
 import { createLogger } from "@shared/lib/logger";
+import type { Job, Queue, Worker } from "bullmq";
+
 import { createCounter, createObservableGauge } from "../lib/observability/index.js";
 
 const logger = createLogger({ component: "QueueMetrics" });

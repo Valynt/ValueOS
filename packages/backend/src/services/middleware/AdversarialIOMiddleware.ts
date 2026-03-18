@@ -9,13 +9,13 @@
  */
 
 import { logger } from '../../lib/logger.js';
-import { AuditLogService } from '../AuditLogService.js';
-import { GroundtruthAPI } from '../domain-packs/GroundtruthAPI.js';
 import {
   AgentMiddleware,
   AgentMiddlewareContext,
   AgentResponse,
 } from '../../types/orchestration.js';
+import { AuditLogService } from '../AuditLogService.js';
+import { GroundtruthAPI } from '../domain-packs/GroundtruthAPI.js';
 
 import {
   AdversarialIOConfig,

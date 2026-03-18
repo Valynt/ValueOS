@@ -1,14 +1,14 @@
 import { SDUIPageDefinition } from "@valueos/sdui";
 
-import { AgentType } from "../agent-types";
-import type { AgentContext, AgentAPI, AgentResponse as APIAgentResponse } from "../AgentAPI";
-import type { AgentResponse, ExecutionEnvelope, StreamingUpdate } from "../../types/orchestration.js";
 import { createAgentFactory } from "../../lib/agent-fabric/AgentFactory.js";
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker.js";
 import { assertTenantContextMatch } from "../../lib/tenant/assertTenantContextMatch.js";
+import type { AgentResponse, ExecutionEnvelope, StreamingUpdate } from "../../types/orchestration.js";
+import { AgentType } from "../agent-types";
+import type { AgentAPI, AgentContext, AgentResponse as APIAgentResponse } from "../AgentAPI";
 
 let _renderFactory: ReturnType<typeof createAgentFactory> | null = null;
 function getRenderFactory(): ReturnType<typeof createAgentFactory> {

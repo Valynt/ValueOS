@@ -15,9 +15,13 @@ import {
   EVENT_TOPICS,
 } from "@shared/types/events";
 
-import { createEventConsumer, EventConsumer } from "../realtime/EventConsumer.js"
-import { EventProducer, getEventProducer } from "./EventProducer.js"
+import { logger } from "../../lib/logger.js"
+import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 import { EventSourcingService, getEventSourcingService } from "../post-v1/EventSourcingService.js"
+import { createEventConsumer, EventConsumer } from "../realtime/EventConsumer.js"
+
+import { AgentType } from "./agent-types.js"
+import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { isKafkaEnabled } from "./kafkaConfig.js"
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
 
@@ -35,10 +39,7 @@ interface AgentResponseEvent extends BaseEvent {
     duration_ms: number;
   };
 }
-import { AgentType } from "./agent-types.js"
 
-import { logger } from "../../lib/logger.js"
-import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 
 export class AgentExecutorService {
   private _consumer: EventConsumer | null = null;

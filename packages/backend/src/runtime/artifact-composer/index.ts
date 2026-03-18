@@ -14,33 +14,33 @@
  *  - composeStakeholderView / composeAllStakeholderViews
  */
 
-import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
-
 import type {
+  Assumption,
   BusinessCase,
+  Evidence,
   FinancialSummary,
   ValueHypothesis,
-  Assumption,
-  Evidence,
 } from "@valueos/shared/domain";
-import { calculateDefenseReadiness } from "../../domain/business-case/defenseReadiness.js";
+import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 
+
+import { calculateDefenseReadiness } from "../../domain/business-case/defenseReadiness.js";
+import { runInTelemetrySpanAsync } from "../../observability/telemetryStandards.js";
+import type { AgentType } from "../../services/agent-types.js";
 import { getAgentAPI } from "../../services/agents/AgentAPI.js";
+import type { AgentContext } from "../../services/agents/AgentAPI.js";
 import { DefaultWorkflowRenderService } from "../../services/workflows/WorkflowRenderService.js";
 import { DefaultWorkflowSimulationService } from "../../services/workflows/WorkflowSimulationService.js";
-import type { AgentType } from "../../services/agent-types.js";
-import type { AgentContext } from "../../services/agents/AgentAPI.js";
-import type { WorkflowContextDTO } from "../../types/workflow/orchestration.js";
 import type {
   AgentResponse,
   ExecutionEnvelope,
   RenderPageOptions,
   StreamingUpdate,
-  TaskPlanResult,
   SubgoalDefinition,
+  TaskPlanResult,
 } from "../../types/orchestration.js";
-import { runInTelemetrySpanAsync } from "../../observability/telemetryStandards.js";
+import type { WorkflowContextDTO } from "../../types/workflow/orchestration.js";
 
 export type { TaskPlanResult, SubgoalDefinition };
 

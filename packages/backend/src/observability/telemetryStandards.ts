@@ -1,4 +1,4 @@
-import { SpanStatusCode, type Span } from "@opentelemetry/api";
+import { type Span, SpanStatusCode } from "@opentelemetry/api";
 
 import { getTracer } from "../config/telemetry.js";
 

@@ -1,6 +1,6 @@
 import { ExternalLink, FileSearch, RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
 
-import { statusConfig, tierColorMap, type DisplayClaim } from "./integrityUtils";
+import { type DisplayClaim, statusConfig, tierColorMap } from "./integrityUtils";
 
 import { cn } from "@/lib/utils";
 

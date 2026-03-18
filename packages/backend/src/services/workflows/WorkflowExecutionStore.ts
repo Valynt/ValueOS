@@ -1,8 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+import { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../../types/execution/workflowExecutionDtos";
 import { WorkflowExecutionStore as IWorkflowExecutionStore, RecordStageRunInput, RecordWorkflowEventInput, UpdateExecutionStatusInput } from "../../types/execution/workflowExecutionStore";
 import { WorkflowExecutionRecord } from "../../types/workflowExecution";
-import { WorkflowExecutionLogDTO, WorkflowExecutionStatusDTO } from "../../types/execution/workflowExecutionDtos";
 
 export class WorkflowExecutionStore implements IWorkflowExecutionStore {
   constructor(private readonly supabase: SupabaseClient) {}

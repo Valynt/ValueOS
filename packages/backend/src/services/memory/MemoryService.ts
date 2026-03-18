@@ -134,6 +134,7 @@ export class MemoryService {
 
       if (error) throw error;
 
+      // eslint-disable-next-line no-console -- logging utility / bootstrap code
       console.info(
         `Artifact ${artifact.id} ingested. Triggering chunking pipeline...`
       );

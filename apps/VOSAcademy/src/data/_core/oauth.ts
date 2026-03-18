@@ -3,11 +3,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
+import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 import { upsertUser } from "../db";
 
 import { COOKIE_NAME, getSessionCookieOptions } from "./cookies";
 import { createSessionTokenWithContext, parseCookies } from "./session";
-import { getAuditRequestContext, logAuditEvent } from "../../lib/auditLogger";
 
 interface OAuthUserInfo {
   openId: string;

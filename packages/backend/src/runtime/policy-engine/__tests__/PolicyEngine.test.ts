@@ -35,12 +35,13 @@ vi.mock("../../../services/workflows/IntegrityVetoService.js", () => ({
 }));
 
 import {
+  HITL_CONFIDENCE_THRESHOLD,
+  PolicyCheckResult,
   PolicyEngine,
   PolicyEngineOptions,
   ServiceReadiness,
-  HITL_CONFIDENCE_THRESHOLD,
-  PolicyCheckResult,
 } from "../index.js";
+
 import { DecisionContext } from "@shared/domain/DecisionContext.js";
 
 // ============================================================================

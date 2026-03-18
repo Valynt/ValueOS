@@ -5,8 +5,9 @@
  * at application startup with detailed error reporting
  */
 
-import { logger } from "../../lib/logger.js"
 import { type Request, type RequestHandler, type Response } from "express";
+
+import { logger } from "../../lib/logger.js"
 
 import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory.js"
 import {

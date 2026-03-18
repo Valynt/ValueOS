@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { onCLS, onFCP, onFID, onLCP, onTTFB, Metric } from "web-vitals";
+import { Metric, onCLS, onFCP, onFID, onLCP, onTTFB } from "web-vitals";
 
 import { apiClient } from "../api/client/unified-api-client";
 import { logger } from "../lib/logger";

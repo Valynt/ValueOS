@@ -11,16 +11,16 @@
 
 import { z } from "zod";
 
-import { NarrativeDraftRepository } from "../../../repositories/NarrativeDraftRepository.js";
-import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
-import { logger } from "../../logger.js";
 import {
   buildEventEnvelope,
   getDomainEventBus,
 } from "../../../events/DomainEventBus.js";
+import { NarrativeDraftRepository } from "../../../repositories/NarrativeDraftRepository.js";
+import type { AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import { logger } from "../../logger.js";
+import { escapePromptInterpolation } from "../promptUtils.js";
 
 import { BaseAgent } from "./BaseAgent.js";
-import { escapePromptInterpolation } from "../promptUtils.js";
 
 // ---------------------------------------------------------------------------
 // Zod schema for LLM output
@@ -176,6 +176,7 @@ export class NarrativeAgent extends BaseAgent {
         context.workspace_id,
         prompt,
         NarrativeOutputSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },

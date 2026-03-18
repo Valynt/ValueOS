@@ -5,12 +5,13 @@
  * Uses service-role Supabase client + TenantAwareService checks for defense-in-depth.
  */
 
-import { createLogger } from "@shared/lib/logger";
 import { Counter, metrics } from "@opentelemetry/api";
+import { createLogger } from "@shared/lib/logger";
 import { HubSpotAdapter, SalesforceAdapter, ServiceNowAdapter, SharePointAdapter, SlackAdapter } from "@valueos/integrations";
 
-import { AuthorizationError, NotFoundError, ValidationError } from "../errors.js";
 import { TenantAwareService } from "../auth/TenantAwareService.js";
+import { AuthorizationError, NotFoundError, ValidationError } from "../errors.js";
+
 import { decryptToken, encryptToken } from "./tokenEncryption.js";
 
 const logger = createLogger({ component: "IntegrationConnectionService" });
@@ -544,6 +545,7 @@ export class IntegrationConnectionService extends TenantAwareService {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
       return await fetch(url, { ...options, signal: controller.signal });
     } finally {
       clearTimeout(timeoutId);

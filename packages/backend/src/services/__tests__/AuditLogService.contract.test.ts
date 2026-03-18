@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 import {
   mapAuditPayloadToLegacyShape,
   requiredAuditPayloadSchema,
 } from "../security/auditPayloadContract.js";
-import { securityAuditService } from "../post-v1/SecurityAuditService.js";
 
 const insertMock = vi.fn();
 

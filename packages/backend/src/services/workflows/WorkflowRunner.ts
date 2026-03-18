@@ -1,3 +1,4 @@
+import type { WorkflowDAG, WorkflowStage } from "../../types/workflow";
 import type {
   StageExecutionResultDTO,
   StageRouteDTO,
@@ -5,7 +6,6 @@ import type {
   WorkflowStageContextDTO,
 } from "../../types/workflow/runner";
 import type { WorkflowExecutionRecord } from "../../types/workflowExecution";
-import type { WorkflowDAG, WorkflowStage } from "../../types/workflow";
 
 export type { WorkflowRunner };
 

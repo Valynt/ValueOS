@@ -4,8 +4,8 @@ vi.mock("../../../lib/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { AuditLogger, getAuditLogger } from "../AuditLogger.js";
 import type { AuditLogService } from "../../../services/security/AuditLogService.js";
+import { AuditLogger, getAuditLogger } from "../AuditLogger.js";
 
 function makeMockAuditLogService() {
   return {

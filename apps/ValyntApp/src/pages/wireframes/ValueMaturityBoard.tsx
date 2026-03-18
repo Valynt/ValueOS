@@ -6,12 +6,12 @@
  * Features: Drag-and-drop with policy gate validation, skip-stage rejection animations
  * Responsive: Desktop = horizontal Kanban, Tablet = scrollable, Mobile = vertical stacked accordion
  */
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  AlertTriangle, TrendingUp, Clock, ChevronDown, ShieldAlert,
-  CheckCircle2, XCircle, ArrowRight, GripVertical, Zap
+  AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, Clock,
+  GripVertical, ShieldAlert, TrendingUp, XCircle, Zap
 } from "lucide-react";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useMaturityCards } from "./useWireframeData";
 

@@ -9,6 +9,7 @@
  * - Rate limiting (strict by default)
  */
 
+import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { createServerSupabaseClient } from "@shared/lib/supabase";
@@ -19,14 +20,13 @@ import { requireAuth } from "../middleware/auth.js"
 import { authRateLimiter, recordAuthFailure } from "../middleware/authRateLimiter.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requireMFA } from "../middleware/mfa.js"
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { auditLogService } from "../services/security/AuditLogService.js"
-import { authService } from "../services/auth/AuthService.js"
 import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
-import { AUDIT_ACTION } from "../types/audit.js"
-import { AuthenticationError, ValidationError } from "../services/errors.js"
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { authService } from "../services/auth/AuthService.js"
 import { userProfileDirectoryService } from "../services/auth/UserProfileDirectoryService.js"
-import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth"
+import { AuthenticationError, ValidationError } from "../services/errors.js"
+import { auditLogService } from "../services/security/AuditLogService.js"
+import { AUDIT_ACTION } from "../types/audit.js"
 import { sanitizeErrorMessage } from "../utils/security.js"
 
 const logger = createLogger({ component: "AuthAPI" });

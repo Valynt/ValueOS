@@ -39,6 +39,7 @@ export function renderTemplate(
 
     // Escape $ in replacement values — String.replace() treats $& $$ $1 etc. as special.
     return result.replace(
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       new RegExp(`{{\\s*${key}\\s*}}`, "g"),
       replacement.replace(/\$/g, "$$$$")
     );

@@ -669,6 +669,7 @@ export class EDGARModule extends BaseModule {
     const text = (await response.text()).replace(/\s+/g, ' ').toLowerCase();
     const keywordCounts = normalizedKeywords.map((keyword) => {
       const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
       const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'gi');
       const matches = text.match(regex);
       return {

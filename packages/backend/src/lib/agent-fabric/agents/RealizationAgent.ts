@@ -16,6 +16,8 @@
 
 import { z } from 'zod';
 
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -23,12 +25,10 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
-
-import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
-import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
 import { resolvePromptTemplate } from '../promptRegistry.js';
+import { renderTemplate } from '../promptUtils.js';
+
+import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -387,6 +387,7 @@ export class RealizationAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         RealizationAnalysisSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

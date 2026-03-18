@@ -20,6 +20,7 @@ import { Redis } from "ioredis";
 import { type JWTPayload, jwtVerify } from "jose";
 import { Server, Socket } from "socket.io";
 
+// eslint-disable-next-line no-restricted-imports -- required for this module
 import { parseCorsAllowlist } from "../../../shared/src/config/cors";
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";

@@ -10,9 +10,10 @@
  */
 
 import { supabase } from '../../lib/supabase.js';
+
 import {
-  getMetricsCollector as getBillingMetricsCollector,
   MetricsCollector as BillingMetricsCollector,
+  getMetricsCollector as getBillingMetricsCollector,
 } from './billing/MetricsCollector.js';
 
 export { MetricsCollector } from './billing/MetricsCollector.js';

@@ -27,6 +27,7 @@ vi.mock("../../../lib/logger.js", () => ({
 }));
 
 import { vi } from "vitest";
+
 import { AuditLogService } from "../AuditLogService.js";
 
 // Expose the private method for testing

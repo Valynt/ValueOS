@@ -25,7 +25,7 @@ vi.mock("../../../lib/logger.js", () => ({
   createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
 }));
 
-import { WebScraperService, getWebScraperService, resetWebScraperService } from "../WebScraperService.js";
+import { getWebScraperService, resetWebScraperService, WebScraperService } from "../WebScraperService.js";
 
 describe("WebScraperService encryption key validation", () => {
   const originalKey = process.env.WEB_SCRAPER_ENCRYPTION_KEY;

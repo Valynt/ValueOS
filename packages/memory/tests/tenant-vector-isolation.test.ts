@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { VectorMemory } from '../vector/index.js';
+
 import {
-  TENANT_ALPHA_ID,
-  TENANT_BETA_ID,
   createEmbedding,
   createTenantVectorFixture,
+  TENANT_ALPHA_ID,
+  TENANT_BETA_ID,
 } from './utils/tenantMemoryFixtures.js';
 
 describe('VectorMemory tenant isolation boundaries', () => {

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
 import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 import { featureFlags } from '../../../config/featureFlags.js';
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
 import { mcpGroundTruthService } from '../../../services/domain-packs/MCPGroundTruthService.js';
 import type { FinancialDataResult } from '../../../services/domain-packs/MCPGroundTruthService.js';
 import { hypothesisOutputService } from '../../../services/value/HypothesisOutputService.js';
@@ -26,12 +27,11 @@ import type {
   PromptVersionReference,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
-
-import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
+import { renderTemplate } from '../promptUtils.js';
 
 import { BaseAgent } from './BaseAgent.js';
-import { renderTemplate } from '../promptUtils.js';
-import { resolvePromptTemplate } from '../prompts/PromptRegistry.js';
+
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -415,6 +415,7 @@ export class OpportunityAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         OpportunityAnalysisSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

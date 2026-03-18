@@ -6,35 +6,21 @@
  * UnifiedAgentOrchestrator in Sprint 4.
  */
 
-import { v4 as uuidv4 } from 'uuid';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { securityLogger } from '@valueos/core-services';
+import { v4 as uuidv4 } from 'uuid';
 
-import { supabase } from '../../lib/supabase.js';
-import { logger } from '../../lib/logger.js';
-import { recordAgentInvocation, recordLoopCompletion } from '../../observability/valueLoopMetrics.js';
 import { getTracer } from '../../config/telemetry.js';
-import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
-import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
-import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
-import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
-import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
-import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
 import { MemorySystem } from '../../lib/agent-fabric/MemorySystem.js';
+import { logger } from '../../lib/logger.js';
+import { supabase } from '../../lib/supabase.js';
 import { assertTenantContextMatch } from '../../lib/tenant/assertTenantContextMatch.js';
+import { recordAgentInvocation, recordLoopCompletion } from '../../observability/valueLoopMetrics.js';
+import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
 import type { AgentType } from '../../services/agent-types.js';
 import type { AgentContext } from '../../services/agents/AgentAPI.js';
-import { securityLogger } from '@valueos/core-services';
-import type { WorkflowDAG, WorkflowEvent, WorkflowStage } from '../../types/workflow.js';
-import type { WorkflowContextDTO } from '../../types/workflow/orchestration.js';
-import type { StageExecutionResultDTO, StageRouteDTO, WorkflowStageContextDTO } from '../../types/workflow/runner.js';
-import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
-import type { WorkflowStatus } from '../../repositories/WorkflowStateRepository.js';
-import type {
-  ExecutionEnvelope,
-  WorkflowExecutionResult,
-} from '../../types/orchestration.js';
-import type { PolicyEngine } from '../policy-engine/index.js';
-import type { DecisionRouter } from '../decision-router/index.js';
+import { AgentMessageBroker } from '../../services/agents/AgentMessageBroker.js';
+import { AgentRegistry } from '../../services/agents/AgentRegistry.js';
 import type {
   AgentCapability,
   AgentConfiguration,
@@ -45,7 +31,22 @@ import type {
   AgentResponse as RetryAgentResponse,
   ValidationResult,
 } from '../../services/agents/core/IAgent.js';
+import { AgentRetryManager } from '../../services/agents/resilience/AgentRetryManager.js';
+import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
+import { getEnhancedParallelExecutor, type RunnableTask } from '../../services/post-v1/EnhancedParallelExecutor.js';
+import { WorkflowExecutionStore } from '../../services/workflows/WorkflowExecutionStore.js';
+import type {
+  ExecutionEnvelope,
+  WorkflowExecutionResult,
+} from '../../types/orchestration.js';
+import type { WorkflowContextDTO } from '../../types/workflow/orchestration.js';
+import type { StageExecutionResultDTO, StageRouteDTO, WorkflowStageContextDTO } from '../../types/workflow/runner.js';
+import type { WorkflowDAG, WorkflowEvent, WorkflowStage } from '../../types/workflow.js';
+import type { WorkflowExecutionRecord } from '../../types/workflowExecution.js';
+import type { DecisionRouter } from '../decision-router/index.js';
+import type { PolicyEngine } from '../policy-engine/index.js';
 import type { RetryOptions } from '../../services/agents/resilience/AgentRetryManager.js';
+
 import { isExternalArtifactWorkflowStage } from './externalArtifactPolicy.js';
 
 // ============================================================================

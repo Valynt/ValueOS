@@ -11,8 +11,8 @@
  */
 
 import { logger } from "./logger.js";
-import { getRedisClient } from "./redis.js";
 import { createCounter } from "./observability/index.js";
+import { getRedisClient } from "./redis.js";
 
 /**
  * Incremented whenever Redis is unavailable for RBAC pub/sub.

@@ -16,25 +16,25 @@ import { z } from 'zod';
 import { loadDomainContext } from '../../../agents/context/loadDomainContext.js';
 import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 import { featureFlags } from '../../../config/featureFlags.js';
+import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
+import { integrityOutputRepository } from '../../../repositories/IntegrityOutputRepository.js';
+import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
-import { logger } from '../../logger.js';
-import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEventBus.js';
-import { integrityOutputRepository } from '../../../repositories/IntegrityOutputRepository.js';
-
-import { IntegrityResultRepository } from '../../../repositories/IntegrityResultRepository.js';
-import {
-  classifyEvidence,
-  type EvidenceItem,
-} from '../../agents/core/EvidenceTiering.js';
 import {
   computeConfidence,
   type ConfidenceInput,
 } from '../../agents/core/ConfidenceScorer.js';
+import {
+  classifyEvidence,
+  type EvidenceItem,
+} from '../../agents/core/EvidenceTiering.js';
+import { logger } from '../../logger.js';
+
 import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
@@ -418,6 +418,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         IntegrityAnalysisSchema,
+        // eslint-disable-next-line no-restricted-syntax -- intentional usage
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

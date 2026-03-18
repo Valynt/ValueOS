@@ -4,14 +4,16 @@
  * This module is the public API surface for agent-based value case generation.
  * It delegates to the AgentFactory + HypothesisLoop pipeline.
  */
+import type { LifecycleContext } from "../types/agent.js";
+
+import type { AgentFactoryDeps } from "./agent-fabric/AgentFactory.js";
+import { createAgentFactory } from "./agent-fabric/AgentFactory.js";
 import {
   LoopResultSchema,
   ValueHypothesisSchema,
 } from "./agents/orchestration/index.js";
 import { logger } from "./logger.js";
-import type { AgentFactoryDeps } from "./agent-fabric/AgentFactory.js";
-import type { LifecycleContext } from "../types/agent.js";
-import { createAgentFactory } from "./agent-fabric/AgentFactory.js";
+
 
 // ============================================================================
 // Types

@@ -185,6 +185,7 @@ function SplitLayout({
         );
       })}
 
+      {/* eslint-disable jsx-a11y/no-interactive-element-to-noninteractive-role -- intentional: button acts as a drag separator */}
       {canDrag && (
         <button
           type="button"
@@ -192,11 +193,10 @@ function SplitLayout({
           aria-orientation={isVertical ? "vertical" : "horizontal"}
           aria-label={isVertical ? "Resize columns" : "Resize rows"}
           onMouseDown={onSeparatorMouseDown}
-          className={`absolute z-10 flex items-center justify-center rounded-md bg-border/60 text-muted-foreground hover:bg-border ${
-            isVertical
-              ? "top-1/2 h-12 w-3 -translate-y-1/2"
-              : "left-1/2 h-3 w-12 -translate-x-1/2"
-          }`}
+          className={`absolute z-10 flex items-center justify-center rounded-md bg-border/60 text-muted-foreground hover:bg-border ${isVertical
+            ? "top-1/2 h-12 w-3 -translate-y-1/2"
+            : "left-1/2 h-3 w-12 -translate-x-1/2"
+            }`}
           style={
             isVertical
               ? { left: `calc(${((activeRatios[0] ?? 0) / totalRatio) * 100}% - 6px)` }
@@ -235,14 +235,14 @@ export function Grid({
 
   const responsiveClasses = responsive
     ? [
-        COLUMN_CLASS_MAP[base],
-        sm ? BREAKPOINT_COLUMN_CLASS_MAP.sm[sm] : "",
-        BREAKPOINT_COLUMN_CLASS_MAP.md[md],
-        lg ? BREAKPOINT_COLUMN_CLASS_MAP.lg[lg] : "",
-        xl ? BREAKPOINT_COLUMN_CLASS_MAP.xl[xl] : "",
-      ]
-        .filter(Boolean)
-        .join(" ")
+      COLUMN_CLASS_MAP[base],
+      sm ? BREAKPOINT_COLUMN_CLASS_MAP.sm[sm] : "",
+      BREAKPOINT_COLUMN_CLASS_MAP.md[md],
+      lg ? BREAKPOINT_COLUMN_CLASS_MAP.lg[lg] : "",
+      xl ? BREAKPOINT_COLUMN_CLASS_MAP.xl[xl] : "",
+    ]
+      .filter(Boolean)
+      .join(" ")
     : "";
 
   return (

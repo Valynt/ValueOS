@@ -4,7 +4,9 @@
  */
 
 import { z } from 'zod';
+
 import { type CurriculumModule } from '../data/curriculum';
+
 import { logger } from './logger';
 
 export interface ContentLoaderOptions {

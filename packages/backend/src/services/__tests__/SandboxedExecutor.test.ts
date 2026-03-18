@@ -6,9 +6,9 @@ vi.mock("@shared/lib/logger", () => ({
 }));
 
 import {
+  type SandboxedExecutionRequest,
   SandboxedExecutor,
   type SandboxProvider,
-  type SandboxedExecutionRequest,
 } from "../SandboxedExecutor.js";
 
 class FakeProvider implements SandboxProvider {

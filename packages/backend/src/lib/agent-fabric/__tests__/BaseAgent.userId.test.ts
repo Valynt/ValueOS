@@ -52,13 +52,14 @@ vi.mock("../../../services/agents/AgentKillSwitchService.js", () => ({
 }));
 
 import { z } from "zod";
+
+import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import { BaseAgent } from "../agents/BaseAgent.js";
-import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import { AuditLogger } from "../AuditLogger.js";
+import { CircuitBreaker } from "../CircuitBreaker.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import { CircuitBreaker } from "../CircuitBreaker.js";
-import { AuditLogger } from "../AuditLogger.js";
 
 const schema = z.object({ result: z.string(), hallucination_check: z.boolean().optional() });
 

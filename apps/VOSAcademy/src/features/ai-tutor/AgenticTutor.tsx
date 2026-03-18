@@ -1,9 +1,9 @@
-import { 
-  Bot, 
-  DollarSign, 
-  FileText, 
-  Lightbulb, 
-  Loader2, 
+import {
+  Bot,
+  DollarSign,
+  FileText,
+  Lightbulb,
+  Loader2,
   Send,
   Sparkles,
   Target,
@@ -57,10 +57,10 @@ What would you like to work on today?`
 
   const chatMutation = trpc.ai.chat.useMutation({
     onSuccess: (response) => {
-      const content = typeof response.content === 'string' 
-        ? response.content 
+      const content = typeof response.content === 'string'
+        ? response.content
         : 'I received a response in an unexpected format.';
-      
+
       setMessages(prev => [...prev, {
         role: "assistant",
         content
@@ -182,13 +182,13 @@ What would you like to work on today?`
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] rounded-lg p-4 ${
-                message.role === "user"
+              className={`max-w-[80%] rounded-lg p-4 ${message.role === "user"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted"
-              }`}
+                }`}
             >
               {message.role === "assistant" ? (
+                // eslint-disable-next-line react/no-danger -- sanitized content
                 <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: sanitizeHtml(Streamdown(message.content)) }} />
               ) : (
                 <p className="whitespace-pre-wrap">{message.content}</p>

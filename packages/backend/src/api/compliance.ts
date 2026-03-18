@@ -6,11 +6,11 @@ import { requirePermission } from "../middleware/rbac.js";
 import { createSecureRouter } from "../middleware/secureRouter.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js";
-import { auditLogService } from "../services/security/AuditLogService.js";
 import { complianceControlStatusService } from "../services/integrity/ComplianceControlStatusService.js";
 import { complianceReportGeneratorService, MissingEvidenceError } from "../services/integrity/ComplianceReportGeneratorService.js";
-import { complianceControlMappingRegistry } from "../services/security/ComplianceControlMappingRegistry.js";
+import { auditLogService } from "../services/security/AuditLogService.js";
 import { complianceControlCheckService } from "../services/security/ComplianceControlCheckService.js";
+import { complianceControlMappingRegistry } from "../services/security/ComplianceControlMappingRegistry.js";
 
 const router = createSecureRouter("strict");
 

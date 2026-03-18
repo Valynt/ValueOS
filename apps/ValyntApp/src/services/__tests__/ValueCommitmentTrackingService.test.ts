@@ -40,8 +40,8 @@ vi.mock('../../lib/logger', () => ({
 
 import type { CommitmentDto } from '../../types/value-commitment-tracking';
 import {
-  ValueCommitmentTrackingService,
   CommitmentApiError,
+  ValueCommitmentTrackingService,
 } from '../ValueCommitmentTrackingService';
 
 // ---------------------------------------------------------------------------

@@ -61,11 +61,12 @@ vi.mock("../../../services/agents/AgentKillSwitchService.js", () => ({
 // ---------------------------------------------------------------------------
 
 import { z } from "zod";
-import { BaseAgent } from "../agents/BaseAgent.js";
+
 import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import { BaseAgent } from "../agents/BaseAgent.js";
+import { CircuitBreaker } from "../CircuitBreaker.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import { CircuitBreaker } from "../CircuitBreaker.js";
 
 // ---------------------------------------------------------------------------
 // Test agent

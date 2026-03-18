@@ -30,6 +30,7 @@ vi.mock("../../lib/supabase.js", () => {
 // ---------------------------------------------------------------------------
 
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem.js";
+
 import { TenantContextIngestionService } from "./TenantContextIngestionService.js";
 
 // ---------------------------------------------------------------------------

@@ -16,11 +16,13 @@
  * - ANSI escape codes: Can manipulate terminal output
  * - Null bytes: Can truncate strings
  */
+// eslint-disable-next-line no-control-regex -- intentional control character handling
 const LOG_INJECTION_PATTERN = /[\r\n\x00-\x1f\x7f-\x9f]/g;
 
 /**
  * ANSI escape sequence pattern (terminal manipulation)
  */
+// eslint-disable-next-line no-control-regex -- intentional control character handling
 const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]/g;
 
 /**
@@ -184,6 +186,7 @@ export function escapeSqlString(input: string): string {
  */
 export function escapeSqlLike(input: string, escapeChar = '\\'): string {
   return input
+    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
     .replace(new RegExp(`\\${escapeChar}`, 'g'), escapeChar + escapeChar)
     .replace(/%/g, escapeChar + '%')
     .replace(/_/g, escapeChar + '_');
@@ -198,6 +201,7 @@ export function escapeSqlLike(input: string, escapeChar = '\\'): string {
  * Null bytes can cause string truncation in some systems.
  */
 export function removeNullBytes(input: string): string {
+  // eslint-disable-next-line no-control-regex -- intentional control character handling
   return input.replace(/\x00/g, '');
 }
 
@@ -335,6 +339,7 @@ export function sanitizeForPrompt(input: string, maxLength = 4000): string {
 
   // Remove null bytes and control characters
   result = removeNullBytes(result);
+  // eslint-disable-next-line no-control-regex -- intentional control character handling
   result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   // Normalize whitespace

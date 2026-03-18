@@ -79,24 +79,25 @@ vi.mock("../repositories/FinancialModelSnapshotRepository.js", () => ({
 
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
-import type { AgentConfig, LifecycleContext } from "../types/agent.js";
+import { calculateDefenseReadiness } from "../domain/business-case/defenseReadiness.js";
+import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent.js";
+import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent.js";
 import { CircuitBreaker } from "../lib/agent-fabric/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
-import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent.js";
-import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent.js";
 import {
   composeAllStakeholderViews,
 } from "../runtime/artifact-composer/index.js";
-import { calculateDefenseReadiness } from "../domain/business-case/defenseReadiness.js";
+import type { AgentConfig, LifecycleContext } from "../types/agent.js";
+
 import type {
-  BusinessCase,
-  ValueHypothesis,
   Assumption,
+  BusinessCase,
   Evidence,
   Opportunity,
+  ValueHypothesis,
 } from "@valueos/shared/domain";
-import { OpportunitySchema, EvidenceSchema } from "@valueos/shared/domain";
+import { EvidenceSchema, OpportunitySchema } from "@valueos/shared/domain";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 

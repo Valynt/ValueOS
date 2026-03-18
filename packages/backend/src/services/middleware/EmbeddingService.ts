@@ -6,9 +6,9 @@
  * Includes an LRU cache with TTL to avoid redundant API calls.
  */
 
-import { logger } from '../../lib/logger.js';
 import { resolveAlias } from '../../lib/agent-fabric/ModelRegistry.js';
 import { getTogetherClient } from '../../lib/agent-fabric/TogetherClient.js';
+import { logger } from '../../lib/logger.js';
 
 // ============================================================================
 // LRU Cache

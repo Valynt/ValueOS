@@ -24,8 +24,8 @@ import {
 } from "@simplewebauthn/server";
 
 import { logger } from "../../lib/logger.js"
-
 import { BaseService } from "../BaseService.js"
+
 import { AuthenticationError } from "./errors.js"
 
 export interface WebAuthnCredential {

@@ -1,3 +1,5 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 /**
  * Simplified Integration Test for Canvas Workspace
@@ -5,8 +7,7 @@ import { vi } from 'vitest';
  * Tests the core pipeline without complex dependencies.
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import { CommandProcessor } from '../../lib/commands/CommandProcessor';
 
 // Simple test wrapper

@@ -10,16 +10,14 @@ import { SpanStatusCode } from "@opentelemetry/api";
 import { getEnvVar } from "@shared/lib/env";
 
 import { assertModelAllowed } from "../../config/models.js";
-import { getCapabilities } from "./ModelRegistry.js";
-import { getTogetherClient } from "./TogetherClient.js";
 import { getTracer } from "../../config/telemetry.js";
-import { CostAwareRouter } from "../../services/post-v1/CostAwareRouter.js";
 import { LLMCostTracker } from "../../services/llm/LLMCostTracker.js";
 import {
   enforceBudgetPolicy,
   enforceModelPolicy,
   recordPolicyAuditEvent,
 } from "../../services/policy/PolicyEnforcement.js";
+import { CostAwareRouter } from "../../services/post-v1/CostAwareRouter.js";
 import { logger } from "../logger.js";
 
 import {
@@ -27,6 +25,8 @@ import {
   type LLMResilienceConfig,
   LLMResilienceWrapper,
 } from "./LLMResilience.js";
+import { getCapabilities } from "./ModelRegistry.js";
+import { getTogetherClient } from "./TogetherClient.js";
 
 export interface LLMGatewayConfig {
   provider: "openai" | "anthropic" | "gemini" | "custom" | "together";

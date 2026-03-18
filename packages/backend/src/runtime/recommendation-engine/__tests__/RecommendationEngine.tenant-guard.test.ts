@@ -18,10 +18,9 @@ vi.mock('../../services/RealtimeBroadcastService.js', () => ({
 // Imports
 // ---------------------------------------------------------------------------
 
-import { logger } from '../../../utils/logger.js';
 import {
-  DomainEventBus,
   _resetDomainEventBusForTests,
+  DomainEventBus,
   getDomainEventBus,
 } from '../../../events/DomainEventBus.js';
 import type {
@@ -30,10 +29,11 @@ import type {
   OpportunityUpdatedPayload,
   RealizationMilestoneReachedPayload,
 } from '../../../events/DomainEventSchemas.js';
+import { logger } from '../../../utils/logger.js';
 import { DecisionRouter } from '../../decision-router/index.js';
 import {
-  RecommendationEngine,
   _resetRecommendationEngineForTests,
+  RecommendationEngine,
 } from '../RecommendationEngine.js';
 
 // ---------------------------------------------------------------------------

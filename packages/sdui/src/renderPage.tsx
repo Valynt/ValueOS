@@ -242,6 +242,7 @@ const SectionRenderer: React.FC<{
     data: hydratedData,
     loading: isHydrating,
     error: hydrationError,
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- called conditionally by design
   } = useDataHydration(section.hydrateWith || [], {
     enabled: !!section.hydrateWith && section.hydrateWith.length > 0,
     onError: (error: Error, endpoint: string) => {

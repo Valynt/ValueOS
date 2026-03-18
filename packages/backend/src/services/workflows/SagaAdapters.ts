@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import type { ProvenanceRecord, ProvenanceStore } from "@valueos/memory/provenance";
+
 import {
   SagaAuditLogger,
   SagaEventEmitter,
@@ -7,10 +9,8 @@ import {
   SagaTransitionRecord
 } from "../../lib/agents/core/index.js";
 import type { SagaStateType } from "../../lib/agents/core/ValueCaseSaga.js";
-
 import { logger } from "../../lib/logger.js";
 import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";
-import type { ProvenanceRecord, ProvenanceStore } from "@valueos/memory/provenance";
 import { getAuditTrailService } from "../security/AuditTrailService.js";
 import type { AuditEventType } from "../security/AuditTrailService.js";
 

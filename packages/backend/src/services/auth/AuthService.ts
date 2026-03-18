@@ -15,7 +15,9 @@ import { getRedisClient } from "@shared/lib/redisClient";
 import { Session, User } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 
+import { BaseService } from "../BaseService.js"
 import { getConfig } from "../config/environment.js"
+import { fetchWithCSRF } from "../security/CSRFProtection.js"
 import {
   checkPasswordBreach,
   consumeAuthRateLimit,
@@ -23,14 +25,12 @@ import {
   resetRateLimit,
   setAuthRateLimiter,
 } from "../security/index.js";
-import { fetchWithCSRF } from "../security/CSRFProtection.js"
 import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
 import { DeviceFingerprint, getSessionStore, RedisSessionStore } from "../security/RedisSessionStore.js";
 import { SessionClaimsSchema } from "../types/auth.js";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
 
 import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
-import { BaseService } from "../BaseService.js"
 import { clientRateLimit } from "./ClientRateLimit.js"
 import { DeviceFingerprintService, getDeviceFingerprintService } from "./DeviceFingerprintService.js";
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { PromptApprovalMetadata, PromptVersionReference } from '../../types/agent';
 
 export type PromptRiskClass = 'low' | 'medium' | 'high' | 'critical';

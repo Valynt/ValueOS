@@ -17,6 +17,7 @@ import { healthMetrics } from "@shared/lib/health/metrics";
 import { createClient } from "@supabase/supabase-js";
 import { Request, Response, Router } from "express";
 
+import { validateEnv } from "../../config/validateEnv.js"
 import { rateLimiters } from "../../middleware/rateLimiter.js"
 import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware.js"
 import { securityHeadersMiddleware } from "../../middleware/securityHeaders.js"
@@ -25,7 +26,6 @@ import { checkAllT1TableFreshness } from "../../observability/dataFreshness.js"
 import { getQueueHealth } from "../../observability/queueMetrics.js"
 import { getCrmSyncQueue, getCrmWebhookQueue, getPrefetchQueue } from "../../workers/crmWorker.js"
 import { getResearchQueue } from "../../workers/researchWorker.js"
-import { validateEnv } from "../../config/validateEnv.js"
 
 
 
@@ -54,6 +54,7 @@ const healthAuthMiddleware = (req: Request, res: Response, next: Function) => {
   }
 
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  // eslint-disable-next-line security/detect-possible-timing-attacks -- not a cryptographic comparison
   if (token !== expectedToken) {
     return res.status(401).json({ error: "Invalid authentication token" });
   }
@@ -113,6 +114,7 @@ async function checkTogetherAI(): Promise<HealthStatus> {
   }
 
   try {
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch("https://api.together.ai/v1/models", {
       method: "GET",
       headers: {
@@ -167,6 +169,7 @@ async function checkOpenAI(): Promise<HealthStatus> {
   }
 
   try {
+    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
     const response = await fetch("https://api.openai.com/v1/models", {
       method: "GET",
       headers: {

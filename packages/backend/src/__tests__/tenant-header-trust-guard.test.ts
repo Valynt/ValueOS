@@ -36,7 +36,7 @@ describe('tenant header trust guardrails', () => {
       if (err.code === 1) {
         stdout = err.stdout ?? '';
       } else if (err.code === 'ENOENT') {
-        // eslint-disable-next-line no-console
+         
         console.warn('Skipping tenant header trust guardrail test because `rg` (ripgrep) is not installed.');
         return;
       } else {
