@@ -30,9 +30,7 @@ Validate with: `pnpm run test:rls`
 
 ### 2. LLM calls via secureInvoke only
 
-All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSchema, options)` from `BaseAgent`. This wraps calls with circuit breaker, multi-signal hallucination detection, and Zod validation. Never call `llmGateway.complete()` directly from agent code.
-
-`secureInvoke` returns `hallucination_check` (boolean) and `hallucination_details` (full signal breakdown with grounding score). High-severity signals trigger escalation logging. See `BaseAgent.checkHallucination()` for the detection pipeline.
+All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSchema, options)` from `BaseAgent`. Never call `llmGateway.complete()` directly from agent code. See `.ona/skills/agent-onboarding/SKILL.md` for the full agent scaffold pattern.
 
 ### 3. service_role restrictions
 
@@ -50,10 +48,8 @@ Block any operation that copies, moves, or exports data between tenants.
 // ✅
 const tenantId = req.tenantId;
 const userId   = req.user?.id;
-const session  = req.session;
-req.useFallbackModel = true;
 
-// ❌ Unnecessary cast — the property is already typed
+// ❌
 const tenantId = (req as any).tenantId;
 ```
 
@@ -71,49 +67,12 @@ Requirements:
 - Use Handlebars templates for prompts (no string concatenation)
 - Confidence thresholds by risk: financial 0.7–0.9, commitment 0.6–0.85, discovery 0.5–0.8
 
-```typescript
-export class MyAgent extends BaseAgent {
-  public readonly lifecycleStage = "discovery";
-  public readonly version = "1.0.0";
-  public readonly name = "MyAgent";
-
-  async execute(context: LifecycleContext): Promise<AgentOutput> {
-    const startTime = Date.now();
-    const sessionId = context.workspace_id;
-    const prompt = `Analyse the following opportunity: ${JSON.stringify(context.workspace_data)}`;
-
-    const schema = z.object({
-      result: z.string(),
-      confidence: z.enum(["high", "medium", "low"]),
-      reasoning: z.string(),
-      hallucination_check: z.boolean().optional(),
-    });
-
-    const result = await this.secureInvoke(sessionId, prompt, schema, {
-      trackPrediction: true,
-      confidenceThresholds: { low: 0.6, high: 0.85 },
-      context: { agent: "MyAgent" },
-    });
-
-    await this.memorySystem.storeSemanticMemory(
-      sessionId,
-      this.name,
-      "episodic",
-      result.result,
-      { confidence: result.confidence, reasoning: result.reasoning },
-      this.organizationId,
-    );
-
-    const confidenceLevel = this.toConfidenceLevel(result.confidence ?? 0.5);
-    return this.buildOutput(result, "success", confidenceLevel, startTime);
-  }
-}
-```
+See `.ona/skills/agent-onboarding/SKILL.md` for the full scaffold, validation checklist, and example implementation.
 
 ## Workflows & Messaging
 
 - DAG definitions: `packages/backend/src/data/lifecycleWorkflows.ts`
-- Orchestration: six runtime services in `packages/backend/src/runtime/` (DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine)
+- Orchestration: six runtime services in `packages/backend/src/runtime/`
 - Inter-agent communication: `MessageBus` (CloudEvents) — propagate `trace_id` across async boundaries
 - Workflows are DAGs; cycles are forbidden
 - Saga pattern: every state mutation needs a compensation function
@@ -138,7 +97,7 @@ export class MyAgent extends BaseAgent {
 
 Before treating two same-named files as duplicates, read both. If they serve different concerns, document the distinction in each file's header and in `debt.md` — do not consolidate. See ADR-0017.
 
-When a service file exceeds ~1000 lines, extract cohesive sub-concerns into separate files. The original file re-exports everything so callers need no import changes. Extraction criterion is cohesion, not line count alone.
+When a service file exceeds ~1000 lines, extract cohesive sub-concerns into separate files. The original file re-exports everything so callers need no import changes.
 
 Canonical locations for extracted modules:
 - Tenant tier limits and feature flags → `packages/backend/src/services/tenant/TenantLimits.ts`
@@ -149,133 +108,86 @@ Canonical locations for extracted modules:
 ## Dev Commands
 
 ```bash
-# Full stack (via Gitpod automations — starts postgres, redis, nats, backend, frontend)
+# Full stack
 gitpod automations service start backend
 gitpod automations service start frontend
 
 # Individual services
-pnpm run dev:frontend    # Frontend only (Vite, port 5173)
-pnpm run dev:backend     # Backend only (Express, port 3001)
+pnpm run dev:frontend    # Vite, port 5173
+pnpm run dev:backend     # Express, port 3001
 
 # Database
-pnpm run db:migrate      # Run database migrations (alias for db:apply-migrations)
+pnpm run db:migrate
 
 # Quality
-pnpm run lint            # ESLint across all packages (turbo run lint)
-pnpm run check           # TypeScript typecheck (turbo run typecheck)
+pnpm run lint
+pnpm run check           # TypeScript typecheck
 pnpm test                # Vitest (sequential, fileParallelism: false)
 pnpm run test:rls        # RLS policy validation
-bash scripts/test-agent-security.sh  # Agent security suite
+bash scripts/test-agent-security.sh
 
 # Diagnostics
-node scripts/dx/doctor.js  # Diagnose dev environment issues
+node scripts/dx/doctor.js
 ```
 
 ## Dev Environment Notes
 
-**Backend port:** The Express server binds to `API_PORT` (default **3001**), not 8000. Defined in `packages/backend/src/config/settings.ts`. Health check: `http://localhost:3001/health`. Do not assume port 8000 in ready checks, proxy configs, or test setup.
+**Backend port:** Express binds to `API_PORT` (default **3001**). Health check: `http://localhost:3001/health`. Do not assume port 8000.
 
-**`SUPABASE_KEY` env var:** Three server-side files (`packages/core-services/src/FeatureFlags.ts`, `packages/backend/src/services/post-v1/PromptVersionControl.ts`, `packages/backend/src/services/realtime/MessageQueue.ts`) read `process.env.SUPABASE_KEY` rather than `SUPABASE_ANON_KEY`. Both must be set to the same anon key value in local env files and `containerEnv`. If the backend crashes at startup with `supabaseKey is required`, `SUPABASE_KEY` is missing.
+**`SUPABASE_KEY` env var:** Three files read `process.env.SUPABASE_KEY` rather than `SUPABASE_ANON_KEY` — set both to the same anon key value. If the backend crashes with `supabaseKey is required`, this var is missing.
 
-**Required env vars for local dev** (set in `ops/env/.env.backend.local`; `.devcontainer/devcontainer.json` `containerEnv` holds safe placeholder defaults only — real credentials must not be committed there):
-- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_KEY` (anon key alias), `SUPABASE_SERVICE_ROLE_KEY`
+**Required env vars** (set in `ops/env/.env.backend.local`):
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 - `DATABASE_URL`
-- `TCT_SECRET` — token-signing secret; backend startup fails fast if missing
-- `WEB_SCRAPER_ENCRYPTION_KEY` — 32-byte hex key; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- `TCT_SECRET` — backend startup fails fast if missing
+- `WEB_SCRAPER_ENCRYPTION_KEY` — 32-byte hex; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 
 ## Testing Conventions
 
 - Framework: Vitest with jsdom, globals enabled.
-- Tests co-located: `*.test.ts` / `*.spec.ts` next to source files, or in `__tests__/` directories.
+- Tests co-located: `*.test.ts` / `*.spec.ts` next to source, or in `__tests__/` directories.
 - Sequential execution (`fileParallelism: false`).
 - Mock `LLMGateway` and `MemorySystem` in agent tests.
-- RLS tests validate tenant isolation at the database level.
 
 ## Safety & Compliance
 
 - PII detection: block SSN, CC, email lists, phone, passport, DOB, healthcare IDs. Never log PII.
 - Dangerous command blocking: DROP/TRUNCATE without WHERE, `rm -rf`, `sudo`, `chmod 777`, `eval`, `kill -9`.
-- Network allowlist (production): internal services, LLM providers, monitoring, CDN only. GitHub, pastebin, ngrok, serveo blocked.
 - Cost limits per session: dev $5, staging $10, prod $25 (warn at 80%).
-- Execution time limits: dev 60s, staging 45s, prod 30s.
-- Recursion depth: dev 10, staging 7, prod 5.
 - Audit trail required for create/update/delete/export/approve/reject/grant/revoke actions.
 
 Full policy-as-code: `.windsurf/rules/global.md`
 
-## Key File Pointers
+## Key Files
 
 | File | Purpose |
 |---|---|
-| `packages/shared/src/domain/` | **Canonical domain model** — 9 first-class domain objects as Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity). All agent reasoning must operate on these types. |
-| `packages/backend/src/runtime/decision-router/` | DecisionRouter — selects agent/action based on structured domain state. |
+| `packages/shared/src/domain/` | Canonical domain model — 9 Zod schemas (Account, Opportunity, Stakeholder, ValueHypothesis, Assumption, Evidence, BusinessCase, RealizationPlan, ExpansionOpportunity) |
 | `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class |
-| `packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts` | Hypothesis generation (OPPORTUNITY phase) |
-| `packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts` | KPI target generation (DRAFTING phase) |
-| `packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts` | Financial model, ROI, sensitivity analysis |
-| `packages/backend/src/lib/agent-fabric/agents/IntegrityAgent.ts` | Claim validation, veto decisions (VALIDATING phase) |
-| `packages/backend/src/lib/agent-fabric/agents/RealizationAgent.ts` | Implementation plans, milestones (REALIZATION phase) |
-| `packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts` | Growth opportunities, expansion strategies (EXPANSION phase) |
-| `packages/backend/src/lib/agent-fabric/agents/NarrativeAgent.ts` | Business narrative generation (COMPOSING phase) |
-| `packages/backend/src/lib/agent-fabric/agents/ComplianceAuditorAgent.ts` | Control evidence review, compliance scoring (INTEGRITY phase, audit sub-role) |
-| `packages/backend/src/lib/agent-fabric/AgentFactory.ts` | Agent instantiation with dependency injection |
-| `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
-| `packages/backend/src/lib/agents/` | Agent core library (ValueCaseSaga, EvidenceTiering, ConfidenceScorer, HypothesisLoop, RedTeamAgent) |
-| `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
-| `packages/backend/src/runtime/` | Six runtime services that replaced UnifiedAgentOrchestrator: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine |
-| `packages/backend/src/runtime/recommendation-engine/` | RecommendationEngine — subscribes to domain events (opportunity.updated, hypothesis.validated, evidence.attached, realization.milestone_reached) and pushes next-best-action recommendations to UI clients via RealtimeBroadcastService |
-| `packages/backend/src/types/orchestration.ts` | Canonical orchestration types (AgentResponse, ExecutionEnvelope, StreamingUpdate, etc.) |
-| `packages/backend/src/analytics/ValueLoopAnalytics.ts` | Value loop learning: recommendation acceptance, assumption corrections, evidence persuasiveness |
-| `packages/backend/src/observability/valueLoopMetrics.ts` | Prometheus metrics for value loop stage transitions, agent invocations, hypothesis confidence |
-| `docs/observability/data-asset-inventory.md` | T1/T2/T3 data asset inventory — tables, queues, owners, freshness SLAs, downstream dependency map |
-| `packages/backend/src/services/agents/AgentKillSwitchService.ts` | Per-agent runtime kill switches (Redis-backed). Admin API at `/api/admin/agents`. Check runs in `BaseAgent.secureInvoke` before the circuit breaker. Fails open when Redis is unavailable. |
+| `packages/backend/src/runtime/` | Six runtime services: DecisionRouter, ExecutionRuntime, PolicyEngine, ContextStore, ArtifactComposer, RecommendationEngine |
+| `packages/backend/src/types/express.d.ts` | Express `Request` augmentation — extend here, never cast |
+| `packages/backend/src/services/tenant/TenantLimits.ts` | Canonical tier limits and feature flags |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
-| `packages/backend/src/services/tenant/TenantLimits.ts` | Canonical tenant tier limits (`TIER_LIMITS`, `TIER_FEATURES`) and helper functions (`getTenantLimits`, `hasFeature`, `isWithinLimits`). Re-exported from `TenantProvisioning.ts`. |
-| `packages/backend/src/services/sdui/CanvasActionApplier.ts` | Pure functions for applying `AtomicUIAction`s to an `SDUIPageDefinition`. Extracted from `CanvasSchemaService`. |
-| `packages/backend/src/types/express.d.ts` | Express `Request` type augmentation — all backend-specific request properties. Extend here instead of casting `req as any`. |
+| `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
 | `.windsurf/rules/global.md` | Safety and compliance policy |
 | `.github/CODEOWNERS` | Review routing by team |
 
+Full file map: `.ona/context/traceability.md`
+
 ## Context Engineering Layer
 
-`.ona/context/` contains structured context files that give agents the right information at the right time. They complement this file — AGENTS.md is the rule set, `.ona/context/` is the knowledge base.
+`.ona/context/` gives agents the right knowledge at the right time. Read before acting:
 
-| File | What it contains | Read when |
-|---|---|---|
-| `.ona/context/decisions.md` | ADR digest + undocumented architectural decisions | Before changing system boundaries, data flows, or agent configuration |
-| `.ona/context/debt.md` | Prioritised technical debt with file locations and issue links | Before sprint planning; before touching any file with known stubs |
-| `.ona/context/user-stories.md` | Core user stories with acceptance criteria and implementation status | Before implementing a feature or writing tests for a lifecycle stage |
-| `.ona/context/traceability.md` | Full-stack map: agent → DB table → repository → API endpoint → frontend hook → UI component | Before touching any lifecycle stage (Hypothesis, Model, Integrity, Narrative, Realization, Expansion) |
-| `.ona/context/memory.md` | Lessons learned, anti-patterns, migration history, pre-PR checklist | Before submitting a PR that touches agent code, DB queries, or UI components |
-| `.ona/context/tools.md` | Both tool systems (MCP + BFA Semantic), interfaces, registration pattern, current inventory | Before adding a new tool or calling an existing one from agent code |
+| File | Read when |
+|---|---|
+| `decisions.md` | Before changing system boundaries, data flows, or agent config |
+| `debt.md` | Before sprint planning or touching files with known stubs |
+| `user-stories.md` | Before implementing a feature or writing lifecycle tests |
+| `traceability.md` | Before touching any lifecycle stage |
+| `memory.md` | Before submitting a PR touching agent code, DB queries, or UI |
+| `tools.md` | Before adding or calling a tool |
 
-### Context file staleness — verify before acting
+**Context file staleness:** `debt.md` is manually maintained — read the referenced file before treating a debt item as open. Re-measure `any` counts with grep before writing targets; do not trust table values as current.
 
-`debt.md` and the `any` dashboard in `docs/debt/ts-any-dashboard.md` are manually maintained and can lag behind the codebase. Before scheduling work based on either file:
-
-1. **Debt entries:** Read the referenced file before treating a debt item as open. If the code no longer matches the description (e.g. methods are implemented, TODOs are gone), mark the item resolved in `debt.md` rather than scheduling it.
-2. **`any` counts:** Re-measure with grep before writing sprint targets or claiming a reduction. Do not trust the table values as current.
-   ```bash
-   grep -rnE ":[[:space:]]*\<any\>|as[[:space:]]+\<any\>|<any>" <path> --include="*.ts" --include="*.tsx" | wc -l
-     | grep -v "__tests__\|\.test\.\|\.spec\." | wc -l
-   ```
-
-### When to update these files
-
-- **`decisions.md`** — after a new ADR is accepted, or when an undocumented decision is made that future agents need to know about.
-- **`debt.md`** — when debt is resolved (mark it in the Resolved section) or newly discovered. Link GitHub issues.
-- **`user-stories.md`** — when a story's implementation status changes (a stage moves from ❌ to ✅).
-- **`traceability.md`** — when a new DB table, repository, endpoint, hook, or UI component is added for a lifecycle stage.
-- **`memory.md`** — after solving a non-obvious problem, removing a recurring anti-pattern, or completing a significant migration.
-- **`tools.md`** — when a new tool is registered or an existing tool's interface changes.
-
-### Relationship to other context sources
-
-These files do not replace existing sources — they index and summarise them for fast agent orientation:
-
-- **`AGENTS.md`** (this file) — non-negotiable rules and coding conventions. Agents must follow these regardless of context.
-- **`.windsurf/rules/`** — glob-triggered rules for Windsurf/Cascade. Enforced automatically on file match.
-- **`.windsurf/workflows/`** — step-by-step task workflows (add-feature, database-migration, debug-issue, etc.).
-- **`docs/engineering/adr/`** — full ADR records. `decisions.md` is a digest; go here for complete rationale.
-- **`docs/architecture/`** — detailed architecture documents. `traceability.md` is a navigation aid into these.
+Update context files when their domain changes. See `.ona/context/README.md` for the update protocol.
