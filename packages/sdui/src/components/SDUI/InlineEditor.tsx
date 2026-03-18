@@ -102,6 +102,44 @@ export function InlineEditor({
           ref={editorRef}
           contentEditable
           onInput={(e) => setContent(e.currentTarget.textContent || "")}
+          onPaste={(e) => {
+            e.preventDefault();
+            const text = e.clipboardData.getData("text/plain");
+            if (!text) {
+              return;
+            }
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+              return;
+            }
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
+            const newContent = e.currentTarget.textContent || "";
+            setContent(newContent);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const dt = e.dataTransfer;
+            const text =
+              dt.getData("text/plain") ||
+              dt.getData("text") ||
+              "";
+            if (!text) {
+              return;
+            }
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+              return;
+            }
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
+            const newContent = e.currentTarget.textContent || "";
+            setContent(newContent);
+          }}
           className="min-h-[100px] whitespace-pre-wrap outline-none"
           suppressContentEditableWarning
         />
