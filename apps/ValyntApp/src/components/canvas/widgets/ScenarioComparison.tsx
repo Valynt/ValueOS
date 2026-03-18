@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.2
  */
 
+import { Clock, DollarSign, PieChart, TrendingUp } from "lucide-react";
 import React from "react";
-import { TrendingUp, DollarSign, Clock, PieChart } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface Scenario {

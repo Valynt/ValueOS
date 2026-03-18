@@ -1,10 +1,10 @@
 import * as matchers from "@testing-library/jest-dom/matchers";
-import { expect as vitestExpect } from "vitest";
-vitestExpect.extend(matchers);
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, it, vi } from "vitest";
+import { beforeEach, describe, it, vi, expect as vitestExpect } from "vitest";
+
+vitestExpect.extend(matchers);
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before component import so vi.mock hoisting works

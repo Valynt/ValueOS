@@ -1,3 +1,5 @@
+import type { Span as SpanType } from '@opentelemetry/api';
+
 import { logger } from "../lib/logger";
 /**
  * OpenTelemetry Configuration
@@ -13,7 +15,6 @@ import { logger } from "../lib/logger";
 const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 // Browser imports - use dynamic imports to avoid bundling issues
-import type { Span as SpanType } from '@opentelemetry/api';
 let trace: Record<string, unknown>, context: Record<string, unknown>, SpanStatusCode: Record<string, number>, Span: unknown;
 
 async function initializeTelemetryImports() {

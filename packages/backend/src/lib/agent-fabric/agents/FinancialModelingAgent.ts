@@ -165,6 +165,11 @@ export class FinancialModelingAgent extends BaseAgent {
     // Step 4: Run projections through economic kernel for precise calculations
     const computedModels = this.computeFinancials(llmOutput);
 
+    // Step 4b: Build three scenarios (conservative/base/upside) with EVF decomposition
+    const dealContext = context.user_inputs?.deal_context as Record<string, unknown> | undefined;
+    const scenarios = this.buildScenarios(llmOutput.projections, dealContext);
+    const scenarioFinancials = this.computeScenarioFinancials(scenarios, llmOutput.projections);
+
     // Step 5: Store models in memory for TargetAgent and IntegrityAgent
     await this.storeModelsInMemory(context, computedModels, llmOutput);
 
@@ -172,6 +177,9 @@ export class FinancialModelingAgent extends BaseAgent {
     const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
     if (valueCaseId) {
       await this.persistSnapshot(valueCaseId, context.organization_id, computedModels, llmOutput);
+      // Persist scenarios to scenarios table
+      const baseAssumptions = scenarios.find(s => s.scenarioType === 'base')?.assumptions || {};
+      await this.persistScenarios(valueCaseId, context.organization_id, scenarioFinancials, baseAssumptions);
     }
 
     // Step 6: Build SDUI sections
@@ -285,7 +293,7 @@ export class FinancialModelingAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         FinancialModelingOutputSchema,
-         
+
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
@@ -304,6 +312,247 @@ export class FinancialModelingAgent extends BaseAgent {
       });
       return null;
     }
+  }
+
+  /**
+   * Build three scenarios (conservative, base, upside) with different assumption percentiles.
+   * Each scenario uses p25/p50/p75 from benchmark ranges.
+   */
+  private buildScenarios(
+    baseProjections: FinancialModelingOutput['projections'],
+    dealContext?: Record<string, unknown>,
+  ): Array<{
+    scenarioType: 'conservative' | 'base' | 'upside';
+    assumptions: Record<string, number>;
+    evfDecomposition: {
+      revenueUplift: number;
+      costReduction: number;
+      riskMitigation: number;
+      efficiencyGain: number;
+    };
+  }> {
+    // Extract benchmark ranges from deal context if available
+    const benchmarks = dealContext?.benchmarks as Array<{ metric: string; p25: number; p50: number; p75: number }> || [];
+
+    // Category mapping for EVF decomposition
+    const categoryToEVF = (category: string): keyof typeof baseEVF => {
+      const map: Record<string, keyof typeof baseEVF> = {
+        'revenue_growth': 'revenueUplift',
+        'cost_reduction': 'costReduction',
+        'risk_mitigation': 'riskMitigation',
+        'efficiency': 'efficiencyGain',
+        'productivity': 'efficiencyGain',
+      };
+      return map[category] || 'efficiencyGain';
+    };
+
+    // Calculate base EVF decomposition
+    const baseEVF = {
+      revenueUplift: 0,
+      costReduction: 0,
+      riskMitigation: 0,
+      efficiencyGain: 0,
+    };
+
+    for (const proj of baseProjections) {
+      const evfKey = categoryToEVF(proj.category);
+      // Approximate EVF contribution from total benefit
+      baseEVF[evfKey] += proj.total_benefit * 0.25; // Simplified allocation
+    }
+
+    // Build three scenarios with different confidence levels
+    const scenarios = [
+      {
+        scenarioType: 'conservative' as const,
+        assumptions: this.buildAssumptionSet(baseProjections, benchmarks, 0.25),
+        evfDecomposition: {
+          revenueUplift: baseEVF.revenueUplift * 0.7,
+          costReduction: baseEVF.costReduction * 0.8,
+          riskMitigation: baseEVF.riskMitigation * 0.6,
+          efficiencyGain: baseEVF.efficiencyGain * 0.75,
+        },
+      },
+      {
+        scenarioType: 'base' as const,
+        assumptions: this.buildAssumptionSet(baseProjections, benchmarks, 0.5),
+        evfDecomposition: baseEVF,
+      },
+      {
+        scenarioType: 'upside' as const,
+        assumptions: this.buildAssumptionSet(baseProjections, benchmarks, 0.75),
+        evfDecomposition: {
+          revenueUplift: baseEVF.revenueUplift * 1.3,
+          costReduction: baseEVF.costReduction * 1.2,
+          riskMitigation: baseEVF.riskMitigation * 1.4,
+          efficiencyGain: baseEVF.efficiencyGain * 1.25,
+        },
+      },
+    ];
+
+    return scenarios;
+  }
+
+  /**
+   * Build assumption set at a given percentile (p25/p50/p75).
+   */
+  private buildAssumptionSet(
+    projections: FinancialModelingOutput['projections'],
+    benchmarks: Array<{ metric: string; p25: number; p50: number; p75: number }>,
+    percentile: number,
+  ): Record<string, number> {
+    const assumptions: Record<string, number> = {};
+
+    for (const proj of projections) {
+      const benchmark = benchmarks.find(b =>
+        proj.hypothesis_description.toLowerCase().includes(b.metric.toLowerCase())
+      );
+
+      if (benchmark) {
+        // Use benchmark percentile
+        const value = percentile <= 0.25 ? benchmark.p25
+          : percentile <= 0.5 ? benchmark.p50
+          : benchmark.p75;
+        assumptions[proj.hypothesis_id] = value;
+      } else {
+        // Scale from base projection
+        const baseValue = proj.total_benefit;
+        const multiplier = percentile <= 0.25 ? 0.7
+          : percentile <= 0.5 ? 1.0
+          : 1.3;
+        assumptions[proj.hypothesis_id] = baseValue * multiplier;
+      }
+    }
+
+    return assumptions;
+  }
+
+  /**
+   * Compute financials for each scenario using economic kernel.
+   */
+  private computeScenarioFinancials(
+    scenarios: Array<{
+      scenarioType: 'conservative' | 'base' | 'upside';
+      assumptions: Record<string, number>;
+      evfDecomposition: {
+        revenueUplift: number;
+        costReduction: number;
+        riskMitigation: number;
+        efficiencyGain: number;
+      };
+    }>,
+    baseProjections: FinancialModelingOutput['projections'],
+  ): Array<{
+    scenarioType: 'conservative' | 'base' | 'upside';
+    roi: number;
+    npv: number;
+    paybackMonths: number | null;
+    evfDecomposition: {
+      revenueUplift: number;
+      costReduction: number;
+      riskMitigation: number;
+      efficiencyGain: number;
+    };
+  }> {
+    return scenarios.map(scenario => {
+      // Compute scaled cash flows based on scenario assumptions
+      const scaledFlows = baseProjections.map(proj => {
+        const scenarioValue = scenario.assumptions[proj.hypothesis_id] || proj.total_benefit;
+        const scaleFactor = scenarioValue / proj.total_benefit;
+
+        // Scale all cash flows except initial investment (period 0)
+        return proj.cash_flows.map((flow, idx) =>
+          idx === 0 ? flow : flow * scaleFactor
+        );
+      });
+
+      // Aggregate cash flows across all projections
+      const aggregatedFlows: number[] = [];
+      const maxPeriods = Math.max(...scaledFlows.map(f => f.length));
+
+      for (let i = 0; i < maxPeriods; i++) {
+        const periodSum = scaledFlows.reduce((sum, flows) =>
+          sum + (flows[i] || 0), 0
+        );
+        aggregatedFlows.push(periodSum);
+      }
+
+      // Compute using economic kernel
+      const flows = toDecimalArray(aggregatedFlows);
+      const rate = new Decimal(0.1); // 10% discount rate
+
+      const npv = calculateNPV(flows, rate);
+      const paybackResult = calculatePayback(flows);
+
+      // ROI calculation
+      const totalBenefits = aggregatedFlows
+        .filter((_, idx) => idx > 0)
+        .reduce((a, b) => a + b, 0);
+      const totalInvestment = Math.abs(aggregatedFlows[0] || 0);
+      const roi = totalInvestment > 0
+        ? (totalBenefits - totalInvestment) / totalInvestment
+        : 0;
+
+      return {
+        scenarioType: scenario.scenarioType,
+        roi: Number(roundTo(new Decimal(roi), 4)),
+        npv: Number(roundTo(npv, 2)),
+        paybackMonths: paybackResult.period !== null
+          ? Math.round(paybackResult.period * 12)
+          : null,
+        evfDecomposition: scenario.evfDecomposition,
+      };
+    });
+  }
+
+  /**
+   * Persist scenarios to database.
+   */
+  private async persistScenarios(
+    caseId: string,
+    organizationId: string,
+    scenarios: Array<{
+      scenarioType: 'conservative' | 'base' | 'upside';
+      roi: number;
+      npv: number;
+      paybackMonths: number | null;
+      evfDecomposition: {
+        revenueUplift: number;
+        costReduction: number;
+        riskMitigation: number;
+        efficiencyGain: number;
+      };
+    }>,
+    assumptionsSnapshot: Record<string, number>,
+  ): Promise<void> {
+    const supabase = createServerSupabaseClient();
+
+    const records = scenarios.map(scenario => ({
+      id: `scn_${Date.now()}_${scenario.scenarioType}`,
+      organization_id: organizationId,
+      case_id: caseId,
+      scenario_type: scenario.scenarioType,
+      assumptions_snapshot_json: assumptionsSnapshot,
+      roi: scenario.roi,
+      npv: scenario.npv,
+      payback_months: scenario.paybackMonths,
+      evf_decomposition_json: scenario.evfDecomposition,
+      created_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.from('scenarios').insert(records);
+
+    if (error) {
+      logger.error('Failed to persist scenarios', {
+        caseId,
+        error: error.message,
+      });
+      throw new Error(`Failed to persist scenarios: ${error.message}`);
+    }
+
+    logger.info('Persisted scenarios to database', {
+      caseId,
+      scenarioCount: records.length,
+    });
   }
 
   // -------------------------------------------------------------------------

@@ -1,0 +1,121 @@
+{{!--
+  Customer Narrative Template
+  Task: 2.3
+  Purpose: Generate industry-tailored, buyer-persona-appropriate value narrative
+--}}
+You are a value engineering consultant crafting a customer-facing value narrative tailored to the buyer's industry and persona.
+
+## Context
+Organization: {{organization.name}}
+Industry: {{organization.industry}}
+Company Size: {{organization.size}}
+Value Case: {{valueCase.title}}
+Case ID: {{valueCase.id}}
+
+## Buyer Context
+{{#if buyer}}
+Persona: {{buyer.persona}} ({{buyer.role}})
+Pain Points:
+{{#each buyer.painPoints}}
+- {{this}}
+{{/each}}
+Priorities:
+{{#each buyer.priorities}}
+- {{this}}
+{{/each}}
+{{/if}}
+
+## Industry Context
+{{#if industryContext}}
+Industry Trends:
+{{#each industryContext.trends}}
+- {{this}}
+{{/each}}
+Common Challenges in {{organization.industry}}:
+{{#each industryContext.challenges}}
+- {{this}}
+{{/each}}
+{{/if}}
+
+## Value Drivers (Industry-Translated)
+{{#each valueModel.drivers}}
+- {{name}}: {{impactRange.low}} to {{impactRange.high}} {{unit}}
+  Industry framing: {{industryFraming}}
+  Proof: {{evidence}}
+{{/each}}
+
+## Benchmark Comparisons
+{{#each benchmarks}}
+- {{metricName}}: Top performers achieve {{topQuartile}}, median is {{median}}
+  Your opportunity: {{comparisonSummary}}
+  Source: {{source}}
+{{/each}}
+
+## Proof Points
+{{#each proofPoints}}
+- {{headline}}: {{description}}
+  Evidence: {{evidence}}
+  Confidence: {{confidence}}
+{{/each}}
+
+## Task
+Compose a compelling customer-facing value narrative (400-600 words) that:
+1. Opens with an industry-aware hook that acknowledges the buyer's context
+2. Uses language appropriate for the buyer persona (avoid jargon mismatches)
+3. Translates technical value drivers into business outcomes the buyer cares about
+4. Includes relevant benchmark comparisons for competitive context
+5. Provides concrete proof points with evidence references
+6. Closes with a clear next step that's appropriate for this stage of engagement
+
+The tone should be consultative, credible, and aligned with the buyer's sophistication level.
+
+Return valid JSON matching this schema:
+{
+  "title": "Value Narrative: {{valueCase.title}}",
+  "industry_framing": "string (industry-specific opening hook, 50-75 words)",
+  "business_outcomes": [
+    {
+      "outcome": "string (business outcome name)",
+      "description": "string (translated for buyer context)",
+      "value_range": "string",
+      "confidence": "number (0-1)",
+      "claim_id": "string"
+    }
+  ],
+  "benchmark_context": [
+    {
+      "metric": "string",
+      "comparison": "string (how they compare to peers)",
+      "opportunity": "string (what this means for them)",
+      "benchmark_id": "string"
+    }
+  ],
+  "proof_points": [
+    {
+      "headline": "string",
+      "details": "string",
+      "evidence_ref": "string"
+    }
+  ],
+  "risk_mitigations": [
+    {
+      "concern": "string (buyer concern)",
+      "mitigation": "string (how the solution addresses it)"
+    }
+  ],
+  "implementation_highlights": {
+    "timeline": "string",
+    "key_milestones": ["string"],
+    "quick_wins": ["string"]
+  },
+  "next_steps": [
+    {
+      "action": "string",
+      "owner": "string",
+      "timeframe": "string"
+    }
+  ],
+  "provenance_refs": ["array of claim IDs used"]
+}
+
+Every value claim must have a provenance reference in claim_id or evidence_ref fields.

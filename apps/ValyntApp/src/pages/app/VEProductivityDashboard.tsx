@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import {
   Bar,
@@ -104,5 +105,3 @@ export const VEProductivityDashboard: React.FC = () => {
     </div>
   );
 };
-
-import { Sparkles } from "lucide-react";

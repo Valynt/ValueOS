@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { supabase } from '@shared/lib/supabase';
+import { getSupabaseClient, supabase } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -66,7 +66,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
 
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
-    
+
     if (!validation.is_valid || !validation.value_case_id) {
       res.status(401).json({
         error: 'Unauthorized',
@@ -78,7 +78,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     const valueCaseId = validation.value_case_id;
 
     // Get value case details
-    const { data: valueCase, error: vcError } = await supabase
+    const { data: valueCase, error: vcError } = await getSupabaseClient()
       .from('value_cases')
       .select('id, company_name, custom_fields')
       .eq('id', valueCaseId)
@@ -105,7 +105,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     }
 
     // Build benchmark query
-    let benchmarkQuery = supabase
+    let benchmarkQuery = getSupabaseClient()
       .from('benchmarks')
       .select('*')
       .eq('industry', valueCaseIndustry)
@@ -128,7 +128,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     }
 
     // Get current metrics for comparison
-    const { data: metrics, error: metricsError } = await supabase
+    const { data: metrics, error: metricsError } = await getSupabaseClient()
       .from('realization_metrics')
       .select('metric_name, actual_value')
       .eq('value_case_id', valueCaseId)
@@ -146,7 +146,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     // Build comparisons
     const comparisons: BenchmarkComparison[] = (benchmarks || []).map(benchmark => {
       const currentValue = metricMap.get(benchmark.kpi_name) || null;
-      
+
       return {
         kpi_name: benchmark.kpi_name,
         current_value: currentValue,
@@ -222,7 +222,7 @@ function ratePerformance(
   benchmark: BenchmarkData
 ): 'excellent' | 'good' | 'average' | 'below_average' | 'poor' {
   const percentile = calculatePercentile(value, benchmark);
-  
+
   if (percentile >= 90) return 'excellent';
   if (percentile >= 75) return 'good';
   if (percentile >= 50) return 'average';

@@ -34,6 +34,11 @@ import {
   type EvidenceItem,
 } from '../../agents/core/EvidenceTiering.js';
 import { logger } from '../../logger.js';
+import {
+  claimVerificationService,
+  type VerificationResult,
+  type Claim,
+} from '../../../services/ground-truth/ClaimVerificationService.js';
 
 import { BaseAgent } from './BaseAgent.js';
 
@@ -418,7 +423,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         IntegrityAnalysisSchema,
-         
+
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },
@@ -931,6 +936,60 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     }
 
     return sections;
+  }
+
+  // -------------------------------------------------------------------------
+  // Ground Truth Verification
+  // -------------------------------------------------------------------------
+
+  /**
+   * Verify claims against authoritative ground truth sources (SEC, benchmarks).
+   * Wires ClaimVerificationService into the validation pipeline.
+   */
+  private async verifyClaimsWithGroundTruth(
+    claims: IntegrityClaim[],
+    context: LifecycleContext,
+  ): Promise<Map<string, VerificationResult>> {
+    const verificationResults = new Map<string, VerificationResult>();
+
+    // Extract CIK and industry from context if available
+    const cik = context.user_inputs?.cik as string | undefined;
+    const industry = context.user_inputs?.industry as string | undefined;
+    const companySize = context.user_inputs?.company_size as Claim['companySize'] | undefined;
+
+    for (const claim of claims) {
+      // Only verify claims with numeric values
+      const claimValue = claim.baselineValue ?? claim.targetValue ?? claim.impactHigh;
+      if (claimValue === undefined) continue;
+
+      // Build claim for verification
+      const verificationClaim: Claim = {
+        metric: claim.text.split('"')[1] || 'unknown', // Extract KPI name from claim text
+        value: claimValue,
+        cik,
+        industry,
+        companySize,
+      };
+
+      try {
+        const result = await claimVerificationService.verifyClaim(verificationClaim);
+        verificationResults.set(claim.id, result);
+
+        logger.debug('Ground truth verification completed', {
+          claim_id: claim.id,
+          status: result.status,
+          confidence: result.confidence,
+          tier: result.sources[0]?.tier,
+        });
+      } catch (err) {
+        logger.warn('Ground truth verification failed for claim', {
+          claim_id: claim.id,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    return verificationResults;
   }
 
   // -------------------------------------------------------------------------

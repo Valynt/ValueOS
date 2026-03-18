@@ -1,10 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { deriveKpis } from '../../domain/value/adapters/kpiTarget.derived';
 import { getFinancialModelForCase, listValueDriversForCase } from '../../domain/value/db/rows';
 
 export class KpiTargetService {
-  constructor(private supabase: ReturnType<typeof createClient>) {}
+  constructor(private supabase: SupabaseClient) {}
 
   async deriveForValueCase(tenant_id: string, value_case_id: string) {
     const model = await getFinancialModelForCase(this.supabase, tenant_id, value_case_id);

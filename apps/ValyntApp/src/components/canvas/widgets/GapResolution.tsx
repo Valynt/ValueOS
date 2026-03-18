@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.1
  */
 
+import { AlertCircle, CheckCircle2, Circle, Send } from "lucide-react";
 import React, { useState } from "react";
-import { CheckCircle2, Circle, AlertCircle, Send } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface GapItem {

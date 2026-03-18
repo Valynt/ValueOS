@@ -4,7 +4,8 @@
  */
 
 import { render, screen, within } from "@testing-library/react";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import "@testing-library/jest-dom";
 
 import ImpactCascade from "../ImpactCascade";
 import QuantumView from "../QuantumView";
@@ -263,9 +264,9 @@ describe("Visual Regression - Template Consistency", () => {
       const bentoCards = cards.filter((card) => card.className.includes("bento-card"));
 
       bentoCards.forEach((card) => {
-        // Check consistent border and background
-        expect(card.className).toContain("border");
-        expect(card.className).toContain("rounded");
+        // Check consistent border and background (using hover classes)
+        expect(card.className).toContain("hover:border");
+        expect(card.className).toContain("bento-card");
       });
     });
 

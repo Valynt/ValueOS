@@ -1,6 +1,6 @@
 /**
  * Queue API Endpoints
- * 
+ *
  * Endpoints for async LLM job management
  */
 
@@ -35,7 +35,7 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
 
 /**
  * POST /api/queue/llm
- * 
+ *
  * Submit LLM job to queue
  */
 router.post(
@@ -47,7 +47,7 @@ router.post(
   async (req: Request, res: Response) => {
   try {
     const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } = req.body;
-    
+
     // Validate request
     if (!type) {
       return res.status(400).json({
@@ -55,18 +55,18 @@ router.post(
         message: 'Type is required'
       });
     }
-    
+
     if (!promptKey && !prompt) {
       return res.status(400).json({
         error: 'Invalid request',
         message: 'Either promptKey or prompt is required'
       });
     }
-    
+
     // Get user info
     const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
     const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
-    
+
     const promptSanitization = prompt ? sanitizeAgentInput(prompt) : null;
     const variablesSanitization = promptVariables ? sanitizeAgentInput(promptVariables) : null;
 
@@ -92,14 +92,14 @@ router.post(
       userId,
       sessionId,
       promptKey,
-      promptVariables: sanitizedPromptVariables,
+      promptVariables: sanitizedPromptVariables as Record<string, any>,
       prompt: sanitizedPrompt,
       model,
       maxTokens,
       temperature,
       metadata
     });
-    
+
     logger.info(
       'LLM job submitted',
       withRequestContext(req, res, {
@@ -108,7 +108,7 @@ router.post(
         userId,
       })
     );
-    
+
     return res.status(202).json({
       success: true,
       data: {
@@ -119,7 +119,7 @@ router.post(
     });
   } catch (error) {
     logger.error('Failed to submit LLM job', error as Error, withRequestContext(req, res));
-    
+
     return res.status(500).json({
       error: 'Failed to submit job',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -130,22 +130,22 @@ router.post(
 
 /**
  * GET /api/queue/llm/:jobId
- * 
+ *
  * Get job status
  */
 router.get('/llm/:jobId', async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
-    
+
     const status = await llmQueue.getJobStatus(jobId);
-    
+
     if (status.status === 'not_found') {
       return res.status(404).json({
         error: 'Job not found',
         message: `Job ${jobId} not found`
       });
     }
-    
+
     return res.json({
       success: true,
       data: {
@@ -155,7 +155,7 @@ router.get('/llm/:jobId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Failed to get job status', error as Error, withRequestContext(req, res));
-    
+
     return res.status(500).json({
       error: 'Failed to get job status',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -165,29 +165,29 @@ router.get('/llm/:jobId', async (req: Request, res: Response) => {
 
 /**
  * GET /api/queue/llm/:jobId/result
- * 
+ *
  * Get job result
  */
 router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
-    
+
     const result = await llmQueue.getJobResult(jobId);
-    
+
     if (!result) {
       return res.status(404).json({
         error: 'Result not found',
         message: `Result for job ${jobId} not found`
       });
     }
-    
+
     return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     logger.error('Failed to get job result', error as Error, withRequestContext(req, res));
-    
+
     return res.status(500).json({
       error: 'Failed to get job result',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -197,7 +197,7 @@ router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/queue/llm/:jobId
- * 
+ *
  * Cancel job
  */
 router.delete(
@@ -209,9 +209,9 @@ router.delete(
   async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
-    
+
     await llmQueue.cancelJob(jobId);
-    
+
     logger.info(
       'LLM job cancelled',
       withRequestContext(req, res, {
@@ -219,14 +219,14 @@ router.delete(
         userId: (req as AuthenticatedRequest).user?.id,
       })
     );
-    
+
     return res.json({
       success: true,
       message: 'Job cancelled'
     });
   } catch (error) {
     logger.error('Failed to cancel job', error as Error, withRequestContext(req, res));
-    
+
     return res.status(500).json({
       error: 'Failed to cancel job',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -237,20 +237,20 @@ router.delete(
 
 /**
  * GET /api/queue/metrics
- * 
+ *
  * Get queue metrics
  */
 router.get('/metrics', async (req: Request, res: Response) => {
   try {
     const metrics = await llmQueue.getMetrics();
-    
+
     return res.json({
       success: true,
       data: metrics
     });
   } catch (error) {
     logger.error('Failed to get queue metrics', error as Error, withRequestContext(req, res));
-    
+
     return res.status(500).json({
       error: 'Failed to get metrics',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -260,27 +260,27 @@ router.get('/metrics', async (req: Request, res: Response) => {
 
 /**
  * POST /api/queue/llm/batch
- * 
+ *
  * Submit batch of LLM jobs
  */
 router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     const { jobs } = req.body;
-    
+
     if (!Array.isArray(jobs) || jobs.length === 0) {
       return res.status(400).json({
         error: 'Invalid request',
         message: 'Jobs array is required'
       });
     }
-    
+
     if (jobs.length > 100) {
       return res.status(400).json({
         error: 'Invalid request',
         message: 'Maximum 100 jobs per batch'
       });
     }
-    
+
     const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
     const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
 
@@ -314,7 +314,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
           : jobData.promptVariables,
       });
     }
-    
+
     const submittedJobs = await Promise.all(
       sanitizedJobs.map(async (jobData, index) => {
         const job = await llmQueue.addJob({
@@ -324,14 +324,14 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
         }, {
           priority: index // Maintain order
         });
-        
+
         return {
           jobId: job.id,
           status: 'queued'
         };
       })
     );
-    
+
     logger.info(
       'Batch LLM jobs submitted',
       withRequestContext(req, res, {
@@ -339,7 +339,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
         userId,
       })
     );
-    
+
     return res.status(202).json({
       success: true,
       data: {
@@ -349,7 +349,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
     });
   } catch (error) {
     logger.error('Failed to submit batch jobs', error as Error, withRequestContext(req, res));
-    
+
     return res.status(500).json({
       error: 'Failed to submit batch',
       message: error instanceof Error ? error.message : 'Unknown error'

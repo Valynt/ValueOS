@@ -5,9 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §7
  */
 
+import { Check, ChevronRight, Lock } from "lucide-react";
 import React from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Check, Lock, ChevronRight } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 type LifecycleStage = "assembly" | "model" | "integrity" | "outputs" | "realization";
 

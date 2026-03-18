@@ -13,6 +13,7 @@ import PQueue from "p-queue";
 import { logger } from "../../lib/logger.js";
 import { mcpGroundTruthService } from "../MCPGroundTruthService.js";
 import { semanticMemory } from "../SemanticMemory.js";
+import { chunkEmbedPipeline } from "../ground-truth/ChunkEmbedPipeline.js";
 
 import {
   type EntityType,
@@ -154,29 +155,41 @@ export async function processResearchJob(
             sections: Object.keys(sections),
           });
 
-          // Vector Ingestion for SEC (R2.2) - Parallelized
-          const ingestionQueue = new PQueue({ concurrency: 5 });
+          // Vector Ingestion for SEC using ChunkEmbedPipeline (R2.2)
+          const allSecContent = Object.entries(sections)
+            .map(([name, text]) => `## SEC 10-K Section: ${name}\n\n${text}`)
+            .join("\n\n");
 
-          for (const [name, text] of Object.entries(sections)) {
-            const chunks = semanticMemory.chunkText(text);
-            for (let i = 0; i < chunks.length; i++) {
-              void ingestionQueue.add(async () => {
-                await semanticMemory.storeChunk({
-                  type: "sec_filing_chunk",
-                  content: chunks[i],
-                  sourceUrl: `sec://edgar/${ticker}/${name}`,
-                  tenantId,
-                  contextId,
-                  metadata: {
-                    section: name,
-                    chunk_index: i,
-                    total_chunks: chunks.length,
-                    ticker,
-                    tier: "tier1",
-                  },
-                });
-              });
+          const secChunks = await chunkEmbedPipeline.processSECFiling(
+            allSecContent,
+            {
+              source: "sec_filing",
+              tier: "tier_1_sec",
+              tenantId,
+              date: new Date().toISOString(),
+              documentId: `sec-${ticker}-${jobId}`,
             }
+          );
+
+          // Store chunks in semantic memory with proper metadata
+          const ingestionQueue = new PQueue({ concurrency: 5 });
+          for (const chunk of secChunks) {
+            void ingestionQueue.add(async () => {
+              await semanticMemory.storeChunk({
+                type: "sec_filing_chunk",
+                content: chunk.content,
+                sourceUrl: `sec://edgar/${ticker}/${chunk.metadata.section || 'unknown'}`,
+                tenantId,
+                contextId,
+                metadata: {
+                  ...chunk.metadata,
+                  tier: "tier_1_sec",
+                  chunk_index: chunk.metadata.chunkIndex,
+                  total_chunks: chunk.metadata.totalChunks,
+                  ticker,
+                },
+              });
+            });
           }
           await ingestionQueue.onIdle();
 
@@ -208,23 +221,37 @@ export async function processResearchJob(
     logger.info("Starting web crawl", { jobId, website });
     const crawlResult: CrawlResult = await crawlWebsite(website);
 
-    // Vector Ingestion for Web (R2.2) - Parallelized
+    // Vector Ingestion for Web using ChunkEmbedPipeline (R2.2)
     const webIngestionQueue = new PQueue({ concurrency: 5 });
+
     for (const page of crawlResult.pages) {
-      const chunks = semanticMemory.chunkText(page.content);
-      for (let i = 0; i < chunks.length; i++) {
+      const webChunks = await chunkEmbedPipeline.processWebContent(
+        page.content,
+        {
+          source: "web_content",
+          tier: "tier_2_benchmark",
+          tenantId,
+          date: new Date().toISOString(),
+          documentId: `web-${createHash("sha256").update(page.url).digest("hex").slice(0, 16)}`,
+          sourceUrl: page.url,
+          pageTitle: page.title,
+        }
+      );
+
+      for (const chunk of webChunks) {
         void webIngestionQueue.add(async () => {
           await semanticMemory.storeChunk({
             type: "web_chunk",
-            content: chunks[i],
+            content: chunk.content,
             sourceUrl: page.url,
             tenantId,
             contextId,
             metadata: {
+              ...chunk.metadata,
               title: page.title,
-              chunk_index: i,
-              total_chunks: chunks.length,
-              tier: "tier3",
+              tier: "tier_2_benchmark",
+              chunk_index: chunk.metadata.chunkIndex,
+              total_chunks: chunk.metadata.totalChunks,
             },
           });
         });

@@ -48,6 +48,9 @@ import {
 } from "../../services/post-v1/ValueLifecycleOrchestrator.js";
 import { SupabaseProvenanceStore } from "../../services/workflows/SagaAdapters.js";
 import type { LifecycleContext, LifecycleStage } from "../../types/agent.js";
+import { checkpointScheduler } from "../../services/handoff/CheckpointScheduler.js";
+import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenerator.js";
+import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers

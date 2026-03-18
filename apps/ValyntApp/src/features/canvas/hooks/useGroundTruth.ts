@@ -68,9 +68,13 @@ export const useGroundTruth = (): UseGroundTruthResult => {
       companySize?: CompanySize,
     ): Promise<GroundTruthMetric | null> => {
       try {
-        return await withLoading(() =>
+        const result = await withLoading(() =>
           service.getMetricBenchmark(metricId, industry, companySize),
         );
+        if (result === null) {
+          setError(`No benchmark found for metric: ${metricId}`);
+        }
+        return result;
       } catch {
         return null;
       }

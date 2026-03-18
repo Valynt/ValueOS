@@ -5,16 +5,18 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.4
  */
 
+import { ProvenancePanel } from "@valueos/components/components/ProvenancePanel";
+import { AlertCircle, FileText, Sparkles } from "lucide-react";
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import { FileText, AlertCircle, Sparkles } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
-import { useArtifacts, useArtifact, useGenerateArtifacts, useReadiness } from "@/hooks";
-import { ProvenancePanel } from "@valueos/components/components/ProvenancePanel";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useArtifact, useArtifacts, useGenerateArtifacts, useReadiness } from "@/hooks";
+
 
 type ArtifactType = "executive-memo" | "cfo-recommendation" | "customer-narrative" | "internal-case";
 

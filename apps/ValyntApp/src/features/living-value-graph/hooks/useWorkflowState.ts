@@ -4,8 +4,8 @@
 
 import { useWorkflowStore } from '../store/workflow-store';
 import {
-  WorkflowStep,
   WorkflowState,
+  WorkflowStep,
 } from '../types/workflow.types';
 
 export function useWorkflowState() {

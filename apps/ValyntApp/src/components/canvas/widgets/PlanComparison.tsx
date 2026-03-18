@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.6
  */
 
+import { ArrowRight, Check, Star } from "lucide-react";
 import React from "react";
-import { Check, Star, ArrowRight } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface Plan {

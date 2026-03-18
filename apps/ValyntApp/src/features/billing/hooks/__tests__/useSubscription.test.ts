@@ -73,20 +73,11 @@ describe("useSubscription", () => {
 
     const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
-    // Wait for data to be populated instead of checking isLoading
-    await waitFor(() => {
-      console.log("Mount test state:", {
-        subscription: result.current.subscription,
-        error: result.current.error,
-        isLoading: result.current.isLoading,
-      });
-      return result.current.subscription !== null;
-    }, {
+    // Wait for data to be populated
+    await waitFor(() => expect(result.current.subscription).not.toBeNull(), {
       timeout: 5000,
       interval: 100,
     });
-
-    console.log("Final subscription:", result.current.subscription);
 
     expect(mockGet).toHaveBeenCalledWith("/api/billing/subscription");
     expect(result.current.subscription).toBeDefined();
@@ -94,21 +85,15 @@ describe("useSubscription", () => {
   });
 
   it("should handle fetch error", async () => {
-    mockGet.mockImplementation(() => {
-      console.log("mockGet called");
-      return Promise.resolve({
-        success: false,
-        error: { message: "Network error", code: "500" },
-      });
+    mockGet.mockResolvedValue({
+      success: false,
+      error: { message: "Network error", code: "500" },
     });
 
     const { result } = renderHook(() => useSubscription(), { wrapper: createWrapper() });
 
-    // Wait for loading to finish first
+    // Wait for loading to finish, then check error
     await waitFor(() => expect(result.current.isLoading).toBe(false), { timeout: 5000 });
-
-    // Now check error state
-    console.log("After loading:", { error: result.current.error, subscription: result.current.subscription });
 
     expect(result.current.error).toBeInstanceOf(Error);
     expect((result.current.error as Error).message).toBe("Network error");

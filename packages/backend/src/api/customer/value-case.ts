@@ -4,6 +4,7 @@
  */
 
 import { logger } from "@shared/lib/logger";
+import { createClient } from "@supabase/supabase-js";
 import { Request, Response } from "express";
 import { z } from "zod";
 
@@ -63,11 +64,11 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     const { token } = ValueCaseRequestSchema.parse(req.params);
     logger.info("Customer value case request");
     const endTimer = httpRequestDuration.startTimer({
-      handler: "getCustomerValueCase",
       method: req.method,
+      route: "/api/customer/value-case/:token",
     });
     res.on("finish", () => {
-      endTimer({ status: String(res.statusCode) });
+      endTimer({ status_code: String(res.statusCode) });
     });
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
@@ -134,7 +135,7 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
       value_drivers: (
         valueTree.nodes as Array<{ id: string; label: string; driverType: string; value?: number }>
       ).map((n) => {
-        const target = kpiTargets.find((t) => t.node_id === n.id);
+        const target = kpiTargets.find((t) => t.metric === n.id || t.metric === n.label);
         return {
           id: n.id,
           name: n.label,

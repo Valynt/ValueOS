@@ -34,7 +34,6 @@
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-query": "^5.0.0",
     "@valueos/components": "workspace:*",
-    "@valueos/core-services": "workspace:*",
     "@valueos/infra": "file:../../packages/infra",
     "@valueos/sdui": "workspace:*",
     "@valueos/shared": "^1.0.0",

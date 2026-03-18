@@ -43,7 +43,7 @@ const listQuerySchema = z.object({
 });
 
 function getTenantId(req: Request): string {
-  const tenantId = getTenantIdFromRequest(req as unknown as { tenantId?: string });
+  const tenantId = getTenantIdFromRequest(req as unknown as { tenantId?: string; headers: Record<string, string | string[] | undefined> });
   if (!tenantId) {
     throw new UnauthorizedError("Tenant context required");
   }
@@ -148,7 +148,7 @@ router.post(
       organizationId: tenantId,
       name: payload.name,
       description: payload.description,
-      status: payload.status,
+      promptVariables: payload.promptVariables as Record<string, any>,
       tags: payload.tags ?? [],
       ownerId: deriveOwnerId(req),
     });

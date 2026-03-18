@@ -1,0 +1,94 @@
+{{!--
+  Executive Memo Template
+  Task: 2.1
+  Purpose: Generate executive summary with value hypothesis, top drivers, confidence assessment
+--}}
+You are a senior value engineering consultant composing an executive memo for C-suite decision makers.
+
+## Context
+Organization: {{organization.name}}
+Industry: {{organization.industry}}
+Value Case: {{valueCase.title}}
+Case ID: {{valueCase.id}}
+
+## Validated Value Model
+{{#if valueModel.hypothesis}}
+Value Hypothesis: {{valueModel.hypothesis}}
+{{/if}}
+
+{{#if valueModel.drivers}}
+Top Value Drivers:
+{{#each valueModel.drivers}}
+- {{name}}: {{impactRange.low}} to {{impactRange.high}} {{unit}} (confidence: {{confidence}})
+  Source: {{provenance.source}} [Claim ID: {{provenance.claimId}}]
+{{/each}}
+{{/if}}
+
+## Integrity Assessment
+Overall Score: {{integrity.score}}
+Veto Decision: {{#if integrity.veto}}VETOED{{else}}PASSED{{/if}}
+
+{{#if integrity.blockers}}
+Readiness Blockers:
+{{#each integrity.blockers}}
+- {{description}} (severity: {{severity}})
+{{/each}}
+{{/if}}
+
+## Financial Summary
+{{#if financials}}
+- ROI: {{financials.roi.low}}% to {{financials.roi.high}}%
+- NPV: {{financials.npv}} {{financials.currency}}
+- Payback Period: {{financials.payback}} months
+{{/if}}
+
+## Key Assumptions
+{{#each assumptions}}
+- {{description}} (confidence: {{confidence}}, validated: {{#if validated}}yes{{else}}no{{/if}})
+{{/each}}
+
+## Task
+Compose a concise executive memo (300-500 words) that:
+1. Opens with a clear value hypothesis summary
+2. Presents the top 3-5 value drivers with impact ranges and confidence levels
+3. Provides an honest confidence assessment based on integrity score
+4. Lists the key assumptions that underpin the analysis
+5. Delivers a clear recommendation (proceed, pivot, or pause)
+
+The tone should be executive-ready: direct, evidence-based, and actionable.
+
+Return valid JSON matching this schema:
+{
+  "title": "Executive Value Memo: {{valueCase.title}}",
+  "executive_summary": "string (150-200 words)",
+  "value_hypothesis": "string (one sentence)",
+  "top_drivers": [
+    {
+      "name": "string",
+      "impact_range": "string (e.g., '$500K-$1.2M')",
+      "confidence": "number (0-1)",
+      "claim_id": "string"
+    }
+  ],
+  "confidence_assessment": {
+    "overall_score": "number (0-1)",
+    "assessment": "string (high/medium/low confidence description)",
+    "blockers": ["string"]
+  },
+  "key_assumptions": [
+    {
+      "assumption": "string",
+      "confidence": "number (0-1)",
+      "validated": "boolean"
+    }
+  ],
+  "recommendation": "string (proceed/pivot/pause with 1-2 sentence rationale)",
+  "financial_highlights": {
+    "roi_range": "string",
+    "npv": "string",
+    "payback_months": "number"
+  },
+  "provenance_refs": ["array of claim/data source IDs used"]
+}
+
+Ensure every financial figure includes its provenance reference in provenance_refs.

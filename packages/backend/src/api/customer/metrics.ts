@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { supabase } from '@shared/lib/supabase';
+import { getSupabaseClient, supabase } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -64,7 +64,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
 
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
-    
+
     if (!validation.is_valid || !validation.value_case_id) {
       res.status(401).json({
         error: 'Unauthorized',
@@ -76,7 +76,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     const valueCaseId = validation.value_case_id;
 
     // Get value case details
-    const { data: valueCase, error: vcError } = await supabase
+    const { data: valueCase, error: vcError } = await getSupabaseClient()
       .from('value_cases')
       .select('id, company_name, name')
       .eq('id', valueCaseId)
@@ -95,7 +95,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     const dateFilter = calculateDateFilter(period);
 
     // Build query for metrics
-    let query = supabase
+    let query = getSupabaseClient()
       .from('realization_metrics')
       .select('*')
       .eq('value_case_id', valueCaseId)
@@ -163,7 +163,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
  */
 function calculateDateFilter(period: string): string | null {
   const now = new Date();
-  
+
   switch (period) {
     case '7d':
       return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -184,7 +184,7 @@ function calculateDateFilter(period: string): string | null {
  */
 function calculateMetricsSummary(metrics: MetricData[]): MetricsResponse['summary'] {
   const total = metrics.length;
-  
+
   const statusCounts = metrics.reduce((acc, metric) => {
     const status = metric.status || 'pending';
     acc[status] = (acc[status] || 0) + 1;

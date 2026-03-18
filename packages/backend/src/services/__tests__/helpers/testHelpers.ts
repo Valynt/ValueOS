@@ -16,13 +16,13 @@ export const createMockSupabase = () => {
       select: vi.fn((columns = "*") => ({
         eq: vi.fn((column: string, value: unknown) => ({
           single: vi.fn(() => {
-            const data = mockData.get(table) || [];
-            const found = data.find((d: Record<string, unknown>) => d[column] === value);
+            const data = (mockData.get(table) || []) as Record<string, unknown>[];
+            const found = data.find((d) => d[column] === value);
             return Promise.resolve({ data: found || null, error: found ? null : { message: "Not found" } });
           }),
           maybeSingle: vi.fn(() => {
-            const data = mockData.get(table) || [];
-            const found = data.find((d: Record<string, unknown>) => d[column] === value);
+            const data = (mockData.get(table) || []) as Record<string, unknown>[];
+            const found = data.find((d) => d[column] === value);
             return Promise.resolve({ data: found || null, error: null });
           }),
           order: vi.fn(() => ({
@@ -47,7 +47,7 @@ export const createMockSupabase = () => {
             error: null,
           })),
         })),
-      }),
+      })),
       insert: vi.fn((data: unknown) => {
         const existing = mockData.get(table) || [];
         const newData = Array.isArray(data) ? data : [data];
@@ -56,8 +56,8 @@ export const createMockSupabase = () => {
       }),
       update: vi.fn((data: unknown) => ({
         eq: vi.fn((column: string, value: unknown) => {
-          const existing = mockData.get(table) || [];
-          const updated = existing.map((item: Record<string, unknown>) =>
+          const existing = (mockData.get(table) || []) as Record<string, unknown>[];
+          const updated = existing.map((item) =>
             item[column] === value ? { ...item, ...data } : item,
           );
           mockData.set(table, updated);

@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.5
  */
 
+import { AlertCircle, Calendar, CheckCircle2, Clock, XCircle } from "lucide-react";
 import React from "react";
-import { Calendar, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export type CheckpointStatus = "pending" | "measured" | "missed" | "exceeded";

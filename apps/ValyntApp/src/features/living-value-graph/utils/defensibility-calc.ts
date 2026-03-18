@@ -2,8 +2,8 @@
  * Defensibility Calculation Utilities
  */
 
-import { ValueNode, Evidence } from '../types/graph.types';
-import { DefensibilityScore, DefensibilityIssue } from '../types/defensibility.types';
+import { DefensibilityIssue, DefensibilityScore } from '../types/defensibility.types';
+import { Evidence, ValueNode } from '../types/graph.types';
 
 /**
  * Calculate global defensibility score for a set of nodes

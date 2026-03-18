@@ -1,8 +1,8 @@
 /**
  * Value Cases API Routes
- * 
+ *
  * Production-grade CRUD endpoints for value case management.
- * 
+ *
  * Features:
  * - Input validation with Zod (strict mode, reject unknown fields)
  * - JWT authentication with role-based access
@@ -27,13 +27,13 @@ import { ValueTreeRepository } from '../../repositories/ValueTreeRepository.js'
 import { caseValueTreeService, ValueTreeNodeInputSchema } from '../../services/value/CaseValueTreeService.js'
 import { hypothesisOutputService } from '../../services/value/HypothesisOutputService.js'
 
-import { 
+import {
   ConflictError,
   DatabaseError,
   NotFoundError,
   ValueCasesRepository,
 } from './repository';
-import { 
+import {
   ApiErrorResponse,
   CreateValueCaseSchema,
   ListValueCasesQuerySchema,
@@ -59,7 +59,7 @@ const strictLimiter = createRateLimiter(RateLimitTier.STRICT);
  * Add correlation ID to request
  */
 function correlationId(req: Request, _res: Response, next: NextFunction): void {
-  (req as AuthenticatedRequest).correlationId = 
+  (req as AuthenticatedRequest).correlationId =
     (req.headers['x-correlation-id'] as string) || `req-${uuidv4()}`;
   next();
 }
@@ -582,6 +582,10 @@ router.use(handleError);
 // Back-half value loop endpoints (integrity, narrative, realization)
 import { backHalfRouter } from './backHalf.js';
 router.use('/', backHalfRouter);
+
+// Promise baseline and handoff endpoints
+import baselineRouter from './baseline.js';
+router.use('/', baselineRouter);
 
 export default router;
 export { router as valueCasesRouter };

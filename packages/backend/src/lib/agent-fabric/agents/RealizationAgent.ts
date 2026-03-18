@@ -259,6 +259,77 @@ export class RealizationAgent extends BaseAgent {
   }
 
   // -------------------------------------------------------------------------
+  // Baseline Creation (called when case transitions to FINALIZED)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Create a promise baseline from an approved scenario.
+   * Called when a value case transitions to FINALIZED.
+   */
+  async createBaseline(
+    caseId: string,
+    scenarioId: string,
+    scenarioType: 'conservative' | 'base' | 'upside',
+    userId: string
+  ): Promise<{ baselineId: string; success: boolean; error?: string }> {
+    try {
+      // Import services dynamically to avoid circular dependencies
+      const { promiseBaselineService } = await import('../../../services/handoff/PromiseBaselineService.js');
+      const { checkpointScheduler } = await import('../../../services/handoff/CheckpointScheduler.js');
+      const { handoffNotesGenerator } = await import('../../../services/handoff/HandoffNotesGenerator.js');
+
+      // Create baseline
+      const baseline = await promiseBaselineService.createFromApprovedCase(this.organizationId, {
+        case_id: caseId,
+        scenario_id: scenarioId,
+        scenario_type: scenarioType,
+        user_id: userId,
+      });
+
+      // Generate checkpoints
+      await checkpointScheduler.generateCheckpointsForBaseline(baseline.id, this.organizationId);
+
+      // Generate handoff notes
+      await handoffNotesGenerator.generateHandoffNotes(baseline.id, this.organizationId);
+
+      logger.info('RealizationAgent: baseline created for finalized case', {
+        caseId,
+        baselineId: baseline.id,
+        scenarioType,
+      });
+
+      // Emit domain event
+      try {
+        await getDomainEventBus().publish('narrative.drafted', {
+          ...buildEventEnvelope({
+            traceId: baseline.id,
+            tenantId: this.organizationId,
+            actorId: userId,
+          }),
+          valueCaseId: caseId,
+          defenseReadinessScore: 0.9,
+          format: 'promise_baseline',
+        });
+      } catch (eventErr) {
+        logger.warn('RealizationAgent: failed to publish baseline created event', {
+          baselineId: baseline.id,
+          error: (eventErr as Error).message,
+        });
+      }
+
+      return { baselineId: baseline.id, success: true };
+    } catch (err) {
+      const message = (err as Error).message;
+      logger.error('RealizationAgent: baseline creation failed', {
+        caseId,
+        scenarioId,
+        error: message,
+      });
+      return { baselineId: '', success: false, error: message };
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Memory Retrieval
   // -------------------------------------------------------------------------
 
@@ -387,7 +458,7 @@ export class RealizationAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         RealizationAnalysisSchema,
-         
+
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

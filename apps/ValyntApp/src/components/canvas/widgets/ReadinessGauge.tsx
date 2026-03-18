@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.3
  */
 
+import { AlertTriangle, Anchor, BarChart3, CheckCircle2, Gauge } from "lucide-react";
 import React from "react";
-import { Gauge, CheckCircle2, Anchor, BarChart3, AlertTriangle } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface ReadinessComponent {

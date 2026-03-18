@@ -5,13 +5,14 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.1
  */
 
+import { AlertCircle, ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowRight, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
-import { useDealContext, useSubmitGapFill, useTriggerAssembly } from "@/hooks/useDealAssembly";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { useDealContext, useSubmitGapFill, useTriggerAssembly } from "@/hooks/useDealAssembly";
 
 export function DealAssemblyWorkspace() {
   const { caseId } = useParams<{ caseId: string }>();

@@ -9,17 +9,17 @@
 
 import { z } from "zod";
 
-import type { CRMFetchResult } from "../../services/deal/CRMConnector.js";
-import { logger } from "../../logger.js";
+import type { CRMFetchResult } from "../../services/deal/CRMConnector";
+import { logger } from "../../logger";
 import type {
   AgentConfig,
   AgentOutput,
   LifecycleContext,
-} from "../../types/agent.js";
-import { CircuitBreaker } from "../CircuitBreaker.js";
-import { LLMGateway } from "../LLMGateway.js";
-import { MemorySystem } from "../MemorySystem.js";
-import { BaseAgent } from "./BaseAgent.js";
+} from "../../types/agent";
+import { CircuitBreaker } from "../CircuitBreaker";
+import { LLMGateway } from "../LLMGateway";
+import { MemorySystem } from "../MemorySystem";
+import { BaseAgent } from "./BaseAgent";
 
 // ---------------------------------------------------------------------------
 // Output Schemas

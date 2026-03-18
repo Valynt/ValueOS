@@ -115,6 +115,50 @@ pnpm run dev:backend  # In another terminal
 | `pnpm run db:migrate` | Apply database migrations |
 | `pnpm run dx:check` | Run preflight environment checks |
 
+## Testing
+
+### Running Tests
+
+```bash
+# Unit tests
+pnpm test
+
+# RLS tenant isolation tests
+pnpm run test:rls
+
+# Security scan
+pnpm run security:scan
+
+# E2E tests (requires dev server running)
+pnpm run test:e2e:gate
+
+# Workflow DAG validation
+pnpm run test:workflow-dag-validation
+```
+
+### Test Structure
+
+- **Unit tests**: `packages/backend/src/services/__tests__/` - Service-level unit tests
+- **Integration tests**: `packages/backend/src/services/__tests__/integration/` - End-to-end service integration
+- **Security tests**: `tests/security/` - RLS policies, tenant isolation
+- **Test helpers**: `packages/backend/src/services/__tests__/integration/helpers/testHelpers.ts`
+
+### Mock Configuration
+
+External APIs are mocked in tests:
+- **HubSpot CRM**: `CRMConnector` tests mock HubSpot API responses
+- **SEC EDGAR**: `SECEdgarClient` tests mock filing data
+- **LLM Gateway**: Agent tests use deterministic test fixtures via `secureInvoke` mocking
+
+### Test Data Factories
+
+Located in `testHelpers.ts`:
+```typescript
+factories.benchmark({ metric_name: "ROI" })
+factories.assumption({ name: "Test Assumption" })
+factories.case({ title: "Test Case" })
+```
+
 ## Architecture
 
 ValueOS is a modular monolith deployed to Kubernetes.

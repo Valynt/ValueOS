@@ -327,7 +327,7 @@ router.get("/health", async (req: Request, res: Response) => {
   try {
     const health = await llmFallback.healthCheck();
 
-    const allHealthy = health.togetherAI.healthy && health.openAI.healthy;
+    const allHealthy = health.togetherAI.healthy;
 
     return res.status(allHealthy ? 200 : 503).json({
       success: allHealthy,

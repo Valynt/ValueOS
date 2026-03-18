@@ -2,7 +2,7 @@
  * State Gating Utilities - Workflow state-based action permissions
  */
 
-import { WorkflowState, GatingRules } from '../types/workflow.types';
+import { GatingRules, WorkflowState } from '../types/workflow.types';
 
 /**
  * Matrix defining which actions are allowed in each workflow state

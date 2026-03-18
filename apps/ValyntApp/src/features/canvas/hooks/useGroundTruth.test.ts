@@ -27,6 +27,11 @@ describe("useGroundTruth", () => {
 
     expect(result.current).toEqual({
       fetchMetricBenchmark: expect.any(Function),
+      fetchMetricBenchmarks: expect.any(Function),
+      validateClaim: expect.any(Function),
+      assessFeasibility: expect.any(Function),
+      scoreCompositeHealth: expect.any(Function),
+      clearCache: expect.any(Function),
       isLoading: false,
       error: null,
     });

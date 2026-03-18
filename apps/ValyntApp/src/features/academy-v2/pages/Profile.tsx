@@ -1,8 +1,8 @@
 /**
  * Profile Page
  */
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function Profile() {
   return (

@@ -62,7 +62,7 @@ const ValueDriverSchema = z.object({
   label: z.string().min(1),
   value: z.string().optional(),
   type: z.enum(['root', 'branch', 'leaf']),
-  status: z.enum(['active', 'at_risk', 'achieved']).default('active'),
+  status: z.enum(['active', 'at_risk', 'achieved']).optional(),
   children: z.array(z.lazy((): z.ZodTypeAny => ValueDriverSchema)).default([]),
 });
 
@@ -176,6 +176,8 @@ export class TargetAgent extends BaseAgent {
     const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
     if (valueCaseId) {
       await this.persistValueTree(valueCaseId, context.organization_id, analysis.value_driver_tree);
+      // Also persist financial model snapshots for crash recovery
+      await this.persistFinancialModelSnapshots(valueCaseId, context.organization_id, analysis);
     }
 
     // Step 5: Build SDUI sections
@@ -271,12 +273,18 @@ export class TargetAgent extends BaseAgent {
   } {
     const hypothesisContext = hypotheses.map((h, i) => {
       const m = h.metadata;
-      const impact = m.estimated_impact || {};
+      const impact = (m.estimated_impact as Record<string, unknown> | undefined) || {};
+      const low = impact.low as number | undefined;
+      const high = impact.high as number | undefined;
+      const unit = impact.unit as string | undefined;
+      const timeframeMonths = impact.timeframe_months as number | undefined;
+      const kpiTargets = (m.kpi_targets as string[] | undefined) || [];
+      const evidence = (m.evidence as string[] | undefined) || [];
       return `${i + 1}. ${h.content}
    Category: ${m.category}
-   Impact: ${impact.low}–${impact.high} ${impact.unit} over ${impact.timeframe_months} months
-   KPI targets: ${(m.kpi_targets || []).join(', ')}
-   Evidence: ${(m.evidence || []).join('; ')}`;
+   Impact: ${low ?? 'N/A'}–${high ?? 'N/A'} ${unit ?? 'N/A'} over ${timeframeMonths ?? 'N/A'} months
+   KPI targets: ${kpiTargets.join(', ')}
+   Evidence: ${evidence.join('; ')}`;
     }).join('\n\n');
 
     const template = resolvePromptTemplate({ promptKey: 'target.system.kpi-generation' });
@@ -309,7 +317,7 @@ export class TargetAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt.prompt}\n\n${userPrompt}`,
         TargetAnalysisSchema,
-         
+
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },
@@ -376,9 +384,9 @@ export class TargetAgent extends BaseAgent {
 
       // Find the linked hypothesis
       const linked = hypotheses.find(h => {
-        const meta = h.metadata || {};
-        const relatedActions = meta.relatedActions || [];
-        const targetKpis = meta.targetKpis || meta.kpi_targets || [];
+        const meta = (h.metadata || {}) as Record<string, unknown>;
+        const relatedActions = (meta.relatedActions as string[] | undefined) || [];
+        const targetKpis = (meta.targetKpis as string[] | undefined) || (meta.kpi_targets as string[] | undefined) || [];
         return (
           meta.verified === true &&
           (relatedActions.includes(action) || targetKpis.some((k: string) => kpi.name.toLowerCase().includes(k.toLowerCase())))
@@ -569,6 +577,57 @@ export class TargetAgent extends BaseAgent {
   // -------------------------------------------------------------------------
   // Persistence
   // -------------------------------------------------------------------------
+
+  /**
+   * Persist financial model snapshots to database for crash recovery.
+   * This ensures ModelStage data survives page refresh.
+   */
+  private async persistFinancialModelSnapshots(
+    caseId: string,
+    organizationId: string,
+    analysis: TargetAnalysis,
+  ): Promise<void> {
+    try {
+      const supabase = createServerSupabaseClient();
+      const snapshots = analysis.financial_model_inputs.map((input, idx) => ({
+        id: `fms_${Date.now()}_${idx}`,
+        case_id: caseId,
+        organization_id: organizationId,
+        snapshot_type: 'target_agent_output',
+        hypothesis_id: input.hypothesis_id,
+        category: input.category,
+        baseline_value: input.baseline_value,
+        target_value: input.target_value,
+        unit: input.unit,
+        timeframe_months: input.timeframe_months,
+        assumptions: input.assumptions,
+        sensitivity_variables: input.sensitivity_variables,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from('financial_model_snapshots')
+        .insert(snapshots);
+
+      if (error) {
+        logger.warn('Failed to persist financial model snapshots', {
+          case_id: caseId,
+          error: error.message,
+        });
+      } else {
+        logger.info('Persisted financial model snapshots', {
+          case_id: caseId,
+          snapshot_count: snapshots.length,
+        });
+      }
+    } catch (err) {
+      // Non-fatal: log and continue
+      logger.error('Failed to persist financial model snapshots', {
+        case_id: caseId,
+        error: (err as Error).message,
+      });
+    }
+  }
 
   /**
    * Flatten the nested value driver tree and replace all nodes for the case.

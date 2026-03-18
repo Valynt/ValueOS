@@ -2,6 +2,7 @@
  * Not Found Page
  */
 import { Link } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
 
 export function NotFound() {

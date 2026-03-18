@@ -3,7 +3,6 @@
  * Helper functions and hooks for accessibility improvements
  */
 import React from 'react';
-
 import { useEffect, useRef } from 'react';
 
 /**

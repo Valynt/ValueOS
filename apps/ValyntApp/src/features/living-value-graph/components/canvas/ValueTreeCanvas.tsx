@@ -6,19 +6,19 @@ import { useCallback } from 'react';
 import ReactFlow, {
   Background,
   Controls,
+  Edge,
+  Handle,
   MiniMap,
   Node,
-  Edge,
-  useNodesState,
-  useEdgesState,
-  Handle,
   Position,
+  useEdgesState,
+  useNodesState,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 import { useWorkflowStore } from '../../store/workflow-store';
 import { useWorkspaceStore } from '../../store/workspace-store';
-import { Graph, ValueNode, ValueEdge } from '../../types/graph.types';
+import { Graph, ValueEdge, ValueNode } from '../../types/graph.types';
 
 interface ValueTreeCanvasProps {
   graph?: Graph;

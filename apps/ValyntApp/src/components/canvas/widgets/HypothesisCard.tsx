@@ -5,9 +5,10 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.2
  */
 
-import React from "react";
-import { Check, X, Edit3, TrendingUp } from "lucide-react";
 import { ConfidenceBadge } from "@valueos/components/components/ConfidenceBadge";
+import { Check, Edit3, TrendingUp, X } from "lucide-react";
+import React from "react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface HypothesisData {

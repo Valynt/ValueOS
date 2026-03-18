@@ -12,21 +12,22 @@
 
 import { z } from "zod";
 
-import { CRMConnector, type CRMFetchResult } from "../../services/deal/CRMConnector.js";
-import { logger } from "../../logger.js";
+import { CRMConnector, type CRMFetchResult } from "../../services/deal/CRMConnector";
+import { logger } from "../../logger";
 import type {
   AgentConfig,
   AgentOutput,
   LifecycleContext,
-} from "../../types/agent.js";
-import { CircuitBreaker } from "../CircuitBreaker.js";
-import { LLMGateway } from "../LLMGateway.js";
-import { MemorySystem } from "../MemorySystem.js";
-import { BaseAgent } from "./BaseAgent.js";
+} from "../../types/agent";
+import { CircuitBreaker } from "../CircuitBreaker";
+import { LLMGateway } from "../LLMGateway";
+import { MemorySystem } from "../MemorySystem";
+import { mcpGroundTruthService } from "../../services/MCPGroundTruthService";
+import { BaseAgent } from "./BaseAgent";
 import {
   ContextExtractionAgent,
   type ExtractedContext,
-} from "./ContextExtractionAgent.js";
+} from "./ContextExtractionAgent";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -39,6 +40,8 @@ export const SourceClassificationSchema = z.enum([
   "note-derived",
   "benchmark-derived",
   "externally-researched",
+  "tier-1-evidence", // SEC EDGAR and other authoritative sources
+  "tier-2-evidence", // Benchmarks and industry data
   "inferred",
   "manually-overridden",
 ]);
@@ -53,8 +56,10 @@ const SOURCE_PRIORITY: Record<SourceClassification, number> = {
   "note-derived": 4,
   "benchmark-derived": 3,
   "externally-researched": 2,
+  "tier-1-evidence": 10, // Highest priority - SEC/financial authority
+  "tier-2-evidence": 4,  // Benchmark data
   "inferred": 1,
-  "manually-overridden": 9, // User overrides are highest priority
+  "manually-overridden": 9, // User overrides are high priority
 };
 
 export const DealContextSchema = z.object({
@@ -175,6 +180,61 @@ export class DealAssemblyAgent extends BaseAgent {
         opportunityId,
       });
 
+      // Step 1.5: SEC EDGAR Fetch for public companies (Task 10.1)
+      let secData: { ticker?: string; sections?: Record<string, string>; sourceUrl?: string } | null = null;
+      const companyDomain = context.user_inputs?.company_domain as string | undefined;
+      const companyName = context.user_inputs?.company_name as string | undefined;
+
+      if (companyDomain || companyName) {
+        try {
+          logger.info("Attempting SEC EDGAR lookup", {
+            agent: this.name,
+            session_id: sessionId,
+            companyDomain,
+            companyName,
+          });
+
+          // Try to resolve ticker from domain
+          const tickerResult = await mcpGroundTruthService.resolveTickerFromDomain({
+            domain: companyDomain || `${companyName?.toLowerCase().replace(/\s+/g, '')}.com`,
+          });
+
+          if (tickerResult?.ticker) {
+            const ticker = tickerResult.ticker;
+            logger.info("Resolved ticker for SEC lookup", { ticker, companyDomain });
+
+            // Fetch SEC filing sections
+            const sections = await mcpGroundTruthService.getFilingSections({
+              identifier: ticker,
+              filingType: "10-K",
+              sections: ["business", "risk_factors", "mda"],
+            });
+
+            if (sections) {
+              secData = {
+                ticker,
+                sections,
+                sourceUrl: `https://www.sec.gov/edgar/search/#/entityName=${ticker}`,
+              };
+
+              logger.info("SEC EDGAR data retrieved", {
+                agent: this.name,
+                session_id: sessionId,
+                ticker,
+                sections: Object.keys(sections),
+              });
+            }
+          }
+        } catch (secErr) {
+          // SEC fetch is optional - don't fail the whole pipeline
+          logger.warn("SEC EDGAR fetch failed, continuing without", {
+            agent: this.name,
+            session_id: sessionId,
+            error: (secErr as Error).message,
+          });
+        }
+      }
+
       // Step 2: Context Extraction
       logger.info("Starting context extraction", {
         agent: this.name,
@@ -184,6 +244,7 @@ export class DealAssemblyAgent extends BaseAgent {
       const extractionContext: LifecycleContext = {
         ...context,
         crm_data: crmData,
+        sec_data: secData,
       };
 
       const extractionResult = await this.contextExtractionAgent.execute(extractionContext);
@@ -214,7 +275,8 @@ export class DealAssemblyAgent extends BaseAgent {
         context.organization_id,
         opportunityId,
         crmData,
-        extractedContext
+        extractedContext,
+        secData
       );
 
       // Step 4: Validate non-empty assembly
@@ -256,18 +318,29 @@ export class DealAssemblyAgent extends BaseAgent {
         {
           deal_context: dealContext,
           assembly_summary: {
-            sources_consulted: ["crm"],
+            sources_consulted: [
+              "crm",
+              ...(secData?.ticker ? [`sec-edgar:${secData.ticker}`] : []),
+            ],
             stakeholders_identified: dealContext.context_json.stakeholders.length,
             use_cases_identified: dealContext.context_json.use_cases.length,
             value_drivers_ranked: dealContext.context_json.value_drivers.length,
             data_gaps_flagged: dealContext.context_json.missing_data_gaps.length,
+            tier_1_sources_used: dealContext.source_fragments.filter(
+              s => s.source_type === "tier-1-evidence"
+            ).length,
           },
+          sec_data: secData?.ticker ? {
+            ticker: secData.ticker,
+            source_url: secData.sourceUrl,
+            sections_found: Object.keys(secData.sections || {}),
+          } : null,
         },
         "success",
         this.toConfidenceLevel(extractedContext.extraction_confidence),
         startTime,
         {
-          reasoning: `Assembled deal context from CRM data with ${dealContext.context_json.stakeholders.length} stakeholders and ${dealContext.context_json.value_drivers.length} value drivers`,
+          reasoning: `Assembled deal context from CRM data${secData?.ticker ? ` and SEC EDGAR (ticker: ${secData.ticker})` : ""} with ${dealContext.context_json.stakeholders.length} stakeholders and ${dealContext.context_json.value_drivers.length} value drivers`,
           suggested_next_actions: dealContext.context_json.missing_data_gaps
             .filter((g) => g.importance === "critical")
             .map((g) => `Fill critical data gap: ${g.field}`),
@@ -297,7 +370,8 @@ export class DealAssemblyAgent extends BaseAgent {
     tenantId: string,
     opportunityId: string,
     crmData: CRMFetchResult,
-    extractedContext: ExtractedContext
+    extractedContext: ExtractedContext,
+    secData?: { ticker?: string; sections?: Record<string, string>; sourceUrl?: string } | null
   ): DealContext {
     const now = new Date().toISOString();
 
@@ -325,14 +399,41 @@ export class DealAssemblyAgent extends BaseAgent {
     }));
 
     // Build source fragments list
-    const sourceFragments = [
+    const sourceFragments: DealContext["source_fragments"] = [
       {
-        source_type: "crm-derived" as SourceClassification,
+        source_type: "crm-derived",
         source_url: `crm://opportunity/${opportunityId}`,
         ingested_at: now,
         fragment_hash: this.computeHash(crmData),
       },
     ];
+
+    // Add SEC source fragment if available (Task 10.3 - Show sources, Task 10.4 - Tier 1 tagging)
+    if (secData?.ticker && secData.sections) {
+      sourceFragments.push({
+        source_type: "tier-1-evidence", // Tier 1 evidence tag
+        source_url: secData.sourceUrl || `sec://edgar/${secData.ticker}`,
+        ingested_at: now,
+        fragment_hash: this.computeHash(secData.sections),
+      });
+
+      // Enhance value drivers with SEC-derived confidence boost
+      // If SEC data exists, mark related value drivers with tier-1-evidence
+      for (const driver of valueDrivers) {
+        // Check if driver name matches any SEC section content keywords
+        const driverKeywords = driver.name.toLowerCase().split(/\s+/);
+        const secContent = Object.values(secData.sections || {}).join(" ").toLowerCase();
+
+        const hasKeywordMatch = driverKeywords.some(keyword =>
+          secContent.includes(keyword) && keyword.length > 4
+        );
+
+        if (hasKeywordMatch) {
+          driver.source_type = "tier-1-evidence";
+          driver.confidence = Math.min(1, driver.confidence + 0.15); // Boost confidence
+        }
+      }
+    }
 
     return {
       tenant_id: tenantId,

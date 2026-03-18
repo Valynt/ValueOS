@@ -9,22 +9,22 @@ import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 import { z } from "zod";
 
-import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue.js"
-import { requireAuth } from "../middleware/auth.js"
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
-import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
-import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { tenantContextMiddleware } from "../middleware/tenantContext.js"
-import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
-import { adminRoleService } from "../services/auth/AdminRoleService.js"
-import { adminUserService } from "../services/auth/AdminUserService.js"
-import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob.js"
-import { auditLogService } from "../services/security/AuditLogService.js"
-import { tenantDeletionService } from "../services/tenant/TenantDeletionService.js"
-import { provisionTenant, TenantTier } from "../services/tenant/TenantProvisioning.js"
-import { DomainDLQEventEmitter, RedisDLQStore } from "../services/workflows/RedisAdapters.js"
-import { AUDIT_ACTION } from "../types/audit.js"
+import { DeadLetterQueue } from "../lib/agents/core/DeadLetterQueue"
+import { requireAuth } from "../middleware/auth"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation"
+import { requireAllPermissions, requirePermission } from "../middleware/rbac"
+import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware"
+import { createSecureRouter } from "../middleware/secureRouter"
+import { tenantContextMiddleware } from "../middleware/tenantContext"
+import { tenantDbContextMiddleware } from "../middleware/tenantDbContext"
+import { adminRoleService } from "../services/auth/AdminRoleService"
+import { adminUserService } from "../services/auth/AdminUserService"
+import { tokenReEncryptionJob } from "../services/crm/TokenReEncryptionJob"
+import { auditLogService } from "../services/security/AuditLogService"
+import { tenantDeletionService } from "../services/tenant/TenantDeletionService"
+import { provisionTenant, TenantTier } from "../services/tenant/TenantProvisioning"
+import { DomainDLQEventEmitter, RedisDLQStore } from "../services/workflows/RedisAdapters"
+import { AUDIT_ACTION } from "../types/audit"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");

@@ -3,8 +3,9 @@
  */
 
 import { ReactNode } from 'react';
-import { LeftRail } from './LeftRail';
+
 import { CenterCanvas } from './CenterCanvas';
+import { LeftRail } from './LeftRail';
 import { RightInspector } from './RightInspector';
 
 interface MainWorkspaceProps {

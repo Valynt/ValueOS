@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.4
  */
 
-import React, { useState, useRef, useEffect } from "react";
-import { Save, X, Edit3 } from "lucide-react";
+import { Edit3, Save, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface InlineEditorData {

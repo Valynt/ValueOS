@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.2
  */
 
+import { ArrowRight, BarChart3 } from "lucide-react";
 import React from "react";
-import { BarChart3, ArrowRight } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface SensitivityItem {

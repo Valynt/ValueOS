@@ -5,20 +5,21 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.6
  */
 
+import { AlertCircle, CreditCard, Receipt, Users } from "lucide-react";
 import React, { useState } from "react";
-import { CreditCard, Receipt, Users, AlertCircle } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  useBillingSummary,
-  usePlans,
-  useInvoices,
-  useUsage,
   useApprovals,
+  useBillingSummary,
   useDecideApproval,
+  useInvoices,
+  usePlans,
+  useUsage,
 } from "@/hooks/useBilling";
 
 export function BillingPortal() {

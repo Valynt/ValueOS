@@ -6,13 +6,13 @@
  * (optimistic locking, atomic RPC updates, realtime broadcast).
  * This service is used by the customer portal API for read-only access.
  */
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { fromValueDrivers } from '../../domain/value/adapters/valueTree.adapter';
 import { getValueCase, listValueDriversForCase } from '../../domain/value/db/rows';
 
 export class ValueTreeService {
-  constructor(private supabase: ReturnType<typeof createClient>) {}
+  constructor(private supabase: SupabaseClient) {}
 
   async getByValueCase(tenant_id: string, value_case_id: string) {
     const valueCase = await getValueCase(this.supabase, tenant_id, value_case_id);

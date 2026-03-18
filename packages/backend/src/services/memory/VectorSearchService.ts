@@ -165,6 +165,66 @@ export class VectorSearchService {
   }
 
   /**
+   * Tenant-scoped semantic search with provenance metadata.
+   * All queries filter on tenant_id and return source metadata for RAG retrieval.
+   */
+  async searchWithTenant(
+    queryEmbedding: number[],
+    tenantId: string,
+    options: Omit<SearchOptions, "filters"> & {
+      tier?: "tier_1_sec" | "tier_2_benchmark" | "tier_3_internal";
+      sourceUrl?: string;
+      minDate?: string;
+    } = {}
+  ): Promise<Array<SearchResult & {
+    provenance: {
+      tier: string;
+      sourceUrl?: string;
+      date: string;
+      documentId: string;
+    };
+  }>> {
+    if (!tenantId) {
+      throw new Error("tenantId is required for tenant-scoped search");
+    }
+
+    const { tier, sourceUrl, minDate, ...searchOptions } = options;
+
+    // Build tenant-scoped filters
+    const filters: Record<string, unknown> = {
+      tenant_id: tenantId,
+    };
+
+    if (tier) {
+      filters.tier = tier;
+    }
+
+    if (sourceUrl) {
+      filters.source_url = sourceUrl;
+    }
+
+    if (minDate) {
+      filters.date = { gte: minDate };
+    }
+
+    const results = await this.searchByEmbedding(queryEmbedding, {
+      ...searchOptions,
+      filters,
+    });
+
+    // Map results with provenance metadata
+    return results.map((result) => ({
+      ...result,
+      provenance: {
+        tier: (result.memory.metadata?.tier as string) || "tier_3_internal",
+        sourceUrl: result.memory.metadata?.source_url as string | undefined,
+        date: (result.memory.metadata?.date as string) || result.memory.created_at,
+        documentId: (result.memory.metadata?.document_id as string) || result.memory.id,
+      },
+    }));
+  }
+
+  /**
    * Search by industry
    */
   async searchByIndustry(

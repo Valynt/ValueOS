@@ -5,18 +5,19 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.2
  */
 
+import { AlertCircle } from "lucide-react";
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import { AlertCircle } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  useHypotheses,
   useAcceptHypothesis,
-  useRejectHypothesis,
   useAssumptions,
+  useHypotheses,
+  useRejectHypothesis,
   useScenarios,
   useSensitivity,
 } from "@/hooks/useValueModeling";

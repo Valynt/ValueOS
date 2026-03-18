@@ -2,8 +2,8 @@
  * CanvasRouter Component - Switches between different canvas views
  */
 
-import { CanvasView } from '../../types/ui.types';
 import { Graph } from '../../types/graph.types';
+import { CanvasView } from '../../types/ui.types';
 
 interface CanvasRouterProps {
   activeView: CanvasView;

@@ -8,7 +8,7 @@
 import { ChevronRight, Loader2, Mail, Plus, X } from "lucide-react";
 import { useState } from "react";
 
-import { SetupWizard, type SetupData } from "./SetupWizard";
+import { type SetupData, SetupWizard } from "./SetupWizard";
 
 import { apiClient } from "@/api/client/unified-api-client";
 import { Button } from "@/components/ui/button";

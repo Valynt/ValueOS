@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+
 import { ValueNode } from '../../types/graph.types';
 
 interface GraphOutlinePanelProps {

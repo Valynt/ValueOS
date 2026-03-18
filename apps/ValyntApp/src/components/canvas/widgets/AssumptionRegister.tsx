@@ -5,10 +5,11 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.2
  */
 
-import React, { useState } from "react";
-import { ArrowUpDown, AlertTriangle, ArrowUp, ArrowDown } from "lucide-react";
-import { SourceBadge, SourceType } from "@valueos/components/components/SourceBadge";
 import { ConfidenceBadge } from "@valueos/components/components/ConfidenceBadge";
+import { SourceBadge, SourceType } from "@valueos/components/components/SourceBadge";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import React, { useState } from "react";
+
 import { WidgetProps } from "../CanvasHost";
 
 type SortField = "name" | "value" | "confidence" | "source";

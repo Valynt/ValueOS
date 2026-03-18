@@ -5,12 +5,13 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.5
  */
 
+import { AlertCircle, Calendar, FileText, Target } from "lucide-react";
 import React from "react";
 import { useParams } from "react-router-dom";
-import { Target, AlertCircle, Calendar, FileText } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useBaseline, useCheckpoints } from "@/hooks/useRealization";
 
 export function RealizationTracker() {

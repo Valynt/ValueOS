@@ -233,7 +233,8 @@ describe('Load Testing - Template Performance Under Stress', () => {
         const end = performance.now();
 
         expect(end - start).toBeLessThan(8000);
-      });
+      }
+    });
 
     it('should handle multi-select with 100 items', () => {
       const scenarios = generateLargeScenarios(100);

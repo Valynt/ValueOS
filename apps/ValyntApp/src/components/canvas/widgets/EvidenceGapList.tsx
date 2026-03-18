@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.3
  */
 
-import React from "react";
 import { AlertCircle, ArrowUpRight, Shield } from "lucide-react";
+import React from "react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface EvidenceGap {

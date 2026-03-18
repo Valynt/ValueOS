@@ -2,8 +2,8 @@
  * TopNav Component - Global navigation and workflow indicators
  */
 
-import { useWorkflowState } from '../../hooks/useWorkflowState';
 import { useStateGating } from '../../hooks/useStateGating';
+import { useWorkflowState } from '../../hooks/useWorkflowState';
 import { StateBadge } from '../header/StateBadge';
 
 export function TopNav() {

@@ -4,10 +4,11 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+
 import {
+  BottomTrayTab,
   CanvasView,
   LeftRailTab,
-  BottomTrayTab,
   WorkspaceUIState,
 } from '../types/ui.types';
 import { WorkflowStep } from '../types/workflow.types';

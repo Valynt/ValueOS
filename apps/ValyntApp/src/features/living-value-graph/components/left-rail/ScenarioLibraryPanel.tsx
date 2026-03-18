@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+
 import { Scenario } from '../../types/graph.types';
 
 interface ScenarioLibraryPanelProps {

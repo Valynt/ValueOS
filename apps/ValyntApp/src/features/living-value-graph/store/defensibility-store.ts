@@ -4,8 +4,9 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Graph, ValueNode, Evidence } from '../types/graph.types';
-import { DefensibilityScore, DefensibilityIssue, NodeDefensibility } from '../types/defensibility.types';
+
+import { DefensibilityIssue, DefensibilityScore, NodeDefensibility } from '../types/defensibility.types';
+import { Evidence, Graph, ValueNode } from '../types/graph.types';
 
 interface DefensibilityStore {
   // Global metrics

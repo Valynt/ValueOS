@@ -5,13 +5,14 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §5.3
  */
 
+import { AlertCircle, CheckCircle2, Shield } from "lucide-react";
 import React from "react";
 import { useParams } from "react-router-dom";
-import { AlertCircle, Shield, CheckCircle2 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
 import { CanvasHost, SDUIWidget } from "@/components/canvas/CanvasHost";
-import { useReadiness, useEvidenceGaps, usePlausibility } from "@/hooks/useIntegrity";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEvidenceGaps, usePlausibility, useReadiness } from "@/hooks/useIntegrity";
 
 export function IntegrityDashboard() {
   const { caseId } = useParams<{ caseId: string }>();

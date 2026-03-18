@@ -1,0 +1,176 @@
+{{!--
+  Internal Case Template
+  Task: 2.4
+  Purpose: Generate internal business case for deal review with economics, context, risks
+--}}
+You are a deal team lead preparing an internal business case for leadership review and go/no-go decision.
+
+## Deal Context
+Organization: {{organization.name}}
+Industry: {{organization.industry}}
+Company Size: {{organization.size}}
+Deal Stage: {{deal.stage}}
+Expected Close Date: {{deal.expectedCloseDate}}
+Value Case: {{valueCase.title}}
+Case ID: {{valueCase.id}}
+
+## Deal Economics
+{{#if deal.economics}}
+- Annual Contract Value: {{deal.economics.acv}}
+- Total Contract Value: {{deal.economics.tcv}}
+- Contract Term: {{deal.economics.term}} years
+- Expansion Potential: {{deal.economics.expansionPotential}}
+- Services Component: {{deal.economics.servicesValue}}
+{{/if}}
+
+## Value Analysis Summary
+{{#if valueModel}}
+Total Quantified Value: {{valueModel.totalValue.low}} to {{valueModel.totalValue.high}} {{valueModel.totalValue.unit}}
+Value-to-Price Ratio: {{valueModel.vpRatio}}
+{{/if}}
+
+{{#each valueModel.drivers}}
+- {{name}}: {{impactRange.low}} to {{impactRange.high}} {{unit}} ({{confidence}} confidence)
+{{/each}}
+
+## Competitive Context
+{{#if competitors}}
+Primary Competitors:
+{{#each competitors}}
+- {{name}}: {{positioning}}
+{{/each}}
+{{/if}}
+
+{{#if competitiveAdvantages}}
+Our Advantages:
+{{#each competitiveAdvantages}}
+- {{advantage}}: {{supportingEvidence}}
+{{/each}}
+{{/if}}
+
+{{#if competitiveRisks}}
+Competitive Risks:
+{{#each competitiveRisks}}
+- {{risk}}: {{mitigationStrategy}}
+{{/each}}
+{{/if}}
+
+## Risk Assessment
+{{#each risks}}
+- {{category}}: {{description}}
+  Likelihood: {{likelihood}} | Impact: {{impact}} | Mitigation: {{mitigation}}
+{{/each}}
+
+## Assumption Quality Summary
+{{#each assumptions}}
+- {{description}}: Quality {{quality}} (validated: {{#if validated}}yes{{else}}partial/no{{/if}})
+{{/each}}
+
+## Integrity Check Results
+Overall Score: {{integrity.score}}
+Veto Decision: {{#if integrity.veto}}VETOED{{else}}PASSED{{/if}}
+{{#if integrity.criticalIssues}}
+Critical Issues:
+{{#each integrity.criticalIssues}}
+- {{this}}
+{{/each}}
+{{/if}}
+
+## Task
+Compose an internal business case for deal review (500-700 words) that:
+1. Summarizes deal economics and strategic value
+2. Presents the competitive landscape and our positioning
+3. Lists all risk factors with likelihood, impact, and mitigation strategies
+4. Provides an honest assessment of assumption quality
+5. Notes any integrity issues that could derail the deal
+6. Recommends clear next steps with owners and timeframes
+
+The tone should be internal-ready: thorough, candid, and decision-oriented.
+
+Return valid JSON matching this schema:
+{
+  "title": "Internal Business Case: {{valueCase.title}}",
+  "deal_summary": {
+    "acv": "string",
+    "tcv": "string",
+    "term_years": "number",
+    "quantified_value_range": "string",
+    "vp_ratio": "string",
+    "strategic_importance": "string (high/medium/low with rationale)"
+  },
+  "value_analysis": {
+    "total_quantified_value": {
+      "low": "string",
+      "high": "string",
+      "unit": "string"
+    },
+    "key_drivers": [
+      {
+        "name": "string",
+        "impact": "string",
+        "confidence": "number",
+        "claim_id": "string"
+      }
+    ]
+  },
+  "competitive_context": {
+    "primary_competitors": [
+      {
+        "name": "string",
+        "positioning": "string",
+        "threat_level": "string (high/medium/low)"
+      }
+    ],
+    "our_advantages": ["string"],
+    "competitive_risks": [
+      {
+        "risk": "string",
+        "mitigation": "string"
+      }
+    ]
+  },
+  "risk_assessment": [
+    {
+      "category": "string",
+      "description": "string",
+      "likelihood": "string (high/medium/low)",
+      "financial_impact": "string",
+      "mitigation": "string",
+      "owner": "string"
+    }
+  ],
+  "assumption_quality": {
+    "overall_rating": "string (high/medium/low)",
+    "critical_assumptions": [
+      {
+        "assumption": "string",
+        "quality": "string",
+        "validated": "boolean",
+        "evidence_strength": "string"
+      }
+    ],
+    "gaps": ["string (unvalidated assumptions that need work)"]
+  },
+  "integrity_status": {
+    "score": "number",
+    "vetoed": "boolean",
+    "critical_issues": ["string"],
+    "recommended_actions": ["string"]
+  },
+  "recommendation": {
+    "decision": "string (proceed/conditional/defer/pass)",
+    "conditions": ["string (if conditional)"],
+    "rationale": "string"
+  },
+  "next_steps": [
+    {
+      "action": "string",
+      "owner": "string",
+      "deadline": "string",
+      "priority": "string (high/medium/low)"
+    }
+  ],
+  "provenance_refs": ["array of claim IDs used"]
+}
+
+Every value claim must include its provenance reference in claim_id fields.

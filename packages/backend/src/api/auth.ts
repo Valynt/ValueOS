@@ -234,7 +234,7 @@ router.post(
       await authService.requestPasswordReset(email);
 
       logger.info("Password reset requested", {
-        email: sanitizeForLogging(email),
+        email: sanitizeForLogging(email) as string,
       });
 
       try {

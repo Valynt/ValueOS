@@ -2,10 +2,10 @@
  * WorkspaceHeader Component - Header with key metrics and view controls
  */
 
+import { useWorkflowState } from '../../hooks/useWorkflowState';
 import { useDefensibilityStore } from '../../store/defensibility-store';
 import { DefensibilityScoreCard } from '../header/DefensibilityScoreCard';
 import { StateBadge } from '../header/StateBadge';
-import { useWorkflowState } from '../../hooks/useWorkflowState';
 
 export function WorkspaceHeader() {
   const { phase, steps } = useWorkflowState();

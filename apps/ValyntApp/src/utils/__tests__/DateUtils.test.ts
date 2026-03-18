@@ -1,6 +1,6 @@
 /**
  * DateUtils Tests
- * 
+ *
  * Tests for date utility functions with formatting, parsing, and calculations
  * following MCP patterns for utility testing
  */
@@ -86,19 +86,21 @@ describe('DateUtils', () => {
 
   describe('Date Calculations', () => {
     it('should add days to date', () => {
-      const date = new Date('2025-01-15');
+      // Use UTC to avoid timezone issues
+      const date = new Date(Date.UTC(2025, 0, 15));
       const daysToAdd = 7;
       const newDate = new Date(date.getTime() + daysToAdd * 86400000);
 
-      expect(newDate.getDate()).toBe(22);
+      expect(newDate.getUTCDate()).toBe(22);
     });
 
     it('should subtract days from date', () => {
-      const date = new Date('2025-01-15');
+      // Use UTC to avoid timezone issues
+      const date = new Date(Date.UTC(2025, 0, 15));
       const daysToSubtract = 5;
       const newDate = new Date(date.getTime() - daysToSubtract * 86400000);
 
-      expect(newDate.getDate()).toBe(10);
+      expect(newDate.getUTCDate()).toBe(10);
     });
 
     it('should calculate difference in days', () => {
@@ -172,7 +174,7 @@ describe('DateUtils', () => {
       const today = new Date();
       const testDate = new Date();
 
-      const isSameDay = 
+      const isSameDay =
         today.getFullYear() === testDate.getFullYear() &&
         today.getMonth() === testDate.getMonth() &&
         today.getDate() === testDate.getDate();
@@ -245,28 +247,31 @@ describe('DateUtils', () => {
 
   describe('Business Days', () => {
     it('should check if date is weekend', () => {
-      const saturday = new Date('2025-01-18'); // Saturday
-      const isWeekend = saturday.getDay() === 0 || saturday.getDay() === 6;
+      // Use UTC to avoid timezone issues
+      const saturday = new Date(Date.UTC(2025, 0, 18)); // Saturday Jan 18, 2025
+      const isWeekend = saturday.getUTCDay() === 0 || saturday.getUTCDay() === 6;
 
       expect(isWeekend).toBe(true);
     });
 
     it('should check if date is weekday', () => {
-      const monday = new Date('2025-01-13'); // Monday
-      const isWeekday = monday.getDay() >= 1 && monday.getDay() <= 5;
+      // Use UTC date to avoid timezone issues
+      const monday = new Date(Date.UTC(2025, 0, 13)); // Monday Jan 13, 2025
+      const isWeekday = monday.getUTCDay() >= 1 && monday.getUTCDay() <= 5;
 
       expect(isWeekday).toBe(true);
     });
 
     it('should add business days', () => {
-      const date = new Date('2025-01-15'); // Wednesday
+      // Use UTC to avoid timezone issues
+      const date = new Date(Date.UTC(2025, 0, 15)); // Wednesday Jan 15, 2025
       let businessDays = 0;
       const target = 5;
       const result = new Date(date);
 
       while (businessDays < target) {
-        result.setDate(result.getDate() + 1);
-        if (result.getDay() !== 0 && result.getDay() !== 6) {
+        result.setUTCDate(result.getUTCDate() + 1);
+        if (result.getUTCDay() !== 0 && result.getUTCDay() !== 6) {
           businessDays++;
         }
       }
@@ -311,10 +316,10 @@ describe('DateUtils', () => {
   describe('Performance', () => {
     it('should format dates efficiently', () => {
       const startTime = Date.now();
-      
+
       const date = new Date('2025-01-15');
       const formatted = date.toISOString().split('T')[0];
-      
+
       const duration = Date.now() - startTime;
 
       expect(formatted).toBe('2025-01-15');
@@ -323,11 +328,11 @@ describe('DateUtils', () => {
 
     it('should handle date calculations efficiently', () => {
       const startTime = Date.now();
-      
+
       const date1 = new Date('2025-01-15');
       const date2 = new Date('2025-01-20');
       const diff = Math.floor((date2.getTime() - date1.getTime()) / 86400000);
-      
+
       const duration = Date.now() - startTime;
 
       expect(diff).toBe(5);

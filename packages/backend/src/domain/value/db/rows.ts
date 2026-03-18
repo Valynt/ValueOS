@@ -1,7 +1,7 @@
 // DB row access module for value domain tables
 // All functions require tenant_id as first argument
 
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Import generated Supabase types if available
 // import { Database } from '...';
@@ -60,51 +60,71 @@ export interface ValueCommitmentRow {
 }
 
 // Example: get value commitments for a case (via session_id)
-export async function getValueCommitmentsForCase(supabase: ReturnType<typeof createClient>, tenant_id: string, value_case_id: string): Promise<ValueCommitmentRow[]> {
+export async function getValueCommitmentsForCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<ValueCommitmentRow[]> {
   // First get the value case to find session_id
   const valueCase = await getValueCase(supabase, tenant_id, value_case_id);
   if (!valueCase) return [];
-  
+
   const { data, error } = await supabase
-    .from<ValueCommitmentRow>('value_commitments')
+    .from('value_commitments')
     .select('*')
     .eq('tenant_id', tenant_id)
-    .eq('session_id', valueCase.session_id); // Assuming value_cases has session_id
-  if (error) throw error;
+    .eq('session_id', valueCase.session_id);
+
+  if (error) {
+    console.error('Error fetching value commitments:', error);
+    return [];
+  }
+
   return data || [];
 }
 
 // Example: get a value case by tenant and id
-export async function getValueCase(supabase: ReturnType<typeof createClient>, tenant_id: string, value_case_id: string): Promise<ValueCaseRow | null> {
+export async function getValueCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<ValueCaseRow | null> {
   const { data, error } = await supabase
-    .from<ValueCaseRow>('value_cases')
+    .from('value_cases')
     .select('*')
     .eq('tenant_id', tenant_id)
     .eq('id', value_case_id)
     .single();
-  if (error) throw error;
+
+  if (error) {
+    console.error('Error fetching value case:', error);
+    return null;
+  }
+
   return data;
 }
 
 // Example: list value drivers for a case
-export async function listValueDriversForCase(supabase: ReturnType<typeof createClient>, tenant_id: string, value_case_id: string): Promise<ValueDriverRow[]> {
+export async function listValueDriversForCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<ValueDriverRow[]> {
   const { data, error } = await supabase
-    .from<ValueDriverRow>('value_drivers')
+    .from('value_drivers')
     .select('*')
     .eq('tenant_id', tenant_id)
     .eq('value_case_id', value_case_id);
-  if (error) throw error;
+
+  if (error) {
+    console.error('Error fetching value drivers:', error);
+    return [];
+  }
+
   return data || [];
 }
 
 // Example: get financial model for a case
-export async function getFinancialModelForCase(supabase: ReturnType<typeof createClient>, tenant_id: string, value_case_id: string): Promise<FinancialModelRow | null> {
+export async function getFinancialModelForCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<FinancialModelRow | null> {
   const { data, error } = await supabase
-    .from<FinancialModelRow>('financial_models')
+    .from('financial_models')
     .select('*')
     .eq('tenant_id', tenant_id)
     .eq('value_case_id', value_case_id)
     .single();
-  if (error) throw error;
+
+  if (error) {
+    console.error('Error fetching financial model:', error);
+    return null;
+  }
+
   return data;
 }

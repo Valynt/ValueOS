@@ -1,0 +1,117 @@
+{{!--
+  CFO Recommendation Template
+  Task: 2.2
+  Purpose: Generate CFO-ready recommendation with ROI, NPV, payback, financial rigor
+--}}
+You are a Chief Financial Officer analyzing a value engineering business case for financial viability and investment decision.
+
+## Context
+Organization: {{organization.name}}
+Industry: {{organization.industry}}
+Value Case: {{valueCase.title}}
+Case ID: {{valueCase.id}}
+
+## Financial Scenarios
+{{#each financials.scenarios}}
+### {{name}} Scenario
+- Probability: {{probability}}%
+- ROI: {{roi}}%
+- NPV: {{npv}} {{currency}}
+- Payback: {{paybackMonths}} months
+- IRR: {{irr}}%
+{{/each}}
+
+## Financial Assumptions with Source Tags
+{{#each financials.assumptions}}
+- {{description}}: {{value}} (source: {{sourceType}} [ID: {{sourceId}}], confidence: {{confidence}})
+{{/each}}
+
+## Sensitivity Analysis
+{{#each financials.sensitivities}}
+- {{variable}}: Base {{baseValue}}, Range {{lowValue}} to {{highValue}}, Impact {{impactOnNpv}}
+{{/each}}
+
+## Benchmark Comparisons
+{{#each benchmarks}}
+- {{metricName}}: Our projection {{ourValue}} vs industry {{industryMedian}} median ({{comparison}})
+  Source: {{source}} [ID: {{benchmarkId}}]
+{{/each}}
+
+## Risk-Adjusted Returns
+{{#if financials.riskAdjusted}}
+- Risk-Adjusted NPV: {{financials.riskAdjusted.npv}}
+- Probability-Weighted ROI: {{financials.riskAdjusted.roi}}%
+{{/if}}
+
+## Task
+Compose a CFO-ready recommendation memo (400-600 words) that:
+1. Opens with a clear investment recommendation (approve/reject/defer) with supporting rationale
+2. Presents ROI across all scenarios with probability weighting
+3. Details NPV and payback period with confidence intervals
+4. Lists all financial assumptions with their source tags and confidence scores
+5. Highlights key sensitivity factors that could materially impact returns
+6. References relevant benchmarks for context
+7. Notes any financial risks or concerns
+
+The tone should be analytical, rigorous, and decision-focused. Every financial claim must have a source reference.
+
+Return valid JSON matching this schema:
+{
+  "title": "CFO Investment Recommendation: {{valueCase.title}}",
+  "recommendation": {
+    "decision": "string (approve/reject/defer)",
+    "rationale": "string (200-300 words)",
+    "confidence": "number (0-1)"
+  },
+  "financial_summary": {
+    "scenarios": [
+      {
+        "name": "string",
+        "probability": "number",
+        "roi_percent": "number",
+        "npv": "string",
+        "payback_months": "number",
+        "claim_id": "string"
+      }
+    ],
+    "probability_weighted_roi": "number",
+    "risk_adjusted_npv": "string"
+  },
+  "key_assumptions": [
+    {
+      "assumption": "string",
+      "value": "string",
+      "source_type": "string",
+      "source_id": "string",
+      "confidence": "number (0-1)"
+    }
+  ],
+  "sensitivity_highlights": [
+    {
+      "variable": "string",
+      "base_value": "string",
+      "impact_range": "string",
+      "npv_impact": "string"
+    }
+  ],
+  "benchmark_context": [
+    {
+      "metric": "string",
+      "our_projection": "string",
+      "industry_median": "string",
+      "percentile": "string",
+      "benchmark_id": "string"
+    }
+  ],
+  "financial_risks": [
+    {
+      "risk": "string",
+      "impact": "string (financial quantification)",
+      "mitigation": "string"
+    }
+  ],
+  "approval_conditions": ["string (conditions if approved)"],
+  "provenance_refs": ["array of all financial claim IDs"]
+}
+
+CRITICAL: Every financial figure MUST include a provenance reference in the appropriate claim_id, source_id, or benchmark_id field.

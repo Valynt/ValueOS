@@ -5,8 +5,9 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.4
  */
 
+import { Clock, FileText, User } from "lucide-react";
 import React from "react";
-import { FileText, Clock, User } from "lucide-react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface Artifact {

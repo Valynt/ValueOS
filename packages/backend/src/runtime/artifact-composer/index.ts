@@ -473,6 +473,129 @@ export class ArtifactComposer {
     ));
   }
 
+  /**
+   * Generate SDUI page for an artifact preview in Executive Output Studio.
+   * Supports switching between artifact types (executive_memo, cfo_recommendation,
+   * customer_narrative, internal_case).
+   *
+   * Task: 7.1, 7.2, 7.3
+   */
+  async generateArtifactPreview(
+    envelope: ExecutionEnvelope,
+    artifactType: "executive_memo" | "cfo_recommendation" | "customer_narrative" | "internal_case",
+    artifactContent: Record<string, unknown>,
+    options?: {
+      status?: "draft" | "final";
+      readinessScore?: number;
+      blockers?: string[];
+    },
+  ): Promise<AgentResponse> {
+    return runInTelemetrySpanAsync('runtime.artifact_composer.generate_artifact_preview', {
+      service: 'artifact-composer',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: envelope.tenant_id,
+      trace_id: envelope.trace_id,
+      attributes: { artifact_type: artifactType },
+    }, async () => {
+      if (!this.config.enableSDUI) {
+        throw new Error("SDUI rendering is disabled");
+      }
+
+      // Build SDUI page for artifact preview
+      const query = this.buildArtifactPreviewQuery(artifactType, artifactContent, options);
+
+      return this.renderService.generateSDUIPage(
+        envelope,
+        "narrative" as AgentType,
+        query,
+        undefined,
+        undefined,
+      );
+    });
+  }
+
+  /**
+   * Generate artifact switcher component for Executive Output Studio.
+   * Allows users to switch between different artifact types.
+   */
+  async generateArtifactSwitcher(
+    envelope: ExecutionEnvelope,
+    artifacts: Array<{
+      id: string;
+      type: "executive_memo" | "cfo_recommendation" | "customer_narrative" | "internal_case";
+      status: "draft" | "final";
+      title: string;
+    }>,
+    currentArtifactId?: string,
+  ): Promise<AgentResponse> {
+    return runInTelemetrySpanAsync('runtime.artifact_composer.generate_artifact_switcher', {
+      service: 'artifact-composer',
+      env: process.env.NODE_ENV || 'development',
+      tenant_id: envelope.tenant_id,
+      trace_id: envelope.trace_id,
+    }, async () => {
+      const switcherContent = {
+        component: "artifact_switcher",
+        artifacts: artifacts.map((a) => ({
+          id: a.id,
+          type: a.type,
+          label: this.getArtifactTypeLabel(a.type),
+          status: a.status,
+          active: a.id === currentArtifactId,
+        })),
+      };
+
+      return {
+        content: [{ type: "sdui", content: switcherContent }],
+        metadata: {
+          messageType: "artifact_switcher",
+          artifactCount: artifacts.length,
+          currentArtifactId,
+        },
+      };
+    });
+  }
+
+  /**
+   * Build preview query for an artifact type.
+   */
+  private buildArtifactPreviewQuery(
+    artifactType: string,
+    content: Record<string, unknown>,
+    options?: { status?: "draft" | "final"; readinessScore?: number; blockers?: string[] },
+  ): string {
+    const status = options?.status ?? "draft";
+    const readinessScore = options?.readinessScore ?? 0;
+    const blockers = options?.blockers ?? [];
+
+    const baseQuery = `Render ${artifactType} artifact preview for Executive Output Studio`;
+
+    const context = JSON.stringify({
+      artifact_type: artifactType,
+      content,
+      status,
+      readiness_score: readinessScore,
+      is_draft: status === "draft",
+      blockers,
+      warning: status === "draft" ? `Draft: Readiness score ${(readinessScore * 100).toFixed(0)}% below 80% threshold` : undefined,
+    });
+
+    return `${baseQuery}\n\nContext: ${context}`;
+  }
+
+  /**
+   * Get human-readable label for artifact type.
+   */
+  private getArtifactTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      executive_memo: "Executive Memo",
+      cfo_recommendation: "CFO Recommendation",
+      customer_narrative: "Customer Narrative",
+      internal_case: "Internal Case",
+    };
+    return labels[type] ?? type;
+  }
+
   async planTask(
     intentType: string,
     description: string,

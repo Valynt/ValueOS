@@ -5,9 +5,10 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.1
  */
 
-import React from "react";
-import { Users, User, Building } from "lucide-react";
 import { SourceBadge, SourceType } from "@valueos/components/components/SourceBadge";
+import { Building, User, Users } from "lucide-react";
+import React from "react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface Stakeholder {

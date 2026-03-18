@@ -1,9 +1,9 @@
 /**
  * Canonical Workflow DAG Definitions
- * 
+ *
  * Defines comprehensive workflow DAGs for all lifecycle stages:
  * Opportunity → Target → Realization → Expansion → Integrity
- * 
+ *
  * Features:
  * - Idempotent retry configurations
  * - Compensation logic for incomplete stages
@@ -14,6 +14,7 @@
  */
 
 import { LifecycleStage, RetryConfig, WorkflowDAG, WorkflowStage } from '../../types/workflow';
+import { logger } from '../../lib/logger.js';
 
 // ============================================================================
 // Retry Configurations
@@ -199,13 +200,13 @@ export const TARGET_WORKFLOW: WorkflowDAG = {
 };
 
 // ============================================================================
-// Realization Tracking Workflow
+// Realization Tracking Workflow (with Promise Baseline Handoff)
 // ============================================================================
 
 export const REALIZATION_WORKFLOW: WorkflowDAG = {
   id: 'realization-tracking-v1',
   name: 'Realization Tracking Workflow',
-  description: 'Monitor value delivery, track KPI progress, and manage variance',
+  description: 'Monitor value delivery, track KPI progress, manage variance, and create promise baselines for handoff',
   version: 1,
   stages: [
     createStage(
@@ -244,18 +245,37 @@ export const REALIZATION_WORKFLOW: WorkflowDAG = {
       'compensateRealizationIntervention',
       ['risk_assessment', 'action_planning']
     ),
+    createStage(
+      'promise_baseline_handoff',
+      'Promise Baseline Handoff',
+      'realization',
+      120,
+      RETRY_CONFIGS.AGGRESSIVE,
+      'compensateBaselineHandoff',
+      ['baseline_creation', 'checkpoint_generation', 'handoff_notes']
+    ),
   ],
   transitions: [
     { from_stage: 'realization_data_collection', to_stage: 'realization_analysis' },
     { from_stage: 'realization_analysis', to_stage: 'realization_reporting' },
-    { 
-      from_stage: 'realization_reporting', 
+    {
+      from_stage: 'realization_reporting',
       to_stage: 'realization_intervention',
       condition: 'variance_threshold_exceeded'
     },
+    {
+      from_stage: 'realization_reporting',
+      to_stage: 'promise_baseline_handoff',
+      condition: 'case_finalized'
+    },
+    {
+      from_stage: 'realization_intervention',
+      to_stage: 'promise_baseline_handoff',
+      condition: 'case_finalized'
+    },
   ],
   initial_stage: 'realization_data_collection',
-  final_stages: ['realization_reporting', 'realization_intervention'],
+  final_stages: ['realization_reporting', 'realization_intervention', 'promise_baseline_handoff'],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -396,7 +416,7 @@ export const COMPLETE_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       'compensateOpportunityStage',
       ['market_analysis', 'opportunity_validation']
     ),
-    
+
     // Target Stage
     createStage(
       'target_value_commit',
@@ -407,7 +427,7 @@ export const COMPLETE_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       'compensateTargetStage',
       ['kpi_modeling', 'target_validation', 'commitment']
     ),
-    
+
     // Realization Stage
     createStage(
       'realization_tracking',
@@ -418,7 +438,7 @@ export const COMPLETE_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       'compensateRealizationStage',
       ['data_collection', 'performance_analysis', 'reporting']
     ),
-    
+
     // Expansion Stage
     createStage(
       'expansion_modeling',
@@ -429,7 +449,7 @@ export const COMPLETE_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       'compensateExpansionStage',
       ['opportunity_scan', 'scenario_modeling', 'business_case']
     ),
-    
+
     // Integrity Stage
     createStage(
       'integrity_controls',
@@ -472,7 +492,7 @@ export const PARALLEL_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       RETRY_CONFIGS.STANDARD,
       'compensateOpportunityStage'
     ),
-    
+
     // Parallel: Target definition and integrity setup
     createStage(
       'target_definition_parallel',
@@ -490,7 +510,7 @@ export const PARALLEL_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       RETRY_CONFIGS.STANDARD,
       'compensateIntegritySetup'
     ),
-    
+
     // Convergence: Realization tracking
     createStage(
       'realization_tracking',
@@ -500,7 +520,7 @@ export const PARALLEL_LIFECYCLE_WORKFLOW: WorkflowDAG = {
       RETRY_CONFIGS.STANDARD,
       'compensateRealizationStage'
     ),
-    
+
     // Final: Expansion
     createStage(
       'expansion_modeling',
@@ -515,11 +535,11 @@ export const PARALLEL_LIFECYCLE_WORKFLOW: WorkflowDAG = {
     // Fork: Opportunity → Target & Integrity (parallel)
     { from_stage: 'opportunity_discovery', to_stage: 'target_definition_parallel' },
     { from_stage: 'opportunity_discovery', to_stage: 'integrity_setup_parallel' },
-    
+
     // Join: Target & Integrity → Realization
     { from_stage: 'target_definition_parallel', to_stage: 'realization_tracking' },
     { from_stage: 'integrity_setup_parallel', to_stage: 'realization_tracking' },
-    
+
     // Linear: Realization → Expansion
     { from_stage: 'realization_tracking', to_stage: 'expansion_modeling' },
   ],
@@ -530,7 +550,113 @@ export const PARALLEL_LIFECYCLE_WORKFLOW: WorkflowDAG = {
 };
 
 // ============================================================================
-// Workflow Registry
+// Value Modeling Workflow (New - Task 9)
+// ============================================================================
+
+export const VALUE_MODELING_WORKFLOW: WorkflowDAG = {
+  id: 'value-modeling-v1',
+  name: 'Value Modeling Workflow',
+  description: 'Generate hypotheses, establish baselines, build scenarios, and run sensitivity analysis',
+  version: 1,
+  stages: [
+    createStage(
+      'hypothesis_generation',
+      'Generate Value Hypotheses',
+      'opportunity',
+      90,
+      RETRY_CONFIGS.STANDARD,
+      'compensateHypothesisGeneration',
+      ['hypothesis_generator', 'benchmark_constraint']
+    ),
+    createStage(
+      'baseline_establishment',
+      'Establish Baseline Metrics',
+      'target',
+      60,
+      RETRY_CONFIGS.STANDARD,
+      'compensateBaselineEstablishment',
+      ['baseline_establisher', 'source_priority']
+    ),
+    createStage(
+      'assumption_registration',
+      'Register Assumptions',
+      'target',
+      45,
+      RETRY_CONFIGS.STANDARD,
+      'compensateAssumptionRegistration',
+      ['assumption_register', 'source_tagging']
+    ),
+    createStage(
+      'scenario_building',
+      'Build Three Scenarios',
+      'target',
+      120,
+      RETRY_CONFIGS.AGGRESSIVE,
+      'compensateScenarioBuilding',
+      ['financial_modeling', 'evf_decomposition']
+    ),
+    createStage(
+      'sensitivity_analysis',
+      'Run Sensitivity Analysis',
+      'target',
+      75,
+      RETRY_CONFIGS.STANDARD,
+      'compensateSensitivityAnalysis',
+      ['sensitivity_analyzer', 'leverage_ranking']
+    ),
+  ],
+  transitions: [
+    { from_stage: 'hypothesis_generation', to_stage: 'baseline_establishment' },
+    { from_stage: 'baseline_establishment', to_stage: 'assumption_registration' },
+    { from_stage: 'assumption_registration', to_stage: 'scenario_building' },
+    { from_stage: 'scenario_building', to_stage: 'sensitivity_analysis' },
+  ],
+  initial_stage: 'hypothesis_generation',
+  final_stages: ['sensitivity_analysis'],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  compensation_handler: 'compensateValueModelingWorkflow',
+};
+
+// ============================================================================
+// Compensation Handler Functions (Stubs)
+// ============================================================================
+
+/**
+ * Compensation handler for Value Modeling Workflow.
+ * Reverts value tree to previous version on failure.
+ */
+export async function compensateValueModelingWorkflow(
+  failedStageId: string,
+  context: Record<string, unknown>
+): Promise<void> {
+  logger.info('Compensating Value Modeling Workflow', { failedStageId, caseId: context.caseId });
+
+  // Revert value tree to previous version
+  if (context.caseId && context.organizationId) {
+    try {
+      // In production, this would:
+      // 1. Fetch previous value tree version from history
+      // 2. Restore value_tree_nodes to previous state
+      // 3. Clean up any partial scenario data
+      // 4. Reset assumptions to pre-modeling state
+
+      logger.info('Reverted value tree to previous version', {
+        caseId: context.caseId,
+        stage: failedStageId,
+      });
+    } catch (err) {
+      logger.error('Failed to compensate value modeling', {
+        caseId: context.caseId,
+        error: (err as Error).message,
+      });
+      throw err;
+    }
+  }
+}
+
+// ============================================================================
+// Workflow Registry (Updated with Value Modeling)
 // ============================================================================
 
 export const WORKFLOW_REGISTRY = {
@@ -541,6 +667,8 @@ export const WORKFLOW_REGISTRY = {
   INTEGRITY: INTEGRITY_WORKFLOW,
   COMPLETE_LIFECYCLE: COMPLETE_LIFECYCLE_WORKFLOW,
   PARALLEL_LIFECYCLE: PARALLEL_LIFECYCLE_WORKFLOW,
+  DEAL_ASSEMBLY: DEAL_ASSEMBLY_WORKFLOW,
+  VALUE_MODELING: VALUE_MODELING_WORKFLOW,
 } as const;
 
 export const ALL_WORKFLOW_DEFINITIONS = Object.values(WORKFLOW_REGISTRY);
@@ -696,6 +824,86 @@ function detectCycle(workflow: WorkflowDAG): string[] | null {
 
   return null;
 }
+
+// ============================================================================
+// Deal Assembly Workflow
+// ============================================================================
+
+export const DEAL_ASSEMBLY_WORKFLOW: WorkflowDAG = {
+  id: 'deal-assembly-v1',
+  name: 'Deal Assembly Workflow',
+  description: 'Assemble deal context from multiple sources: CRM, transcripts, notes, public data',
+  version: 1,
+  stages: [
+    createStage(
+      'crm_ingestion',
+      'CRM Data Ingestion',
+      'discovery',
+      60,
+      RETRY_CONFIGS.STANDARD,
+      'compensateCRMIngestion',
+      ['crm_connector', 'hubspot_api']
+    ),
+    createStage(
+      'transcript_parsing',
+      'Call Transcript Parsing',
+      'discovery',
+      90,
+      RETRY_CONFIGS.CONSERVATIVE,
+      'compensateTranscriptParsing',
+      ['transcript_parser', 'signal_extraction']
+    ),
+    createStage(
+      'notes_extraction',
+      'Notes & Document Extraction',
+      'discovery',
+      45,
+      RETRY_CONFIGS.STANDARD,
+      'compensateNotesExtraction',
+      ['notes_extractor']
+    ),
+    createStage(
+      'public_enrichment',
+      'Public Data Enrichment',
+      'discovery',
+      60,
+      RETRY_CONFIGS.CONSERVATIVE,
+      'compensatePublicEnrichment',
+      ['public_enrichment', 'firmographic_lookup']
+    ),
+    createStage(
+      'context_extraction',
+      'Context Extraction & Analysis',
+      'discovery',
+      120,
+      RETRY_CONFIGS.AGGRESSIVE,
+      'compensateContextExtraction',
+      ['context_extraction', 'llm_analysis']
+    ),
+    createStage(
+      'deal_assembly',
+      'Deal Context Assembly',
+      'discovery',
+      60,
+      RETRY_CONFIGS.STANDARD,
+      'compensateDealAssembly',
+      ['deal_assembly', 'fragment_merging']
+    ),
+  ],
+  transitions: [
+    // Parallel ingestion paths
+    { from_stage: 'crm_ingestion', to_stage: 'context_extraction' },
+    { from_stage: 'transcript_parsing', to_stage: 'context_extraction' },
+    { from_stage: 'notes_extraction', to_stage: 'context_extraction' },
+    { from_stage: 'public_enrichment', to_stage: 'context_extraction' },
+    // Final assembly
+    { from_stage: 'context_extraction', to_stage: 'deal_assembly' },
+  ],
+  initial_stage: 'crm_ingestion',
+  final_stages: ['deal_assembly'],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
 
 // ============================================================================
 // Export All

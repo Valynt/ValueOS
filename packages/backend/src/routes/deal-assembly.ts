@@ -6,9 +6,9 @@
  */
 
 import { Router } from "express";
-import { DealAssemblyService } from "../../services/deal/DealAssemblyService.js";
-import { authenticate } from "../../middleware/auth.js";
-import { requireTenantAccess } from "../../middleware/tenant.js";
+import { DealAssemblyService } from "../../services/deal/DealAssemblyService";
+import { authenticate } from "../../middleware/auth";
+import { requireTenantAccess } from "../../middleware/tenant";
 
 const router = Router();
 const dealAssemblyService = new DealAssemblyService();

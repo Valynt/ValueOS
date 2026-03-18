@@ -3,10 +3,11 @@
  */
 
 import { ReactNode } from 'react';
+
+import { BottomTray } from './BottomTray';
+import { MainWorkspace } from './MainWorkspace';
 import { TopNav } from './TopNav';
 import { WorkspaceHeader } from './WorkspaceHeader';
-import { MainWorkspace } from './MainWorkspace';
-import { BottomTray } from './BottomTray';
 
 interface AppShellProps {
   children?: ReactNode;

@@ -7,12 +7,11 @@
 import { FolderOpen, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 
-import { useWorkspace } from "@/features/workspace/hooks/useWorkspace";
-import { useProjects } from "@/features/workspace/hooks/useProjects";
-import type { ProjectStatus } from "@/features/workspace/types";
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useProjects } from "@/features/workspace/hooks/useProjects";
+import { useWorkspace } from "@/features/workspace/hooks/useWorkspace";
+import type { ProjectStatus } from "@/features/workspace/types";
 
 export interface ProjectsProps {
   organizationId?: string;

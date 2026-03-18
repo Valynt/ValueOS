@@ -9,8 +9,9 @@ import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
 
-import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks.js"
-import type { AuthenticatedRequest } from "../middleware/auth.js";
+import { auditBulkDelete, auditOperation, auditRoleAssignment } from "../middleware/auditHooks"
+import { AUDIT_ACTION } from "../types/audit"
+import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requirePermission } from "../middleware/rbac.js"
@@ -78,7 +79,7 @@ router.post(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.invite"),
-  auditOperation("user_invite", "team_member", (req) => req.params.tenantId),
+  auditOperation(AUDIT_ACTION.USER_INVITE, "team_member", (req) => req.params.tenantId),
   validateRequest(ValidationSchemas.adminInviteUser),
   async (req: Request, res: Response) => {
     try {
@@ -117,7 +118,7 @@ router.post(
     } catch (error) {
       logger.error("Failed to invite user", error instanceof Error ? error : undefined, {
         tenantId: req.params.tenantId,
-        email: sanitizeForLogging(req.body.email),
+        email: sanitizeForLogging(req.body.email) as string,
       });
       res.status(500).json({ error: "Failed to invite user" });
     }
@@ -221,7 +222,7 @@ router.delete(
   requireAuth,
   tenantContextMiddleware(),
   requirePermission("users.delete"),
-  auditOperation("invite_cancel", "team_invite", (req) => req.params.userId),
+  auditOperation(AUDIT_ACTION.INVITE_CANCEL, "team_invite", (req) => req.params.userId),
   async (req: Request, res: Response) => {
     try {
       const tenantId = (req as AuthenticatedRequest).tenantId as string;

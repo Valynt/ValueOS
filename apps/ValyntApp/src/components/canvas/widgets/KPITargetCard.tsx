@@ -5,9 +5,10 @@
  * Reference: openspec/changes/frontend-v1-surfaces/tasks.md §3.5
  */
 
-import React from "react";
-import { Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { SourceBadge, SourceType } from "@valueos/components/components/SourceBadge";
+import { Minus, Target, TrendingDown, TrendingUp } from "lucide-react";
+import React from "react";
+
 import { WidgetProps } from "../CanvasHost";
 
 export interface KPITarget {

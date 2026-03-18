@@ -4,13 +4,14 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+
 import {
+  GatingRules,
+  INITIAL_WORKFLOW_STEPS,
+  ValidationIssue,
   WorkflowState,
   WorkflowStep,
   WorkflowStepState,
-  GatingRules,
-  ValidationIssue,
-  INITIAL_WORKFLOW_STEPS,
 } from '../types/workflow.types';
 import { GATING_MATRIX } from '../utils/state-gating';
 
