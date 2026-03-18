@@ -59,7 +59,7 @@ export async function initializeAgents(options: AgentInitOptions = {}): Promise<
     const timer = setTimeout(() => controller.abort(), healthCheckTimeout);
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const res = await fetch("/health/dependencies", { signal: controller.signal });
       clearTimeout(timer);
 

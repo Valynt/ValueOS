@@ -1,6 +1,6 @@
 /**
  * Real-Time Sync Integration Tests
- * 
+ *
  * Tests multi-user real-time synchronization scenarios
  */
 
@@ -358,10 +358,7 @@ describe('Real-Time Sync Integration Tests', () => {
     it('should handle subscription errors gracefully', async () => {
       const mockChannel = {
         on: vi.fn().mockReturnThis(),
-        subscribe: vi.fn((callback) => {
-          callback('CHANNEL_ERROR');
-          return Promise.resolve('CHANNEL_ERROR');
-        }),
+        subscribe: vi.fn().mockResolvedValue('CHANNEL_ERROR'),
         unsubscribe: vi.fn().mockResolvedValue({ error: null }),
       };
 

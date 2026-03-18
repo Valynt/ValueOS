@@ -184,4 +184,4 @@ export function ArtifactPreview({ data, onAction }: WidgetProps) {
   );
 }
 
-export { ArtifactPreview };
+export default ArtifactPreview;

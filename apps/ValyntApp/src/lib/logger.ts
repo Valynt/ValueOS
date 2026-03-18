@@ -5,11 +5,11 @@
 // In production, replace this stub with a transport-backed logger (e.g. Winston, Pino).
 
 export const logger = {
-  // eslint-disable-next-line no-console -- logging utility / bootstrap code
+   
   info: (msg: string, ...data: unknown[]) => console.log(`[INFO] ${msg}`, ...data),
   warn: (msg: string, ...data: unknown[]) => console.warn(`[WARN] ${msg}`, ...data),
   error: (msg: string, ...data: unknown[]) => console.error(`[ERROR] ${msg}`, ...data),
-  // eslint-disable-next-line no-console -- logging utility / bootstrap code
+   
   debug: (msg: string, ...data: unknown[]) => console.log(`[DEBUG] ${msg}`, ...data),
 };
 

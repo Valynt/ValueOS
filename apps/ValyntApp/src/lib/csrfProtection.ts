@@ -148,7 +148,7 @@ class CSRFProtection {
   secureFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const secureInit = init ? this.addTokenToRequest(init) : this.addTokenToRequest({});
 
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     return fetch(input, secureInit);
   };
 }

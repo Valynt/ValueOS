@@ -29,16 +29,16 @@ export function startConsoleCapture() {
   if (isCapturing || typeof console === 'undefined') return;
 
   const originalConsole = {
-    // eslint-disable-next-line no-console -- logging utility / bootstrap code
+     
     log: console.log,
-    // eslint-disable-next-line no-console -- logging utility / bootstrap code
+     
     info: console.info,
     warn: console.warn,
     error: console.error,
   };
 
   (['log', 'info', 'warn', 'error'] as const).forEach((level) => {
-    // eslint-disable-next-line no-console -- logging utility / bootstrap code
+     
     console[level] = (...args: unknown[]) => {
       const entry: ConsoleLogEntry = {
         level,

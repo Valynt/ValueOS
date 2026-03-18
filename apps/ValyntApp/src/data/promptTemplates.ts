@@ -305,7 +305,7 @@ export function interpolateTemplate(template: PromptTemplate, variables: Record<
   let result = template.prompt;
   
   for (const [key, value] of Object.entries(variables)) {
-    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
+     
     result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
   }
   

@@ -1,7 +1,41 @@
+/**
+ * @vitest-environment jsdom
+ */
+
 import ExcelJS from "exceljs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { exportToExcel, exportToPDF, exportToPNG } from "./export";
+
+// Mock html2canvas for PNG export tests
+vi.mock("html2canvas", () => ({
+  default: vi.fn().mockResolvedValue({
+    toBlob: (callback: (blob: Blob | null) => void) => {
+      const blob = new Blob(["fake-png-data"], { type: "image/png" });
+      callback(blob);
+    },
+  }),
+}));
+
+// Mock jsPDF for PDF export tests
+vi.mock("jspdf", () => ({
+  default: vi.fn().mockImplementation(() => ({
+    internal: {
+      pageSize: {
+        getWidth: () => 210,
+      },
+    },
+    setFontSize: vi.fn(),
+    setFont: vi.fn(),
+    text: vi.fn(),
+    setTextColor: vi.fn(),
+    setDrawColor: vi.fn(),
+    line: vi.fn(),
+    addPage: vi.fn(),
+    splitTextToSize: vi.fn().mockReturnValue(["test text"]),
+    output: vi.fn().mockReturnValue(new Blob(["fake-pdf-data"], { type: "application/pdf" })),
+  })),
+}));
 
 async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer());

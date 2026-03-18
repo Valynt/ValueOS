@@ -112,7 +112,7 @@ export function validatePassword(
     const escaped = config.specialChars
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       .replace(/-/g, '\\-');
-    // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
+     
     const specialCharsRegex = new RegExp(`[${escaped}]`);
     if (!specialCharsRegex.test(password)) {
       errors.push(`Password must contain at least one special character (${config.specialChars})`);
@@ -244,7 +244,7 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
 
     const controller = new AbortController();
     const to = setTimeout(() => controller.abort(), timeoutMs);
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { signal: controller.signal, headers: { Accept: 'text/plain', 'User-Agent': 'valyntapp/1.0' } });
     clearTimeout(to);
 

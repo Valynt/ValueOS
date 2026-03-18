@@ -159,7 +159,7 @@ export function validateCSRFToken(
   }
 
   // Check if token matches
-  // eslint-disable-next-line security/detect-possible-timing-attacks -- not a cryptographic comparison
+   
   if (storedToken.token !== token) {
     return false;
   }
@@ -332,7 +332,7 @@ export async function fetchWithCSRF(
   url: string,
   options: RequestInit = {},
   config: Partial<CSRFTokenConfig> = {},
-  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+   
   fetchImpl: typeof fetch = fetch
 ): Promise<Response> {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
@@ -464,12 +464,12 @@ let originalFetch: typeof fetch | null = null;
 export function attachCSRFFetchInterceptor(
   config: Partial<CSRFTokenConfig> = {}
 ): void {
-  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+   
   if (csrfFetchInterceptorInstalled || typeof fetch === "undefined") {
     return;
   }
 
-  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+   
   originalFetch = fetch.bind(globalThis);
   csrfFetchInterceptorInstalled = true;
 

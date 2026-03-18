@@ -4,7 +4,7 @@
 
 ### 1. API Versioning Fix
 
-- [ ] 1.1 Fix unreachable code in `packages/backend/src/versioning.ts` — three consecutive `return` statements before `next()`
+- [x] 1.1 Fix unreachable code in `packages/backend/src/versioning.ts` — three consecutive `return` statements before `next()`
 - [ ] 1.2 Restructure so 426 response is returned when version is unsupported
 - [ ] 1.3 Move `API-Deprecated-Versions` header to after version resolution
 - [ ] 1.4 Ensure `next()` only called on happy path

@@ -7,7 +7,7 @@ interface AgentStatus {
 }
 
 async function fetchAgents(): Promise<AgentStatus[]> {
-  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+   
   const res = await fetch("/api/admin/agents", { credentials: "include" });
   if (!res.ok) throw new Error(`Failed to fetch agents (${res.status})`);
   const data = (await res.json()) as { agents: AgentStatus[] };
@@ -15,7 +15,7 @@ async function fetchAgents(): Promise<AgentStatus[]> {
 }
 
 async function setKillSwitch(name: string, killed: boolean): Promise<void> {
-  // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+   
   const res = await fetch(
     `/api/admin/agents/${encodeURIComponent(name)}/kill-switch`,
     {

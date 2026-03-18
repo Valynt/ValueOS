@@ -227,7 +227,7 @@ export class MarketDataModule extends BaseModule {
     const url = `${this.PROVIDER_URLS.alphavantage}?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${this.apiKey}`;
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -284,7 +284,7 @@ export class MarketDataModule extends BaseModule {
     const url = `${this.PROVIDER_URLS.alphavantage}?function=OVERVIEW&symbol=${ticker}&apikey=${this.apiKey}`;
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -333,7 +333,7 @@ export class MarketDataModule extends BaseModule {
     const url = `${this.PROVIDER_URLS.polygon}/v2/aggs/ticker/${ticker}/prev?apiKey=${this.apiKey}`;
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -377,7 +377,7 @@ export class MarketDataModule extends BaseModule {
     const url = `${this.PROVIDER_URLS.polygon}/v3/reference/tickers/${ticker}?apiKey=${this.apiKey}`;
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -423,7 +423,7 @@ export class MarketDataModule extends BaseModule {
     const url = `${this.PROVIDER_URLS.tiingo}/tiingo/daily/${ticker}/prices?token=${this.apiKey}`;
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const response = await fetch(url);
 
       if (!response.ok) {

@@ -390,7 +390,7 @@ class SecurityHeaders {
       // Raw fetch retained: CSP violation reports fire from a SecurityPolicyViolationEvent
       // handler that runs outside React context. apiClient requires auth context.
       // Migrate when apiClient exposes an unauthenticated reporting method.
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       fetch("/api/security/csp-violation", {
         method: "POST",
         headers: {

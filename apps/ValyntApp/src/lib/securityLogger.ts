@@ -420,10 +420,10 @@ class SecurityLogger {
       case "medium":
         return console.warn;
       case "low":
-        // eslint-disable-next-line no-console -- logging utility / bootstrap code
+         
         return console.info;
       default:
-        // eslint-disable-next-line no-console -- logging utility / bootstrap code
+         
         return console.log;
     }
   }

@@ -42,13 +42,14 @@ const ignoresConfig = {
     "playwright-report/**/*",
     "reports/**/*",
     "grafana/**/*",
-    "infrastructure/**/*",
     "infra/k8s/**/*",
     "kubernetes/**/*",
     "alembic/**/*",
     "apps/VOSAcademy/src/data/db.js",
     "apps/VOSAcademy/src/data/seed-simulations.mjs",
     "tests/performance/stress-testing.test.ts",
+    "packages/mcp/**/*.js",
+    "**/*.js.map",
   ],
 };
 

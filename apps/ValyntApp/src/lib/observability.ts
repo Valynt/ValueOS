@@ -28,7 +28,7 @@ export function initFrontendObservability(options: FrontendObservabilityInitOpti
 
   observabilityInitialized = true;
 
-  // eslint-disable-next-line no-console -- logging utility / bootstrap code
+   
   console.info("[observability.init]", {
     appName: options.appName,
     release: options.release,
@@ -37,7 +37,7 @@ export function initFrontendObservability(options: FrontendObservabilityInitOpti
 }
 
 export function recordMetric(name: string, value: number, tags: ObservabilityTags): void {
-  // eslint-disable-next-line no-console -- logging utility / bootstrap code
+   
   console.debug("[observability.metric]", { name, value, ...tags });
 }
 

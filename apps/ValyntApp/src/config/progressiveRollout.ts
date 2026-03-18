@@ -321,7 +321,7 @@ export class ProgressiveRollout {
   private async sendRollbackAlert(reason: string): Promise<void> {
     // Send to monitoring system
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       await fetch(import.meta.env.VITE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

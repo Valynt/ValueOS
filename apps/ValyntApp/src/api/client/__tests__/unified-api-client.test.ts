@@ -34,7 +34,7 @@ describe("UnifiedApiClient input sanitization", () => {
       tenantId: "tenant-1<script>alert(1)</script>",
     });
 
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const fetchMock = vi.mocked(fetch);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [requestedUrl] = fetchMock.mock.calls[0] ?? [];
