@@ -229,7 +229,7 @@ export async function resilientFetch(
       const signal = mergeAbortSignals(init?.signal, controller.signal);
 
       try {
-        // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+         
         return await fetch(url, { ...init, signal });
       } finally {
         clearTimeout(timeoutId);

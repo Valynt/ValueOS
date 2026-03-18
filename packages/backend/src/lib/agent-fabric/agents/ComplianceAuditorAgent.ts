@@ -69,7 +69,7 @@ export class ComplianceAuditorAgent extends BaseAgent {
       context.workspace_id,
       prompt,
       ComplianceSummarySchema,
-      // eslint-disable-next-line no-restricted-syntax -- intentional usage
+       
       {
         trackPrediction: true,
         confidenceThresholds: { low: 0.7, high: 0.9 },

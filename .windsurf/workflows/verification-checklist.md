@@ -1,62 +1,80 @@
 ---
-description: Verify local development environment setup in ValueOS
+description: Verify cloud-dev development environment setup in ValueOS
 ---
 
-# ValueOS Local Development Verification Checklist
+# ValueOS Cloud-Dev Verification Checklist
 
 ## Prerequisites
 
-- Docker Desktop installed and running
+- Hosted Supabase project (credentials from dashboard)
 - Node.js version matching `.nvmrc`
 - Clean git checkout
+- Redis installed locally
 
 ## ✅ Setup Verification
 
 ### 1. Installation
 
 ```bash
-pnpm install
-# Expected: "added X packages in Ys"
+pnpm install --no-frozen-lockfile
+# Expected: packages installed successfully
 ```
 
 ### 2. Environment Setup
 
 ```bash
-# Run environment preparation
-bash scripts/env/prepare-frontend-env.sh local
-# Expected: Environment variables set
+# Create environment files from templates
+cp ops/env/.env.cloud-dev.example          ops/env/.env.cloud-dev
+cp ops/env/.env.frontend.cloud-dev.example ops/env/.env.frontend.cloud-dev
+cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
+
+# Expected: Files created with placeholder values
 ```
 
-### 3. Clean State
+### 3. Redis Ready
+
+Choose one option:
+
+**Option A: Native Redis**
 
 ```bash
-pnpm run dx:down
-# Expected: No containers running, no .dx-lock file
-docker ps --format "table {{.Names}}\t{{.Status}}"
-# Expected: "NAMES     STATUS    PORTS" (empty or no valueos containers)
+redis-server --daemonize yes --port 6379
+redis-cli ping
+# Expected: "PONG"
 ```
 
-### 4. Start Development Stack
+**Option B: Docker Redis**
 
 ```bash
-pnpm run dx:up
-# Expected: All containers start successfully
-docker ps --format "table {{.Names}}\t{{.Status}}"
-# Expected: valueos-postgres, valueos-redis, valueos-backend, valueos-frontend all "Up X minutes"
+docker compose -f ops/compose/compose.cloud-dev.yml up -d
+redis-cli ping
+# Expected: "PONG"
 ```
 
-### 5. Database Connectivity
+### 4. Start Development Servers
 
 ```bash
-curl -sS "http://localhost:54321/rest/v1/" | head -1
-# Expected: JSON response or auth error (not connection refused)
+# Terminal 1 - Backend
+APP_ENV=cloud-dev pnpm run dev:backend
+# Expected: Server starts on port 3001
+
+# Terminal 2 - Frontend
+APP_ENV=cloud-dev pnpm run dev:frontend
+# Expected: Vite dev server on port 5173
 ```
 
-### 6. Frontend Environment Loading
+### 5. Supabase Connectivity
 
 ```bash
-node -r dotenv/config -e "console.log('VITE_SUPABASE_ANON_KEY length:', process.env.VITE_SUPABASE_ANON_KEY.length)"
-# Expected: "VITE_SUPABASE_ANON_KEY length: 153"
+curl -s "${SUPABASE_URL}/rest/v1/" | head -1
+# Expected: JSON response (not connection refused)
+```
+
+### 6. Environment Loading
+
+```bash
+grep -E "SUPABASE_URL|SUPABASE_ANON_KEY" ops/env/.env.backend.cloud-dev | head -5
+# Expected: Variables set with real values
 ```
 
 ### 7. Service Health Checks
@@ -70,38 +88,27 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/health
 curl -s -o /dev/null -w "%{http_code}" http://localhost:5173
 # Expected: "200"
 
-# Database ready
-docker exec valueos-postgres pg_isready -U postgres
-# Expected: "accepting connections"
-
 # Redis ready
-docker exec valueos-redis redis-cli ping
+redis-cli ping
 # Expected: "PONG"
 ```
 
-### 8. Database Reset
+### 8. Validate Environment
 
 ```bash
-npx supabase db reset
-# Expected: Supabase CLI resets local database successfully
-```
-
-### 9. Demo User Creation
-
-```bash
-tsx scripts/seed-demo-user.ts
-# Expected: "Demo data seeded successfully!" + login credentials
+bash scripts/validate-cloud-dev-env.sh
+# Expected: "[validate] cloud-dev environment OK"
 ```
 
 ## Authentication Verification
 
-### 10. Login Flow
+### 9. Login Flow
 
 1. Open `http://localhost:5173`
-2. Use credentials from seed:demo output
+2. Sign up or sign in with Supabase Auth
 3. Expected: Successful login, redirect to dashboard
 
-### 11. Session Persistence
+### 10. Session Persistence
 
 ```bash
 # After login, check API with session
@@ -109,7 +116,7 @@ curl -s -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:3001/api/user/pr
 # Expected: User profile data (200 response)
 ```
 
-### 12. Tenant Data Access
+### 11. Tenant Data Access
 
 ```bash
 # Access tenant-scoped endpoint
@@ -119,89 +126,119 @@ curl -s -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:3001/api/tenant/
 
 ## 🔄 Repeatable Workflow Verification
 
-### 13. Clean Restart
+### 12. Clean Restart
+
+**Native Redis:**
 
 ```bash
-pnpm run dx:down && pnpm run dx:up
+# Stop all processes
+pkill -f "tsx src/server.ts" || true
+pkill -f "vite" || true
+
+# Restart
+redis-server --daemonize yes --port 6379
+APP_ENV=cloud-dev pnpm run dev:backend &
+APP_ENV=cloud-dev pnpm run dev:frontend
 # Expected: Same results as initial setup
 ```
 
-### 14. Comprehensive Health Check
+**Docker Redis:**
 
 ```bash
-pnpm run dx:doctor
-# Expected: "All checks passed! Development environment is ready."
+# Stop all processes
+pkill -f "tsx src/server.ts" || true
+pkill -f "vite" || true
+
+# Restart
+docker compose -f ops/compose/compose.cloud-dev.yml up -d
+APP_ENV=cloud-dev pnpm run dev:backend &
+APP_ENV=cloud-dev pnpm run dev:frontend
+# Expected: Same results as initial setup
+```
+
+### 13. Comprehensive Health Check
+
+```bash
+curl -s http://localhost:3001/health | jq .
+# Expected: {"status":"healthy",...}
 ```
 
 ## 📋 Troubleshooting Commands
 
-### DX Lock Issues
+### Port Conflicts
 
 ```bash
-# Check lock state
-ls -la .dx*
-# Clear lock manually
-rm -f .dx-lock .dx-state.json
+# Check port usage
+lsof -i :5173 -i :3001 -i :6379
+# Force kill
+pkill -f "tsx src/server.ts"
+pkill -f "vite"
 ```
 
 ### Environment Issues
 
 ```bash
 # Validate environment
-node scripts/env/validate-env.js
-# Check current environment
-node scripts/env/validate-env.js
+bash scripts/validate-cloud-dev-env.sh
+
+# Check current environment variables
+grep -E "^[A-Z]" ops/env/.env.backend.cloud-dev | head -20
 ```
 
-### Port Conflicts
+### Redis Issues
 
 ```bash
-# Check port usage
-lsof -i :54321 -i :54322 -i :5173 -i :3001
-# Force restart
-pnpm run dx:down && pnpm run dx:up
+# Check Redis
+redis-cli ping
+
+# Restart Redis (Native)
+redis-server --daemonize yes --port 6379
+
+# Or restart Redis (Docker)
+docker compose -f ops/compose/compose.cloud-dev.yml restart
 ```
 
-### Container Issues
+### Supabase Issues
 
 ```bash
-# View logs
-pnpm run dx:logs
-# Specific service logs
-docker logs valueos-backend
-# Restart specific service
-docker restart valueos-backend
+# Test Supabase connection
+curl -s "${SUPABASE_URL}/rest/v1/" -H "apikey: ${SUPABASE_ANON_KEY}" | head -1
+
+# Verify credentials in dashboard
+# Project Settings → API in Supabase dashboard
 ```
 
 ## ✅ Success Criteria
 
 All of the following must pass:
 
-1. ✅ `pnpm install` succeeds without errors
-2. ✅ `pnpm run dx:down` leaves no relevant containers running
-3. ✅ `pnpm run dx:up` starts all services successfully
-4. ✅ `curl http://localhost:54321/rest/v1/` returns a response (not connection refused)
-5. ✅ Frontend loads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` correctly
-6. ✅ Login succeeds and session persists across page refreshes
-7. ✅ API calls succeed using the session JWT
-8. ✅ App loads tenant-scoped data without 401/403 errors
-9. ✅ `pnpm run dx:down && pnpm run dx:up` is repeatable with same results
-10. ✅ `pnpm run dx:doctor` passes all checks
+1. ✅ `pnpm install --no-frozen-lockfile` succeeds without errors
+2. ✅ `redis-cli ping` returns "PONG"
+3. ✅ Backend starts successfully on port 3001
+4. ✅ Frontend starts successfully on port 5173
+5. ✅ `curl http://localhost:3001/health` returns `{"status":"healthy",...}`
+6. ✅ Supabase connection responds (not connection refused)
+7. ✅ Login succeeds and session persists across page refreshes
+8. ✅ API calls succeed using the session JWT
+9. ✅ App loads tenant-scoped data without 401/403 errors
+10. ✅ `bash scripts/validate-cloud-dev-env.sh` passes
 
 ## 🚨 Failure Remediation
 
 If any check fails:
 
-1. **Environment Issues**: Run `bash scripts/env/prepare-frontend-env.sh local` to reset environment
-2. **Container Issues**: Run `bash scripts/cleanup.sh && pnpm run dx:up` for fresh start
-3. **Database Issues**: Run `npx supabase db reset` to reset database
-4. **Port Conflicts**: Check for other services using required ports
-5. **Permission Issues**: Ensure Docker daemon is running and user has permissions
+1. **Environment Issues**: Re-run `/init` workflow to reset environment files
+2. **Redis Issues (Native)**: `redis-server --daemonize yes --port 6379`
+3. **Redis Issues (Docker)**: `docker compose -f ops/compose/compose.cloud-dev.yml restart`
+4. **Supabase Issues**: Verify credentials in Supabase dashboard
+5. **Port Conflicts**: Check for other services using ports 3001, 5173, 6379
+6. **Permission Issues**: Ensure Redis/Docker and Node have proper permissions
 
 ## 📝 Notes
 
-- Backend runs on port 3001 (not 3000)
-- Supabase API on 54321, Studio on 54323
-- Frontend on 5173, PostgreSQL on 5432, Redis on 6379
-- All environment variables are validated by `pnpm run dx:doctor`
-- Demo user credentials are displayed after running `tsx scripts/seed-demo-user.ts`
+- Backend runs on port 3001
+- Frontend on port 5173
+- Redis on port 6379 (local cache only)
+- Supabase is cloud-hosted (no local containers)
+- All environment variables are validated by `scripts/validate-cloud-dev-env.sh`
+- Uses `APP_ENV=cloud-dev` for all dev commands

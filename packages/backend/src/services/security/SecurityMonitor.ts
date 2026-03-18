@@ -771,7 +771,7 @@ export class SecurityMonitor {
    * can attach error handlers without blocking the alert pipeline.
    */
   private async postWebhook(url: string, body: Record<string, unknown>): Promise<void> {
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

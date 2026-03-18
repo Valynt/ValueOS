@@ -106,5 +106,5 @@ function generateVersionedETag(input: { version: string; payload: unknown }): st
     .createHash("sha256")
     .update(`${input.version}:${JSON.stringify(input.payload)}`)
     .digest("base64url");
-  return `W/\"${digest}\"`;
+  return `W/"${digest}"`;
 }

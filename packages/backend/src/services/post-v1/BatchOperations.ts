@@ -63,21 +63,23 @@ class BatchOperations {
             : c
         );
 
-      case 'center-horizontal':
+      case 'center-horizontal': {
         const avgX = selectedComponents.reduce((sum, c) => sum + c.position.x + c.size.width / 2, 0) / selectedComponents.length;
         return components.map(c =>
           componentIds.includes(c.id)
             ? { ...c, position: { ...c.position, x: avgX - c.size.width / 2 } }
             : c
         );
+      }
 
-      case 'center-vertical':
+      case 'center-vertical': {
         const avgY = selectedComponents.reduce((sum, c) => sum + c.position.y + c.size.height / 2, 0) / selectedComponents.length;
         return components.map(c =>
           componentIds.includes(c.id)
             ? { ...c, position: { ...c.position, y: avgY - c.size.height / 2 } }
             : c
         );
+      }
 
       default:
         return components;

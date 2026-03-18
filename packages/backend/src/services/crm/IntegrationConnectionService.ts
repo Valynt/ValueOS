@@ -545,7 +545,7 @@ export class IntegrationConnectionService extends TenantAwareService {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       return await fetch(url, { ...options, signal: controller.signal });
     } finally {
       clearTimeout(timeoutId);

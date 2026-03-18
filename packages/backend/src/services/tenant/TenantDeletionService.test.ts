@@ -16,7 +16,7 @@ function makeSupabaseMock(store: Record<string, Row[]>) {
   const updates: Array<{ table: string; id: unknown; payload: Row }> = [];
 
   function tableChain(tableName: string) {
-    let filters: Array<{ col: string; val: unknown; op: string }> = [];
+    const filters: Array<{ col: string; val: unknown; op: string }> = [];
     let selectCols = '*';
     let isSingle = false;
     let updatePayload: Row | null = null;

@@ -526,7 +526,7 @@ export class ContextOptimizer implements MemoryPressureListener {
   } {
     const sections = this.splitContentByPriority(content);
     let optimizedContent = "";
-    let discardedContent: string[] = [];
+    const discardedContent: string[] = [];
     let currentTokens = 0;
 
     // Keep content until we reach the limit

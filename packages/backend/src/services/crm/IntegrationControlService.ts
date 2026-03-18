@@ -192,7 +192,7 @@ export class IntegrationControlService {
 
     if (tenantSettings) {
         for (const setting of tenantSettings) {
-            let value = setting.value;
+            const value = setting.value;
             let modified = false;
 
             // Check key name
@@ -219,7 +219,7 @@ export class IntegrationControlService {
              // If value is a JSON object, search inside
              if (setting.type === 'object' || setting.type === 'array') {
                 try {
-                    let parsed = JSON.parse(value);
+                    const parsed = JSON.parse(value);
 
                     const redactKeys = (obj: Record<string, unknown>): Record<string, unknown> => {
                         if (!obj || typeof obj !== 'object') return obj;

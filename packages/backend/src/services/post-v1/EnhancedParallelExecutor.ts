@@ -564,7 +564,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
     tasks: ParallelTask[]
   ): Promise<TaskResult[]> {
     const results: TaskResult[] = [];
-    let contextData: Record<string, unknown> = {};
+    const contextData: Record<string, unknown> = {};
 
     for (const task of tasks) {
       try {
@@ -816,7 +816,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute runnable tasks concurrently
    */
-  // eslint-disable-next-line no-dupe-class-members -- overload with different signature for internal use
+   
   private async executeRunnableTasks(
     tasks: ParallelTask[],
     maxConcurrency: number

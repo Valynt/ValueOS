@@ -252,7 +252,7 @@ export function createSecurityHeadersMiddleware(options: SecurityHeadersOptions 
       ...options.hsts,
     };
 
-    let cspConfig: CspConfig = {
+    const cspConfig: CspConfig = {
       ...securityConfig.csp,
       ...options.csp,
     };

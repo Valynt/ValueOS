@@ -78,7 +78,7 @@ export class RetrievalEngine {
 
     return results
       .map((fact) => {
-        let score = fact.similarity || 0.5;
+        const score = fact.similarity || 0.5;
         let statusBoost = 0;
         let tierBoost = 0;
 

@@ -418,7 +418,7 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         IntegrityAnalysisSchema,
-        // eslint-disable-next-line no-restricted-syntax -- intentional usage
+         
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

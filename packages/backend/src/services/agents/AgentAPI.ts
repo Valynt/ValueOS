@@ -284,7 +284,7 @@ export class AgentAPI {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const baseFetch = (globalThis.fetch || fetch).bind(globalThis);
 
     try {

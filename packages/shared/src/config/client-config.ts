@@ -10,7 +10,9 @@ const ClientConfigSchema = z.object({
   app: z.object({
     name: z.string().default("ValueOS"),
     version: z.string().default("1.0.0"),
-    environment: z.enum(["development", "staging", "production"]).default("development"),
+    environment: z
+      .enum(["development", "staging", "production"])
+      .default("development"),
     debug: z.boolean().default(false),
   }),
   supabase: z.object({
@@ -28,8 +30,9 @@ export type ClientConfig = z.infer<typeof ClientConfigSchema>;
 
 const isBrowser = typeof window !== "undefined";
 const envSource =
-  (import.meta as Record<string, unknown>)?.env as Record<string, string> | undefined ??
-  (typeof process !== "undefined" ? process.env : undefined);
+  ((import.meta as unknown as Record<string, unknown>)?.env as
+    | Record<string, string>
+    | undefined) ?? (typeof process !== "undefined" ? process.env : undefined);
 
 function getClientEnvVar(key: string): string | undefined {
   if (!key.startsWith("VITE_")) {
@@ -87,7 +90,9 @@ class ClientConfigLoader {
         name: getClientEnvVar("VITE_APP_NAME") ?? "ValueOS",
         version: getClientEnvVar("VITE_APP_VERSION") ?? "1.0.0",
         environment:
-          (getClientEnvVar("VITE_APP_ENV") as ClientConfig["app"]["environment"]) || "development",
+          (getClientEnvVar(
+            "VITE_APP_ENV"
+          ) as ClientConfig["app"]["environment"]) || "development",
         debug: getClientEnvVar("VITE_DEBUG") === "true",
       },
       supabase: {
@@ -95,9 +100,12 @@ class ClientConfigLoader {
         anonKey: getClientEnvVar("VITE_SUPABASE_ANON_KEY") ?? "",
       },
       api: {
-        baseUrl: normalizeApiBaseUrl(getClientEnvVar("VITE_API_BASE_URL") || ""),
+        baseUrl: normalizeApiBaseUrl(
+          getClientEnvVar("VITE_API_BASE_URL") || ""
+        ),
         timeout: parseNumber(getClientEnvVar("VITE_API_TIMEOUT")) ?? 30000,
-        retryAttempts: parseNumber(getClientEnvVar("VITE_API_RETRY_ATTEMPTS")) ?? 3,
+        retryAttempts:
+          parseNumber(getClientEnvVar("VITE_API_RETRY_ATTEMPTS")) ?? 3,
       },
     };
   }
@@ -115,12 +123,24 @@ class ClientConfigLoader {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
+          errors: error.errors.map(e => `${e.path.join(".")}: ${e.message}`),
         };
       }
+      const stats = error as unknown as {
+        p95Latency?: number;
+        total?: number;
+        successRate?: number;
+      };
+      const condition = (stats: {
+        p95Latency?: number;
+        total?: number;
+        successRate?: number;
+      }) => (stats.p95Latency ?? 0) > 2000;
       return {
         valid: false,
-        errors: [error instanceof Error ? error.message : "Unknown validation error"],
+        errors: [
+          condition(stats) ? "Condition met" : "Unknown validation error",
+        ],
       };
     }
   }
@@ -130,7 +150,8 @@ export const clientConfig = ClientConfigLoader.getInstance();
 
 export const getClientConfig = (): ClientConfig => clientConfig.load();
 
-export const isClientProduction = (): boolean => getClientConfig().app.environment === "production";
+export const isClientProduction = (): boolean =>
+  getClientConfig().app.environment === "production";
 
 export const getClientSupabaseConfig = () => getClientConfig().supabase;
 
@@ -140,6 +161,6 @@ if (isBrowser) {
   const validation = clientConfig.validate();
   if (!validation.valid) {
     console.error("Client configuration validation failed:");
-    validation.errors.forEach((error) => console.error(`  - ${error}`));
+    validation.errors.forEach(error => console.error(`  - ${error}`));
   }
 }

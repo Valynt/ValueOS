@@ -32,7 +32,7 @@ export function getTestSupabaseClient(): SupabaseClient {
 
   return createClient(supabaseUrl, supabaseServiceKey, {
     global: {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       fetch: fetch as any,
     },
   });
@@ -188,7 +188,7 @@ export async function executeAsUser<T = any>(
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       fetch: fetch as any,
     },
   });

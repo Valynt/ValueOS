@@ -244,7 +244,7 @@ Please extract ${entityType} entities from the context provided above.
     const sourceUrls = pages.map((p) => p.url);
 
     const items = parsed.map((payload) => {
-      let confidence = assignConfidence(payload, entityType);
+      const confidence = assignConfidence(payload, entityType);
 
       // Claims with confidence < 0.5 default to "conditional"
       if (entityType === 'claim' && confidence < 0.5) {

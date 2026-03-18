@@ -367,7 +367,7 @@ export abstract class BaseAgent {
         },
       };
 
-      // eslint-disable-next-line no-restricted-syntax -- intentional usage
+       
       const response = await this.llmGateway.complete(request);
 
       // Knowledge Fabric cross-reference (runs in parallel with parse)

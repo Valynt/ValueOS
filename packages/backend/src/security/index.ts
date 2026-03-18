@@ -133,7 +133,7 @@ async function fetchHibpRange(prefix: string, timeoutMs: number, attempts = 3): 
     const controller = new AbortController();
     const to = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const res = await fetch(url, { headers, signal: controller.signal });
       clearTimeout(to);
       if (!res.ok) throw new Error(`HIBP returned ${res.status}`);

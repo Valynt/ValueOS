@@ -114,7 +114,7 @@ async function checkTogetherAI(): Promise<HealthStatus> {
   }
 
   try {
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const response = await fetch("https://api.together.ai/v1/models", {
       method: "GET",
       headers: {
@@ -169,7 +169,7 @@ async function checkOpenAI(): Promise<HealthStatus> {
   }
 
   try {
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const response = await fetch("https://api.openai.com/v1/models", {
       method: "GET",
       headers: {

@@ -1,0 +1,1242 @@
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: hypothesis-agent
+  version: 1.0.0
+  stage: opportunity
+  category: generator
+spec:
+  description: >
+    Generates quantifiable value theses (hypotheses) based on opportunity context,
+    financial data, and business constraints. Proposes specific, measurable
+    improvements with confidence scores and data requirements.
+
+  purpose: |
+    Transform vague business opportunities into specific, testable value theses
+    that can be modeled, validated, and tracked. Every hypothesis must specify
+    a metric, expected delta, and value type.
+
+  lifecycleStage: opportunity
+  confidenceThreshold: 0.70
+
+  input:
+    schema:
+      type: object
+      required: [painPoints, financialContext]
+      properties:
+        opportunityId:
+          type: string
+          description: Optional reference to pre-discovered opportunity
+        painPoints:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          description: Business problems or improvement areas to address
+        financialContext:
+          type: object
+          required: [currentMetrics]
+          properties:
+            arr:
+              type: number
+              description: Annual Recurring Revenue
+            cashBurn:
+              type: number
+              description: Monthly cash burn rate
+            currentMetrics:
+              type: object
+              additionalProperties:
+                type: number
+              description: Current KPI values (churn, NRR, DSO, etc.)
+        constraints:
+          type: object
+          properties:
+            maxInvestment:
+              type: number
+              description: Maximum investment available
+            timelineMonths:
+              type: number
+              description: Target timeline for value realization
+
+  output:
+    schema:
+      type: object
+      required: [hypotheses, ranking]
+      properties:
+        hypotheses:
+          type: array
+          items:
+            type: object
+            required: [id, metric, expectedDelta, valueAtStake, confidence]
+            properties:
+              id:
+                type: string
+                pattern: ^HYP-[a-zA-Z0-9-]+$
+              metric:
+                type: string
+                description: KPI identifier (e.g., 'saas_nrr', 'fin_dso')
+              currentValue:
+                type: number
+              targetValue:
+                type: number
+              expectedDelta:
+                type: number
+                description: Percentage change (e.g., -0.12 for 12% reduction)
+              valueAtStake:
+                type: number
+                description: Estimated financial impact in dollars
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 1
+              rationale:
+                type: string
+                maxLength: 1000
+              dataRequirements:
+                type: array
+                items:
+                  type: string
+        ranking:
+          type: string
+          enum: [impact, feasibility, speed]
+        selectedHypothesisId:
+          type: string
+
+  capabilities:
+    - name: opportunity-analysis
+      description: Analyze opportunity context to identify value drivers
+    - name: metric-suggestion
+      description: Propose relevant KPIs based on pain points
+    - name: financial-estimation
+      description: Estimate value at stake for proposed improvements
+
+  tools:
+    - name: query_opportunity_context
+      required: true
+    - name: calculate_value_at_stake
+      required: true
+    - name: get_peer_benchmarks
+      required: false
+    - name: validate_metric_feasibility
+      required: true
+
+  validation:
+    rules:
+      - name: hypothesis-specificity
+        check: |
+          All hypotheses must specify metric, currentValue, targetValue,
+          and expectedDelta. Reject vague proposals like "improve efficiency".
+      - name: confidence-threshold
+        check: |
+          Hypotheses with confidence < 0.70 should be flagged for additional
+          evidence gathering or reformulation.
+      - name: value-stake-reasonableness
+        check: |
+          Value at stake should be within 10x of current ARR for credibility.
+
+  compensation:
+    enabled: true
+    handler: delete_hypothesis_drafts
+    description: Remove draft hypothesis records if workflow fails
+
+  memory:
+    read:
+      - opportunity_context
+      - historical_hypotheses
+      - peer_benchmarks
+    write:
+      - generated_hypotheses
+
+  retry:
+    policy: standard
+    maxAttempts: 3
+
+  resources:
+    cpu: 500m
+    memory: 512Mi
+    timeout: 120s
+
+  hallucinationCheck:
+    enabled: true
+    signals:
+      - fabricated_metrics
+      - unrealistic_benchmarks
+      - unsupported_claims
+
+---
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: financial-model-agent
+  version: 1.0.0
+  stage: target
+  category: calculator
+spec:
+  description: >
+    Constructs deterministic value trees linking business drivers to financial
+    outcomes. Builds NPV, IRR, and payback calculations with explicit
+    assumptions and sensitivity analysis.
+
+  purpose: |
+    Transform value hypotheses into rigorous financial models that CFOs can
+    review and approve. Every formula is deterministic and auditable.
+
+  lifecycleStage: target
+  confidenceThreshold: 0.75
+
+  input:
+    schema:
+      type: object
+      required: [hypothesisId, valueType, timeHorizon]
+      properties:
+        hypothesisId:
+          type: string
+          description: Reference to validated hypothesis
+        valueType:
+          type: string
+          enum: [cash_flow_improvement, cost_reduction, revenue_growth]
+        timeHorizon:
+          type: object
+          required: [months, discountRate]
+          properties:
+            months:
+              type: integer
+              minimum: 6
+              maximum: 60
+            discountRate:
+              type: number
+              minimum: 0
+              maximum: 0.5
+        knownVariables:
+          type: object
+          additionalProperties:
+            type: number
+          description: Pre-populated financial values
+
+  output:
+    schema:
+      type: object
+      required: [valueTreeId, formula, inputs, outputs, assumptions]
+      properties:
+        valueTreeId:
+          type: string
+          pattern: ^VT-[a-zA-Z0-9-]+$
+        formula:
+          type: string
+          description: Deterministic calculation formula
+        inputs:
+          type: array
+          items:
+            type: object
+            required: [name, type]
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+                enum: [constant, variable, calculated]
+              value:
+                type: number
+              source:
+                type: string
+        outputs:
+          type: object
+          required: [npv, totalValue]
+          properties:
+            npv:
+              type: number
+            irr:
+              type: number
+            paybackMonths:
+              type: number
+            totalValue:
+              type: number
+        assumptions:
+          type: array
+          items:
+            type: object
+            required: [id, variable, value, confidence]
+            properties:
+              id:
+                type: string
+              variable:
+                type: string
+              value:
+                type: number
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 1
+              source:
+                type: string
+              impact:
+                type: string
+                enum: [high, medium, low]
+        sensitivityAnalysis:
+          type: array
+          items:
+            type: object
+            properties:
+              variable:
+                type: string
+              baseCase:
+                type: number
+              optimistic:
+                type: number
+              pessimistic:
+                type: number
+              npvImpact:
+                type: number
+
+  capabilities:
+    - name: value-tree-construction
+      description: Build structured financial models
+    - name: npv-calculation
+      description: Calculate Net Present Value
+    - name: irr-calculation
+      description: Calculate Internal Rate of Return
+    - name: sensitivity-analysis
+      description: Model variable impact on outcomes
+    - name: assumption-management
+      description: Track and validate model assumptions
+
+  tools:
+    - name: calculate_npv
+      required: true
+    - name: calculate_irr
+      required: true
+    - name: calculate_payback
+      required: true
+    - name: build_value_tree
+      required: true
+    - name: run_sensitivity_analysis
+      required: true
+
+  validation:
+    rules:
+      - name: formula-determinism
+        check: |
+          All formulas must produce identical output given identical inputs.
+          No randomness or external API calls in final calculation.
+      - name: assumption-confidence
+        check: |
+          High-impact assumptions must have confidence >= 0.8 or include
+          sensitivity analysis showing range of outcomes.
+      - name: sensitivity-for-large-npv
+        check: |
+          Models with NPV > $1M must include sensitivity analysis.
+      - name: input-traceability
+        check: |
+          Every input must have source attribution (evidence, benchmark,
+          or explicit assumption).
+
+  compensation:
+    enabled: true
+    handler: archive_value_tree
+    description: Archive draft value tree artifacts
+
+  memory:
+    read:
+      - validated_hypotheses
+      - financial_formulas
+      - benchmark_data
+    write:
+      - value_trees
+      - model_versions
+
+  retry:
+    policy: aggressive
+    maxAttempts: 5
+
+  resources:
+    cpu: 1000m
+    memory: 1Gi
+    timeout: 180s
+
+  hallucinationCheck:
+    enabled: true
+    signals:
+      - unsupported_formulas
+      - missing_sensitivity
+      - unrealistic_projections
+
+---
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: evidence-retrieval-agent
+  version: 1.0.0
+  stage: integrity
+  category: retriever
+spec:
+  description: >
+    Sources verifiable data from internal systems (CRM, ERP) and external
+    sources (SEC EDGAR, benchmarks) to ground hypotheses and models in
+    evidence. Validates data quality and confidence.
+
+  purpose: |
+    Ensure every claim in the value model is backed by verifiable evidence.
+    No black box assumptions—every number traces to a source.
+
+  lifecycleStage: integrity
+  confidenceThreshold: 0.80
+
+  input:
+    schema:
+      type: object
+      required: [hypothesisId, requiredMetrics]
+      properties:
+        hypothesisId:
+          type: string
+        requiredMetrics:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        preferredSources:
+          type: array
+          items:
+            type: string
+            enum: [sec_edgar, benchmark, crm, erp, internal]
+        minConfidence:
+          type: number
+          default: 0.8
+          minimum: 0
+          maximum: 1
+        maxSourcesPerMetric:
+          type: integer
+          default: 5
+          minimum: 1
+
+  output:
+    schema:
+      type: object
+      required: [evidenceBundleId, sources, aggregateConfidence]
+      properties:
+        evidenceBundleId:
+          type: string
+          pattern: ^EB-[a-zA-Z0-9-]+$
+        sources:
+          type: array
+          items:
+            type: object
+            required: [id, type, origin, metric, confidence]
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+                enum: [10-K, 10-Q, benchmark, crm, erp, internal]
+              origin:
+                type: string
+              metric:
+                type: string
+              value:
+                type: number
+              timestamp:
+                type: string
+                format: date-time
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 1
+              validationChain:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    step:
+                      type: string
+                    result:
+                      type: string
+        aggregateConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        gaps:
+          type: array
+          items:
+            type: object
+            required: [metric, severity]
+            properties:
+              metric:
+                type: string
+              severity:
+                type: string
+                enum: [blocking, degrading, minor]
+              alternatives:
+                type: array
+                items:
+                  type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+
+  capabilities:
+    - name: sec-edgar-retrieval
+      description: Query SEC EDGAR database for 10-K, 10-Q filings
+    - name: benchmark-sourcing
+      description: Retrieve industry benchmark data
+    - name: crm-integration
+      description: Query CRM systems for customer metrics
+    - name: erp-integration
+      description: Query ERP systems for financial metrics
+    - name: data-validation
+      description: Validate data quality and source reliability
+
+  tools:
+    - name: query_sec_edgar
+      required: true
+    - name: get_industry_benchmarks
+      required: true
+    - name: query_crm_data
+      required: false
+    - name: query_erp_data
+      required: false
+    - name: validate_data_quality
+      required: true
+    - name: cross_reference_sources
+      required: true
+
+  validation:
+    rules:
+      - name: minimum-source-coverage
+        check: |
+          Each required metric must have at least one source or documented gap.
+      - name: independent-sources
+        check: |
+          Critical assumptions should have 2+ independent sources when possible.
+      - name: confidence-threshold
+        check: |
+          Sources with confidence < 0.5 should not be used without warning.
+      - name: data-freshness
+        check: |
+          SEC filings > 1 year old should be flagged for recency concerns.
+
+  compensation:
+    enabled: true
+    handler: invalidate_evidence_cache
+    description: Invalidate cached evidence for failed workflow
+
+  memory:
+    read:
+      - evidence_cache
+      - source_reliability_scores
+    write:
+      - retrieved_evidence
+      - source_metadata
+
+  retry:
+    policy: conservative
+    maxAttempts: 2
+
+  resources:
+    cpu: 500m
+    memory: 1Gi
+    timeout: 300s
+
+  hallucinationCheck:
+    enabled: true
+    signals:
+      - fabricated_sources
+      - outdated_benchmarks
+      - unverifiable_claims
+
+---
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: narrative-agent
+  version: 1.0.0
+  stage: expansion
+  category: translator
+spec:
+  description: >
+    Translates financial models and evidence into executive-ready narratives.
+    Generates board deck slides, email summaries, and talking points tailored
+    to specific personas (CFO, CRO, COO, etc.).
+
+  purpose: |
+    Bridge the gap between rigorous financial analysis and executive
+    communication. Ensure value stories are compelling, clear, and aligned
+    to business priorities.
+
+  lifecycleStage: expansion
+  confidenceThreshold: 0.70
+
+  input:
+    schema:
+      type: object
+      required: [valueTreeId, targetPersonas, outputFormats]
+      properties:
+        valueTreeId:
+          type: string
+        targetPersonas:
+          type: array
+          items:
+            type: string
+            enum: [cfo, cro, coo, ceo, board_member, vp_sales]
+          minItems: 1
+        outputFormats:
+          type: array
+          items:
+            type: string
+            enum: [executive_summary, board_deck, email, talking_points]
+          minItems: 1
+        constraints:
+          type: object
+          properties:
+            maxWords:
+              type: integer
+              default: 500
+            technicalDepth:
+              type: string
+              enum: [high, medium, low]
+              default: medium
+        keyMessages:
+          type: array
+          items:
+            type: string
+          description: Optional key points to emphasize
+
+  output:
+    schema:
+      type: object
+      required: [narrativeId, outputs, keyMessages]
+      properties:
+        narrativeId:
+          type: string
+          pattern: ^NAR-[a-zA-Z0-9-]+$
+        outputs:
+          type: array
+          items:
+            type: object
+            required: [format, persona, content, confidence]
+            properties:
+              format:
+                type: string
+                enum: [executive_summary, board_deck, email, talking_points]
+              persona:
+                type: string
+              content:
+                type: string
+                maxLength: 10000
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 1
+        keyMessages:
+          type: array
+          items:
+            type: string
+        riskDisclosures:
+          type: array
+          items:
+            type: string
+        appendix:
+          type: string
+
+  capabilities:
+    - name: executive-summary-generation
+      description: Create concise executive summaries
+    - name: persona-adaptation
+      description: Tailor content to specific executive personas
+    - name: board-deck-formatting
+      description: Generate board-ready slide content
+    - name: risk-disclosure
+      description: Ensure appropriate risk disclosure
+    - name: value-storytelling
+      description: Craft compelling value narratives
+
+  tools:
+    - name: format_executive_summary
+      required: true
+    - name: format_board_deck
+      required: true
+    - name: format_talking_points
+      required: true
+    - name: adapt_for_persona
+      required: true
+    - name: generate_risk_disclosure
+      required: true
+
+  validation:
+    rules:
+      - name: executive-summary-length
+        check: |
+          Executive summaries must be ≤ 500 words unless explicitly approved.
+      - name: risk-disclosure-required
+        check: |
+          All narratives must include risk disclosure section.
+      - name: persona-appropriateness
+        check: |
+          Technical depth must match persona expectations (e.g., CFO can
+          handle medium/high, Board members prefer medium/low).
+      - name: value-linkage
+        check: |
+          Narrative must clearly connect hypothesis to financial outcome.
+
+  compensation:
+    enabled: true
+    handler: delete_generated_narratives
+    description: Remove generated narrative artifacts
+
+  memory:
+    read:
+      - value_trees
+      - persona_preferences
+      - historical_narratives
+    write:
+      - generated_narratives
+      - message_variants
+
+  retry:
+    policy: standard
+    maxAttempts: 3
+
+  resources:
+    cpu: 500m
+    memory: 512Mi
+    timeout: 120s
+
+  hallucinationCheck:
+    enabled: true
+    signals:
+      - unsupported_claims
+      - misaligned_persona
+      - missing_risk_disclosure
+
+---
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: red-team-agent
+  version: 1.0.0
+  stage: integrity
+  category: validator
+spec:
+  description: >
+    Simulates executive skepticism and challenges hypotheses, models,
+    evidence, and narratives. Identifies weak assumptions, missing risks,
+    and alternative explanations.
+
+  purpose: |
+    Ensure value propositions can withstand scrutiny before presentation.
+    Catch flaws early so they can be addressed, not discovered in the
+    board room.
+
+  lifecycleStage: integrity
+  confidenceThreshold: 0.80
+
+  input:
+    schema:
+      type: object
+      required: [targetType, targetId, attackVectors]
+      properties:
+        targetType:
+          type: string
+          enum: [hypothesis, model, evidence, narrative]
+        targetId:
+          type: string
+        attackVectors:
+          type: array
+          items:
+            type: string
+            enum:
+              - assumption_weakness
+              - data_quality
+              - model_logic
+              - omitted_risks
+              - alternative_explanations
+              - counter_examples
+          minItems: 1
+        intensity:
+          type: string
+          enum: [standard, aggressive]
+          default: standard
+
+  output:
+    schema:
+      type: object
+      required: [objections, riskScore]
+      properties:
+        objections:
+          type: array
+          items:
+            type: object
+            required: [id, type, severity, description]
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+                enum: [assumption, data_quality, model_logic, risk]
+              severity:
+                type: string
+                enum: [info, warning, critical]
+              description:
+                type: string
+                maxLength: 2000
+              suggestedFix:
+                type: string
+              status:
+                type: string
+                enum: [open, addressed, overridden]
+                default: open
+        riskScore:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Aggregate concern level (higher = more issues)
+        criticalFlaws:
+          type: array
+          items:
+            type: string
+        suggestedTests:
+          type: array
+          items:
+            type: string
+        overridePossible:
+          type: boolean
+          default: true
+        overrideRequiredConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+  capabilities:
+    - name: assumption-challenging
+      description: Identify weak or unsupported assumptions
+    - name: data-quality-audit
+      description: Challenge evidence quality and sourcing
+    - name: model-logic-review
+      description: Find flaws in financial model construction
+    - name: risk-identification
+      description: Surface omitted or underestimated risks
+    - name: alternative-analysis
+      description: Generate alternative explanations for outcomes
+
+  tools:
+    - name: analyze_assumptions
+      required: true
+    - name: check_data_quality
+      required: true
+    - name: verify_model_logic
+      required: true
+    - name: identify_risk_gaps
+      required: true
+    - name: generate_counter_examples
+      required: true
+
+  validation:
+    rules:
+      - name: objection-specificity
+        check: |
+          All objections must be specific enough to act upon. Reject vague
+          concerns like "this seems risky" without explanation.
+      - name: critical-flaw-actionability
+        check: |
+          Critical flaws must block workflow advancement unless explicitly
+          overridden with documented justification.
+      - name: suggested-fix-provision
+        check: |
+          Medium and high severity objections should include suggested
+          remediation actions.
+      - name: risk-score-calculation
+        check: |
+          Risk score must be 0 if no objections, >0.5 if any critical
+          objections present.
+
+  compensation:
+    enabled: true
+    handler: archive_objection_report
+    description: Archive objection reports if workflow cancelled
+
+  memory:
+    read:
+      - historical_objections
+      - objection_patterns
+      - executive_concerns
+    write:
+      - generated_objections
+      - red_team_reports
+
+  retry:
+    policy: standard
+    maxAttempts: 3
+
+  resources:
+    cpu: 500m
+    memory: 512Mi
+    timeout: 120s
+
+  hallucinationCheck:
+    enabled: true
+    signals:
+      - fabricated_objections
+      - severity_mismatch
+      - missing_evidence_for_objection
+
+---
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: integrity-agent
+  version: 1.0.0
+  stage: integrity
+  category: auditor
+spec:
+  description: >
+    Validates audit compliance, ensures complete lineage, and enforces
+    CFO-defensibility standards. The final gate before human approval.
+
+  purpose: |
+    Guarantee that every output meets audit standards and can be
+    confidently presented to CFOs, boards, and external auditors.
+
+  lifecycleStage: integrity
+  confidenceThreshold: 0.95
+
+  input:
+    schema:
+      type: object
+      required: [workflowId, stage, artifacts, validationRules]
+      properties:
+        workflowId:
+          type: string
+        stage:
+          type: string
+          enum: [INITIATED, DRAFTING, VALIDATING, COMPOSING, REFINING, FINALIZED]
+        artifacts:
+          type: array
+          items:
+            type: string
+          description: List of artifact IDs to validate
+        validationRules:
+          type: array
+          items:
+            type: string
+            enum:
+              - audit_trail_complete
+              - confidence_threshold_met
+              - source_attribution_present
+              - sensitivity_analysis_included
+              - risk_disclosure_present
+
+  output:
+    schema:
+      type: object
+      required: [validationId, passed, checks, approvalRequired]
+      properties:
+        validationId:
+          type: string
+          pattern: ^VAL-[a-zA-Z0-9-]+$
+        passed:
+          type: boolean
+        checks:
+          type: array
+          items:
+            type: object
+            required: [rule, passed]
+            properties:
+              rule:
+                type: string
+              passed:
+                type: boolean
+              details:
+                type: string
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              rule:
+                type: string
+              severity:
+                type: string
+                enum: [minor, major, critical]
+              description:
+                type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        approvalRequired:
+          type: boolean
+
+  capabilities:
+    - name: audit-trail-validation
+      description: Verify complete lineage from hypothesis to output
+    - name: confidence-validation
+      description: Check aggregate confidence meets thresholds
+    - name: source-attribution-check
+      description: Ensure all numbers have source references
+    - name: compliance-validation
+      description: Verify SOC2/ISO alignment
+    - name: cfo-defensibility-check
+      description: Validate CFO presentation readiness
+
+  tools:
+    - name: validate_audit_trail
+      required: true
+    - name: check_confidence_thresholds
+      required: true
+    - name: verify_source_attribution
+      required: true
+    - name: validate_compliance
+      required: true
+    - name: assess_cfo_readiness
+      required: true
+
+  validation:
+    rules:
+      - name: all-checks-run
+        check: |
+          Integrity agent must run all requested validation rules and
+          report results for each.
+      - name: violation-severity
+        check: |
+          Critical violations must set passed=false and approvalRequired=true.
+      - name: recommendation-actionability
+        check: |
+          All recommendations must be specific actions, not generic advice.
+      - name: tenant-isolation-verification
+        check: |
+          Must verify all artifacts belong to requesting tenant.
+
+  compensation:
+    enabled: true
+    handler: invalidate_validation
+    description: Mark validation as invalid if workflow rolled back
+
+  memory:
+    read:
+      - audit_trails
+      - compliance_rules
+      - validation_history
+    write:
+      - validation_results
+      - compliance_reports
+
+  retry:
+    policy: aggressive
+    maxAttempts: 5
+
+  resources:
+    cpu: 500m
+    memory: 512Mi
+    timeout: 90s
+
+  hallucinationCheck:
+    enabled: true
+    signals:
+      - fabricated_validation
+      - false_positive_pass
+      - missing_critical_check
+
+---
+apiVersion: valueos.io/v1
+kind: AgentDefinition
+metadata:
+  name: value-engineer-agent
+  version: 1.0.0
+  stage: all
+  category: orchestrator
+spec:
+  description: >
+    Human-in-the-loop interface for Value Engineers. Presents workflow
+    state, captures approvals/rejections, and routes decisions back to
+    the orchestration layer.
+
+  purpose: |
+    Bridge human judgment into the automated workflow. Value Engineers
+    review AI outputs, provide feedback, and make go/no-go decisions
+    at critical approval points.
+
+  lifecycleStage: all
+  confidenceThreshold: 1.0
+
+  input:
+    schema:
+      type: object
+      required: [workflowId, decisionPoint, artifacts]
+      properties:
+        workflowId:
+          type: string
+        decisionPoint:
+          type: string
+          enum: [hypothesis_approval, model_approval, final_approval, rejection]
+        artifacts:
+          type: array
+          items:
+            type: string
+        context:
+          type: object
+          description: Additional context for decision
+        deadline:
+          type: string
+          format: date-time
+          description: Decision required by timestamp
+
+  output:
+    schema:
+      type: object
+      required: [decisionId, workflowId, decision, actor]
+      properties:
+        decisionId:
+          type: string
+          pattern: ^DEC-[a-zA-Z0-9-]+$
+        workflowId:
+          type: string
+        decision:
+          type: string
+          enum: [approve, reject, request_changes, escalate]
+        actor:
+          type: string
+          description: User ID of Value Engineer
+        feedback:
+          type: string
+          maxLength: 5000
+          description: Required if reject or request_changes
+        override:
+          type: boolean
+          default: false
+          description: True if overriding Red Team objections
+        overrideReason:
+          type: string
+          description: Required if override=true
+        timestamp:
+          type: string
+          format: date-time
+
+  capabilities:
+    - name: workflow-state-presentation
+      description: Display current workflow state and artifacts
+    - name: decision-capture
+      description: Record approval/rejection decisions
+    - name: feedback-collection
+      description: Gather detailed feedback for revisions
+    - name: escalation-routing
+      description: Route to CFO/board for complex decisions
+    - name: override-authorization
+      description: Handle Red Team override requests
+
+  tools:
+    - name: present_workflow_state
+      required: true
+    - name: capture_decision
+      required: true
+    - name: route_for_feedback
+      required: true
+    - name: notify_stakeholders
+      required: true
+
+  validation:
+    rules:
+      - name: feedback-required-for-rejection
+        check: |
+          Reject or request_changes decisions must include feedback
+          explaining the issue.
+      - name: override-justification
+        check: |
+          Override decisions must include documented justification.
+      - name: deadline-tracking
+        check: |
+          Decisions past deadline must trigger escalation alert.
+      - name: actor-authentication
+        check: |
+          Actor must have Value Engineer or CFO role for approvals.
+
+  compensation:
+    enabled: true
+    handler: archive_decision
+    description: Archive decision if workflow rolled back
+
+  memory:
+    read:
+      - workflow_states
+      - decision_history
+      - user_profiles
+    write:
+      - approval_decisions
+      - feedback_records
+
+  retry:
+    policy: standard
+    maxAttempts: 3
+
+  resources:
+    cpu: 250m
+    memory: 256Mi
+    timeout: 60s
+
+  hallucinationCheck:
+    enabled: false
+    description: Human decisions not subject to AI hallucination checks
+
+---
+# Agent Registry Summary
+apiVersion: valueos.io/v1
+kind: AgentRegistry
+metadata:
+  name: valueos-agents
+  version: 1.0.0
+spec:
+  agents:
+    - name: hypothesis-agent
+      stage: opportunity
+      order: 1
+      description: Generate value theses
+
+    - name: financial-model-agent
+      stage: target
+      order: 2
+      description: Build financial models
+
+    - name: evidence-retrieval-agent
+      stage: integrity
+      order: 3
+      description: Source grounding data
+
+    - name: narrative-agent
+      stage: expansion
+      order: 4
+      description: Translate to executive narratives
+
+    - name: red-team-agent
+      stage: integrity
+      order: 5
+      description: Adversarial validation
+
+    - name: integrity-agent
+      stage: integrity
+      order: 6
+      description: Final compliance audit
+
+    - name: value-engineer-agent
+      stage: all
+      order: 7
+      description: Human-in-the-loop interface
+
+  workflowLoop:
+    sequence:
+      - hypothesis-agent
+      - financial-model-agent
+      - evidence-retrieval-agent
+      - narrative-agent
+      - red-team-agent
+      - value-engineer-agent  # Approval point
+      - integrity-agent
+      - value-engineer-agent  # Final approval
+
+    loopBackConditions:
+      - from: red-team-agent
+        to: evidence-retrieval-agent
+        condition: evidence_insufficient
+      - from: red-team-agent
+        to: financial-model-agent
+        condition: assumptions_invalid
+      - from: integrity-agent
+        to: narrative-agent
+        condition: narrative_issues

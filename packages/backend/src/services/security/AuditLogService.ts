@@ -28,8 +28,7 @@ import { securityEventStreamingService } from "./SecurityEventStreamingService.j
 // audit_logs is not in the generated Database type — use a typed helper
 // rather than scattering `as any` across every query.
 function auditLogsTable(supabase: SupabaseClient) {
-   
-  return supabase.from("audit_logs" as "audit_logs");
+  return supabase.from("audit_logs");
 }
 
 /** Shape of a persisted audit log row returned from the database. */

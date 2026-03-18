@@ -17,7 +17,7 @@ import { Request, Response, Router } from "express";
 
 import { migrateSchema, migrationRunner } from "../../../sdui/src/migrations.js";
 import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from "../../../sdui/src/schema.js";
-// eslint-disable-next-line no-restricted-imports -- required for this module
+ 
 import logger from "../../../shared/src/lib/logger.js";
 import { canvasSchemaService } from "../services/sdui/CanvasSchemaService.js";
 import { getUnifiedAgentAPI } from "../services/value/UnifiedAgentAPI.js";

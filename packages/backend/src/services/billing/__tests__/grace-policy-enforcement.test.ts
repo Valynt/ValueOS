@@ -120,7 +120,7 @@ describe('Grace Policy Enforcement Validation', () => {
   describe('Grace Period Boundaries', () => {
     it('should handle multiple grace period activations', async () => {
       // First activation
-      let result1 = await EntitlementsService.checkUsageAllowed(
+      const result1 = await EntitlementsService.checkUsageAllowed(
         mockTenantId,
         mockMetric,
         baseQuota + 1,

@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/component: agent
     app.kubernetes.io/part-of: valynt
   annotations:
-    valynt.io/llm-usage-limit: '200.00'
+    valynt.io/llm-usage-limit: "200.00"
     valynt.io/cost-center: agent-opportunity
     valynt.io/cost-tracking: enabled
 spec:
@@ -29,8 +29,8 @@ spec:
         app.kubernetes.io/part-of: valynt
       annotations:
         sidecar.istio.io/inject: "true"
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '15021'
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15021"
         prometheus.io/path: /stats/prometheus
     spec:
       serviceAccountName: opportunity-agent
@@ -39,232 +39,50 @@ spec:
         runAsUser: 1000
         fsGroup: 1000
       tolerations:
-      - key: kubernetes.azure.com/scalesetpriority
-        operator: Equal
-        value: spot
-        effect: NoSchedule
-      - key: cloud.google.com/gke-spot
-        operator: Equal
-        value: 'true'
-        effect: NoSchedule
-      - key: eks.amazonaws.com/capacityType
-        operator: Equal
-        value: SPOT
-        effect: NoSchedule
+        - key: kubernetes.azure.com/scalesetpriority
+          operator: Equal
+          value: spot
+          effect: NoSchedule
+        - key: cloud.google.com/gke-spot
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+        - key: eks.amazonaws.com/capacityType
+          operator: Equal
+          value: SPOT
+          effect: NoSchedule
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 80
-            preference:
-              matchExpressions:
-              - key: node.kubernetes.io/capacity-type
-                operator: In
-                values:
-                - spot
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: node.kubernetes.io/capacity-type
+                    operator: In
+                    values:
+                      - spot
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app: opportunity-agent
-              topologyKey: kubernetes.io/hostname
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: opportunity-agent
+                topologyKey: kubernetes.io/hostname
       containers:
-      - name: opportunity-agent
-        image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
-        imagePullPolicy: Always
-        ports:
-        - name: app-http
-          containerPort: 18080
-          protocol: TCP
-        - name: metrics
-          containerPort: 9090
-          protocol: TCP
-        env:
-        - name: PORT
-          value: '18080'
-        - name: ENVIRONMENT
-          valueFrom:
-            configMapKeyRef:
-              name: valynt-config
-              key: environment
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: database_url
-        - name: SUPABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase_url
-        - name: SUPABASE_SERVICE_ROLE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase_service_key
-        - name: REDIS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: valynt-config
-              key: redis_url
-        - name: LLM_PROXY_URL
-          value: http://127.0.0.1:15001
-        - name: LOG_LEVEL
-          value: info
-        - name: METRICS_ENABLED
-          value: 'true'
-        - name: MAX_CONCURRENT_REQUESTS
-          value: '10'
-        - name: HOST
-          value: 127.0.0.1
-        - name: BIND_ADDRESS
-          value: 127.0.0.1
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: 1500m
-            memory: 2Gi
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: app-http
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: app-http
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              - sleep 15
-      - name: opa-ext-authz
-        image: openpolicyagent/opa:0.68.0-envoy
-        args:
-        - run
-        - --server
-        - --config-file=/config/opa-config.yaml
-        - /policy/policy.rego
-        ports:
-        - name: opa-http
-          containerPort: 8181
-          protocol: TCP
-        readinessProbe:
-          httpGet:
-            path: /health?plugins
-            port: opa-http
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: opa-http
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 1000
-          capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - name: agent-sidecar-policy
-          mountPath: /policy
-          readOnly: true
-        - name: agent-sidecar-config
-          mountPath: /config
-          readOnly: true
-      - name: auth-proxy
-        image: envoyproxy/envoy:v1.30-latest
-        args:
-        - -c
-        - /etc/envoy/envoy.yaml
-        - --service-cluster
-        - agent-auth-proxy
-        ports:
-        - name: proxy-http
-          containerPort: 8080
-          protocol: TCP
-        - name: proxy-admin
-          containerPort: 15021
-          protocol: TCP
-        - name: proxy-egress
-          containerPort: 15001
-          protocol: TCP
-        env:
-        - name: JWT_ISSUER
-          valueFrom:
-            configMapKeyRef:
-              name: agent-sidecar-config
-              key: jwt_issuer
-        - name: JWT_AUDIENCE
-          valueFrom:
-            configMapKeyRef:
-              name: agent-sidecar-config
-              key: jwt_audience
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: proxy-admin
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /ready
-            port: proxy-admin
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 1000
-          capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - name: agent-sidecar-config
-          mountPath: /etc/envoy
-          readOnly: true
-        - name: agent-sidecar-certs
-          mountPath: /etc/agent-certs
-          readOnly: true
-=======
         - name: opportunity-agent
           image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
           imagePullPolicy: Always
           ports:
-            - name: http
-              containerPort: 8080
+            - name: app-http
+              containerPort: 18080
               protocol: TCP
             - name: metrics
               containerPort: 9090
               protocol: TCP
           env:
             - name: PORT
-              value: "8080"
+              value: "18080"
             - name: ENVIRONMENT
               valueFrom:
                 configMapKeyRef:
@@ -280,7 +98,7 @@ spec:
                 secretKeyRef:
                   name: valynt-secrets
                   key: supabase_url
-            - name: SUPABASE_SERVICE_KEY
+            - name: SUPABASE_SERVICE_ROLE_KEY
               valueFrom:
                 secretKeyRef:
                   name: valynt-secrets
@@ -291,25 +109,28 @@ spec:
                   name: valynt-config
                   key: redis_url
             - name: LLM_PROXY_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: valynt-config
-                  key: llm_proxy_url
+              value: http://127.0.0.1:15001
             - name: LOG_LEVEL
-              value: "info"
+              value: info
             - name: METRICS_ENABLED
               value: "true"
+            - name: MAX_CONCURRENT_REQUESTS
+              value: "10"
+            - name: HOST
+              value: 127.0.0.1
+            - name: BIND_ADDRESS
+              value: 127.0.0.1
           resources:
             requests:
               cpu: 500m
               memory: 1Gi
             limits:
-              cpu: 1000m
+              cpu: 1500m
               memory: 2Gi
           livenessProbe:
             httpGet:
               path: /health
-              port: http
+              port: app-http
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -317,7 +138,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /ready
-              port: http
+              port: app-http
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
@@ -325,19 +146,122 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "sleep 15"]
->>>>>>> origin/agent-fabric-config-enhancement-13639947832716804927
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
+        - name: opa-ext-authz
+          image: openpolicyagent/opa:0.68.0-envoy
+          args:
+            - run
+            - --server
+            - --config-file=/config/opa-config.yaml
+            - /policy/policy.rego
+          ports:
+            - name: opa-http
+              containerPort: 8181
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health?plugins
+              port: opa-http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: opa-http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: agent-sidecar-policy
+              mountPath: /policy
+              readOnly: true
+            - name: agent-sidecar-config
+              mountPath: /config
+              readOnly: true
+        - name: auth-proxy
+          image: envoyproxy/envoy:v1.30-latest
+          args:
+            - -c
+            - /etc/envoy/envoy.yaml
+            - --service-cluster
+            - agent-auth-proxy
+          ports:
+            - name: proxy-http
+              containerPort: 8080
+              protocol: TCP
+            - name: proxy-admin
+              containerPort: 15021
+              protocol: TCP
+            - name: proxy-egress
+              containerPort: 15001
+              protocol: TCP
+          env:
+            - name: JWT_ISSUER
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-sidecar-config
+                  key: jwt_issuer
+            - name: JWT_AUDIENCE
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-sidecar-config
+                  key: jwt_audience
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: proxy-admin
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: proxy-admin
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: agent-sidecar-config
+              mountPath: /etc/envoy
+              readOnly: true
+            - name: agent-sidecar-certs
+              mountPath: /etc/agent-certs
+              readOnly: true
       terminationGracePeriodSeconds: 30
       volumes:
-      - name: agent-sidecar-config
-        configMap:
-          name: agent-sidecar-config
-      - name: agent-sidecar-policy
-        configMap:
-          name: agent-sidecar-policy
-      - name: agent-sidecar-certs
-        secret:
-          secretName: agent-sidecar-certs
+        - name: agent-sidecar-config
+          configMap:
+            name: agent-sidecar-config
+        - name: agent-sidecar-policy
+          configMap:
+            name: agent-sidecar-policy
+        - name: agent-sidecar-certs
+          secret:
+            secretName: agent-sidecar-certs
 ---
 apiVersion: v1
 kind: Service
@@ -348,10 +272,10 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - name: http
-    port: 8080
-    targetPort: proxy-http
-    protocol: TCP
+    - name: http
+      port: 8080
+      targetPort: proxy-http
+      protocol: TCP
   selector:
     app: opportunity-agent
 ---
@@ -370,45 +294,45 @@ spec:
   minReplicas: 2
   maxReplicas: 8
   metrics:
-  - type: External
-    external:
-      metric:
-        name: redis_stream_pending_messages
-        selector:
-          matchLabels:
-            stream: valuecanvas.events
-            consumer_group: valuecanvas-workers
-      target:
-        type: AverageValue
-        averageValue: '20'
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 65
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 75
+    - type: External
+      external:
+        metric:
+          name: redis_stream_pending_messages
+          selector:
+            matchLabels:
+              stream: valuecanvas.events
+              consumer_group: valuecanvas-workers
+        target:
+          type: AverageValue
+          averageValue: "20"
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
-      - type: Percent
-        value: 25
-        periodSeconds: 120
+        - type: Percent
+          value: 25
+          periodSeconds: 120
     scaleUp:
       stabilizationWindowSeconds: 0
       policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 30
-      - type: Pods
-        value: 4
-        periodSeconds: 30
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
       selectPolicy: Max
 ---
 apiVersion: policy/v1

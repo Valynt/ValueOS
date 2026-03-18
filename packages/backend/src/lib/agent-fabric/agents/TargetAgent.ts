@@ -309,7 +309,7 @@ export class TargetAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt.prompt}\n\n${userPrompt}`,
         TargetAnalysisSchema,
-        // eslint-disable-next-line no-restricted-syntax -- intentional usage
+         
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

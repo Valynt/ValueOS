@@ -54,7 +54,7 @@ describe("agents /info — setHeader must not short-circuit the response", () =>
     res: ReturnType<typeof makeMockRes>
   ) {
     return res.setHeader("x-model-card-version", modelCard.schemaVersion);
-    // eslint-disable-next-line no-unreachable -- intentional: mirrors the original bug
+     
     return res.json({
       success: true,
       data: { model_card: modelCard.modelCard },
@@ -107,9 +107,9 @@ describe("agents SSE stream — all three headers must be set before flushing", 
   // Mirrors the buggy code: each `return res.setHeader(...)` exits immediately
   function buggySSESetup(res: ReturnType<typeof makeMockRes>) {
     return res.setHeader("Content-Type", "text/event-stream");
-    return res.setHeader("Cache-Control", "no-cache"); // eslint-disable-line no-unreachable
-    return res.setHeader("Connection", "keep-alive"); // eslint-disable-line no-unreachable
-    res.flushHeaders(); // eslint-disable-line no-unreachable
+    return res.setHeader("Cache-Control", "no-cache");  
+    return res.setHeader("Connection", "keep-alive");  
+    res.flushHeaders();  
   }
 
   // Mirrors the fixed code: no return on setHeader calls

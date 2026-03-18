@@ -20,6 +20,8 @@ import { createHash } from "crypto";
 import { z } from "zod";
 
 import { logger } from "../../lib/logger";
+import { simulateBusinessActions, compareScenarios } from "../lib/SimulationEngine";
+import { analyzeFinancials, projectCashFlows } from "../lib/FinancialEngine";
 import { EDGARModule } from "../modules/EDGARModule";
 import { EntityMappingModule } from "../modules/EntityMappingModule";
 import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
@@ -709,6 +711,89 @@ export class MCPFinancialGroundTruthServer {
       },
       // ESO Module Tools
       ...((this.modules.eso?.getTools() || []) as MCPTool[]),
+
+      // Phase 3: Business Scenario Tools
+      {
+        name: "simulate_business_scenario",
+        description: "Simulate the impact of business actions (pricing, sales, CS) on SaaS KPIs with research-backed coefficients",
+        inputSchema: {
+          type: "object",
+          properties: {
+            actions: {
+              type: "array",
+              items: { type: "string" },
+              description: "Business action IDs (e.g., price_increase_5pct, implement_health_scoring)",
+            },
+            baseline: {
+              type: "object",
+              properties: {
+                annualRevenue: { type: "number" },
+                kpis: { type: "object" },
+              },
+              required: ["annualRevenue", "kpis"],
+            },
+            industry: { type: "string", default: "saas" },
+            companySize: { type: "string", enum: ["startup", "scaleup", "enterprise"], default: "scaleup" },
+            persona: { type: "string", default: "cfo" },
+            period: { type: "number", default: 365, description: "Simulation period in days" },
+          },
+          required: ["actions", "baseline"],
+        },
+      },
+      {
+        name: "generate_business_case",
+        description: "Generate complete business case with NPV, IRR, ROI, and payback period analysis",
+        inputSchema: {
+          type: "object",
+          properties: {
+            actions: {
+              type: "array",
+              items: { type: "string" },
+              description: "Business actions to evaluate",
+            },
+            baseline: {
+              type: "object",
+              properties: {
+                annualRevenue: { type: "number" },
+                kpis: { type: "object" },
+              },
+              required: ["annualRevenue", "kpis"],
+            },
+            discountRate: { type: "number", default: 0.1, description: "Discount rate for NPV (default 10%)" },
+            period: { type: "number", default: 12, description: "Analysis period in months" },
+          },
+          required: ["actions", "baseline"],
+        },
+      },
+      {
+        name: "compare_scenarios",
+        description: "Compare multiple business scenarios side-by-side with scoring",
+        inputSchema: {
+          type: "object",
+          properties: {
+            scenarios: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  actions: { type: "array", items: { type: "string" } },
+                },
+                required: ["name", "actions"],
+              },
+            },
+            baseline: {
+              type: "object",
+              properties: {
+                annualRevenue: { type: "number" },
+                kpis: { type: "object" },
+              },
+              required: ["annualRevenue", "kpis"],
+            },
+          },
+          required: ["scenarios", "baseline"],
+        },
+      },
     ];
   }
 
@@ -871,6 +956,16 @@ export class MCPFinancialGroundTruthServer {
 
         case "get_streaming_stats":
           return await this.getStreamingStats();
+
+        // Phase 3: Business Scenario Tools
+        case "simulate_business_scenario":
+          return await this.simulateBusinessScenario(args);
+
+        case "generate_business_case":
+          return await this.generateBusinessCase(args);
+
+        case "compare_scenarios":
+          return await this.compareBusinessScenarios(args);
 
         case "eso_get_metric_value":
         case "eso_validate_claim":
@@ -1860,6 +1955,109 @@ export class MCPFinancialGroundTruthServer {
       throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "identifier too long");
     }
   }
+
+  // ============================================================================
+  // Phase 3: Business Scenario Handlers
+  // ============================================================================
+
+  private async simulateBusinessScenario(args: Record<string, any>): Promise<MCPToolResult> {
+    const result = simulateBusinessActions({
+      actions: args.actions,
+      baseline: args.baseline,
+      industry: args.industry || "saas",
+      companySize: args.companySize || "scaleup",
+      persona: args.persona || "cfo",
+      period: args.period || 365,
+    });
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
+  private async generateBusinessCase(args: Record<string, any>): Promise<MCPToolResult> {
+    // Run simulation first
+    const simulation = simulateBusinessActions({
+      actions: args.actions,
+      baseline: args.baseline,
+      industry: args.industry || "saas",
+      companySize: args.companySize || "scaleup",
+      persona: args.persona || "cfo",
+      period: (args.period || 12) * 30, // Convert months to days
+    });
+
+    // Get ARR impact for revenue projection
+    const arrImpact = simulation.kpiImpacts.find((k) => k.kpiId === "saas_arr");
+    const arrChange = arrImpact?.relativeChange || 0;
+
+    // Project cash flows
+    const cashFlowProjections = projectCashFlows(
+      args.baseline.annualRevenue,
+      arrChange,
+      simulation.totalImplementationCost,
+      args.period || 12
+    );
+
+    const cashFlows = cashFlowProjections.map((p) => p.netCashFlow);
+
+    // Run financial analysis
+    const financials = analyzeFinancials({
+      initialInvestment: simulation.totalImplementationCost,
+      cashFlows,
+      discountRate: args.discountRate || 0.1,
+    });
+
+    const result = {
+      simulation: {
+        actions: simulation.actions,
+        kpiImpacts: simulation.kpiImpacts,
+        confidence: simulation.confidence,
+        riskFactors: simulation.riskFactors,
+      },
+      financials: {
+        npv: financials.npv,
+        irr: financials.irr,
+        roi: financials.roi,
+        paybackPeriod: financials.paybackPeriod,
+        benefitCostRatio: financials.benefitCostRatio,
+        totalInflows: financials.totalInflows,
+        totalOutflows: financials.totalOutflows,
+      },
+      implementation: {
+        costEstimate: simulation.totalImplementationCost,
+        costRange: simulation.costRange,
+        timeline: simulation.timeline,
+      },
+      assumptions: simulation.assumptions,
+    };
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
+  private async compareBusinessScenarios(args: Record<string, any>): Promise<MCPToolResult> {
+    const scenarios = args.scenarios.map((s: { name: string; actions: string[] }) => ({
+      name: s.name,
+      request: {
+        actions: s.actions,
+        baseline: args.baseline,
+        industry: args.industry || "saas",
+        companySize: args.companySize || "scaleup",
+        persona: args.persona || "cfo",
+      },
+    }));
+
+    const comparison = compareScenarios(scenarios);
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(comparison, null, 2) }],
+    };
+  }
+
+  // ============================================================================
+  // Verification and Audit
+  // ============================================================================
 
   private async generateVerificationHash(results: any[]): Promise<string> {
     try {

@@ -13,7 +13,7 @@
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=2600",
+    "lint": "eslint src/ --max-warnings=2400",
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
   },
   "dependencies": {
@@ -59,10 +59,10 @@
     "redis": "^4.7.1",
     "stripe": "^14.25.0",
     "swagger-ui-express": "^5.0.1",
+    "together-ai": "^0.14.0",
     "uuid": "^11.1.0",
     "winston": "^3.19.0",
     "ws": "^8.19.0",
-    "together-ai": "^0.14.0",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.5"
   },
@@ -80,6 +80,7 @@
     "@types/ws": "^8.18.1",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.2",
+    "eslint-plugin-security": "^4.0.0",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",

@@ -415,7 +415,7 @@ export class OpportunityAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         OpportunityAnalysisSchema,
-        // eslint-disable-next-line no-restricted-syntax -- intentional usage
+         
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.5, high: 0.8 },

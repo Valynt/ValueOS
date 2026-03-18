@@ -226,7 +226,7 @@ export function normalizeSlug(input: string, maxLength = 100): string {
  * @returns Normalized username or null if invalid
  */
 export function normalizeUsername(username: string, maxLength = 30): string | null {
-  let normalized = username
+  const normalized = username
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9_]/g, '')

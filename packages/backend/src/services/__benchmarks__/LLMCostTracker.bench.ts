@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 
 import { describe, expect, it, vi } from 'vitest';
 

@@ -629,7 +629,7 @@ export class UnifiedAgentAPI {
   ): Promise<UnifiedAgentResponse> {
     const url = this.resolveAgentInvokeUrl(request.agent);
 
-    // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+     
     const response = await fetch(url, {
       method: "POST",
       headers: {

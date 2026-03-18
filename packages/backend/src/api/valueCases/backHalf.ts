@@ -602,9 +602,9 @@ function getBackHalfProvenanceTracker(): ProvenanceTracker {
     // this package and SagaAdapters — both use @supabase/supabase-js but
     // with different generic instantiations.
     const client = createServerSupabaseClient();
-     
+
     const store = new SupabaseProvenanceStore(
-      client as any
+      client as unknown as ReturnType<typeof createClient>
     ) as unknown as ProvenanceStore;
     _provenanceTracker = new ProvenanceTracker(store);
   }

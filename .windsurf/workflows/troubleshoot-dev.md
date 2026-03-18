@@ -19,13 +19,13 @@ pnpm run dx:doctor
 ```bash
 # Check if services are running on expected ports
 curl -s http://localhost:5173 || echo "Frontend not running"
-curl -s http://localhost:54321/rest/v1/ || echo "Supabase not running"
+curl -s http://localhost:3001/health || echo "Backend not running"
 ```
 
 // turbo 3. Test ports are available:
 
 ```bash
-netstat -tlnp | grep -E ':5173|:54321|:3001' || echo "Check ports"
+netstat -tlnp | grep -E ':5173|:3001|:6379' || echo "Check ports"
 ```
 
 ## Common Fixes
@@ -36,65 +36,118 @@ netstat -tlnp | grep -E ':5173|:54321|:3001' || echo "Check ports"
 bash scripts/cleanup.sh
 ```
 
-5. Fix port forwarding issues:
+5. Fix port conflicts:
 
 ```bash
-# Restart services
-pnpm run dx:down
-pnpm run dx:up
+# Kill processes on dev ports
+pkill -f "tsx src/server.ts" || true
+pkill -f "vite" || true
 ```
 
-## Supabase Issues
+## Redis Issues
 
-6. Check Supabase status:
+6. Check Redis status:
 
 ```bash
-npx supabase status
+redis-cli ping
 ```
 
-7. If Supabase is down, restart:
+7. Restart Redis (choose one):
+
+**Native Redis:**
 
 ```bash
-npx supabase stop
-npx supabase start
+redis-server --daemonize yes --port 6379
 ```
 
-8. Reset Supabase completely (if corrupted):
+**Docker Redis:**
 
 ```bash
-npx supabase db reset
+docker compose -f ops/compose/compose.cloud-dev.yml restart
+# Or to start fresh:
+docker compose -f ops/compose/compose.cloud-dev.yml down
+docker compose -f ops/compose/compose.cloud-dev.yml up -d
 ```
 
-## Docker Issues
-
-9. Check Docker containers:
+8. Check Docker Redis status:
 
 ```bash
-docker ps -a
+docker compose -f ops/compose/compose.cloud-dev.yml ps
+docker compose -f ops/compose/compose.cloud-dev.yml logs redis
 ```
 
-10. Restart Docker services:
+## Supabase Connection Issues
+
+8. Check Supabase connectivity:
 
 ```bash
-docker-compose down
-docker-compose up -d
+curl -s "${SUPABASE_URL}/rest/v1/" | head -1
+```
+
+9. Verify credentials in environment files:
+
+```bash
+grep -E "SUPABASE_URL|SUPABASE_ANON_KEY" ops/env/.env.backend.cloud-dev
+```
+
+## Backend Issues
+
+10. Check backend health:
+
+```bash
+curl -s http://localhost:3001/health | jq .
+```
+
+11. Restart backend:
+
+```bash
+pkill -f "tsx src/server.ts"
+APP_ENV=cloud-dev pnpm run dev:backend
+```
+
+## Frontend Issues
+
+12. Check frontend loads:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:5173
+```
+
+13. Restart frontend:
+
+```bash
+pkill -f "vite"
+APP_ENV=cloud-dev pnpm run dev:frontend
 ```
 
 ## Nuclear Option
 
-11. Full cleanup and restart:
+14. Full cleanup and restart:
+
+**Native Redis:**
 
 ```bash
 bash scripts/cleanup.sh
-pnpm install
-npx supabase start
-pnpm --filter valynt-app run dev
+pnpm install --no-frozen-lockfile
+redis-server --daemonize yes --port 6379
+APP_ENV=cloud-dev pnpm run dev:backend &
+APP_ENV=cloud-dev pnpm run dev:frontend
+```
+
+**Docker Redis:**
+
+```bash
+bash scripts/cleanup.sh
+pnpm install --no-frozen-lockfile
+docker compose -f ops/compose/compose.cloud-dev.yml up -d
+APP_ENV=cloud-dev pnpm run dev:backend &
+APP_ENV=cloud-dev pnpm run dev:frontend
 ```
 
 ## Environment Variables
 
-12. Verify env vars are set:
+15. Verify env vars are set:
 
 ```bash
-cat .env.local | grep -E "^[A-Z]" | head -20
+grep -E "^[A-Z]" ops/env/.env.backend.cloud-dev | head -20
 ```

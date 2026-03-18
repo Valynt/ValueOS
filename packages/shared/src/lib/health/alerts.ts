@@ -57,7 +57,8 @@ class AlertManager {
       name: "high_failure_rate",
       description: "Service has high failure rate (>20%)",
       severity: AlertSeverity.WARNING,
-      condition: (stats) => stats.total >= 10 && stats.successRate < 0.8,
+      condition: stats =>
+        (stats.total ?? 0) >= 10 && (stats.successRate ?? 1) < 0.8,
       cooldownMs: 300000, // 5 minutes
     });
 
@@ -67,7 +68,8 @@ class AlertManager {
       name: "critical_failure",
       description: "Service has critical failure rate (>50%)",
       severity: AlertSeverity.CRITICAL,
-      condition: (stats) => stats.total >= 5 && stats.successRate < 0.5,
+      condition: stats =>
+        (stats.total ?? 0) >= 5 && (stats.successRate ?? 1) < 0.5,
       cooldownMs: 60000, // 1 minute
     });
 
@@ -77,7 +79,7 @@ class AlertManager {
       name: "high_latency",
       description: "Service has high P95 latency (>2000ms)",
       severity: AlertSeverity.WARNING,
-      condition: (stats) => stats.p95Latency > 2000,
+      condition: stats => (stats.p95Latency ?? 0) > 2000,
       cooldownMs: 300000, // 5 minutes
     });
   }
@@ -139,7 +141,7 @@ class AlertManager {
 
   getActiveAlerts(): Alert[] {
     return Array.from(this.alerts.values()).filter(
-      (alert) => alert.state === AlertState.ALERTING
+      alert => alert.state === AlertState.ALERTING
     );
   }
 

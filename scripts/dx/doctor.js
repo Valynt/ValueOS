@@ -618,6 +618,19 @@ function checkEnvironment() {
     }
   });
 
+  // Validate WEB_SCRAPER_ENCRYPTION_KEY format (32-byte hex = 64 hex characters)
+  const encryptionKey = envVars.WEB_SCRAPER_ENCRYPTION_KEY;
+  if (encryptionKey) {
+    const hexPattern = /^[a-f0-9]{64}$/i;
+    if (!hexPattern.test(encryptionKey)) {
+      reportFailure(
+        "Invalid WEB_SCRAPER_ENCRYPTION_KEY format",
+        `Expected 64 hex characters (32 bytes), got ${encryptionKey.length} characters.`,
+        "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
+    }
+  }
+
   // Container env files load ops/env/.env.local directly; no additional .env.ports checks required.
 }
 
@@ -782,6 +795,64 @@ function checkEnvModeConsistency() {
       "Using SUPABASE_SERVICE_KEY instead of SUPABASE_SERVICE_ROLE_KEY.",
       "Update ops/env/.env.local: rename SUPABASE_SERVICE_KEY to SUPABASE_SERVICE_ROLE_KEY"
     );
+  }
+}
+
+function checkEnvFileConflicts() {
+  // Skip if .env.local doesn't exist
+  if (!fs.existsSync(opsEnvLocalPath)) {
+    return;
+  }
+
+  // Determine which mode-specific env file should be checked
+  const modeEnvFile = path.join(opsEnvDir, `.env.backend.${mode}`);
+  const localEnv = parseEnvFile(opsEnvLocalPath);
+
+  // Critical variables that should warn on conflict
+  const criticalVars = [
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "API_PORT",
+    "BACKEND_PORT",
+    "FRONTEND_PORT",
+  ];
+
+  // If mode-specific env file exists, check for conflicts
+  if (fs.existsSync(modeEnvFile)) {
+    const modeEnv = parseEnvFile(modeEnvFile);
+    const conflicts = [];
+
+    for (const key of criticalVars) {
+      const localValue = localEnv[key];
+      const modeValue = modeEnv[key];
+
+      // Only warn if both define the variable with different non-empty values
+      if (localValue && modeValue && localValue !== modeValue) {
+        conflicts.push(key);
+      }
+    }
+
+    if (conflicts.length > 0) {
+      reportFailure(
+        "Environment file conflicts detected",
+        `ops/env/.env.local overrides ${conflicts.length} variable(s) from .env.backend.${mode}: ${conflicts.join(", ")}`,
+        `Remove conflicting entries from .env.local or ensure values match .env.backend.${mode}`
+      );
+    }
+  }
+
+  // Also check for the specific SUPABASE_KEY vs SUPABASE_ANON_KEY alias confusion
+  if (localEnv.SUPABASE_KEY && localEnv.SUPABASE_ANON_KEY) {
+    if (localEnv.SUPABASE_KEY !== localEnv.SUPABASE_ANON_KEY) {
+      reportFailure(
+        "SUPABASE_KEY alias mismatch",
+        "SUPABASE_KEY and SUPABASE_ANON_KEY have different values. SUPABASE_KEY is an alias required by some services.",
+        "Set SUPABASE_KEY to the same value as SUPABASE_ANON_KEY in ops/env/.env.local"
+      );
+    }
   }
 }
 
@@ -1010,6 +1081,14 @@ async function main() {
         cacheCheckResult("Env Mode Consistency", failures.length === 0);
       } else {
         console.log(`⏭️  Env Mode Consistency check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Env File Conflicts")) {
+        checkEnvFileConflicts();
+        cacheCheckResult("Env File Conflicts", failures.length === 0);
+      } else {
+        console.log(`⏭️  Env File Conflicts check (cached)`);
       }
     }),
     Promise.resolve().then(() => {

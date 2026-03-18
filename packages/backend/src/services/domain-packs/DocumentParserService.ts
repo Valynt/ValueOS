@@ -81,7 +81,7 @@ class DocumentParserService {
       const formData = new FormData();
       formData.append('file', file);
 
-      // eslint-disable-next-line no-restricted-globals -- legitimate direct fetch usage
+       
       const response = await fetch(this.functionUrl, {
         method: 'POST',
         headers: session ? {

@@ -135,7 +135,7 @@ export class NarrativeEngine {
   }
 
   private injectCitations(body: string, facts: Fact[], run: ModelRun): string {
-    let citedBody = body;
+    const citedBody = body;
 
     const citationList = facts
       .map((f, i) => `[^${i + 1}]: ${f.claim}`)

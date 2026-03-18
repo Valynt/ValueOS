@@ -9,8 +9,8 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
   const mock = {
     tables,
     from: (table: string) => {
-      let currentData = [...getTable(table)];
-      let filters: Array<{ column: string; value: unknown; type?: string; values?: unknown[] }> = [];
+      const currentData = [...getTable(table)];
+      const filters: Array<{ column: string; value: unknown; type?: string; values?: unknown[] }> = [];
       let sort: { column: string; ascending: boolean } | null = null;
       let operation = 'select';
       let updateData: Record<string, unknown> | null = null;
@@ -52,7 +52,7 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
         },
         then: (resolve: Function, reject: Function) => {
             // Apply filters
-            let filtered = applyFilters(currentData, filters);
+            const filtered = applyFilters(currentData, filters);
 
             if (sort) {
                 filtered.sort((a, b) => {

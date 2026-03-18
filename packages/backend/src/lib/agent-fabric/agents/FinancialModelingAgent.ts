@@ -285,7 +285,7 @@ export class FinancialModelingAgent extends BaseAgent {
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
         FinancialModelingOutputSchema,
-        // eslint-disable-next-line no-restricted-syntax -- intentional usage
+         
         {
           trackPrediction: true,
           confidenceThresholds: { low: 0.6, high: 0.85 },
