@@ -22,6 +22,12 @@ vi.mock('../../lib/logger', () => ({
     warn: vi.fn(),
     debug: vi.fn(),
   },
+  createLogger: () => ({
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  }),
 }));
 
 vi.mock('../../lib/supabase', () => ({
