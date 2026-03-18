@@ -1,0 +1,10 @@
+tasks:
+  installDeps:
+    name: Install dependencies
+    description: Install all monorepo dependencies via pnpm.
+    command: |
+      corepack enable
+      corepack prepare pnpm@10.4.1 --activate
+      pnpm install --frozen-lockfile
+    triggeredBy:
+      - postDevcontainerStart

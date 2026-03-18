@@ -29,6 +29,23 @@ import {
   type ExtractedContext,
 } from "./ContextExtractionAgent";
 
+// Lazy-loaded to avoid circular deps; types only used at runtime
+type CallAnalysisResult = {
+  transcript: string;
+  pain_points: string[];
+  objections: string[];
+  stakeholders: Array<{ name: string; role: string; sentiment: string }>;
+  buying_signals: string[];
+  key_quotes: Array<{ speaker: string; quote: string; significance: string }>;
+};
+
+type WebScraperResult = {
+  url: string;
+  title: string;
+  content: string;
+  metadata: Record<string, unknown>;
+};
+
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
@@ -180,10 +197,90 @@ export class DealAssemblyAgent extends BaseAgent {
         opportunityId,
       });
 
-      // Step 1.5: SEC EDGAR Fetch for public companies (Task 10.1)
-      let secData: { ticker?: string; sections?: Record<string, string>; sourceUrl?: string } | null = null;
+      // Step 1.5: Call transcript ingestion
+      const transcriptIds = context.user_inputs?.transcript_ids as string[] | undefined;
+      const callAnalysisResults: CallAnalysisResult[] = [];
+
+      if (transcriptIds && transcriptIds.length > 0) {
+        logger.info("Ingesting call transcripts", {
+          agent: this.name,
+          session_id: sessionId,
+          transcript_count: transcriptIds.length,
+        });
+
+        try {
+          const { CallAnalysisService } = await import("../../services/CallAnalysisService.js") as {
+            CallAnalysisService: { analyzeTranscript: (id: string) => Promise<CallAnalysisResult> };
+          };
+
+          for (const transcriptId of transcriptIds) {
+            try {
+              const result = await CallAnalysisService.analyzeTranscript(transcriptId);
+              callAnalysisResults.push(result);
+            } catch (transcriptErr) {
+              logger.warn("Failed to analyze transcript, skipping", {
+                agent: this.name,
+                session_id: sessionId,
+                transcriptId,
+                error: (transcriptErr as Error).message,
+              });
+            }
+          }
+
+          logger.info("Call transcript ingestion complete", {
+            agent: this.name,
+            session_id: sessionId,
+            analyzed: callAnalysisResults.length,
+            failed: transcriptIds.length - callAnalysisResults.length,
+          });
+        } catch (callErr) {
+          // CallAnalysisService unavailable — continue without transcripts
+          logger.warn("CallAnalysisService unavailable, continuing without transcripts", {
+            agent: this.name,
+            session_id: sessionId,
+            error: (callErr as Error).message,
+          });
+        }
+      }
+
+      // Step 1.6: Web research for public company context
       const companyDomain = context.user_inputs?.company_domain as string | undefined;
       const companyName = context.user_inputs?.company_name as string | undefined;
+      let webResearchResult: WebScraperResult | null = null;
+
+      if (companyDomain) {
+        logger.info("Running web research", {
+          agent: this.name,
+          session_id: sessionId,
+          companyDomain,
+        });
+
+        try {
+          const { WebScraperService } = await import("../../services/WebScraperService.js") as {
+            WebScraperService: { scrape: (url: string) => Promise<WebScraperResult> };
+          };
+
+          webResearchResult = await WebScraperService.scrape(`https://${companyDomain}`);
+
+          logger.info("Web research complete", {
+            agent: this.name,
+            session_id: sessionId,
+            companyDomain,
+            contentLength: webResearchResult?.content?.length ?? 0,
+          });
+        } catch (webErr) {
+          // Web research is optional — continue without it
+          logger.warn("Web research failed, continuing without", {
+            agent: this.name,
+            session_id: sessionId,
+            companyDomain,
+            error: (webErr as Error).message,
+          });
+        }
+      }
+
+      // Step 1.7: SEC EDGAR Fetch for public companies
+      let secData: { ticker?: string; sections?: Record<string, string>; sourceUrl?: string } | null = null;
 
       if (companyDomain || companyName) {
         try {
@@ -245,6 +342,8 @@ export class DealAssemblyAgent extends BaseAgent {
         ...context,
         crm_data: crmData,
         sec_data: secData,
+        call_analysis_results: callAnalysisResults,
+        web_research_result: webResearchResult,
       };
 
       const extractionResult = await this.contextExtractionAgent.execute(extractionContext);
@@ -276,7 +375,9 @@ export class DealAssemblyAgent extends BaseAgent {
         opportunityId,
         crmData,
         extractedContext,
-        secData
+        secData,
+        callAnalysisResults,
+        webResearchResult,
       );
 
       // Step 4: Validate non-empty assembly
@@ -314,14 +415,18 @@ export class DealAssemblyAgent extends BaseAgent {
         missing_gaps_count: dealContext.context_json.missing_data_gaps.length,
       });
 
+      const sourcesConsulted = [
+        "crm",
+        ...(callAnalysisResults.length > 0 ? [`call-transcripts:${callAnalysisResults.length}`] : []),
+        ...(webResearchResult ? [`web:${companyDomain}`] : []),
+        ...(secData?.ticker ? [`sec-edgar:${secData.ticker}`] : []),
+      ];
+
       return this.buildOutput(
         {
           deal_context: dealContext,
           assembly_summary: {
-            sources_consulted: [
-              "crm",
-              ...(secData?.ticker ? [`sec-edgar:${secData.ticker}`] : []),
-            ],
+            sources_consulted: sourcesConsulted,
             stakeholders_identified: dealContext.context_json.stakeholders.length,
             use_cases_identified: dealContext.context_json.use_cases.length,
             value_drivers_ranked: dealContext.context_json.value_drivers.length,
@@ -329,6 +434,8 @@ export class DealAssemblyAgent extends BaseAgent {
             tier_1_sources_used: dealContext.source_fragments.filter(
               s => s.source_type === "tier-1-evidence"
             ).length,
+            call_transcripts_analyzed: callAnalysisResults.length,
+            web_research_performed: webResearchResult !== null,
           },
           sec_data: secData?.ticker ? {
             ticker: secData.ticker,
@@ -340,7 +447,7 @@ export class DealAssemblyAgent extends BaseAgent {
         this.toConfidenceLevel(extractedContext.extraction_confidence),
         startTime,
         {
-          reasoning: `Assembled deal context from CRM data${secData?.ticker ? ` and SEC EDGAR (ticker: ${secData.ticker})` : ""} with ${dealContext.context_json.stakeholders.length} stakeholders and ${dealContext.context_json.value_drivers.length} value drivers`,
+          reasoning: `Assembled deal context from ${sourcesConsulted.join(", ")} with ${dealContext.context_json.stakeholders.length} stakeholders and ${dealContext.context_json.value_drivers.length} value drivers`,
           suggested_next_actions: dealContext.context_json.missing_data_gaps
             .filter((g) => g.importance === "critical")
             .map((g) => `Fill critical data gap: ${g.field}`),
@@ -363,22 +470,25 @@ export class DealAssemblyAgent extends BaseAgent {
   }
 
   /**
-   * Assemble DealContext from extracted fragments.
-   * Applies conflict resolution: customer-confirmed > CRM-derived > call-derived > inferred
+   * Assemble DealContext from all available fragments.
+   * Conflict resolution priority: customer-confirmed > CRM-derived > call-derived > web-researched > inferred
    */
   private assembleDealContext(
     tenantId: string,
     opportunityId: string,
     crmData: CRMFetchResult,
     extractedContext: ExtractedContext,
-    secData?: { ticker?: string; sections?: Record<string, string>; sourceUrl?: string } | null
+    secData?: { ticker?: string; sections?: Record<string, string>; sourceUrl?: string } | null,
+    callAnalysisResults?: CallAnalysisResult[],
+    webResearchResult?: WebScraperResult | null,
   ): DealContext {
     const now = new Date().toISOString();
 
     // Assemble stakeholders from CRM contacts with extraction enrichment
     const stakeholders = this.mergeStakeholders(
       crmData.contacts,
-      extractedContext.stakeholders
+      extractedContext.stakeholders,
+      callAnalysisResults ?? [],
     );
 
     // Assemble use cases from extraction
@@ -389,14 +499,54 @@ export class DealAssemblyAgent extends BaseAgent {
       source_type: uc.source_type as SourceClassification,
     }));
 
+    // Merge call-derived pain signals into use cases
+    if (callAnalysisResults && callAnalysisResults.length > 0) {
+      const callPainPoints = callAnalysisResults.flatMap((r) => r.pain_points);
+      if (callPainPoints.length > 0) {
+        useCases.push({
+          name: "Call-Derived Pain Points",
+          description: "Pain points identified from sales call transcripts",
+          pain_signals: callPainPoints,
+          source_type: "call-derived",
+        });
+      }
+    }
+
     // Assemble value drivers from extraction candidates
     const valueDrivers = extractedContext.value_driver_candidates.map((vd) => ({
       name: vd.driver_name,
       impact_range_low: vd.impact_estimate_low,
       impact_range_high: vd.impact_estimate_high,
       confidence: vd.confidence_score,
-      source_type: "crm-derived" as SourceClassification, // Derived from CRM data via extraction
+      source_type: "crm-derived" as SourceClassification,
     }));
+
+    // Merge call-derived buying signals as additional value driver signals
+    if (callAnalysisResults && callAnalysisResults.length > 0) {
+      const buyingSignals = callAnalysisResults.flatMap((r) => r.buying_signals);
+      for (const signal of buyingSignals) {
+        // Only add if not already represented
+        const alreadyPresent = valueDrivers.some((vd) =>
+          vd.name.toLowerCase().includes(signal.toLowerCase().slice(0, 10)),
+        );
+        if (!alreadyPresent) {
+          valueDrivers.push({
+            name: signal,
+            impact_range_low: 0,
+            impact_range_high: 0,
+            confidence: 0.4, // Low confidence until modeled
+            source_type: "call-derived",
+          });
+        }
+      }
+    }
+
+    // Merge call-derived objection signals
+    const callObjections = (callAnalysisResults ?? []).flatMap((r) => r.objections);
+    const allObjections = [
+      ...extractedContext.objection_signals,
+      ...callObjections.filter((o) => !extractedContext.objection_signals.includes(o)),
+    ];
 
     // Build source fragments list
     const sourceFragments: DealContext["source_fragments"] = [
@@ -408,29 +558,47 @@ export class DealAssemblyAgent extends BaseAgent {
       },
     ];
 
-    // Add SEC source fragment if available (Task 10.3 - Show sources, Task 10.4 - Tier 1 tagging)
+    // Add call transcript fragments
+    if (callAnalysisResults && callAnalysisResults.length > 0) {
+      for (let i = 0; i < callAnalysisResults.length; i++) {
+        sourceFragments.push({
+          source_type: "call-derived",
+          source_url: `call://transcript/${i}`,
+          ingested_at: now,
+          fragment_hash: this.computeHash(callAnalysisResults[i]),
+        });
+      }
+    }
+
+    // Add web research fragment
+    if (webResearchResult) {
+      sourceFragments.push({
+        source_type: "externally-researched",
+        source_url: webResearchResult.url,
+        ingested_at: now,
+        fragment_hash: this.computeHash(webResearchResult.content),
+      });
+    }
+
+    // Add SEC source fragment if available
     if (secData?.ticker && secData.sections) {
       sourceFragments.push({
-        source_type: "tier-1-evidence", // Tier 1 evidence tag
+        source_type: "tier-1-evidence",
         source_url: secData.sourceUrl || `sec://edgar/${secData.ticker}`,
         ingested_at: now,
         fragment_hash: this.computeHash(secData.sections),
       });
 
-      // Enhance value drivers with SEC-derived confidence boost
-      // If SEC data exists, mark related value drivers with tier-1-evidence
+      // Boost confidence for value drivers corroborated by SEC content
       for (const driver of valueDrivers) {
-        // Check if driver name matches any SEC section content keywords
         const driverKeywords = driver.name.toLowerCase().split(/\s+/);
         const secContent = Object.values(secData.sections || {}).join(" ").toLowerCase();
-
-        const hasKeywordMatch = driverKeywords.some(keyword =>
-          secContent.includes(keyword) && keyword.length > 4
+        const hasKeywordMatch = driverKeywords.some(
+          (keyword) => secContent.includes(keyword) && keyword.length > 4,
         );
-
         if (hasKeywordMatch) {
           driver.source_type = "tier-1-evidence";
-          driver.confidence = Math.min(1, driver.confidence + 0.15); // Boost confidence
+          driver.confidence = Math.min(1, driver.confidence + 0.15);
         }
       }
     }
@@ -445,7 +613,7 @@ export class DealAssemblyAgent extends BaseAgent {
         use_cases: useCases,
         value_drivers: valueDrivers,
         baseline_metrics: extractedContext.baseline_clues,
-        objection_signals: extractedContext.objection_signals,
+        objection_signals: allObjections,
         missing_data_gaps: extractedContext.missing_data.map((m) => ({
           field: m.field_name,
           importance: m.importance,
@@ -456,16 +624,17 @@ export class DealAssemblyAgent extends BaseAgent {
   }
 
   /**
-   * Merge stakeholders from CRM with extraction results.
-   * Uses source priority for conflict resolution.
+   * Merge stakeholders from CRM, extraction, and call transcripts.
+   * Conflict resolution: customer-confirmed > CRM-derived > call-derived > inferred
    */
   private mergeStakeholders(
     crmContacts: CRMFetchResult["contacts"],
-    extractedStakeholders: ExtractedContext["stakeholders"]
+    extractedStakeholders: ExtractedContext["stakeholders"],
+    callAnalysisResults: CallAnalysisResult[],
   ): DealContext["context_json"]["stakeholders"] {
     const merged = new Map<string, DealContext["context_json"]["stakeholders"][0]>();
 
-    // Add CRM contacts first
+    // Add CRM contacts first (authoritative)
     for (const contact of crmContacts) {
       const key = `${contact.first_name} ${contact.last_name}`.toLowerCase();
       merged.set(key, {
@@ -476,7 +645,7 @@ export class DealAssemblyAgent extends BaseAgent {
       });
     }
 
-    // Merge extraction results (higher priority can override)
+    // Merge extraction results
     for (const stakeholder of extractedStakeholders) {
       const key = stakeholder.name.toLowerCase();
       const existing = merged.get(key);
@@ -489,16 +658,29 @@ export class DealAssemblyAgent extends BaseAgent {
           source_type: stakeholder.source_type as SourceClassification,
         });
       } else {
-        // Conflict resolution: higher priority source wins
         const existingPriority = SOURCE_PRIORITY[existing.source_type];
         const newPriority = SOURCE_PRIORITY[stakeholder.source_type as SourceClassification];
-
         if (newPriority > existingPriority) {
           merged.set(key, {
             name: stakeholder.name,
             role: stakeholder.role,
             priority: stakeholder.priority,
             source_type: stakeholder.source_type as SourceClassification,
+          });
+        }
+      }
+    }
+
+    // Merge call-derived stakeholders (lower priority than CRM)
+    for (const callResult of callAnalysisResults) {
+      for (const callStakeholder of callResult.stakeholders) {
+        const key = callStakeholder.name.toLowerCase();
+        if (!merged.has(key)) {
+          merged.set(key, {
+            name: callStakeholder.name,
+            role: callStakeholder.role,
+            priority: 4, // Lower than CRM-derived
+            source_type: "call-derived",
           });
         }
       }

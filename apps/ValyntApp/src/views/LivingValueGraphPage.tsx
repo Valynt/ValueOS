@@ -59,7 +59,11 @@ export default function LivingValueGraphPage() {
           {graph?.globalMetrics && (
             <HeadlineValueCard
               npv={graph.globalMetrics.npv}
-              annualValue={graph.globalMetrics.npv / graph.globalMetrics.paybackMonths * 12}
+              annualValue={
+                graph.globalMetrics.paybackMonths
+                  ? (graph.globalMetrics.npv / graph.globalMetrics.paybackMonths) * 12
+                  : 0
+              }
               scenarioLabel="Base Case"
               lastRecalculated={graph.computedAt ?? new Date(0).toISOString()}
             />

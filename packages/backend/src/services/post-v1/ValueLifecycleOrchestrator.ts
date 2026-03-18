@@ -21,6 +21,12 @@ import { ValidationError as LibValidationError } from "../../lib/errors.js";
 import { logger } from "../../lib/logger.js"
 import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker";
 import { TargetAgentInputSchema } from "../validators/agentInputs.js";
+import {
+  recordAgentInvocation,
+  recordLoopCompletion,
+  recordStageTransition,
+  type ValueLoopStage,
+} from "../../observability/valueLoopMetrics.js";
 
 
 
@@ -221,6 +227,7 @@ export class ValueLifecycleOrchestrator {
     input: StageInput,
     context: LifecycleContext
   ): Promise<StageResult> {
+    const stageStartMs = Date.now();
     const compensationKey = this.getCompensationKey(context);
     try {
       this.ensureWorkflowActive(context);
@@ -243,6 +250,15 @@ export class ValueLifecycleOrchestrator {
         userId: context.userId ?? "system",
         status: "success",
         details: { stage, stageInput: Object.keys(input) },
+      });
+
+      // Record agent invocation metric
+      recordAgentInvocation({
+        agentName: agent.getName(),
+        stage: stage as ValueLoopStage,
+        outcome: "success",
+        organizationId: context.organizationId ?? context.tenantId ?? "unknown",
+        durationMs: Date.now() - stageStartMs,
       });
 
       const previousResult = (context.metadata?.['previousResult']) as StageResult | undefined;
@@ -631,9 +647,18 @@ export class ValueLifecycleOrchestrator {
   }> {
     const correlationId = context.sessionId || uuidv4();
     const tenantId = context.tenantId || context.organizationId || 'unknown';
+    const loopStartMs = Date.now();
 
     try {
       this.ensureWorkflowActive(context);
+
+      // Record loop start: signal → hypothesis transition
+      recordStageTransition({
+        fromStage: "signal" as ValueLoopStage,
+        toStage: "hypothesis" as ValueLoopStage,
+        organizationId: tenantId,
+        durationMs: 0,
+      });
 
       // Initialize the saga in the INITIATED state if it doesn't exist
       const existingState = await this.saga.getState(valueCaseId);
@@ -670,6 +695,7 @@ export class ValueLifecycleOrchestrator {
       }
 
       // Execute the HypothesisLoop
+      const hypothesisStartMs = Date.now();
       const result = await this.hypothesisLoop.run(
         valueCaseId,
         tenantId,
@@ -677,6 +703,35 @@ export class ValueLifecycleOrchestrator {
         undefined, // sse
         domainPackContext
       );
+
+      const hypothesisDurationMs = Date.now() - hypothesisStartMs;
+
+      // Record agent invocation outcome
+      recordAgentInvocation({
+        agentName: "HypothesisLoop",
+        stage: "hypothesis" as ValueLoopStage,
+        outcome: result.success ? "success" : "error",
+        organizationId: tenantId,
+        durationMs: hypothesisDurationMs,
+      });
+
+      // Record hypothesis → business_case transition
+      recordStageTransition({
+        fromStage: "hypothesis" as ValueLoopStage,
+        toStage: "business_case" as ValueLoopStage,
+        organizationId: tenantId,
+        durationMs: hypothesisDurationMs,
+      });
+
+      // Record end-to-end loop completion
+      recordLoopCompletion({
+        organizationId: tenantId,
+        sessionId: correlationId,
+        durationMs: Date.now() - loopStartMs,
+        completedStages: result.success
+          ? ["signal", "hypothesis", "business_case"] as ValueLoopStage[]
+          : ["signal", "hypothesis"] as ValueLoopStage[],
+      });
 
       return {
         success: result.success,
@@ -686,8 +741,22 @@ export class ValueLifecycleOrchestrator {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Route terminal failure to DLQ is handled inside HypothesisLoop.executeWithGuard
-      // but we log here for the top-level orchestration.
+      // Record failed loop
+      recordAgentInvocation({
+        agentName: "HypothesisLoop",
+        stage: "hypothesis" as ValueLoopStage,
+        outcome: "error",
+        organizationId: tenantId,
+        durationMs: Date.now() - loopStartMs,
+      });
+
+      recordLoopCompletion({
+        organizationId: tenantId,
+        sessionId: correlationId,
+        durationMs: Date.now() - loopStartMs,
+        completedStages: ["signal"] as ValueLoopStage[],
+      });
+
       logger.error('Hypothesis loop terminal failure', {
         valueCaseId,
         error: errorMsg,

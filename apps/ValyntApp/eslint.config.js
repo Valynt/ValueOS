@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import security from "eslint-plugin-security";
@@ -30,6 +31,7 @@ const valyntAppConfig = {
   plugins: {
     "@typescript-eslint": tseslint.plugin,
     "jsx-a11y": jsxA11y,
+    react: react,
     import: importPlugin,
     "react-hooks": reactHooks,
     "react-refresh": reactRefresh,
@@ -77,6 +79,7 @@ const valyntAppConfig = {
       "warn",
       { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
     ],
+    "react/no-danger": "error",
     "security/detect-object-injection": "warn",
     // "security/detect-non-literal-fs-filename": "error", // Disabled due to ESLint 9 compatibility
     // ADR-0014 / Phase 8: All REST calls to /api/ routes must use UnifiedApiClient.

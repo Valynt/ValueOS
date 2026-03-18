@@ -7,6 +7,7 @@
 
 import type { Artifact } from '../agent/types';
 import type { KPIData } from '../components/KPICards';
+import { sanitizeHtml } from '../../../utils/sanitizeHtml';
 
 export interface ExportOptions {
   title: string;
@@ -391,8 +392,10 @@ function renderArtifactContent(artifact: Artifact): string {
 }
 
 function renderMarkdown(markdown: string): string {
-  // Simple markdown to HTML conversion
-  return markdown
+  // Convert markdown to HTML, then sanitize to prevent XSS from agent-produced content.
+  // The regex converter may produce HTML with unsanitized captured groups; sanitizeHtml
+  // enforces the DOMPurify allowlist before the output reaches document.write.
+  const raw = markdown
     .replace(/^### (.*$)/gm, '<h3>$1</h3>')
     .replace(/^## (.*$)/gm, '<h2>$1</h2>')
     .replace(/^# (.*$)/gm, '<h1>$1</h1>')
@@ -409,6 +412,7 @@ function renderMarkdown(markdown: string): string {
     })
     .replace(/^(?!<[hulo])/gm, '<p>')
     .replace(/(?<![>])$/gm, '</p>');
+  return sanitizeHtml(raw);
 }
 
 function renderJsonContent(data: Record<string, unknown>): string {

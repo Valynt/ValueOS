@@ -4,10 +4,11 @@
  * Tests multi-user real-time synchronization scenarios
  */
 
+/* eslint-disable import/order -- resolver cannot classify vitest vs relative imports consistently */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
 import type { CanvasElement } from '../../lib/realtime/supabaseRealtime';
+import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
+/* eslint-enable import/order */
 
 // vi.mock is hoisted — all mock state must be defined inside the factory
 vi.mock('../../lib/supabase', () => {

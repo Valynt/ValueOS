@@ -1,15 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 
-/**
- * Sanitize HTML content to prevent XSS attacks.
- * Escapes HTML entities to ensure content is treated as text.
- */
-function sanitizeHtmlContent(content: string): string {
-  const div = document.createElement("div");
-  div.textContent = content;
-  return div.innerHTML;
-}
-
 export interface InlineEditorProps {
   initialContent: string;
   onSave: (content: string, reason: string) => void;
@@ -40,9 +30,11 @@ export function InlineEditor({
 
   useEffect(() => {
     if (isEditing && editorRef.current) {
+      // Set as textContent to avoid any HTML injection — editor only handles plain text
+      editorRef.current.textContent = content;
       editorRef.current.focus();
     }
-  }, [isEditing]);
+  }, [isEditing]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally runs only when editing starts
 
   const handleSave = () => {
     if (!showReasonPrompt) {
@@ -110,10 +102,46 @@ export function InlineEditor({
           ref={editorRef}
           contentEditable
           onInput={(e) => setContent(e.currentTarget.textContent || "")}
+          onPaste={(e) => {
+            e.preventDefault();
+            const text = e.clipboardData.getData("text/plain");
+            if (!text) {
+              return;
+            }
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+              return;
+            }
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
+            const newContent = e.currentTarget.textContent || "";
+            setContent(newContent);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const dt = e.dataTransfer;
+            const text =
+              dt.getData("text/plain") ||
+              dt.getData("text") ||
+              "";
+            if (!text) {
+              return;
+            }
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) {
+              return;
+            }
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            selection.collapseToEnd();
+            const newContent = e.currentTarget.textContent || "";
+            setContent(newContent);
+          }}
           className="min-h-[100px] whitespace-pre-wrap outline-none"
           suppressContentEditableWarning
-          // eslint-disable-next-line react/no-danger -- Content is sanitized via sanitizeHtmlContent()
-          dangerouslySetInnerHTML={{ __html: sanitizeHtmlContent(content) }}
         />
 
         {/* Diff Indicator */}
