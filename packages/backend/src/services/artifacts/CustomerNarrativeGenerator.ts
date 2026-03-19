@@ -14,9 +14,10 @@ import { fileURLToPath } from "node:url";
 
 import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
-import { secureServiceInvoke } from "../llm/secureServiceInvocation.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 
 import {
   CustomerNarrativeInput,
@@ -70,42 +71,38 @@ export class CustomerNarrativeGenerator {
     const prompt = template(templateContext);
 
     const result = await this.circuitBreaker.execute(async () => {
-      const invocation = await secureServiceInvoke({
-        gateway: this.llmGateway,
+      const request = {
         messages: [{ role: "user" as const, content: prompt }],
-        schema: CustomerNarrativeOutputSchema,
-        request: {
-          organizationId: input.organizationId,
+        metadata: {
           tenantId: input.tenantId,
+          organizationId: input.organizationId,
           caseId: input.caseId,
           artifactType: "customer_narrative",
           generator: "CustomerNarrativeGenerator",
-          serviceName: "CustomerNarrativeGenerator",
-          operation: "generate",
         },
-        logger,
-        actorName: "CustomerNarrativeGenerator",
+      };
+
+      const response = await secureLLMComplete(this.llmGateway, request.messages, {
+        ...request.metadata,
+        serviceName: "CustomerNarrativeGenerator",
+        operation: "generate",
+        traceId: input.caseId,
         sessionId: input.caseId,
-        tenantId: input.organizationId,
-        invalidJsonMessage: "Invalid JSON response from LLM",
-        invalidJsonLogMessage: "CustomerNarrativeGenerator: Failed to parse JSON",
-        invalidJsonLogContext: (_content, error) => ({
-          error: error instanceof Error ? error.message : String(error),
-        }),
-        hallucinationCheck: async (parsed) => this.checkHallucination({
-          ...parsed,
-          data_claim_ids: parsed.provenance_refs,
-        }, input),
-        escalationLogMessage: "CustomerNarrativeGenerator: Hallucination escalation triggered",
-        escalationLogContext: (parsed) => ({
-          caseId: input.caseId,
-          provenanceRefs: parsed.provenance_refs,
-        }),
       });
 
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(response.content);
+      } catch (err) {
+        logger.error("CustomerNarrativeGenerator: Failed to parse JSON", { error: String(err) });
+        throw new Error("Invalid JSON response from LLM");
+      }
+
+      const parsed = CustomerNarrativeOutputSchema.parse(parsedJson);
+
       const output: CustomerNarrativeOutput = {
-        ...invocation.parsed,
-        data_claim_ids: invocation.parsed.provenance_refs,
+        ...parsed,
+        data_claim_ids: parsed.provenance_refs,
       };
 
       await this.memorySystem.storeSemanticMemory(
@@ -126,12 +123,62 @@ export class CustomerNarrativeGenerator {
 
       return {
         output,
-        hallucinationCheck: invocation.hallucinationCheck,
-        tokenUsage: invocation.tokenUsage,
+        tokenUsage: response.usage
+          ? {
+              input_tokens: response.usage.prompt_tokens,
+              output_tokens: response.usage.completion_tokens,
+              total_tokens: response.usage.total_tokens,
+            }
+          : undefined,
       };
     });
 
-    const hallucinationCheck = result.hallucinationCheck;
+    const hallucinationCheck = await this.checkHallucination(
+      result.output,
+      input
+    );
+
+    if (!hallucinationCheck) {
+      logger.warn("CustomerNarrativeGenerator: hallucination escalation triggered", {
+        caseId: input.caseId,
+        tenantId: input.tenantId,
+      });
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "security:hallucination_detected",
+        resource: input.caseId,
+        resourceType: "artifact_generation",
+        userId: "system",
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        sessionId: input.caseId,
+        outcome: "failure",
+        severity: "high",
+        details: {
+          generator: "CustomerNarrativeGenerator",
+          artifactType: "customer_narrative",
+        },
+      });
+    }
+
+    await logSecurityEvent({
+      timestamp: new Date().toISOString(),
+      action: "artifacts:customer_narrative_generated",
+      resource: input.caseId,
+      resourceType: "artifact_generation",
+      userId: "system",
+      organizationId: input.organizationId,
+      tenantId: input.tenantId,
+      sessionId: input.caseId,
+      outcome: hallucinationCheck ? "success" : "failure",
+      severity: hallucinationCheck ? "low" : "medium",
+      details: {
+        generator: "CustomerNarrativeGenerator",
+        artifactType: "customer_narrative",
+        hallucinationCheck,
+        tokenUsage: result.tokenUsage,
+      },
+    });
 
     logger.info("CustomerNarrativeGenerator: generation complete", {
       caseId: input.caseId,

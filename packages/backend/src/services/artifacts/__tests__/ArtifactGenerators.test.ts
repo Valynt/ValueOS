@@ -9,9 +9,34 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../services/llm/secureServiceInvocation.js", () => ({
-  secureServiceInvoke: vi.fn(),
+import { secureLLMComplete } from "../../../lib/llm/secureLLMWrapper.js";
+import { logSecurityEvent } from "../../../services/security/auditLogger.js";
+import { ExecutiveMemoGenerator } from "../../../services/artifacts/ExecutiveMemoGenerator.js";
+import { CFORecommendationGenerator } from "../../../services/artifacts/CFORecommendationGenerator.js";
+import { CustomerNarrativeGenerator } from "../../../services/artifacts/CustomerNarrativeGenerator.js";
+import { InternalCaseGenerator } from "../../../services/artifacts/InternalCaseGenerator.js";
+
+vi.mock("../../../lib/llm/secureLLMWrapper.js", () => ({
+  secureLLMComplete: vi.fn(),
 }));
+
+vi.mock("../../../services/security/auditLogger.js", () => ({
+  logSecurityEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock dependencies
+const mockLLMGateway = {
+  complete: vi.fn(),
+};
+
+const mockCircuitBreaker = {
+  execute: vi.fn((fn: Function) => fn()),
+};
+
+const mockMemorySystem = {
+  storeSemanticMemory: vi.fn(),
+  retrieve: vi.fn(() => Promise.resolve([])),
+};
 
 vi.mock("../../../lib/logger.js", () => ({
   logger: {
@@ -21,28 +46,10 @@ vi.mock("../../../lib/logger.js", () => ({
   },
 }));
 
-import { secureServiceInvoke } from "../../../services/llm/secureServiceInvocation.js";
-import { CFORecommendationGenerator } from "../../../services/artifacts/CFORecommendationGenerator.js";
-import { CustomerNarrativeGenerator } from "../../../services/artifacts/CustomerNarrativeGenerator.js";
-import { ExecutiveMemoGenerator } from "../../../services/artifacts/ExecutiveMemoGenerator.js";
-import { InternalCaseGenerator } from "../../../services/artifacts/InternalCaseGenerator.js";
-
-const mockLLMGateway = {
-  complete: vi.fn(),
-};
-
-const mockCircuitBreaker = {
-  execute: vi.fn((fn: () => unknown) => fn()),
-};
-
-const mockMemorySystem = {
-  storeSemanticMemory: vi.fn(),
-  retrieve: vi.fn(() => Promise.resolve([])),
-};
-
 describe("Artifact Generators", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(logSecurityEvent).mockResolvedValue(undefined);
   });
 
   describe("ExecutiveMemoGenerator", () => {
@@ -55,9 +62,9 @@ describe("Artifact Generators", () => {
       expect(generator).toBeDefined();
     });
 
-    it("should validate output against schema through secureServiceInvoke", async () => {
-      vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-        parsed: {
+    it("should validate output against schema through secureLLMComplete", async () => {
+      const mockResponse = {
+        content: JSON.stringify({
           title: "Test Memo",
           executive_summary: "Test summary",
           value_hypothesis: "Test hypothesis",
@@ -79,15 +86,11 @@ describe("Artifact Generators", () => {
             payback_months: 12,
           },
           provenance_refs: ["claim-1"],
-        },
-        hallucinationCheck: true,
-        tokenUsage: {
-          input_tokens: 1000,
-          output_tokens: 500,
-          total_tokens: 1500,
-        },
-        rawContent: "{}",
-      });
+        }),
+        usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new ExecutiveMemoGenerator(
         mockLLMGateway as never,
@@ -120,17 +123,29 @@ describe("Artifact Generators", () => {
 
       const result = await generator.generate(input as never);
 
-      expect(secureServiceInvoke).toHaveBeenCalledOnce();
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({
+          serviceName: "ExecutiveMemoGenerator",
+          operation: "generate",
+          organizationId: "org-1",
+          tenantId: "tenant-1",
+        })
+      );
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
       expect(result.output).toBeDefined();
       expect(result.output.title).toBe("Test Memo");
       expect(result.hallucinationCheck).toBe(true);
       expect(result.tokenUsage).toBeDefined();
+      expect(logSecurityEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "artifacts:executive_memo_generated" })
+      );
     });
 
-    it("should preserve failed hallucination checks returned by secureServiceInvoke", async () => {
-      vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-        parsed: {
+    it("should preserve failed hallucination checks", async () => {
+      const mockResponse = {
+        content: JSON.stringify({
           title: "Test Memo",
           executive_summary: "Test summary",
           value_hypothesis: "Test hypothesis",
@@ -150,11 +165,11 @@ describe("Artifact Generators", () => {
             payback_months: 12,
           },
           provenance_refs: ["unverified-claim"],
-        },
-        hallucinationCheck: false,
-        tokenUsage: { input_tokens: 1000, output_tokens: 500, total_tokens: 1500 },
-        rawContent: "{}",
-      });
+        }),
+        usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new ExecutiveMemoGenerator(
         mockLLMGateway as never,
@@ -186,7 +201,9 @@ describe("Artifact Generators", () => {
       const result = await generator.generate(input as never);
 
       expect(result.hallucinationCheck).toBe(false);
-      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+      expect(logSecurityEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "security:hallucination_detected" })
+      );
     });
   });
 
@@ -200,9 +217,9 @@ describe("Artifact Generators", () => {
       expect(generator).toBeDefined();
     });
 
-    it("should validate all financial claims have source references via secureServiceInvoke", async () => {
-      vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-        parsed: {
+    it("should validate all financial claims have source references via secureLLMComplete", async () => {
+      const mockResponse = {
+        content: JSON.stringify({
           title: "CFO Recommendation",
           recommendation: { decision: "approve", rationale: "Strong ROI", confidence: 0.9 },
           financial_summary: {
@@ -220,11 +237,11 @@ describe("Artifact Generators", () => {
           financial_risks: [],
           approval_conditions: [],
           provenance_refs: ["scenario-1", "bench-1"],
-        },
-        hallucinationCheck: true,
-        tokenUsage: { input_tokens: 1200, output_tokens: 600, total_tokens: 1800 },
-        rawContent: "{}",
-      });
+        }),
+        usage: { prompt_tokens: 1200, completion_tokens: 600, total_tokens: 1800 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new CFORecommendationGenerator(
         mockLLMGateway as never,
@@ -251,7 +268,14 @@ describe("Artifact Generators", () => {
 
       const result = await generator.generate(input as never);
 
-      expect(secureServiceInvoke).toHaveBeenCalledOnce();
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({
+          serviceName: "CFORecommendationGenerator",
+          tenantId: "tenant-1",
+        })
+      );
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
       expect(result.output.recommendation.decision).toBe("approve");
       expect(result.hallucinationCheck).toBe(true);
@@ -259,59 +283,75 @@ describe("Artifact Generators", () => {
   });
 
   describe("Other artifact generators", () => {
-    it("routes customer narrative generation through secureServiceInvoke", async () => {
-      vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-        parsed: {
+    it("routes customer narrative generation through secureLLMComplete", async () => {
+      const mockResponse = {
+        content: JSON.stringify({
           title: "Customer Narrative",
           industry_framing: "Framing",
           business_outcomes: [
             { outcome: "Outcome", description: "Description", value_range: "$100K", confidence: 0.8, claim_id: "claim-1" },
           ],
-          benchmark_context: [],
-          proof_points: [{ headline: "Proof", details: "Detail", evidence_ref: "evidence-1" }],
+          benchmark_context: [
+            {
+              metric: "ROI",
+              comparison: "Above average",
+              opportunity: "Scale faster",
+              benchmark_id: "bench-1",
+            },
+          ],
+          proof_points: [{ headline: "Proof", details: "Detail", evidence_ref: "ev-1" }],
           risk_mitigations: [],
-          implementation_highlights: { timeline: "90 days", key_milestones: [], quick_wins: [] },
-          next_steps: [],
+          implementation_highlights: {
+            timeline: "90 days",
+            key_milestones: ["Kickoff"],
+            quick_wins: ["Pilot"],
+          },
+          next_steps: [{ action: "Schedule kickoff", owner: "CSM", timeframe: "1 week" }],
           provenance_refs: ["claim-1"],
-        },
-        hallucinationCheck: true,
-        tokenUsage: undefined,
-        rawContent: "{}",
-      });
+        }),
+        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new CustomerNarrativeGenerator(
-        mockLLMGateway as never,
-        mockCircuitBreaker as never,
-        mockMemorySystem as never,
+        mockLLMGateway as any,
+        mockCircuitBreaker as any,
+        mockMemorySystem as any
       );
 
       const result = await generator.generate({
         tenantId: "tenant-1",
         organizationId: "org-1",
         caseId: "case-1",
-        valueCaseTitle: "Test Case",
-        organizationName: "Test Org",
-        readinessScore: 0.9,
+        valueCaseTitle: "Title",
+        organizationName: "Org",
+        readinessScore: 0.8,
+        buyer: { title: "CIO", persona: "economic" },
         drivers: [],
         benchmarks: [],
         proofPoints: [],
-      } as never);
+      } as any);
 
-      expect(secureServiceInvoke).toHaveBeenCalledOnce();
+      expect(result.output.title).toBe("Customer Narrative");
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({ serviceName: "CustomerNarrativeGenerator" })
+      );
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
-      expect(result.hallucinationCheck).toBe(true);
     });
 
-    it("routes internal case generation through secureServiceInvoke", async () => {
-      vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-        parsed: {
+    it("routes internal case generation through secureLLMComplete", async () => {
+      const mockResponse = {
+        content: JSON.stringify({
           title: "Internal Case",
           deal_summary: {
             acv: "$100K",
             tcv: "$300K",
             term_years: 3,
             quantified_value_range: "$500K-$700K",
-            vp_ratio: "2.0x",
+            vp_ratio: "5.0x",
             strategic_importance: "High",
           },
           value_analysis: {
@@ -319,14 +359,30 @@ describe("Artifact Generators", () => {
             key_drivers: [{ name: "Driver", impact: "$200K", confidence: 0.8, claim_id: "claim-1" }],
           },
           competitive_context: {
-            primary_competitors: [],
-            our_advantages: [],
-            competitive_risks: [],
+            primary_competitors: [{ name: "Competitor", positioning: "Incumbent", threat_level: "medium" }],
+            our_advantages: ["Speed"],
+            competitive_risks: [{ risk: "Discounting", mitigation: "Differentiate" }],
           },
-          risk_assessment: [],
+          risk_assessment: [
+            {
+              category: "delivery",
+              description: "Tight timeline",
+              likelihood: "medium",
+              financial_impact: "$50K",
+              mitigation: "Stage rollout",
+              owner: "PM",
+            },
+          ],
           assumption_quality: {
             overall_rating: "high",
-            critical_assumptions: [],
+            critical_assumptions: [
+              {
+                assumption: "Adoption rate",
+                quality: "Strong",
+                validated: true,
+                evidence_strength: "High",
+              },
+            ],
             gaps: [],
           },
           integrity_status: {
@@ -338,50 +394,53 @@ describe("Artifact Generators", () => {
           recommendation: {
             decision: "proceed",
             conditions: [],
-            rationale: "Looks good",
+            rationale: "Good fit",
           },
-          next_steps: [],
+          next_steps: [{ action: "Prepare deal desk review", owner: "AE", deadline: "2026-04-01", priority: "high" }],
           provenance_refs: ["claim-1"],
-        },
-        hallucinationCheck: true,
-        tokenUsage: undefined,
-        rawContent: "{}",
-      });
+        }),
+        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new InternalCaseGenerator(
-        mockLLMGateway as never,
-        mockCircuitBreaker as never,
-        mockMemorySystem as never,
+        mockLLMGateway as any,
+        mockCircuitBreaker as any,
+        mockMemorySystem as any
       );
 
       const result = await generator.generate({
         tenantId: "tenant-1",
         organizationId: "org-1",
         caseId: "case-1",
-        valueCaseTitle: "Test Case",
-        organizationName: "Test Org",
-        readinessScore: 0.9,
-        deal: { stage: "proposal" },
-        valueModel: {
-          totalValue: { low: 500000, high: 700000, unit: "USD" },
-          vpRatio: "2.0x",
-          drivers: [{ name: "Driver", impact: "$200K", confidence: 0.8, claimId: "claim-1" }],
-        },
+        valueCaseTitle: "Title",
+        organizationName: "Org",
+        readinessScore: 0.8,
+        deal: {},
+        valueModel: {},
+        competitors: [],
+        competitiveAdvantages: [],
+        competitiveRisks: [],
         risks: [],
         assumptions: [],
-        integrity: { score: 0.9, vetoed: false },
-      } as never);
+        integrity: { vetoed: false },
+      } as any);
 
-      expect(secureServiceInvoke).toHaveBeenCalledOnce();
+      expect(result.output.title).toBe("Internal Case");
+      expect(secureLLMComplete).toHaveBeenCalledWith(
+        mockLLMGateway,
+        expect.any(Array),
+        expect.objectContaining({ serviceName: "InternalCaseGenerator" })
+      );
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
-      expect(result.hallucinationCheck).toBe(true);
     });
   });
 
   describe("Draft Status Based on Readiness Score", () => {
     it("should mark artifacts as draft when readiness score < 0.8", async () => {
-      vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-        parsed: {
+      const mockResponse = {
+        content: JSON.stringify({
           title: "Draft Memo",
           executive_summary: "Draft summary",
           value_hypothesis: "Draft hypothesis",
@@ -395,11 +454,11 @@ describe("Artifact Generators", () => {
           recommendation: "Pause for more data",
           financial_highlights: { roi_range: "TBD", npv: "TBD", payback_months: 0 },
           provenance_refs: [],
-        },
-        hallucinationCheck: false,
-        tokenUsage: { input_tokens: 1000, output_tokens: 400, total_tokens: 1400 },
-        rawContent: "{}",
-      });
+        }),
+        usage: { prompt_tokens: 1000, completion_tokens: 400, total_tokens: 1400 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new ExecutiveMemoGenerator(
         mockLLMGateway as never,

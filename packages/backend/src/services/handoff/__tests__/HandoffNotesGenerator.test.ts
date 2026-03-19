@@ -1,63 +1,104 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../llm/secureServiceInvocation.js", () => ({
-  secureServiceInvoke: vi.fn(),
+import { secureLLMComplete } from "../../../lib/llm/secureLLMWrapper.js";
+import { logSecurityEvent } from "../../security/auditLogger.js";
+import { HandoffNotesGenerator } from "../HandoffNotesGenerator.js";
+
+vi.mock("../../../lib/llm/secureLLMWrapper.js", () => ({
+  secureLLMComplete: vi.fn(),
+}));
+
+vi.mock("../../security/auditLogger.js", () => ({
+  logSecurityEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../../events/DomainEventBus.js", () => ({
-  buildEventEnvelope: vi.fn(() => ({ traceId: "trace-1", tenantId: "tenant-1", actorId: "system" })),
+  buildEventEnvelope: vi.fn(() => ({})),
   getDomainEventBus: vi.fn(() => ({ publish: vi.fn().mockResolvedValue(undefined) })),
 }));
 
 vi.mock("../../../lib/logger.js", () => ({
-  createLogger: vi.fn(() => ({
+  createLogger: () => ({
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  })),
+    debug: vi.fn(),
+  }),
 }));
 
-import { secureServiceInvoke } from "../../llm/secureServiceInvocation.js";
-import { HandoffNotesGenerator } from "../HandoffNotesGenerator.js";
-
 describe("HandoffNotesGenerator", () => {
+  const mockSupabase = {
+    from: vi.fn(),
+  } as any;
+
+  const mockGateway = {
+    complete: vi.fn(),
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(logSecurityEvent).mockResolvedValue(undefined);
   });
 
-  it("routes handoff note generation through secureServiceInvoke", async () => {
-    vi.mocked(secureServiceInvoke).mockResolvedValueOnce({
-      parsed: {
-        deal_context: "Deal context with enough detail for the success team.",
-        buyer_priorities: "Buyer priorities explain the operational outcomes and success metrics.",
-        implementation_assumptions: "Implementation assumptions capture staffing and timeline dependencies.",
-        key_risks: "Key risks highlight adoption blockers and mitigation owners for onboarding.",
-      },
-      hallucinationCheck: true,
-      tokenUsage: { input_tokens: 12, output_tokens: 34, total_tokens: 46 },
-      rawContent: "{}",
+  it("uses secureLLMComplete for handoff note generation", async () => {
+    vi.mocked(secureLLMComplete).mockResolvedValue({
+      content: JSON.stringify({
+        deal_context: "Deal context",
+        buyer_priorities: "Buyer priorities",
+        implementation_assumptions: "Implementation assumptions",
+        key_risks: "Key risks",
+      }),
+      usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
     });
 
-    const llmGateway = { complete: vi.fn() };
-    const generator = new HandoffNotesGenerator(llmGateway as never, {} as never);
+    const generator = new HandoffNotesGenerator({
+      supabase: mockSupabase,
+      llmGateway: mockGateway,
+    });
 
-    const result = await generator["generateWithLLM"]("prompt", "baseline-1", "tenant-1");
+    const result = await (generator as any).generateWithLLM("Prompt text", "baseline-1", "tenant-1");
 
-    expect(secureServiceInvoke).toHaveBeenCalledOnce();
-    expect(llmGateway.complete).not.toHaveBeenCalled();
-    expect(result.deal_context).toContain("Deal context");
+    expect(result).toEqual({
+      deal_context: "Deal context",
+      buyer_priorities: "Buyer priorities",
+      implementation_assumptions: "Implementation assumptions",
+      key_risks: "Key risks",
+    });
+    expect(secureLLMComplete).toHaveBeenCalledWith(
+      mockGateway,
+      expect.any(Array),
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        serviceName: "HandoffNotesGenerator",
+        operation: "generateHandoffNotes",
+        sessionId: "baseline-1",
+      }),
+    );
+    expect(mockGateway.complete).not.toHaveBeenCalled();
+    expect(logSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "handoff:notes_generated" }),
+    );
   });
 
-  it("returns fallback notes when secureServiceInvoke fails", async () => {
-    vi.mocked(secureServiceInvoke).mockRejectedValueOnce(new Error("llm unavailable"));
+  it("returns fallback notes when secureLLMComplete fails", async () => {
+    vi.mocked(secureLLMComplete).mockRejectedValue(new Error("gateway failed"));
 
-    const llmGateway = { complete: vi.fn() };
-    const generator = new HandoffNotesGenerator(llmGateway as never, {} as never);
+    const generator = new HandoffNotesGenerator({
+      supabase: mockSupabase,
+      llmGateway: mockGateway,
+    });
 
-    const result = await generator["generateWithLLM"]("prompt", "baseline-1", "tenant-1");
+    const result = await (generator as any).generateWithLLM("Prompt text", "baseline-2", "tenant-2");
 
-    expect(secureServiceInvoke).toHaveBeenCalledOnce();
-    expect(llmGateway.complete).not.toHaveBeenCalled();
-    expect(result.deal_context).toContain("Please review");
+    expect(result).toEqual({
+      deal_context: "Please review the value case directly for deal context.",
+      buyer_priorities: "Please review stakeholder notes for buyer priorities.",
+      implementation_assumptions: "Please validate all assumptions with the customer success team.",
+      key_risks: "Schedule a risk review meeting with the value engineering team.",
+    });
+    expect(logSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "handoff:notes_generation_failed" }),
+    );
+    expect(mockGateway.complete).not.toHaveBeenCalled();
   });
 });

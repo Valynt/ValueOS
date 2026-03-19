@@ -14,7 +14,10 @@
  * Agent-owned code must use BaseAgent.secureInvoke() instead.
  */
 
+import { createLogger } from "../logger.js";
 import type { LLMMessage } from '../agent-fabric/LLMGateway.js';
+
+const logger = createLogger({ component: "secureLLMComplete" });
 
 /**
  * Minimal interface satisfied by both LLMGateway and LLMGatewayInterface.
@@ -55,9 +58,10 @@ export async function secureLLMComplete(
   gateway: LLMCompletable,
   messages: LLMMessage[],
   options: SecureLLMCompleteOptions = {},
-): Promise<{ content: string; model?: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
-  const tenantId = options.organizationId ?? options.tenantId;
-  if (!tenantId) {
+): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+  const organizationId = options.organizationId;
+  const tenantId = options.tenantId ?? organizationId;
+  if (!organizationId && !tenantId) {
     throw new Error(
       'secureLLMComplete requires a tenant identifier (organizationId or tenantId). ' +
         'Pass it in the options object to satisfy tenant isolation requirements.',
@@ -83,6 +87,14 @@ export async function secureLLMComplete(
             `Violations: ${result.violations.map((v) => v.message).join('; ')}`,
         );
       }
+
+      logger.warn("secureLLMComplete low/medium PII or content violation detected", {
+        tenantId,
+        organizationId: organizationId ?? tenantId,
+        serviceName: typeof options.serviceName === "string" ? options.serviceName : undefined,
+        operation: typeof options.operation === "string" ? options.operation : undefined,
+        violations: result.violations,
+      });
     }
   }
 
@@ -97,7 +109,7 @@ export async function secureLLMComplete(
     temperature,
     max_tokens,
     metadata: {
-      organizationId: tenantId,
+      organizationId: organizationId ?? tenantId,
       tenantId,
       userId: userId ?? 'system',
       ...rest,
@@ -146,7 +158,7 @@ export class SecureLLMWrapper {
       violations.push(...contentViolations);
     }
 
-    const is_safe = violations.length === 0 || 
+    const is_safe = violations.length === 0 ||
       violations.every(v => v.severity === 'low');
 
     return {
@@ -175,7 +187,7 @@ export class SecureLLMWrapper {
 
   private detectPII(text: string): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
-    
+
     // Email detection
     if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(text)) {
       violations.push({
@@ -208,10 +220,10 @@ export class SecureLLMWrapper {
 
   private filterContent(text: string): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
-    
+
     // Basic content filtering (placeholder)
     const prohibitedPatterns = ['<script', 'javascript:', 'eval('];
-    
+
     for (const pattern of prohibitedPatterns) {
       if (text.toLowerCase().includes(pattern)) {
         violations.push({
