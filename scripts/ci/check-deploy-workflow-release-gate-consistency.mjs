@@ -72,8 +72,9 @@ function collectWorkflowJobs() {
       const jobMatch = line.match(/^  ([A-Za-z0-9_-]+):\s*$/u);
       if (jobMatch) {
         currentJobId = jobMatch[1];
-        if (!jobs.has(currentJobId)) {
-          jobs.set(currentJobId, { file, jobId: currentJobId, jobName: null });
+        const jobKey = `${file}::${currentJobId}`;
+        if (!jobs.has(jobKey)) {
+          jobs.set(jobKey, { file, jobId: currentJobId, jobName: null });
         }
         continue;
       }
@@ -84,7 +85,8 @@ function collectWorkflowJobs() {
 
       const nameMatch = line.match(/^    name:\s*(.+?)\s*$/u);
       if (nameMatch) {
-        jobs.set(currentJobId, {
+        const jobKey = `${file}::${currentJobId}`;
+        jobs.set(jobKey, {
           file,
           jobId: currentJobId,
           jobName: stripWrappingQuotes(nameMatch[1].trim()),
