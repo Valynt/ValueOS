@@ -23,3 +23,25 @@ export const cacheCoalescedWaitersTotal = new client.Counter({
   labelNames: ["cache_name"],
   registers: [registry],
 });
+
+export const cacheInvalidationBatchesTotal = new client.Counter({
+  name: "valuecanvas_cache_invalidation_batches_total",
+  help: "Total cache invalidation delete batches executed",
+  labelNames: ["cache_name"],
+  registers: [registry],
+});
+
+export const cacheInvalidationKeysDeletedTotal = new client.Counter({
+  name: "valuecanvas_cache_invalidation_keys_deleted_total",
+  help: "Total cache keys deleted by invalidation operations",
+  labelNames: ["cache_name"],
+  registers: [registry],
+});
+
+export const cacheInvalidationDurationMs = new client.Histogram({
+  name: "valuecanvas_cache_invalidation_duration_ms",
+  help: "Duration of cache invalidation operations in milliseconds",
+  labelNames: ["cache_name"],
+  buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
+  registers: [registry],
+});

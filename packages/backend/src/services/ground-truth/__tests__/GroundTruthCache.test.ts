@@ -1,189 +1,211 @@
-/**
- * GroundTruthCache Tests (Task 11.8)
- *
- * Unit tests for cache hit/miss behavior and TTL.
- */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { groundTruthCache, type CacheEntry, type CacheResult } from "../GroundTruthCache.js";
-
-// Mock Redis
-const mockRedis = {
-  get: vi.fn(),
-  set: vi.fn(),
-  del: vi.fn(),
-  quit: vi.fn(),
-};
-
-vi.mock("ioredis", () => ({
-  default: vi.fn(() => mockRedis),
+const {
+  mockGet,
+  mockSet,
+  mockTtl,
+  mockScan,
+  mockMulti,
+  mockKeys,
+  cacheInvalidationBatchesTotalInc,
+  cacheInvalidationKeysDeletedTotalInc,
+  cacheInvalidationDurationObserve,
+  unlinkExecResults,
+  delExecResults,
+} = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockSet: vi.fn(),
+  mockTtl: vi.fn(),
+  mockScan: vi.fn(),
+  mockMulti: vi.fn(),
+  mockKeys: vi.fn(),
+  cacheInvalidationBatchesTotalInc: vi.fn(),
+  cacheInvalidationKeysDeletedTotalInc: vi.fn(),
+  cacheInvalidationDurationObserve: vi.fn(),
+  unlinkExecResults: [] as Array<Array<number | null> | Error>,
+  delExecResults: [] as Array<Array<number | null> | Error>,
 }));
+
+vi.mock("../../../lib/redisClient.js", () => ({
+  getRedisClient: vi.fn().mockResolvedValue({
+    get: mockGet,
+    set: mockSet,
+    ttl: mockTtl,
+    scan: mockScan,
+    multi: mockMulti,
+    keys: mockKeys,
+  }),
+}));
+
+vi.mock("../../../lib/metrics/cacheMetrics.js", () => ({
+  cacheInvalidationBatchesTotal: { inc: cacheInvalidationBatchesTotalInc },
+  cacheInvalidationKeysDeletedTotal: { inc: cacheInvalidationKeysDeletedTotalInc },
+  cacheInvalidationDurationMs: { observe: cacheInvalidationDurationObserve },
+}));
+
+vi.mock("../../../lib/logger.js", () => ({
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+import { groundTruthCache } from "../GroundTruthCache.js";
+
+function createPipeline() {
+  const unlink = vi.fn();
+  const del = vi.fn();
+
+  const pipeline = {
+    unlink: (key: string) => {
+      unlink(key);
+      return pipeline;
+    },
+    del: (key: string) => {
+      del(key);
+      return pipeline;
+    },
+    exec: vi.fn(async () => {
+      const usesUnlink = unlink.mock.calls.length > 0;
+      const queue = usesUnlink ? unlinkExecResults : delExecResults;
+      const next = queue.shift();
+
+      if (!next) {
+        throw new Error("No mock exec result provided");
+      }
+
+      if (next instanceof Error) {
+        throw next;
+      }
+
+      return next;
+    }),
+    unlinkSpy: unlink,
+    delSpy: del,
+  };
+
+  return pipeline;
+}
 
 describe("GroundTruthCache", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-19T12:00:00.000Z"));
+    unlinkExecResults.length = 0;
+    delExecResults.length = 0;
+    mockMulti.mockImplementation(() => createPipeline());
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  describe("cache hit behavior", () => {
-    it("should return cache hit with data", async () => {
-      const cacheKey = "sec:0000320193:10-K";
-      const cachedData: CacheEntry = {
+  it("returns cached data with retrieval metadata and remaining TTL", async () => {
+    mockGet.mockResolvedValueOnce(
+      JSON.stringify({
         data: { revenue: 383285000000 },
-        cachedAt: Date.now(),
+        retrievedAt: "2026-03-18T11:30:00.000Z",
         ttl: 86400,
-      };
+      })
+    );
+    mockTtl.mockResolvedValueOnce(120);
 
-      mockRedis.get.mockResolvedValue(JSON.stringify(cachedData));
+    const result = await groundTruthCache.get<{ revenue: number }>("sec:0000320193:10-K");
 
-      const result: CacheResult | null = await groundTruthCache.get(cacheKey);
-
-      expect(result).not.toBeNull();
-      expect(result?.hit).toBe(true);
-      expect(result?.data).toEqual({ revenue: 383285000000 });
+    expect(result).toEqual({
+      data: { revenue: 383285000000 },
+      metadata: {
+        hit: true,
+        retrievedAt: "2026-03-18T11:30:00.000Z",
+        remainingTtl: 120,
+      },
     });
+  });
 
-    it("should return null on cache miss", async () => {
-      mockRedis.get.mockResolvedValue(null);
+  it("stores cache entries using the configured TTL", async () => {
+    const ok = await groundTruthCache.set(
+      "benchmark:saas:arr",
+      { p50: 5000000 },
+      "benchmark"
+    );
 
-      const result = await groundTruthCache.get("nonexistent:key");
-
-      expect(result).toBeNull();
-    });
-
-    it("should return cache age in response", async () => {
-      const cacheKey = "benchmark:ARR:SaaS";
-      const cachedAt = Date.now() - 3600000; // 1 hour ago
-      const cachedData: CacheEntry = {
+    expect(ok).toBe(true);
+    expect(mockSet).toHaveBeenCalledWith(
+      "benchmark:saas:arr",
+      JSON.stringify({
         data: { p50: 5000000 },
-        cachedAt,
+        retrievedAt: "2026-03-19T12:00:00.000Z",
         ttl: 3600,
-      };
-
-      mockRedis.get.mockResolvedValue(JSON.stringify(cachedData));
-
-      const result = await groundTruthCache.get(cacheKey);
-
-      expect(result?.age).toBeGreaterThan(0);
-      expect(result?.age).toBeLessThanOrEqual(3600000);
-    });
+      }),
+      { EX: 3600 }
+    );
   });
 
-  describe("cache miss behavior", () => {
-    it("should store data with TTL on set", async () => {
-      const cacheKey = "sec:0000320193:10-K";
-      const data = { revenue: 383285000000 };
-      const ttl = 86400; // 24 hours for SEC data
+  it("falls back to DEL when UNLINK is unavailable during single-key invalidation", async () => {
+    unlinkExecResults.push(new Error("ERR unknown command 'UNLINK'"));
+    delExecResults.push([1]);
 
-      await groundTruthCache.set(cacheKey, { data, cachedAt: Date.now(), ttl }, ttl);
+    const invalidated = await groundTruthCache.invalidate("sec:0000320193:10-K");
 
-      expect(mockRedis.set).toHaveBeenCalledWith(
-        cacheKey,
-        expect.any(String),
-        "EX",
-        ttl
-      );
-    });
-
-    it("should use tier-based TTL defaults", async () => {
-      const secKey = "sec:0000320193:10-K";
-      const benchmarkKey = "benchmark:ARR:SaaS";
-
-      await groundTruthCache.set(
-        secKey,
-        { data: {}, cachedAt: Date.now(), ttl: 86400 },
-        86400
-      );
-
-      await groundTruthCache.set(
-        benchmarkKey,
-        { data: {}, cachedAt: Date.now(), ttl: 3600 },
-        3600
-      );
-
-      // SEC data should have longer TTL
-      const secCall = mockRedis.set.mock.calls.find(c => c[0] === secKey);
-      const benchmarkCall = mockRedis.set.mock.calls.find(c => c[0] === benchmarkKey);
-
-      expect(secCall).toBeDefined();
-      expect(benchmarkCall).toBeDefined();
-    });
+    expect(invalidated).toBe(true);
+    expect(mockMulti).toHaveBeenCalledTimes(2);
+    const firstPipeline = mockMulti.mock.results[0]?.value as ReturnType<typeof createPipeline>;
+    const secondPipeline = mockMulti.mock.results[1]?.value as ReturnType<typeof createPipeline>;
+    expect(firstPipeline.unlinkSpy).toHaveBeenCalledWith("sec:0000320193:10-K");
+    expect(secondPipeline.delSpy).toHaveBeenCalledWith("sec:0000320193:10-K");
   });
 
-  describe("getOrCompute", () => {
-    it("should return cached data without calling compute function on hit", async () => {
-      const cacheKey = "compute:test";
-      const cachedData = { value: 42 };
-      const computeFn = vi.fn().mockResolvedValue({ value: 100 });
+  it("invalidates large patterns via SCAN batches without using KEYS", async () => {
+    const batchOne = Array.from({ length: 100 }, (_, index) => `sec:tenant:key:${index}`);
+    const batchTwo = Array.from({ length: 100 }, (_, index) => `sec:tenant:key:${index + 100}`);
+    const batchThree = Array.from({ length: 50 }, (_, index) => `sec:tenant:key:${index + 200}`);
 
-      mockRedis.get.mockResolvedValue(
-        JSON.stringify({
-          data: cachedData,
-          cachedAt: Date.now(),
-          ttl: 3600,
-        })
-      );
-
-      const result = await groundTruthCache.getOrCompute(cacheKey, computeFn, 3600);
-
-      expect(result).toEqual(cachedData);
-      expect(computeFn).not.toHaveBeenCalled();
+    mockKeys.mockImplementation(() => {
+      throw new Error("KEYS should not be called");
     });
+    mockScan
+      .mockResolvedValueOnce(["17", batchOne])
+      .mockResolvedValueOnce(["42", batchTwo])
+      .mockResolvedValueOnce(["0", batchThree]);
 
-    it("should call compute function and cache result on miss", async () => {
-      const cacheKey = "compute:miss";
-      const computedData = { value: 100 };
-      const computeFn = vi.fn().mockResolvedValue(computedData);
+    unlinkExecResults.push(
+      Array.from({ length: 100 }, () => 1),
+      Array.from({ length: 100 }, () => 1),
+      Array.from({ length: 50 }, () => 1)
+    );
 
-      mockRedis.get.mockResolvedValue(null);
+    const deleted = await groundTruthCache.invalidatePattern("sec:tenant:key:*");
 
-      const result = await groundTruthCache.getOrCompute(cacheKey, computeFn, 3600);
-
-      expect(result).toEqual(computedData);
-      expect(computeFn).toHaveBeenCalled();
-      expect(mockRedis.set).toHaveBeenCalled();
+    expect(deleted).toBe(250);
+    expect(mockKeys).not.toHaveBeenCalled();
+    expect(mockScan).toHaveBeenCalledTimes(3);
+    expect(mockScan).toHaveBeenNthCalledWith(1, "0", {
+      MATCH: "sec:tenant:key:*",
+      COUNT: 100,
     });
-  });
-
-  describe("invalidate", () => {
-    it("should delete key from cache", async () => {
-      const cacheKey = "invalidate:test";
-
-      await groundTruthCache.invalidate(cacheKey);
-
-      expect(mockRedis.del).toHaveBeenCalledWith(cacheKey);
+    expect(mockScan).toHaveBeenNthCalledWith(2, "17", {
+      MATCH: "sec:tenant:key:*",
+      COUNT: 100,
     });
-  });
-
-  describe("cache metadata", () => {
-    it("should include original retrieval timestamp", async () => {
-      const retrievedAt = "2024-01-15T10:00:00Z";
-      const cachedData: CacheEntry = {
-        data: { revenue: 1000000 },
-        cachedAt: Date.now(),
-        ttl: 86400,
-        retrievedAt,
-      };
-
-      mockRedis.get.mockResolvedValue(JSON.stringify(cachedData));
-
-      const result = await groundTruthCache.get("test:key");
-
-      expect(result?.retrievedAt).toBe(retrievedAt);
+    expect(mockScan).toHaveBeenNthCalledWith(3, "42", {
+      MATCH: "sec:tenant:key:*",
+      COUNT: 100,
     });
-  });
-
-  describe("cache connection", () => {
-    it("should handle Redis connection errors gracefully", async () => {
-      mockRedis.get.mockRejectedValue(new Error("Connection refused"));
-
-      // Should return null on error, not throw
-      const result = await groundTruthCache.get("test:key");
-      expect(result).toBeNull();
-    });
+    expect(mockMulti).toHaveBeenCalledTimes(3);
+    expect(cacheInvalidationBatchesTotalInc).toHaveBeenCalledWith(
+      { cache_name: "ground-truth" },
+      3
+    );
+    expect(cacheInvalidationKeysDeletedTotalInc).toHaveBeenCalledWith(
+      { cache_name: "ground-truth" },
+      250
+    );
+    expect(cacheInvalidationDurationObserve).toHaveBeenCalledWith(
+      { cache_name: "ground-truth" },
+      expect.any(Number)
+    );
   });
 });

@@ -7,6 +7,11 @@
  * Reference: openspec/changes/ground-truth-integration/tasks.md §9
  */
 
+import {
+  cacheInvalidationBatchesTotal,
+  cacheInvalidationDurationMs,
+  cacheInvalidationKeysDeletedTotal,
+} from "../../lib/metrics/cacheMetrics.js";
 import { logger } from "../../lib/logger.js";
 import { getRedisClient } from "../../lib/redisClient.js";
 
@@ -31,6 +36,24 @@ export interface CacheResult<T> {
 
 export type CacheTier = "sec_filing" | "benchmark" | "general";
 
+interface RedisDeletionPipeline {
+  unlink: (key: string) => RedisDeletionPipeline;
+  del: (key: string) => RedisDeletionPipeline;
+  exec: () => Promise<Array<number | null>>;
+}
+
+interface RedisCacheClient {
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string, options: { EX: number }) => Promise<unknown>;
+  ttl: (key: string) => Promise<number>;
+  del: (...keys: string[]) => Promise<number>;
+  scan: (
+    cursor: string,
+    options: { MATCH: string; COUNT: number }
+  ) => Promise<[string, string[]]>;
+  multi: () => RedisDeletionPipeline;
+}
+
 // ---------------------------------------------------------------------------
 // Cache Configuration
 // ---------------------------------------------------------------------------
@@ -47,6 +70,9 @@ const CACHE_TTLS: Record<CacheTier, number> = {
 
 export class GroundTruthCache {
   private static instance: GroundTruthCache;
+  private static readonly CACHE_METRIC_NAME = "ground-truth";
+  private static readonly INVALIDATION_SCAN_BATCH_SIZE = 100;
+  private static readonly INVALIDATION_DELETE_BATCH_SIZE = 100;
 
   private constructor() {}
 
@@ -57,12 +83,61 @@ export class GroundTruthCache {
     return GroundTruthCache.instance;
   }
 
+  private static async deleteKeysWithCommand(
+    keys: string[],
+    command: "unlink" | "del",
+    createPipeline: () => RedisDeletionPipeline
+  ): Promise<{ deleted: number; batches: number }> {
+    let deleted = 0;
+    let batches = 0;
+
+    for (
+      let index = 0;
+      index < keys.length;
+      index += this.INVALIDATION_DELETE_BATCH_SIZE
+    ) {
+      const keyBatch = keys.slice(
+        index,
+        index + this.INVALIDATION_DELETE_BATCH_SIZE
+      );
+      const pipeline = createPipeline();
+
+      for (const key of keyBatch) {
+        if (command === "unlink") {
+          pipeline.unlink(key);
+        } else {
+          pipeline.del(key);
+        }
+      }
+
+      const result = await pipeline.exec();
+      deleted += result.reduce(
+        (count, item) => count + (typeof item === "number" ? item : 0),
+        0
+      );
+      batches += 1;
+    }
+
+    return { deleted, batches };
+  }
+
+  private static async deleteKeys(
+    redis: RedisCacheClient,
+    keys: string[]
+  ): Promise<{ deleted: number; batches: number }> {
+    try {
+      return await this.deleteKeysWithCommand(keys, "unlink", () => redis.multi());
+    } catch {
+      return this.deleteKeysWithCommand(keys, "del", () => redis.multi());
+    }
+  }
+
   /**
    * Get data from cache
    */
   async get<T>(key: string): Promise<CacheResult<T> | null> {
     try {
-      const redis = await getRedisClient();
+      const redis = (await getRedisClient()) as RedisCacheClient | null;
       if (!redis) {
         return null;
       }
@@ -101,7 +176,7 @@ export class GroundTruthCache {
     tierOrTtl: CacheTier | number = "general"
   ): Promise<boolean> {
     try {
-      const redis = await getRedisClient();
+      const redis = (await getRedisClient()) as RedisCacheClient | null;
       if (!redis) {
         return false;
       }
@@ -160,13 +235,13 @@ export class GroundTruthCache {
    */
   async invalidate(key: string): Promise<boolean> {
     try {
-      const redis = await getRedisClient();
+      const redis = (await getRedisClient()) as RedisCacheClient | null;
       if (!redis) {
         return false;
       }
 
-      await redis.del(key);
-      return true;
+      const { deleted } = await GroundTruthCache.deleteKeys(redis, [key]);
+      return deleted > 0;
     } catch (error) {
       logger.error("Cache invalidate error", {
         key,
@@ -180,25 +255,54 @@ export class GroundTruthCache {
    * Invalidate cache entries by pattern
    */
   async invalidatePattern(pattern: string): Promise<number> {
+    const startedAt = Date.now();
     try {
-      const redis = await getRedisClient();
+      const redis = (await getRedisClient()) as RedisCacheClient | null;
       if (!redis) {
         return 0;
       }
 
-      const keys = await redis.keys(pattern);
-      if (keys.length === 0) {
-        return 0;
-      }
+      let cursor = "0";
+      let deleted = 0;
+      let batches = 0;
 
-      await redis.del(keys);
-      return keys.length;
+      do {
+        const [nextCursor, keys] = await redis.scan(cursor, {
+          MATCH: pattern,
+          COUNT: GroundTruthCache.INVALIDATION_SCAN_BATCH_SIZE,
+        });
+        cursor = nextCursor;
+
+        if (!keys.length) {
+          continue;
+        }
+
+        const result = await GroundTruthCache.deleteKeys(redis, keys);
+        deleted += result.deleted;
+        batches += result.batches;
+      } while (cursor !== "0");
+
+      cacheInvalidationBatchesTotal.inc(
+        { cache_name: GroundTruthCache.CACHE_METRIC_NAME },
+        batches
+      );
+      cacheInvalidationKeysDeletedTotal.inc(
+        { cache_name: GroundTruthCache.CACHE_METRIC_NAME },
+        deleted
+      );
+
+      return deleted;
     } catch (error) {
       logger.error("Cache invalidate pattern error", {
         pattern,
         error: error instanceof Error ? error.message : String(error),
       });
       return 0;
+    } finally {
+      cacheInvalidationDurationMs.observe(
+        { cache_name: GroundTruthCache.CACHE_METRIC_NAME },
+        Date.now() - startedAt
+      );
     }
   }
 
@@ -210,7 +314,7 @@ export class GroundTruthCache {
     tierTtls: Record<CacheTier, number>;
   }> {
     try {
-      const redis = await getRedisClient();
+      const redis = (await getRedisClient()) as RedisCacheClient | null;
       return {
         connected: redis !== null,
         tierTtls: { ...CACHE_TTLS },
