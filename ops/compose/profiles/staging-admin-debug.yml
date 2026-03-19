@@ -1,0 +1,23 @@
+# Temporary localhost-only backend access for staging debugging.
+# Activate only for isolated debugging sessions:
+#   docker compose \
+#     -f ops/compose/compose.staging.yml \
+#     -f ops/compose/profiles/staging-admin-debug.yml \
+#     --profile admin-debug up -d backend-admin-debug
+#
+# Do NOT enable this profile in shared staging environments.
+
+services:
+  backend-admin-debug:
+    image: alpine/socat:1.8.0.3-r2
+    profiles: ["admin-debug"]
+    restart: unless-stopped
+    depends_on:
+      - backend
+    command:
+      [
+        "tcp-listen:${BACKEND_DEBUG_PORT:-13001},fork,reuseaddr,bind=0.0.0.0",
+        "tcp-connect:backend:${BACKEND_PORT:-3001}",
+      ]
+    ports:
+      - "127.0.0.1:${BACKEND_DEBUG_PORT:-13001}:${BACKEND_DEBUG_PORT:-13001}"
