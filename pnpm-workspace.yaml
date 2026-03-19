@@ -4,5 +4,6 @@ packages:
   - "packages/mcp/ground-truth"
   - "packages/mcp/crm"
   - "packages/mcp/common"
+  - "packages/services/domain-validator"
   - "apps/*"
   - "apps/*/packages/*"

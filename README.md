@@ -110,7 +110,7 @@ pnpm run dev:backend  # In another terminal
 | `pnpm run build` | Build both `apps/ValyntApp` and `packages/backend` |
 | `pnpm run start` | Start the production backend server |
 | `pnpm run check` | Run TypeScript no-emit checks |
-| `pnpm test` | Run unit tests (Vitest) |
+| `pnpm test` | Run the canonical repo-wide Vitest workspace across all maintained suites |
 | `pnpm run format` | Format code with Prettier |
 | `pnpm run db:migrate` | Apply database migrations |
 | `pnpm run dx:check` | Run preflight environment checks |
@@ -120,7 +120,7 @@ pnpm run dev:backend  # In another terminal
 ### Running Tests
 
 ```bash
-# Unit tests
+# Canonical repo-wide unit/integration test entrypoint
 pnpm test
 
 # RLS tenant isolation tests
@@ -135,6 +135,8 @@ pnpm run test:e2e:gate
 # Workflow DAG validation
 pnpm run test:workflow-dag-validation
 ```
+
+`pnpm test` is the canonical root test command. It runs the repository Vitest workspace from `vitest.config.ts`, which includes every maintained package-level suite currently wired at the repo root: `packages/memory`, `packages/backend`, `packages/components`, `packages/integrations`, `packages/mcp`, `packages/services/domain-validator`, and `apps/ValyntApp`. Use package-local `pnpm --filter <package> test` commands only when you intentionally want a narrower scope.
 
 ### Test Structure
 

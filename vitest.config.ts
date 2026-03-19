@@ -9,6 +9,10 @@ const root = path.resolve(import.meta.dirname);
  *
  * - packages/memory: node, no aliases (relative imports only)
  * - packages/backend: node, @shared/@backend/@mcp aliases (delegates to package config)
+ * - packages/components: jsdom component-library tests (delegates to package config)
+ * - packages/integrations: node integration adapter tests (delegates to package config)
+ * - packages/mcp: node MCP module tests (delegates to package config)
+ * - packages/services/domain-validator: node service tests (delegates to package config)
  * - apps/ValyntApp: jsdom, react plugin, @/* aliases (delegates to package config)
  */
 export default defineConfig({
@@ -32,6 +36,14 @@ export default defineConfig({
       },
       // packages/backend — delegates to its own vitest.config.ts
       "packages/backend",
+      // packages/components — delegates to its own vitest.config.ts (jsdom + setup files)
+      "packages/components",
+      // packages/integrations — delegates to its own vitest.config.ts
+      "packages/integrations",
+      // packages/mcp — delegates to its own vitest.config.ts
+      "packages/mcp",
+      // packages/services/domain-validator — delegates to its own vitest.config.ts
+      "packages/services/domain-validator",
       // apps/ValyntApp — delegates to its own vitest.config.ts (jsdom + react + @/* aliases)
       "apps/ValyntApp",
     ],

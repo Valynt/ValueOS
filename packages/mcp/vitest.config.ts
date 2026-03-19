@@ -13,6 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@mcp-common": path.resolve(import.meta.dirname, "common"),
+      "@backend": path.resolve(import.meta.dirname, "../backend/src"),
     },
   },
 });

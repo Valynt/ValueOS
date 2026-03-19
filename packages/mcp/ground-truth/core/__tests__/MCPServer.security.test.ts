@@ -1,3 +1,5 @@
+import * as crypto from 'node:crypto';
+
 import { vi } from 'vitest';
 /**
  * MCP Server Security Tests
@@ -23,11 +25,11 @@ describe("MCPFinancialGroundTruthServer - Security", () => {
   let server: MCPFinancialGroundTruthServer;
   const mockConfig = {
     edgar: {
-      userAgent: "test-agent",
+      userAgent: "ValueOS Tests <tests@valueos.dev>",
       rateLimit: 10,
     },
     xbrl: {
-      userAgent: "test-agent",
+      userAgent: "ValueOS Tests <tests@valueos.dev>",
       rateLimit: 10,
     },
     marketData: {
@@ -81,18 +83,19 @@ describe("MCPFinancialGroundTruthServer - Security", () => {
     });
 
     it("should use fallback hash only when crypto fails", async () => {
-      // Mock crypto failure
-      const originalCrypto = require("crypto");
-      require("crypto") = undefined;
+      vi.spyOn(crypto, "createHash").mockImplementationOnce(() => {
+        throw new Error("crypto unavailable");
+      });
 
       const testData = [{ metric: "revenue", value: 1000000 }];
       const hashMethod = (server as any).generateVerificationHash.bind(server);
       const hash = await hashMethod(testData);
 
       expect(hash).toMatch(/^fallback:[a-f0-9]+$/);
-
-      // Restore crypto
-      require("crypto") = originalCrypto;
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to generate verification hash",
+        expect.objectContaining({ error: "crypto unavailable" }),
+      );
     });
 
     it("should generate different hashes for different data", async () => {
