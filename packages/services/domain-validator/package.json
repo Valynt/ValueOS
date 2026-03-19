@@ -39,5 +39,21 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "valueos": {
+    "classification": "production-runtime",
+    "supportTier": "customer-critical",
+    "owner": "team-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the packages/services/domain-validator Vitest workspace project."
+      },
+      "release": {
+        "status": "eligible",
+        "justification": "Deployable production service with its own runtime artifact."
+      }
+    }
   }
 }

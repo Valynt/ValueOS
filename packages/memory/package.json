@@ -27,5 +27,21 @@
     "@types/node": "^20.19.29",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
+  },
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the root Vitest workspace inline memory project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Internal runtime memory layer; not released as a standalone artifact."
+      }
+    }
   }
 }

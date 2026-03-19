@@ -28,5 +28,21 @@
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
-  "tsErrorBaseline": 54
+  "tsErrorBaseline": 54,
+  "valueos": {
+    "classification": "experimental",
+    "supportTier": "experimental",
+    "owner": "team-ai-platform",
+    "shipped": false,
+    "ci": {
+      "rootVitest": {
+        "status": "excluded",
+        "justification": "Aggregator package for MCP experiments; shipped modules are tracked individually instead."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Aggregator package is not a release artifact."
+      }
+    }
+  }
 }

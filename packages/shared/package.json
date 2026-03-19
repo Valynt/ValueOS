@@ -55,5 +55,21 @@
     "@types/uuid": "^11.0.0",
     "typescript": "^5.9.3"
   },
-  "tsErrorBaseline": 1
+  "tsErrorBaseline": 1,
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the root Vitest workspace inline shared package project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Canonical internal domain model package; not independently released."
+      }
+    }
+  }
 }
