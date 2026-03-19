@@ -30,6 +30,7 @@
     "check:alert-runbooks": "node scripts/ci/check-alert-runbooks.mjs",
     "check:kong-cors-origins": "node scripts/ci/check-kong-cors-origins.mjs --mode=production",
     "check:docs:boundaries": "node scripts/ci/docs-boundary-consistency-lint.mjs",
+    "check:docs:consistency": "tsx scripts/ci/check-docs-consistency.ts",
     "check:any-ratchet": "node scripts/ci/any-ratchet.mjs",
     "dx:check": "node scripts/dx/doctor.js",
     "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\"",
