@@ -7,6 +7,8 @@
 
 import { getClientConfig } from "@shared/config/client-config";
 
+import type { JsonObject } from "../../types/json.js";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -19,7 +21,7 @@ export interface ApiClientConfig {
   defaultHeaders?: Record<string, string>;
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: ApiError;
@@ -29,7 +31,7 @@ export interface ApiResponse<T = any> {
 export interface ApiError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: JsonObject;
   stack?: string;
 }
 
@@ -44,11 +46,19 @@ export interface RequestConfig {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
   url: string;
   data?: unknown;
-  params?: Record<string, any>;
+  params?: Record<string, string | number | boolean | null | undefined>;
   headers?: Record<string, string>;
   timeout?: number;
   retryAttempts?: number;
   validateResponse?: boolean;
+}
+
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+interface FinalRequestConfig extends RequestInit {
+  url: string;
+  retryAttempts?: number;
+  timeout?: number;
 }
 
 // ============================================================================
@@ -105,9 +115,9 @@ export class UnifiedApiClient {
   // HTTP Methods
   // ============================================================================
 
-  async get<T = any>(
+  async get<T = unknown>(
     url: string,
-    params?: Record<string, any>,
+    params?: QueryParams,
     config?: Partial<RequestConfig>
   ): Promise<ApiResponse<T>> {
     return this.request<T>({
@@ -118,7 +128,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async post<T = any>(
+  async post<T = unknown>(
     url: string,
     data?: unknown,
     config?: Partial<RequestConfig>
@@ -131,7 +141,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async put<T = any>(
+  async put<T = unknown>(
     url: string,
     data?: unknown,
     config?: Partial<RequestConfig>
@@ -144,7 +154,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async patch<T = any>(
+  async patch<T = unknown>(
     url: string,
     data?: unknown,
     config?: Partial<RequestConfig>
@@ -157,7 +167,7 @@ export class UnifiedApiClient {
     });
   }
 
-  async delete<T = any>(url: string, config?: Partial<RequestConfig>): Promise<ApiResponse<T>> {
+  async delete<T = unknown>(url: string, config?: Partial<RequestConfig>): Promise<ApiResponse<T>> {
     return this.request<T>({
       method: "DELETE",
       url,
@@ -169,7 +179,7 @@ export class UnifiedApiClient {
   // Core Request Method
   // ============================================================================
 
-  private async request<T = any>(requestConfig: RequestConfig): Promise<ApiResponse<T>> {
+  private async request<T = unknown>(requestConfig: RequestConfig): Promise<ApiResponse<T>> {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 
@@ -233,7 +243,7 @@ export class UnifiedApiClient {
   private buildRequestConfig(
     config: RequestConfig,
     requestId: string
-  ): RequestInit & { url: string } {
+  ): FinalRequestConfig {
     const url = this.buildUrl(config.url, config.params);
 
     const headers = {
@@ -260,11 +270,13 @@ export class UnifiedApiClient {
 
     return {
       url,
+      retryAttempts: config.retryAttempts,
+      timeout: config.timeout,
       ...requestOptions,
     };
   }
 
-  private buildUrl(path: string, params?: Record<string, any>): string {
+  private buildUrl(path: string, params?: QueryParams): string {
     const baseUrl = this.config.baseUrl.endsWith("/")
       ? this.config.baseUrl.slice(0, -1)
       : this.config.baseUrl;
@@ -288,7 +300,7 @@ export class UnifiedApiClient {
     return url;
   }
 
-  private async makeRequestWithRetry(config: RequestInit & { url: string }): Promise<Response> {
+  private async makeRequestWithRetry(config: FinalRequestConfig): Promise<Response> {
     const maxRetries = config.retryAttempts ?? this.config.retryAttempts;
     let lastError: Error;
 
@@ -369,20 +381,14 @@ export class UnifiedApiClient {
       return {
         code: "UNKNOWN_ERROR",
         message: String(error.message),
-        details: {
-          requestId,
-          error,
-        },
+        details: { requestId },
       };
     }
 
     return {
       code: "UNKNOWN_ERROR",
       message: "An unknown error occurred",
-      details: {
-        requestId,
-        error,
-      },
+      details: { requestId },
     };
   }
 
@@ -419,7 +425,7 @@ export const apiClient = new UnifiedApiClient();
 
 export const api = {
   // Value Cases
-  getValueCases: (params?: Record<string, any>) => apiClient.get("/api/cases", params),
+  getValueCases: (params?: QueryParams) => apiClient.get("/api/cases", params),
 
   createValueCase: ( data: unknown) => apiClient.post("/api/cases", data),
 

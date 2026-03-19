@@ -1,72 +1,86 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getValidatedSupabaseRuntimeConfig } from "./env";
+import {
+  createBrowserAnonSupabaseClient,
+  createRequestRlsSupabaseClient as createCanonicalRequestRlsSupabaseClient,
+  createServiceRoleSupabaseClient as createCanonicalServiceRoleSupabaseClient,
+  type SupabaseRequestLike,
+} from "@shared/lib/supabase";
+
 import { assertRealSupabaseAllowed } from "../test/runtimeGuards";
 
+export {
+  createBrowserAnonSupabaseClient,
+  type BrowserAnonSupabaseClientFactory,
+  type RequestRlsSupabaseClientFactory,
+  type ServiceRoleSupabaseClientFactory,
+  type SupabaseRequestLike,
+} from "@shared/lib/supabase";
+
+export const createRequestRlsSupabaseClient = (
+  input: SupabaseRequestLike | string,
+): SupabaseClient => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("createRequestRlsSupabaseClient");
+  }
+
+  return createCanonicalRequestRlsSupabaseClient(input);
+};
+
+export const createServiceRoleSupabaseClient = (): SupabaseClient => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("createServiceRoleSupabaseClient");
+  }
+
+  return createCanonicalServiceRoleSupabaseClient();
+};
+
+let serviceRoleSupabaseClient: SupabaseClient | undefined;
+
+export const getServiceRoleSupabaseClient = (): SupabaseClient => {
+  if (!serviceRoleSupabaseClient) {
+    serviceRoleSupabaseClient = createServiceRoleSupabaseClient();
+  }
+
+  return serviceRoleSupabaseClient;
+};
+
 /**
- * Creates a Supabase client authenticated as the calling user via their JWT.
- * RLS policies are enforced — use this for all normal API request paths.
- *
- * @param userAccessToken - The user's JWT from the Authorization header.
+ * @deprecated Use createRequestRlsSupabaseClient().
  */
 export const createUserSupabaseClient = (userAccessToken: string): SupabaseClient => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("createUserSupabaseClient");
-  }
-
-  const { url, anonKey } = getValidatedSupabaseRuntimeConfig();
-  return createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${userAccessToken}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  return createRequestRlsSupabaseClient(userAccessToken);
 };
 
 /**
- * Creates a Supabase client using the service_role key, which bypasses RLS.
- *
- * RESTRICTED USE — allowed only in:
- *   - AuthService / AdminUserService / AdminRoleService
- *   - TenantProvisioning / TenantDeletionService
- *   - Background workers and cron jobs
- *   - SecurityAuditService
- *
- * All other call sites must use createUserSupabaseClient() so that RLS is
- * enforced. Violations are caught by the ESLint no-restricted-imports rule
- * in eslint.config.js (backendModuleBoundaryOverrides).
+ * @deprecated Use createServiceRoleSupabaseClient().
  */
-export const createServerSupabaseClient = () => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("createServerSupabaseClient");
-  }
-
-  const { url, serviceRoleKey } = getValidatedSupabaseRuntimeConfig();
-  return createClient(url, serviceRoleKey);
+export const createServerSupabaseClient = (): SupabaseClient => {
+  return createServiceRoleSupabaseClient();
 };
 
-// Lazy singleton — created on first call rather than at module load time so
-// that test files which mock this module are never forced to satisfy the
-// env-var guard during import.
-let _supabase: SupabaseClient | undefined;
-
+/**
+ * @deprecated Use getServiceRoleSupabaseClient().
+ */
 export const getSupabaseClient = (): SupabaseClient => {
-  if (!_supabase) {
-    _supabase = createServerSupabaseClient();
-  }
-  return _supabase;
+  return getServiceRoleSupabaseClient();
 };
 
-// Named export used by the 60+ call sites that do `import { supabase } from ...`
-// This is a plain object with a getter on each well-known SupabaseClient method
-// group so that serialisers (vitest pretty-format, JSON.stringify) never trigger
-// the env-var guard. The real client is only created on first method call.
 export const supabase = {
-  get auth() { return getSupabaseClient().auth; },
-  get storage() { return getSupabaseClient().storage; },
-  get realtime() { return getSupabaseClient().realtime; },
-  from: (...args: Parameters<SupabaseClient['from']>) => getSupabaseClient().from(...args),
-  rpc: (...args: Parameters<SupabaseClient['rpc']>) => getSupabaseClient().rpc(...args),
-  channel: (...args: Parameters<SupabaseClient['channel']>) => getSupabaseClient().channel(...args),
-  removeChannel: (...args: Parameters<SupabaseClient['removeChannel']>) => getSupabaseClient().removeChannel(...args),
-  getChannels: () => getSupabaseClient().getChannels(),
-  removeAllChannels: () => getSupabaseClient().removeAllChannels(),
+  get auth() {
+    return getServiceRoleSupabaseClient().auth;
+  },
+  get storage() {
+    return getServiceRoleSupabaseClient().storage;
+  },
+  get realtime() {
+    return getServiceRoleSupabaseClient().realtime;
+  },
+  from: (...args: Parameters<SupabaseClient["from"]>) => getServiceRoleSupabaseClient().from(...args),
+  rpc: (...args: Parameters<SupabaseClient["rpc"]>) => getServiceRoleSupabaseClient().rpc(...args),
+  channel: (...args: Parameters<SupabaseClient["channel"]>) => getServiceRoleSupabaseClient().channel(...args),
+  removeChannel: (...args: Parameters<SupabaseClient["removeChannel"]>) =>
+    getServiceRoleSupabaseClient().removeChannel(...args),
+  getChannels: () => getServiceRoleSupabaseClient().getChannels(),
+  removeAllChannels: () => getServiceRoleSupabaseClient().removeAllChannels(),
 } as unknown as SupabaseClient;

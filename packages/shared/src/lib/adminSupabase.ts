@@ -8,7 +8,7 @@
  *   - webhook handlers
  *   - cron jobs
  *
- * For tenant-scoped operations, use createRequestSupabaseClient() instead.
+ * For tenant-scoped operations, use createRequestRlsSupabaseClient() instead.
  * service-role:justified
  */
 
@@ -33,7 +33,7 @@ function captureCallerInfo(): string {
  * Get the singleton admin (service-role) Supabase client.
  * Every call is logged with a stack trace for audit purposes.
  *
- * Prefer createRequestSupabaseClient() for tenant-scoped operations.
+ * Prefer createRequestRlsSupabaseClient() for tenant-scoped operations.
  */
 export function getAdminSupabaseClient(): SupabaseClient {
   const caller = captureCallerInfo();

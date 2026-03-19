@@ -8,20 +8,20 @@
  * attachment for the "CFO Defence" requirement.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type SemanticFactType =
-  | 'value_proposition'
-  | 'target_definition'
-  | 'opportunity'
-  | 'integrity_check'
-  | 'workflow_result';
+  | "value_proposition"
+  | "target_definition"
+  | "opportunity"
+  | "integrity_check"
+  | "workflow_result";
 
-export type SemanticFactStatus = 'draft' | 'approved' | 'deprecated';
+export type SemanticFactStatus = "draft" | "approved" | "deprecated";
 
 export interface SemanticFact {
   id: string;
@@ -67,17 +67,17 @@ export interface ContradictionResult {
 // ============================================================================
 
 export const SemanticFactTypeSchema = z.enum([
-  'value_proposition',
-  'target_definition',
-  'opportunity',
-  'integrity_check',
-  'workflow_result',
+  "value_proposition",
+  "target_definition",
+  "opportunity",
+  "integrity_check",
+  "workflow_result",
 ]);
 
 export const SemanticFactStatusSchema = z.enum([
-  'draft',
-  'approved',
-  'deprecated',
+  "draft",
+  "approved",
+  "deprecated",
 ]);
 
 export const SemanticFactInputSchema = z.object({
@@ -108,11 +108,30 @@ export type SemanticSearchOptions = z.infer<typeof SemanticSearchOptionsSchema>;
 // Persistence Interface (dependency injection)
 // ============================================================================
 
+export interface SemanticMemoryFilter {
+  organizationId: string;
+  type?: SemanticFactType;
+  agentType?: string;
+  sessionId?: string;
+  memoryType?: string;
+  minImportance?: number;
+  limit?: number;
+}
+
 export interface SemanticStore {
   insert(fact: SemanticFact): Promise<void>;
-  update(id: string, updates: Partial<Pick<SemanticFact, 'status' | 'version' | 'updatedAt' | 'metadata'>>): Promise<void>;
+  update(
+    id: string,
+    updates: Partial<
+      Pick<SemanticFact, "status" | "version" | "updatedAt" | "metadata">
+    >,
+  ): Promise<void>;
   findById(id: string): Promise<SemanticFact | null>;
-  findByOrganization(organizationId: string, type?: SemanticFactType): Promise<SemanticFact[]>;
+  findByOrganization(
+    organizationId: string,
+    type?: SemanticFactType,
+  ): Promise<SemanticFact[]>;
+  findFiltered(filters: SemanticMemoryFilter): Promise<SemanticFact[]>;
 
   /**
    * Vector similarity search against semantic_memory / memory_facts.
@@ -121,7 +140,12 @@ export interface SemanticStore {
   searchByEmbedding(
     embedding: number[],
     organizationId: string,
-    options: { threshold: number; limit: number; type?: SemanticFactType; statusFilter?: SemanticFactStatus[] },
+    options: {
+      threshold: number;
+      limit: number;
+      type?: SemanticFactType;
+      statusFilter?: SemanticFactStatus[];
+    },
   ): Promise<Array<{ fact: SemanticFact; similarity: number }>>;
 
   /** Fetch provenance metadata for a fact (joins memory_provenance / agent_memory provenance JSONB) */
@@ -156,7 +180,7 @@ async function detectContradictions(
       threshold: CONTRADICTION_SIMILARITY_THRESHOLD,
       limit: 5,
       type: input.type,
-      statusFilter: ['approved'],
+      statusFilter: ["approved"],
     },
   );
 
@@ -207,7 +231,7 @@ export class SemanticMemory {
       content: validated.content,
       embedding: validated.embedding,
       metadata: validated.metadata,
-      status: 'draft',
+      status: "draft",
       version: 1,
       organizationId: validated.organizationId,
       confidenceScore: validated.confidenceScore,
@@ -228,17 +252,18 @@ export class SemanticMemory {
   async approve(factId: string): Promise<SemanticFact> {
     const fact = await this._store.findById(factId);
     if (!fact) throw new Error(`Semantic fact not found: ${factId}`);
-    if (fact.status === 'approved') return fact;
+    if (fact.status === "approved") return fact;
 
-    const nextVersion = fact.status === 'deprecated' ? fact.version + 1 : fact.version;
+    const nextVersion =
+      fact.status === "deprecated" ? fact.version + 1 : fact.version;
 
     await this._store.update(factId, {
-      status: 'approved',
+      status: "approved",
       version: nextVersion,
       updatedAt: new Date().toISOString(),
     });
 
-    return { ...fact, status: 'approved', version: nextVersion };
+    return { ...fact, status: "approved", version: nextVersion };
   }
 
   /**
@@ -249,11 +274,11 @@ export class SemanticMemory {
     if (!fact) throw new Error(`Semantic fact not found: ${factId}`);
 
     await this._store.update(factId, {
-      status: 'deprecated',
+      status: "deprecated",
       updatedAt: new Date().toISOString(),
     });
 
-    return { ...fact, status: 'deprecated' };
+    return { ...fact, status: "deprecated" };
   }
 
   // --------------------------------------------------------------------------
@@ -267,7 +292,9 @@ export class SemanticMemory {
    * provenance chain so the UI can render the transparency layer
    * ("Source: Q3 Benchmark Report; Confidence: 92%").
    */
-  async search(options: SemanticSearchOptions): Promise<SemanticSearchResult[]> {
+  async search(
+    options: SemanticSearchOptions,
+  ): Promise<SemanticSearchResult[]> {
     const validated = SemanticSearchOptionsSchema.parse(options);
 
     const raw = await this._store.searchByEmbedding(
@@ -287,7 +314,8 @@ export class SemanticMemory {
       let provenance: SemanticFactProvenance | undefined;
 
       if (validated.attachProvenance) {
-        provenance = (await this._store.getProvenance(entry.fact.id)) ?? undefined;
+        provenance =
+          (await this._store.getProvenance(entry.fact.id)) ?? undefined;
       }
 
       results.push({
@@ -304,7 +332,9 @@ export class SemanticMemory {
    * Run a contradiction check without storing anything.
    * Useful for pre-flight validation in agent pipelines.
    */
-  async checkContradictions(input: SemanticFactInput): Promise<ContradictionResult> {
+  async checkContradictions(
+    input: SemanticFactInput,
+  ): Promise<ContradictionResult> {
     const validated = SemanticFactInputSchema.parse(input);
     return detectContradictions(this._store, validated);
   }

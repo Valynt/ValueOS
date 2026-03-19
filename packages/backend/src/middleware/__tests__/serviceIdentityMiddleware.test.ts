@@ -4,10 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { addServiceIdentityHeader, serviceIdentityMiddleware } from '../serviceIdentityMiddleware.js'
 
-vi.mock('../../config/autonomy', () => ({
-  getAutonomyConfig: vi.fn(() => ({
-    serviceIdentityToken: '',
-  })),
+vi.mock('../nonceStore.js', () => ({
+  nonceStore: { consumeOnce: vi.fn().mockResolvedValue(true) },
+  NonceStoreUnavailableError: class NonceStoreUnavailableError extends Error {},
 }));
 
 function mockRes() {
@@ -160,6 +159,45 @@ describe('serviceIdentityMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
     delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
   });
+
+  it('rejects legacy x-service-identity header without signed assertion', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.SERVICE_IDENTITY_REQUIRED = 'true';
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+
+    const req = {
+      method: 'POST',
+      url: '/internal',
+      originalUrl: '/internal',
+      body: {},
+      header: vi.fn((name: string) => {
+        switch (name.toLowerCase()) {
+          case 'x-service-identity':
+            return 'legacy-shared-secret';
+          case 'x-request-timestamp':
+            return String(Date.now());
+          case 'x-request-nonce':
+            return 'legacy-nonce';
+          default:
+            return undefined;
+        }
+      }),
+    } as any;
+
+    const res = mockRes();
+    const next = vi.fn();
+
+    serviceIdentityMiddleware(req, res as any, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+    delete process.env.NODE_ENV;
+    delete process.env.SERVICE_IDENTITY_REQUIRED;
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+  });
 });
 
 describe('addServiceIdentityHeader', () => {
@@ -175,6 +213,7 @@ describe('addServiceIdentityHeader', () => {
     expect(result['X-Service-Id']).toBe('agent-api');
     expect(result['X-Key-Id']).toBe('k1');
     expect(result['X-Request-Signature']).toBeDefined();
+    expect(result['X-Body-SHA256']).toBe(createHash('sha256').update(JSON.stringify({ hello: 'world' })).digest('hex'));
 
     delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
     delete process.env.SERVICE_IDENTITY_CALLER_ID;

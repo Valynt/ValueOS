@@ -1,186 +1,214 @@
 import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
 
-import { getEnvVar, getSupabaseConfig } from "./env.js";
+import { getSupabaseConfig } from "./env.js";
 
-// Simple fetch wrapper with retry for transient network/server errors
 const MAX_RETRY_ATTEMPTS = 3;
 const BASE_DELAY_MS = 500;
+const AUTHORIZATION_PREFIX = "Bearer ";
+const isServerRuntime = !(typeof globalThis !== "undefined" && "window" in globalThis);
 
 function isRetryableError(error: unknown): boolean {
-  if (error instanceof TypeError) return true; // network errors
+  if (error instanceof TypeError) return true;
   if (error instanceof Response && error.status >= 500) return true;
   return false;
 }
 
 const fetchWithRetry = async (
   input: string | URL | Request,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<Response> => {
   let lastError: unknown;
+
   for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
     try {
       const response = await fetch(input, init);
       if (response.status >= 500 && attempt < MAX_RETRY_ATTEMPTS - 1) {
         lastError = response;
-        await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+        await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
         continue;
       }
       return response;
     } catch (error) {
       lastError = error;
-      if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS - 1) throw error;
-      await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+      if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS - 1) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * 2 ** attempt));
     }
   }
+
   throw lastError;
 };
 
-// Client-side configuration - only uses anon key
-const supabaseConfig = getSupabaseConfig();
-const supabaseUrl = supabaseConfig.url;
-const supabaseAnonKey = supabaseConfig.anonKey;
-const supabaseServiceRoleKey = supabaseConfig.serviceRoleKey;
-const nodeEnv = getEnvVar("NODE_ENV") || getEnvVar("VITE_APP_ENV");
-const allowInsecureAnonServerClient =
-  getEnvVar("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
-const isServer = !(typeof globalThis !== "undefined" && "window" in globalThis);
-const isProduction = nodeEnv === "production";
+function getClientOptions(options?: {
+  authorization?: string;
+  autoRefreshToken?: boolean;
+  detectSessionInUrl?: boolean;
+}): SupabaseClientOptions<"public"> {
+  const authorization = options?.authorization;
 
-if (isServer && isProduction && !supabaseServiceRoleKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is required in production");
-}
-
-// Validate required client-side configuration
-let supabase: SupabaseClient | null = null;
-if (supabaseUrl && supabaseAnonKey) {
-  const supabaseOptions: SupabaseClientOptions<"public"> = {
-    db: {
-      schema: "public",
-    },
+  return {
+    db: { schema: "public" },
     auth: {
-      autoRefreshToken: true,
-      persistSession: false, // We handle persistence manually via SecureTokenManager for rotation support
-      detectSessionInUrl: true,
+      autoRefreshToken: options?.autoRefreshToken ?? false,
+      persistSession: false,
+      detectSessionInUrl: options?.detectSessionInUrl ?? false,
     },
     global: {
       fetch: fetchWithRetry,
+      headers: authorization ? { Authorization: authorization } : undefined,
     },
   };
-
-  // Client-side Supabase client - safe for browser
-  supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseOptions);
-} else {
-  console.warn(
-    "Supabase client configuration is missing. Billing features will be disabled."
-  );
 }
 
-export { supabase };
-
-export function getSupabaseClient() {
-  if (!supabase) {
-    throw new Error(
-      "Supabase client not configured. Billing features are disabled."
-    );
+function requireSupabaseUrl(): string {
+  const { url } = getSupabaseConfig();
+  if (!url) {
+    throw new Error("Supabase URL is required");
   }
-  return supabase;
+  return url;
+}
+
+function requireAnonKey(): string {
+  const { anonKey } = getSupabaseConfig();
+  if (!anonKey) {
+    throw new Error("Supabase anon key is required");
+  }
+  return anonKey;
+}
+
+function requireServiceRoleKey(): string {
+  const { serviceRoleKey } = getSupabaseConfig();
+  if (!serviceRoleKey) {
+    throw new Error("Supabase service role key is required for elevated server-side operations");
+  }
+  return serviceRoleKey;
 }
 
 function parseBearerToken(header?: string | string[]): string | null {
   if (!header) return null;
+
   const headerValue = Array.isArray(header) ? header[0] : header;
-  if (!headerValue) return null;
-  const prefix = "Bearer ";
-  if (!headerValue.startsWith(prefix)) return null;
-  const token = headerValue.slice(prefix.length).trim();
+  if (!headerValue?.startsWith(AUTHORIZATION_PREFIX)) {
+    return null;
+  }
+
+  const token = headerValue.slice(AUTHORIZATION_PREFIX.length).trim();
   return token.length > 0 ? token : null;
 }
 
-interface SupabaseRequest {
+export interface SupabaseRequestLike {
   headers?: { authorization?: string | string[] };
+  session?: Record<string, unknown> | null;
   supabase?: SupabaseClient;
   supabaseUser?: unknown;
   user?: unknown;
 }
 
-export function createRequestSupabaseClient(req: SupabaseRequest) {
-  if (!isServer) {
-    throw new Error("Request-scoped Supabase client can only be used server-side");
+export type BrowserAnonSupabaseClientFactory = typeof createBrowserAnonSupabaseClient;
+export type RequestRlsSupabaseClientFactory = typeof createRequestRlsSupabaseClient;
+export type ServiceRoleSupabaseClientFactory = typeof createServiceRoleSupabaseClient;
+
+let browserAnonSupabaseClient: SupabaseClient | null = null;
+
+export function createBrowserAnonSupabaseClient(): SupabaseClient {
+  if (isServerRuntime) {
+    throw new Error("createBrowserAnonSupabaseClient can only be used in the browser runtime");
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase client not configured for request-scoped access");
-  }
-
-  const token = parseBearerToken(req.headers?.authorization);
-  if (!token) {
-    throw new Error("Authorization bearer token required for request-scoped Supabase client");
-  }
-
-  const requestOptions: SupabaseClientOptions<"public"> = {
-    db: {
-      schema: "public",
-    },
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      fetch: fetchWithRetry,
-    },
-  };
-
-  const client = createClient(supabaseUrl, supabaseAnonKey, requestOptions);
-  req.supabase = client;
-  req.supabaseUser = req.user ?? null;
-  return client;
-}
-
-export function getRequestSupabaseClient(req: SupabaseRequest) {
-  return req.supabase ?? createRequestSupabaseClient(req);
-}
-
-// Server-side Supabase client - for backend services only
-// This should NEVER be used in client-side code
-export function createServerSupabaseClient(serviceKey?: string) {
-  const serverKey = serviceKey || supabaseServiceRoleKey;
-
-  if (!serverKey) {
-    if (isProduction || !allowInsecureAnonServerClient) {
-      throw new Error("Supabase service role key is required for server-side operations");
-    }
-
-    if (!supabaseAnonKey) {
-      throw new Error("Supabase anon key missing for insecure server client fallback");
-    }
-  }
-
-  if (typeof globalThis !== "undefined" && "window" in globalThis) {
-    throw new Error(
-      "Server Supabase client cannot be used in browser environment"
+  if (!browserAnonSupabaseClient) {
+    browserAnonSupabaseClient = createClient(
+      requireSupabaseUrl(),
+      requireAnonKey(),
+      getClientOptions({ autoRefreshToken: true, detectSessionInUrl: true }),
     );
   }
 
-  if (!supabaseUrl) {
-    throw new Error("Supabase URL is required for server-side operations");
+  return browserAnonSupabaseClient;
+}
+
+function resolveRequestAccessToken(input: SupabaseRequestLike | string): string {
+  if (typeof input === "string") {
+    const token = input.trim();
+    if (!token) {
+      throw new Error("Supabase RLS client requires a non-empty bearer access token");
+    }
+    return token;
   }
 
-  const serverOptions: SupabaseClientOptions<"public"> = {
-    db: {
-      schema: "public",
-    },
-    auth: {
-      autoRefreshToken: false, // Server-side doesn't need auto-refresh
-    },
-    global: {
-      fetch: fetchWithRetry,
-    },
-  };
+  const bearerToken = parseBearerToken(input.headers?.authorization);
+  if (bearerToken) {
+    return bearerToken;
+  }
 
-  const resolvedKey = serverKey ?? supabaseAnonKey!;
-  return createClient(supabaseUrl, resolvedKey, serverOptions);
+  const sessionToken = input.session?.access_token;
+  if (typeof sessionToken === "string" && sessionToken.trim().length > 0) {
+    return sessionToken;
+  }
+
+  throw new Error(
+    "Supabase RLS client requires an authenticated user bearer token and will not fall back to anon or service-role credentials",
+  );
+}
+
+export function createRequestRlsSupabaseClient(input: SupabaseRequestLike | string): SupabaseClient {
+  if (!isServerRuntime) {
+    throw new Error("createRequestRlsSupabaseClient can only be used server-side");
+  }
+
+  if (typeof input !== "string" && input.supabase) {
+    return input.supabase;
+  }
+
+  const client = createClient(
+    requireSupabaseUrl(),
+    requireAnonKey(),
+    getClientOptions({ authorization: `${AUTHORIZATION_PREFIX}${resolveRequestAccessToken(input)}` }),
+  );
+
+  if (typeof input !== "string") {
+    input.supabase = client;
+    input.supabaseUser = input.user ?? null;
+  }
+
+  return client;
+}
+
+export function createServiceRoleSupabaseClient(serviceRoleKey?: string): SupabaseClient {
+  if (!isServerRuntime) {
+    throw new Error("createServiceRoleSupabaseClient cannot be used in the browser runtime");
+  }
+
+  const resolvedServiceRoleKey = serviceRoleKey?.trim() || requireServiceRoleKey();
+  return createClient(requireSupabaseUrl(), resolvedServiceRoleKey, getClientOptions());
+}
+
+export const supabase = isServerRuntime ? null : createBrowserAnonSupabaseClient();
+
+/**
+ * @deprecated Use createBrowserAnonSupabaseClient() in the browser runtime.
+ */
+export function getSupabaseClient(): SupabaseClient {
+  return createBrowserAnonSupabaseClient();
+}
+
+/**
+ * @deprecated Use createRequestRlsSupabaseClient().
+ */
+export function createRequestSupabaseClient(input: SupabaseRequestLike | string): SupabaseClient {
+  return createRequestRlsSupabaseClient(input);
+}
+
+/**
+ * @deprecated Use createRequestRlsSupabaseClient().
+ */
+export function getRequestSupabaseClient(input: SupabaseRequestLike | string): SupabaseClient {
+  return createRequestRlsSupabaseClient(input);
+}
+
+/**
+ * @deprecated Use createServiceRoleSupabaseClient().
+ */
+export function createServerSupabaseClient(serviceRoleKey?: string): SupabaseClient {
+  return createServiceRoleSupabaseClient(serviceRoleKey);
 }

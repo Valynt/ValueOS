@@ -1,4 +1,4 @@
-import { Building2, Loader2, Upload, X } from "lucide-react";
+import { Building2, Loader2, Palette, Upload, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 
 import { SettingsSection } from "../../components/settings";
@@ -9,15 +9,32 @@ import {
 } from "../../styles/brandTheme";
 
 import { ValidatedInput } from "@/components/ui/validated-input";
+import type { CustomBrandingConfig } from "@/config/settingsMatrix";
 
-export const OrganizationGeneral: React.FC = () => {
-  const [orgName, setOrgName] = useState("Acme Corporation");
-  const [domain, setDomain] = useState("acme.com");
+interface OrganizationGeneralProps {
+  initialBranding?: CustomBrandingConfig;
+  initialOrganizationName?: string;
+  initialDomain?: string;
+}
+
+const BRANDING_PREVIEW_TEXT_COLOR = "#f8fafc";
+
+export const OrganizationGeneral: React.FC<OrganizationGeneralProps> = ({
+  initialBranding,
+  initialOrganizationName = "Acme Corporation",
+  initialDomain = "acme.com",
+}) => {
+  const [orgName, setOrgName] = useState(initialOrganizationName);
+  const [domain, setDomain] = useState(initialDomain);
   const [industry, setIndustry] = useState("technology");
   const [orgSize, setOrgSize] = useState("51-200");
-  const [primaryColor, _setPrimaryColor] = useState(VALYNT_BRAND_PRIMARY);
-  const [secondaryColor, _setSecondaryColor] = useState(VALYNT_BRAND_SECONDARY);
-  const [logo, setLogo] = useState<string | null>(null);
+  const [primaryColor, _setPrimaryColor] = useState(
+    initialBranding?.primaryColor ?? VALYNT_BRAND_PRIMARY
+  );
+  const [secondaryColor, _setSecondaryColor] = useState(
+    initialBranding?.secondaryColor ?? VALYNT_BRAND_SECONDARY
+  );
+  const [logo, setLogo] = useState<string | null>(initialBranding?.logoUrl ?? null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -87,6 +104,15 @@ export const OrganizationGeneral: React.FC = () => {
     // are driven via the save handler.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const brandingPreviewEnabled = Boolean(
+    initialBranding?.logoUrl && initialBranding.primaryColor && initialBranding.secondaryColor
+  );
+
+  const brandingPreviewStyle: React.CSSProperties = {
+    background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+    color: BRANDING_PREVIEW_TEXT_COLOR,
+  };
 
   return (
     <div className="space-y-6">
@@ -225,6 +251,126 @@ export const OrganizationGeneral: React.FC = () => {
           </div>
         </div>
       </SettingsSection>
+
+      {brandingPreviewEnabled && (
+        <SettingsSection
+          title="Tenant Branding Verification Preview"
+          description="Deterministic render surfaces sourced from organization custom branding settings."
+        >
+          <div className="space-y-4">
+            <div
+              data-testid="tenant-branding-preview-header"
+              className="rounded-2xl border border-border p-5 shadow-sm"
+              style={brandingPreviewStyle}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  {logo ? (
+                    <img
+                      data-testid="tenant-branding-logo"
+                      src={logo}
+                      alt={`${orgName} logo preview`}
+                      className="h-14 w-auto rounded-xl bg-white/10 p-2"
+                    />
+                  ) : (
+                    <div
+                      data-testid="tenant-branding-logo-fallback"
+                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10"
+                    >
+                      <Building2 className="h-6 w-6" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/70">
+                      Tenant branding validation
+                    </p>
+                    <h3 className="text-2xl font-semibold">{orgName}</h3>
+                    <p className="text-sm text-white/80">{domain}</p>
+                  </div>
+                </div>
+
+                {initialBranding?.faviconUrl && (
+                  <div className="flex items-center gap-3 rounded-xl bg-white/10 px-3 py-2">
+                    <img
+                      data-testid="tenant-branding-favicon"
+                      src={initialBranding.faviconUrl}
+                      alt={`${orgName} favicon preview`}
+                      className="h-8 w-8 rounded-lg bg-white object-contain p-1"
+                    />
+                    <span className="text-sm text-white/80">Browser favicon asset</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  data-testid="tenant-branding-primary-action"
+                  className="rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-opacity hover:opacity-95"
+                  style={{ backgroundColor: primaryColor, color: BRANDING_PREVIEW_TEXT_COLOR }}
+                >
+                  Launch workspace
+                </button>
+                <button
+                  type="button"
+                  data-testid="tenant-branding-secondary-action"
+                  className="rounded-lg border px-4 py-2 text-sm font-semibold shadow-sm transition-opacity hover:opacity-95"
+                  style={{
+                    backgroundColor: secondaryColor,
+                    borderColor: "rgba(248, 250, 252, 0.25)",
+                    color: BRANDING_PREVIEW_TEXT_COLOR,
+                  }}
+                >
+                  Share branded proposal
+                </button>
+                <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90">
+                  <Palette className="h-3.5 w-3.5" />
+                  Theme sync from organization settings
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-sm font-medium text-foreground">Rendered asset surfaces</p>
+                <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+                  <li>• Organization logo preview in the identity card</li>
+                  <li>• Header surface using tenant brand gradient</li>
+                  <li>• CTA controls rendered with primary + secondary brand colors</li>
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-sm font-medium text-foreground">Brand tokens from settings</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <div className="min-w-[10rem] rounded-lg border border-border p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Primary</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <span
+                        data-testid="tenant-branding-primary-swatch"
+                        className="h-6 w-6 rounded-full border border-border"
+                        style={{ backgroundColor: primaryColor }}
+                      />
+                      <code className="text-sm text-foreground">{primaryColor}</code>
+                    </div>
+                  </div>
+                  <div className="min-w-[10rem] rounded-lg border border-border p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Secondary</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <span
+                        data-testid="tenant-branding-secondary-swatch"
+                        className="h-6 w-6 rounded-full border border-border"
+                        style={{ backgroundColor: secondaryColor }}
+                      />
+                      <code className="text-sm text-foreground">{secondaryColor}</code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </SettingsSection>
+      )}
 
       <SettingsSection
         title="Branding Colors"

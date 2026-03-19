@@ -54,6 +54,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install autoscaling manifest validation tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/bin"
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/bin" kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Agent autoscaling manifest validation
+        run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
+
       - name: Canonical governance gate
         run: pnpm run typecheck:signal --verify
 
@@ -78,9 +90,12 @@ jobs:
       - name: Generated src artifacts guard
         run: node scripts/ci/check-generated-src-artifacts.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
 
+      - name: Vitest workspace topology guard
+        run: node scripts/ci/check-vitest-workspace-packages.mjs
+
       - name: Unit suite + schema guard
         run: |
-          npx vitest run --coverage --coverage.thresholds.lines=75 --coverage.thresholds.functions=70 --coverage.thresholds.branches=70 --coverage.thresholds.statements=75
+          npx vitest run --coverage --coverage.provider=v8 --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.thresholds.lines=75 --coverage.thresholds.functions=70 --coverage.thresholds.branches=70 --coverage.thresholds.statements=75
           node scripts/ci/check-migration-hygiene.mjs
           node scripts/ci/check-migration-schema-consistency.mjs
           node scripts/ci/check-migration-rollbacks.mjs
@@ -91,6 +106,10 @@ jobs:
 
       - name: TypeScript any-count gate
         run: bash scripts/check-any-count.sh
+
+      - name: Backend debt summary artifact
+        if: always()
+        run: pnpm --filter @valueos/backend run debt:summary
 
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
@@ -106,6 +125,9 @@ jobs:
 
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
+
+      - name: Latency target consistency gate
+        run: node scripts/ci/check-latency-target-consistency.mjs --base-sha="${{ github.event.pull_request.base.sha || github.event.before }}" --head-sha="${{ github.sha }}"
 
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
@@ -143,6 +165,9 @@ jobs:
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
 
+      - name: Workflow pnpm contract guard
+        run: pnpm run check:workflow-pnpm-contract
+
       - name: Workspace package governance inventory
         run: pnpm run check:workspace-package-governance
 
@@ -163,6 +188,9 @@ jobs:
 
       - name: Required-check documentation/workflow consistency guard
         run: node scripts/ci/check-required-check-workflow-consistency.mjs
+
+      - name: Deploy workflow release-gate consistency guard
+        run: node scripts/ci/check-deploy-workflow-release-gate-consistency.mjs
 
       - name: CI scanner action version manifest guard
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
@@ -190,7 +218,102 @@ jobs:
           name: lane-unit-component-schema-${{ github.run_id }}
           path: |
             coverage/**
+            artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  vitest-package-matrix-config:
+    name: vitest/package-matrix
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Emit Vitest package matrix
+        id: matrix
+        run: echo "matrix=$(node scripts/ci/emit-vitest-package-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
+  vitest-package:
+    name: vitest/${{ matrix.package.label }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    needs: vitest-package-matrix-config
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.vitest-package-matrix-config.outputs.matrix) }}
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Vitest workspace topology guard
+        run: node scripts/ci/check-vitest-workspace-packages.mjs
+
+      - name: Run package tests with coverage
+        run: |
+          npx vitest run \
+            --root "${{ matrix.package.dir }}" \
+            --config vitest.config.ts \
+            --coverage \
+            --coverage.provider=v8 \
+            --coverage.reporter=json-summary \
+            --coverage.reporter=text-summary \
+            --coverage.reportsDirectory="${{ matrix.package.coverageDir }}"
+
+      - name: Write coverage summary
+        run: |
+          node scripts/ci/write-vitest-coverage-summary.mjs \
+            --package-id "${{ matrix.package.id }}" \
+            --package-label "${{ matrix.package.label }}" \
+            --package-dir "${{ matrix.package.dir }}" \
+            --coverage-summary "${{ matrix.package.coverageDir }}/coverage-summary.json" \
+            --output "artifacts/coverage/${{ matrix.package.id }}.md"
+          cat "artifacts/coverage/${{ matrix.package.id }}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload package coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-${{ matrix.package.id }}-${{ github.run_id }}
+          path: |
+            ${{ matrix.package.coverageDir }}/coverage-summary.json
+            artifacts/coverage/${{ matrix.package.id }}.md
           if-no-files-found: warn
           retention-days: 30
 

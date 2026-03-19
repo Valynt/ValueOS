@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import {
   ClaimReferralRequest,
   ClaimReferralResponse,
@@ -19,11 +19,11 @@ import {
 const logger = createLogger({ component: 'ReferralService' });
 
 export class ReferralService {
-  private _supabase: ReturnType<typeof createServerSupabaseClient> | null = null;
+  private _supabase: ReturnType<typeof createServiceRoleSupabaseClient> | null = null;
 
   private get supabase() {
     if (!this._supabase) {
-      this._supabase = createServerSupabaseClient();
+      this._supabase = createServiceRoleSupabaseClient();
     }
     return this._supabase;
   }

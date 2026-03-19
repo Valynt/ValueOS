@@ -7,7 +7,6 @@
  * Task: 3.2, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -15,8 +14,10 @@ import { fileURLToPath } from "node:url";
 
 import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 
 import {
   CFORecommendationInput,
@@ -125,7 +126,13 @@ export class CFORecommendationGenerator {
         },
       };
 
-      const response = await this.llmGateway.complete(request);
+      const response = await secureLLMComplete(this.llmGateway, request.messages, {
+        ...request.metadata,
+        serviceName: "CFORecommendationGenerator",
+        operation: "generate",
+        traceId: input.caseId,
+        sessionId: input.caseId,
+      });
 
       // Parse and validate with Zod
       let parsedJson: unknown;
@@ -183,6 +190,48 @@ export class CFORecommendationGenerator {
       result.output,
       input
     );
+
+    if (!hallucinationCheck) {
+      logger.warn("CFORecommendationGenerator: hallucination escalation triggered", {
+        caseId: input.caseId,
+        tenantId: input.tenantId,
+      });
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "security:hallucination_detected",
+        resource: input.caseId,
+        resourceType: "artifact_generation",
+        userId: "system",
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        sessionId: input.caseId,
+        outcome: "failure",
+        severity: "high",
+        details: {
+          generator: "CFORecommendationGenerator",
+          artifactType: "cfo_recommendation",
+        },
+      });
+    }
+
+    await logSecurityEvent({
+      timestamp: new Date().toISOString(),
+      action: "artifacts:cfo_recommendation_generated",
+      resource: input.caseId,
+      resourceType: "artifact_generation",
+      userId: "system",
+      organizationId: input.organizationId,
+      tenantId: input.tenantId,
+      sessionId: input.caseId,
+      outcome: hallucinationCheck ? "success" : "failure",
+      severity: hallucinationCheck ? "low" : "medium",
+      details: {
+        generator: "CFORecommendationGenerator",
+        artifactType: "cfo_recommendation",
+        hallucinationCheck,
+        tokenUsage: result.tokenUsage,
+      },
+    });
 
     const duration = Date.now() - startTime;
     logger.info("CFORecommendationGenerator: generation complete", {

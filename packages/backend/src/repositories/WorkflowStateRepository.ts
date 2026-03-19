@@ -13,7 +13,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { logger } from '../lib/logger.js';
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 export interface WorkflowState {
   id: string;
@@ -52,10 +52,10 @@ export interface WorkflowStateFilter {
 }
 
 export class WorkflowStateRepository {
-  private supabase: ReturnType<typeof createServerSupabaseClient>;
+  private supabase: ReturnType<typeof createServiceRoleSupabaseClient>;
 
   constructor() {
-    this.supabase = createServerSupabaseClient();
+    this.supabase = createServiceRoleSupabaseClient();
   }
 
   private assertOrganizationId(organizationId: string, method: string): void {

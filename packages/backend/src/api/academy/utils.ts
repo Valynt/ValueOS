@@ -3,17 +3,17 @@
  * Shared helpers for tRPC academy routers
  */
 import { TRPCError } from "@trpc/server";
-import { createUserSupabaseClient } from "../../lib/supabase";
+import { createRequestRlsSupabaseClient } from "../../lib/supabase.js";
 
 /**
  * Get Supabase client from context or create from access token
  */
-export function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabaseClient>; accessToken?: string }) {
+export function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createRequestRlsSupabaseClient>; accessToken?: string }) {
   if (ctx.supabase) {
     return ctx.supabase;
   }
   if (ctx.accessToken) {
-    return createUserSupabaseClient(ctx.accessToken);
+    return createRequestRlsSupabaseClient(ctx.accessToken);
   }
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
