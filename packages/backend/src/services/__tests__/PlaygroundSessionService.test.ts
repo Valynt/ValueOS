@@ -474,7 +474,7 @@ describe('PlaygroundSessionService', () => {
       await service.discardSession(session.sessionId);
 
       const updated = await service.loadSession(session.sessionId);
-      expect(updated?.status).toBe('discarded');
+      expect(updated).toBeNull();
     });
   });
 

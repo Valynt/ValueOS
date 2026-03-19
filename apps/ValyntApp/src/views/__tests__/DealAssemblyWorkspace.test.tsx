@@ -86,7 +86,7 @@ describe("DealAssemblyWorkspace", () => {
     render(<DealAssemblyWorkspace />);
 
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
-    expect(screen.getByText(/technology/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 2 gaps resolved/i)).toBeInTheDocument();
   });
 
   it("displays stakeholder map", () => {
@@ -110,13 +110,13 @@ describe("DealAssemblyWorkspace", () => {
     expect(screen.getByText(/review/i)).toBeInTheDocument();
   });
 
-  it("handles gap fill submission", () => {
+  it("shows the primary workflow actions for unresolved gaps", () => {
     render(<DealAssemblyWorkspace />);
 
     const input = screen.getByPlaceholderText(/enter budget/i);
     fireEvent.change(input, { target: { value: "100000" } });
 
-    fireEvent.click(screen.getByText(/submit/i));
-    // Mock mutation would be called
+    expect(screen.getByRole("button", { name: /re-assemble/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm & proceed/i })).toBeDisabled();
   });
 });

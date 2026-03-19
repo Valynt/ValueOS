@@ -98,7 +98,7 @@ export class GroundTruthCache {
   async set<T>(
     key: string,
     data: T,
-    tier: CacheTier = "general"
+    tierOrTtl: CacheTier | number = "general"
   ): Promise<boolean> {
     try {
       const redis = await getRedisClient();
@@ -106,7 +106,10 @@ export class GroundTruthCache {
         return false;
       }
 
-      const ttl = CACHE_TTLS[tier];
+      const ttl =
+        typeof tierOrTtl === "number"
+          ? tierOrTtl
+          : CACHE_TTLS[tierOrTtl];
       const entry: CacheEntry<T> = {
         data,
         retrievedAt: new Date().toISOString(),
@@ -118,7 +121,7 @@ export class GroundTruthCache {
     } catch (error) {
       logger.error("Cache set error", {
         key,
-        tier,
+        tier: typeof tierOrTtl === "number" ? "custom" : tierOrTtl,
         error: error instanceof Error ? error.message : String(error),
       });
       return false;

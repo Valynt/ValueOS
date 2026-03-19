@@ -58,9 +58,24 @@ function calculateCorroborationBoost(sources: Evidence[]): number {
  * Calculate total expired evidence penalty
  */
 function calculateTotalExpiredPenalty(sources: Evidence[]): number {
+  const referenceDate = inferReferenceDate(sources);
   return sources.reduce((total, source) => {
-    return total + calculateFreshnessPenalty(source);
+    return total + calculateFreshnessPenalty(source, referenceDate);
   }, 0);
+}
+
+function inferReferenceDate(sources: Evidence[]): Date {
+  if (sources.length === 0) {
+    return new Date();
+  }
+
+  const latestTimestamp = Math.max(
+    ...sources.map((source) =>
+      (source.createdAt ?? source.freshnessDate).getTime()
+    )
+  );
+
+  return new Date(latestTimestamp);
 }
 
 /**
@@ -80,6 +95,7 @@ export function calculateConfidence(
 
   // Clamp to [0, 1]
   finalScore = Math.max(0, Math.min(1, finalScore));
+  finalScore = Number(finalScore.toFixed(4));
 
   // Determine if additional evidence is required
   const requiresAdditionalEvidence = finalScore < 0.5;

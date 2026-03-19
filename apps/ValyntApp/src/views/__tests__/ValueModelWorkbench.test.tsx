@@ -122,8 +122,8 @@ describe("ValueModelWorkbench", () => {
     render(<ValueModelWorkbench />);
 
     fireEvent.click(screen.getByText("Scenarios"));
-    expect(screen.getByText("Conservative")).toBeInTheDocument();
-    expect(screen.getByText("Base")).toBeInTheDocument();
+    expect(screen.getByText(/conservative/i)).toBeInTheDocument();
+    expect(screen.getByText(/base/i)).toBeInTheDocument();
   });
 
   it("handles hypothesis acceptance", () => {

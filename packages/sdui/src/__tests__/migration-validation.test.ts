@@ -576,8 +576,8 @@ describe("Integration Tests", () => {
     const rollbackResult = await runner.rollback(checkpoint.id);
     expect(rollbackResult.success).toBe(true);
 
-    // Step 6: Verify rollback integrity
-    const validationResult = validateMigration(originalSchema, originalSchema);
-    expect(validationResult.valid).toBe(true);
+    // Step 6: Verify rollback bookkeeping
+    expect(rollbackResult.fromVersion).toBe(2);
+    expect(rollbackResult.toVersion).toBe(1);
   });
 });

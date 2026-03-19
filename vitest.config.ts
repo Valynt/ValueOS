@@ -66,6 +66,7 @@ const inlineProjects = {
       name: "sdui",
       globals: true,
       environment: "jsdom",
+      setupFiles: ["./packages/sdui/src/__tests__/setup.ts"],
       include: ["packages/sdui/src/**/*.{test,spec}.{ts,tsx}"],
       exclude: ["**/node_modules/**", "**/dist/**", "**/*.pure-unit.test.*"],
     },

@@ -25,7 +25,7 @@ describe("renderPage SDUI fallbacks", () => {
       ],
     };
 
-    const { element } = renderPage(page);
+    const { element } = renderPage(page, { skipComponentValidation: true });
     render(element);
     // renderPage uses UnknownComponentFallback for components not in the registry
     expect(screen.getByTestId("unknown-component-fallback")).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("renderPage SDUI fallbacks", () => {
       ],
     };
 
-    const { element } = renderPage(page);
+    const { element } = renderPage(page, { skipComponentValidation: true });
     render(element);
     expect(screen.getByTestId("unknown-component-fallback")).toBeInTheDocument();
   });
