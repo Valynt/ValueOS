@@ -117,6 +117,32 @@ export type ExecutiveMemoContent = z.infer<typeof ExecutiveMemoContentSchema>;
 export type CFORecommendationContent = z.infer<typeof CFORecommendationContentSchema>;
 export type CustomerNarrativeContent = z.infer<typeof CustomerNarrativeContentSchema>;
 export type InternalCaseContent = z.infer<typeof InternalCaseContentSchema>;
+type DatabaseClient = Pick<typeof supabase, "from">;
+
+const UNSAFE_IDENTIFIER_PATTERNS = [
+  /['"]/,
+  /--/,
+  /;/,
+  /<[^>]+>/,
+  /\.\.[/\\]/,
+  /\$\{/,
+  /\x00/,
+  /\b(or|union|select|drop|delete|insert|update)\b/i,
+];
+
+const assertSafeIdentifier = (value: string, fieldName: string) => {
+  if (!value || UNSAFE_IDENTIFIER_PATTERNS.some((pattern) => pattern.test(value))) {
+    throw new Error(`Invalid ${fieldName}`);
+  }
+};
+
+const sanitizeText = (value: string): string =>
+  value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/javascript:/gi, " ")
+    .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 // ---------------------------------------------------------------------------
 // Input Types
@@ -162,6 +188,12 @@ export interface ArtifactGenerationInput {
 // ---------------------------------------------------------------------------
 
 export class ArtifactGeneratorService {
+  private readonly db: DatabaseClient;
+
+  constructor(dependencies: { supabaseClient?: DatabaseClient } = {}) {
+    this.db = dependencies.supabaseClient ?? supabase;
+  }
+
   /**
    * Generate artifact based on type.
    */
@@ -170,39 +202,71 @@ export class ArtifactGeneratorService {
     content: unknown;
     status: "draft" | "final";
   }> {
+    assertSafeIdentifier(input.tenantId, "tenantId");
+    assertSafeIdentifier(input.caseId, "caseId");
+    assertSafeIdentifier(input.scenarioId, "scenarioId");
+
+    const sanitizedInput = this.sanitizeInput(input);
+
     logger.info(`Generating ${input.artifactType} artifact for case ${input.caseId}`);
 
     // Determine status based on readiness score
-    const status = input.readinessScore >= 0.8 ? "final" : "draft";
+    const status = sanitizedInput.readinessScore >= 0.8 ? "final" : "draft";
 
     let content: unknown;
 
-    switch (input.artifactType) {
+    switch (sanitizedInput.artifactType) {
       case "executive_memo":
-        content = await this.generateExecutiveMemo(input);
+        content = await this.generateExecutiveMemo(sanitizedInput);
         break;
       case "cfo_recommendation":
-        content = await this.generateCFORecommendation(input);
+        content = await this.generateCFORecommendation(sanitizedInput);
         break;
       case "customer_narrative":
-        content = await this.generateCustomerNarrative(input);
+        content = await this.generateCustomerNarrative(sanitizedInput);
         break;
       case "internal_case":
-        content = await this.generateInternalCase(input);
+        content = await this.generateInternalCase(sanitizedInput);
         break;
       default:
-        throw new Error(`Unknown artifact type: ${input.artifactType}`);
+        throw new Error(`Unknown artifact type: ${sanitizedInput.artifactType}`);
     }
 
     // Validate output
-    const validatedContent = this.validateArtifactContent(input.artifactType, content);
+    const validatedContent = this.validateArtifactContent(sanitizedInput.artifactType, content);
 
     // Persist artifact
-    const artifactId = await this.persistArtifact(input, validatedContent, status);
+    const artifactId = await this.persistArtifact(sanitizedInput, validatedContent, status);
 
-    logger.info(`Generated ${input.artifactType} artifact ${artifactId} for case ${input.caseId}`);
+    logger.info(`Generated ${sanitizedInput.artifactType} artifact ${artifactId} for case ${input.caseId}`);
 
     return { artifactId, content: validatedContent, status };
+  }
+
+  private sanitizeInput(input: ArtifactGenerationInput): ArtifactGenerationInput {
+    return {
+      ...input,
+      dealContext: input.dealContext
+        ? {
+            account_name: sanitizeText(input.dealContext.account_name),
+            industry: sanitizeText(input.dealContext.industry),
+            stakeholders: input.dealContext.stakeholders.map((stakeholder) => ({
+              name: sanitizeText(stakeholder.name),
+              role: sanitizeText(stakeholder.role),
+            })),
+          }
+        : undefined,
+      assumptions: input.assumptions.map((assumption) => ({
+        ...assumption,
+        name: sanitizeText(assumption.name),
+        source_type: sanitizeText(assumption.source_type),
+      })),
+      topValueDrivers: input.topValueDrivers.map((driver) => ({
+        ...driver,
+        name: sanitizeText(driver.name),
+        impact: sanitizeText(driver.impact),
+      })),
+    };
   }
 
   /**
@@ -375,7 +439,7 @@ export class ArtifactGeneratorService {
   ): Promise<string> {
     const artifactId = crypto.randomUUID();
 
-    const { error } = await supabase.from("case_artifacts").insert({
+    const { error } = await this.db.from("case_artifacts").insert({
       id: artifactId,
       tenant_id: input.tenantId,
       case_id: input.caseId,

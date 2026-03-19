@@ -9,7 +9,7 @@ describe("ArtifactGeneratorService", () => {
 
   beforeEach(() => {
     mockSupabase = createMockSupabase();
-    service = new ArtifactGeneratorService();
+    service = new ArtifactGeneratorService({ supabaseClient: mockSupabase });
     vi.clearAllMocks();
   });
 

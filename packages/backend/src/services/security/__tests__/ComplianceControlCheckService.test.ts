@@ -24,47 +24,28 @@ function buildSupabaseMock(options: { stale?: boolean } = {}) {
   const ts = options.stale ? staleTs : freshTs;
 
   const insertMock = vi.fn().mockResolvedValue({ error: null });
+  const buildTimestampQuery = (field: "timestamp" | "evidence_ts") => {
+    const chain = {
+      eq: vi.fn(() => chain),
+      in: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi.fn(() => chain),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { [field]: ts }, error: null }),
+    };
+
+    return chain;
+  };
 
   const from = vi.fn((table: string) => {
     if (table === "compliance_control_status") {
       return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({ data: { evidence_ts: ts }, error: null }),
-              }),
-            }),
-          }),
-        }),
+        select: vi.fn().mockReturnValue(buildTimestampQuery("evidence_ts")),
       };
     }
 
     if (table === "audit_logs") {
       return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              limit: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
-              }),
-            }),
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
-                }),
-              }),
-            }),
-            in: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue({
-                limit: vi.fn().mockReturnValue({
-                  maybeSingle: vi.fn().mockResolvedValue({ data: { timestamp: ts }, error: null }),
-                }),
-              }),
-            }),
-          }),
-        }),
+        select: vi.fn().mockReturnValue(buildTimestampQuery("timestamp")),
       };
     }
 

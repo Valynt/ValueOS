@@ -22,8 +22,32 @@ export const CheckpointSchema = z.object({
 });
 
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
+type DatabaseClient = Pick<typeof supabase, "from">;
+
+const UNSAFE_IDENTIFIER_PATTERNS = [
+  /['"]/,
+  /--/,
+  /;/,
+  /<[^>]+>/,
+  /\.\.[/\\]/,
+  /\$\{/,
+  /\x00/,
+  /\b(or|union|select|drop|delete|insert|update)\b/i,
+];
+
+const assertSafeIdentifier = (value: string, fieldName: string) => {
+  if (!value || UNSAFE_IDENTIFIER_PATTERNS.some((pattern) => pattern.test(value))) {
+    throw new Error(`Invalid ${fieldName}`);
+  }
+};
 
 export class CheckpointScheduler {
+  private readonly db: DatabaseClient;
+
+  constructor(dependencies: { supabaseClient?: DatabaseClient } = {}) {
+    this.db = dependencies.supabaseClient ?? supabase;
+  }
+
   async scheduleCheckpoints(params: {
     baselineId: string;
     tenantId: string;
@@ -34,6 +58,9 @@ export class CheckpointScheduler {
       timeline_months: number;
     }>;
   }): Promise<Checkpoint[]> {
+    assertSafeIdentifier(params.baselineId, "baselineId");
+    assertSafeIdentifier(params.tenantId, "tenantId");
+
     logger.info(`Scheduling checkpoints for baseline ${params.baselineId}`);
 
     const checkpoints: Checkpoint[] = [];
@@ -73,9 +100,12 @@ export class CheckpointScheduler {
     newDate: string,
     adjustedByUserId: string,
   ): Promise<void> {
+    assertSafeIdentifier(checkpointId, "checkpointId");
+    assertSafeIdentifier(tenantId, "tenantId");
+
     logger.info(`Adjusting checkpoint ${checkpointId} to ${newDate}`);
 
-    const { error } = await supabase
+    const { error } = await this.db
       .from("promise_checkpoints")
       .update({
         measurement_date: newDate,
@@ -89,7 +119,7 @@ export class CheckpointScheduler {
   }
 
   private async persistCheckpoint(checkpoint: Checkpoint, tenantId: string): Promise<void> {
-    await supabase.from("promise_checkpoints").insert({
+    await this.db.from("promise_checkpoints").insert({
       id: checkpoint.id,
       tenant_id: tenantId,
       baseline_id: checkpoint.baseline_id,

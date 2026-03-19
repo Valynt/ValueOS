@@ -9,7 +9,7 @@ describe("CheckpointScheduler", () => {
 
   beforeEach(() => {
     mockSupabase = createMockSupabase();
-    scheduler = new CheckpointScheduler();
+    scheduler = new CheckpointScheduler({ supabaseClient: mockSupabase });
     vi.clearAllMocks();
   });
 

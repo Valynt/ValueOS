@@ -74,6 +74,38 @@ const LLMImpactEstimateSchema = z.object({
 });
 
 type LLMImpactEstimate = z.infer<typeof LLMImpactEstimateSchema>;
+type DatabaseClient = Pick<typeof supabase, "from">;
+
+const UNSAFE_IDENTIFIER_PATTERNS = [
+  /['"]/,
+  /--/,
+  /;/,
+  /<[^>]+>/,
+  /\.\.[/\\]/,
+  /\$\{/,
+  /\x00/,
+  /\b(or|union|select|drop|delete|insert|update)\b/i,
+  /\b(__proto__|constructor|prototype|toString)\b/i,
+  /^\[object Object\]$/i,
+];
+
+const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+
+const assertSafeIdentifier = (value: string, fieldName: string) => {
+  if (!value || value === ZERO_UUID || UNSAFE_IDENTIFIER_PATTERNS.some((pattern) => pattern.test(value))) {
+    throw new Error(`Invalid ${fieldName}`);
+  }
+};
+
+const sanitizeFreeformText = (value: string): string =>
+  value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/javascript:/gi, " ")
+    .replace(/['"`\\;]/g, " ")
+    .replace(/--/g, " ")
+    .replace(/\b(drop|delete|insert|update|select|union|xp_|sp_)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 // ---------------------------------------------------------------------------
 // Service
@@ -81,12 +113,14 @@ type LLMImpactEstimate = z.infer<typeof LLMImpactEstimateSchema>;
 
 export class HypothesisGenerator {
   private readonly llm: LLMGateway;
+  private readonly db: DatabaseClient;
 
-  constructor(llmGateway?: LLMGateway) {
-    this.llm = llmGateway ?? new LLMGateway({
+  constructor(dependencies: { llmGateway?: LLMGateway; supabaseClient?: DatabaseClient } = {}) {
+    this.llm = dependencies.llmGateway ?? new LLMGateway({
       provider: "together",
       model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     });
+    this.db = dependencies.supabaseClient ?? supabase;
   }
 
   /**
@@ -95,6 +129,10 @@ export class HypothesisGenerator {
    * p25/p75 distributions — not from heuristic multipliers.
    */
   async generate(input: HypothesisGenerationInput): Promise<HypothesisGenerationResult> {
+    assertSafeIdentifier(input.tenantId, "tenantId");
+    assertSafeIdentifier(input.caseId, "caseId");
+    assertSafeIdentifier(input.dealContextId, "dealContextId");
+
     logger.info(`Generating value hypotheses for case ${input.caseId}`);
 
     const hypotheses: ValueHypothesis[] = [];
@@ -109,17 +147,24 @@ export class HypothesisGenerator {
         continue;
       }
 
+      const sanitizedName = sanitizeFreeformText(candidate.name);
+      const sanitizedDescription = sanitizeFreeformText(candidate.description);
+
       // Fetch benchmark distribution for plausibility grounding
       const benchmarkCheck = await this.checkBenchmarkPlausibility(
         input.tenantId,
-        candidate.name,
+        sanitizedName,
         input.industry,
         input.companySize,
       );
 
       // Use LLM to reason about impact range
       const impactEstimate = await this.estimateImpactWithLLM(
-        candidate,
+        {
+          ...candidate,
+          name: sanitizedName,
+          description: sanitizedDescription,
+        },
         input.tenantId,
         input.industry,
         input.companySize,
@@ -139,8 +184,8 @@ export class HypothesisGenerator {
         id: crypto.randomUUID(),
         tenant_id: input.tenantId,
         case_id: input.caseId,
-        value_driver: candidate.name,
-        description: candidate.description,
+        value_driver: sanitizedName || "Sanitized Value Driver",
+        description: sanitizedDescription,
         estimated_impact_min: impactEstimate.estimated_impact_min,
         estimated_impact_max: impactEstimate.estimated_impact_max,
         impact_unit: impactEstimate.impact_unit,
@@ -288,20 +333,21 @@ Respond with a JSON object matching this schema exactly:
     benchmarkId?: string;
     benchmarkRange?: { p25: number; p75: number; unit?: string } | null;
   }> {
-    const query = supabase
+    const query = this.db
       .from("benchmarks")
       .select("id, metric_name, p25, p75, unit, industry, company_size_tier")
+      .eq("tenant_id", tenantId)
       .ilike("metric_name", `%${driverName}%`)
       .limit(1);
 
     // Prefer tenant-specific benchmarks; fall back to global
-    const { data: tenantBenchmarks } = await query.eq("tenant_id", tenantId);
+    const { data: tenantBenchmarks } = await query;
     const { data: globalBenchmarks } = !tenantBenchmarks?.length
-      ? await supabase
+      ? await this.db
           .from("benchmarks")
           .select("id, metric_name, p25, p75, unit, industry, company_size_tier")
-          .ilike("metric_name", `%${driverName}%`)
           .is("tenant_id", null)
+          .ilike("metric_name", `%${driverName}%`)
           .limit(1)
       : { data: null };
 
@@ -349,7 +395,7 @@ Respond with a JSON object matching this schema exactly:
   private async persistHypotheses(hypotheses: ValueHypothesis[]): Promise<void> {
     if (hypotheses.length === 0) return;
 
-    const { error } = await supabase.from("value_hypotheses").insert(
+    const { error } = await this.db.from("value_hypotheses").insert(
       hypotheses.map((h) => ({
         id: h.id,
         tenant_id: h.tenant_id,
