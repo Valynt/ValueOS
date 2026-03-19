@@ -15,6 +15,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Compliance | RLS and DSR checks + evidence export | `ci.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
 | Release Safety | Build/deploy, staging smoke tests, SLO guard, prod smoke | `deploy.yml` | SBOM/attestation + deployment summary |
+| Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact (`reproducibility-report.md`, `reproducibility-comparison.json`, `reproducibility-allowlisted-diff.json`) |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
 ## Workflow Lifecycle
