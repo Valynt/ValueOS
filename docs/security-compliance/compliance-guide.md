@@ -1338,7 +1338,7 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 | **Right to Erasure**                | ✅ Compliant | Account deletion API implemented           |
 | **Right to Portability**            | ✅ Compliant | JSON export of all user data               |
 | **Data Processing Agreement (DPA)** | ✅ Compliant | DPA with Supabase & Together.ai            |
-| **Consent Management**              | ✅ Compliant | Cookie consent banner, opt-in analytics    |
+| **Consent Management**              | ✅ Compliant | Per-user consent checks require tenant + canonical subject (`auth_subject`) + consent type, enforced through request-scoped Supabase clients with withdrawn consents excluded |
 | **Data Breach Notification**        | ✅ Compliant | Incident response plan documented          |
 | **Privacy by Design**               | ✅ Compliant | Minimal data collection, encrypted storage |
 
@@ -1354,6 +1354,13 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 - Logs: 90 days
 - Backups: 30 days
 - Analytics: 12 months (anonymized after 6 months)
+
+**Consent audit evidence (required):**
+
+- Retain immutable evidence that every protected API decision was evaluated against the authenticated data subject, the tenant boundary, and the requested consent type.
+- Preserve `user_consents` change history for grant and withdrawal events, including the canonical subject identifier (`auth_subject`), tenant identifier, consent type, actor, timestamp, and request/trace correlation IDs.
+- Include privacy evidence artifacts showing negative-path coverage for: a different user in the same tenant, withdrawn consent, and a matching consent in the wrong tenant.
+- Review monthly privacy evidence bundles to confirm consent checks were executed through request-scoped/user-scoped Supabase clients rather than `service_role` access.
 
 ---
 

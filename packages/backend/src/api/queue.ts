@@ -8,19 +8,22 @@ import { Request, Response, Router } from 'express';
 
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/auth.js';
-import { requireConsent } from '../middleware/consentMiddleware.js'
-import { rateLimiters } from '../middleware/rateLimiter.js'
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
+import {
+  getCanonicalSubjectFromRequest,
+  requireConsent,
+} from '../middleware/consentMiddleware.js';
+import { rateLimiters } from '../middleware/rateLimiter.js';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js';
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
-import { consentRegistry } from '../services/auth/consentRegistry.js'
-import { llmQueue } from '../services/realtime/MessageQueue.js'
-import { logger } from '../utils/logger.js'
-import { sanitizeAgentInput } from '../utils/security.js'
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js';
+import { consentRegistry } from '../services/auth/consentRegistry.js';
+import { llmQueue } from '../services/realtime/MessageQueue.js';
+import { logger } from '../utils/logger.js';
+import { sanitizeAgentInput } from '../utils/security.js';
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -43,7 +46,7 @@ router.post(
   rateLimiters.standard,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent('queue.llm', consentRegistry),
+  requireConsent('queue.llm', consentRegistry, getCanonicalSubjectFromRequest),
   async (req: Request, res: Response) => {
   try {
     const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } = req.body;
@@ -205,7 +208,7 @@ router.delete(
   rateLimiters.standard,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent('queue.llm.cancel', consentRegistry),
+  requireConsent('queue.llm.cancel', consentRegistry, getCanonicalSubjectFromRequest),
   async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;

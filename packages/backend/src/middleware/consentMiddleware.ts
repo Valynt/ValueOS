@@ -1,11 +1,18 @@
 import { NextFunction, Request, RequestHandler, Response } from 'express';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
 import { consentRegistry } from '../services/auth/consentRegistry.js';
 import type { ConsentRegistry } from '../types/consent';
 
+export function getCanonicalSubjectFromRequest(req: Request): string | null {
+  const subject = req.user?.sub ?? req.user?.auth0_sub ?? req.user?.id;
+  return typeof subject === 'string' && subject.length > 0 ? subject : null;
+}
+
 export function requireConsent(
   scope: string,
-  registry: ConsentRegistry | null = consentRegistry
+  registry: ConsentRegistry | null = consentRegistry,
+  resolveSubject: (req: Request) => string | null = getCanonicalSubjectFromRequest
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!registry) {
@@ -15,7 +22,7 @@ export function requireConsent(
       });
     }
 
-    const tenantId = req.tenantId;
+    const tenantId = req.tenantId ?? req.user?.tenant_id ?? req.user?.organization_id;
     if (!tenantId) {
       return res.status(400).json({
         error: 'Bad Request',
@@ -23,11 +30,34 @@ export function requireConsent(
       });
     }
 
-    const consentGranted = await registry.hasConsent(tenantId, scope);
+    const subject = resolveSubject(req);
+    if (!subject) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'An authenticated subject is required to validate consent.',
+      });
+    }
+
+    let supabase;
+    try {
+      supabase = getRequestSupabaseClient(req);
+    } catch {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'A request-scoped authenticated client is required to validate consent.',
+      });
+    }
+
+    const consentGranted = await registry.hasConsent({
+      tenantId,
+      scope,
+      subject,
+      supabase,
+    });
     if (!consentGranted) {
       return res.status(403).json({
         error: 'Forbidden',
-        message: `Consent for scope "${scope}" is not granted for tenant ${tenantId}`
+        message: `Consent for scope "${scope}" is not granted for subject ${subject} in tenant ${tenantId}`,
       });
     }
 

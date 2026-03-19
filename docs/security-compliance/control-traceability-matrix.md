@@ -15,6 +15,7 @@ This matrix links framework controls to implementation paths, scheduled jobs, an
 |---|---|---|---|
 | Art. 30 Records of Processing | `packages/backend/src/services/security/ComplianceReportGeneratorService.ts`, `packages/backend/src/api/compliance.ts` | Automated control checks validate `control_status` + `audit_logs` evidence types | `compliance_control_audit` run snapshots and alert events |
 | Art. 32 Security of Processing | `packages/backend/src/services/security/ComplianceControlStatusService.ts`, `AuditTrailService.ts` | Scheduled sweep verifies evidence freshness budget and missing artifacts | Immutable `audit_logs` integrity chain + control-check failure events |
+| Art. 7 Consent | `packages/backend/src/services/auth/consentRegistry.ts`, `packages/backend/src/middleware/consentMiddleware.ts`, `packages/backend/src/api/llm.ts`, `packages/backend/src/api/queue.ts` | Privacy evidence bundle must run per-subject consent tests covering same-tenant mismatch, withdrawn consent, and cross-tenant denial | `user_consents` rows keyed by tenant + `auth_subject` + consent type, plus request/trace-linked privacy test artifacts |
 
 ## HIPAA
 

@@ -1,9 +1,9 @@
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
-import type { ConsentRegistry } from "../../types/consent";
+import type { ConsentCheckRequest, ConsentRegistry } from "../../types/consent";
 import { settings } from "../config/settings.js";
 
 const CONSENT_TABLE = "user_consents";
+const CONSENT_SUBJECT_COLUMN = "auth_subject";
 
 export function isConsentRegistryConfigured(): boolean {
   // Consent checks must use RLS-enforced clients (anon/user tokens), not service_role.
@@ -11,14 +11,14 @@ export function isConsentRegistryConfigured(): boolean {
   return Boolean(settings.VITE_SUPABASE_URL);
 }
 
-function createDatabaseConsentRegistry(): ConsentRegistry {
-  const supabase = createServerSupabaseClient();
+export function createDatabaseConsentRegistry(): ConsentRegistry {
   return {
-    hasConsent: async (tenantId: string, scope: string) => {
+    hasConsent: async ({ tenantId, scope, subject, supabase }: ConsentCheckRequest) => {
       const { data, error } = await supabase
         .from(CONSENT_TABLE)
         .select("id")
-        .eq("organization_id", tenantId)
+        .eq("tenant_id", tenantId)
+        .eq(CONSENT_SUBJECT_COLUMN, subject)
         .eq("consent_type", scope)
         .is("withdrawn_at", null)
         .limit(1);
@@ -27,6 +27,7 @@ function createDatabaseConsentRegistry(): ConsentRegistry {
         logger.error("Failed to check consent registry", error, {
           tenantId,
           scope,
+          subject,
         });
         return false;
       }
