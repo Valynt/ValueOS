@@ -92,6 +92,8 @@ CREATE POLICY webhook_events_service_role ON public.webhook_events
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 GRANT ALL ON public.webhook_events TO service_role;
+REVOKE ALL ON public.webhook_events FROM anon;
+REVOKE ALL ON public.webhook_events FROM authenticated;
 
 -- tenant_provisioning_requests — service_role only
 ALTER TABLE public.tenant_provisioning_requests ENABLE ROW LEVEL SECURITY;
