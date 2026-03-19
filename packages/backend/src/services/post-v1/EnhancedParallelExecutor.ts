@@ -177,6 +177,8 @@ export class EnhancedParallelExecutor implements ResourceListener {
   private currentMaxConcurrency = 10;
   private resourceScalingEnabled = true;
   private currentPlan: ParallelExecutionPlan | null = null;
+  private isRegisteredWithResourceMonitor = false;
+  private isDisposed = false;
 
   constructor(
     baseConcurrency: number = 10,
@@ -189,6 +191,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
     // Register for resource monitoring
     if (enableResourceScaling) {
       this.resourceMonitor.addListener(this);
+      this.isRegisteredWithResourceMonitor = true;
       this.resourceMonitor.startMonitoring();
     }
   }
@@ -197,7 +200,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
    * Handle resource changes for dynamic scaling
    */
   onResourceChange(resources: SystemResources): void {
-    if (!this.resourceScalingEnabled) return;
+    if (!this.resourceScalingEnabled || this.isDisposed) return;
 
     const newConcurrency = this.resourceMonitor.getOptimalConcurrency(
       this.baseMaxConcurrency
@@ -215,6 +218,27 @@ export class EnhancedParallelExecutor implements ResourceListener {
 
       this.currentMaxConcurrency = newConcurrency;
     }
+  }
+
+  /**
+   * Release resource-monitor subscriptions when the executor is no longer in use.
+   */
+  dispose(): void {
+    if (this.isDisposed) {
+      return;
+    }
+
+    if (this.isRegisteredWithResourceMonitor) {
+      this.resourceMonitor.removeListener(this);
+      this.isRegisteredWithResourceMonitor = false;
+    }
+
+    this.currentPlan = null;
+    this.isDisposed = true;
+  }
+
+  private getEffectiveConcurrency(maxConcurrency: number): number {
+    return Math.max(1, Math.min(maxConcurrency, this.currentMaxConcurrency));
   }
 
   /**
@@ -271,7 +295,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
         }
 
         // Execute runnable tasks concurrently
-        const batchResults = await this.executeRunnableTasks(
+        const batchResults = await this.executePlanRunnableTasks(
           runnableTasks,
           plan.maxConcurrency
         );
@@ -360,6 +384,8 @@ export class EnhancedParallelExecutor implements ResourceListener {
           throughput: 0,
         },
       };
+    } finally {
+      this.currentPlan = null;
     }
   }
 
@@ -371,7 +397,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
     runner: (task: RunnableTask<TPayload>) => Promise<TResult>,
     maxConcurrency: number
   ): Promise<RunnableTaskResult<TResult>[]> {
-    const concurrency = Math.min(maxConcurrency, this.currentMaxConcurrency);
+    const concurrency = this.getEffectiveConcurrency(maxConcurrency);
     const results: RunnableTaskResult<TResult>[] = [];
     const batches = this.createPriorityBatches(tasks, concurrency);
 
@@ -474,7 +500,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
     tasks: ParallelTask[],
     maxConcurrency: number
   ): Promise<TaskResult[]> {
-    const concurrency = Math.min(maxConcurrency, this.currentMaxConcurrency);
+    const concurrency = this.getEffectiveConcurrency(maxConcurrency);
     const results: TaskResult[] = [];
 
     // Create execution batches
@@ -816,13 +842,13 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute runnable tasks concurrently
    */
-   
-  private async executeRunnableTasks(
+  private async executePlanRunnableTasks(
     tasks: ParallelTask[],
     maxConcurrency: number
   ): Promise<TaskResult[]> {
+    const concurrency = this.getEffectiveConcurrency(maxConcurrency);
     const results: TaskResult[] = [];
-    const semaphore = new Semaphore(maxConcurrency);
+    const semaphore = new Semaphore(concurrency);
 
     const executePromises = tasks.map(async task => {
       await semaphore.acquire();
@@ -1016,5 +1042,6 @@ export function getEnhancedParallelExecutor(): EnhancedParallelExecutor {
 }
 
 export function resetEnhancedParallelExecutor(): void {
+  enhancedParallelExecutorInstance?.dispose();
   enhancedParallelExecutorInstance = null;
 }
