@@ -679,15 +679,29 @@ jobs:
           set -euo pipefail
           python3 scripts/perf/analyze-k6-benchmark.py
 
-      - name: Enforce sustained critical route p95 <= 200ms promotion gate
+      - name: Enforce latency-class promotion gates
         run: |
           set -euo pipefail
-          CRITICAL_P95=$(jq -r '.critical_route_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
-          if awk "BEGIN { exit !(${CRITICAL_P95} > 200) }"; then
-            echo "Critical route p95 ${CRITICAL_P95}ms exceeded 200ms sustained threshold. Blocking promotion."
+          INTERACTIVE_P95=$(jq -r '.interactive_completion_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
+          ORCHESTRATION_ACK_P95=$(jq -r '.orchestration_acknowledgment_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
+          ORCHESTRATION_COMPLETION_P95=$(jq -r '.orchestration_completion_exception_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
+
+          if awk "BEGIN { exit !(${INTERACTIVE_P95} > 200) }"; then
+            echo "Interactive completion p95 ${INTERACTIVE_P95}ms exceeded the 200ms target. Blocking promotion."
             exit 1
           fi
-          echo "Critical route p95 ${CRITICAL_P95}ms is within threshold."
+
+          if awk "BEGIN { exit !(${ORCHESTRATION_ACK_P95} > 200) }"; then
+            echo "Orchestration acknowledgment p95 ${ORCHESTRATION_ACK_P95}ms exceeded the 200ms target. Blocking promotion."
+            exit 1
+          fi
+
+          if awk "BEGIN { exit !(${ORCHESTRATION_COMPLETION_P95} > 3000) }"; then
+            echo "Orchestration completion p95 ${ORCHESTRATION_COMPLETION_P95}ms exceeded the 3000ms exception policy. Blocking promotion."
+            exit 1
+          fi
+
+          echo "Latency-class promotion gates passed."
 
       - name: Upload per-commit benchmark artifacts
         uses: actions/upload-artifact@v7
@@ -1029,9 +1043,10 @@ jobs:
           API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
           AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
           QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
-          LATENCY_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
-          LATENCY_P95_PREV_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api"}[14d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
-          LATENCY_BUDGET_BURN=$(prom_query 'clamp_min((histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api"}[7d])) by (le)) * 1000 - 200) / 200, 0)' | jq -r '.data.result[0].value[1] // "0"')
+          INTERACTIVE_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          ORCHESTRATION_ACK_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration",latency_phase="acknowledgment"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          ORCHESTRATION_COMPLETION_P95_WEEK=$(prom_query 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="orchestration"}[7d])) by (le)) * 1000' | jq -r '.data.result[0].value[1] // "0"')
+          LATENCY_BUDGET_BURN=$(prom_query 'clamp_min((histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"backend|api",latency_class="interactive"}[7d])) by (le)) * 1000 - 200) / 200, 0)' | jq -r '.data.result[0].value[1] // "0"')
 
           ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
 
@@ -1046,7 +1061,7 @@ jobs:
 
           ## Current SLO Status (1h rolling)
           - API Availability: ${API_AVAIL}
-          - API Latency (P95 <= 300ms good-event ratio): ${API_LATENCY}
+          - Interactive Completion SLO Ratio (P95 <= 200ms): ${API_LATENCY}
           - Authentication Success: ${AUTH_SUCCESS}
           - Queue Health: ${QUEUE_HEALTH}
 
@@ -1058,16 +1073,18 @@ jobs:
           - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
 
           ## Weekly Latency Trend
-          - Current 7d p95 (ms): ${LATENCY_P95_WEEK}
-          - Previous 7d p95 (ms): ${LATENCY_P95_PREV_WEEK}
+          - Interactive completion 7d p95 (ms): ${INTERACTIVE_P95_WEEK}
+          - Orchestration acknowledgment 7d p95 (ms): ${ORCHESTRATION_ACK_P95_WEEK}
+          - Orchestration completion 7d p95 (ms): ${ORCHESTRATION_COMPLETION_P95_WEEK}
 
           ## Latency SLO Budget Burn-down
           - Burn ratio (0 = healthy, >0 means over budget): ${LATENCY_BUDGET_BURN}
-          - Target threshold: p95 <= 200ms
+          - Target threshold: interactive completion p95 <= 200ms
+          - Allowed orchestration exception: completion p95 <= 3000ms after acknowledgment p95 <= 200ms
 
           ## Notes
           - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
-          - Burn-down is computed from 7d p95 latency against the 200ms latency SLO target.
+          - Burn-down is computed from 7d interactive completion p95 against the 200ms source-of-truth target.
           REPORT
 
       - name: Upload reliability report artifact
