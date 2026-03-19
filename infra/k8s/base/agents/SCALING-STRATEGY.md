@@ -122,3 +122,4 @@ cluster-specific promotion of GPU workloads.
 3. Review cold-start SLO dashboards after each scaling threshold adjustment.
 4. Reclassify agents in this document whenever workload behavior changes.
 5. Keep the worker HPA in `infra/k8s/base/worker-hpa.yaml` as the single source of truth for worker autoscaling.
+6. CI validates every autoscaling manifest under `infra/k8s/base/agents/` with `pnpm run check:agent-autoscaling`, which runs per-file `kustomize build`, duplicate-key detection, and autoscaler schema/name checks.

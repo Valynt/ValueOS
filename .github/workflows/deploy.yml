@@ -158,6 +158,9 @@ jobs:
           pnpm run check:telemetry-completeness
           pnpm run check:observability-deployment-gates
 
+      - name: Validate agent autoscaling manifests
+        run: pnpm run check:agent-autoscaling
+
 
   dast-gate:
     name: DAST Gate

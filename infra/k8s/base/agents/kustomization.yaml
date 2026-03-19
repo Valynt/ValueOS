@@ -15,10 +15,12 @@ resources:
   - rolebinding.yaml
   - prometheus-adapter-rules.yaml
   - opportunity
+  - opportunity/hpa.yaml
   - target
   - expansion
   - integrity
   - realization
+  - realization/hpa.yaml
   - company-intelligence
   - financial-modeling
   - value-mapping
