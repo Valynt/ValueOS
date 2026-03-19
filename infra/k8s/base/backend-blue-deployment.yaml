@@ -60,6 +60,8 @@ spec:
               value: "production"
             - name: API_PORT
               value: "3001"
+            - name: DATABASE_POOL_ROLE
+              value: "api"
             - name: LOG_FORMAT
               value: "json"
             - name: LOG_LEVEL
