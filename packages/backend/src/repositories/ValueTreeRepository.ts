@@ -50,6 +50,11 @@ export interface ValueTreeNodeRow {
   updated_at: string;
 }
 
+interface ValueTreeParentLink {
+  node_id: string;
+  parent_id: string;
+}
+
 // ---------------------------------------------------------------------------
 // Repository
 // ---------------------------------------------------------------------------
@@ -143,28 +148,31 @@ export class ValueTreeRepository {
 
     // Build node_key -> id map for parent resolution
     const keyToId = new Map<string, string>(
-      inserted.map((row) => [row.node_key as string, row.id as string]),
+      inserted
+        .filter((row) => typeof row.node_key === 'string' && typeof row.id === 'string')
+        .map((row) => [row.node_key as string, row.id as string]),
     );
 
-    const parentUpdates = validated
+    const parentUpdates: ValueTreeParentLink[] = validated
       .filter((n) => n.parent_node_key && keyToId.has(n.parent_node_key))
       .map((n) => ({
-        nodeId: keyToId.get(n.node_key)!,
-        parentId: keyToId.get(n.parent_node_key!)!,
+        node_id: keyToId.get(n.node_key)!,
+        parent_id: keyToId.get(n.parent_node_key!)!,
       }));
 
-    for (const { nodeId, parentId } of parentUpdates) {
-      const { error: updateError } = await supabase
-        .from('value_tree_nodes')
-        .update({ parent_id: parentId })
-        .eq('id', nodeId)
-        .eq('organization_id', organizationId);
+    if (parentUpdates.length > 0) {
+      const { error: parentUpdateError } = await supabase.rpc('bulk_update_value_tree_node_parents', {
+        p_case_id: caseId,
+        p_organization_id: organizationId,
+        p_parent_links: parentUpdates,
+      });
 
-      if (updateError) {
+      if (parentUpdateError) {
         logger.warn('ValueTreeRepository: failed to set parent_id', {
-          node_id: nodeId,
-          parent_id: parentId,
-          error: updateError.message,
+          case_id: caseId,
+          organization_id: organizationId,
+          parent_links: parentUpdates.length,
+          error: parentUpdateError.message,
         });
       }
     }
