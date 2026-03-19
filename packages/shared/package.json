@@ -27,16 +27,16 @@
       "import": "./dist/types/*.js"
     },
     "./platform": {
-      "types": "./dist/lib/platform/index.d.ts",
-      "import": "./dist/lib/platform/index.js"
+      "types": "./dist/platform/index.d.ts",
+      "import": "./dist/platform/index.js"
     },
     "./platform/browser": {
-      "types": "./dist/lib/platform/browser.d.ts",
-      "import": "./dist/lib/platform/browser.js"
+      "types": "./dist/platform/browser.d.ts",
+      "import": "./dist/platform/browser.js"
     },
     "./platform/server": {
-      "types": "./dist/lib/platform/server.d.ts",
-      "import": "./dist/lib/platform/server.js"
+      "types": "./dist/platform/server.d.ts",
+      "import": "./dist/platform/server.js"
     }
   },
   "scripts": {

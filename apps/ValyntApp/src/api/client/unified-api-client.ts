@@ -5,7 +5,7 @@
  * authentication, request/response transformation, and retry logic.
  */
 
-import { getClientConfig } from "@valueos/shared/config/client-config";
+import { getClientConfig } from "@valueos/shared/platform/browser";
 
 import { toast } from "../../components/ui/use-toast";
 import { sanitizeInput } from "../../security/InputSanitizer";

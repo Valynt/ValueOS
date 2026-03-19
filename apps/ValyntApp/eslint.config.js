@@ -105,13 +105,26 @@ const valyntAppConfig = {
       {
         patterns: [
           {
-            group: ["@valueos/backend", "@valueos/backend/*"],
+            group: ["@valueos/backend", "@valueos/backend/*", "@backend/*"],
             message: "Backend imports forbidden - use HTTP API",
+          },
+          {
+            group: ["@valueos/infra", "@valueos/infra/*", "@infra/*"],
+            message: "Infra adapters are server-only and must not ship in the browser bundle",
           },
           { group: ["@valueos/shared/lib/logger"], message: "Node-only - use local logger" },
           {
-            group: ["@valueos/shared/lib/redisClient", "@valueos/shared/lib/redisKeys"],
-            message: "Node-only",
+            group: [
+              "@valueos/shared/config/server-config",
+              "@valueos/shared/platform/server",
+              "@valueos/shared/lib/adminSupabase",
+              "@valueos/shared/lib/auth/*",
+              "@valueos/shared/lib/env",
+              "@valueos/shared/lib/redisClient",
+              "@valueos/shared/lib/redisKeys",
+              "@valueos/shared/lib/supabase"
+            ],
+            message: "Server-only or mixed-runtime shared modules are forbidden in browser code; use @valueos/shared/platform/browser or local client utilities",
           },
         ],
       },

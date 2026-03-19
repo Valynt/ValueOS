@@ -63,6 +63,9 @@ jobs:
       - name: Lint
         run: npx turbo run lint
 
+      - name: Architecture boundary policy
+        run: pnpm run check:architecture-boundaries
+
       - name: Typecheck
         run: npx turbo run typecheck
 

@@ -2,8 +2,7 @@
  * Database Configuration - Re-export from shared
  */
 
- 
-import { getDatabaseConfig } from "../../../shared/src/config/server-config";
+import { getDatabaseConfig } from "@shared/platform/server";
 
 export { getDatabaseConfig };
 
