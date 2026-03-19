@@ -1,4 +1,8 @@
-export type ComplianceFramework = "GDPR" | "HIPAA" | "CCPA" | "SOC2" | "ISO27001";
+import {
+  ALL_COMPLIANCE_FRAMEWORKS,
+  complianceFrameworkCapabilityGate,
+  type ComplianceFramework,
+} from "./ComplianceFrameworkCapabilityGate.js";
 
 /* eslint-disable security/detect-object-injection -- Typed array/object access with controlled indices */
 
@@ -152,11 +156,13 @@ const CONTROL_MAPPINGS: Record<ComplianceFramework, FrameworkControlMapping> = {
 
 export class ComplianceControlMappingRegistry {
   getFrameworkMapping(framework: ComplianceFramework): FrameworkControlMapping {
+    complianceFrameworkCapabilityGate.assertFrameworksSupported([framework]);
     return CONTROL_MAPPINGS[framework];
   }
 
   listFrameworkMappings(frameworks?: ComplianceFramework[]): FrameworkControlMapping[] {
-    const selected = frameworks ?? Object.keys(CONTROL_MAPPINGS) as ComplianceFramework[];
+    const selected = frameworks ?? complianceFrameworkCapabilityGate.getSupportedFrameworks();
+    complianceFrameworkCapabilityGate.assertFrameworksSupported(selected);
     return selected.map((framework) => this.getFrameworkMapping(framework));
   }
 
@@ -175,3 +181,4 @@ export class ComplianceControlMappingRegistry {
 }
 
 export const complianceControlMappingRegistry = new ComplianceControlMappingRegistry();
+export { ALL_COMPLIANCE_FRAMEWORKS };

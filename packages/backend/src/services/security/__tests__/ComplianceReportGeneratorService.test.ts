@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { ControlStatusRecord } from "../ComplianceControlStatusService.js";
 import {
@@ -8,6 +8,27 @@ import {
 
 interface MockInsertResult {
   data: Record<string, unknown>;
+}
+
+const HIPAA_ENV_VARS = [
+  "COMPLIANCE_MANIFEST_HMAC_KEY",
+  "HIPAA_PHI_DATA_CLASSIFICATION_ENABLED",
+  "HIPAA_DISCLOSURE_ACCOUNTING_AND_AUDIT_RETENTION_ENABLED",
+  "HIPAA_PHI_STORE_AND_BACKUP_ENCRYPTION_ENABLED",
+  "HIPAA_BREAK_GLASS_ACCESS_LOGGING_ENABLED",
+  "HIPAA_RETENTION_AND_DELETION_POLICIES_DOCUMENTED",
+] as const;
+
+function setHipaaSupport(enabled: boolean): void {
+  for (const envVar of HIPAA_ENV_VARS) {
+    if (enabled && envVar === "COMPLIANCE_MANIFEST_HMAC_KEY") {
+      process.env[envVar] = "test-manifest-key";
+    } else if (enabled) {
+      process.env[envVar] = "true";
+    } else {
+      delete process.env[envVar];
+    }
+  }
 }
 
 class MockClient {
@@ -107,7 +128,13 @@ function buildControlStatuses(): ControlStatusRecord[] {
 }
 
 describe("ComplianceReportGeneratorService", () => {
+  afterEach(() => {
+    setHipaaSupport(false);
+  });
+
   it("generates framework-specific summaries for GDPR, HIPAA, CCPA, SOC2, and ISO27001", async () => {
+    setHipaaSupport(true);
+
     const service = new ComplianceReportGeneratorService(
       new MockClient(
         {
@@ -146,6 +173,8 @@ describe("ComplianceReportGeneratorService", () => {
   });
 
   it("fails strict report generation when required evidence is missing", async () => {
+    setHipaaSupport(true);
+
     const service = new ComplianceReportGeneratorService(
       new MockClient({
         audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
@@ -166,5 +195,28 @@ describe("ComplianceReportGeneratorService", () => {
         strict: true,
       }),
     ).rejects.toBeInstanceOf(MissingEvidenceError);
+  });
+
+  it("rejects HIPAA report generation when PHI-specific prerequisites are not configured", async () => {
+    const service = new ComplianceReportGeneratorService(
+      new MockClient({
+        audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
+      }) as never,
+      {
+        getLatestControlStatus: async () => buildControlStatuses(),
+      },
+    );
+
+    await expect(() =>
+      service.generateReport({
+        tenantId: "tenant-a",
+        frameworks: ["HIPAA"],
+        startAt: "2026-01-01T00:00:00.000Z",
+        endAt: "2026-01-02T00:00:00.000Z",
+        generatedBy: "user-1",
+        mode: "scheduled",
+        strict: true,
+      }),
+    ).rejects.toThrow(/unsupported compliance frameworks requested: HIPAA/i);
   });
 });

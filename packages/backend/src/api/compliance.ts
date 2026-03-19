@@ -11,12 +11,22 @@ import { complianceReportGeneratorService, MissingEvidenceError } from "../servi
 import { auditLogService } from "../services/security/AuditLogService.js";
 import { complianceControlCheckService } from "../services/security/ComplianceControlCheckService.js";
 import { complianceControlMappingRegistry } from "../services/security/ComplianceControlMappingRegistry.js";
+import {
+  ALL_COMPLIANCE_FRAMEWORKS,
+  complianceFrameworkCapabilityGate,
+  UnsupportedComplianceFrameworkError,
+} from "../services/security/ComplianceFrameworkCapabilityGate.js";
 
 const router = createSecureRouter("strict");
 
 router.use(requireAuth, tenantContextMiddleware(), tenantDbContextMiddleware());
 
-const complianceFrameworkSchema = z.enum(["GDPR", "HIPAA", "CCPA", "SOC2", "ISO27001"]);
+const complianceFrameworkSchema = z
+  .string()
+  .refine(
+    (value): value is typeof ALL_COMPLIANCE_FRAMEWORKS[number] => complianceFrameworkCapabilityGate.isSupportedFramework(value),
+    { message: "Unsupported compliance framework" },
+  );
 
 const generateReportSchema = z.object({
   frameworks: z.array(complianceFrameworkSchema).min(1),
@@ -93,6 +103,13 @@ router.post("/reports/generate", requirePermission("users.read"), async (req: Re
       generated_at: report.generated_at,
     });
   } catch (error) {
+    if (error instanceof UnsupportedComplianceFrameworkError) {
+      return res.status(422).json({
+        error: error.message,
+        unsupported_frameworks: error.unsupportedFrameworks,
+        capability_status: error.capabilityStatus,
+      });
+    }
     if (error instanceof MissingEvidenceError) {
       return res.status(422).json({ error: error.message, missing_evidence: error.missingEvidence });
     }
@@ -155,6 +172,13 @@ router.post("/reports/scheduled", requirePermission("users.read"), async (req: R
       signature: report.signature,
     });
   } catch (error) {
+    if (error instanceof UnsupportedComplianceFrameworkError) {
+      return res.status(422).json({
+        error: error.message,
+        unsupported_frameworks: error.unsupportedFrameworks,
+        capability_status: error.capabilityStatus,
+      });
+    }
     if (error instanceof MissingEvidenceError) {
       return res.status(422).json({ error: error.message, missing_evidence: error.missingEvidence });
     }
@@ -289,6 +313,7 @@ router.get("/retention", requirePermission("users.read"), (req: Request, res: Re
 
   return res.json({
     rules: complianceControlMappingRegistry.getRetentionSummary(frameworks),
+    supported_frameworks: complianceFrameworkCapabilityGate.getSupportedFrameworks(),
   });
 });
 
@@ -309,7 +334,9 @@ router.get("/mode", requirePermission("users.read"), async (req: Request, res: R
 
   return res.json({
     tenant_id: tenantId,
-    active_modes: ["SOC2", "GDPR"],
+    active_modes: complianceFrameworkCapabilityGate.getSupportedFrameworks().filter((framework) =>
+      ["SOC2", "GDPR"].includes(framework),
+    ),
     strict_enforcement: true,
     last_changed_at: new Date().toISOString(),
   });

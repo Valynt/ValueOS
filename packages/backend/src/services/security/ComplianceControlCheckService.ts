@@ -7,6 +7,7 @@ import {
   type ComplianceFramework,
   type EvidenceType,
 } from "./ComplianceControlMappingRegistry.js";
+import { complianceFrameworkCapabilityGate } from "./ComplianceFrameworkCapabilityGate.js";
 
 
 export type AutomatedControlCheckStatus = "pass" | "fail";
@@ -127,7 +128,11 @@ export class ComplianceControlCheckService {
   async runChecksForTenant(tenantId: string, trigger: "scheduled" | "manual" = "scheduled"): Promise<AutomatedControlCheckSnapshot> {
     const checkedAt = new Date().toISOString();
     const controls = complianceControlMappingRegistry
-      .listFrameworkMappings(["SOC2", "GDPR", "HIPAA"])
+      .listFrameworkMappings(
+        complianceFrameworkCapabilityGate.getSupportedFrameworks().filter(
+          (framework): framework is ComplianceFramework => ["SOC2", "GDPR", "HIPAA"].includes(framework),
+        ),
+      )
       .flatMap((mapping) =>
         mapping.controls.flatMap((control) =>
           control.required_evidence_types.map((evidenceType) => ({
