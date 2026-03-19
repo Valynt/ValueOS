@@ -66,6 +66,7 @@ const inlineProjects = {
       name: "sdui",
       globals: true,
       environment: "jsdom",
+      setupFiles: ["./packages/sdui/src/__tests__/setup.ts"],
       include: ["packages/sdui/src/**/*.{test,spec}.{ts,tsx}"],
       exclude: ["**/node_modules/**", "**/dist/**", "**/*.pure-unit.test.*"],
     },
@@ -111,7 +112,11 @@ const projectDefinitions = {
 const shippedEntries = Object.entries(packagePolicy.packages)
   .filter(([, packageEntry]) => packageEntry.shipped)
   .sort(([left], [right]) => left.localeCompare(right));
-const coveredProjects = shippedEntries.filter(([, packageEntry]) => packageEntry.ci.rootVitest.status === "covered");
+
+const coveredProjects = shippedEntries.filter(
+  ([, packageEntry]) => packageEntry.ci.rootVitest.status === "covered",
+);
+
 const missingProjectDefinitions = coveredProjects
   .map(([packagePath]) => packagePath)
   .filter((packagePath) => !(packagePath in projectDefinitions));
@@ -122,9 +127,18 @@ if (missingProjectDefinitions.length > 0) {
   );
 }
 
-const excludedShippedPackages = shippedEntries.filter(([, packageEntry]) => packageEntry.ci.rootVitest.status === "excluded");
-if (excludedShippedPackages.some(([, packageEntry]) => packageEntry.ci.rootVitest.justification.trim().length === 0)) {
-  throw new Error("Shipped packages excluded from root Vitest must include a justification in workspace-package-policy.json.");
+const excludedShippedPackages = shippedEntries.filter(
+  ([, packageEntry]) => packageEntry.ci.rootVitest.status === "excluded",
+);
+
+if (
+  excludedShippedPackages.some(
+    ([, packageEntry]) => packageEntry.ci.rootVitest.justification.trim().length === 0,
+  )
+) {
+  throw new Error(
+    "Shipped packages excluded from root Vitest must include a justification in workspace-package-policy.json.",
+  );
 }
 
 /**
@@ -138,7 +152,11 @@ if (excludedShippedPackages.some(([, packageEntry]) => packageEntry.ci.rootVites
  * commands or configs, but the default workspace run must stay unit-only.
  */
 const explicitProjects = Array.from(
-  new Set(coveredProjects.map(([packagePath]) => projectDefinitions[packagePath as keyof typeof projectDefinitions])),
+  new Set(
+    coveredProjects.map(
+      ([packagePath]) => projectDefinitions[packagePath as keyof typeof projectDefinitions],
+    ),
+  ),
 );
 
 export default defineConfig({

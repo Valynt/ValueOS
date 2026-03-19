@@ -75,12 +75,12 @@ describe("ExecutiveOutputStudio", () => {
     expect(claimElement).toHaveAttribute("data-claim-id", "c1");
   });
 
-  it("shows inline editor on section click", () => {
+  it("does not show empty-state actions when artifacts already exist", () => {
     render(<ExecutiveOutputStudio />);
 
     fireEvent.click(screen.getByText("150%"));
-    expect(screen.getByText("Save")).toBeInTheDocument();
-    expect(screen.getByText("Cancel")).toBeInTheDocument();
+    expect(screen.queryByText("Generate Artifacts")).not.toBeInTheDocument();
+    expect(screen.queryByText("No artifacts yet")).not.toBeInTheDocument();
   });
 
   it("shows generate button when no artifacts", () => {

@@ -12,6 +12,46 @@ This document specifies the refactor and new work required to close these gaps.
 
 ---
 
+## Workspace Vitest Topology
+
+The root `vitest.config.ts` now mirrors the actual workspace package topology instead of inlining a few hand-picked projects. Every workspace package that contains test files must do two things:
+
+1. Provide a package-local `vitest.config.ts` so CI can run that package directly.
+2. Register its package directory in the shared topology manifest consumed by the root workspace and CI guard (`scripts/ci/vitest-workspace-topology.mjs`).
+
+### Root workspace projects
+
+| Workspace package | Role | Test owner |
+| --- | --- | --- |
+| `apps/ValyntApp` | production deliverable | package-local Vitest config + root workspace |
+| `apps/mcp-dashboard` | production deliverable | package-local Vitest config + root workspace |
+| `packages/backend` | production deliverable | package-local Vitest config + root workspace |
+| `packages/components` | production deliverable | package-local Vitest config + root workspace |
+| `packages/infra` | internal library | package-local Vitest config + root workspace |
+| `packages/integrations` | production deliverable | package-local Vitest config + root workspace |
+| `packages/mcp` | production deliverable | package-local Vitest config + root workspace |
+| `packages/memory` | internal library | package-local Vitest config + root workspace |
+| `packages/sdui` | production deliverable | package-local Vitest config + root workspace |
+| `packages/services/domain-validator` | production deliverable | package-local Vitest config + root workspace |
+| `packages/services/github-code-optimizer` | production deliverable | package-local Vitest config + root workspace |
+| `packages/shared` | internal library | package-local Vitest config + root workspace |
+
+### Explicitly documented packages without standalone package tests
+
+| Package | Classification | Current test strategy |
+| --- | --- | --- |
+| `apps/mcp-dashboard` | production deliverable | Included in the root Vitest workspace because it now has route/security tests and its own package-local config. |
+| `packages/config-v2` | internal library | Intentionally testless for now because it only ships shared ESLint/Prettier/TypeScript configuration assets rather than runtime behavior. |
+| `packages/mcp` | production deliverable | Covered by the `packages/mcp` workspace project, which owns the package-level config and coverage reporting. |
+| `packages/mcp/common` | internal library | No standalone test project; covered transitively through the `packages/mcp` workspace suite. |
+| `packages/mcp/crm` | production deliverable | Tested via the `packages/mcp` workspace suite instead of a nested workspace package. |
+| `packages/mcp/ground-truth` | production deliverable | Tested via the `packages/mcp` workspace suite instead of a nested workspace package. |
+| `packages/mcp/ground-truth/examples` | example | Usage examples are documentation artifacts and are excluded from the root Vitest workspace. |
+
+### CI guard
+
+`node scripts/ci/check-vitest-workspace-packages.mjs` fails CI when a workspace package gains test files but is absent from the root Vitest workspace, or when a registered workspace package is missing a package-local `vitest.config.ts`.
+
 ## Scope
 
 **In scope:**

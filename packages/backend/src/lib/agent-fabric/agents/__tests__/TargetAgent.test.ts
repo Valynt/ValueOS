@@ -413,7 +413,7 @@ describe("TargetAgent", () => {
         expect.objectContaining({
           agent_id: "opportunity",
           organization_id: "org-456",
-          workspace_id: "ws-123",
+          memory_type: "semantic",
         }),
       );
     });

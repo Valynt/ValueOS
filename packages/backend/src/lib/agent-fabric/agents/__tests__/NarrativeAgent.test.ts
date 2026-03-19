@@ -142,8 +142,8 @@ describe("NarrativeAgent", () => {
 
   it("has correct identity fields", () => {
     expect(agent.lifecycleStage).toBe("narrative");
-    expect(agent.version).toBe("1.0.0");
-    expect(agent.name).toBe("NarrativeAgent");
+    expect(agent.version).toBe("2.0.0");
+    expect(agent.name).toBe("narrative");
   });
 
   function llmResponse(payload: unknown) {
@@ -197,10 +197,13 @@ describe("NarrativeAgent", () => {
 
       expect(mockStoreSemanticMemory).toHaveBeenCalledWith(
         "ws-123",
-        "NarrativeAgent",
+        "narrative",
         "episodic",
-        expect.any(String),
-        expect.objectContaining({ organization_id: "org-456" }),
+        expect.stringContaining('"executive_summary"'),
+        expect.objectContaining({
+          organization_id: "org-456",
+          lifecycle_stage: "narrative",
+        }),
         "org-456",
       );
     });

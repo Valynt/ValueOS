@@ -448,8 +448,8 @@ The ValueOS platform has strong foundational security and CI controls but carrie
 3. Document results in `docs/operations/launch-evidence/accessibility-report.md`.
 
 **Acceptance criteria:**
-- [ ] Zero WCAG 2.1 AA violations in axe scan of critical user flows.
-- [ ] Zero missing i18n keys.
+- [ ] Zero WCAG 2.2 AA critical violations in axe scan of critical user flows, with severity budgets enforced by CI.
+- [ ] Zero missing i18n keys for shipped locales (`en`, `es`).
 
 ---
 

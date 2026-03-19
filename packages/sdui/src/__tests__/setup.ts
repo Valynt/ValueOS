@@ -4,6 +4,8 @@
  * Mocks and configuration for SDUI tests
  */
 
+import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
 import { beforeEach, vi } from "vitest";
 
 // Mock DOMPurify for security tests
@@ -53,5 +55,6 @@ vi.mock("dompurify", () => {
 
 // Reset mocks before each test
 beforeEach(() => {
+  cleanup();
   vi.clearAllMocks();
 });

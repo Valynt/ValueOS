@@ -53,7 +53,7 @@ describe("Integration: Inline Edit with Audit Trail", () => {
     );
 
     const content = screen.getByText(mockContent).closest("div");
-    expect(content?.className).toContain("modified");
+    expect(content?.className).toContain("bg-yellow-50");
   });
 
   it("reverts without logging on cancel", () => {

@@ -152,6 +152,10 @@ export class PlaygroundSessionService {
 
     let orgId = organizationId;
     if (!orgId) {
+      orgId = await this.client.get(REDIS_KEYS.sessionOrganization(sessionId)) ?? undefined;
+    }
+
+    if (!orgId) {
       try {
         const { data, error } = await supabase
           .from('agent_sessions')
@@ -240,12 +244,14 @@ export class PlaygroundSessionService {
 
     const key = REDIS_KEYS.session(session.sessionId, session.organizationId);
     const data = JSON.stringify(session);
+    const organizationLookupKey = REDIS_KEYS.sessionOrganization(session.sessionId);
 
     // Calculate TTL
     const expiresAt = new Date(session.metadata.expiresAt);
     const ttl = Math.max(Math.floor((expiresAt.getTime() - Date.now()) / 1000), 60);
 
     await this.client.setex(key, ttl, data);
+    await this.client.setex(organizationLookupKey, ttl, session.organizationId);
   }
 
   /**
@@ -628,7 +634,7 @@ export class PlaygroundSessionService {
   async listUserSessions(userId: string): Promise<string[]> {
     await this.ensureConnected();
 
-    // orgId not known here; use public namespace if none
+    // Store and read from the public namespace so callers do not need to know the org in advance.
     const key = REDIS_KEYS.userSessions(userId, undefined);
     return this.client.smembers(key);
   }
@@ -648,6 +654,16 @@ export class PlaygroundSessionService {
    */
   private async addToIndexes(session: PlaygroundSession): Promise<void> {
     const pipeline = this.client.multi();
+
+    // Public lookup for session bootstrap operations.
+    pipeline.setex(
+      REDIS_KEYS.sessionOrganization(session.sessionId),
+      this.config.ttl,
+      session.organizationId,
+    );
+
+    // Public user sessions index
+    pipeline.sadd(REDIS_KEYS.userSessions(session.userId, undefined), session.sessionId);
 
     // User sessions index
     pipeline.sadd(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
@@ -669,6 +685,8 @@ export class PlaygroundSessionService {
   private async removeFromIndexes(session: PlaygroundSession): Promise<void> {
     const pipeline = this.client.multi();
 
+    pipeline.del(REDIS_KEYS.sessionOrganization(session.sessionId));
+    pipeline.srem(REDIS_KEYS.userSessions(session.userId, undefined), session.sessionId);
     pipeline.srem(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
     pipeline.srem(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
 

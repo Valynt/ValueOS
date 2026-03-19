@@ -227,6 +227,6 @@ Track quality weekly and review at release readiness.
 
 ### Operational cadence
 
-1. CI publishes scorecard artifacts (`accessibility-trend`, `i18n-coverage-dashboard`).
-2. Release pipeline enforces stricter localization threshold.
+1. CI publishes scorecard artifacts for the WCAG 2.2 AA gate and the shipped locale set (`en`, `es`) (`accessibility-trend`, `i18n-coverage-dashboard`).
+2. Release pipeline enforces the stricter localization threshold for shipped locales and separately reports pseudo-localization QA readiness.
 3. Any metric crossing regression thresholds blocks merge/release until resolved.
