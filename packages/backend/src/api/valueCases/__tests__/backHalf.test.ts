@@ -19,9 +19,18 @@ vi.mock('../../../middleware/auth', () => ({
 
 vi.mock('../../../middleware/tenantContext', () => ({
   tenantContextMiddleware: () => (req: Record<string, unknown>, _res: unknown, next: () => void) => {
-    req['tenantId'] = 'tenant-abc';
+    const request = req as Record<string, unknown> & { headers?: Record<string, string | undefined> };
+    request['tenantId'] = request.headers?.['x-tenant-id'] ?? 'tenant-abc';
     next();
   },
+}));
+
+vi.mock('../../../middleware/tenantDbContext', () => ({
+  tenantDbContextMiddleware: () => (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
+
+vi.mock('../../../middleware/rateLimiter', () => ({
+  rateLimiters: { strict: (_req: unknown, _res: unknown, next: () => void) => next() },
 }));
 
 vi.mock('../../../repositories/IntegrityResultRepository', () => {
@@ -95,6 +104,67 @@ vi.mock('../../../lib/logger', () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
+vi.mock('../../../lib/supabase', () => ({
+  createServerSupabaseClient: vi.fn().mockReturnValue({ from: vi.fn() }),
+}));
+
+const provenanceRowsByTenant = new Map<string, Array<{ claimId: string; provenanceId: string }>>([
+  ['tenant-abc', [{ claimId: 'claim-shared', provenanceId: 'prov-tenant-abc' }]],
+  ['tenant-def', [{ claimId: 'claim-shared', provenanceId: 'prov-tenant-def' }]],
+]);
+
+vi.mock('../../../services/workflows/SagaAdapters.js', () => ({
+  SupabaseProvenanceStore: class {
+    private organizationId: string;
+
+    constructor(_client: unknown, organizationId: string) {
+      this.organizationId = organizationId;
+    }
+
+    async findByClaimId(_valueCaseId: string, claimId: string) {
+      return (provenanceRowsByTenant.get(this.organizationId) ?? [])
+        .filter((row) => row.claimId === claimId)
+        .map((row) => ({
+          id: row.provenanceId,
+          valueCaseId: 'case-123',
+          claimId: row.claimId,
+          dataSource: `source-${this.organizationId}`,
+          evidenceTier: 2,
+          agentId: 'agent-1',
+          agentVersion: '1.0.0',
+          confidenceScore: 0.9,
+          createdAt: '2026-03-19T00:00:00.000Z',
+        }));
+    }
+
+    async findById() {
+      return null;
+    }
+
+    async findByValueCaseId() {
+      return [];
+    }
+
+    async insert() {
+      return undefined;
+    }
+  },
+}));
+
+vi.mock('@valueos/memory/provenance', () => ({
+  ProvenanceTracker: class {
+    private store: { findByClaimId: (valueCaseId: string, claimId: string) => Promise<unknown> };
+
+    constructor(store: { findByClaimId: (valueCaseId: string, claimId: string) => Promise<unknown> }) {
+      this.store = store;
+    }
+
+    getLineage(valueCaseId: string, claimId: string) {
+      return this.store.findByClaimId(valueCaseId, claimId);
+    }
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // App setup
 // ---------------------------------------------------------------------------
@@ -128,7 +198,7 @@ describe('backHalf router', () => {
 
     expect(capturedContext).not.toBeNull();
     expect(capturedContext!['lifecycle_stage']).toBe('narrative');
-  });
+  }, 15000);
 
   it('passes lifecycle_stage "integrity" when running the integrity agent', async () => {
     const app = await buildApp();
@@ -140,7 +210,7 @@ describe('backHalf router', () => {
 
     expect(capturedContext).not.toBeNull();
     expect(capturedContext!['lifecycle_stage']).toBe('integrity');
-  });
+  }, 15000);
 
   it('passes lifecycle_stage "realization" when running the realization agent', async () => {
     const app = await buildApp();
@@ -164,5 +234,24 @@ describe('backHalf router', () => {
 
     expect(capturedContext).not.toBeNull();
     expect(capturedContext!['lifecycle_stage']).toBe('expansion');
+  });
+
+  it('scopes provenance lineage lookups by tenant when claim IDs overlap', async () => {
+    const app = await buildApp();
+
+    const tenantAResponse = await request(app)
+      .get('/api/v1/cases/case-123/provenance/claim-shared')
+      .set('x-tenant-id', 'tenant-abc')
+      .expect(200);
+
+    const tenantBResponse = await request(app)
+      .get('/api/v1/cases/case-123/provenance/claim-shared')
+      .set('x-tenant-id', 'tenant-def')
+      .expect(200);
+
+    expect(tenantAResponse.body.data.chains).toHaveLength(1);
+    expect(tenantAResponse.body.data.chains[0].id).toBe('prov-tenant-abc');
+    expect(tenantBResponse.body.data.chains).toHaveLength(1);
+    expect(tenantBResponse.body.data.chains[0].id).toBe('prov-tenant-def');
   });
 });

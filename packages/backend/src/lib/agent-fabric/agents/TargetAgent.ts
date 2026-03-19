@@ -115,14 +115,18 @@ interface CausalTrace {
 // Module-level singleton — avoids constructing a new Supabase client per agent run.
 // Per ADR-0011: use module-level singletons for infrastructure dependencies that
 // cannot be injected via LifecycleContext without a type-breaking change.
-let _provenanceTracker: ProvenanceTracker | null = null;
-function getProvenanceTracker(): ProvenanceTracker {
-  if (!_provenanceTracker) {
-    const client = createServerSupabaseClient();
-    const store = new SupabaseProvenanceStore(client);
-    _provenanceTracker = new ProvenanceTracker(store);
+const provenanceTrackersByTenant = new Map<string, ProvenanceTracker>();
+function getProvenanceTracker(organizationId: string): ProvenanceTracker {
+  const existingTracker = provenanceTrackersByTenant.get(organizationId);
+  if (existingTracker) {
+    return existingTracker;
   }
-  return _provenanceTracker;
+
+  const client = createServerSupabaseClient();
+  const store = new SupabaseProvenanceStore(client, organizationId);
+  const tracker = new ProvenanceTracker(store);
+  provenanceTrackersByTenant.set(organizationId, tracker);
+  return tracker;
 }
 
 export class TargetAgent extends BaseAgent {
@@ -675,7 +679,7 @@ export class TargetAgent extends BaseAgent {
 
       // Record provenance for each node so downstream agents and the UI can
       // trace every value tree entry back to the TargetAgent run that produced it.
-      const tracker = getProvenanceTracker();
+      const tracker = getProvenanceTracker(organizationId);
       const provenanceResults = await Promise.allSettled(
         nodes.map((node) =>
           tracker.record({
