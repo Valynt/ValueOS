@@ -51,11 +51,14 @@ function extractRelativeImports(filePath: string): string[] {
 
 function resolveImport(importPath: string, fromFile: string): boolean {
   const dir = path.dirname(fromFile);
+  // TypeScript ESM convention: imports use .js extensions but source files are .ts
+  const tsPath = importPath.endsWith(".js") ? importPath.slice(0, -3) + ".ts" : null;
   const candidates = [
     path.resolve(dir, importPath + ".ts"),
     path.resolve(dir, importPath + ".js"),
     path.resolve(dir, importPath, "index.ts"),
     path.resolve(dir, importPath, "index.js"),
+    ...(tsPath ? [path.resolve(dir, tsPath), path.resolve(dir, tsPath.slice(0, -3), "index.ts")] : []),
   ];
 
   return candidates.some((candidate) => fs.existsSync(candidate));

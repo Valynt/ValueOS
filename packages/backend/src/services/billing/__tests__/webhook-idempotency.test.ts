@@ -5,9 +5,47 @@
  * webhook events are handled correctly without causing data corruption.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// vi.hoisted ensures this state is available inside the vi.mock factory below.
+const _db = vi.hoisted(() => ({ processedIds: new Set<string>() }));
+
+vi.mock('../../lib/supabase.js', () => ({
+  supabase: {
+    from: vi.fn().mockImplementation(() => ({
+      upsert: vi.fn().mockImplementation((data: Record<string, unknown>) => {
+        const eventId = data?.stripe_event_id as string | undefined;
+        const isNew = !!eventId && !_db.processedIds.has(eventId);
+        if (isNew) _db.processedIds.add(eventId!);
+        return {
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: isNew ? { id: 'row-1', processed: false } : null,
+              error: null,
+            }),
+          }),
+        };
+      }),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        }),
+      }),
+    })),
+  },
+}));
+
+vi.mock('../../lib/logger.js', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+vi.mock('../../services/monitoring/MetricsCollector.js', () => ({
+  recordStripeWebhook: vi.fn(),
+  recordBillingJobFailure: vi.fn(),
+}));
 
 import { WebhookService } from '../WebhookService.js';
+
 
 // Mock Stripe webhook data
 const mockInvoiceWebhook = {
@@ -39,11 +77,11 @@ const mockInvoiceWebhook = {
 
 describe('Webhook Idempotency Validation', () => {
   beforeEach(async () => {
-    // Setup test environment
+    _db.processedIds.clear();
   });
 
   afterEach(async () => {
-    // Cleanup
+    _db.processedIds.clear();
   });
 
   describe('Event Deduplication', () => {

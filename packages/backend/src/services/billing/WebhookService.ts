@@ -23,7 +23,7 @@ import StripeService from "./StripeService.js"
 
 const logger = createLogger({ component: "WebhookService" });
 
-class WebhookService {
+export class WebhookService {
   private stripe: Stripe | null;
 
   /**
@@ -133,6 +133,38 @@ class WebhookService {
       logger.error("Webhook signature verification failed", error instanceof Error ? error : undefined);
       throw new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /**
+   * Process webhook event with idempotency result.
+   * Returns isDuplicate: true if the event was already processed.
+   */
+  async processWebhook(event: Stripe.Event): Promise<{ isDuplicate: boolean; processed: boolean }> {
+    if (!supabase) {
+      throw new Error("Supabase billing not configured");
+    }
+
+    const { data: inserted } = await supabase
+      .from("webhook_events")
+      .upsert(
+        {
+          stripe_event_id: event.id,
+          event_type: event.type,
+          payload: event,
+          processed: false,
+          received_at: new Date().toISOString(),
+        },
+        { onConflict: "stripe_event_id", ignoreDuplicates: true }
+      )
+      .select("id, processed")
+      .single();
+
+    if (!inserted || inserted.processed) {
+      return { isDuplicate: true, processed: true };
+    }
+
+    await this.processEvent(event);
+    return { isDuplicate: false, processed: true };
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
  * Document Parser Service
- * 
+ *
  * Client-side service for parsing documents via edge function
  * and extracting insights via LLM.
  */
@@ -47,7 +47,7 @@ export interface ExtractedInsights {
 // Document Parser Service
 // ============================================================================
 
-class DocumentParserService {
+export class DocumentParserService {
   private llm: LLMGateway;
   private functionUrl: string;
 
@@ -77,11 +77,11 @@ class DocumentParserService {
     // For PDFs and DOCX, use edge function
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const formData = new FormData();
       formData.append('file', file);
 
-       
+
       const response = await fetch(this.functionUrl, {
         method: 'POST',
         headers: session ? {
@@ -96,7 +96,7 @@ class DocumentParserService {
       }
 
       const result: unknown = await response.json();
-      
+
       if (
         typeof result !== 'object' ||
         result === null ||
@@ -115,7 +115,7 @@ class DocumentParserService {
       };
     } catch (error: unknown) {
       logger.error('Document parse error', error instanceof Error ? error : undefined);
-      
+
       // Fallback: try basic text extraction
       return this.fallbackParse(file);
     }
@@ -148,7 +148,7 @@ class DocumentParserService {
       return this.parseInsightsResponse(response.content);
     } catch (error: unknown) {
       logger.error('LLM extraction error', error instanceof Error ? error : undefined);
-      
+
       // Fallback to basic extraction
       return this.basicExtraction(text);
     }
@@ -170,7 +170,7 @@ class DocumentParserService {
     } : undefined;
 
     const insights = await this.extractInsights(document.text, document.metadata.fileName, taskContext);
-    
+
     return { document, insights };
   }
 
@@ -192,14 +192,14 @@ class DocumentParserService {
       const arrayBuffer = await file.arrayBuffer();
       const decoder = new TextDecoder('utf-8', { fatal: false });
       let text = decoder.decode(arrayBuffer);
-      
+
       // Clean up
       // eslint-disable-next-line no-control-regex -- intentional control character handling
       text = text.replace(/\x00/g, '').trim();
-      
+
       // Check if readable
       const readableRatio = (text.match(/[a-zA-Z]/g) || []).length / Math.max(text.length, 1);
-      
+
       if (readableRatio < 0.2) {
         return {
           text: `[Unable to extract text from ${file.name}]\n\nPlease paste the content directly for best results.`,
@@ -225,7 +225,7 @@ class DocumentParserService {
 
   private buildExtractionPrompt(text: string, fileName?: string): string {
     // Truncate if too long (keep first 8000 chars)
-    const truncatedText = text.length > 8000 
+    const truncatedText = text.length > 8000
       ? text.slice(0, 8000) + '\n\n[Content truncated...]'
       : text;
 
@@ -300,7 +300,7 @@ class DocumentParserService {
     }
 
     insights.summary = insights.summary.trim();
-    
+
     // If no summary was found, use first few sentences of content
     if (!insights.summary) {
       const sentences = content.split(/[.!?]+/).slice(0, 3);
@@ -312,7 +312,7 @@ class DocumentParserService {
 
   private basicExtraction(text: string): ExtractedInsights {
     const lines = text.split('\n').filter(l => l.trim());
-    
+
     const painPoints: string[] = [];
     const stakeholders: Array<{ name: string; role?: string }> = [];
     const opportunities: string[] = [];
@@ -321,7 +321,7 @@ class DocumentParserService {
     for (const line of lines) {
       const lower = line.toLowerCase();
       const trimmed = line.trim();
-      
+
       if (lower.includes('pain') || lower.includes('challenge') || lower.includes('problem')) {
         painPoints.push(trimmed);
       }

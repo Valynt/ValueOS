@@ -663,6 +663,9 @@ export class MultiTenantSecretsManager {
 // Export singleton instance
 export const multiTenantSecretsManager = new MultiTenantSecretsManager();
 
+/** @deprecated Use MultiTenantSecretsManager directly */
+export { MultiTenantSecretsManager as SecretsManager };
+
 /**
  * Initialize secrets for a tenant on application startup
  */
