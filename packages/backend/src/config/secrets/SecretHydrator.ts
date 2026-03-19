@@ -27,6 +27,12 @@ const SECRET_KEY_MAPPING: Record<string, string> = {
     getEnvVar('STRIPE_SECRET_KEY_SECRET_NAME') || 'stripe-secret-key',
   STRIPE_WEBHOOK_SECRET:
     getEnvVar('STRIPE_WEBHOOK_SECRET_SECRET_NAME') || 'stripe-webhook-secret',
+  WEB_SCRAPER_ENCRYPTION_KEY:
+    getEnvVar('WEB_SCRAPER_ENCRYPTION_KEY_SECRET_NAME') || 'web-scraper-encryption-key',
+  TCT_SECRET:
+    getEnvVar('TCT_SECRET_SECRET_NAME') || 'tct-secret',
+  SUPABASE_KEY:
+    getEnvVar('SUPABASE_KEY_SECRET_NAME') || 'supabase-key',
   SENTRY_DSN: getEnvVar('SENTRY_DSN_SECRET_NAME') || 'sentry-dsn',
 };
 
