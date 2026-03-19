@@ -1,6 +1,6 @@
 # Security & Compliance Evidence Index
 
-This index maps key SOC2/GDPR controls to automated evidence produced in CI. It is designed for auditor traceability from control → workflow run ID → artifact report → migration provenance.
+This index maps key SOC 2, GDPR, ISO 27001, and FedRAMP-aligned controls to automated evidence produced in CI. It is designed for auditor traceability from control → workflow run ID → artifact report → migration provenance.
 
 ## How to use this index
 
@@ -18,6 +18,19 @@ This index maps key SOC2/GDPR controls to automated evidence produced in CI. It 
 | GDPR | Article 15/17 (access + erasure DSR workflow) | `tests/compliance/dsr-workflow.test.ts` | `reports/compliance/dsr/vitest-dsr.junit.xml`, `reports/compliance/dsr/vitest-dsr.json` | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/20260331000000_p1_missing_tables.sql` (sessions, messages, agent_audit_logs — GDPR Art.17 gap resolution), `infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql` |
 | ISO 27001 | A.12.4 Event logging and monitoring | `tests/compliance/audit/audit-log-immutability.test.ts` | Same as audit artifacts above | `${GITHUB_RUN_ID}` from CI run summary | `infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql` |
 | SOC2 / ISO 27001 | Secrets rotation confirmed | `scripts/security/verify-secret-rotation.mjs` against AWS Secrets Manager + Vault metadata | `secret-rotation-evidence-<environment>-<GITHUB_RUN_ID>` artifact containing `artifacts/security/secret-rotation/<environment>-run-<run-id>-attempt-<attempt>.json` and `verify-secret-rotation-<environment>-run-<run-id>-attempt-<attempt>.txt` | `${GITHUB_RUN_ID}` from `.github/workflows/secret-rotation-verification.yml` or `.github/workflows/deploy.yml` (`secret-rotation-gate`) | Operational evidence from AWS Secrets Manager / Vault metadata age checks (no database migration lineage) |
+
+## Canonical FedRAMP mapping set
+
+ValueOS maintains the canonical FedRAMP-aligned mapping in:
+
+- `docs/security-compliance/fedramp-control-mapping.md`
+- `docs/security-compliance/fedramp-control-evidence-manifest.json`
+
+The `Compliance Evidence Export` workflow bundles both documents and emits a run-bound copy of the machine-readable manifest so release packets and auditor requests can tie FedRAMP controls to:
+
+- exported workflow artifacts,
+- migration lineage,
+- and the exact GitHub Actions `run_id` / `run_attempt`.
 
 ## Standard artifact naming
 
@@ -55,7 +68,7 @@ Output path:
 
 - `compliance/evidence-packs/<year>-Q<quarter>/evidence-pack-<timestamp>/`
 
-This export includes a manifest and hash ledger for SOC2/GDPR review packets.
+This export includes a manifest and hash ledger for SOC 2, FedRAMP, and privacy review packets.
 
 ## Governance artifacts (manual/operational)
 
@@ -78,5 +91,7 @@ For GA release `v1.0.0`, include the following governance records in the release
 - `docs/security-compliance/threat-model.md` (Review and Approver Record row for `v1.0.0`; no accepted exceptions).
 - `docs/operations/launch-readiness.md` (Go/No-Go checklist references for release tag `v1.0.0`).
 - `docs/operations/release-scope-ga-signoff.md` (Product/Engineering/Design scope approval for `v1.0.0`).
+- `docs/security-compliance/fedramp-control-mapping.md` (canonical FedRAMP control-to-evidence packet).
+- `docs/security-compliance/fedramp-control-evidence-manifest.json` (machine-readable control-to-artifact and migration-lineage mapping).
 
 Bundle these documents alongside CI compliance artifacts (`compliance-evidence-run-<GITHUB_RUN_ID>-attempt-<GITHUB_RUN_ATTEMPT>`) when preparing audit packets.

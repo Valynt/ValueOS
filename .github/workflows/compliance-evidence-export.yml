@@ -32,7 +32,12 @@ jobs:
 
       - name: Prepare evidence directories
         run: |
-          mkdir -p evidence/security-scans evidence/privacy evidence/rls evidence/metadata
+          mkdir -p evidence/security-scans evidence/privacy evidence/rls evidence/metadata evidence/control-mappings
+
+      - name: Copy canonical control mapping documents
+        run: |
+          cp docs/security-compliance/fedramp-control-mapping.md evidence/control-mappings/fedramp-control-mapping.md
+          cp docs/security-compliance/fedramp-control-evidence-manifest.json evidence/control-mappings/fedramp-control-evidence-manifest.source.json
 
       - name: Capture immutable run metadata
         run: |
@@ -129,6 +134,41 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=json --outputFile=evidence/rls/rls-validation.json
+
+      - name: Generate FedRAMP evidence manifest
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from copy import deepcopy
+
+          source_path = "docs/security-compliance/fedramp-control-evidence-manifest.json"
+          output_path = "evidence/metadata/fedramp-control-evidence-manifest.json"
+
+          with open(source_path, "r", encoding="utf-8") as f:
+            source_manifest = json.load(f)
+
+          export_manifest = deepcopy(source_manifest)
+          export_manifest["export_context"] = {
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "ref": "${{ github.ref }}",
+            "commit_sha": "${{ github.sha }}"
+          }
+          export_manifest["bundle_documents"] = {
+            "mapping_markdown": "evidence/control-mappings/fedramp-control-mapping.md",
+            "source_manifest": "evidence/control-mappings/fedramp-control-evidence-manifest.source.json",
+            "run_bound_manifest": output_path,
+            "run_metadata": "evidence/metadata/run-metadata.json",
+            "bundle_file_manifest": "evidence/metadata/evidence-manifest.txt"
+          }
+
+          with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(export_manifest, f, indent=2)
+            f.write("\n")
+          PY
 
       - name: Record evidence manifest
         if: always()

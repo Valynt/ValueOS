@@ -1,0 +1,154 @@
+{
+  "document_id": "valueos-fedramp-control-evidence-manifest",
+  "version": "2026-03-19",
+  "framework": "FedRAMP Moderate / NIST SP 800-53 Rev. 5",
+  "mapping_document": "docs/security-compliance/fedramp-control-mapping.md",
+  "controls": [
+    {
+      "control_id": "AC-3",
+      "control_name": "Access Enforcement",
+      "status": "implemented",
+      "implementation_summary": "Tenant isolation and access enforcement are validated through automated RLS tests and tenant-bound schema migrations.",
+      "workflow_artifacts": [
+        {
+          "artifact_path": "evidence/rls/rls-validation.json",
+          "artifact_type": "vitest-json",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "tests/security/rls-tenant-isolation.test.ts"
+        }
+      ],
+      "static_evidence": [
+        "docs/security-compliance/evidence-index.md",
+        "docs/security-compliance/production-contract.md"
+      ],
+      "migration_lineage": [
+        "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql",
+        "infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql"
+      ]
+    },
+    {
+      "control_id": "AC-6",
+      "control_name": "Least Privilege",
+      "status": "implemented",
+      "implementation_summary": "Least-privilege access is enforced through tenant-scoped authorization patterns and RLS foundations backed by automated isolation validation.",
+      "workflow_artifacts": [
+        {
+          "artifact_path": "evidence/rls/rls-validation.json",
+          "artifact_type": "vitest-json",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "tests/security/rls-tenant-isolation.test.ts"
+        }
+      ],
+      "static_evidence": [
+        "docs/security-compliance/production-contract.md",
+        "docs/security-compliance/security-overview.md"
+      ],
+      "migration_lineage": [
+        "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql",
+        "infra/supabase/supabase/migrations/20260302000000_webhook_tenant_isolation.sql"
+      ]
+    },
+    {
+      "control_id": "AU-2",
+      "control_name": "Event Logging",
+      "status": "implemented",
+      "implementation_summary": "Audit events are generated and validated through the audit immutability suite and documented audit logging controls.",
+      "workflow_artifacts": [
+        {
+          "artifact_path": "evidence/metadata/run-metadata.json",
+          "artifact_type": "run-metadata",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "workflow-generated"
+        },
+        {
+          "artifact_path": "evidence/metadata/evidence-manifest.txt",
+          "artifact_type": "file-manifest",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "workflow-generated"
+        }
+      ],
+      "static_evidence": [
+        "tests/compliance/audit/audit-log-immutability.test.ts",
+        "docs/security-compliance/audit-logging.md",
+        "docs/security-compliance/control-traceability-matrix.md"
+      ],
+      "migration_lineage": [
+        "infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql",
+        "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql"
+      ]
+    },
+    {
+      "control_id": "AU-9",
+      "control_name": "Protection of Audit Information",
+      "status": "implemented",
+      "implementation_summary": "Audit integrity protections are supported by immutable audit-log schema lineage and validated through audit evidence references.",
+      "workflow_artifacts": [
+        {
+          "artifact_path": "evidence/metadata/run-metadata.json",
+          "artifact_type": "run-metadata",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "workflow-generated"
+        }
+      ],
+      "static_evidence": [
+        "tests/compliance/audit/audit-log-immutability.test.ts",
+        "docs/security-compliance/audit-logging.md",
+        "docs/security-compliance/evidence-index.md"
+      ],
+      "migration_lineage": [
+        "infra/supabase/supabase/migrations/_deferred_archived/20231103000000_create_security_audit_log.sql",
+        "infra/supabase/supabase/migrations/20260213000010_canonical_identity_baseline.sql"
+      ]
+    },
+    {
+      "control_id": "RA-5",
+      "control_name": "Vulnerability Monitoring and Scanning",
+      "status": "implemented",
+      "implementation_summary": "Dependency and static analysis scans are exported as evidence for periodic vulnerability monitoring.",
+      "workflow_artifacts": [
+        {
+          "artifact_path": "evidence/security-scans/pnpm-audit.json",
+          "artifact_type": "dependency-audit-json",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "pnpm audit --audit-level=high --json"
+        },
+        {
+          "artifact_path": "evidence/security-scans/semgrep.sarif",
+          "artifact_type": "sarif",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "returntocorp/semgrep-action@v1"
+        }
+      ],
+      "static_evidence": [
+        "docs/security-compliance/production-contract.md",
+        "docs/operations/ci-cd-pipeline.md"
+      ],
+      "migration_lineage": []
+    },
+    {
+      "control_id": "CA-7",
+      "control_name": "Continuous Monitoring",
+      "status": "implemented",
+      "implementation_summary": "The scheduled Compliance Evidence Export workflow preserves run metadata, manifests, and exported evidence for recurring compliance reviews.",
+      "workflow_artifacts": [
+        {
+          "artifact_path": "evidence/metadata/run-metadata.json",
+          "artifact_type": "run-metadata",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "workflow-generated"
+        },
+        {
+          "artifact_path": "evidence/metadata/evidence-manifest.txt",
+          "artifact_type": "file-manifest",
+          "produced_by": ".github/workflows/compliance-evidence-export.yml",
+          "source_test": "workflow-generated"
+        }
+      ],
+      "static_evidence": [
+        "docs/operations/ci-cd-pipeline.md",
+        "docs/security-compliance/evidence-index.md"
+      ],
+      "migration_lineage": []
+    }
+  ]
+}

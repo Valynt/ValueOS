@@ -13,7 +13,14 @@
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=2449",
+    "typecheck:strict:api": "tsc -p tsconfig.strict-zone.api.json --noEmit",
+    "typecheck:strict:auth": "tsc -p tsconfig.strict-zone.auth.json --noEmit",
+    "typecheck:strict:runtime": "tsc -p tsconfig.strict-zone.runtime.json --noEmit",
+    "typecheck:strict:security": "tsc -p tsconfig.strict-zone.security.json --noEmit",
+    "typecheck:strict:tenant-data": "tsc -p tsconfig.strict-zone.tenant-data.json --noEmit",
+    "typecheck:strict:zones": "pnpm run typecheck:strict:api && pnpm run typecheck:strict:auth && pnpm run typecheck:strict:runtime && pnpm run typecheck:strict:security && pnpm run typecheck:strict:tenant-data",
+    "lint": "eslint src/ --max-warnings=2447",
+    "debt:summary": "node ../../scripts/ci/backend-debt-summary.mjs",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
@@ -107,7 +114,7 @@
   "peerDependencies": {
     "@supabase/supabase-js": "^2.90.1"
   },
-  "tsErrorBaseline": 2897,
+  "tsErrorBaseline": 0,
   "exports": {
     ".": "./index.ts"
   },

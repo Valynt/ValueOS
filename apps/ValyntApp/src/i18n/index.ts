@@ -12,9 +12,14 @@ const loaders: Record<LocaleCode, MessageLoader> = {
 const messageCache = new Map<LocaleCode, Messages>();
 
 export function resolveLocale(requested?: string): LocaleCode {
-  if (!requested) return DEFAULT_LOCALE;
-  const normalized = requested.split("-")[0] as LocaleCode;
-  return SUPPORTED_LOCALES.includes(normalized) ? normalized : DEFAULT_LOCALE;
+  if (!requested) {
+    return DEFAULT_LOCALE;
+  }
+
+  const normalized = requested.split("-")[0];
+  const matched = SUPPORTED_LOCALES.find((locale) => locale === normalized);
+
+  return matched ?? DEFAULT_LOCALE;
 }
 
 export async function loadMessages(requested?: string): Promise<Messages> {
