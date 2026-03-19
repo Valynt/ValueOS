@@ -41,7 +41,6 @@ function getEnv(key: string): string | undefined {
     return ((import.meta as Record<string, unknown>).env as Record<string, string>)[key];
   }
   return getEnvVar(key);
-  return undefined;
 }
 
 /**
