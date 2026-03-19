@@ -1,24 +1,26 @@
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
-import type { ConsentRegistry } from "../../types/consent";
+import type { ConsentRegistry, ConsentQuery, ConsentQueryClient } from "../../types/consent";
 import { settings } from "../config/settings.js";
 
 const CONSENT_TABLE = "user_consents";
+const CANONICAL_SUBJECT_COLUMN = "auth_subject";
+const TENANT_COLUMN = "tenant_id";
 
 export function isConsentRegistryConfigured(): boolean {
-  // Consent checks must use RLS-enforced clients (anon/user tokens), not service_role.
-  // Rely on general Supabase configuration; createSupabaseClient() will handle auth context.
   return Boolean(settings.VITE_SUPABASE_URL);
 }
 
-function createDatabaseConsentRegistry(): ConsentRegistry {
-  const supabase = createServerSupabaseClient();
+export function createConsentRegistry(
+  supabaseFactory: (query: ConsentQuery) => ConsentQueryClient = (query) => query.supabase
+): ConsentRegistry {
   return {
-    hasConsent: async (tenantId: string, scope: string) => {
-      const { data, error } = await supabase
+    hasConsent: async ({ tenantId, scope, subject, supabase }) => {
+      const client = supabaseFactory({ tenantId, scope, subject, supabase });
+      const { data, error } = await client
         .from(CONSENT_TABLE)
         .select("id")
-        .eq("organization_id", tenantId)
+        .eq(TENANT_COLUMN, tenantId)
+        .eq(CANONICAL_SUBJECT_COLUMN, subject)
         .eq("consent_type", scope)
         .is("withdrawn_at", null)
         .limit(1);
@@ -27,6 +29,7 @@ function createDatabaseConsentRegistry(): ConsentRegistry {
         logger.error("Failed to check consent registry", error, {
           tenantId,
           scope,
+          subject,
         });
         return false;
       }
@@ -37,5 +40,5 @@ function createDatabaseConsentRegistry(): ConsentRegistry {
 }
 
 export const consentRegistry: ConsentRegistry | null = isConsentRegistryConfigured()
-  ? createDatabaseConsentRegistry()
+  ? createConsentRegistry()
   : null;

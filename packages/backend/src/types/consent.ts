@@ -5,6 +5,8 @@
  * and GDPR/privacy compliance.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 // ============================================================================
 // Consent Types
 // ============================================================================
@@ -74,7 +76,7 @@ export interface ConsentRequest {
   consent_type: ConsentType;
   scope: ConsentScope;
   requested_at: string;
-  request_context?: Record<string, any>;
+  request_context?: Record<string, unknown>;
 }
 
 export interface ConsentResponse {
@@ -109,7 +111,7 @@ export interface ConsentHistoryEntry {
   actor_id: string;
   actor_type: 'user' | 'admin' | 'system';
   timestamp: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export type ConsentAction =
@@ -179,7 +181,7 @@ export interface ConsentAuditLog {
   organization_id: string;
   consent_id?: string;
   actor_id: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   ip_address?: string;
 }
 
@@ -193,6 +195,15 @@ export type ConsentAuditEventType =
   | 'data_shared'
   | 'policy_updated';
 
+export type ConsentQueryClient = Pick<SupabaseClient, 'from'>;
+
+export interface ConsentQuery {
+  tenantId: string;
+  scope: string;
+  subject: string;
+  supabase: ConsentQueryClient;
+}
+
 export interface ConsentRegistry {
-  hasConsent: (tenantId: string, scope: string) => Promise<boolean>;
+  hasConsent: (query: ConsentQuery) => Promise<boolean>;
 }

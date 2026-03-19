@@ -1338,7 +1338,7 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 | **Right to Erasure**                | ✅ Compliant | Account deletion API implemented           |
 | **Right to Portability**            | ✅ Compliant | JSON export of all user data               |
 | **Data Processing Agreement (DPA)** | ✅ Compliant | DPA with Supabase & Together.ai            |
-| **Consent Management**              | ✅ Compliant | Cookie consent banner, opt-in analytics    |
+| **Consent Management**              | ✅ Compliant | Per-user consent checks bind `tenant_id` + canonical `auth_subject` + consent type, and withdrawn records fail closed    |
 | **Data Breach Notification**        | ✅ Compliant | Incident response plan documented          |
 | **Privacy by Design**               | ✅ Compliant | Minimal data collection, encrypted storage |
 
@@ -1354,6 +1354,12 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 - Logs: 90 days
 - Backups: 30 days
 - Analytics: 12 months (anonymized after 6 months)
+
+**Consent Evidence Requirements:**
+
+- Every production consent decision must be attributable to a single authenticated data subject via the canonical `auth_subject` value, not just a tenant-wide flag.
+- Audit evidence for consent-sensitive processing must capture: `tenant_id`, `auth_subject`, `consent_type`, decision outcome, request/correlation ID, evaluation timestamp, and whether the consent was active or withdrawn at check time.
+- Review evidence should demonstrate negative cases as well: a different user in the same tenant, a withdrawn consent record, and a consent record from another tenant must all fail the authorization check.
 
 ---
 

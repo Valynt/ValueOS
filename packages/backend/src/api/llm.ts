@@ -14,7 +14,7 @@ import {
   ModelDeniedError,
 } from "../config/models.js";
 import { requireAuth } from "../middleware/auth.js";
-import { requireConsent } from "../middleware/consentMiddleware.js";
+import { requireConsent, resolveAuthenticatedConsentContext } from "../middleware/consentMiddleware.js";
 import { llmRateLimiter } from "../middleware/llmRateLimiter.js";
 import { rateLimiters } from "../middleware/rateLimiter.js";
 import { requirePermission } from "../middleware/rbac.js";
@@ -69,7 +69,7 @@ router.post(
   rateLimiters.agentExecution,
   csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
-  requireConsent("llm.chat", consentRegistry),
+  requireConsent("llm.chat", consentRegistry, resolveAuthenticatedConsentContext),
   llmRateLimiter,
   async (req: Request, res: Response) => {
     try {
