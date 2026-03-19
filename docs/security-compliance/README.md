@@ -18,6 +18,7 @@
 - [Observability Controls and Evidence](./observability-controls-and-evidence.md)
 - [HIPAA Applicability Profile](./hipaa-applicability-profile.md)
 - [Production Contract](./production-contract.md)
+- [Public Telemetry Retention and Privacy Standard](./public-telemetry-retention-and-privacy.md)
 - [RBAC Role Taxonomy](./rbac-role-taxonomy.md)
 - [Security Overview](./security-overview.md)
 - [Subprocessor List](./subprocessor-list.md)
@@ -27,4 +28,4 @@
 
 ---
 
-**Total Documents**: 18
+**Total Documents**: 19
