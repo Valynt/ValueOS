@@ -94,6 +94,7 @@ describe("ReadThroughCacheService.getOrLoad", () => {
     cacheRequestsTotalInc.mockReset();
     cacheLoaderDurationObserve.mockReset();
     cacheCoalescedWaitersTotalInc.mockReset();
+    ReadThroughCacheService.clearNearCacheForTesting();
   });
 
   it("returns cached payloads without invoking the loader", async () => {
@@ -106,6 +107,8 @@ describe("ReadThroughCacheService.getOrLoad", () => {
     expect(loader).not.toHaveBeenCalled();
     expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
       cache_name: `read-through:${ENDPOINT}`,
+      cache_namespace: ENDPOINT,
+      cache_layer: "redis",
       outcome: "hit",
     });
   });
@@ -133,10 +136,14 @@ describe("ReadThroughCacheService.getOrLoad", () => {
     ]);
     expect(cacheCoalescedWaitersTotalInc).toHaveBeenCalledWith({
       cache_name: `read-through:${ENDPOINT}`,
+      cache_namespace: ENDPOINT,
     });
     expect(mockSet).toHaveBeenCalledTimes(1);
     expect(cacheLoaderDurationObserve).toHaveBeenCalledWith(
-      { cache_name: `read-through:${ENDPOINT}` },
+      {
+        cache_name: `read-through:${ENDPOINT}`,
+        cache_namespace: ENDPOINT,
+      },
       expect.any(Number)
     );
   });
