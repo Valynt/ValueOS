@@ -163,7 +163,9 @@
       "dompurify": ">=3.3.2"
     },
     "ignoredBuiltDependencies": [
-      "@scarf/scarf"
+      "@scarf/scarf",
+      "lzo",
+      "protobufjs"
     ],
     "onlyBuiltDependencies": [
       "@swc/core",

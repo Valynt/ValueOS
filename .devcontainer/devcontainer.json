@@ -2,8 +2,9 @@
   "name": "ValueOS",
   "build": {
     "context": "..",
-    "dockerfile": ".devcontainer/Dockerfile.optimized"
+    "dockerfile": "Dockerfile.optimized"
   },
+  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "vscode",
   "containerEnv": {

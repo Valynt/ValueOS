@@ -22,4 +22,11 @@ find .devcontainer/scripts -type f -name "*.sh" -exec chmod +x {} +
 # Ensure pnpm is available (automations will run the full install)
 verify_pnpm
 
+if [[ ! -d "node_modules" ]]; then
+	log "Installing workspace dependencies with pnpm"
+	pnpm install
+else
+	log "node_modules already present; skipping pnpm install"
+fi
+
 log "post-create complete"
