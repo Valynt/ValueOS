@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { createUserSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 
 // ============================================================================
 // Types

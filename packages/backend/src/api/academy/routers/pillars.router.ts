@@ -7,108 +7,102 @@ import { z } from "zod";
 
 import { createUserSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
-import { protectedProcedure, publicProcedure, router, tenantScopedProcedure } from "../trpc.js";
+import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 import { getSupabaseClient } from "../utils.js";
 
 // ============================================================================
-// Helpers
+// Types
 // ============================================================================
 
-// getSupabaseClient is now imported from ../utils.js
+export interface Pillar {
+  id: number;
+  number: number;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+}
 
 // ============================================================================
-// In-memory pillar data (ported from VOSAcademy curriculum)
-// TODO: Move to database with tenant-specific overrides
+// Database operations
 // ============================================================================
-const pillars = [
-  {
-    id: 1,
-    number: 1,
-    title: "Value Selling Fundamentals",
-    description: "Master the core principles of value-based selling",
-    icon: "target",
-    color: "#3B82F6",
-  },
-  {
-    id: 2,
-    number: 2,
-    title: "Value Realization",
-    description: "Track and communicate realized value to customers",
-    icon: "trending-up",
-    color: "#10B981",
-  },
-  {
-    id: 3,
-    number: 3,
-    title: "Expansion Selling",
-    description: "Identify and execute expansion opportunities",
-    icon: "expand",
-    color: "#8B5CF6",
-  },
-  {
-    id: 4,
-    number: 4,
-    title: "Value-Based Negotiation",
-    description: "Negotiate based on demonstrated value",
-    icon: "handshake",
-    color: "#F59E0B",
-  },
-  {
-    id: 5,
-    number: 5,
-    title: "Executive Business Case",
-    description: "Build compelling business cases for executives",
-    icon: "briefcase",
-    color: "#EF4444",
-  },
-  {
-    id: 6,
-    number: 6,
-    title: "ROI Communication",
-    description: "Articulate return on investment effectively",
-    icon: "pie-chart",
-    color: "#06B6D4",
-  },
-  {
-    id: 7,
-    number: 7,
-    title: "Value Quantification",
-    description: "Quantify and measure customer value",
-    icon: "calculator",
-    color: "#84CC16",
-  },
-  {
-    id: 8,
-    number: 8,
-    title: "Cross-Functional Alignment",
-    description: "Align internal teams around customer value",
-    icon: "users",
-    color: "#EC4899",
-  },
-  {
-    id: 9,
-    number: 9,
-    title: "Value-Driven Renewals",
-    description: "Secure renewals through demonstrated value",
-    icon: "refresh-cw",
-    color: "#6366F1",
-  },
-  {
-    id: 10,
-    number: 10,
-    title: "Strategic Value Advisory",
-    description: "Act as a strategic value advisor to customers",
-    icon: "crown",
-    color: "#F97316",
-  },
-];
+
+async function getAllPillarsFromDB(client: ReturnType<typeof createUserSupabaseClient>): Promise<Pillar[]> {
+  const { data, error } = await client
+    .from("academy_pillars")
+    .select("id, number, title, description, icon, color")
+    .order("number");
+
+  if (error) {
+    logger.error("Failed to fetch pillars", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to fetch pillars",
+    });
+  }
+
+  return data || [];
+}
+
+async function getPillarByNumberFromDB(
+  client: ReturnType<typeof createUserSupabaseClient>,
+  number: number
+): Promise<Pillar | null> {
+  const { data, error } = await client
+    .from("academy_pillars")
+    .select("id, number, title, description, icon, color")
+    .eq("number", number)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null; // Not found
+    }
+    logger.error("Failed to fetch pillar by number", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to fetch pillar",
+    });
+  }
+
+  return data;
+}
+
+async function getPillarByIdFromDB(
+  client: ReturnType<typeof createUserSupabaseClient>,
+  id: number
+): Promise<Pillar | null> {
+  const { data, error } = await client
+    .from("academy_pillars")
+    .select("id, number, title, description, icon, color")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      return null; // Not found
+    }
+    logger.error("Failed to fetch pillar by id", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to fetch pillar",
+    });
+  }
+
+  return data;
+}
+
+// ============================================================================
+// Router
+// ============================================================================
 
 export const pillarsRouter = router({
   /**
    * Get all pillars
    */
-  list: publicProcedure.query(async () => {
-    return pillars;
+  list: publicProcedure.query(async ({ ctx }) => {
+    const client = getSupabaseClient(ctx);
+    return await getAllPillarsFromDB(client);
   }),
 
   /**
@@ -116,8 +110,9 @@ export const pillarsRouter = router({
    */
   getById: publicProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
-      const pillar = pillars.find((p) => p.id === input.id);
+    .query(async ({ input, ctx }) => {
+      const client = getSupabaseClient(ctx);
+      const pillar = await getPillarByIdFromDB(client, input.id);
       if (!pillar) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -132,8 +127,9 @@ export const pillarsRouter = router({
    */
   getByNumber: publicProcedure
     .input(z.object({ pillarNumber: z.number() }))
-    .query(async ({ input }) => {
-      const pillar = pillars.find((p) => p.number === input.pillarNumber);
+    .query(async ({ input, ctx }) => {
+      const client = getSupabaseClient(ctx);
+      const pillar = await getPillarByNumberFromDB(client, input.pillarNumber);
       if (!pillar) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -151,7 +147,7 @@ export const pillarsRouter = router({
     .input(z.object({ pillarId: z.number() }))
     .query(async ({ input, ctx }) => {
       const client = getSupabaseClient(ctx);
-      const pillar = pillars.find((p) => p.id === input.pillarId);
+      const pillar = await getPillarByIdFromDB(client, input.pillarId);
       if (!pillar) {
         throw new TRPCError({
           code: "NOT_FOUND",

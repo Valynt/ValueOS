@@ -1,7 +1,7 @@
 /**
  * Standalone worker process entrypoint.
  *
- * Runs all BullMQ workers (research + CRM) in a dedicated process,
+ * Runs all BullMQ workers (research + CRM + certificate generation) in a dedicated process,
  * separate from the API server. This prevents a worker OOM or crash
  * from taking down the HTTP surface.
  *
@@ -16,6 +16,7 @@ import { createLogger } from '../lib/logger.js';
 import { createArtifactGenerationWorker } from './ArtifactGenerationWorker.js';
 import { initCrmWorkers } from './crmWorker.js';
 import { initResearchWorker } from './researchWorker.js';
+import { getCertificateGenerationWorker } from './CertificateGenerationWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 
@@ -47,6 +48,15 @@ try {
   logger.info('Artifact generation worker initialized');
 } catch (err) {
   logger.warn('Artifact generation worker failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
+try {
+  getCertificateGenerationWorker();
+  logger.info('Certificate generation worker initialized');
+} catch (err) {
+  logger.warn('Certificate generation worker failed to start', {
     error: err instanceof Error ? err.message : String(err),
   });
 }
