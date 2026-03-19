@@ -17,21 +17,17 @@ import { getSecurityConfig } from "./SecurityConfig";
  *
  * SECURITY AUDIT (2026-03-18): Added to replace direct === comparison
  * on CSRF tokens, which leaks token content via response time differences.
+ *
+ * Always iterates over max(a.length, b.length) characters. Out-of-bounds
+ * indices return 0 via (charCodeAt || 0), avoiding modulo/NaN issues and
+ * ensuring the loop duration depends only on the longer input -- not on
+ * which argument is the stored token vs. attacker-supplied value.
  */
 function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still do the comparison to keep timing consistent,
-    // but we know the result is false.
-    let result = 1;
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i % b.length || 0);
-    }
-    return false;
-  }
-
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const len = Math.max(a.length, b.length);
+  let result = a.length ^ b.length; // non-zero when lengths differ
+  for (let i = 0; i < len; i++) {
+    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
   }
   return result === 0;
 }
