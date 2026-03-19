@@ -4,8 +4,8 @@ const LOCAL_STORAGE_CACHE_PREFIXES = ["cache_"];
 const LOCAL_STORAGE_CACHE_KEYS = ["valueos-state"];
 
 function removePrefixedStorageKeys(storage: Storage, prefixes: readonly string[]): void {
-  const keysToRemove = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
-    (key): key is string => Boolean(key) && prefixes.some((prefix) => key.startsWith(prefix))
+  const keysToRemove = Object.keys(storage).filter((key) =>
+    prefixes.some((prefix) => key.startsWith(prefix))
   );
 
   for (const key of keysToRemove) {
