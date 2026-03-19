@@ -36,7 +36,7 @@ status: deprecated
   - **Billing + Entitlements Owner (Revenue Platform):** owns regression test health and sign-off for billing/entitlements checks.
   - **Localization Owner (Product Engineering):** owns localization smoke checks and release-locale readiness.
   - **Tenant Controls Owner (Platform):** owns tenant/region feature-toggle validation outcomes.
-  - **Brand Experience Owner (Design Systems):** owns co-branding asset/render verification when branded assets are in scope.
+  - **Brand Experience Owner (Design Systems):** owns tenant branding render verification and release evidence artifacts.
 
 ## Pre-Flight Checklist
 1. Feature freeze announced in `#releases` (no new merges after cutoff).
@@ -125,12 +125,12 @@ After the canonical release gate contract is green, `deploy-production` still re
      - Entitlements + billing regression tests.
      - Localization smoke checks.
      - Tenant/region feature-toggle validation.
-     - Co-branding asset/render checks (conditional: only when co-branding assets are present).
+     - Tenant branding render verification via `node scripts/ci/verify-tenant-branding-render.mjs`, with release evidence attached as `artifacts/branding/tenant-branding-summary.{json,md}`, `artifacts/branding/tenant-branding-playwright-report.json`, and `artifacts/branding/tenant-branding-preview.png`.
    - Ownership:
      - Revenue Platform team owns billing/entitlements regressions.
      - Product Engineering owns localization checks.
      - Platform team owns tenant/region toggle validation.
-     - Design Systems owns co-branding checks.
+     - Design Systems owns tenant branding render verification.
 6. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
    - Validate SLO panels and burn-rate alerts from `docs/operations/monitoring-observability.md#production-slo-framework`:
