@@ -7,19 +7,20 @@
 
 import { randomUUID } from "node:crypto";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Queue } from "bullmq";
-import { Router, type IRouter } from "express";
+import { type IRouter, Router } from "express";
 import { z } from "zod";
 
 import { getAgentMessageQueueConfig } from "../config/ServiceConfigManager.js";
+import { logger } from "../lib/logger.js";
 import { requireAuth } from "../middleware/auth.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { checkPermission } from "../middleware/rbac.js";
+import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { ArtifactEditService } from "../services/artifacts/ArtifactEditService";
 import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository";
 import { ArtifactRepository } from "../services/artifacts/ArtifactRepository";
 import { ARTIFACT_GENERATION_QUEUE_NAME, type ArtifactGenerationJobPayload } from "../workers/ArtifactGenerationWorker.js";
-import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -86,17 +87,21 @@ router.post(
       const body = GenerateArtifactsSchema.parse(req.body);
       const artifactType = body.artifactType ?? "executive_summary";
       const format = body.format ?? "markdown";
+      const supabase = req.supabase as SupabaseClient | undefined;
+
+      if (!supabase) {
+        res.status(401).json({ error: "Authenticated Supabase context required." });
+        return;
+      }
 
       // Authorization: caller must have artifact.generate permission.
-      const canGenerate = await checkPermission(userId, tenantId, "artifacts:create" as never);
+      const canGenerate = await checkPermission(supabase, userId, tenantId, "artifacts:create" as never);
       if (!canGenerate) {
         res.status(403).json({ error: "Insufficient permissions to generate artifacts." });
         return;
       }
 
       // Verify the case exists and belongs to this tenant.
-      const { createServiceRoleSupabaseClient } = await import("../lib/supabase.js");
-      const supabase = createServiceRoleSupabaseClient();
       const { data: valueCase, error: caseError } = await supabase
         .from("value_cases")
         .select("id, status")

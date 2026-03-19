@@ -29,7 +29,6 @@ import { MemorySystem as FabricMemorySystem, MemorySystem } from "../../lib/agen
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { logger } from "../../lib/logger.js";
-import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import { AuthenticatedRequest, requireAuth } from "../../middleware/auth.js";
 import { rateLimiters } from "../../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../../middleware/tenantContext.js";
@@ -47,15 +46,9 @@ import {
 } from "../../services/post-v1/ValueLifecycleOrchestrator.js";
 import { SupabaseProvenanceStore } from "../../services/workflows/SagaAdapters.js";
 import type { LifecycleContext, LifecycleStage } from "../../types/agent.js";
-import type { AgentType } from "../../services/agent-types.js";
 import { checkpointScheduler } from "../../services/handoff/CheckpointScheduler.js";
 import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenerator.js";
 import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
-import {
-  buildInteractiveSyncDeniedMessage,
-  getAgentColdStartClass,
-  isInteractiveSyncAgentAllowed,
-} from "../../services/agents/AgentInvocationPolicy.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -100,7 +93,7 @@ function getFactory() {
 async function runAgent(
   req: Request,
   res: Response,
-  agentId: AgentType,
+  agentId: string,
   lifecycleStage: LifecycleStage
 ): Promise<Response> {
   const tenantId = getTenantId(req);
@@ -122,16 +115,6 @@ async function runAgent(
       success: false,
       error: "Invalid request body",
       details: parsed.error.flatten(),
-    });
-  }
-
-  if (!isInteractiveSyncAgentAllowed(agentId)) {
-    return res.status(409).json({
-      success: false,
-      error: buildInteractiveSyncDeniedMessage(agentId, 'backHalf.runAgent'),
-      coldStartClass: getAgentColdStartClass(agentId),
-      recommendedWorkflow:
-        'Invoke this agent through a queued/polling/streaming workflow instead of the synchronous back-half route.',
     });
   }
 
@@ -611,27 +594,19 @@ backHalfRouter.post(
 // GET /:id/provenance/:claimId — claim lineage chain
 // ---------------------------------------------------------------------------
 
-const provenanceTrackersByTenant = new Map<string, ProvenanceTracker>();
-function getBackHalfProvenanceTracker(tenantId: string): ProvenanceTracker {
-  const existingTracker = provenanceTrackersByTenant.get(tenantId);
-  if (existingTracker) {
-    return existingTracker;
+function getBackHalfProvenanceTracker(
+  client: Request["supabase"],
+  tenantId: string,
+): ProvenanceTracker {
+  if (!client) {
+    throw new Error("Authenticated Supabase context required for provenance lookups");
   }
-
-  // Provenance tracking must remain scoped to the authenticated tenant even
-  // when using the service_role client for this internal read path.
-  // Cast bridges the SupabaseClient generic parameter mismatch between
-  // this package and SagaAdapters — both use @supabase/supabase-js but
-  // with different generic instantiations.
-  const client = createServiceRoleSupabaseClient();
 
   const store = new SupabaseProvenanceStore(
     client as unknown as ReturnType<typeof createClient>,
     tenantId,
   ) as unknown as ProvenanceStore;
-  const tracker = new ProvenanceTracker(store);
-  provenanceTrackersByTenant.set(tenantId, tracker);
-  return tracker;
+  return new ProvenanceTracker(store);
 }
 
 backHalfRouter.get(
@@ -654,7 +629,7 @@ backHalfRouter.get(
     }
 
     try {
-      const tracker = getBackHalfProvenanceTracker(tenantId);
+      const tracker = getBackHalfProvenanceTracker(req.supabase, tenantId);
       const chains = await tracker.getLineage(caseId, claimId);
 
       return res.status(200).json({
@@ -684,20 +659,20 @@ backHalfRouter.get(
 // POST /:id/run-loop — trigger the hypothesis-first core loop
 // ---------------------------------------------------------------------------
 
-let _orchestrator: ValueLifecycleOrchestrator | null = null;
-function getOrchestrator(): ValueLifecycleOrchestrator {
-  if (!_orchestrator) {
-    _orchestrator = new ValueLifecycleOrchestrator(
-      createServiceRoleSupabaseClient(),
-      new FabricLLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
-      new FabricMemorySystem(
-        { max_memories: 1000, enable_persistence: true },
-        new SupabaseMemoryBackend()
-      ),
-      new AuditLogger()
-    );
+function createOrchestrator(supabaseClient: Request["supabase"]): ValueLifecycleOrchestrator {
+  if (!supabaseClient) {
+    throw new Error("Authenticated Supabase context required for lifecycle orchestration");
   }
-  return _orchestrator;
+
+  return new ValueLifecycleOrchestrator(
+    supabaseClient as unknown as ReturnType<typeof createClient>,
+    new FabricLLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
+    new FabricMemorySystem(
+      { max_memories: 1000, enable_persistence: true },
+      new SupabaseMemoryBackend()
+    ),
+    new AuditLogger()
+  );
 }
 
 backHalfRouter.post(
@@ -732,7 +707,7 @@ backHalfRouter.post(
     logger.info("run-loop triggered", { caseId, tenantId, userId, sessionId });
 
     try {
-      const result = await getOrchestrator().runHypothesisLoop(caseId, context);
+      const result = await createOrchestrator(req.supabase).runHypothesisLoop(caseId, context);
 
       logger.info("run-loop completed", {
         caseId,
