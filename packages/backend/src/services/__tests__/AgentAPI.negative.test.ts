@@ -27,9 +27,11 @@ vi.mock('../../lib/logger', () => ({
 
 vi.mock('../../config/environment', () => ({
   getConfig: vi.fn(() => ({
-    api: {
-      agentEndpoint: 'http://localhost:3000/api/agents',
+    agents: {
+      apiUrl: 'http://localhost:3000/api/agents',
       timeout: 5000,
+      circuitBreaker: { enabled: false, threshold: 5, cooldown: 30000 },
+      logging: false,
     },
   })),
 }));
@@ -41,8 +43,9 @@ describe('AgentAPI - Negative Path Tests', () => {
   let agentAPI: AgentAPI;
 
   beforeEach(() => {
+    vi.resetAllMocks();
+    global.fetch = vi.fn();
     agentAPI = new AgentAPI();
-    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -324,8 +327,12 @@ describe('AgentAPI - Negative Path Tests', () => {
         }),
       });
 
-      // Mock CSRF token retrieval
-      document.cookie = 'csrf_token=test-token-123';
+      // Mock CSRF token retrieval (document not available in Node test env)
+      if (typeof document === 'undefined') {
+        (global as any).document = { cookie: 'csrf_token=test-token-123' };
+      } else {
+        document.cookie = 'csrf_token=test-token-123';
+      }
 
       const request: AgentRequest = {
         agent: 'opportunity',
@@ -448,7 +455,8 @@ describe('AgentAPI - Negative Path Tests', () => {
 
     it('should handle 503 service unavailable', async () => {
       const mockFetch = global.fetch as any;
-      mockFetch.mockResolvedValueOnce({
+      // Queue two 503s so both the initial call and the retry fail
+      mockFetch.mockResolvedValue({
         ok: false,
         status: 503,
         json: async () => ({

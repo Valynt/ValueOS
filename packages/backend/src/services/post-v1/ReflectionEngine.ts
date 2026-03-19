@@ -10,8 +10,7 @@
 // import { logger } from '../lib/logger';
 import { supabase } from '../../lib/supabase.js'
 
-// import { getAgentAPI } from './AgentAPI.js'
-// Note: getAgentAPI is not exported from AgentAPI.js - needs to be implemented
+import { getAgentAPI } from '../agents/AgentAPI.js'
 
 // ============================================================================
 // Types
@@ -622,41 +621,42 @@ export class ReflectionEngine {
   }
 
   /**
-   * Refine output based on reflection results
+   * Refine output based on reflection results.
+   *
+   * Invokes the originating agent with a structured refinement prompt that
+   * includes the original output and the reflection evaluation. The agent
+   * produces an improved version which is persisted and returned.
+   *
+   * Throws on agent invocation failure — callers must handle errors explicitly.
    */
   async refine(context: RefinementContext): Promise<unknown> {
     const { originalOutput, reflectionResult, agentType, userId, organizationId } = context;
 
-    // Generate refinement prompt
     const refinementPrompt = this.generateRefinementPrompt(originalOutput, reflectionResult);
 
-    // Invoke agent with refinement instructions
-    // TODO: Implement proper agent API integration
-    // const agentAPI = getAgentAPI();
-    // const response = await agentAPI.invokeAgent(...);
+    const agentAPI = getAgentAPI();
 
-    // Stub implementation for now
-    const response = {
-      success: true,
-      data: {
-        ...originalOutput,
-        _refined: true,
-        _refinementPrompt: refinementPrompt,
+    const response = await agentAPI.invokeAgent({
+      agent: agentType as import('../agent-types.js').AgentType,
+      query: refinementPrompt,
+      context: {
+        userId,
+        organizationId,
+        sessionId: `reflection-refine-${Date.now()}`,
+        refinement: true,
+        originalOutputId: (originalOutput as Record<string, unknown>).id as string | undefined,
+        reflectionScore: reflectionResult.overallScore,
       },
-    };
+    });
 
-    if (response.success) {
-      // Log refinement
-      await this.logRefinement(context, response.data);
-      return response.data;
+    if (!response.success || !response.data) {
+      throw new Error(
+        `ReflectionEngine.refine: agent ${agentType} returned failure — ${response.error ?? 'unknown error'}`
+      );
     }
 
-    // If refinement fails, return original with warnings
-    return {
-      ...originalOutput,
-      _refinementFailed: true,
-      _reflectionResult: reflectionResult,
-    };
+    await this.logRefinement(context, response.data);
+    return response.data;
   }
 
   /**

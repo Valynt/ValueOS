@@ -80,7 +80,11 @@ export interface AgentInitOptions {
 }
 
 /**
- * Agent types to check
+ * Agent types to check at startup.
+ * Includes all production lifecycle agents. Experimental/roadmap agents
+ * (system-mapper, intervention-designer, outcome-engineer, coordinator,
+ * value-eval, communicator) are excluded from startup health checks because
+ * they are not yet deployed as independent services.
  */
 const AGENT_TYPES: AgentType[] = [
   "opportunity",
@@ -91,10 +95,16 @@ const AGENT_TYPES: AgentType[] = [
   "company-intelligence",
   "financial-modeling",
   "value-mapping",
+  "research",
+  "benchmark",
+  "narrative",
+  "groundtruth",
+  "compliance-auditor",
 ];
 
 /**
- * Simple health check query for each agent
+ * Simple health check query for each agent type.
+ * Must cover every member of the AgentType union.
  */
 const HEALTH_CHECK_QUERIES: Record<AgentType, string> = {
   opportunity: "health check",
@@ -114,6 +124,8 @@ const HEALTH_CHECK_QUERIES: Record<AgentType, string> = {
   coordinator: "health check",
   "value-eval": "health check",
   communicator: "health check",
+  groundtruth: "health check",
+  "compliance-auditor": "health check",
 };
 
 /**

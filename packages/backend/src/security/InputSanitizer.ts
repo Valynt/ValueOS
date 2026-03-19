@@ -5,8 +5,12 @@
 export function sanitizeString(input: string): string {
   if (typeof input !== 'string') return '';
 
-  // Remove null bytes and control characters
   return input
+    // Strip script tags and their content
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    // Strip remaining HTML tags
+    .replace(/<[^>]+>/g, '')
+    // Remove null bytes and control characters
     .replace(/\0/g, '')
     // eslint-disable-next-line no-control-regex -- intentional control character handling
     .replace(/[\x00-\x1F\x7F-\x9F]/g, '')

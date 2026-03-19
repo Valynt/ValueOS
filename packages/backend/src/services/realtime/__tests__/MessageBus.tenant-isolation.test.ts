@@ -11,10 +11,13 @@
 import { type Span, trace, TraceFlags } from '@opentelemetry/api';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('lz-string', () => ({
-  compress: (value: string) => value,
-  decompress: (value: string) => value,
-}));
+vi.mock('lz-string', () => {
+  const mod = {
+    compress: (value: string) => value,
+    decompress: (value: string) => value,
+  };
+  return { ...mod, default: mod };
+});
 
 import type { CommunicationEvent, CreateCommunicationEvent } from '../../../types/CommunicationEvent.js';
 import { MessageBus } from '../MessageBus.js';

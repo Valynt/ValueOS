@@ -91,7 +91,7 @@ export interface RateLimitDashboard {
 
 export class RateLimitMetricsService extends TenantAwareService {
   private metricsCache: Map<string, RateLimitMetrics[]> = new Map();
-  private override readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  protected override readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes — same value, explicit override for clarity
   private readonly MAX_CACHE_ENTRIES = 1000;
 
   constructor(supabase: SupabaseClient) {

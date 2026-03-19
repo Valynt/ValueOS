@@ -6,6 +6,13 @@
  * This module provides functions to verify that users belong to the tenants
  * they are trying to access. All data access operations MUST verify tenant
  * membership to prevent unauthorized cross-tenant access.
+ *
+ * SECURITY AUDIT (2026-03-18): WARNING - This module dynamically imports the
+ * browser/anon Supabase client for tenant checks. If RLS policies on the
+ * user_tenants or users tables are misconfigured, this could produce incorrect
+ * results. For server-side authorization decisions, prefer using a service-role
+ * client (getAdminSupabaseClient) to make authoritative membership checks
+ * independent of RLS configuration.
  */
 
 import { logger } from "./logger.js";

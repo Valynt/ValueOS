@@ -7,9 +7,13 @@
  * Reference: openspec/specs/deal-assembly/spec.md
  */
 
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
+import { getEventProducer } from "../realtime/EventProducer.js";
+import { EVENT_TOPICS } from "@shared/types/events";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -300,10 +304,32 @@ export class DealAssemblyService {
       throw new Error(`Failed to trigger reassembly: ${error.message}`);
     }
 
-    // Emit event for agent to re-process
-    // TODO: Integrate with event system
+    // Publish a deal.reassembly.requested event so the DealAssemblyAgent
+    // picks up the work asynchronously.
+    const correlationId = randomUUID();
+    try {
+      const producer = getEventProducer();
+      await producer.publish(EVENT_TOPICS.AGENT_REQUESTS, {
+        type: "deal.reassembly.requested",
+        correlationId,
+        timestamp: new Date().toISOString(),
+        payload: {
+          caseId,
+          organizationId,
+          requestedAt: new Date().toISOString(),
+        },
+      });
+    } catch (eventErr) {
+      // Log but do not rethrow — the DB status is already updated.
+      // The event system being unavailable should not roll back the reassembly trigger.
+      logger.error("DealAssemblyService.triggerReassembly: failed to publish event", {
+        case_id: caseId,
+        correlationId,
+        error: eventErr instanceof Error ? eventErr.message : String(eventErr),
+      });
+    }
 
-    logger.info("Reassembly triggered", { case_id: caseId });
+    logger.info("Reassembly triggered", { case_id: caseId, correlationId });
   }
 }
 

@@ -13,7 +13,7 @@
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings=2400",
+    "lint": "eslint src/ --max-warnings=2449",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
     "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"

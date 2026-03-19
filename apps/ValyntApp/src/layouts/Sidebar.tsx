@@ -73,12 +73,12 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-zinc-200 h-full bg-white transition-all duration-200 relative max-w-full overflow-x-hidden",
+        "flex flex-col border-r border-zinc-100 h-full bg-white transition-all duration-200 relative max-w-full overflow-x-hidden",
         collapsed ? "w-16" : "w-64"
       )}
     >
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-200">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-zinc-100">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center w-full")}>
           <div className="w-8 h-8 bg-zinc-950 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-white font-black text-sm tracking-tighter">V</span>
@@ -103,7 +103,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-[4.5rem] w-11 h-11 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 z-10 hidden lg:flex shadow-sm"
+          className="absolute -right-3 top-[4rem] w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 z-10 hidden lg:flex shadow-sm transition-colors"
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -122,12 +122,12 @@ export function Sidebar({ onClose }: SidebarProps) {
                 onClick={() => handleNavClick(item.path)}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
-                    collapsed && "justify-center px-2 min-w-11",
+                    "flex items-center gap-3 px-3 sm:px-4 min-h-10 rounded-xl text-[13px] font-medium transition-all duration-150",
+                    collapsed && "justify-center px-2 min-w-10",
                     isActive
-                      ? "bg-zinc-950 text-white"
-                      : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
-                    frequentRouteSet.has(item.path) && !isActive && "ring-1 ring-zinc-200 bg-zinc-50"
+                      ? "bg-zinc-950 text-white shadow-sm"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900",
+                    frequentRouteSet.has(item.path) && !isActive && "ring-1 ring-zinc-200 bg-zinc-50/80"
                   )
                 }
               >
@@ -166,8 +166,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                 onClick={() => handleNavClick(item.path)}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
-                    collapsed && "justify-center px-2 min-w-11",
+                    "flex items-center gap-3 px-3 sm:px-4 min-h-10 rounded-xl text-[13px] font-medium transition-all duration-150",
+                    collapsed && "justify-center px-2 min-w-10",
                     isActive
                       ? "bg-zinc-100 text-zinc-900"
                       : "text-zinc-400 hover:bg-zinc-50 hover:text-zinc-700"
@@ -182,15 +182,15 @@ export function Sidebar({ onClose }: SidebarProps) {
       </nav>
 
       {/* User footer */}
-      <div className="px-3 py-3 border-t border-zinc-200">
+      <div className="px-3 py-3 border-t border-zinc-100">
         {user && !collapsed && (
-          <div className="flex items-center gap-3 px-3 py-2 mb-1">
-            <div className="w-8 h-8 bg-zinc-100 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-zinc-500" />
+          <div className="flex items-center gap-3 px-3 py-2 mb-1 rounded-xl hover:bg-zinc-50 transition-colors cursor-default">
+            <div className="w-7 h-7 bg-zinc-950 rounded-full flex items-center justify-center flex-shrink-0">
+              <User className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-zinc-900 truncate">{user.email}</p>
-              <p className="text-[11px] text-zinc-400">Admin</p>
+              <p className="text-[12px] font-medium text-zinc-900 truncate">{user.email}</p>
+              <p className="text-[10px] text-zinc-400 uppercase tracking-[0.1em]">Admin</p>
             </div>
           </div>
         )}
@@ -198,11 +198,11 @@ export function Sidebar({ onClose }: SidebarProps) {
           onClick={() => logout()}
           aria-label={collapsed ? "Sign out" : undefined}
           className={cn(
-            "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 w-full transition-colors",
-            collapsed && "justify-center px-2 min-w-11"
+            "flex items-center gap-3 px-3 sm:px-4 min-h-10 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 w-full transition-all duration-150",
+            collapsed && "justify-center px-2 min-w-10"
           )}
         >
-          <LogOut className="w-[18px] h-[18px]" />
+          <LogOut className="w-[17px] h-[17px]" />
           {!collapsed && <span>Sign Out</span>}
         </button>
       </div>

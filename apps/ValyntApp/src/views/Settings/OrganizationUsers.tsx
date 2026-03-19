@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { apiClient } from "../../api/client/unified-api-client";
 import { SettingsSection } from "../../components/settings";
+import { useAuth } from "../../contexts/AuthContext";
+import { analyticsClient } from "../../lib/analyticsClient";
 
 interface OrganizationUser {
   userUuid: string;
@@ -30,9 +33,6 @@ interface OrganizationUser {
   deviceListReference: string;
   department?: string;
 }
-import { apiClient } from "../../api/client/unified-api-client";
-import { useAuth } from "../../contexts/AuthContext";
-import { analyticsClient } from "../../lib/analyticsClient";
 
 const PAGE_SIZE = 10;
 const ROLE_OPTIONS = [

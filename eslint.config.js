@@ -862,6 +862,22 @@ const legacyRootDirBan = {
   },
 };
 
+// SEC-002: dangerouslySetInnerHTML allowlist.
+// react/no-danger is set to "error" globally. Only the files listed here are
+// permitted to use dangerouslySetInnerHTML. Adding a new file to this list
+// requires a security review comment explaining why it is safe.
+//
+// Approved surfaces:
+//   SafeHtml.tsx — the canonical HTML injection surface; always routes through sanitizeHtml()
+const dangerouslySetInnerHtmlAllowlist = {
+  files: [
+    "apps/ValyntApp/src/components/security/SafeHtml.tsx",
+  ],
+  rules: {
+    "react/no-danger": "off",
+  },
+};
+
 // TestCafe overrides
 const testcafeOverrides = {
   files: ["**/testcafe/**/*.js", "**/testcafe/**/*.ts"],
@@ -897,6 +913,7 @@ export default [
   backendEgressEnforcement,
   frontendFetchEnforcement,
   legacyRootDirBan,
+  dangerouslySetInnerHtmlAllowlist,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],
 ];

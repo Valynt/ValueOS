@@ -25,7 +25,7 @@ vi.mock('@shared/lib/env', () => ({
 }));
 
 
-vi.mock('../packages/backend/src/services/post-v1/ExternalCircuitBreaker.js', () => ({
+vi.mock('../services/post-v1/ExternalCircuitBreaker.js', () => ({
   ExternalCircuitBreaker: class {
     execute<T>(
       _key: string,
@@ -41,7 +41,7 @@ vi.mock('../packages/backend/src/services/post-v1/ExternalCircuitBreaker.js', ()
   },
 }));
 
-import { GroundtruthAPI } from '../packages/backend/src/services/GroundtruthAPI';
+import { GroundtruthAPI } from '../services/domain-packs/GroundtruthAPI';
 
 const ORIGINAL_GROUNDTRUTH_URL = process.env.GROUNDTRUTH_URL;
 const ORIGINAL_VITE_GROUNDTRUTH_URL = process.env.VITE_GROUNDTRUTH_URL;

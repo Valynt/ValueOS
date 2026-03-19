@@ -154,4 +154,38 @@ router.get(
   },
 );
 
+/**
+ * GET /api/cases/:caseId/realization
+ * Get the latest realization report for a case.
+ * Returns KPI variance, milestones, risks, and intervention recommendations.
+ * Used by the RealizationDashboard component.
+ */
+router.get(
+  "/api/cases/:caseId/realization",
+  authenticate,
+  requireTenantAccess,
+  async (req, res, next) => {
+    try {
+      const { caseId } = req.params;
+      const organizationId = req.tenant!.id;
+
+      const report = await realizationService.getLatestReport(caseId, organizationId);
+
+      if (!report) {
+        return res.status(404).json({
+          success: false,
+          error: { message: "No realization report found for this case" },
+        });
+      }
+
+      res.json({
+        success: true,
+        data: report,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 export default router;

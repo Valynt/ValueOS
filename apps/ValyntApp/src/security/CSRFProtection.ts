@@ -13,6 +13,30 @@ import { logger } from "../lib/logger";
 import { getSecurityConfig } from "./SecurityConfig";
 
 /**
+ * Constant-time string comparison to prevent timing attacks.
+ *
+ * SECURITY AUDIT (2026-03-18): Added to replace direct === comparison
+ * on CSRF tokens, which leaks token content via response time differences.
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Still do the comparison to keep timing consistent,
+    // but we know the result is false.
+    let result = 1;
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i % b.length || 0);
+    }
+    return false;
+  }
+
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/**
  * CSRF token configuration
  */
 export interface CSRFTokenConfig {
@@ -109,9 +133,7 @@ const tokenStore = new CSRFTokenStore();
 function generateRandomToken(length: number): string {
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
-  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
-    ""
-  );
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -158,9 +180,9 @@ export function validateCSRFToken(
     return false;
   }
 
-  // Check if token matches
-   
-  if (storedToken.token !== token) {
+  // SECURITY AUDIT (2026-03-18): Use constant-time comparison to prevent
+  // timing attacks that could allow character-by-character token guessing.
+  if (!constantTimeEqual(storedToken.token, token)) {
     return false;
   }
 
@@ -211,10 +233,7 @@ export function clearAllCSRFTokens(): void {
 /**
  * Set CSRF token in cookie
  */
-export function setCSRFCookie(
-  token: string,
-  config: Partial<CSRFTokenConfig> = {}
-): void {
+export function setCSRFCookie(token: string, config: Partial<CSRFTokenConfig> = {}): void {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
   const securityConfig = getSecurityConfig();
 
@@ -235,9 +254,7 @@ export function setCSRFCookie(
 /**
  * Get CSRF token from cookie
  */
-export function getCSRFCookie(
-  config: Partial<CSRFTokenConfig> = {}
-): string | null {
+export function getCSRFCookie(config: Partial<CSRFTokenConfig> = {}): string | null {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
   const cookies = document.cookie.split(";");
 
@@ -332,7 +349,7 @@ export async function fetchWithCSRF(
   url: string,
   options: RequestInit = {},
   config: Partial<CSRFTokenConfig> = {},
-   
+
   fetchImpl: typeof fetch = fetch
 ): Promise<Response> {
   const cfg = { ...DEFAULT_CSRF_CONFIG, ...config };
@@ -379,9 +396,7 @@ export function initializeCSRFProtection(
   setCSRFCookie(token.token, config);
 
   // Add meta tag for easy access
-  let metaTag = document.querySelector(
-    'meta[name="csrf-token"]'
-  ) as HTMLMetaElement;
+  let metaTag = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
   if (!metaTag) {
     metaTag = document.createElement("meta");
     metaTag.name = "csrf-token";
@@ -396,9 +411,7 @@ export function initializeCSRFProtection(
  * Get CSRF token from meta tag
  */
 export function getCSRFTokenFromMeta(): string | null {
-  const metaTag = document.querySelector(
-    'meta[name="csrf-token"]'
-  ) as HTMLMetaElement;
+  const metaTag = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement;
   return metaTag ? metaTag.content : null;
 }
 
@@ -408,9 +421,7 @@ export function getCSRFTokenFromMeta(): string | null {
 export function useCSRFToken(sessionId?: string): {
   token: string | null;
   refresh: () => void;
-  addToHeaders: (
-    headers: Headers | Record<string, string>
-  ) => Headers | Record<string, string>;
+  addToHeaders: (headers: Headers | Record<string, string>) => Headers | Record<string, string>;
   addToFormData: (formData: FormData) => FormData;
 } {
   const [token, setToken] = React.useState<string | null>(null);
@@ -461,15 +472,11 @@ let originalFetch: typeof fetch | null = null;
  * Attach a global fetch interceptor that automatically injects CSRF tokens
  * on state-changing requests.
  */
-export function attachCSRFFetchInterceptor(
-  config: Partial<CSRFTokenConfig> = {}
-): void {
-   
+export function attachCSRFFetchInterceptor(config: Partial<CSRFTokenConfig> = {}): void {
   if (csrfFetchInterceptorInstalled || typeof fetch === "undefined") {
     return;
   }
 
-   
   originalFetch = fetch.bind(globalThis);
   csrfFetchInterceptorInstalled = true;
 
@@ -480,9 +487,7 @@ export function attachCSRFFetchInterceptor(
     const method = (options.method || "GET").toUpperCase();
     if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       return fetchWithCSRF(
-        typeof input === "string" || input instanceof URL
-          ? input.toString()
-          : String(input),
+        typeof input === "string" || input instanceof URL ? input.toString() : String(input),
         options,
         config,
         baseFetch

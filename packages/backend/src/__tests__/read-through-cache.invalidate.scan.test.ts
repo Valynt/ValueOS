@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ReadThroughCacheService } from "../services/ReadThroughCacheService.js";
+import { ReadThroughCacheService } from "../services/cache/ReadThroughCacheService.js";
 
 describe("ReadThroughCacheService.invalidateEndpoint coverage moved", () => {
   it("exposes invalidateEndpoint", () => {

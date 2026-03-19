@@ -27,6 +27,15 @@ export default defineConfig({
         functions: 70,
         lines: 75,
         statements: 75,
+        // SEC-002: sanitizeHtml is the DOMPurify allowlist backing SafeHtml.tsx.
+        // Higher branch coverage is required here to ensure the sanitizer contract
+        // is fully tested (script stripping, event handler removal, URI allowlist, etc.).
+        "src/utils/sanitizeHtml.ts": {
+          branches: 90,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
       },
     },
   },

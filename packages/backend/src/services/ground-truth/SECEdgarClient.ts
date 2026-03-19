@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // Schemas

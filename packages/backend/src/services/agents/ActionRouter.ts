@@ -18,7 +18,7 @@ import {
 } from "@valueos/shared/types/actions";
 
 import { logger } from "../../lib/logger.js";
-import { EnforcementResult, enforceRules } from "../../lib/rules";
+import { EnforcementResult, enforceRules, GovernanceObligation } from "../../lib/rules";
 import { getSupabaseClient } from "../../lib/supabase.js";
 import { createExecutionRuntime } from "../../runtime/execution-runtime/index.js";
 import {
@@ -123,20 +123,58 @@ export class ActionRouter {
       // CRITICAL: Check Governance Rules (GR/LR) first - Policy-as-Code enforcement
       const governanceCheck = await this.checkGovernanceRules(validatedAction, validatedContext);
       if (!governanceCheck.allowed) {
+        const reasonCode = (governanceCheck.metadata?.reasonCode as string) ?? "DENY_POLICY";
+        const matchedRules = (governanceCheck.metadata?.matchedRules as string[]) ?? [];
+        const evaluatedAt = (governanceCheck.metadata?.evaluatedAt as string) ?? new Date().toISOString();
+
         logger.error("Governance rules violated - BLOCKING ACTION", {
           actionType: action.type,
+          reasonCode,
           violations: governanceCheck.violations.map((v) => `${v.ruleId}: ${v.message}`),
+          traceId,
         });
 
         return {
           success: false,
           error: `Governance rules violated: ${governanceCheck.violations.map((v) => v.message).join(", ")}`,
           metadata: {
+            reasonCode,
             violations: governanceCheck.violations,
             warnings: governanceCheck.warnings,
+            audit: {
+              policyVersion: (governanceCheck.metadata?.policyVersion as string) ?? "v1",
+              evaluatedAt,
+              matchedRules,
+            },
           },
         };
       }
+
+      // Apply governance obligations before execution.
+      const obligations = (governanceCheck.metadata?.obligations as GovernanceObligation[]) ?? [];
+
+      // REQUIRE_APPROVAL must halt execution before the action is dispatched.
+      const approvalObligation = obligations.find((o) => o.type === "REQUIRE_APPROVAL");
+      if (approvalObligation) {
+        logger.warn("governance: REQUIRE_APPROVAL obligation — action pending approval", {
+          actionType: validatedAction.type,
+          approvalType: (approvalObligation as { type: "REQUIRE_APPROVAL"; approvalType: string }).approvalType,
+          userId: validatedContext.userId,
+          traceId,
+        });
+        return {
+          success: false,
+          error: "Action requires approval before it can be executed.",
+          code: "PENDING_APPROVAL",
+          metadata: {
+            pendingApproval: true,
+            approvalType: (approvalObligation as { type: "REQUIRE_APPROVAL"; approvalType: string }).approvalType,
+            traceId,
+          },
+        };
+      }
+
+      validatedAction = this.applyGovernanceObligations(validatedAction, validatedContext, obligations);
 
       // Check Manifesto rules (business value principles)
       const manifestoCheck = await this.checkManifestoRules(validatedAction, validatedContext);
@@ -224,6 +262,75 @@ export class ActionRouter {
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }
+  }
+
+  /**
+   * Apply governance obligations to the action before execution.
+   *
+   * - LOG_AUDIT: emit a structured audit log entry.
+   * - REDACT_FIELDS: strip named fields from action.payload (clones payload to
+   *   avoid mutating the original object).
+   * - REQUIRE_APPROVAL: handled in routeAction before this method is called;
+   *   any remaining instance here is a no-op (already blocked upstream).
+   * - READ_ONLY: mark the action payload so handlers can respect it.
+   *
+   * Returns the (possibly modified) action to execute.
+   */
+  private applyGovernanceObligations(
+    action: CanonicalAction,
+    context: ActionContext,
+    obligations: GovernanceObligation[]
+  ): CanonicalAction {
+    let result = { ...action };
+
+    for (const obligation of obligations) {
+      switch (obligation.type) {
+        case "LOG_AUDIT":
+          logger.info("governance: audit obligation — action approved", {
+            actionType: action.type,
+            userId: context.userId,
+            workspaceId: context.workspaceId,
+            traceId: context.traceId,
+            timestamp: new Date().toISOString(),
+          });
+          break;
+
+        case "REDACT_FIELDS": {
+          if (result.payload && typeof result.payload === "object") {
+            // Clone before mutating so the original action object is not affected.
+            const redacted = { ...(result.payload as Record<string, unknown>) };
+            for (const field of obligation.fields) {
+              delete redacted[field];
+            }
+            result = { ...result, payload: redacted };
+          }
+          logger.info("governance: REDACT_FIELDS obligation applied", {
+            actionType: action.type,
+            fields: obligation.fields,
+          });
+          break;
+        }
+
+        case "REQUIRE_APPROVAL":
+          // Already handled in routeAction before this method is called.
+          // This branch is a safety no-op; it should never be reached.
+          logger.warn("governance: unexpected REQUIRE_APPROVAL in applyGovernanceObligations — already handled", {
+            actionType: action.type,
+          });
+          break;
+
+        case "READ_ONLY":
+          logger.warn("governance: READ_ONLY obligation — downgrading action", {
+            actionType: action.type,
+            userId: context.userId,
+          });
+          // Mark the action as read-only so handlers can respect it.
+          result = { ...result, payload: { ...(result.payload as Record<string, unknown> ?? {}), __readOnly: true } };
+          break;
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -330,14 +437,17 @@ export class ActionRouter {
     context: ActionContext
   ): Promise<EnforcementResult> {
     try {
-      // Build governance rule context from action
+      // Build governance rule context from action.
+      // tenantId comes from organizationId — the stable tenant identifier on ActionContext.
+      // action.name is the permission string (e.g. "agents:execute") that the governance
+      // engine checks against the actor's granted permission set.
       const governanceResult = await enforceRules({
         agentId: `action-router-${action.type}`,
         agentType: this.mapActionToAgentType(action.type),
         userId: context.userId,
-        tenantId: context.workspaceId, // Use workspaceId as tenantId
+        tenantId: context.organizationId,
         sessionId: context.sessionId || `session-${Date.now()}`,
-        action: action.type,
+        action: ActionRouter.actionTypeToPermission(action.type),
         payload: action,
         environment:
           (process.env.NODE_ENV as "development" | "staging" | "production") || "development",
@@ -389,6 +499,29 @@ export class ActionRouter {
         },
       };
     }
+  }
+
+  /**
+   * Map a CanonicalAction type to the permission string checked by the
+   * governance engine against the actor's granted permission set.
+   *
+   * Permission strings follow the resource:action convention defined in
+   * @shared/lib/permissions/types.ts.
+   */
+  static actionTypeToPermission(actionType: string): string {
+    const map: Record<string, string> = {
+      invokeAgent: "agents:execute",
+      runWorkflowStep: "agents:execute",
+      updateValueTree: "value_trees:edit",
+      updateAssumption: "value_trees:edit",
+      exportArtifact: "projects:view",
+      openAuditTrail: "audit.read",
+      showExplanation: "projects:view",
+      navigateToStage: "projects:view",
+      saveWorkspace: "projects:edit",
+      mutateComponent: "projects:edit",
+    };
+    return map[actionType] ?? actionType;
   }
 
   /**

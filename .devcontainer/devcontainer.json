@@ -1,14 +1,20 @@
 {
   "name": "ValueOS",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "build": {
+    "context": "..",
+    "dockerfile": ".devcontainer/Dockerfile.optimized"
+  },
   "workspaceFolder": "/workspaces/ValueOS",
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm"
+  },
   "forwardPorts": [
     5173,
     5174,
-    3001,
-    54321,
-    54324,
-    8025
+    3001
   ],
   "portsAttributes": {
     "5173": {
@@ -22,24 +28,22 @@
     "3001": {
       "label": "Backend API",
       "onAutoForward": "notify"
-    },
-    "54321": {
-      "label": "Supabase Kong",
-      "onAutoForward": "silent"
-    },
-    "54324": {
-      "label": "Supabase Studio",
-      "onAutoForward": "silent"
-    },
-    "8025": {
-      "label": "MailHog Web",
-      "onAutoForward": "silent"
     }
   },
-  "containerEnv": {
-    "NODE_ENV": "development",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+  "features": {},
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "vitest.explorer",
+        "redhat.vscode-yaml",
+        "eamodio.gitlens"
+      ]
+    }
   },
-  "remoteUser": "node",
-  "features": {}
+  "mounts": [
+    "source=valueos-pnpm-store,target=/home/vscode/.local/share/pnpm,type=volume"
+  ]
 }

@@ -244,7 +244,7 @@ export async function checkPasswordBreach(password: string): Promise<PasswordBre
 
     const controller = new AbortController();
     const to = setTimeout(() => controller.abort(), timeoutMs);
-     
+    // eslint-disable-next-line no-restricted-syntax -- legitimate-exception: external HIBP API, not an internal /api/ route
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { signal: controller.signal, headers: { Accept: 'text/plain', 'User-Agent': 'valyntapp/1.0' } });
     clearTimeout(to);
 

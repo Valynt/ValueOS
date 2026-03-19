@@ -1,8 +1,10 @@
-import { LoopResultSchema, ValueHypothesisSchema } from '../../lib/agents/orchestration/index.js';
+import { v4 as uuidv4 } from 'uuid';
+
+import { logger } from '../../lib/logger.js';
 import { supabase } from '../../lib/supabase.js';
 import { CanvasComponent } from '../types';
 
-interface AgentFabricResult {
+export interface AgentFabricResult {
   value_case_id: string;
   company_profile: { company_name: string; industry: string };
   value_maps: Array<{ feature: string; capability: string; business_outcome: string; value_driver: string }>;
@@ -26,62 +28,93 @@ interface AgentFabricResult {
 }
 
 export class AgentFabricService {
-  async generateValueCase(userInput: string): Promise<{
+  /**
+   * Generate a value case by running the real hypothesis loop via
+   * ValueLifecycleOrchestrator. The valueCaseId must already exist in the
+   * database (created by the caller before invoking this method).
+   */
+  async generateValueCase(
+    valueCaseId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<{
     result: AgentFabricResult;
     canvasComponents: CanvasComponent[];
   }> {
-    const result = this.buildAgentFabricResult(userInput);
+    const startTime = Date.now();
+    const executionId = uuidv4();
 
-    const canvasComponents = this.convertToCanvasComponents(result);
-
-    return { result, canvasComponents };
-  }
-
-
-  private buildAgentFabricResult(userInput: string): AgentFabricResult {
-    const hypothesis = ValueHypothesisSchema.parse({
-      id: 'hyp-1',
-      description: userInput,
-      confidence: 0.8,
-      category: 'opportunity',
-      estimatedValue: 100000,
+    logger.info('AgentFabricService: starting hypothesis loop', {
+      valueCaseId,
+      tenantId,
+      executionId,
     });
 
-    const loopContract = LoopResultSchema.safeParse({
-      valueCaseId: 'value-case-preview',
-      tenantId: 'preview-tenant',
-      hypotheses: [hypothesis],
-      valueTree: null,
-      evidenceBundle: null,
-      narrative: null,
-      objections: [],
-      revisionCount: 0,
-      finalState: 'DRAFT',
-      success: true,
+    // Lazy-import to avoid circular deps at module load time
+    const { ValueLifecycleOrchestrator } = await import('./ValueLifecycleOrchestrator.js');
+    const { LLMGateway } = await import('../../lib/agent-fabric/LLMGateway.js');
+    const { MemorySystem } = await import('../../lib/agent-fabric/MemorySystem.js');
+    const { SupabaseMemoryBackend } = await import('../../lib/agent-fabric/SupabaseMemoryBackend.js');
+    const { AuditLogger } = await import('../../lib/agent-fabric/AuditLogger.js');
+    const { createServerSupabaseClient } = await import('../../lib/supabase.js');
+
+    const supabaseClient = createServerSupabaseClient();
+
+    const llmGateway = new LLMGateway({
+      provider: 'together',
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
     });
 
-    return {
-      value_case_id: 'value-case-preview',
-      company_profile: { company_name: 'Prospect', industry: 'Unknown' },
-      value_maps: [],
-      kpi_hypotheses: [{ kpi_name: 'Conversion Rate', target_value: 5 }],
-      financial_model: {
-        roi_percentage: 15,
-        npv_amount: 1500000,
-        payback_months: 12,
-        cost_breakdown: { implementation: 500000, operations: 250000 },
-      },
-      assumptions: [],
-      quality_score: 12,
-      execution_metadata: {
-        execution_id: 'preview-exec',
-        iteration_count: 1,
-        total_tokens: 0,
-        total_latency_ms: 0,
-        agent_contributions: { opportunity: hypothesis },
-        loop_contract_valid: loopContract.success,
-      },
+    const memorySystem = new MemorySystem(
+      { max_memories: 1000, enable_persistence: true },
+      new SupabaseMemoryBackend(),
+    );
+
+    const auditLogger = new AuditLogger();
+
+    const orchestrator = new ValueLifecycleOrchestrator(
+      supabaseClient,
+      llmGateway,
+      memorySystem,
+      auditLogger,
+    );
+
+    const loopResult = await orchestrator.runHypothesisLoop(valueCaseId, {
+      userId,
+      tenantId,
+      organizationId: tenantId,
+      sessionId: executionId,
+    });
+
+    const totalLatencyMs = Date.now() - startTime;
+
+    logger.info('AgentFabricService: hypothesis loop completed', {
+      valueCaseId,
+      tenantId,
+      executionId,
+      success: loopResult.success,
+      finalState: loopResult.finalState,
+      totalLatencyMs,
+    });
+
+    // Fetch the persisted result to build the canvas
+    const fabricResult = await this.getValueCaseById(valueCaseId, tenantId);
+
+    if (!fabricResult) {
+      throw new Error(`Value case ${valueCaseId} not found after hypothesis loop`);
+    }
+
+    fabricResult.execution_metadata = {
+      execution_id: executionId,
+      iteration_count: 1,
+      total_tokens: 0,
+      total_latency_ms: totalLatencyMs,
+      agent_contributions: {},
+      loop_contract_valid: loopResult.success,
     };
+
+    const canvasComponents = this.convertToCanvasComponents(fabricResult);
+    return { result: fabricResult, canvasComponents };
   }
 
   private convertToCanvasComponents(result: AgentFabricResult): CanvasComponent[] {
