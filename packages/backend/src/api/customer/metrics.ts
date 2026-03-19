@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { getSupabaseClient, supabase } from '@shared/lib/supabase';
+import { getSupabaseClient } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -65,7 +65,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
 
-    if (!validation.is_valid || !validation.value_case_id) {
+    if (!validation.is_valid || !validation.value_case_id || !validation.organization_id) {
       res.status(401).json({
         error: 'Unauthorized',
         message: validation.error_message || 'Invalid token'
@@ -74,12 +74,14 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     }
 
     const valueCaseId = validation.value_case_id;
+    const organizationId = validation.organization_id;
 
     // Get value case details
     const { data: valueCase, error: vcError } = await getSupabaseClient()
       .from('value_cases')
       .select('id, company_name, name')
       .eq('id', valueCaseId)
+      .eq('organization_id', organizationId)
       .single();
 
     if (vcError || !valueCase) {
@@ -99,6 +101,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
       .from('realization_metrics')
       .select('*')
       .eq('value_case_id', valueCaseId)
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
 
     // Apply date filter

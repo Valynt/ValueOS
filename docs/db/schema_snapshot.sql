@@ -21089,11 +21089,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION validate_customer_token(p_token TEXT)
 RETURNS TABLE (
   value_case_id UUID,
+  organization_id UUID,
   is_valid BOOLEAN,
   error_message TEXT
 ) AS $$
 DECLARE
   v_token_record RECORD;
+  v_value_case RECORD;
 BEGIN
   -- Find token
   SELECT * INTO v_token_record
@@ -21102,19 +21104,29 @@ BEGIN
 
   -- Token not found
   IF NOT FOUND THEN
-    RETURN QUERY SELECT NULL::UUID, FALSE, 'Invalid token';
+    RETURN QUERY SELECT NULL::UUID, NULL::UUID, FALSE, 'Invalid token';
     RETURN;
   END IF;
 
   -- Token revoked
   IF v_token_record.revoked_at IS NOT NULL THEN
-    RETURN QUERY SELECT NULL::UUID, FALSE, 'Token has been revoked';
+    RETURN QUERY SELECT NULL::UUID, NULL::UUID, FALSE, 'Token has been revoked';
     RETURN;
   END IF;
 
   -- Token expired
   IF v_token_record.expires_at < NOW() THEN
-    RETURN QUERY SELECT NULL::UUID, FALSE, 'Token has expired';
+    RETURN QUERY SELECT NULL::UUID, NULL::UUID, FALSE, 'Token has expired';
+    RETURN;
+  END IF;
+
+  -- Resolve owning organization
+  SELECT id, organization_id INTO v_value_case
+  FROM value_cases
+  WHERE id = v_token_record.value_case_id;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT NULL::UUID, NULL::UUID, FALSE, 'Value case not found';
     RETURN;
   END IF;
 
@@ -21126,7 +21138,7 @@ BEGIN
   WHERE token = p_token;
 
   -- Return valid token
-  RETURN QUERY SELECT v_token_record.value_case_id, TRUE, NULL::TEXT;
+  RETURN QUERY SELECT v_value_case.id, v_value_case.organization_id, TRUE, NULL::TEXT;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -28714,4 +28726,3 @@ CREATE POLICY user_profile_directory_service_role ON public.user_profile_directo
 
 COMMIT;
 -- ===== END LEGACY MIGRATION: 20260305000001_tenant_rls_hardening.sql =====
-
