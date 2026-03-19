@@ -30,6 +30,18 @@ vi.mock("../../CircuitBreaker.js", () => ({
   },
 }));
 
+vi.mock("../../../../services/agents/AgentKillSwitchService.js", () => ({
+  agentKillSwitchService: {
+    isKilled: vi.fn().mockResolvedValue(false),
+  },
+}));
+
+vi.mock("../../../../repositories/AgentExecutionLineageRepository.js", () => ({
+  agentExecutionLineageRepository: {
+    appendLineage: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 const { mockGetFinancialData } = vi.hoisted(() => ({
   mockGetFinancialData: vi.fn(),
 }));

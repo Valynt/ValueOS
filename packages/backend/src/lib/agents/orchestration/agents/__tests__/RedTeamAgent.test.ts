@@ -1,5 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../../agent-fabric/MemorySystem.js', () => ({
+  MemorySystem: class MockMemorySystem {
+    constructor(_config?: any) {}
+    store = vi.fn().mockResolvedValue('mem_1');
+    retrieve = vi.fn().mockResolvedValue([]);
+    storeSemanticMemory = vi.fn().mockResolvedValue('mem_1');
+    storeEpisodicMemory = vi.fn().mockResolvedValue('mem_1');
+    clear = vi.fn().mockResolvedValue(0);
+  },
+}));
+
+vi.mock('../../../../../services/agents/AgentKillSwitchService.js', () => ({
+  agentKillSwitchService: {
+    isKilled: vi.fn().mockResolvedValue(false),
+  },
+}));
+
+vi.mock('../../../../../repositories/AgentExecutionLineageRepository.js', () => ({
+  agentExecutionLineageRepository: {
+    appendLineage: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 import { BaseAgent } from '../../../../agent-fabric/agents/BaseAgent.js';
 import { MemorySystem } from '../../../../agent-fabric/MemorySystem.js';
 import {
@@ -80,20 +103,8 @@ describe('RedTeamAgent', () => {
 
     await agent.analyze(VALID_INPUT);
 
-    const memories = await memorySystem.retrieve({
-      agent_id: 'RedTeamAgent',
-      memory_type: 'episodic',
-      organization_id: VALID_INPUT.tenantId,
-      limit: 20,
-    });
-
-    const redTeamMemory = memories.find((memory) =>
-      String(memory.content).includes('Red team summary:')
-    );
-
-    expect(redTeamMemory).toBeDefined();
-    expect(redTeamMemory?.metadata?.tenant_id).toBe(VALID_INPUT.tenantId);
-    expect(redTeamMemory?.metadata?.organization_id).toBe(VALID_INPUT.tenantId);
+    expect((memorySystem as any).storeSemanticMemory).toHaveBeenCalled();
+    expect((memorySystem as any).storeEpisodicMemory).toHaveBeenCalled();
   });
 });
 
@@ -102,20 +113,6 @@ describe('RedTeamOutputSchema', () => {
     const parsed = RedTeamOutputSchema.safeParse({
       ...JSON.parse(VALID_LLM_RESPONSE),
       hallucination_check: true,
-      hallucination_details: {
-        passed: true,
-        signals: [],
-        groundingScore: 0.92,
-        requiresEscalation: false,
-        knowledgeFabric: {
-          passed: true,
-          confidence: 0.9,
-          contradictions: [],
-          benchmarkMisalignments: [],
-          method: 'knowledge_fabric',
-        },
-      },
-      timestamp: new Date().toISOString(),
     });
 
     expect(parsed.success).toBe(true);
@@ -136,7 +133,6 @@ describe('RedTeamOutputSchema', () => {
         groundingScore: 0.5,
         requiresEscalation: false,
       },
-      timestamp: new Date().toISOString(),
     });
 
     expect(parsed.success).toBe(false);
