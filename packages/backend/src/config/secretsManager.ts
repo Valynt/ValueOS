@@ -445,21 +445,19 @@ export class MultiTenantSecretsManager {
       throw mismatchError;
     }
 
-    if (!this.auditLogger) {
-      const permCheck = await this.checkPermission(userId, tenantId, 'READ');
-      if (!permCheck.allowed) {
-        await this.auditLog({
-          tenantId,
-          userId,
-          secretKey: 'all_secrets',
-          action: 'READ',
-          result: 'FAILURE',
-          error: permCheck.reason,
-          timestamp: new Date().toISOString(),
-        });
+    const permCheck = await this.checkPermission(userId, tenantId, 'READ');
+    if (!permCheck.allowed) {
+      await this.auditLog({
+        tenantId,
+        userId,
+        secretKey: 'all_secrets',
+        action: 'READ',
+        result: 'FAILURE',
+        error: permCheck.reason,
+        timestamp: new Date().toISOString(),
+      });
 
-        throw new Error(`Permission denied: ${permCheck.reason}`);
-      }
+      throw new Error(`Permission denied: ${permCheck.reason}`);
     }
 
     const cacheKey = this.getCacheKey(tenantId, 'all_secrets');
