@@ -77,7 +77,11 @@ const BillingPortal = lazy(() => import("./views/BillingPortal"));
 
 // Academy v2 (migrated from VOSAcademy)
 const AcademyV2Routes = lazy(() => import("./features/academy-v2/routes"));
-
+const MainLayoutSkipLinkHarness = lazy(() =>
+  import("./views/testing/MainLayoutSkipLinkHarness").then((m) => ({
+    default: m.MainLayoutSkipLinkHarness,
+  }))
+);
 
 const TENANT_SCOPED_PREFIX = "/org";
 
@@ -160,6 +164,12 @@ export function AppRoutes() {
                                   element={resolvePublicElement(path)}
                                 />
                               ))}
+
+                              {import.meta.env.DEV && (
+                                <Route path="/__playwright__/main-layout" element={<MainLayout />}>
+                                  <Route index element={<MainLayoutSkipLinkHarness />} />
+                                </Route>
+                              )}
 
                               {/* Root redirect */}
                               <Route path="/" element={<TenantAwareRedirect leafPath="dashboard" />} />
