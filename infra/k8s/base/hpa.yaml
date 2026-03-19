@@ -9,6 +9,7 @@ metadata:
   labels:
     app: backend
     component: api
+    autoscaling.valueos.dev/profile: interactive-api
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: valynt
@@ -56,7 +57,9 @@ spec:
           value: "450"
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 360
+      # Interactive request/response traffic was validated for no request thrash,
+      # so scale-in can happen faster than async workers.
+      stabilizationWindowSeconds: 120
       selectPolicy: Min
       policies:
         - type: Percent
@@ -84,6 +87,7 @@ metadata:
   labels:
     app: frontend
     component: web
+    autoscaling.valueos.dev/profile: interactive-api
     app.kubernetes.io/name: frontend
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: valynt
@@ -103,7 +107,9 @@ spec:
           averageUtilization: 70
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 300
+      # Frontend pods are stateless interactive capacity, so use the shortest
+      # validated scale-in window once request-thrash checks stay clean.
+      stabilizationWindowSeconds: 90
       selectPolicy: Min
       policies:
         - type: Percent
