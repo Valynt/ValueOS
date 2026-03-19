@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 
-import { requireConsent } from '../middleware/consentMiddleware'
+import { requireConsent, resolveAuthenticatedConsentContext } from '../middleware/consentMiddleware'
 import { enforceLineage } from '../middleware/lineageValidationMiddleware'
 import { requirePermission } from '../middleware/rbac'
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware'
@@ -14,7 +14,7 @@ router.use(requirePermission('data.import'));
 router.post(
   '/upload',
   enforceLineage(),
-  requireConsent('knowledge.upload', consentRegistry),
+  requireConsent('knowledge.upload', consentRegistry, resolveAuthenticatedConsentContext),
   async (req: Request, res: Response) => {
     const { source_origin, data_sensitivity_level, ...rest } = req.body;
 

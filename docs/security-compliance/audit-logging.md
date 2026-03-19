@@ -254,6 +254,18 @@ localStorage.removeItem("supabase.auth.token");
 
 **Recommendation:** Use Supabase's built-in session management methods instead of direct storage manipulation.
 
+### 3.2 Consent Audit Evidence
+
+Consent-sensitive routes must record evidence that the authorization decision was evaluated per authenticated data subject. The minimum evidence set is:
+
+- `tenant_id` for tenant isolation proof.
+- Canonical `auth_subject` for the authenticated user/data subject whose consent was checked.
+- `consent_type` (for example `llm.chat` or `queue.llm.cancel`).
+- Decision outcome (`granted` or `denied`) plus whether the matched consent row was active or withdrawn.
+- Request identifier / correlation identifier so auditors can trace the consent check back to the protected action.
+
+Evidence is incomplete if it only proves that some user in the tenant once consented; audit samples must show that the exact subject invoking the protected route had active consent at decision time.
+
 ### 3.3 OAuth Security
 
 **Implementation:**
