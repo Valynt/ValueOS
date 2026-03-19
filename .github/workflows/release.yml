@@ -108,10 +108,9 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # Bump package versions and update changelogs
+          # Use the workspace-installed @changesets/cli to bump package versions and update changelogs.
           version: pnpm changeset version
-          # Create a git tag for each released package
-          # access:restricted means no npm publish; GitHub Release is the artifact
+          # This repository does not publish to npm from CI; the release artifact is the git tag + GitHub Release.
           publish: pnpm changeset tag
           title: "chore: version packages"
           commit: "chore: version packages"

@@ -1,5 +1,5 @@
 {
-  "changelog": ["@changesets/cli/changelog"],
+  "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
   "linked": [],
