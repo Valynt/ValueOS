@@ -32,10 +32,17 @@ Authoritative operational runbook for production deployments. This runbook is th
 ## Deployment Procedure
 1. Confirm release tag and environment lock.
 2. Apply DB migrations using standard migration pipeline.
-3. Deploy backend services, then frontend workloads.
-4. Run post-deploy smoke tests for auth, tenancy isolation, billing endpoints, and workflow execution.
+3. Validate service identity assertions for every non-local environment before rollout.
+   - Confirm `SERVICE_IDENTITY_CONFIG_JSON` is present for the target environment.
+   - Confirm every workload that calls protected internal routes sets `SERVICE_IDENTITY_CALLER_ID`.
+   - Confirm outbound assertions are configured with either:
+     - `hmacKeys` containing an active key for the caller service, or
+     - `jwtIssuers` containing an active signing key/secret for the caller service.
+   - Reject the deploy if the environment still depends on the legacy shared `X-Service-Identity` token.
+4. Deploy backend services, then frontend workloads.
+5. Run post-deploy smoke tests for auth, tenancy isolation, billing endpoints, workflow execution, and at least one protected internal route using per-request service assertions.
    - Include blocking chaos/smoke release suite: `node scripts/chaos/launch-chaos-smoke.mjs`.
-5. Monitor error rate, p95 latency, and queue depth for 15 minutes.
+6. Monitor error rate, p95 latency, queue depth, and `Service identity verification failed` / `Service principal revoked` log volume for 15 minutes.
 
 ## Rollback Procedure
 1. Trigger rollback in orchestrator to previous release artifact.
@@ -57,6 +64,22 @@ Authoritative operational runbook for production deployments. This runbook is th
 ## Evidence & Audit
 - Attach CI run URL, release ID, and smoke test evidence to the release record.
 - Record incident ticket reference for any degraded deploy.
+
+## Service identity key rotation (required)
+1. Create or confirm the change ticket and identify the caller services, target audiences, and protected routes affected by the rotation.
+2. Generate the successor key pair or shared secret in the approved secret manager. Do not distribute keys through Git, chat, tickets, or `.env` attachments.
+3. Add the successor material to `SERVICE_IDENTITY_CONFIG_JSON` alongside the currently active key:
+   - For HMAC, add a new `hmacKeys[]` entry with a new `keyId` and leave the current key active during overlap.
+   - For JWT, add the new signing key/secret under `jwtIssuers[]` and preserve the currently trusted verifier during overlap.
+4. Roll out callers first by setting `SERVICE_IDENTITY_OUTBOUND_KEY_ID` to the new key where applicable and confirming `addServiceIdentityHeader(...)` emits the successor assertion.
+5. Roll out verifiers next and confirm protected routes accept the successor assertion in each environment.
+6. Revoke the predecessor key by marking it revoked or removing it from the runtime secret source after all callers have cut over.
+7. Capture evidence in the release record:
+   - secret-manager version or key ID
+   - rollout timestamps by environment
+   - smoke test / integration test evidence
+   - audit log or metrics confirmation showing traffic on the successor key only
+8. Schedule follow-up verification within 24 hours to confirm there is no residual traffic for the retired key ID.
 
 ## Generated Reference
 Detailed command catalogs and deep background are maintained in the generated reference:

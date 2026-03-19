@@ -17,11 +17,6 @@ import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security/index
 import type { AgentContext, AgentType } from './agent-types.js'
 import { logAgentResponse } from './AgentAuditLogger.js'
 import { CircuitBreaker } from './CircuitBreaker.js'
-import {
-  assertInteractiveSyncAgentAllowed,
-  isInteractiveInvocationMode,
-  type InteractiveInvocationMode,
-} from './AgentInvocationPolicy.js'
 import { llmSanitizer } from './LLMSanitizer.js'
 
 
@@ -48,12 +43,6 @@ export interface AgentRequest {
    * Additional parameters
    */
   parameters?: Record<string, unknown>;
-
-  /**
-   * Declares whether the caller expects an interactive synchronous response or
-   * an async queue/poll/stream workflow.
-   */
-  invocationMode?: InteractiveInvocationMode;
 }
 
 /**
@@ -177,11 +166,6 @@ export interface AgentAPIConfig {
    * Custom headers
    */
   headers?: Record<string, string>;
-}
-
-function getRequestPath(url: string): string {
-  const resolvedUrl = new URL(url, 'http://valueos.internal');
-  return `${resolvedUrl.pathname}${resolvedUrl.search}`;
 }
 
 /**
@@ -354,18 +338,25 @@ export class AgentAPI {
 
       // Make HTTP request
       const url = `${this.config.baseUrl}${endpoint}`;
-      const serviceIdentityHeaders = addServiceIdentityHeader({}, {
-        method: 'POST',
-        path: getRequestPath(url),
-        body: sanitizedBody,
-      });
+      const requestPath = (() => {
+        try {
+          const parsed = new URL(url);
+          return `${parsed.pathname}${parsed.search}`;
+        } catch {
+          return endpoint;
+        }
+      })();
       const response = await this.fetchWithTimeout(
         url,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...serviceIdentityHeaders,
+            ...addServiceIdentityHeader({}, {
+              method: 'POST',
+              path: requestPath,
+              body: sanitizedBody,
+            }),
             ...this.config.headers,
             'x-csrf-token': this.getCsrfToken(),
           },
@@ -731,15 +722,10 @@ export class AgentAPI {
     const knownAgents = [
       'opportunity', 'target', 'realization', 'expansion', 'integrity',
       'company-intelligence', 'financial-modeling', 'value-mapping',
-      'system-mapper', 'intervention-designer', 'outcome-engineer',
-      'coordinator', 'value-eval', 'communicator', 'research', 'benchmark',
-      'narrative', 'groundtruth',
+      'system-mapper', 'intervention-designer',
     ];
     if (!knownAgents.includes(request.agent as string)) {
       throw new Error(`unknown agent type: ${request.agent}`);
-    }
-    if (isInteractiveInvocationMode(request.invocationMode)) {
-      assertInteractiveSyncAgentAllowed(request.agent, 'AgentAPI.invokeAgent');
     }
     if (request.query === undefined || request.query === null) {
       throw new Error('query is required');

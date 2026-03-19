@@ -1,5 +1,7 @@
 import { createHash, createHmac } from 'crypto';
 
+import express from 'express';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
 import { addServiceIdentityHeader, serviceIdentityMiddleware } from '../serviceIdentityMiddleware.js'
@@ -217,5 +219,89 @@ describe('addServiceIdentityHeader', () => {
 
     delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
     delete process.env.SERVICE_IDENTITY_CALLER_ID;
+  });
+
+  it('adds jwt assertion headers when outbound jwt issuer present', () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      jwtIssuers: [{
+        issuer: 'valueos-agents',
+        serviceId: 'agent-api',
+        sharedSecret: 'jwt-shared-secret',
+        algorithms: ['HS256'],
+        audience: 'valueos-backend',
+      }],
+    });
+    process.env.SERVICE_IDENTITY_CALLER_ID = 'agent-api';
+
+    const headers: Record<string, string> = {};
+    const result = addServiceIdentityHeader(headers, { method: 'POST', path: '/agents', body: { hello: 'world' } });
+    expect(result['X-Service-JWT']).toBeDefined();
+    expect(result['X-Service-Id']).toBe('agent-api');
+    expect(result['X-Request-Nonce']).toBeDefined();
+
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+    delete process.env.SERVICE_IDENTITY_CALLER_ID;
+  });
+});
+
+describe('service identity integration', () => {
+  it('rejects protected internal routes when only the legacy shared token is sent', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.post('/internal/protected', serviceIdentityMiddleware, (_req, res) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const response = await request(app)
+      .post('/internal/protected')
+      .set('X-Service-Identity', 'legacy-shared-token')
+      .set('X-Request-Timestamp', String(Date.now()))
+      .set('X-Request-Nonce', 'legacy-nonce')
+      .send({ hello: 'world' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({ error: 'Service identity verification failed' });
+
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+    delete process.env.NODE_ENV;
+  });
+
+  it('accepts protected internal routes with addServiceIdentityHeader hmac assertions', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+    process.env.SERVICE_IDENTITY_CALLER_ID = 'agent-api';
+
+    const app = express();
+    app.use(express.json());
+    app.post('/internal/protected', serviceIdentityMiddleware, (_req, res) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const body = { hello: 'world' };
+    const response = await request(app)
+      .post('/internal/protected')
+      .set(addServiceIdentityHeader({}, {
+        method: 'POST',
+        path: '/internal/protected',
+        body,
+      }))
+      .send(body);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ ok: true });
+
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+    delete process.env.SERVICE_IDENTITY_CALLER_ID;
+    delete process.env.NODE_ENV;
   });
 });

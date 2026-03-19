@@ -1,6 +1,14 @@
 import { createHash, createHmac, randomUUID as nodeRandomUUID, timingSafeEqual } from 'crypto';
 
 import { NextFunction, Request, Response } from 'express';
+
+interface ServiceRequest extends Request {
+  serviceIdentityVerified?: boolean;
+  requestNonce?: string;
+  servicePrincipal?: string;
+  serviceIssuer?: string;
+  serviceAuthMethod?: string;
+}
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
 import { logger } from '../lib/logger.js';
@@ -31,7 +39,10 @@ type HmacServiceKey = {
 type JwtIssuerConfig = {
   issuer: string;
   audience?: string;
+  serviceId?: string;
+  keyId?: string;
   publicKey?: string;
+  privateKey?: string;
   sharedSecret?: string;
   algorithms?: jwt.Algorithm[];
 };
@@ -107,7 +118,7 @@ function normalizeBody(body: unknown): string {
 }
 
 function bodyHashFromRequest(req: Request): string {
-  return createHash('sha256').update(normalizeBody((req as Request & { body?: unknown }).body)).digest('hex');
+  return createHash('sha256').update(normalizeBody((req as ServiceRequest & { body: unknown }).body)).digest('hex');
 }
 
 function buildSigningPayload(req: Request, timestamp: number, nonce: string, bodyHash: string): string {
@@ -146,39 +157,12 @@ function hasCryptographicAssertions(config: ServiceIdentityConfig): boolean {
   return Boolean((config.jwtIssuers && config.jwtIssuers.length > 0) || (config.hmacKeys && config.hmacKeys.length > 0));
 }
 
-function hasAnyAssertions(config: ServiceIdentityConfig): boolean {
+function hasConfiguredAssertions(config: ServiceIdentityConfig): boolean {
   return Boolean(
     (config.allowedSpiffeIds && config.allowedSpiffeIds.length > 0) ||
     (config.jwtIssuers && config.jwtIssuers.length > 0) ||
     (config.hmacKeys && config.hmacKeys.length > 0)
   );
-}
-
-function requireConfiguredServiceIdentity(req: Request, res: Response, config: ServiceIdentityConfig): boolean {
-  const strictMode = !isLocalEnvironment() || process.env.SERVICE_IDENTITY_REQUIRED === 'true';
-
-  if (strictMode && !hasCryptographicAssertions(config)) {
-    logger.error('Service identity strict mode requires jwtIssuers or hmacKeys', {
-      path: req.originalUrl || req.url,
-      nodeEnv: process.env.NODE_ENV,
-    });
-    res.status(503).json({ error: 'Service identity cryptographic assertions not configured' });
-    return false;
-  }
-
-  if (!hasAnyAssertions(config)) {
-    if (strictMode) {
-      logger.error('Service identity middleware reached with no configured assertions', {
-        path: req.originalUrl || req.url,
-      });
-      res.status(503).json({ error: 'Service identity not configured' });
-      return false;
-    }
-
-    return true;
-  }
-
-  return true;
 }
 
 function parseIngressAttestation(req: Request, config: ServiceIdentityConfig): IngressAttestationPayload | null {
@@ -344,11 +328,30 @@ function verifyHmacIdentity(req: Request, config: ServiceIdentityConfig): Resolv
  */
 export function serviceIdentityMiddleware(req: Request, res: Response, next: NextFunction): void {
   const config = parseServiceIdentityConfig();
-  if (!requireConfiguredServiceIdentity(req, res, config)) {
-    return;
+  const configuredAssertions = hasConfiguredAssertions(config);
+  const hasCryptoAssertions = hasCryptographicAssertions(config);
+  const strictMode = !isLocalEnvironment() || process.env.SERVICE_IDENTITY_REQUIRED === 'true';
+
+  if (strictMode && !hasCryptoAssertions) {
+    logger.error('Service identity strict mode requires jwtIssuers or hmacKeys', {
+      path: req.originalUrl || req.url,
+      nodeEnv: process.env.NODE_ENV,
+    });
+    return void res.status(503).json({ error: 'Service identity cryptographic assertions not configured' });
   }
 
-  if (!hasAnyAssertions(config)) {
+  if (!configuredAssertions) {
+    // Fail closed in production (caught at startup by validateServiceIdentityConfig)
+    // or when SERVICE_IDENTITY_REQUIRED=true is set explicitly.
+    const shouldReject =
+      process.env.NODE_ENV === 'production' ||
+      process.env.SERVICE_IDENTITY_REQUIRED === 'true';
+    if (shouldReject) {
+      logger.error('Service identity middleware reached with no configured assertions', {
+        path: req.originalUrl || req.url,
+      });
+      return void res.status(503).json({ error: 'Service identity not configured' });
+    }
     return next();
   }
 
@@ -395,11 +398,11 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       return void res.status(401).json({ error: 'Replay detected' });
     }
 
-    req.serviceIdentityVerified = true;
-    req.requestNonce = nonce;
-    req.servicePrincipal = identity.principal;
-    req.serviceIssuer = identity.issuer;
-    req.serviceAuthMethod = identity.method;
+    (req as ServiceRequest).serviceIdentityVerified = true;
+    (req as ServiceRequest).requestNonce = nonce;
+    (req as ServiceRequest).servicePrincipal = identity.principal;
+    (req as ServiceRequest).serviceIssuer = identity.issuer;
+    (req as ServiceRequest).serviceAuthMethod = identity.method;
     logger.info('Service identity verified', {
       servicePrincipal: identity.principal,
       issuer: identity.issuer,
@@ -425,25 +428,27 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
 
 /**
  * Validates that service identity is configured before the server accepts traffic.
- * Call this at startup in production environments. Throws if cryptographic assertions are not
- * configured, preventing the open-access misconfiguration.
+ * Call this at startup in production environments. Throws if no assertion method is configured,
+ * preventing the open-access misconfiguration.
  */
 export function validateServiceIdentityConfig(): void {
   const config = parseServiceIdentityConfig();
+  const configuredAssertions = hasConfiguredAssertions(config);
+  const hasCryptoAssertions = hasCryptographicAssertions(config);
   const strictMode = !isLocalEnvironment() || process.env.SERVICE_IDENTITY_REQUIRED === 'true';
 
   if (!strictMode) {
     return;
   }
 
-  if (!hasCryptographicAssertions(config)) {
+  if (strictMode && !hasCryptoAssertions) {
     throw new Error(
       'FATAL: Service identity strict mode requires cryptographic assertions. ' +
       'Set SERVICE_IDENTITY_CONFIG_JSON with jwtIssuers and/or hmacKeys for non-local environments.'
     );
   }
 
-  if (!hasAnyAssertions(config)) {
+  if (!configuredAssertions) {
     throw new Error(
       'FATAL: No service identity assertions configured in production. ' +
       'Set SERVICE_IDENTITY_CONFIG_JSON with hmacKeys, jwtIssuers, or allowedSpiffeIds. ' +
@@ -468,15 +473,7 @@ export function addServiceIdentityHeader(
 ): Record<string, string> {
   const config = parseServiceIdentityConfig();
   const callerServiceId = process.env.SERVICE_IDENTITY_CALLER_ID;
-  const jwtSubject = process.env.SERVICE_IDENTITY_JWT_SUBJECT || callerServiceId;
-  const selectedJwtIssuer = process.env.SERVICE_IDENTITY_JWT_ISSUER;
   const selectedKeyId = process.env.SERVICE_IDENTITY_OUTBOUND_KEY_ID;
-  const strictMode = !isLocalEnvironment() || process.env.SERVICE_IDENTITY_REQUIRED === 'true';
-  const method = (options.method || 'POST').toUpperCase();
-  const path = options.path || '/';
-  const timestamp = Date.now();
-  const nonce = randomUUID();
-  const bodyHash = createHash('sha256').update(normalizeBody(options.body)).digest('hex');
 
   const candidateKey = (config.hmacKeys || []).find((key) => {
     if (key.status === 'revoked') return false;
@@ -486,6 +483,11 @@ export function addServiceIdentityHeader(
   });
 
   if (candidateKey) {
+    const timestamp = Date.now();
+    const nonce = randomUUID();
+    const method = (options.method || 'POST').toUpperCase();
+    const path = options.path || '/';
+    const bodyHash = createHash('sha256').update(normalizeBody(options.body)).digest('hex');
     const signingPayload = [method, path, bodyHash, String(timestamp), nonce].join('\n');
     const signature = createHmac('sha256', candidateKey.secret).update(signingPayload).digest('hex');
 
@@ -499,44 +501,47 @@ export function addServiceIdentityHeader(
     return headers;
   }
 
-  const jwtIssuer = (config.jwtIssuers || []).find((issuerConfig) => {
-    if (!issuerConfig.sharedSecret) return false;
-    if (selectedJwtIssuer && issuerConfig.issuer !== selectedJwtIssuer) return false;
+  const candidateJwtIssuer = (config.jwtIssuers || []).find((issuerConfig) => {
+    const canSign = Boolean(issuerConfig.privateKey || issuerConfig.sharedSecret);
+    if (!canSign) return false;
+    if (callerServiceId && issuerConfig.serviceId && issuerConfig.serviceId !== callerServiceId) return false;
+    if (selectedKeyId && issuerConfig.keyId && issuerConfig.keyId !== selectedKeyId) return false;
     return true;
   });
 
-  if (jwtIssuer && jwtSubject) {
-    const issuedAtSeconds = Math.floor(timestamp / 1000);
-    const audience = jwtIssuer.audience || config.expectedAudience || 'internal';
+  if (candidateJwtIssuer) {
+    const nonce = randomUUID();
+    const serviceId = callerServiceId || candidateJwtIssuer.serviceId || candidateJwtIssuer.issuer;
     const token = jwt.sign(
       {
-        sub: jwtSubject,
-        aud: audience,
+        sub: serviceId,
         jti: nonce,
-        iat: issuedAtSeconds,
-        nbf: issuedAtSeconds - 5,
-        exp: issuedAtSeconds + 120,
       },
-      jwtIssuer.sharedSecret,
+      candidateJwtIssuer.privateKey || candidateJwtIssuer.sharedSecret!,
       {
-        algorithm: jwtIssuer.algorithms?.[0] || 'HS256',
-        issuer: jwtIssuer.issuer,
-        keyid: selectedKeyId,
+        algorithm: candidateJwtIssuer.algorithms?.[0] || 'HS256',
+        issuer: candidateJwtIssuer.issuer,
+        audience: candidateJwtIssuer.audience || config.expectedAudience,
+        expiresIn: '2m',
+        notBefore: 0,
+        ...(candidateJwtIssuer.keyId ? { keyid: candidateJwtIssuer.keyId } : {}),
       }
     );
 
-    headers.Authorization = `Bearer ${token}`;
-    headers['X-Service-Audience'] = audience;
-    headers['X-Request-Timestamp'] = String(timestamp);
+    headers['X-Service-JWT'] = token;
+    headers['X-Service-Id'] = serviceId;
+    headers['X-Request-Timestamp'] = Date.now().toString();
     headers['X-Request-Nonce'] = nonce;
-    headers['X-Body-SHA256'] = bodyHash;
+    if (candidateJwtIssuer.audience || config.expectedAudience) {
+      headers['X-Service-Audience'] = candidateJwtIssuer.audience || config.expectedAudience || 'internal';
+    }
     return headers;
   }
 
-  if (strictMode) {
+  if (!isLocalEnvironment()) {
     throw new Error(
-      'Unable to create outbound service identity assertion. ' +
-      'Configure a non-revoked hmacKeys entry or a jwtIssuers entry with sharedSecret for this caller.'
+      'No outbound service identity assertion configuration is available. ' +
+      'Configure SERVICE_IDENTITY_CONFIG_JSON with outbound hmacKeys or jwtIssuers.'
     );
   }
 
