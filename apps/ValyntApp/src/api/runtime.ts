@@ -7,7 +7,7 @@ export interface ClientCapabilitiesResponse {
 }
 
 export async function getClientCapabilities(): Promise<ClientCapabilitiesResponse> {
-  const response = await apiClient.get<ClientCapabilitiesResponse>("/api/runtime/client-capabilities");
+  const response = await apiClient.get<ClientCapabilitiesResponse>("/runtime/client-capabilities");
 
   if (!response.success || !response.data) {
     throw new Error(response.error?.message || "Failed to load runtime client capabilities");
