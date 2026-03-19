@@ -1,6 +1,12 @@
 # HPAs target the blue (active) deployments by default. During a blue-green
 # switch, update scaleTargetRef.name to point to the newly active deployment
 # (e.g., backend-green / frontend-green).
+#
+# Latency classes:
+# - Interactive API routes scale on completion p95 < 200ms.
+# - Orchestration / LLM routes scale on TTFB p95 < 200ms with a separate
+#   completion SLO handled by streaming/async telemetry, not by the universal
+#   200ms completion guardrail.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -47,14 +53,27 @@ spec:
     - type: External
       external:
         metric:
-          name: backend_http_p95_latency_ms
+          name: backend_interactive_http_p95_latency_ms
           selector:
             matchLabels:
               app: backend
               namespace: valynt
+              latency_class: interactive
         target:
           type: Value
-          value: "450"
+          value: "200"
+    - type: External
+      external:
+        metric:
+          name: backend_orchestration_ttfb_p95_latency_ms
+          selector:
+            matchLabels:
+              app: backend
+              namespace: valynt
+              latency_class: orchestration
+        target:
+          type: Value
+          value: "200"
   behavior:
     scaleDown:
       # Interactive request/response traffic was validated for no request thrash,
