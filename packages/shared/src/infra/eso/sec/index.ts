@@ -1,7 +1,6 @@
 import { logger } from "../../../lib/logger";
+import { ESOAdapterBase } from "../base.js";
 import { DataIngestionAdapter, IngestionConfig } from "../types.js";
-import { Cache } from "../utils/cache.js";
-import { RateLimiter } from "../utils/rateLimiter.js";
 
 interface MarketDataPoint {
   symbol: string;
@@ -60,6 +59,10 @@ class MarketDataStreamAdapter {
   }
 }
 
+interface SECResponse {
+  [key: string]: unknown;
+}
+
 interface SECTransformed {
   source: "SEC-EDGAR";
   ingestionType: "sec_filing";
@@ -67,62 +70,40 @@ interface SECTransformed {
   timestamp: string;
 }
 
-export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed> {
+export class SECAdapter
+  extends ESOAdapterBase<SECResponse, SECTransformed>
+  implements DataIngestionAdapter<SECResponse, SECTransformed, { cik?: string; type?: string }>
+{
   name = "SEC";
-  private rateLimiter?: RateLimiter;
-  private cache?: Cache;
   private ws?: WebSocket;
-  private dataCallbacks: Set<(data: SECTransformed) => void> = new Set();
   private reconnectTimer?: NodeJS.Timeout;
   private isStreaming = false;
   private marketDataAdapter: MarketDataStreamAdapter;
 
-  constructor(private config: IngestionConfig & { marketData?: MarketDataProviderConfig }) {
-    if (config.rateLimit) {
-      this.rateLimiter = new RateLimiter(config.rateLimit, 60000);
-    }
-    if (config.enableCache) {
-      this.cache = new Cache(config.cacheTTL);
-    }
+  constructor(config: IngestionConfig & { marketData?: MarketDataProviderConfig }) {
+    super(config);
     this.marketDataAdapter = new MarketDataStreamAdapter(config.marketData || {}, config.apiKey);
   }
 
-  async fetchData(params: { cik?: string; type?: string } = {}): Promise<unknown> {
-    const cacheKey = `sec-${JSON.stringify(params)}`;
-    if (this.cache) {
-      const cached = this.cache.get(cacheKey);
-      if (cached) return cached;
-    }
-
-    if (this.rateLimiter) {
-      await this.rateLimiter.waitForToken();
-    }
-
-    const url = new URL(this.config.baseUrl);
-    if (params.cik) {
-      url.searchParams.set("cik", params.cik);
-    }
-    if (params.type) {
-      url.searchParams.set("type", params.type);
-    }
-
-    const response = await fetch(url.toString(), {
+  async fetchData(params: { cik?: string; type?: string } = {}): Promise<SECResponse> {
+    return this.fetchJson({
+      cacheKey: `sec-${JSON.stringify(params)}`,
+      params,
+      buildUrl: (requestParams) => {
+        const url = new URL(this.config.baseUrl);
+        if (requestParams.cik) {
+          url.searchParams.set("cik", requestParams.cik);
+        }
+        if (requestParams.type) {
+          url.searchParams.set("type", requestParams.type);
+        }
+        return url;
+      },
       headers: {
         "User-Agent": "ValueOS/1.0",
       },
+      validateResponse: validateSECResponse,
     });
-
-    if (!response.ok) {
-      throw new Error(`SEC API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (this.cache) {
-      this.cache.set(cacheKey, data);
-    }
-
-    return data;
   }
 
   async transformData(rawData: unknown): Promise<SECTransformed> {
@@ -135,11 +116,13 @@ export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed>
   }
 
   async startStreaming(params: { symbols?: string[] } = {}): Promise<void> {
-    if (this.isStreaming) return;
+    if (this.isStreaming) {
+      return;
+    }
 
     const symbols = params.symbols?.length ? params.symbols : ["AAPL", "MSFT", "GOOGL"];
     this.ws = this.marketDataAdapter.connect(symbols, (data) => {
-      void this.transformData(data).then((transformed) => this.notifyDataCallbacks(transformed));
+      void this.transformData(data).then((transformed) => this.emitData(transformed));
     });
 
     this.ws.onopen = () => {
@@ -167,29 +150,30 @@ export class SECAdapter implements DataIngestionAdapter<unknown, SECTransformed>
     this.marketDataAdapter.disconnect();
     this.ws = undefined;
     this.isStreaming = false;
+    this.stopPollingLoop();
   }
 
-  onData(callback: (data: SECTransformed) => void): () => void {
-    this.dataCallbacks.add(callback);
-    return () => this.dataCallbacks.delete(callback);
-  }
-
-  private notifyDataCallbacks(data: SECTransformed) {
-    this.dataCallbacks.forEach((callback) => {
-      try {
-        callback(data);
-      } catch (error) {
-        logger.error("SEC data callback error", error as Error);
-      }
-    });
+  protected override handleCallbackError(error: unknown): void {
+    logger.error("SEC data callback error", error as Error);
   }
 
   private scheduleReconnect(symbols: string[]) {
-    if (this.reconnectTimer) return;
+    if (this.reconnectTimer) {
+      return;
+    }
 
     this.reconnectTimer = setTimeout(() => {
       logger.info("Attempting to reconnect market data websocket...");
-      this.startStreaming({ symbols });
+      this.reconnectTimer = undefined;
+      void this.startStreaming({ symbols });
     }, 5000);
   }
+}
+
+function validateSECResponse(data: unknown): SECResponse {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("SEC API returned an invalid response payload");
+  }
+
+  return data as SECResponse;
 }

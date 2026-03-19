@@ -1,72 +1,65 @@
+import { ESOAdapterBase } from "../base.js";
 import { DataIngestionAdapter, IngestionConfig } from "../types.js";
-import { Cache } from "../utils/cache.js";
-import { RateLimiter } from "../utils/rateLimiter.js";
+
+interface CensusFetchParams {
+  dataset: string;
+  variables: string[];
+  geography?: string;
+}
+
+type CensusResponse = unknown[];
 
 interface CensusTransformed {
   source: "Census";
-  data: unknown;
+  data: CensusResponse;
   timestamp: string;
   dataset?: string;
 }
 
-export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransformed> {
+const DEFAULT_DATASETS: CensusFetchParams[] = [
+  { dataset: "acs/acs5", variables: ["B01003_001E"], geography: "state:*" },
+];
+const DEFAULT_POLL_INTERVAL_MS = 3600000;
+const MAX_CONCURRENT_CENSUS_DATASETS = 4;
+
+export class CensusAdapter
+  extends ESOAdapterBase<CensusResponse, CensusTransformed>
+  implements DataIngestionAdapter<CensusResponse, CensusTransformed, CensusFetchParams>
+{
   name = "Census";
-  private rateLimiter?: RateLimiter;
-  private cache?: Cache;
-  private dataCallbacks: Set<(data: CensusTransformed) => void> = new Set();
-  private isStreaming = false;
-  private pollTimer?: NodeJS.Timeout;
   private lastDataTimestamps: Map<string, string> = new Map();
 
-  constructor(private config: IngestionConfig) {
-    if (config.rateLimit) {
-      this.rateLimiter = new RateLimiter(config.rateLimit, 60000);
-    }
-    if (config.enableCache) {
-      this.cache = new Cache(config.cacheTTL);
-    }
+  constructor(config: IngestionConfig) {
+    super(config);
   }
 
-  async fetchData(params: {
-    dataset: string;
-    variables: string[];
-    geography?: string;
-  }): Promise<unknown> {
-    const cacheKey = `census-${JSON.stringify(params)}`;
-    if (this.cache) {
-      const cached = this.cache.get(cacheKey);
-      if (cached) return cached;
+  async fetchData(params?: CensusFetchParams): Promise<CensusResponse> {
+    if (!params) {
+      throw new Error("Census fetchData requires params");
     }
 
-    if (this.rateLimiter) {
-      await this.rateLimiter.waitForToken();
-    }
-
-    const url = new URL(`${this.config.baseUrl}/data/${params.dataset}`);
-    url.searchParams.set("get", params.variables.join(","));
-    if (params.geography) url.searchParams.set("for", params.geography);
-    if (this.config.apiKey) url.searchParams.set("key", this.config.apiKey);
-
-    const response = await fetch(url.toString(), {
+    return this.fetchJson({
+      cacheKey: `census-${JSON.stringify(params)}`,
+      params,
+      buildUrl: (requestParams) => {
+        const url = new URL(`${this.config.baseUrl}/data/${requestParams.dataset}`);
+        url.searchParams.set("get", requestParams.variables.join(","));
+        if (requestParams.geography) {
+          url.searchParams.set("for", requestParams.geography);
+        }
+        if (this.config.apiKey) {
+          url.searchParams.set("key", this.config.apiKey);
+        }
+        return url;
+      },
       headers: {
         "Content-Type": "application/json",
       },
+      validateResponse: validateCensusResponse,
     });
-
-    if (!response.ok) {
-      throw new Error(`Census API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (this.cache) {
-      this.cache.set(cacheKey, data);
-    }
-
-    return data;
   }
 
-  async transformData(rawData: unknown): Promise<CensusTransformed> {
+  async transformData(rawData: CensusResponse): Promise<CensusTransformed> {
     return {
       source: "Census",
       data: rawData,
@@ -76,73 +69,60 @@ export class CensusAdapter implements DataIngestionAdapter<unknown, CensusTransf
 
   async startStreaming(
     params: {
-      datasets?: Array<{ dataset: string; variables: string[]; geography?: string }>;
+      datasets?: CensusFetchParams[];
       pollInterval?: number;
     } = {}
   ): Promise<void> {
-    if (this.isStreaming) return;
+    const pollInterval = params.pollInterval ?? DEFAULT_POLL_INTERVAL_MS;
+    const datasets = params.datasets?.length ? params.datasets : DEFAULT_DATASETS;
 
-    this.isStreaming = true;
+    await this.startPollingLoop({
+      intervalMs: pollInterval,
+      onError: (error) => {
+        console.error("Census polling error:", error);
+      },
+      poll: async () => {
+        const updates = await this.mapWithConcurrency(
+          datasets,
+          MAX_CONCURRENT_CENSUS_DATASETS,
+          async (datasetConfig) => {
+            const data = await this.fetchData(datasetConfig);
+            const dataKey = createDatasetKey(datasetConfig);
+            const currentTimestamp = new Date().toISOString();
+            const lastTimestamp = this.lastDataTimestamps.get(dataKey);
 
-    // Census data is released on schedules, so we use polling for "real-time"
-    const pollInterval = params.pollInterval || 3600000; // 1 hour default (Census data updates less frequently)
+            if (lastTimestamp && Date.now() - new Date(lastTimestamp).getTime() <= pollInterval) {
+              return null;
+            }
 
-    const poll = async () => {
-      if (!this.isStreaming) return;
-
-      try {
-        const datasets = params.datasets || [
-          { dataset: "acs/acs5", variables: ["B01003_001E"], geography: "state:*" }, // Default: Population by state
-        ];
-
-        for (const dataset of datasets) {
-          const data = await this.fetchData(dataset);
-
-          // Check if data has been updated (simplified check)
-          const dataKey = `${dataset.dataset}-${dataset.variables.join(",")}-${dataset.geography}`;
-          const currentTimestamp = new Date().toISOString();
-          const lastTimestamp = this.lastDataTimestamps.get(dataKey);
-
-          // For demo purposes, we'll emit data on each poll
-          // In production, you'd check for actual data changes
-          if (!lastTimestamp || Date.now() - new Date(lastTimestamp).getTime() > pollInterval) {
             this.lastDataTimestamps.set(dataKey, currentTimestamp);
             const transformed = await this.transformData(data);
-            this.notifyDataCallbacks({ ...transformed, dataset: dataset.dataset });
+            return { ...transformed, dataset: datasetConfig.dataset };
+          }
+        );
+
+        for (const update of updates) {
+          if (update) {
+            this.emitData(update);
           }
         }
-      } catch (error) {
-        console.error("Census polling error:", error);
-      }
-
-      this.pollTimer = setTimeout(poll, pollInterval);
-    };
-
-    // Start polling immediately
-    poll();
+      },
+    });
   }
 
   async stopStreaming(): Promise<void> {
-    this.isStreaming = false;
+    this.stopPollingLoop();
+  }
+}
 
-    if (this.pollTimer) {
-      clearTimeout(this.pollTimer);
-      this.pollTimer = undefined;
-    }
+function validateCensusResponse(data: unknown): CensusResponse {
+  if (!Array.isArray(data)) {
+    throw new Error("Census API returned an invalid response payload");
   }
 
-  onData(callback: (data: CensusTransformed) => void): () => void {
-    this.dataCallbacks.add(callback);
-    return () => this.dataCallbacks.delete(callback);
-  }
+  return data;
+}
 
-  private notifyDataCallbacks(data: CensusTransformed) {
-    this.dataCallbacks.forEach((callback) => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error("Census data callback error:", error);
-      }
-    });
-  }
+function createDatasetKey(dataset: CensusFetchParams): string {
+  return `${dataset.dataset}-${dataset.variables.join(",")}-${dataset.geography ?? ""}`;
 }
