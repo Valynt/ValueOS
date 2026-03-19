@@ -1,53 +1,46 @@
 # CI Control Matrix
 
-This is the single control matrix for workflows under `.github/workflows/`.
+This document is the single authoritative matrix for required enterprise delivery controls under `.github/workflows/`.
 
-| Control Domain | Control | Enforced In Workflow | Evidence Artifact |
-| --- | --- | --- | --- |
-| Code Quality | Lint + typecheck + unit/integration tests | `ci.yml` | Coverage + test artifacts |
-| Accessibility | WCAG 2.2 AA audit + trend gate + WCAG severity budgets (critical/serious=0) | `ci.yml` (`accessibility-audit` job) | `accessibility-trend` artifact (`a11y-metrics`, `wcag-severity-metrics`) |
-| Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `ci.yml` (`unit-tests` + `release-readiness`) | `i18n-coverage-dashboard`, `i18n-release-coverage-dashboard`, pseudo-loc report |
-| UX Performance | Bundle + route-level load budgets enforced in CI | `ci.yml` (`accessibility-audit` job) | `ux-performance-metrics`, `route-load-metrics` |
-| Security | CodeQL (JavaScript/TypeScript) | `codeql.yml` (`codeql-analyze (js-ts)` job) | GitHub Code Scanning alerts (CodeQL SARIF) |
-| Security | Gitleaks secret scanning | `ci.yml` (`security-gate` job) | GitHub Action run logs + `security-gate-*` artifact |
-| Security | Semgrep SAST scanning | `ci.yml` (`security-gate` job) | `semgrep.sarif`, uploaded to code scanning |
-| Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `ci.yml` (`security-gate` job) | `trivy-fs.sarif`, `trivy-image.sarif`, uploaded to code scanning |
-| Compliance | RLS and DSR checks + evidence export | `ci.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
-| Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
-| Release Safety | Build/deploy, staging smoke tests, SLO guard, prod smoke | `deploy.yml` | SBOM/attestation + deployment summary |
-| Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
+## Primary Control Owners
+
+Each required control has exactly one **primary owner** workflow/job. Any additional workflows that touch the same area are auxiliary only and must not become a second source of truth.
+
+| Control | Primary owner workflow | Primary owner job | Trigger intent | Evidence / outputs | Auxiliary workflows |
+| --- | --- | --- | --- | --- | --- |
+| Lint | `ci.yml` | `unit-component-schema` | PRs and branch pushes that need blocking code-quality feedback | Turbo lint logs plus `lane-unit-component-schema-*` artifacts | `test.yml` (manual targeted debugging only) |
+| Typecheck | `ci.yml` | `unit-component-schema` | PRs and branch pushes that need blocking type-safety feedback | Turbo typecheck logs plus `lane-unit-component-schema-*` artifacts | None |
+| Unit | `ci.yml` | `unit-component-schema` | PRs and branch pushes that need blocking unit/regression coverage | Vitest coverage output plus `lane-unit-component-schema-*` artifacts | `test.yml` (manual targeted debugging only) |
+| Integration | `ci.yml` | `unit-component-schema` | PRs and branch pushes that need blocking integration-style Vitest coverage | Vitest coverage output plus `lane-unit-component-schema-*` artifacts | `test.yml` (manual targeted debugging only) |
+| RLS | `ci.yml` | `tenant-isolation-gate` | Trusted-context pushes, dispatches, releases, and same-repo PRs that can use secrets for tenant-boundary validation | `reports/compliance/**` plus `lane-tenant-isolation-gate-*` artifacts | `ci.yml` / `tenant-isolation-static-gate` (fork-safe fallback signal) |
+| DAST | `deploy.yml` | `dast-gate` | Pre-deploy and promotion events that validate the staged runtime surface | `deploy-dast-gate-*` ZAP artifacts and DAST summary | None |
+| SAST | `codeql.yml` | `codeql-analyze` | PRs and `main` pushes that require a dedicated static-analysis owner | GitHub code-scanning alerts from CodeQL | `ci.yml` / `security-gate` (Semgrep defense in depth) |
+| SBOM | `release.yml` | `release` | Release-time provenance generation for shipped artifacts | `release-artifacts/sbom.*` plus cosign signatures and certificates | `ci.yml` / `security-gate` (pre-merge CycloneDX preview) |
+| Accessibility | `ci.yml` | `accessibility-audit` | PRs and branch pushes that need blocking UX/accessibility validation | `accessibility-audit-*`, Playwright reports, WCAG trend metrics | None |
+| i18n | `ci.yml` | `accessibility-audit` | PRs and branch pushes that need localization coverage and pseudo-loc validation | `artifacts/i18n/**` inside `accessibility-audit-*` artifacts | None |
+| Terraform | `terraform.yml` | `terraform-checks` | Terraform-only PRs and pushes that need infra policy, validation, and dry-run planning | Terraform fmt/validate/plan logs | None |
 
 ## Workflow Lifecycle
 
-| Workflow | Status | Owner | Notes |
+| Workflow | Status | Intent | Notes |
 | --- | --- | --- | --- |
-| `ci.yml` | Active | team-quality | Consolidated quality + blocking security gates. |
-| `codeql.yml` | Active | team-security | Dedicated CodeQL analysis on pull requests and main pushes. |
-| `deploy.yml` | Active | team-platform | Promotion and production safety controls. |
-| `terraform.yml` | Active | team-platform | Terraform validation and drift checks. |
-| `compliance-evidence-export.yml` | Active | team-security | Scheduled compliance evidence export. |
-| `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
-| `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Folded into `ci.yml` to remove duplicate setup and execution paths. |
+| `ci.yml` | Authoritative | Main pre-merge and branch CI owner for code quality, runtime checks, accessibility, i18n, and tenant isolation | Blocking source of truth for core application controls. |
+| `codeql.yml` | Authoritative | Dedicated SAST owner | Single primary owner for the SAST gate. |
+| `deploy.yml` | Authoritative | Deployment orchestration and runtime security gates | Owns DAST before promotion. |
+| `release.yml` | Authoritative | Release automation and provenance generation | Owns release SBOM generation/signing. |
+| `terraform.yml` | Authoritative | Terraform validation and policy checks | Owns Terraform gate. |
+| `test.yml` | Auxiliary | Manual, targeted Vitest execution during investigations or migration support | Removed from PR/push triggers so it cannot compete with `ci.yml`. |
+| `dependency-outdated.yml` | Auxiliary | Dependency freshness reporting | Informational triage, not a primary enterprise gate owner. |
+| `compliance-evidence-export.yml` | Auxiliary | Scheduled compliance evidence packaging | Exports evidence produced by authoritative jobs. |
+| `access-review-automation.yml` | Auxiliary | Scheduled access review evidence | Operational evidence generation only. |
+| `oncall-drill-scorecard.yml` | Auxiliary | Scheduled on-call trend publication | Reliability reporting only. |
+| `dr-validation.yml` | Auxiliary | Disaster-recovery validation support | Not a primary owner for the required matrix controls. |
+| `migration-chain-integrity.yml` | Auxiliary | Schema-chain integrity verification | Specialist migration control, outside the required matrix set. |
+| `v1-core-services-test.yml` | Retired | Legacy backend-only duplicate test workflow | Removed on 2026-03-19 after the consolidation migration window closed. |
+| `accessibility.deprecated.yml.disabled` | Retired | Historical accessibility lane | Left disabled as historical record only. |
 
-## Branch Protection Required Checks
+## Migration Policy
 
-`main` branch protection must require the following checks:
-
-- `pr-fast-blocking-subsets`
-- `staging-deploy-release-gates`
-- `codeql-analyze (js-ts)`
-
-## Scanner Version Upgrade Workflow
-
-To prevent drift between workflow scanner refs and CI verification scripts, scanner versions are centralized in `scripts/ci/security-tool-versions.json`.
-
-When bumping scanner action versions:
-
-1. Update version refs in `scripts/ci/security-tool-versions.json`.
-2. Update `.github/workflows/ci.yml` and/or `.github/workflows/codeql.yml` to use the same refs.
-3. Run these guards locally:
-   - `node scripts/ci/security-baseline-verification.mjs`
-   - `node scripts/ci/check-ci-security-control-matrix.mjs`
-   - `node scripts/ci/check-ci-workflow-scanner-refs.mjs`
-   - `node scripts/ci/check-required-check-workflow-consistency.mjs`
-4. Include all related updates in the same PR. Scanner version bumps without paired manifest/workflow consistency updates must be treated as policy violations.
+- Duplicate PR/push test execution belongs in `ci.yml`; auxiliary workflows may offer manual or scheduled support only.
+- New enterprise gates must be added to the primary-owner table above and wired into the CI self-check in the same change.
+- Retire stale auxiliary workflows once the replacement owner has been stable for one migration window; record the retirement here.

@@ -1,10 +1,6 @@
-name: Test
+name: Auxiliary Test Runner
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       filter:
@@ -27,7 +23,7 @@ permissions:
 
 jobs:
   test:
-    name: vitest
+    name: auxiliary-vitest
     runs-on: ubuntu-latest
 
     env:

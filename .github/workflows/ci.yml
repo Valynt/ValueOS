@@ -141,7 +141,7 @@ jobs:
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
 
-      - name: CI security control-matrix guard
+      - name: CI control-matrix ownership guard
         run: node scripts/ci/check-ci-security-control-matrix.mjs
 
       - name: Required-check documentation/workflow consistency guard
