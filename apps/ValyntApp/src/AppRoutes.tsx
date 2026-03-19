@@ -36,6 +36,11 @@ const SignupPage = lazy(() =>
 );
 const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
 const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
+const GuestAccessPage = lazy(() =>
+  import("./pages/guest/GuestAccessPage").then((m) => ({
+    default: m.GuestAccessPage,
+  })),
+);
 
 const BetaFeedbackWidget = lazy(() =>
   import("./components/feedback/BetaFeedbackWidget").then((m) => ({
@@ -133,6 +138,7 @@ export function AppRoutes() {
     "/signup": <SignupPage />,
     "/reset-password": <ResetPasswordPage />,
     "/auth/callback": <AuthCallback />,
+    "/guest/access": <GuestAccessPage />,
   };
   const resolvePublicElement = (path: string) => {
     const element = publicRouteElements[path];
