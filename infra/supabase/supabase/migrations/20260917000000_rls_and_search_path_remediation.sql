@@ -102,6 +102,10 @@ DROP POLICY IF EXISTS tenant_provisioning_requests_service_role ON public.tenant
 CREATE POLICY tenant_provisioning_requests_service_role ON public.tenant_provisioning_requests
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
+-- Lock down privileges so this table is truly service_role-only.
+REVOKE ALL ON public.tenant_provisioning_requests FROM PUBLIC;
+REVOKE ALL ON public.tenant_provisioning_requests FROM anon;
+REVOKE ALL ON public.tenant_provisioning_requests FROM authenticated;
 GRANT ALL ON public.tenant_provisioning_requests TO service_role;
 
 -- ============================================================================
