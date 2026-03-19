@@ -107,6 +107,9 @@ jobs:
           pnpm run check:telemetry-completeness
           pnpm run check:observability-deployment-gates
 
+      - name: Load-test baseline promotion gate
+        run: pnpm run check:load-test-baselines
+
       - name: Create Release PR or tag & publish
         id: changesets
         uses: changesets/action@v1

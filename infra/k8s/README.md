@@ -2,9 +2,24 @@
 
 Complete Kubernetes deployment configuration for ValueOS using Kustomize.
 
-> **Readiness Status:** These manifests are **aspirational** and have not been
-> validated against a live cluster for v1. Production deployment currently uses
-> Docker Compose (`ops/compose/`). See `DEPLOY.md` for the canonical deploy path.
+> **Readiness Status:** Kubernetes is the **only** active shared-environment
+> deployment target for staging and production. The canonical production runtime
+> path is `infra/k8s/overlays/production/`. Every other deploy substrate in this
+> repository (`infra/k8s/overlays/staging/`, `ops/compose/`, `infra/docker/`,
+> archived ECS/Terraform references) is **reference-only** for production
+> promotion decisions until live validation passes and benchmark artifacts are
+> refreshed in `docs/operations/load-test-baselines.md` and
+> `docs/operations/load-test-artifacts/latest.json`.
+
+## Deployment path governance
+
+| Path                                      | Role                                       | Promotion status                                                                       |
+| ----------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `infra/k8s/overlays/production/`          | Canonical production deployment path       | Required for shared production release promotion                                       |
+| `infra/k8s/overlays/staging/`             | Pre-production validation target           | Reference-only for production runtime selection; required for live benchmark rehearsal |
+| `ops/compose/`                            | Local/prod-like workstation validation     | Reference-only                                                                         |
+| `infra/docker/`                           | Legacy wrappers and compatibility overlays | Reference-only                                                                         |
+| `infra/reference/terraform-archived-ecs/` | Audit history / break-glass reference      | Reference-only                                                                         |
 
 ## Manifest Readiness
 
@@ -22,14 +37,16 @@ Complete Kubernetes deployment configuration for ValueOS using Kustomize.
 
 ### Promotion to production-ready
 
-To promote these manifests to production-ready:
+A manifest may move from **Aspirational** only after all of the following are true:
 
-1. Stand up a staging K8s cluster (EKS, GKE, or kind for local)
-2. Install prerequisites: ExternalSecrets operator, NGINX ingress controller, cert-manager
-3. Run `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -`
-4. Deploy to staging cluster and run smoke tests
-5. Validate HPA scaling under load (`tests/test/load/`)
-6. Update this table as manifests are validated
+1. `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -` succeeds.
+2. The staging overlay is deployed to the real cluster target.
+3. `node scripts/perf/run-k8s-load-validation.mjs --environment staging --base-url https://staging.valueos.app --namespace valynt-staging` completes with a passing manifest.
+4. The resulting timestamped summary is copied into `docs/operations/load-test-artifacts/<timestamp>-staging/summary.json` and promoted to `docs/operations/load-test-artifacts/latest.json`.
+5. `docs/operations/load-test-baselines.md` is updated with the exact validation date and resulting p50/p95/p99, error rate, pod counts, and queue depth.
+6. `node scripts/ci/check-load-test-baselines.mjs` passes, confirming the stable benchmark artifact is present and fresh enough for production promotion.
+
+Until those checks pass, leave readiness statuses as **Aspirational**.
 
 ## Architecture
 
@@ -339,10 +356,10 @@ kubectl get hpa -n valynt
 
 The backend deployments set `DATABASE_POOL_ROLE=api` and `DATABASE_EXPECTED_CONCURRENCY=8`. The app derives `DATABASE_POOL_MAX=4` per pod unless an operator explicitly overrides it.
 
-| Environment | Max backend replicas | Per-pod pool max | App-side connection budget | Notes |
-| --- | ---: | ---: | ---: | --- |
-| Staging | 2 | 4 | 8 | Fixed replica count, no HPA. |
-| Production | 18 | 4 | 72 | Based on backend HPA max. Blue/green cutovers can temporarily double this if both slots are scaled up simultaneously. |
+| Environment | Max backend replicas | Per-pod pool max | App-side connection budget | Notes                                                                                                                 |
+| ----------- | -------------------: | ---------------: | -------------------------: | --------------------------------------------------------------------------------------------------------------------- |
+| Staging     |                    2 |                4 |                          8 | Fixed replica count, no HPA.                                                                                          |
+| Production  |                   18 |                4 |                         72 | Based on backend HPA max. Blue/green cutovers can temporarily double this if both slots are scaled up simultaneously. |
 
 ### Supabase / pgBouncer assumption
 

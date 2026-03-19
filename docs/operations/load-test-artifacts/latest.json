@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-03-19T13:13:40.094Z",
+  "environment": "staging",
+  "status": "failed",
+  "target": {
+    "base_url": "https://staging.valueos.app",
+    "namespace": "valynt-staging",
+    "canonical_production_path": "infra/k8s/overlays/production",
+    "reference_only_paths": [
+      "infra/k8s/overlays/staging",
+      "ops/compose/",
+      "infra/docker/",
+      "infra/reference/terraform-archived-ecs/"
+    ]
+  },
+  "preflight": {
+    "health_endpoint": "https://staging.valueos.app/api/health",
+    "status_code": null,
+    "error": "curl: (56) CONNECT tunnel failed, response 403",
+    "body_preview": ""
+  },
+  "load_test": {
+    "status": "not_run",
+    "latency_ms": {},
+    "error_rate": null,
+    "total_requests": null,
+    "rps": null,
+    "saturation": {},
+    "thresholds_passed": false
+  },
+  "scaling_policy": {
+    "status": "not_run",
+    "latency_ms": {},
+    "error_rate": null,
+    "total_requests": null,
+    "rps": null,
+    "saturation": {},
+    "thresholds_passed": false
+  },
+  "infra_observability": {
+    "pod_counts": {
+      "available": false,
+      "namespace": "valynt-staging",
+      "total": null,
+      "running": null,
+      "phases": {},
+      "error": "kubectl not installed"
+    },
+    "queue_depth": {
+      "available": false,
+      "value": null,
+      "error": "PROMETHEUS_URL not set",
+      "query": "sum(queue_jobs_waiting)"
+    },
+    "backend_pod_count": {
+      "available": false,
+      "value": null,
+      "error": "PROMETHEUS_URL not set",
+      "query": "count(kube_pod_status_phase{namespace=\"valynt-staging\", phase=\"Running\", pod=~\"backend.*\"})"
+    }
+  },
+  "failure_reason": "Target preflight failed before k6 execution: curl: (56) CONNECT tunnel failed, response 403"
+}

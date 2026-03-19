@@ -55,3 +55,5 @@ Contact: Mention this README in migration PRs or ping the infra team for questio
 - `docs-boundary-consistency-lint.mjs` — lightweight docs lint that checks canonical architecture docs for stale product names (`ValueCanvas`), invalid k8s path patterns (`infra/infra/k8s`), and legacy agent source paths (`apps/ValyntApp/src/lib/agent-fabric/agents`).
 
 - `any-ratchet.mjs` — scans non-test TypeScript files for explicit `any` usage (`: any`, `as any`, `<any>`) and enforces non-increasing per-package baselines from `.github/any-ratchet-budgets.json`.
+
+- `check-load-test-baselines.mjs` — validates the stable load-test manifest in `docs/operations/load-test-artifacts/latest.json`, ensures the markdown baseline references the latest run, and fails production promotion when benchmark artifacts are missing, stale, or non-passing.

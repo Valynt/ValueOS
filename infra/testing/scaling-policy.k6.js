@@ -12,6 +12,11 @@ import { Rate, Trend } from "k6/metrics";
 const errors = new Rate("errors");
 const backendLatency = new Trend("backend_latency", true);
 
+const SUMMARY_JSON_FILE =
+  __ENV.K6_SUMMARY_JSON || "scaling-policy-summary.json";
+const RESULTS_JSON_FILE =
+  __ENV.K6_RESULTS_JSON || "scaling-policy-results.json";
+
 const BASE_URL = __ENV.BASE_URL;
 if (!BASE_URL) {
   throw new Error("BASE_URL is required");
@@ -99,4 +104,40 @@ export function spikeTraffic() {
 export function soakTraffic() {
   hitCoreEndpoints();
   sleep(0.2);
+}
+
+function metricValue(data, metricName, valueKey, fallback = 0) {
+  return data.metrics?.[metricName]?.values?.[valueKey] ?? fallback;
+}
+
+export function handleSummary(data) {
+  const summary = {
+    timestamp: new Date().toISOString(),
+    total_requests: metricValue(data, "http_reqs", "count", 0),
+    rps: metricValue(data, "http_reqs", "rate", 0),
+    latency_ms: {
+      p50: metricValue(data, "http_req_duration", "p(50)", null),
+      p95: metricValue(data, "http_req_duration", "p(95)", null),
+      p99: metricValue(data, "http_req_duration", "p(99)", null),
+      backend_p95: metricValue(data, "backend_latency", "p(95)", null),
+      backend_p99: metricValue(data, "backend_latency", "p(99)", null),
+    },
+    error_rate: metricValue(data, "errors", "rate", 0),
+    saturation: {
+      vus_max: metricValue(data, "vus_max", "max", 0),
+      dropped_iterations: metricValue(data, "dropped_iterations", "count", 0),
+      blocked_p95_ms: metricValue(data, "http_req_blocked", "p(95)", 0),
+    },
+    thresholds_passed: Object.values(data.metrics ?? {}).every(
+      (metric) =>
+        metric.thresholds == null ||
+        Object.values(metric.thresholds).every((threshold) => threshold.ok),
+    ),
+  };
+
+  return {
+    stdout: JSON.stringify(summary, null, 2) + "\n",
+    [SUMMARY_JSON_FILE]: JSON.stringify(summary, null, 2),
+    [RESULTS_JSON_FILE]: JSON.stringify(data, null, 2),
+  };
 }

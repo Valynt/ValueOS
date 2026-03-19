@@ -44,8 +44,16 @@ const orchestrationCompletionLatency = new Trend(
   true,
 );
 
-const INTERACTIVE_ROUTE_PREFIXES = ["/health", "/api/health/ready", "/api/teams"];
-const ORCHESTRATION_ROUTE_PREFIXES = ["/api/llm/chat", "/api/billing", "/api/queue"];
+const INTERACTIVE_ROUTE_PREFIXES = [
+  "/health",
+  "/api/health/ready",
+  "/api/teams",
+];
+const ORCHESTRATION_ROUTE_PREFIXES = [
+  "/api/llm/chat",
+  "/api/billing",
+  "/api/queue",
+];
 const ORCHESTRATION_COMPLETION_SLO_MS = 3000;
 
 function findRouteClass(route) {
@@ -81,7 +89,9 @@ export const options = {
       },
     ],
     orchestration_ttfb_latency: ["p(95)<200"],
-    orchestration_completion_latency: [`p(95)<${ORCHESTRATION_COMPLETION_SLO_MS}`],
+    orchestration_completion_latency: [
+      `p(95)<${ORCHESTRATION_COMPLETION_SLO_MS}`,
+    ],
   },
 };
 
@@ -167,6 +177,9 @@ export default function () {
   sleep(0.5 + Math.random() * 1.5); // think time 0.5–2s
 }
 
+const SUMMARY_JSON_FILE = __ENV.K6_SUMMARY_JSON || "load-test-summary.json";
+const RESULTS_JSON_FILE = __ENV.K6_RESULTS_JSON || "load-test-results.json";
+
 function metricValue(data, metricName, valueKey, fallback = 0) {
   return data.metrics?.[metricName]?.values?.[valueKey] ?? fallback;
 }
@@ -178,10 +191,37 @@ export function handleSummary(data) {
     total_requests: metricValue(data, "http_reqs", "count", 0),
     rps: metricValue(data, "http_reqs", "rate", 0),
     latency_ms: {
+      p50: metricValue(data, "http_req_duration", "p(50)", null),
+      p95: metricValue(data, "http_req_duration", "p(95)", null),
+      p99: metricValue(data, "http_req_duration", "p(99)", null),
+      critical_p95: metricValue(
+        data,
+        "interactive_completion_latency",
+        "p(95)",
+        null,
+      ),
+      interactive_completion_p50: metricValue(
+        data,
+        "interactive_completion_latency",
+        "p(50)",
+        null,
+      ),
       interactive_completion_p95: metricValue(
         data,
         "interactive_completion_latency",
         "p(95)",
+        null,
+      ),
+      interactive_completion_p99: metricValue(
+        data,
+        "interactive_completion_latency",
+        "p(99)",
+        null,
+      ),
+      orchestration_ttfb_p50: metricValue(
+        data,
+        "orchestration_ttfb_latency",
+        "p(50)",
         null,
       ),
       orchestration_ttfb_p95: metricValue(
@@ -190,13 +230,30 @@ export function handleSummary(data) {
         "p(95)",
         null,
       ),
+      orchestration_ttfb_p99: metricValue(
+        data,
+        "orchestration_ttfb_latency",
+        "p(99)",
+        null,
+      ),
+      orchestration_completion_p50: metricValue(
+        data,
+        "orchestration_completion_latency",
+        "p(50)",
+        null,
+      ),
       orchestration_completion_p95: metricValue(
         data,
         "orchestration_completion_latency",
         "p(95)",
         null,
       ),
-      overall_p95: metricValue(data, "http_req_duration", "p(95)", null),
+      orchestration_completion_p99: metricValue(
+        data,
+        "orchestration_completion_latency",
+        "p(99)",
+        null,
+      ),
     },
     error_rate: metricValue(data, "errors", "rate", 0),
     saturation: {
@@ -205,13 +262,15 @@ export function handleSummary(data) {
       blocked_p95_ms: metricValue(data, "http_req_blocked", "p(95)", 0),
     },
     thresholds_passed: Object.values(data.metrics ?? {}).every(
-      (metric) => metric.thresholds == null || Object.values(metric.thresholds).every((t) => t.ok),
+      (metric) =>
+        metric.thresholds == null ||
+        Object.values(metric.thresholds).every((t) => t.ok),
     ),
   };
 
   return {
     stdout: JSON.stringify(summary, null, 2) + "\n",
-    "load-test-summary.json": JSON.stringify(summary, null, 2),
-    "load-test-results.json": JSON.stringify(data, null, 2),
+    [SUMMARY_JSON_FILE]: JSON.stringify(summary, null, 2),
+    [RESULTS_JSON_FILE]: JSON.stringify(data, null, 2),
   };
 }

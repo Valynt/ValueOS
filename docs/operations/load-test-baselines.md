@@ -1,115 +1,127 @@
 ---
 title: Load Test Baselines
 owner: team-sre
-review_date: 2026-10-15
+review_date: 2026-04-02
 status: active
 ---
 
 # Load Test Baselines
 
-Documented baselines from load test runs against staging. Used to detect regressions
-and validate SLO compliance before production deployments.
+This document is the durable handoff for Kubernetes load-validation evidence used
+for shared-environment promotion.
+
+- **Canonical production deployment path:** `infra/k8s/overlays/production`
+- **Reference-only paths for production promotion:** `infra/k8s/overlays/staging`,
+  `ops/compose/`, `infra/docker/`, and
+  `infra/reference/terraform-archived-ecs/`
+- **Stable machine-readable manifest:** `docs/operations/load-test-artifacts/latest.json`
+- **Timestamped stable summaries:** `docs/operations/load-test-artifacts/<timestamp>-<environment>/summary.json`
+- **Timestamped CI/raw artifacts:** `artifacts/load-tests/<timestamp>-<environment>/`
+
+Release promotion must not rely on ad-hoc CI logs alone. A staging validation is
+only promotion-eligible when the benchmark run is reflected both in the stable
+manifest above and in the per-run CI artifact bundle.
 
 SLO reference: `docs/operations/monitoring-observability.md`.
 
-## Latency classes
+## Validation workflow
 
-ValueOS uses two explicit latency classes in load tests, dashboards, and scaling policy:
-
-| Latency class | SLI | Target | Route guidance |
-|---|---|---|---|
-| Interactive API | Completion latency p95 | `< 200 ms` | Readiness, auth/session checks, list/detail reads, and cache-friendly mutations that should finish synchronously for the caller. |
-| Orchestration / LLM | Time-to-first-byte p95 | `< 200 ms` | Streaming, queue-backed, or provider-mediated routes should acknowledge quickly, then complete under a separate SLO. |
-| Orchestration / LLM | Completion latency p95 | `< 3000 ms` | Applies after the stream opens or async work starts. Use this instead of the universal 200 ms completion target. |
-
-### Route classification guidance
-
-- Keep routes in the **interactive** class only when the full response is expected to complete within the 200 ms p95 budget.
-- Treat `/api/llm/chat`, `/api/billing`, and `/api/queue` as **orchestration / LLM** routes unless a specific endpoint is proven to be cache-friendly and synchronous.
-- If an endpoint under those prefixes cannot reliably finish within 200 ms, migrate it to streaming or async polling semantics and measure **TTFB p95 < 200 ms** plus **completion p95 < 3000 ms** instead.
-- Do **not** apply a universal 200 ms completion target to provider-bound LLM calls, queue submissions, invoice generation, reconciliation, or similar orchestration flows.
-
-## Tool
-
-[k6](https://k6.io) — scripts in `infra/testing/load-test.k6.js`.
+Use the canonical automation entrypoint so the same manifest shape is produced
+locally and in CI:
 
 ```bash
-k6 run \
-  --env BASE_URL=https://staging.valueos.app \
-  --env AUTH_TOKEN=<staging-jwt> \
-  --env TENANT_ID=<staging-tenant-uuid> \
-  infra/testing/load-test.k6.js
+PATH="/workspace/ValueOS/.tools/k6:$PATH" \
+node scripts/perf/run-k8s-load-validation.mjs \
+  --environment staging \
+  --base-url https://staging.valueos.app \
+  --namespace valynt-staging
 ```
 
----
+That runner executes the baseline validation set:
 
-## Targets (v2.0)
+1. `infra/testing/load-test.k6.js`
+2. `infra/testing/scaling-policy.k6.js`
+3. Target preflight against the real staging endpoint
+4. Telemetry capture for pod counts and queue depth when `kubectl` and/or
+   Prometheus credentials are available
 
-| Route class / endpoint | Load profile | p50 | p95 | p99 | Error rate |
-|---|---|---|---|---|---|
-| Interactive API completion (`GET /health`, `GET /api/health/ready`, `GET /api/teams`) | 50 VU, 5 min | < 100 ms | < 200 ms | < 400 ms | < 0.1% |
-| Orchestration / LLM TTFB (`POST /api/llm/chat`, `GET /api/billing/summary`, `POST /api/queue/llm`) | 20 VU, 5 min | < 100 ms | < 200 ms | < 400 ms | < 0.1% |
-| Orchestration / LLM completion (`POST /api/llm/chat`, `GET /api/billing/summary`, `POST /api/queue/llm`) | 20 VU, 5 min | < 1500 ms | < 3000 ms | < 5000 ms | < 1% |
-| `GET /health` | 100 VU, 5 min | < 50 ms | < 100 ms | < 200 ms | 0% |
+## Promotion gate contract
 
----
+`node scripts/ci/check-load-test-baselines.mjs` enforces all of the following:
 
-## Recorded baselines
+- the latest stable manifest exists;
+- the manifest points to `infra/k8s/overlays/production` as the canonical
+  production path;
+- the latest staging validation is fresh enough for promotion;
+- `load-test` and `scaling-policy` both report passing p50/p95/p99 and error-rate
+  fields; and
+- this markdown document references the latest validation date and stable
+  manifest path.
 
-### 2026-07-15 — staging
+If any of those conditions fail, release promotion must stop.
 
-| Field | Value |
-| --- | --- |
-| **Script** | `infra/testing/load-test.k6.js` |
-| **Concurrency** | 50 VUs |
-| **Duration** | 30s ramp-up → 2m sustained → 30s ramp-down |
+## Latency classes
 
-| Route class / endpoint | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate | Throughput (req/s) | SLO Met |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Interactive completion aggregate | 18 | 72 | 118 | 0.00% | 193 | ✅ |
-| Orchestration TTFB aggregate | 41 | 121 | 188 | 0.00% | 47 | ✅ |
-| Orchestration completion aggregate | 422 | 1640 | 2488 | 0.02% | 47 | ✅ |
-| `GET /health` | 4 | 11 | 18 | 0.00% | 142 | ✅ |
-| `GET /api/health/ready` | 6 | 14 | 22 | 0.00% | 138 | ✅ |
-| `GET /api/teams` | 22 | 68 | 104 | 0.00% | 51 | ✅ |
-| `GET /api/billing/summary` | 87 | 182 | 246 | 0.00% | 16 | ✅ TTFB |
-| `POST /api/llm/chat` | 133 | 196 | 241 | 0.02% | 8 | ✅ TTFB |
-| `POST /api/queue/llm` | 38 | 92 | 135 | 0.00% | 23 | ✅ TTFB |
+ValueOS uses two explicit latency classes in load tests, dashboards, and scaling
+policy:
 
-**Aggregate:** Interactive completion p95 72 ms (target `< 200 ms` ✅). Orchestration TTFB p95 121 ms (target `< 200 ms` ✅). Orchestration completion p95 1640 ms (target `< 3000 ms` ✅).
+| Latency class       | SLI                    | Target      | Route guidance                                                                                                                   |
+| ------------------- | ---------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Interactive API     | Completion latency p95 | `< 200 ms`  | Readiness, auth/session checks, list/detail reads, and cache-friendly mutations that should finish synchronously for the caller. |
+| Orchestration / LLM | Time-to-first-byte p95 | `< 200 ms`  | Streaming, queue-backed, or provider-mediated routes should acknowledge quickly, then complete under a separate SLO.             |
+| Orchestration / LLM | Completion latency p95 | `< 3000 ms` | Applies after the stream opens or async work starts. Use this instead of the universal 200 ms completion target.                 |
 
----
+## Benchmark targets
 
-## Run template
+| Route class / endpoint                                                                                   | Load profile  | p50       | p95       | p99       | Error rate |
+| -------------------------------------------------------------------------------------------------------- | ------------- | --------- | --------- | --------- | ---------- |
+| Interactive API completion (`GET /health`, `GET /api/health/ready`, `GET /api/teams`)                    | 50 VU, 5 min  | < 100 ms  | < 200 ms  | < 400 ms  | < 0.1%     |
+| Orchestration / LLM TTFB (`POST /api/llm/chat`, `GET /api/billing/summary`, `POST /api/queue/llm`)       | 20 VU, 5 min  | < 100 ms  | < 200 ms  | < 400 ms  | < 0.1%     |
+| Orchestration / LLM completion (`POST /api/llm/chat`, `GET /api/billing/summary`, `POST /api/queue/llm`) | 20 VU, 5 min  | < 1500 ms | < 3000 ms | < 5000 ms | < 1%       |
+| `GET /health`                                                                                            | 100 VU, 5 min | < 50 ms   | < 100 ms  | < 200 ms  | 0%         |
 
+## Latest live validation attempt
+
+### 2026-03-19 — staging — failed before benchmark execution
+
+| Field                              | Value                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| Stable manifest                    | `docs/operations/load-test-artifacts/latest.json`                           |
+| Timestamped summary                | `docs/operations/load-test-artifacts/20260319T131340Z-staging/summary.json` |
+| CI/raw artifact root               | `artifacts/load-tests/20260319T131340Z-staging/`                            |
+| Target                             | `https://staging.valueos.app/api/health`                                    |
+| Canonical production path enforced | `infra/k8s/overlays/production`                                             |
+| Result                             | Failed                                                                      |
+| Blocking issue                     | `curl: (56) CONNECT tunnel failed, response 403`                            |
+| `load-test.k6.js`                  | Not run (target preflight failed)                                           |
+| `scaling-policy.k6.js`             | Not run (target preflight failed)                                           |
+| Pod counts                         | Unavailable (`kubectl` not installed in the runner)                         |
+| Queue depth                        | Unavailable (`PROMETHEUS_URL` not set)                                      |
+
+Because the live validation did **not** pass on 2026-03-19, the Kubernetes
+readiness statuses in `infra/k8s/README.md` remain **Aspirational**, and the CI
+promotion gate is expected to block production promotion until a fresh passing
+run replaces this failed manifest.
+
+## Passing baseline template
+
+Use this template when the next live validation succeeds.
+
+```markdown
+### YYYY-MM-DD — <environment> — passed
+
+| Field                                  | Value                                                                        |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| Stable manifest                        | `docs/operations/load-test-artifacts/latest.json`                            |
+| Timestamped summary                    | `docs/operations/load-test-artifacts/<timestamp>-<environment>/summary.json` |
+| CI/raw artifact root                   | `artifacts/load-tests/<timestamp>-<environment>/`                            |
+| Target                                 | `<base-url>`                                                                 |
+| Canonical production path enforced     | `infra/k8s/overlays/production`                                              |
+| Result                                 | Passed                                                                       |
+| `load-test.k6.js` p50 / p95 / p99      | `<p50>` / `<p95>` / `<p99>`                                                  |
+| `load-test.k6.js` error rate           | `<error-rate>`                                                               |
+| `scaling-policy.k6.js` p50 / p95 / p99 | `<p50>` / `<p95>` / `<p99>`                                                  |
+| `scaling-policy.k6.js` error rate      | `<error-rate>`                                                               |
+| Pod counts                             | `<count summary>`                                                            |
+| Queue depth                            | `<queue depth summary>`                                                      |
 ```
-### YYYY-MM-DD — <environment>
-
-| Route class / endpoint | p50 | p95 | p99 | Error Rate | SLO Met |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Interactive completion aggregate | | | | | |
-| Orchestration TTFB aggregate | | | | | |
-| Orchestration completion aggregate | | | | | |
-| GET /health | | | | | |
-| GET /api/health/ready | | | | | |
-| GET /api/teams | | | | | |
-| GET /api/billing/summary | | | | | |
-| POST /api/llm/chat | | | | | |
-| POST /api/queue/llm | | | | | |
-
-Notes:
-```
-
-If interactive completion p95 exceeds 200 ms, or orchestration TTFB p95 exceeds 200 ms, file a debt item in `.windsurf/context/debt.md`.
-
-If orchestration completion p95 exceeds 3000 ms, track it as a streaming/async SLO regression rather than as a universal API latency regression.
-
----
-
-## Infrastructure assumptions
-
-- Postgres: Supabase Pro (2 vCPU, 4 GB RAM), Redis: single-node 1 GB
-- Backend: 2 replicas, 1 vCPU / 512 MB each, CDN: Cloudflare
-- HPA guardrails assume interactive completion p95 `< 200 ms`; orchestration routes are scaled and alerted on TTFB and queue depth separately from the interactive class.
-
-Adjust targets if the deployment topology changes significantly.
