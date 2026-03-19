@@ -9,7 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
+import { createUserSupabaseClient } from '../../lib/supabase.js';
 
 import {
   ConversationSession,
@@ -73,8 +73,8 @@ export class ConversationsRepository {
   private supabase: SupabaseClient;
   private tableName = 'messages';
 
-  constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServerSupabaseClient();
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
   }
 
   static fromRequest(req: Request): ConversationsRepository {
@@ -400,14 +400,4 @@ export class ConversationsRepository {
       createdAt: new Date(row.created_at),
     };
   }
-}
-
-// Singleton instance
-let repository: ConversationsRepository | null = null;
-
-export function getConversationsRepository(): ConversationsRepository {
-  if (!repository) {
-    repository = new ConversationsRepository();
-  }
-  return repository;
 }

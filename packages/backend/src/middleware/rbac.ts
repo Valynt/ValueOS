@@ -17,7 +17,7 @@ import {
   USER_ROLE_PERMISSIONS,
   USER_ROLES,
 } from "@shared/lib/permissions";
-import { createServerSupabaseClient, getRequestSupabaseClient } from "@shared/lib/supabase";
+import { getRequestSupabaseClient } from "@shared/lib/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { NextFunction, Request, Response } from "express";
 
@@ -571,11 +571,11 @@ export function requireAllPermissions(...permissions: Permission[]) {
  * Export permission checker for use in services
  */
 export async function checkPermission(
+  supabase: SupabaseClient,
   userId: string,
   tenantId: string,
   permission: Permission
 ): Promise<boolean> {
-  const supabase = createServerSupabaseClient();
   return hasPermission(supabase, userId, tenantId, permission);
 }
 

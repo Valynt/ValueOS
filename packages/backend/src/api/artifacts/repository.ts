@@ -9,7 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
+import { createUserSupabaseClient } from '../../lib/supabase.js';
 
 import {
   Artifact,
@@ -80,8 +80,8 @@ export class ArtifactsRepository {
   private supabase: SupabaseClient;
   private tableName = 'memory_artifacts';
 
-  constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServerSupabaseClient();
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
   }
 
   static fromRequest(req: Request): ArtifactsRepository {
@@ -543,14 +543,4 @@ export class ArtifactsRepository {
       updatedAt: new Date(row.updated_at),
     };
   }
-}
-
-// Singleton instance
-let repository: ArtifactsRepository | null = null;
-
-export function getArtifactsRepository(): ArtifactsRepository {
-  if (!repository) {
-    repository = new ArtifactsRepository();
-  }
-  return repository;
 }

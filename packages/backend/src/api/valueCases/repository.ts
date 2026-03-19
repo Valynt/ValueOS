@@ -8,7 +8,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from '../../lib/logger.js'
-import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
+import { createUserSupabaseClient } from '../../lib/supabase.js';
 
 import {
   CasePhase,
@@ -61,11 +61,8 @@ export class ValueCasesRepository {
   private supabase: SupabaseClient;
   private tableName = 'value_cases';
 
-  constructor(supabase?: SupabaseClient) {
-    // Prefer a caller-supplied user-scoped client so RLS is enforced.
-    // Falls back to service_role only for internal/background callers that
-    // explicitly pass no client (e.g. cron jobs, tenant provisioning).
-    this.supabase = supabase ?? createServerSupabaseClient();
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
   }
 
   /**
@@ -424,14 +421,4 @@ export class ValueCasesRepository {
     };
     return mapping[sortBy] || 'updated_at';
   }
-}
-
-// Singleton instance
-let repository: ValueCasesRepository | null = null;
-
-export function getValueCasesRepository(): ValueCasesRepository {
-  if (!repository) {
-    repository = new ValueCasesRepository();
-  }
-  return repository;
 }

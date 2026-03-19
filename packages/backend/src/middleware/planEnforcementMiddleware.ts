@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 import { NextFunction, Request, Response } from 'express';
 
 
@@ -20,10 +20,10 @@ import { subscriptionService as SubscriptionService } from '../services/billing/
 import { llmCostTracker } from '../services/llm/LLMCostTracker.js';
 import GracePeriodService from '../services/metering/GracePeriodService';
 import UsageCache from '../services/metering/UsageCache';
+import { realtimeUpdateService } from '../services/realtime/RealtimeUpdateService';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';
 
 import type { AuthenticatedRequest } from './auth.js';
-import { realtimeUpdateService } from '../services/realtime/RealtimeUpdateService';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];
@@ -67,7 +67,7 @@ async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier
 
   // Try to get from organizations table (source of truth for configuration)
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = getRequestSupabaseClient(req);
     const { data: org, error } = await supabase
       .from('organizations')
       .select('tier')

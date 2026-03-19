@@ -644,17 +644,33 @@ const backendModuleBoundaryOverrides = {
   files: ["packages/backend/src/**/*.{ts,tsx,js,jsx}"],
   ignores: [
     // Allowlisted modules that legitimately use service_role:
-    // AuthService, tenant provisioning, billing workers, cron jobs, security audit.
+    // auth administration, provisioning, background workers, health checks, and tightly scoped elevated services.
     "packages/backend/src/services/auth/AuthService.ts",
     "packages/backend/src/services/auth/AdminUserService.ts",
     "packages/backend/src/services/auth/AdminRoleService.ts",
     "packages/backend/src/services/tenant/TenantProvisioning.ts",
     "packages/backend/src/services/tenant/TenantDeletionService.ts",
+    "packages/backend/src/services/privacy/DataSubjectRequestAdminService.ts",
+    "packages/backend/src/services/customer/CustomerValueCaseReadService.ts",
     "packages/backend/src/workers/**",
     "packages/backend/src/services/post-v1/SecurityAuditService.ts",
     "packages/backend/src/analytics/ValueLoopAnalytics.ts",
-    // Repositories use service_role intentionally — tracked as tech debt.
-    "packages/backend/src/repositories/**",
+    "packages/backend/src/api/auth.ts",
+    "packages/backend/src/api/health/index.ts",
+    "packages/backend/src/api/services/ReferralAnalyticsService.ts",
+    "packages/backend/src/api/services/ReferralService.ts",
+    "packages/backend/src/repositories/SupabaseProvenanceStore.ts",
+    "packages/backend/src/repositories/RoiModelRepository.ts",
+    "packages/backend/src/repositories/ValueCommitRepository.ts",
+    "packages/backend/src/repositories/ValueTreeLinkRepository.ts",
+    "packages/backend/src/repositories/KpiTargetRepository.ts",
+    "packages/backend/src/repositories/NarrativeDraftRepository.ts",
+    "packages/backend/src/repositories/WorkflowStateRepository.ts",
+    "packages/backend/src/repositories/ExpansionOpportunityRepository.ts",
+    "packages/backend/src/repositories/RealizationReportRepository.ts",
+    "packages/backend/src/repositories/ValueTreeNodeRepository.ts",
+    "packages/backend/src/repositories/IntegrityResultRepository.ts",
+    "packages/backend/src/repositories/RoiModelCalculationRepository.ts",
     // The supabase module itself defines the clients.
     "packages/backend/src/lib/supabase.ts",
   ],
@@ -719,6 +735,16 @@ const backendModuleBoundaryOverrides = {
             message:
               "service_role bypasses RLS. Use createUserSupabaseClient(userToken) for request-scoped paths. " +
               "createServerSupabaseClient is only allowed in the modules listed in backendModuleBoundaryOverrides.ignores.",
+          },
+          {
+            name: "@shared/lib/supabase",
+            importNames: [
+              "createServerSupabaseClient",
+              "getSupabaseClient",
+              "supabase",
+            ],
+            message:
+              "service_role bypasses RLS. Request handlers, middleware, and repositories must use request-scoped clients unless the file is explicitly allowlisted.",
           },
         ],
       },

@@ -15,7 +15,6 @@ import {
 import { logDbError, logDbInfo, logDbWarn } from "../../lib/db/logging.js";
 import { parseDbInput } from "../../lib/db/validation.js";
 import {
-  createServerSupabaseClient,
   createUserSupabaseClient,
 } from "../../lib/supabase.js";
 
@@ -57,8 +56,8 @@ export class ValueDriversRepository {
   private supabase: SupabaseClient;
   private tableName = "value_drivers";
 
-  constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServerSupabaseClient();
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
   }
 
   /**
@@ -575,14 +574,4 @@ export class ValueDriversRepository {
     };
     return mapping[sortBy] || "updated_at";
   }
-}
-
-// Singleton instance
-let repository: ValueDriversRepository | null = null;
-
-export function getValueDriversRepository(): ValueDriversRepository {
-  if (!repository) {
-    repository = new ValueDriversRepository();
-  }
-  return repository;
 }
