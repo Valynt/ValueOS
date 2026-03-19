@@ -5,6 +5,7 @@
  * Validates password strength, prevents common passwords, and enforces policy.
  */
 
+import { getEnvVar } from '../lib/env';
 import { logger } from '../lib/logger';
 
 import { getSecurityConfig } from './SecurityConfig';
@@ -230,7 +231,7 @@ export interface PasswordBreachResult {
 
 // Simple front-end HIBP check returning conservative results
 export async function checkPasswordBreach(password: string): Promise<PasswordBreachResult> {
-  const timeoutMs = Number(process.env.VUE_APP_HIBP_TIMEOUT_MS) || 2000;
+  const timeoutMs = Number(getEnvVar('VITE_HIBP_TIMEOUT_MS', { defaultValue: '2000' }) || '2000');
 
   try {
     const encoder = new TextEncoder();

@@ -5,6 +5,7 @@
  * and that no OpenAI references remain in the codebase.
  */
 
+import { getClientCapabilities } from "../api/runtime";
 import { llmConfig } from "../config/llm";
 import { validateLLMConfig } from "../config/validateEnv";
 
@@ -160,32 +161,34 @@ export function containsOpenAIReferences(text: string): {
 /**
  * Validates Together API key is present
  */
-export function validateTogetherAPIKey(): {
+export async function validateTogetherAPIKey(): Promise<{
   isConfigured: boolean;
   error?: string;
-} {
-  // Check for Together API key in environment
-  const hasKey =
-    (typeof process !== "undefined" && !!process.env.TOGETHER_API_KEY) ||
-    (typeof import.meta !== "undefined" &&
-      !!(((import.meta as Record<string, unknown>)?.env) as Record<string, string> | undefined)?.TOGETHER_API_KEY);
-
-  return {
-    isConfigured: hasKey,
-    error: hasKey ? undefined : "TOGETHER_API_KEY is not configured",
-  };
+}> {
+  try {
+    const capabilities = await getClientCapabilities();
+    return {
+      isConfigured: capabilities.llm.togetherConfigured,
+      error: capabilities.llm.togetherConfigured ? undefined : "TOGETHER_API_KEY is not configured",
+    };
+  } catch (error) {
+    return {
+      isConfigured: false,
+      error: error instanceof Error ? error.message : "Unable to verify Together API configuration",
+    };
+  }
 }
 
 /**
  * Complete startup validation for Together AI
  * Call this at application startup to ensure proper configuration
  */
-export function validateTogetherAIStartup(): {
+export async function validateTogetherAIStartup(): Promise<{
   success: boolean;
   errors: string[];
   warnings: string[];
   info: Record<string, any>;
-} {
+}> {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -202,8 +205,8 @@ export function validateTogetherAIStartup(): {
   warnings.push(...envValidation.warnings);
 
   // 3. Validate API key
-  const keyValidation = validateTogetherAPIKey();
-  if (!keyValidation.isConfigured && typeof process !== "undefined") {
+  const keyValidation = await validateTogetherAPIKey();
+  if (!keyValidation.isConfigured) {
     warnings.push(keyValidation.error || "API key not configured");
   }
 

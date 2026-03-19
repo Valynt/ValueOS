@@ -5,10 +5,27 @@
  * with environment-aware loading, validation, and hot-reloading.
  */
 
-import { existsSync, readFileSync, unwatchFile, watchFile } from "fs";
 import { join, resolve } from "path";
 
 import { logger } from "../../lib/logger";
+
+const runtimeNodeEnv = typeof process !== "undefined" && process.env ? process.env["NODE_ENV"] || "development" : "development";
+
+let nodeFsModulePromise: Promise<typeof import("node:fs")> | null = null;
+
+async function getNodeFsModule(): Promise<typeof import("node:fs")> {
+  if (typeof window !== "undefined") {
+    throw new Error("ConfigurationManager file access is only available on the server runtime.");
+  }
+
+  if (!nodeFsModulePromise) {
+    const specifier = ["node", "fs"].join(":");
+    nodeFsModulePromise = import(specifier) as Promise<typeof import("node:fs")>;
+  }
+
+  return nodeFsModulePromise;
+}
+
 
 // ============================================================================
 // Configuration Schema Types
@@ -310,7 +327,8 @@ export class ConfigurationManager {
     serverType: "crm" | "financial" | "integrated",
     environment?: string
   ): Promise<T> {
-    const cacheKey = `${serverType}-${environment || process.env.NODE_ENV || "development"}`;
+    const resolvedEnvironment = environment || runtimeNodeEnv;
+    const cacheKey = `${serverType}-${resolvedEnvironment}`;
 
     // Return cached config if available
     if (this.configCache.has(cacheKey)) {
@@ -318,16 +336,18 @@ export class ConfigurationManager {
     }
 
     // Determine config file path
-    const env = environment || process.env.NODE_ENV || "development";
+    const env = environment || runtimeNodeEnv;
     const configPath = this.getConfigPath(serverType, env);
 
-    if (!existsSync(configPath)) {
+    const nodeFs = await getNodeFsModule();
+
+    if (!nodeFs.existsSync(configPath)) {
       throw new Error(`Configuration file not found: ${configPath}`);
     }
 
     try {
       // Load and parse configuration
-      const rawConfig = this.loadConfigFile(configPath);
+      const rawConfig = await this.loadConfigFile(configPath);
 
       // Validate configuration
       let validatedConfig: T;
@@ -382,9 +402,10 @@ export class ConfigurationManager {
   /**
    * Load configuration file
    */
-  private loadConfigFile(configPath: string): unknown {
+  private async loadConfigFile(configPath: string): Promise<unknown> {
     try {
-      const content = readFileSync(configPath, "utf-8");
+      const nodeFs = await getNodeFsModule();
+      const content = nodeFs.readFileSync(configPath, "utf-8");
       return JSON.parse(content) as unknown;
     } catch (error: unknown) {
       if (error instanceof SyntaxError) {
@@ -405,7 +426,7 @@ export class ConfigurationManager {
   ): void {
     this.fileWatchers.set(cacheKey, true);
 
-    watchFile(configPath, async () => {
+    getNodeFsModule().then((nodeFs) => nodeFs.watchFile(configPath, async () => {
       try {
         logger.info(`Configuration file changed, reloading...`, {
           serverType,
@@ -430,6 +451,12 @@ export class ConfigurationManager {
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
+    })).catch((error: unknown) => {
+      logger.error(`Failed to watch configuration file`, {
+        serverType,
+        environment,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     });
   }
 
@@ -452,7 +479,7 @@ export class ConfigurationManager {
     serverType: string,
     environment?: string
   ): T | undefined {
-    const env = environment || process.env.NODE_ENV || "development";
+    const env = environment || runtimeNodeEnv;
     const cacheKey = `${serverType}-${env}`;
     return this.configCache.get(cacheKey) as T | undefined;
   }
@@ -488,7 +515,10 @@ export class ConfigurationManager {
     for (const [cacheKey] of this.fileWatchers) {
       const [serverType, environment] = cacheKey.split("-");
       const configPath = this.getConfigPath(serverType, environment);
-      unwatchFile(configPath);
+      if (typeof window === "undefined") {
+        const specifier = ["node", "fs"].join(":");
+        void import(specifier).then((nodeFs) => nodeFs.unwatchFile(configPath));
+      }
     }
     this.fileWatchers.clear();
   }

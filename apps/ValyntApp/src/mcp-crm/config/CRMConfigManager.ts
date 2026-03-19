@@ -31,14 +31,14 @@ export class CRMConfigManager {
     try {
       this.config = await this.baseConfigManager.loadConfig<MCPCRMServerConfig>("crm", environment);
       logger.info("CRM configuration loaded successfully", {
-        environment: environment || process.env.NODE_ENV || "development",
+        environment: environment || process.env["NODE_ENV"] || "development",
         providers: this.config.crm.providers.map((p) => p.provider).filter((p) => p.enabled),
       });
       return this.config;
     } catch (error) {
       logger.error("Failed to load CRM configuration", {
         error: error instanceof Error ? error.message : "Unknown error",
-        environment: environment || process.env.NODE_ENV || "development",
+        environment: environment || process.env["NODE_ENV"] || "development",
       });
       throw error;
     }

@@ -10,7 +10,7 @@ import { Span, SpanStatusCode, trace } from '@opentelemetry/api';
 // Service configuration
 const SERVICE_NAME = 'valuecanvas-frontend';
 const SERVICE_VERSION = '1.0.0';
-const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const ENVIRONMENT = process.env["NODE_ENV"] || 'development';
 
 // No-op implementations for browser environment
 const noopSpan = {

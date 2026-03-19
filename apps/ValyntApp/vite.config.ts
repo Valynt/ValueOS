@@ -64,8 +64,6 @@ export default defineConfig({
   resolve: {
     extensions: [".tsx", ".ts", ".jsx", ".js", ".mjs", ".json"],
     alias: {
-      // Shim Node.js crypto for server-side modules that live in the frontend tree
-      crypto: path.resolve(__dirname, "./src/lib/crypto-shim.ts"),
       "@": path.resolve(__dirname, "./src"),
       "@app": path.resolve(__dirname, "./src/app"),
       "@pages": path.resolve(__dirname, "./src/pages"),

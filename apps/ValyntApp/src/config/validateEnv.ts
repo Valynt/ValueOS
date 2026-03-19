@@ -8,6 +8,7 @@
  */
 
 import type { LLMProvider } from "../lib/agent-fabric/llm-types";
+import { getEnvVar } from "../lib/env";
 import { createLogger } from "../lib/logger";
 
 import { llmConfig } from "./llm";
@@ -39,9 +40,7 @@ function getEnv(key: string): string | undefined {
   if (typeof import.meta !== "undefined" && (import.meta as Record<string, unknown>)?.env) {
     return ((import.meta as Record<string, unknown>).env as Record<string, string>)[key];
   }
-  if (typeof process !== "undefined" && process.env) {
-    return process.env[key];
-  }
+  return getEnvVar(key);
   return undefined;
 }
 
@@ -80,11 +79,8 @@ export function validateLLMConfig(): LLMValidationResult {
   let providerAvailable = false;
 
   if (isNodeEnv) {
-    const togetherKey = process.env.TOGETHER_API_KEY;
-    const leakedClientKeys = [
-      "VITE_TOGETHER_API_KEY",
-      "VITE_SUPABASE_SERVICE_ROLE_KEY",
-    ].filter((key) => Boolean(process.env[key]));
+    const togetherKey = getEnvVar("TOGETHER_API_KEY");
+    const leakedClientKeys = ["VITE_TOGETHER_API_KEY"].filter((key) => Boolean(getEnvVar(key)));
 
     if (leakedClientKeys.length > 0) {
       errors.push(

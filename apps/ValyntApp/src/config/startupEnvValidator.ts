@@ -40,15 +40,6 @@ function validateRequired(scope: string, source: Record<string, string | undefin
   }
 }
 
-export function validateBackendStartupEnv(env: NodeJS.ProcessEnv = process.env): void {
-  validateRequired("Backend", env, [
-    "DATABASE_URL",
-    "SUPABASE_URL",
-    "SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-  ]);
-}
-
 export function validateFrontendStartupEnv(viteEnv: Record<string, string | undefined>): void {
   validateRequired("Frontend", viteEnv, [
     "VITE_API_BASE_URL",

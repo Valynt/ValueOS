@@ -490,7 +490,7 @@ export const logSecurityEvent = (
   }
 
   // In production, send to security monitoring service
-  if (process.env.NODE_ENV === "production") {
+  if (process.env["NODE_ENV"] === "production") {
     console.warn("SECURITY_EVENT:", JSON.stringify(fullEvent));
   }
 };

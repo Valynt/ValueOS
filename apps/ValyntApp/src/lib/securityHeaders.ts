@@ -102,7 +102,7 @@ class SecurityHeaders {
           "block-all-mixed-content": null,
           "report-uri": "https://api.valueos.com/security/csp-report",
         },
-        reportOnly: process.env.NODE_ENV === "development",
+        reportOnly: process.env["NODE_ENV"] === "development",
       },
       strictTransportSecurity: {
         enabled: true,
@@ -386,7 +386,7 @@ class SecurityHeaders {
    * Send CSP violation report to monitoring service
    */
   private sendCSPViolationReport(violation: unknown): void {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env["NODE_ENV"] === "production") {
       // Raw fetch retained: CSP violation reports fire from a SecurityPolicyViolationEvent
       // handler that runs outside React context. apiClient requires auth context.
       // Migrate when apiClient exposes an unauthenticated reporting method.

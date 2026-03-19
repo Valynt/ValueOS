@@ -3,15 +3,12 @@
  */
 
 const isBrowser = typeof window !== "undefined";
+const nodeEnvValue = typeof process !== "undefined" && process.env ? process.env["NODE_ENV"] : undefined;
 
 export const env = {
-  isDevelopment: isBrowser
-    ? import.meta.env?.DEV === true
-    : process.env.NODE_ENV === "development",
-  isProduction: isBrowser
-    ? import.meta.env?.PROD === true
-    : process.env.NODE_ENV === "production",
-  isTest: process.env.NODE_ENV === "test",
+  isDevelopment: isBrowser ? import.meta.env?.DEV === true : nodeEnvValue === "development",
+  isProduction: isBrowser ? import.meta.env?.PROD === true : nodeEnvValue === "production",
+  isTest: nodeEnvValue === "test",
   isBrowser,
   isServer: !isBrowser,
 };
@@ -31,7 +28,7 @@ export function getEnvVar(
 
   if (isBrowser) {
     value = (import.meta.env as Record<string, string>)?.[key];
-  } else {
+  } else if (typeof process !== "undefined" && process.env) {
     value = process.env[key];
   }
 
@@ -53,25 +50,9 @@ export function getSupabaseConfig() {
   };
 }
 
-/**
- * Server-only Supabase config. Returns service_role key from process.env.
- * Never call from browser code.
- */
-export function getSupabaseServerConfig() {
-  if (isBrowser) {
-    throw new Error("getSupabaseServerConfig must not be called in browser context");
-  }
-  return {
-    url: getEnvVar("VITE_SUPABASE_URL") || "",
-    serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || "",
-  };
-}
-
 export function getApiBaseUrl(): string {
   return getEnvVar("VITE_API_BASE_URL") || "/api";
 }
 
 /** Test-only: override the env source. No-op in production. */
 export function __setEnvSourceForTests(_source: Record<string, string>): void {}
-
-

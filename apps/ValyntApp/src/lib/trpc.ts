@@ -4,7 +4,7 @@
 //
 // The real tRPC client lives in client/src/lib/trpc.ts.
 // This file must never be imported in production code.
-if (process.env.NODE_ENV === 'production') {
+if (process.env["NODE_ENV"] === 'production') {
   throw new Error(
     '[ValyntApp/src/lib/trpc.ts] This stub must not be imported in production. ' +
     'Import from client/src/lib/trpc.ts directly or via the root @ alias.',

@@ -4,7 +4,7 @@
 //
 // The real implementations live in client/src/const.ts.
 // This file must never be imported in production code.
-if (process.env.NODE_ENV === 'production') {
+if (process.env["NODE_ENV"] === 'production') {
   throw new Error(
     '[ValyntApp/src/const.ts] This stub must not be imported in production. ' +
     'Import from client/src/const.ts directly or via the root @ alias.',

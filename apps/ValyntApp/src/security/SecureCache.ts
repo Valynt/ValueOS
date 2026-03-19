@@ -1,4 +1,3 @@
-import { cacheEncryption, EncryptedCacheEntry } from '../config/secrets/CacheEncryption';
 import { logger } from '../lib/logger';
 
 export interface SecureCacheOptions {
@@ -6,22 +5,52 @@ export interface SecureCacheOptions {
   tenantId?: string;
 }
 
+interface ObfuscatedCacheEntry {
+  cipher: Uint8Array;
+  pad: Uint8Array;
+}
+
 interface SecureCacheRecord {
-  entry: EncryptedCacheEntry;
+  entry: ObfuscatedCacheEntry;
   createdAt: number;
 }
 
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+function toBytes(value: unknown): Uint8Array {
+  return textEncoder.encode(JSON.stringify(value));
+}
+
+function fromBytes<T>(value: Uint8Array): T {
+  return JSON.parse(textDecoder.decode(value)) as T;
+}
+
+function createPad(size: number): Uint8Array {
+  const pad = new Uint8Array(size);
+  globalThis.crypto.getRandomValues(pad);
+  return pad;
+}
+
+function xorBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
+  const result = new Uint8Array(left.length);
+  for (let index = 0; index < left.length; index += 1) {
+    result[index] = left[index]! ^ right[index]!;
+  }
+  return result;
+}
+
 /**
- * SecureCache keeps sensitive values encrypted in memory and wipes
- * buffers when entries expire or are removed.
+ * Browser-safe in-memory cache with best-effort value obscuring + zeroization.
+ * This avoids importing server-only secret helpers into the frontend bundle.
  */
-export class SecureCache<T = any> {
+export class SecureCache<T = unknown> {
   private store: Map<string, SecureCacheRecord> = new Map();
   private readonly ttlMs: number;
   private readonly tenantId: string;
 
   constructor(options: SecureCacheOptions = {}) {
-    this.ttlMs = options.ttlMs ?? 5 * 60 * 1000; // 5 minutes
+    this.ttlMs = options.ttlMs ?? 5 * 60 * 1000;
     this.tenantId = options.tenantId || 'system';
   }
 
@@ -30,8 +59,16 @@ export class SecureCache<T = any> {
     if (existing) {
       this.zeroize(existing.entry);
     }
-    const encrypted = cacheEncryption.encrypt(value, this.tenantId);
-    this.store.set(key, { entry: encrypted, createdAt: Date.now() });
+
+    const plainBytes = toBytes(value);
+    const pad = createPad(plainBytes.length);
+    const cipher = xorBytes(plainBytes, pad);
+    plainBytes.fill(0);
+
+    this.store.set(key, {
+      entry: { cipher, pad },
+      createdAt: Date.now(),
+    });
   }
 
   get(key: string): T | null {
@@ -48,9 +85,12 @@ export class SecureCache<T = any> {
     }
 
     try {
-      return cacheEncryption.decrypt(record.entry, this.tenantId) as T;
+      const plainBytes = xorBytes(record.entry.cipher, record.entry.pad);
+      const value = fromBytes<T>(plainBytes);
+      plainBytes.fill(0);
+      return value;
     } catch (error) {
-      logger.error('SecureCache decrypt failed, dropping entry', error instanceof Error ? error : new Error(String(error)), {
+      logger.error('SecureCache decode failed, dropping entry', error instanceof Error ? error : new Error(String(error)), {
         key,
         tenantId: this.tenantId,
       });
@@ -82,7 +122,7 @@ export class SecureCache<T = any> {
       if (this.isExpired(record)) {
         this.zeroize(record.entry);
         this.store.delete(key);
-        removed++;
+        removed += 1;
       }
     }
 
@@ -97,10 +137,9 @@ export class SecureCache<T = any> {
     return Date.now() - record.createdAt > this.ttlMs;
   }
 
-  private zeroize(entry: EncryptedCacheEntry): void {
-    entry.encrypted.fill(0);
-    entry.iv.fill(0);
-    entry.authTag.fill(0);
+  private zeroize(entry: ObfuscatedCacheEntry): void {
+    entry.cipher.fill(0);
+    entry.pad.fill(0);
   }
 }
 

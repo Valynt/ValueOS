@@ -4,6 +4,7 @@
  */
 
 import { SafetyLimits } from '../lib/agent-fabric/CircuitBreaker';
+import { getEnvVar } from '../lib/env';
 
 export interface AgentFabricConfig {
   /** Circuit breaker safety limits */
@@ -75,56 +76,56 @@ export interface AgentFabricConfig {
  */
 export const DEFAULT_AGENT_FABRIC_CONFIG: AgentFabricConfig = {
   safetyLimits: {
-    maxExecutionTime: parseInt(process.env.AGENT_MAX_EXECUTION_TIME_MS || '30000'), // 30 seconds
-    maxLLMCalls: parseInt(process.env.AGENT_MAX_LLM_CALLS || '20'),
-    maxRecursionDepth: parseInt(process.env.AGENT_MAX_RECURSION_DEPTH || '5'),
-    maxMemoryBytes: parseInt(process.env.AGENT_MAX_MEMORY_BYTES || String(100 * 1024 * 1024)), // 100MB
-    enableDetailedTracking: process.env.AGENT_DETAILED_TRACKING === 'true',
-    maxExecutionCost: parseFloat(process.env.AGENT_MAX_EXECUTION_COST || '5.00'), // $5.00
-    maxHourlyCost: parseFloat(process.env.AGENT_MAX_HOURLY_COST || '10.00'), // $10.00
-    costCheckIntervalMs: parseInt(process.env.AGENT_COST_CHECK_INTERVAL_MS || '5000'), // 5 seconds
+    maxExecutionTime: parseInt(getEnvVar('AGENT_MAX_EXECUTION_TIME_MS', { defaultValue: '30000' }) || '30000'), // 30 seconds
+    maxLLMCalls: parseInt(getEnvVar('AGENT_MAX_LLM_CALLS', { defaultValue: '20' }) || '20'),
+    maxRecursionDepth: parseInt(getEnvVar('AGENT_MAX_RECURSION_DEPTH', { defaultValue: '5' }) || '5'),
+    maxMemoryBytes: parseInt(getEnvVar('AGENT_MAX_MEMORY_BYTES', { defaultValue: String(100 * 1024 * 1024) }) || String(100 * 1024 * 1024)), // 100MB
+    enableDetailedTracking: getEnvVar('AGENT_DETAILED_TRACKING') === 'true',
+    maxExecutionCost: parseFloat(getEnvVar('AGENT_MAX_EXECUTION_COST', { defaultValue: '5.00' }) || '5.00'), // $5.00
+    maxHourlyCost: parseFloat(getEnvVar('AGENT_MAX_HOURLY_COST', { defaultValue: '10.00' }) || '10.00'), // $10.00
+    costCheckIntervalMs: parseInt(getEnvVar('AGENT_COST_CHECK_INTERVAL_MS', { defaultValue: '5000' }) || '5000'), // 5 seconds
   },
 
   llmGateway: {
-    defaultModel: process.env.LLM_DEFAULT_MODEL || 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
-    lowCostModel: process.env.LLM_LOW_COST_MODEL || 'microsoft/phi-4-mini',
-    highCostModel: process.env.LLM_HIGH_COST_MODEL || 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+    defaultModel: getEnvVar('LLM_DEFAULT_MODEL', { defaultValue: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' }) || 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
+    lowCostModel: getEnvVar('LLM_LOW_COST_MODEL', { defaultValue: 'microsoft/phi-4-mini' }) || 'microsoft/phi-4-mini',
+    highCostModel: getEnvVar('LLM_HIGH_COST_MODEL', { defaultValue: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo' }) || 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
 
-    gatingEnabled: process.env.LLM_GATING_ENABLED !== 'false',
+    gatingEnabled: getEnvVar('LLM_GATING_ENABLED', { defaultValue: 'true' }) !== 'false',
 
     providers: {
       together: {
-        baseUrl: process.env.TOGETHER_API_BASE_URL || 'https://api.together.xyz/v1',
-        timeout: parseInt(process.env.TOGETHER_TIMEOUT_MS || '30000'),
+        baseUrl: getEnvVar('TOGETHER_API_BASE_URL', { defaultValue: 'https://api.together.xyz/v1' }) || 'https://api.together.xyz/v1',
+        timeout: parseInt(getEnvVar('TOGETHER_TIMEOUT_MS', { defaultValue: '30000' }) || '30000'),
       },
       openai: {
-        baseUrl: process.env.OPENAI_API_BASE_URL || 'https://api.openai.com/v1',
-        timeout: parseInt(process.env.OPENAI_TIMEOUT_MS || '30000'),
+        baseUrl: getEnvVar('OPENAI_API_BASE_URL', { defaultValue: 'https://api.openai.com/v1' }) || 'https://api.openai.com/v1',
+        timeout: parseInt(getEnvVar('OPENAI_TIMEOUT_MS', { defaultValue: '30000' }) || '30000'),
       },
     },
   },
 
   memory: {
-    defaultEpisodicTTL: parseInt(process.env.MEMORY_EPISODIC_TTL_SECONDS || '86400'), // 24 hours
-    defaultSemanticTTL: parseInt(process.env.MEMORY_SEMANTIC_TTL_SECONDS || '604800'), // 7 days
-    maxTenantMemoryBytes: parseInt(process.env.MEMORY_MAX_TENANT_BYTES || String(1024 * 1024 * 1024)), // 1GB
-    cleanupIntervalSeconds: parseInt(process.env.MEMORY_CLEANUP_INTERVAL_SECONDS || '3600'), // 1 hour
+    defaultEpisodicTTL: parseInt(getEnvVar('MEMORY_EPISODIC_TTL_SECONDS', { defaultValue: '86400' }) || '86400'), // 24 hours
+    defaultSemanticTTL: parseInt(getEnvVar('MEMORY_SEMANTIC_TTL_SECONDS', { defaultValue: '604800' }) || '604800'), // 7 days
+    maxTenantMemoryBytes: parseInt(getEnvVar('MEMORY_MAX_TENANT_BYTES', { defaultValue: String(1024 * 1024 * 1024) }) || String(1024 * 1024 * 1024)), // 1GB
+    cleanupIntervalSeconds: parseInt(getEnvVar('MEMORY_CLEANUP_INTERVAL_SECONDS', { defaultValue: '3600' }) || '3600'), // 1 hour
   },
 
   audit: {
-    enabled: process.env.AUDIT_LOGGING_ENABLED !== 'false',
-    retentionDays: parseInt(process.env.AUDIT_RETENTION_DAYS || '90'),
-    batchSize: parseInt(process.env.AUDIT_BATCH_SIZE || '100'),
+    enabled: getEnvVar('AUDIT_LOGGING_ENABLED', { defaultValue: 'true' }) !== 'false',
+    retentionDays: parseInt(getEnvVar('AUDIT_RETENTION_DAYS', { defaultValue: '90' }) || '90'),
+    batchSize: parseInt(getEnvVar('AUDIT_BATCH_SIZE', { defaultValue: '100' }) || '100'),
   },
 
   costTracking: {
-    enabled: process.env.COST_TRACKING_ENABLED !== 'false',
+    enabled: getEnvVar('COST_TRACKING_ENABLED', { defaultValue: 'true' }) !== 'false',
     alertThresholds: {
-      perExecution: parseFloat(process.env.COST_ALERT_EXECUTION_THRESHOLD || '2.50'),
-      hourly: parseFloat(process.env.COST_ALERT_HOURLY_THRESHOLD || '5.00'),
-      daily: parseFloat(process.env.COST_ALERT_DAILY_THRESHOLD || '50.00'),
+      perExecution: parseFloat(getEnvVar('COST_ALERT_EXECUTION_THRESHOLD', { defaultValue: '2.50' }) || '2.50'),
+      hourly: parseFloat(getEnvVar('COST_ALERT_HOURLY_THRESHOLD', { defaultValue: '5.00' }) || '5.00'),
+      daily: parseFloat(getEnvVar('COST_ALERT_DAILY_THRESHOLD', { defaultValue: '50.00' }) || '50.00'),
     },
-    precision: parseInt(process.env.COST_PRECISION || '4'),
+    precision: parseInt(getEnvVar('COST_PRECISION', { defaultValue: '4' }) || '4'),
   },
 };
 

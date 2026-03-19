@@ -86,7 +86,7 @@ class AuditLogger {
     this.pendingEvents.push(auditEvent);
 
     // Log to console in development
-    if (process.env.NODE_ENV === "development") {
+    if (process.env["NODE_ENV"] === "development") {
       this.logToConsole(auditEvent);
     }
 
@@ -407,7 +407,7 @@ class AuditLogger {
     this.pendingEvents = [];
 
     try {
-      if (process.env.NODE_ENV === "production") {
+      if (process.env["NODE_ENV"] === "production") {
         await apiClient.post("/api/audit/events", {
           events: batch,
           clientTimestamp: Date.now(),

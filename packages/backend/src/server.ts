@@ -88,6 +88,7 @@ import { initResearchWorker } from "./workers/researchWorker.js";
 import { createArtifactGenerationWorker } from "./workers/ArtifactGenerationWorker.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
+import runtimeRouter from "./api/runtime.js";
 import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/realtime/WebSocketBroadcastAdapter.js";
@@ -560,6 +561,7 @@ app.use(
 );
 app.use("/api/llm", llmConcurrencyGuard, llmRouter);
 app.use("/api/mcp", mcpDiscoveryRouter);
+app.use("/api/runtime", runtimeRouter);
 app.use("/api", workflowRouter);
 app.use(
   "/api/documents",

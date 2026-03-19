@@ -123,6 +123,9 @@ jobs:
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
 
+      - name: Guard ValyntApp server boundary
+        run: pnpm check:valyntapp-server-boundary
+
       - name: Guard frontend bundle service-role identifiers
         run: pnpm check:frontend-bundle-service-role
 

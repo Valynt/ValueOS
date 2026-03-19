@@ -5,6 +5,8 @@
  * Provides easy access to all modules, types, and the main server class.
  */
 
+import { getEnvVar } from "../lib/env";
+
 // Core exports
 export { MCPFinancialGroundTruthServer } from "./core/MCPServer";
 export { UnifiedTruthLayer } from "./core/UnifiedTruthLayer";
@@ -74,7 +76,7 @@ export async function createMCPServer(config: {
     },
     marketData: config.marketData || {
       provider: "alphavantage" as const,
-      apiKey: process.env.ALPHA_VANTAGE_API_KEY || "",
+      apiKey: getEnvVar("VITE_ALPHA_VANTAGE_API_KEY", { defaultValue: "" }) || "",
       rateLimit: 5,
     },
     privateCompany: config.privateCompany || {
@@ -115,7 +117,7 @@ export async function createDevServer() {
     },
     marketData: {
       provider: "alphavantage",
-      apiKey: process.env.ALPHA_VANTAGE_API_KEY || "demo",
+      apiKey: getEnvVar("VITE_ALPHA_VANTAGE_API_KEY", { defaultValue: "demo" }) || "demo",
     },
     industryBenchmark: {
       enableStaticData: true,

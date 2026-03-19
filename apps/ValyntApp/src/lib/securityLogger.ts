@@ -87,12 +87,12 @@ class SecurityLogger {
     this.updateMetrics(securityEvent);
 
     // Log to console in development
-    if (process.env.NODE_ENV === "development") {
+    if (process.env["NODE_ENV"] === "development") {
       this.logToConsole(securityEvent);
     }
 
     // In production, send to monitoring service
-    if (process.env.NODE_ENV === "production") {
+    if (process.env["NODE_ENV"] === "production") {
       this.sendToMonitoringService(securityEvent);
     }
   }

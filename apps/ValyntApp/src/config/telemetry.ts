@@ -1,5 +1,6 @@
 import type { Span as SpanType } from '@opentelemetry/api';
 
+import { getEnvVar } from "../lib/env";
 import { logger } from "../lib/logger";
 /**
  * OpenTelemetry Configuration
@@ -38,9 +39,9 @@ async function initializeTelemetryImports() {
 initializeTelemetryImports();
 
 // Service configuration
-const SERVICE_NAME = isBrowser ? 'valuecanvas-frontend' : (process.env.OTEL_SERVICE_NAME || 'valuecanvas-api');
-const SERVICE_VERSION = isBrowser ? '1.0.0' : (process.env.npm_package_version || '1.0.0');
-const ENVIRONMENT = isBrowser ? 'browser' : (process.env.NODE_ENV || 'development');
+const SERVICE_NAME = isBrowser ? 'valuecanvas-frontend' : (getEnvVar('OTEL_SERVICE_NAME', { defaultValue: 'valuecanvas-api' }) || 'valuecanvas-api');
+const SERVICE_VERSION = isBrowser ? '1.0.0' : (getEnvVar('npm_package_version', { defaultValue: '1.0.0' }) || '1.0.0');
+const ENVIRONMENT = isBrowser ? 'browser' : (getEnvVar('NODE_ENV', { defaultValue: 'development' }) || 'development');
 
 // No-op implementations for browser environment
 const noopSpan = {
@@ -60,7 +61,7 @@ const noopTracer = {
 // Exporter endpoints (Node.js only)
 let OTLP_ENDPOINT: string | undefined, TRACES_ENDPOINT: string | undefined, METRICS_ENDPOINT: string | undefined;
 if (!isBrowser) {
-  OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
+  OTLP_ENDPOINT = getEnvVar('OTLP_ENDPOINT', { defaultValue: 'http://localhost:4318' }) || 'http://localhost:4318';
   TRACES_ENDPOINT = `${OTLP_ENDPOINT}/v1/traces`;
   METRICS_ENDPOINT = `${OTLP_ENDPOINT}/v1/metrics`;
 }
@@ -97,14 +98,14 @@ export async function initializeTelemetry(): Promise<unknown> {
     traceExporter: new OTLPTraceExporter({
       url: TRACES_ENDPOINT,
       headers: {
-        'Authorization': `Bearer ${process.env.OTLP_AUTH_TOKEN || ''}`
+        'Authorization': `Bearer ${getEnvVar('OTLP_AUTH_TOKEN', { defaultValue: '' }) || ''}`
       }
     }),
     metricReader: new PeriodicExportingMetricReader({
       exporter: new OTLPMetricExporter({
         url: METRICS_ENDPOINT,
         headers: {
-          'Authorization': `Bearer ${process.env.OTLP_AUTH_TOKEN || ''}`
+          'Authorization': `Bearer ${getEnvVar('OTLP_AUTH_TOKEN', { defaultValue: '' }) || ''}`
         }
       }),
       exportIntervalMillis: 60000 // Export every 60 seconds
