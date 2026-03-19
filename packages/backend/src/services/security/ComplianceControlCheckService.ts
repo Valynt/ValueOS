@@ -190,10 +190,9 @@ export class ComplianceControlCheckService {
 
     if (evidenceType === "audit_logs_archive") {
       const { data, error } = await this.supabase
-        .from("audit_logs")
+        .from("audit_logs_archive")
         .select("timestamp")
         .eq("tenant_id", tenantId)
-        .eq("archived", true)
         .order("timestamp", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -204,11 +203,9 @@ export class ComplianceControlCheckService {
 
     if (evidenceType === "security_audit_log_archive") {
       const { data, error } = await this.supabase
-        .from("audit_logs")
+        .from("security_audit_log_archive")
         .select("timestamp")
         .eq("tenant_id", tenantId)
-        .eq("archived", true)
-        .in("resource_type", ["security_alert", "security_event", "security_incident", "security_audit_log"])
         .order("timestamp", { ascending: false })
         .limit(1)
         .maybeSingle();

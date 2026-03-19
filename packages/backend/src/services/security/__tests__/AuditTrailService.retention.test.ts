@@ -1,19 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/supabase.js", () => ({
-  createServerSupabaseClient: vi.fn(),
+vi.mock("../../../lib/supabase.js", () => ({
+  getSupabaseClient: vi.fn(),
 }));
 
-vi.mock("../../lib/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+vi.mock("../../../lib/logger.js", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock("../security/SecurityEventStreamingService.js", () => ({
+vi.mock("../SecurityEventStreamingService.js", () => ({
   securityEventStreamingService: { stream: vi.fn() },
 }));
 
-import { createServerSupabaseClient } from "../../lib/supabase.js";
-import { AuditLogService } from "../AuditLogService.js";
+vi.mock("../SiemExportForwarderService.js", () => ({
+  siemExportForwarderService: { forward: vi.fn() },
+}));
+
+import { getSupabaseClient } from "../../../lib/supabase.js";
+import { AuditTrailService } from "../AuditTrailService.js";
 
 type Row = Record<string, unknown>;
 
@@ -37,8 +41,8 @@ class SupabaseTableMock {
     return this;
   }
 
-  in(field: string, values: unknown[]) {
-    this.filters.push((row) => values.includes(row[field]));
+  contains(field: string, values: unknown[]) {
+    this.filters.push((row) => Array.isArray(row[field]) && values.every((value) => (row[field] as unknown[]).includes(value)));
     return this;
   }
 
@@ -83,6 +87,7 @@ class SupabaseTableMock {
         data: inserted.map((row) => pickColumns(row, columns)),
         error: null,
       }),
+      single: () => Promise.resolve({ data: inserted[0] ?? null, error: null }),
     };
   }
 
@@ -91,18 +96,14 @@ class SupabaseTableMock {
     return this;
   }
 
-  maybeSingle() {
-    const rows = this.executeRows();
-    return Promise.resolve({ data: rows[0] ?? null, error: null });
+  in(field: string, values: unknown[]) {
+    this.filters.push((row) => values.includes(row[field]));
+    return this;
   }
 
-  single() {
+  then(resolve: (value: { data: Row[]; error: null; count?: number }) => unknown, reject?: (reason: unknown) => unknown) {
     const rows = this.executeRows();
-    return Promise.resolve({ data: rows[0] ?? null, error: null });
-  }
-
-  then(resolve: (value: { data: Row[]; error: null }) => unknown, reject?: (reason: unknown) => unknown) {
-    return Promise.resolve({ data: this.executeRows(), error: null }).then(resolve, reject);
+    return Promise.resolve({ data: rows, error: null, count: rows.length }).then(resolve, reject);
   }
 
   private executeRows(): Row[] {
@@ -118,20 +119,11 @@ class SupabaseTableMock {
     let rows = filtered;
     if (this.orderSpec) {
       const { column, ascending } = this.orderSpec;
-      rows = rows.sort((left, right) => {
-        const leftValue = left[column];
-        const rightValue = right[column];
-        if (leftValue === rightValue) return 0;
-        if (leftValue === undefined) return ascending ? -1 : 1;
-        if (rightValue === undefined) return ascending ? 1 : -1;
-        return (leftValue < rightValue ? -1 : 1) * (ascending ? 1 : -1);
-      });
+      rows = rows.sort((left, right) => ((Number(left[column]) - Number(right[column])) * (ascending ? 1 : -1)));
     }
-
     if (this.rangeSpec) {
       rows = rows.slice(this.rangeSpec.start, this.rangeSpec.end + 1);
     }
-
     if (this.limitCount !== null) {
       rows = rows.slice(0, this.limitCount);
     }
@@ -157,75 +149,72 @@ function buildSupabaseMock(seed: Record<string, Row[]>) {
   return {
     from: (table: string) => new SupabaseTableMock(table, tables),
     tables,
-    auth: { admin: { getUserById: vi.fn() } },
   };
 }
 
-describe("AuditLogService retention and compliance export", () => {
+describe("AuditTrailService retention and compliance export", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("archives expired audit rows into append-only storage before cleanup and exports archived rows", async () => {
-    const expiredRow = {
-      id: "audit-1",
-      tenant_id: "tenant-1",
-      user_id: "user-1",
-      user_name: "User One",
-      user_email: "user@example.com",
-      action: "admin.export",
-      resource_type: "report",
-      resource_id: "report-1",
-      details: { request_path: "/exports/1", correlation_id: "corr-1", actor_ip: "10.0.0.1" },
-      ip_address: "10.0.0.1",
+  it("archives expired security audit events and keeps them queryable for compliance exports", async () => {
+    const expiredEvent = {
+      id: "security-1",
+      event_type: "security_event",
+      actor_id: "user-1",
+      actor_type: "user",
+      resource_id: "case-1",
+      resource_type: "case",
+      action: "security.blocked",
+      outcome: "success",
+      details: { actor_email: "user@example.com", request_path: "/api/cases/1" },
+      ip_address: "10.0.0.2",
       user_agent: "vitest",
-      status: "success",
-      integrity_hash: "hash-1",
-      previous_hash: null,
-      timestamp: "2023-12-31T00:00:00.000Z",
+      timestamp: 100,
+      session_id: "session-1",
+      correlation_id: "corr-1",
+      risk_score: 0.9,
+      compliance_flags: ["soc2"],
+      tenant_id: "tenant-1",
     };
 
     const supabase = buildSupabaseMock({
-      audit_logs: [expiredRow],
-      audit_logs_archive: [],
+      security_audit_log: [expiredEvent],
+      security_audit_log_archive: [],
     });
-    vi.mocked(createServerSupabaseClient).mockReturnValue(supabase as ReturnType<typeof createServerSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(supabase as ReturnType<typeof getSupabaseClient>);
 
-    const service = new AuditLogService();
-    const archivedCount = await service.archiveOldLogs("2024-01-01T00:00:00.000Z");
+    const service = new AuditTrailService({ flushIntervalMs: 60_000 });
+    const archivedCount = await service.cleanupOldEvents(1);
 
     expect(archivedCount).toBe(1);
-    expect(supabase.tables.audit_logs).toHaveLength(0);
-    expect(supabase.tables.audit_logs_archive).toHaveLength(1);
-    expect(supabase.tables.audit_logs_archive[0]).toMatchObject({
-      id: "audit-1",
+    expect(supabase.tables.security_audit_log).toHaveLength(0);
+    expect(supabase.tables.security_audit_log_archive).toHaveLength(1);
+    expect(supabase.tables.security_audit_log_archive[0]).toMatchObject({
+      id: "security-1",
       tenant_id: "tenant-1",
-      integrity_hash: "hash-1",
-      previous_hash: null,
-      source_table: "audit_logs",
+      source_table: "security_audit_log",
     });
-    expect(supabase.tables.audit_logs_archive[0].archive_verified_at).toBeTruthy();
-    expect(supabase.tables.audit_logs_archive[0].archive_verification).toMatchObject({
-      source_table: "audit_logs",
-      archive_table: "audit_logs_archive",
-      retention_cutoff: "2024-01-01T00:00:00.000Z",
+    expect(supabase.tables.security_audit_log_archive[0].archive_verification).toMatchObject({
+      archive_table: "security_audit_log_archive",
+      source_table: "security_audit_log",
     });
 
-    const exported = await service.export({
-      tenantId: "tenant-1",
-      format: "json",
-      query: {
-        startDate: "2023-01-01T00:00:00.000Z",
-        endDate: "2024-12-31T23:59:59.999Z",
-      },
-    });
+    const exported = await service.exportForCompliance(
+      "tenant-1",
+      new Date(0),
+      new Date(1_000),
+    );
 
-    expect(JSON.parse(exported)).toEqual([
+    expect(exported).toEqual([
       expect.objectContaining({
-        id: "audit-1",
-        tenant_id: "tenant-1",
-        integrity_hash: "hash-1",
+        id: "security-1",
+        actorId: "user-1",
+        tenantId: "tenant-1",
+        correlationId: "corr-1",
       }),
     ]);
+
+    await service.shutdown();
   });
 });
