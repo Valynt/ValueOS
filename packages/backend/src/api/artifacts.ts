@@ -7,20 +7,20 @@
 
 import { randomUUID } from "node:crypto";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { Queue } from "bullmq";
-import { type IRouter, Router } from "express";
+import { Router, type IRouter } from "express";
 import { z } from "zod";
 
 import { getAgentMessageQueueConfig } from "../config/ServiceConfigManager.js";
-import { logger } from "../lib/logger.js";
 import { requireAuth } from "../middleware/auth.js";
-import { checkPermission } from "../middleware/rbac.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
+import { checkPermission } from "../middleware/rbac.js";
 import { ArtifactEditService } from "../services/artifacts/ArtifactEditService";
 import { ArtifactJobRepository } from "../services/artifacts/ArtifactJobRepository";
 import { ArtifactRepository } from "../services/artifacts/ArtifactRepository";
+import { RequestScopedValueCaseAccessService } from "../services/value/RequestScopedValueCaseAccessService.js";
 import { ARTIFACT_GENERATION_QUEUE_NAME, type ArtifactGenerationJobPayload } from "../workers/ArtifactGenerationWorker.js";
+import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -87,32 +87,29 @@ router.post(
       const body = GenerateArtifactsSchema.parse(req.body);
       const artifactType = body.artifactType ?? "executive_summary";
       const format = body.format ?? "markdown";
-      const supabase = req.supabase as SupabaseClient | undefined;
-
-      if (!supabase) {
-        res.status(401).json({ error: "Authenticated Supabase context required." });
-        return;
-      }
 
       // Authorization: caller must have artifact.generate permission.
-      const canGenerate = await checkPermission(supabase, userId, tenantId, "artifacts:create" as never);
+      if (!req.supabase) {
+        throw new Error("artifacts/generate requires req.supabase");
+      }
+
+      const canGenerate = await checkPermission(req.supabase, userId, tenantId, "artifacts:create" as never);
       if (!canGenerate) {
         res.status(403).json({ error: "Insufficient permissions to generate artifacts." });
         return;
       }
 
-      // Verify the case exists and belongs to this tenant.
-      const { data: valueCase, error: caseError } = await supabase
-        .from("value_cases")
-        .select("id, status")
-        .eq("id", caseId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
+      // Verify the case exists by using the authenticated request-scoped client.
+      // RLS denies cross-tenant reads even without an explicit tenant filter.
+      const caseAccess = new RequestScopedValueCaseAccessService(req.supabase);
+      const valueCase = await caseAccess.assertCaseReadable({
+        caseId,
+        tenantId,
+        userId,
+        requestId: req.requestId,
+        route: req.path,
+      });
 
-      if (caseError) {
-        logger.error("artifacts/generate: failed to verify case", { caseId, error: caseError.message });
-        return next(caseError);
-      }
       if (!valueCase) {
         res.status(404).json({ error: "Value case not found." });
         return;
