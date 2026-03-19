@@ -1,6 +1,16 @@
 -- Database Performance Optimization
 -- Indexes and optimizations for ValueOS lifecycle operations
 
+-- 2026-03-19 canonical audit note:
+--   This file is a legacy ad-hoc optimization bundle, not the deployable
+--   migration source of truth. Canonical, repeatable indexes now live in
+--   infra/supabase/supabase/migrations/, including:
+--     * 20260331050000_transaction_hot_path_indexes.sql
+--     * 20260331051000_semantic_memory_hot_path_indexes.sql
+--   Remaining statements below mostly target legacy tables that are not part
+--   of the active Supabase migration chain and should be promoted only through
+--   versioned migrations after schema verification.
+
 -- Opportunity stage optimizations
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_opportunity_results_user_created
 ON opportunity_results (user_id, created_at DESC);

@@ -61,6 +61,8 @@ This document tracks the state of database migrations and explains any intention
 - `20260322000000_persistent_memory_tables` - Persistent memory
 - `20260326000000_semantic_memory_stats_rpc` - Memory stats RPC
 - `20260331040000_semantic_memory_embedding_model` - Embedding model
+- `20260331050000_transaction_hot_path_indexes` - Transaction hot-path indexes
+- `20260331051000_semantic_memory_hot_path_indexes` - Semantic memory hot-path indexes
 - `20260912000000_company_value_context` - Company value context
 - `20260914000000_agent_execution_lineage` - Agent lineage
 
@@ -119,5 +121,5 @@ supabase db reset
 ```
 
 ---
-**Last Updated**: 2026-03-18  
+**Last Updated**: 2026-03-19
 **Validated**: ✅ All migrations have valid timestamps and rollback files
