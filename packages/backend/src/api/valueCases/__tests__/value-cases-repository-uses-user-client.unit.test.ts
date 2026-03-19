@@ -2,7 +2,7 @@
  * value-cases-repository-uses-user-client — unit test
  *
  * Ensures ValueCasesRepository.fromRequest() creates a repository backed by
- * the user-scoped Supabase client (RLS-enforced), NOT createServiceRoleSupabaseClient
+ * the user-scoped Supabase client (RLS-enforced), NOT createServerSupabaseClient
  * (service_role). Per AGENTS.md rule 3, service_role must only be used for
  * AuthService, tenant provisioning, and cron jobs.
  */
@@ -13,27 +13,14 @@ import { describe, expect, it, vi } from "vitest";
 const mockServerClient = { _type: "server_role" };
 const mockUserClient = { _type: "user_scoped" };
 const createServerSpy = vi.fn(() => mockServerClient);
-const createUserSpy = vi.fn((input: unknown) => {
-  if (input && typeof input === 'object') {
-    const requestSupabase = (input as { supabase?: unknown }).supabase;
-    if (requestSupabase) {
-      return requestSupabase;
-    }
+const createRequestSpy = vi.fn(() => mockUserClient);
 
-    const session = (input as { session?: { access_token?: unknown } }).session;
-    if (typeof session?.access_token === 'string' && session.access_token.length > 0) {
-      return mockUserClient;
-    }
-
-    throw new Error('ValueCasesRepository.fromRequest: no user-scoped Supabase client available on request');
-  }
-
-  return mockUserClient;
-});
+vi.mock("@shared/lib/supabase", () => ({
+  createRequestSupabaseClient: (...args: unknown[]) => createRequestSpy(...args),
+}));
 
 vi.mock("../../../lib/supabase.js", () => ({
-  createServiceRoleSupabaseClient: (...args: unknown[]) => createServerSpy(...args),
-  createRequestRlsSupabaseClient: (...args: unknown[]) => createUserSpy(...args),
+  createServerSupabaseClient: (...args: unknown[]) => createServerSpy(...args),
 }));
 
 vi.mock("../../../lib/logger.js", () => ({
@@ -62,23 +49,23 @@ describe("value-cases-repository-uses-user-client", () => {
 
     // The repository should have been created with the user-scoped client
     expect(repo).toBeDefined();
-    // createServiceRoleSupabaseClient must NOT have been called for fromRequest path
+    // createServerSupabaseClient must NOT have been called for fromRequest path
     expect(createServerSpy).not.toHaveBeenCalled();
   });
 
-  it("fromRequest() falls back to createRequestRlsSupabaseClient when req.supabase is absent", () => {
+  it("fromRequest() falls back to createRequestSupabaseClient when req.supabase is absent", () => {
     const mockReq = {
       session: { access_token: "jwt-token-123" },
     } as unknown as import("express").Request;
 
     createServerSpy.mockClear();
-    createUserSpy.mockClear();
+    createRequestSpy.mockClear();
 
     const repo = ValueCasesRepository.fromRequest(mockReq);
 
     expect(repo).toBeDefined();
-    // Must call createRequestRlsSupabaseClient with the request context
-    expect(createUserSpy).toHaveBeenCalledWith(mockReq);
+    // Must call createRequestSupabaseClient with the access token
+    expect(createRequestSpy).toHaveBeenCalledWith({ accessToken: "jwt-token-123" });
     // Must NOT use service_role
     expect(createServerSpy).not.toHaveBeenCalled();
   });
@@ -93,7 +80,7 @@ describe("value-cases-repository-uses-user-client", () => {
     );
   });
 
-  it("list() does not call createServiceRoleSupabaseClient during query", async () => {
+  it("list() does not call createServerSupabaseClient during query", async () => {
     // Create repository using fromRequest path (user-scoped)
     const mockReq = {
       supabase: {
@@ -125,7 +112,7 @@ describe("value-cases-repository-uses-user-client", () => {
       sortOrder: "desc",
     });
 
-    // createServiceRoleSupabaseClient must never be called during list()
+    // createServerSupabaseClient must never be called during list()
     expect(createServerSpy).not.toHaveBeenCalled();
   });
 });

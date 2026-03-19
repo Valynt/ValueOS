@@ -9,7 +9,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createUserSupabaseClient } from '../../lib/supabase.js';
+import { createRequestSupabaseClient } from "@shared/lib/supabase";
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 import {
   Artifact,
@@ -80,8 +81,8 @@ export class ArtifactsRepository {
   private supabase: SupabaseClient;
   private tableName = 'memory_artifacts';
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
+  constructor(supabase?: SupabaseClient) {
+    this.supabase = supabase ?? createServerSupabaseClient();
   }
 
   static fromRequest(req: Request): ArtifactsRepository {
@@ -90,7 +91,7 @@ export class ArtifactsRepository {
     }
     const token = (req.session as Record<string, unknown> | undefined)?.access_token;
     if (typeof token === 'string') {
-      return new ArtifactsRepository(createUserSupabaseClient(token));
+      return new ArtifactsRepository(createRequestSupabaseClient({ accessToken: token }));
     }
     throw new Error('ArtifactsRepository.fromRequest: no user-scoped Supabase client available on request');
   }
@@ -543,4 +544,14 @@ export class ArtifactsRepository {
       updatedAt: new Date(row.updated_at),
     };
   }
+}
+
+// Singleton instance
+let repository: ArtifactsRepository | null = null;
+
+export function getArtifactsRepository(): ArtifactsRepository {
+  if (!repository) {
+    repository = new ArtifactsRepository();
+  }
+  return repository;
 }

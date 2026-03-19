@@ -8,7 +8,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from '../../lib/logger.js'
-import { createUserSupabaseClient } from '../../lib/supabase.js';
+import { createRequestSupabaseClient } from "@shared/lib/supabase";
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 import {
   CasePhase,
@@ -61,8 +62,11 @@ export class ValueCasesRepository {
   private supabase: SupabaseClient;
   private tableName = 'value_cases';
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
+  constructor(supabase?: SupabaseClient) {
+    // Prefer a caller-supplied user-scoped client so RLS is enforced.
+    // Falls back to service_role only for internal/background callers that
+    // explicitly pass no client (e.g. cron jobs, tenant provisioning).
+    this.supabase = supabase ?? createServerSupabaseClient();
   }
 
   /**
@@ -75,7 +79,7 @@ export class ValueCasesRepository {
     }
     const token = (req.session as Record<string, unknown> | undefined)?.access_token;
     if (typeof token === 'string') {
-      return new ValueCasesRepository(createUserSupabaseClient(token));
+      return new ValueCasesRepository(createRequestSupabaseClient({ accessToken: token }));
     }
     throw new Error('ValueCasesRepository.fromRequest: no user-scoped Supabase client available on request');
   }
@@ -421,4 +425,14 @@ export class ValueCasesRepository {
     };
     return mapping[sortBy] || 'updated_at';
   }
+}
+
+// Singleton instance
+let repository: ValueCasesRepository | null = null;
+
+export function getValueCasesRepository(): ValueCasesRepository {
+  if (!repository) {
+    repository = new ValueCasesRepository();
+  }
+  return repository;
 }

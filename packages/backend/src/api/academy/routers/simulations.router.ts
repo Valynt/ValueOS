@@ -6,7 +6,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { LLMGateway } from "../../../lib/agent-fabric/LLMGateway.js";
-import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
+import type { RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 import { getSupabaseClient } from "../utils.js";
@@ -150,7 +150,7 @@ Category scores: Technical ${categoryScores.technical}%, Cross-functional ${cate
 // ============================================================================
 
 async function getAllSimulationScenarios(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>
+  client: RequestScopedRlsSupabaseClient
 ): Promise<SimulationScenario[]> {
   const { data, error } = await client.from("simulation_scenarios").select("*");
 
@@ -174,7 +174,7 @@ async function getAllSimulationScenarios(
 }
 
 async function getSimulationScenarioById(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   id: number
 ): Promise<SimulationScenario | null> {
   const { data, error } = await client
@@ -202,7 +202,7 @@ async function getSimulationScenarioById(
 }
 
 async function getUserSimulationAttempts(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string,
   organizationId: string,
   scenarioId?: number
@@ -244,7 +244,7 @@ async function getUserSimulationAttempts(
 }
 
 async function getSimulationAttemptCount(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string,
   organizationId: string,
   scenarioId: number
@@ -265,7 +265,7 @@ async function getSimulationAttemptCount(
 }
 
 async function createSimulationAttempt(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   attempt: Omit<SimulationAttempt, "id"> & { organizationId: string }
 ): Promise<void> {
   const { error } = await client.from("simulation_attempts").insert({
@@ -292,7 +292,7 @@ async function createSimulationAttempt(
 }
 
 async function hasCertification(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string,
   organizationId: string,
   pillarId: number,
@@ -316,7 +316,7 @@ async function hasCertification(
 }
 
 async function createCertification(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   cert: Omit<Certification, "id"> & { organizationId: string }
 ): Promise<void> {
   const { error } = await client.from("certifications").insert({

@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
+import { createRequestSupabaseClient, type RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 
@@ -40,12 +40,12 @@ interface UserCertification {
 // Helpers
 // ============================================================================
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createRequestRlsSupabaseClient>; accessToken?: string }) {
+function getSupabaseClient(ctx: { supabase?: RequestScopedRlsSupabaseClient; accessToken?: string }) {
   if (ctx.supabase) {
     return ctx.supabase;
   }
   if (ctx.accessToken) {
-    return createRequestRlsSupabaseClient(ctx.accessToken);
+    return createRequestSupabaseClient({ accessToken: ctx.accessToken });
   }
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
@@ -90,7 +90,7 @@ function generateSecureShareToken(userId: string, certId: number, awardedAt: str
 // ============================================================================
 
 async function getUserCertifications(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   userId: string
 ): Promise<Certification[]> {
   const { data, error } = await client
@@ -119,7 +119,7 @@ async function getUserCertifications(
   }));
 }
 
-async function getPillarById(client: ReturnType<typeof createRequestRlsSupabaseClient>, pillarId: number) {
+async function getPillarById(client: RequestScopedRlsSupabaseClient, pillarId: number) {
   const { data, error } = await client
     .from("pillars")
     .select("*")
@@ -134,7 +134,7 @@ async function getPillarById(client: ReturnType<typeof createRequestRlsSupabaseC
   return data;
 }
 
-async function getUserById(client: ReturnType<typeof createRequestRlsSupabaseClient>, userId: string) {
+async function getUserById(client: RequestScopedRlsSupabaseClient, userId: string) {
   const { data, error } = await client
     .from("users")
     .select("*")
