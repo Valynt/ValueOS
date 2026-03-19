@@ -25,15 +25,21 @@ All agent Deployments under `infra/k8s/base/agents/*/deployment.yaml`:
 
 ## HPA inventory
 
-All HPAs under `infra/k8s/base/agents/*hpa*.yaml` and `infra/k8s/base/agents/*/hpa*.yaml`:
+All active HPA manifests under `infra/k8s/base/agents/*hpa*.yaml` and `infra/k8s/base/agents/*/hpa*.yaml`:
 
 - opportunity-agent
 - target-agent
 - expansion-agent
 - integrity-agent
 - realization-agent
-- company-intelligence-agent
 - financial-modeling-agent
+- research-agent
+
+## KEDA ScaledObject inventory
+
+All low-frequency KEDA manifests under `infra/k8s/base/agents/low-frequency-keda-scaledobjects.yaml`:
+
+- company-intelligence-agent
 - value-mapping-agent
 - system-mapper-agent
 - intervention-designer-agent
@@ -41,7 +47,6 @@ All HPAs under `infra/k8s/base/agents/*hpa*.yaml` and `infra/k8s/base/agents/*/h
 - coordinator-agent
 - value-eval-agent
 - communicator-agent
-- research-agent
 - benchmark-agent
 - narrative-agent
 - groundtruth-agent

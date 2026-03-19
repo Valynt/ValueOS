@@ -12,6 +12,7 @@ import { z } from "zod";
 import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -260,13 +261,18 @@ Respond with a JSON object matching this schema exactly:
 }`;
 
     try {
-      const response = await this.llm.complete({
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 512,
-        response_format: { type: "json_object" },
-        metadata: { tenantId },
-      });
+      const response = await secureLLMComplete(
+        this.llm,
+        [{ role: "user", content: prompt }],
+        {
+          organizationId: tenantId,
+          tenantId,
+          temperature: 0.2,
+          max_tokens: 512,
+          serviceName: "HypothesisGenerator",
+          operation: "estimateImpactWithLLM",
+        },
+      );
 
       const raw = JSON.parse(response.content) as unknown;
       const parsed = LLMImpactEstimateSchema.safeParse(raw);

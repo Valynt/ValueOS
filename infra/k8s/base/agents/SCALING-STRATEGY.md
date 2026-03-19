@@ -30,6 +30,37 @@
 
 > Rule: financial + latency-sensitive classes must keep non-zero baseline.
 
+## 1.1 Synchronous Request-Path Allowlist
+
+Only the following agents may participate in synchronous request/response paths, and they must retain non-zero warm capacity:
+
+- `opportunity-agent`
+- `target-agent`
+- `integrity-agent`
+- `expansion-agent`
+- `realization-agent`
+- `financial-modeling-agent`
+
+These agents define the interactive warm-capacity budget. Async capacity must not be counted toward interactive latency readiness.
+
+## 1.2 Scale-to-Zero Async-Only Denylist
+
+The following KEDA-backed agents are **scale-to-zero** and may only be invoked via queue, polling, or streaming workflows:
+
+- `company-intelligence-agent`
+- `value-mapping-agent`
+- `system-mapper-agent`
+- `intervention-designer-agent`
+- `outcome-engineer-agent`
+- `coordinator-agent`
+- `value-eval-agent`
+- `communicator-agent`
+- `benchmark-agent`
+- `narrative-agent`
+- `groundtruth-agent`
+
+Backend policy checks should fail when any of these agents are wired into a synchronous interactive route.
+
 ---
 
 ## 2. Stabilization Windows by Workload Type

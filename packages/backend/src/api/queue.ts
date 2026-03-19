@@ -5,8 +5,10 @@
  */
 
 import { Request, Response, Router } from 'express';
+import { z } from 'zod';
 
 import { requireAuth } from '../middleware/auth.js';
+import type { AuthenticatedRequest } from '../middleware/auth.js';
 import { requireConsent, resolveAuthenticatedConsentContext } from '../middleware/consentMiddleware.js';
 import { rateLimiters } from '../middleware/rateLimiter.js';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js';
@@ -18,6 +20,7 @@ import {
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js';
 import { consentRegistry } from '../services/auth/consentRegistry.js';
 import { llmQueue } from '../services/realtime/MessageQueue.js';
+import { jsonObjectSchema } from '../types/json.js';
 import { logger } from '../utils/logger.js';
 import { sanitizeAgentInput } from '../utils/security.js';
 
@@ -28,8 +31,22 @@ router.use(serviceIdentityMiddleware);
 router.use(requireAuth);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: req.requestId || res.locals.requestId,
+  requestId: (req as AuthenticatedRequest & { requestId?: string; sessionId?: string }).requestId || res.locals.requestId,
   ...meta,
+});
+
+const queueJobRequestSchema = z.object({
+  type: z.enum(['canvas_generation', 'canvas_refinement', 'custom_prompt']),
+  promptKey: z.string().min(1).optional(),
+  promptVariables: jsonObjectSchema.optional(),
+  prompt: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  maxTokens: z.number().int().positive().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  metadata: jsonObjectSchema.optional(),
+}).refine((value) => Boolean(value.promptKey || value.prompt), {
+  message: 'Either promptKey or prompt is required',
+  path: ['promptKey'],
 });
 
 /**
@@ -45,26 +62,12 @@ router.post(
   requireConsent('queue.llm', consentRegistry, resolveAuthenticatedConsentContext),
   async (req: Request, res: Response) => {
     try {
-      const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } = req.body;
-
-      // Validate request
-      if (!type) {
-        return res.status(400).json({
-          error: 'Invalid request',
-          message: 'Type is required'
-        });
-      }
-
-      if (!promptKey && !prompt) {
-        return res.status(400).json({
-          error: 'Invalid request',
-          message: 'Either promptKey or prompt is required'
-        });
-      }
+      const { type, promptKey, promptVariables, prompt, model, maxTokens, temperature, metadata } =
+        queueJobRequestSchema.parse(req.body);
 
       // Get user info
-      const userId = req.user?.id || 'anonymous';
-      const sessionId = req.sessionId;
+      const userId = (req as AuthenticatedRequest).user?.id || 'anonymous';
+      const sessionId = (req as AuthenticatedRequest & { sessionId?: string }).sessionId;
 
       const promptSanitization = prompt ? sanitizeAgentInput(prompt) : null;
       const variablesSanitization = promptVariables ? sanitizeAgentInput(promptVariables) : null;
@@ -83,10 +86,7 @@ router.post(
       }
 
       const sanitizedPrompt = promptSanitization ? promptSanitization.sanitized : undefined;
-      const sanitizedPromptVariables =
-        variablesSanitization && typeof variablesSanitization.sanitized === 'object' && variablesSanitization.sanitized !== null
-          ? variablesSanitization.sanitized as Record<string, unknown>
-          : undefined;
+      const sanitizedPromptVariables = variablesSanitization ? variablesSanitization.sanitized : undefined;
 
       // Add job to queue
       const job = await llmQueue.addJob({
@@ -94,12 +94,12 @@ router.post(
         userId,
         sessionId,
         promptKey,
-        promptVariables: sanitizedPromptVariables,
-        prompt: typeof sanitizedPrompt === 'string' ? sanitizedPrompt : undefined,
+        promptVariables: sanitizedPromptVariables ? jsonObjectSchema.parse(sanitizedPromptVariables) : undefined,
+        prompt: sanitizedPrompt ? z.string().parse(sanitizedPrompt) : undefined,
         model,
         maxTokens,
         temperature,
-        metadata: typeof metadata === 'object' && metadata !== null ? metadata as Record<string, unknown> : undefined,
+        metadata
       });
 
       logger.info(
@@ -108,6 +108,14 @@ router.post(
           jobId: job.id,
           type,
           userId,
+          sessionId,
+          promptKey,
+          promptVariables: sanitizedPromptVariables,
+          prompt: typeof sanitizedPrompt === 'string' ? sanitizedPrompt : undefined,
+          model,
+          maxTokens,
+          temperature,
+          metadata: typeof metadata === 'object' && metadata !== null ? metadata as Record<string, unknown> : undefined,
         })
       );
 

@@ -1,5 +1,5 @@
+import { ESOCache } from "./cache.js";
 import { IngestionConfig } from "./types.js";
-import { Cache } from "./utils/cache.js";
 import { RateLimiter } from "./utils/rateLimiter.js";
 
 interface FetchJsonOptions<TParams, TRaw> {
@@ -19,7 +19,7 @@ interface PollingLoopOptions {
 export abstract class ESOAdapterBase<TRaw, TTransformed> {
   protected readonly config: IngestionConfig;
   private readonly rateLimiter?: RateLimiter;
-  private readonly cache?: Cache;
+  private readonly cache?: ESOCache;
   private readonly dataCallbacks = new Set<(data: TTransformed) => void>();
   private pollTimer?: NodeJS.Timeout;
   private isPolling = false;
@@ -32,7 +32,7 @@ export abstract class ESOAdapterBase<TRaw, TTransformed> {
     }
 
     if (config.enableCache) {
-      this.cache = new Cache(config.cacheTTL);
+      this.cache = new ESOCache(config.cacheTTL);
     }
   }
 
@@ -43,23 +43,41 @@ export abstract class ESOAdapterBase<TRaw, TTransformed> {
     headers,
     validateResponse,
   }: FetchJsonOptions<TParams, TRaw>): Promise<TRaw> {
-    const cached = this.cache?.get(cacheKey);
-    if (cached !== null && cached !== undefined) {
-      return validateResponse(cached);
+    if (!this.cache) {
+      await this.rateLimiter?.waitForToken();
+
+      const response = await fetch(buildUrl(params).toString(), { headers });
+      if (!response.ok) {
+        throw new Error(`${this.name} API error: ${response.status}`);
+      }
+
+      const data: unknown = await response.json();
+      return validateResponse(data);
     }
 
-    await this.rateLimiter?.waitForToken();
+    return this.cache.getOrLoad(
+      {
+        adapter: this.name,
+        key: cacheKey,
+        tenantId: this.config.tenantId,
+        scope: this.config.cacheScope,
+        ttlMs: this.config.cacheTTL,
+        staleTtlMs: this.config.cacheStaleTTL,
+        cacheTier: this.config.cacheTtlTier,
+        refreshStaleInBackground: this.config.refreshStaleCacheInBackground,
+      },
+      async () => {
+        await this.rateLimiter?.waitForToken();
 
-    const response = await fetch(buildUrl(params).toString(), { headers });
-    if (!response.ok) {
-      throw new Error(`${this.name} API error: ${response.status}`);
-    }
+        const response = await fetch(buildUrl(params).toString(), { headers });
+        if (!response.ok) {
+          throw new Error(`${this.name} API error: ${response.status}`);
+        }
 
-    const data: unknown = await response.json();
-    const validated = validateResponse(data);
-    this.cache?.set(cacheKey, validated);
-
-    return validated;
+        const data: unknown = await response.json();
+        return validateResponse(data);
+      }
+    );
   }
 
   protected async startPollingLoop({ intervalMs, poll, onError }: PollingLoopOptions): Promise<void> {

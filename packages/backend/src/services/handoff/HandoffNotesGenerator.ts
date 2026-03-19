@@ -9,8 +9,10 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { buildEventEnvelope, getDomainEventBus } from "../../events/DomainEventBus.js";
+import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { createLogger } from "../../lib/logger.js";
 import { supabase as supabaseClient } from "../../lib/supabase.js";
+import { secureServiceInvoke } from "../llm/secureServiceInvocation.js";
 import { ScenarioType, SourceType } from "../../types/value-modeling.js";
 
 const logger = createLogger({ component: "HandoffNotesGenerator" });
@@ -80,12 +82,24 @@ interface ValueDriverContext {
 
 export class HandoffNotesGenerator {
   private supabase: SupabaseClient;
+  private readonly llmGateway: LLMGateway;
 
-  constructor() {
-    if (!supabaseClient) {
+  constructor(
+    llmGateway?: LLMGateway,
+    supabase: SupabaseClient = supabaseClient,
+  ) {
+    if (!supabase) {
       throw new Error("HandoffNotesGenerator requires Supabase to be configured");
     }
-    this.supabase = supabaseClient;
+    this.supabase = supabase;
+    this.llmGateway =
+      llmGateway ??
+      new LLMGateway({
+        provider: "openai",
+        model: "gpt-4o",
+        temperature: 0.3,
+        max_tokens: 2048,
+      });
   }
 
   /**
@@ -233,15 +247,6 @@ export class HandoffNotesGenerator {
     baselineId: string,
     tenantId: string
   ): Promise<HandoffNotesOutput> {
-    // Import LLM gateway
-    const { LLMGateway } = await import("../../lib/agent-fabric/LLMGateway.js");
-    const llmGateway = new LLMGateway({
-      provider: "openai",
-      model: "gpt-4o",
-      temperature: 0.3,
-      max_tokens: 2048,
-    });
-
     const systemPrompt = `You are a value engineering consultant preparing a handoff summary for a Customer Success team.
 
 Your task is to synthesize the provided value case context into four clear, actionable sections that will help the CS team understand and deliver on the promises made during the sales process.
@@ -256,27 +261,48 @@ Guidelines:
 Output must be valid JSON with these keys: deal_context, buyer_priorities, implementation_assumptions, key_risks`;
 
     try {
-      const response = await llmGateway.complete({
+      const invocation = await secureServiceInvoke({
+        gateway: this.llmGateway,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
         ],
-        metadata: {
-          tenant_id: tenantId,
-          session_id: baselineId,
+        schema: HandoffNotesOutputSchema,
+        request: {
+          tenantId,
+          organizationId: tenantId,
+          sessionId: baselineId,
           agentType: "handoff-notes-generator",
+          serviceName: "HandoffNotesGenerator",
+          operation: "generateHandoffNotes",
+          max_tokens: 2048,
+          temperature: 0.3,
+          model: "gpt-4o",
         },
+        logger,
+        actorName: "HandoffNotesGenerator",
+        sessionId: baselineId,
+        tenantId,
+        invalidJsonMessage: "Invalid JSON response from LLM",
+        invalidJsonLogMessage: "HandoffNotesGenerator: Failed to parse LLM response as JSON",
+        invalidJsonLogContext: (content, error) => ({
+          baselineId,
+          error: error instanceof Error ? error.message : String(error),
+          content: content.slice(0, 500),
+        }),
+        hallucinationCheck: async (parsed) => this.checkHallucination(parsed),
+        escalationLogMessage: "HandoffNotesGenerator: Hallucination escalation triggered",
+        escalationLogContext: (parsed) => ({
+          baselineId,
+          sections: Object.keys(parsed),
+        }),
       });
 
-      const content = response.content || "{}";
-      const parsed = JSON.parse(content);
-
-      // Validate with Zod
-      return HandoffNotesOutputSchema.parse(parsed);
+      return invocation.parsed;
     } catch (error) {
       logger.error("LLM generation failed for handoff notes", {
         baselineId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
 
       // Return fallback notes on failure
@@ -287,6 +313,22 @@ Output must be valid JSON with these keys: deal_context, buyer_priorities, imple
         key_risks: "Schedule a risk review meeting with the value engineering team.",
       };
     }
+  }
+
+  private async checkHallucination(output: HandoffNotesOutput): Promise<boolean> {
+    const sections = Object.values(output);
+    const allSectionsPopulated = sections.every((section) => section.trim().length >= 20);
+    const hasFallbackLanguage = sections.some((section) => /please review|please validate|schedule a risk review/i.test(section));
+
+    if (!allSectionsPopulated || hasFallbackLanguage) {
+      logger.warn("HandoffNotesGenerator: Hallucination check failed", {
+        allSectionsPopulated,
+        hasFallbackLanguage,
+      });
+      return false;
+    }
+
+    return true;
   }
 
   /**

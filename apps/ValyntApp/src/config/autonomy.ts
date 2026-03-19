@@ -28,7 +28,6 @@ export interface AutonomyConfig {
   maxCostUsd: number;
   maxDurationMs: number;
   requireApprovalForDestructive: boolean;
-  serviceIdentityToken?: string;
   
   // Agent-specific settings
   agents: Record<string, AgentAutonomyConfig>;
@@ -114,7 +113,6 @@ export function getAutonomyConfig(): AutonomyConfig {
     maxCostUsd: Number(getEnv('AUTONOMY_MAX_COST_USD', '50')),
     maxDurationMs: Number(getEnv('AUTONOMY_MAX_DURATION_MS', `${5 * 60 * 1000}`)),
     requireApprovalForDestructive: getEnv('AUTONOMY_REQUIRE_APPROVAL', 'true') === 'true',
-    serviceIdentityToken: getEnv('SERVICE_IDENTITY_TOKEN', ''),
     
     // Agent-specific configuration
     agents: defaultAgentConfig,

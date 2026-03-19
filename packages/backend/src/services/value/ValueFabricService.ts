@@ -15,7 +15,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "../../lib/logger.js";
-import { createCounter } from "../../lib/observability/index.js";
 import { supabase } from "../../lib/supabase.js";
 import type {
   Benchmark,
@@ -24,6 +23,7 @@ import type {
   ValueFabricSnapshot,
   VMRTTrace,
 } from "../../types/vos";
+import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
 
 import { llmProxyClient } from "./LlmProxyClient.js";
 
@@ -40,154 +40,15 @@ export interface OntologyStats {
   last_updated: string;
 }
 
-interface CacheEntry<T> {
-  data: T;
-  expiresAt: number;
-}
-
-interface CacheMetrics {
-  hits: number;
-  misses: number;
-  evictions: number;
-}
-
-/**
- * Small bounded LRU with TTL expiry support.
- *
- * Eviction policy:
- * 1. Expired entries are removed first.
- * 2. If at capacity after expiry cleanup, the least-recently used key is evicted.
- */
-class BoundedLruCache<T> {
-  private readonly store = new Map<string, CacheEntry<T>>();
-  private metrics: CacheMetrics = { hits: 0, misses: 0, evictions: 0 };
-
-  constructor(private readonly maxEntries: number) {}
-
-  get(key: string): T | null {
-    const entry = this.store.get(key);
-    if (!entry) {
-      this.metrics.misses += 1;
-      return null;
-    }
-
-    if (entry.expiresAt < Date.now()) {
-      this.store.delete(key);
-      this.metrics.misses += 1;
-      return null;
-    }
-
-    this.store.delete(key);
-    this.store.set(key, entry);
-    this.metrics.hits += 1;
-    return entry.data;
-  }
-
-  set(key: string, value: T, ttlMs: number): boolean {
-    if (this.store.has(key)) {
-      this.store.delete(key);
-    }
-
-    this.evictExpired();
-    const evicted = this.evictIfAtCapacity();
-
-    this.store.set(key, {
-      data: value,
-      expiresAt: Date.now() + ttlMs,
-    });
-
-    return evicted;
-  }
-
-  clear(): void {
-    this.store.clear();
-  }
-
-  size(): number {
-    return this.store.size;
-  }
-
-  capacity(): number {
-    return this.maxEntries;
-  }
-
-  snapshotMetrics(): CacheMetrics {
-    return { ...this.metrics };
-  }
-
-  private evictExpired(): void {
-    const now = Date.now();
-
-    for (const [key, entry] of this.store.entries()) {
-      if (entry.expiresAt >= now) {
-        continue;
-      }
-
-      this.store.delete(key);
-      this.metrics.evictions += 1;
-    }
-  }
-
-  private evictIfAtCapacity(): boolean {
-    if (this.store.size < this.maxEntries) {
-      return false;
-    }
-
-    const oldestKey = this.store.keys().next().value;
-    if (typeof oldestKey !== "string") {
-      return false;
-    }
-
-    this.store.delete(oldestKey);
-    this.metrics.evictions += 1;
-    return true;
-  }
-}
-
 export class ValueFabricService {
   private supabase: SupabaseClient;
-  private static readonly CACHE_TTL_MS = 5 * 60 * 1000;
-  /**
-   * In-memory cache budget: bounded to avoid unbounded growth under high-cardinality filters.
-   *
-   * Budget assumptions:
-   * - Capability cache: up to 1,000 entries
-   * - Use-case cache: up to 750 entries
-   * These bounds target a modest process memory footprint while preserving hot-query reuse.
-   */
-  private static readonly CAPABILITY_CACHE_MAX_ENTRIES = 1000;
-  private static readonly USE_CASE_CACHE_MAX_ENTRIES = 750;
-  private static capabilityCache = new BoundedLruCache<Capability[]>(
-    ValueFabricService.CAPABILITY_CACHE_MAX_ENTRIES,
-  );
-  private static useCaseCache = new BoundedLruCache<UseCase[]>(
-    ValueFabricService.USE_CASE_CACHE_MAX_ENTRIES,
-  );
-
-  private static readonly capabilityCacheHits = createCounter(
-    "value_fabric_capability_cache_hits_total",
-    "Total capability cache hits",
-  );
-  private static readonly capabilityCacheMisses = createCounter(
-    "value_fabric_capability_cache_misses_total",
-    "Total capability cache misses",
-  );
-  private static readonly capabilityCacheEvictions = createCounter(
-    "value_fabric_capability_cache_evictions_total",
-    "Total capability cache evictions",
-  );
-  private static readonly useCaseCacheHits = createCounter(
-    "value_fabric_use_case_cache_hits_total",
-    "Total use case cache hits",
-  );
-  private static readonly useCaseCacheMisses = createCounter(
-    "value_fabric_use_case_cache_misses_total",
-    "Total use case cache misses",
-  );
-  private static readonly useCaseCacheEvictions = createCounter(
-    "value_fabric_use_case_cache_evictions_total",
-    "Total use case cache evictions",
-  );
+  private static readonly CAPABILITIES_CACHE_ENDPOINT = "value-fabric/capabilities";
+  private static readonly USE_CASES_CACHE_ENDPOINT = "value-fabric/use-cases";
+  private static readonly LIST_NEAR_CACHE = {
+    enabled: true,
+    ttlSeconds: 15,
+    maxEntries: 64,
+  } as const;
 
   constructor(supabaseClient: SupabaseClient = supabase) {
     this.supabase = supabaseClient;
@@ -207,59 +68,73 @@ export class ValueFabricService {
     this.requireOrganizationId(organizationId);
     const page = filters?.page ?? 1;
     const pageSize = filters?.pageSize ?? 50;
-    const cacheKey = JSON.stringify({ organizationId, ...filters, page, pageSize });
+    return ReadThroughCacheService.getOrLoad(
+      {
+        endpoint: ValueFabricService.CAPABILITIES_CACHE_ENDPOINT,
+        namespace: "value-fabric-capabilities",
+        tenantId: organizationId,
+        scope: "list",
+        tier: "warm",
+        nearCache: ValueFabricService.LIST_NEAR_CACHE,
+        keyPayload: { filters, page, pageSize },
+      },
+      async () => {
+        let query = this.supabase.from("capabilities").select("*")
+          .eq("organization_id", organizationId)
+          .eq("is_active", true);
 
-    const cached = this.getCachedData(
-      ValueFabricService.capabilityCache,
-      cacheKey,
-      () => ValueFabricService.capabilityCacheHits.inc(),
-      () => ValueFabricService.capabilityCacheMisses.inc(),
+        if (filters?.category) {
+          query = query.eq("category", filters.category);
+        }
+
+        if (filters?.tags && filters.tags.length > 0) {
+          query = query.contains("tags", filters.tags);
+        }
+
+        if (filters?.search) {
+          query = query.ilike("name", `%${filters.search}%`);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await query.order("name").range(from, to);
+
+        if (error) {
+          throw error;
+        }
+
+        return data || [];
+      }
     );
-    if (cached) return cached;
-
-    let query = this.supabase.from("capabilities").select("*")
-      .eq("organization_id", organizationId)
-      .eq("is_active", true);
-
-    if (filters?.category) {
-      query = query.eq("category", filters.category);
-    }
-
-    if (filters?.tags && filters.tags.length > 0) {
-      query = query.contains("tags", filters.tags);
-    }
-
-    if (filters?.search) {
-      query = query.ilike("name", `%${filters.search}%`);
-    }
-
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, error } = await query.order("name").range(from, to);
-
-    if (error) throw error;
-    const capabilities = data || [];
-    this.setCachedData(
-      ValueFabricService.capabilityCache,
-      cacheKey,
-      capabilities,
-      () => ValueFabricService.capabilityCacheEvictions.inc(),
-    );
-    return capabilities;
   }
 
   async getCapabilityById(organizationId: string, id: string): Promise<Capability | null> {
     this.requireOrganizationId(organizationId);
-    const { data, error } = await this.supabase
-      .from("capabilities")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("id", id)
-      .maybeSingle();
+    return ReadThroughCacheService.getOrLoad(
+      {
+        endpoint: ValueFabricService.CAPABILITIES_CACHE_ENDPOINT,
+        namespace: "value-fabric-capabilities",
+        tenantId: organizationId,
+        scope: "detail",
+        tier: "hot",
+        nearCache: ValueFabricService.LIST_NEAR_CACHE,
+        keyPayload: { id },
+      },
+      async () => {
+        const { data, error } = await this.supabase
+          .from("capabilities")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("id", id)
+          .maybeSingle();
 
-    if (error) throw error;
-    return data;
+        if (error) {
+          throw error;
+        }
+
+        return data;
+      }
+    );
   }
 
   async createCapability(
@@ -274,7 +149,7 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
-    ValueFabricService.invalidateCapabilityCache();
+    await ValueFabricService.invalidateCapabilityCache(organizationId);
     return data;
   }
 
@@ -290,7 +165,7 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
-    ValueFabricService.invalidateCapabilityCache();
+    await ValueFabricService.invalidateCapabilityCache(organizationId);
     return data;
   }
 
@@ -308,58 +183,72 @@ export class ValueFabricService {
     this.requireOrganizationId(organizationId);
     const page = filters?.page ?? 1;
     const pageSize = filters?.pageSize ?? 50;
-    const cacheKey = JSON.stringify({ organizationId, ...filters, page, pageSize });
+    return ReadThroughCacheService.getOrLoad(
+      {
+        endpoint: ValueFabricService.USE_CASES_CACHE_ENDPOINT,
+        namespace: "value-fabric-use-cases",
+        tenantId: organizationId,
+        scope: "list",
+        tier: "warm",
+        nearCache: ValueFabricService.LIST_NEAR_CACHE,
+        keyPayload: { filters, page, pageSize },
+      },
+      async () => {
+        let query = this.supabase.from("use_cases").select("*")
+          .eq("organization_id", organizationId);
 
-    const cached = this.getCachedData(
-      ValueFabricService.useCaseCache,
-      cacheKey,
-      () => ValueFabricService.useCaseCacheHits.inc(),
-      () => ValueFabricService.useCaseCacheMisses.inc(),
+        if (filters?.persona) {
+          query = query.eq("persona", filters.persona);
+        }
+
+        if (filters?.industry) {
+          query = query.eq("industry", filters.industry);
+        }
+
+        if (filters?.is_template !== undefined) {
+          query = query.eq("is_template", filters.is_template);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await query.order("name").range(from, to);
+
+        if (error) {
+          throw error;
+        }
+
+        return data || [];
+      }
     );
-    if (cached) return cached;
-
-    let query = this.supabase.from("use_cases").select("*")
-      .eq("organization_id", organizationId);
-
-    if (filters?.persona) {
-      query = query.eq("persona", filters.persona);
-    }
-
-    if (filters?.industry) {
-      query = query.eq("industry", filters.industry);
-    }
-
-    if (filters?.is_template !== undefined) {
-      query = query.eq("is_template", filters.is_template);
-    }
-
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, error } = await query.order("name").range(from, to);
-
-    if (error) throw error;
-    const useCases = data || [];
-    this.setCachedData(
-      ValueFabricService.useCaseCache,
-      cacheKey,
-      useCases,
-      () => ValueFabricService.useCaseCacheEvictions.inc(),
-    );
-    return useCases;
   }
 
   async getUseCaseById(organizationId: string, id: string): Promise<UseCase | null> {
     this.requireOrganizationId(organizationId);
-    const { data, error } = await this.supabase
-      .from("use_cases")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("id", id)
-      .maybeSingle();
+    return ReadThroughCacheService.getOrLoad(
+      {
+        endpoint: ValueFabricService.USE_CASES_CACHE_ENDPOINT,
+        namespace: "value-fabric-use-cases",
+        tenantId: organizationId,
+        scope: "detail",
+        tier: "hot",
+        nearCache: ValueFabricService.LIST_NEAR_CACHE,
+        keyPayload: { id },
+      },
+      async () => {
+        const { data, error } = await this.supabase
+          .from("use_cases")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("id", id)
+          .maybeSingle();
 
-    if (error) throw error;
-    return data;
+        if (error) {
+          throw error;
+        }
+
+        return data;
+      }
+    );
   }
 
   async getUseCaseWithCapabilities(organizationId: string, useCaseId: string): Promise<{
@@ -367,37 +256,55 @@ export class ValueFabricService {
     capabilities: Capability[];
   }> {
     this.requireOrganizationId(organizationId);
-    const { data: useCase, error: useCaseError } = await this.supabase
-      .from("use_cases")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .eq("id", useCaseId)
-      .single();
+    return ReadThroughCacheService.getOrLoad(
+      {
+        endpoint: ValueFabricService.USE_CASES_CACHE_ENDPOINT,
+        namespace: "value-fabric-use-cases",
+        tenantId: organizationId,
+        scope: "with-capabilities",
+        tier: "warm",
+        nearCache: ValueFabricService.LIST_NEAR_CACHE,
+        keyPayload: { useCaseId },
+      },
+      async () => {
+        const { data: useCase, error: useCaseError } = await this.supabase
+          .from("use_cases")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("id", useCaseId)
+          .single();
 
-    if (useCaseError) throw useCaseError;
+        if (useCaseError) {
+          throw useCaseError;
+        }
 
-    const { data: capabilityLinks, error: linksError } = await this.supabase
-      .from("use_case_capabilities")
-      .select("capability_id, relevance_score")
-      .eq("use_case_id", useCaseId);
+        const { data: capabilityLinks, error: linksError } = await this.supabase
+          .from("use_case_capabilities")
+          .select("capability_id, relevance_score")
+          .eq("use_case_id", useCaseId);
 
-    if (linksError) throw linksError;
+        if (linksError) {
+          throw linksError;
+        }
 
-    const capabilityIds = capabilityLinks?.map((l) => l.capability_id) || [];
+        const capabilityIds = capabilityLinks?.map((link) => link.capability_id) || [];
+        if (capabilityIds.length === 0) {
+          return { useCase, capabilities: [] };
+        }
 
-    if (capabilityIds.length === 0) {
-      return { useCase, capabilities: [] };
-    }
+        const { data: capabilities, error: capError } = await this.supabase
+          .from("capabilities")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .in("id", capabilityIds);
 
-    const { data: capabilities, error: capError } = await this.supabase
-      .from("capabilities")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .in("id", capabilityIds);
+        if (capError) {
+          throw capError;
+        }
 
-    if (capError) throw capError;
-
-    return { useCase, capabilities: capabilities || [] };
+        return { useCase, capabilities: capabilities || [] };
+      }
+    );
   }
 
   async linkCapabilityToUseCase(
@@ -416,7 +323,7 @@ export class ValueFabricService {
 
     if (error) throw error;
 
-    ValueFabricService.invalidateUseCaseCache();
+    await ValueFabricService.invalidateUseCaseCache(organizationId);
   }
 
   // =====================================================
@@ -811,7 +718,7 @@ export class ValueFabricService {
 
     if (error) throw error;
 
-    ValueFabricService.invalidateUseCaseCache();
+    await ValueFabricService.invalidateUseCaseCache(organizationId);
 
     for (const capability of template.capabilities) {
       await this.linkCapabilityToUseCase(organizationId, newUseCase.id, capability.id);
@@ -823,71 +730,28 @@ export class ValueFabricService {
     };
   }
 
-  private getCachedData<T>(
-    cache: BoundedLruCache<T>,
-    key: string,
-    onHit: () => void,
-    onMiss: () => void,
-  ): T | null {
-    const entry = cache.get(key);
-    if (entry) {
-      onHit();
-      return entry;
-    }
-
-    onMiss();
-    return null;
+  private static async invalidateCapabilityCache(organizationId: string): Promise<void> {
+    await Promise.all([
+      ReadThroughCacheService.invalidateEndpoint(
+        organizationId,
+        this.CAPABILITIES_CACHE_ENDPOINT
+      ),
+      ReadThroughCacheService.invalidateEndpoint(
+        organizationId,
+        this.USE_CASES_CACHE_ENDPOINT
+      ),
+    ]);
   }
 
-  private setCachedData<T>(cache: BoundedLruCache<T>, key: string, data: T, onEvict: () => void): void {
-    const evicted = cache.set(key, data, ValueFabricService.CACHE_TTL_MS);
-    if (evicted) {
-      onEvict();
-    }
-  }
-
-  private static invalidateCache(cache: BoundedLruCache<unknown>): void {
-    cache.clear();
-  }
-
-  private static invalidateCapabilityCache(): void {
-    this.invalidateCache(this.capabilityCache);
-  }
-
-  private static invalidateUseCaseCache(): void {
-    this.invalidateCache(this.useCaseCache);
-  }
-
-  public static getCacheDiagnostics(): {
-    capability: { size: number; capacity: number; metrics: CacheMetrics };
-    useCase: { size: number; capacity: number; metrics: CacheMetrics };
-  } {
-    return {
-      capability: {
-        size: this.capabilityCache.size(),
-        capacity: this.capabilityCache.capacity(),
-        metrics: this.capabilityCache.snapshotMetrics(),
-      },
-      useCase: {
-        size: this.useCaseCache.size(),
-        capacity: this.useCaseCache.capacity(),
-        metrics: this.useCaseCache.snapshotMetrics(),
-      },
-    };
-  }
-
-  public static seedCacheForTesting(cacheType: "capability" | "useCase", key: string): void {
-    if (cacheType === "capability") {
-      this.capabilityCache.set(key, [], this.CACHE_TTL_MS);
-      return;
-    }
-
-    this.useCaseCache.set(key, [], this.CACHE_TTL_MS);
+  private static async invalidateUseCaseCache(organizationId: string): Promise<void> {
+    await ReadThroughCacheService.invalidateEndpoint(
+      organizationId,
+      this.USE_CASES_CACHE_ENDPOINT
+    );
   }
 
   public static clearCachesForTesting(): void {
-    this.capabilityCache.clear();
-    this.useCaseCache.clear();
+    ReadThroughCacheService.clearNearCacheForTesting();
   }
 
   // =====================================================

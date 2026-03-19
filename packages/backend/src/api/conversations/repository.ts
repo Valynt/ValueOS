@@ -9,7 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
+import { createServiceRoleSupabaseClient, createRequestRlsSupabaseClient } from '../../lib/supabase.js';
 
 import {
   ConversationSession,
@@ -74,18 +74,11 @@ export class ConversationsRepository {
   private tableName = 'messages';
 
   constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServerSupabaseClient();
+    this.supabase = supabase ?? createServiceRoleSupabaseClient();
   }
 
   static fromRequest(req: Request): ConversationsRepository {
-    if (req.supabase) {
-      return new ConversationsRepository(req.supabase);
-    }
-    const token = (req.session as Record<string, unknown> | undefined)?.access_token;
-    if (typeof token === 'string') {
-      return new ConversationsRepository(createUserSupabaseClient(token));
-    }
-    throw new Error('ConversationsRepository.fromRequest: no user-scoped Supabase client available on request');
+    return new ConversationsRepository(createRequestRlsSupabaseClient(req));
   }
 
   /**

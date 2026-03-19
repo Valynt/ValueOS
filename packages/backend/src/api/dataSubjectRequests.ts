@@ -10,7 +10,7 @@ import { createHash } from "crypto";
 import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
 
-import { createServerSupabaseClient } from "../lib/supabase";
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth } from "../middleware/auth";
 import { requirePermission } from "../middleware/rbac";
@@ -38,7 +38,7 @@ function hashEmail(email: string): string {
 }
 
 async function resolveUserId(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
+  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
   email: string,
   tenantId: string,
 ): Promise<string | null> {
@@ -52,7 +52,7 @@ async function resolveUserId(
 }
 
 async function gatherFootprint(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
+  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
   userId: string,
   tenantId: string,
 ) {
@@ -86,7 +86,7 @@ async function gatherFootprint(
 }
 
 async function auditDsr(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
+  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
   action: string,
   actorId: string,
   targetEmail: string,
@@ -148,7 +148,7 @@ router.post(
     const emailHash = hashEmail(email);
 
     try {
-      const supabase = createServerSupabaseClient();
+      const supabase = createServiceRoleSupabaseClient();
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {
@@ -213,7 +213,7 @@ router.post(
     const emailHash = hashEmail(email);
 
     try {
-      const supabase = createServerSupabaseClient();
+      const supabase = createServiceRoleSupabaseClient();
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {
@@ -336,7 +336,7 @@ router.post(
     const emailHash = hashEmail(email);
 
     try {
-      const supabase = createServerSupabaseClient();
+      const supabase = createServiceRoleSupabaseClient();
       const userId = await resolveUserId(supabase, email, tenantId);
 
       if (!userId) {

@@ -21,6 +21,10 @@ import { workspaceStateService } from '../WorkspaceStateService.js';
 
 import type { AgentType } from './agent-types.js';
 import { AgentAPI } from './AgentAPI.js';
+import {
+  buildInteractiveSyncDeniedMessage,
+  isInteractiveSyncAgentAllowed,
+} from './AgentInvocationPolicy.js';
 import { handleExportAction } from './ActionRouterExport.js';
 
 export interface ActionRouterHandlerDeps {
@@ -62,8 +66,16 @@ export function registerDefaultActionHandlers(
         },
       };
 
+      const targetAgent = action.agentId as AgentType;
+      if (!isInteractiveSyncAgentAllowed(targetAgent)) {
+        return {
+          success: false,
+          error: buildInteractiveSyncDeniedMessage(targetAgent, 'ActionRouterHandlers.invokeAgent'),
+        };
+      }
+
       const result = await deps.agentAPI.invokeAgent({
-        agent: action.agentId as AgentType,
+        agent: targetAgent,
         query: String(action.input ?? ''),
         context: agentContext,
       });
@@ -239,8 +251,16 @@ export function registerDefaultActionHandlers(
         topic: action.topic,
       };
 
+      const explanationAgent: AgentType = 'narrative';
+      if (!isInteractiveSyncAgentAllowed(explanationAgent)) {
+        return {
+          success: false,
+          error: buildInteractiveSyncDeniedMessage(explanationAgent, 'ActionRouterHandlers.showExplanation'),
+        };
+      }
+
       const agentResponse = await deps.agentAPI.invokeAgent({
-        agent: 'narrative',
+        agent: explanationAgent,
         query: `Explain the "${action.topic}" for the component "${componentName}".\nThe component has the following configuration: ${JSON.stringify(componentProps, null, 2)}.\nPlease provide a clear, concise explanation suitable for a user.`,
         context: explanationContext,
       });

@@ -12,7 +12,7 @@
 import { SupabaseAdminAuthAdapter } from "@shared/lib/auth/supabaseAdminAuth"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
-import { createServerSupabaseClient } from "@shared/lib/supabase";
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 import { Request, Response } from "express";
 
 import { getConfig } from "../config/environment.js"
@@ -31,11 +31,11 @@ import { sanitizeErrorMessage } from "../utils/security.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
-let serverSupabase: ReturnType<typeof createServerSupabaseClient> | null = null;
+let serverSupabase: ReturnType<typeof createServiceRoleSupabaseClient> | null = null;
 
 function getServerSupabase() {
   if (!serverSupabase) {
-    serverSupabase = createServerSupabaseClient();
+    serverSupabase = createServiceRoleSupabaseClient();
   }
   return serverSupabase;
 }

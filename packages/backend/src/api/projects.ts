@@ -9,6 +9,7 @@ import {
   UnauthorizedError,
 } from "../lib/errors";
 import { asyncHandler } from "../middleware/globalErrorHandler";
+import { jsonObjectSchema } from "../types/json.js";
 import {
   type ProjectRecord,
   projectRepository,
@@ -26,6 +27,7 @@ const projectCreateSchema = z.object({
   name: z.string().min(2).max(120),
   description: z.string().max(1000).optional(),
   status: z.enum(projectStatuses).default("planned"),
+  promptVariables: jsonObjectSchema.optional(),
   tags: z.array(z.string().min(1).max(32)).max(20).optional(),
 });
 
@@ -148,7 +150,7 @@ router.post(
       organizationId: tenantId,
       name: payload.name,
       description: payload.description,
-      promptVariables: payload.promptVariables as Record<string, any>,
+      promptVariables: payload.promptVariables,
       tags: payload.tags ?? [],
       ownerId: deriveOwnerId(req),
     });

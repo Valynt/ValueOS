@@ -15,18 +15,51 @@ groups:
           description: "5xx error rate > 5% over the last 10 minutes."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
 
-      - alert: HighP95Latency
+      - alert: HighInteractiveCompletionLatency
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/(llm|billing).*"}[5m])) by (le, route)
-          ) > 1000
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route!~"/api/(llm|billing|queue).*",route!~"/health(/.*)?",route!="/metrics"}[5m])) by (le, route)
+          ) > 200
+        for: 5m
+        labels:
+          severity: page
+          latency_class: interactive
+        annotations:
+          summary: "High interactive completion latency"
+          description: "Interactive route p95 completion latency is above 200ms for more than 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+
+      - alert: HighOrchestrationAcknowledgmentLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration",latency_phase="acknowledgment"}[5m])) by (le, route)
+          ) > 200
+        for: 5m
+        labels:
+          severity: warning
+          latency_class: orchestration
+          latency_phase: acknowledgment
+        annotations:
+          summary: "High orchestration acknowledgment latency"
+          description: "Orchestration acknowledgment p95 latency is above 200ms for more than 5 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+
+      - alert: HighOrchestrationCompletionLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/(llm|billing|queue).*"}[5m])) by (le, route)
+          ) > 3000
         for: 10m
         labels:
           severity: warning
+          latency_class: orchestration
+          latency_phase: completion
         annotations:
-          summary: "High p95 latency on critical APIs"
-          description: "p95 latency > 1s on /api/llm or /api/billing routes."
+          summary: "High orchestration completion latency"
+          description: "Orchestration completion p95 latency is above the allowed 3000ms exception policy for more than 10 minutes."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
 
       - alert: ApiScrapeDown
@@ -68,7 +101,8 @@ groups:
         for: 5m
         labels:
           severity: page
+          latency_class: interactive
         annotations:
-          summary: "High latency for value-cases endpoint (P95 > 200ms)"
-          description: "P95 latency for /api/value-cases is above 200ms for more than 5 minutes."
+          summary: "High latency for value-cases endpoint (interactive completion P95 > 200ms)"
+          description: "Interactive completion p95 latency for /api/value-cases is above 200ms for more than 5 minutes."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"

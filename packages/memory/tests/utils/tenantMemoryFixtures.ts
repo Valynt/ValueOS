@@ -1,19 +1,22 @@
-import type { ProvenanceRecord } from '../../provenance/index.js';
+import type { ProvenanceRecord } from "../../provenance/index.js";
 import type {
   SemanticFact,
   SemanticFactProvenance,
   SemanticFactStatus,
   SemanticFactType,
   SemanticStore,
-} from '../../semantic/index.js';
-import type { VectorChunk, VectorStore } from '../../vector/index.js';
+} from "../../semantic/index.js";
+import type { VectorChunk, VectorStore } from "../../vector/index.js";
 
 const EMBEDDING_DIMENSION = 1536;
 
-export const TENANT_ALPHA_ID = '11111111-1111-1111-1111-111111111111';
-export const TENANT_BETA_ID = '22222222-2222-2222-2222-222222222222';
+export const TENANT_ALPHA_ID = "11111111-1111-1111-1111-111111111111";
+export const TENANT_BETA_ID = "22222222-2222-2222-2222-222222222222";
 
-export function createEmbedding(seed: number, dimensions = EMBEDDING_DIMENSION): number[] {
+export function createEmbedding(
+  seed: number,
+  dimensions = EMBEDDING_DIMENSION,
+): number[] {
   return Array.from({ length: dimensions }, (_, index) => {
     const raw = Math.sin(seed * 37 + index * 13) * 0.5 + 0.5;
     return Number(raw.toFixed(6));
@@ -58,7 +61,9 @@ export function createTenantVectorFixture(): TenantVectorFixture {
   const store: VectorStore = {
     async insertChunk(chunk): Promise<void> {
       if (chunk.metadata.tenant_id !== chunk.tenantId) {
-        throw new Error('chunk metadata must include tenant_id matching tenantId');
+        throw new Error(
+          "chunk metadata must include tenant_id matching tenantId",
+        );
       }
       chunks.set(chunk.id, chunk);
     },
@@ -69,7 +74,7 @@ export function createTenantVectorFixture(): TenantVectorFixture {
     },
     async hybridSearch(queryText, queryEmbedding, tenantId, options) {
       if (!tenantId) {
-        throw new Error('hybridSearch requires tenantId filter');
+        throw new Error("hybridSearch requires tenantId filter");
       }
 
       return Array.from(chunks.values())
@@ -77,7 +82,8 @@ export function createTenantVectorFixture(): TenantVectorFixture {
         .map((chunk) => {
           const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
           const ftsRank = chunk.content.includes(queryText) ? 1 : 0;
-          const combinedScore = similarity * options.vectorWeight + ftsRank * options.ftsWeight;
+          const combinedScore =
+            similarity * options.vectorWeight + ftsRank * options.ftsWeight;
           return { chunk, similarity, ftsRank, combinedScore };
         })
         .filter((entry) => entry.combinedScore >= options.threshold)
@@ -86,7 +92,7 @@ export function createTenantVectorFixture(): TenantVectorFixture {
     },
     async vectorSearch(queryEmbedding, tenantId, options) {
       if (!tenantId) {
-        throw new Error('vectorSearch requires tenantId filter');
+        throw new Error("vectorSearch requires tenantId filter");
       }
 
       return Array.from(chunks.values())
@@ -103,8 +109,8 @@ export function createTenantVectorFixture(): TenantVectorFixture {
       return null;
     },
     async deleteByArtifactId(artifactId, tenantId): Promise<number> {
-      if (tenantId === '') {
-        throw new Error('tenantId is required');
+      if (tenantId === "") {
+        throw new Error("tenantId is required");
       }
 
       let deleted = 0;
@@ -158,7 +164,9 @@ export function createTenantSemanticFixture(): TenantSemanticFixture {
   const store: SemanticStore = {
     async insert(fact): Promise<void> {
       if (fact.metadata.tenant_id !== fact.organizationId) {
-        throw new Error('semantic metadata must include tenant_id matching organizationId');
+        throw new Error(
+          "semantic metadata must include tenant_id matching organizationId",
+        );
       }
       facts.set(fact.id, fact);
     },
@@ -177,14 +185,54 @@ export function createTenantSemanticFixture(): TenantSemanticFixture {
     },
     async findByOrganization(organizationId, type): Promise<SemanticFact[]> {
       return Array.from(facts.values()).filter(
-        (fact) => fact.organizationId === organizationId && (!type || fact.type === type),
+        (fact) =>
+          fact.organizationId === organizationId &&
+          (!type || fact.type === type),
       );
+    },
+    async findFiltered({
+      organizationId,
+      type,
+      agentType,
+      sessionId,
+      memoryType,
+      minImportance,
+      limit = 10,
+    }): Promise<SemanticFact[]> {
+      return Array.from(facts.values())
+        .filter((fact) => fact.organizationId === organizationId)
+        .filter((fact) => (!type ? true : fact.type === type))
+        .filter((fact) =>
+          !agentType ? true : fact.metadata["agentType"] === agentType,
+        )
+        .filter((fact) =>
+          !sessionId ? true : fact.metadata["session_id"] === sessionId,
+        )
+        .filter((fact) =>
+          !memoryType
+            ? true
+            : fact.metadata["agent_memory_type"] === memoryType,
+        )
+        .filter((fact) => {
+          const importance =
+            typeof fact.metadata["importance"] === "number"
+              ? fact.metadata["importance"]
+              : 0;
+          return minImportance === undefined
+            ? true
+            : importance >= minImportance;
+        })
+        .slice(0, limit);
     },
     async searchByEmbedding(embedding, organizationId, options) {
       return Array.from(facts.values())
         .filter((fact) => fact.organizationId === organizationId)
         .filter((fact) => (!options.type ? true : fact.type === options.type))
-        .filter((fact) => (!options.statusFilter ? true : options.statusFilter.includes(fact.status)))
+        .filter((fact) =>
+          !options.statusFilter
+            ? true
+            : options.statusFilter.includes(fact.status),
+        )
         .map((fact) => ({
           fact,
           similarity: cosineSimilarity(embedding, fact.embedding),
@@ -210,7 +258,7 @@ export function createTenantSemanticFixture(): TenantSemanticFixture {
           tenant_id: input.organizationId,
           ...(input.metadata ?? {}),
         },
-        status: input.status ?? 'approved',
+        status: input.status ?? "approved",
         version: 1,
         organizationId: input.organizationId,
         confidenceScore: 0.9,
