@@ -1,34 +1,36 @@
 /**
  * Agent Cache Service
  *
- * Multi-level caching system for agent responses, causal truth queries,
- * and frequently accessed data with intelligent invalidation strategies.
+ * Redis-backed cache for shared agent artifacts. A tiny optional process-local
+ * near-cache can be enabled for ultra-hot keys, but Redis remains the primary
+ * source of truth so cache effectiveness is preserved across backend replicas.
  */
 
 import { EventEmitter } from "events";
 
-import { logger } from "../../lib/logger.js"
+import {
+  cacheInvalidationsTotal,
+  cacheNamespaceRequestsTotal,
+} from "../../lib/metrics/cacheMetrics.js";
+import { logger } from "../../lib/logger.js";
 import {
   deleteCache,
   deleteCachePattern,
   getCache,
+  getRedisKey,
   isRedisConnected,
   setCache,
-} from "../../lib/redis";
+} from "../../lib/redis.js";
 
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface CacheEntry<T = any> {
+export interface CacheEntry<T = unknown> {
   key: string;
   value: T;
   timestamp: number;
   ttl: number;
   accessCount: number;
   lastAccessed: number;
-  size: number; // bytes
-  metadata?: Record<string, any>;
+  size: number;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CacheStats {
@@ -43,42 +45,37 @@ export interface CacheStats {
 }
 
 export interface CacheConfig {
-  // L1 Cache (In-memory)
-  l1MaxSize: number; // MB
+  l1MaxSize: number;
   l1MaxEntries: number;
-  l1DefaultTtl: number; // seconds
-
-  // L2 Cache (Redis/Distributed)
+  l1DefaultTtl: number;
+  l1Enabled: boolean;
   l2Enabled: boolean;
-  l2DefaultTtl: number; // seconds
+  l2DefaultTtl: number;
   l2KeyPrefix: string;
-
-  // Cache policies
   evictionPolicy: "lru" | "lfu" | "ttl" | "random";
   compressionEnabled: boolean;
   serializationFormat: "json" | "binary";
-
-  // Performance
-  cleanupInterval: number; // seconds
-  statsReportingInterval: number; // seconds
+  cleanupInterval: number;
+  statsReportingInterval: number;
 }
 
-export interface CacheOptions {
+export interface CacheScope {
+  tenantId?: string;
+  namespace?: string;
+}
+
+export interface CacheOptions extends CacheScope {
   ttl?: number;
   tags?: string[];
   priority?: "low" | "medium" | "high";
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+  nearCacheTtl?: number;
 }
-
-// ============================================================================
-// AgentCache Implementation
-// ============================================================================
 
 export class AgentCache extends EventEmitter {
   private config: CacheConfig;
   private l1Cache = new Map<string, CacheEntry>();
 
-  // Statistics
   private stats = {
     hits: 0,
     misses: 0,
@@ -87,7 +84,6 @@ export class AgentCache extends EventEmitter {
     gets: 0,
   };
 
-  // Cleanup intervals
   private cleanupInterval: NodeJS.Timeout | null = null;
   private statsInterval: NodeJS.Timeout | null = null;
 
@@ -95,21 +91,23 @@ export class AgentCache extends EventEmitter {
     super();
 
     this.config = {
-      l1MaxSize: 256, // 256 MB
-      l1MaxEntries: 10000,
-      l1DefaultTtl: 300, // 5 minutes
-      l2Enabled: isRedisConnected(), // Enable L2 if Redis is connected
-      l2DefaultTtl: 1800, // 30 minutes
+      l1MaxSize: 16,
+      l1MaxEntries: 128,
+      l1DefaultTtl: 15,
+      l1Enabled: true,
+      l2Enabled: isRedisConnected(),
+      l2DefaultTtl: 300,
       l2KeyPrefix: "agent-cache:",
       evictionPolicy: "lru",
       compressionEnabled: true,
       serializationFormat: "json",
-      cleanupInterval: 60, // 1 minute
-      statsReportingInterval: 300, // 5 minutes
+      cleanupInterval: 60,
+      statsReportingInterval: 300,
       ...config,
     };
 
     logger.info("AgentCache initialized", {
+      l1Enabled: this.config.l1Enabled,
       l1MaxSize: this.config.l1MaxSize,
       l1MaxEntries: this.config.l1MaxEntries,
       l2Enabled: this.config.l2Enabled,
@@ -120,164 +118,172 @@ export class AgentCache extends EventEmitter {
     this.startStatsReporting();
   }
 
-  /**
-   * Get value from cache (L1 -> L2 fallback)
-   */
-  async get<T = any>(key: string): Promise<T | null> {
+  async get<T = unknown>(key: string, scope: CacheScope = {}): Promise<T | null> {
     this.stats.gets++;
+    const scopedKey = this.buildScopedKey(key, scope);
+    const namespace = this.resolveNamespace(scope.namespace);
 
-    // Try L1 cache first
-    const l1Entry = this.l1Cache.get(key);
-    if (l1Entry && !this.isExpired(l1Entry)) {
-      l1Entry.accessCount++;
-      l1Entry.lastAccessed = Date.now();
-      this.stats.hits++;
-      this.emit("cacheHit", { key, level: "L1" });
-      return l1Entry.value;
+    if (this.config.l1Enabled) {
+      const l1Entry = this.l1Cache.get(scopedKey);
+      if (l1Entry && !this.isExpired(l1Entry)) {
+        l1Entry.accessCount++;
+        l1Entry.lastAccessed = Date.now();
+        this.stats.hits++;
+        this.recordNamespaceRequest(namespace, "near", "hit");
+        this.emit("cacheHit", { key, level: "L1", namespace, tenantId: scope.tenantId });
+        return l1Entry.value as T;
+      }
+
+      if (l1Entry && this.isExpired(l1Entry)) {
+        this.l1Cache.delete(scopedKey);
+      }
+
+      this.recordNamespaceRequest(namespace, "near", "miss");
     }
 
-    // Remove expired L1 entry
-    if (l1Entry && this.isExpired(l1Entry)) {
-      this.l1Cache.delete(key);
-    }
-
-    // Try L2 cache if enabled
     if (this.config.l2Enabled && isRedisConnected()) {
-      const l2Key = `${this.config.l2KeyPrefix}${key}`;
-      const l2Value = await getCache<CacheEntry<T>>(l2Key);
+      const l2Value = await getCache<CacheEntry<T>>(scopedKey);
 
       if (l2Value && !this.isExpired(l2Value)) {
-        // Promote to L1 cache
-        await this.set(key, l2Value.value, {
-          ttl: l2Value.ttl / 1000, // Convert back to seconds
-          metadata: { ...l2Value.metadata, promotedFrom: "L2" },
-        });
-
+        this.promoteToNearCache(scopedKey, l2Value);
         this.stats.hits++;
-        this.emit("cacheHit", { key, level: "L2" });
+        this.recordNamespaceRequest(namespace, "redis", "hit");
+        this.emit("cacheHit", { key, level: "L2", namespace, tenantId: scope.tenantId });
         return l2Value.value;
       }
 
-      // Remove expired L2 entry
       if (l2Value && this.isExpired(l2Value)) {
-        await deleteCache(l2Key);
+        await deleteCache(scopedKey);
       }
+
+      this.recordNamespaceRequest(namespace, "redis", "miss");
     }
 
     this.stats.misses++;
-    this.emit("cacheMiss", { key });
+    this.emit("cacheMiss", { key, namespace, tenantId: scope.tenantId });
     return null;
   }
 
-  /**
-   * Set value in cache (L1 and optionally L2)
-   */
-  async set<T = any>(
+  async set<T = unknown>(
     key: string,
     value: T,
     options: CacheOptions = {}
   ): Promise<void> {
-    const ttl = options.ttl || this.config.l1DefaultTtl;
+    const namespace = this.resolveNamespace(options.namespace);
+    const scopedKey = this.buildScopedKey(key, options);
+    const l2TtlSeconds = options.ttl ?? this.config.l2DefaultTtl;
+    const nearCacheTtlSeconds = Math.min(
+      options.nearCacheTtl ?? this.config.l1DefaultTtl,
+      l2TtlSeconds
+    );
     const size = this.calculateSize(value);
 
     const entry: CacheEntry<T> = {
-      key,
+      key: scopedKey,
       value,
       timestamp: Date.now(),
-      ttl: ttl * 1000, // Convert to milliseconds
+      ttl: l2TtlSeconds * 1000,
       accessCount: 0,
       lastAccessed: Date.now(),
       size,
       metadata: options.metadata,
     };
 
-    // Check if we need to evict entries (L1)
-    if (this.shouldEvictL1(entry)) {
-      this.evictL1Entries();
-    }
-
-    // Set in L1 cache
-    this.l1Cache.set(key, entry);
-    this.stats.sets++;
-
-    // Set in L2 cache if enabled
     if (this.config.l2Enabled && isRedisConnected()) {
-      const l2Key = `${this.config.l2KeyPrefix}${key}`;
-      const l2Ttl = options.ttl || this.config.l2DefaultTtl;
-      const l2Entry: CacheEntry<T> = {
-        ...entry,
-        ttl: l2Ttl * 1000,
-      };
-      await setCache(l2Key, l2Entry, l2Ttl);
+      await setCache(scopedKey, entry, l2TtlSeconds);
     }
 
-    this.emit("cacheSet", { key, size, ttl });
+    if (this.config.l1Enabled) {
+      this.setNearCacheEntry(scopedKey, {
+        ...entry,
+        ttl: nearCacheTtlSeconds * 1000,
+      });
+    }
+
+    this.stats.sets++;
+    this.emit("cacheSet", {
+      key,
+      namespace,
+      tenantId: options.tenantId,
+      size,
+      ttl: l2TtlSeconds,
+    });
   }
 
-  /**
-   * Delete entry from all cache levels
-   */
-  async delete(key: string): Promise<boolean> {
-    const l1Deleted = this.l1Cache.delete(key);
+  async delete(key: string, scope: CacheScope = {}): Promise<boolean> {
+    const scopedKey = this.buildScopedKey(key, scope);
+    const namespace = this.resolveNamespace(scope.namespace);
+    const l1Deleted = this.l1Cache.delete(scopedKey);
     let l2Deleted = false;
 
     if (this.config.l2Enabled && isRedisConnected()) {
-      const l2Key = `${this.config.l2KeyPrefix}${key}`;
-      l2Deleted = await deleteCache(l2Key);
+      l2Deleted = await deleteCache(scopedKey);
     }
 
     const deleted = l1Deleted || l2Deleted;
     if (deleted) {
-      this.emit("cacheDelete", { key });
+      cacheInvalidationsTotal.inc(
+        {
+          cache_name: this.cacheMetricName(),
+          cache_namespace: namespace,
+          scope: "key",
+        },
+        1
+      );
+      this.emit("cacheDelete", { key, namespace, tenantId: scope.tenantId });
     }
 
     return deleted;
   }
 
-  /**
-   * Clear cache entries by pattern or all
-   */
-  async clear(pattern?: string): Promise<number> {
+  async clear(pattern?: string, scope: CacheScope = {}): Promise<number> {
+    const namespace = this.resolveNamespace(scope.namespace);
+    const localPrefix = this.buildScopedKey(pattern ?? "", scope);
     let deleted = 0;
 
     if (!pattern) {
-      // Clear all
-      deleted += this.l1Cache.size;
-      this.l1Cache.clear();
-
-      if (this.config.l2Enabled && isRedisConnected()) {
-        // Clear all L2 entries by pattern
-        const deletedL2 = await deleteCachePattern(
-          `${this.config.l2KeyPrefix}*`
-        );
-        deleted += deletedL2;
+      for (const key of this.l1Cache.keys()) {
+        if (!key.startsWith(localPrefix)) {
+          continue;
+        }
+        this.l1Cache.delete(key);
+        deleted += 1;
       }
     } else {
-      // Clear by pattern
-      // eslint-disable-next-line security/detect-non-literal-regexp -- pattern is validated/controlled
-      const regex = new RegExp(pattern.replace(/\*/g, ".*"));
-
+      const matcher = this.createPatternMatcher(this.buildScopedKey(pattern, scope));
       for (const key of this.l1Cache.keys()) {
-        if (regex.test(key)) {
-          this.l1Cache.delete(key);
-          deleted++;
+        if (!matcher(key)) {
+          continue;
         }
-      }
-
-      if (this.config.l2Enabled && isRedisConnected()) {
-        const l2Pattern = `${this.config.l2KeyPrefix}${pattern}`;
-        const deletedL2 = await deleteCachePattern(l2Pattern);
-        deleted += deletedL2;
+        this.l1Cache.delete(key);
+        deleted += 1;
       }
     }
 
-    this.emit("cacheClear", { pattern, deleted });
+    if (this.config.l2Enabled && isRedisConnected()) {
+      const deletePattern = this.buildScopedPattern(pattern ?? "*", scope);
+      deleted += await deleteCachePattern(deletePattern);
+    }
+
+    if (deleted > 0) {
+      cacheInvalidationsTotal.inc(
+        {
+          cache_name: this.cacheMetricName(),
+          cache_namespace: namespace,
+          scope: pattern ? "pattern" : "namespace",
+        },
+        deleted
+      );
+    }
+
+    this.emit("cacheClear", { pattern, namespace, tenantId: scope.tenantId, deleted });
     return deleted;
   }
 
-  /**
-   * Get cache statistics
-   */
+  async invalidateNamespace(tenantId: string, namespace: string): Promise<number> {
+    return this.clear("*", { tenantId, namespace });
+  }
+
   getStats(): CacheStats {
     const total = this.stats.hits + this.stats.misses;
     const hitRate = total > 0 ? this.stats.hits / total : 0;
@@ -292,12 +298,12 @@ export class AgentCache extends EventEmitter {
         ? entries.reduce((sum, entry) => sum + entry.ttl, 0) / entries.length
         : 0;
 
-    const timestamps = entries.map((e) => e.timestamp);
+    const timestamps = entries.map((entry) => entry.timestamp);
     const oldestEntry = timestamps.length > 0 ? Math.min(...timestamps) : 0;
     const newestEntry = timestamps.length > 0 ? Math.max(...timestamps) : 0;
 
     return {
-      totalEntries: this.l1Cache.size + (this.l2Cache?.size || 0),
+      totalEntries: this.l1Cache.size,
       hitRate,
       missRate,
       evictionRate,
@@ -308,52 +314,44 @@ export class AgentCache extends EventEmitter {
     };
   }
 
-  /**
-   * Warm up cache with frequently accessed data
-   */
-  async warmup<T = any>(
-    entries: Array<{ key: string; value: T; ttl?: number }>
+  async warmup<T = unknown>(
+    entries: Array<{ key: string; value: T; ttl?: number; tenantId?: string; namespace?: string }>
   ): Promise<void> {
     logger.info("Starting cache warmup", { entries: entries.length });
 
     for (const entry of entries) {
-      await this.set(entry.key, entry.value, { ttl: entry.ttl });
+      await this.set(entry.key, entry.value, {
+        ttl: entry.ttl,
+        tenantId: entry.tenantId,
+        namespace: entry.namespace,
+      });
     }
 
     logger.info("Cache warmup completed", { entries: entries.length });
   }
 
-  /**
-   * Shutdown cache service
-   */
   shutdown(): void {
     this.stopCleanup();
     this.stopStatsReporting();
     this.removeAllListeners();
-
     this.l1Cache.clear();
-
-    // Note: Redis connection is managed externally, don't close it here
-    // It may be used by other services
-
     logger.info("Agent cache service shutdown");
   }
-
-  // ============================================================================
-  // Private Methods
-  // ============================================================================
 
   private startCleanup(): void {
     this.cleanupInterval = setInterval(() => {
       this.cleanupExpiredEntries();
     }, this.config.cleanupInterval * 1000);
+    this.cleanupInterval.unref?.();
   }
 
   private stopCleanup(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
+    if (!this.cleanupInterval) {
+      return;
     }
+
+    clearInterval(this.cleanupInterval);
+    this.cleanupInterval = null;
   }
 
   private startStatsReporting(): void {
@@ -361,7 +359,6 @@ export class AgentCache extends EventEmitter {
       const stats = this.getStats();
       this.emit("stats", stats);
 
-      // Log significant stats
       if (stats.hitRate < 0.5) {
         logger.warn("Low cache hit rate", { hitRate: stats.hitRate });
       }
@@ -370,28 +367,29 @@ export class AgentCache extends EventEmitter {
         logger.warn("High eviction rate", { evictionRate: stats.evictionRate });
       }
     }, this.config.statsReportingInterval * 1000);
+    this.statsInterval.unref?.();
   }
 
   private stopStatsReporting(): void {
-    if (this.statsInterval) {
-      clearInterval(this.statsInterval);
-      this.statsInterval = null;
+    if (!this.statsInterval) {
+      return;
     }
+
+    clearInterval(this.statsInterval);
+    this.statsInterval = null;
   }
 
   private cleanupExpiredEntries(): void {
     let cleaned = 0;
 
-    // Clean L1 cache
     for (const [key, entry] of this.l1Cache.entries()) {
-      if (this.isExpired(entry)) {
-        this.l1Cache.delete(key);
-        cleaned++;
+      if (!this.isExpired(entry)) {
+        continue;
       }
-    }
 
-    // Note: Redis L2 entries are cleaned up automatically by Redis TTL
-    // We don't need to manually clean them here
+      this.l1Cache.delete(key);
+      cleaned += 1;
+    }
 
     if (cleaned > 0) {
       this.emit("cleanup", { cleaned });
@@ -435,82 +433,144 @@ export class AgentCache extends EventEmitter {
   }
 
   private evictLRU(entries: Array<[string, CacheEntry]>): void {
-    // Sort by last accessed time (oldest first)
     entries.sort(([, a], [, b]) => a.lastAccessed - b.lastAccessed);
-
-    // Evict oldest 25% or until we have space
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
-    for (let i = 0; i < evictCount; i++) {
-      const key = entries[i]?.[0];
-      if (key) {
-        this.l1Cache.delete(key);
-        this.stats.evictions++;
+    for (let index = 0; index < evictCount; index += 1) {
+      const key = entries[index]?.[0];
+      if (!key) {
+        continue;
       }
+
+      this.l1Cache.delete(key);
+      this.stats.evictions++;
     }
   }
 
   private evictLFU(entries: Array<[string, CacheEntry]>): void {
-    // Sort by access count (least used first)
     entries.sort(([, a], [, b]) => a.accessCount - b.accessCount);
-
-    // Evict least used 25%
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
-    for (let i = 0; i < evictCount; i++) {
-      const key = entries[i]?.[0];
-      if (key) {
-        this.l1Cache.delete(key);
-        this.stats.evictions++;
+    for (let index = 0; index < evictCount; index += 1) {
+      const key = entries[index]?.[0];
+      if (!key) {
+        continue;
       }
+
+      this.l1Cache.delete(key);
+      this.stats.evictions++;
     }
   }
 
   private evictByTTL(entries: Array<[string, CacheEntry]>): void {
-    // Sort by TTL (shortest first)
     entries.sort(([, a], [, b]) => a.ttl - b.ttl);
-
-    // Evict shortest TTL 25%
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
-    for (let i = 0; i < evictCount; i++) {
-      const key = entries[i]?.[0];
-      if (key) {
-        this.l1Cache.delete(key);
-        this.stats.evictions++;
+    for (let index = 0; index < evictCount; index += 1) {
+      const key = entries[index]?.[0];
+      if (!key) {
+        continue;
       }
+
+      this.l1Cache.delete(key);
+      this.stats.evictions++;
     }
   }
 
   private evictRandom(entries: Array<[string, CacheEntry]>): void {
-    // Evict random 25%
     const evictCount = Math.max(1, Math.floor(entries.length * 0.25));
 
-    for (let i = 0; i < evictCount; i++) {
+    for (let index = 0; index < evictCount; index += 1) {
       const randomIndex = Math.floor(Math.random() * entries.length);
       const key = entries[randomIndex]?.[0];
-      if (key) {
-        this.l1Cache.delete(key);
-        this.stats.evictions++;
+      if (!key) {
+        continue;
       }
+
+      this.l1Cache.delete(key);
+      this.stats.evictions++;
     }
+  }
+
+  private buildScopedKey(key: string, scope: CacheScope): string {
+    const namespace = this.resolveNamespace(scope.namespace);
+    return getRedisKey(
+      scope.tenantId,
+      `${this.config.l2KeyPrefix}${namespace}:${key}`
+    );
+  }
+
+  private buildScopedPattern(pattern: string, scope: CacheScope): string {
+    const namespace = this.resolveNamespace(scope.namespace);
+    return getRedisKey(
+      scope.tenantId,
+      `${this.config.l2KeyPrefix}${namespace}:${pattern}`
+    );
+  }
+
+  private resolveNamespace(namespace?: string): string {
+    return namespace?.trim() || "default";
+  }
+
+  private cacheMetricName(): string {
+    return this.config.l2KeyPrefix.replace(/:+$/, "") || "agent-cache";
+  }
+
+  private recordNamespaceRequest(
+    namespace: string,
+    layer: "near" | "redis",
+    outcome: "hit" | "miss"
+  ): void {
+    cacheNamespaceRequestsTotal.inc({
+      cache_name: this.cacheMetricName(),
+      cache_namespace: namespace,
+      layer,
+      outcome,
+    });
+  }
+
+  private promoteToNearCache<T>(scopedKey: string, entry: CacheEntry<T>): void {
+    if (!this.config.l1Enabled) {
+      return;
+    }
+
+    const remainingTtlMs = Math.max(1, entry.ttl - (Date.now() - entry.timestamp));
+    const nearCacheTtlMs = Math.min(
+      remainingTtlMs,
+      this.config.l1DefaultTtl * 1000
+    );
+
+    this.setNearCacheEntry(scopedKey, {
+      ...entry,
+      ttl: nearCacheTtlMs,
+      timestamp: Date.now(),
+      lastAccessed: Date.now(),
+    });
+  }
+
+  private setNearCacheEntry(entryKey: string, entry: CacheEntry): void {
+    if (this.shouldEvictL1(entry)) {
+      this.evictL1Entries();
+    }
+
+    this.l1Cache.set(entryKey, entry);
+  }
+
+  private createPatternMatcher(pattern: string): (key: string) => boolean {
+    const escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`^${escapedPattern.replace(/\*/g, ".*")}$`);
+    return (key: string) => regex.test(key);
   }
 
   private calculateSize(value: unknown): number {
     try {
-      // Rough estimation of serialized size
       const serialized = JSON.stringify(value);
-      return serialized.length * 2; // Approximate bytes (UTF-16)
-    } catch (error) {
-      // Fallback estimation
-      return 1024; // 1KB default
+      return serialized.length * 2;
+    } catch {
+      return 1024;
     }
   }
 }
-
-// ============================================================================
-// Singleton Instance
-// ============================================================================
 
 let agentCacheInstance: AgentCache | null = null;
 

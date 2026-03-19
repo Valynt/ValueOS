@@ -9,6 +9,8 @@ const {
   cacheRequestsTotalInc,
   cacheLoaderDurationObserve,
   cacheCoalescedWaitersTotalInc,
+  cacheNamespaceRequestsTotalInc,
+  cacheInvalidationsTotalInc,
   unlinkExecResults,
   delExecResults,
 } = vi.hoisted(() => ({
@@ -20,6 +22,8 @@ const {
   cacheRequestsTotalInc: vi.fn(),
   cacheLoaderDurationObserve: vi.fn(),
   cacheCoalescedWaitersTotalInc: vi.fn(),
+  cacheNamespaceRequestsTotalInc: vi.fn(),
+  cacheInvalidationsTotalInc: vi.fn(),
   unlinkExecResults: [] as Array<Array<number | null>>,
   delExecResults: [] as Array<Array<number | null>>,
 }));
@@ -41,6 +45,8 @@ vi.mock("../../lib/metrics/cacheMetrics.js", () => ({
   cacheRequestsTotal: { inc: cacheRequestsTotalInc },
   cacheLoaderDurationMs: { observe: cacheLoaderDurationObserve },
   cacheCoalescedWaitersTotal: { inc: cacheCoalescedWaitersTotalInc },
+  cacheNamespaceRequestsTotal: { inc: cacheNamespaceRequestsTotalInc },
+  cacheInvalidationsTotal: { inc: cacheInvalidationsTotalInc },
 }));
 
 import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
@@ -50,9 +56,15 @@ const ENDPOINT = "api-analytics-summary";
 const CACHE_CONFIG = {
   tenantId: TENANT_ID,
   endpoint: ENDPOINT,
+  namespace: "value-fabric.capability-list",
   scope: "summary",
   tier: "warm" as const,
   keyPayload: { page: 1 },
+  nearCache: {
+    enabled: true,
+    ttlMs: 1000,
+    maxEntries: 4,
+  },
 };
 
 function createPipeline() {
@@ -88,12 +100,15 @@ function createPipeline() {
 
 describe("ReadThroughCacheService.getOrLoad", () => {
   beforeEach(() => {
+    ReadThroughCacheService.clearNearCachesForTesting();
     mockGet.mockReset();
     mockSet.mockReset();
     readCacheEventsTotalInc.mockReset();
     cacheRequestsTotalInc.mockReset();
     cacheLoaderDurationObserve.mockReset();
     cacheCoalescedWaitersTotalInc.mockReset();
+    cacheNamespaceRequestsTotalInc.mockReset();
+    cacheInvalidationsTotalInc.mockReset();
   });
 
   it("returns cached payloads without invoking the loader", async () => {
@@ -105,7 +120,7 @@ describe("ReadThroughCacheService.getOrLoad", () => {
     expect(result).toEqual({ value: 42 });
     expect(loader).not.toHaveBeenCalled();
     expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
-      cache_name: `read-through:${ENDPOINT}`,
+      cache_name: CACHE_CONFIG.namespace,
       outcome: "hit",
     });
   });
@@ -132,21 +147,40 @@ describe("ReadThroughCacheService.getOrLoad", () => {
       { value: 7 },
     ]);
     expect(cacheCoalescedWaitersTotalInc).toHaveBeenCalledWith({
-      cache_name: `read-through:${ENDPOINT}`,
+      cache_name: CACHE_CONFIG.namespace,
     });
     expect(mockSet).toHaveBeenCalledTimes(1);
     expect(cacheLoaderDurationObserve).toHaveBeenCalledWith(
-      { cache_name: `read-through:${ENDPOINT}` },
+      { cache_name: CACHE_CONFIG.namespace },
       expect.any(Number)
     );
+  });
+
+  it("uses the optional near-cache for ultra-hot keys after a redis hit", async () => {
+    mockGet.mockResolvedValueOnce(JSON.stringify({ value: 42 }));
+
+    const first = await ReadThroughCacheService.getOrLoad(CACHE_CONFIG, vi.fn());
+    const second = await ReadThroughCacheService.getOrLoad(CACHE_CONFIG, vi.fn());
+
+    expect(first).toEqual({ value: 42 });
+    expect(second).toEqual({ value: 42 });
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(cacheNamespaceRequestsTotalInc).toHaveBeenCalledWith({
+      cache_name: CACHE_CONFIG.namespace,
+      cache_namespace: CACHE_CONFIG.namespace,
+      layer: "near",
+      outcome: "hit",
+    });
   });
 });
 
 describe("ReadThroughCacheService.invalidateEndpoint", () => {
   beforeEach(() => {
+    ReadThroughCacheService.clearNearCachesForTesting();
     mockScan.mockReset();
     mockMulti.mockReset();
     readCacheEventsTotalInc.mockReset();
+    cacheInvalidationsTotalInc.mockReset();
     unlinkExecResults.length = 0;
     delExecResults.length = 0;
 
@@ -166,7 +200,9 @@ describe("ReadThroughCacheService.invalidateEndpoint", () => {
 
     unlinkExecResults.push([1, 1], [1]);
 
-    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_ID, ENDPOINT);
+    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_ID, ENDPOINT, {
+      namespace: CACHE_CONFIG.namespace,
+    });
 
     expect(deleted).toBe(3);
     expect(mockScan).toHaveBeenCalledTimes(2);
@@ -184,7 +220,9 @@ describe("ReadThroughCacheService.invalidateEndpoint", () => {
   it("returns 0 when scan finds no matching keys", async () => {
     mockScan.mockResolvedValueOnce(["0", []]);
 
-    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_ID, ENDPOINT);
+    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_ID, ENDPOINT, {
+      namespace: CACHE_CONFIG.namespace,
+    });
 
     expect(deleted).toBe(0);
     expect(mockMulti).not.toHaveBeenCalled();
@@ -201,11 +239,21 @@ describe("ReadThroughCacheService.invalidateEndpoint", () => {
     mockScan.mockResolvedValueOnce(["0", batch]);
     unlinkExecResults.push([1, 1, 0]);
 
-    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_ID, ENDPOINT);
+    const deleted = await ReadThroughCacheService.invalidateEndpoint(TENANT_ID, ENDPOINT, {
+      namespace: CACHE_CONFIG.namespace,
+    });
 
     expect(deleted).toBe(2);
     expect(readCacheEventsTotalInc).toHaveBeenCalledWith(
       { endpoint: ENDPOINT, event: "eviction" },
+      2
+    );
+    expect(cacheInvalidationsTotalInc).toHaveBeenCalledWith(
+      {
+        cache_name: CACHE_CONFIG.namespace,
+        cache_namespace: CACHE_CONFIG.namespace,
+        scope: "endpoint",
+      },
       2
     );
   });

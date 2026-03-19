@@ -22,6 +22,8 @@ import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
 import { logger } from "../lib/logger.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import type { LifecycleContext } from "../types/agent.js";
+import { getAgentCache, type AgentCache } from "../cache/AgentCache.js";
+import { ReadThroughCacheService } from "../cache/ReadThroughCacheService.js";
 
 import { AgentType } from "./agent-types.js"
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
@@ -33,7 +35,6 @@ import {
   GroundtruthRequestOptions,
   GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
-import { ReadThroughCacheService } from "./ReadThroughCacheService.js";
 
 // ============================================================================
 // Types
@@ -207,13 +208,21 @@ function validateAndSanitizeRequest(
  * - Full observability
  */
 export class UnifiedAgentAPI {
+  private static readonly AGENT_OUTPUT_NAMESPACE = "unified-agent.output";
+  private static readonly AGENT_OUTPUT_NEAR_CACHE = {
+    enabled: process.env.UNIFIED_AGENT_OUTPUT_NEAR_CACHE_ENABLED !== "false",
+    ttlMs: 5_000,
+    maxEntries: 16,
+  } as const;
+  private static readonly IDEMPOTENCY_NAMESPACE = "unified-agent.idempotency";
+  private static readonly IDEMPOTENCY_TTL_SECONDS = 120;
   private config: UnifiedAPIConfig;
   private circuitBreakers: CircuitBreakerManager;
   private registry: AgentRegistry;
   private auditLogger: ReturnType<typeof getAuditLogger> | null = null;
   private groundtruthAPI: GroundtruthAPI | null = null;
   private agentFactory: AgentFactory | null = null;
-  private idempotencyCache: Map<string, UnifiedAgentResponse> = new Map();
+  private readonly idempotencyCache: AgentCache;
 
   constructor(config: Partial<UnifiedAPIConfig> = {}) {
     // NOTE: Environment variable precedence for agent API base URL:
@@ -236,6 +245,15 @@ export class UnifiedAgentAPI {
       timeoutMs: this.config.timeout || 30000,
     });
     this.registry = new AgentRegistry();
+    this.idempotencyCache = getAgentCache({
+      l1Enabled: process.env.UNIFIED_AGENT_IDEMPOTENCY_NEAR_CACHE_ENABLED !== "false",
+      l1DefaultTtl: 10,
+      l1MaxEntries: 64,
+      l1MaxSize: 4,
+      l2Enabled: true,
+      l2DefaultTtl: UnifiedAgentAPI.IDEMPOTENCY_TTL_SECONDS,
+      l2KeyPrefix: "unified-agent-cache:",
+    });
 
     if (this.config.enableAuditLogging) {
       this.auditLogger = getAuditLogger();
@@ -302,10 +320,12 @@ export class UnifiedAgentAPI {
 
     try {
       this.assertRoutingConfigured(request.agent);
+      const tenantId = this.getTenantId(sanitizedRequest);
 
       // Add idempotency check before cache
       if (request.idempotencyKey) {
         const existingResponse = await this.checkIdempotency(
+          tenantId,
           request.idempotencyKey
         );
         if (existingResponse) {
@@ -313,17 +333,15 @@ export class UnifiedAgentAPI {
         }
       }
 
-      const tenantId =
-        sanitizedRequest.context?.organizationId ||
-        sanitizedRequest.context?.organization_id ||
-        "system";
-
       // Cache agent outputs via ReadThroughCacheService (tenant-scoped Redis). ADR-0012.
       const result = await ReadThroughCacheService.getOrLoad<UnifiedAgentResponse<T>>(
         {
           endpoint: `agent-outputs/${request.agent}`,
+          namespace: UnifiedAgentAPI.AGENT_OUTPUT_NAMESPACE,
           tenantId,
-          tier: "medium",
+          scope: request.agent,
+          tier: "hot",
+          nearCache: UnifiedAgentAPI.AGENT_OUTPUT_NEAR_CACHE,
           keyPayload: this.generateAgentCacheKey(sanitizedRequest),
         },
         async () => {
@@ -378,14 +396,18 @@ export class UnifiedAgentAPI {
       logger.info("Agent invocation completed", {
         traceId,
         agent: request.agent,
-        duration,
+        duration: Date.now() - startTime,
         success: result.success,
         cached: false,
       });
 
       // Store response in idempotency cache if idempotency key was provided
       if (request.idempotencyKey) {
-        this.storeIdempotencyResponse(request.idempotencyKey, result);
+        await this.storeIdempotencyResponse(
+          tenantId,
+          request.idempotencyKey,
+          result
+        );
       }
 
       return result;
@@ -982,11 +1004,18 @@ export class UnifiedAgentAPI {
    * Check idempotency cache for existing response
    */
   private async checkIdempotency(
+    tenantId: string,
     idempotencyKey: string
   ): Promise<UnifiedAgentResponse | null> {
-    const cachedResponse = this.idempotencyCache.get(idempotencyKey);
+    const cachedResponse = await this.idempotencyCache.get<UnifiedAgentResponse>(
+      idempotencyKey,
+      {
+        tenantId,
+        namespace: UnifiedAgentAPI.IDEMPOTENCY_NAMESPACE,
+      }
+    );
     if (cachedResponse) {
-      logger.info("Idempotency cache hit", { idempotencyKey });
+      logger.info("Idempotency cache hit", { idempotencyKey, tenantId });
       return cachedResponse;
     }
     return null;
@@ -996,13 +1025,21 @@ export class UnifiedAgentAPI {
    * Store response in idempotency cache
    */
   private storeIdempotencyResponse(
+    tenantId: string,
     idempotencyKey: string,
     response: UnifiedAgentResponse
-  ): void {
+  ): Promise<void> {
     if (idempotencyKey) {
-      this.idempotencyCache.set(idempotencyKey, response);
-      logger.debug("Stored idempotency response", { idempotencyKey });
+      logger.debug("Stored idempotency response", { idempotencyKey, tenantId });
+      return this.idempotencyCache.set(idempotencyKey, response, {
+        tenantId,
+        namespace: UnifiedAgentAPI.IDEMPOTENCY_NAMESPACE,
+        ttl: UnifiedAgentAPI.IDEMPOTENCY_TTL_SECONDS,
+        nearCacheTtl: 10,
+      });
     }
+
+    return Promise.resolve();
   }
 
   /**
@@ -1016,6 +1053,14 @@ export class UnifiedAgentAPI {
     // Simple hash of the combined inputs
     const combined = `${request.agent}:${request.query}:${contextStr}`;
     return this.simpleHash(combined);
+  }
+
+  private getTenantId(request: UnifiedAgentRequest): string {
+    return (
+      request.context?.organizationId ||
+      request.context?.organization_id ||
+      "system"
+    );
   }
 
   /**

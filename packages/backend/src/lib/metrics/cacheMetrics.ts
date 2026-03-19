@@ -23,3 +23,17 @@ export const cacheCoalescedWaitersTotal = new client.Counter({
   labelNames: ["cache_name"],
   registers: [registry],
 });
+
+export const cacheNamespaceRequestsTotal = new client.Counter({
+  name: "valuecanvas_cache_namespace_requests_total",
+  help: "Cache requests partitioned by namespace, cache layer, and outcome",
+  labelNames: ["cache_name", "cache_namespace", "layer", "outcome"],
+  registers: [registry],
+});
+
+export const cacheInvalidationsTotal = new client.Counter({
+  name: "valuecanvas_cache_invalidations_total",
+  help: "Cache invalidations partitioned by cache and namespace",
+  labelNames: ["cache_name", "cache_namespace", "scope"],
+  registers: [registry],
+});
