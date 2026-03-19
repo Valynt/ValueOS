@@ -110,6 +110,19 @@ Before approving a launch, confirm these artifacts exist for the release candida
 
 If any of those artifacts are missing, treat release-note evidence as incomplete and hold launch sign-off until the missing Changesets inputs or generated outputs are restored.
 
+## Production Release Gate Upstream Checks
+
+The canonical production-blocking upstream checks are defined in `.github/release-gate-manifest.json` and are verified by the `Verify Canonical Release Gates` job in `.github/workflows/deploy.yml`. Production promotion is **No-Go** unless every check below is green for the exact commit being deployed.
+
+- `unit/component/schema` — covers lint, typecheck, unit/integration tests, and workflow DAG validation.
+- `tenant-isolation-gate` — runs the secret-backed RLS, tenant-isolation, DSR, and tenant-boundary suites.
+- `security-gate` — runs SCA (`pnpm audit`), Gitleaks secret scanning, Semgrep SAST, Trivy filesystem scan, and Trivy container image scan.
+- `critical-workflows-gate` — verifies critical workflow/versioning contracts that must remain release-safe.
+- `staging-deploy-release-gates` — aggregates the CI release lanes that gate staging and production promotion.
+- `codeql-analyze (js-ts)` — enforces the dedicated CodeQL code-scanning lane.
+
+`deploy-production` in `.github/workflows/deploy.yml` must consume `verify-canonical-release-gates` instead of directly keying off the weaker local `quality-gate` job so that the full canonical upstream gate set is enforced before production can advance.
+
 ## Pre-Production Launch Gate (CI Blocking Control)
 
 Production promotion is blocked unless the **Pre-Production Launch Gate** job succeeds in `.github/workflows/deploy.yml`.

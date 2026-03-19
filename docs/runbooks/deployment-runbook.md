@@ -51,8 +51,21 @@ status: deprecated
 - Release artifact must be built from `infra/docker/Dockerfile.backend` with build arg `APP=@valueos/backend`.
 - `apps/ValyntApp/src/services/**` is a frozen duplicate tree and is excluded from runtime ownership except `[migration-sync]` mirror commits.
 
+## Production Release Gate Upstream Checks
+
+The canonical production-blocking upstream checks are defined in `.github/release-gate-manifest.json` and are verified by the `Verify Canonical Release Gates` job in `.github/workflows/deploy.yml`. Production promotion is **No-Go** unless every check below is green for the exact commit being deployed.
+
+- `unit/component/schema` — covers lint, typecheck, unit/integration tests, and workflow DAG validation.
+- `tenant-isolation-gate` — runs the secret-backed RLS, tenant-isolation, DSR, and tenant-boundary suites.
+- `security-gate` — runs SCA (`pnpm audit`), Gitleaks secret scanning, Semgrep SAST, Trivy filesystem scan, and Trivy container image scan.
+- `critical-workflows-gate` — verifies critical workflow/versioning contracts that must remain release-safe.
+- `staging-deploy-release-gates` — aggregates the CI release lanes that gate staging and production promotion.
+- `codeql-analyze (js-ts)` — enforces the dedicated CodeQL code-scanning lane.
+
+`deploy-production` in `.github/workflows/deploy.yml` must consume `verify-canonical-release-gates` instead of directly keying off the weaker local `quality-gate` job so that the full canonical upstream gate set is enforced before production can advance.
+
 ## Deployment Policy (Workflow-Enforced)
-- **Production deployments require successful upstream security and quality gates.** In `.github/workflows/deploy.yml`, `deploy-production` now hard-requires both `quality-gate` and `dast-gate` to be `success`; `skipped` is no longer accepted for production paths.
+- **Production deployments require the canonical upstream release gate manifest to be green.** In `.github/workflows/deploy.yml`, `deploy-production` now hard-requires `verify-canonical-release-gates`, which polls the exact manifest in `.github/release-gate-manifest.json` and blocks promotion until every listed upstream job for the release SHA is `success`.
 - **Emergency bypass (`skip_tests`) is non-production only.** Use of `skip_tests=true` is blocked for production targets and remains available only for staging emergency recovery.
 - **Production bypass requires break-glass workflow.** Any production exception to quality/DAST gates must be executed through a separate break-glass workflow with protected-environment reviewer approval and mandatory post-deploy evidence capture.
 

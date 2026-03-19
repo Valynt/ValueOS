@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "description": "Canonical blocking upstream checks that must be green before production promotion can proceed.",
+  "requiredChecks": [
+    {
+      "name": "unit/component/schema",
+      "workflow": ".github/workflows/ci.yml",
+      "jobId": "unit-component-schema",
+      "covers": [
+        "lint",
+        "typecheck",
+        "unit/integration tests",
+        "workflow DAG validation"
+      ]
+    },
+    {
+      "name": "tenant-isolation-gate",
+      "workflow": ".github/workflows/ci.yml",
+      "jobId": "tenant-isolation-gate",
+      "covers": [
+        "RLS / tenant-isolation suites"
+      ]
+    },
+    {
+      "name": "security-gate",
+      "workflow": ".github/workflows/ci.yml",
+      "jobId": "security-gate",
+      "covers": [
+        "security scans (SAST, SCA, secret scan, image/filesystem scan, SBOM)"
+      ]
+    },
+    {
+      "name": "critical-workflows-gate",
+      "workflow": ".github/workflows/ci.yml",
+      "jobId": "critical-workflows-gate",
+      "covers": [
+        "critical workflow/versioning contracts"
+      ]
+    },
+    {
+      "name": "staging-deploy-release-gates",
+      "workflow": ".github/workflows/ci.yml",
+      "jobId": "staging-deploy-release-gates",
+      "covers": [
+        "release gate aggregation across CI lanes"
+      ]
+    },
+    {
+      "name": "codeql-analyze (js-ts)",
+      "workflow": ".github/workflows/codeql.yml",
+      "jobId": "codeql-analyze",
+      "covers": [
+        "CodeQL"
+      ]
+    }
+  ],
+  "productionDeploy": {
+    "workflow": ".github/workflows/deploy.yml",
+    "verifierJobId": "verify-canonical-release-gates",
+    "verifierJobName": "Verify Canonical Release Gates",
+    "deployJobId": "deploy-production",
+    "deployJobName": "Deploy to Production",
+    "docs": [
+      "docs/runbooks/deployment-runbook.md",
+      "docs/operations/launch-readiness.md"
+    ],
+    "docsHeading": "## Production Release Gate Upstream Checks"
+  }
+}

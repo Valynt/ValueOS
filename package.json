@@ -37,7 +37,8 @@
     "dx:check": "node scripts/dx/doctor.js",
     "test:workflow-dag-validation": "SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=test-key SUPABASE_ANON_KEY=test-key vitest run packages/backend/src/services/workflows/__tests__/WorkflowDAGDefinitions.test.ts packages/backend/src/runtime/execution-runtime/__tests__/WorkflowExecutor.test.ts -t \"WorkflowExecutor._validateWorkflowDAG\"",
     "security:scan": "bash scripts/security/scan.sh",
-    "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs"
+    "check:workspace-package-governance": "node scripts/ci/check-workspace-package-governance.mjs",
+    "check:deploy-release-gates-consistency": "node scripts/ci/check-deploy-workflow-release-gate-consistency.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

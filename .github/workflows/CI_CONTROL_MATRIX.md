@@ -29,6 +29,10 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
 | `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Folded into `ci.yml` to remove duplicate setup and execution paths. |
 
+## Canonical Production Release Gate Manifest
+
+`deploy.yml` production promotion is governed by `.github/release-gate-manifest.json`. The manifest is the single source of truth for the upstream CI/code-scanning checks that must be green for a release SHA before `deploy-production` can advance, and `scripts/ci/check-deploy-workflow-release-gate-consistency.mjs` fails CI if the manifest, deploy workflow, or documentation drift.
+
 ## Branch Protection Required Checks
 
 `main` branch protection must require the following checks:
