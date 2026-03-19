@@ -89,6 +89,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] **Hard Go/No-Go**: Security approver reviewed `docs/security-compliance/threat-model.md` and the linked release evidence chain in `docs/security-compliance/evidence-index.md` for this release, and verified that the GA `v1.0.0` entry records Product/Engineering/Security approvers and dates before Product/Engineering/Security sign-off is accepted.
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
+- [ ] Accessibility and localization dashboard trends reviewed in `docs/quality/ux-quality-scorecard.md`, with any regression assigned to the documented route owner before production sign-off.
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
 - [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
 
