@@ -8230,6 +8230,18 @@ CREATE INDEX IF NOT EXISTS idx_semantic_memory_org ON public.semantic_memory USI
 
 
 --
+-- Name: idx_semantic_memory_agent_fabric_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_agent_fabric_lookup ON public.semantic_memory USING btree (organization_id, type, session_id, created_at DESC);
+
+
+-- Name: idx_semantic_memory_agent_fabric_metadata; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX IF NOT EXISTS idx_semantic_memory_agent_fabric_metadata ON public.semantic_memory USING btree (organization_id, ((metadata ->> 'agentType'::text)), ((metadata ->> 'agent_memory_type'::text)), created_at DESC);
+
+
 -- Name: idx_semantic_memory_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -28494,6 +28506,63 @@ AS $$
     )
   ORDER BY sm.embedding <=> query_embedding
   LIMIT match_count;
+$$;
+
+-- Name: search_agent_fabric_memories(uuid, text, text, text, text, boolean, double precision, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE OR REPLACE FUNCTION public.search_agent_fabric_memories(
+  p_organization_id uuid,
+  p_type text DEFAULT 'workflow_result'::text,
+  p_agent_type text DEFAULT NULL::text,
+  p_agent_memory_type text DEFAULT NULL::text,
+  p_session_id text DEFAULT NULL::text,
+  p_include_cross_workspace boolean DEFAULT false,
+  p_min_importance double precision DEFAULT NULL::double precision,
+  p_limit integer DEFAULT 10
+) RETURNS TABLE(id uuid, type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, updated_at timestamp with time zone, session_id text, importance double precision)
+    LANGUAGE sql STABLE
+    AS $$
+  WITH scoped AS (
+    SELECT
+      sm.id,
+      sm.type,
+      sm.content,
+      sm.embedding,
+      sm.metadata,
+      sm.created_at,
+      sm.updated_at,
+      sm.session_id,
+      CASE
+        WHEN jsonb_typeof(sm.metadata->'importance') = 'number'
+          THEN (sm.metadata->>'importance')::double precision
+        ELSE 0.5
+      END AS importance
+    FROM public.semantic_memory sm
+    WHERE sm.organization_id = p_organization_id
+      AND (p_type IS NULL OR sm.type = p_type)
+      AND (p_agent_type IS NULL OR sm.metadata->>'agentType' = p_agent_type)
+      AND (p_agent_memory_type IS NULL OR sm.metadata->>'agent_memory_type' = p_agent_memory_type)
+      AND (
+        p_include_cross_workspace
+        OR p_session_id IS NULL
+        OR sm.session_id = p_session_id
+      )
+  )
+  SELECT
+    scoped.id,
+    scoped.type,
+    scoped.content,
+    scoped.embedding,
+    scoped.metadata,
+    scoped.created_at,
+    scoped.updated_at,
+    scoped.session_id,
+    scoped.importance
+  FROM scoped
+  WHERE p_min_importance IS NULL OR scoped.importance >= p_min_importance
+  ORDER BY scoped.importance DESC, scoped.created_at DESC, scoped.id DESC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit, 10), 1), 100);
 $$;
 -- ===== END LEGACY MIGRATION: 20260302000002_semantic_memory_namespace_filters.sql =====
 

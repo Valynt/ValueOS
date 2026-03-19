@@ -4,41 +4,31 @@ vi.mock("../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+import type { SemanticFact } from "@valueos/memory";
+
 import type { Memory } from "../MemorySystem";
 import { resetCrossWorkspaceAllowlistCache, SupabaseMemoryBackend } from "../SupabaseMemoryBackend";
 
 const ORG_ID = "org-test-456";
 
-function createMockSemanticMemory() {
+function createMockSemanticStore() {
   return {
-    store: vi.fn().mockResolvedValue("supabase-uuid-1"),
-    search: vi.fn().mockResolvedValue([]),
-    storeChunk: vi.fn(),
-    chunkText: vi.fn(),
-    storeValueProposition: vi.fn(),
-    getSimilarValuePropositions: vi.fn(),
-    storeTargetDefinition: vi.fn(),
-    getSimilarTargets: vi.fn(),
-    storeIntegrityCheck: vi.fn(),
-    getCommonIntegrityIssues: vi.fn(),
-    storeWorkflowResult: vi.fn(),
-    getSimilarWorkflows: vi.fn(),
-    pruneMemories: vi.fn(),
-    getStatistics: vi.fn(),
+    insert: vi.fn().mockResolvedValue(undefined),
+    searchAgentMemories: vi.fn().mockResolvedValue([] as SemanticFact[]),
   };
 }
 
 describe("SupabaseMemoryBackend", () => {
   let backend: SupabaseMemoryBackend;
-  let mockSemantic: ReturnType<typeof createMockSemanticMemory>;
+  let mockSemanticStore: ReturnType<typeof createMockSemanticStore>;
 
   beforeEach(() => {
-    mockSemantic = createMockSemanticMemory();
-    backend = new SupabaseMemoryBackend(mockSemantic as any);
+    mockSemanticStore = createMockSemanticStore();
+    backend = new SupabaseMemoryBackend(mockSemanticStore);
   });
 
   describe("store", () => {
-    it("persists memory via SemanticMemoryService.store", async () => {
+    it("persists memory via SupabaseSemanticStore.insert", async () => {
       const memory: Memory = {
         id: "mem_123",
         agent_id: "OpportunityAgent",
@@ -55,10 +45,10 @@ describe("SupabaseMemoryBackend", () => {
 
       const id = await backend.store(memory);
 
-      expect(id).toBe("supabase-uuid-1");
-      expect(mockSemantic.store).toHaveBeenCalledTimes(1);
+      expect(id).toBe("mem_123");
+      expect(mockSemanticStore.insert).toHaveBeenCalledTimes(1);
 
-      const call = mockSemantic.store.mock.calls[0][0];
+      const call = mockSemanticStore.insert.mock.calls[0][0] as SemanticFact;
       expect(call.type).toBe("workflow_result");
       expect(call.content).toBe("Discovered market opportunity in fintech");
       expect(call.metadata.agentType).toBe("OpportunityAgent");
@@ -85,32 +75,34 @@ describe("SupabaseMemoryBackend", () => {
       };
 
       await expect(backend.store(memory)).rejects.toThrow(
-        "organization_id required"
+        "organization_id required",
       );
     });
   });
 
   describe("retrieve", () => {
-    it("maps SemanticMemoryService search results to Memory shape", async () => {
-      mockSemantic.search.mockResolvedValue([
+    it("maps RPC-backed semantic facts to Memory shape", async () => {
+      mockSemanticStore.searchAgentMemories.mockResolvedValue([
         {
-          entry: {
-            id: "supabase-uuid-1",
-            type: "workflow_result",
-            content: "Past discovery result",
-            embedding: [],
-            metadata: {
-              agentType: "OpportunityAgent",
-              agent_memory_type: "episodic",
-              agent_memory_id: "mem_original",
-              session_id: "session-1",
-              organization_id: ORG_ID,
-              importance: 0.7,
-              access_count: 2,
-            },
-            createdAt: new Date("2026-01-15"),
+          id: "supabase-uuid-1",
+          type: "workflow_result",
+          content: "Past discovery result",
+          embedding: [],
+          metadata: {
+            agentType: "OpportunityAgent",
+            agent_memory_type: "episodic",
+            agent_memory_id: "mem_original",
+            session_id: "session-1",
+            organization_id: ORG_ID,
+            importance: 0.7,
+            access_count: 2,
           },
-          similarity: 0.85,
+          status: "approved",
+          version: 1,
+          organizationId: ORG_ID,
+          confidenceScore: 0.7,
+          createdAt: new Date("2026-01-15").toISOString(),
+          updatedAt: new Date("2026-01-15").toISOString(),
         },
       ]);
 
@@ -125,86 +117,50 @@ describe("SupabaseMemoryBackend", () => {
       expect(results[0].content).toBe("Past discovery result");
       expect(results[0].memory_type).toBe("episodic");
       expect(results[0].importance).toBe(0.7);
-      expect(results[0].metadata?.similarity).toBe(0.85);
     });
 
-    it("filters by agent_id from metadata", async () => {
-      mockSemantic.search.mockResolvedValue([
-        {
-          entry: {
-            id: "uuid-1",
-            type: "workflow_result",
-            content: "wrong agent",
-            embedding: [],
-            metadata: {
-              agentType: "TargetAgent",
-              agent_memory_type: "episodic",
-              organization_id: ORG_ID,
-            },
-            createdAt: new Date(),
-          },
-          similarity: 0.9,
-        },
-      ]);
-
-      const results = await backend.retrieve({
-        agent_id: "OpportunityAgent",
-        organization_id: ORG_ID,
-      });
-
-      expect(results).toHaveLength(0);
-    });
-
-    it("filters by memory_type when specified", async () => {
-      mockSemantic.search.mockResolvedValue([
-        {
-          entry: {
-            id: "uuid-1",
-            type: "workflow_result",
-            content: "semantic memory",
-            embedding: [],
-            metadata: {
-              agentType: "agent-1",
-              agent_memory_type: "semantic",
-              organization_id: ORG_ID,
-              importance: 0.5,
-            },
-            createdAt: new Date(),
-          },
-          similarity: 0.8,
-        },
-      ]);
-
-      const results = await backend.retrieve({
-        agent_id: "agent-1",
-        organization_id: ORG_ID,
-        memory_type: "episodic",
-      });
-
-      expect(results).toHaveLength(0);
-    });
-
-    it("passes organization_id and workspace_id to search", async () => {
+    it("passes SQL/RPC filters to searchAgentMemories", async () => {
       await backend.retrieve({
         agent_id: "agent-1",
         organization_id: ORG_ID,
         workspace_id: "ws-42",
+        memory_type: "semantic",
+        min_importance: 0.6,
         limit: 5,
       });
 
-      expect(mockSemantic.search).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(mockSemanticStore.searchAgentMemories).toHaveBeenCalledWith({
+        organizationId: ORG_ID,
+        type: "workflow_result",
+        agentType: "agent-1",
+        agentMemoryType: "semantic",
+        sessionId: "ws-42",
+        includeCrossWorkspace: undefined,
+        minImportance: 0.6,
+        limit: 5,
+      });
+    });
+
+    it("downgrades cross-workspace retrieval when org is not allowlisted", async () => {
+      await backend.retrieve({
+        agent_id: "agent-1",
+        organization_id: ORG_ID,
+        workspace_id: "ws-42",
+        include_cross_workspace: true,
+        cross_workspace_reason: "compliance-review",
+      });
+
+      expect(mockSemanticStore.searchAgentMemories).toHaveBeenCalledWith(
         expect.objectContaining({
-          organizationId: ORG_ID,
           sessionId: "ws-42",
-          limit: 5,
+          includeCrossWorkspace: false,
         }),
       );
     });
 
     it("throws when organization_id is missing", async () => {
       await expect(
-        backend.retrieve({ agent_id: "agent-1", organization_id: "" })
+        backend.retrieve({ agent_id: "agent-1", organization_id: "" }),
       ).rejects.toThrow("organization_id is required");
     });
   });
@@ -218,36 +174,24 @@ describe("SupabaseMemoryBackend", () => {
 });
 
 describe("getCrossWorkspaceAllowlist — memoization (bug fix)", () => {
-  // Regression: the allowlist Set was rebuilt on every retrieve() call.
-  // The fix caches it at module level. resetCrossWorkspaceAllowlistCache()
-  // is exported for test isolation.
-  //
-  // These tests exercise the allowlist logic directly via the exported
-  // resetCrossWorkspaceAllowlistCache helper, without going through the
-  // full retrieve() path (which requires a live Supabase connection).
-
   afterEach(() => {
     resetCrossWorkspaceAllowlistCache();
     delete process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST;
   });
 
   it("resetCrossWorkspaceAllowlistCache is exported and callable", () => {
-    // Verifies the export exists and does not throw
     expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
   });
 
   it("empty env var produces an empty allowlist (no empty-string entry)", () => {
     process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = "";
     resetCrossWorkspaceAllowlistCache();
-    // Calling reset again after clearing env should not throw
     expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
   });
 
   it("whitespace-only env var produces an empty allowlist", () => {
     process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = "  ,  ,  ";
     resetCrossWorkspaceAllowlistCache();
-    // The cache is cleared; next read will parse the whitespace-only value.
-    // Verifies the reset + re-read cycle does not throw.
     expect(() => resetCrossWorkspaceAllowlistCache()).not.toThrow();
   });
 

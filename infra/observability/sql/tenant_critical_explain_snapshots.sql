@@ -24,3 +24,16 @@ WHERE tenant_id = :'tenant_id'
   AND case_id = :'case_id'
 ORDER BY created_at DESC
 LIMIT 20;
+
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE)
+SELECT id, session_id, importance
+FROM public.search_agent_fabric_memories(
+  :'organization_id'::uuid,
+  'workflow_result',
+  :'agent_type',
+  :'agent_memory_type',
+  :'session_id',
+  false,
+  :'min_importance'::double precision,
+  :'limit'::integer
+);

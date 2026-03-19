@@ -227,6 +227,68 @@ describe('SupabaseSemanticStore', () => {
     });
   });
 
+  describe('searchAgentMemories', () => {
+    it('calls search_agent_fabric_memories RPC with typed filters', async () => {
+      mockRpc.mockResolvedValue({
+        data: [
+          {
+            id: FACT_ID,
+            type: 'workflow_result',
+            content: 'Past discovery result',
+            embedding: null,
+            metadata: {
+              agentType: 'OpportunityAgent',
+              agent_memory_type: 'episodic',
+              importance: 0.8,
+              session_id: 'session-1',
+              status: 'approved',
+              version: 1,
+            },
+            created_at: '2026-03-22T00:00:00Z',
+            updated_at: '2026-03-22T00:00:00Z',
+          },
+        ],
+        error: null,
+      });
+
+      const results = await store.searchAgentMemories({
+        organizationId: ORG_ID,
+        type: 'workflow_result',
+        agentType: 'OpportunityAgent',
+        agentMemoryType: 'episodic',
+        sessionId: 'session-1',
+        includeCrossWorkspace: false,
+        minImportance: 0.6,
+        limit: 5,
+      });
+
+      expect(mockRpc).toHaveBeenCalledWith('search_agent_fabric_memories', {
+        p_organization_id: ORG_ID,
+        p_type: 'workflow_result',
+        p_agent_type: 'OpportunityAgent',
+        p_agent_memory_type: 'episodic',
+        p_session_id: 'session-1',
+        p_include_cross_workspace: false,
+        p_min_importance: 0.6,
+        p_limit: 5,
+      });
+      expect(results).toHaveLength(1);
+      expect(results[0]!.organizationId).toBe(ORG_ID);
+      expect(results[0]!.metadata['agentType']).toBe('OpportunityAgent');
+    });
+
+    it('throws when agent memory RPC returns an error', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
+
+      await expect(
+        store.searchAgentMemories({
+          organizationId: ORG_ID,
+          limit: 10,
+        }),
+      ).rejects.toThrow('rpc failed');
+    });
+  });
+
   describe('searchByEmbedding', () => {
     it('calls match_semantic_memory RPC with correct args', async () => {
       mockRpc.mockResolvedValue({

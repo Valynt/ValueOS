@@ -37,6 +37,29 @@ interface SemanticMemoryRow {
   updated_at: string;
 }
 
+interface SemanticMemorySearchRpcRow {
+  id: string;
+  type: string;
+  content: string;
+  embedding: number[] | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string | null;
+  session_id?: string | null;
+  similarity?: number;
+}
+
+export interface AgentMemorySearchOptions {
+  organizationId: string;
+  limit: number;
+  type?: SemanticFactType;
+  agentType?: string;
+  agentMemoryType?: string;
+  sessionId?: string;
+  includeCrossWorkspace?: boolean;
+  minImportance?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Mapping helpers
 // ---------------------------------------------------------------------------
@@ -56,6 +79,28 @@ function rowToFact(row: SemanticMemoryRow): SemanticFact {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: typeof meta['created_by'] === 'string' ? meta['created_by'] : undefined,
+  };
+}
+
+function searchRpcRowToFact(
+  row: SemanticMemorySearchRpcRow,
+  organizationId: string,
+): SemanticFact {
+  const metadata = row.metadata ?? {};
+  return {
+    id: row.id,
+    type: row.type as SemanticFactType,
+    content: row.content,
+    embedding: row.embedding ?? [],
+    metadata,
+    status: (metadata['status'] as SemanticFactStatus | undefined) ?? 'draft',
+    version: typeof metadata['version'] === 'number' ? metadata['version'] : 1,
+    organizationId,
+    confidenceScore:
+      typeof metadata['confidence_score'] === 'number' ? metadata['confidence_score'] : 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
+    createdBy: typeof metadata['created_by'] === 'string' ? metadata['created_by'] : undefined,
   };
 }
 
@@ -188,6 +233,34 @@ export class SupabaseSemanticStore implements SemanticStore {
     }
 
     return (data as SemanticMemoryRow[]).map(rowToFact);
+  }
+
+  async searchAgentMemories(options: AgentMemorySearchOptions): Promise<SemanticFact[]> {
+    const { data, error } = await this.supabase.rpc('search_agent_fabric_memories', {
+      p_organization_id: options.organizationId,
+      p_type: options.type ?? null,
+      p_agent_type: options.agentType ?? null,
+      p_agent_memory_type: options.agentMemoryType ?? null,
+      p_session_id: options.sessionId ?? null,
+      p_include_cross_workspace: options.includeCrossWorkspace ?? false,
+      p_min_importance: options.minImportance ?? null,
+      p_limit: options.limit,
+    });
+
+    if (error) {
+      logger.error('SupabaseSemanticStore.searchAgentMemories failed', {
+        organizationId: options.organizationId,
+        agentType: options.agentType,
+        agentMemoryType: options.agentMemoryType,
+        sessionId: options.sessionId,
+        error: error.message,
+      });
+      throw new Error(`Agent memory search failed: ${error.message}`);
+    }
+
+    return ((data as SemanticMemorySearchRpcRow[] | null) ?? []).map((row) =>
+      searchRpcRowToFact(row, options.organizationId),
+    );
   }
 
   async searchByEmbedding(

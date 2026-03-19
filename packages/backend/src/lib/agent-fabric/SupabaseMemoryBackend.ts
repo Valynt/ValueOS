@@ -11,7 +11,10 @@
  */
 
 import { logger } from "../logger.js";
-import { SupabaseSemanticStore } from "../memory/SupabaseSemanticStore.js";
+import {
+  SupabaseSemanticStore,
+  type AgentMemorySearchOptions,
+} from "../memory/SupabaseSemanticStore.js";
 
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 import type { Memory, MemoryQuery, MemoryType } from "./MemorySystem.js";
@@ -45,11 +48,18 @@ function getCrossWorkspaceAllowlist(): Set<string> {
   return _crossWorkspaceAllowlistCache;
 }
 
-export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
-  private semanticStore: SupabaseSemanticStore;
+interface SemanticStoreAdapter {
+  insert: SupabaseSemanticStore["insert"];
+  searchAgentMemories: (
+    options: AgentMemorySearchOptions,
+  ) => ReturnType<SupabaseSemanticStore["searchAgentMemories"]>;
+}
 
-  constructor() {
-    this.semanticStore = new SupabaseSemanticStore();
+export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
+  private semanticStore: SemanticStoreAdapter;
+
+  constructor(semanticStore: SemanticStoreAdapter = new SupabaseSemanticStore()) {
+    this.semanticStore = semanticStore;
   }
 
   async store(memory: Memory): Promise<string> {
@@ -127,29 +137,25 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
     }
 
     try {
-      const results = await this.semanticStore.findByOrganization(
-        query.organization_id,
-        DB_TYPE,
-      );
+      const results = await this.semanticStore.searchAgentMemories({
+        organizationId: query.organization_id,
+        type: DB_TYPE,
+        agentType: query.agent_id,
+        agentMemoryType: query.memory_type,
+        sessionId: query.workspace_id,
+        includeCrossWorkspace: query.include_cross_workspace,
+        minImportance: query.min_importance,
+        limit: query.limit || 10,
+      });
 
-      const memories: Memory[] = [];
-      for (const fact of results) {
+      return results.map((fact) => {
         const meta = fact.metadata as Record<string, unknown>;
+        const workspaceId = typeof meta["session_id"] === "string" ? meta["session_id"] : "";
+        const importance = typeof meta["importance"] === "number" ? meta["importance"] : 0.5;
 
-        if (query.agent_id && meta["agentType"] !== query.agent_id) continue;
-        if (query.memory_type && meta["agent_memory_type"] !== query.memory_type) continue;
-
-        const workspaceId = String(meta["session_id"] || "");
-        if (!query.include_cross_workspace && query.workspace_id && workspaceId !== query.workspace_id) continue;
-
-        const importance =
-          typeof meta["importance"] === "number" ? meta["importance"] : 0.5;
-
-        if (query.min_importance && importance < query.min_importance) continue;
-
-        memories.push({
+        return {
           id: (meta["agent_memory_id"] as string) || fact.id,
-          agent_id: String(meta["agentType"] || ""),
+          agent_id: typeof meta["agentType"] === "string" ? meta["agentType"] : query.agent_id,
           organization_id: query.organization_id,
           workspace_id: workspaceId,
           content: fact.content,
@@ -160,11 +166,8 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
           access_count:
             typeof meta["access_count"] === "number" ? meta["access_count"] : 0,
           metadata: meta,
-        });
-      }
-
-      memories.sort((a, b) => b.importance - a.importance);
-      return memories.slice(0, query.limit || 10);
+        } satisfies Memory;
+      });
     } catch (error) {
       logger.error("Failed to retrieve memories from Supabase", error as Error, {
         agent_id: query.agent_id,
