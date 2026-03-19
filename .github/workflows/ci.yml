@@ -686,7 +686,7 @@ jobs:
           # Do not reintroduce localhost probes here unless the job also starts a backend,
           # captures BACKEND_PID, waits for readiness, and tears it down deterministically.
           case "$STAGING_HEALTHCHECK_URL" in
-            http://localhost*|http://127.0.0.1*|http://[::1]*|https://localhost*|https://127.0.0.1*|https://[::1]*)
+            http://localhost*|http://127.0.0.1*|http://\[::1\]*|https://localhost*|https://127.0.0.1*|https://\[::1\]*)
               echo "❌ STAGING_HEALTHCHECK_URL must target a deployed staging endpoint, not localhost: $STAGING_HEALTHCHECK_URL"
               exit 1
               ;;
