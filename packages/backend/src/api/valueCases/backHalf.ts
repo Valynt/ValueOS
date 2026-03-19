@@ -47,9 +47,15 @@ import {
 } from "../../services/post-v1/ValueLifecycleOrchestrator.js";
 import { SupabaseProvenanceStore } from "../../services/workflows/SagaAdapters.js";
 import type { LifecycleContext, LifecycleStage } from "../../types/agent.js";
+import type { AgentType } from "../../services/agent-types.js";
 import { checkpointScheduler } from "../../services/handoff/CheckpointScheduler.js";
 import { handoffNotesGenerator } from "../../services/handoff/HandoffNotesGenerator.js";
 import { promiseBaselineService } from "../../services/handoff/PromiseBaselineService.js";
+import {
+  buildInteractiveSyncDeniedMessage,
+  getAgentColdStartClass,
+  isInteractiveSyncAgentAllowed,
+} from "../../services/agents/AgentInvocationPolicy.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -94,7 +100,7 @@ function getFactory() {
 async function runAgent(
   req: Request,
   res: Response,
-  agentId: string,
+  agentId: AgentType,
   lifecycleStage: LifecycleStage
 ): Promise<Response> {
   const tenantId = getTenantId(req);
@@ -116,6 +122,16 @@ async function runAgent(
       success: false,
       error: "Invalid request body",
       details: parsed.error.flatten(),
+    });
+  }
+
+  if (!isInteractiveSyncAgentAllowed(agentId)) {
+    return res.status(409).json({
+      success: false,
+      error: buildInteractiveSyncDeniedMessage(agentId, 'backHalf.runAgent'),
+      coldStartClass: getAgentColdStartClass(agentId),
+      recommendedWorkflow:
+        'Invoke this agent through a queued/polling/streaming workflow instead of the synchronous back-half route.',
     });
   }
 

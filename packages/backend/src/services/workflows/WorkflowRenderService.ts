@@ -8,6 +8,7 @@ import { CircuitBreaker } from "../../lib/resilience/CircuitBreaker.js";
 import { assertTenantContextMatch } from "../../lib/tenant/assertTenantContextMatch.js";
 import type { AgentResponse, ExecutionEnvelope, StreamingUpdate } from "../../types/orchestration.js";
 import { AgentType } from "../agent-types";
+import { assertInteractiveSyncAgentAllowed } from "../agents/AgentInvocationPolicy.js";
 import type { AgentAPI, AgentContext, AgentResponse as APIAgentResponse } from "../AgentAPI";
 
 let _renderFactory: ReturnType<typeof createAgentFactory> | null = null;
@@ -56,6 +57,7 @@ export class DefaultWorkflowRenderService implements WorkflowRenderService {
     streamingCallback?: (update: StreamingUpdate) => void
   ): Promise<AgentResponse> {
     this.validateEnvelope(envelope);
+    assertInteractiveSyncAgentAllowed(agent, 'WorkflowRenderService.generateSDUIPage');
     if (!this.isEnabled()) {
       throw new Error("SDUI generation is disabled");
     }
