@@ -20,8 +20,6 @@ import { buildEventEnvelope, getDomainEventBus } from '../../../events/DomainEve
 import { RealizationReportRepository } from '../../../repositories/RealizationReportRepository.js';
 import type {
   AgentOutput,
-  AgentOutputMetadata,
-  ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
 import { logger } from '../../logger.js';
@@ -269,33 +267,60 @@ export class RealizationAgent extends BaseAgent {
     analysis: RealizationAnalysis,
   ): Promise<void> {
     const traceId = (context.metadata?.trace_id as string | undefined) ?? context.workspace_id;
+    const publishBatchSize = 5;
 
-    for (const proofPoint of analysis.proof_points) {
-      try {
-        await getDomainEventBus().publish('realization.milestone_reached', {
-          ...buildEventEnvelope({
-            traceId,
-            tenantId: context.organization_id,
-            actorId: context.user_id,
-          }),
-          opportunityId,
-          workspaceId: context.workspace_id,
-          kpiId: proofPoint.kpi_id,
-          kpiName: proofPoint.kpi_name,
-          committedValue: proofPoint.committed_value,
-          realizedValue: proofPoint.realized_value,
-          unit: proofPoint.unit,
-          variancePercentage: proofPoint.variance_percentage,
-          direction: proofPoint.direction,
-          overallRealizationRate: analysis.overall_realization_rate,
-          expansionSignalCount: analysis.expansion_signals.length,
-        });
-      } catch (err) {
+    for (let i = 0; i < analysis.proof_points.length; i += publishBatchSize) {
+      const proofPointBatch = analysis.proof_points.slice(i, i + publishBatchSize);
+      const publishResults = await Promise.allSettled(
+        proofPointBatch.map(async (proofPoint) => {
+          try {
+            await getDomainEventBus().publish('realization.milestone_reached', {
+              ...buildEventEnvelope({
+                traceId,
+                tenantId: context.organization_id,
+                actorId: context.user_id,
+              }),
+              opportunityId,
+              workspaceId: context.workspace_id,
+              kpiId: proofPoint.kpi_id,
+              kpiName: proofPoint.kpi_name,
+              committedValue: proofPoint.committed_value,
+              realizedValue: proofPoint.realized_value,
+              unit: proofPoint.unit,
+              variancePercentage: proofPoint.variance_percentage,
+              direction: proofPoint.direction,
+              overallRealizationRate: analysis.overall_realization_rate,
+              expansionSignalCount: analysis.expansion_signals.length,
+            });
+          } catch (error) {
+            throw {
+              proofPoint,
+              error,
+            };
+          }
+        }),
+      );
+
+      publishResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          return;
+        }
+
+        const proofPoint =
+          result.reason && typeof result.reason === 'object' && 'proofPoint' in result.reason
+            ? result.reason.proofPoint as RealizationAnalysis['proof_points'][number]
+            : undefined;
+        const reason =
+          result.reason && typeof result.reason === 'object' && 'error' in result.reason
+            ? result.reason.error
+            : result.reason;
+
         logger.warn('RealizationAgent: failed to publish realization.milestone_reached event', {
-          kpi_id: proofPoint.kpi_id,
-          error: (err as Error).message,
+          kpi_id: proofPoint?.kpi_id,
+          kpi_name: proofPoint?.kpi_name,
+          error: reason instanceof Error ? reason.message : String(reason),
         });
-      }
+      });
     }
   }
 
