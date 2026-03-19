@@ -15,6 +15,10 @@ import { supabase } from '../../lib/supabase.js';
 import type { IntentCategory } from '../../types/intent.js';
 import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../../types/orchestration.js';
 import type { AgentType } from '../agent-types.js';
+import {
+  buildInteractiveSyncDeniedMessage,
+  isInteractiveSyncAgentAllowed,
+} from '../agents/AgentInvocationPolicy.js';
 import type { VectorSearchService } from '../memory/VectorSearchService.js';
 
 import type { EmbeddingService } from './EmbeddingService.js';
@@ -73,8 +77,17 @@ const INTENT_TO_AGENT: Record<string, AgentType> = {
   realization: 'realization',
 };
 
-function resolveAgentFromIntent(intent: string): AgentType | null {
+export function resolveAgentFromIntent(intent: string): AgentType | null {
   return INTENT_TO_AGENT[intent] ?? null;
+}
+
+export function resolveInteractiveAgentFromIntent(intent: string): AgentType | null {
+  const resolvedAgent = resolveAgentFromIntent(intent);
+  if (!resolvedAgent) {
+    return null;
+  }
+
+  return isInteractiveSyncAgentAllowed(resolvedAgent) ? resolvedAgent : null;
 }
 
 // ============================================================================
@@ -134,7 +147,7 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
       const topMatch = historicalResults[0];
       if (topMatch && topMatch.similarity >= this.config.historicalMatchThreshold) {
         const previousAgent = topMatch.memory.metadata?.agentType as AgentType | undefined;
-        if (previousAgent) {
+        if (previousAgent && isInteractiveSyncAgentAllowed(previousAgent)) {
           logger.info('SemanticIntentMiddleware: using historical match', {
             traceId: context.traceId,
             agent: previousAgent,
@@ -184,6 +197,21 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
 
       // 6. Route to resolved agent
       if (intentGraph.resolvedAgent) {
+        if (!isInteractiveSyncAgentAllowed(intentGraph.resolvedAgent)) {
+          return {
+            type: 'message',
+            payload: {
+              error: 'async_only_agent',
+              message: buildInteractiveSyncDeniedMessage(
+                intentGraph.resolvedAgent,
+                'SemanticIntentMiddleware.execute'
+              ),
+              agent: intentGraph.resolvedAgent,
+              recommendedWorkflow: 'Use a queue, polling endpoint, or SSE stream for this request.',
+            },
+          };
+        }
+
         context.agentType = intentGraph.resolvedAgent;
       }
 
@@ -230,7 +258,9 @@ export class SemanticIntentMiddleware implements AgentMiddleware {
 
     const systemPrompt = `You are an intent classifier for a value engineering platform. Classify the user query into a structured intent graph.
 
-Available agent types: opportunity, target, realization, expansion, integrity, company-intelligence, financial-modeling, value-mapping, system-mapper, intervention-designer, outcome-engineer, coordinator, value-eval, communicator, research, benchmark, narrative, groundtruth.
+Available interactive agent types: opportunity, target, realization, expansion, integrity, financial-modeling.
+
+Async-only agent types (must be handled via queue, polling, or streaming workflows): company-intelligence, research, benchmark, value-mapping, system-mapper, intervention-designer, outcome-engineer, coordinator, value-eval, communicator, narrative, groundtruth.
 
 Available intent categories: navigation, query, action, creation, modification, deletion, analysis.
 

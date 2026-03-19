@@ -77,6 +77,151 @@ data:
             expr: |
               (1 - slo:agent_cold_start:good_rate1h) / (1 - slo:target:agent_cold_start)
 
+          # Static agent capacity inventory for dashboards and joins.
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: opportunity-agent
+              cold_start_class: interactive-warm
+              request_path_class: synchronous
+              warm_capacity: required
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: target-agent
+              cold_start_class: interactive-warm
+              request_path_class: synchronous
+              warm_capacity: required
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: integrity-agent
+              cold_start_class: interactive-warm
+              request_path_class: synchronous
+              warm_capacity: required
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: expansion-agent
+              cold_start_class: interactive-warm
+              request_path_class: synchronous
+              warm_capacity: required
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: realization-agent
+              cold_start_class: interactive-warm
+              request_path_class: synchronous
+              warm_capacity: required
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: financial-modeling-agent
+              cold_start_class: interactive-warm
+              request_path_class: synchronous
+              warm_capacity: required
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: research-agent
+              cold_start_class: async-warm
+              request_path_class: async
+              warm_capacity: provisioned
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: company-intelligence-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: value-mapping-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: system-mapper-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: intervention-designer-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: outcome-engineer-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: coordinator-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: value-eval-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: communicator-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: benchmark-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: narrative-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
+          - record: valueos:agent_capacity_profile
+            expr: vector(1)
+            labels:
+              agent: groundtruth-agent
+              cold_start_class: async-scale-to-zero
+              request_path_class: async
+              warm_capacity: none
+
           # API availability SLI (non-5xx over total)
           - record: slo:api_availability:ratio_rate5m
             expr: |

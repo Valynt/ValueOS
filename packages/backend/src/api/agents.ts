@@ -70,6 +70,12 @@ import { getEventSourcingService } from "../services/post-v1/EventSourcingServic
 import { getEventProducer } from "../services/realtime/EventProducer.js";
 import type { LifecycleContext, LifecycleStage } from "../types/agent.js";
 import { sanitizeAgentInput } from "../utils/security.js";
+import type { AgentType } from "../services/agent-types.js";
+import {
+  buildInteractiveSyncDeniedMessage,
+  getAgentColdStartClass,
+  isInteractiveSyncAgentAllowed,
+} from "../services/agents/AgentInvocationPolicy.js";
 
 // Shared factory instance — created lazily on first direct-execution request.
 // Avoids startup cost when Kafka is available.
@@ -189,7 +195,7 @@ function buildAgentRequestEvent(
 }
 
 function kafkaUnavailableResponse(res: Response): Response {
-  return void res.status(503).json({
+  return res.status(503).json({
     success: false,
     error: {
       code: "KAFKA_DISABLED",
@@ -380,6 +386,18 @@ router.post(
     }
 
     if (!isKafkaEnabled()) {
+      if (!isInteractiveSyncAgentAllowed(agentId as AgentType)) {
+        return void res.status(409).json({
+          success: false,
+          error: {
+            code: "AGENT_ASYNC_ONLY",
+            message: buildInteractiveSyncDeniedMessage(agentId as AgentType, "/api/agents/:agentId/invoke"),
+            coldStartClass: getAgentColdStartClass(agentId as AgentType),
+            recommendedWorkflow: "Use the queued /api/agents/:agentId/invoke flow with Kafka enabled, then poll /api/agents/jobs/:jobId or stream /api/agents/jobs/:jobId/stream.",
+          },
+        });
+      }
+
       // Direct execution fallback: run the agent synchronously without Kafka.
       // Returns the same response shape as the Kafka path so callers are mode-agnostic.
       const jobId = uuidv4();
