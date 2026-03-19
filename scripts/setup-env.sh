@@ -46,11 +46,11 @@ case "$ENV_NAME" in
     ;;
   staging)
     TEMPLATE="$ENV_DIR/.env.staging.template"
-    TARGET="$ENV_DIR/.env.staging.bootstrap"
+    TARGET="$ENV_DIR/.env.staging"
     ;;
   prod)
     TEMPLATE="$ENV_DIR/.env.production.template"
-    TARGET="$ENV_DIR/.env.production.bootstrap"
+    TARGET="$ENV_DIR/.env.production"
     ;;
   test)
     TEMPLATE="$ENV_DIR/.env.test.template"
