@@ -792,7 +792,7 @@ jobs:
           pnpm --filter @valueos/backend exec vitest run \
             src/services/billing/__tests__/EntitlementSnapshotService.test.ts \
             src/services/billing/__tests__/RatingEngine.test.ts \
-            src/services/billing/__tests__/security/sensitive-data.test.ts
+            src/services/billing/__tests__/security/sensitive-data.security.test.ts
 
       - name: Run localization smoke checks
         run: |

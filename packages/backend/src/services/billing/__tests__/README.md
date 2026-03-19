@@ -22,17 +22,17 @@ src/services/billing/__tests__/
 │   └── test-fixtures.ts      # Common test setup
 │
 ├── security/                 # Security & compliance tests
-│   ├── rls-policies.test.ts
+│   ├── rls-policies.security.test.ts
 │   ├── webhook-security.test.ts
-│   ├── input-validation.test.ts
-│   └── sensitive-data.test.ts
+│   ├── input-validation.security.test.ts
+│   └── sensitive-data.security.test.ts
 │
 ├── resiliency/               # Failure handling tests
 │   ├── webhook-retry.test.ts
 │   └── usage-idempotency.test.ts
 │
 └── integration/              # E2E tests
-    └── subscription-lifecycle.test.ts
+    └── subscription-lifecycle.integration.test.ts
 ```
 
 ## Prerequisites
@@ -69,38 +69,38 @@ supabase db reset
 ### All Tests
 
 ```bash
-npm test
+pnpm --filter @valueos/backend run test:unit
 ```
 
 ### Specific Test Suites
 
 ```bash
 # Security tests only
-npm test src/services/billing/__tests__/security
+pnpm --filter @valueos/backend run test:security
 
 # Resiliency tests only
-npm test src/services/billing/__tests__/resiliency
+pnpm --filter @valueos/backend test -- src/services/billing/__tests__/resiliency
 
 # Integration tests only
-npm test src/services/billing/__tests__/integration
+pnpm --filter @valueos/backend run test:integration
 ```
 
 ### Specific Test File
 
 ```bash
-npm test src/services/billing/__tests__/security/rls-policies.test.ts
+pnpm --filter @valueos/backend run test:security -- src/services/billing/__tests__/security/rls-policies.security.test.ts
 ```
 
 ### Watch Mode
 
 ```bash
-npm test -- --watch
+pnpm --filter @valueos/backend run test:watch
 ```
 
 ### Coverage
 
 ```bash
-npm test -- --coverage
+pnpm --filter @valueos/backend run test:unit -- --coverage
 ```
 
 ## Test Categories
@@ -109,10 +109,10 @@ npm test -- --coverage
 
 **Critical for production**: Prevent data breaches and ensure compliance.
 
-- **RLS Policies** (`rls-policies.test.ts`): Validates multi-tenant data isolation
+- **RLS Policies** (`rls-policies.security.test.ts`): Validates multi-tenant data isolation
 - **Webhook Security** (`webhook-security.test.ts`): Signature verification, replay prevention
-- **Input Validation** (`input-validation.test.ts`): SQL injection, XSS, validation
-- **Sensitive Data** (`sensitive-data.test.ts`): PII protection, PCI compliance
+- **Input Validation** (`input-validation.security.test.ts`): SQL injection, XSS, validation
+- **Sensitive Data** (`sensitive-data.security.test.ts`): PII protection, PCI compliance
 
 ### Resiliency Tests
 
@@ -125,7 +125,7 @@ npm test -- --coverage
 
 **Critical for correctness**: Validate end-to-end flows.
 
-- **Subscription Lifecycle** (`subscription-lifecycle.test.ts`): Create, upgrade, downgrade, cancel
+- **Subscription Lifecycle** (`subscription-lifecycle.integration.test.ts`): Create, upgrade, downgrade, cancel
 
 ## Test Helpers
 

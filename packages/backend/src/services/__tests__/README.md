@@ -29,10 +29,10 @@ packages/backend/src/services/__tests__/
 ├── export/                  # Executive Output tests
 │   └── ArtifactGeneratorService.test.ts
 ├── integration/             # End-to-end integration tests
-│   ├── servicePipeline.test.ts
+│   ├── servicePipeline.integration.test.ts
 │   └── helpers/testHelpers.ts
 ├── security/                # Security & tenant isolation tests
-│   └── tenantIsolation.test.ts
+│   └── tenantIsolation.security.test.ts
 └── widgets/                 # SDUI Widget tests
     ├── StakeholderMap.test.tsx
     ├── GapResolution.test.tsx
@@ -84,38 +84,38 @@ pnpm install
 ### All Tests
 
 ```bash
-pnpm --filter backend test
+pnpm --filter @valueos/backend run test:unit
 ```
 
 ### Specific Test Suites
 
 ```bash
 # Deal Assembly tests
-pnpm --filter backend test deal/CRMConnector.test.ts
+pnpm --filter @valueos/backend test -- deal/CRMConnector.test.ts
 
 # Ground Truth tests
-pnpm --filter backend test ground-truth/
+pnpm --filter @valueos/backend test -- ground-truth/
 
 # Trust Layer tests
-pnpm --filter backend test integrity/
+pnpm --filter @valueos/backend test -- integrity/
 
 # Integration tests
-pnpm --filter backend test integration/
+pnpm --filter @valueos/backend run test:integration
 
 # Security tests
-pnpm --filter backend test security/
+pnpm --filter @valueos/backend run test:security
 ```
 
 ### Watch Mode
 
 ```bash
-pnpm --filter backend test -- --watch
+pnpm --filter @valueos/backend run test:watch
 ```
 
 ### Coverage
 
 ```bash
-pnpm --filter backend test -- --coverage
+pnpm --filter @valueos/backend run test:unit -- --coverage
 ```
 
 ### RLS Policy Validation
@@ -144,7 +144,7 @@ Test individual service methods and agent behaviors in isolation.
 Test service-to-service communication and data flow.
 
 **Key integration test files:**
-- `servicePipeline.test.ts` - End-to-end service orchestration
+- `servicePipeline.integration.test.ts` - End-to-end service orchestration
   - CRM → DealAssembly → Database
   - SEC EDGAR → XBRL → Ground Truth
   - Assumptions → Readiness → Plausibility
@@ -156,7 +156,7 @@ Test service-to-service communication and data flow.
 Validate tenant isolation and RBAC enforcement.
 
 **Key security test files:**
-- `tenantIsolation.test.ts` - Cross-tenant access blocking
+- `tenantIsolation.security.test.ts` - Cross-tenant access blocking
   - RLS policy validation
   - RBAC permission checks
   - Service role constraints
@@ -382,7 +382,7 @@ Tests run automatically in GitHub Actions on pull requests:
 
 ```yaml
 - name: Run tests
-  run: pnpm --filter backend test
+  run: pnpm --filter @valueos/backend run test:unit
 
 - name: Validate RLS policies
   run: pnpm run test:rls

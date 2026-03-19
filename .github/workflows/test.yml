@@ -79,8 +79,8 @@ jobs:
           ARGS=()
           if [ "$COVERAGE" = "true" ]; then ARGS+=(--coverage); fi
           if [ -n "$FILTER" ]; then ARGS+=(-- "$FILTER"); fi
-          echo "Running: npx vitest run ${ARGS[*]}"
-          npx vitest run "${ARGS[@]}"
+          echo "Running: pnpm test -- ${ARGS[*]}"
+          pnpm test -- "${ARGS[@]}"
 
       - name: Upload coverage
         if: ${{ github.event.inputs.coverage == 'true' }}
@@ -89,3 +89,139 @@ jobs:
           name: coverage-${{ github.run_id }}
           path: coverage/
           retention-days: 14
+
+
+  backend-integration:
+    name: backend integration
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run backend integration suites
+        run: pnpm run test:backend:integration
+
+  backend-security:
+    name: backend security
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run backend security suites
+        run: pnpm run test:backend:security
+
+  backend-performance:
+    name: backend performance
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      SUPABASE_JWT_SECRET: test-jwt-secret-minimum-32-characters-long
+      SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+      SUPABASE_JWT_AUDIENCE: authenticated
+      ALLOW_LOCAL_JWT_FALLBACK: 'true'
+      DISABLE_REDIS: 'true'
+      OPENAI_API_KEY: test-openai-key
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.store_path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run backend performance suites
+        run: pnpm run test:backend:performance

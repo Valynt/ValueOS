@@ -96,7 +96,7 @@ const inlineProjects = {
 
 const delegatedProjects = {
   "apps/ValyntApp": "apps/ValyntApp",
-  "packages/backend": "packages/backend",
+  "packages/backend": "packages/backend/vitest.config.ts",
   "packages/components": "packages/components",
   "packages/components/design-system": "packages/components",
   "packages/integrations": "packages/integrations",
