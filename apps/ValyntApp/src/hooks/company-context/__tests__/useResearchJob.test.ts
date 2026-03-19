@@ -15,9 +15,21 @@ const { mockRequest } = vi.hoisted(() => ({
   mockRequest: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase", () => ({
-  supabase: { from: vi.fn() },
+const { mockSupabaseFrom } = vi.hoisted(() => ({
+  mockSupabaseFrom: vi.fn(),
 }));
+
+vi.mock("@/lib/supabase", () => {
+  const supabase = { from: mockSupabaseFrom };
+
+  return {
+    supabase,
+    createBrowserSupabaseClient: vi.fn(() => supabase),
+    createRequestSupabaseClient: vi.fn(() => supabase),
+    createServerSupabaseClient: vi.fn(() => supabase),
+    getSupabaseClient: vi.fn(() => supabase),
+  };
+});
 
 vi.mock("@/api/client/unified-api-client", () => ({
   apiClient: {

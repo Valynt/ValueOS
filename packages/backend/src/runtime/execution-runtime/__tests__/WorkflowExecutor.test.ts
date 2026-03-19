@@ -21,7 +21,34 @@ vi.mock('../../../lib/supabase', () => ({
     }),
   },
 }));
-vi.mock('@opentelemetry/api', () => ({ SpanStatusCode: { OK: 1, ERROR: 2 } }));
+vi.mock('@opentelemetry/api', () => {
+  const activeContext = {};
+  const activeSpan = undefined;
+  const trace = {
+    getTracer: vi.fn(() => ({
+      startSpan: vi.fn(() => ({
+        setAttributes: vi.fn(),
+        setStatus: vi.fn(),
+        recordException: vi.fn(),
+        end: vi.fn(),
+      })),
+    })),
+    getSpan: vi.fn(() => activeSpan),
+    getActiveSpan: vi.fn(() => activeSpan),
+    setSpan: vi.fn((_ctx: unknown, span: unknown) => ({ ...activeContext, span })),
+  };
+  const context = {
+    active: vi.fn(() => activeContext),
+    with: vi.fn((_ctx: unknown, fn: () => unknown) => fn()),
+  };
+
+  return {
+    Span: vi.fn(),
+    SpanStatusCode: { OK: 1, ERROR: 2 },
+    context,
+    trace,
+  };
+});
 vi.mock('../../../config/telemetry', () => ({
   getTracer: vi.fn(function () {
     return {

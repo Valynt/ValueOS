@@ -18,12 +18,24 @@ import {
   useOnboardingStatus,
 } from "../useCompanyContext";
 
-// Mock supabase
-vi.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
+const { mockSupabaseFrom } = vi.hoisted(() => ({
+  mockSupabaseFrom: vi.fn(),
 }));
+
+// Mock supabase
+vi.mock("@/lib/supabase", () => {
+  const supabase = {
+    from: mockSupabaseFrom,
+  };
+
+  return {
+    supabase,
+    createBrowserSupabaseClient: vi.fn(() => supabase),
+    createRequestSupabaseClient: vi.fn(() => supabase),
+    createServerSupabaseClient: vi.fn(() => supabase),
+    getSupabaseClient: vi.fn(() => supabase),
+  };
+});
 
 import { supabase } from "@/lib/supabase";
 
@@ -108,7 +120,7 @@ describe("useCompanyContext", () => {
     it("should return null when no context exists", async () => {
       const mock = createChainableMock();
       mock.maybeSingle.mockResolvedValue({ data: null, error: null });
-      vi.mocked(supabase.from).mockReturnValue(mock as unknown as ReturnType<typeof supabase.from>);
+      mockSupabaseFrom.mockReturnValue(mock as unknown as ReturnType<typeof supabase.from>);
 
       const { result } = renderHook(() => useCompanyContext(mockTenantId), {
         wrapper: Wrapper,
@@ -131,7 +143,7 @@ describe("useCompanyContext", () => {
       );
 
       // Mock parallel queries for related data - need to handle .then() pattern
-      vi.mocked(supabase.from).mockImplementation((table: string) => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
         const chainable = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -191,7 +203,7 @@ describe("useCompanyContext", () => {
     it("should throw on database error", async () => {
       const mock = createChainableMock();
       mock.maybeSingle.mockResolvedValue({ data: null, error: { message: "DB error" } });
-      vi.mocked(supabase.from).mockReturnValue(mock as unknown as ReturnType<typeof supabase.from>);
+      mockSupabaseFrom.mockReturnValue(mock as unknown as ReturnType<typeof supabase.from>);
 
       const { result } = renderHook(() => useCompanyContext(mockTenantId), {
         wrapper: Wrapper,
@@ -207,7 +219,7 @@ describe("useCompanyContext", () => {
     it("should return 'none' when no context exists", async () => {
       const mock = createChainableMock();
       mock.maybeSingle.mockResolvedValue({ data: null, error: null });
-      vi.mocked(supabase.from).mockReturnValue(mock as unknown as ReturnType<typeof supabase.from>);
+      mockSupabaseFrom.mockReturnValue(mock as unknown as ReturnType<typeof supabase.from>);
 
       const { result } = renderHook(() => useOnboardingStatus(mockTenantId), {
         wrapper: Wrapper,
@@ -229,7 +241,7 @@ describe("useCompanyContext", () => {
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
 
-      vi.mocked(supabase.from).mockImplementation(() => ({
+      mockSupabaseFrom.mockImplementation(() => ({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         is: vi.fn().mockReturnThis(),
@@ -271,7 +283,7 @@ describe("useCompanyContext", () => {
         }),
       });
 
-      vi.mocked(supabase.from).mockImplementation((table: string) => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === "company_contexts") {
           return {
             insert: mockInsert,
@@ -307,7 +319,7 @@ describe("useCompanyContext", () => {
     it("should insert competitors", async () => {
       const mockInsert = vi.fn().mockResolvedValue({ error: null });
 
-      vi.mocked(supabase.from).mockReturnValue({
+      mockSupabaseFrom.mockReturnValue({
         insert: mockInsert,
       } as unknown as ReturnType<typeof supabase.from>);
 
@@ -333,7 +345,7 @@ describe("useCompanyContext", () => {
     it("should insert personas", async () => {
       const mockInsert = vi.fn().mockResolvedValue({ error: null });
 
-      vi.mocked(supabase.from).mockReturnValue({
+      mockSupabaseFrom.mockReturnValue({
         insert: mockInsert,
       } as unknown as ReturnType<typeof supabase.from>);
 
@@ -363,7 +375,7 @@ describe("useCompanyContext", () => {
     it("should insert claim governance", async () => {
       const mockInsert = vi.fn().mockResolvedValue({ error: null });
 
-      vi.mocked(supabase.from).mockReturnValue({
+      mockSupabaseFrom.mockReturnValue({
         insert: mockInsert,
       } as unknown as ReturnType<typeof supabase.from>);
 
@@ -418,7 +430,7 @@ describe("useCompanyContext", () => {
         return { select };
       };
 
-      vi.mocked(supabase.from).mockImplementation((table: string) => {
+      mockSupabaseFrom.mockImplementation((table: string) => {
         if (table === "company_contexts") {
           return {
             select: vi.fn().mockReturnValue({

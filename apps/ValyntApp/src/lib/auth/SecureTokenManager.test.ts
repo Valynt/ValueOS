@@ -22,16 +22,24 @@ const createStorageMock = () => {
   };
 };
 
-vi.mock("../supabase", () => ({
-  supabase: {
+vi.mock("../supabase", () => {
+  const supabase = {
     auth: {
       getSession: mockGetSession,
       onAuthStateChange: mockOnAuthStateChange,
       signOut: mockSignOut,
     },
     rpc: mockRpc,
-  },
-}));
+  };
+
+  return {
+    supabase,
+    createBrowserSupabaseClient: vi.fn(() => supabase),
+    createRequestSupabaseClient: vi.fn(() => supabase),
+    createServerSupabaseClient: vi.fn(() => supabase),
+    getSupabaseClient: vi.fn(() => supabase),
+  };
+});
 
 let secureTokenManager: typeof import("./SecureTokenManager")["secureTokenManager"];
 

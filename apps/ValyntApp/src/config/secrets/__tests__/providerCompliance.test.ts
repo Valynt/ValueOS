@@ -58,7 +58,7 @@ vi.mock('@aws-sdk/client-secrets-manager', () => {
 
 vi.mock('node-vault', () => ({
   default: vi.fn(() => mockVaultClient),
-}));
+}), { virtual: true });
 
 vi.mock('../../../lib/logger', () => ({
   logger: {
@@ -68,15 +68,25 @@ vi.mock('../../../lib/logger', () => ({
   },
 }));
 
-vi.mock('../../../lib/supabase', () => ({
-  createServerSupabaseClient: vi.fn(() => ({
+vi.mock('../../../lib/supabase', () => {
+  const mockServerClient = {
     from: vi.fn(() => ({
       insert: vi.fn().mockResolvedValue({ error: null }),
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
     })),
-  })),
-}));
+  };
+
+  return {
+    supabase: null,
+    createBrowserSupabaseClient: vi.fn(() => {
+      throw new Error('createBrowserSupabaseClient() is only available in browser tests');
+    }),
+    createRequestSupabaseClient: vi.fn(() => mockServerClient),
+    createServerSupabaseClient: vi.fn(() => mockServerClient),
+    getSupabaseClient: vi.fn(() => mockServerClient),
+  };
+});
 
 describe.each([
   {
