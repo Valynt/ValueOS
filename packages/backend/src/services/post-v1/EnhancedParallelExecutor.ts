@@ -8,6 +8,7 @@
 import { randomUUID } from "crypto";
 
 import { logger } from "../../lib/logger.js";
+import { registerShutdownHandler } from "../../lib/shutdown/gracefulShutdown.js";
 
 import { AgentType } from "./agent-types.js";
 import { getCategorizedCircuitBreakerManager } from "./CircuitBreakerManager.js";
@@ -177,8 +178,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
   private currentMaxConcurrency = 10;
   private resourceScalingEnabled = true;
   private currentPlan: ParallelExecutionPlan | null = null;
+  private isTornDown = false;
 
-  constructor(
+  private constructor(
     baseConcurrency: number = 10,
     enableResourceScaling: boolean = true
   ) {
@@ -190,6 +192,21 @@ export class EnhancedParallelExecutor implements ResourceListener {
     if (enableResourceScaling) {
       this.resourceMonitor.addListener(this);
       this.resourceMonitor.startMonitoring();
+    }
+  }
+
+  /**
+   * Release any external subscriptions owned by this executor.
+   */
+  teardown(): void {
+    if (this.isTornDown) {
+      return;
+    }
+
+    this.isTornDown = true;
+
+    if (this.resourceScalingEnabled) {
+      this.resourceMonitor.removeListener(this);
     }
   }
 
@@ -1007,14 +1024,24 @@ function calculateExecutionOrder(groups: ParallelGroup[]): string[][] {
 // ============================================================================
 
 let enhancedParallelExecutorInstance: EnhancedParallelExecutor | null = null;
+let enhancedParallelExecutorShutdownRegistered = false;
 
 export function getEnhancedParallelExecutor(): EnhancedParallelExecutor {
   if (!enhancedParallelExecutorInstance) {
     enhancedParallelExecutorInstance = new EnhancedParallelExecutor();
   }
+
+  if (!enhancedParallelExecutorShutdownRegistered) {
+    registerShutdownHandler(() => {
+      resetEnhancedParallelExecutor();
+    });
+    enhancedParallelExecutorShutdownRegistered = true;
+  }
+
   return enhancedParallelExecutorInstance;
 }
 
 export function resetEnhancedParallelExecutor(): void {
+  enhancedParallelExecutorInstance?.teardown();
   enhancedParallelExecutorInstance = null;
 }
