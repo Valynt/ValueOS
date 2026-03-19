@@ -46,11 +46,11 @@ case "$ENV_NAME" in
     ;;
   staging)
     TEMPLATE="$ENV_DIR/.env.staging.template"
-    TARGET="$ENV_DIR/.env.staging"
+    TARGET="$ENV_DIR/.env.staging.bootstrap"
     ;;
   prod)
     TEMPLATE="$ENV_DIR/.env.production.template"
-    TARGET="$ENV_DIR/.env.production"
+    TARGET="$ENV_DIR/.env.production.bootstrap"
     ;;
   test)
     TEMPLATE="$ENV_DIR/.env.test.template"
@@ -94,7 +94,7 @@ while IFS='=' read -r key value; do
   # Check if value is empty and key looks required (no default, not commented)
   if [[ -z "$value" ]]; then
     case "$key" in
-      DATABASE_URL|SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY|PGPASSWORD)
+      APP_DOMAIN|SUPABASE_URL|SUPABASE_ANON_KEY|VITE_SUPABASE_URL|VITE_SUPABASE_ANON_KEY|SECRETS_PROVIDER)
         echo "  [!] $key is empty -- you must fill this in before starting."
         missing=$((missing + 1))
         ;;

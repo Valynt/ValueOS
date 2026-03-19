@@ -35,6 +35,8 @@ patches:
 # Excluded patches (applied separately):
 # - external-secrets-aws-patch.yaml: ExternalSecret/ClusterSecretStore span
 #   multiple namespaces; apply via: kubectl apply -f ../../base/external-secrets.yaml
+#   then apply the staging patch to bind the reader IAM role and the managed AWS
+#   secret path `valuecanvas/staging/tenants/platform/*`.
 # - remove-placeholder-secrets.yaml: base secrets.yaml is a non-deployable
 #   template (SecretTemplate), not a real Secret resource
 

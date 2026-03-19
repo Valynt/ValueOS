@@ -7,10 +7,27 @@ import { defaultProvider } from './ProviderFactory.js'
 const isServer = typeof window === 'undefined';
 
 const SECRET_KEY_MAPPING: Record<string, string> = {
+  DATABASE_URL:
+    getEnvVar('DATABASE_URL_SECRET_NAME') || 'database-url',
   SUPABASE_SERVICE_ROLE_KEY:
     getEnvVar('SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME') || 'supabase-service-key',
   REDIS_URL: getEnvVar('REDIS_URL_SECRET_NAME') || 'redis-url',
-  DATABASE_URL: getEnvVar('DATABASE_URL_SECRET_NAME') || 'database-url',
+  JWT_SECRET: getEnvVar('JWT_SECRET_SECRET_NAME') || 'jwt-secret',
+  ENCRYPTION_KEY:
+    getEnvVar('ENCRYPTION_KEY_SECRET_NAME') || 'encryption-key',
+  TOGETHER_API_KEY:
+    getEnvVar('TOGETHER_API_KEY_SECRET_NAME') || 'together-api-key',
+  OPENAI_API_KEY:
+    getEnvVar('OPENAI_API_KEY_SECRET_NAME') || 'openai-api-key',
+  APPROVAL_ACTION_SECRET:
+    getEnvVar('APPROVAL_ACTION_SECRET_SECRET_NAME') || 'approval-action-secret',
+  APPROVAL_WEBHOOK_SECRET:
+    getEnvVar('APPROVAL_WEBHOOK_SECRET_SECRET_NAME') || 'approval-webhook-secret',
+  STRIPE_SECRET_KEY:
+    getEnvVar('STRIPE_SECRET_KEY_SECRET_NAME') || 'stripe-secret-key',
+  STRIPE_WEBHOOK_SECRET:
+    getEnvVar('STRIPE_WEBHOOK_SECRET_SECRET_NAME') || 'stripe-webhook-secret',
+  SENTRY_DSN: getEnvVar('SENTRY_DSN_SECRET_NAME') || 'sentry-dsn',
 };
 
 const assertNoDeprecatedSecretAliases = (): void => {

@@ -1,6 +1,16 @@
 # Staging compose for ValueOS -- production-parity with relaxed resource limits.
-# Usage:
-#   docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging up -d --build
+#
+# Bootstrap usage (non-secret settings only):
+#   docker compose -f ops/compose/compose.staging.yml \
+#     --env-file ops/env/.env.staging.bootstrap up -d --build
+#
+# IMPORTANT:
+# - `ops/env/.env.staging.bootstrap` is for non-production bootstrap values only.
+# - Do not persist production-class secrets in `ops/env/` flat files.
+# - Backend secrets must come from the managed secret path documented in
+#   `ops/env/README.md` and `ops/STAGING_DEPLOY_CHECKLIST.md`.
+# - Export secrets into the deploy shell/CI runtime only when a value cannot yet
+#   be hydrated automatically by `packages/backend/src/config/secrets/`.
 #
 # This file is self-contained (does NOT extend the dev compose) so that staging
 # mirrors production topology: Caddy + nginx-served frontend + compiled backend.
@@ -32,7 +42,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in ops/env/.env.staging}
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in ops/env/.env.staging.bootstrap}
       ACME_EMAIL: ${ACME_EMAIL:-}
       TLS_MODE: ${TLS_MODE:-staging}
       API_UPSTREAM: http://backend:${BACKEND_PORT:-3001}
@@ -58,20 +68,34 @@ services:
       BACKEND_PORT: ${BACKEND_PORT:-3001}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${APP_DOMAIN}}
       CORS_ORIGINS: ${CORS_ORIGINS:-${CORS_ALLOWED_ORIGINS:-https://${APP_DOMAIN}}}
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.staging}
-      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in ops/env/.env.staging}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in ops/env/.env.staging}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in ops/env/.env.staging}
-      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in ops/env/.env.staging}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in ops/env/.env.staging.bootstrap}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in ops/env/.env.staging.bootstrap}
       REDIS_TLS_REJECT_UNAUTHORIZED: ${REDIS_TLS_REJECT_UNAUTHORIZED:-true}
       REDIS_TLS_CA_CERT_PATH: ${REDIS_TLS_CA_CERT_PATH:-}
       REDIS_TLS_SERVERNAME: ${REDIS_TLS_SERVERNAME:-}
-      JWT_SECRET: ${JWT_SECRET:-}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
-      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENABLE_TELEMETRY: ${ENABLE_TELEMETRY:-true}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      SECRETS_MANAGER_ENABLED: ${SECRETS_MANAGER_ENABLED:-true}
+      SECRETS_PROVIDER: ${SECRETS_PROVIDER:?Set SECRETS_PROVIDER to aws or vault in ops/env/.env.staging.bootstrap}
+      SECRETS_TENANT_ID: ${SECRETS_TENANT_ID:-platform}
+      SECRETS_MOUNT_PATH: ${SECRETS_MOUNT_PATH:-/mnt/secrets}
+      SECRETS_VOLUME_WATCH_ENABLED: ${SECRETS_VOLUME_WATCH_ENABLED:-true}
+      DATABASE_URL_SECRET_NAME: ${DATABASE_URL_SECRET_NAME:-database-url}
+      SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME: ${SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME:-supabase-service-key}
+      REDIS_URL_SECRET_NAME: ${REDIS_URL_SECRET_NAME:-redis-url}
+      JWT_SECRET_SECRET_NAME: ${JWT_SECRET_SECRET_NAME:-jwt-secret}
+      ENCRYPTION_KEY_SECRET_NAME: ${ENCRYPTION_KEY_SECRET_NAME:-encryption-key}
+      TOGETHER_API_KEY_SECRET_NAME: ${TOGETHER_API_KEY_SECRET_NAME:-together-api-key}
+      OPENAI_API_KEY_SECRET_NAME: ${OPENAI_API_KEY_SECRET_NAME:-openai-api-key}
+      APPROVAL_ACTION_SECRET_SECRET_NAME: ${APPROVAL_ACTION_SECRET_SECRET_NAME:-approval-action-secret}
+      APPROVAL_WEBHOOK_SECRET_SECRET_NAME: ${APPROVAL_WEBHOOK_SECRET_SECRET_NAME:-approval-webhook-secret}
+      STRIPE_SECRET_KEY_SECRET_NAME: ${STRIPE_SECRET_KEY_SECRET_NAME:-stripe-secret-key}
+      STRIPE_WEBHOOK_SECRET_SECRET_NAME: ${STRIPE_WEBHOOK_SECRET_SECRET_NAME:-stripe-webhook-secret}
+      SENTRY_DSN_SECRET_NAME: ${SENTRY_DSN_SECRET_NAME:-sentry-dsn}
+      VAULT_ADDR: ${VAULT_ADDR:-}
+      VAULT_NAMESPACE: ${VAULT_NAMESPACE:-valuecanvas}
+      VAULT_K8S_ROLE: ${VAULT_K8S_ROLE:-}
     ports:
       - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
     deploy:
@@ -109,8 +133,8 @@ services:
       dockerfile: infra/docker/Dockerfile.frontend
       target: runtime
       args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in ops/env/.env.staging}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in ops/env/.env.staging}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in ops/env/.env.staging.bootstrap}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in ops/env/.env.staging.bootstrap}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: valueos-frontend-staging
     depends_on:
@@ -138,9 +162,9 @@ services:
     image: postgres:15-alpine
     container_name: valueos-postgres-staging
     environment:
-      POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in ops/env/.env.staging}
-      POSTGRES_USER: ${PGUSER:?Set PGUSER in ops/env/.env.staging}
-      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in ops/env/.env.staging}
+      POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in ops/env/.env.staging.bootstrap}
+      POSTGRES_USER: ${PGUSER:?Set PGUSER in ops/env/.env.staging.bootstrap}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Export PGPASSWORD in CI/runtime only; do not store it in ops/env/.env.staging.bootstrap}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
