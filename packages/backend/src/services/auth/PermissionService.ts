@@ -9,6 +9,8 @@ import {
   subscribeRbacInvalidation,
 } from "../../lib/rbacInvalidation.js";
 
+import { getRedisClient } from "../../lib/redisClient.js";
+
 import { AuthorizationError, NotFoundError } from "./errors.js"
 import { TenantAwareService } from "./TenantAwareService.js"
 
@@ -105,6 +107,91 @@ export class PermissionService extends TenantAwareService {
     if (scope === "organization") {
       await this.validateTenantAccess(userId, scopeId);
     }
+  }
+
+  private getRoleCacheKey(roleId: string): string {
+    return `permission-service:role:${roleId}`;
+  }
+
+  private async getCachedRole(roleId: string): Promise<Role | null> {
+    const now = Date.now();
+    const cached = this.roleCache.get(roleId);
+
+    if (cached && cached.expiresAt > now) {
+      return cached.role;
+    }
+
+    this.roleCache.delete(roleId);
+
+    try {
+      const redis = await getRedisClient();
+      const serialized = await redis.get(this.getRoleCacheKey(roleId));
+      if (!serialized) {
+        return null;
+      }
+
+      const role = JSON.parse(serialized) as Role;
+      this.roleCache.set(roleId, {
+        role,
+        expiresAt: now + this.cacheTTL,
+      });
+      return role;
+    } catch {
+      return null;
+    }
+  }
+
+  private async setCachedRole(roleId: string, role: Role): Promise<void> {
+    this.roleCache.set(roleId, {
+      role,
+      expiresAt: Date.now() + this.cacheTTL,
+    });
+
+    try {
+      const redis = await getRedisClient();
+      await redis.set(
+        this.getRoleCacheKey(roleId),
+        JSON.stringify(role),
+        'EX',
+        Math.max(1, Math.ceil(this.cacheTTL / 1000))
+      );
+    } catch {
+      // Redis write failure is non-fatal; local TTL cache still provides fallback coverage.
+    }
+  }
+
+  private deleteCachedRole(roleId: string): void {
+    this.roleCache.delete(roleId);
+    void getRedisClient()
+      .then((redis) => redis.del(this.getRoleCacheKey(roleId)))
+      .catch(() => {
+        // Best-effort invalidation only.
+      });
+  }
+
+  private clearCachedRoles(): void {
+    this.roleCache.clear();
+  }
+
+  private deleteCachedRolesByPattern(): void {
+    void (async () => {
+      try {
+        const redis = getRedisClient();
+        const keys: string[] = [];
+        for await (const key of redis.scanIterator({
+          MATCH: this.getRoleCacheKey('*'),
+          COUNT: 100,
+        })) {
+          keys.push(key);
+        }
+
+        if (keys.length > 0) {
+          await redis.del(keys);
+        }
+      } catch {
+        // Best-effort invalidation only.
+      }
+    })();
   }
 
   /**
@@ -254,11 +341,10 @@ export class PermissionService extends TenantAwareService {
    * Get role details with TTL-based caching
    */
   async getRole(roleId: string): Promise<Role> {
-    const now = Date.now();
-    const cached = this.roleCache.get(roleId);
+    const cached = await this.getCachedRole(roleId);
 
-    if (cached && cached.expiresAt > now) {
-      return cached.role;
+    if (cached) {
+      return cached;
     }
 
     // Clean expired entries periodically
@@ -277,11 +363,7 @@ export class PermissionService extends TenantAwareService {
         if (error) throw error;
         if (!data) throw new NotFoundError("Role");
 
-        // Cache with TTL
-        this.roleCache.set(roleId, {
-          role: data,
-          expiresAt: now + this.cacheTTL,
-        });
+        await this.setCachedRole(roleId, data);
         return data;
       },
       {
@@ -295,10 +377,12 @@ export class PermissionService extends TenantAwareService {
    */
   invalidateRoleCache(roleId?: string): void {
     if (roleId) {
-      this.roleCache.delete(roleId);
-    } else {
-      this.roleCache.clear();
+      this.deleteCachedRole(roleId);
+      return;
     }
+
+    this.clearCachedRoles();
+    this.deleteCachedRolesByPattern();
   }
 
   /**
