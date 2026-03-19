@@ -15,6 +15,7 @@ import { ns } from '@shared/lib/redisKeys';
 const logger = createLogger({ component: 'RedisSessionStore' });
 
 export interface SessionMetadata {
+  sessionId: string;
   userId: string;
   tenantId?: string;
   deviceId?: string;
@@ -78,19 +79,24 @@ export class RedisSessionStore {
    * Set session metadata
    */
   async set(sessionId: string, metadata: SessionMetadata): Promise<void> {
-    const key = this.getKey(sessionId, metadata.tenantId);
+    const normalizedMetadata: SessionMetadata = {
+      ...metadata,
+      sessionId,
+    };
+    const key = this.getKey(sessionId, normalizedMetadata.tenantId);
 
     try {
       if (this.redisAvailable) {
         const redis = await this.getRedis();
-        const ttl = metadata.absoluteExpiresAt - Date.now();
+        const ttl = normalizedMetadata.absoluteExpiresAt - Date.now();
 
         if (ttl > 0) {
           await redis.setex(
             key,
             Math.ceil(ttl / 1000),
-            JSON.stringify(metadata)
+            JSON.stringify(normalizedMetadata)
           );
+          await this.indexSession(redis, normalizedMetadata, ttl);
           logger.debug('Session stored in Redis', { sessionId, ttl });
         }
       }
@@ -100,7 +106,7 @@ export class RedisSessionStore {
     }
 
     // Always store in memory as backup
-    this.memoryFallback.set(key, metadata);
+    this.memoryFallback.set(key, normalizedMetadata);
   }
 
   /**
@@ -135,11 +141,15 @@ export class RedisSessionStore {
    */
   async delete(sessionId: string, tenantId?: string): Promise<void> {
     const key = this.getKey(sessionId, tenantId);
+    const metadata = await this.get(sessionId, tenantId);
 
     try {
       if (this.redisAvailable) {
         const redis = await this.getRedis();
         await redis.del(key);
+        if (metadata) {
+          await this.removeSessionIndexes(redis, sessionId, metadata);
+        }
       }
     } catch (error) {
       logger.warn('Redis delete failed', { error: String(error) });
@@ -147,6 +157,74 @@ export class RedisSessionStore {
     }
 
     this.memoryFallback.delete(key);
+  }
+
+  /**
+   * Invalidate a session and keep a revocation marker until the original expiry.
+   */
+  async invalidateSession(
+    sessionId: string,
+    tenantId?: string,
+    absoluteExpiresAt?: number
+  ): Promise<void> {
+    const metadata = await this.get(sessionId, tenantId);
+    const expiresAt = absoluteExpiresAt ?? metadata?.absoluteExpiresAt;
+
+    if (expiresAt && expiresAt > Date.now()) {
+      const revocationKey = this.getRevocationKey(sessionId, tenantId);
+
+      try {
+        if (this.redisAvailable) {
+          const redis = await this.getRedis();
+          const ttlSeconds = Math.ceil((expiresAt - Date.now()) / 1000);
+          if (ttlSeconds > 0) {
+            await redis.setex(revocationKey, ttlSeconds, '1');
+          }
+        }
+      } catch (error) {
+        logger.warn('Redis session revocation failed, using memory fallback', { error: String(error) });
+        this.redisAvailable = false;
+      }
+
+      this.memoryFallback.set(revocationKey, {
+        sessionId,
+        userId: metadata?.userId ?? 'revoked',
+        tenantId,
+        createdAt: expiresAt,
+        lastActivityAt: expiresAt,
+        absoluteExpiresAt: expiresAt,
+        idleExpiresAt: expiresAt,
+        securityFlags: {
+          ...metadata?.securityFlags,
+          forceReauth: true,
+        },
+      });
+    }
+
+    await this.delete(sessionId, tenantId);
+  }
+
+  /**
+   * Check whether the session was explicitly revoked.
+   */
+  async isSessionRevoked(sessionId: string, tenantId?: string): Promise<boolean> {
+    const revocationKey = this.getRevocationKey(sessionId, tenantId);
+
+    try {
+      if (this.redisAvailable) {
+        const redis = await this.getRedis();
+        const revoked = await redis.exists(revocationKey);
+        if (revoked > 0) {
+          return true;
+        }
+      }
+    } catch (error) {
+      logger.warn('Redis session revocation lookup failed, using memory fallback', { error: String(error) });
+      this.redisAvailable = false;
+    }
+
+    const fallbackMarker = this.memoryFallback.get(revocationKey);
+    return Boolean(fallbackMarker && fallbackMarker.absoluteExpiresAt > Date.now());
   }
 
   /**
@@ -167,18 +245,21 @@ export class RedisSessionStore {
    * Invalidate all sessions for a user (e.g., on password change, security event)
    */
   async invalidateUserSessions(userId: string, tenantId?: string): Promise<number> {
-    let count = 0;
-    const pattern = this.getUserPattern(userId, tenantId);
+    const invalidatedSessionIds = new Set<string>();
 
     try {
       if (this.redisAvailable) {
         const redis = await this.getRedis();
-        const keys = await this.scanKeys(pattern);
+        const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
 
-        if (keys.length > 0) {
-          await redis.del(keys);
-          count = keys.length;
-          logger.info('Invalidated user sessions in Redis', { userId, count });
+        for (const sessionId of sessionIds) {
+          const metadata = await this.get(sessionId, tenantId);
+          await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+          invalidatedSessionIds.add(sessionId);
+        }
+
+        if (sessionIds.length > 0) {
+          logger.info('Invalidated user sessions in Redis', { userId, count: invalidatedSessionIds.size });
         }
       }
     } catch (error) {
@@ -187,14 +268,14 @@ export class RedisSessionStore {
     }
 
     // Also clear from memory fallback
-    for (const key of this.memoryFallback.keys()) {
-      if (key.includes(`:user:${userId}:`) || key.includes(`:${userId}:`)) {
-        this.memoryFallback.delete(key);
-        count++;
+    for (const metadata of [...this.memoryFallback.values()]) {
+      if (metadata.userId === userId && (!tenantId || metadata.tenantId === tenantId)) {
+        await this.invalidateSession(metadata.sessionId, tenantId, metadata.absoluteExpiresAt);
+        invalidatedSessionIds.add(metadata.sessionId);
       }
     }
 
-    return count;
+    return invalidatedSessionIds.size;
   }
 
   /**
@@ -204,27 +285,34 @@ export class RedisSessionStore {
     deviceId: string,
     tenantId?: string
   ): Promise<number> {
-    let count = 0;
+    const invalidatedSessionIds = new Set<string>();
+
+    try {
+      if (this.redisAvailable) {
+        const redis = await this.getRedis();
+        const sessionIds = await redis.smembers(this.getDeviceIndexKey(deviceId, tenantId));
+
+        for (const sessionId of sessionIds) {
+          const metadata = await this.get(sessionId, tenantId);
+          await this.invalidateSession(sessionId, tenantId, metadata?.absoluteExpiresAt);
+          invalidatedSessionIds.add(sessionId);
+        }
+      }
+    } catch (error) {
+      logger.warn('Redis device invalidation failed', { error: String(error) });
+      this.redisAvailable = false;
+    }
 
     // Scan memory for device matches
-    for (const [key, metadata] of this.memoryFallback.entries()) {
-      if (metadata.deviceId === deviceId) {
-        this.memoryFallback.delete(key);
-        count++;
-
-        try {
-          if (this.redisAvailable) {
-            const redis = await this.getRedis();
-            await redis.del(key);
-          }
-        } catch (error) {
-          logger.warn('Redis delete failed during device invalidation', { error: String(error) });
-        }
+    for (const metadata of [...this.memoryFallback.values()]) {
+      if (metadata.deviceId === deviceId && (!tenantId || metadata.tenantId === tenantId)) {
+        await this.invalidateSession(metadata.sessionId, tenantId, metadata.absoluteExpiresAt);
+        invalidatedSessionIds.add(metadata.sessionId);
       }
     }
 
-    logger.info('Invalidated device sessions', { deviceId, count });
-    return count;
+    logger.info('Invalidated device sessions', { deviceId, count: invalidatedSessionIds.size });
+    return invalidatedSessionIds.size;
   }
 
   /**
@@ -291,8 +379,33 @@ export class RedisSessionStore {
   async getUserSessions(userId: string, tenantId?: string): Promise<SessionMetadata[]> {
     const sessions: SessionMetadata[] = [];
 
+    try {
+      if (this.redisAvailable) {
+        const redis = await this.getRedis();
+        const sessionIds = await redis.smembers(this.getUserIndexKey(userId, tenantId));
+
+        for (const sessionId of sessionIds) {
+          const metadata = await this.get(sessionId, tenantId);
+          if (metadata) {
+            sessions.push(metadata);
+          }
+        }
+
+        if (sessions.length > 0) {
+          return sessions;
+        }
+      }
+    } catch (error) {
+      logger.warn('Redis user session lookup failed, using memory fallback', { error: String(error) });
+      this.redisAvailable = false;
+    }
+
     // Check memory fallback
-    for (const metadata of this.memoryFallback.values()) {
+    for (const [key, metadata] of this.memoryFallback.entries()) {
+      if (key === this.getRevocationKey(metadata.sessionId, metadata.tenantId)) {
+        continue;
+      }
+
       if (metadata.userId === userId) {
         if (!tenantId || metadata.tenantId === tenantId) {
           sessions.push(metadata);
@@ -337,8 +450,16 @@ export class RedisSessionStore {
     return ns(tenantId, `${this.config.keyPrefix}${sessionId}`);
   }
 
-  private getUserPattern(userId: string, tenantId?: string): string {
-    return ns(tenantId, `${this.config.keyPrefix}*:${userId}:*`);
+  private getUserIndexKey(userId: string, tenantId?: string): string {
+    return ns(tenantId, `${this.config.keyPrefix}user:${userId}`);
+  }
+
+  private getDeviceIndexKey(deviceId: string, tenantId?: string): string {
+    return ns(tenantId, `${this.config.keyPrefix}device:${deviceId}`);
+  }
+
+  private getRevocationKey(sessionId: string, tenantId?: string): string {
+    return ns(tenantId, `${this.config.keyPrefix}revoked:${sessionId}`);
   }
 
   private async getRedis() {
@@ -346,18 +467,26 @@ export class RedisSessionStore {
     return redis;
   }
 
-  private async scanKeys(pattern: string): Promise<string[]> {
-    const redis = await this.getRedis();
-    const keys: string[] = [];
-    let cursor = 0;
+  private async indexSession(redis: Awaited<ReturnType<RedisSessionStore['getRedis']>>, metadata: SessionMetadata, ttl: number): Promise<void> {
+    await redis.sadd(this.getUserIndexKey(metadata.userId, metadata.tenantId), metadata.sessionId);
+    await redis.expire(this.getUserIndexKey(metadata.userId, metadata.tenantId), Math.ceil(ttl / 1000));
 
-    do {
-      const result = await redis.scan(cursor, { MATCH: pattern, COUNT: 100 });
-      cursor = Number(result.cursor);
-      keys.push(...result.keys);
-    } while (cursor !== 0);
+    if (metadata.deviceId) {
+      await redis.sadd(this.getDeviceIndexKey(metadata.deviceId, metadata.tenantId), metadata.sessionId);
+      await redis.expire(this.getDeviceIndexKey(metadata.deviceId, metadata.tenantId), Math.ceil(ttl / 1000));
+    }
+  }
 
-    return keys;
+  private async removeSessionIndexes(
+    redis: Awaited<ReturnType<RedisSessionStore['getRedis']>>,
+    sessionId: string,
+    metadata: SessionMetadata
+  ): Promise<void> {
+    await redis.srem(this.getUserIndexKey(metadata.userId, metadata.tenantId), sessionId);
+
+    if (metadata.deviceId) {
+      await redis.srem(this.getDeviceIndexKey(metadata.deviceId, metadata.tenantId), sessionId);
+    }
   }
 
   private startHealthCheck(): void {
