@@ -55,7 +55,7 @@ export async function secureLLMComplete(
   gateway: LLMCompletable,
   messages: LLMMessage[],
   options: SecureLLMCompleteOptions = {},
-): Promise<{ content: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+): Promise<{ content: string; model?: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   const tenantId = options.organizationId ?? options.tenantId;
   if (!tenantId) {
     throw new Error(

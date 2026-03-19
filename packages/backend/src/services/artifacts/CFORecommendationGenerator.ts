@@ -7,7 +7,6 @@
  * Task: 3.2, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -17,6 +16,7 @@ import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
+import { secureServiceInvoke } from "../llm/secureServiceInvocation.js";
 
 import {
   CFORecommendationInput,
@@ -114,41 +114,45 @@ export class CFORecommendationGenerator {
 
     // Invoke LLM with circuit breaker and Zod validation
     const result = await this.circuitBreaker.execute(async () => {
-      const request = {
+      const invocation = await secureServiceInvoke({
+        gateway: this.llmGateway,
         messages: [{ role: "user" as const, content: prompt }],
-        metadata: {
-          tenantId: input.tenantId,
+        schema: CFORecommendationOutputSchema,
+        request: {
           organizationId: input.organizationId,
+          tenantId: input.tenantId,
           caseId: input.caseId,
           artifactType: "cfo_recommendation",
           generator: "CFORecommendationGenerator",
+          serviceName: "CFORecommendationGenerator",
+          operation: "generate",
         },
-      };
+        logger,
+        actorName: "CFORecommendationGenerator",
+        sessionId: input.caseId,
+        tenantId: input.organizationId,
+        invalidJsonMessage: "Invalid JSON response from LLM",
+        invalidJsonLogMessage: "CFORecommendationGenerator: Failed to parse LLM response as JSON",
+        invalidJsonLogContext: (content, error) => ({
+          error: error instanceof Error ? error.message : String(error),
+          content: content.slice(0, 500),
+        }),
+        hallucinationCheck: async (parsed) => this.checkHallucination({
+          ...parsed,
+          data_claim_ids: parsed.provenance_refs,
+        }, input),
+        escalationLogMessage: "CFORecommendationGenerator: Hallucination escalation triggered",
+        escalationLogContext: (parsed) => ({
+          caseId: input.caseId,
+          provenanceRefs: parsed.provenance_refs,
+        }),
+      });
 
-      const response = await this.llmGateway.complete(request);
-
-      // Parse and validate with Zod
-      let parsedJson: unknown;
-      try {
-        parsedJson = JSON.parse(response.content);
-      } catch (err) {
-        logger.error("CFORecommendationGenerator: Failed to parse LLM response as JSON", {
-          error: err instanceof Error ? err.message : String(err),
-          content: response.content.slice(0, 500),
-        });
-        throw new Error("Invalid JSON response from LLM");
-      }
-
-      // Validate against schema
-      const parsed = CFORecommendationOutputSchema.parse(parsedJson);
-
-      // Add traceability fields
       const output: CFORecommendationOutput = {
-        ...parsed,
-        data_claim_ids: parsed.provenance_refs,
+        ...invocation.parsed,
+        data_claim_ids: invocation.parsed.provenance_refs,
       };
 
-      // Store in memory for traceability
       await this.memorySystem.storeSemanticMemory(
         input.caseId,
         "CFORecommendationGenerator",
@@ -168,21 +172,12 @@ export class CFORecommendationGenerator {
 
       return {
         output,
-        tokenUsage: response.usage
-          ? {
-              input_tokens: response.usage.prompt_tokens,
-              output_tokens: response.usage.completion_tokens,
-              total_tokens: response.usage.total_tokens,
-            }
-          : undefined,
+        hallucinationCheck: invocation.hallucinationCheck,
+        tokenUsage: invocation.tokenUsage,
       };
     });
 
-    // Run hallucination check
-    const hallucinationCheck = await this.checkHallucination(
-      result.output,
-      input
-    );
+    const hallucinationCheck = result.hallucinationCheck;
 
     const duration = Date.now() - startTime;
     logger.info("CFORecommendationGenerator: generation complete", {

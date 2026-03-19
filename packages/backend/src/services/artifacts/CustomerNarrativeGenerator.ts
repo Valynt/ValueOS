@@ -7,7 +7,6 @@
  * Task: 3.3, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -17,6 +16,7 @@ import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
+import { secureServiceInvoke } from "../llm/secureServiceInvocation.js";
 
 import {
   CustomerNarrativeInput,
@@ -70,30 +70,42 @@ export class CustomerNarrativeGenerator {
     const prompt = template(templateContext);
 
     const result = await this.circuitBreaker.execute(async () => {
-      const request = {
+      const invocation = await secureServiceInvoke({
+        gateway: this.llmGateway,
         messages: [{ role: "user" as const, content: prompt }],
-        metadata: {
+        schema: CustomerNarrativeOutputSchema,
+        request: {
+          organizationId: input.organizationId,
           tenantId: input.tenantId,
           caseId: input.caseId,
           artifactType: "customer_narrative",
           generator: "CustomerNarrativeGenerator",
+          serviceName: "CustomerNarrativeGenerator",
+          operation: "generate",
         },
-      };
+        logger,
+        actorName: "CustomerNarrativeGenerator",
+        sessionId: input.caseId,
+        tenantId: input.organizationId,
+        invalidJsonMessage: "Invalid JSON response from LLM",
+        invalidJsonLogMessage: "CustomerNarrativeGenerator: Failed to parse JSON",
+        invalidJsonLogContext: (_content, error) => ({
+          error: error instanceof Error ? error.message : String(error),
+        }),
+        hallucinationCheck: async (parsed) => this.checkHallucination({
+          ...parsed,
+          data_claim_ids: parsed.provenance_refs,
+        }, input),
+        escalationLogMessage: "CustomerNarrativeGenerator: Hallucination escalation triggered",
+        escalationLogContext: (parsed) => ({
+          caseId: input.caseId,
+          provenanceRefs: parsed.provenance_refs,
+        }),
+      });
 
-      const response = await this.llmGateway.complete(request);
-
-      let parsedJson: unknown;
-      try {
-        parsedJson = JSON.parse(response.content);
-      } catch (err) {
-        logger.error("CustomerNarrativeGenerator: Failed to parse JSON", { error: String(err) });
-        throw new Error("Invalid JSON response from LLM");
-      }
-
-      const parsed = CustomerNarrativeOutputSchema.parse(parsedJson);
       const output: CustomerNarrativeOutput = {
-        ...parsed,
-        data_claim_ids: parsed.provenance_refs,
+        ...invocation.parsed,
+        data_claim_ids: invocation.parsed.provenance_refs,
       };
 
       await this.memorySystem.storeSemanticMemory(
@@ -114,15 +126,12 @@ export class CustomerNarrativeGenerator {
 
       return {
         output,
-        tokenUsage: response.usage ? {
-          input_tokens: response.usage.prompt_tokens,
-          output_tokens: response.usage.completion_tokens,
-          total_tokens: response.usage.total_tokens,
-        } : undefined,
+        hallucinationCheck: invocation.hallucinationCheck,
+        tokenUsage: invocation.tokenUsage,
       };
     });
 
-    const hallucinationCheck = await this.checkHallucination(result.output, input);
+    const hallucinationCheck = result.hallucinationCheck;
 
     logger.info("CustomerNarrativeGenerator: generation complete", {
       caseId: input.caseId,
