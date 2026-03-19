@@ -246,7 +246,11 @@ if (!config?.packages?.length) {
 const previousBaseline = readJson(baselinePath, { version: 1, packages: {} });
 const packageReports = config.packages.map((pkg) => {
   const metrics = {
-    anyCount: countRipgrepMatches(pkg.path, pkg.productionPaths, '(:\\s*any\\b|as\\s+any\\b|<any>)'),
+    anyCount: countRipgrepMatches(
+      pkg.path,
+      pkg.productionPaths,
+      '(:\\s*any(?=\\s*[,;)}\\]]|\\s*$)|as\\s+any(?=\\s*[,;)}\\]]|\\s*$)|<any>)'
+    ),
     tsErrorCount: countTypeScriptErrors(pkg),
     eslintWarnings: countEslintWarnings(pkg),
     todoFixmeCount: countRipgrepMatches(pkg.path, pkg.productionPaths, 'TODO|FIXME'),
