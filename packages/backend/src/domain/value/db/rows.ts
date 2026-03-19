@@ -2,62 +2,14 @@
 // All functions require tenant_id as first argument
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../types/supabase-generated.js';
 
-// TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Import generated Supabase types if available
-// import { Database } from '...';
-
-// Minimal row types (replace with generated types if available)
-export interface ValueCaseRow {
-  id: string;
-  tenant_id: string;
-  state: string;
-  committed_at?: string;
-  last_modified_by?: string;
-  // ...other fields
-}
-
-export interface OpportunityRow {
-  id: string;
-  tenant_id: string;
-  // ...other fields
-}
-
-export interface ValueDriverRow {
-  id: string;
-  tenant_id: string;
-  value_case_id: string;
-  parent_id?: string;
-  label: string;
-  driver_type: string;
-  value?: number;
-  // ...other fields
-}
-
-export interface ValueCommitmentRow {
-  id: string;
-  tenant_id: string;
-  session_id: string;
-  user_id: string;
-  organization_id?: string;
-  title: string;
-  description: string;
-  commitment_type: string;
-  priority: string;
-  financial_impact: Record<string, any>;
-  currency: string;
-  timeframe_months: number;
-  status: string;
-  progress_percentage: number;
-  confidence_level: number;
-  committed_at: string;
-  target_completion_date: string;
-  actual_completion_date?: string;
-  ground_truth_references: Record<string, any>;
-  tags: string[];
-  metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
+// Use generated Supabase types for full type safety
+export type ValueCaseRow = Database['public']['Tables']['value_cases']['Row'];
+export type OpportunityRow = Database['public']['Tables']['opportunities']['Row'];
+export type ValueDriverRow = Database['public']['Tables']['value_drivers']['Row'];
+export type ValueCommitmentRow = Database['public']['Tables']['value_commitments']['Row'];
+export type FinancialModelRow = Database['public']['Tables']['financial_models']['Row'];
 
 // Example: get value commitments for a case (via session_id)
 export async function getValueCommitmentsForCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<ValueCommitmentRow[]> {
@@ -112,14 +64,8 @@ export async function listValueDriversForCase(supabase: SupabaseClient, tenant_i
   return data || [];
 }
 
-export interface FinancialModelRow {
-  id: string;
-  tenant_id: string;
-  value_case_id: string;
-  model_data: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
+// FinancialModelRow is now imported from generated types
+// export interface FinancialModelRow { ... }
 
 // Example: get financial model for a case
 export async function getFinancialModelForCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<FinancialModelRow | null> {
