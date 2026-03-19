@@ -102,6 +102,11 @@ export function csrfTokenMiddleware(req: Request, res: Response, next: NextFunct
  * Requires csrfTokenMiddleware to have set the cookie on a prior response.
  */
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction): void {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())) {
+    next();
+    return;
+  }
+
   const headerToken = req.header(CSRF_HEADER_NAME);
   const cookieToken = getCookie(req, CSRF_COOKIE_NAME);
 

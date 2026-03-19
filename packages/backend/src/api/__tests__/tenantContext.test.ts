@@ -41,8 +41,8 @@ vi.mock("../../middleware/auth.js", () => ({
 // Mirror USER_ROLE_PERMISSIONS: admin has all permissions; member/viewer have settings:view only.
 const ROLE_GRANTS: Record<string, string[]> = {
   admin: ["tenant:context:read", "tenant:context:write"],
-  member: ["settings:view"],
-  viewer: ["settings:view"],
+  member: ["tenant:context:read"],
+  viewer: ["tenant:context:read"],
 };
 
 vi.mock("../../middleware/rbac.js", () => ({

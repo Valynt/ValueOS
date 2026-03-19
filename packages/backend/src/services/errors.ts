@@ -67,6 +67,7 @@ export class AuthenticationError extends ServiceError {
   constructor(message: string = 'Authentication failed') {
     super(message, ErrorCode.AUTHENTICATION_ERROR, 401);
     this.name = 'AuthenticationError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -74,6 +75,7 @@ export class AuthorizationError extends ServiceError {
   constructor(message: string = 'Permission denied') {
     super(message, ErrorCode.AUTHORIZATION_ERROR, 403);
     this.name = 'AuthorizationError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -81,6 +83,7 @@ export class NotFoundError extends ServiceError {
   constructor(resource: string) {
     super(`${resource} not found`, ErrorCode.NOT_FOUND, 404);
     this.name = 'NotFoundError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -88,6 +91,7 @@ export class ConflictError extends ServiceError {
   constructor(message: string, details?: unknown) {
     super(message, ErrorCode.CONFLICT, 409, details);
     this.name = 'ConflictError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -98,6 +102,7 @@ export class RateLimitError extends ServiceError {
     super(message, ErrorCode.RATE_LIMIT_EXCEEDED, 429);
     this.name = 'RateLimitError';
     this.retryAfter = retryAfter;
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -105,6 +110,7 @@ export class TimeoutError extends ServiceError {
   constructor(message: string = 'Request timeout') {
     super(message, ErrorCode.TIMEOUT, 408);
     this.name = 'TimeoutError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 

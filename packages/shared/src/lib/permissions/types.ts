@@ -87,6 +87,8 @@ export const PERMISSIONS = {
 
   AUDIT_READ: "audit.read" as Permission,
   COMPLIANCE_READ: "compliance.read" as Permission,
+  TENANT_CONTEXT_READ: "tenant:context:read" as Permission,
+  TENANT_CONTEXT_WRITE: "tenant:context:write" as Permission,
 
   // Tenant ownership transfer — restricted to the current owner only.
   OWNER_TRANSFER: "owner.transfer" as Permission,
