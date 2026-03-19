@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-03-19T13:03:31.316Z",
+  "target": "https://staging.valueos.app",
+  "scenario": "interactive-and-orchestration-baseline",
+  "config": {
+    "vus": 2,
+    "duration": "5s",
+    "ramp_up": "2s",
+    "ramp_down": "2s"
+  },
+  "totals": {
+    "requests": 20,
+    "failed_requests": 30,
+    "iterations": 10,
+    "rps": 2.1320728770921393
+  },
+  "latency_ms": {
+    "overall": {
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "interactive_completion": {
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "orchestration_ttfb": {
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "orchestration_completion": {
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    }
+  },
+  "error_rate": 1,
+  "saturation": {
+    "vus_max": 2,
+    "dropped_iterations": 0,
+    "blocked_p95_ms": 0
+  },
+  "thresholds": {
+    "passed": false,
+    "details": {
+      "orchestration_ttfb_latency": {
+        "p(95)<200": true
+      },
+      "health_latency": {
+        "p(99)<100": true
+      },
+      "orchestration_completion_latency": {
+        "p(95)<3000": true
+      },
+      "interactive_completion_latency": {
+        "p(95)<200": true
+      },
+      "errors": {
+        "rate<0.001": false
+      }
+    }
+  }
+}

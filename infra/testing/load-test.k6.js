@@ -1,5 +1,5 @@
 /**
- * k6 load test for ValueOS API
+ * k6 load test for ValueOS API.
  *
  * Exercises health, auth-protected, and tenant-scoped endpoints
  * under realistic concurrency to validate latency-class SLOs.
@@ -24,14 +24,17 @@
  *   TENANT_ID      — tenant UUID for scoped requests (optional)
  *   VUS            — virtual users (default 50)
  *   DURATION       — sustained test window (default 2m)
+ *   RAMP_UP        — ramp-up duration (default 30s)
+ *   RAMP_DOWN      — ramp-down duration (default 30s)
+ *   SUMMARY_NAME   — basename for emitted summary files (default load-test)
  */
 
 import { check, group, sleep } from "k6";
 import http from "k6/http";
-import { Rate, Trend } from "k6/metrics";
+import { Counter, Rate, Trend } from "k6/metrics";
 
-// ── custom metrics ──────────────────────────────────────────────────────────
 const errorRate = new Rate("errors");
+const failedRequests = new Counter("failed_requests");
 const healthLatency = new Trend("health_latency", true);
 const apiLatency = new Trend("api_latency", true);
 const interactiveCompletionLatency = new Trend(
@@ -60,19 +63,22 @@ function findRouteClass(route) {
   return "interactive";
 }
 
-// ── options ─────────────────────────────────────────────────────────────────
 const vus = Number(__ENV.VUS) || 50;
 const duration = __ENV.DURATION || "2m";
+const rampUp = __ENV.RAMP_UP || "30s";
+const rampDown = __ENV.RAMP_DOWN || "30s";
+const summaryName = __ENV.SUMMARY_NAME || "load-test";
 
 export const options = {
   stages: [
-    { duration: "30s", target: Math.ceil(vus * 0.3) }, // ramp up
-    { duration, target: vus }, // sustained window
-    { duration: "30s", target: 0 }, // ramp down
+    { duration: rampUp, target: Math.ceil(vus * 0.3) },
+    { duration, target: vus },
+    { duration: rampDown, target: 0 },
   ],
+  summaryTrendStats: ["med", "p(50)", "p(95)", "p(99)", "avg", "min", "max"],
   thresholds: {
-    errors: ["rate<0.001"], // global SLO: error rate < 0.1%
-    health_latency: ["p(99)<100"], // health must be fast
+    errors: ["rate<0.001"],
+    health_latency: ["p(99)<100"],
     interactive_completion_latency: [
       {
         threshold: "p(95)<200",
@@ -85,7 +91,6 @@ export const options = {
   },
 };
 
-// ── helpers ─────────────────────────────────────────────────────────────────
 const BASE_URL = __ENV.BASE_URL;
 if (!BASE_URL) {
   throw new Error("BASE_URL environment variable is required");
@@ -95,6 +100,9 @@ function authHeaders() {
   const headers = { "Content-Type": "application/json" };
   if (__ENV.AUTH_TOKEN) {
     headers.Authorization = `Bearer ${__ENV.AUTH_TOKEN}`;
+  }
+  if (__ENV.TENANT_ID) {
+    headers["X-Tenant-Id"] = __ENV.TENANT_ID;
   }
   return headers;
 }
@@ -107,10 +115,14 @@ function trackRouteLatency(route, res) {
   } else {
     interactiveCompletionLatency.add(res.timings.duration);
   }
-  errorRate.add(res.status >= 500);
+
+  const failed = res.status >= 500 || res.error_code !== 0;
+  errorRate.add(failed);
+  if (failed) {
+    failedRequests.add(1);
+  }
 }
 
-// ── scenarios ───────────────────────────────────────────────────────────────
 export default function () {
   group("Health check", () => {
     const route = "/health";
@@ -130,6 +142,9 @@ export default function () {
       },
     });
     errorRate.add(!ok);
+    if (!ok) {
+      failedRequests.add(1);
+    }
   });
 
   group("API endpoints", () => {
@@ -141,7 +156,6 @@ export default function () {
     apiLatency.add(readiness.timings.duration);
     trackRouteLatency(readinessRoute, readiness);
 
-    // Authenticated endpoints (only if token provided)
     if (__ENV.AUTH_TOKEN) {
       const billingRoute = "/api/billing/summary";
       const billing = http.get(`${BASE_URL}${billingRoute}`, {
@@ -158,45 +172,68 @@ export default function () {
       });
       apiLatency.add(teams.timings.duration);
       trackRouteLatency(teamsRoute, teams);
-      check(teams, {
+      const ok = check(teams, {
         "teams not 500": (r) => r.status < 500,
       });
+      errorRate.add(!ok);
+      if (!ok) {
+        failedRequests.add(1);
+      }
     }
   });
 
-  sleep(0.5 + Math.random() * 1.5); // think time 0.5–2s
+  sleep(0.5 + Math.random() * 1.5);
 }
 
 function metricValue(data, metricName, valueKey, fallback = 0) {
   return data.metrics?.[metricName]?.values?.[valueKey] ?? fallback;
 }
 
-// ── summary ─────────────────────────────────────────────────────────────────
+function thresholdStatus(metric) {
+  if (metric?.thresholds == null) {
+    return true;
+  }
+  return Object.values(metric.thresholds).every((threshold) => threshold.ok);
+}
+
 export function handleSummary(data) {
   const summary = {
     timestamp: new Date().toISOString(),
-    total_requests: metricValue(data, "http_reqs", "count", 0),
-    rps: metricValue(data, "http_reqs", "rate", 0),
+    target: BASE_URL,
+    scenario: "interactive-and-orchestration-baseline",
+    config: {
+      vus,
+      duration,
+      ramp_up: rampUp,
+      ramp_down: rampDown,
+    },
+    totals: {
+      requests: metricValue(data, "http_reqs", "count", 0),
+      failed_requests: metricValue(data, "failed_requests", "count", 0),
+      iterations: metricValue(data, "iterations", "count", 0),
+      rps: metricValue(data, "http_reqs", "rate", 0),
+    },
     latency_ms: {
-      interactive_completion_p95: metricValue(
-        data,
-        "interactive_completion_latency",
-        "p(95)",
-        null,
-      ),
-      orchestration_ttfb_p95: metricValue(
-        data,
-        "orchestration_ttfb_latency",
-        "p(95)",
-        null,
-      ),
-      orchestration_completion_p95: metricValue(
-        data,
-        "orchestration_completion_latency",
-        "p(95)",
-        null,
-      ),
-      overall_p95: metricValue(data, "http_req_duration", "p(95)", null),
+      overall: {
+        p50: metricValue(data, "http_req_duration", "p(50)", null),
+        p95: metricValue(data, "http_req_duration", "p(95)", null),
+        p99: metricValue(data, "http_req_duration", "p(99)", null),
+      },
+      interactive_completion: {
+        p50: metricValue(data, "interactive_completion_latency", "p(50)", null),
+        p95: metricValue(data, "interactive_completion_latency", "p(95)", null),
+        p99: metricValue(data, "interactive_completion_latency", "p(99)", null),
+      },
+      orchestration_ttfb: {
+        p50: metricValue(data, "orchestration_ttfb_latency", "p(50)", null),
+        p95: metricValue(data, "orchestration_ttfb_latency", "p(95)", null),
+        p99: metricValue(data, "orchestration_ttfb_latency", "p(99)", null),
+      },
+      orchestration_completion: {
+        p50: metricValue(data, "orchestration_completion_latency", "p(50)", null),
+        p95: metricValue(data, "orchestration_completion_latency", "p(95)", null),
+        p99: metricValue(data, "orchestration_completion_latency", "p(99)", null),
+      },
     },
     error_rate: metricValue(data, "errors", "rate", 0),
     saturation: {
@@ -204,14 +241,25 @@ export function handleSummary(data) {
       dropped_iterations: metricValue(data, "dropped_iterations", "count", 0),
       blocked_p95_ms: metricValue(data, "http_req_blocked", "p(95)", 0),
     },
-    thresholds_passed: Object.values(data.metrics ?? {}).every(
-      (metric) => metric.thresholds == null || Object.values(metric.thresholds).every((t) => t.ok),
-    ),
+    thresholds: {
+      passed: Object.values(data.metrics ?? {}).every((metric) => thresholdStatus(metric)),
+      details: Object.fromEntries(
+        Object.entries(data.metrics ?? {})
+          .filter(([, metric]) => metric?.thresholds != null)
+          .map(([metricName, metric]) => [
+            metricName,
+            Object.fromEntries(
+              Object.entries(metric.thresholds).map(([name, threshold]) => [name, threshold.ok]),
+            ),
+          ]),
+      ),
+    },
   };
 
+  const summaryJson = JSON.stringify(summary, null, 2);
   return {
-    stdout: JSON.stringify(summary, null, 2) + "\n",
-    "load-test-summary.json": JSON.stringify(summary, null, 2),
-    "load-test-results.json": JSON.stringify(data, null, 2),
+    stdout: `${summaryJson}\n`,
+    [`${summaryName}-summary.json`]: summaryJson,
+    [`${summaryName}-results.json`]: JSON.stringify(data, null, 2),
   };
 }

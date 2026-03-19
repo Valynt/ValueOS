@@ -14,7 +14,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `ci.yml` (`security-gate` job) | `trivy-fs.sarif`, `trivy-image.sarif`, uploaded to code scanning |
 | Compliance | RLS and DSR checks + evidence export | `ci.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
-| Release Safety | Build/deploy, staging smoke tests, SLO guard, prod smoke | `deploy.yml` | SBOM/attestation + deployment summary |
+| Release Safety | Build/deploy, staging smoke tests, load/scaling benchmark freshness gate, SLO guard, prod smoke | `deploy.yml` | SBOM/attestation + deployment summary + staging benchmark artifacts |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
 ## Workflow Lifecycle

@@ -1,0 +1,188 @@
+{
+  "timestamp": "2026-03-19T13:03:31.316Z",
+  "benchmark_environment": "staging",
+  "base_url": "https://staging.valueos.app",
+  "namespace": "valynt-staging",
+  "canonical_production_path": "infra/k8s/overlays/production",
+  "reference_only_paths": [
+    "ops/compose/",
+    "infra/docker/",
+    "infra/k8s/overlays/staging/",
+    "infra/k8s/observability/"
+  ],
+  "source_scripts": [
+    "infra/testing/load-test.k6.js",
+    "infra/testing/scaling-policy.k6.js"
+  ],
+  "run_status": {
+    "load_test_exit_code": 99,
+    "scaling_policy_exit_code": 99,
+    "live_validation_passed": false
+  },
+  "load_test": {
+    "timestamp": "2026-03-19T13:03:31.316Z",
+    "target": "https://staging.valueos.app",
+    "scenario": "interactive-and-orchestration-baseline",
+    "config": {
+      "vus": 2,
+      "duration": "5s",
+      "ramp_up": "2s",
+      "ramp_down": "2s"
+    },
+    "totals": {
+      "requests": 20,
+      "failed_requests": 30,
+      "iterations": 10,
+      "rps": 2.1320728770921393
+    },
+    "latency_ms": {
+      "overall": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      },
+      "interactive_completion": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      },
+      "orchestration_ttfb": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      },
+      "orchestration_completion": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      }
+    },
+    "error_rate": 1,
+    "saturation": {
+      "vus_max": 2,
+      "dropped_iterations": 0,
+      "blocked_p95_ms": 0
+    },
+    "thresholds": {
+      "passed": false,
+      "details": {
+        "orchestration_ttfb_latency": {
+          "p(95)<200": true
+        },
+        "health_latency": {
+          "p(99)<100": true
+        },
+        "orchestration_completion_latency": {
+          "p(95)<3000": true
+        },
+        "interactive_completion_latency": {
+          "p(95)<200": true
+        },
+        "errors": {
+          "rate<0.001": false
+        }
+      }
+    }
+  },
+  "scaling_policy": {
+    "timestamp": "2026-03-19T13:03:50.843Z",
+    "target": "https://staging.valueos.app",
+    "scenario": "autoscaling-policy-staged-validation",
+    "config": {
+      "steady": {
+        "ramp": "2s",
+        "hold": "4s",
+        "ramp_down": "2s",
+        "target_vus": 2
+      },
+      "spike": {
+        "warmup": "2s",
+        "peak": "3s",
+        "recovery": "2s",
+        "warmup_rate": 2,
+        "peak_rate": 4,
+        "recovery_rate": 2,
+        "start_time": "8s"
+      },
+      "soak": {
+        "duration": "4s",
+        "rate": 2,
+        "start_time": "15s"
+      }
+    },
+    "totals": {
+      "requests": 222,
+      "iterations": 74,
+      "rps": 11.556388698765328
+    },
+    "latency_ms": {
+      "overall": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      },
+      "backend": {
+        "p50": 0,
+        "p95": 0,
+        "p99": 0
+      }
+    },
+    "error_rate": 1,
+    "saturation": {
+      "vus_max": 145,
+      "dropped_iterations": 0,
+      "blocked_p95_ms": 0
+    },
+    "thresholds": {
+      "passed": false,
+      "details": {
+        "errors": {
+          "rate<0.02": false
+        },
+        "backend_latency": {
+          "p(95)<550": true
+        },
+        "http_req_duration": {
+          "p(95)<600": true,
+          "p(99)<1200": true
+        },
+        "http_req_failed": {
+          "rate<0.02": false
+        }
+      }
+    }
+  },
+  "telemetry": {
+    "prometheus": {
+      "provider": "prometheus",
+      "available": false,
+      "reason": "PROMETHEUS_URL not configured"
+    },
+    "kubectl": {
+      "provider": "kubectl",
+      "available": false,
+      "reason": "kubectl not available"
+    }
+  },
+  "benchmark_summary": {
+    "load_test": {
+      "p50_ms": 0,
+      "p95_ms": 0,
+      "p99_ms": 0,
+      "error_rate": 1,
+      "thresholds_passed": false
+    },
+    "scaling_policy": {
+      "p50_ms": 0,
+      "p95_ms": 0,
+      "p99_ms": 0,
+      "error_rate": 1,
+      "thresholds_passed": false
+    },
+    "infrastructure": {
+      "backend_pod_count": null,
+      "worker_pod_count": null,
+      "queue_depth": null
+    }
+  }
+}

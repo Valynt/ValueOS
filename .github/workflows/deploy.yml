@@ -635,52 +635,52 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Run standardized k6 benchmark suites against staging
+      - name: Install k6
+        run: |
+          set -euo pipefail
+          K6_VERSION="0.53.0"
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o /tmp/k6.tgz "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-linux-amd64.tar.gz"
+          tar -xzf /tmp/k6.tgz -C /tmp
+          install -m 0755 "/tmp/k6-v${K6_VERSION}-linux-amd64/k6" "$HOME/.local/bin/k6"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/k6" version
+
+      - name: Run staged load + scaling benchmark suites against staging
         env:
           BASE_URL: https://staging.valueos.app
           AUTH_TOKEN: ${{ secrets.STAGING_PERF_AUTH_TOKEN }}
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
+          BENCHMARK_ENV: staging
+          BENCHMARK_OUTPUT_ROOT: artifacts/load-tests/staging
           VUS: "100"
           DURATION: "5m"
         run: |
           set -euo pipefail
-          docker run --rm \
-            -v "$PWD:/work" \
-            -w /work \
-            -e BASE_URL \
-            -e AUTH_TOKEN \
-            -e VUS \
-            -e DURATION \
-            grafana/k6:0.53.0 run infra/testing/load-test.k6.js
+          node scripts/perf/run-staged-load-benchmarks.mjs
 
-      - name: Build benchmark artifact with infra correlation
-        env:
-          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
-          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
-          K6_SUMMARY_PATH: load-test-summary.json
-          BENCHMARK_OUTPUT_DIR: benchmark-artifacts
+      - name: Promotion gate: reject missing or stale benchmark artifacts
         run: |
           set -euo pipefail
-          python3 scripts/perf/analyze-k6-benchmark.py
-
-      - name: Enforce sustained critical route p95 <= 200ms promotion gate
-        run: |
-          set -euo pipefail
-          CRITICAL_P95=$(jq -r '.critical_route_guard.observed_p95_ms // 0' benchmark-artifacts/benchmark-summary.json)
-          if awk "BEGIN { exit !(${CRITICAL_P95} > 200) }"; then
-            echo "Critical route p95 ${CRITICAL_P95}ms exceeded 200ms sustained threshold. Blocking promotion."
-            exit 1
-          fi
-          echo "Critical route p95 ${CRITICAL_P95}ms is within threshold."
+          node scripts/ci/check-load-test-artifacts.mjs \
+            --manifest artifacts/load-tests/staging/latest.json \
+            --max-age-hours 24 \
+            --require-pass true
 
       - name: Upload per-commit benchmark artifacts
         uses: actions/upload-artifact@v7
         with:
           name: staging-benchmark-${{ github.sha }}-${{ github.run_id }}
           path: |
-            load-test-summary.json
-            load-test-results.json
-            benchmark-artifacts/benchmark-summary.json
-            benchmark-artifacts/benchmark-report.md
+            artifacts/load-tests/staging/latest.json
+            artifacts/load-tests/staging/*/benchmark-manifest.json
+            artifacts/load-tests/staging/*/benchmark-summary.md
+            artifacts/load-tests/staging/*/load-test-summary.json
+            artifacts/load-tests/staging/*/load-test-results.json
+            artifacts/load-tests/staging/*/scaling-policy-summary.json
+            artifacts/load-tests/staging/*/scaling-policy-results.json
+            artifacts/load-tests/staging/*/*.log
 
   preprod-slo-guard:
     name: Pre-Prod SLO Guard

@@ -2,42 +2,70 @@
 
 Complete Kubernetes deployment configuration for ValueOS using Kustomize.
 
-> **Readiness Status:** These manifests are **aspirational** and have not been
-> validated against a live cluster for v1. Production deployment currently uses
-> Docker Compose (`ops/compose/`). See `DEPLOY.md` for the canonical deploy path.
+> **Canonical production deployment path:** `infra/k8s/overlays/production/`, applied by `.github/workflows/deploy.yml`.
+>
+> **Reference-only paths for production promotion:** `ops/compose/`, `infra/docker/`, `infra/k8s/overlays/staging/`, and `infra/k8s/observability/` remain useful for local validation, staging rehearsal, or supporting telemetry, but they are not the production promotion path.
+>
+> **Readiness status:** Kubernetes is the shared-environment runtime, but individual manifest groups stay **Aspirational** until a live validation run passes and a fresh benchmark artifact is present in `docs/operations/load-test-artifacts/staging/latest.json`.
 
-## Manifest Readiness
+## Canonical production path
 
-| Manifest                          | Status       | Notes                                                                    |
-| --------------------------------- | ------------ | ------------------------------------------------------------------------ |
-| `base/configmap.yaml`             | Validated    | Base config with overlay-required overrides for `node-env` and `app-env` |
-| `base/backend-deployment.yaml`    | Aspirational | Image tags and resource limits need production tuning                    |
-| `base/frontend-*-deployment.yaml` | Aspirational | Blue-green setup defined but not tested                                  |
-| `base/hpa.yaml`                   | Aspirational | HPA metrics and thresholds need load-test validation                     |
-| `base/network-policies.yaml`      | Aspirational | Needs cluster-level NetworkPolicy controller                             |
-| `base/external-secrets.yaml`      | Aspirational | Requires ExternalSecrets operator + AWS/Vault backend                    |
-| `overlays/staging/`               | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
-| `overlays/production/`            | Aspirational | Overlay patches validated via `kustomize build` but not deployed         |
-| `observability/`                  | Aspirational | Full OTEL + Prometheus + Grafana + Loki stack, not deployed              |
+| Path | Role | Production status |
+| --- | --- | --- |
+| `infra/k8s/overlays/production/` | Canonical deployable production overlay. | **Canonical** |
+| `infra/k8s/base/` | Source manifests consumed by overlays. | Reference-only unless promoted through the production overlay |
+| `infra/k8s/overlays/staging/` | Shared staging rehearsal path for the same runtime. | Reference-only for production |
+| `infra/k8s/observability/` | Supporting telemetry stack manifests. | Reference-only for production |
+| `ops/compose/` | Local and prod-like workstation validation only. | Reference-only for production |
+| `infra/docker/` | Legacy wrappers and compatibility shims. | Reference-only for production |
 
-### Promotion to production-ready
+## Validation evidence
 
-To promote these manifests to production-ready:
+- Canonical benchmark ledger: `docs/operations/load-test-baselines.md`
+- Latest staged benchmark manifest: `docs/operations/load-test-artifacts/staging/latest.json`
+- Timestamped run directory pattern: `docs/operations/load-test-artifacts/staging/<timestamp>/`
+- Promotion gate: `node scripts/ci/check-load-test-artifacts.mjs --manifest artifacts/load-tests/staging/latest.json --max-age-hours 24 --require-pass true`
 
-1. Stand up a staging K8s cluster (EKS, GKE, or kind for local)
-2. Install prerequisites: ExternalSecrets operator, NGINX ingress controller, cert-manager
-3. Run `kustomize build infra/k8s/overlays/staging | kubectl apply --dry-run=server -f -`
-4. Deploy to staging cluster and run smoke tests
-5. Validate HPA scaling under load (`tests/test/load/`)
-6. Update this table as manifests are validated
+### Latest live validation attempt
+
+- **Timestamp:** `2026-03-19T13:03:31Z`
+- **Target:** `https://staging.valueos.app`
+- **Outcome:** failed before application readiness because the edge returned `403 Forbidden`; no valid pod-count or queue-depth telemetry was available from this environment.
+- **Impact:** readiness states below remain unchanged until a fresh run passes.
+
+## Manifest readiness
+
+| Manifest | Status | Notes |
+| --- | --- | --- |
+| `base/configmap.yaml` | Validated | Base config with overlay-required overrides for `node-env` and `app-env`. |
+| `base/backend-deployment.yaml` | Aspirational | Canonical production path exists, but live benchmark evidence has not passed yet. |
+| `base/frontend-*-deployment.yaml` | Aspirational | Blue-green setup is defined but still needs a passing live validation run. |
+| `base/hpa.yaml` | Aspirational | HPA metrics and thresholds now have a staged validation workflow, but the latest live run failed at the edge. |
+| `base/network-policies.yaml` | Aspirational | Still requires cluster validation after a passing live benchmark run. |
+| `base/external-secrets.yaml` | Aspirational | Still requires operator/backend validation in a live cluster. |
+| `overlays/staging/` | Reference-only | Staging rehearsal path for the canonical runtime; not the production promotion path. |
+| `overlays/production/` | Aspirational | Canonical production path, but not marked validated until the benchmark artifact gate passes. |
+| `observability/` | Reference-only | Supporting telemetry manifests only; not a deploy promotion path on their own. |
+
+### Promotion to validated
+
+To promote any Kubernetes manifest group from **Aspirational** to **Validated**:
+
+1. Deploy the canonical runtime path (`infra/k8s/overlays/production/` for production, `infra/k8s/overlays/staging/` for rehearsal).
+2. Run both baseline scripts against the real target:
+   - `infra/testing/load-test.k6.js`
+   - `infra/testing/scaling-policy.k6.js`
+3. Persist the timestamped outputs under `docs/operations/load-test-artifacts/staging/<timestamp>/` plus CI upload artifacts.
+4. Confirm `docs/operations/load-test-artifacts/staging/latest.json` is fresh and `live_validation_passed=true`.
+5. Only then update the status table from **Aspirational**.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      AWS ALB Ingress                         │
-│                   (app.valueos.com)                      │
-└────────────────────┬────────────────────────────────────────┘
+│                      AWS ALB Ingress                       │
+│                    (app.valueos.com)                      │
+└────────────────────┬───────────────────────────────────────┘
                      │
         ┌────────────┴────────────┐
         │                         │
@@ -126,10 +154,10 @@ This check fails when any agent deployment:
 
 ## Prerequisites
 
-1. **EKS Cluster** running (created by Terraform)
+1. **Kubernetes cluster** running (staging or production)
 2. **kubectl** configured to access the cluster
 3. **Kustomize** installed
-4. **AWS ALB Ingress Controller** installed in cluster
+4. **Ingress controller** installed in cluster
 5. **Metrics Server** installed (for HPA)
 
 ## Quick Start
@@ -138,7 +166,7 @@ This check fails when any agent deployment:
 
 ```bash
 aws eks update-kubeconfig \
-  --name valynt-staging-cluster \
+  --name valueos-staging-cluster \
   --region us-east-1
 ```
 
@@ -152,7 +180,7 @@ kubectl get namespaces
 ### 3. Create secrets
 
 ```bash
-kubectl create secret generic valynt-secrets \
+kubectl create secret generic valueos-secrets \
   --from-literal=supabase-url="https://xxx.supabase.co" \
   --from-literal=supabase-anon-key="eyJ..." \
   --from-literal=supabase-service-key="eyJ..." \
@@ -160,367 +188,22 @@ kubectl create secret generic valynt-secrets \
   --from-literal=openai-api-key="sk-xxx" \
   --from-literal=jwt-secret="xxx" \
   --namespace=valynt-staging
-
-# Model selection and fallback controls can be provided as non-secret ConfigMap entries or as plain env-vars in the deployment.
-kubectl create configmap valynt-llm-config \
-  --from-literal=together-primary-model="moonshotai/Kimi-K2-Thinking" \
-  --from-literal=together-secondary-model="openai/gpt-oss-120b" \
-  --from-literal=llm-fallback-enabled="true" \
-  --from-literal=llm-fallback-max-attempts="1" \
-  --from-literal=llm-retry-backoff-ms="200" \
-  -n valynt-staging
-
-# Alternatively place model names in the secret if you prefer a single secret store.
 ```
 
 ### 4. Update image references
 
-Edit `infra/k8s/overlays/staging/kustomization.yaml`:
+Edit `infra/k8s/overlays/staging/kustomization.yaml` or `infra/k8s/overlays/production/kustomization.yaml` as appropriate.
 
-```yaml
-images:
-  - name: ghcr.io/valynt/valueos-backend
-    newTag: develop
-  - name: ghcr.io/valynt/valueos-frontend
-    newTag: develop
-```
-
-### 5. Deploy to staging
-
-```bash
-cd infra/k8s/overlays/staging
-kustomize build . | kubectl apply -f -
-```
-
-### 6. Verify deployment
-
-```bash
-kubectl get pods -n valynt-staging
-kubectl get services -n valynt-staging
-kubectl get ingress -n valynt-staging
-```
-
-## Deployment Environments
-
-### Staging
-
-**Resources:**
-
-- Backend: 2 replicas, 100m CPU, 256Mi memory
-- Frontend: 1 replica, 50m CPU, 64Mi memory
-- HPA: Disabled
-- Backend DB pool inputs: `APP_ENV=staging`, `DATABASE_POOL_ROLE=api`, `DATABASE_EXPECTED_CONCURRENCY=8` → derived `DATABASE_POOL_MAX=4`
-
-**Configuration:**
-
-- Namespace: `valynt-staging`
-- Image tag: `develop`
-- Log level: `debug`
-
-**Deploy:**
-
-```bash
-kustomize build infra/k8s/overlays/staging | kubectl apply -f -
-```
-
-### Production
-
-**Resources:**
-
-- Backend: 3 baseline replicas, 500m CPU, 1Gi memory
-- Frontend: 2 replicas, 200m CPU, 256Mi memory
-- HPA: Enabled (2-18 replicas for backend)
-- Backend DB pool inputs: `APP_ENV=prod`, `DATABASE_POOL_ROLE=api`, `DATABASE_EXPECTED_CONCURRENCY=8` → derived `DATABASE_POOL_MAX=4`
-
-**Configuration:**
-
-- Namespace: `valynt`
-- Image tag: `latest`
-- Log level: `info`
-
-**Deploy:**
+### 5. Deploy the canonical path
 
 ```bash
 kustomize build infra/k8s/overlays/production | kubectl apply -f -
 ```
 
-## Components
-
-### Frontend (Nginx + React)
-
-- **Image:** `valueos-frontend`
-- **Port:** 80
-- **Resources:** 50-200m CPU, 64-256Mi memory
-- **Health Check:** `/health`
-- **Replicas:** 1-2 (staging), 2-5 (production)
-
-### Backend (Express API)
-
-- **Image:** `valueos-backend`
-- **Port:** 3001
-- **Resources:** 100-500m CPU, 256Mi-1Gi memory
-- **Health Check:** `/health`
-- **Metrics:** `/metrics` (Prometheus)
-- **Replicas:** 2 (staging), 3 baseline / 2-18 via HPA (production)
-
-### Ingress (AWS ALB)
-
-- **Type:** Application Load Balancer
-- **SSL:** Automatic (ACM certificate)
-- **Paths:**
-  - `/` → Frontend
-  - `/api` → Backend
-
-## Configuration
-
-### ConfigMap
-
-```yaml
-# infra/k8s/base/configmap.yaml
-data:
-  redis-url: "rediss://redis:6379"
-  redis-tls-servername: "redis"
-  redis-tls-reject-unauthorized: "true"
-  redis-tls-ca-cert-path: "/etc/redis/tls/ca.crt"
-  node-env: "production"
-  log-level: "info"
-  enable-circuit-breaker: "true"
-  enable-rate-limiting: "true"
-```
-
-### Secrets
-
-Secrets are managed via Kubernetes secrets or AWS Secrets Manager:
+### 6. Verify deployment
 
 ```bash
-kubectl create secret generic valynt-secrets \
-  --from-literal=supabase-url=<value> \
-  --from-literal=supabase-anon-key=<value> \
-  --from-literal=supabase-service-key=<value> \
-  --from-literal=together-api-key=<value> \
-  --from-literal=jwt-secret=<value> \
-  --namespace=valynt-staging
+kubectl get pods -n valynt
+kubectl get services -n valynt
+kubectl get ingress -n valynt
 ```
-
-## Scaling
-
-### Manual Scaling
-
-```bash
-# Scale backend
-kubectl scale deployment backend-staging \
-  --replicas=3 \
-  -n valynt-staging
-
-# Scale frontend
-kubectl scale deployment frontend-staging \
-  --replicas=2 \
-  -n valynt-staging
-```
-
-### Auto-Scaling (HPA)
-
-HPA is configured for production:
-
-```yaml
-minReplicas: 2
-maxReplicas: 10
-targetCPUUtilizationPercentage: 70
-targetMemoryUtilizationPercentage: 80
-```
-
-View HPA status:
-
-```bash
-kubectl get hpa -n valynt
-```
-
-### Backend connection budget
-
-The backend deployments set `DATABASE_POOL_ROLE=api` and `DATABASE_EXPECTED_CONCURRENCY=8`. The app derives `DATABASE_POOL_MAX=4` per pod unless an operator explicitly overrides it.
-
-| Environment | Max backend replicas | Per-pod pool max | App-side connection budget | Notes |
-| --- | ---: | ---: | ---: | --- |
-| Staging | 2 | 4 | 8 | Fixed replica count, no HPA. |
-| Production | 18 | 4 | 72 | Based on backend HPA max. Blue/green cutovers can temporarily double this if both slots are scaled up simultaneously. |
-
-### Supabase / pgBouncer assumption
-
-The environment templates in `ops/env/` use the Supabase transaction pooler (`*.pooler.supabase.com:6543`) for application traffic. Treat that as the default pgBouncer assumption for backend pods; reserve the direct Postgres host (`:5432`) for migrations or session-affine maintenance work.
-
-## Monitoring
-
-### Pod Status
-
-```bash
-kubectl get pods -n valynt-staging -w
-```
-
-### Logs
-
-```bash
-# Backend logs
-kubectl logs -f deployment/backend-staging -n valynt-staging
-
-# Frontend logs
-kubectl logs -f deployment/frontend-staging -n valynt-staging
-
-# All pods
-kubectl logs -f -l app=backend -n valynt-staging
-```
-
-### Metrics
-
-```bash
-# Pod metrics
-kubectl top pods -n valynt-staging
-
-# Node metrics
-kubectl top nodes
-```
-
-### Events
-
-```bash
-kubectl get events -n valynt-staging --sort-by='.lastTimestamp'
-```
-
-## Troubleshooting
-
-### Pods not starting
-
-```bash
-# Check pod status
-kubectl describe pod <pod-name> -n valynt-staging
-
-# Check events
-kubectl get events -n valynt-staging
-
-# Check logs
-kubectl logs <pod-name> -n valynt-staging
-```
-
-### Image pull errors
-
-```bash
-# Verify ECR access
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin \
-  123456789012.dkr.ecr.us-east-1.amazonaws.com
-
-# Check image exists
-aws ecr describe-images \
-  --repository-name valueos-backend \
-  --region us-east-1
-```
-
-### Ingress not working
-
-```bash
-# Check ingress status
-kubectl describe ingress valynt-staging -n valynt-staging
-
-# Check ALB controller logs
-kubectl logs -n kube-system deployment/aws-load-balancer-controller
-```
-
-### Database connection issues
-
-```bash
-# Test from pod
-kubectl exec -it deployment/backend-staging -n valynt-staging -- \
-  curl -v http://backend:3001/health
-
-# Check secrets
-kubectl get secret valynt-secrets -n valynt-staging -o yaml
-```
-
-## Rollback
-
-### Rollback deployment
-
-```bash
-# View rollout history
-kubectl rollout history deployment/backend-staging -n valynt-staging
-
-# Rollback to previous version
-kubectl rollout undo deployment/backend-staging -n valynt-staging
-
-# Rollback to specific revision
-kubectl rollout undo deployment/backend-staging \
-  --to-revision=2 \
-  -n valynt-staging
-```
-
-## Cleanup
-
-### Delete staging environment
-
-```bash
-kubectl delete namespace valynt-staging
-```
-
-### Delete production environment
-
-```bash
-kubectl delete namespace valynt
-```
-
-## CI/CD Integration
-
-Deployments are automated via GitHub Actions:
-
-- **Staging:** Auto-deploys on push to `develop`
-- **Production:** Manual deployment via workflow dispatch
-
-See `.github/workflows/deploy-to-k8s.yml` for details.
-
-## Security
-
-### Pod Security
-
-- Non-root user
-- Read-only root filesystem
-- No privilege escalation
-- Capabilities dropped
-- Seccomp profile enabled
-
-### Network Security
-
-- Private subnets for pods
-- Security groups restrict access
-- TLS/SSL via ALB
-- Network policies (optional)
-
-### Secrets Management
-
-- Kubernetes secrets encrypted at rest
-- AWS Secrets Manager integration available
-- No secrets in code or images
-
-## Best Practices
-
-1. **Always use specific image tags** - Never use `latest` in production
-2. **Set resource limits** - Prevent resource exhaustion
-3. **Configure health checks** - Enable automatic recovery
-4. **Use HPA** - Handle traffic spikes automatically
-5. **Monitor logs and metrics** - Detect issues early
-6. **Test in staging first** - Validate changes before production
-7. **Use rolling updates** - Zero-downtime deployments
-8. **Keep secrets secure** - Use Kubernetes secrets or AWS Secrets Manager
-
-## Support
-
-For issues or questions:
-
-1. Check pod logs
-2. Review events
-3. Check this documentation
-4. Contact DevOps team
-
-## References
-
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Kustomize Documentation](https://kustomize.io/)
-- [AWS ALB Ingress Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/)
-- [EKS Best Practices](https://aws.github.io/aws-eks-best-practices/)

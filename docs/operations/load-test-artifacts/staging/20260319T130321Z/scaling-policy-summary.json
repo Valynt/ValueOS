@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-03-19T13:03:50.843Z",
+  "target": "https://staging.valueos.app",
+  "scenario": "autoscaling-policy-staged-validation",
+  "config": {
+    "steady": {
+      "ramp": "2s",
+      "hold": "4s",
+      "ramp_down": "2s",
+      "target_vus": 2
+    },
+    "spike": {
+      "warmup": "2s",
+      "peak": "3s",
+      "recovery": "2s",
+      "warmup_rate": 2,
+      "peak_rate": 4,
+      "recovery_rate": 2,
+      "start_time": "8s"
+    },
+    "soak": {
+      "duration": "4s",
+      "rate": 2,
+      "start_time": "15s"
+    }
+  },
+  "totals": {
+    "requests": 222,
+    "iterations": 74,
+    "rps": 11.556388698765328
+  },
+  "latency_ms": {
+    "overall": {
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    },
+    "backend": {
+      "p50": 0,
+      "p95": 0,
+      "p99": 0
+    }
+  },
+  "error_rate": 1,
+  "saturation": {
+    "vus_max": 145,
+    "dropped_iterations": 0,
+    "blocked_p95_ms": 0
+  },
+  "thresholds": {
+    "passed": false,
+    "details": {
+      "errors": {
+        "rate<0.02": false
+      },
+      "backend_latency": {
+        "p(95)<550": true
+      },
+      "http_req_duration": {
+        "p(95)<600": true,
+        "p(99)<1200": true
+      },
+      "http_req_failed": {
+        "rate<0.02": false
+      }
+    }
+  }
+}
