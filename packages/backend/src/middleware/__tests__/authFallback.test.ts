@@ -5,13 +5,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const redisExists = vi.fn();
 const auditLog = vi.fn().mockResolvedValue({ id: 'audit-id' });
 
-vi.mock('@shared/lib/supabase', () => ({
+vi.mock('../../lib/supabase.js', () => ({
+  createServiceRoleSupabaseClient: vi.fn(() => {
+    throw new Error('supabase unavailable');
+  }),
+  createRequestRlsSupabaseClient: vi.fn(),
+  createRequestSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(() => {
+    throw new Error('supabase unavailable');
+  }),
   getSupabaseClient: vi.fn(() => {
     throw new Error('supabase unavailable');
   }),
-  createRequestSupabaseClient: vi.fn(),
-  createServerSupabaseClient: vi.fn(),
-  getRequestSupabaseClient: vi.fn(),
   supabase: null,
 }));
 

@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { getSupabaseClient } from '@shared/lib/supabase';
+import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -77,7 +77,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     const organizationId = validation.organization_id;
 
     // Get value case details
-    const { data: valueCase, error: vcError } = await getSupabaseClient()
+    const { data: valueCase, error: vcError } = await createServiceRoleSupabaseClient()
       .from('value_cases')
       .select('id, company_name, name')
       .eq('id', valueCaseId)
@@ -97,7 +97,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     const dateFilter = calculateDateFilter(period);
 
     // Build query for metrics
-    let query = getSupabaseClient()
+    let query = createServiceRoleSupabaseClient()
       .from('realization_metrics')
       .select('*')
       .eq('value_case_id', valueCaseId)

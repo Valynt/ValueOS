@@ -1,17 +1,25 @@
 {
   "dashboard": {
     "title": "ValueCanvas - Application Overview",
-    "tags": ["valuecanvas", "overview"],
+    "tags": [
+      "valuecanvas",
+      "overview"
+    ],
     "timezone": "browser",
     "schemaVersion": 16,
-    "version": 1,
+    "version": 2,
     "refresh": "30s",
     "panels": [
       {
         "id": 1,
         "title": "Request Rate",
         "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
         "targets": [
           {
             "expr": "sum(rate(http_requests_total{namespace=~\"valuecanvas.*\"}[5m])) by (namespace)",
@@ -20,15 +28,25 @@
           }
         ],
         "yaxes": [
-          {"format": "reqps", "label": "Requests/sec"},
-          {"format": "short"}
+          {
+            "format": "reqps",
+            "label": "Requests/sec"
+          },
+          {
+            "format": "short"
+          }
         ]
       },
       {
         "id": 2,
         "title": "Error Rate",
         "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
         "targets": [
           {
             "expr": "sum(rate(http_requests_total{namespace=~\"valuecanvas.*\",status=~\"5..\"}[5m])) by (namespace)",
@@ -42,15 +60,25 @@
           }
         ],
         "yaxes": [
-          {"format": "reqps", "label": "Errors/sec"},
-          {"format": "short"}
+          {
+            "format": "reqps",
+            "label": "Errors/sec"
+          },
+          {
+            "format": "short"
+          }
         ]
       },
       {
         "id": 3,
         "title": "Response Time (p95)",
         "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
         "targets": [
           {
             "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=~\"valuecanvas.*\"}[5m])) by (le, namespace))",
@@ -64,15 +92,25 @@
           }
         ],
         "yaxes": [
-          {"format": "s", "label": "Duration"},
-          {"format": "short"}
+          {
+            "format": "s",
+            "label": "Duration"
+          },
+          {
+            "format": "short"
+          }
         ]
       },
       {
         "id": 4,
         "title": "Pod Status",
         "type": "stat",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
         "targets": [
           {
             "expr": "count(kube_pod_status_phase{namespace=~\"valuecanvas.*\",phase=\"Running\"})",
@@ -90,7 +128,12 @@
         "id": 5,
         "title": "CPU Usage",
         "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
         "targets": [
           {
             "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=~\"valuecanvas.*\"}[5m])) by (pod)",
@@ -99,15 +142,25 @@
           }
         ],
         "yaxes": [
-          {"format": "percentunit", "label": "CPU"},
-          {"format": "short"}
+          {
+            "format": "percentunit",
+            "label": "CPU"
+          },
+          {
+            "format": "short"
+          }
         ]
       },
       {
         "id": 6,
         "title": "Memory Usage",
         "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
         "targets": [
           {
             "expr": "sum(container_memory_working_set_bytes{namespace=~\"valuecanvas.*\"}) by (pod)",
@@ -116,8 +169,83 @@
           }
         ],
         "yaxes": [
-          {"format": "bytes", "label": "Memory"},
-          {"format": "short"}
+          {
+            "format": "bytes",
+            "label": "Memory"
+          },
+          {
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Agent Capacity by Cold-Start Class",
+        "type": "table",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "valueos:agent_capacity_profile",
+            "format": "table",
+            "instant": true,
+            "legendFormat": "{{agent}}",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "Value": true
+              },
+              "indexByName": {
+                "agent": 0,
+                "cold_start_class": 1,
+                "request_path_class": 2,
+                "warm_capacity": 3
+              },
+              "renameByName": {
+                "agent": "Agent",
+                "cold_start_class": "Cold-start class",
+                "request_path_class": "Request path",
+                "warm_capacity": "Warm capacity"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Cold-Start P95 by Capacity Class",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by (le, cold_start_class) (rate(agent_enqueue_to_ready_seconds_bucket[5m]) * on(agent) group_left(cold_start_class) valueos:agent_capacity_profile))",
+            "legendFormat": "{{cold_start_class}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          },
+          {
+            "format": "short"
+          }
         ]
       }
     ]

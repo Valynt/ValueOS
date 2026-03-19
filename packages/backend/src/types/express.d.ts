@@ -49,6 +49,10 @@ declare global {
       userId?: string;
       requestId?: string;
       serviceIdentityVerified?: boolean;
+      requestNonce?: string;
+      servicePrincipal?: string;
+      serviceIssuer?: string;
+      serviceAuthMethod?: "mtls" | "jwt" | "hmac";
       useFallbackModel?: boolean;
       supabase?: SupabaseClient;
       db?: TenantDbContext;

@@ -43,12 +43,15 @@ Runbooks for Prometheus alert rules defined in:
 - **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
 
 ## HighResponseTime
-- **Trigger meaning:** API p95 latency per pod exceeds 1s for 5m.
-- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect Grafana RED dashboard.
-- **Common causes:** noisy neighbor CPU contention; DB query slowdown; external API latency; cold cache after deploy.
-- **Remediation:** scale deployment replicas; enable cached path / reduce expensive feature; roll back recent query or route change.
-- **Escalation:** Engage **Backend Platform** and **Data Platform** if sustained >15m or if DB alerts co-fire.
-- **Post-incident actions:** capture latency profile; add route-level SLO guardrail; tune autoscaling floor.
+- **Trigger meaning:** One of the canonical latency-class thresholds has been breached:
+  - interactive completion p95 exceeds **200ms** for 5m;
+  - orchestration acknowledgment p95 exceeds **200ms** for 5m; or
+  - orchestration completion p95 exceeds the **3000ms** exception policy for 10m.
+- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency|orchestration"`; inspect the Grafana backend latency-class dashboard.
+- **Common causes:** noisy neighbor CPU contention; DB query slowdown; provider or queue latency on orchestration routes; cold cache after deploy.
+- **Remediation:** scale interactive capacity when the 200ms completion budget is breached; restore fast acknowledgment on orchestration routes; move slow synchronous work behind async/streaming boundaries when completion approaches 3000ms.
+- **Escalation:** Engage **Backend Platform** and **Data Platform** if interactive completion or orchestration acknowledgment stays above 200ms for >15m, or if the 3000ms orchestration completion exception is exhausted.
+- **Post-incident actions:** capture the latency-class profile; confirm route classification is still correct; add or update route-level SLO guardrails and autoscaling floors.
 - **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
 
 ## PodDown

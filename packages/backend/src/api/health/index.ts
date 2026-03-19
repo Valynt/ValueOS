@@ -802,8 +802,8 @@ router.get("/health/memory", async (_req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
-    const { createServerSupabaseClient } = await import("../../lib/supabase.js");
-    const supabase = createServerSupabaseClient();
+    const { createServiceRoleSupabaseClient } = await import("../../lib/supabase.js");
+    const supabase = createServiceRoleSupabaseClient();
 
     const { count, error } = await supabase
       .from("semantic_memory")

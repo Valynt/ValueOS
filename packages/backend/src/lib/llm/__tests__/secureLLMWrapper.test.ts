@@ -11,10 +11,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ─── Hoisted mocks ────────────────────────────────────────────────────────────
 
-const mockLoggerWarn = vi.fn();
-const mockLoggerError = vi.fn();
+const { mockLoggerWarn, mockLoggerError } = vi.hoisted(() => ({
+  mockLoggerWarn: vi.fn(),
+  mockLoggerError: vi.fn(),
+}));
 
-vi.mock('../logger.js', () => ({
+vi.mock('../../logger.js', () => ({
   createLogger: () => ({
     info: vi.fn(),
     warn: mockLoggerWarn,

@@ -1,18 +1,18 @@
 /**
- * WCAG 2.1 AA Compliance Tests
+ * WCAG 2.2 AA Compliance Tests
  * 
- * Tests for Web Content Accessibility Guidelines 2.1 Level AA:
+ * Tests for Web Content Accessibility Guidelines 2.2 Level AA:
  * - Keyboard navigation
  * - Screen reader compatibility
  * - Color contrast
  * - ARIA labels and roles
  * 
- * Acceptance Criteria: WCAG 2.1 AA compliant
+ * Acceptance Criteria: WCAG 2.2 AA compliant
  */
 
 import { describe, expect, it } from 'vitest';
 
-describe('WCAG 2.1 AA Compliance', () => {
+describe('WCAG 2.2 AA Compliance', () => {
   describe('Principle 1: Perceivable', () => {
     describe('1.1 Text Alternatives', () => {
       it('should provide text alternatives for non-text content', () => {
@@ -643,7 +643,7 @@ describe('WCAG 2.1 AA Compliance', () => {
     });
   });
 
-  describe('WCAG 2.1 AA Conformance', () => {
+  describe('WCAG 2.2 AA Conformance', () => {
     it('should meet all Level A criteria', () => {
       const levelACriteria = {
         textAlternatives: true,
@@ -692,13 +692,13 @@ describe('WCAG 2.1 AA Compliance', () => {
     it('should have accessibility statement', () => {
       const accessibilityStatement = {
         exists: true,
-        conformanceLevel: 'WCAG 2.1 AA',
+        conformanceLevel: 'WCAG 2.2 AA',
         lastUpdated: new Date('2024-01-01'),
         contactInfo: 'accessibility@example.com',
       };
 
       expect(accessibilityStatement.exists).toBe(true);
-      expect(accessibilityStatement.conformanceLevel).toBe('WCAG 2.1 AA');
+      expect(accessibilityStatement.conformanceLevel).toBe('WCAG 2.2 AA');
       expect(accessibilityStatement.contactInfo).toBeTruthy();
     });
   });

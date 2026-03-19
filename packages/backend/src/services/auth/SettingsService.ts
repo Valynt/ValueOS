@@ -6,6 +6,8 @@
 import { z } from 'zod';
 
 import { logger } from '../../lib/logger.js'
+import type { JsonObject, JsonValue } from '../../types/json.js'
+import { jsonObjectSchema, jsonValueSchema } from '../../types/json.js'
 
 import { tenantCache } from './cache/TenantCache.js'
 import { AuthorizationError, NotFoundError, ValidationError } from './errors.js'
@@ -16,8 +18,8 @@ const SecureSettingsSchemas = {
   string: z.string(),
   number: z.number(),
   boolean: z.boolean(),
-  object: z.record(z.any()),
-  array: z.array(z.any()),
+  object: jsonObjectSchema,
+  array: z.array(jsonValueSchema),
 } as const;
 
 export interface Setting {
@@ -85,7 +87,7 @@ export class SettingsService extends TenantAwareService {
     scope: Setting['scope'],
     scopeId: string,
     userId?: string
-  ): Promise<any | null> {
+  ): Promise<JsonValue | null> {
     this.log('info', 'Getting setting', { key, scope, scopeId });
 
     await this.ensureTenantAccess(scope, scopeId, userId);
@@ -155,9 +157,9 @@ export class SettingsService extends TenantAwareService {
   async getOrganizationConfig(
     tenantId: string,
     userId: string
-  ): Promise<Record<string, any>> {
+  ): Promise<JsonObject> {
     const cacheKey = tenantCache.buildOrgConfigKey(tenantId);
-    const cached = await tenantCache.get<Record<string, any>>(cacheKey);
+    const cached = await tenantCache.get<JsonObject>(cacheKey);
 
     if (cached) {
       return cached;
@@ -168,8 +170,8 @@ export class SettingsService extends TenantAwareService {
       scopeId: tenantId,
     }, userId);
 
-    const config = settings.reduce<Record<string, any>>((acc, setting) => {
-      acc[setting.key] = setting.value;
+    const config = settings.reduce<JsonObject>((acc, setting) => {
+      acc[setting.key] = jsonValueSchema.parse(setting.value);
       return acc;
     }, {});
 
@@ -315,25 +317,21 @@ export class SettingsService extends TenantAwareService {
    * @returns Setting
    */
   async upsertSetting(input: SettingCreateInput, userId?: string): Promise<Setting> {
-    try {
-      const existing = await this.getSetting(input.key, input.scope, input.scopeId, userId);
+    const existing = await this.getSetting(input.key, input.scope, input.scopeId, userId);
 
-      if (existing !== null) {
-        return this.updateSetting(
-          input.key,
-          input.scope,
-          input.scopeId,
-          {
-            value: input.value,
-          },
-          userId
-        );
-      } else {
-        return this.createSetting(input, userId);
-      }
-    } catch (error) {
-      throw error;
+    if (existing !== null) {
+      return this.updateSetting(
+        input.key,
+        input.scope,
+        input.scopeId,
+        {
+          value: input.value,
+        },
+        userId
+      );
     }
+
+    return this.createSetting(input, userId);
   }
 
   /**
@@ -386,7 +384,7 @@ export class SettingsService extends TenantAwareService {
   async bulkUpdateSettings(
     scope: Setting['scope'],
     scopeId: string,
-    settings: Record<string, any>,
+    settings: JsonObject,
     userId?: string
   ): Promise<Setting[]> {
     this.log('info', 'Bulk updating settings', { scope, scopeId, count: Object.keys(settings).length });
@@ -417,7 +415,7 @@ export class SettingsService extends TenantAwareService {
    */
   async initializeOrganizationSettings(
     organizationId: string,
-    settings: Record<string, any>,
+    settings: JsonObject,
     userId: string
   ): Promise<Setting[]> {
     this.log('info', 'Initializing organization settings', { organizationId, count: Object.keys(settings).length });
@@ -463,7 +461,7 @@ export class SettingsService extends TenantAwareService {
         case 'boolean':
           return SecureSettingsSchemas.boolean.parse(value === 'true');
         case 'object':
-        case 'array':
+        case 'array': {
           const parsed = JSON.parse(value);
           const schema = type === 'object' ? SecureSettingsSchemas.object : SecureSettingsSchemas.array;
           const validated = schema.parse(parsed);
@@ -472,6 +470,7 @@ export class SettingsService extends TenantAwareService {
             isArray: Array.isArray(validated)
           });
           return validated;
+        }
         default:
           return value;
       }

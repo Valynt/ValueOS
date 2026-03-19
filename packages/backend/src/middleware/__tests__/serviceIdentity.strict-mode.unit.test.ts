@@ -2,11 +2,6 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// getAutonomyConfig controls whether the legacy token path is active.
-vi.mock('../../config/autonomy.js', () => ({
-  getAutonomyConfig: vi.fn(() => ({ serviceIdentityToken: '' })),
-}));
-
 // nonceStore is only reached after identity is verified — not needed for strict-mode tests.
 vi.mock('../nonceStore.js', () => ({
   nonceStore: { consumeOnce: vi.fn().mockResolvedValue(true) },
@@ -31,7 +26,6 @@ describe('serviceIdentityMiddleware — strict mode (SERVICE_IDENTITY_REQUIRED=t
     // Ensure no assertions are configured so the fail-closed branch is reachable.
     delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
     delete process.env.SERVICE_IDENTITY_ALLOWED_SPIFFE_IDS;
-    delete process.env.SERVICE_IDENTITY_TOKEN;
   });
 
   afterEach(() => {
@@ -88,9 +82,10 @@ describe('serviceIdentityMiddleware — strict mode (SERVICE_IDENTITY_REQUIRED=t
     expect(res.status).not.toBe(503);
   });
 
-  it('startup validation fails in strict mode when only legacy token is configured', () => {
+  it('startup validation fails in strict mode when only non-cryptographic assertions are configured', () => {
     process.env.NODE_ENV = 'production';
     process.env.SERVICE_IDENTITY_REQUIRED = 'true';
+    process.env.SERVICE_IDENTITY_ALLOWED_SPIFFE_IDS = 'spiffe://cluster.local/ns/valueos/sa/backend';
 
     expect(() => validateServiceIdentityConfig()).toThrow(/cryptographic assertions/i);
   });

@@ -1,6 +1,6 @@
 /**
  * Consent Type Definitions
- * 
+ *
  * Types for consent management, data processing permissions,
  * and GDPR/privacy compliance.
  */
@@ -76,7 +76,7 @@ export interface ConsentRequest {
   consent_type: ConsentType;
   scope: ConsentScope;
   requested_at: string;
-  request_context?: Record<string, any>;
+  request_context?: Record<string, unknown>;
 }
 
 export interface ConsentResponse {
@@ -111,7 +111,7 @@ export interface ConsentHistoryEntry {
   actor_id: string;
   actor_type: 'user' | 'admin' | 'system';
   timestamp: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export type ConsentAction =
@@ -181,7 +181,7 @@ export interface ConsentAuditLog {
   organization_id: string;
   consent_id?: string;
   actor_id: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   ip_address?: string;
 }
 
@@ -194,6 +194,10 @@ export type ConsentAuditEventType =
   | 'data_processed'
   | 'data_shared'
   | 'policy_updated';
+
+// ============================================================================
+// Consent Registry (Simplified)
+// ============================================================================
 
 export interface ConsentCheckRequest {
   tenantId: string;

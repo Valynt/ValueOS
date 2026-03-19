@@ -4,7 +4,7 @@
  * Handles approval workflow for agent actions requiring human oversight.
  */
 
-import { getRequestSupabaseClient } from '@shared/lib/supabase';
+import { createRequestRlsSupabaseClient } from '../lib/supabase.js';
 import { Request, Response } from 'express';
 
 import { auditBulkDelete } from '../middleware/auditHooks.js'
@@ -45,7 +45,7 @@ router.post('/request', requirePermission('approvals:create'), async (req: Reque
       });
     }
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     // Create approval request via database function
     const { data, error } = await supabase.rpc('create_approval_request', {
@@ -85,7 +85,7 @@ router.get('/pending', requirePermission('approvals:manage'), async (req: Reques
       return res.status(400).json({ error: 'Tenant ID required' });
     }
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     const { data, error } = await supabase
       .from('approval_requests')
@@ -123,7 +123,7 @@ router.get('/my-requests', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Tenant ID required' });
     }
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     const { data, error } = await supabase
       .from('approval_requests')
@@ -153,7 +153,7 @@ router.post('/:requestId/approve', requirePermission('approvals:manage'), async 
     const { requestId } = req.params;
     const { secondApproverEmail, notes } = req.body;
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     // Approve via database function
     const { data, error } = await supabase.rpc('approve_request', {
@@ -208,7 +208,7 @@ router.post('/:requestId/reject', requirePermission('approvals:manage'), async (
     const { requestId } = req.params;
     const { notes } = req.body;
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     // Reject via database function
     const { data, error } = await supabase.rpc('reject_request', {
@@ -244,7 +244,7 @@ router.get('/:requestId', requirePermission('approvals:view'), async (req: Reque
       return res.status(400).json({ error: 'Tenant ID required' });
     }
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     const { data, error } = await supabase
       .from('approval_requests')
@@ -281,7 +281,7 @@ router.delete('/:requestId', requirePermission('approvals:create'), auditBulkDel
       return res.status(400).json({ error: 'Tenant ID required' });
     }
 
-    const supabase = getRequestSupabaseClient(req);
+    const supabase = createRequestRlsSupabaseClient(req);
 
     // Only allow cancellation of pending requests within the tenant
     const { error } = await supabase

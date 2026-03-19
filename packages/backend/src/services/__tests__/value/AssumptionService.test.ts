@@ -5,7 +5,7 @@ import {
 } from "../../value/AssumptionService.js";
 
 // Mock dependencies
-vi.mock("../../lib/logger.js", () => ({
+vi.mock("../../../lib/logger.js", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -13,67 +13,77 @@ vi.mock("../../lib/logger.js", () => ({
   },
 }));
 
-vi.mock("../../lib/supabase.js", () => ({
+vi.mock("../../../lib/supabase.js", () => ({
   supabase: {
     from: vi.fn().mockReturnValue({
-      insert: vi.fn().mockReturnValue({
+      insert: vi.fn().mockImplementation((payload: Record<string, unknown>) => ({
         select: vi.fn().mockReturnValue({
           single: vi.fn().mockReturnValue({
-            data: {
-              id: "asm-test-123",
-              organization_id: "org-123",
-              case_id: "case-456",
-              name: "Test Assumption",
-              value: 100000,
-              unit: "USD",
-              source_type: "customer-confirmed",
-              confidence_score: 0.9,
-              benchmark_reference_id: null,
-              original_value: null,
-              overridden_by_user_id: null,
-              is_unsupported: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
+            data: payload,
             error: null,
           }),
         }),
-      }),
+      })),
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              data: [],
-              error: null,
+        eq: vi.fn().mockImplementation((column: string) => {
+          if (column === "id") {
+            return {
+              single: vi.fn().mockReturnValue({
+                data: {
+                  id: "asm-test-123",
+                  organization_id: "org-123",
+                  case_id: "case-456",
+                  name: "Test Assumption",
+                  value: 100000,
+                  unit: "USD",
+                  source_type: "customer-confirmed",
+                  confidence_score: 0.9,
+                  benchmark_reference_id: null,
+                  original_value: null,
+                  overridden_by_user_id: null,
+                  is_unsupported: false,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+                error: null,
+              }),
+            };
+          }
+
+          return {
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                data: [],
+                error: null,
+              }),
             }),
-          }),
-        }),
-        single: vi.fn().mockReturnValue({
-          data: {
-            id: "asm-test-123",
-            value: 100000,
-            source_type: "customer-confirmed",
-          },
-          error: null,
+          };
         }),
       }),
-      delete: vi.fn().mockReturnValue({ error: null }),
-      update: vi.fn().mockReturnValue({
+      delete: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({ error: null }),
+      }),
+      update: vi.fn().mockImplementation((payload: Record<string, unknown>) => ({
         eq: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockReturnValue({
               data: {
                 id: "asm-test-123",
-                value: 120000,
-                source_type: "manually-overridden",
-                original_value: 100000,
-                overridden_by_user_id: "user-789",
+                organization_id: "org-123",
+                case_id: "case-456",
+                name: "Test Assumption",
+                unit: "USD",
+                confidence_score: 0.9,
+                benchmark_reference_id: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                ...payload,
               },
               error: null,
             }),
           }),
         }),
-      }),
+      })),
     }),
   },
 }));

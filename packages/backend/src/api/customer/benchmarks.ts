@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { getSupabaseClient } from '@shared/lib/supabase';
+import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -79,7 +79,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     const organizationId = validation.organization_id;
 
     // Get value case details
-    const { data: valueCase, error: vcError } = await getSupabaseClient()
+    const { data: valueCase, error: vcError } = await createServiceRoleSupabaseClient()
       .from('value_cases')
       .select('id, company_name, custom_fields')
       .eq('id', valueCaseId)
@@ -108,7 +108,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
 
     // Benchmarks are global reference data (see customer_read_benchmarks policy),
     // so keep this query intentionally isolated from tenant-owned filters/tables.
-    let benchmarkQuery = getSupabaseClient()
+    let benchmarkQuery = createServiceRoleSupabaseClient()
       .from('benchmarks')
       .select('*')
       .eq('industry', valueCaseIndustry)
@@ -131,7 +131,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     }
 
     // Get current metrics for comparison
-    const { data: metrics, error: metricsError } = await getSupabaseClient()
+    const { data: metrics, error: metricsError } = await createServiceRoleSupabaseClient()
       .from('realization_metrics')
       .select('metric_name, actual_value')
       .eq('value_case_id', valueCaseId)

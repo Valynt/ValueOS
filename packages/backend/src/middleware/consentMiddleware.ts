@@ -2,7 +2,11 @@ import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { getRequestSupabaseClient } from '@shared/lib/supabase';
 
 import { consentRegistry } from '../services/auth/consentRegistry.js';
-import type { ConsentRegistry } from '../types/consent';
+import type { ConsentCheckRequest, ConsentRegistry } from '../types/consent';
+
+export function getAuthenticatedDataSubject(req: Request): string | null {
+  return req.user?.sub ?? req.user?.auth0_sub ?? req.user?.id ?? req.userId ?? null;
+}
 
 export function getCanonicalSubjectFromRequest(req: Request): string | null {
   const subject = req.user?.sub ?? req.user?.auth0_sub ?? req.user?.id;
@@ -26,7 +30,7 @@ export function requireConsent(
     if (!tenantId) {
       return res.status(400).json({
         error: 'Bad Request',
-        message: 'Tenant context is required to validate consent.',
+        message: 'Authenticated tenant, subject, and request-scoped Supabase context are required to validate consent.',
       });
     }
 
@@ -54,7 +58,13 @@ export function requireConsent(
       subject,
       supabase,
     });
+
     if (!consentGranted) {
+      console.warn('Consent check denied', {
+        tenantId,
+        subject,
+        scope,
+      });
       return res.status(403).json({
         error: 'Forbidden',
         message: `Consent for scope "${scope}" is not granted for subject ${subject} in tenant ${tenantId}`,

@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'ReferralAnalytics' });
 
@@ -60,7 +60,7 @@ interface UserProfile {
 }
 
 export class ReferralAnalyticsService {
-  private supabase = createServerSupabaseClient();
+  private supabase = createServiceRoleSupabaseClient();
 
   /**
    * Get comprehensive referral analytics

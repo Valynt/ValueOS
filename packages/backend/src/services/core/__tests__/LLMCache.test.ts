@@ -76,6 +76,8 @@ describe('core/LLMCache', () => {
     await expect(cache.get('prompt', 'gpt-4')).resolves.toBeNull();
     expect(cacheRequestsTotalInc).toHaveBeenCalledWith({
       cache_name: 'llm',
+      cache_namespace: 'llm',
+      cache_layer: 'redis',
       outcome: 'miss',
     });
   });

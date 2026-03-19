@@ -7,7 +7,6 @@
  * Task: 3.4, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -15,8 +14,10 @@ import { fileURLToPath } from "node:url";
 
 import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 
 import {
   InternalCaseInput,
@@ -77,13 +78,20 @@ export class InternalCaseGenerator {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
           tenantId: input.tenantId,
+          organizationId: input.organizationId,
           caseId: input.caseId,
           artifactType: "internal_case",
           generator: "InternalCaseGenerator",
         },
       };
 
-      const response = await this.llmGateway.complete(request);
+      const response = await secureLLMComplete(this.llmGateway, request.messages, {
+        ...request.metadata,
+        serviceName: "InternalCaseGenerator",
+        operation: "generate",
+        traceId: input.caseId,
+        sessionId: input.caseId,
+      });
 
       let parsedJson: unknown;
       try {
@@ -94,6 +102,7 @@ export class InternalCaseGenerator {
       }
 
       const parsed = InternalCaseOutputSchema.parse(parsedJson);
+
       const output: InternalCaseOutput = {
         ...parsed,
         data_claim_ids: parsed.provenance_refs,
@@ -118,15 +127,63 @@ export class InternalCaseGenerator {
 
       return {
         output,
-        tokenUsage: response.usage ? {
-          input_tokens: response.usage.prompt_tokens,
-          output_tokens: response.usage.completion_tokens,
-          total_tokens: response.usage.total_tokens,
-        } : undefined,
+        tokenUsage: response.usage
+          ? {
+              input_tokens: response.usage.prompt_tokens,
+              output_tokens: response.usage.completion_tokens,
+              total_tokens: response.usage.total_tokens,
+            }
+          : undefined,
       };
     });
 
-    const hallucinationCheck = await this.checkHallucination(result.output, input);
+    // Run hallucination check
+    const hallucinationCheck = await this.checkHallucination(
+      result.output,
+      input
+    );
+
+    if (!hallucinationCheck) {
+      logger.warn("InternalCaseGenerator: hallucination escalation triggered", {
+        caseId: input.caseId,
+        tenantId: input.tenantId,
+      });
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "security:hallucination_detected",
+        resource: input.caseId,
+        resourceType: "artifact_generation",
+        userId: "system",
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+        sessionId: input.caseId,
+        outcome: "failure",
+        severity: "high",
+        details: {
+          generator: "InternalCaseGenerator",
+          artifactType: "internal_case",
+        },
+      });
+    }
+
+    await logSecurityEvent({
+      timestamp: new Date().toISOString(),
+      action: "artifacts:internal_case_generated",
+      resource: input.caseId,
+      resourceType: "artifact_generation",
+      userId: "system",
+      organizationId: input.organizationId,
+      tenantId: input.tenantId,
+      sessionId: input.caseId,
+      outcome: hallucinationCheck ? "success" : "failure",
+      severity: hallucinationCheck ? "low" : "medium",
+      details: {
+        generator: "InternalCaseGenerator",
+        artifactType: "internal_case",
+        hallucinationCheck,
+        tokenUsage: result.tokenUsage,
+      },
+    });
 
     logger.info("InternalCaseGenerator: generation complete", {
       caseId: input.caseId,

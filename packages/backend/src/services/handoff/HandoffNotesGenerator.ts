@@ -9,8 +9,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { buildEventEnvelope, getDomainEventBus } from "../../events/DomainEventBus.js";
+import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { createLogger } from "../../lib/logger.js";
+import type { LLMCompletable } from "../../lib/llm/secureLLMWrapper.js";
+import { secureLLMComplete } from "../../lib/llm/secureLLMWrapper.js";
 import { supabase as supabaseClient } from "../../lib/supabase.js";
+import { logSecurityEvent } from "../security/auditLogger.js";
 import { ScenarioType, SourceType } from "../../types/value-modeling.js";
 
 const logger = createLogger({ component: "HandoffNotesGenerator" });
@@ -80,12 +84,22 @@ interface ValueDriverContext {
 
 export class HandoffNotesGenerator {
   private supabase: SupabaseClient;
+  private readonly llmGateway: LLMCompletable;
 
-  constructor() {
-    if (!supabaseClient) {
+  constructor(deps: { supabase?: SupabaseClient; llmGateway?: LLMCompletable } = {}) {
+    const resolvedSupabase = deps.supabase ?? supabaseClient;
+    if (!resolvedSupabase) {
       throw new Error("HandoffNotesGenerator requires Supabase to be configured");
     }
-    this.supabase = supabaseClient;
+    this.supabase = resolvedSupabase;
+    this.llmGateway =
+      deps.llmGateway ??
+      new LLMGateway({
+        provider: "openai",
+        model: "gpt-4o",
+        temperature: 0.3,
+        max_tokens: 2048,
+      });
   }
 
   /**
@@ -121,7 +135,7 @@ export class HandoffNotesGenerator {
       scenarioType: baseline.scenario_type,
     });
 
-    // Generate notes via LLM (using secureInvoke pattern from BaseAgent)
+    // Generate notes via the approved secure service wrapper.
     const notes = await this.generateWithLLM(prompt, baselineId, tenantId);
 
     // Store generated notes in database
@@ -233,15 +247,6 @@ export class HandoffNotesGenerator {
     baselineId: string,
     tenantId: string
   ): Promise<HandoffNotesOutput> {
-    // Import LLM gateway
-    const { LLMGateway } = await import("../../lib/agent-fabric/LLMGateway.js");
-    const llmGateway = new LLMGateway({
-      provider: "openai",
-      model: "gpt-4o",
-      temperature: 0.3,
-      max_tokens: 2048,
-    });
-
     const systemPrompt = `You are a value engineering consultant preparing a handoff summary for a Customer Success team.
 
 Your task is to synthesize the provided value case context into four clear, actionable sections that will help the CS team understand and deliver on the promises made during the sales process.
@@ -253,18 +258,35 @@ Guidelines:
 - Keep sections concise (2-4 sentences each)
 - Write for a CS manager who needs to take action
 
-Output must be valid JSON with these keys: deal_context, buyer_priorities, implementation_assumptions, key_risks`;
+    Output must be valid JSON with these keys: deal_context, buyer_priorities, implementation_assumptions, key_risks`;
 
     try {
-      const response = await llmGateway.complete({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt },
-        ],
-        metadata: {
-          tenant_id: tenantId,
-          session_id: baselineId,
-          agentType: "handoff-notes-generator",
+      const response = await secureLLMComplete(this.llmGateway, [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ], {
+        tenantId,
+        serviceName: "HandoffNotesGenerator",
+        operation: "generateHandoffNotes",
+        sessionId: baselineId,
+        traceId: baselineId,
+        organizationId: tenantId,
+      });
+
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "handoff:notes_generated",
+        resource: baselineId,
+        resourceType: "handoff_notes",
+        userId: "system",
+        organizationId: tenantId,
+        tenantId,
+        sessionId: baselineId,
+        outcome: "success",
+        severity: "low",
+        details: {
+          generator: "HandoffNotesGenerator",
+          tokenUsage: response.usage,
         },
       });
 
@@ -279,6 +301,23 @@ Output must be valid JSON with these keys: deal_context, buyer_priorities, imple
         error: (error as Error).message,
       });
 
+      await logSecurityEvent({
+        timestamp: new Date().toISOString(),
+        action: "handoff:notes_generation_failed",
+        resource: baselineId,
+        resourceType: "handoff_notes",
+        userId: "system",
+        organizationId: tenantId,
+        tenantId,
+        sessionId: baselineId,
+        outcome: "failure",
+        severity: "medium",
+        details: {
+          generator: "HandoffNotesGenerator",
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
       // Return fallback notes on failure
       return {
         deal_context: "Please review the value case directly for deal context.",
@@ -287,6 +326,22 @@ Output must be valid JSON with these keys: deal_context, buyer_priorities, imple
         key_risks: "Schedule a risk review meeting with the value engineering team.",
       };
     }
+  }
+
+  private async checkHallucination(output: HandoffNotesOutput): Promise<boolean> {
+    const sections = Object.values(output);
+    const allSectionsPopulated = sections.every((section) => section.trim().length >= 20);
+    const hasFallbackLanguage = sections.some((section) => /please review|please validate|schedule a risk review/i.test(section));
+
+    if (!allSectionsPopulated || hasFallbackLanguage) {
+      logger.warn("HandoffNotesGenerator: Hallucination check failed", {
+        allSectionsPopulated,
+        hasFallbackLanguage,
+      });
+      return false;
+    }
+
+    return true;
   }
 
   /**

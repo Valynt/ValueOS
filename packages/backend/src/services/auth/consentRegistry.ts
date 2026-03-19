@@ -6,8 +6,6 @@ const CONSENT_TABLE = "user_consents";
 const CONSENT_SUBJECT_COLUMN = "auth_subject";
 
 export function isConsentRegistryConfigured(): boolean {
-  // Consent checks must use RLS-enforced clients (anon/user tokens), not service_role.
-  // Rely on general Supabase configuration; createSupabaseClient() will handle auth context.
   return Boolean(settings.VITE_SUPABASE_URL);
 }
 

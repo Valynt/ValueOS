@@ -83,7 +83,7 @@ export function generateId(prefix: string = 'a11y'): string {
 }
 
 /**
- * Check if color contrast meets WCAG 2.1 AA standards
+ * Check if color contrast meets WCAG 2.2 AA standards
  */
 export function checkColorContrast(foreground: string, background: string): {
   ratio: number;

@@ -5,7 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createUserSupabaseClient } from "../../../lib/supabase.js";
+import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, router } from "../trpc.js";
 
@@ -25,12 +25,12 @@ interface User {
 // Helpers
 // ============================================================================
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabaseClient>; accessToken?: string }) {
+function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createRequestRlsSupabaseClient>; accessToken?: string }) {
   if (ctx.supabase) {
     return ctx.supabase;
   }
   if (ctx.accessToken) {
-    return createUserSupabaseClient(ctx.accessToken);
+    return createRequestRlsSupabaseClient(ctx.accessToken);
   }
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
@@ -43,7 +43,7 @@ function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createUserSupabas
 // ============================================================================
 
 async function updateUserVosRole(
-  client: ReturnType<typeof createUserSupabaseClient>,
+  client: ReturnType<typeof createRequestRlsSupabaseClient>,
   userId: string,
   vosRole: string
 ): Promise<void> {
@@ -59,7 +59,7 @@ async function updateUserVosRole(
 }
 
 async function updateUserMaturityLevel(
-  client: ReturnType<typeof createUserSupabaseClient>,
+  client: ReturnType<typeof createRequestRlsSupabaseClient>,
   userId: string,
   level: number
 ): Promise<void> {
@@ -75,7 +75,7 @@ async function updateUserMaturityLevel(
 }
 
 async function getUserById(
-  client: ReturnType<typeof createUserSupabaseClient>,
+  client: ReturnType<typeof createRequestRlsSupabaseClient>,
   userId: string
 ): Promise<User | null> {
   const { data, error } = await client

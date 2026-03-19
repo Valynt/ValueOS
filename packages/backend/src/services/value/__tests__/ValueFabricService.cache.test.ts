@@ -1,43 +1,127 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { getOrLoadMock, invalidateEndpointMock } = vi.hoisted(() => ({
+  getOrLoadMock: vi.fn(),
+  invalidateEndpointMock: vi.fn(),
+}));
+
+vi.mock("../../cache/ReadThroughCacheService.js", () => ({
+  ReadThroughCacheService: {
+    getOrLoad: getOrLoadMock,
+    invalidateEndpoint: invalidateEndpointMock,
+    clearNearCacheForTesting: vi.fn(),
+  },
+}));
 
 import { ValueFabricService } from "../ValueFabricService";
 
-describe("ValueFabricService cache bounds", () => {
-  afterEach(() => {
-    ValueFabricService.clearCachesForTesting();
+describe("ValueFabricService distributed cache configuration", () => {
+  const organizationId = "tenant-123";
+
+  beforeEach(() => {
+    getOrLoadMock.mockReset();
+    invalidateEndpointMock.mockReset();
   });
 
-  it("caps capability cache size at configured limit under high-cardinality writes", () => {
-    ValueFabricService.clearCachesForTesting();
+  it("routes capability list reads through tenant-scoped Redis caching with a short near-cache", async () => {
+    getOrLoadMock.mockImplementation(async (_config, loader) => loader());
+    const service = new ValueFabricService({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        contains: vi.fn().mockReturnThis(),
+        ilike: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        range: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    } as never);
 
-    const initial = ValueFabricService.getCacheDiagnostics();
-    const capacity = initial.capability.capacity;
+    await service.getCapabilities(organizationId, { category: "ai", page: 2, pageSize: 25 });
 
-    for (let index = 0; index < capacity + 250; index += 1) {
-      ValueFabricService.seedCacheForTesting("capability", `capability-key-${index}`);
-    }
-
-    const diagnostics = ValueFabricService.getCacheDiagnostics();
-
-    expect(diagnostics.capability.size).toBeLessThanOrEqual(capacity);
-    expect(diagnostics.capability.size).toBe(capacity);
-    expect(diagnostics.capability.metrics.evictions).toBeGreaterThan(0);
+    expect(getOrLoadMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: "value-fabric/capabilities",
+        namespace: "value-fabric-capabilities",
+        tenantId: organizationId,
+        scope: "list",
+        tier: "warm",
+        nearCache: {
+          enabled: true,
+          ttlSeconds: 15,
+          maxEntries: 64,
+        },
+      }),
+      expect.any(Function)
+    );
   });
 
-  it("caps use-case cache size at configured limit under high-cardinality writes", () => {
-    ValueFabricService.clearCachesForTesting();
+  it("routes use-case composition reads through tenant-scoped Redis caching", async () => {
+    getOrLoadMock.mockImplementation(async (_config, loader) => loader());
+    const service = new ValueFabricService({
+      from: vi.fn((table: string) => {
+        if (table === "use_cases") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({ data: { id: "uc-1", is_template: false }, error: null }),
+          };
+        }
 
-    const initial = ValueFabricService.getCacheDiagnostics();
-    const capacity = initial.useCase.capacity;
+        if (table === "use_case_capabilities") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockResolvedValue({ data: [{ capability_id: "cap-1" }], error: null }),
+          };
+        }
 
-    for (let index = 0; index < capacity + 250; index += 1) {
-      ValueFabricService.seedCacheForTesting("useCase", `use-case-key-${index}`);
-    }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [{ id: "cap-1" }], error: null }),
+        };
+      }),
+    } as never);
 
-    const diagnostics = ValueFabricService.getCacheDiagnostics();
+    await service.getUseCaseWithCapabilities(organizationId, "uc-1");
 
-    expect(diagnostics.useCase.size).toBeLessThanOrEqual(capacity);
-    expect(diagnostics.useCase.size).toBe(capacity);
-    expect(diagnostics.useCase.metrics.evictions).toBeGreaterThan(0);
+    expect(getOrLoadMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: "value-fabric/use-cases",
+        namespace: "value-fabric-use-cases",
+        tenantId: organizationId,
+        scope: "with-capabilities",
+        tier: "warm",
+      }),
+      expect.any(Function)
+    );
+  });
+
+  it("invalidates shared capability and dependent use-case caches after capability writes", async () => {
+    const update = {
+      organization_id: organizationId,
+      id: "cap-1",
+      name: "Capability 1",
+    };
+    const service = new ValueFabricService({
+      from: vi.fn().mockReturnValue({
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: update, error: null }),
+      }),
+    } as never);
+
+    await service.updateCapability(organizationId, "cap-1", { name: "Capability 1" });
+
+    expect(invalidateEndpointMock).toHaveBeenNthCalledWith(
+      1,
+      organizationId,
+      "value-fabric/capabilities"
+    );
+    expect(invalidateEndpointMock).toHaveBeenNthCalledWith(
+      2,
+      organizationId,
+      "value-fabric/use-cases"
+    );
   });
 });

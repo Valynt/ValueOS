@@ -36,7 +36,7 @@ status: deprecated
   - **Billing + Entitlements Owner (Revenue Platform):** owns regression test health and sign-off for billing/entitlements checks.
   - **Localization Owner (Product Engineering):** owns localization smoke checks and release-locale readiness.
   - **Tenant Controls Owner (Platform):** owns tenant/region feature-toggle validation outcomes.
-  - **Brand Experience Owner (Design Systems):** owns co-branding asset/render verification when branded assets are in scope.
+  - **Brand Experience Owner (Design Systems):** owns tenant branding render verification and release evidence artifacts.
 
 ## Pre-Flight Checklist
 1. Feature freeze announced in `#releases` (no new merges after cutoff).
@@ -52,9 +52,24 @@ status: deprecated
 - `apps/ValyntApp/src/services/**` is a frozen duplicate tree and is excluded from runtime ownership except `[migration-sync]` mirror commits.
 
 ## Deployment Policy (Workflow-Enforced)
-- **Production deployments require successful upstream security and quality gates.** In `.github/workflows/deploy.yml`, `deploy-production` now hard-requires both `quality-gate` and `dast-gate` to be `success`; `skipped` is no longer accepted for production paths.
+
+## Canonical Production Release Gates
+
+`deploy-production` is allowed to start only after the following upstream jobs/checks are green for the same commit SHA:
+
+1. **`unit-component-schema`** (`.github/workflows/ci.yml`, check name `unit/component/schema`) — covers lint, typecheck, unit/integration suites, and workflow DAG validation.
+2. **`tenant-isolation-gate`** (`.github/workflows/ci.yml`) — covers RLS, tenant-isolation, vector-memory boundary, and DSR suites.
+3. **`security-gate`** (`.github/workflows/ci.yml`) — covers SAST, SCA, secret scanning, SBOM generation, and Trivy image/filesystem scans.
+4. **`staging-deploy-release-gates`** (`.github/workflows/ci.yml`) — the canonical CI release aggregator that proves the upstream CI gate set is green.
+5. **`codeql-analyze (js-ts)`** (`.github/workflows/codeql.yml`) — dedicated CodeQL analysis required by branch protection and release promotion.
+6. **`dast-gate`** (`.github/workflows/deploy.yml`) — deploy-time OWASP ZAP baseline gate for the staging target.
+7. **`release-gate-contract`** (`.github/workflows/deploy.yml`) — manifest-driven verifier that waits for the external GitHub checks above and fails if any required gate is missing, pending past timeout, skipped, or unsuccessful.
+
+After the canonical release gate contract is green, `deploy-production` still requires these direct upstream deploy jobs to finish successfully: `deploy-staging`, `staging-performance-benchmarks`, `preprod-slo-guard`, `preprod-launch-gate`, `build-images`, `verify-supply-chain`, `stability-seal`, and `emergency-skip-audit`.
+
+- **Production deployments require the canonical release gate contract to succeed.** `.github/workflows/deploy.yml` now routes production promotion through `release-gate-contract`, which evaluates `scripts/ci/release-gate-manifest.json` and blocks until every required upstream CI/security check for the target SHA is green.
 - **Emergency bypass (`skip_tests`) is non-production only.** Use of `skip_tests=true` is blocked for production targets and remains available only for staging emergency recovery.
-- **Production bypass requires break-glass workflow.** Any production exception to quality/DAST gates must be executed through a separate break-glass workflow with protected-environment reviewer approval and mandatory post-deploy evidence capture.
+- **Production bypass requires break-glass workflow.** Any production exception to the canonical release gate set must be executed through a separate break-glass workflow with protected-environment reviewer approval and mandatory post-deploy evidence capture.
 
 ## Break-Glass Procedure (Production Only)
 1. Open/confirm an active incident record and document scope, blast radius, and customer impact.
@@ -110,12 +125,12 @@ status: deprecated
      - Entitlements + billing regression tests.
      - Localization smoke checks.
      - Tenant/region feature-toggle validation.
-     - Co-branding asset/render checks (conditional: only when co-branding assets are present).
+     - Tenant branding render verification via `node scripts/ci/verify-tenant-branding-render.mjs`, with release evidence attached as `artifacts/branding/tenant-branding-summary.{json,md}`, `artifacts/branding/tenant-branding-playwright-report.json`, and `artifacts/branding/tenant-branding-preview.png`.
    - Ownership:
      - Revenue Platform team owns billing/entitlements regressions.
      - Product Engineering owns localization checks.
      - Platform team owns tenant/region toggle validation.
-     - Design Systems owns co-branding checks.
+     - Design Systems owns tenant branding render verification.
 6. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
    - Validate SLO panels and burn-rate alerts from `docs/operations/monitoring-observability.md#production-slo-framework`:

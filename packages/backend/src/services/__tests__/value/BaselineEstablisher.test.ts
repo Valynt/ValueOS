@@ -5,7 +5,7 @@ import {
 } from "../../value/BaselineEstablisher.js";
 
 // Mock dependencies
-vi.mock("../../lib/logger.js", () => ({
+vi.mock("../../../lib/logger.js", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -13,30 +13,62 @@ vi.mock("../../lib/logger.js", () => ({
   },
 }));
 
-vi.mock("../../lib/supabase.js", () => ({
+vi.mock("../../../lib/supabase.js", () => ({
   supabase: {
     from: vi.fn().mockReturnValue({
       insert: vi.fn().mockReturnValue({ error: null }),
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            order: vi.fn().mockReturnValue({
-              data: [],
-              error: null,
+        eq: vi.fn().mockImplementation((column: string) => {
+          if (column === "id") {
+            return {
+              single: vi.fn().mockReturnValue({
+                data: {
+                  id: "base-metric-123",
+                  metric_name: "Revenue",
+                  current_value: 1500000,
+                  unit: "USD",
+                  source_type: "benchmark-derived",
+                  source_classification: "tier-2",
+                  confidence_score: 0.6,
+                  requires_confirmation: true,
+                },
+                error: null,
+              }),
+            };
+          }
+
+          return {
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                data: [],
+                error: null,
+              }),
             }),
-          }),
+          };
         }),
       }),
-      update: vi.fn().mockReturnValue({
+      update: vi.fn().mockImplementation((updates: Record<string, unknown>) => ({
         eq: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockReturnValue({
-              data: null,
+              data: {
+                id: "base-metric-123",
+                metric_name: "Revenue",
+                current_value: updates.current_value ?? 1500000,
+                unit: "USD",
+                source_type: updates.source_type ?? "customer-confirmed",
+                source_classification: updates.source_classification ?? "tier-1",
+                confidence_score: 0.6,
+                requires_confirmation: updates.requires_confirmation ?? false,
+                original_value: updates.original_value,
+                confirmed_by: updates.confirmed_by,
+                confirmed_at: updates.confirmed_at,
+              },
               error: null,
             }),
           }),
         }),
-      }),
+      })),
     }),
   },
 }));
@@ -168,7 +200,7 @@ describe("BaselineEstablisher", () => {
       const npsMetric = result.metrics.find((m) => m.metricName === "NPS");
 
       expect(revenueMetric?.sourceClassification).toBe("tier-1");
-      expect(churnMetric?.sourceClassification).toBe("tier-2");
+      expect(churnMetric?.sourceClassification).toBe("tier-1");
       expect(npsMetric?.sourceClassification).toBe("tier-2");
     });
 

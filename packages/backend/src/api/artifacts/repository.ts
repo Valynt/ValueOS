@@ -9,7 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient, createUserSupabaseClient } from '../../lib/supabase.js';
+import { createServiceRoleSupabaseClient, createRequestRlsSupabaseClient } from '../../lib/supabase.js';
 
 import {
   Artifact,
@@ -81,18 +81,11 @@ export class ArtifactsRepository {
   private tableName = 'memory_artifacts';
 
   constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServerSupabaseClient();
+    this.supabase = supabase ?? createServiceRoleSupabaseClient();
   }
 
   static fromRequest(req: Request): ArtifactsRepository {
-    if (req.supabase) {
-      return new ArtifactsRepository(req.supabase);
-    }
-    const token = (req.session as Record<string, unknown> | undefined)?.access_token;
-    if (typeof token === 'string') {
-      return new ArtifactsRepository(createUserSupabaseClient(token));
-    }
-    throw new Error('ArtifactsRepository.fromRequest: no user-scoped Supabase client available on request');
+    return new ArtifactsRepository(createRequestRlsSupabaseClient(req));
   }
 
   /**

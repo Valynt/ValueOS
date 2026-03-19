@@ -4,9 +4,9 @@
 #
 # Latency classes:
 # - Interactive API routes scale on completion p95 < 200ms.
-# - Orchestration / LLM routes scale on TTFB p95 < 200ms with a separate
-#   completion SLO handled by streaming/async telemetry, not by the universal
-#   200ms completion guardrail.
+# - Orchestration / LLM routes scale on acknowledgment p95 < 200ms with a
+#   separate completion exception policy at p95 < 3000ms for streaming/async
+#   flows, rather than a universal completion guardrail.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -65,12 +65,13 @@ spec:
     - type: External
       external:
         metric:
-          name: backend_orchestration_ttfb_p95_latency_ms
+          name: backend_orchestration_acknowledgment_p95_latency_ms
           selector:
             matchLabels:
               app: backend
               namespace: valynt
               latency_class: orchestration
+              latency_phase: acknowledgment
         target:
           type: Value
           value: "200"

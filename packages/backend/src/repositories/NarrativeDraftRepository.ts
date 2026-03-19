@@ -7,7 +7,7 @@
 
 import { createLogger } from '@shared/lib/logger';
 
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ service: 'NarrativeDraftRepository' });
 
@@ -44,10 +44,10 @@ export interface NarrativeDraft extends NarrativeDraftPayload {
 // ---------------------------------------------------------------------------
 
 export class NarrativeDraftRepository {
-  private supabase: ReturnType<typeof createServerSupabaseClient>;
+  private supabase: ReturnType<typeof createServiceRoleSupabaseClient>;
 
   constructor() {
-    this.supabase = createServerSupabaseClient();
+    this.supabase = createServiceRoleSupabaseClient();
   }
 
   async createDraft(
