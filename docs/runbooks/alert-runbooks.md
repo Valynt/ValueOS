@@ -43,12 +43,12 @@ Runbooks for Prometheus alert rules defined in:
 - **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
 
 ## HighResponseTime
-- **Trigger meaning:** API p95 latency per pod exceeds 1s for 5m.
-- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect Grafana RED dashboard.
-- **Common causes:** noisy neighbor CPU contention; DB query slowdown; external API latency; cold cache after deploy.
-- **Remediation:** scale deployment replicas; enable cached path / reduce expensive feature; roll back recent query or route change.
+- **Trigger meaning:** interactive completion p95 exceeds `200ms`, orchestration acknowledgment p95 exceeds `200ms`, or orchestration completion p95 exceeds `3000ms` for the configured alert window.
+- **Triage commands:** `kubectl -n <ns> top pod <pod>`; `kubectl -n <ns> logs <pod> --since=10m | rg -n "slow|timeout|latency"`; inspect Grafana latency-class dashboard panels for interactive completion, orchestration acknowledgment, and orchestration completion.
+- **Common causes:** noisy neighbor CPU contention; DB query slowdown; external API latency; cold cache after deploy; routes that should be reclassified from interactive to orchestration.
+- **Remediation:** scale deployment replicas; enable cached path / reduce expensive feature; roll back recent query or route change; reclassify routes that cannot honor the interactive completion budget.
 - **Escalation:** Engage **Backend Platform** and **Data Platform** if sustained >15m or if DB alerts co-fire.
-- **Post-incident actions:** capture latency profile; add route-level SLO guardrail; tune autoscaling floor.
+- **Post-incident actions:** capture per-class latency profile; add route-level SLO guardrail; tune autoscaling floor; document any exception-policy usage for long-running orchestration flows.
 - **Ownership:** Backend Platform. **Rule file:** `infra/k8s/observability/prometheus/alert-rules.yaml`.
 
 ## PodDown

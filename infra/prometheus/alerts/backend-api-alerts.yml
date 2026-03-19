@@ -15,18 +15,49 @@ groups:
           description: "5xx error rate > 5% over the last 10 minutes."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-higherrorrate"
 
-      - alert: HighP95Latency
+      - alert: InteractiveLatencyBudgetExceeded
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/(llm|billing).*"}[5m])) by (le, route)
-          ) > 1000
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="interactive"}[5m])) by (le)
+          ) > 200
+        for: 10m
+        labels:
+          severity: page
+          latency_class: interactive-completion
+        annotations:
+          summary: "Interactive completion latency budget exceeded"
+          description: "Interactive completion p95 is above 200ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+
+      - alert: OrchestrationAcknowledgmentLatencyBudgetExceeded
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration",phase="acknowledgment"}[5m])) by (le)
+          ) > 200
         for: 10m
         labels:
           severity: warning
+          latency_class: orchestration-acknowledgment
         annotations:
-          summary: "High p95 latency on critical APIs"
-          description: "p95 latency > 1s on /api/llm or /api/billing routes."
+          summary: "Orchestration acknowledgment latency budget exceeded"
+          description: "Orchestration acknowledgment p95 is above 200ms for 10 minutes."
+          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
+
+      - alert: OrchestrationCompletionLatencyBudgetExceeded
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration",phase="completion"}[5m])) by (le)
+          ) > 3000
+        for: 10m
+        labels:
+          severity: warning
+          latency_class: orchestration-completion
+        annotations:
+          summary: "Orchestration completion latency budget exceeded"
+          description: "Orchestration completion p95 is above 3000ms for 10 minutes outside the documented async exception policy."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"
 
       - alert: ApiScrapeDown
@@ -58,17 +89,3 @@ groups:
           summary: "Redis Prometheus target is down"
           description: "No scrape data from redis job for 5 minutes."
           runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highrequestrate"
-
-      - alert: HighValueCaseGetP95Latency
-        expr: |
-          histogram_quantile(
-            0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route="/api/value-cases"}[5m])) by (le)
-          ) > 200
-        for: 5m
-        labels:
-          severity: page
-        annotations:
-          summary: "High latency for value-cases endpoint (P95 > 200ms)"
-          description: "P95 latency for /api/value-cases is above 200ms for more than 5 minutes."
-          runbook: "https://github.com/ValueOS/ValueOS/blob/main/docs/runbooks/alert-runbooks.md#alert-highresponsetime"

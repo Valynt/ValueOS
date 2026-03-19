@@ -6,11 +6,30 @@
  */
 
 export type DeploymentEnvironment = 'development' | 'staging' | 'production';
+export type LatencyClassId = 'interactive-completion' | 'orchestration-acknowledgment-completion';
+
+export interface LatencyClassPolicy {
+  summary: string;
+  allowedException: string;
+}
+
+export interface LatencyClassThreshold {
+  id: LatencyClassId;
+  name: string;
+  target: number;
+  completionP95Ms: number;
+  acknowledgmentP95Ms?: number;
+  policy: LatencyClassPolicy;
+}
 
 export interface SLOThresholdSet {
   availabilityTarget: number;
-  latencyP95Target: number;
-  latencyP95Ms: number;
+  interactiveLatencyP95Target: number;
+  interactiveLatencyP95Ms: number;
+  orchestrationAcknowledgmentP95Target: number;
+  orchestrationAcknowledgmentP95Ms: number;
+  orchestrationCompletionP95Target: number;
+  orchestrationCompletionP95Ms: number;
   authSuccessTarget: number;
   queueHealthTarget: number;
   queueDepthMax: number;
@@ -25,8 +44,12 @@ export interface SLOThresholdSet {
 
 export const CANONICAL_SLO_THRESHOLDS: SLOThresholdSet = {
   availabilityTarget: 0.999,
-  latencyP95Target: 0.95,
-  latencyP95Ms: 200,
+  interactiveLatencyP95Target: 0.95,
+  interactiveLatencyP95Ms: 200,
+  orchestrationAcknowledgmentP95Target: 0.95,
+  orchestrationAcknowledgmentP95Ms: 200,
+  orchestrationCompletionP95Target: 0.95,
+  orchestrationCompletionP95Ms: 3000,
   authSuccessTarget: 0.995,
   queueHealthTarget: 0.99,
   queueDepthMax: 100,
@@ -39,15 +62,40 @@ export const CANONICAL_SLO_THRESHOLDS: SLOThresholdSet = {
   burnRateCritical: 14.4,
 };
 
+export const LATENCY_CLASS_SLOS: Record<LatencyClassId, LatencyClassThreshold> = {
+  'interactive-completion': {
+    id: 'interactive-completion',
+    name: 'Interactive completion',
+    target: CANONICAL_SLO_THRESHOLDS.interactiveLatencyP95Target,
+    completionP95Ms: CANONICAL_SLO_THRESHOLDS.interactiveLatencyP95Ms,
+    policy: {
+      summary: '95% of interactive requests must complete within 200 milliseconds.',
+      allowedException:
+        'A route may exceed 200 milliseconds only after it is reclassified to the orchestration acknowledgment/completion class and instrumented for fast acknowledgment plus async or streaming completion telemetry.',
+    },
+  },
+  'orchestration-acknowledgment-completion': {
+    id: 'orchestration-acknowledgment-completion',
+    name: 'Orchestration acknowledgment/completion',
+    target: CANONICAL_SLO_THRESHOLDS.orchestrationAcknowledgmentP95Target,
+    acknowledgmentP95Ms: CANONICAL_SLO_THRESHOLDS.orchestrationAcknowledgmentP95Ms,
+    completionP95Ms: CANONICAL_SLO_THRESHOLDS.orchestrationCompletionP95Ms,
+    policy: {
+      summary:
+        '95% of orchestration requests must acknowledge within 200 milliseconds and complete within 3000 milliseconds.',
+      allowedException:
+        'Completion may exceed 3000 milliseconds only for explicitly documented long-running async workflows that emit an acknowledgment within 200 milliseconds, publish progress telemetry, and are excluded from the synchronous completion benchmark.',
+    },
+  },
+};
+
 export const SLO_ENVIRONMENT_OVERRIDES: Record<DeploymentEnvironment, Partial<SLOThresholdSet>> = {
   development: {
-    latencyP95Ms: 350,
     mttrMinutesMax: 30,
     errorRateFastBurnMax: 0.02,
     errorRateSlowBurnMax: 0.002,
   },
   staging: {
-    latencyP95Ms: 250,
     mttrMinutesMax: 20,
     errorRateFastBurnMax: 0.015,
     errorRateSlowBurnMax: 0.0015,
@@ -112,9 +160,24 @@ export function resolveSLOThresholds(
   const envOverrides: Partial<SLOThresholdSet> = {
     availabilityTarget:
       parseEnvNumber(env[`${envPrefix}AVAILABILITY_TARGET`]) ?? parseEnvNumber(env.SLO_AVAILABILITY_TARGET),
-    latencyP95Target:
-      parseEnvNumber(env[`${envPrefix}LATENCY_P95_TARGET`]) ?? parseEnvNumber(env.SLO_LATENCY_P95_TARGET),
-    latencyP95Ms: parseEnvNumber(env[`${envPrefix}LATENCY_P95_MS`]) ?? parseEnvNumber(env.SLO_LATENCY_P95_MS),
+    interactiveLatencyP95Target:
+      parseEnvNumber(env[`${envPrefix}INTERACTIVE_LATENCY_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_INTERACTIVE_LATENCY_P95_TARGET),
+    interactiveLatencyP95Ms:
+      parseEnvNumber(env[`${envPrefix}INTERACTIVE_LATENCY_P95_MS`]) ??
+      parseEnvNumber(env.SLO_INTERACTIVE_LATENCY_P95_MS),
+    orchestrationAcknowledgmentP95Target:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_ACKNOWLEDGMENT_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_ACKNOWLEDGMENT_P95_TARGET),
+    orchestrationAcknowledgmentP95Ms:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_ACKNOWLEDGMENT_P95_MS`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_ACKNOWLEDGMENT_P95_MS),
+    orchestrationCompletionP95Target:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_COMPLETION_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_COMPLETION_P95_TARGET),
+    orchestrationCompletionP95Ms:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_COMPLETION_P95_MS`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_COMPLETION_P95_MS),
     authSuccessTarget:
       parseEnvNumber(env[`${envPrefix}AUTH_SUCCESS_TARGET`]) ?? parseEnvNumber(env.SLO_AUTH_SUCCESS_TARGET),
     queueHealthTarget:
@@ -138,7 +201,10 @@ export function resolveSLOThresholds(
       parseEnvNumber(env[`${envPrefix}BURN_RATE_CRITICAL`]) ?? parseEnvNumber(env.SLO_BURN_RATE_CRITICAL),
   };
 
-  return { ...resolved, ...Object.fromEntries(Object.entries(envOverrides).filter(([, value]) => value !== undefined)) } as SLOThresholdSet;
+  return {
+    ...resolved,
+    ...Object.fromEntries(Object.entries(envOverrides).filter(([, value]) => value !== undefined)),
+  } as SLOThresholdSet;
 }
 
 const activeThresholds = resolveSLOThresholds('production');
@@ -163,22 +229,60 @@ export const PRODUCTION_SLOS: SLO[] = [
     },
   },
   {
-    id: 'latency-p95',
-    name: 'API Latency (P95)',
-    description: `95% of API requests complete within ${activeThresholds.latencyP95Ms} milliseconds`,
-    target: activeThresholds.latencyP95Target,
+    id: 'interactive-completion-latency-p95',
+    name: 'Interactive Completion Latency (P95)',
+    description: `95% of interactive requests complete within ${activeThresholds.interactiveLatencyP95Ms} milliseconds`,
+    target: activeThresholds.interactiveLatencyP95Target,
     window: '30d',
     sli: {
-      metric: 'api.latency_p95',
-      goodEvents: `http_request_duration_ms_bucket <= ${activeThresholds.latencyP95Ms}`,
-      totalEvents: 'http_requests_total',
-      threshold: activeThresholds.latencyP95Ms,
+      metric: 'api.interactive_completion_latency_p95',
+      goodEvents: `valuecanvas_http_request_duration_ms_bucket{latency_class="interactive",le="${activeThresholds.interactiveLatencyP95Ms}"}`,
+      totalEvents: 'valuecanvas_http_request_duration_ms_count{latency_class="interactive"}',
+      threshold: activeThresholds.interactiveLatencyP95Ms,
     },
     errorBudget: {
-      remaining: 1 - activeThresholds.latencyP95Target,
+      remaining: 1 - activeThresholds.interactiveLatencyP95Target,
       consumed: 0,
       burnRate: 0,
-      alertThreshold: (1 - activeThresholds.latencyP95Target) / 2,
+      alertThreshold: (1 - activeThresholds.interactiveLatencyP95Target) / 2,
+    },
+  },
+  {
+    id: 'orchestration-acknowledgment-latency-p95',
+    name: 'Orchestration Acknowledgment Latency (P95)',
+    description: `95% of orchestration acknowledgments complete within ${activeThresholds.orchestrationAcknowledgmentP95Ms} milliseconds`,
+    target: activeThresholds.orchestrationAcknowledgmentP95Target,
+    window: '30d',
+    sli: {
+      metric: 'api.orchestration_acknowledgment_latency_p95',
+      goodEvents: `valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration",phase="acknowledgment",le="${activeThresholds.orchestrationAcknowledgmentP95Ms}"}`,
+      totalEvents: 'valuecanvas_http_request_duration_ms_count{latency_class="orchestration",phase="acknowledgment"}',
+      threshold: activeThresholds.orchestrationAcknowledgmentP95Ms,
+    },
+    errorBudget: {
+      remaining: 1 - activeThresholds.orchestrationAcknowledgmentP95Target,
+      consumed: 0,
+      burnRate: 0,
+      alertThreshold: (1 - activeThresholds.orchestrationAcknowledgmentP95Target) / 2,
+    },
+  },
+  {
+    id: 'orchestration-completion-latency-p95',
+    name: 'Orchestration Completion Latency (P95)',
+    description: `95% of orchestration requests complete within ${activeThresholds.orchestrationCompletionP95Ms} milliseconds`,
+    target: activeThresholds.orchestrationCompletionP95Target,
+    window: '30d',
+    sli: {
+      metric: 'api.orchestration_completion_latency_p95',
+      goodEvents: `valuecanvas_http_request_duration_ms_bucket{latency_class="orchestration",phase="completion",le="${activeThresholds.orchestrationCompletionP95Ms}"}`,
+      totalEvents: 'valuecanvas_http_request_duration_ms_count{latency_class="orchestration",phase="completion"}',
+      threshold: activeThresholds.orchestrationCompletionP95Ms,
+    },
+    errorBudget: {
+      remaining: 1 - activeThresholds.orchestrationCompletionP95Target,
+      consumed: 0,
+      burnRate: 0,
+      alertThreshold: (1 - activeThresholds.orchestrationCompletionP95Target) / 2,
     },
   },
   {
@@ -189,7 +293,7 @@ export const PRODUCTION_SLOS: SLO[] = [
     window: '30d',
     sli: {
       metric: 'agent.cold_start',
-      goodEvents: `agent_enqueue_to_ready_seconds_bucket{le=\"${activeThresholds.agentColdStartSecondsMax}\"}`,
+      goodEvents: `agent_enqueue_to_ready_seconds_bucket{le="${activeThresholds.agentColdStartSecondsMax}"}`,
       totalEvents: 'agent_enqueue_to_ready_seconds_count',
       threshold: activeThresholds.agentColdStartSecondsMax,
     },

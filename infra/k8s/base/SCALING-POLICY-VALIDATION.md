@@ -1,6 +1,13 @@
 # Backend/Worker Scaling Policy Validation
 
-This document describes the staged load validation profile for backend and worker autoscaling, along with recommended default knobs for burst-heavy traffic.
+This document describes the staged load validation profile for backend and worker autoscaling, along with the canonical latency-class guardrails for ValueOS.
+
+## Latency class source of truth
+
+| Latency class | Source-of-truth target | Allowed exception policy |
+|---|---|---|
+| Interactive completion | `p95 < 200 ms` for completion latency | A route may leave this class only after it is explicitly reclassified into orchestration acknowledgment/completion and instrumented for fast acknowledgment plus async or streaming completion telemetry. |
+| Orchestration acknowledgment/completion | `p95 < 200 ms` for acknowledgment and `p95 < 3000 ms` for completion | Completion may exceed `3000 ms` only for documented long-running async workflows that still acknowledge within `200 ms`, emit progress telemetry, and are excluded from the synchronous completion benchmark. |
 
 ## Signals in use
 
@@ -8,7 +15,8 @@ This document describes the staged load validation profile for backend and worke
 - CPU utilization target: **65%**
 - Memory utilization target: **78%**
 - External metric: **`backend_http_requests_per_second`** (average value target `8` per pod)
-- External metric: **`backend_http_p95_latency_ms`** (global threshold `450ms`)
+- External metric: **`backend_interactive_http_p95_latency_ms`** (scale guardrail `200ms`)
+- External metric: **`backend_orchestration_ttfb_p95_latency_ms`** (scale guardrail `200ms`)
 
 ### Worker (background-jobs)
 - External metric: **`message_worker_queue_depth`** (average value target `30` per pod)
@@ -37,15 +45,15 @@ These values avoid slow recovery during spikes while protecting against oscillat
 
 Use `infra/testing/scaling-policy.k6.js` with staged scenarios:
 
-1. **Steady** (`~12m`) 
-   - Ramp to 40 VUs and hold
-   - Confirms baseline target utilization and steady-state p95
-2. **Spike** (`~5m`) 
-   - Burst arrival rate to 160 req/s then recover
-   - Verifies rapid scale-up behavior and bounded error rate
-3. **Soak** (`30m`) 
-   - Sustained 35 req/s
-   - Validates long-run memory/cpu pressure and scale-down stability after load ends
+1. **Steady** (`~12m`)
+   - Ramp to 40 VUs and hold.
+   - Confirms interactive completion p95 remains below `200 ms` and orchestration acknowledgment remains below `200 ms`.
+2. **Spike** (`~5m`)
+   - Burst arrival rate to 160 req/s then recover.
+   - Verifies rapid scale-up behavior while keeping orchestration completion p95 below `3000 ms`.
+3. **Soak** (`30m`)
+   - Sustained 35 req/s.
+   - Validates long-run memory/cpu pressure and scale-down stability after load ends.
 
 ## Runbook commands
 
@@ -58,12 +66,15 @@ kubectl -n valynt get hpa backend-hpa worker-hpa -w
 
 # Observe external metrics served by adapter
 kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_http_requests_per_second" | jq
-kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_http_p95_latency_ms" | jq
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_interactive_http_p95_latency_ms" | jq
+kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/valynt/backend_orchestration_ttfb_p95_latency_ms" | jq
 ```
 
 ## Success criteria
 
 - `http_req_failed` < 2%
-- `http_req_duration p95` < 600ms, `p99` < 1200ms
+- Interactive completion `p95 < 200 ms`
+- Orchestration acknowledgment `p95 < 200 ms`
+- Orchestration completion `p95 < 3000 ms`
 - Backend pods scale out within 30-60s of spike stage
 - Worker pods scale out when queue depth persists above target, then scale down gradually over 6-7 minutes
