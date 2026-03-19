@@ -13,7 +13,7 @@
 import { logger } from "../logger.js";
 import { SupabaseSemanticStore } from "../memory/SupabaseSemanticStore.js";
 
-import type { SemanticStore } from "@valueos/memory";
+import type { SemanticMemoryFilter, SemanticStore } from "@valueos/memory";
 
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 import type { Memory, MemoryQuery, MemoryType } from "./MemorySystem.js";
@@ -41,23 +41,31 @@ export function resetCrossWorkspaceAllowlistCache(): void {
 }
 
 function getCrossWorkspaceAllowlist(): Set<string> {
-  if (_crossWorkspaceAllowlistCache !== null) return _crossWorkspaceAllowlistCache;
+  if (_crossWorkspaceAllowlistCache !== null)
+    return _crossWorkspaceAllowlistCache;
   const raw = process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST ?? "";
-  _crossWorkspaceAllowlistCache = new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  _crossWorkspaceAllowlistCache = new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
   return _crossWorkspaceAllowlistCache;
 }
 
 export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
-  private semanticStore: Pick<SemanticStore, "insert" | "findByOrganization">;
+  private semanticStore: Pick<SemanticStore, "insert" | "findFiltered">;
 
-  constructor(semanticStore?: Pick<SemanticStore, "insert" | "findByOrganization">) {
+  constructor(semanticStore?: Pick<SemanticStore, "insert" | "findFiltered">) {
     this.semanticStore = semanticStore ?? new SupabaseSemanticStore();
   }
 
   async store(memory: Memory): Promise<string> {
     const organizationId = memory.organization_id;
     if (!organizationId) {
-      throw new Error("organization_id required on memory for persistent storage");
+      throw new Error(
+        "organization_id required on memory for persistent storage",
+      );
     }
 
     try {
@@ -106,11 +114,15 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
 
   async retrieve(query: MemoryQuery): Promise<Memory[]> {
     if (!query.organization_id) {
-      throw new Error("organization_id is required for tenant-scoped memory retrieval");
+      throw new Error(
+        "organization_id is required for tenant-scoped memory retrieval",
+      );
     }
 
     if (query.include_cross_workspace && !query.cross_workspace_reason) {
-      throw new Error("cross_workspace_reason is required when include_cross_workspace is true");
+      throw new Error(
+        "cross_workspace_reason is required when include_cross_workspace is true",
+      );
     }
 
     // Access control gate: cross-workspace reads require the organization to be
@@ -119,37 +131,41 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
     if (query.include_cross_workspace) {
       const allowlist = getCrossWorkspaceAllowlist();
       if (!allowlist.has(query.organization_id)) {
-        logger.warn("SupabaseMemoryBackend: cross-workspace read blocked — org not in allowlist", {
-          organization_id: query.organization_id,
-          cross_workspace_reason: query.cross_workspace_reason,
-        });
+        logger.warn(
+          "SupabaseMemoryBackend: cross-workspace read blocked — org not in allowlist",
+          {
+            organization_id: query.organization_id,
+            cross_workspace_reason: query.cross_workspace_reason,
+          },
+        );
         // Downgrade to tenant-scoped rather than throwing, so agent execution continues.
         query = { ...query, include_cross_workspace: false };
       }
     }
 
     try {
-      const results = await this.semanticStore.findByOrganization(
-        query.organization_id,
-        DB_TYPE,
-      );
+      const filters: SemanticMemoryFilter = {
+        organizationId: query.organization_id,
+        type: DB_TYPE,
+        agentType: query.agent_id || undefined,
+        sessionId:
+          query.include_cross_workspace || !query.workspace_id
+            ? undefined
+            : query.workspace_id,
+        memoryType: query.memory_type,
+        minImportance: query.min_importance,
+        limit: query.limit || 10,
+      };
 
-      const memories: Memory[] = [];
-      for (const fact of results) {
+      const results = await this.semanticStore.findFiltered(filters);
+
+      return results.map((fact) => {
         const meta = fact.metadata as Record<string, unknown>;
-
-        if (query.agent_id && meta["agentType"] !== query.agent_id) continue;
-        if (query.memory_type && meta["agent_memory_type"] !== query.memory_type) continue;
-
         const workspaceId = String(meta["session_id"] || "");
-        if (!query.include_cross_workspace && query.workspace_id && workspaceId !== query.workspace_id) continue;
-
         const importance =
           typeof meta["importance"] === "number" ? meta["importance"] : 0.5;
 
-        if (query.min_importance && importance < query.min_importance) continue;
-
-        memories.push({
+        return {
           id: (meta["agent_memory_id"] as string) || fact.id,
           agent_id: String(meta["agentType"] || ""),
           organization_id: query.organization_id,
@@ -162,27 +178,35 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
           access_count:
             typeof meta["access_count"] === "number" ? meta["access_count"] : 0,
           metadata: meta,
-        });
-      }
-
-      memories.sort((a, b) => b.importance - a.importance);
-      return memories.slice(0, query.limit || 10);
-    } catch (error) {
-      logger.error("Failed to retrieve memories from Supabase", error as Error, {
-        agent_id: query.agent_id,
-        organization_id: query.organization_id,
+        };
       });
+    } catch (error) {
+      logger.error(
+        "Failed to retrieve memories from Supabase",
+        error as Error,
+        {
+          agent_id: query.agent_id,
+          organization_id: query.organization_id,
+        },
+      );
       throw error;
     }
   }
 
-  async clear(_agentId: string, _organizationId: string, _workspaceId?: string): Promise<number> {
+  async clear(
+    _agentId: string,
+    _organizationId: string,
+    _workspaceId?: string,
+  ): Promise<number> {
     // Intentional no-op: agent memories serve as cross-session learning data.
     // Use SupabaseSemanticStore directly for explicit cleanup.
-    logger.debug("SupabaseMemoryBackend.clear is a no-op for persistent storage", {
-      agent_id: _agentId,
-      organization_id: _organizationId,
-    });
+    logger.debug(
+      "SupabaseMemoryBackend.clear is a no-op for persistent storage",
+      {
+        agent_id: _agentId,
+        organization_id: _organizationId,
+      },
+    );
     return 0;
   }
 }
