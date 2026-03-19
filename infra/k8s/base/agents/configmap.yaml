@@ -20,8 +20,10 @@ data:
   enable-health-checks: "true"
 
   # Performance settings
-  max-concurrent-requests: "10"
   request-timeout-ms: "30000"
+  latency-sensitive-max-concurrent-requests: "6"
+  financial-critical-max-concurrent-requests: "3"
+  low-frequency-async-max-concurrent-requests: "2"
 
   # Agent-specific defaults
   default-agent-timeout: "300000" # 5 minutes for long-running agent queries
@@ -30,7 +32,9 @@ data:
   circuit-breaker-recovery-timeout: "60000"
 
   # Database connection settings
-  db-connection-pool-size: "5"
+  latency-sensitive-db-connection-pool-size: "4"
+  financial-critical-db-connection-pool-size: "2"
+  low-frequency-async-db-connection-pool-size: "1"
   db-connection-timeout: "10000"
 
   # External service timeouts
