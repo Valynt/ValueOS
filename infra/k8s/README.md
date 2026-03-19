@@ -206,9 +206,10 @@ kubectl get ingress -n valynt-staging
 
 **Resources:**
 
-- Backend: 1 replica, 100m CPU, 256Mi memory
+- Backend: 2 replicas, 100m CPU, 256Mi memory
 - Frontend: 1 replica, 50m CPU, 64Mi memory
 - HPA: Disabled
+- Backend DB pool inputs: `APP_ENV=staging`, `DATABASE_POOL_ROLE=api`, `DATABASE_EXPECTED_CONCURRENCY=8` → derived `DATABASE_POOL_MAX=4`
 
 **Configuration:**
 
@@ -226,9 +227,10 @@ kustomize build infra/k8s/overlays/staging | kubectl apply -f -
 
 **Resources:**
 
-- Backend: 3 replicas, 500m CPU, 1Gi memory
+- Backend: 3 baseline replicas, 500m CPU, 1Gi memory
 - Frontend: 2 replicas, 200m CPU, 256Mi memory
-- HPA: Enabled (2-10 replicas for backend)
+- HPA: Enabled (2-18 replicas for backend)
+- Backend DB pool inputs: `APP_ENV=prod`, `DATABASE_POOL_ROLE=api`, `DATABASE_EXPECTED_CONCURRENCY=8` → derived `DATABASE_POOL_MAX=4`
 
 **Configuration:**
 
@@ -259,7 +261,7 @@ kustomize build infra/k8s/overlays/production | kubectl apply -f -
 - **Resources:** 100-500m CPU, 256Mi-1Gi memory
 - **Health Check:** `/health`
 - **Metrics:** `/metrics` (Prometheus)
-- **Replicas:** 1 (staging), 3-10 (production)
+- **Replicas:** 2 (staging), 3 baseline / 2-18 via HPA (production)
 
 ### Ingress (AWS ALB)
 
@@ -332,6 +334,19 @@ View HPA status:
 ```bash
 kubectl get hpa -n valynt
 ```
+
+### Backend connection budget
+
+The backend deployments set `DATABASE_POOL_ROLE=api` and `DATABASE_EXPECTED_CONCURRENCY=8`. The app derives `DATABASE_POOL_MAX=4` per pod unless an operator explicitly overrides it.
+
+| Environment | Max backend replicas | Per-pod pool max | App-side connection budget | Notes |
+| --- | ---: | ---: | ---: | --- |
+| Staging | 2 | 4 | 8 | Fixed replica count, no HPA. |
+| Production | 18 | 4 | 72 | Based on backend HPA max. Blue/green cutovers can temporarily double this if both slots are scaled up simultaneously. |
+
+### Supabase / pgBouncer assumption
+
+The environment templates in `ops/env/` use the Supabase transaction pooler (`*.pooler.supabase.com:6543`) for application traffic. Treat that as the default pgBouncer assumption for backend pods; reserve the direct Postgres host (`:5432`) for migrations or session-affine maintenance work.
 
 ## Monitoring
 
