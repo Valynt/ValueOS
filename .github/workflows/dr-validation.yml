@@ -1,4 +1,5 @@
 name: DR Validation
+# active-runtime-platform: kubernetes
 
 on:
   workflow_dispatch:

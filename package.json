@@ -24,6 +24,8 @@
     "check:telemetry-completeness": "node scripts/ci/check-telemetry-completeness.mjs",
     "check:observability-deployment-gates": "node scripts/ci/check-observability-deployment-gates.mjs",
     "check:workflow-package-script-drift": "node scripts/ci/check-workflow-package-script-drift.mjs",
+    "check:runtime-platform-contract": "node scripts/ci/check-runtime-platform-contract.mjs",
+    "check:archived-ecs-guardrails": "node scripts/ci/check-archived-ecs-guardrails.mjs",
     "test:rls": "vitest run --config tests/security/vitest.security.config.ts",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "db:migrate": "bash scripts/db/apply-migrations.sh",
