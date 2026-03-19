@@ -65,6 +65,20 @@ def calc_burn_down(observed_p95_ms: float, target_p95_ms: float = 200.0) -> floa
     return min(100.0, ((observed_p95_ms - target_p95_ms) / target_p95_ms) * 100.0)
 
 
+def nested_metric(summary: dict, *keys: str, default: float = 0.0) -> float:
+    value: object = summary
+    for key in keys:
+        if not isinstance(value, dict):
+            return default
+        value = value.get(key)
+    if value in (None, ""):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def main() -> None:
     summary_path = Path(os.environ.get("K6_SUMMARY_PATH", "load-test-summary.json"))
     output_dir = Path(os.environ.get("BENCHMARK_OUTPUT_DIR", "benchmark-artifacts"))
@@ -75,6 +89,7 @@ def main() -> None:
     commit_sha = os.environ.get("GITHUB_SHA", "unknown")
     release_ref = os.environ.get("GITHUB_REF_NAME", "unknown")
     run_id = os.environ.get("GITHUB_RUN_ID", "local")
+    profile = run_summary.get("profile", os.environ.get("LOAD_TEST_PROFILE", "unknown"))
 
     prom_url = os.environ.get("PROMETHEUS_URL", "")
     prom_token = os.environ.get("PROMETHEUS_TOKEN", "")
@@ -114,8 +129,12 @@ def main() -> None:
             "sum(rate(cache_hits_total[5m])) / clamp_min(sum(rate(cache_requests_total[5m])), 1)",
         )
 
-    p95 = float(run_summary.get("latency_ms", {}).get("p95") or 0)
-    critical_p95 = float(run_summary.get("latency_ms", {}).get("critical_p95") or 0)
+    overall_p95 = nested_metric(run_summary, "latency_ms", "overall", "p95") or nested_metric(run_summary, "latency_ms", "p95")
+    critical_p95 = nested_metric(run_summary, "latency_ms", "critical_p95")
+    queue_wait_p95 = nested_metric(run_summary, "latency_ms", "queue_wait", "p95")
+    queue_execution_p95 = nested_metric(run_summary, "latency_ms", "queue_execution", "p95")
+    queue_waiting_ratio_max = nested_metric(run_summary, "queue_pressure", "waiting_ratio_max")
+    delayed_ratio_max = nested_metric(run_summary, "queue_pressure", "delayed_ratio_max")
 
     root_cause = classify_root_cause(infra_metrics)
 
@@ -124,9 +143,13 @@ def main() -> None:
         "run_id": run_id,
         "commit_sha": commit_sha,
         "release_ref": release_ref,
+        "profile": profile,
+        "target_vus": run_summary.get("target_vus"),
         "latency_ms": run_summary.get("latency_ms", {}),
+        "backpressure": run_summary.get("backpressure", {}),
+        "queue_pressure": run_summary.get("queue_pressure", {}),
         "error_rate": run_summary.get("error_rate", 0),
-        "rps": run_summary.get("rps", 0),
+        "rps": nested_metric(run_summary, "totals", "rps"),
         "saturation": run_summary.get("saturation", {}),
         "critical_route_guard": {
             "target_p95_ms": 200,
@@ -136,14 +159,24 @@ def main() -> None:
         },
         "latency_budget": {
             "target_p95_ms": 200,
-            "observed_p95_ms": p95,
-            "burn_down_percent": calc_burn_down(p95),
-            "remaining_percent": max(0.0, 100.0 - calc_burn_down(p95)),
+            "observed_p95_ms": overall_p95,
+            "burn_down_percent": calc_burn_down(overall_p95),
+            "remaining_percent": max(0.0, 100.0 - calc_burn_down(overall_p95)),
+        },
+        "queue_guard": {
+            "queue_wait_p95_ms": queue_wait_p95,
+            "queue_execution_p95_ms": queue_execution_p95,
+            "waiting_ratio_max": queue_waiting_ratio_max,
+            "delayed_ratio_max": delayed_ratio_max,
+            "within_hpa_waiting_threshold": queue_waiting_ratio_max <= 1.0,
+            "within_hpa_delayed_threshold": delayed_ratio_max <= 1.0,
         },
         "infra_correlation": {
             "root_cause": root_cause,
             "metrics": infra_metrics,
         },
+        "thresholds": run_summary.get("thresholds", {}),
+        "thresholds_passed": run_summary.get("thresholds_passed", False),
     }
 
     summary_file = output_dir / "benchmark-summary.json"
@@ -153,23 +186,40 @@ def main() -> None:
     report_file.write_text(
         "\n".join(
             [
-                "# Staging Benchmark Report",
+                f"# Load Benchmark Report — {profile}",
                 "",
                 f"- Commit: `{commit_sha}`",
                 f"- Release ref: `{release_ref}`",
                 f"- Run ID: `{run_id}`",
+                f"- Target VUs: `{run_summary.get('target_vus')}`",
                 "",
                 "## Request Performance",
-                f"- p50: {benchmark_record['latency_ms'].get('p50')}",
-                f"- p95: {benchmark_record['latency_ms'].get('p95')}",
-                f"- p99: {benchmark_record['latency_ms'].get('p99')}",
-                f"- Error rate: {benchmark_record['error_rate']}",
-                f"- RPS: {benchmark_record['rps']}",
+                f"- Overall p50: {nested_metric(run_summary, 'latency_ms', 'overall', 'p50')}",
+                f"- Overall p95: {overall_p95}",
+                f"- Overall p99: {nested_metric(run_summary, 'latency_ms', 'overall', 'p99')}",
+                f"- Agents p95: {nested_metric(run_summary, 'latency_ms', 'agents', 'p95')}",
+                f"- LLM TTFB p95: {nested_metric(run_summary, 'latency_ms', 'llm_ttfb', 'p95')}",
+                f"- LLM completion p95: {nested_metric(run_summary, 'latency_ms', 'llm_completion', 'p95')}",
+                f"- Queue wait p95: {queue_wait_p95}",
+                f"- Queue execution p95: {queue_execution_p95}",
+                f"- Error rate: {run_summary.get('error_rate', 0)}",
+                f"- RPS: {nested_metric(run_summary, 'totals', 'rps')}",
+                "",
+                "## Backpressure",
+                f"- HTTP 429 rate: {nested_metric(run_summary, 'backpressure', 'rate_429')}",
+                f"- HTTP 503 rate: {nested_metric(run_summary, 'backpressure', 'rate_503')}",
+                "",
+                "## Queue / Worker HPA Alignment",
+                f"- Waiting jobs max: {nested_metric(run_summary, 'queue_pressure', 'waiting_jobs_max')}",
+                f"- Delayed jobs max: {nested_metric(run_summary, 'queue_pressure', 'delayed_jobs_max')}",
+                f"- Queue depth max: {nested_metric(run_summary, 'queue_pressure', 'queue_depth_max')}",
+                f"- Waiting ratio max vs HPA threshold: {queue_waiting_ratio_max}",
+                f"- Delayed ratio max vs HPA threshold: {delayed_ratio_max}",
                 "",
                 "## Saturation",
-                f"- Max VUs: {benchmark_record['saturation'].get('vus_max')}",
-                f"- Dropped iterations: {benchmark_record['saturation'].get('dropped_iterations')}",
-                f"- Blocked p95 (ms): {benchmark_record['saturation'].get('blocked_p95_ms')}",
+                f"- Max VUs: {nested_metric(run_summary, 'saturation', 'vus_max')}",
+                f"- Dropped iterations: {nested_metric(run_summary, 'saturation', 'dropped_iterations')}",
+                f"- Blocked p95 (ms): {nested_metric(run_summary, 'saturation', 'blocked_p95_ms')}",
                 "",
                 "## Promotion Guard",
                 f"- Critical route p95 target: <= 200ms",

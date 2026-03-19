@@ -1,0 +1,76 @@
+name: load-benchmarks
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  schedule:
+    - cron: "0 5 * * *"
+
+jobs:
+  load-benchmark-matrix:
+    name: Load Benchmark (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: ci-50
+          - profile: nightly-200
+          - profile: spike
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Prepare artifact directories
+        run: |
+          set -euo pipefail
+          mkdir -p "benchmark-artifacts/${{ matrix.profile }}"
+          mkdir -p "benchmark-artifacts/${{ matrix.profile }}/analysis"
+
+      - name: Run k6 load benchmark profile
+        env:
+          BASE_URL: ${{ vars.LOAD_TEST_BASE_URL || 'https://staging.valueos.app' }}
+          AUTH_TOKEN: ${{ secrets.STAGING_PERF_AUTH_TOKEN }}
+          TENANT_ID: ${{ secrets.STAGING_PERF_TENANT_ID }}
+          CSRF_TOKEN: ${{ secrets.STAGING_PERF_CSRF_TOKEN }}
+          CSRF_COOKIE: ${{ secrets.STAGING_PERF_CSRF_COOKIE }}
+          SERVICE_IDENTITY_TOKEN: ${{ secrets.STAGING_PERF_SERVICE_IDENTITY_TOKEN }}
+          LOAD_TEST_PROFILE: ${{ matrix.profile }}
+          ARTIFACT_DIR: benchmark-artifacts/${{ matrix.profile }}
+          HPA_WAITING_JOBS_PER_POD: "20"
+          HPA_DELAYED_JOBS_PER_POD: "50"
+          HPA_MAX_REPLICAS: "12"
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            -e BASE_URL \
+            -e AUTH_TOKEN \
+            -e TENANT_ID \
+            -e CSRF_TOKEN \
+            -e CSRF_COOKIE \
+            -e SERVICE_IDENTITY_TOKEN \
+            -e LOAD_TEST_PROFILE \
+            -e ARTIFACT_DIR \
+            -e HPA_WAITING_JOBS_PER_POD \
+            -e HPA_DELAYED_JOBS_PER_POD \
+            -e HPA_MAX_REPLICAS \
+            grafana/k6:0.53.0 run infra/testing/load-test.k6.js
+
+      - name: Build benchmark artifact with infra correlation
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_STAGING_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_STAGING_TOKEN }}
+          LOAD_TEST_PROFILE: ${{ matrix.profile }}
+          K6_SUMMARY_PATH: benchmark-artifacts/${{ matrix.profile }}/load-test-summary.json
+          BENCHMARK_OUTPUT_DIR: benchmark-artifacts/${{ matrix.profile }}/analysis
+        run: |
+          set -euo pipefail
+          python3 scripts/perf/analyze-k6-benchmark.py
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: load-benchmark-${{ matrix.profile }}-${{ github.run_id }}
+          path: benchmark-artifacts/${{ matrix.profile }}/
