@@ -16,11 +16,11 @@ const { mockCreateEntry } = vi.hoisted(() => ({
   mockCreateEntry: vi.fn().mockResolvedValue({ id: 'audit-1' }),
 }));
 
-vi.mock('../services/AuditLogService.js', () => ({
+vi.mock('../services/security/index.js', () => ({
   auditLogService: { createEntry: mockCreateEntry },
 }));
 
-vi.mock('../services/ReadThroughCacheService.js', () => ({
+vi.mock('../services/cache/ReadThroughCacheService.js', () => ({
   ReadThroughCacheService: {
     getOrLoad: vi.fn().mockImplementation(
       (_config: unknown, loader: () => Promise<unknown>) => loader(),
@@ -28,7 +28,7 @@ vi.mock('../services/ReadThroughCacheService.js', () => ({
     invalidateEndpoint: vi.fn().mockResolvedValue(0),
   },
   getTenantIdFromRequest: vi.fn().mockImplementation(
-    (req: { tenantId?: string }) => req.tenantId ?? undefined,
+    (req: { tenantId?: string; headers?: Record<string, string | string[] | undefined> }) => req.tenantId ?? undefined,
   ),
 }));
 
@@ -98,6 +98,9 @@ vi.mock('../repositories/ProjectRepository.js', () => {
 
 vi.mock('../lib/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
 }));
 
 vi.mock('../middleware/globalErrorHandler.js', () => ({
@@ -171,7 +174,7 @@ describe('Projects API — audit logging', () => {
     expect(call.resourceType).toBe('project');
     expect(call.resourceId).toBe(res.body.data.id);
     expect(call.userId).toBe(USER_ID);
-    expect(call.details.tenantId).toBe(TENANT_ID);
+    expect(call.tenantId).toBe(TENANT_ID);
     expect(call.details.correlationId).toBe('corr-123');
   });
 
@@ -196,7 +199,7 @@ describe('Projects API — audit logging', () => {
     expect(call.resourceType).toBe('project');
     expect(call.resourceId).toBe(projectId);
     expect(call.userId).toBe(USER_ID);
-    expect(call.details.tenantId).toBe(TENANT_ID);
+    expect(call.tenantId).toBe(TENANT_ID);
     expect(call.details.correlationId).toBe('corr-123');
   });
 
@@ -219,7 +222,7 @@ describe('Projects API — audit logging', () => {
     expect(call.resourceType).toBe('project');
     expect(call.resourceId).toBe(projectId);
     expect(call.userId).toBe(USER_ID);
-    expect(call.details.tenantId).toBe(TENANT_ID);
+    expect(call.tenantId).toBe(TENANT_ID);
     expect(call.details.correlationId).toBe('corr-123');
   });
 

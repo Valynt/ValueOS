@@ -1,3 +1,4 @@
+
 /** @vitest-environment jsdom */
 import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
@@ -17,8 +18,8 @@ describe("App Mounting Regression", () => {
   });
 
   it("should mount the application without global ReferenceErrors", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => { });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => { });
 
     render(
       <MemoryRouter>

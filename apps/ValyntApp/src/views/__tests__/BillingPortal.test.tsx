@@ -161,7 +161,7 @@ describe("BillingPortal", () => {
     // Click on Approvals tab first
     fireEvent.click(screen.getByText("Approvals"));
     // Check for approval content
-    expect(screen.getByText("John Doe")).toBeInTheDocument();
+    expect(screen.getByText(/john doe/i)).toBeInTheDocument();
     expect(screen.getByText("Upgrade to Enterprise")).toBeInTheDocument();
     expect(screen.getByText("Reject")).toBeInTheDocument();
     expect(screen.getByText("Approve")).toBeInTheDocument();

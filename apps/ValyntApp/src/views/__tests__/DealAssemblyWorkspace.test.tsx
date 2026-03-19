@@ -8,6 +8,42 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DealAssemblyWorkspace } from "../../views/DealAssemblyWorkspace";
 
+// Mock CanvasHost to render widget content directly
+vi.mock("@/components/canvas/CanvasHost", () => ({
+  CanvasHost: ({ widgets }: { widgets: any[] }) => (
+    <div data-testid="canvas-host">
+      {widgets?.map((widget: any) => (
+        <div key={widget.id} data-testid={`widget-${widget.id}`}>
+          {widget.componentType === "stakeholder-map" && widget.props?.stakeholders && (
+            <div>
+              {widget.props.stakeholders.map((s: any) => (
+                <div key={s.id}>
+                  <span>{s.name}</span>
+                  <span>{s.role}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {widget.componentType === "gap-resolution" && widget.props?.gaps && (
+            <div>
+              {widget.props.gaps.map((g: any) => (
+                <div key={g.id}>
+                  <span>{g.field}</span>
+                  <span>{g.description}</span>
+                  {g.value && <span>{g.value}</span>}
+                  {!g.resolved && (
+                    <input placeholder={`Enter ${g.field.toLowerCase()}...`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  ),
+}));
+
 // Mock hooks
 vi.mock("@/hooks/useDealAssembly", () => ({
   useDealContext: () => ({
@@ -50,7 +86,7 @@ describe("DealAssemblyWorkspace", () => {
     render(<DealAssemblyWorkspace />);
 
     expect(screen.getByText("Acme Corp")).toBeInTheDocument();
-    expect(screen.getByText("Technology")).toBeInTheDocument();
+    expect(screen.getByText(/technology/i)).toBeInTheDocument();
   });
 
   it("displays stakeholder map", () => {
@@ -77,7 +113,7 @@ describe("DealAssemblyWorkspace", () => {
   it("handles gap fill submission", () => {
     render(<DealAssemblyWorkspace />);
 
-    const input = screen.getByPlaceholderText(/budget/i);
+    const input = screen.getByPlaceholderText(/enter budget/i);
     fireEvent.change(input, { target: { value: "100000" } });
 
     fireEvent.click(screen.getByText(/submit/i));

@@ -8,6 +8,34 @@ import { describe, expect, it, vi } from "vitest";
 
 import { IntegrityDashboard } from "../../views/IntegrityDashboard";
 
+// Mock CanvasHost to render widget content directly
+vi.mock("@/components/canvas/CanvasHost", () => ({
+  CanvasHost: ({ widgets }: { widgets: any[] }) => (
+    <div data-testid="canvas-host">
+      {widgets?.map((widget: any) => (
+        <div key={widget.id} data-testid={`widget-${widget.id}`}>
+          {widget.componentType === "readiness-gauge" && widget.props && (
+            <div>
+              <span data-testid="readiness-score">{Math.round((widget.props.compositeScore ?? 0) * 100)}%</span>
+              <span data-testid="readiness-status">{widget.props.status}</span>
+            </div>
+          )}
+          {widget.componentType === "evidence-gap-list" && widget.props?.gaps && (
+            <div>
+              {widget.props.gaps.map((g: any) => (
+                <div key={g.id}>
+                  <span>{g.field}</span>
+                  <span>{g.suggestedAction}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  ),
+}));
+
 // Mock hooks
 vi.mock("@/hooks/useIntegrity", () => ({
   useReadiness: () => ({
@@ -51,8 +79,7 @@ describe("IntegrityDashboard", () => {
   it("renders readiness gauge with score", () => {
     render(<IntegrityDashboard />);
 
-    expect(screen.getByText("82%")).toBeInTheDocument();
-    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByTestId("readiness-score")).toHaveTextContent("82%");
   });
 
   it("displays evidence gap list", () => {

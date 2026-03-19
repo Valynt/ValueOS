@@ -3,24 +3,24 @@ import request from 'supertest';
 import { vi } from "vitest";
 /**
  * Value Drivers API Tests
- * 
+ *
  * Tests for: happy path, validation failure, auth failure, dependency failure
  */
-
 
 import {
   DbConflictError,
   DbNotFoundError,
   TransientDbError,
-} from '../../../lib/db/errors';
+} from '../../../lib/db/errors.js';
 import { valueDriversRouter } from '../index.js'
 import { getValueDriversRepository } from '../repository.js'
+import { requireRole } from '../../../middleware/auth.js'
 
 // Mock the repository
-vi.mock('../repository');
+vi.mock('../repository.js');
 
 // Mock auth middleware
-vi.mock('../../../middleware/auth', () => ({
+vi.mock('../../../middleware/auth.js', () => ({
   requireAuth: vi.fn((req, _res, next) => {
     req.user = { id: 'user-123', email: 'admin@example.com', roles: ['admin'] };
     req.tenantId = 'tenant-123';
@@ -37,21 +37,25 @@ vi.mock('../../../middleware/auth', () => ({
   }),
 }));
 
-vi.mock('../../../middleware/tenantContext', () => ({
+vi.mock('../../../middleware/tenantContext.js', () => ({
   tenantContextMiddleware: () => (req: any, _res: any, next: any) => {
     req.tenantId = req.tenantId || 'tenant-123';
     next();
   },
 }));
 
+vi.mock('../../../middleware/tenantDbContext.js', () => ({
+  tenantDbContextMiddleware: () => (_req: any, _res: any, next: any) => next(),
+}));
+
 // Mock rate limiter
-vi.mock('../../../middleware/rateLimiter', () => ({
+vi.mock('../../../middleware/rateLimiter.js', () => ({
   createRateLimiter: vi.fn(() => (_req: any, _res: any, next: any) => next()),
   RateLimitTier: { STANDARD: 'standard', STRICT: 'strict' },
 }));
 
 // Mock logger
-vi.mock('../../../lib/logger', () => ({
+vi.mock('../../../lib/logger.js', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -323,17 +327,24 @@ describe('Value Drivers API', () => {
 
   describe('Authentication Errors', () => {
     it('should return 403 for non-admin trying to create', async () => {
-      const { requireRole } = require('../../../middleware/auth');
-      (requireRole as vi.Mock).mockImplementationOnce(() => (_req: any, res: any) => {
+      // Clear module cache to allow re-import with modified mock
+      vi.resetModules();
+
+      // Pre-configure the mock to return 403 before importing
+      const { requireRole: mockedRequireRole } = await import('../../../middleware/auth.js');
+      vi.mocked(mockedRequireRole).mockImplementation(() => (_req: any, res: any) => {
         return res.status(403).json({
           error: 'FORBIDDEN',
           message: 'Admin access required',
         });
       });
 
+      // Re-import router to get fresh instance with modified mock
+      const { valueDriversRouter: freshRouter } = await import('../index.js');
+
       const testApp = express();
       testApp.use(express.json());
-      testApp.use('/api/v1/drivers', valueDriversRouter);
+      testApp.use('/api/v1/drivers', freshRouter);
 
       const response = await request(testApp)
         .post('/api/v1/drivers')
@@ -341,6 +352,9 @@ describe('Value Drivers API', () => {
         .expect(403);
 
       expect(response.body.error).toBe('FORBIDDEN');
+
+      // Restore modules after test
+      vi.resetModules();
     });
   });
 

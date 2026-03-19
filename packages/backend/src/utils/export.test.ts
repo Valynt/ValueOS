@@ -11,7 +11,9 @@ import { exportToExcel, exportToPDF, exportToPNG } from "./export";
 vi.mock("html2canvas", () => ({
   default: vi.fn().mockResolvedValue({
     toBlob: (callback: (blob: Blob | null) => void) => {
-      const blob = new Blob(["fake-png-data"], { type: "image/png" });
+      // PNG magic bytes: 137 80 78 71 13 10 26 10
+      const pngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68]);
+      const blob = new Blob([pngBytes], { type: "image/png" });
       callback(blob);
     },
   }),
@@ -19,22 +21,24 @@ vi.mock("html2canvas", () => ({
 
 // Mock jsPDF for PDF export tests
 vi.mock("jspdf", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    internal: {
-      pageSize: {
-        getWidth: () => 210,
+  default: vi.fn().mockImplementation(function () {
+    return {
+      internal: {
+        pageSize: {
+          getWidth: () => 210,
+        },
       },
-    },
-    setFontSize: vi.fn(),
-    setFont: vi.fn(),
-    text: vi.fn(),
-    setTextColor: vi.fn(),
-    setDrawColor: vi.fn(),
-    line: vi.fn(),
-    addPage: vi.fn(),
-    splitTextToSize: vi.fn().mockReturnValue(["test text"]),
-    output: vi.fn().mockReturnValue(new Blob(["fake-pdf-data"], { type: "application/pdf" })),
-  })),
+      setFontSize: vi.fn(),
+      setFont: vi.fn(),
+      text: vi.fn(),
+      setTextColor: vi.fn(),
+      setDrawColor: vi.fn(),
+      line: vi.fn(),
+      addPage: vi.fn(),
+      splitTextToSize: vi.fn().mockReturnValue(["test text"]),
+      output: vi.fn().mockReturnValue(new Blob(["%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\ntrailer\n<<\n/Root 1 0 R\n>>\n%%EOF"], { type: "application/pdf" })),
+    };
+  }),
 }));
 
 async function blobToUint8Array(blob: Blob): Promise<Uint8Array> {

@@ -24,14 +24,16 @@ describe("ArtifactPreview", () => {
     render(<ArtifactPreview id="artifact-preview" data={{ artifact: mockArtifact }} />);
 
     expect(screen.getByText("Q1 Value Assessment")).toBeInTheDocument();
-    expect(screen.getByText("150%")).toBeInTheDocument();
-    expect(screen.getByText("$750,000")).toBeInTheDocument();
+    // Content is HTML and gets rendered with proper encoding
+    expect(screen.getByText(/150%/)).toBeInTheDocument();
+    expect(screen.getByText(/\$750,000/)).toBeInTheDocument();
   });
 
   it("includes data-claim-id attributes on financial figures", () => {
     render(<ArtifactPreview id="artifact-preview" data={{ artifact: mockArtifact }} />);
 
-    const claimElement = screen.getByText("150%").closest("[data-claim-id]");
+    // Use regex matcher since content may be HTML-encoded
+    const claimElement = screen.getByText(/150%/).closest("[data-claim-id]");
     expect(claimElement).toHaveAttribute("data-claim-id", "claim-1");
   });
 
@@ -45,7 +47,8 @@ describe("ArtifactPreview", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("150%"));
+    // Use regex matcher since content may be HTML-encoded
+    fireEvent.click(screen.getByText(/150%/));
     expect(onAction).toHaveBeenCalledWith("showProvenance", { claimId: "claim-1" });
   });
 
