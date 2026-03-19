@@ -163,6 +163,9 @@ GRANT ALL ON public.security_audit_archive_batch    TO service_role;
 GRANT ALL ON public.security_audit_archive_segment  TO service_role;
 GRANT ALL ON public.security_audit_archive_alert    TO service_role;
 
+REVOKE ALL ON public.security_audit_archive_batch    FROM anon, authenticated;
+REVOKE ALL ON public.security_audit_archive_segment  FROM anon, authenticated;
+REVOKE ALL ON public.security_audit_archive_alert    FROM anon, authenticated;
 -- ============================================================================
 -- 5. Fix mutable search_path on functions.
 --
