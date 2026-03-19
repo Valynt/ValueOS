@@ -72,8 +72,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENABLE_TELEMETRY: ${ENABLE_TELEMETRY:-true}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
-    ports:
-      - "${BACKEND_PORT:-3001}:${BACKEND_PORT:-3001}"
+    # Keep the backend private to the compose network. Use Caddy for external
+    # /api ingress, or the temporary admin-debug profile for localhost-only access.
     deploy:
       replicas: 2
       resources:

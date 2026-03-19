@@ -89,6 +89,10 @@ Shell environment variables always override file values.
 
 > **Warning:** If `ops/env/.env.local` exists on disk, `load_mode_env` sources it _after_ `ops/env/.env.cloud-dev`, so `.env.local` values silently override cloud-dev values. Remove or rename `.env.local` when switching to cloud-dev mode to avoid unexpected configuration bleed.
 
+## Staging ingress note
+
+For the staging compose stack, browser and external API traffic must enter through Caddy and the `/api` path prefix. `ops/compose/compose.staging.yml` keeps the backend port private to the compose network. When an operator needs temporary direct backend access for debugging, use `ops/compose/profiles/staging-admin-debug.yml`, which binds a forwarding port to `127.0.0.1` only and must stay disabled in shared staging environments.
+
 ## Port note
 
 The Express backend binds to `API_PORT` (default `3001`), read by `packages/backend/src/config/settings.ts`. `BACKEND_PORT` in env files is used only to construct `BACKEND_ORIGIN` and `CORS_ALLOWED_ORIGINS` in the prep scripts — it does not change what port the server listens on. Set both to `3001` to keep them consistent.
