@@ -660,6 +660,8 @@ export class MultiTenantSecretsManager {
   }
 }
 
+export { MultiTenantSecretsManager as SecretsManager };
+
 // Export singleton instance
 export const multiTenantSecretsManager = new MultiTenantSecretsManager();
 
