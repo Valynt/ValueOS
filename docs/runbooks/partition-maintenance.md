@@ -1,3 +1,10 @@
+---
+title: Partition Maintenance Runbook
+owner: team-platform
+system: valueos-platform
+ops_labels: database,partitions,maintenance
+---
+
 # Partition Maintenance Runbook
 
 ## Purpose

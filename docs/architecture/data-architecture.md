@@ -1,3 +1,9 @@
+---
+title: Data Architecture
+owner: team-platform
+system: valueos-platform
+---
+
 # Data Architecture
 
 **Last Updated**: 2026-02-08

@@ -1,3 +1,9 @@
+---
+title: Architecture
+owner: team-platform
+system: valueos-platform
+---
+
 # Architecture
 
 **Last Updated**: 2026-02-16

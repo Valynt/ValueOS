@@ -2,6 +2,7 @@
 title: Staging Deployment Runbook
 owner: team-platform
 ops_labels: staging,deployment,database
+system: valueos-platform
 status: active
 ---
 

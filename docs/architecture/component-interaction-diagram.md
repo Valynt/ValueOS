@@ -1,3 +1,9 @@
+---
+title: Component Interaction Diagram
+owner: team-platform
+system: valueos-platform
+---
+
 # Component Interaction Diagram
 
 Visual maps of how ValueOS components connect and communicate.

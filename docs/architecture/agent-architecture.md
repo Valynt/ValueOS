@@ -1,3 +1,9 @@
+---
+title: Agent Architecture
+owner: team-platform
+system: valueos-platform
+---
+
 # Agent Architecture
 
 **Last Updated**: 2026-02-08

@@ -1,3 +1,10 @@
+---
+title: Alert Runbooks
+owner: team-platform
+system: valueos-platform
+ops_labels: alerting,incident-response,observability
+---
+
 # Alert Runbooks
 
 Runbooks for Prometheus alert rules defined in:

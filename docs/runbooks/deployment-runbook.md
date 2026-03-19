@@ -5,6 +5,8 @@ canonical: ../../DEPLOY.md
 note: "See also ops/STAGING_DEPLOY_CHECKLIST.md for the v1 deploy checklist."
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
 review_date: 2026-05-31
+system: valueos-platform
+ops_labels: deployment,release,legacy
 status: deprecated
 ---
 

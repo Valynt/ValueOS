@@ -69,8 +69,8 @@ for file in "${TARGET_FILES[@]}"; do
 
   case "$file" in
     *.md)
-      owner="$(sed -nE 's/^Owner:[[:space:]]+(.+)$/\1/p' "$file" | head -n1 || true)"
-      labels="$(sed -nE 's/^Ops-Labels:[[:space:]]+(.+)$/\1/p' "$file" | head -n1 || true)"
+      owner="$( (sed -nE 's/^owner:[[:space:]]+(.+)$/\1/p' "$file"; sed -nE 's/^Owner:[[:space:]]+(.+)$/\1/p' "$file") | head -n1 || true)"
+      labels="$( (sed -nE 's/^ops_labels:[[:space:]]+(.+)$/\1/p' "$file"; sed -nE 's/^Ops-Labels:[[:space:]]+(.+)$/\1/p' "$file") | head -n1 || true)"
       ;;
     *.yml|*.yaml)
       owner="$(sed -nE 's/^[[:space:]]*ops\.valueos\.io\/owner:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$file" | head -n1 || true)"

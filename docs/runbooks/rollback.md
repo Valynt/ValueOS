@@ -2,6 +2,7 @@
 title: Database Rollback Runbook
 owner: team-platform
 ops_labels: rollback,database,incident-response
+system: valueos-platform
 status: active
 ---
 

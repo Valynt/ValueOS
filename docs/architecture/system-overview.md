@@ -1,3 +1,9 @@
+---
+title: ValueOS System Architecture Overview
+owner: team-platform
+system: valueos-platform
+---
+
 # ValueOS System Architecture Overview
 
 _Added per audit recommendation #14: diagrams-as-code for onboarding speed._

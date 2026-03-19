@@ -28,14 +28,16 @@ metadata:
     - b2b-saas
     - monorepo
 
-  # TODO: Uncomment and populate links when available
-  # links:
-  #   - url: https://app.valynt.com
-  #     title: Production Application
-  #   - url: https://grafana.example.com/d/valueos
-  #     title: Grafana Dashboard
-  #   - url: https://runbooks.example.com/valueos
-  #     title: Runbook
+  links:
+    - url: https://github.com/Valynt/ValueOS/blob/main/docs/operations/incident-response.md
+      title: Canonical Security Runbook
+      icon: docs
+    - url: https://github.com/Valynt/ValueOS/blob/main/docs/runbooks/disaster-recovery.md
+      title: Disaster Recovery Runbook
+      icon: docs
+    - url: https://github.com/Valynt/ValueOS/blob/main/infra/observability/grafana/dashboards/mission-control.json
+      title: Mission Control Dashboard
+      icon: dashboard
 
   annotations:
     # [auto] Derived from GitHub repository path
@@ -54,20 +56,35 @@ spec:
   # 'experimental' if not yet serving production traffic with SLA commitments.
   lifecycle: production
 
-  # TODO: Replace with your team identifier from the Backstage org registry.
-  # Format: team:<team-name>
-  # Example: team:platform-engineering
-  # If your team is not registered, contact Platform Engineering to add it.
-  owner: "TODO:team:REPLACE_ME"
-
-  # TODO(required for services): Set the system this component belongs to.
-  # Must reference a system defined in the Backstage catalog.
-  # Example: value-engineering-platform
-  # Request a new system from Platform Engineering if needed.
-  system: "TODO:REPLACE_ME"
+  # Backstage-registered owning team and system for operational accountability.
+  owner: group:team-platform
+  system: valueos-platform
 
   # [auto] Known infrastructure dependencies
   dependsOn:
     - resource:supabase-postgres
     - resource:redis
     - resource:kafka
+
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: valueos-platform
+  description: Canonical ValueOS platform system spanning application, data, security, and observability controls.
+spec:
+  owner: group:team-platform
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: team-platform
+  description: Platform engineering team accountable for ValueOS runtime ownership, deployment controls, and operational governance.
+spec:
+  type: team
+  profile:
+    displayName: Team Platform
+    email: platform-leadership@valueos.com
+  children: []

@@ -89,6 +89,9 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Ownership metadata guard
+        run: node scripts/ci/check-ownership-metadata.mjs
+
       - name: OpenAPI single-root guard
         run: node scripts/ci/check-openapi-single-root.mjs
 

@@ -1,3 +1,9 @@
+---
+title: Api Architecture
+owner: team-platform
+system: valueos-platform
+---
+
 # Api Architecture
 
 **Last Updated**: 2026-02-08
