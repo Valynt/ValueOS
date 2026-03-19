@@ -30,36 +30,44 @@
 
 > Rule: financial + latency-sensitive classes must keep non-zero baseline.
 
-## 1.1 Synchronous Request-Path Allowlist
+### Interactive warm-capacity allowlist
 
-Only the following agents may participate in synchronous request/response paths, and they must retain non-zero warm capacity:
+Only the following agents may sit on synchronous request paths. Each one must
+retain non-zero warm capacity via HPA-managed `minReplicas`:
 
-- `opportunity-agent`
-- `target-agent`
-- `integrity-agent`
-- `expansion-agent`
-- `realization-agent`
-- `financial-modeling-agent`
+- `opportunity`
+- `target`
+- `integrity`
+- `expansion`
+- `realization`
+- `financial-modeling`
 
-These agents define the interactive warm-capacity budget. Async capacity must not be counted toward interactive latency readiness.
+### Scale-to-zero async denylist
 
-## 1.2 Scale-to-Zero Async-Only Denylist
+The following agents are explicitly **async-only**. They may be invoked only by
+queue, polling, or streaming workflows and must never be treated as warm
+interactive capacity:
 
-The following KEDA-backed agents are **scale-to-zero** and may only be invoked via queue, polling, or streaming workflows:
+- `company-intelligence`
+- `value-mapping`
+- `system-mapper`
+- `intervention-designer`
+- `outcome-engineer`
+- `coordinator`
+- `value-eval`
+- `communicator`
+- `benchmark`
+- `narrative`
+- `groundtruth`
 
-- `company-intelligence-agent`
-- `value-mapping-agent`
-- `system-mapper-agent`
-- `intervention-designer-agent`
-- `outcome-engineer-agent`
-- `coordinator-agent`
-- `value-eval-agent`
-- `communicator-agent`
-- `benchmark-agent`
-- `narrative-agent`
-- `groundtruth-agent`
+Backend enforcement lives in `packages/backend/src/services/agents/AgentScalingPolicy.ts`
+and interactive-route guards in `QueryExecutor` / `ActionRouterHandlers`.
 
-Backend policy checks should fail when any of these agents are wired into a synchronous interactive route.
+### Backend request-path audit
+
+- `packages/backend/src/runtime/execution-runtime/QueryExecutor.ts` now rejects denylisted agents when a request is still synchronous, even if the work is executed through an async worker and awaited inline.
+- `packages/backend/src/services/agents/ActionRouterHandlers.ts` blocks interactive `invokeAgent` and `showExplanation` actions from wiring async-only agents into the UI critical path.
+- `packages/backend/src/api/workflow.ts` remains an accepted async entry point because it returns `202 Accepted` and delegates execution to background workflow orchestration.
 
 ---
 

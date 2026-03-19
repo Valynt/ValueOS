@@ -18,6 +18,7 @@ import { SupabaseMemoryBackend } from '../../lib/agent-fabric/SupabaseMemoryBack
 import { logger } from '../../lib/logger.js';
 import { CircuitBreaker } from '../../lib/resilience/CircuitBreaker.js';
 import type { AgentType } from '../../services/agent-types.js';
+import { InteractiveAgentPolicyError, assertInteractiveAgentAllowed } from '../../services/agents/AgentScalingPolicy.js';
 import { AgentMessageQueue } from '../../services/agents/AgentMessageQueue.js';
 import { CircuitBreakerManager } from '../../services/agents/resilience/CircuitBreaker.js';
 import type { LifecycleContext } from '../../types/agent.js';
@@ -194,6 +195,7 @@ export class QueryExecutor {
     userId: string,
     sessionId: string,
     traceId: string = uuidv4(),
+    requestPath: 'interactive' | 'async' = 'async',
   ): Promise<{ jobId: string; traceId: string }> {
     if (
       currentState.context?.organizationId &&
@@ -212,6 +214,10 @@ export class QueryExecutor {
 
     const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
     const agentType = this.router.selectAgent(decisionContext);
+
+    if (requestPath === 'interactive') {
+      assertInteractiveAgentAllowed(agentType, 'QueryExecutor.processQueryAsync');
+    }
 
     if (!this.checkAgentRateLimit(agentType)) {
       throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -363,13 +369,14 @@ export class QueryExecutor {
     traceId: string,
   ): Promise<ProcessQueryResult> {
     logger.info('Using async agent execution', { traceId, sessionId });
-    const { jobId } = await this.processQueryAsync(envelope, query, currentState, userId, sessionId, traceId);
+    const { jobId } = await this.processQueryAsync(envelope, query, currentState, userId, sessionId, traceId, 'interactive');
     const result = await this.agentMessageQueue.waitForJobCompletion(jobId, 60_000);
 
     if (!result.success) throw new Error(result.error || 'Async agent execution failed');
 
     const decisionContext = this.buildDecisionContext(currentState, envelope.organizationId);
     const agentType = this.router.selectAgent(decisionContext);
+
     const agentContext = this.buildAgentContext({
       authoritativeOrganizationId: envelope.organizationId,
       contextOrganizationId: currentState.organization_id,
@@ -428,6 +435,8 @@ export class QueryExecutor {
           selectSpan.end();
         });
         agentType ??= 'coordinator' as AgentType;
+
+        assertInteractiveAgentAllowed(agentType, 'QueryExecutor._processQuerySync');
 
         if (!this.checkAgentRateLimit(agentType)) throw new Error(`Agent ${agentType} rate limit exceeded`);
 
@@ -534,8 +543,13 @@ export class QueryExecutor {
         rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
         if (error instanceof Error) rootSpan.recordException(error);
         rootSpan.end();
+
+        const message = error instanceof InteractiveAgentPolicyError
+          ? error.message
+          : 'I encountered an error processing your request. Please try again.';
+
         return {
-          response: { type: 'message', payload: { message: 'I encountered an error processing your request. Please try again.', error: true } },
+          response: { type: 'message', payload: { message, error: true } },
           nextState: { ...currentState, status: 'failed', context: { ...currentState.context, lastError: error instanceof Error ? error.message : 'Unknown error', errorTimestamp: new Date().toISOString() } },
           traceId,
         };

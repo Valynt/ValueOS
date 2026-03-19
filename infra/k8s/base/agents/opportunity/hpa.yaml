@@ -6,6 +6,8 @@ metadata:
   labels:
     app: opportunity-agent
     autoscaling.valueos.dev/profile: queue-depth
+    scaling.valueos.io/request-path-policy: interactive-allowlisted
+    scaling.valueos.io/cold-start-class: warm-interactive
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
