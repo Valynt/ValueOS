@@ -29,7 +29,7 @@ import { MemorySystem as FabricMemorySystem, MemorySystem } from "../../lib/agen
 import { createClient } from "@supabase/supabase-js";
 import { SupabaseMemoryBackend } from "../../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { logger } from "../../lib/logger.js";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import { AuthenticatedRequest, requireAuth } from "../../middleware/auth.js";
 import { rateLimiters } from "../../middleware/rateLimiter.js";
 import { tenantContextMiddleware } from "../../middleware/tenantContext.js";
@@ -607,7 +607,7 @@ function getBackHalfProvenanceTracker(tenantId: string): ProvenanceTracker {
   // Cast bridges the SupabaseClient generic parameter mismatch between
   // this package and SagaAdapters — both use @supabase/supabase-js but
   // with different generic instantiations.
-  const client = createServerSupabaseClient();
+  const client = createServiceRoleSupabaseClient();
 
   const store = new SupabaseProvenanceStore(
     client as unknown as ReturnType<typeof createClient>,
@@ -672,7 +672,7 @@ let _orchestrator: ValueLifecycleOrchestrator | null = null;
 function getOrchestrator(): ValueLifecycleOrchestrator {
   if (!_orchestrator) {
     _orchestrator = new ValueLifecycleOrchestrator(
-      createServerSupabaseClient(),
+      createServiceRoleSupabaseClient(),
       new FabricLLMGateway({ provider: "openai", model: "gpt-4o-mini" }),
       new FabricMemorySystem(
         { max_memories: 1000, enable_persistence: true },

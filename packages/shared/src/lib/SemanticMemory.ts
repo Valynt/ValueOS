@@ -8,7 +8,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { logger } from "./logger.js";
-import { createServerSupabaseClient } from "./supabase.js";
+import { createServiceRoleSupabaseClient } from "./supabase.js";
 
 export interface MemoryEntry {
   id: string;
@@ -54,7 +54,7 @@ export class SemanticMemoryService {
 
   private get supabase(): SupabaseClient {
     if (!this._supabase) {
-      this._supabase = createServerSupabaseClient();
+      this._supabase = createServiceRoleSupabaseClient();
     }
     return this._supabase;
   }

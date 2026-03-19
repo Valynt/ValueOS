@@ -10,7 +10,7 @@
 import { createLogger } from '@shared/lib/logger';
 import type { ProvenanceRecord, ProvenanceStore } from '@valueos/memory/provenance';
 
-import { createServerSupabaseClient } from '../lib/supabase.js';
+import { createServiceRoleSupabaseClient } from '../lib/supabase.js';
 
 const logger = createLogger({ component: 'SupabaseProvenanceStore' });
 
@@ -22,7 +22,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
   }
 
   async insert(record: ProvenanceRecord): Promise<void> {
-    const client = createServerSupabaseClient();
+    const client = createServiceRoleSupabaseClient();
     const { error } = await client.from('provenance_records').insert({
       id: record.id,
       value_case_id: record.valueCaseId,
@@ -45,7 +45,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
   }
 
   async findByClaimId(valueCaseId: string, claimId: string): Promise<ProvenanceRecord[]> {
-    const client = createServerSupabaseClient();
+    const client = createServiceRoleSupabaseClient();
     const { data, error } = await client
       .from('provenance_records')
       .select('*')
@@ -63,7 +63,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
   }
 
   async findById(id: string): Promise<ProvenanceRecord | null> {
-    const client = createServerSupabaseClient();
+    const client = createServiceRoleSupabaseClient();
     const { data, error } = await client
       .from('provenance_records')
       .select('*')
@@ -83,7 +83,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
   }
 
   async findByValueCaseId(valueCaseId: string): Promise<ProvenanceRecord[]> {
-    const client = createServerSupabaseClient();
+    const client = createServiceRoleSupabaseClient();
     const { data, error } = await client
       .from('provenance_records')
       .select('*')

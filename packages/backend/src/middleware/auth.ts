@@ -29,7 +29,7 @@ import { AuthenticationError } from '../services/errors.js'
 
 import { createLogger, LogContext } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
-import { createRequestSupabaseClient, getSupabaseClient } from '@shared/lib/supabase';
+import { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient } from '../lib/supabase.js';
 import { getEnvVar } from '@shared/lib/env';
 import { getRedisClient } from '@shared/lib/redisClient';
 
@@ -541,7 +541,7 @@ function ensureAuthHeader(req: Request, token?: string | null) {
 
 async function verifyTokenWithSupabase(token: string): Promise<VerifiedAuth | null> {
   try {
-    const supabaseClient = getSupabaseClient();
+    const supabaseClient = createServiceRoleSupabaseClient();
     const { data, error } = await supabaseClient.auth.getUser(token);
 
     if (error || !data?.user) {
@@ -694,7 +694,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Add user and session to request for use in handlers
     applyAuthContext(req, user, session, claims);
     ensureAuthHeader(req, session.access_token);
-    createRequestSupabaseClient(req);
+    createRequestRlsSupabaseClient(req);
 
     logger.debug('Authentication successful', {
       userId: sanitizeForLogging(user.id) as string | undefined,
@@ -744,7 +744,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     if (user && session) {
       applyAuthContext(req, user, session, claims);
       ensureAuthHeader(req, session.access_token);
-      createRequestSupabaseClient(req);
+      createRequestRlsSupabaseClient(req);
 
       logger.debug('Optional authentication successful', {
         userId: sanitizeForLogging(user.id) as string | undefined,

@@ -258,8 +258,8 @@ router.post(
 
       // Verify the case belongs to this tenant before running any agents.
       // Prevents IDOR: a user from tenant A triggering work on tenant B's case.
-      const { createServerSupabaseClient } = await import("../lib/supabase.js");
-      const supabaseOwnerCheck = createServerSupabaseClient();
+      const { createServiceRoleSupabaseClient } = await import("../lib/supabase.js");
+      const supabaseOwnerCheck = createServiceRoleSupabaseClient();
       const { data: caseRow, error: caseErr } = await supabaseOwnerCheck
         .from("value_cases")
         .select("id")

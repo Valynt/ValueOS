@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { createRequestRlsSupabaseClient } from '../lib/supabase.js';
 import { NextFunction, Request, Response } from 'express';
 
 
@@ -67,7 +67,7 @@ async function resolvePlanTier(req: Request, tenantId: string): Promise<PlanTier
 
   // Try to get from organizations table (source of truth for configuration)
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createRequestRlsSupabaseClient(req);
     const { data: org, error } = await supabase
       .from('organizations')
       .select('tier')

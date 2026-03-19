@@ -17,7 +17,7 @@ import {
   USER_ROLE_PERMISSIONS,
   USER_ROLES,
 } from "@shared/lib/permissions";
-import { createServerSupabaseClient, getRequestSupabaseClient } from "@shared/lib/supabase";
+import { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient } from "../lib/supabase.js";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { NextFunction, Request, Response } from "express";
 
@@ -231,7 +231,7 @@ export function requirePermission(
         });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
       const allowed = await hasPermission(
         supabase,
         userId,
@@ -304,7 +304,7 @@ export function requireRole(role: Role | Role[]) {
         });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       // Get user's roles
       const { data: userRoles, error } = await supabase
@@ -398,7 +398,7 @@ export function requireOwnership(
 
       const userId = user.id;
       const resourceId = getResourceId(req);
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       // Check if user owns the resource
       const { data, error } = await supabase
@@ -470,7 +470,7 @@ export function requireAnyPermission(...permissions: Permission[]) {
         });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       // Resolve the full permission set once, then evaluate all candidates locally.
       // Avoids N sequential hasPermission() calls (each making 3–5 DB round-trips).
@@ -530,7 +530,7 @@ export function requireAllPermissions(...permissions: Permission[]) {
         });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       // Resolve the full permission set once, then evaluate all candidates locally.
       const { active, granted } = await resolvePermissions(supabase, userId, tenantId);
@@ -575,7 +575,7 @@ export async function checkPermission(
   tenantId: string,
   permission: Permission
 ): Promise<boolean> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServiceRoleSupabaseClient();
   return hasPermission(supabase, userId, tenantId, permission);
 }
 
