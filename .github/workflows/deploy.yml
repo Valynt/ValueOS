@@ -152,10 +152,25 @@ jobs:
         run: |
           npx turbo run lint typecheck test
 
+      - name: Package quality scorecard gate
+        run: |
+          pnpm run quality:scorecard:verify -- --json-out artifacts/package-quality/scorecard.json --md-out artifacts/package-quality/scorecard.md
+
       - name: Observability deployment gates
         run: |
           pnpm run check:telemetry-completeness
           pnpm run check:observability-deployment-gates
+
+      - name: Upload package quality scorecard artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: deploy-package-quality-scorecard-${{ github.run_id }}
+          path: |
+            artifacts/package-quality/scorecard.json
+            artifacts/package-quality/scorecard.md
+          if-no-files-found: warn
+          retention-days: 30
 
 
   dast-gate:

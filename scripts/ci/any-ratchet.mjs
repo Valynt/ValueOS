@@ -1,58 +1,56 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 const repoRoot = process.cwd();
-const budgetPath = path.join(repoRoot, ".github/any-ratchet-budgets.json");
+const baselinePath = path.join(repoRoot, '.quality', 'package-scorecard-baselines.json');
 
-if (!fs.existsSync(budgetPath)) {
-  console.error(`Missing any ratchet budget file: ${budgetPath}`);
+if (!fs.existsSync(baselinePath)) {
+  console.error(`Missing package quality baseline file: ${baselinePath}`);
   process.exit(1);
 }
 
-const config = JSON.parse(fs.readFileSync(budgetPath, "utf8"));
-const packageBudgets = config.packageBudgets ?? {};
+const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'valueos-any-ratchet-'));
+const reportPath = path.join(tempDir, 'scorecard.json');
 
-const EXCLUDES = ["--glob", "!**/*.test.*", "--glob", "!**/*.spec.*", "--glob", "!**/__tests__/**"];
-const PATTERN = "(:\\s*any\\b|as\\s+any\\b|<any>)";
-
-function countAnyInPackage(packagePath) {
-  const args = ["-n", PATTERN, `${packagePath}/src`, ...EXCLUDES];
-  const result = spawnSync("rg", args, { encoding: "utf8" });
-
-  if (result.status === 1) {
-    return 0;
+const result = spawnSync(
+  'node',
+  ['scripts/ci/package-quality-scorecard.mjs', '--json-out', reportPath],
+  {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 64,
   }
+);
 
-  if (result.status !== 0) {
-    const stderr = result.stderr || "unknown ripgrep error";
-    throw new Error(`Failed to scan ${packagePath}: ${stderr}`);
-  }
-
-  return result.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean).length;
+if (result.status !== 0) {
+  const output = [result.stdout, result.stderr].filter(Boolean).join('\n');
+  console.error(output);
+  process.exit(result.status ?? 1);
 }
 
+const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
 let regressions = 0;
-console.log("TypeScript any-usage ratchet status (non-test files)");
 
-for (const [pkg, cfg] of Object.entries(packageBudgets)) {
-  const current = countAnyInPackage(pkg);
-  const baseline = Number(cfg.baseline ?? 0);
-  const nextTarget = cfg.nextTarget === undefined ? undefined : Number(cfg.nextTarget);
+console.log('TypeScript any-usage ratchet status (per package)');
 
-  if (current > baseline) {
+for (const pkg of report.packages) {
+  const baselineAny = Number(baseline.packages?.[pkg.id]?.metrics?.anyCount ?? 0);
+  const currentAny = Number(pkg.metrics.anyCount ?? 0);
+  const nextTarget = pkg.ratchet?.nextTargets?.anyCount;
+
+  if (currentAny > baselineAny) {
     regressions += 1;
-    console.error(`❌ ${pkg}: ${current} > baseline ${baseline}`);
+    console.error(`❌ ${pkg.label}: ${currentAny} > baseline ${baselineAny}`);
   } else {
-    console.log(`✅ ${pkg}: ${current} <= baseline ${baseline}`);
+    console.log(`✅ ${pkg.label}: ${currentAny} <= baseline ${baselineAny}`);
   }
 
-  if (typeof nextTarget === "number" && current > nextTarget) {
-    console.warn(`⚠️ ${pkg}: ${current} is above next target ${nextTarget}`);
+  if (typeof nextTarget === 'number' && currentAny > nextTarget) {
+    console.warn(`⚠️ ${pkg.label}: ${currentAny} is above next target ${nextTarget}`);
   }
 }
 
@@ -61,4 +59,4 @@ if (regressions > 0) {
   process.exit(1);
 }
 
-console.log("Any-usage ratchet check passed (no regressions).");
+console.log('Any-usage ratchet check passed (no regressions).');

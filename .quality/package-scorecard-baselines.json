@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-19T08:10:51.057Z",
+  "packages": {
+    "apps-valynt-app": {
+      "label": "apps/ValyntApp",
+      "path": "apps/ValyntApp",
+      "priority": "medium",
+      "metrics": {
+        "anyCount": 6,
+        "tsErrorCount": 945,
+        "eslintWarnings": 773,
+        "todoFixmeCount": 5,
+        "testCount": 122
+      },
+      "ratchet": {}
+    },
+    "packages-backend": {
+      "label": "packages/backend",
+      "path": "packages/backend",
+      "priority": "high",
+      "metrics": {
+        "anyCount": 41,
+        "tsErrorCount": 1329,
+        "eslintWarnings": 2473,
+        "todoFixmeCount": 2,
+        "testCount": 537
+      },
+      "ratchet": {
+        "nextTargets": {
+          "anyCount": 35
+        }
+      }
+    },
+    "packages-sdui": {
+      "label": "packages/sdui",
+      "path": "packages/sdui",
+      "priority": "high",
+      "metrics": {
+        "anyCount": 12,
+        "tsErrorCount": 0,
+        "eslintWarnings": 967,
+        "todoFixmeCount": 0,
+        "testCount": 28
+      },
+      "ratchet": {
+        "nextTargets": {
+          "anyCount": 10
+        }
+      }
+    },
+    "packages-mcp": {
+      "label": "packages/mcp",
+      "path": "packages/mcp",
+      "priority": "high",
+      "metrics": {
+        "anyCount": 123,
+        "tsErrorCount": 0,
+        "eslintWarnings": 1349,
+        "todoFixmeCount": 0,
+        "testCount": 7
+      },
+      "ratchet": {
+        "nextTargets": {
+          "anyCount": 110
+        }
+      }
+    },
+    "packages-infra": {
+      "label": "packages/infra",
+      "path": "packages/infra",
+      "priority": "medium",
+      "metrics": {
+        "anyCount": 21,
+        "tsErrorCount": 0,
+        "eslintWarnings": 56,
+        "todoFixmeCount": 0,
+        "testCount": 4
+      },
+      "ratchet": {}
+    },
+    "packages-components": {
+      "label": "packages/components",
+      "path": "packages/components",
+      "priority": "medium",
+      "metrics": {
+        "anyCount": 31,
+        "tsErrorCount": 3,
+        "eslintWarnings": 207,
+        "todoFixmeCount": 0,
+        "testCount": 9
+      },
+      "ratchet": {}
+    }
+  }
+}

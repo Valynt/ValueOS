@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "description": "Per-package quality budget definitions for the highest-signal application and platform packages.",
+  "packages": [
+    {
+      "id": "apps-valynt-app",
+      "label": "apps/ValyntApp",
+      "path": "apps/ValyntApp",
+      "priority": "medium",
+      "productionPaths": [
+        "src"
+      ],
+      "lintTargets": [
+        "src",
+        "eslint.config.js",
+        "vite.config.ts",
+        "vitest.config.ts"
+      ],
+      "tsconfig": "tsconfig.json"
+    },
+    {
+      "id": "packages-backend",
+      "label": "packages/backend",
+      "path": "packages/backend",
+      "priority": "high",
+      "productionPaths": [
+        "src"
+      ],
+      "lintTargets": [
+        "src",
+        "eslint.config.js",
+        "vitest.config.ts"
+      ],
+      "tsconfig": "tsconfig.json",
+      "ratchet": {
+        "nextTargets": {
+          "anyCount": 35
+        }
+      }
+    },
+    {
+      "id": "packages-sdui",
+      "label": "packages/sdui",
+      "path": "packages/sdui",
+      "priority": "high",
+      "productionPaths": [
+        "src"
+      ],
+      "lintTargets": [
+        "src"
+      ],
+      "tsconfig": "tsconfig.json",
+      "ratchet": {
+        "nextTargets": {
+          "anyCount": 10
+        }
+      }
+    },
+    {
+      "id": "packages-mcp",
+      "label": "packages/mcp",
+      "path": "packages/mcp",
+      "priority": "high",
+      "productionPaths": [
+        "common",
+        "crm",
+        "ground-truth",
+        "memory-write",
+        "index.ts"
+      ],
+      "lintTargets": [
+        "common",
+        "crm",
+        "ground-truth",
+        "memory-write",
+        "index.ts",
+        "vitest.config.ts"
+      ],
+      "tsconfig": "tsconfig.json",
+      "ratchet": {
+        "nextTargets": {
+          "anyCount": 110
+        }
+      }
+    },
+    {
+      "id": "packages-infra",
+      "label": "packages/infra",
+      "path": "packages/infra",
+      "priority": "medium",
+      "productionPaths": [
+        "database",
+        "eso",
+        "observability",
+        "queues",
+        "storage",
+        "supabase"
+      ],
+      "lintTargets": [
+        "database",
+        "eso",
+        "observability",
+        "queues",
+        "storage",
+        "supabase"
+      ],
+      "tsconfig": "tsconfig.json"
+    },
+    {
+      "id": "packages-components",
+      "label": "packages/components",
+      "path": "packages/components",
+      "priority": "medium",
+      "productionPaths": [
+        "admin",
+        "components",
+        "design-system/src",
+        "ui",
+        "index.ts"
+      ],
+      "lintTargets": [
+        "admin",
+        "components",
+        "design-system/src",
+        "ui",
+        "index.ts",
+        "vitest.config.ts",
+        "vitest.setup.ts"
+      ],
+      "tsconfig": "design-system/tsconfig.json"
+    }
+  ]
+}

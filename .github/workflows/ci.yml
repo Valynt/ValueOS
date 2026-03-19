@@ -86,6 +86,10 @@ jobs:
       - name: TypeScript any-count gate
         run: bash scripts/check-any-count.sh
 
+      - name: Package quality scorecard gate
+        run: |
+          pnpm run quality:scorecard:verify -- --json-out artifacts/package-quality/scorecard.json --md-out artifacts/package-quality/scorecard.md
+
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
@@ -174,6 +178,7 @@ jobs:
           name: lane-unit-component-schema-${{ github.run_id }}
           path: |
             coverage/**
+            artifacts/package-quality/**
             artifacts/ci-lanes/unit-component-schema/**
           if-no-files-found: warn
           retention-days: 30
