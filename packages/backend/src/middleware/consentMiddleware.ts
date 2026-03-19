@@ -52,9 +52,14 @@ export function requireConsent(
     });
 
     if (!consentGranted) {
+      console.warn('Consent check denied', {
+        tenantId: context.tenantId,
+        subject: context.subject,
+        scope,
+      });
       return res.status(403).json({
         error: 'Forbidden',
-        message: `Consent for scope "${scope}" is not granted for subject ${context.subject} in tenant ${context.tenantId}`,
+        message: 'Consent for the requested operation is not granted.',
       });
     }
 
