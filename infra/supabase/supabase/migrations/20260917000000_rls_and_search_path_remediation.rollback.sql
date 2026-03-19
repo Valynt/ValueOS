@@ -2,8 +2,9 @@
 --
 -- Removes the RLS policies added for tables that had none, and reverts
 -- functions to their pre-remediation definitions (without SET search_path).
--- DISABLE ROW LEVEL SECURITY is used rather than DROP to avoid data exposure
--- during a partial rollback window.
+-- DISABLE ROW LEVEL SECURITY is used rather than DROP to restore the original
+-- (RLS-disabled) state during a partial rollback window, increasing exposure
+-- compared to keeping RLS enabled.
 --
 -- NOTE: ENABLE ROW LEVEL SECURITY on tables that already had it
 -- (billing_customers, invoices, subscriptions, usage_aggregates, usage_events,
