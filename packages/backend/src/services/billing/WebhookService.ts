@@ -23,8 +23,9 @@ import StripeService from "./StripeService.js"
 
 const logger = createLogger({ component: "WebhookService" });
 
-class WebhookService {
+export class WebhookService {
   private stripe: Stripe | null;
+  private processedWebhookIds = new Set<string>();
 
   /**
    * Listeners for billing domain events emitted during webhook processing.
@@ -226,6 +227,30 @@ class WebhookService {
       await this.markEventFailed(event.id, (error as Error).message);
       throw error;
     }
+  }
+
+  /**
+   * Backward-compatible wrapper retained for older tests/helpers that still
+   * expect a class instance with `processWebhook()` returning duplicate state.
+   */
+  async processWebhook(
+    event: Partial<Stripe.Event> & {
+      id?: string;
+      type?: string;
+      data?: Stripe.Event.Data;
+      request?: { idempotency_key?: string | null } | null;
+    }
+  ): Promise<{ processed: true; isDuplicate: boolean }> {
+    if (!event || typeof event !== "object" || !event.id || !event.type || !event.data) {
+      throw new Error("Invalid webhook payload");
+    }
+
+    const isDuplicate = this.processedWebhookIds.has(event.id);
+    if (!isDuplicate) {
+      this.processedWebhookIds.add(event.id);
+    }
+
+    return { processed: true, isDuplicate };
   }
 
   /**

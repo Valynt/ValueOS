@@ -81,8 +81,10 @@ import { validateEnvOrThrow } from "./config/validateEnv.js";
 import { academyTrpcMiddleware } from "./api/academy/middleware.js";
 import docsApiRouter from "./docs-api/index.js";
 import { createServerSupabaseClient } from "./lib/supabase.js";
+import { supabase } from "./lib/supabase.js";
 import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";
 import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
+import { EntitlementsService } from "./services/billing/EntitlementsService.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 import { createArtifactGenerationWorker } from "./workers/ArtifactGenerationWorker.js";
@@ -160,6 +162,9 @@ const WS_MAX_PAYLOAD_BYTES = Number(process.env.WS_MAX_PAYLOAD_BYTES ?? "65536")
 
 getAgentPolicyService();
 logger.info('[Instrumentation] Agent policy validation passed');
+
+EntitlementsService.setInstance(new EntitlementsService(supabase));
+logger.info('[Instrumentation] EntitlementsService registered');
 
 const app = express();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).

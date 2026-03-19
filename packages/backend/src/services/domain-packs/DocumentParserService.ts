@@ -47,12 +47,21 @@ export interface ExtractedInsights {
 // Document Parser Service
 // ============================================================================
 
-class DocumentParserService {
+export class DocumentParserService {
   private llm: LLMGateway;
   private functionUrl: string;
 
   constructor() {
-    this.llm = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    const Gateway = LLMGateway as unknown as {
+      new (provider: string, gatingEnabled?: boolean): LLMGateway;
+      (provider: string, gatingEnabled?: boolean): LLMGateway;
+    };
+
+    try {
+      this.llm = new Gateway(llmConfig.provider, llmConfig.gatingEnabled);
+    } catch {
+      this.llm = Gateway(llmConfig.provider, llmConfig.gatingEnabled);
+    }
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
     this.functionUrl = `${supabaseUrl}/functions/v1/parse-document`;
   }
@@ -386,4 +395,18 @@ Guidelines:
 // Singleton Export
 // ============================================================================
 
-export const documentParserService = new DocumentParserService();
+let _documentParserService: DocumentParserService | null = null;
+
+export function getDocumentParserService(): DocumentParserService {
+  _documentParserService ??= new DocumentParserService();
+  return _documentParserService;
+}
+
+export const documentParserService = new Proxy({} as DocumentParserService, {
+  get(_target, property, receiver) {
+    return Reflect.get(getDocumentParserService(), property, receiver);
+  },
+});
+
+/** @deprecated Use named imports (`DocumentParserService`, `documentParserService`, or `getDocumentParserService`) instead. */
+export default documentParserService;

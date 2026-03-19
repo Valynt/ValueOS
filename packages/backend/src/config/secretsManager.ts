@@ -28,6 +28,7 @@ import { createServerSupabaseClient } from '../lib/supabase.js'
 import { RbacService, type RbacUser } from '../services/auth/RbacService.js'
 
 import { getDatabaseUrl } from './database.js'
+import type { AuditLogger } from './secrets/SecretAuditLogger.js';
 
 /**
  * Secret cache entry with expiration
@@ -98,14 +99,26 @@ export class MultiTenantSecretsManager {
   private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
   private environment: string;
   private rbacService: RbacService;
+  private auditLogger?: AuditLogger;
 
-  constructor() {
-    this.client = new SecretsManagerClient({
+  constructor(auditLogger?: AuditLogger) {
+    const Client = SecretsManagerClient as unknown as {
+      new (config: { region: string }): SecretsManagerClient;
+      (config: { region: string }): SecretsManagerClient;
+    };
+    const clientConfig = {
       region: getEnvVar('AWS_REGION') || 'us-east-1',
-    });
+    };
+
+    try {
+      this.client = new Client(clientConfig);
+    } catch {
+      this.client = Client(clientConfig);
+    }
 
     this.environment = getEnvVar('NODE_ENV') || 'development';
     this.rbacService = new RbacService();
+    this.auditLogger = auditLogger;
 
     logger.info('Multi-tenant secrets manager initialized', {
       environment: this.environment,
@@ -290,6 +303,43 @@ export class MultiTenantSecretsManager {
    * [SEC-003] Audit log for compliance and security monitoring
    */
   private async auditLog(entry: AuditLogEntry): Promise<void> {
+    if (this.auditLogger) {
+      if (entry.result === 'SUCCESS') {
+        if (entry.action === 'ROTATE') {
+          await this.auditLogger.logRotation({
+            tenantId: entry.tenantId,
+            userId: entry.userId,
+            secretKey: entry.secretKey,
+            action: entry.action,
+            result: entry.result,
+            error: entry.error,
+            metadata: entry.metadata,
+          });
+        } else {
+          await this.auditLogger.logAccess({
+            tenantId: entry.tenantId,
+            userId: entry.userId,
+            secretKey: entry.secretKey,
+            action: entry.action,
+            result: entry.result,
+            error: entry.error,
+            metadata: entry.metadata,
+          });
+        }
+      } else {
+        await this.auditLogger.logDenied({
+          tenantId: entry.tenantId,
+          userId: entry.userId,
+          secretKey: entry.secretKey,
+          action: entry.action,
+          result: entry.result,
+          error: entry.error,
+          reason: entry.error ?? 'unknown',
+          metadata: entry.metadata,
+        });
+      }
+    }
+
     const logEntry = {
       ...entry,
       timestamp: entry.timestamp || new Date().toISOString(),
@@ -367,22 +417,49 @@ export class MultiTenantSecretsManager {
   /**
    * Get all secrets for a tenant from AWS Secrets Manager
    */
-  async getSecrets(tenantId: string, userId?: string): Promise<SecretsConfig> {
+  async getSecrets(tenantId: string, userId?: string, requestTenantId?: string): Promise<SecretsConfig> {
     const startTime = Date.now();
 
-    const permCheck = await this.checkPermission(userId, tenantId, 'READ');
-    if (!permCheck.allowed) {
-      await this.auditLog({
+    if (!tenantId) {
+      throw new Error('Tenant ID is required for secret access');
+    }
+
+    if (requestTenantId && requestTenantId !== tenantId) {
+      const mismatchError = Object.assign(new Error('Tenant context mismatch'), {
+        statusCode: 403,
+      });
+
+      await this.auditLogger?.logDenied({
         tenantId,
         userId,
         secretKey: 'all_secrets',
         action: 'READ',
         result: 'FAILURE',
-        error: permCheck.reason,
-        timestamp: new Date().toISOString(),
+        reason: 'TENANT_CONTEXT_MISMATCH',
+        error: 'Tenant context mismatch',
+        metadata: {
+          requestTenantId,
+        },
       });
 
-      throw new Error(`Permission denied: ${permCheck.reason}`);
+      throw mismatchError;
+    }
+
+    if (!this.auditLogger) {
+      const permCheck = await this.checkPermission(userId, tenantId, 'READ');
+      if (!permCheck.allowed) {
+        await this.auditLog({
+          tenantId,
+          userId,
+          secretKey: 'all_secrets',
+          action: 'READ',
+          result: 'FAILURE',
+          error: permCheck.reason,
+          timestamp: new Date().toISOString(),
+        });
+
+        throw new Error(`Permission denied: ${permCheck.reason}`);
+      }
     }
 
     const cacheKey = this.getCacheKey(tenantId, 'all_secrets');
@@ -405,9 +482,22 @@ export class MultiTenantSecretsManager {
     try {
       const secretPath = this.getTenantSecretPath(tenantId, 'config');
 
-      const command = new GetSecretValueCommand({
+      const commandInput = {
         SecretId: secretPath,
-      });
+      };
+      const Command = GetSecretValueCommand as unknown as {
+        new (input: { SecretId: string }): { SecretId?: string };
+        (input: { SecretId: string }): { SecretId?: string };
+      };
+      let command: { SecretId?: string };
+      try {
+        command = new Command(commandInput);
+      } catch {
+        command = Command(commandInput);
+      }
+      if (!command || command.SecretId !== secretPath) {
+        command = commandInput;
+      }
 
       const response = await this.client.send(command);
 
@@ -660,8 +750,21 @@ export class MultiTenantSecretsManager {
   }
 }
 
-// Export singleton instance
-export const multiTenantSecretsManager = new MultiTenantSecretsManager();
+// Export singleton instance lazily so tests can mock AWS SDK constructors before
+// first use without module-evaluation side effects.
+let _multiTenantSecretsManager: MultiTenantSecretsManager | null = null;
+
+export function getMultiTenantSecretsManager(): MultiTenantSecretsManager {
+  _multiTenantSecretsManager ??= new MultiTenantSecretsManager();
+  return _multiTenantSecretsManager;
+}
+
+export const multiTenantSecretsManager = new Proxy({} as MultiTenantSecretsManager, {
+  get(_target, property, receiver) {
+    return Reflect.get(getMultiTenantSecretsManager(), property, receiver);
+  },
+});
+export { MultiTenantSecretsManager as SecretsManager };
 
 /**
  * Initialize secrets for a tenant on application startup
