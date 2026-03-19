@@ -18,7 +18,7 @@
 
 ## Approval signatures
 
-Security sign-off must confirm the linked threat model and security evidence were reviewed before approval.
+Security sign-off must confirm the linked threat model plus both SOC 2 and FedRAMP evidence references were reviewed before approval.
 
 - **Product:** Jordan Lee — _Approved_ — `signed: 2026-03-12T17:10:00Z`
 - **Engineering:** Priya Raman — _Approved_ — `signed: 2026-03-12T17:12:00Z`
@@ -30,4 +30,6 @@ Security sign-off must confirm the linked threat model and security evidence wer
 - Acceptance mapping: `docs/operations/release-acceptance-mapping.md`
 - Launch checklist link target: `docs/operations/launch-readiness.md` (Release `v1.0.0`)
 - Threat model review record: `docs/security-compliance/threat-model.md` (Release `v1.0.0`, including the Review and Approver Record row)
-- Security evidence bundle chain: `docs/security-compliance/evidence-index.md` (GA `v1.0.0` release evidence bundle chain referencing the threat model and sign-off packet)
+- SOC 2 / privacy / ISO evidence bundle chain: `docs/security-compliance/evidence-index.md` (GA `v1.0.0` release evidence bundle chain referencing the threat model and sign-off packet)
+- FedRAMP control mapping packet: `docs/security-compliance/fedramp-control-mapping.md`
+- FedRAMP machine-readable evidence manifest: `docs/security-compliance/fedramp-control-evidence-manifest.json`

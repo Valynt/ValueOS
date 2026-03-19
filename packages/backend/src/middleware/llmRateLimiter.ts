@@ -109,8 +109,8 @@ async function rateLimitHandler(req: Request, res: Response, _next: import('expr
   const authHeader = req.headers?.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      const { createRequestSupabaseClient } = await import('@shared/lib/supabase');
-      const supabase = createRequestSupabaseClient({ headers: { authorization: authHeader } });
+      const { createRequestRlsSupabaseClient } = await import('../lib/supabase.js');
+      const supabase = createRequestRlsSupabaseClient({ headers: { authorization: authHeader } });
 
       await supabase.from('rate_limit_violations').insert({
         user_id: req.user?.id || null,

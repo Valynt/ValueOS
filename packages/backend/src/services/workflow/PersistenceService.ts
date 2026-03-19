@@ -9,6 +9,7 @@ export interface BusinessCase {
   client: string;
   status: "draft" | "in-review" | "presented";
   owner_id: string;
+  organization_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -16,6 +17,7 @@ export interface BusinessCase {
 export interface HistoryEntry {
   id: string;
   component_id: string;
+  organization_id: string;
   action_type: "created" | "updated" | "deleted" | "moved" | "resized";
   actor: string;
   changes: Record<string, unknown>;
@@ -25,6 +27,7 @@ export interface HistoryEntry {
 export interface AgentActivity {
   id: string;
   case_id: string;
+  organization_id: string;
   agent_name: string;
   activity_type:
     | "suggestion"
@@ -38,7 +41,7 @@ export interface AgentActivity {
   timestamp: string;
 }
 
-class PersistenceService {
+export class PersistenceService {
   private saveQueue: Map<string, NodeJS.Timeout> = new Map();
   private readonly DEBOUNCE_MS = 2000;
 
@@ -114,7 +117,7 @@ class PersistenceService {
 
     logger.warn(
       "DEPRECATION: PersistenceService.getBusinessCase is deprecated. Use ValueCaseService instead.",
-      { caseId }
+      { caseId, organizationId: scopedOrganizationId }
     );
 
     const { data, error } = await supabase
@@ -153,13 +156,17 @@ class PersistenceService {
 
     logger.warn(
       "DEPRECATION: PersistenceService.updateBusinessCase is deprecated. Use ValueCaseService instead.",
-      { caseId }
+      { caseId, organizationId: scopedOrganizationId }
     );
+
+    const { organization_id: _ignoredOrganizationId, ...scopedUpdates } = updates;
 
     const { data, error } = await supabase
       .from("business_cases")
-      .update(updates)
-      .eq("organization_id", scopedOrganizationId)
+      .update({
+        ...scopedUpdates,
+        organization_id: scopedOrganizationId,
+      })
       .eq("id", caseId)
       .select("id")
       .maybeSingle();
@@ -172,7 +179,7 @@ class PersistenceService {
       return false;
     }
 
-    return true;
+    return Boolean(data);
   }
 
   async saveComponent(
@@ -232,13 +239,16 @@ class PersistenceService {
     );
 
     const dbUpdates: Partial<{
+      organization_id: string;
       position_x: number;
       position_y: number;
       width: number;
       height: number;
       props: Record<string, unknown>;
       is_dirty: boolean;
-    }> = {};
+    }> = {
+      organization_id: scopedOrganizationId,
+    };
 
     if (updates.position) {
       dbUpdates.position_x = updates.position.x;
@@ -259,8 +269,8 @@ class PersistenceService {
     const { data, error } = await supabase
       .from("canvas_components")
       .update(dbUpdates)
-      .eq("organization_id", scopedOrganizationId)
       .eq("id", componentId)
+      .eq("organization_id", scopedOrganizationId)
       .select("id")
       .maybeSingle();
 
@@ -269,6 +279,10 @@ class PersistenceService {
         "Error updating component",
         error instanceof Error ? error : undefined
       );
+      return false;
+    }
+
+    if (!data) {
       return false;
     }
 
@@ -301,16 +315,18 @@ class PersistenceService {
       "debouncedUpdateComponent"
     );
 
-    if (this.saveQueue.has(componentId)) {
-      clearTimeout(this.saveQueue.get(componentId)!);
+    const saveKey = `${scopedOrganizationId}:${componentId}`;
+
+    if (this.saveQueue.has(saveKey)) {
+      clearTimeout(this.saveQueue.get(saveKey)!);
     }
 
     const timeout = setTimeout(() => {
-      this.updateComponent(scopedOrganizationId, componentId, updates, actor);
-      this.saveQueue.delete(componentId);
+      void this.updateComponent(scopedOrganizationId, componentId, updates, actor);
+      this.saveQueue.delete(saveKey);
     }, this.DEBOUNCE_MS);
 
-    this.saveQueue.set(componentId, timeout);
+    this.saveQueue.set(saveKey, timeout);
   }
 
   async deleteComponent(
@@ -323,19 +339,11 @@ class PersistenceService {
       "deleteComponent"
     );
 
-    await this.logHistory(
-      scopedOrganizationId,
-      componentId,
-      "deleted",
-      actor,
-      {}
-    );
-
     const { data, error } = await supabase
       .from("canvas_components")
       .delete()
-      .eq("organization_id", scopedOrganizationId)
       .eq("id", componentId)
+      .eq("organization_id", scopedOrganizationId)
       .select("id")
       .maybeSingle();
 
@@ -346,6 +354,12 @@ class PersistenceService {
       );
       return false;
     }
+
+    if (!data) {
+      return false;
+    }
+
+    await this.logHistory(scopedOrganizationId, componentId, "deleted", actor, {});
 
     return true;
   }
@@ -399,13 +413,6 @@ class PersistenceService {
     actionType: "created" | "updated" | "deleted" | "moved" | "resized",
     actor: string,
     changes: unknown
-  ): Promise<void>;
-  async logHistory(
-    organizationId: string,
-    componentId: string,
-    actionType: "created" | "updated" | "deleted" | "moved" | "resized",
-    actor: string,
-    changes: unknown
   ): Promise<void> {
     const scopedOrganizationId = this.requireOrganizationId(
       organizationId,
@@ -419,6 +426,7 @@ class PersistenceService {
       actor,
       changes,
     });
+
     if (error) {
       logger.error(
         "Error logging history",
@@ -469,12 +477,12 @@ class PersistenceService {
       .select(
         `
         *,
-        canvas_components!inner(case_id)
+        canvas_components!inner(case_id, organization_id)
       `
       )
       .eq("organization_id", scopedOrganizationId)
-      .eq("canvas_components.organization_id", scopedOrganizationId)
       .eq("canvas_components.case_id", caseId)
+      .eq("canvas_components.organization_id", scopedOrganizationId)
       .order("timestamp", { ascending: false })
       .limit(limit);
 

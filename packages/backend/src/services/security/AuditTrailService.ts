@@ -12,6 +12,7 @@ import { getSupabaseClient } from "../../lib/supabase.js"
 
 import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
 import { siemExportForwarderService } from "./SiemExportForwarderService.js";
+import { ImmutableAuditRetentionService } from "./ImmutableAuditRetentionService.js";
 
 // ============================================================================
 // Types
@@ -72,6 +73,7 @@ export type ResourceType =
 export type AuditOutcome = "success" | "failure" | "denied" | "error";
 
 export interface AuditQueryFilters {
+  includeArchived?: boolean;
   eventType?: AuditEventType;
   actorId?: string;
   externalSub?: string;
@@ -100,6 +102,8 @@ export interface AuditQueryResult {
 export class AuditTrailService {
   private supabase: SupabaseClient;
   private readonly tableName = "security_audit_log";
+  private readonly archiveTableName = "security_audit_log_archive";
+  private readonly retentionService: ImmutableAuditRetentionService;
   private writeBuffer: AuditEvent[] = [];
   private flushInterval: NodeJS.Timeout | null = null;
   private readonly bufferSize: number;
@@ -107,6 +111,7 @@ export class AuditTrailService {
 
   constructor(options: { bufferSize?: number; flushIntervalMs?: number } = {}) {
     this.supabase = getSupabaseClient();
+    this.retentionService = new ImmutableAuditRetentionService(this.supabase);
     this.bufferSize = options.bufferSize || 100;
     this.flushIntervalMs = options.flushIntervalMs || 5000;
 
@@ -252,64 +257,19 @@ export class AuditTrailService {
    */
   async query(filters: AuditQueryFilters = {}): Promise<AuditQueryResult> {
     try {
-      let query = this.supabase
-        .from(this.tableName)
-        .select("*", { count: "exact" });
+      const activeRows = await this.queryTable(this.tableName, filters);
+      const archivedRows = filters.includeArchived
+        ? await this.queryTable(this.archiveTableName, filters)
+        : [];
 
-      // Apply filters
-      if (filters.eventType) {
-        query = query.eq("event_type", filters.eventType);
-      }
-      if (filters.actorId) {
-        query = query.eq("actor_id", filters.actorId);
-      }
-      if (filters.externalSub) {
-        // DB column is still named auth0_sub (legacy); TS field renamed to externalSub
-        query = query.eq("auth0_sub", filters.externalSub);
-      }
-      if (filters.actorType) {
-        query = query.eq("actor_type", filters.actorType);
-      }
-      if (filters.resourceType) {
-        query = query.eq("resource_type", filters.resourceType);
-      }
-      if (filters.outcome) {
-        query = query.eq("outcome", filters.outcome);
-      }
-      if (filters.tenantId) {
-        query = query.eq("tenant_id", filters.tenantId);
-      }
-      if (filters.correlationId) {
-        query = query.eq("correlation_id", filters.correlationId);
-      }
-      if (filters.minRiskScore !== undefined) {
-        query = query.gte("risk_score", filters.minRiskScore);
-      }
-      if (filters.complianceFlag) {
-        query = query.contains("compliance_flags", [filters.complianceFlag]);
-      }
-      if (filters.timeRange) {
-        query = query
-          .gte("timestamp", filters.timeRange.start)
-          .lte("timestamp", filters.timeRange.end);
-      }
-
-      // Ordering and pagination
-      query = query.order("timestamp", { ascending: false });
-
-      const limit = filters.limit || 100;
+      const mergedRows = [...activeRows, ...archivedRows].sort(
+        (left, right) => Number(right.timestamp) - Number(left.timestamp),
+      );
       const offset = filters.offset || 0;
-      query = query.range(offset, offset + limit - 1);
-
-      const { data, error, count } = await query;
-
-      if (error) {
-        logger.error("Failed to query audit events", error);
-        throw error;
-      }
-
-      const events = (data || []).map((row) => this.mapRowToEvent(row));
-      const total = count || 0;
+      const limit = filters.limit || 100;
+      const pagedRows = mergedRows.slice(offset, offset + limit);
+      const events = pagedRows.map((row) => this.mapRowToEvent(row));
+      const total = mergedRows.length;
 
       return {
         events,
@@ -407,6 +367,7 @@ export class AuditTrailService {
         end: endDate.getTime(),
       },
       limit: 10000, // Large limit for exports
+      includeArchived: true,
     });
 
     return result.events;
@@ -419,20 +380,28 @@ export class AuditTrailService {
     const cutoffDate = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
 
     try {
-      const { data, error } = await this.supabase
-        .from(this.tableName)
-        .delete()
-        .lt("timestamp", cutoffDate)
-        .select("id");
+      const result = await this.retentionService.archiveExpiredRows({
+        sourceTable: this.tableName,
+        archiveTable: this.archiveTableName,
+        timestampColumn: "timestamp",
+        cutoff: cutoffDate,
+        tenantColumn: "tenant_id",
+      });
 
-      if (error) {
-        logger.error("Failed to cleanup old audit events", error);
+      if (!result.verified) {
+        logger.error("Audit trail archival verification failed; retention cleanup skipped", undefined, {
+          retentionDays,
+          batchId: result.batchId,
+        });
         return 0;
       }
 
-      const count = data?.length || 0;
-      logger.info("Cleaned up old audit events", { count, retentionDays });
-      return count;
+      logger.info("Archived and cleaned up old audit events", {
+        count: result.archivedCount,
+        retentionDays,
+        batchId: result.batchId,
+      });
+      return result.archivedCount;
     } catch (error) {
       logger.error(
         "Audit cleanup error",
@@ -466,6 +435,56 @@ export class AuditTrailService {
         );
       });
     }, this.flushIntervalMs);
+  }
+
+  private async queryTable(tableName: string, filters: AuditQueryFilters): Promise<Record<string, unknown>[]> {
+    let query = this.supabase
+      .from(tableName)
+      .select("*");
+
+    if (filters.eventType) {
+      query = query.eq("event_type", filters.eventType);
+    }
+    if (filters.actorId) {
+      query = query.eq("actor_id", filters.actorId);
+    }
+    if (filters.externalSub) {
+      query = query.eq("auth0_sub", filters.externalSub);
+    }
+    if (filters.actorType) {
+      query = query.eq("actor_type", filters.actorType);
+    }
+    if (filters.resourceType) {
+      query = query.eq("resource_type", filters.resourceType);
+    }
+    if (filters.outcome) {
+      query = query.eq("outcome", filters.outcome);
+    }
+    if (filters.tenantId) {
+      query = query.eq("tenant_id", filters.tenantId);
+    }
+    if (filters.correlationId) {
+      query = query.eq("correlation_id", filters.correlationId);
+    }
+    if (filters.minRiskScore !== undefined) {
+      query = query.gte("risk_score", filters.minRiskScore);
+    }
+    if (filters.complianceFlag) {
+      query = query.contains("compliance_flags", [filters.complianceFlag]);
+    }
+    if (filters.timeRange) {
+      query = query
+        .gte("timestamp", filters.timeRange.start)
+        .lte("timestamp", filters.timeRange.end);
+    }
+
+    const { data, error } = await query.order("timestamp", { ascending: false });
+    if (error) {
+      logger.error("Failed to query audit events", error, { tableName });
+      throw error;
+    }
+
+    return (data ?? []) as Record<string, unknown>[];
   }
 
   private resolveCategory(event: Omit<AuditEvent, "id">): "auth" | "authorization" | "role_change" | "data_export" | "policy" | "audit" {

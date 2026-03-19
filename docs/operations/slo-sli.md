@@ -15,6 +15,17 @@ Burn-rate alerts: `infra/k8s/monitoring/observability-recording-alerts.yaml`
 
 ---
 
+## Canonical latency classes
+
+ValueOS publishes exactly two latency classes across monitoring, load testing, dashboards, and runbooks.
+
+| Latency class | Source-of-truth target | Allowed exception policy | Instrumentation guidance |
+|---|---|---|---|
+| Interactive completion | Completion latency p95 ≤ **200ms** | No slower completion budget is allowed. Reclassify any route that cannot meet 200ms p95 to orchestration acknowledgment/completion before rollout. | Use for synchronous health, readiness, session, list/detail, and cache-friendly mutation flows. |
+| Orchestration acknowledgment/completion | Acknowledgment latency p95 ≤ **200ms** | Completion latency p95 ≤ **3000ms** is allowed only for routes explicitly labeled orchestration and backed by streaming or async completion semantics. | Use for provider-bound, queue-backed, or streaming routes that acknowledge quickly and finish asynchronously or over an open stream. |
+
+---
+
 ## SLO Definitions
 
 ### SLO-1: API Availability
@@ -28,25 +39,27 @@ Burn-rate alerts: `infra/k8s/monitoring/observability-recording-alerts.yaml`
 | **SLI expression** | `sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[5m])) / sum(rate(http_requests_total{job="valueos-api"}[5m]))` |
 | **Prometheus target** | `slo:target:api_availability` = 0.999 |
 
-### SLO-2: Case Creation Latency (p95)
+### SLO-2: Interactive Completion Latency (p95)
 
 | Field | Value |
 |---|---|
-| **User journey** | `POST /api/v1/cases` — create a value case |
-| **Target** | p95 latency ≤ 2 000 ms, measured over a rolling 30-day window |
+| **User journey** | Synchronous interactive API routes such as readiness, session checks, and cache-friendly reads/writes |
+| **Target** | p95 completion latency ≤ **200ms**, measured over a rolling 30-day window |
+| **Allowed exception policy** | None. Routes that cannot meet 200ms p95 must move to the orchestration class before rollout. |
 | **SLI metric** | `slo:api_latency_p95:ratio_rate5m` |
-| **SLI expression** | `sum(rate(http_request_duration_seconds_bucket{job="valueos-api",route="/api/v1/cases",method="POST",le="2"}[5m])) / sum(rate(http_request_duration_seconds_count{job="valueos-api",route="/api/v1/cases",method="POST"}[5m]))` |
+| **SLI expression** | `sum(rate(http_request_duration_seconds_bucket{job="valueos-api",latency_class="interactive",le="0.2"}[5m])) / sum(rate(http_request_duration_seconds_count{job="valueos-api",latency_class="interactive"}[5m]))` |
 | **Prometheus target** | `slo:target:api_latency_p95` = 0.95 |
 
-### SLO-3: Agent Invocation Latency (p95)
+### SLO-3: Orchestration Acknowledgment / Completion
 
 | Field | Value |
 |---|---|
-| **User journey** | `POST /api/agents/{agentId}/invoke` — invoke any agent |
-| **Target** | p95 latency ≤ 10 000 ms (enqueue-to-result), measured over a rolling 30-day window |
-| **SLI metric** | `slo:agent_cold_start:good_rate5m` |
-| **SLI expression** | `sum(rate(agent_enqueue_to_ready_seconds_bucket{le="10"}[5m])) / sum(rate(agent_enqueue_to_ready_seconds_count[5m]))` |
-| **Prometheus target** | `slo:target:agent_cold_start` = 0.95 |
+| **User journey** | Queue-backed, provider-mediated, or streaming orchestration routes such as `/api/llm/chat`, `/api/billing/*`, and `/api/queue/*` |
+| **Target** | p95 acknowledgment latency ≤ **200ms**, measured over a rolling 30-day window |
+| **Allowed exception policy** | Completion latency p95 may extend to **3000ms** only for routes explicitly labeled orchestration and instrumented to acknowledge within 200ms. |
+| **SLI metric** | `slo:orchestration_acknowledgment_p95:ratio_rate5m` |
+| **SLI expression** | `sum(rate(http_request_duration_seconds_bucket{job="valueos-api",latency_class="orchestration",latency_phase="acknowledgment",le="0.2"}[5m])) / sum(rate(http_request_duration_seconds_count{job="valueos-api",latency_class="orchestration",latency_phase="acknowledgment"}[5m]))` |
+| **Prometheus target** | `slo:target:orchestration_acknowledgment_p95` = 0.95 |
 
 ### SLO-4: Authentication Success Rate
 
@@ -103,7 +116,7 @@ These metrics are not SLOs but are tracked for product health. Source: `packages
 | SLO | Owner | Escalation |
 |---|---|---|
 | SLO-1 API Availability | Platform team | `#incident-response` → PagerDuty `valueos-primary` |
-| SLO-2 Case Creation Latency | Product engineering | `#incident-response` |
-| SLO-3 Agent Invocation Latency | Agent fabric team | `#incident-response` |
+| SLO-2 Interactive Completion Latency | Product engineering | `#incident-response` |
+| SLO-3 Orchestration Acknowledgment / Completion | Agent fabric team | `#incident-response` |
 | SLO-4 Auth Success Rate | Identity team | `#incident-response` |
 | SLO-5 Queue Worker Health | Platform team | `#incident-response` |

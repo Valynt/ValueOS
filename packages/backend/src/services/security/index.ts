@@ -1,5 +1,4 @@
 export * from "./APIKeyRotationService.js";
-// Re-export security primitives from the root security module
 export {
   RateLimitExceededError,
   setAuthRateLimiter,
@@ -12,19 +11,20 @@ export {
   sanitizeObject,
   sanitizeString,
 } from "../../security/index.js";
-// AgentSecurityService defines ActorType, AuditEventType, AuditOutcome, ResourceType,
-// ComplianceFramework, Permission — all duplicated in AuditTrailService, SecurityMiddleware,
-// and ComplianceControlStatusService. Use explicit exports to exclude the duplicates.
 export type {
   AuditTrail,
+  AuditTrailFilters,
   AuthCredentials,
   AuthType,
   AuthenticationMethod,
+  AuthenticationRequestContext,
   AuthorizationResult,
   CertificateInfo,
   ComplianceFinding,
+  ComplianceFramework,
   ComplianceRecommendation,
   ComplianceReport,
+  ComplianceScope,
   ComplianceStatus,
   ConditionOperator,
   ConditionType,
@@ -36,12 +36,14 @@ export type {
   IncidentType,
   JWTClaims,
   LocationRestrictions,
+  Permission,
   PermissionCheckResult,
   PermissionCondition,
   PolicyAction,
   PolicyCheckResult,
   PolicyCondition,
   PolicyType,
+  RequestMetadata,
   RiskLevel,
   Role,
   RuleAction,
@@ -50,16 +52,24 @@ export type {
   SecurityConfig,
   SecurityContext,
   SecurityIncident,
+  SecurityIncidentFilters,
   SecurityPolicy,
   SecurityRule,
   TimeRestrictions,
   TrustLevel,
-} from "./AgentSecurityService.js";
+  ActorType,
+  AuditEventType,
+  AuditOutcome,
+  ResourceType,
+} from "./AgentSecurityTypes.js";
+export * from "./AgentSecurityTypes.js";
 export { AgentSecurityService, getAgentSecurityService } from "./AgentSecurityService.js";
+export * from "./AuthorizationEngine.js";
+export * from "./CredentialValidator.js";
+export * from "./SecurityIncidentService.js";
+export * from "./ComplianceReportService.js";
 export * from "./AuditLogService.js";
-// AuditTrailService is canonical for ActorType, AuditEventType, AuditOutcome, ResourceType.
 export * from "./AuditTrailService.js";
-// ComplianceControlStatusService is canonical for ComplianceFramework.
 export * from "./ComplianceControlStatusService.js";
 export type { FrameworkCapabilityStatus } from "./ComplianceFrameworkCapabilityGate.js";
 export {
@@ -69,26 +79,17 @@ export {
   complianceFrameworkCapabilityGate,
   UnsupportedComplianceFrameworkError,
 } from "./ComplianceFrameworkCapabilityGate.js";
-// ComplianceControlMappingRegistry re-defines ComplianceFramework — exclude it; ComplianceControlStatusService is canonical.
 export type { EvidenceType, ControlMapping, FrameworkControlMapping, RetentionSummary } from "./ComplianceControlMappingRegistry.js";
 export { ComplianceControlMappingRegistry, complianceControlMappingRegistry } from "./ComplianceControlMappingRegistry.js";
-// SecurityMiddleware re-defines Permission, ResourceType — canonical source for these in the security domain.
-// Placed after AgentSecurityService explicit exports so export * here wins.
 export * from "./ComplianceReportGeneratorService.js";
 export * from "./ComplianceEvidenceService.js";
 export * from "./InputValidation.js";
-// SecurityMiddleware defines AgentContext (conflicts with agents/agent-types) and
-// ResourceType (conflicts with AuditTrailService within this barrel).
-// Exclude AgentContext; AuditTrailService.ResourceType is canonical within security.
 export type {
   Action,
   AuthResult,
-  Permission,
   SecurityAgentRole,
 } from "./SecurityMiddleware.js";
 export { SecurityMiddleware, createAuthMiddleware, createSecurityMiddleware, hasPermission, isGovernanceAgent, canMutateWorkflowState } from "./SecurityMiddleware.js";
-// SecurityMonitor defines AlertType (conflicts with tenant/TenantPerformanceManager).
-// tenant is canonical for AlertType; exclude it here.
 export type {
   MonitoringConfig,
   SecurityAlert,

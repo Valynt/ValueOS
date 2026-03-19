@@ -926,9 +926,10 @@ Field-Level Encryption Keys
 - Pre-activation validation testing
 - Automatic audit logging
 - Admin notifications (for manual steps)
-- CI lane `Verify secret rotation metadata age` in `.github/workflows/ci.yml` runs `node scripts/security/verify-secret-rotation.mjs` and fails when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
-- Workflow secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`).
-- Rotation evidence artifact is written to deterministic path `artifacts/security/rotation/rotation-evidence-latest.json` and uploaded as the `secret-rotation-evidence-<run_id>` workflow artifact.
+- Dedicated workflow `.github/workflows/secret-rotation-verification.yml` runs `node scripts/security/verify-secret-rotation.mjs` on a daily schedule and as the production-promotion `secret-rotation-gate` in `.github/workflows/deploy.yml`, failing when metadata age exceeds `SECRET_ROTATION_MAX_AGE_DAYS` policy thresholds.
+- Environment vars/secrets configure provider inputs (`SECRET_ROTATION_PROVIDERS`, `SECRET_ROTATION_AWS_REGION`, `SECRET_ROTATION_AWS_SECRET_IDS`, `SECRET_ROTATION_AWS_ROLE_TO_ASSUME`, `SECRET_ROTATION_AWS_ACCESS_KEY_ID`, `SECRET_ROTATION_AWS_SECRET_ACCESS_KEY`, `SECRET_ROTATION_AWS_SESSION_TOKEN`, `SECRET_ROTATION_VAULT_ADDR`, `SECRET_ROTATION_VAULT_TOKEN`, `SECRET_ROTATION_VAULT_KV_MOUNT`, `SECRET_ROTATION_VAULT_SECRET_PATHS`).
+- The authoritative evidence artifact for release sign-off is `secret-rotation-evidence-<environment>-<run_id>`, which contains the machine-readable JSON report and text execution log.
+- Rotation evidence is written under `artifacts/security/secret-rotation/` with a deterministic `<environment>-run-<run-id>-attempt-<attempt>` prefix and uploaded as the `secret-rotation-evidence-<environment>-<run_id>` workflow artifact.
 
 ### Secure Key Storage
 

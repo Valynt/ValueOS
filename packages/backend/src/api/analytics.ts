@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
+
 import { createLogger } from "@shared/lib/logger";
-import express, { Router } from "express";
+import express, { NextFunction, Request, Response, Router } from "express";
+import { z } from "zod";
 
 import {
   RecordEventInputSchema,
@@ -16,15 +19,193 @@ const publicTelemetryRouter: Router = express.Router();
 const tenantAnalyticsRouter: Router = express.Router();
 
 const PUBLIC_ANALYTICS_CACHE_SCOPE = "public-telemetry";
+const PUBLIC_TELEMETRY_BODY_LIMIT = "16kb";
+const URL_MAX_LENGTH = 2048;
+const USER_AGENT_MAX_LENGTH = 512;
+const METRIC_NAME_MAX_LENGTH = 64;
+const EVENT_TYPE_MAX_LENGTH = 64;
+const METADATA_KEY_MAX_LENGTH = 32;
+const ISO_TIMESTAMP_MAX_LENGTH = 64;
+const HASH_LENGTH = 16;
+const SAFE_IDENTIFIER_PATTERN = /^[a-zA-Z0-9._:-]+$/;
+const SAFE_NAVIGATION_TYPE_PATTERN = /^[a-zA-Z0-9._:/-]+$/;
+const WEB_VITAL_RATINGS = ["good", "needs-improvement", "poor"] as const;
 
 const analyticsLimiter = createRateLimiter("standard", {
   message: "Too many analytics requests. Please slow down.",
 });
+const publicTelemetryJsonParser = express.json({ limit: PUBLIC_TELEMETRY_BODY_LIMIT });
+
+const safeIdentifierSchema = (label: string, maxLength: number) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required`)
+    .max(maxLength, `${label} must be at most ${maxLength} characters`)
+    .regex(
+      SAFE_IDENTIFIER_PATTERN,
+      `${label} may only contain letters, numbers, dots, colons, underscores, and dashes`,
+    );
+
+const urlSchema = z
+  .string()
+  .trim()
+  .max(URL_MAX_LENGTH, `url must be at most ${URL_MAX_LENGTH} characters`)
+  .url("url must be a valid URL");
+
+const userAgentSchema = z
+  .string()
+  .trim()
+  .min(1, "userAgent cannot be empty")
+  .max(USER_AGENT_MAX_LENGTH, `userAgent must be at most ${USER_AGENT_MAX_LENGTH} characters`);
+
+const timestampSchema = z
+  .string()
+  .trim()
+  .max(ISO_TIMESTAMP_MAX_LENGTH, `timestamp must be at most ${ISO_TIMESTAMP_MAX_LENGTH} characters`)
+  .datetime({ offset: true, message: "timestamp must be an ISO-8601 datetime" });
+
+const webVitalsPayloadSchema = z
+  .object({
+    name: safeIdentifierSchema("name", METRIC_NAME_MAX_LENGTH),
+    value: z.number().finite(),
+    rating: z.enum(WEB_VITAL_RATINGS).optional(),
+    delta: z.number().finite().optional(),
+    userAgent: userAgentSchema.optional(),
+    url: urlSchema.optional(),
+    timestamp: timestampSchema.optional(),
+  })
+  .strict();
+
+const performanceTelemetryDataSchema = z
+  .object({
+    metricName: safeIdentifierSchema("metricName", METRIC_NAME_MAX_LENGTH).optional(),
+    duration: z.number().finite().min(0).max(600_000).optional(),
+    value: z.number().finite().optional(),
+    rating: z.enum(WEB_VITAL_RATINGS).optional(),
+    navigationType: z
+      .string()
+      .trim()
+      .min(1, "navigationType cannot be empty")
+      .max(METADATA_KEY_MAX_LENGTH, `navigationType must be at most ${METADATA_KEY_MAX_LENGTH} characters`)
+      .regex(
+        SAFE_NAVIGATION_TYPE_PATTERN,
+        "navigationType may only contain letters, numbers, dots, colons, slashes, underscores, and dashes",
+      )
+      .optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "data must include at least one supported performance metric field",
+  });
+
+const performanceTelemetryPayloadSchema = z
+  .object({
+    type: safeIdentifierSchema("type", EVENT_TYPE_MAX_LENGTH),
+    data: performanceTelemetryDataSchema,
+    userAgent: userAgentSchema.optional(),
+    url: urlSchema.optional(),
+    timestamp: timestampSchema.optional(),
+  })
+  .strict();
 
 analyticsRouter.use(optionalAuth);
 analyticsRouter.use(analyticsLimiter);
 analyticsRouter.use(publicTelemetryRouter);
 analyticsRouter.use("/value-loop", requireAuth, tenantContextMiddleware(), tenantAnalyticsRouter);
+
+function hashValue(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  return createHash("sha256").update(value).digest("hex").slice(0, HASH_LENGTH);
+}
+
+function normalizeOrigin(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+
+function getAllowedTelemetryOrigins(): string[] {
+  const rawOrigins = process.env.PUBLIC_TELEMETRY_ALLOWED_ORIGINS;
+  if (!rawOrigins) {
+    return [];
+  }
+
+  return rawOrigins
+    .split(",")
+    .map((origin) => normalizeOrigin(origin.trim()))
+    .filter((origin): origin is string => Boolean(origin));
+}
+
+function getEffectiveOrigin(req: Request): string | undefined {
+  const originHeader = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+  const refererHeader = typeof req.headers.referer === "string" ? req.headers.referer : undefined;
+  return normalizeOrigin(originHeader) ?? normalizeOrigin(refererHeader);
+}
+
+function getTelemetryLogContext(
+  req: Request,
+  payload: { userAgent?: string; url?: string },
+): Record<string, string | undefined> {
+  const refererHeader = typeof req.headers.referer === "string" ? req.headers.referer : undefined;
+  const requestUserAgent = typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : undefined;
+
+  return {
+    ipHash: hashValue(req.ip),
+    userAgentHash: hashValue(payload.userAgent ?? requestUserAgent),
+    urlHash: hashValue(payload.url),
+    referrerHash: hashValue(refererHeader),
+    originHash: hashValue(getEffectiveOrigin(req)),
+  };
+}
+
+function enforcePublicTelemetryAccess(req: Request, res: Response): boolean {
+  const expectedToken = process.env.PUBLIC_TELEMETRY_INGESTION_TOKEN?.trim();
+  const providedToken = req.header("x-telemetry-key")?.trim();
+
+  if (expectedToken && providedToken !== expectedToken) {
+    logger.warn("Rejected public telemetry request", {
+      reason: "invalid_ingestion_token",
+      originHash: hashValue(getEffectiveOrigin(req)),
+      ipHash: hashValue(req.ip),
+    });
+    res.status(401).json({ error: "Telemetry ingestion key required" });
+    return false;
+  }
+
+  const allowedOrigins = getAllowedTelemetryOrigins();
+  if (allowedOrigins.length > 0) {
+    const origin = getEffectiveOrigin(req);
+    if (!origin || !allowedOrigins.includes(origin)) {
+      logger.warn("Rejected public telemetry request", {
+        reason: "origin_not_allowed",
+        originHash: hashValue(origin),
+        ipHash: hashValue(req.ip),
+      });
+      res.status(403).json({ error: "Origin not allowed for telemetry ingestion" });
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function handleTelemetryValidationError(res: Response, error: z.ZodError): Response {
+  return res.status(400).json({
+    error: "Invalid payload",
+    details: error.flatten(),
+  });
+}
 
 publicTelemetryRouter.get("/summary", async (req, res) => {
   try {
@@ -56,26 +237,25 @@ publicTelemetryRouter.get("/summary", async (req, res) => {
   }
 });
 
-publicTelemetryRouter.post("/web-vitals", express.json(), async (req, res) => {
+publicTelemetryRouter.post("/web-vitals", publicTelemetryJsonParser, async (req, res) => {
   try {
-    const { name, value, rating, delta, userAgent, url, timestamp } = req.body;
-
-    if (!name || typeof value !== "number") {
-      return res.status(400).json({
-        error: "Invalid payload",
-        required: ["name", "value"],
-      });
+    if (!enforcePublicTelemetryAccess(req, res)) {
+      return;
     }
 
+    const parsed = webVitalsPayloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return handleTelemetryValidationError(res, parsed.error);
+    }
+
+    const telemetry = parsed.data;
     logger.info("Web Vital recorded", {
-      name,
-      value: Math.round(value),
-      rating,
-      delta,
-      url: url || req.headers.referer,
-      userAgent: userAgent || req.headers["user-agent"],
-      timestamp: timestamp || new Date().toISOString(),
-      ip: req.ip,
+      name: telemetry.name,
+      value: Math.round(telemetry.value),
+      rating: telemetry.rating,
+      delta: telemetry.delta !== undefined ? Math.round(telemetry.delta) : undefined,
+      timestamp: telemetry.timestamp || new Date().toISOString(),
+      ...getTelemetryLogContext(req, telemetry),
     });
 
     await ReadThroughCacheService.invalidateEndpoint(PUBLIC_ANALYTICS_CACHE_SCOPE, "api-analytics-summary");
@@ -89,15 +269,27 @@ publicTelemetryRouter.post("/web-vitals", express.json(), async (req, res) => {
   }
 });
 
-publicTelemetryRouter.post("/performance", express.json(), async (req, res) => {
+publicTelemetryRouter.post("/performance", publicTelemetryJsonParser, async (req, res) => {
   try {
-    const { type, data, timestamp } = req.body;
+    if (!enforcePublicTelemetryAccess(req, res)) {
+      return;
+    }
 
+    const parsed = performanceTelemetryPayloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return handleTelemetryValidationError(res, parsed.error);
+    }
+
+    const telemetry = parsed.data;
     logger.info("Performance metric recorded", {
-      type,
-      data,
-      timestamp: timestamp || new Date().toISOString(),
-      ip: req.ip,
+      type: telemetry.type,
+      metricName: telemetry.data.metricName,
+      duration: telemetry.data.duration,
+      value: telemetry.data.value,
+      rating: telemetry.data.rating,
+      navigationType: telemetry.data.navigationType,
+      timestamp: telemetry.timestamp || new Date().toISOString(),
+      ...getTelemetryLogContext(req, telemetry),
     });
 
     await ReadThroughCacheService.invalidateEndpoint(PUBLIC_ANALYTICS_CACHE_SCOPE, "api-analytics-summary");
@@ -109,6 +301,22 @@ publicTelemetryRouter.post("/performance", express.json(), async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
     return;
   }
+});
+
+publicTelemetryRouter.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
+  const payloadError = error as { type?: string; status?: number };
+
+  if (payloadError?.type === "entity.too.large" || payloadError?.status === 413) {
+    res.status(413).json({ error: "Telemetry payload too large" });
+    return;
+  }
+
+  if (error instanceof SyntaxError) {
+    res.status(400).json({ error: "Malformed JSON payload" });
+    return;
+  }
+
+  next(error);
 });
 
 // ─── Value loop analytics ─────────────────────────────────────────────────────

@@ -112,7 +112,11 @@ const projectDefinitions = {
 const shippedEntries = Object.entries(packagePolicy.packages)
   .filter(([, packageEntry]) => packageEntry.shipped)
   .sort(([left], [right]) => left.localeCompare(right));
-const coveredProjects = shippedEntries.filter(([, packageEntry]) => packageEntry.ci.rootVitest.status === "covered");
+
+const coveredProjects = shippedEntries.filter(
+  ([, packageEntry]) => packageEntry.ci.rootVitest.status === "covered",
+);
+
 const missingProjectDefinitions = coveredProjects
   .map(([packagePath]) => packagePath)
   .filter((packagePath) => !(packagePath in projectDefinitions));
@@ -123,9 +127,18 @@ if (missingProjectDefinitions.length > 0) {
   );
 }
 
-const excludedShippedPackages = shippedEntries.filter(([, packageEntry]) => packageEntry.ci.rootVitest.status === "excluded");
-if (excludedShippedPackages.some(([, packageEntry]) => packageEntry.ci.rootVitest.justification.trim().length === 0)) {
-  throw new Error("Shipped packages excluded from root Vitest must include a justification in workspace-package-policy.json.");
+const excludedShippedPackages = shippedEntries.filter(
+  ([, packageEntry]) => packageEntry.ci.rootVitest.status === "excluded",
+);
+
+if (
+  excludedShippedPackages.some(
+    ([, packageEntry]) => packageEntry.ci.rootVitest.justification.trim().length === 0,
+  )
+) {
+  throw new Error(
+    "Shipped packages excluded from root Vitest must include a justification in workspace-package-policy.json.",
+  );
 }
 
 /**
@@ -133,9 +146,17 @@ if (excludedShippedPackages.some(([, packageEntry]) => packageEntry.ci.rootVites
  *
  * Every shipped workspace package listed in config/ci/workspace-package-policy.json must be
  * either mapped here as an explicit project or excluded in that policy with a justification.
+ *
+ * Repository contract: `pnpm test` is the workspace unit-test lane. Package-local Vitest
+ * configs may delegate broader suites (integration, perf/load, security, e2e) to separate
+ * commands or configs, but the default workspace run must stay unit-only.
  */
 const explicitProjects = Array.from(
-  new Set(coveredProjects.map(([packagePath]) => projectDefinitions[packagePath as keyof typeof projectDefinitions])),
+  new Set(
+    coveredProjects.map(
+      ([packagePath]) => projectDefinitions[packagePath as keyof typeof projectDefinitions],
+    ),
+  ),
 );
 
 export default defineConfig({

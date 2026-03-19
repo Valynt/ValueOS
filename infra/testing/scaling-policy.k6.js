@@ -1,6 +1,11 @@
 /**
  * Staged k6 scenarios for autoscaling validation.
  *
+ * Canonical latency classes:
+ *   - Interactive completion: p95 < 200 ms.
+ *   - Orchestration acknowledgment/completion: acknowledgment p95 < 200 ms,
+ *     with completion p95 < 3000 ms as the only allowed exception policy.
+ *
  * Usage:
  *   k6 run --env BASE_URL=https://staging.valueos.app infra/testing/scaling-policy.k6.js
  */
@@ -9,8 +14,23 @@ import { check, sleep } from "k6";
 import http from "k6/http";
 import { Rate, Trend } from "k6/metrics";
 
+const INTERACTIVE_COMPLETION_TARGET_MS = 200;
+const ORCHESTRATION_ACKNOWLEDGMENT_TARGET_MS = 200;
+const ORCHESTRATION_COMPLETION_EXCEPTION_MS = 3000;
+
 const errors = new Rate("errors");
-const backendLatency = new Trend("backend_latency", true);
+const interactiveCompletionLatency = new Trend(
+  "interactive_completion_latency",
+  true,
+);
+const orchestrationAcknowledgmentLatency = new Trend(
+  "orchestration_acknowledgment_latency",
+  true,
+);
+const orchestrationCompletionLatency = new Trend(
+  "orchestration_completion_latency",
+  true,
+);
 
 const BASE_URL = __ENV.BASE_URL;
 if (!BASE_URL) {
@@ -65,26 +85,60 @@ export const options = {
   thresholds: {
     http_req_failed: ["rate<0.02"],
     errors: ["rate<0.02"],
-    http_req_duration: ["p(95)<600", "p(99)<1200"],
-    backend_latency: ["p(95)<550"],
+    interactive_completion_latency: [
+      `p(95)<${INTERACTIVE_COMPLETION_TARGET_MS}`,
+    ],
+    orchestration_acknowledgment_latency: [
+      `p(95)<${ORCHESTRATION_ACKNOWLEDGMENT_TARGET_MS}`,
+    ],
+    orchestration_completion_latency: [
+      `p(95)<${ORCHESTRATION_COMPLETION_EXCEPTION_MS}`,
+    ],
   },
 };
+
+function trackResponse(res, routeClass) {
+  if (routeClass === "orchestration") {
+    orchestrationAcknowledgmentLatency.add(res.timings.waiting);
+    orchestrationCompletionLatency.add(res.timings.duration);
+  } else {
+    interactiveCompletionLatency.add(res.timings.duration);
+  }
+
+  const ok = check(res, {
+    "status < 500": (response) => response.status < 500,
+  });
+  errors.add(!ok);
+}
 
 function hitCoreEndpoints() {
   const headers = makeHeaders();
   const responses = http.batch([
-    ["GET", `${BASE_URL}/health`, null, { headers }],
-    ["GET", `${BASE_URL}/api/health/ready`, null, { headers }],
-    ["GET", `${BASE_URL}/api/analytics`, null, { headers }],
+    ["GET", `${BASE_URL}/health`, null, { headers, tags: { latency_class: "interactive" } }],
+    [
+      "GET",
+      `${BASE_URL}/api/health/ready`,
+      null,
+      { headers, tags: { latency_class: "interactive" } },
+    ],
+    [
+      "GET",
+      `${BASE_URL}/api/analytics`,
+      null,
+      { headers, tags: { latency_class: "interactive" } },
+    ],
+    [
+      "GET",
+      `${BASE_URL}/api/billing/summary`,
+      null,
+      { headers, tags: { latency_class: "orchestration" } },
+    ],
   ]);
 
-  for (const res of responses) {
-    backendLatency.add(res.timings.duration);
-    const ok = check(res, {
-      "status < 500": (r) => r.status < 500,
-    });
-    errors.add(!ok);
-  }
+  trackResponse(responses[0], "interactive");
+  trackResponse(responses[1], "interactive");
+  trackResponse(responses[2], "interactive");
+  trackResponse(responses[3], "orchestration");
 }
 
 export function steadyTraffic() {

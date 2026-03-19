@@ -4,6 +4,19 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 const root = path.resolve(import.meta.dirname, '../..');
+// `pnpm test` is the default unit-only workspace lane. Backend integration, perf/load,
+// and backend e2e suites are intentionally routed to dedicated commands/configs instead
+// of the default packages/backend Vitest project.
+const nonUnitBackendTestPatterns = [
+  'src/**/*.integration.{test,spec}.ts',
+  'src/**/*.int.{test,spec}.ts',
+  'src/**/*.e2e.{test,spec}.ts',
+  'src/**/*.perf.{test,spec}.ts',
+  'src/**/*.load.{test,spec}.ts',
+  'src/**/__tests__/integration/**',
+  'src/**/__integration__/**',
+  'src/**/integration/**',
+] as const;
 
 export default defineConfig({
   // @ts-expect-error — @vitejs/plugin-react targets vite 6, vitest/config resolves vite 7
@@ -12,8 +25,13 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
+    exclude: [
+      'node_modules/**',
+      'dist/**',
+      ...nonUnitBackendTestPatterns,
+    ],
     fileParallelism: false,
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['src/test/setup.ts'],
     env: {
       // AgentPolicyService defaults to process.cwd()/policies/agents.
       // Tests run from packages/backend, so point explicitly to the repo-root policies.

@@ -47,7 +47,6 @@ function sendToAnalytics(name: string, metric: Metric) {
     value: metric.value,
     rating: metric.rating,
     delta: metric.delta,
-    entries: metric.entries,
     url: window.location.href,
     userAgent: navigator.userAgent,
     timestamp: new Date().toISOString(),
@@ -72,6 +71,5 @@ function sendToAnalytics(name: string, metric: Metric) {
     value: metric.value,
     rating: metric.rating,
     delta: metric.delta,
-    entries: metric.entries,
   });
 }

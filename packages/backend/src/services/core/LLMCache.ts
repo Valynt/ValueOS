@@ -92,7 +92,12 @@ export class LLMCache {
       const key = this.generateCacheKey(prompt, model, options);
       const cached = await this.client.get(key);
       if (!cached) {
-        cacheRequestsTotal.inc({ cache_name: 'llm', outcome: 'miss' });
+        cacheRequestsTotal.inc({
+          cache_name: 'llm',
+          cache_namespace: 'llm',
+          cache_layer: 'redis',
+          outcome: 'miss',
+        });
         return null;
       }
 
@@ -106,10 +111,20 @@ export class LLMCache {
       }
 
       await tx.exec();
-      cacheRequestsTotal.inc({ cache_name: 'llm', outcome: 'hit' });
+      cacheRequestsTotal.inc({
+        cache_name: 'llm',
+        cache_namespace: 'llm',
+        cache_layer: 'redis',
+        outcome: 'hit',
+      });
       return entry;
     } catch {
-      cacheRequestsTotal.inc({ cache_name: 'llm', outcome: 'error' });
+      cacheRequestsTotal.inc({
+        cache_name: 'llm',
+        cache_namespace: 'llm',
+        cache_layer: 'redis',
+        outcome: 'error',
+      });
       return null;
     }
   }

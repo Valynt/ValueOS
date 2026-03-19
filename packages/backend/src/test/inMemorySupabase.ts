@@ -14,7 +14,8 @@ type Filter =
   | { op: 'in'; column: string; value: unknown[] }
   | { op: 'gte'; column: string; value: unknown }
   | { op: 'lte'; column: string; value: unknown }
-  | { op: 'lt'; column: string; value: unknown };
+  | { op: 'lt'; column: string; value: unknown }
+  | { op: 'contains'; column: string; value: unknown };
 
 const VALID_USAGE_METRICS = new Set(['llm_tokens', 'agent_executions', 'api_calls', 'storage_gb']);
 const VALID_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'canceled', 'incomplete', 'incomplete_expired', 'unpaid']);
@@ -70,6 +71,14 @@ function matchesFilters(row: Row, filters: Filter[]): boolean {
         return compareUnknown(fieldValue, filter.value) <= 0;
       case 'lt':
         return compareUnknown(fieldValue, filter.value) < 0;
+      case 'contains':
+        if (Array.isArray(fieldValue) && Array.isArray(filter.value)) {
+          return filter.value.every((entry) => fieldValue.includes(entry));
+        }
+        if (fieldValue && typeof fieldValue === 'object' && filter.value && typeof filter.value === 'object') {
+          return Object.entries(filter.value as Record<string, unknown>).every(([key, value]) => (fieldValue as Record<string, unknown>)[key] === value);
+        }
+        return false;
       default:
         return false;
     }
@@ -161,6 +170,11 @@ class InMemoryQueryBuilder implements PromiseLike<QueryResult<any>> {
 
   lt(column: string, value: unknown) {
     this.filters.push({ op: 'lt', column, value });
+    return this;
+  }
+
+  contains(column: string, value: unknown) {
+    this.filters.push({ op: 'contains', column, value });
     return this;
   }
 

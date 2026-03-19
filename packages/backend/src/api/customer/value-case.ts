@@ -9,7 +9,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 
 import { httpRequestDuration } from "../../lib/metrics/httpMetrics";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { createServiceRoleSupabaseClient } from '../../lib/supabase.js';
 import { customerAccessService } from "../../services/tenant/CustomerAccessService";
 import { KpiTargetService } from "../../services/value/KpiTargetService";
 import { RoiModelService } from "../../services/value/RoiModelService";
@@ -81,7 +81,7 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     }
     const valueCaseId = validation.value_case_id;
     // tenant_id is not returned by token validation, so fetch value case row for tenant_id and details
-    const supabaseClient = createServerSupabaseClient();
+    const supabaseClient = createServiceRoleSupabaseClient();
     const valueTreeService = new ValueTreeService(supabaseClient);
     const roiModelService = new RoiModelService(supabaseClient);
     const kpiTargetService = new KpiTargetService(supabaseClient);

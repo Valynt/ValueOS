@@ -1,5 +1,5 @@
 import { createLogger } from '@shared/lib/logger';
-import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { createRequestRlsSupabaseClient } from '../lib/supabase.js';
 import { NextFunction, Request, Response } from 'express';
 
 const logger = createLogger({ component: 'authorization-middleware' });
@@ -57,7 +57,7 @@ export function requireCustomerEntitlement() {
       return;
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = createRequestRlsSupabaseClient(req);
     const { data, error } = await supabase
       .from('customer_value_cases')
       .select('id')

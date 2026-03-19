@@ -12,9 +12,11 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Security | Gitleaks secret scanning | `ci.yml` (`security-gate` job) | GitHub Action run logs + `security-gate-*` artifact |
 | Security | Semgrep SAST scanning | `ci.yml` (`security-gate` job) | `semgrep.sarif`, uploaded to code scanning |
 | Security | Trivy filesystem + container image scanning (HIGH/CRITICAL fail threshold) | `ci.yml` (`security-gate` job) | `trivy-fs.sarif`, `trivy-image.sarif`, uploaded to code scanning |
+| Security | Secret rotation metadata age verification (AWS Secrets Manager and Vault) | `secret-rotation-verification.yml`, `deploy.yml` (`secret-rotation-gate` job) | `secret-rotation-evidence-<environment>-<run_id>` artifact (`*.json`, `*.txt`) |
 | Compliance | RLS and DSR checks + evidence export | `ci.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |
 | Release Safety | Build/deploy, staging smoke tests, SLO guard, prod smoke | `deploy.yml` | SBOM/attestation + deployment summary |
+| Release Integrity | Backend/frontend reproducibility rebuild from the same commit, container digest parity, packaged artifact SHA-256 parity, allowlisted diff report when needed | `release.yml` (`reproducibility-build` + `reproducibility-compare` jobs) | `release-reproducibility-<run_id>` artifact (`reproducibility-report.md`, `reproducibility-comparison.json`, `reproducibility-allowlisted-diff.json`) |
 | Reliability Ops | On-call drill MTTR trend publication | `oncall-drill-scorecard.yml` | `docs/operations/on-call-drill-scorecard.md` |
 
 ## Workflow Lifecycle
@@ -26,6 +28,7 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | `deploy.yml` | Active | team-platform | Promotion and production safety controls. |
 | `terraform.yml` | Active | team-platform | Terraform validation and drift checks. |
 | `compliance-evidence-export.yml` | Active | team-security | Scheduled compliance evidence export. |
+| `secret-rotation-verification.yml` | Active | team-security | Daily secret metadata age verification for AWS Secrets Manager and Vault, and reusable production-promotion gate evidence. |
 | `oncall-drill-scorecard.yml` | Active | team-sre | Scheduled MTTR trend publication. |
 | `accessibility.deprecated.yml.disabled` | Deprecated | team-quality | Folded into `ci.yml` to remove duplicate setup and execution paths. |
 
