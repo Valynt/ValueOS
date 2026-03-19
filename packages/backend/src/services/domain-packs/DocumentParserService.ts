@@ -59,8 +59,19 @@ export class DocumentParserService {
 
     try {
       this.llm = new Gateway(llmConfig.provider, llmConfig.gatingEnabled);
-    } catch {
-      this.llm = Gateway(llmConfig.provider, llmConfig.gatingEnabled);
+    } catch (error) {
+      // Only fall back to function-style invocation if the error indicates
+      // that Gateway is not a constructor. Re-throw all other errors so we
+      // don't hide real initialization/configuration problems.
+      if (
+        error instanceof TypeError &&
+        typeof error.message === 'string' &&
+        /not a constructor/i.test(error.message)
+      ) {
+        this.llm = Gateway(llmConfig.provider, llmConfig.gatingEnabled);
+      } else {
+        throw error;
+      }
     }
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
     this.functionUrl = `${supabaseUrl}/functions/v1/parse-document`;
