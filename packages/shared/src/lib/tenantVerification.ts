@@ -10,9 +10,11 @@
  * SECURITY AUDIT (2026-03-18): WARNING - This module dynamically imports the
  * browser/anon Supabase client for tenant checks. If RLS policies on the
  * user_tenants or users tables are misconfigured, this could produce incorrect
- * results. For server-side authorization decisions, prefer using a service-role
- * client (getAdminSupabaseClient) to make authoritative membership checks
- * independent of RLS configuration.
+ * results. For server-side authorization decisions, prefer using a
+ * request-scoped server-side Supabase client (e.g., createRequestSupabaseClient)
+ * that carries the user's JWT but runs server-side, ensuring authoritative
+ * membership checks. Reserve getAdminSupabaseClient (service-role) for the
+ * explicitly justified contexts documented in adminSupabase.ts.
  */
 
 import { logger } from "./logger.js";

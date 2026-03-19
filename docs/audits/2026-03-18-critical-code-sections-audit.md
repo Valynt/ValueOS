@@ -117,7 +117,7 @@ This means rate limiting can be completely bypassed by:
 
 The `verifyTenantMembership()` function dynamically imports the browser/anon Supabase client to check tenant membership. This means the check depends on Row Level Security (RLS) policies being correctly configured on the `user_tenants` and `users` tables.
 
-If RLS is misconfigured (e.g., overly permissive SELECT policies), a user could potentially verify membership in tenants they don't belong to. For server-side authorization decisions, a service-role client should be used to make authoritative checks independent of RLS.
+If RLS is misconfigured (e.g., overly permissive SELECT policies), a user could potentially verify membership in tenants they don't belong to. For server-side authorization decisions, prefer a request-scoped server-side Supabase client (e.g., `createRequestSupabaseClient`) that carries the user's JWT but runs server-side. Reserve `getAdminSupabaseClient` (service-role) for the explicitly justified contexts documented in `adminSupabase.ts`.
 
 **Positive notes:** The function correctly fails closed (returns `false` on any error), logs cross-tenant access attempts with high severity, and masks user IDs in logs.
 
@@ -198,7 +198,7 @@ The following patterns were found to be well-implemented:
 |----------|---------|--------|
 | Immediate | FINDING-01, 02, 03 | **Done** -- Fixed in this PR |
 | High | FINDING-04 | Implement Redis-backed server-side rate limiter |
-| High | FINDING-05 | Use service-role client for server-side tenant verification |
+| High | FINDING-05 | Use request-scoped server-side client for tenant verification |
 | Medium | FINDING-08 | Persist admin access audit logs to database |
 | Low | FINDING-06 | Separate verbose redaction from dev environment check |
 | Low | FINDING-07 | Remove SQL pattern detection from input sanitizer |
