@@ -50,7 +50,7 @@ function buildSupabaseMock(options: { stale?: boolean; failRls?: boolean; failAu
       return { select: vi.fn().mockReturnValue(createQueryChain({ evidence_ts: timestamp })) };
     }
 
-    if (table === "audit_logs") {
+    if (["audit_logs", "audit_logs_archive", "security_audit_log_archive"].includes(table)) {
       return {
         select: vi.fn((query: string) => {
           if (query.includes("integrity_hash")) {
