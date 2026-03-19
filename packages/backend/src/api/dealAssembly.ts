@@ -10,14 +10,14 @@
  * Reference: openspec/changes/deal-assembly-pipeline/tasks.md §8
  */
 
-import { type IRouter, Router } from "express";
+import { Router, type IRouter } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
-import { logger } from "../lib/logger";
 import { requireAuth } from "../middleware/auth.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { DealAssemblyService } from "../services/deal/DealAssemblyService";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -58,8 +58,8 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const _tenantId = req.tenantId as string;
-      const _organizationId = req.organizationId as string;
+      const tenantId = req.tenantId as string;
+      const organizationId = req.organizationId as string;
       const userId = req.userId as string;
 
       // Validate request body
@@ -109,8 +109,8 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const _tenantId = req.tenantId as string;
-      const _organizationId = req.organizationId as string;
+      const tenantId = req.tenantId as string;
+      const organizationId = req.organizationId as string;
 
       // Fetch deal context
       const context = await dealAssemblyService.getContext(caseId, organizationId);
@@ -158,8 +158,8 @@ router.patch(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const _tenantId = req.tenantId as string;
-      const _organizationId = req.organizationId as string;
+      const tenantId = req.tenantId as string;
+      const organizationId = req.organizationId as string;
       const userId = req.userId as string;
 
       // Validate request body
@@ -204,7 +204,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const _organizationId = req.organizationId as string;
+      const organizationId = req.organizationId as string;
 
       await dealAssemblyService.confirmAssembly(caseId, organizationId);
 
@@ -247,35 +247,30 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const _tenantId = req.tenantId as string;
-      const _organizationId = req.organizationId as string;
+      const tenantId = req.tenantId as string;
+      const organizationId = req.organizationId as string;
       const userId = (req as { userId?: string }).userId ?? "unknown";
 
       const body = HypothesisLoopRequestSchema.safeParse(req.body);
       const sessionId = (body.success && body.data.session_id)
         ? body.data.session_id
         : uuidv4();
-      const supabaseOwnerCheck = req.supabase;
 
-      if (!supabaseOwnerCheck) {
-        res.status(401).json({ error: "Authenticated Supabase context required" });
-        return;
+      if (!req.supabase) {
+        throw new Error("run-hypothesis-loop requires req.supabase");
       }
 
       // Verify the case belongs to this tenant before running any agents.
-      // Prevents IDOR: a user from tenant A triggering work on tenant B's case.
-      const { data: caseRow, error: caseErr } = await supabaseOwnerCheck
-        .from("value_cases")
-        .select("id")
-        .eq("id", caseId)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
+      // Prevents IDOR via request-scoped RLS instead of service_role.
+      const caseAccess = new RequestScopedValueCaseAccessService(req.supabase);
+      const caseRow = await caseAccess.assertCaseReadable({
+        caseId,
+        tenantId,
+        userId,
+        requestId: req.requestId,
+        route: req.path,
+      });
 
-      if (caseErr) {
-        logger.error("Ownership check query failed", { caseId, tenantId, error: caseErr.message });
-        res.status(500).json({ error: "Internal error verifying case ownership" });
-        return;
-      }
       if (!caseRow) {
         res.status(404).json({ error: "Case not found" });
         return;
@@ -305,8 +300,8 @@ router.post(
         "../lib/agent-fabric/AuditLogger.js"
       );
 
-      // Reuse the client already created for the ownership check above.
-      const supabaseClient = supabaseOwnerCheck;
+      // Reuse the authenticated request-scoped client for orchestration.
+      const supabaseClient = req.supabase;
 
       const llmGateway = new LLMGateway({
         provider: "together",

@@ -754,6 +754,56 @@ const backendModuleBoundaryOverrides = {
 // Block raw fetch() in backend — all outbound requests must go through egressFetch().
 // Existing call sites are listed in ignores as tracked debt; remove entries as they
 // are migrated to egressFetch().
+
+const backendRequestScopedSupabaseGuard = {
+  files: [
+    "packages/backend/src/api/**/*.ts",
+    "packages/backend/src/middleware/**/*.ts",
+    "packages/backend/src/**/repository.ts",
+  ],
+  ignores: [
+    "packages/backend/src/api/auth.ts",
+    "packages/backend/src/api/customer/value-case.ts",
+    "packages/backend/src/api/health/index.ts",
+    "packages/backend/src/api/services/ReferralService.ts",
+    "packages/backend/src/api/services/ReferralAnalyticsService.ts",
+    "packages/backend/src/api/valueCases/backHalf.ts",
+  ],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        paths: [
+          {
+            name: "../lib/supabase.js",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "Request handlers, middleware, and request-facing repositories must use req.supabase, createUserSupabaseClient(...), or constructor injection from authenticated handlers.",
+          },
+          {
+            name: "../../lib/supabase.js",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "Request handlers, middleware, and request-facing repositories must use req.supabase, createUserSupabaseClient(...), or constructor injection from authenticated handlers.",
+          },
+          {
+            name: "../../../lib/supabase.js",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "Request handlers, middleware, and request-facing repositories must use req.supabase, createUserSupabaseClient(...), or constructor injection from authenticated handlers.",
+          },
+          {
+            name: "@shared/lib/supabase",
+            importNames: ["createServerSupabaseClient", "getSupabaseClient", "supabase"],
+            message:
+              "Request handlers, middleware, and request-facing repositories must use req.supabase, getRequestSupabaseClient(req), or constructor injection from authenticated handlers.",
+          },
+        ],
+      },
+    ],
+  },
+};
+
 const backendEgressEnforcement = {
   files: ["packages/backend/src/**/*.{ts,tsx,js,jsx}"],
   ignores: [
@@ -936,6 +986,7 @@ export default [
   moduleBoundaryOverrides,
   appModuleBoundaryOverrides,
   backendModuleBoundaryOverrides,
+  backendRequestScopedSupabaseGuard,
   backendEgressEnforcement,
   frontendFetchEnforcement,
   legacyRootDirBan,
