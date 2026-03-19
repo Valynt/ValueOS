@@ -2,11 +2,10 @@ import { Router } from 'express';
 
 import { rateLimiters, RateLimitTier, type RateLimitTierValue } from './rateLimiter.js'
 import { requestAuditMiddleware } from './requestAuditMiddleware.js'
+import { cspNonceMiddleware, securityHeadersMiddleware } from './securityHeaders.js';
 import {
-  cspNonceMiddleware,
   csrfProtectionMiddleware,
   csrfTokenMiddleware,
-  securityHeadersMiddleware,
 } from './securityMiddleware';
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware.js'
 import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
