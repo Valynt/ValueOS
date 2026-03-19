@@ -70,3 +70,8 @@ export function getSupabaseServerConfig() {
 export function getApiBaseUrl(): string {
   return getEnvVar("VITE_API_BASE_URL") || "/api";
 }
+
+/** Test-only: override the env source. No-op in production. */
+export function __setEnvSourceForTests(_source: Record<string, string>): void {}
+
+

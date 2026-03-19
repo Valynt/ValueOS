@@ -557,7 +557,7 @@ export class ReflectionEngine {
   /**
    * Evaluate output against the 18-point rubric
    */
-  async evaluate(output: unknown, _context: unknown): Promise<ReflectionResult> {
+  async evaluate(output: unknown, context: unknown): Promise<ReflectionResult> {
     const criteriaResults: Array<{
       criterion: string;
       score: number;

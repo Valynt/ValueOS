@@ -28,8 +28,8 @@ function tenantStore(tenantId: string): Map<string, ProjectRow> {
   return created;
 }
 
-vi.mock("../../services/ReadThroughCacheService.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../services/ReadThroughCacheService.js")>();
+vi.mock("../../services/cache/ReadThroughCacheService.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/cache/ReadThroughCacheService.js")>();
   return {
     ...actual,
     ReadThroughCacheService: {
@@ -39,7 +39,7 @@ vi.mock("../../services/ReadThroughCacheService.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../services/AuditLogService.js", () => ({
+vi.mock("../../services/security/index.js", () => ({
   auditLogService: { createEntry: vi.fn().mockResolvedValue({ id: "audit-1" }) },
 }));
 

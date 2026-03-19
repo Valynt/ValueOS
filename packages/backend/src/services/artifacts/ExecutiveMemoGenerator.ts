@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import { CircuitBreaker } from "../resilience/CircuitBreaker.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
-import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { MemorySystem } from "../../lib/agent-fabric/MemorySystem";
 import { logger } from "../lib/logger.js";
 
 import {

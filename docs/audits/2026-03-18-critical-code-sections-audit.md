@@ -64,7 +64,13 @@ The `isPrivateIp()` function did not check for:
 The `BLOCKED_IP_RANGES` constant was also defined but never used, with hardcoded string checks used instead.
 
 **Fix applied:** Completely rewrote `isPrivateIp()` and extracted `isPrivateIpv4()`:
-- Added IPv4-mapped IPv6 detection (`::ffff:x.x.x.x`)
+- Added full IPv4-mapped IPv6 detection covering all valid representations:
+  - Dotted-quad form: `::ffff:127.0.0.1`
+  - Hex compact form: `::ffff:7f00:1`
+  - Full expanded form: `0:0:0:0:0:ffff:7f00:1`
+  - Zero-padded form: `0000:0000:0000:0000:0000:ffff:7f00:0001`
+- Added `expandIpv6()` helper to normalize :: shorthand into 8 groups
+- Added `extractIpv4FromMappedIpv6()` to decode the last 32 bits of mapped addresses
 - Added cloud metadata range (`169.254.0.0/16`)
 - Added CGNAT range (`100.64.0.0/10`)
 - Added `0.0.0.0/8` (unspecified)
@@ -117,7 +123,7 @@ This means rate limiting can be completely bypassed by:
 
 The `verifyTenantMembership()` function dynamically imports the browser/anon Supabase client to check tenant membership. This means the check depends on Row Level Security (RLS) policies being correctly configured on the `user_tenants` and `users` tables.
 
-If RLS is misconfigured (e.g., overly permissive SELECT policies), a user could potentially verify membership in tenants they don't belong to. For server-side authorization decisions, a service-role client should be used to make authoritative checks independent of RLS.
+If RLS is misconfigured (e.g., overly permissive SELECT policies), a user could potentially verify membership in tenants they don't belong to. For server-side authorization decisions, prefer a request-scoped server-side Supabase client (e.g., `createRequestSupabaseClient`) that carries the user's JWT but runs server-side. Reserve `getAdminSupabaseClient` (service-role) for the explicitly justified contexts documented in `adminSupabase.ts`.
 
 **Positive notes:** The function correctly fails closed (returns `false` on any error), logs cross-tenant access attempts with high severity, and masks user IDs in logs.
 
@@ -198,7 +204,7 @@ The following patterns were found to be well-implemented:
 |----------|---------|--------|
 | Immediate | FINDING-01, 02, 03 | **Done** -- Fixed in this PR |
 | High | FINDING-04 | Implement Redis-backed server-side rate limiter |
-| High | FINDING-05 | Use service-role client for server-side tenant verification |
+| High | FINDING-05 | Use request-scoped server-side client for tenant verification |
 | Medium | FINDING-08 | Persist admin access audit logs to database |
 | Low | FINDING-06 | Separate verbose redaction from dev environment check |
 | Low | FINDING-07 | Remove SQL pattern detection from input sanitizer |

@@ -29,7 +29,7 @@ class AgentMetricsCollector extends BillingMetricsCollector {
    * available on the context. Falls back to a no-op when tenantId is absent
    * (e.g. cache-hit path where tenant context may not be set).
    */
-  recordAgentInvocation(
+  override recordAgentInvocation(
     agentId: string,
     succeeded: boolean,
     durationMs: number,
@@ -49,7 +49,7 @@ class AgentMetricsCollector extends BillingMetricsCollector {
   /**
    * Record an LLM call. Emits an `llm_tokens` usage event when tokenCount > 0.
    */
-  recordLLMCall(
+  override recordLLMCall(
     model: string,
     agentId: string,
     inputTokens: number,

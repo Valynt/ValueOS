@@ -24,7 +24,7 @@ import { Resource } from "@opentelemetry/resources";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { SEMRESATTRS_DEPLOYMENT_ENVIRONMENT, SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 
-import { logger } from "../lib/logger.js";
+import { logger } from "../lib/logger";
 
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? "valueos-backend";
 const SERVICE_VERSION = process.env.npm_package_version ?? "1.0.0";

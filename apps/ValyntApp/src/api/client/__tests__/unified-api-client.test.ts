@@ -34,12 +34,12 @@ describe("UnifiedApiClient input sanitization", () => {
       tenantId: "tenant-1<script>alert(1)</script>",
     });
 
-     
     const fetchMock = vi.mocked(fetch);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [requestedUrl] = fetchMock.mock.calls[0] ?? [];
     expect(String(requestedUrl)).not.toContain("<script>");
-    expect(String(requestedUrl)).toContain("&lt;script&gt;");
-    expect(String(requestedUrl)).toContain("tenantId=tenant-1%26lt%3Bscript%26gt%3Balert%281%29%26lt%3B%26%23x2F%3Bscript%26gt%3B");
+    // sanitizeInput with allowHtml: false strips script tags entirely
+    expect(String(requestedUrl)).toContain("tenantId=tenant-1");
+    expect(String(requestedUrl)).not.toContain("alert(1)");
   });
 });

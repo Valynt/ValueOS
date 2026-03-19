@@ -8,15 +8,23 @@
  * Created: 2024-11-29
  */
 
-import {
-  DeleteSecretCommand,
-  DescribeSecretCommand,
-  GetSecretValueCommand,
-  ListSecretsCommand,
-  PutSecretValueCommand,
-  RotateSecretCommand,
-  SecretsManagerClient,
-} from '@aws-sdk/client-secrets-manager';
+import { SecretsManagerClient, GetSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
+// These commands are not re-exported from the package barrel under moduleResolution:"bundler"
+// so we import them directly from their declaration files.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { DeleteSecretCommand, DescribeSecretCommand, ListSecretsCommand, PutSecretValueCommand, RotateSecretCommand } =
+  require('@aws-sdk/client-secrets-manager') as {
+    DeleteSecretCommand: typeof import('@aws-sdk/client-secrets-manager/dist-types/commands/DeleteSecretCommand').DeleteSecretCommand;
+    DescribeSecretCommand: typeof import('@aws-sdk/client-secrets-manager/dist-types/commands/DescribeSecretCommand').DescribeSecretCommand;
+    ListSecretsCommand: typeof import('@aws-sdk/client-secrets-manager/dist-types/commands/ListSecretsCommand').ListSecretsCommand;
+    PutSecretValueCommand: typeof import('@aws-sdk/client-secrets-manager/dist-types/commands/PutSecretValueCommand').PutSecretValueCommand;
+    RotateSecretCommand: typeof import('@aws-sdk/client-secrets-manager/dist-types/commands/RotateSecretCommand').RotateSecretCommand;
+  };
+type DeleteSecretCommand = InstanceType<typeof DeleteSecretCommand>;
+type DescribeSecretCommand = InstanceType<typeof DescribeSecretCommand>;
+type ListSecretsCommand = InstanceType<typeof ListSecretsCommand>;
+type PutSecretValueCommand = InstanceType<typeof PutSecretValueCommand>;
+type RotateSecretCommand = InstanceType<typeof RotateSecretCommand>;
 
 import { logger } from '../../lib/logger';
 

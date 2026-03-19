@@ -86,7 +86,7 @@ export class RedisSessionStore {
         const ttl = metadata.absoluteExpiresAt - Date.now();
 
         if (ttl > 0) {
-          await redis.setEx(
+          await redis.setex(
             key,
             Math.ceil(ttl / 1000),
             JSON.stringify(metadata)

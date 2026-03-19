@@ -48,3 +48,11 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
     [delay],
   );
 }
+
+export function useDebouncedState<T>(initialValue: T, delay: number = 500): [T, (value: T) => void, T] {
+  const [value, setValue] = useState<T>(initialValue);
+  const debouncedValue = useDebounce(value, delay);
+  return [value, setValue, debouncedValue];
+}
+
+

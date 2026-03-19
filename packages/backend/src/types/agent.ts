@@ -9,6 +9,12 @@
 // Agent Configuration
 // ============================================================================
 
+export type { PromptApprovalMetadata } from '../lib/agent-fabric/prompts/PromptRegistry';
+import type { AgentType } from '../services/agent-types';
+export type { AgentType };
+import type { LifecycleStage } from '@valueos/shared';
+export type { LifecycleStage };
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -24,11 +30,9 @@ export interface AgentConfig {
 
 // Canonical AgentType is defined in services/agent-types.ts.
 // This re-export keeps backward compatibility for consumers of types/agent.ts.
-export type { AgentType } from '../services/agent-types.js';
 
-// Canonical LifecycleStage is defined in packages/shared/src/domain/Opportunity.ts.
-// Re-exported here for backward compatibility. ADR-0010.
-export type { LifecycleStage } from '@valueos/shared';
+
+// LifecycleStage re-exported at top of file.
 
 export interface ModelConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
@@ -109,6 +113,7 @@ export interface AgentOutput {
   lifecycle_stage: LifecycleStage;
   status: AgentOutputStatus;
   result: Record<string, unknown>;
+  data?: Record<string, unknown>;
   confidence: ConfidenceLevel;
   reasoning?: string;
   suggested_next_actions?: string[];

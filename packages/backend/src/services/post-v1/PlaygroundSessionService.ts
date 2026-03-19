@@ -13,7 +13,7 @@
  */
 
 import { SDUIPageDefinition } from '@valueos/sdui';
-import { createClient, RedisClientType } from 'redis';
+import Redis, { type Redis as RedisClientType } from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 
 import { logger } from '../../lib/logger.js'
@@ -56,11 +56,8 @@ export class PlaygroundSessionService {
   constructor(config?: SessionConfig) {
     this.config = { ...DEFAULT_SESSION_CONFIG, ...config };
 
-    this.client = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-      socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 50, 500),
-      },
+    this.client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      retryStrategy: (retries) => Math.min(retries * 50, 500),
     });
 
     this.client.on('error', (err) => {
@@ -83,9 +80,8 @@ export class PlaygroundSessionService {
    * Connect to Redis
    */
   async connect(): Promise<void> {
-    if (!this.connected) {
-      await this.client.connect();
-    }
+    // ioredis connects automatically on first command
+    this.connected = true;
   }
 
   /**
@@ -93,7 +89,7 @@ export class PlaygroundSessionService {
    */
   async disconnect(): Promise<void> {
     if (this.connected) {
-      await this.client.disconnect();
+      await this.client.quit();
     }
   }
 
@@ -249,7 +245,7 @@ export class PlaygroundSessionService {
     const expiresAt = new Date(session.metadata.expiresAt);
     const ttl = Math.max(Math.floor((expiresAt.getTime() - Date.now()) / 1000), 60);
 
-    await this.client.setEx(key, ttl, data);
+    await this.client.setex(key, ttl, data);
   }
 
   /**
@@ -634,7 +630,7 @@ export class PlaygroundSessionService {
 
     // orgId not known here; use public namespace if none
     const key = REDIS_KEYS.userSessions(userId, undefined);
-    return this.client.sMembers(key);
+    return this.client.smembers(key);
   }
 
   /**
@@ -644,7 +640,7 @@ export class PlaygroundSessionService {
     await this.ensureConnected();
 
     const key = REDIS_KEYS.orgSessions(orgId);
-    return this.client.sMembers(key);
+    return this.client.smembers(key);
   }
 
   /**
@@ -654,14 +650,14 @@ export class PlaygroundSessionService {
     const pipeline = this.client.multi();
 
     // User sessions index
-    pipeline.sAdd(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
+    pipeline.sadd(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
 
     // Organization sessions index
-    pipeline.sAdd(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
+    pipeline.sadd(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
 
     // Artifact sessions index
     if (session.artifactId) {
-      pipeline.sAdd(REDIS_KEYS.artifactSessions(session.artifactId, session.organizationId), session.sessionId);
+      pipeline.sadd(REDIS_KEYS.artifactSessions(session.artifactId, session.organizationId), session.sessionId);
     }
 
     await pipeline.exec();
@@ -673,11 +669,11 @@ export class PlaygroundSessionService {
   private async removeFromIndexes(session: PlaygroundSession): Promise<void> {
     const pipeline = this.client.multi();
 
-    pipeline.sRem(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
-    pipeline.sRem(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
+    pipeline.srem(REDIS_KEYS.userSessions(session.userId, session.organizationId), session.sessionId);
+    pipeline.srem(REDIS_KEYS.orgSessions(session.organizationId), session.sessionId);
 
     if (session.artifactId) {
-      pipeline.sRem(REDIS_KEYS.artifactSessions(session.artifactId, session.organizationId), session.sessionId);
+      pipeline.srem(REDIS_KEYS.artifactSessions(session.artifactId, session.organizationId), session.sessionId);
     }
 
     await pipeline.exec();

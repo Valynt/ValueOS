@@ -44,7 +44,7 @@ export class MarketDataModule extends BaseModule {
   private apiKey: string = '';
   private rateLimit: number = 5; // Requests per minute
   private cacheTTL: number = 300; // 5 minutes default
-  override private lastRequestTime: number = 0;
+  protected override lastRequestTime: number = 0;
   private quoteCache: Map<string, { data: any; timestamp: number }> = new Map();
 
   // Provider-specific base URLs
@@ -208,7 +208,6 @@ export class MarketDataModule extends BaseModule {
       },
       {
         provider: this.provider,
-        ticker,
         ...multiplesData,
       }
     );

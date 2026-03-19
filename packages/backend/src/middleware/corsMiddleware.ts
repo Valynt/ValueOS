@@ -47,10 +47,10 @@ export function corsMiddleware(
         method: req.headers["access-control-request-method"],
         path: req.path,
       });
-      return res.status(403).json({ error: "Origin not allowed" });
+      return void res.status(403).json({ error: "Origin not allowed" });
     }
 
-    return res.status(204).end();
+    return void res.status(204).end();
   }
 
   next();
@@ -80,7 +80,7 @@ export function strictCorsMiddleware(
       method: req.method,
     });
 
-    return res.status(403).json({
+    return void res.status(403).json({
       error: "Forbidden",
       message: "Origin not allowed",
     });

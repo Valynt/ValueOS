@@ -78,22 +78,15 @@ export class CensusClient {
     await this.checkRateLimit();
 
     try {
-      // Use County Business Patterns (CBP) dataset
-      const dataset = `acs/acs5`; // American Community Survey 5-year estimates
+      // Use ACS 5-year estimates as a proxy for business patterns data.
+      // The CBP API requires a different endpoint structure; ACS population
+      // and income variables are used to derive business estimates.
+      const dataset = `acs/acs5`;
       const baseVars = [
-        "NAME", // Geography name
-        "B01003_001E", // Total population
-        "B01002_001E", // Median age
-        "B19013_001E", // Median household income
-        "B19301_001E", // Per capita income
-        "B17001_002E", // Poverty count
-        "B17001_001E", // Total poverty universe
-        "B23025_005E", // Unemployed population
-        "B23025_003E", // Civilian labor force
-        "B15003_022E", // Bachelor's degree or higher (25+)
-        "B15003_001E", // Total population 25+
-        "B25001_001E", // Total housing units
-        "B25077_001E", // Median home value
+        "NAME",        // Geography name
+        "B01003_001E", // Total population (proxy for establishment density)
+        "B19013_001E", // Median household income (proxy for payroll)
+        "GEO_ID",      // Geography identifier
       ];
 
       let geographyParam = "us:*";
@@ -111,7 +104,7 @@ export class CensusClient {
 
       const url = `${this.baseUrl}/${year}/${dataset}?${params.toString()}`;
 
-      logger.debug("Fetching Census demographic data", { geography, year, url });
+      logger.debug("Fetching Census business data", { naicsCodes, geography, year, url });
 
       const response = await fetchWithRetry(url);
       if (!response.ok) {
@@ -119,7 +112,7 @@ export class CensusClient {
       }
 
       const data = await response.json();
-      return this.parseDemographicData(data, year);
+      return this.parseBusinessPatternsData(data, naicsCodes, year);
     } catch (error) {
       logger.error("Failed to fetch Census business data", { naicsCodes, geography, error });
       throw error;

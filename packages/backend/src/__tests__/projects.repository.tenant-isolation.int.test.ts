@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-vi.mock('../services/ReadThroughCacheService.js', () => ({
+vi.mock('../services/cache/ReadThroughCacheService.js', () => ({
   ReadThroughCacheService: {
     getOrLoad: vi.fn().mockImplementation(
       (_config: unknown, loader: () => Promise<unknown>) => loader(),
@@ -28,6 +28,9 @@ vi.mock('../services/ReadThroughCacheService.js', () => ({
 
 vi.mock('../lib/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
+  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(), cache: vi.fn() },
 }));
 
 vi.mock('../middleware/globalErrorHandler.js', () => ({
@@ -64,7 +67,7 @@ vi.mock('../lib/errors', () => {
 // ─── App factory ──────────────────────────────────────────────────────────────
 
 
-vi.mock('../services/AuditLogService.js', () => ({
+vi.mock('../services/security/index.js', () => ({
   auditLogService: { createEntry: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
 }));
 

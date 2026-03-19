@@ -3,19 +3,16 @@ import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Redis-backed cache so tests are hermetic and fast.
-vi.mock('../../services/ReadThroughCacheService.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../services/ReadThroughCacheService.js')>();
-  return {
-    ...actual,
-    ReadThroughCacheService: {
-      getOrLoad: vi.fn((_config: unknown, loader: () => Promise<unknown>) => loader()),
-      invalidateEndpoint: vi.fn().mockResolvedValue(0),
-    },
-  };
-});
+vi.mock('../../services/cache/ReadThroughCacheService.js', () => ({
+  ReadThroughCacheService: {
+    getOrLoad: vi.fn((_config: unknown, loader: () => Promise<unknown>) => loader()),
+    invalidateEndpoint: vi.fn().mockResolvedValue(0),
+  },
+  getTenantIdFromRequest: vi.fn((req: { tenantId?: string }) => req.tenantId ?? undefined),
+}));
 
 
-vi.mock('../../services/AuditLogService.js', () => ({
+vi.mock('../../services/security/index.js', () => ({
   auditLogService: { createEntry: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
 }));
 

@@ -6,11 +6,12 @@
  */
 
 import { Router } from "express";
-import { DealAssemblyService } from "../../services/deal/DealAssemblyService";
-import { authenticate } from "../../middleware/auth";
-import { requireTenantAccess } from "../../middleware/tenant";
+import { DealAssemblyService } from "../services/deal/DealAssemblyService";
+import { authenticate } from "../middleware/auth";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
 
 const router = Router();
+const requireTenantAccess = tenantContextMiddleware(true);
 const dealAssemblyService = new DealAssemblyService();
 
 /**
@@ -24,7 +25,7 @@ router.get(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
 
       const context = await dealAssemblyService.getContext(caseId, organizationId);
 
@@ -56,7 +57,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
       const {
         account_name,
         stakeholders,
@@ -100,7 +101,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId, gapId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
       const { value } = req.body;
       const userId = req.user!.id;
 
@@ -127,7 +128,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
 
       await dealAssemblyService.confirmAssembly(caseId, organizationId);
 
@@ -152,7 +153,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { caseId } = req.params;
-      const organizationId = req.tenant!.id;
+      const organizationId = (req as any).tenantId;
 
       await dealAssemblyService.triggerReassembly(caseId, organizationId);
 

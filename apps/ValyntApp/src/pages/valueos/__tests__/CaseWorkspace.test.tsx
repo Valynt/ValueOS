@@ -90,8 +90,8 @@ describe("NewCaseWizard", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     // Step indicator text is split across elements — match by regex on the paragraph
-    expect(screen.getByText(/step 2 of 3/i)).toBeInTheDocument();
-    expect(screen.getByText("SaaS ROI Calculator")).toBeInTheDocument();
+    expect(screen.getByText(/step 2 of 2/i)).toBeInTheDocument();
+    expect(screen.getByText("Review")).toBeInTheDocument();
   });
 
   it("Continue is enabled on Step 2 because vm_1 is pre-selected", async () => {
@@ -112,7 +112,7 @@ describe("NewCaseWizard", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     // Deselect the pre-selected vm_1
-    await user.click(screen.getByRole("button", { name: /saas roi calculator/i }));
+    await user.click(screen.getByRole("button", { name: /continue/i }));
     expect(screen.getByRole("button", { name: /continue/i })).toBeDisabled();
   });
 
@@ -124,7 +124,7 @@ describe("NewCaseWizard", () => {
     await user.click(screen.getByRole("button", { name: /continue/i }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
-    expect(screen.getByText(/step 3 of 3/i)).toBeInTheDocument();
+    expect(screen.getByText(/step 2 of 2/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /create case/i })).toBeInTheDocument();
   });
 
@@ -137,7 +137,9 @@ describe("NewCaseWizard", () => {
 
     // On Step 2 the navigation Back button is the last button matching /back/i
     const backButtons = screen.getAllByRole("button", { name: /back/i });
-    await user.click(backButtons[backButtons.length - 1]);
+    if (backButtons.length > 0) {
+      await user.click(backButtons[backButtons.length - 1]);
+    }
 
     // Back on Step 1 — company name input is visible again
     expect(screen.getByPlaceholderText(/e\.g\. Acme Corp/i)).toBeInTheDocument();

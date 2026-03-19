@@ -120,3 +120,5 @@ export const SettingsView: React.FC = () => {
     </SettingsProvider>
   );
 };
+
+

@@ -129,7 +129,7 @@ export async function sessionTimeoutMiddleware(
   try {
     const verified = await verifyAccessToken(token);
     if (!verified) {
-      return res.status(401).json({
+      return void res.status(401).json({
         error: 'Invalid or expired token',
         code: 'INVALID_TOKEN',
       });
@@ -143,7 +143,7 @@ export async function sessionTimeoutMiddleware(
     const now = Math.floor(Date.now() / 1000);
 
     if (!userId || !issuedAt || !expiresAt) {
-      return res.status(401).json({
+      return void res.status(401).json({
         error: 'Token missing required claims',
         code: 'INVALID_TOKEN_CLAIMS',
       });
@@ -153,7 +153,7 @@ export async function sessionTimeoutMiddleware(
     // 1. Check JWT Expiry (with clock skew tolerance)
     // ========================================================================
     if (expiresAt + SESSION_CONFIG.CLOCK_SKEW_MS / 1000 < now) {
-      return res.status(401).json({
+      return void res.status(401).json({
         error: 'Token expired',
         code: 'TOKEN_EXPIRED',
         expiresAt,
@@ -168,7 +168,7 @@ export async function sessionTimeoutMiddleware(
     const maxAge = SESSION_CONFIG.ABSOLUTE_TIMEOUT_MS / 1000;
 
     if (tokenAge > maxAge) {
-      return res.status(401).json({
+      return void res.status(401).json({
         error: 'Session expired due to absolute timeout (1 hour)',
         code: 'SESSION_ABSOLUTE_TIMEOUT',
         tokenAge,
@@ -200,7 +200,7 @@ export async function sessionTimeoutMiddleware(
 
       if (idleTime > SESSION_CONFIG.IDLE_TIMEOUT_MS) {
         sessionStore.delete(sessionId);
-        return res.status(440).json({
+        return void res.status(440).json({
           error: 'Session expired due to inactivity (30 minutes idle)',
           code: 'SESSION_IDLE_TIMEOUT',
           idleTime: Math.floor(idleTime / 1000),
@@ -236,7 +236,7 @@ export async function sessionTimeoutMiddleware(
     next();
   } catch (error) {
     console.error('Session timeout middleware error:', error);
-    return res.status(500).json({
+    return void res.status(500).json({
       error: 'Session validation failed',
       code: 'SESSION_VALIDATION_ERROR',
     });
@@ -256,7 +256,7 @@ export async function strictSessionTimeoutMiddleware(
 
   const token = extractToken(req);
   if (!token) {
-    return res.status(401).json({
+    return void res.status(401).json({
       error: 'Authentication required',
       code: 'AUTH_REQUIRED',
     });
@@ -265,7 +265,7 @@ export async function strictSessionTimeoutMiddleware(
   try {
     const verified = await verifyAccessToken(token);
     if (!verified) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return void res.status(401).json({ error: 'Invalid token' });
     }
 
     const claims = verified.claims as JwtPayload;
@@ -274,7 +274,7 @@ export async function strictSessionTimeoutMiddleware(
     const sessionIdClaim = claims?.session_id;
 
     if (!userId || !issuedAt) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return void res.status(401).json({ error: 'Invalid token' });
     }
 
     const sessionId = sessionIdClaim || `${userId}:${issuedAt}`;
@@ -286,7 +286,7 @@ export async function strictSessionTimeoutMiddleware(
 
       if (idleTime > STRICT_IDLE_TIMEOUT_MS) {
         sessionStore.delete(sessionId);
-        return res.status(440).json({
+        return void res.status(440).json({
           error: 'Sensitive operation timeout (10 minutes idle)',
           code: 'STRICT_SESSION_TIMEOUT',
           idleTime: Math.floor(idleTime / 1000),
@@ -299,7 +299,7 @@ export async function strictSessionTimeoutMiddleware(
     next();
   } catch (error) {
     console.error('Strict session timeout error:', error);
-    return res.status(500).json({ error: 'Session validation failed' });
+    return void res.status(500).json({ error: 'Session validation failed' });
   }
 }
 

@@ -112,6 +112,15 @@ export async function listValueDriversForCase(supabase: SupabaseClient, tenant_i
   return data || [];
 }
 
+export interface FinancialModelRow {
+  id: string;
+  tenant_id: string;
+  value_case_id: string;
+  model_data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 // Example: get financial model for a case
 export async function getFinancialModelForCase(supabase: SupabaseClient, tenant_id: string, value_case_id: string): Promise<FinancialModelRow | null> {
   const { data, error } = await supabase

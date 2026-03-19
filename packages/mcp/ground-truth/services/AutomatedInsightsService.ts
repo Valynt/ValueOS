@@ -22,6 +22,7 @@ import {
   TrendAnalysisResult,
 } from "./PredictiveModelingService";
 import {
+  RiskFactor,
   SentimentAnalysisService,
   SentimentResult,
 } from "./SentimentAnalysisService";
@@ -260,7 +261,7 @@ export class AutomatedInsightsService {
     } catch (error) {
       logger.error(
         "Business intelligence report generation failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       throw error;
     }
@@ -384,7 +385,7 @@ export class AutomatedInsightsService {
     // Financial Discipline Driver
     const financialDriver: ValueDriver = {
       name: "Capital Allocation Excellence",
-      category: "financial",
+      category: "cost",
       impact_score: 0.4,
       confidence: 0.75,
       current_performance: "leading",
@@ -477,7 +478,7 @@ export class AutomatedInsightsService {
           category: "Market Risk",
           description: "Industry consolidation and competitive pressures",
           severity: "high",
-          impact: "market",
+          impact: "financial",
         },
         regulatory_risk: {
           category: "Regulatory Risk",

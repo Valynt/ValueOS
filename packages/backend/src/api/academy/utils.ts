@@ -3,7 +3,7 @@
  * Shared helpers for tRPC academy routers
  */
 import { TRPCError } from "@trpc/server";
-import { createUserSupabaseClient } from "../../../lib/supabase.js";
+import { createUserSupabaseClient } from "../../lib/supabase";
 
 /**
  * Get Supabase client from context or create from access token

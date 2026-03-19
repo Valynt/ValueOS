@@ -4,6 +4,8 @@
  * Strategic value drivers managed by admins, used by sellers in value cases.
  */
 
+export type { CanvasComponent } from "./index";
+
 import { useEffect, useState } from "react";
 
 import { apiClient } from "@/api/client/unified-api-client";

@@ -34,6 +34,8 @@ import { z } from "zod";
 
 import { logger } from "../../lib/logger";
 import { BaseModule } from "../core/BaseModule";
+import { ErrorCodes, GroundTruthError } from "../types";
+import type { ModuleRequest, ModuleResponse } from "../types";
 
 // ============================================================================
 // Types
@@ -184,6 +186,21 @@ interface SeverityRequest {
 export class ESOModule extends BaseModule {
   readonly moduleName = "eso";
   readonly moduleVersion = "1.0.0";
+
+  name = "eso";
+  tier = "tier2" as const;
+  description = "ESO structural truth module - industry KPI benchmarks and causal relationships";
+
+  query(_request: ModuleRequest): Promise<ModuleResponse> {
+    throw new GroundTruthError(
+      ErrorCodes.INVALID_REQUEST,
+      "ESOModule does not support generic queries — use executeTool() instead"
+    );
+  }
+
+  canHandle(_request: ModuleRequest): boolean {
+    return false;
+  }
 
   private kpiIndex: Map<string, ESOKPINode>;
   private edgeIndex: Map<string, ESOEdge[]>;
@@ -553,32 +570,34 @@ export class ESOModule extends BaseModule {
     const limit = request.limit || 5;
 
     const filtered = ALL_VMRT_SEEDS.filter((trace) => {
-      if (
-        request.industry &&
-        trace.context?.organization?.industry !== request.industry
-      ) {
+      const ctx = trace.context as any;
+      const vm = trace.valueModel as any;
+      if (request.industry && ctx?.organization?.industry !== request.industry) {
         return false;
       }
-      if (
-        request.outcomeCategory &&
-        trace.valueModel?.outcomeCategory !== request.outcomeCategory
-      ) {
+      if (request.outcomeCategory && vm?.outcomeCategory !== request.outcomeCategory) {
         return false;
       }
-      if (request.persona && trace.context?.persona !== request.persona) {
+      if (request.persona && ctx?.persona !== request.persona) {
         return false;
       }
       return true;
     });
 
-    const traces = filtered.slice(0, limit).map((trace) => ({
-      traceId: trace.traceId!,
-      summary: trace.reasoningSteps?.[0]?.description || "No summary",
-      industry: trace.context?.organization?.industry || "unknown",
-      outcomeCategory: trace.valueModel?.outcomeCategory || "unknown",
-      totalImpact: trace.valueModel?.financialImpact?.totalImpact?.amount || 0,
-      confidence: trace.qualityMetrics?.overallConfidence || 0,
-    }));
+    const traces = filtered.slice(0, limit).map((trace) => {
+      const ctx = trace.context as any;
+      const vm = trace.valueModel as any;
+      const qm = (trace as any).qualityMetrics;
+      const step0 = (trace.reasoningSteps?.[0] as any);
+      return {
+        traceId: trace.traceId!,
+        summary: step0?.description || "No summary",
+        industry: ctx?.organization?.industry || "unknown",
+        outcomeCategory: vm?.outcomeCategory || "unknown",
+        totalImpact: vm?.financialImpact?.totalImpact?.amount || 0,
+        confidence: qm?.overallConfidence || 0,
+      };
+    });
 
     return {
       traces,

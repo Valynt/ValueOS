@@ -408,6 +408,7 @@ export class ContextInjectionBridge {
           name: "Win Probability",
           value: context.financial.probability,
           unit: "percentage",
+          category: "operational",
         },
       ],
     });
@@ -430,6 +431,7 @@ export class ContextInjectionBridge {
           name: "Deal Value",
           value: context.financial.dealValue,
           unit: "currency",
+          category: "revenue",
         },
       ],
     });

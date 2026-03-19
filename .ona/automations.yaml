@@ -1,10 +1,140 @@
+services:
+  backend:
+    name: Backend API
+    description: Express API server on port 3001.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        # Wait for pnpm install to complete before starting (installDeps runs at postDevcontainerStart)
+        wait_count=0
+        until [ -f node_modules/.modules.yaml ]; do
+          wait_count=$((wait_count + 1))
+          if [ $wait_count -ge 150 ]; then
+            echo "Timed out waiting for node_modules — did installDeps fail?"
+            exit 1
+          fi
+          echo "Waiting for node_modules... (${wait_count}/150)"
+          sleep 2
+        done
+        ona env port open 3001 --protocol https 2>/dev/null || true
+        pnpm run dev:backend
+      ready: |
+        curl -sf http://localhost:3001/health
+
+  frontend:
+    name: ValyntApp (Vite)
+    description: Vite dev server for ValyntApp on port 5173.
+    triggeredBy:
+      - postEnvironmentStart
+    commands:
+      start: |
+        # Wait for pnpm install to complete before starting (installDeps runs at postDevcontainerStart)
+        wait_count=0
+        until [ -f node_modules/.modules.yaml ]; do
+          wait_count=$((wait_count + 1))
+          if [ $wait_count -ge 150 ]; then
+            echo "Timed out waiting for node_modules — did installDeps fail?"
+            exit 1
+          fi
+          echo "Waiting for node_modules... (${wait_count}/150)"
+          sleep 2
+        done
+        ona env port open 5173 --protocol https 2>/dev/null || true
+        pnpm run dev:frontend
+      ready: |
+        curl -sf http://localhost:5173
+
+  academy:
+    name: VOSAcademy (Vite)
+    description: Vite dev server for VOSAcademy on port 5174.
+    triggeredBy: []
+    commands:
+      start: |
+        ona env port open 5174 --protocol https 2>/dev/null || true
+        pnpm run dev:academy
+      ready: |
+        curl -sf http://localhost:5174
+
 tasks:
   installDeps:
     name: Install dependencies
-    description: Install all monorepo dependencies via pnpm.
+    description: Enable corepack, activate pnpm, and install workspace dependencies.
     command: |
-      corepack enable
-      corepack prepare pnpm@10.4.1 --activate
-      pnpm install --frozen-lockfile
+      sudo corepack enable --install-directory /usr/local/bin 2>/dev/null || true
+      corepack prepare pnpm@10.4.1 --activate 2>/dev/null || true
+      # Clean incomplete node_modules from a previous failed run before installing.
+      # ENOTEMPTY errors occur when multiple pnpm processes race on first boot.
+      if [ -d node_modules/.pnpm ] && [ ! -f node_modules/.modules.yaml ]; then
+        echo "Detected incomplete node_modules — cleaning before install."
+        rm -rf node_modules
+      fi
+      CI=true pnpm install --no-frozen-lockfile
     triggeredBy:
       - postDevcontainerStart
+      - prebuild
+
+  setupTools:
+    name: Setup dev tools
+    description: Install tsx and other global CLI tools required by backend scripts.
+    command: |
+      export PNPM_HOME="${PNPM_HOME:-/home/vscode/.local/share/pnpm}"
+      mkdir -p "$PNPM_HOME"
+      export PATH="$PNPM_HOME:$PATH"
+      if ! command -v tsx &>/dev/null; then
+        pnpm add -g tsx
+      fi
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - installDeps
+
+  lint:
+    name: Lint
+    description: Run ESLint across the workspace.
+    command: |
+      pnpm run lint
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  typecheck:
+    name: Typecheck
+    description: Run tsc --noEmit across all packages via Turbo.
+    command: |
+      pnpm run check
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  test:
+    name: Run tests
+    description: Execute the full Vitest suite (unit + backend).
+    command: |
+      pnpm test
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  testRls:
+    name: RLS policy tests
+    description: Validate row-level security tenant isolation policies.
+    command: |
+      pnpm run test:rls
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps
+
+  build:
+    name: Build
+    description: Build ValyntApp and backend for production.
+    command: |
+      pnpm run build
+    triggeredBy:
+      - manual
+    dependsOn:
+      - installDeps

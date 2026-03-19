@@ -116,9 +116,9 @@ Be thorough but fair. Only mark objections as "critical" if they would materiall
 // ============================================================================
 
 export class RedTeamAgent extends BaseAgent {
-  public readonly lifecycleStage = 'integrity';
-  public readonly version = '2.0.0';
-  public readonly name = 'RedTeamAgent';
+  public override readonly lifecycleStage = 'integrity';
+  public override readonly version = '2.0.0';
+  public override readonly name = 'RedTeamAgent';
 
   /**
    * Accepts a RedTeamLLMGateway (or LLMGateway) and MemorySystem.
@@ -229,3 +229,6 @@ export class RedTeamAgent extends BaseAgent {
     return objections.filter((o) => o.severity === severity);
   }
 }
+
+/** Type alias — RedTeamAgent implements the RedTeamAnalyzer contract. */
+export type RedTeamAnalyzer = RedTeamAgent;

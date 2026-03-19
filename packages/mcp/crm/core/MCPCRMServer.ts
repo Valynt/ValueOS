@@ -386,7 +386,7 @@ export class MCPCRMServer {
       .eq("status", "active");
 
     if (error) {
-      logger.error("Failed to load CRM connections", error);
+      logger.error("Failed to load CRM connections", { error: error.message, code: error.code });
       return;
     }
 
@@ -464,7 +464,6 @@ export class MCPCRMServer {
 
       logger.error(
         `Some initialization tasks failed: ${failures.length} failures`,
-        undefined,
         { errorDetails }
       );
     }
@@ -733,7 +732,7 @@ export class MCPCRMServer {
     } catch (error) {
       logger.error(
         "CRM tool execution failed",
-        error instanceof Error ? error : undefined
+        error instanceof Error ? { error: error.message, stack: error.stack } : undefined
       );
       return responseBuilder.error(
         new MCPCRMError(
@@ -1561,8 +1560,7 @@ export class MCPCRMServer {
     } catch (error) {
       logger.error(
         "Failed to get field mappings from config, using defaults",
-        error instanceof Error ? error : undefined,
-        { provider }
+        { provider, error: error instanceof Error ? error.message : String(error) }
       );
 
       // Fallback to hard-coded mappings if config fails

@@ -19,9 +19,9 @@ interface DeterministicCoverage {
 }
 
 export class ComplianceAuditorAgent extends BaseAgent {
-  public readonly lifecycleStage = 'validating';
-  public readonly version = '1.0.0';
-  public readonly name = 'compliance-auditor';
+  public override readonly lifecycleStage = 'validating';
+  public override readonly version = '1.0.0';
+  public override readonly name = 'compliance-auditor';
 
   async execute(context: LifecycleContext): Promise<AgentOutput> {
     const start = Date.now();

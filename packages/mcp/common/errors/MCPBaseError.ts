@@ -78,7 +78,7 @@ export abstract class MCPBaseError extends Error {
   public readonly category: "general" | "financial" | "crm" | "config";
   public readonly metadata: MCPErrorMetadata;
   public readonly details?: MCPErrorDetails;
-  public override readonly cause?: Error;
+
 
   constructor(
     code: MCPErrorCode,
@@ -97,7 +97,12 @@ export abstract class MCPBaseError extends Error {
       ...metadata,
     };
     this.details = details;
-    this.cause = cause;
+    // Use Object.defineProperty to set cause without a class-level declaration.
+    // A class property declaration triggers TS4113/TS4114 depending on whether
+    // the consuming tsconfig's lib includes Error.cause (ES2022+).
+    if (cause !== undefined) {
+      Object.defineProperty(this, "cause", { value: cause, enumerable: false, writable: false, configurable: true });
+    }
 
     // Maintain stack trace for proper error handling
     if (Error.captureStackTrace) {

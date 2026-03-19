@@ -11,10 +11,24 @@
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     "PNPM_HOME": "/home/vscode/.local/share/pnpm"
   },
-  "forwardPorts": [5173, 3001],
+  "forwardPorts": [
+    5173,
+    5174,
+    3001
+  ],
   "portsAttributes": {
-    "5173": { "label": "Frontend (Vite)", "onAutoForward": "notify" },
-    "3001": { "label": "Backend API", "onAutoForward": "notify" }
+    "5173": {
+      "label": "Frontend (Vite)",
+      "onAutoForward": "notify"
+    },
+    "5174": {
+      "label": "VOSAcademy (Vite)",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    }
   },
   "features": {},
   "customizations": {

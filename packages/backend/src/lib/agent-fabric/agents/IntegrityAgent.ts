@@ -363,7 +363,8 @@ export class IntegrityAgent extends BaseAgent {
     const claims: IntegrityClaim[] = [];
 
     for (const kpi of kpis) {
-      const m = kpi.metadata;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const m = kpi.metadata as any;
       claims.push({
         id: `kpi-${m.kpi_id || kpi.id}`,
         text: `KPI "${kpi.content}" can move from baseline ${m.baseline?.value} to target ${m.target?.value} ${m.unit || ''} within ${m.target?.timeframe_months || '?'} months.`,
@@ -381,7 +382,8 @@ export class IntegrityAgent extends BaseAgent {
     }
 
     for (const hyp of hypotheses) {
-      const m = hyp.metadata;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const m = hyp.metadata as any;
       const impact = m.estimated_impact || {};
       claims.push({
         id: `hyp-${hyp.id}`,

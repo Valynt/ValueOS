@@ -46,23 +46,7 @@ export interface AgentAuditLog {
   /**
    * Response metadata
    */
-  response_metadata?: {
-    duration: number;
-    confidence?: number;
-    model?: string;
-    prompt_version_refs?: Array<{
-      prompt_key: string;
-      version: string;
-      owner?: string;
-      ticket?: string;
-      risk_class?: 'low' | 'medium' | 'high' | 'critical';
-    }>;
-    tokens?: {
-      prompt: number;
-      completion: number;
-      total: number;
-    };
-  };
+  response_metadata?: unknown;
 
   /**
    * Success status
@@ -362,26 +346,26 @@ export class AgentAuditLogger {
 
     // Encrypt sensitive response data
     if (sanitized.response_data) {
-      sanitized.response_data = this.encryptSensitiveData(
-        sanitized.response_data
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sanitized.response_data = this.encryptSensitiveData(sanitized.response_data) as any;
     }
 
     // Encrypt sensitive context
     if (sanitized.context) {
-      sanitized.context = this.encryptSensitiveData(sanitized.context);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sanitized.context = this.encryptSensitiveData(sanitized.context) as any;
     }
 
     // Encrypt sensitive metadata
     if (sanitized.metadata) {
-      sanitized.metadata = this.encryptSensitiveData(sanitized.metadata);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sanitized.metadata = this.encryptSensitiveData(sanitized.metadata) as any;
     }
 
     // Encrypt sensitive response metadata
     if (sanitized.response_metadata) {
-      sanitized.response_metadata = this.encryptSensitiveData(
-        sanitized.response_metadata
-      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sanitized.response_metadata = this.encryptSensitiveData(sanitized.response_metadata) as any;
     }
 
     return sanitized;
@@ -419,15 +403,15 @@ export class AgentAuditLogger {
     try {
       // Encrypt the entire data structure
       const dataString = JSON.stringify(data);
-      const encryptedData = encrypt(dataString, this.encryptionKey!);
+      const encryptedString = await encrypt(dataString, this.encryptionKey!);
 
       // Return encrypted data with encryption marker
       return {
         __encrypted__: true,
-        data: encryptedData.data,
-        iv: encryptedData.iv,
-        tag: encryptedData.tag,
-        algorithm: encryptedData.algorithm,
+        data: encryptedString,
+        iv: '',
+        tag: '',
+        algorithm: 'aes-256-gcm',
       };
     } catch (error) {
       logger.error(
@@ -448,19 +432,14 @@ export class AgentAuditLogger {
     }
 
     // Check if data is encrypted
-    if (!data.__encrypted__) {
+    const dataRecord = data as Record<string, unknown>;
+    if (!dataRecord.__encrypted__) {
       return data;
     }
 
     try {
-      const encryptedData = {
-        data: data.data,
-        iv: data.iv,
-        tag: data.tag,
-        algorithm: data.algorithm,
-      };
-
-      const decryptedString = decrypt(encryptedData, this.encryptionKey!);
+      const encryptedString = dataRecord.data as string;
+      const decryptedString = await decrypt(encryptedString, this.encryptionKey!);
       return JSON.parse(decryptedString);
     } catch (error) {
       logger.error(
@@ -704,21 +683,23 @@ export class AgentAuditLogger {
       }
 
       if (entry.response_data) {
-        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        entry.response_data = this.sanitizeAndZeroMemory(entry.response_data) as any;
       }
 
       if (entry.context) {
-        entry.context = this.sanitizeAndZeroMemory(entry.context);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        entry.context = this.sanitizeAndZeroMemory(entry.context) as any;
       }
 
       if (entry.metadata) {
-        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        entry.metadata = this.sanitizeAndZeroMemory(entry.metadata) as any;
       }
 
       if (entry.response_metadata) {
-        entry.response_metadata = this.sanitizeAndZeroMemory(
-          entry.response_metadata
-        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        entry.response_metadata = this.sanitizeAndZeroMemory(entry.response_metadata) as any;
       }
     });
   }
@@ -788,13 +769,13 @@ export class AgentAuditLogger {
     }
 
     // Decrypt sensitive data in retrieved logs
-    const decryptedLogs = data.map((log: AgentAuditLog) => ({
+    const decryptedLogs = (data as AgentAuditLog[]).map((log: AgentAuditLog) => ({
       ...log,
       response_data: this.decryptSensitiveData(log.response_data),
       context: this.decryptSensitiveData(log.context),
       metadata: this.decryptSensitiveData(log.metadata),
       response_metadata: this.decryptSensitiveData(log.response_metadata),
-    }));
+    })) as AgentAuditLog[];
 
     return decryptedLogs;
   }

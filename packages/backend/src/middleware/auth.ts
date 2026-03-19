@@ -635,6 +635,7 @@ export async function verifyAccessToken(token: string, context: VerificationCont
  * Middleware to require authentication for protected routes
  * Adds user and session to request object if authenticated
  */
+export { requireAuth as authenticate };
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const authHeader = req.headers.authorization;

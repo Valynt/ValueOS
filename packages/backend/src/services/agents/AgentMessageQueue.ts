@@ -346,6 +346,7 @@ export class AgentMessageQueue {
       "value-mapping": 7,
       "value-eval": 6,
       groundtruth: 8, // High priority for validation
+      "compliance-auditor": 9,
     };
 
     return priorities[agent] || 5;
@@ -359,15 +360,11 @@ export function getAgentMessageQueue(redisUrl?: string): AgentMessageQueue {
   if (!agentMessageQueue) {
     agentMessageQueue = new AgentMessageQueue(redisUrl);
     // Register with graceful shutdown manager
-    registerShutdownHandler(
-      "AgentMessageQueue",
-      async () => {
-        if (agentMessageQueue) {
-          await agentMessageQueue.shutdown();
-        }
-      },
-      10 // Medium priority - after consumers, before producers
-    );
+    registerShutdownHandler(async () => {
+      if (agentMessageQueue) {
+        await agentMessageQueue.shutdown();
+      }
+    });
   }
   return agentMessageQueue;
 }

@@ -2,6 +2,14 @@
  * Manifesto Rules Engine
  */
 
+export interface ValidationRule {
+  field: string;
+  required?: boolean;
+  type?: string;
+  validator?: (value: unknown) => boolean;
+  message?: string;
+}
+
 export interface ManifestoRule {
   id: string;
   name: string;

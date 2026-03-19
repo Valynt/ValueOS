@@ -9,13 +9,13 @@
 
 import { z } from "zod";
 
-import type { CRMFetchResult } from "../../services/deal/CRMConnector";
+import type { CRMFetchResult } from "../../../services/deal/CRMConnector";
 import { logger } from "../../logger";
 import type {
   AgentConfig,
   AgentOutput,
   LifecycleContext,
-} from "../../types/agent";
+} from "../../../types/agent";
 import { CircuitBreaker } from "../CircuitBreaker";
 import { LLMGateway } from "../LLMGateway";
 import { MemorySystem } from "../MemorySystem";
@@ -271,7 +271,7 @@ Flag any missing critical data like: confirmed budget, decision timeline, curren
       });
   }
 
-  getCapabilities(): string[] {
+  override getCapabilities(): string[] {
     return [
       "extract_stakeholders",
       "extract_use_cases",

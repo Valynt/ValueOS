@@ -106,13 +106,13 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
   const cookieToken = getCookie(req, CSRF_COOKIE_NAME);
 
   if (!headerToken || !cookieToken || headerToken.length !== cookieToken.length) {
-    return res.status(403).json({ error: "CSRF validation failed" });
+    return void res.status(403).json({ error: "CSRF validation failed" });
   }
 
   const headerBuf = Buffer.from(headerToken);
   const cookieBuf = Buffer.from(cookieToken);
   if (!crypto.timingSafeEqual(headerBuf, cookieBuf)) {
-    return res.status(403).json({ error: "CSRF validation failed" });
+    return void res.status(403).json({ error: "CSRF validation failed" });
   }
 
   next();

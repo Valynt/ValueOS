@@ -8,6 +8,50 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ValueModelWorkbench } from "../../views/ValueModelWorkbench";
 
+// Mock CanvasHost to render widget content directly
+vi.mock("@/components/canvas/CanvasHost", () => ({
+  CanvasHost: ({ widgets }: { widgets: any[] }) => (
+    <div data-testid="canvas-host">
+      {widgets?.map((widget: any) => (
+        <div key={widget.id} data-testid={`widget-${widget.id}`}>
+          {widget.componentType === "hypothesis-card" && widget.props?.hypotheses && (
+            <div>
+              {widget.props.hypotheses.map((h: any) => (
+                <div key={h.id}>
+                  <span>{h.valueDriver}</span>
+                  <span>{h.impactRange?.low}-{h.impactRange?.high}</span>
+                  <button>Accept</button>
+                  <button>Reject</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {widget.componentType === "assumption-register" && widget.props?.assumptions && (
+            <div>
+              {widget.props.assumptions.map((a: any) => (
+                <div key={a.id}>
+                  <span>{a.name}</span>
+                  <span>{a.value} {a.unit}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {widget.componentType === "scenario-comparison" && widget.props?.scenarios && (
+            <div>
+              {widget.props.scenarios.map((s: any) => (
+                <div key={s.id}>
+                  <span>{s.name}</span>
+                  <span>ROI: {s.roi}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  ),
+}));
+
 // Mock hooks
 vi.mock("@/hooks/useValueModeling", () => ({
   useHypotheses: () => ({

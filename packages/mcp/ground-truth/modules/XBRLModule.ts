@@ -46,7 +46,7 @@ export class XBRLModule extends BaseModule {
   private userAgent: string = '';
   private baseUrl: string = 'https://data.sec.gov/api/xbrl';
   private rateLimit: number = 10;
-  override private lastRequestTime: number = 0;
+  protected override lastRequestTime: number = 0;
   private factsCache: Map<string, any> = new Map();
 
   // Standard XBRL US GAAP taxonomy mappings
@@ -96,13 +96,13 @@ export class XBRLModule extends BaseModule {
     return this.executeWithMetrics(request, async () => {
       this.validateRequest(request, ['identifier', 'metric']);
 
-      const { identifier: cik, metric, period, options } = request;
+      const { identifier: cik, metric = 'revenue', period, options } = request;
 
       // Get company facts
       const facts = await this.getCompanyFacts(cik);
 
       // Map metric name to XBRL tag
-      const xbrlTag = this.GAAP_MAPPINGS[metric] || metric;
+      const xbrlTag = this.GAAP_MAPPINGS[metric] ?? metric;
 
       // Extract specific fact
       const fact = this.extractFact(facts, xbrlTag, period);

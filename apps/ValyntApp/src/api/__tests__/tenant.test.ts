@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  mockEq,
-  mockSelect,
-  mockFrom,
-  mockGetUser,
-} = vi.hoisted(() => ({
+const { mockEq, mockSelect, mockFrom, mockGetUser } = vi.hoisted(() => ({
   mockEq: vi.fn(),
   mockSelect: vi.fn(),
   mockFrom: vi.fn(),
@@ -50,6 +45,7 @@ describe("tenant api security", () => {
 
     await getTenantById(dangerousTenantId);
 
-    expect(mockEq).toHaveBeenCalledWith("id", "tenant-1&lt;script&gt;alert(1)&lt;&#x2F;script&gt;");
+    // sanitizeInput with allowHtml: false strips script tags entirely
+    expect(mockEq).toHaveBeenCalledWith("id", "tenant-1");
   });
 });
