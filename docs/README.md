@@ -232,9 +232,10 @@
 - [Project Management](./processes/project-management.md)
 - [Risk Register Process](./processes/risk-register-process.md)
 
-### Quality — 1 document
+### Quality — 2 documents
 
 - [Frontend Quality Dashboard](./quality/frontend-quality-dashboard.md)
+- [UX Quality Scorecard](./quality/ux-quality-scorecard.md)
 
 ### Refactor — 1 document
 
