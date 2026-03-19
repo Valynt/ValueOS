@@ -8,7 +8,6 @@ import { vi } from 'vitest';
 
 
 import { ConfigurationPanel } from '../ConfigurationPanel';
-import '@testing-library/jest-dom';
 
 // Mock the toast hook
 vi.mock('@/components/ui/use-toast', () => ({

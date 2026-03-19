@@ -13,7 +13,6 @@ import { vi } from 'vitest';
 
 
 import { ConfigurationPanel } from '../ConfigurationPanel';
-import '@testing-library/jest-dom';
 
 vi.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({
