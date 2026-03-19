@@ -141,6 +141,9 @@ jobs:
       - name: CI security control-matrix guard
         run: node scripts/ci/check-ci-security-control-matrix.mjs
 
+      - name: Required-check documentation/workflow consistency guard
+        run: node scripts/ci/check-required-check-workflow-consistency.mjs
+
       - name: CI scanner action version manifest guard
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
 
