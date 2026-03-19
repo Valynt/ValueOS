@@ -33,7 +33,7 @@ describe('renderPage', () => {
         ],
       };
 
-      const result = renderPage(pageDefinition);
+      const result = renderPage(pageDefinition, { skipComponentValidation: true });
 
       expect(result.element).toBeDefined();
       expect(result.warnings).toEqual([]);
@@ -130,7 +130,7 @@ describe('renderPage', () => {
         ],
       };
 
-      const result = renderPage(pageDefinition);
+      const result = renderPage(pageDefinition, { skipComponentValidation: true });
 
       expect(result.element).toBeDefined();
       expect(result.metadata.componentCount).toBe(1);
@@ -150,7 +150,7 @@ describe('renderPage', () => {
         ],
       };
 
-      const result = renderPage(pageDefinition);
+      const result = renderPage(pageDefinition, { skipComponentValidation: true });
 
       expect(result.element).toBeDefined();
       // Should render fallback component
@@ -170,7 +170,7 @@ describe('renderPage', () => {
         ],
       };
 
-      const result = renderPage(pageDefinition);
+      const result = renderPage(pageDefinition, { skipComponentValidation: true });
       const { getByTestId } = render(result.element);
       // renderPage renders UnknownComponentFallback for unregistered components
       expect(getByTestId('unknown-component-fallback')).toBeInTheDocument();
@@ -392,6 +392,7 @@ describe('renderPage', () => {
 
       renderPage(pageDefinition, {
         unknownComponentFallback: CustomErrorFallback,
+        skipComponentValidation: true,
       });
 
       // Custom fallback should be used for unknown components

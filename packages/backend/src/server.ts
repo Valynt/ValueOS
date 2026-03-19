@@ -30,6 +30,7 @@ logger.info("[Instrumentation] CORS imported successfully");
 import { createServer, type IncomingMessage } from "http";
 
 import { parseCorsAllowlist } from "@shared/config/cors";
+import { initializeContext } from "@shared/lib/context";
 import compression from "compression";
 import cors from "cors";
 import express from "express";
@@ -86,7 +87,6 @@ import { NotificationActionSigner } from "./services/approvals/NotificationActio
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 import { createArtifactGenerationWorker } from "./workers/ArtifactGenerationWorker.js";
-const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';

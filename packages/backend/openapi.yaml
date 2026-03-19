@@ -2,8 +2,16 @@ openapi: 3.1.0
 info:
   title: ValueOS API
   version: 1.0.0
+  contact:
+    name: ValueOS Support
+    email: support@valueos.com
+    url: https://docs.valueos.com
   description: |
     OpenAPI specification for the ValueOS backend API.
+
+    Canonical production base URL: https://api.valueos.com
+    Canonical docs URL: https://docs.valueos.com
+    Support: support@valueos.com
 
     All endpoints require a Bearer JWT unless marked as public.
     Every response uses a consistent envelope: `{ data }` on success,
@@ -13,7 +21,9 @@ info:
     pass `organization_id` in request bodies — it is derived from the
     authenticated JWT.
 servers:
-  - url: https://api.valueos.local
+  - url: https://api.valueos.com
+    description: Production
+  - url: http://localhost:3001
     description: Local development
 security:
   - bearerAuth: []
@@ -1450,12 +1460,12 @@ paths:
 
   /api/teams:
     get:
-      summary: List teams for the authenticated tenant
-      operationId: listTeams
+      summary: List team members for the tenant
+      operationId: listTeamMembers
       tags: [Admin]
       responses:
         "200":
-          description: List of teams
+          description: Team member list
           content:
             application/json:
               schema:
@@ -1466,6 +1476,35 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Invite a team member
+      operationId: inviteTeamMember
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+      responses:
+        "201":
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -1834,72 +1873,6 @@ paths:
                     properties:
                       jobId:
                         type: string
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  # ---------------------------------------------------------------------------
-  # Agents — additional endpoints (Sprint 45 additions)
-  # ---------------------------------------------------------------------------
-
-  /api/v1/agents/{agentId}/info:
-    get:
-      summary: Get agent metadata and capabilities
-      operationId: getAgentInfoV1
-      tags: [Agents]
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Agent info
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      agentId:
-                        type: string
-                      name:
-                        type: string
-                      version:
-                        type: string
-                      lifecycleStage:
-                        type: string
-                      capabilities:
-                        type: array
-                        items:
-                          type: string
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/v1/agents/jobs/{jobId}/stream:
-    get:
-      summary: Stream agent job output via SSE
-      operationId: streamAgentJobV1
-      tags: [Agents]
-      parameters:
-        - name: jobId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Server-sent event stream
-          content:
-            text/event-stream:
-              schema:
-                type: string
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -2363,59 +2336,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-
-  # ---------------------------------------------------------------------------
-  # Teams — Sprint 45 additions
-  # ---------------------------------------------------------------------------
-
-  /api/teams:
-    get:
-      summary: List team members for the tenant
-      operationId: listTeamMembers
-      tags: [Admin]
-      responses:
-        "200":
-          description: Team member list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    post:
-      summary: Invite a team member
-      operationId: inviteTeamMember
-      tags: [Admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, role]
-              properties:
-                email:
-                  type: string
-                  format: email
-                role:
-                  type: string
-      responses:
-        "201":
-          description: Invitation sent
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-        "401":
-          $ref: "#/components/responses/Unauthorized"
 
   /api/teams/{memberId}:
     patch:

@@ -1,176 +1,75 @@
-# Deploy to Production
+# Deploy to Shared Environments
+<!-- active-runtime-platform: kubernetes -->
 
-> **Note:** Production deployment uses Docker Compose. Kubernetes manifests in
-> `infra/k8s/` are aspirational and not validated for v1.
-> See `ops/STAGING_DEPLOY_CHECKLIST.md` for the first-deploy checklist.
+ValueOS shared-environment deployments are standardized on **Kubernetes**.
 
-## Environment Matrix
+**Kubernetes is the only active deploy target for staging and production.** Docker Compose remains useful for local and prod-like validation, but it is not the active shared-environment deployment path.
 
-| Concern       | Dev                          | Staging                           | Production                             |
-| ------------- | ---------------------------- | --------------------------------- | -------------------------------------- |
-| Compose file  | `ops/compose/compose.yml`    | `ops/compose/compose.staging.yml` | `infra/docker/docker-compose.prod.yml` |
-| Env template  | `ops/env/.env.local.example` | `ops/env/.env.staging.template`   | `ops/env/.env.production.template`     |
-| Env reference | `ops/env/.env.base`          | `ops/env/.env.base`               | `ops/env/.env.base`                    |
-| Caddy config  | `infra/caddy/Caddyfile.dev`  | `infra/caddy/Caddyfile.staging`   | `infra/caddy/Caddyfile.prod`           |
-| TLS           | none                         | ACME staging CA                   | ACME production                        |
-| Replicas      | 1                            | 2                                 | 3+                                     |
-| K8s overlay   | (not used)                   | `infra/k8s/overlays/staging`      | `infra/k8s/overlays/production`        |
-| `NODE_ENV`    | `development`                | `staging`                         | `production`                           |
-| `APP_ENV`     | `local`                      | `staging`                         | `prod`                                 |
+## Active platform matrix
 
-### Environment-specific GitHub Secrets
+| Concern | Local development | Staging | Production |
+| --- | --- | --- | --- |
+| Runtime substrate | Docker Compose (`ops/compose/compose.yml`) | Kubernetes | Kubernetes |
+| Runtime source of truth | `ops/compose/` | `infra/k8s/base/` + `infra/k8s/overlays/staging/` | `infra/k8s/base/` + `infra/k8s/overlays/production/` |
+| Deployment workflow | developer-invoked local commands | `.github/workflows/deploy.yml` | `.github/workflows/deploy.yml` |
+| Cluster auth secret | n/a | `KUBE_CONFIG_STAGING` | `KUBE_CONFIG_PRODUCTION` |
+| Rollout mechanism | local compose restart | `kustomize build | kubectl apply -f -` | `kustomize build | kubectl apply -f -` |
 
-When using the CI deploy workflow (`.github/workflows/deploy.yml`), configure
-these secrets in each GitHub Environment:
+## Platform boundary
 
-**staging** environment:
+Terraform and Kubernetes serve different layers of the deployment system:
 
-- `STAGING_DATABASE_URL` -- Postgres connection string with `sslmode=require`
-- `VITE_SUPABASE_URL` -- Supabase project URL for the staging project
-- `VITE_SUPABASE_ANON_KEY` -- Supabase anon key for the staging project
-- `KUBE_CONFIG_STAGING` -- kubeconfig for the staging cluster (if using K8s)
+- **Terraform-managed supporting infrastructure** ends at cloud resources and cluster prerequisites: networking, IAM, DNS, certificates, secret stores, observability backends, managed data services, and environment-level support infrastructure.
+- **Kubernetes-managed runtime** begins at the cluster API: Deployments, Services, HPAs, CronJobs, ConfigMaps, network policies, pod placement, and rollout orchestration.
 
-**production** environment:
+If a change modifies how the application runs inside the cluster, it belongs under `infra/k8s/`. If it provisions or changes the cloud services the cluster depends on, it belongs under Terraform.
 
-- `PRODUCTION_DATABASE_URL` -- Postgres connection string with `sslmode=require`
-- `VITE_SUPABASE_URL` -- Supabase project URL for the production project
-- `VITE_SUPABASE_ANON_KEY` -- Supabase anon key for the production project
-- `KUBE_CONFIG_PRODUCTION` -- kubeconfig for the production cluster (if using K8s)
+## Archived ECS reference
+
+Archived ECS Terraform modules are retained only under `infra/reference/terraform-archived-ecs/`.
+
+- They are non-production reference material.
+- No standard CI workflow may enable them.
+- Reuse requires a dedicated break-glass pull request plus CI allowlist updates.
 
 ## Prerequisites
 
-- Docker + Docker Compose v2
-- A Supabase project (or self-hosted Supabase instance)
-- A domain with DNS pointing to your server
+- Access to the target Kubernetes cluster
+- `kubectl` and `kustomize`
+- GitHub environment secrets:
+  - `KUBE_CONFIG_STAGING`
+  - `KUBE_CONFIG_PRODUCTION`
+- Published backend and frontend images from `.github/workflows/deploy.yml`
 
-> **Canonical compose location:** `ops/compose/compose.yml`. The root `docker-compose.yml` and
-> `docker-compose.deps.yml` are thin backward-compatibility wrappers that include `ops/compose/compose.yml`.
-> Always reference `ops/compose/` directly for production deployments.
+## Standard deployment flow
 
-## Required Environment Variables
+1. Push or dispatch `.github/workflows/deploy.yml`.
+2. Let the workflow build and sign backend/frontend images.
+3. The workflow authenticates to the target cluster with the environment-specific kubeconfig secret.
+4. The workflow updates image references in `infra/k8s/` and applies the manifests with `kustomize` + `kubectl`.
+5. The workflow waits for rollout status and executes post-deploy validation.
 
-All compose files under `ops/compose/` use `${VAR:?error message}` syntax for credentials — Docker Compose
-will refuse to start if any required variable is unset. Populate `ops/env/.env.local` before running
-`docker compose up`.
-
-Start from the production template and then fill in the values for your environment:
-
-```bash
-cp ops/env/.env.production.template ops/env/.env.local
-```
-
-Create `ops/env/.env.local` (or set these in your hosting platform):
+## Manual verification
 
 ```bash
-# Domain
-APP_DOMAIN=app.yourdomain.com
-ACME_EMAIL=ops@yourdomain.com
-
-# Supabase (from your Supabase project dashboard → Settings → API)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
-
-# Backend
-DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres?sslmode=require
-REDIS_URL=rediss://redis.yourdomain.internal:6379
-REDIS_TLS_REJECT_UNAUTHORIZED=true
-REDIS_TLS_CA_CERT_PATH=/run/secrets/redis-ca.crt
-REDIS_TLS_SERVERNAME=redis.yourdomain.internal
-
-# CORS — two variables are read by different parts of the backend; set both.
-# CORS_ALLOWED_ORIGINS: read by securityConfig.ts and settings.ts (security middleware)
-# CORS_ORIGINS: read by environment.ts (getConfig() used by the main Express CORS setup)
-# Both must be an explicit comma-separated origin list — wildcards are rejected when credentials are enabled.
-CORS_ALLOWED_ORIGINS=https://app.yourdomain.com,https://admin.yourdomain.com
-CORS_ORIGINS=https://app.yourdomain.com,https://admin.yourdomain.com
-
-# MFA — must be true in production
-MFA_ENABLED=true
-
-# Secrets (create files in infra/secrets/)
-# infra/secrets/supabase_service_key.txt  — Supabase service_role key
-# infra/secrets/openai_api_key.txt        — OpenAI API key
+kubectl get deploy -n valynt
+kubectl get pods -n valynt
+kubectl get svc -n valynt
+kubectl rollout status deployment/backend-green-production -n valynt --timeout=300s
 ```
 
-## Production Backend Runtime Policy
+For staging, use the staging namespace and deployment names defined in `infra/k8s/overlays/staging/`.
 
-ValueOS production runtime is standardized on **`packages/backend`**.
+## Break-glass policy
 
-- Canonical backend artifact: `infra/docker/Dockerfile.backend` (build arg `APP=@valueos/backend`)
-- Frozen duplicate tree: `apps/ValyntApp/src/services/**` is not a deploy runtime source
-- Any required migration sync touching both trees must use a dedicated commit tagged with `[migration-sync]`
+Production exceptions to the normal deployment controls require a dedicated break-glass workflow with reviewer approval and audit evidence capture. The standard `deploy.yml` workflow does not permit production test bypass.
 
-## TLS Requirements (Staging/Production)
+## Local and prod-like validation
 
-- **Postgres:** `DATABASE_URL` (and `DIRECT_DATABASE_URL` when used) must set `sslmode=require` or stricter (`verify-ca`/`verify-full`).
-- **Redis:** `REDIS_URL` must use `rediss://` and certificate validation must remain enabled via `REDIS_TLS_REJECT_UNAUTHORIZED=true`.
-- **Redis CA/hostname validation:** set `REDIS_TLS_CA_CERT_PATH` (or `REDIS_TLS_CA_CERT`) and `REDIS_TLS_SERVERNAME`.
-
-## Deploy
+Use Docker Compose only for workstation validation or isolated prod-like testing:
 
 ```bash
-# From the repo root:
-docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f ops/compose/compose.yml up -d
 ```
 
-This starts:
-
-- **Caddy** — reverse proxy with automatic HTTPS (ports 80/443)
-- **Frontend** — Vite-built SPA served by nginx (port 8080 internal)
-- **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 3001 internal)
-- **Postgres** — database (port 5432 internal)
-- **Redis** — session cache and rate limiting (port 6379 internal)
-
-## Verify
-
-```bash
-# Check all services are healthy
-docker compose -f infra/docker/docker-compose.prod.yml ps
-
-# Check frontend
-curl -s https://app.yourdomain.com/health
-
-# Check backend
-curl -s https://app.yourdomain.com/api/health/ready
-```
-
-## Supabase Setup
-
-1. Run migrations against your Supabase project:
-
-   ```bash
-   # Use ops/env/.env.production.template as the starting point for provisioning
-   # and export DATABASE_URL before running the command.
-   cd infra/supabase/supabase
-   supabase db push --db-url "$DATABASE_URL"
-   ```
-
-2. Configure auth in Supabase Dashboard:
-   - Enable Email auth provider
-   - Set Site URL to `https://app.yourdomain.com`
-   - Add `https://app.yourdomain.com/auth/callback` to Redirect URLs
-
-## Minimal Deploy (Frontend Only)
-
-> This path does **not** deploy backend runtime. Production API runtime remains `packages/backend`.
-
-If you only need the frontend (e.g., deploying to Vercel/Netlify/Cloudflare Pages):
-
-```bash
-cd apps/ValyntApp
-VITE_SUPABASE_URL=https://your-project.supabase.co \
-VITE_SUPABASE_ANON_KEY=eyJ... \
-pnpm run build
-# Output is in dist/ — deploy this as a static site with SPA fallback
-```
-
-## Migration Notes: Certificate Distribution in Containers
-
-1. **Distribute internal CA certificates as secrets** (Docker Swarm/Kubernetes secret/CSI secret) and mount read-only into backend containers (for example: `/run/secrets/redis-ca.crt`).
-2. **Set trust-chain env vars** in deploy manifests:
-   - `REDIS_TLS_CA_CERT_PATH=/run/secrets/redis-ca.crt`
-   - `REDIS_TLS_SERVERNAME=<redis certificate SAN/CN>`
-   - `REDIS_TLS_REJECT_UNAUTHORIZED=true`
-3. **Rotate certificates safely** by publishing new CA bundles before server cert rotation; keep overlap until all workloads restart with the updated trust bundle.
-4. **Validate before cutover** using a one-off container check (e.g., `openssl s_client -connect redis-host:6379 -servername redis-host -CAfile /run/secrets/redis-ca.crt`).
-5. **Postgres trust chain:** if provider requires custom CA, append `sslrootcert=<path>` to Postgres URL and mount that CA bundle similarly.
+That command does **not** deploy the shared staging or production runtime.

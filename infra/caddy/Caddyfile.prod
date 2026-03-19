@@ -7,10 +7,6 @@ import ./Caddyfile
   import security_headers_strict
   import access_log
 
-  handle /healthz {
-    import healthz
-  }
-
   handle /api/* {
     import api_proxy
   }
@@ -22,10 +18,6 @@ import ./Caddyfile
 
 http://{$APP_DOMAIN:app.example.com} {
   import access_log
-
-  handle /healthz {
-    import healthz
-  }
 
   redir https://{host}{uri} 308
 }

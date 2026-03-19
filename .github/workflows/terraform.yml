@@ -1,4 +1,5 @@
 name: Terraform
+# active-runtime-platform: kubernetes
 
 on:
   push:
@@ -44,6 +45,12 @@ jobs:
 
       - name: Terraform/K8s scaling parity check
         run: node ../../scripts/ci/check-terraform-k8s-scaling-parity.mjs
+
+      - name: Runtime platform contract guard
+        run: node ../../scripts/ci/check-runtime-platform-contract.mjs
+
+      - name: Archived ECS guardrails
+        run: node ../../scripts/ci/check-archived-ecs-guardrails.mjs
 
       - name: Run Checkov custom secret policies
         uses: bridgecrewio/checkov-action@v12

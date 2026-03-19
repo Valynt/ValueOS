@@ -11,8 +11,11 @@
 - [Compliance Guide](./compliance-guide.md)
 - [Control Summaries (Customer-Facing)](./control-summaries.md)
 - [Control Traceability Matrix](./control-traceability-matrix.md)
+- [Control Ownership Matrix](./control-ownership-matrix.md)
 - [Data Ownership Statement](./data-ownership-statement.md)
 - [Evidence Index](./evidence-index.md)
+- [Audit Exceptions Policy](./audit-exceptions-policy.md)
+- [Observability Controls and Evidence](./observability-controls-and-evidence.md)
 - [HIPAA Applicability Profile](./hipaa-applicability-profile.md)
 - [Production Contract](./production-contract.md)
 - [RBAC Role Taxonomy](./rbac-role-taxonomy.md)
@@ -24,4 +27,4 @@
 
 ---
 
-**Total Documents**: 15
+**Total Documents**: 18

@@ -8,6 +8,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { api } from "@/api/client/unified-api-client";
 import { useDealContext, useSubmitGapFill, useTriggerAssembly } from "../useDealAssembly";
 
 // Mock API client
@@ -48,7 +49,7 @@ describe("useDealAssembly hooks", () => {
     });
 
     it("handles error state", async () => {
-      vi.mocked(require("@/api/client/unified-api-client").api.getDealContext).mockRejectedValueOnce(new Error("Failed"));
+      vi.mocked(api.getDealContext).mockRejectedValueOnce(new Error("Failed"));
       const { result } = renderHook(() => useDealContext("case-123"), { wrapper: createWrapper() });
 
       await waitFor(() => expect(result.current.isError).toBe(true));

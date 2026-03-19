@@ -8,12 +8,31 @@ import UsageEmitter from '../UsageEmitter';
 
 describe('UsageEmitter', () => {
   it('should emit usage event with required evidence fields', async () => {
-    const insert = vi.fn().mockResolvedValue({ error: null });
+    const usageEventsInsert = vi.fn().mockResolvedValue({ error: null });
     const supabase = {
-      from: vi.fn().mockReturnValue({ insert }),
-    } as any;
+      from: vi.fn((table: string) => {
+        if (table === 'usage_events') {
+          return { insert: usageEventsInsert };
+        }
 
-    const emitter = new UsageEmitter(supabase);
+        if (table === 'usage_ledger') {
+          return {
+            insert: vi.fn(() => ({
+              select: () => ({
+                maybeSingle: async () => ({ data: { id: 'ledger-1' }, error: null }),
+              }),
+            })),
+          };
+        }
+
+        return { insert: vi.fn().mockResolvedValue({ error: null }) };
+      }),
+    } as any;
+    const queueProducer = {
+      publishUsageEvent: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const emitter = new UsageEmitter(supabase, queueProducer as never);
 
     await emitter.emitUsage({
       tenantId: '123e4567-e89b-12d3-a456-426614174000',
@@ -32,7 +51,8 @@ describe('UsageEmitter', () => {
     });
 
     expect(supabase.from).toHaveBeenCalledWith('usage_events');
-    expect(insert).toHaveBeenCalledOnce();
+    expect(usageEventsInsert).toHaveBeenCalledOnce();
+    expect(queueProducer.publishUsageEvent).toHaveBeenCalledOnce();
   });
 
   it('should reject usage event when evidence fields are missing', async () => {

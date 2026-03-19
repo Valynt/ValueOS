@@ -28,5 +28,21 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
-  "tsErrorBaseline": 136
+  "tsErrorBaseline": 136,
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-ui-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the root Vitest workspace inline SDUI project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Internal UI engine distributed through applications, not standalone releases."
+      }
+    }
+  }
 }

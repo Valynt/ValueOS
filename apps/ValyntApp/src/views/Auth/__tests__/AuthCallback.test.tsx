@@ -10,6 +10,10 @@ import { beforeEach, describe, it, vi } from "vitest";
 import { supabase } from "../../../lib/supabase";
 import AuthCallback from "../AuthCallback";
 
+const { mockGetSession } = vi.hoisted(() => ({
+  mockGetSession: vi.fn(),
+}));
+
 // Mock navigate
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -21,13 +25,21 @@ vi.mock("react-router-dom", async () => {
 });
 
 // Mock supabase
-vi.mock("../../../lib/supabase", () => ({
-  supabase: {
+vi.mock("../../../lib/supabase", () => {
+  const supabase = {
     auth: {
-      getSession: vi.fn(),
+      getSession: mockGetSession,
     },
-  },
-}));
+  };
+
+  return {
+    supabase,
+    createBrowserSupabaseClient: vi.fn(() => supabase),
+    createRequestSupabaseClient: vi.fn(() => supabase),
+    createServerSupabaseClient: vi.fn(() => supabase),
+    getSupabaseClient: vi.fn(() => supabase),
+  };
+});
 
 describe("AuthCallback Component", () => {
   beforeEach(() => {
@@ -43,7 +55,7 @@ describe("AuthCallback Component", () => {
         user: { id: "user-123", email: "test@example.com" },
       };
 
-      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      mockGetSession.mockResolvedValue({
         data: { session: mockSession },
         error: null,
       });
@@ -64,7 +76,7 @@ describe("AuthCallback Component", () => {
 
     it("should display completing sign in message", () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockImplementation(
+      mockGetSession.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
 
@@ -81,7 +93,7 @@ describe("AuthCallback Component", () => {
 
     it("should show loading spinner during session exchange", () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockImplementation(
+      mockGetSession.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
 
@@ -102,7 +114,7 @@ describe("AuthCallback Component", () => {
   describe("Failed OAuth Callback", () => {
     it("should redirect to login with error when session exchange fails", async () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      mockGetSession.mockResolvedValue({
         data: { session: null },
         error: { message: "OAuth failed", status: 400, name: "AuthApiError" },
       });
@@ -136,7 +148,7 @@ describe("AuthCallback Component", () => {
 
     it("should redirect to login when no session is found", async () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      mockGetSession.mockResolvedValue({
         data: { session: null },
         error: null,
       });
@@ -166,7 +178,7 @@ describe("AuthCallback Component", () => {
 
     it("should handle unexpected errors gracefully", async () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockRejectedValue(
+      mockGetSession.mockRejectedValue(
         new Error("Network error")
       );
 
@@ -197,7 +209,7 @@ describe("AuthCallback Component", () => {
   describe("Error Messages", () => {
     it("should display error message before redirecting on failure", async () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      mockGetSession.mockResolvedValue({
         data: { session: null },
         error: { message: "OAuth failed", status: 400, name: "AuthApiError" },
       });
@@ -221,7 +233,7 @@ describe("AuthCallback Component", () => {
 
     it("should clear any previous errors when component mounts", () => {
       // Arrange
-      vi.mocked(supabase.auth.getSession).mockImplementation(
+      mockGetSession.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
 

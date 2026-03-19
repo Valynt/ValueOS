@@ -30,5 +30,21 @@
   "peerDependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-design-system",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the parent packages/components Vitest workspace project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Source-distributed internal design system, not independently released from GitHub Actions."
+      }
+    }
   }
 }

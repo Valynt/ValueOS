@@ -97,15 +97,14 @@ describe("IntegrityDashboard", () => {
   });
 
   it("displays blocker banner when blockers exist", () => {
-    // Would need to mock with blockers
     render(<IntegrityDashboard />);
-    // Currently no blockers in mock, but check for readiness status
-    expect(screen.getByText(/presentation-ready|ready/i)).toBeInTheDocument();
+    expect(screen.getByText("This case is presentation-ready!")).toBeInTheDocument();
   });
 
   it("shows confidence distribution chart", () => {
     render(<IntegrityDashboard />);
 
-    expect(screen.getByText(/confidence|distribution/i)).toBeInTheDocument();
+    expect(screen.getByText("Benchmark Context")).toBeInTheDocument();
+    expect(screen.getByText(/Technology/i)).toBeInTheDocument();
   });
 });

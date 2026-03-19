@@ -28,7 +28,7 @@ export interface ESOConfig {
 }
 
 export class ESOService {
-  private adapters: Map<string, DataIngestionAdapter> = new Map();
+  private adapters: Map<string, DataIngestionAdapter<unknown, unknown, unknown>> = new Map();
   private dataCallbacks: Set<(data: ESODataPoint) => void> = new Set();
 
   constructor(private config: ESOConfig) {

@@ -11,42 +11,15 @@ import crypto from "node:crypto";
 
 import { NextFunction, Request, Response } from "express";
 
-import { getSecurityHeaders } from "../security/SecurityHeaders.js";
+export {
+  cspNonceMiddleware,
+  securityHeadersMiddleware,
+} from "./securityHeaders.js";
 export { sessionTimeoutMiddleware } from "./sessionTimeoutMiddleware.js";
 
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_HEADER_NAME = "x-csrf-token";
 const CSRF_TOKEN_BYTES = 32;
-const CSP_NONCE_BYTES = 16;
-
-/**
- * Generate a CSP nonce for routes that render HTML/script responses.
- */
-export function cspNonceMiddleware(_req: Request, res: Response, next: NextFunction): void {
-  res.locals.cspNonce = crypto.randomBytes(CSP_NONCE_BYTES).toString("base64");
-  next();
-}
-
-/**
- * Apply strong security headers to responses.
- */
-export function securityHeadersMiddleware(_req: Request, res: Response, next: NextFunction): void {
-  const headers = getSecurityHeaders();
-  const nonce = typeof res.locals.cspNonce === "string" ? res.locals.cspNonce : undefined;
-
-  for (const [key, value] of Object.entries(headers)) {
-    if (key === "Content-Security-Policy" && nonce) {
-      const cspWithNonce = value.replace("script-src 'self'", `script-src 'self' 'nonce-${nonce}'`);
-      res.setHeader(key, cspWithNonce);
-      continue;
-    }
-
-    res.setHeader(key, value);
-  }
-
-  next();
-}
-
 /**
  * Extract a cookie value from the request headers without relying on cookie-parser.
  */
@@ -102,6 +75,11 @@ export function csrfTokenMiddleware(req: Request, res: Response, next: NextFunct
  * Requires csrfTokenMiddleware to have set the cookie on a prior response.
  */
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction): void {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())) {
+    next();
+    return;
+  }
+
   const headerToken = req.header(CSRF_HEADER_NAME);
   const cookieToken = getCookie(req, CSRF_COOKIE_NAME);
 

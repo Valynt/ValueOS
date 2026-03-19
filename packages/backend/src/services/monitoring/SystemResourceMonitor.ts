@@ -9,7 +9,7 @@ import os from "os";
 
 import { logger } from "../../lib/logger.js";
 
-import { getMemoryPressureMonitor, MemoryPressure } from './MemoryPressureMonitor.js'
+import { getMemoryPressureMonitor, MemoryPressure } from "./MemoryPressureMonitor.js";
 
 // ============================================================================
 // Types
@@ -58,6 +58,8 @@ export class SystemResourceMonitor {
   private monitoringInterval: NodeJS.Timeout | null = null;
   private lastResources: SystemResources | null = null;
   private memoryMonitor = getMemoryPressureMonitor();
+  private previousResources: SystemResources | null = null;
+  private readonly coreCount: number;
 
   // CPU delta tracking for accurate usage calculation
   private lastCpuUsage = process.cpuUsage();
@@ -78,6 +80,7 @@ export class SystemResourceMonitor {
     private monitoringIntervalMs: number = 3000 // 3 seconds
   ) {
     this.thresholds = { ...this.DEFAULT_THRESHOLDS, ...thresholds };
+    this.coreCount = os.cpus().length;
   }
 
   /**
@@ -85,7 +88,7 @@ export class SystemResourceMonitor {
    */
   startMonitoring(): void {
     if (this.monitoringInterval) {
-      logger.warn('System resource monitoring already started');
+      logger.warn("System resource monitoring already started");
       return;
     }
 
@@ -93,7 +96,7 @@ export class SystemResourceMonitor {
       this.checkResources();
     }, this.monitoringIntervalMs);
 
-    logger.info('System resource monitoring started', {
+    logger.info("System resource monitoring started", {
       thresholds: this.thresholds,
       intervalMs: this.monitoringIntervalMs,
     });
@@ -106,7 +109,7 @@ export class SystemResourceMonitor {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
       this.monitoringInterval = null;
-      logger.info('System resource monitoring stopped');
+      logger.info("System resource monitoring stopped");
     }
   }
 
@@ -127,52 +130,19 @@ export class SystemResourceMonitor {
   /**
    * Get current system resources
    */
-  getCurrentResources(): SystemResources {
-    const memUsage = process.memoryUsage();
-    const memoryStats = this.memoryMonitor.getCurrentStats();
+  getCurrentResources(forceRefresh = false): SystemResources {
+    if (!forceRefresh && this.lastResources) {
+      return this.lastResources;
+    }
 
-    // Get CPU usage (simplified - in production use proper CPU monitoring)
-    const cpuUsage = this.getCpuUsage();
-
-    // Get load average (Unix-like systems only)
-    const loadAverage = process.platform !== 'win32'
-      ? require('os').loadavg()
-      : [0, 0, 0];
-
-    const coreCount = require('os').cpus().length;
-
-    // Get system memory (simplified)
-    const systemMemory = this.getSystemMemory();
-
-    const resources: SystemResources = {
-      cpu: {
-        usage: cpuUsage,
-        loadAverage,
-        coreCount,
-      },
-      memory: {
-        used: systemMemory.used,
-        total: systemMemory.total,
-        percentage: systemMemory.percentage,
-        pressure: memoryStats.pressure,
-      },
-      heap: {
-        used: memUsage.heapUsed,
-        total: memUsage.heapTotal,
-        percentage: (memUsage.heapUsed / memUsage.heapTotal) * 100,
-      },
-      timestamp: Date.now(),
-    };
-
-    this.lastResources = resources;
-    return resources;
+    return this.sampleResources();
   }
 
   /**
    * Calculate optimal concurrency based on current resources
    */
-  getOptimalConcurrency(baseConcurrency: number): number {
-    const resources = this.getCurrentResources();
+  getOptimalConcurrency(baseConcurrency: number, forceRefresh = false): number {
+    const resources = this.getCurrentResources(forceRefresh);
     let optimalConcurrency = baseConcurrency;
 
     // Scale down based on CPU usage
@@ -229,8 +199,8 @@ export class SystemResourceMonitor {
   /**
    * Check if system is under high load
    */
-  isUnderHighLoad(): boolean {
-    const resources = this.getCurrentResources();
+  isUnderHighLoad(forceRefresh = false): boolean {
+    const resources = this.getCurrentResources(forceRefresh);
 
     return (
       resources.cpu.usage > this.thresholds.maxCpuUsage ||
@@ -244,11 +214,11 @@ export class SystemResourceMonitor {
   /**
    * Get resource utilization trend
    */
-  getResourceTrend(): 'increasing' | 'decreasing' | 'stable' {
-    if (!this.lastResources) return 'stable';
+  getResourceTrend(forceRefresh = false): "increasing" | "decreasing" | "stable" {
+    const current = this.getCurrentResources(forceRefresh);
+    const previous = this.previousResources;
 
-    const current = this.getCurrentResources();
-    const previous = this.lastResources;
+    if (!previous) return "stable";
 
     const cpuTrend = current.cpu.usage > previous.cpu.usage ? 1 : -1;
     const memoryTrend = current.memory.percentage > previous.memory.percentage ? 1 : -1;
@@ -256,16 +226,16 @@ export class SystemResourceMonitor {
 
     const totalTrend = cpuTrend + memoryTrend + heapTrend;
 
-    if (totalTrend > 0) return 'increasing';
-    if (totalTrend < 0) return 'decreasing';
-    return 'stable';
+    if (totalTrend > 0) return "increasing";
+    if (totalTrend < 0) return "decreasing";
+    return "stable";
   }
 
   /**
    * Get system health score (0-100)
    */
-  getHealthScore(): number {
-    const resources = this.getCurrentResources();
+  getHealthScore(forceRefresh = false): number {
+    const resources = this.getCurrentResources(forceRefresh);
 
     const cpuScore = Math.max(0, 100 - resources.cpu.usage);
     const memoryScore = Math.max(0, 100 - resources.memory.percentage);
@@ -288,20 +258,20 @@ export class SystemResourceMonitor {
   // ============================================================================
 
   private checkResources(): void {
-    const resources = this.getCurrentResources();
+    const resources = this.sampleResources();
 
     // Notify listeners
     this.listeners.forEach(listener => {
       try {
         listener.onResourceChange(resources);
       } catch (error) {
-        logger.error('Error in resource listener', error instanceof Error ? error : undefined);
+        logger.error("Error in resource listener", error instanceof Error ? error : undefined);
       }
     });
 
     // Log warnings for high resource usage
     if (this.isUnderHighLoad()) {
-      logger.warn('High system resource usage detected', {
+      logger.warn("High system resource usage detected", {
         cpuUsage: resources.cpu.usage,
         memoryUsage: resources.memory.percentage,
         heapUsage: resources.heap.percentage,
@@ -309,6 +279,47 @@ export class SystemResourceMonitor {
         healthScore: this.getHealthScore(),
       });
     }
+  }
+
+  private sampleResources(): SystemResources {
+    const memUsage = process.memoryUsage();
+    const memoryStats = this.memoryMonitor.getCurrentStats();
+
+    // Get CPU usage (simplified - in production use proper CPU monitoring)
+    const cpuUsage = this.getCpuUsage();
+
+    // Get load average (Unix-like systems only)
+    const loadAverage = process.platform !== 'win32'
+      ? os.loadavg()
+      : [0, 0, 0];
+
+    // Get system memory (simplified)
+    const systemMemory = this.getSystemMemory();
+
+    const resources: SystemResources = {
+      cpu: {
+        usage: cpuUsage,
+        loadAverage,
+        coreCount: this.coreCount,
+      },
+      memory: {
+        used: systemMemory.used,
+        total: systemMemory.total,
+        percentage: systemMemory.percentage,
+        pressure: memoryStats.pressure,
+      },
+      heap: {
+        used: memUsage.heapUsed,
+        total: memUsage.heapTotal,
+        percentage: (memUsage.heapUsed / memUsage.heapTotal) * 100,
+      },
+      timestamp: Date.now(),
+    };
+
+    this.previousResources = this.lastResources;
+    this.lastResources = resources;
+
+    return resources;
   }
 
   private getCpuUsage(): number {
@@ -319,7 +330,7 @@ export class SystemResourceMonitor {
     const usage = process.cpuUsage(this.lastCpuUsage);
     // user + system time in microseconds; elapsedMs * 1000 = elapsed microseconds
     const totalCpuUs = usage.user + usage.system;
-    const elapsedUs = elapsedMs * 1000 * os.cpus().length; // scale by core count
+    const elapsedUs = elapsedMs * 1000 * this.coreCount; // scale by core count
 
     this.lastCpuUsage = process.cpuUsage();
     this.lastCpuTime = now;

@@ -6,6 +6,9 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 import { afterEach, beforeEach } from "vitest";
+
+import { createInMemorySupabaseClient } from "../../../../test/inMemorySupabase";
+import { isRealIntegrationTestMode } from "../../../../test/runtimeGuards";
 // Node 20+ provides global fetch, Headers, Request, Response
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
@@ -17,8 +20,10 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABA
 const JWT_SECRET =
   process.env.SUPABASE_JWT_SECRET || "super-secret-jwt-token-with-at-least-32-characters-long";
 
-/** True when the required Supabase env vars are present. */
-export const supabaseAvailable = Boolean(supabaseUrl && supabaseServiceKey);
+/** True when a deterministic test double or explicit real integration backend is available. */
+export const realSupabaseAvailable = isRealIntegrationTestMode() && Boolean(supabaseUrl && supabaseServiceKey);
+export const supabaseAvailable = realSupabaseAvailable;
+export const deterministicSupabaseAvailable = true;
 
 /**
  * Get Supabase client for tests.
@@ -26,13 +31,12 @@ export const supabaseAvailable = Boolean(supabaseUrl && supabaseServiceKey);
  * marked as skipped rather than failed.
  */
 export function getTestSupabaseClient(): SupabaseClient {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase environment variables for testing");
+  if (!realSupabaseAvailable) {
+    return createInMemorySupabaseClient();
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
     global: {
-
       fetch: fetch as any,
     },
   });
@@ -156,8 +160,8 @@ export async function executeAsUser<T = any>(
 ): Promise<{ data: T | null; error: any }> {
   // If anon key is not available, we can't create a client that respects RLS easily
   // (unless we use the service role key which bypasses it)
-  if (!supabaseAnonKey) {
-    console.warn("Missing VITE_SUPABASE_ANON_KEY, skipping RLS check (running as service role)");
+  if (!realSupabaseAvailable || !supabaseAnonKey) {
+    console.warn("Using deterministic Supabase test double for RLS check fallback");
     const client = getTestSupabaseClient();
     return await query(client);
   }

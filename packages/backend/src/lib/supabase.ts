@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 import { getValidatedSupabaseRuntimeConfig } from "./env";
+import { assertRealSupabaseAllowed } from "../test/runtimeGuards";
 
 /**
  * Creates a Supabase client authenticated as the calling user via their JWT.
@@ -9,6 +10,10 @@ import { getValidatedSupabaseRuntimeConfig } from "./env";
  * @param userAccessToken - The user's JWT from the Authorization header.
  */
 export const createUserSupabaseClient = (userAccessToken: string): SupabaseClient => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("createUserSupabaseClient");
+  }
+
   const { url, anonKey } = getValidatedSupabaseRuntimeConfig();
   return createClient(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${userAccessToken}` } },
@@ -30,6 +35,10 @@ export const createUserSupabaseClient = (userAccessToken: string): SupabaseClien
  * in eslint.config.js (backendModuleBoundaryOverrides).
  */
 export const createServerSupabaseClient = () => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("createServerSupabaseClient");
+  }
+
   const { url, serviceRoleKey } = getValidatedSupabaseRuntimeConfig();
   return createClient(url, serviceRoleKey);
 };

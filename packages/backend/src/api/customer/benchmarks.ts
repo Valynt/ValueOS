@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { getSupabaseClient, supabase } from '@shared/lib/supabase';
+import { getSupabaseClient } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -67,7 +67,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
 
-    if (!validation.is_valid || !validation.value_case_id) {
+    if (!validation.is_valid || !validation.value_case_id || !validation.organization_id) {
       res.status(401).json({
         error: 'Unauthorized',
         message: validation.error_message || 'Invalid token'
@@ -76,12 +76,14 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     }
 
     const valueCaseId = validation.value_case_id;
+    const organizationId = validation.organization_id;
 
     // Get value case details
     const { data: valueCase, error: vcError } = await getSupabaseClient()
       .from('value_cases')
       .select('id, company_name, custom_fields')
       .eq('id', valueCaseId)
+      .eq('organization_id', organizationId)
       .single();
 
     if (vcError || !valueCase) {
@@ -104,7 +106,8 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
       return;
     }
 
-    // Build benchmark query
+    // Benchmarks are global reference data (see customer_read_benchmarks policy),
+    // so keep this query intentionally isolated from tenant-owned filters/tables.
     let benchmarkQuery = getSupabaseClient()
       .from('benchmarks')
       .select('*')
@@ -132,6 +135,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
       .from('realization_metrics')
       .select('metric_name, actual_value')
       .eq('value_case_id', valueCaseId)
+      .eq('organization_id', organizationId)
       .not('actual_value', 'is', null);
 
     if (metricsError) {

@@ -54,6 +54,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Canonical governance gate
+        run: pnpm run typecheck:signal --verify
+
+      - name: Canonical CI workflow self-check
+        run: pnpm run ci:governance:self-check
+
       - name: Check runtime sentinels
         run: pnpm check:runtime-sentinels
 
@@ -89,15 +95,21 @@ jobs:
       - name: TypeScript any-count gate
         run: bash scripts/check-any-count.sh
 
+      - name: Backend debt summary artifact
+        if: always()
+        run: pnpm --filter @valueos/backend run debt:summary
+
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
+
+      - name: Ownership metadata guard
+        run: node scripts/ci/check-ownership-metadata.mjs
 
       - name: OpenAPI single-root guard
         run: node scripts/ci/check-openapi-single-root.mjs
 
       - name: OpenAPI structural validation
         run: node scripts/ci/check-openapi-structure.mjs
-
 
       - name: Query fingerprint perf budget gate
         run: node scripts/ci/check-query-fingerprint-budgets.mjs --budgets=infra/observability/query-fingerprint-budgets.json --snapshot=infra/observability/query-fingerprint-latest.json
@@ -107,6 +119,12 @@ jobs:
 
       - name: Compose DB binding guard
         run: node scripts/ci/check-compose-db-bindings.mjs
+
+      - name: Runtime platform contract guard
+        run: pnpm run check:runtime-platform-contract
+
+      - name: Archived ECS guardrails
+        run: pnpm run check:archived-ecs-guardrails
 
       - name: Env/port drift guard
         run: node scripts/ci/check-env-port-drift.mjs
@@ -132,6 +150,12 @@ jobs:
       - name: Workflow/package script drift guard
         run: pnpm run check:workflow-package-script-drift
 
+      - name: Workflow pnpm contract guard
+        run: pnpm run check:workflow-pnpm-contract
+
+      - name: Workspace package governance inventory
+        run: pnpm run check:workspace-package-governance
+
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
 
@@ -152,7 +176,6 @@ jobs:
 
       - name: CI scanner action version manifest guard
         run: node scripts/ci/check-ci-workflow-scanner-refs.mjs
-
 
       - name: Compliance control regression gate
         run: node scripts/ci/check-compliance-control-regressions.mjs
@@ -177,6 +200,7 @@ jobs:
           name: lane-unit-component-schema-${{ github.run_id }}
           path: |
             coverage/**
+            artifacts/backend-debt/**
             artifacts/ci-lanes/unit-component-schema/**
           if-no-files-found: warn
           retention-days: 30
@@ -649,7 +673,7 @@ jobs:
           output: trivy-fs.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: '1'
+          exit-code: "1"
 
       - name: Trivy container image scan (fail on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@0.35.0
@@ -660,7 +684,7 @@ jobs:
           output: trivy-image.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: '1'
+          exit-code: "1"
 
       - name: Upload Trivy filesystem SARIF
         if: always()
@@ -766,6 +790,8 @@ jobs:
       - accessibility-audit
     steps:
       - name: Enforce staging/deploy blockers
+        env:
+          STAGING_HEALTHCHECK_URL: ${{ vars.STAGING_HEALTHCHECK_URL }}
         run: |
           echo "workflow=${{ github.workflow }} run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
           for lane in \
@@ -781,21 +807,28 @@ jobs:
             sleep 1
           done
 
-          # Validate health endpoint
-          echo "Testing /health endpoint..."
-          HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:3001/health)
+          STAGING_HEALTHCHECK_URL="${STAGING_HEALTHCHECK_URL:-https://staging.valuecanvas.app/health}"
+
+          # Regression guard: this release gate validates a deployed staging URL.
+          # Do not reintroduce localhost probes here unless the job also starts a backend,
+          # captures BACKEND_PID, waits for readiness, and tears it down deterministically.
+          case "$STAGING_HEALTHCHECK_URL" in
+            http://localhost*|http://127.0.0.1*|http://\[::1\]*|https://localhost*|https://127.0.0.1*|https://\[::1\]*)
+              echo "❌ STAGING_HEALTHCHECK_URL must target a deployed staging endpoint, not localhost: $STAGING_HEALTHCHECK_URL"
+              exit 1
+              ;;
+          esac
+
+          echo "Testing deployed staging health endpoint: $STAGING_HEALTHCHECK_URL"
+          HEALTH_RESPONSE=$(curl --silent --show-error --location --max-time 20 --write-out "\n%{http_code}" "$STAGING_HEALTHCHECK_URL")
           HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
           BODY=$(echo "$HEALTH_RESPONSE" | sed '$d')
 
           echo "Response code: $HTTP_CODE"
           echo "Response body: $BODY"
 
-          # Cleanup
-          kill $BACKEND_PID 2>/dev/null || true
-
-          # Validate response
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Health check failed: expected 200, got $HTTP_CODE"
+            echo "❌ Health check failed: expected 200 from $STAGING_HEALTHCHECK_URL, got $HTTP_CODE"
             exit 1
           fi
 

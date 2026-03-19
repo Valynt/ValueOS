@@ -23,10 +23,13 @@ aspirational and not used for v1.
 
 - [ ] `docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging up -d --build`
 - [ ] All containers healthy: `docker compose -f ops/compose/compose.staging.yml ps`
-- [ ] Backend responds: `curl -s https://<domain>/api/health/ready`
-- [ ] Frontend loads: `curl -s https://<domain>/health`
+- [ ] External API ingress responds only on `/api`: `curl -fsS https://<domain>/api/health`
+- [ ] Backend readiness is checked from inside the compose network namespace: `docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging exec backend curl -fsS http://localhost:${BACKEND_PORT:-3001}/health/ready`
+- [ ] Frontend shell loads through Caddy: `curl -I https://<domain>/`
 
 ## Smoke Tests
+
+- [ ] If temporary direct backend access is required, enable `ops/compose/profiles/staging-admin-debug.yml` only for an isolated debugging window and verify it binds to `127.0.0.1` only; do **not** enable it in shared staging.
 
 - [ ] Auth flow: signup → login → logout
 - [ ] Tenant creation: new org provisioned with RLS

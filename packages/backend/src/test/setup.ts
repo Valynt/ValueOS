@@ -6,6 +6,166 @@
  * Individual tests should still mock these modules for isolation.
  */
 
+import { afterEach, vi } from "vitest";
+
+import { assertRealNetworkAllowed, isRealNetworkAllowed } from "./runtimeGuards";
+
+vi.mock("ioredis", () => {
+  const createChain = (redis: MockRedis) => {
+    const operations: Array<() => Promise<unknown> | unknown> = [];
+    const chain = {
+      setex: vi.fn((...args: Parameters<MockRedis["setex"]>) => {
+        operations.push(() => redis.setex(...args));
+        return chain;
+      }),
+      set: vi.fn((...args: Parameters<MockRedis["set"]>) => {
+        operations.push(() => redis.set(...args));
+        return chain;
+      }),
+      del: vi.fn((...args: Parameters<MockRedis["del"]>) => {
+        operations.push(() => redis.del(...args));
+        return chain;
+      }),
+      expire: vi.fn((...args: Parameters<MockRedis["expire"]>) => {
+        operations.push(() => redis.expire(...args));
+        return chain;
+      }),
+      sadd: vi.fn((...args: Parameters<MockRedis["sadd"]>) => {
+        operations.push(() => redis.sadd(...args));
+        return chain;
+      }),
+      srem: vi.fn((...args: Parameters<MockRedis["srem"]>) => {
+        operations.push(() => redis.srem(...args));
+        return chain;
+      }),
+      hset: vi.fn((...args: Parameters<MockRedis["hset"]>) => {
+        operations.push(() => redis.hset(...args));
+        return chain;
+      }),
+      publish: vi.fn((...args: Parameters<MockRedis["publish"]>) => {
+        operations.push(() => redis.publish(...args));
+        return chain;
+      }),
+      exec: vi.fn(async () => Promise.all(operations.map((operation) => operation()))),
+    };
+    return chain;
+  };
+
+  class MockRedis {
+    private readonly kv = new Map<string, string>();
+    private readonly sets = new Map<string, Set<string>>();
+    private readonly hashes = new Map<string, Map<string, string>>();
+    private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+
+    constructor(_url?: string, _options?: Record<string, unknown>) {}
+
+    on(event: string, callback: (...args: unknown[]) => void) {
+      const handlers = this.listeners.get(event) ?? [];
+      handlers.push(callback);
+      this.listeners.set(event, handlers);
+      return this;
+    }
+
+    async connect() {
+      return "OK";
+    }
+
+    async quit() {
+      return "OK";
+    }
+
+    async disconnect() {
+      return "OK";
+    }
+
+    duplicate() {
+      return new MockRedis();
+    }
+
+    multi() {
+      return createChain(this);
+    }
+
+    pipeline() {
+      return createChain(this);
+    }
+
+    async get(key: string) {
+      return this.kv.get(key) ?? null;
+    }
+
+    async set(key: string, value: string) {
+      this.kv.set(key, value);
+      return "OK";
+    }
+
+    async setex(key: string, _ttl: number, value: string) {
+      this.kv.set(key, value);
+      return "OK";
+    }
+
+    async del(key: string) {
+      const deleted = this.kv.delete(key);
+      this.sets.delete(key);
+      this.hashes.delete(key);
+      return deleted ? 1 : 0;
+    }
+
+    async expire(_key: string, _ttl: number) {
+      return 1;
+    }
+
+    async sadd(key: string, ...values: string[]) {
+      const set = this.sets.get(key) ?? new Set<string>();
+      values.forEach((value) => set.add(value));
+      this.sets.set(key, set);
+      return set.size;
+    }
+
+    async srem(key: string, ...values: string[]) {
+      const set = this.sets.get(key);
+      if (!set) return 0;
+      let removed = 0;
+      values.forEach((value) => {
+        if (set.delete(value)) removed += 1;
+      });
+      return removed;
+    }
+
+    async smembers(key: string) {
+      return Array.from(this.sets.get(key) ?? []);
+    }
+
+    async hset(key: string, field: string, value: string) {
+      const hash = this.hashes.get(key) ?? new Map<string, string>();
+      hash.set(field, value);
+      this.hashes.set(key, hash);
+      return 1;
+    }
+
+    async hget(key: string, field: string) {
+      return this.hashes.get(key)?.get(field) ?? null;
+    }
+
+    async hgetall(key: string) {
+      return Object.fromEntries(this.hashes.get(key)?.entries() ?? []);
+    }
+
+    async publish(_channel: string, _message: string) {
+      return 1;
+    }
+
+    async subscribe(..._channels: string[]) {
+      return 1;
+    }
+  }
+
+  return {
+    default: MockRedis,
+    Redis: MockRedis,
+  };
+});
+
 // Supabase config — only set if not already present
 process.env.SUPABASE_URL ??= "http://localhost:54321";
 process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role-key";
@@ -17,3 +177,20 @@ process.env.TOGETHER_API_KEY ??= "test-together-key";
 
 // Redis
 process.env.REDIS_URL ??= "redis://localhost:6379";
+
+const originalFetch = globalThis.fetch?.bind(globalThis);
+
+if (originalFetch && !isRealNetworkAllowed()) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const target = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+      assertRealNetworkAllowed(target);
+      return originalFetch(input);
+    }),
+  );
+}
+
+afterEach(() => {
+  vi.clearAllMocks();
+});

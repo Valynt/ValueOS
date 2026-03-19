@@ -4,20 +4,32 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getGuestAccessService } from '../GuestAccessService.js'
-
-// Mock Supabase
-const mockSupabase = {
-  auth: {
-    getUser: vi.fn(),
+const { mockSupabase, mockLogger } = vi.hoisted(() => ({
+  mockSupabase: {
+    auth: {
+      getUser: vi.fn(),
+    },
+    from: vi.fn(),
+    rpc: vi.fn(),
   },
-  from: vi.fn(),
-  rpc: vi.fn(),
-};
+  mockLogger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 vi.mock('../../lib/supabase', () => ({
   supabase: mockSupabase,
 }));
+
+vi.mock('../../lib/logger', () => ({
+  logger: mockLogger,
+}));
+
+import { logger } from '../../lib/logger.js'
+import { getGuestAccessService } from '../GuestAccessService.js'
 
 describe('GuestAccessService', () => {
   let guestService: ReturnType<typeof getGuestAccessService>;
@@ -176,7 +188,8 @@ describe('GuestAccessService', () => {
       });
 
       expect(result.token).toBeDefined();
-      expect(result.magicLink).toContain('token=');
+      expect(result.magicLink).toContain('#token=');
+      expect(result.magicLink).not.toContain('?token=');
       expect(result.token.permissions.can_view).toBe(true);
     });
 
@@ -324,6 +337,11 @@ describe('GuestAccessService', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.errorMessage).toBe('Token not found');
+
+      const warnPayload = JSON.stringify(vi.mocked(logger.warn).mock.calls[0]?.[1]);
+      expect(warnPayload).toContain('token:');
+      expect(warnPayload).not.toContain('invalid-token');
+      expect(warnPayload).not.toContain('invalid-to');
     });
 
     it('should reject expired token', async () => {
@@ -376,6 +394,11 @@ describe('GuestAccessService', () => {
         revoked_by_user: 'user-123',
         reason: 'Security concern',
       });
+
+      const infoPayload = JSON.stringify(vi.mocked(logger.info).mock.calls.find(([message]) => message === 'Guest token revoked')?.[1]);
+      expect(infoPayload).toContain('token:');
+      expect(infoPayload).not.toContain('token-123');
+      expect(infoPayload).not.toContain('token-123'.substring(0, 10));
     });
   });
 

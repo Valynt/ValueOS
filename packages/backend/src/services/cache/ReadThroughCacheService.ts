@@ -7,6 +7,11 @@ import {
   tenantReadCachePattern,
 } from "@shared/lib/redisKeys";
 
+import {
+  cacheCoalescedWaitersTotal,
+  cacheLoaderDurationMs,
+  cacheRequestsTotal,
+} from "../../lib/metrics/cacheMetrics.js";
 import { readCacheEventsTotal } from "../../lib/metrics/httpMetrics.js";
 import { getRedisClient } from "../../lib/redisClient.js";
 
@@ -37,6 +42,7 @@ export interface ReadCacheConfig {
 export class ReadThroughCacheService {
   private static readonly INVALIDATION_SCAN_BATCH_SIZE = 100;
   private static readonly INVALIDATION_DELETE_BATCH_SIZE = 100;
+  private static readonly inFlightLoads = new Map<string, Promise<unknown>>();
 
   private static async deleteKeysWithCommand(
     keys: string[],
@@ -100,32 +106,60 @@ export class ReadThroughCacheService {
     });
   }
 
+  private static cacheMetricName(config: ReadCacheConfig): string {
+    return `read-through:${config.endpoint}`;
+  }
+
   static async getOrLoad<T>(
     config: ReadCacheConfig,
     loader: () => Promise<T>
   ): Promise<T> {
     const redis = (await getRedisClient()) as RedisWithScanAndMulti;
     const key = this.createKey(config);
+    const cacheName = this.cacheMetricName(config);
 
     const cached = await redis.get(key);
     if (cached) {
       readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "hit" });
+      cacheRequestsTotal.inc({ cache_name: cacheName, outcome: "hit" });
       return JSON.parse(cached) as T;
     }
 
-    readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "miss" });
-    const loaded = await loader();
-
-    // If the loader returns undefined, skip caching to avoid calling
-    // JSON.stringify(undefined), which returns undefined (not a string)
-    // and would cause redis.set to fail at runtime.
-    if (loaded === undefined) {
-      return loaded as T;
+    const inFlightLoad = this.inFlightLoads.get(key) as Promise<T> | undefined;
+    if (inFlightLoad) {
+      cacheCoalescedWaitersTotal.inc({ cache_name: cacheName });
+      cacheRequestsTotal.inc({ cache_name: cacheName, outcome: "coalesced" });
+      return inFlightLoad;
     }
 
-    const ttl = CACHE_TTL_TIERS_SECONDS[config.tier];
-    await redis.set(key, JSON.stringify(loaded), { EX: ttl });
-    return loaded;
+    readCacheEventsTotal.inc({ endpoint: config.endpoint, event: "miss" });
+    cacheRequestsTotal.inc({ cache_name: cacheName, outcome: "miss" });
+
+    const loadPromise = (async () => {
+      const startedAt = Date.now();
+      try {
+        const loaded = await loader();
+
+        // If the loader returns undefined, skip caching to avoid calling
+        // JSON.stringify(undefined), which returns undefined (not a string)
+        // and would cause redis.set to fail at runtime.
+        if (loaded !== undefined) {
+          const ttl = CACHE_TTL_TIERS_SECONDS[config.tier];
+          await redis.set(key, JSON.stringify(loaded), { EX: ttl });
+        }
+
+        return loaded;
+      } finally {
+        cacheLoaderDurationMs.observe(
+          { cache_name: cacheName },
+          Date.now() - startedAt
+        );
+        this.inFlightLoads.delete(key);
+      }
+    })();
+
+    this.inFlightLoads.set(key, loadPromise);
+    return loadPromise;
   }
 
   static async invalidateEndpoint(
@@ -170,7 +204,9 @@ export function getTenantIdFromRequest(req: {
   // Prioritize headers (from the client/gateway) over internal req properties
   const tenant =
     (Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader) ||
-    (Array.isArray(organizationHeader) ? organizationHeader[0] : organizationHeader) ||
+    (Array.isArray(organizationHeader)
+      ? organizationHeader[0]
+      : organizationHeader) ||
     req.tenantId;
 
   // Return undefined rather than a "public" sentinel so callers can

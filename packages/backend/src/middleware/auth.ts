@@ -24,8 +24,8 @@ export interface AuthenticatedRequest extends Request {
   organizationId?: string;
 }
 import { authService } from '../services/auth/AuthService.js'
+import { auditLogService } from '../services/AuditLogService.js';
 import { AuthenticationError } from '../services/errors.js'
-import { auditLogService } from '../services/security/AuditLogService.js';
 
 import { createLogger, LogContext } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
@@ -37,6 +37,7 @@ const logger = createLogger({ component: 'AuthMiddleware' });
 
 const SUPABASE_TOKEN_PREFIX = 'Bearer ';
 const AUTH_FALLBACK_EMERGENCY_MODE_FLAG = 'AUTH_FALLBACK_EMERGENCY_MODE';
+const LEGACY_LOCAL_JWT_FALLBACK_FLAG = 'ALLOW_LOCAL_JWT_FALLBACK';
 const AUTH_FALLBACK_EMERGENCY_TTL_UNTIL = 'AUTH_FALLBACK_EMERGENCY_TTL_UNTIL';
 const AUTH_FALLBACK_INCIDENT_ID = 'AUTH_FALLBACK_INCIDENT_ID';
 const AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS = 'AUTH_FALLBACK_MAX_EMERGENCY_DURATION_SECONDS';
@@ -87,7 +88,15 @@ type FallbackEmergencyConfig = {
 };
 
 function getFallbackEmergencyConfig(): FallbackEmergencyConfig | null {
+  const legacyFallbackEnabled = getEnvVar(LEGACY_LOCAL_JWT_FALLBACK_FLAG) === 'true';
+
   if (getEnvVar(AUTH_FALLBACK_EMERGENCY_MODE_FLAG) !== 'true') {
+    if (legacyFallbackEnabled && getEnvVar('NODE_ENV') !== 'production') {
+      logger.warn('Using legacy local JWT fallback flag outside production', {
+        flag: LEGACY_LOCAL_JWT_FALLBACK_FLAG,
+      });
+      return { incidentId: 'legacy-local-jwt-fallback' };
+    }
     return null;
   }
 

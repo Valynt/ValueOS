@@ -2,7 +2,6 @@ import { logger } from '../../lib/logger.js';
 import { securityEventStreamingService } from '../security/SecurityEventStreamingService.js';
 
 import { getAgentPolicyService } from './AgentPolicyService.js';
-import { assertAuthorized } from './AuthorizationPolicyGateway.js';
 
 export type PolicyErrorCode = 'TOOL_DENIED' | 'MODEL_DENIED' | 'BUDGET_EXCEEDED';
 
@@ -47,14 +46,22 @@ export function recordPolicyAuditEvent(event: PolicyAuditEvent): void {
 }
 
 export function enforceToolPolicy(agentType: string | undefined, toolName: string): { policyVersion: string } {
-  const decision = assertAuthorized({
-    domain: 'tool_execution',
-    action: 'execute',
-    resource: toolName,
-    agentType,
-  });
+  const policy = getAgentPolicyService().getPolicy(agentType);
+  if (!policy.allowedTools.includes(toolName)) {
+    recordPolicyAuditEvent({
+      eventType: 'tool_denied',
+      agentType: agentType ?? 'default',
+      policyVersion: policy.version,
+      metadata: { resource: toolName, allowedTools: policy.allowedTools },
+    });
+    throw new PolicyEnforcementError(
+      'TOOL_DENIED',
+      `Tool '${toolName}' is not permitted for agent '${agentType ?? 'default'}'`,
+      { toolName, agentType, policyVersion: policy.version }
+    );
+  }
 
-  return { policyVersion: decision.policyVersion };
+  return { policyVersion: policy.version };
 }
 
 export function enforceModelPolicy(agentType: string | undefined, model: string): { policyVersion: string } {

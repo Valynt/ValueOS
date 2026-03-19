@@ -5,6 +5,151 @@ import { parseCorsAllowlist } from "@shared/config/cors";
 import { getEnvVar, env as runtimeEnv } from "@shared/lib/env";
 import { z } from "zod";
 
+const AppEnvSchema = z.enum(["local", "cloud-dev", "test", "staging", "prod"]);
+const DatabasePoolRoleSchema = z.enum(["api", "worker", "migration", "maintenance"]);
+
+type AppEnv = z.infer<typeof AppEnvSchema>;
+type DatabasePoolRole = z.infer<typeof DatabasePoolRoleSchema>;
+
+type PoolSizingProfile = {
+  concurrencyMultiplier: number;
+  min: number;
+  maxByEnv: Record<AppEnv, number>;
+  defaultExpectedConcurrency: Record<AppEnv, number>;
+};
+
+const POOL_SIZING_PROFILES: Record<DatabasePoolRole, PoolSizingProfile> = {
+  api: {
+    concurrencyMultiplier: 0.5,
+    min: 2,
+    maxByEnv: {
+      local: 8,
+      "cloud-dev": 6,
+      test: 4,
+      staging: 4,
+      prod: 4,
+    },
+    defaultExpectedConcurrency: {
+      local: 12,
+      "cloud-dev": 10,
+      test: 4,
+      staging: 8,
+      prod: 8,
+    },
+  },
+  worker: {
+    concurrencyMultiplier: 0.75,
+    min: 2,
+    maxByEnv: {
+      local: 6,
+      "cloud-dev": 4,
+      test: 2,
+      staging: 3,
+      prod: 3,
+    },
+    defaultExpectedConcurrency: {
+      local: 6,
+      "cloud-dev": 4,
+      test: 2,
+      staging: 4,
+      prod: 4,
+    },
+  },
+  migration: {
+    concurrencyMultiplier: 1,
+    min: 1,
+    maxByEnv: {
+      local: 2,
+      "cloud-dev": 2,
+      test: 1,
+      staging: 2,
+      prod: 2,
+    },
+    defaultExpectedConcurrency: {
+      local: 1,
+      "cloud-dev": 1,
+      test: 1,
+      staging: 1,
+      prod: 1,
+    },
+  },
+  maintenance: {
+    concurrencyMultiplier: 1,
+    min: 1,
+    maxByEnv: {
+      local: 2,
+      "cloud-dev": 2,
+      test: 1,
+      staging: 2,
+      prod: 2,
+    },
+    defaultExpectedConcurrency: {
+      local: 1,
+      "cloud-dev": 1,
+      test: 1,
+      staging: 1,
+      prod: 1,
+    },
+  },
+};
+
+const inferAppEnv = (nodeEnv?: "development" | "staging" | "production" | "test"): AppEnv => {
+  switch (nodeEnv) {
+    case "production":
+      return "prod";
+    case "staging":
+      return "staging";
+    case "test":
+      return "test";
+    case "development":
+    default:
+      return "local";
+  }
+};
+
+const clampPoolSize = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
+const deriveDatabasePoolSizing = ({
+  appEnv,
+  role,
+  configuredMax,
+  expectedConcurrency,
+}: {
+  appEnv: AppEnv;
+  role: DatabasePoolRole;
+  configuredMax?: number;
+  expectedConcurrency?: number;
+}) => {
+  const profile = POOL_SIZING_PROFILES[role];
+  const resolvedExpectedConcurrency =
+    expectedConcurrency ?? profile.defaultExpectedConcurrency[appEnv];
+
+  if (configuredMax !== undefined) {
+    return {
+      appEnv,
+      role,
+      expectedConcurrency: resolvedExpectedConcurrency,
+      max: configuredMax,
+      source: "env-override" as const,
+    };
+  }
+
+  const derivedMax = clampPoolSize(
+    Math.ceil(resolvedExpectedConcurrency * profile.concurrencyMultiplier),
+    profile.min,
+    profile.maxByEnv[appEnv]
+  );
+
+  return {
+    appEnv,
+    role,
+    expectedConcurrency: resolvedExpectedConcurrency,
+    max: derivedMax,
+    source: "derived" as const,
+  };
+};
+
 // Define the schema for all environment variables
 const SettingsSchema = z.object({
   // Vite/Frontend variables (must be prefixed with VITE_)
@@ -14,6 +159,7 @@ const SettingsSchema = z.object({
   VITE_SENTRY_DSN: z.string().optional(),
 
   // Backend/Server-side variables
+  APP_ENV: AppEnvSchema.optional(),
   NODE_ENV: z
     .enum(["development", "staging", "production", "test"])
     .default("development"),
@@ -27,6 +173,8 @@ const SettingsSchema = z.object({
   // Database precedence: DATABASE_URL is canonical; DB_URL is legacy fallback only.
   DATABASE_URL: z.string().url().optional(),
   DB_URL: z.string().url().optional(),
+  DATABASE_POOL_ROLE: DatabasePoolRoleSchema.optional(),
+  DATABASE_EXPECTED_CONCURRENCY: z.coerce.number().int().min(1).max(200).optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(50).optional(),
   DATABASE_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
   DATABASE_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().min(1000).optional(),
@@ -101,6 +249,7 @@ const resolvedEnv = {
     readEnv("VITE_SUPABASE_ANON_KEY") || readEnv("SUPABASE_ANON_KEY"),
   VITE_APP_URL: readEnv("VITE_APP_URL"),
   VITE_SENTRY_DSN: readEnv("VITE_SENTRY_DSN") || readEnv("SENTRY_DSN"),
+  APP_ENV: readEnv("APP_ENV"),
   NODE_ENV: readEnv("NODE_ENV"),
   API_PORT: readEnv("API_PORT", "3001"),
   SUPABASE_SERVICE_ROLE_KEY: readEnv("SUPABASE_SERVICE_ROLE_KEY"),
@@ -110,6 +259,8 @@ const resolvedEnv = {
   ALERT_EMAIL_RECIPIENT: readEnv("ALERT_EMAIL_RECIPIENT"),
   DATABASE_URL: readEnv("DATABASE_URL") || readEnv("DB_URL"),
   DB_URL: readEnv("DB_URL"),
+  DATABASE_POOL_ROLE: readEnv("DATABASE_POOL_ROLE"),
+  DATABASE_EXPECTED_CONCURRENCY: readEnv("DATABASE_EXPECTED_CONCURRENCY"),
   DATABASE_POOL_MAX: readEnv("DATABASE_POOL_MAX"),
   DATABASE_POOL_IDLE_TIMEOUT_MS: readEnv("DATABASE_POOL_IDLE_TIMEOUT_MS"),
   DATABASE_POOL_CONNECTION_TIMEOUT_MS: readEnv("DATABASE_POOL_CONNECTION_TIMEOUT_MS"),
@@ -138,17 +289,29 @@ const defaultCorsOrigins = [
 ];
 
 const DEFAULT_API_PORT = 3001;
-const DEFAULT_DB_POOL_MAX = 10;
 const DEFAULT_DB_POOL_IDLE_TIMEOUT_MS = 30_000;
 const DEFAULT_DB_POOL_CONNECTION_TIMEOUT_MS = 5_000;
 const DEFAULT_DB_POOL_STATEMENT_TIMEOUT_MS = 30_000;
 const DEFAULT_DB_POOL_QUERY_TIMEOUT_MS = 30_000;
 
+const appEnv = parsedSettings.APP_ENV ?? inferAppEnv(parsedSettings.NODE_ENV);
+const databasePoolSizing = deriveDatabasePoolSizing({
+  appEnv,
+  role: parsedSettings.DATABASE_POOL_ROLE ?? "api",
+  configuredMax: parsedSettings.DATABASE_POOL_MAX,
+  expectedConcurrency: parsedSettings.DATABASE_EXPECTED_CONCURRENCY,
+});
+
 export const settings = {
   ...parsedSettings,
+  APP_ENV: appEnv,
   API_PORT: Number(parsedSettings.API_PORT) || DEFAULT_API_PORT,
   databasePool: {
-    max: parsedSettings.DATABASE_POOL_MAX ?? DEFAULT_DB_POOL_MAX,
+    appEnv: databasePoolSizing.appEnv,
+    role: databasePoolSizing.role,
+    expectedConcurrency: databasePoolSizing.expectedConcurrency,
+    max: databasePoolSizing.max,
+    maxSource: databasePoolSizing.source,
     idleTimeoutMs:
       parsedSettings.DATABASE_POOL_IDLE_TIMEOUT_MS ?? DEFAULT_DB_POOL_IDLE_TIMEOUT_MS,
     connectionTimeoutMs:

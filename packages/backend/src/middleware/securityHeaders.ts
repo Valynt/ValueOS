@@ -103,6 +103,42 @@ function buildCSPString(config: CSPConfig): string {
   return directives.join("; ");
 }
 
+export interface SecurityHeadersOptions {
+  nonce?: string;
+  isDevelopment?: boolean;
+}
+
+export function getSecurityHeaders(options: SecurityHeadersOptions = {}): Record<string, string> {
+  const isDevelopment = options.isDevelopment ?? process.env.NODE_ENV === "development";
+  const baseCSP = isDevelopment ? developmentCSP : productionCSP;
+  const nonce = options.nonce;
+
+  const cspConfig = nonce
+    ? {
+        ...baseCSP,
+        scriptSrc: [...baseCSP.scriptSrc, `'nonce-${nonce}'`],
+        styleSrc: [...baseCSP.styleSrc, `'nonce-${nonce}'`],
+      }
+    : baseCSP;
+
+  return {
+    "Content-Security-Policy": buildCSPString(cspConfig),
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy":
+      "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()",
+    "Cross-Origin-Embedder-Policy": "require-corp",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "X-DNS-Prefetch-Control": "off",
+    "X-Download-Options": "noopen",
+    "X-Permitted-Cross-Domain-Policies": "none",
+  };
+}
+
 /**
  * Modern security headers middleware for production environments.
  * Implements CSP, HSTS, X-Frame-Options, NoSniff, and other protections.
@@ -116,63 +152,11 @@ export function cspNonceMiddleware(_req: Request, res: Response, next: NextFunct
 }
 
 export function securityHeadersMiddleware(_req: Request, res: Response, next: NextFunction): void {
-  // Select CSP based on environment
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const baseCSP = isDevelopment ? developmentCSP : productionCSP;
-
   const nonce = typeof res.locals.cspNonce === "string" ? res.locals.cspNonce : undefined;
-
-  // Content Security Policy with nonce (production only)
-  let cspConfig = baseCSP;
-  if (nonce) {
-    cspConfig = {
-      ...baseCSP,
-      scriptSrc: [...baseCSP.scriptSrc, `'nonce-${nonce}'`],
-      styleSrc: [...baseCSP.styleSrc, `'nonce-${nonce}'`],
-    };
+  const headers = getSecurityHeaders({ nonce });
+  for (const [key, value] of Object.entries(headers)) {
+    res.setHeader(key, value);
   }
-
-  const cspValue = buildCSPString(cspConfig);
-  res.setHeader("Content-Security-Policy", cspValue);
-
-  // Strict Transport Security
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-
-  // X-Frame-Options - Prevent clickjacking
-  res.setHeader("X-Frame-Options", "DENY");
-
-  // X-Content-Type-Options - Prevent MIME sniffing
-  res.setHeader("X-Content-Type-Options", "nosniff");
-
-  // X-XSS-Protection - Legacy XSS protection
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-
-  // Referrer-Policy - Control referrer information
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Permissions-Policy - Disable unnecessary features
-  res.setHeader(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()"
-  );
-
-  // Cross-Origin-Embedder-Policy - COEP for cross-origin isolation
-  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-
-  // Cross-Origin-Opener-Policy - COOP for cross-origin isolation
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-
-  // Cross-Origin-Resource-Policy - CORP for resource protection
-  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
-
-  // X-DNS-Prefetch-Control
-  res.setHeader("X-DNS-Prefetch-Control", "off");
-
-  // X-Download-Options - Prevent file downloads from executing in IE
-  res.setHeader("X-Download-Options", "noopen");
-
-  // X-Permitted-Cross-Domain-Policies - Prevent Flash/PDF from loading cross-domain
-  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
 
   next();
 }

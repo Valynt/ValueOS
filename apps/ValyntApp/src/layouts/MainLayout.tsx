@@ -41,51 +41,102 @@ function PageTransition({ children }: { children: React.ReactNode }) {
   );
 }
 
+const MAIN_CONTENT_ID = "main-content";
+
 export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const mainContentRef = useRef<HTMLElement>(null);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const closeAgent = useCallback(() => setAgentOpen(false), []);
 
-  return (
-    <div className="flex h-screen bg-[#fafafa] text-zinc-900 overflow-hidden">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-40 bg-black/30 lg:hidden animate-fade-in"
-          onClick={closeSidebar}
-        />
-      )}
+  const focusMainContent = useCallback(() => {
+    const mainContent = mainContentRef.current;
+    if (!mainContent) return;
 
-      {/* Sidebar */}
-      <div
+    if (window.location.hash !== `#${MAIN_CONTENT_ID}`) {
+      window.history.replaceState(null, "", `#${MAIN_CONTENT_ID}`);
+    }
+
+    mainContent.focus();
+    mainContent.scrollIntoView?.({ block: "start" });
+  }, []);
+
+  const handleSkipLinkClick = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    focusMainContent();
+  }, [focusMainContent]);
+
+  const handleSkipLinkKeyDown = useCallback((event: React.KeyboardEvent<HTMLAnchorElement>) => {
+    if (event.key === " " || event.key === "Spacebar") {
+      event.preventDefault();
+      focusMainContent();
+    }
+  }, [focusMainContent]);
+
+  return (
+    <>
+      <a
+        href={`#${MAIN_CONTENT_ID}`}
+        onClick={handleSkipLinkClick}
+        onKeyDown={handleSkipLinkKeyDown}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-full max-w-[20rem] transform transition-transform duration-200 ease-out",
-          "lg:w-auto lg:max-w-none lg:translate-x-0 lg:static lg:inset-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "sr-only",
+          "focus-visible:not-sr-only focus-visible:fixed focus-visible:left-4 focus-visible:top-4 focus-visible:z-[100]",
+          "focus-visible:inline-flex focus-visible:items-center focus-visible:justify-center",
+          "focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         )}
       >
-        <Sidebar onClose={closeSidebar} />
-      </div>
+        Skip to main content
+      </a>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <TopBar
-          onMenuClick={() => setSidebarOpen(true)}
-          onAgentOpen={() => setAgentOpen(true)}
-        />
-        <main className="flex-1 overflow-y-auto overscroll-contain">
-          <PageTransition>
-            <Outlet />
-          </PageTransition>
-        </main>
-      </div>
+      <div className="flex h-screen overflow-hidden bg-[#fafafa] text-zinc-900">
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-40 animate-fade-in bg-black/30 lg:hidden"
+            onClick={closeSidebar}
+          />
+        )}
 
-      {/* Agent chat */}
-      <AgentChatSidebar open={agentOpen} onClose={closeAgent} />
-    </div>
+        {/* Sidebar */}
+        <div
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 w-full max-w-[20rem] transform transition-transform duration-200 ease-out",
+            "lg:static lg:inset-0 lg:w-auto lg:max-w-none lg:translate-x-0",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <Sidebar onClose={closeSidebar} />
+        </div>
+
+        {/* Main content */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <TopBar
+            onMenuClick={() => setSidebarOpen(true)}
+            onAgentOpen={() => setAgentOpen(true)}
+          />
+          <main
+            id={MAIN_CONTENT_ID}
+            ref={mainContentRef}
+            tabIndex={-1}
+            className="flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none"
+          >
+            <PageTransition>
+              <div className="min-h-full">
+                <Outlet />
+              </div>
+            </PageTransition>
+          </main>
+        </div>
+
+        {/* Agent chat */}
+        <AgentChatSidebar open={agentOpen} onClose={closeAgent} />
+      </div>
+    </>
   );
 }
 

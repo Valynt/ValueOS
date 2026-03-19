@@ -15,5 +15,24 @@
     "jose": "6.1.0",
     "redis": "^4.7.1",
     "socket.io": "^4.8.1"
+  },
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-ai-platform",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the root Vitest workspace inline MCP ground-truth project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Internal MCP module consumed by runtime services; not independently released."
+      }
+    }
+  },
+  "scripts": {
+    "test": "vitest run ./**/*.test.ts"
   }
 }

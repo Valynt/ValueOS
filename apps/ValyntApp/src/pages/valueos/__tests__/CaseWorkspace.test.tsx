@@ -48,7 +48,7 @@ function renderAtPath(path: string) {
         <Route path="/app/cases/new" element={<CaseWorkspace />} />
         <Route path="/app/cases/:caseId" element={<CaseWorkspace />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
@@ -82,50 +82,49 @@ describe("NewCaseWizard", () => {
     expect(screen.getByRole("button", { name: /continue/i })).toBeEnabled();
   });
 
-  it("advances to Step 2 after entering company name and clicking Continue", async () => {
+  it("advances to the review step after entering company name and clicking Continue", async () => {
     const user = userEvent.setup();
     renderAtPath("/app/cases/new");
 
     await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-
-    // Step indicator text is split across elements — match by regex on the paragraph
-    expect(screen.getByText(/step 2 of 2/i)).toBeInTheDocument();
-    expect(screen.getByText("Review")).toBeInTheDocument();
-  });
-
-  it("Continue is enabled on Step 2 because vm_1 is pre-selected", async () => {
-    const user = userEvent.setup();
-    renderAtPath("/app/cases/new");
-
-    await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-
-    expect(screen.getByRole("button", { name: /continue/i })).toBeEnabled();
-  });
-
-  it("Continue is disabled on Step 2 when all models are deselected", async () => {
-    const user = userEvent.setup();
-    renderAtPath("/app/cases/new");
-
-    await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-
-    // Deselect the pre-selected vm_1
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    expect(screen.getByRole("button", { name: /continue/i })).toBeDisabled();
-  });
-
-  it("advances to Step 3 (Review) from Step 2", async () => {
-    const user = userEvent.setup();
-    renderAtPath("/app/cases/new");
-
-    await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
-    await user.click(screen.getByRole("button", { name: /continue/i }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
     expect(screen.getByText(/step 2 of 2/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /create case/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review" })).toBeInTheDocument();
+  });
+
+  it("Create & Launch Agents is enabled on the review step", async () => {
+    const user = userEvent.setup();
+    renderAtPath("/app/cases/new");
+
+    await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(screen.getByRole("button", { name: /create & launch agents/i })).toBeEnabled();
+  });
+
+  it("review step shows the captured company summary", async () => {
+    const user = userEvent.setup();
+    renderAtPath("/app/cases/new");
+
+    await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
+    await user.type(screen.getByPlaceholderText(/e\.g\. acmecorp\.com/i), "acme.com");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("acme.com")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create & launch agents/i })).toBeEnabled();
+  });
+
+  it("review step shows the final launch action instead of a second continue button", async () => {
+    const user = userEvent.setup();
+    renderAtPath("/app/cases/new");
+
+    await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    expect(screen.queryByRole("button", { name: /continue/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create & launch agents/i })).toBeInTheDocument();
   });
 
   it("Back button returns to previous step", async () => {
@@ -152,8 +151,7 @@ describe("NewCaseWizard", () => {
 
     await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
     await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(screen.getByRole("button", { name: /create case/i }));
+    await user.click(screen.getByRole("button", { name: /create & launch agents/i }));
 
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith(
@@ -162,9 +160,9 @@ describe("NewCaseWizard", () => {
           status: "draft",
           metadata: expect.objectContaining({
             company_name: "Acme",
-            model_ids: ["vm_1"],
+            owner_name: "test",
           }),
-        }),
+        })
       );
       expect(mockNavigate).toHaveBeenCalledWith("/app/cases/case-123");
     });
@@ -178,8 +176,7 @@ describe("NewCaseWizard", () => {
 
     await user.type(screen.getByPlaceholderText(/e\.g\. Acme Corp/i), "Acme");
     await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(screen.getByRole("button", { name: /create case/i }));
+    await user.click(screen.getByRole("button", { name: /create & launch agents/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/failed to create case/i)).toBeInTheDocument();
@@ -198,14 +195,24 @@ describe("ExistingCaseView", () => {
   });
 
   it("shows loading state while fetching", () => {
-    mockUseCaseFn.mockReturnValue({ data: undefined, isLoading: true, error: null, refetch: vi.fn() });
+    mockUseCaseFn.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
 
     renderAtPath("/app/cases/abc-123");
     expect(screen.getByText(/loading case/i)).toBeInTheDocument();
   });
 
   it("shows 404 state when fetch succeeds but case is not found", () => {
-    mockUseCaseFn.mockReturnValue({ data: undefined, isLoading: false, error: null, refetch: vi.fn() });
+    mockUseCaseFn.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
 
     renderAtPath("/app/cases/bad-id");
     expect(screen.getByText("Case not found")).toBeInTheDocument();

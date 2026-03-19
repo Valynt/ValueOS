@@ -1,0 +1,293 @@
+{
+  "packages": {
+    "apps/ValyntApp": {
+      "name": "valynt-app",
+      "classification": "production-runtime",
+      "supportTier": "customer-critical",
+      "owner": "team-frontend",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the dedicated apps/ValyntApp Vitest workspace project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "The customer-facing app is deployed from the monorepo but is not versioned as a standalone GitHub release artifact."
+        }
+      }
+    },
+    "apps/mcp-dashboard": {
+      "name": "mcp-dashboard",
+      "classification": "experimental",
+      "supportTier": "experimental",
+      "owner": "team-ai-platform",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "Prototype dashboard with unresolved source debt (see tsErrorBaseline); not part of the shipped product surface."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Prototype-only dashboard; not part of the release train."
+        }
+      }
+    },
+    "packages/backend": {
+      "name": "@valueos/backend",
+      "classification": "production-runtime",
+      "supportTier": "customer-critical",
+      "owner": "team-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the dedicated packages/backend Vitest workspace project."
+        },
+        "release": {
+          "status": "eligible",
+          "justification": "Versioned backend runtime artifact."
+        }
+      }
+    },
+    "packages/components": {
+      "name": "@valueos/components",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-frontend",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the packages/components Vitest workspace project, including design-system tests."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Internal UI workspace library; shipped only through consuming applications."
+        }
+      }
+    },
+    "packages/components/design-system": {
+      "name": "@valueos/design-system",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-design-system",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the parent packages/components Vitest workspace project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Source-distributed internal design system, not independently released from GitHub Actions."
+        }
+      }
+    },
+    "packages/config-v2": {
+      "name": "@vos/config-v2",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-platform",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "Configuration-only package exporting shared config files; no runtime code or test surface."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Config manifest package; not shipped as an external release artifact."
+        }
+      }
+    },
+    "packages/infra": {
+      "name": "@valueos/infra",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the root Vitest workspace inline infra project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Internal infrastructure adapters are released only through product runtimes."
+        }
+      }
+    },
+    "packages/integrations": {
+      "name": "@valueos/integrations",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-integrations",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the packages/integrations Vitest workspace project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Internal adapters shipped through backend/application deployments only."
+        }
+      }
+    },
+    "packages/mcp": {
+      "name": "@valueos/mcp",
+      "classification": "experimental",
+      "supportTier": "experimental",
+      "owner": "team-ai-platform",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "Aggregator package for MCP experiments; shipped modules are tracked individually instead."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Aggregator package is not a release artifact."
+        }
+      }
+    },
+    "packages/mcp/common": {
+      "name": "@mcp-common/index",
+      "classification": "experimental",
+      "supportTier": "experimental",
+      "owner": "team-ai-platform",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "Prototype MCP support module with no standalone shipped contract."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Prototype support module; not released independently."
+        }
+      }
+    },
+    "packages/mcp/crm": {
+      "name": "@mcp/crm",
+      "classification": "experimental",
+      "supportTier": "experimental",
+      "owner": "team-ai-platform",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "CRM MCP server remains experimental and outside the supported shipped surface."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Experimental MCP package; excluded from release automation."
+        }
+      }
+    },
+    "packages/mcp/ground-truth": {
+      "name": "@mcp/ground-truth",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-ai-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the root Vitest workspace inline MCP ground-truth project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Internal MCP module consumed by runtime services; not independently released."
+        }
+      }
+    },
+    "packages/memory": {
+      "name": "@valueos/memory",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the root Vitest workspace inline memory project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Internal runtime memory layer; not released as a standalone artifact."
+        }
+      }
+    },
+    "packages/sdui": {
+      "name": "@valueos/sdui",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-ui-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the root Vitest workspace inline SDUI project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Internal UI engine distributed through applications, not standalone releases."
+        }
+      }
+    },
+    "packages/shared": {
+      "name": "@valueos/shared",
+      "classification": "internal-library",
+      "supportTier": "internal-supported",
+      "owner": "team-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the root Vitest workspace inline shared package project."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Canonical internal domain model package; not independently released."
+        }
+      }
+    },
+    "packages/services/domain-validator": {
+      "name": "@valuecanvas/domain-validator",
+      "classification": "production-runtime",
+      "supportTier": "customer-critical",
+      "owner": "team-platform",
+      "shipped": true,
+      "ci": {
+        "rootVitest": {
+          "status": "covered",
+          "justification": "Covered by the packages/services/domain-validator Vitest workspace project."
+        },
+        "release": {
+          "status": "eligible",
+          "justification": "Deployable production service with its own runtime artifact."
+        }
+      }
+    },
+    "packages/services/github-code-optimizer": {
+      "name": "github-code-optimizer",
+      "classification": "experimental",
+      "supportTier": "experimental",
+      "owner": "team-devex",
+      "shipped": false,
+      "ci": {
+        "rootVitest": {
+          "status": "excluded",
+          "justification": "Lab service kept for reference/prototyping and not part of the supported shipped surface."
+        },
+        "release": {
+          "status": "excluded",
+          "justification": "Reference/experimental service; excluded from automated release tagging."
+        }
+      }
+    }
+  }
+}

@@ -13,7 +13,8 @@ import { createLogger } from '@shared/lib/logger';
 import { getSupabaseClient } from '@shared/lib/supabase';
 
 import { BaseService } from '../BaseService.js';
-import { getSessionStore, SessionMetadata } from '../security/RedisSessionStore.js';
+import { getSessionStore } from '../security/RedisSessionStore.js';
+import type { SessionMetadata } from '../security/RedisSessionStore.js';
 
 import { emailService } from './EmailService.js';
 import { securityLogger } from './SecurityLogger.js';
@@ -327,7 +328,7 @@ export class TokenRotationService extends BaseService {
     for (const session of userSessions) {
       const sessionId = this.extractSessionId(session);
       if (sessionId !== currentSessionId) {
-        await this.sessionStore.delete(sessionId, tenantId);
+        await this.sessionStore.invalidateSession(sessionId, tenantId, session.absoluteExpiresAt);
         revoked++;
       }
     }
@@ -404,8 +405,7 @@ export class TokenRotationService extends BaseService {
   // Private methods
 
   private extractSessionId(metadata: SessionMetadata): string {
-    // Use deviceId as a proxy for session ID, or generate from userId + createdAt
-    return metadata.deviceId || `${metadata.userId}:${metadata.createdAt}`;
+    return metadata.sessionId;
   }
 
   private getEventDescription(eventType: SecurityEventType): string {

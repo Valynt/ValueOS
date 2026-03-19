@@ -8,6 +8,8 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { api } from "@/api/client/unified-api-client";
+
 import { useUpdateAssumption } from "../useValueModeling";
 
 // Mock API client
@@ -57,7 +59,7 @@ describe("useValueModeling mutation hooks", () => {
     });
 
     it("rolls back on error", async () => {
-      vi.mocked(require("@/api/client/unified-api-client").api.updateAssumption).mockRejectedValueOnce(new Error("Update failed"));
+      vi.mocked(api.updateAssumption).mockRejectedValueOnce(new Error("Update failed"));
       const { result } = renderHook(() => useUpdateAssumption(), { wrapper: createWrapper() });
 
       result.current.mutate({

@@ -10,7 +10,9 @@ vi.mock('@shared/lib/supabase', () => ({
     throw new Error('supabase unavailable');
   }),
   createRequestSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(),
   getRequestSupabaseClient: vi.fn(),
+  supabase: null,
 }));
 
 vi.mock('@shared/lib/redisClient', () => ({

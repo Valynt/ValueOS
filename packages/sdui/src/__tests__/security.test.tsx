@@ -187,6 +187,7 @@ describe('SDUI Security - Rate Limiting', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     resolver.destroy();
   });
 
@@ -251,15 +252,17 @@ describe('SDUI Security - Rate Limiting', () => {
       await resolver.resolve(binding, mockContext);
     }
 
-    // Wait for rate limit window to reset (mock time)
+    // Advance the resolver clock beyond the window before the next request.
     vi.useFakeTimers();
-    vi.advanceTimersByTime(61000); // 61 seconds
-    vi.useRealTimers();
+    vi.setSystemTime(Date.now() + 61000);
 
-    // Should be able to make requests again
-    await expect(
-      resolver.resolve(binding, mockContext)
-    ).resolves.toBeDefined();
+    try {
+      await expect(
+        resolver.resolve(binding, mockContext)
+      ).resolves.toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('should enforce concurrency limits', async () => {
@@ -542,12 +545,13 @@ describe('SDUI Security - Integration', () => {
 
       vi.spyOn(resolver as any, 'resolveFromSupabase').mockResolvedValue({ data: 'test' });
 
-      // Simulate 500 concurrent requests across multiple orgs
+      // Simulate 500 concurrent requests across a small org set so the
+      // per-org rate limiter is guaranteed to trip under load.
       const promises = [];
       for (let i = 0; i < 500; i++) {
         const orgContext = {
           ...context,
-          organizationId: `org_${i % 10}`, // 10 different orgs
+          organizationId: `org_${i % 2}`, // 2 different orgs => 250 reqs each
         };
         promises.push(
           resolver.resolve(binding, orgContext).catch(() => {}) // Ignore rate limit errors

@@ -1,4 +1,5 @@
 name: Deploy
+# active-runtime-platform: kubernetes
 
 on:
   push:
@@ -48,7 +49,6 @@ env:
   BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
   FRONTEND_IMAGE_NAME: ${{ github.repository }}-frontend
   NODE_VERSION: "20.19.0"
-  PNPM_VERSION: "9.15.0"
   SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
@@ -142,7 +142,6 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Install dependencies
@@ -481,7 +480,6 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Install dependencies
@@ -523,7 +521,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Install Supabase CLI
@@ -565,7 +562,7 @@ jobs:
       - name: Smoke test staging
         run: |
           for i in $(seq 1 10); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://staging.valueos.app/health || true)
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://staging.valueos.app/api/health || true)
             if [ "$STATUS" = "200" ]; then
               echo "Staging health check passed"
               exit 0
@@ -596,7 +593,7 @@ jobs:
             "sha": "${{ github.sha }}",
             "image_ref": os.environ.get("IMAGE_REF", ""),
             "mandatory_verification_checklist": {
-              "health": {"endpoint": "https://staging.valueos.app/health", "status": "passed"},
+              "health": {"endpoint": "https://staging.valueos.app/api/health", "status": "passed"},
               "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
               "key_metrics": {"load_test": "infra/testing/load-test.k6.js", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
             },
@@ -610,7 +607,7 @@ jobs:
             handle.write("\n".join([
               "# Post-Deploy Mandatory Verification Checklist (Staging)",
               "",
-              "- [x] Health check: https://staging.valueos.app/health returned 200",
+              "- [x] Health check: https://staging.valueos.app/api/health returned 200",
               "- [x] Rollback readiness confirmed (blue-green)",
               "- [x] Key metrics captured (load test + SLO alert baseline)",
               f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
@@ -763,7 +760,6 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Install dependencies
@@ -854,7 +850,6 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Install Supabase CLI
@@ -903,7 +898,7 @@ jobs:
       - name: Smoke test production
         run: |
           for i in $(seq 1 10); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://app.valueos.app/health || true)
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" https://app.valueos.app/api/health || true)
             if [ "$STATUS" = "200" ]; then
               echo "Production health check passed"
               exit 0
@@ -934,7 +929,7 @@ jobs:
             "sha": "${{ github.sha }}",
             "image_ref": os.environ.get("IMAGE_REF", ""),
             "mandatory_verification_checklist": {
-              "health": {"endpoint": "https://app.valueos.app/health", "status": "passed"},
+              "health": {"endpoint": "https://app.valueos.app/api/health", "status": "passed"},
               "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
               "key_metrics": {"preprod_slo_guard": "passed", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
             },
@@ -948,7 +943,7 @@ jobs:
             handle.write("\n".join([
               "# Post-Deploy Mandatory Verification Checklist (Production)",
               "",
-              "- [x] Health check: https://app.valueos.app/health returned 200",
+              "- [x] Health check: https://app.valueos.app/api/health returned 200",
               "- [x] Rollback readiness confirmed (blue-green)",
               "- [x] Key metrics captured (preprod SLO guard + alert baseline)",
               f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",

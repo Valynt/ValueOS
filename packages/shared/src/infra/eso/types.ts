@@ -9,9 +9,9 @@
 
 export type ESOQueryParams = Record<string, unknown>;
 
-export interface DataIngestionAdapter<TRaw = unknown, TTransformed = unknown> {
+export interface DataIngestionAdapter<TRaw = unknown, TTransformed = unknown, TParams = ESOQueryParams> {
   name: string;
-  fetchData(params?: ESOQueryParams): Promise<TRaw>;
+  fetchData(params?: TParams): Promise<TRaw>;
   transformData(rawData: TRaw): Promise<TTransformed>;
   // Real-time streaming support
   startStreaming?(params?: ESOQueryParams): Promise<void>;

@@ -120,14 +120,18 @@ interface ComputedModel {
 // ---------------------------------------------------------------------------
 
 // Module-level singleton — per ADR-0011.
-let _provenanceTracker: ProvenanceTracker | null = null;
-function getProvenanceTracker(): ProvenanceTracker {
-  if (!_provenanceTracker) {
-    const client = createServerSupabaseClient();
-    const store = new SupabaseProvenanceStore(client);
-    _provenanceTracker = new ProvenanceTracker(store);
+const provenanceTrackersByTenant = new Map<string, ProvenanceTracker>();
+function getProvenanceTracker(organizationId: string): ProvenanceTracker {
+  const existingTracker = provenanceTrackersByTenant.get(organizationId);
+  if (existingTracker) {
+    return existingTracker;
   }
-  return _provenanceTracker;
+
+  const client = createServerSupabaseClient();
+  const store = new SupabaseProvenanceStore(client, organizationId);
+  const tracker = new ProvenanceTracker(store);
+  provenanceTrackersByTenant.set(organizationId, tracker);
+  return tracker;
 }
 
 export class FinancialModelingAgent extends BaseAgent {
@@ -894,7 +898,7 @@ export class FinancialModelingAgent extends BaseAgent {
 
       // Record provenance for each financial model so the UI can trace every
       // ROI/NPV figure back to the FinancialModelingAgent run that produced it.
-      const tracker = getProvenanceTracker();
+      const tracker = getProvenanceTracker(organizationId);
       await Promise.allSettled(
         models.map((model) =>
           tracker.record({

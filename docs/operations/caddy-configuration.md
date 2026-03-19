@@ -8,7 +8,7 @@ status: active
 
 # Caddy Configuration
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-03-19
 
 **Consolidated from 1 source documents**
 
@@ -35,16 +35,15 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
   - HTTP only; admin API exposed on `:2019` for live reloads.
   - HMR stays same-origin via Caddy to avoid CORS.
 
-- **Stage (`infra/docker/docker-compose.staging.yml`)**
-  - Caddy terminates TLS (ACME staging CA by default) and serves static assets from `dist` mounted at `/srv/www`.
-  - `/api/*` and `/ws/*` proxied to `backend:${API_PORT:-3001}` inside the compose network.
-  - HTTP → HTTPS redirect; health at `/healthz` answered by Caddy.
-  - To run behind a cloud LB, switch `tls` to `tls internal` in `infra/caddy/Caddyfile.stage` and rely on forwarded headers.
+- **Stage (`ops/compose/compose.staging.yml`)**
+  - Caddy terminates TLS (ACME staging CA by default) and serves the frontend while proxying backend traffic only on `/api/*`.
+  - The backend stays private to the compose network; external callers must not target a host-published backend port.
+  - HTTP → HTTPS redirect remains in place, but there is no separate public `/healthz` ingress. Use `https://$APP_DOMAIN/api/health` for external health and run readiness checks from inside the compose network namespace.
+  - To run behind a cloud LB, switch `tls` to `tls internal` in `infra/caddy/Caddyfile.staging` and rely on forwarded headers.
 
-- **Prod (`infra/docker/docker-compose.prod.yml`)**
-  - Same routing as stage with ACME production CA and stricter headers (HSTS).
-  - Caddy serves static assets from `/srv/www` and proxies `/api/*` + `/ws/*` to `backend:${API_PORT:-3001}`.
-  - HTTP → HTTPS redirect; Caddy health at `/healthz`.
+- **Prod (`infra/caddy/Caddyfile.prod`)**
+  - Same routing policy as stage with ACME production CA and stricter headers (HSTS).
+  - Caddy serves the frontend and proxies backend traffic only on `/api/*`; there is no separate public health endpoint outside `/api`.
 
 ## DNS & TLS strategy
 
@@ -55,25 +54,25 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 ## Routing contract
 
 - SPA: fallback to `/public/public/index.html` via `spa_static` snippet in `infra/caddy/Caddyfile`.
-- API: `handle_path /api/*` → `reverse_proxy {$API_UPSTREAM:http://backend:${API_PORT:-3001}}` with streaming-friendly `flush_interval -1` for SSE/WebSockets.
-- WebSockets/SSE: `/ws/*` shares the API upstream block; headers pass `X-Forwarded-*` and `X-Request-ID`.
+- API: `handle /api/*` → `reverse_proxy {$API_UPSTREAM}`. `/api` is the only supported external/backend ingress prefix for browser clients and third-party callers.
+- Internal-only health and readiness endpoints continue to live on the backend service itself (`/health`, `/health/ready`) and should be queried from inside the compose or cluster network namespace, not through a host-published backend port.
 - Caching: immutable caching for hashed assets; HTML is `no-store` to prevent stale shells. Compression via `zstd` + `gzip` with safe MIME filters.
 - Security headers: CSP defaults to same-origin (`connect-src 'self' https: wss:`), COOP/COEP, and permissions-policy. HSTS added for TLS sites.
 
 ## Caddyfiles
 
-- Base snippets: `infra/caddy/Caddyfile` defines shared headers, compression, SPA/file-server rules, API proxy, and health responder. `STATIC_ROOT` defaults to `/srv/www`.
+- Base snippets: `infra/caddy/Caddyfile` defines shared headers, compression, SPA/file-server rules, and the API proxy. `STATIC_ROOT` defaults to `/srv/www`.
 - Environment overlays:
   - `infra/caddy/Caddyfile.dev`: HTTP, admin API enabled, proxies to Vite + backend.
-  - `infra/caddy/Caddyfile.stage`: ACME staging CA, HTTPS redirect, static serving, comment for LB offload.
+  - `infra/caddy/Caddyfile.staging`: ACME staging CA, HTTPS redirect, static serving, comment for LB offload.
   - `infra/caddy/Caddyfile.prod`: ACME production CA, HSTS, static serving, comment for LB offload.
 
 ## Docker Compose integration
 
 - **Dev:** `docker compose -f infra/docker/docker-compose.caddy.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:3001`.
 - **Stage/Prod:** build the SPA (`npm run build` to populate `dist/`), then:
-  - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f infra/docker/docker-compose.staging.yml up -d`
-  - Prod: `APP_DOMAIN=app.example.com ACME_EMAIL=security@example.com docker compose -f infra/docker/docker-compose.prod.yml up -d`
+  - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging up -d --build`
+  - Prod: deploy the equivalent production compose or cluster manifest with the same `/api`-only ingress policy.
     Static assets mount from `dist` into Caddy at `/srv/www`; backend runs from source via `npm run backend:dev` (swap to a compiled server image if desired).
 
 ## Codebase refactors & validation checklist
@@ -88,7 +87,9 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 
 - Build artifacts (stage/prod): `npm run build` → ensure `dist/` exists before starting Caddy.
 - Start services with the compose files above.
-- Verify routing: `curl -i https://$APP_DOMAIN/healthz` (Caddy), `curl -i https://$APP_DOMAIN/api/health` (backend), WebSockets via `wscat -c wss://$APP_DOMAIN/ws/sdui`.
+- Verify external routing: `curl -i https://$APP_DOMAIN/api/health` and `curl -I https://$APP_DOMAIN/`.
+- Verify internal readiness from inside the network namespace: `docker compose -f ops/compose/compose.staging.yml --env-file ops/env/.env.staging exec backend curl -i http://localhost:${BACKEND_PORT:-3001}/health/ready`.
+- If emergency debugging requires direct backend access, add `-f ops/compose/profiles/staging-admin-debug.yml --profile admin-debug` temporarily; it binds to `127.0.0.1` only and must stay disabled in shared staging environments.
 - Verify headers: check CSP, HSTS (prod), `X-Request-ID`, and absence of `Server` header.
 - Rollback: `docker compose ... down` and restore prior Caddyfile/compose versions; ACME data persists in `caddy-data` volume.
 

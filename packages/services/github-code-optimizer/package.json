@@ -45,5 +45,21 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "valueos": {
+    "classification": "experimental",
+    "supportTier": "experimental",
+    "owner": "team-devex",
+    "shipped": false,
+    "ci": {
+      "rootVitest": {
+        "status": "excluded",
+        "justification": "Lab service kept for reference/prototyping and not part of the supported shipped surface."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Reference/experimental service; excluded from automated release tagging."
+      }
+    }
   }
 }

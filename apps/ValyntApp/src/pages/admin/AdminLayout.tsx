@@ -1,17 +1,18 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import React, { useCallback, useMemo, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { ScopeBadge } from '../../components/admin/ScopeBadge';
+import { ScopeBadge } from "../../components/admin/ScopeBadge";
 import {
   type AdminNavSection,
   type AdminPermission,
   buildBreadcrumbs,
   filterByPermissions,
   findNavItemByPath,
+  getAccessibleNavItems,
   searchNavItems,
-} from '../../lib/adminNavigation';
+} from "../../lib/adminNavigation";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 interface AdminLayoutProps {
   /**
@@ -22,7 +23,7 @@ interface AdminLayoutProps {
   /**
    * Current plan tier for feature gating.
    */
-  planTier?: 'free' | 'basic' | 'pro' | 'enterprise';
+  planTier?: "free" | "basic" | "pro" | "enterprise";
 }
 
 /**
@@ -33,18 +34,25 @@ interface AdminLayoutProps {
  */
 export const AdminLayout: React.FC<AdminLayoutProps> = ({
   permissions = new Set<AdminPermission>([
-    'governance.read', 'governance.write',
-    'identity.read', 'identity.write',
-    'security.read', 'security.write',
-    'agents.read', 'agents.write',
-    'data.read', 'data.write',
-    'compliance.read', 'compliance.write',
-    'billing.read', 'billing.write',
+    "governance.read",
+    "governance.write",
+    "identity.read",
+    "identity.write",
+    "security.read",
+    "security.write",
+    "agents.read",
+    "agents.write",
+    "data.read",
+    "data.write",
+    "compliance.read",
+    "compliance.write",
+    "billing.read",
+    "billing.write",
   ]),
-  planTier = 'pro',
+  planTier = "pro",
 }) => {
   const location = useLocation();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const filteredSections = useMemo(
@@ -52,20 +60,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     [permissions, planTier]
   );
 
-  const currentItem = useMemo(
-    () => findNavItemByPath(location.pathname),
-    [location.pathname]
-  );
+  const currentItem = useMemo(() => findNavItemByPath(location.pathname), [location.pathname]);
 
-  const breadcrumbs = useMemo(
-    () => buildBreadcrumbs(location.pathname),
-    [location.pathname]
+  const breadcrumbs = useMemo(() => buildBreadcrumbs(location.pathname), [location.pathname]);
+
+  const searchableItems = useMemo(
+    () => getAccessibleNavItems(permissions, planTier),
+    [permissions, planTier]
   );
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return searchNavItems(searchQuery, permissions);
-  }, [searchQuery, permissions]);
+    return searchNavItems(searchQuery, searchableItems);
+  }, [searchQuery, searchableItems]);
 
   const toggleSection = useCallback((sectionId: string) => {
     setCollapsedSections((prev) => {
@@ -96,7 +103,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               stroke="currentColor"
               aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             <input
               type="search"
@@ -110,12 +122,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
           {/* Search Results */}
           {searchResults.length > 0 && (
-            <ul className="mt-2 border border-gray-200 rounded-md bg-white shadow-sm max-h-60 overflow-y-auto" role="listbox">
+            <ul
+              className="mt-2 border border-gray-200 rounded-md bg-white shadow-sm max-h-60 overflow-y-auto"
+              role="listbox"
+            >
               {searchResults.map((item) => (
                 <li key={item.id}>
                   <NavLink
                     to={item.path}
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setSearchQuery("")}
                     className="block px-3 py-2 text-sm hover:bg-gray-50"
                   >
                     <span className="font-medium text-gray-900">{item.label}</span>
@@ -139,15 +154,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 <span>{section.label}</span>
                 <svg
                   className={cn(
-                    'w-3 h-3 transition-transform',
-                    collapsedSections.has(section.id) ? '-rotate-90' : ''
+                    "w-3 h-3 transition-transform",
+                    collapsedSections.has(section.id) ? "-rotate-90" : ""
                   )}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   aria-hidden="true"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
 
@@ -159,17 +179,28 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                         to={item.path}
                         className={({ isActive }) =>
                           cn(
-                            'flex items-center gap-2 px-4 py-2 text-sm transition-colors',
+                            "flex items-center gap-2 px-4 py-2 text-sm transition-colors",
                             isActive
-                              ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                              ? "bg-blue-50 text-blue-700 border-r-2 border-blue-700"
+                              : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                           )
                         }
                       >
                         <span className="truncate">{item.label}</span>
-                        {item.sensitivity === 'destructive' && (
-                          <svg className="w-3 h-3 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-label="Destructive action">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
+                        {item.sensitivity === "destructive" && (
+                          <svg
+                            className="w-3 h-3 text-red-400 flex-shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            aria-label="Destructive action"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 9v2m0 4h.01"
+                            />
                           </svg>
                         )}
                         {item.minPlanTier && (
@@ -194,15 +225,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <div className="flex items-center justify-between">
             <div>
               {/* Breadcrumbs */}
-              <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-gray-500 mb-1">
-                <NavLink to="/admin" className="hover:text-gray-700">Admin</NavLink>
+              <nav
+                aria-label="Breadcrumb"
+                className="flex items-center gap-1 text-sm text-gray-500 mb-1"
+              >
+                <NavLink to="/admin" className="hover:text-gray-700">
+                  Admin
+                </NavLink>
                 {breadcrumbs.map((crumb, i) => (
                   <React.Fragment key={crumb.path}>
                     <span aria-hidden="true">/</span>
                     {i === breadcrumbs.length - 1 ? (
                       <span className="text-gray-900 font-medium">{crumb.label}</span>
                     ) : (
-                      <NavLink to={crumb.path} className="hover:text-gray-700">{crumb.label}</NavLink>
+                      <NavLink to={crumb.path} className="hover:text-gray-700">
+                        {crumb.label}
+                      </NavLink>
                     )}
                   </React.Fragment>
                 ))}
@@ -210,7 +248,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
               {/* Page Title */}
               <h1 className="text-xl font-semibold text-gray-900">
-                {currentItem?.label ?? 'Admin'}
+                {currentItem?.label ?? "Admin"}
               </h1>
               {currentItem?.description && (
                 <p className="text-sm text-gray-500 mt-0.5">{currentItem.description}</p>

@@ -21,8 +21,10 @@ vi.mock('@shared/lib/logger', () => ({
 
 vi.mock('@shared/lib/supabase', () => ({
   createRequestSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(),
   getRequestSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
+  supabase: null,
 }));
 
 vi.mock('../../services/auth/AuthService.js', () => ({

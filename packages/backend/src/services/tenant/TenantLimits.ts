@@ -5,7 +5,7 @@
  * provisioning orchestration. Both modules share these constants.
  */
 
-import type { TenantLimits, TenantTier, TenantUsage } from "./TenantProvisioning.js";
+import type { TenantLimits, TenantTier, TenantUsage } from "./TenantProvisioningTypes.js";
 
 export const TIER_LIMITS: Record<TenantTier, TenantLimits> = {
   free: {

@@ -61,6 +61,14 @@ export * from "./AuditLogService.js";
 export * from "./AuditTrailService.js";
 // ComplianceControlStatusService is canonical for ComplianceFramework.
 export * from "./ComplianceControlStatusService.js";
+export type { FrameworkCapabilityStatus } from "./ComplianceFrameworkCapabilityGate.js";
+export {
+  ALL_COMPLIANCE_FRAMEWORKS,
+  HIPAA_REQUIREMENTS,
+  ComplianceFrameworkCapabilityGate,
+  complianceFrameworkCapabilityGate,
+  UnsupportedComplianceFrameworkError,
+} from "./ComplianceFrameworkCapabilityGate.js";
 // ComplianceControlMappingRegistry re-defines ComplianceFramework — exclude it; ComplianceControlStatusService is canonical.
 export type { EvidenceType, ControlMapping, FrameworkControlMapping, RetentionSummary } from "./ComplianceControlMappingRegistry.js";
 export { ComplianceControlMappingRegistry, complianceControlMappingRegistry } from "./ComplianceControlMappingRegistry.js";

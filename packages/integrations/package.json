@@ -24,5 +24,21 @@
     "@types/node": "^20.19.29",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "valueos": {
+    "classification": "internal-library",
+    "supportTier": "internal-supported",
+    "owner": "team-integrations",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the packages/integrations Vitest workspace project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Internal adapters shipped through backend/application deployments only."
+      }
+    }
   }
 }

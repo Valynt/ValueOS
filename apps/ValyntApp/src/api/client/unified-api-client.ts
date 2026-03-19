@@ -299,8 +299,8 @@ export class UnifiedApiClient {
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
-          const sanitizedKey = sanitizeInput(String(key), { allowHtml: false, maxLength: 128 });
-          const sanitizedValue = sanitizeInput(String(value), { allowHtml: false, maxLength: 2048 });
+          const sanitizedKey = this.sanitizeUrlPart(String(key), 128);
+          const sanitizedValue = this.sanitizeUrlPart(String(value), 2048);
           searchParams.append(sanitizedKey, sanitizedValue);
         }
       });
@@ -315,10 +315,26 @@ export class UnifiedApiClient {
 
   private sanitizePath(path: string): string {
     const normalizedPath = path.startsWith("/") ? path.slice(1) : path;
-    return normalizedPath
+    const withoutMarkup = normalizedPath
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<\/?[^>]+>/g, "");
+
+    return withoutMarkup
       .split("/")
-      .map((segment) => sanitizeInput(segment, { allowHtml: false, maxLength: 256 }))
+      .map((segment) => this.sanitizeUrlPart(segment, 256))
       .join("/");
+  }
+
+  private sanitizeUrlPart(value: string, maxLength: number): string {
+    const withoutMarkup = value
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<\/?[^>]+>/g, "");
+
+    return sanitizeInput(withoutMarkup, { allowHtml: false, maxLength });
   }
 
   private async makeRequestWithRetry(config: RequestInit & { url: string }): Promise<Response> {

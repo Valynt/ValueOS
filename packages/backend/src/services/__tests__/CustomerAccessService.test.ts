@@ -7,10 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { logger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js'
 import { CustomerAccessService } from '../CustomerAccessService.js'
-import { emailService } from '../EmailService.js'
+import { emailService } from '../tenant/EmailService.js'
 
 // Mock dependencies
-vi.mock('../EmailService');
+vi.mock('../tenant/EmailService', () => ({
+  emailService: {
+    send: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 vi.mock('../../lib/logger');
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -46,8 +50,11 @@ describe('CustomerAccessService', () => {
       expect(result).toEqual({
         token: mockToken,
         expires_at: mockExpiresAt,
-        portal_url: expect.stringContaining(mockToken)
+        portal_url: expect.stringContaining('#token=')
       });
+
+      expect(result.portal_url).not.toContain('?token=');
+      expect(result.portal_url).toContain(`#token=${encodeURIComponent(mockToken)}`);
 
       expect(supabase.rpc).toHaveBeenCalledWith('create_customer_access_token', {
         p_value_case_id: valueCaseId,
@@ -91,10 +98,12 @@ describe('CustomerAccessService', () => {
     it('should validate a valid token', async () => {
       const token = 'valid-token';
       const valueCaseId = 'value-case-123';
+      const organizationId = 'org-123';
 
       (supabase.rpc as any).mockResolvedValue({
         data: [{
           value_case_id: valueCaseId,
+          organization_id: organizationId,
           is_valid: true,
           error_message: null
         }],
@@ -105,6 +114,7 @@ describe('CustomerAccessService', () => {
 
       expect(result).toEqual({
         value_case_id: valueCaseId,
+        organization_id: organizationId,
         is_valid: true,
         error_message: null
       });
@@ -120,6 +130,7 @@ describe('CustomerAccessService', () => {
       (supabase.rpc as any).mockResolvedValue({
         data: [{
           value_case_id: null,
+          organization_id: null,
           is_valid: false,
           error_message: 'Token has expired'
         }],
@@ -138,6 +149,7 @@ describe('CustomerAccessService', () => {
       (supabase.rpc as any).mockResolvedValue({
         data: [{
           value_case_id: null,
+          organization_id: null,
           is_valid: false,
           error_message: 'Token has been revoked'
         }],
@@ -296,7 +308,7 @@ describe('CustomerAccessService', () => {
     it('should send an email using emailService', async () => {
       const email = 'customer@example.com';
       const companyName = 'Acme Corp';
-      const portalUrl = 'https://app.valuecanvas.com/customer/portal?token=123';
+      const portalUrl = 'https://app.valuecanvas.com/customer/portal#token=123';
 
       await service.sendPortalAccessEmail(email, companyName, portalUrl);
 
@@ -306,12 +318,18 @@ describe('CustomerAccessService', () => {
         template: 'customer-portal-access',
         data: { companyName, portalUrl }
       });
+
+
+      const infoPayloads = vi.mocked(logger.info).mock.calls.map(([, meta]) => JSON.stringify(meta));
+      expect(infoPayloads.join(' ')).not.toContain(portalUrl);
+      expect(infoPayloads.join(' ')).not.toContain(email);
+      expect(infoPayloads.join(' ')).toContain('recipient:');
     });
 
     it('should log an error if email sending fails', async () => {
       const email = 'customer@example.com';
       const companyName = 'Acme Corp';
-      const portalUrl = 'https://app.valuecanvas.com/customer/portal?token=123';
+      const portalUrl = 'https://app.valuecanvas.com/customer/portal#token=123';
       const error = new Error('Email failed');
 
       // Mock emailService.send to throw an error

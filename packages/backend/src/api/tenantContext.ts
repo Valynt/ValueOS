@@ -34,7 +34,7 @@ router.use(tenantContextMiddleware());
 
 router.post(
   "/",
-  requirePermission(PERMISSIONS.SETTINGS_EDIT),
+  requirePermission(PERMISSIONS.TENANT_CONTEXT_WRITE),
   auditOperation(AUDIT_ACTION.DATA_UPDATE, "tenant_context"),
   async (req: Request, res: Response) => {
     const tenantId = (req as AuthenticatedRequest).tenantId;
@@ -64,7 +64,7 @@ router.post(
 
 router.get(
   "/",
-  requirePermission(PERMISSIONS.SETTINGS_VIEW),
+  requirePermission(PERMISSIONS.TENANT_CONTEXT_READ),
   async (req: Request, res: Response) => {
     const tenantId = (req as AuthenticatedRequest).tenantId;
     if (!tenantId) {

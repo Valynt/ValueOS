@@ -34,7 +34,7 @@
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-query": "^5.0.0",
     "@valueos/components": "workspace:*",
-    "@valueos/infra": "file:../../packages/infra",
+    "@valueos/infra": "workspace:*",
     "@valueos/sdui": "workspace:*",
     "@valueos/shared": "^1.0.0",
     "@xyflow/react": "^12.3.2",
@@ -104,5 +104,21 @@
     "vite": "^6.1.6",
     "vitest": "^4.0.17"
   },
-  "tsErrorBaseline": 4240
+  "tsErrorBaseline": 4240,
+  "valueos": {
+    "classification": "production-runtime",
+    "supportTier": "customer-critical",
+    "owner": "team-frontend",
+    "shipped": true,
+    "ci": {
+      "rootVitest": {
+        "status": "covered",
+        "justification": "Covered by the dedicated apps/ValyntApp Vitest workspace project."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "The customer-facing app is deployed from the monorepo but is not versioned as a standalone GitHub release artifact."
+      }
+    }
+  }
 }

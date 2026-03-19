@@ -2,11 +2,30 @@ import type { Histogram } from "@opentelemetry/api";
 import { logger } from "@shared/lib/logger";
 import { NextFunction, Request, Response } from "express";
 
-import { createHistogram } from "../config/telemetry.js"
+import { createHistogram } from "../config/telemetry.js";
 
 const WINDOW_SIZE = 120;
 const latencyWindows = new Map<string, number[]>();
-const criticalRoutes = ["/api/llm/chat", "/api/billing", "/api/queue"];
+
+const LATENCY_CLASS_SLOS = {
+  interactive: {
+    completionP95Ms: 200,
+  },
+  orchestration: {
+    ttfbP95Ms: 200,
+    completionP95Ms: 3000,
+  },
+} as const;
+
+const ORCHESTRATION_ROUTE_PREFIXES = ["/api/llm/chat", "/api/billing", "/api/queue"];
+
+type LatencyClass = keyof typeof LATENCY_CLASS_SLOS;
+
+type RouteLatencyClassification = {
+  routeKey: string;
+  latencyClass: LatencyClass;
+  sloModel: "completion" | "ttfb_and_completion";
+};
 
 let latencyHistogram: Histogram | null = null;
 
@@ -14,10 +33,30 @@ async function getLatencyHistogram(): Promise<Histogram> {
   if (!latencyHistogram) {
     latencyHistogram = await createHistogram(
       "api.request.duration",
-      "Duration of API requests in milliseconds"
+      "Duration of API requests in milliseconds",
     );
   }
   return latencyHistogram;
+}
+
+function classifyRoute(pathname: string): RouteLatencyClassification {
+  const orchestrationRoute = ORCHESTRATION_ROUTE_PREFIXES.find((route) =>
+    pathname.startsWith(route),
+  );
+
+  if (orchestrationRoute) {
+    return {
+      routeKey: orchestrationRoute,
+      latencyClass: "orchestration",
+      sloModel: "ttfb_and_completion",
+    };
+  }
+
+  return {
+    routeKey: pathname,
+    latencyClass: "interactive",
+    sloModel: "completion",
+  };
 }
 
 function recordDuration(route: string, duration: number) {
@@ -34,7 +73,7 @@ function percentile(values: number[], p: number) {
   const sorted = [...values].sort((a, b) => a - b);
   const idx = Math.min(
     sorted.length - 1,
-    Math.ceil((p / 100) * sorted.length) - 1
+    Math.ceil((p / 100) * sorted.length) - 1,
   );
   return sorted[idx];
 }
@@ -57,29 +96,44 @@ export function getLatencySnapshot() {
 export function latencyMetricsMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
+    const classification = classifyRoute(req.path);
 
     res.on("finish", async () => {
       const duration = Date.now() - start;
-      const routeKey =
-        criticalRoutes.find((route) => req.path.startsWith(route)) || req.path;
 
-      recordDuration(routeKey, duration);
+      recordDuration(classification.routeKey, duration);
 
       const histogram = await getLatencyHistogram();
       histogram.record(duration, {
-        "http.route": routeKey,
+        "http.route": classification.routeKey,
         "http.method": req.method,
         "http.status_code": res.statusCode,
+        "latency.class": classification.latencyClass,
+        "latency.slo_model": classification.sloModel,
       });
 
-      if (criticalRoutes.includes(routeKey)) {
+      if (classification.latencyClass === "orchestration") {
         const snapshot = getLatencySnapshot();
-        logger.debug("API latency updated", {
-          route: routeKey,
+        logger.debug("Orchestration latency updated", {
+          route: classification.routeKey,
           duration_ms: duration,
-          p95_ms: snapshot[routeKey]?.p95,
+          completion_p95_ms: snapshot[classification.routeKey]?.p95,
+          ttfb_target_ms: LATENCY_CLASS_SLOS.orchestration.ttfbP95Ms,
+          completion_target_ms:
+            LATENCY_CLASS_SLOS.orchestration.completionP95Ms,
+          guidance:
+            "Exclude orchestration routes from the universal 200ms completion SLO unless they are redesigned as interactive endpoints.",
         });
+        return;
       }
+
+      const snapshot = getLatencySnapshot();
+      logger.debug("Interactive latency updated", {
+        route: classification.routeKey,
+        duration_ms: duration,
+        completion_p95_ms: snapshot[classification.routeKey]?.p95,
+        completion_target_ms: LATENCY_CLASS_SLOS.interactive.completionP95Ms,
+      });
     });
 
     next();

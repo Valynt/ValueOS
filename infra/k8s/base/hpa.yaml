@@ -1,6 +1,12 @@
 # HPAs target the blue (active) deployments by default. During a blue-green
 # switch, update scaleTargetRef.name to point to the newly active deployment
 # (e.g., backend-green / frontend-green).
+#
+# Latency classes:
+# - Interactive API routes scale on completion p95 < 200ms.
+# - Orchestration / LLM routes scale on TTFB p95 < 200ms with a separate
+#   completion SLO handled by streaming/async telemetry, not by the universal
+#   200ms completion guardrail.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -9,6 +15,7 @@ metadata:
   labels:
     app: backend
     component: api
+    autoscaling.valueos.dev/profile: interactive-api
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: valynt
@@ -46,17 +53,32 @@ spec:
     - type: External
       external:
         metric:
-          name: backend_http_p95_latency_ms
+          name: backend_interactive_http_p95_latency_ms
           selector:
             matchLabels:
               app: backend
               namespace: valynt
+              latency_class: interactive
         target:
           type: Value
-          value: "450"
+          value: "200"
+    - type: External
+      external:
+        metric:
+          name: backend_orchestration_ttfb_p95_latency_ms
+          selector:
+            matchLabels:
+              app: backend
+              namespace: valynt
+              latency_class: orchestration
+        target:
+          type: Value
+          value: "200"
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 360
+      # Interactive request/response traffic was validated for no request thrash,
+      # so scale-in can happen faster than async workers.
+      stabilizationWindowSeconds: 120
       selectPolicy: Min
       policies:
         - type: Percent
@@ -84,6 +106,7 @@ metadata:
   labels:
     app: frontend
     component: web
+    autoscaling.valueos.dev/profile: interactive-api
     app.kubernetes.io/name: frontend
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: valynt
@@ -103,7 +126,9 @@ spec:
           averageUtilization: 70
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 300
+      # Frontend pods are stateless interactive capacity, so use the shortest
+      # validated scale-in window once request-thrash checks stay clean.
+      stabilizationWindowSeconds: 90
       selectPolicy: Min
       policies:
         - type: Percent

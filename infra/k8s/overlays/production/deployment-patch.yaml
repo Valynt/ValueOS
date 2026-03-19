@@ -7,14 +7,19 @@ spec:
   template:
     spec:
       containers:
-      - name: backend
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: 2000m
-            memory: 2Gi
+        - name: backend
+          env:
+            - name: APP_ENV
+              value: "prod"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "8"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -25,14 +30,19 @@ spec:
   template:
     spec:
       containers:
-      - name: backend
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: 2000m
-            memory: 2Gi
+        - name: backend
+          env:
+            - name: APP_ENV
+              value: "prod"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "8"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -43,14 +53,14 @@ spec:
   template:
     spec:
       containers:
-      - name: frontend
-        resources:
-          requests:
-            cpu: 200m
-            memory: 256Mi
-          limits:
-            cpu: 1000m
-            memory: 512Mi
+        - name: frontend
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,11 +71,11 @@ spec:
   template:
     spec:
       containers:
-      - name: frontend
-        resources:
-          requests:
-            cpu: 200m
-            memory: 256Mi
-          limits:
-            cpu: 1000m
-            memory: 512Mi
+        - name: frontend
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi

@@ -514,6 +514,11 @@ export const REDIS_KEYS = {
   session: (sessionId: string, organizationId?: string) => ns(organizationId, `playground:session:${sessionId}`),
 
   /**
+   * Session to organization lookup (public namespace for bootstrap lookups)
+   */
+  sessionOrganization: (sessionId: string) => ns(undefined, `playground:session-org:${sessionId}`),
+
+  /**
    * User sessions index
    */
   userSessions: (userId: string, organizationId?: string) => ns(organizationId, `playground:user:${userId}:sessions`),

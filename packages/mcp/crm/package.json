@@ -4,5 +4,21 @@
   "private": true,
   "type": "module",
   "main": "index.ts",
-  "types": "index.ts"
+  "types": "index.ts",
+  "valueos": {
+    "classification": "experimental",
+    "supportTier": "experimental",
+    "owner": "team-ai-platform",
+    "shipped": false,
+    "ci": {
+      "rootVitest": {
+        "status": "excluded",
+        "justification": "CRM MCP server remains experimental and outside the supported shipped surface."
+      },
+      "release": {
+        "status": "excluded",
+        "justification": "Experimental MCP package; excluded from release automation."
+      }
+    }
+  }
 }

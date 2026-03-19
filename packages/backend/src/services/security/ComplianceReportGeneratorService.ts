@@ -7,6 +7,7 @@ import {
   type ComplianceFramework,
   type EvidenceType,
 } from "./ComplianceControlMappingRegistry.js";
+import { complianceFrameworkCapabilityGate } from "./ComplianceFrameworkCapabilityGate.js";
 import {
   complianceControlStatusService,
   type ControlStatusRecord,
@@ -71,6 +72,7 @@ export class ComplianceReportGeneratorService {
 
   async generateReport(input: GenerateComplianceReportInput): Promise<ComplianceReportOutput> {
     this.assertTenant(input.tenantId);
+    complianceFrameworkCapabilityGate.assertFrameworksSupported(input.frameworks);
 
     const evidenceBuckets = await this.collectEvidence(input.tenantId, input.startAt, input.endAt);
     const controlStatuses = await this.controlStatusSource.getLatestControlStatus(input.tenantId);

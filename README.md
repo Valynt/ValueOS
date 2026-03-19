@@ -4,16 +4,15 @@ AI-powered value engineering platform for B2B SaaS. ValueOS helps customer succe
 
 ## Repository Layout
 
-pnpm monorepo. Two runtimes: one frontend, one backend.
+pnpm monorepo. Checked-in application workspaces live in `apps/`, while the primary production runtimes are `apps/ValyntApp` for the customer-facing frontend and `packages/backend` for the API.
 
-```
+```text
 apps/
-  ValyntApp/        # Web application (React + Vite + Tailwind) — the only frontend runtime
-  VOSAcademy/       # Training and certification portal
-  mcp-dashboard/    # MCP observability dashboard
+  ValyntApp/        # Customer-facing web application (React + Vite + Tailwind)
+  mcp-dashboard/    # Internal MCP observability dashboard workspace
 
 packages/
-  backend/          # API server (Express) — the only backend runtime
+  backend/          # API server (Express) — the primary backend runtime
   shared/           # Canonical domain model (9 Zod-typed domain objects)
   core-services/    # Canonical service implementations (migrated from app-local copies)
   agent-fabric/     # Multi-agent framework primitives
@@ -34,6 +33,22 @@ infra/
   observability/    # Prometheus, Grafana, OpenTelemetry configs
 ```
 
+## Canonical product and runtime references
+
+Use these canonical documentation values when updating public-facing docs, examples, or architecture summaries:
+
+- **Product name:** `ValueOS`
+- **Marketing site:** `https://valueos.com`
+- **Application:** `https://app.valueos.com`
+- **API:** `https://api.valueos.com`
+- **Docs:** `https://docs.valueos.com`
+- **Status:** `https://status.valueos.com`
+- **Support:** `support@valueos.com`
+- **Docs ownership:** `docs@valueos.com`
+- **Runtime inventory source of truth:** the checked-in `apps/` directory, summarized in [docs/architecture/README.md](docs/architecture/README.md)
+
+Additional contributor guidance lives in the repository-root [AGENTS.md](AGENTS.md), the repository-wide [docs/AGENTS.md](docs/AGENTS.md), and scoped package guides such as [packages/backend/AGENTS.md](packages/backend/AGENTS.md) and [packages/shared/AGENTS.md](packages/shared/AGENTS.md).
+
 ## Prerequisites
 
 - Docker Desktop with WSL2 backend (Windows) or Docker Engine (Linux)
@@ -44,7 +59,7 @@ infra/
 
 The recommended development environment runs entirely in Docker containers with full Linux-to-production parity.
 
-**1. Clone and open in container**
+### 1. Clone and open in container
 
 ```bash
 # From WSL2 terminal (Windows) or native terminal (Linux/Mac)
@@ -55,14 +70,14 @@ code .
 # Then: F1 → "Dev Containers: Reopen in Container"
 ```
 
-**2. Set up environment**
+### 2. Set up environment
 
 ```bash
 cp .devcontainer/.env.template .devcontainer/.env
 # Optional: edit .devcontainer/.env to customize ports
 ```
 
-**3. Install dependencies and start**
+### 3. Install dependencies and start
 
 ```bash
 pnpm install
@@ -70,6 +85,7 @@ pnpm run dev        # Starts frontend (5173) and backend (3001)
 ```
 
 The devcontainer provides:
+
 - PostgreSQL 15, Redis 7, Supabase stack (Auth, REST, Realtime, Storage, Studio)
 - Node.js 20, pnpm 10, all build tools
 - MailHog for email testing
@@ -92,6 +108,7 @@ cp ops/env/.env.backend.cloud-dev.example  ops/env/.env.backend.cloud-dev
 Fill in credentials from your Supabase dashboard (Project Settings → API). See [ops/env/README.md](ops/env/README.md) for details.
 
 Then start with:
+
 ```bash
 pnpm install
 pnpm run dev:frontend
@@ -103,7 +120,7 @@ pnpm run dev:backend  # In another terminal
 ## Key Commands
 
 | Command | Purpose |
-|---|---|
+| --- | --- |
 | `pnpm run dev` | Start frontend and backend together |
 | `pnpm run dev:frontend` | Start `apps/ValyntApp` (React + Vite) only |
 | `pnpm run dev:backend` | Start `packages/backend` (Express API) only |
@@ -114,6 +131,7 @@ pnpm run dev:backend  # In another terminal
 | `pnpm run format` | Format code with Prettier |
 | `pnpm run db:migrate` | Apply database migrations |
 | `pnpm run dx:check` | Run preflight environment checks |
+| `pnpm run check:docs:consistency` | Verify canonical product names, domains, support contacts, and `apps/` inventory across docs surfaces |
 
 ## Testing
 
@@ -146,6 +164,7 @@ pnpm run test:workflow-dag-validation
 ### Mock Configuration
 
 External APIs are mocked in tests:
+
 - **HubSpot CRM**: `CRMConnector` tests mock HubSpot API responses
 - **SEC EDGAR**: `SECEdgarClient` tests mock filing data
 - **LLM Gateway**: Agent tests use deterministic test fixtures via `secureInvoke` mocking
@@ -153,6 +172,7 @@ External APIs are mocked in tests:
 ### Test Data Factories
 
 Located in `testHelpers.ts`:
+
 ```typescript
 factories.benchmark({ metric_name: "ROI" })
 factories.assumption({ name: "Test Assumption" })
@@ -163,39 +183,42 @@ factories.case({ title: "Test Case" })
 
 ValueOS is a modular monolith deployed to Kubernetes.
 
-```
-+---------------------------------------------------------+
-|  apps/ValyntApp  (React + Vite + Tailwind)              |
-|  Route-level code splitting · HTTP calls to backend     |
-+---------------------------------------------------------+
-|  packages/backend  (Express API)                        |
-|  REST endpoints · RBAC · rate limiting                  |
-|                                                         |
-|  Runtime services (packages/backend/src/runtime/):      |
-|    DecisionRouter   — selects agent/action by domain    |
-|    ExecutionRuntime — task lifecycle, queues, retries   |
-|    PolicyEngine     — safety, compliance, HITL          |
-|    ContextStore     — assembles domain state for agents |
-|    ArtifactComposer — generates business case outputs   |
-|    RecommendationEngine — next-best-action generation   |
-+---------------------------------------------------------+
-|  Agent Fabric (packages/backend/src/lib/agent-fabric/)  |
-|  8 agents · BaseAgent · secureInvoke                    |
-|  OpportunityAgent · TargetAgent · FinancialModelingAgent|
-|  IntegrityAgent · RealizationAgent · ExpansionAgent     |
-|  NarrativeAgent · ComplianceAuditorAgent                |
-+---------------------------------------------------------+
-|  Domain Model (packages/shared/src/domain/)             |
-|  9 Zod-typed objects: Account, Opportunity, Stakeholder,|
-|  ValueHypothesis, Assumption, Evidence, BusinessCase,   |
-|  RealizationPlan, ExpansionOpportunity                  |
-+---------------------------------------------------------+
-|  Data Layer                                             |
-|  Supabase (Postgres + RLS) · Redis · CloudEvents bus    |
-+---------------------------------------------------------+
+```text
++-----------------------------------------------------------+
+|  apps/ValyntApp  (React + Vite + Tailwind)                |
+|  Customer-facing frontend runtime                         |
++-----------------------------------------------------------+
+|  apps/mcp-dashboard  (React + Vite)                       |
+|  Internal MCP observability workspace                     |
++-----------------------------------------------------------+
+|  packages/backend  (Express API)                          |
+|  REST endpoints · RBAC · rate limiting                    |
+|                                                           |
+|  Runtime services (packages/backend/src/runtime/):        |
+|    DecisionRouter   — selects agent/action by domain      |
+|    ExecutionRuntime — task lifecycle, queues, retries     |
+|    PolicyEngine     — safety, compliance, HITL            |
+|    ContextStore     — assembles domain state for agents   |
+|    ArtifactComposer — generates business case outputs     |
+|    RecommendationEngine — next-best-action generation     |
++-----------------------------------------------------------+
+|  Agent Fabric (packages/backend/src/lib/agent-fabric/)    |
+|  8 agents · BaseAgent · secureInvoke                      |
+|  OpportunityAgent · TargetAgent · FinancialModelingAgent  |
+|  IntegrityAgent · RealizationAgent · ExpansionAgent       |
+|  NarrativeAgent · ComplianceAuditorAgent                  |
++-----------------------------------------------------------+
+|  Domain Model (packages/shared/src/domain/)               |
+|  9 Zod-typed objects: Account, Opportunity, Stakeholder,  |
+|  ValueHypothesis, Assumption, Evidence, BusinessCase,     |
+|  RealizationPlan, ExpansionOpportunity                    |
++-----------------------------------------------------------+
+|  Data Layer                                               |
+|  Supabase (Postgres + RLS) · Redis · CloudEvents bus      |
++-----------------------------------------------------------+
 ```
 
-- **Single runtime rule**: `apps/ValyntApp` is the only frontend. `packages/backend` is the only backend. No other entry points.
+- **Primary runtime rule**: `apps/ValyntApp` is the customer-facing frontend runtime and `packages/backend` is the API runtime. `apps/mcp-dashboard` is a checked-in internal dashboard workspace, not a second customer app.
 - **Agent routing**: All agent decisions are driven by structured domain state, not keyword matching.
 - **Multi-tenancy**: Shared-schema with `organization_id` / `tenant_id` enforced by Postgres RLS on every table.
 - **LLM safety**: All agent LLM calls go through `BaseAgent.secureInvoke()` — circuit breaker, hallucination detection, Zod validation.
@@ -203,7 +226,7 @@ ValueOS is a modular monolith deployed to Kubernetes.
 - **Observability**: OpenTelemetry SDK, Prometheus metrics (`packages/backend/src/observability/`), Sentry, Winston.
 - **Deployment**: Blue-green on Kubernetes with HPA, network policies, and External Secrets Operator.
 
-See [docs/architecture/](docs/architecture/) for detailed design documents and [AGENTS.md](AGENTS.md) for agent development conventions.
+See [docs/architecture/](docs/architecture/) for detailed design documents, [AGENTS.md](AGENTS.md) for the repository-root agent guide, and [docs/AGENTS.md](docs/AGENTS.md) for the canonical cross-repo instructions.
 
 ## Security
 
@@ -217,7 +240,7 @@ See [docs/security-compliance/](docs/security-compliance/) for the full security
 ## Documentation
 
 | Category | Path | Contents |
-|---|---|---|
+| --- | --- | --- |
 | Getting Started | [docs/getting-started/](docs/getting-started/) | Introduction, quickstart, installation, FAQ |
 | Architecture | [docs/architecture/](docs/architecture/) | System overview, agent design, API design, data layer |
 | Engineering | [docs/engineering/](docs/engineering/) | Code standards, ADRs, database guide, testing |
@@ -241,7 +264,7 @@ See [DEPLOY.md](DEPLOY.md) for production deployment instructions using Docker C
 2. Run `pnpm install` to install dependencies.
 3. Run `pnpm run dev` to start both runtimes, or `pnpm run dev:frontend` / `pnpm run dev:backend` independently.
 4. Create a feature branch from `main`.
-5. Make changes following the patterns in [docs/engineering/code-standards.md](docs/engineering/code-standards.md) and [AGENTS.md](AGENTS.md).
+5. Make changes following the patterns in [docs/engineering/code-standards.md](docs/engineering/code-standards.md), [AGENTS.md](AGENTS.md), [docs/AGENTS.md](docs/AGENTS.md), and any deeper scoped `AGENTS.md` files that cover the files you edit.
 6. Ensure `pnpm run lint`, `pnpm test`, and `pnpm run check` pass locally.
 7. Open a PR using the [pull request template](.github/pull_request_template.md).
 

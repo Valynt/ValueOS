@@ -4,12 +4,19 @@
 
 import crypto from 'crypto';
 
-import Redis, { type Redis as RedisClientType } from 'ioredis';
+import Redis, { type ChainableCommander, type Redis as RedisClientType } from 'ioredis';
+
+import { cacheRequestsTotal } from '../../lib/metrics/cacheMetrics.js';
 
 export interface CacheConfig {
   ttl: number;
   enabled: boolean;
   keyPrefix: string;
+}
+
+export interface CacheHitPolicy {
+  refreshTtlOnHit?: boolean;
+  ttlSeconds?: number;
 }
 
 export interface LLMCacheEntry {
@@ -39,9 +46,15 @@ export class LLMCache {
       retryStrategy: (retries) => Math.min(retries * 50, 500),
     });
 
-    this.client.on('error', () => { this.connected = false; });
-    this.client.on('connect', () => { this.connected = true; });
-    this.client.on('close', () => { this.connected = false; });
+    this.client.on('error', () => {
+      this.connected = false;
+    });
+    this.client.on('connect', () => {
+      this.connected = true;
+    });
+    this.client.on('close', () => {
+      this.connected = false;
+    });
   }
 
   async connect(): Promise<void> {
@@ -54,24 +67,49 @@ export class LLMCache {
   }
 
   private generateCacheKey(prompt: string, model: string, options?: unknown): string {
-    const content = JSON.stringify({ prompt: prompt.trim().toLowerCase(), model, options: options ?? {} });
+    const content = JSON.stringify({
+      prompt: prompt.trim().toLowerCase(),
+      model,
+      options: options ?? {},
+    });
     const hash = crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
     return `${this.config.keyPrefix}${model}:${hash}`;
   }
 
-  async get(prompt: string, model: string, options?: unknown): Promise<LLMCacheEntry | null> {
+  private getStatsKey(): string {
+    return `${this.config.keyPrefix}stats`;
+  }
+
+  async get(
+    prompt: string,
+    model: string,
+    options?: unknown,
+    policy?: CacheHitPolicy
+  ): Promise<LLMCacheEntry | null> {
     if (!this.config.enabled || !this.connected) return null;
 
     try {
       const key = this.generateCacheKey(prompt, model, options);
       const cached = await this.client.get(key);
-      if (!cached) return null;
+      if (!cached) {
+        cacheRequestsTotal.inc({ cache_name: 'llm', outcome: 'miss' });
+        return null;
+      }
 
       const entry: LLMCacheEntry = JSON.parse(cached);
-      entry.hitCount++;
-      await this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl });
+      const tx = this.client.multi() as ChainableCommander;
+      tx.hincrby(this.getStatsKey(), 'totalHits', 1);
+      tx.hincrby(this.getStatsKey(), 'totalCostSavedMilliCents', Math.round(entry.cost * 100_000));
+
+      if (policy?.refreshTtlOnHit) {
+        tx.expire(key, policy.ttlSeconds ?? this.config.ttl);
+      }
+
+      await tx.exec();
+      cacheRequestsTotal.inc({ cache_name: 'llm', outcome: 'hit' });
       return entry;
     } catch {
+      cacheRequestsTotal.inc({ cache_name: 'llm', outcome: 'error' });
       return null;
     }
   }
@@ -88,14 +126,18 @@ export class LLMCache {
     try {
       const key = this.generateCacheKey(prompt, model, options);
       const entry: LLMCacheEntry = {
-        response, model,
+        response,
+        model,
         promptTokens: metadata.promptTokens,
         completionTokens: metadata.completionTokens,
         cost: metadata.cost,
         cachedAt: new Date().toISOString(),
         hitCount: 0,
       };
-      await this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl });
+      await Promise.all([
+        this.client.set(key, JSON.stringify(entry), { EX: this.config.ttl }),
+        this.client.hincrby(this.getStatsKey(), 'totalEntries', 1),
+      ]);
     } catch {
       // Cache write failure is non-fatal
     }
@@ -117,7 +159,10 @@ export class LLMCache {
       for await (const key of this.client.scanIterator({ MATCH: `${this.config.keyPrefix}*`, COUNT: 100 })) {
         keys.push(key);
       }
-      if (keys.length > 0) await this.client.del(keys);
+      if (keys.length > 0) {
+        await this.client.del(keys);
+      }
+      await this.client.del(this.getStatsKey());
     } catch {
       // Cache clear failure is non-fatal
     }
@@ -129,32 +174,19 @@ export class LLMCache {
     }
 
     try {
-      // Collect keys with SCAN (non-blocking) instead of KEYS (O(N), blocks Redis).
-      const keys: string[] = [];
-      for await (const key of this.client.scanIterator({ MATCH: `${this.config.keyPrefix}*`, COUNT: 100 })) {
-        keys.push(key);
-      }
-
-      let totalHits = 0;
-      let totalCostSaved = 0;
-
-      if (keys.length > 0) {
-        // Batch all GETs into a single MGET round-trip.
-        const values = await this.client.mget(keys);
-        for (const raw of values) {
-          if (raw) {
-            const entry: LLMCacheEntry = JSON.parse(raw);
-            totalHits += entry.hitCount;
-            totalCostSaved += entry.cost * entry.hitCount;
-          }
-        }
-      }
-
-      const info = await this.client.info('memory');
+      const [statsHash, info] = await Promise.all([
+        this.client.hgetall(this.getStatsKey()),
+        this.client.info('memory'),
+      ]);
       const memoryMatch = info.match(/used_memory:(\d+)/);
-      const cacheSize = memoryMatch ? parseInt(memoryMatch[1]) : 0;
+      const cacheSize = memoryMatch ? parseInt(memoryMatch[1], 10) : 0;
 
-      return { totalEntries: keys.length, totalHits, totalCostSaved, cacheSize };
+      return {
+        totalEntries: parseInt(statsHash.totalEntries ?? '0', 10),
+        totalHits: parseInt(statsHash.totalHits ?? '0', 10),
+        totalCostSaved: parseInt(statsHash.totalCostSavedMilliCents ?? '0', 10) / 100_000,
+        cacheSize,
+      };
     } catch {
       return { totalEntries: 0, totalHits: 0, totalCostSaved: 0, cacheSize: 0 };
     }
@@ -178,7 +210,8 @@ export class LLMCache {
     try {
       const key = this.generateCacheKey(prompt, model, options);
       const entry: LLMCacheEntry = {
-        response, model,
+        response,
+        model,
         promptTokens: metadata.promptTokens,
         completionTokens: metadata.completionTokens,
         cost: metadata.cost,
@@ -186,6 +219,7 @@ export class LLMCache {
         hitCount: 0,
       };
       await this.client.set(key, JSON.stringify(entry), { EX: ttl });
+      await this.client.hincrby(this.getStatsKey(), 'totalEntries', 1);
     } catch {
       // Cache write failure is non-fatal
     }

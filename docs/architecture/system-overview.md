@@ -1,3 +1,9 @@
+---
+title: ValueOS System Architecture Overview
+owner: team-platform
+system: valueos-platform
+---
+
 # ValueOS System Architecture Overview
 
 _Added per audit recommendation #14: diagrams-as-code for onboarding speed._
@@ -8,7 +14,6 @@ _Added per audit recommendation #14: diagrams-as-code for onboarding speed._
 graph TB
     subgraph "Frontend"
         VA[ValyntApp<br/>React + Vite + Tailwind]
-        VOSA[VOSAcademy<br/>Learning App]
         MCP_DASH[MCP Dashboard]
     end
 
@@ -67,7 +72,6 @@ graph TB
     end
 
     VA --> API
-    VOSA --> API
     MCP_DASH --> API
 
     API --> MW --> EXPRESS

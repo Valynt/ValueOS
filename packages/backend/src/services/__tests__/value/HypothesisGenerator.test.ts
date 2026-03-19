@@ -6,10 +6,25 @@ import { SQL_INJECTION_PAYLOADS, TENANT_ISOLATION_SCENARIOS, MALFORMED_UUIDS } f
 describe("HypothesisGenerator", () => {
   let generator: HypothesisGenerator;
   let mockSupabase: ReturnType<typeof createMockSupabase>;
+  let mockLLM: { complete: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     mockSupabase = createMockSupabase();
-    generator = new HypothesisGenerator();
+    mockLLM = {
+      complete: vi.fn(async () => ({
+        content: JSON.stringify({
+          estimated_impact_min: 120,
+          estimated_impact_max: 180,
+          impact_unit: "percent",
+          reasoning: "Deterministic test estimate",
+          assumptions: [],
+        }),
+      })),
+    };
+    generator = new HypothesisGenerator({
+      supabaseClient: mockSupabase,
+      llmGateway: mockLLM as never,
+    });
     vi.clearAllMocks();
   });
 

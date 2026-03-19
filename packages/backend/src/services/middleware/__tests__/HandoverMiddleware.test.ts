@@ -83,16 +83,18 @@ function nextWithoutCapabilityRequest(): () => Promise<AgentResponse> {
 describe('HandoverMiddleware', () => {
   beforeEach(() => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'handover-authz-test-'));
+    const policy = JSON.stringify({
+      version: 'test-v1',
+      agent: 'default',
+      allowedModels: ['gpt-4o-mini'],
+      allowedTools: ['financial_projection'],
+      maxTokens: 100,
+      maxCostUsd: 1,
+    });
+    writeFileSync(path.join(dir, 'default.json'), policy);
     writeFileSync(
-      path.join(dir, 'default.json'),
-      JSON.stringify({
-        version: 'test-v1',
-        agent: 'default',
-        allowedModels: ['gpt-4o-mini'],
-        allowedTools: ['financial_projection'],
-        maxTokens: 100,
-        maxCostUsd: 1,
-      }),
+      path.join(dir, 'opportunity.json'),
+      policy.replace('"default"', '"opportunity"'),
     );
     process.env.AGENT_POLICY_DIR = dir;
     resetAgentPolicyServiceForTests();
@@ -107,7 +109,7 @@ describe('HandoverMiddleware', () => {
     const mw = new HandoverMiddleware(deps);
     const next = nextWithoutCapabilityRequest();
 
-    const result = await mw.execute(makeContext(), next);
+    const result = await mw.execute(makeContext({ agentType: 'default' }), next);
 
     expect(result.payload.message).toBe('plain response');
     expect(deps.messageBroker.sendToAgent).not.toHaveBeenCalled();
@@ -133,7 +135,7 @@ describe('HandoverMiddleware', () => {
       mergeKey: 'projection',
     });
 
-    const result = await mw.execute(makeContext(), next);
+    const result = await mw.execute(makeContext({ agentType: 'default' }), next);
 
     expect(deps.messageBroker.sendToAgent).toHaveBeenCalledWith(
       'orchestrator',

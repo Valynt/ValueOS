@@ -7,14 +7,19 @@ spec:
   template:
     spec:
       containers:
-      - name: backend
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+        - name: backend
+          env:
+            - name: APP_ENV
+              value: "staging"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "8"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -25,14 +30,19 @@ spec:
   template:
     spec:
       containers:
-      - name: backend
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+        - name: backend
+          env:
+            - name: APP_ENV
+              value: "staging"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "8"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -43,14 +53,19 @@ spec:
   template:
     spec:
       containers:
-      - name: backend
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+        - name: backend
+          env:
+            - name: APP_ENV
+              value: "staging"
+            - name: DATABASE_EXPECTED_CONCURRENCY
+              value: "8"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,14 +76,14 @@ spec:
   template:
     spec:
       containers:
-      - name: frontend
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
+        - name: frontend
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -79,11 +94,11 @@ spec:
   template:
     spec:
       containers:
-      - name: frontend
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
+        - name: frontend
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -21,6 +21,8 @@ function makeSupabaseMock(store: Record<string, Row[]>) {
     let isSingle = false;
     let updatePayload: Row | null = null;
     let isDelete = false;
+    let rangeStart: number | null = null;
+    let rangeEnd: number | null = null;
 
     const applyFilters = (rows: Row[]) =>
       rows.filter(r =>
@@ -37,13 +39,14 @@ function makeSupabaseMock(store: Record<string, Row[]>) {
       eq:     vi.fn((col: string, val: unknown) => { filters.push({ col, val, op: 'eq' }); return chain; }),
       lte:    vi.fn((col: string, val: unknown) => { filters.push({ col, val, op: 'lte' }); return chain; }),
       is:     vi.fn((col: string, val: unknown) => { filters.push({ col, val, op: 'is' }); return chain; }),
+      range:  vi.fn((from: number, to: number) => { rangeStart = from; rangeEnd = to; return chain; }),
+      order:  vi.fn(() => chain),
       single: vi.fn(() => { isSingle = true; return chain; }),
       update: vi.fn((payload: Row) => { updatePayload = payload; return chain; }),
       delete: vi.fn(() => { isDelete = true; return chain; }),
     };
 
-    // Make thenable
-    const promise = Promise.resolve().then(() => {
+    const execute = () => Promise.resolve().then(() => {
       const rows = store[tableName] ?? [];
 
       if (isDelete) {
@@ -62,7 +65,10 @@ function makeSupabaseMock(store: Record<string, Row[]>) {
         return { data: matched, error: null };
       }
 
-      const result = applyFilters(rows);
+      let result = applyFilters(rows);
+      if (rangeStart !== null && rangeEnd !== null) {
+        result = result.slice(rangeStart, rangeEnd + 1);
+      }
       if (isSingle) {
         return result.length > 0
           ? { data: result[0], error: null }
@@ -71,7 +77,12 @@ function makeSupabaseMock(store: Record<string, Row[]>) {
       return { data: result, error: null };
     });
 
-    Object.assign(chain, promise);
+    Object.assign(chain, {
+      then: (onFulfilled?: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
+        execute().then(onFulfilled, onRejected),
+      catch: (onRejected?: (reason: unknown) => unknown) => execute().catch(onRejected),
+      finally: (onFinally?: () => void) => execute().finally(onFinally),
+    });
     return chain;
   }
 

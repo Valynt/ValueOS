@@ -595,22 +595,27 @@ backHalfRouter.post(
 // GET /:id/provenance/:claimId — claim lineage chain
 // ---------------------------------------------------------------------------
 
-let _provenanceTracker: ProvenanceTracker | null = null;
-function getBackHalfProvenanceTracker(): ProvenanceTracker {
-  if (!_provenanceTracker) {
-    // Provenance tracking is an internal background operation (not user-request-scoped),
-    // so service_role is appropriate here per AGENTS.md §3.
-    // Cast bridges the SupabaseClient generic parameter mismatch between
-    // this package and SagaAdapters — both use @supabase/supabase-js but
-    // with different generic instantiations.
-    const client = createServerSupabaseClient();
-
-    const store = new SupabaseProvenanceStore(
-      client as unknown as ReturnType<typeof createClient>
-    ) as unknown as ProvenanceStore;
-    _provenanceTracker = new ProvenanceTracker(store);
+const provenanceTrackersByTenant = new Map<string, ProvenanceTracker>();
+function getBackHalfProvenanceTracker(tenantId: string): ProvenanceTracker {
+  const existingTracker = provenanceTrackersByTenant.get(tenantId);
+  if (existingTracker) {
+    return existingTracker;
   }
-  return _provenanceTracker;
+
+  // Provenance tracking must remain scoped to the authenticated tenant even
+  // when using the service_role client for this internal read path.
+  // Cast bridges the SupabaseClient generic parameter mismatch between
+  // this package and SagaAdapters — both use @supabase/supabase-js but
+  // with different generic instantiations.
+  const client = createServerSupabaseClient();
+
+  const store = new SupabaseProvenanceStore(
+    client as unknown as ReturnType<typeof createClient>,
+    tenantId,
+  ) as unknown as ProvenanceStore;
+  const tracker = new ProvenanceTracker(store);
+  provenanceTrackersByTenant.set(tenantId, tracker);
+  return tracker;
 }
 
 backHalfRouter.get(
@@ -633,7 +638,7 @@ backHalfRouter.get(
     }
 
     try {
-      const tracker = getBackHalfProvenanceTracker();
+      const tracker = getBackHalfProvenanceTracker(tenantId);
       const chains = await tracker.getLineage(caseId, claimId);
 
       return res.status(200).json({

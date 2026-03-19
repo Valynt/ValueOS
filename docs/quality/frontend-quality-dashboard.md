@@ -1,6 +1,6 @@
 # Frontend Quality Dashboard
 
-This dashboard centralizes frontend quality signals so PR reviewers can validate accessibility, localization, and UX performance in one place.
+This dashboard centralizes frontend quality signals so PR reviewers can validate accessibility, localization, and UX performance in one place. The durable release scorecard lives in `docs/quality/ux-quality-scorecard.md`, which promotes the most important CI outputs into a stable document that can be reviewed over time.
 
 ## What CI publishes
 
@@ -40,5 +40,6 @@ The `accessibility-audit` lane in `.github/workflows/ci.yml` now emits:
 
 1. Open the `accessibility-audit` artifact bundle on each PR.
 2. Inspect `artifacts/frontend-quality/dashboard.md` for at-a-glance status.
-3. Drill into linked JSON artifacts when a metric regresses.
-4. If thresholds are intentionally updated, update the metrics baseline/budget files in the same PR.
+3. Promote the release summary, route regressions, and ownership updates into `docs/quality/ux-quality-scorecard.md`.
+4. Drill into linked JSON artifacts when a metric regresses.
+5. If thresholds are intentionally updated, update the metrics baseline/budget files in the same PR.

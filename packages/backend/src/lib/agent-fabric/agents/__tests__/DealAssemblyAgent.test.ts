@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { DealAssemblyAgent } from "../../../../lib/agent-fabric/agents/DealAssemblyAgent.js";
+import { logger } from "../../../../lib/logger.js";
 import { CRMConnector } from "../../../../services/deal/CRMConnector.js";
 
 // Mocks
@@ -19,29 +20,39 @@ vi.mock("../../../../lib/logger.js", () => ({
 }));
 
 vi.mock("../../../../services/deal/CRMConnector.js", () => ({
-  CRMConnector: vi.fn().mockImplementation(() => ({
-    fetchDealContext: vi.fn().mockResolvedValue({
-      opportunity: {
-        id: "opp-1",
-        name: "Test Deal",
-        stage: "qualified",
-        amount: 150000,
-        owner: { id: "owner-1", name: "Rep", email: "rep@test.com" },
-      },
-      account: {
-        id: "acc-1",
-        name: "Test Corp",
-        industry: "Technology",
-        size_employees: 500,
-      },
-      contacts: [
-        { id: "c1", first_name: "John", last_name: "Smith", email: "john@test.com", job_title: "VP", role: "economic_buyer", is_primary: true },
-      ],
-      fetchedAt: new Date().toISOString(),
-      sourceType: "crm-opportunity",
-    }),
-  })),
+  CRMConnector: vi.fn(function MockCRMConnector() {
+    return {
+      fetchDealContext: vi.fn().mockResolvedValue({
+        opportunity: {
+          id: "opp-1",
+          name: "Test Deal",
+          stage: "qualified",
+          amount: 150000,
+          owner: { id: "owner-1", name: "Rep", email: "rep@test.com" },
+        },
+        account: {
+          id: "acc-1",
+          name: "Test Corp",
+          industry: "Technology",
+          size_employees: 500,
+        },
+        contacts: [
+          { id: "c1", first_name: "John", last_name: "Smith", email: "john@test.com", job_title: "VP", role: "economic_buyer", is_primary: true },
+        ],
+        fetchedAt: new Date().toISOString(),
+        sourceType: "crm-opportunity",
+      }),
+    };
+  }),
 }));
+
+const mockAnalyzeTranscript = vi.fn();
+
+vi.mock("../../../../lib/services/CallAnalysisService.js", () => ({
+  CallAnalysisService: {
+    analyzeTranscript: mockAnalyzeTranscript,
+  },
+}), { virtual: true });
 
 describe("DealAssemblyAgent", () => {
   const mockMemorySystem = {
@@ -91,6 +102,7 @@ describe("DealAssemblyAgent", () => {
       mockCircuitBreaker as unknown as import("../../../../lib/agent-fabric/CircuitBreaker.js").CircuitBreaker
     );
     vi.clearAllMocks();
+    mockAnalyzeTranscript.mockReset();
   });
 
   describe("execute", () => {
@@ -165,6 +177,59 @@ describe("DealAssemblyAgent", () => {
           opportunity_id: "opp-1",
         }),
         "org-1"
+      );
+    });
+
+    it("should analyze transcripts with bounded concurrency and keep partial successes", async () => {
+      let inFlight = 0;
+      let maxInFlight = 0;
+
+      mockAnalyzeTranscript.mockImplementation(async (transcriptId: string) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+
+        await new Promise(resolve => setTimeout(resolve, 10));
+        inFlight -= 1;
+
+        if (transcriptId === "t3") {
+          throw new Error("transcript failure");
+        }
+
+        return {
+          transcript: `Transcript ${transcriptId}`,
+          pain_points: [`pain-${transcriptId}`],
+          objections: [],
+          stakeholders: [],
+          buying_signals: [],
+          key_quotes: [],
+        };
+      });
+
+      const context = {
+        case_id: "case-1",
+        organization_id: "org-1",
+        user_id: "user-1",
+        workspace_id: "ws-1",
+        opportunity_id: "opp-1",
+        user_inputs: {
+          transcript_ids: ["t1", "t2", "t3", "t4", "t5", "t6"],
+        },
+      };
+
+      const result = await agent.execute(context);
+
+      expect(result.status).toBe("success");
+      expect(result.result.assembly_summary.call_transcripts_analyzed).toBe(5);
+      expect(maxInFlight).toBeLessThanOrEqual(4);
+      expect(mockAnalyzeTranscript).toHaveBeenCalledTimes(6);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Failed to analyze transcript, skipping",
+        expect.objectContaining({
+          agent: "DealAssemblyAgent",
+          session_id: "case-1",
+          transcriptId: "t3",
+          error: "transcript failure",
+        })
       );
     });
 

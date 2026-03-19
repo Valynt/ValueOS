@@ -322,6 +322,7 @@ export class AuditLogService extends BaseService {
               });
 
               const logEntry = {
+                tenant_id: input.tenantId ?? null,
                 user_id: input.userId,
                 user_name: input.userName,
                 user_email: input.userEmail,

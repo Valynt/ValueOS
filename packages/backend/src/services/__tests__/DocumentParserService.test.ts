@@ -9,12 +9,14 @@ vi.mock('../../lib/supabase', () => ({
 }));
 
 vi.mock('../../lib/agent-fabric/LLMGateway', () => ({
-  LLMGateway: vi.fn().mockImplementation(() => ({
-    complete: vi.fn(),
-  })),
+  LLMGateway: vi.fn(function MockLLMGateway() {
+    return {
+      complete: vi.fn(),
+    };
+  }),
 }));
 
-import { DocumentParserService } from '../DocumentParserService.js'
+import { DocumentParserService } from '../domain-packs/DocumentParserService.js'
 
 describe('DocumentParserService.parseDocument fallback', () => {
   beforeEach(() => {

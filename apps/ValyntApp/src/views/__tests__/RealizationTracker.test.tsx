@@ -8,6 +8,60 @@ import { describe, expect, it, vi } from "vitest";
 
 import { RealizationTracker } from "../../views/RealizationTracker";
 
+vi.mock("@/components/canvas/CanvasHost", () => ({
+  CanvasHost: ({
+    widgets,
+  }: {
+    widgets: Array<{ id: string; componentType: string; props?: Record<string, unknown> }>;
+  }) => (
+    <div data-testid="canvas-host">
+      {widgets?.map((widget) => {
+        if (widget.componentType === "kpi-target-card") {
+          const targets = (widget.props?.targets as Array<Record<string, unknown>> | undefined) ?? [];
+          return (
+            <div key={widget.id}>
+              {targets.map((target) => (
+                <div key={String(target.id)}>
+                  <span>{String(target.metricName)}</span>
+                  <span>${Number(target.baseline).toLocaleString()}</span>
+                  <span>${Number(target.target).toLocaleString()}</span>
+                  <span>{String(target.progress)}%</span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        if (widget.componentType === "checkpoint-timeline") {
+          const checkpoints =
+            (widget.props?.checkpoints as Array<Record<string, unknown>> | undefined) ?? [];
+          return (
+            <div key={widget.id}>
+              {checkpoints.map((checkpoint) => (
+                <div key={String(checkpoint.id)}>
+                  <span>
+                    {new Date(`${String(checkpoint.date)}T00:00:00`).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <span>
+                    {String(checkpoint.status).charAt(0).toUpperCase() +
+                      String(checkpoint.status).slice(1)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        return <div key={widget.id}>{widget.componentType}</div>;
+      })}
+    </div>
+  ),
+}));
+
 // Mock hooks
 vi.mock("@/hooks/useRealization", () => ({
   useBaseline: () => ({
@@ -45,9 +99,9 @@ describe("RealizationTracker", () => {
   it("renders baseline header", () => {
     render(<RealizationTracker />);
 
-    expect(screen.getByText(/base/i)).toBeInTheDocument();
-    expect(screen.getByText("v1.0")).toBeInTheDocument();
-    expect(screen.getByText(/jan 15, 2024/i)).toBeInTheDocument();
+    expect(screen.getByText("Baseline Scenario")).toBeInTheDocument();
+    expect(screen.getByText(/^base$/i)).toBeInTheDocument();
+    expect(screen.getByText(/1\/15\/2024/i)).toBeInTheDocument();
   });
 
   it("displays KPI target cards", () => {
@@ -68,7 +122,7 @@ describe("RealizationTracker", () => {
   it("displays carried-forward assumptions", () => {
     render(<RealizationTracker />);
 
-    expect(screen.getByText("Assumptions")).toBeInTheDocument();
+    expect(screen.getByText("Baseline Assumptions")).toBeInTheDocument();
     expect(screen.getByText("Employee Count")).toBeInTheDocument();
   });
 

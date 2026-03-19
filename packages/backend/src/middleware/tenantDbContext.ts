@@ -2,8 +2,8 @@ import { createLogger } from "@shared/lib/logger";
 import type { NextFunction, Request, Response } from "express";
 import type { Pool, PoolClient } from "pg";
 
-import { getDatabaseUrl } from "../config/database.js"
-import { settings } from "../config/settings.js"
+import { getDatabaseUrl } from "../config/database.js";
+import { settings } from "../config/settings.js";
 
 const logger = createLogger({ component: "TenantDbContextMiddleware" });
 
@@ -39,6 +39,15 @@ const getPool = async (): Promise<Pool | null> => {
 
   if (!pool) {
     const { Pool } = await import("pg");
+    logger.info("Initializing tenant database pool", {
+      appEnv: settings.databasePool.appEnv,
+      role: settings.databasePool.role,
+      expectedConcurrency: settings.databasePool.expectedConcurrency,
+      maxConnections: settings.databasePool.max,
+      maxSource: settings.databasePool.maxSource,
+      idleTimeoutMs: settings.databasePool.idleTimeoutMs,
+      connectionTimeoutMs: settings.databasePool.connectionTimeoutMs,
+    });
     pool = new Pool({
       connectionString: databaseUrl,
       max: settings.databasePool.max,
