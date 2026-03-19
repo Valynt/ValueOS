@@ -6,83 +6,54 @@
  * semantic store explicitly.
  */
 
-import type { SemanticFact, SemanticStore } from "@valueos/memory";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { SemanticFact, SemanticStore } from '@valueos/memory';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { Memory } from "../MemorySystem.js";
-import {
-  resetCrossWorkspaceAllowlistCache,
-  SupabaseMemoryBackend,
-} from "../SupabaseMemoryBackend.js";
-import { createServerSupabaseClient } from "../../supabase.js";
-import { isRealIntegrationTestMode } from "../../../test/runtimeGuards";
+import type { Memory } from '../MemorySystem.js';
+import { resetCrossWorkspaceAllowlistCache, SupabaseMemoryBackend } from '../SupabaseMemoryBackend.js';
+import { createServerSupabaseClient } from '../../supabase.js';
+import { isRealIntegrationTestMode } from '../../../test/runtimeGuards';
 
 const SUPABASE_URL =
-  process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"];
+  process.env['SUPABASE_URL'] ?? process.env['VITE_SUPABASE_URL'];
 const SUPABASE_KEY =
-  process.env["SUPABASE_SERVICE_ROLE_KEY"] ??
-  process.env["SUPABASE_SERVICE_KEY"];
+  process.env['SUPABASE_SERVICE_ROLE_KEY'] ?? process.env['SUPABASE_SERVICE_KEY'];
 
-const useRealSupabase =
-  isRealIntegrationTestMode() && Boolean(SUPABASE_URL && SUPABASE_KEY);
+const useRealSupabase = isRealIntegrationTestMode() && Boolean(SUPABASE_URL && SUPABASE_KEY);
 
-class InMemorySemanticStore
-  implements Pick<SemanticStore, "insert" | "findFiltered">
-{
+class InMemorySemanticStore implements Pick<SemanticStore, 'insert'> {
   private readonly facts: SemanticFact[] = [];
 
   async insert(fact: SemanticFact): Promise<void> {
     this.facts.push(structuredClone(fact));
   }
 
-  async findFiltered({
-    organizationId,
-    type,
-    agentType,
-    sessionId,
-    memoryType,
-    minImportance,
-    limit = 10,
-  }: {
+  async findFiltered(filters: {
     organizationId: string;
-    type?: SemanticFact["type"];
+    type: SemanticFact['type'];
     agentType?: string;
     sessionId?: string;
     memoryType?: string;
     minImportance?: number;
-    limit?: number;
+    limit: number;
   }): Promise<SemanticFact[]> {
     return this.facts
-      .filter((fact) => fact.organizationId === organizationId)
-      .filter((fact) => (type ? fact.type === type : true))
-      .filter((fact) =>
-        agentType ? fact.metadata["agentType"] === agentType : true,
-      )
-      .filter((fact) =>
-        sessionId ? fact.metadata["session_id"] === sessionId : true,
-      )
-      .filter((fact) =>
-        memoryType ? fact.metadata["agent_memory_type"] === memoryType : true,
-      )
+      .filter((fact) => fact.organizationId === filters.organizationId)
+      .filter((fact) => fact.type === filters.type)
+      .filter((fact) => (!filters.agentType ? true : fact.metadata['agentType'] === filters.agentType))
+      .filter((fact) => (!filters.sessionId ? true : fact.metadata['session_id'] === filters.sessionId))
+      .filter((fact) => (!filters.memoryType ? true : fact.metadata['agent_memory_type'] === filters.memoryType))
       .filter((fact) => {
-        const importance =
-          typeof fact.metadata["importance"] === "number"
-            ? fact.metadata["importance"]
-            : 0;
-        return minImportance === undefined ? true : importance >= minImportance;
+        if (filters.minImportance === undefined) return true;
+        const importance = typeof fact.metadata['importance'] === 'number' ? fact.metadata['importance'] : 0;
+        return importance >= filters.minImportance;
       })
-      .sort((left, right) => {
-        const leftImportance =
-          typeof left.metadata["importance"] === "number"
-            ? left.metadata["importance"]
-            : 0;
-        const rightImportance =
-          typeof right.metadata["importance"] === "number"
-            ? right.metadata["importance"]
-            : 0;
-        return rightImportance - leftImportance;
+      .sort((a, b) => {
+        const left = typeof a.metadata['importance'] === 'number' ? a.metadata['importance'] : 0;
+        const right = typeof b.metadata['importance'] === 'number' ? b.metadata['importance'] : 0;
+        return right - left;
       })
-      .slice(0, limit)
+      .slice(0, filters.limit)
       .map((fact) => structuredClone(fact));
   }
 }
@@ -95,12 +66,11 @@ const SESSION_2 = `integ-session-2-${Date.now()}`;
 function makeMemory(overrides: Partial<Memory> = {}): Memory {
   return {
     id: `mem-${Math.random().toString(36).slice(2)}`,
-    agent_id: "OpportunityAgent",
+    agent_id: 'OpportunityAgent',
     organization_id: ORG_A,
     workspace_id: SESSION_1,
-    content:
-      "Integration test: discovered fintech opportunity in payments vertical",
-    memory_type: "episodic",
+    content: 'Integration test: discovered fintech opportunity in payments vertical',
+    memory_type: 'episodic',
     importance: 0.75,
     created_at: new Date().toISOString(),
     accessed_at: new Date().toISOString(),
@@ -116,34 +86,33 @@ afterAll(async () => {
   if (!useRealSupabase || storedIds.length === 0) return;
 
   const client = createServerSupabaseClient();
-  await client.from("semantic_memory").delete().in("id", storedIds);
+  await client.from('semantic_memory').delete().in('id', storedIds);
 });
 
-describe(`SupabaseMemoryBackend (${useRealSupabase ? "real-supabase" : "deterministic-double"})`, () => {
+describe(`SupabaseMemoryBackend (${useRealSupabase ? 'real-supabase' : 'deterministic-double'})`, () => {
   let backendA: SupabaseMemoryBackend;
   let backendB: SupabaseMemoryBackend;
 
   beforeAll(() => {
-    const semanticStore = useRealSupabase
-      ? undefined
-      : new InMemorySemanticStore();
+    const semanticStore = useRealSupabase ? undefined : new InMemorySemanticStore();
     backendA = new SupabaseMemoryBackend(semanticStore);
     backendB = new SupabaseMemoryBackend(semanticStore);
   });
 
+
   beforeEach(() => {
-    process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = "";
+    process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = '';
     resetCrossWorkspaceAllowlistCache();
   });
 
-  it("does not return session 1 memory when session 2 queries by default", async () => {
+  it('does not return session 1 memory when session 2 queries by default', async () => {
     const memory = makeMemory({ workspace_id: SESSION_1 });
 
     const storedId = await backendA.store(memory);
     storedIds.push(storedId);
 
     const results = await backendB.retrieve({
-      agent_id: "OpportunityAgent",
+      agent_id: 'OpportunityAgent',
       organization_id: ORG_A,
       workspace_id: SESSION_2,
       limit: 10,
@@ -153,7 +122,7 @@ describe(`SupabaseMemoryBackend (${useRealSupabase ? "real-supabase" : "determin
     expect(found).toBeUndefined();
   }, 15_000);
 
-  it("returns session 1 memory to session 2 only when include_cross_workspace is set", async () => {
+  it('returns session 1 memory to session 2 only when include_cross_workspace is set', async () => {
     process.env.CROSS_WORKSPACE_MEMORY_ALLOWLIST = ORG_A;
 
     const memory = makeMemory({ workspace_id: SESSION_1 });
@@ -161,11 +130,11 @@ describe(`SupabaseMemoryBackend (${useRealSupabase ? "real-supabase" : "determin
     storedIds.push(storedId);
 
     const results = await backendB.retrieve({
-      agent_id: "OpportunityAgent",
+      agent_id: 'OpportunityAgent',
       organization_id: ORG_A,
       workspace_id: SESSION_2,
       include_cross_workspace: true,
-      cross_workspace_reason: "Historical recall for tenant-wide continuity",
+      cross_workspace_reason: 'Historical recall for tenant-wide continuity',
       limit: 10,
     });
 
@@ -174,17 +143,14 @@ describe(`SupabaseMemoryBackend (${useRealSupabase ? "real-supabase" : "determin
     expect(found?.workspace_id).toBe(SESSION_1);
   }, 15_000);
 
-  it("returns empty results when retrieving with a different organization_id", async () => {
-    const memory = makeMemory({
-      organization_id: ORG_A,
-      workspace_id: SESSION_1,
-    });
+  it('returns empty results when retrieving with a different organization_id', async () => {
+    const memory = makeMemory({ organization_id: ORG_A, workspace_id: SESSION_1 });
 
     const storedId = await backendA.store(memory);
     storedIds.push(storedId);
 
     const results = await backendB.retrieve({
-      agent_id: "OpportunityAgent",
+      agent_id: 'OpportunityAgent',
       organization_id: ORG_B,
       limit: 50,
     });
@@ -193,55 +159,42 @@ describe(`SupabaseMemoryBackend (${useRealSupabase ? "real-supabase" : "determin
     expect(leaked).toHaveLength(0);
   }, 15_000);
 
-  it("throws when organization_id is missing", async () => {
-    const memory = makeMemory({ organization_id: "" });
-    await expect(backendA.store(memory)).rejects.toThrow(
-      "organization_id required",
-    );
+  it('throws when organization_id is missing', async () => {
+    const memory = makeMemory({ organization_id: '' });
+    await expect(backendA.store(memory)).rejects.toThrow('organization_id required');
   });
 
-  it("throws when retrieve() is called without organization_id", async () => {
+  it('throws when retrieve() is called without organization_id', async () => {
     await expect(
-      backendA.retrieve({ agent_id: "OpportunityAgent", organization_id: "" }),
-    ).rejects.toThrow("organization_id is required");
+      backendA.retrieve({ agent_id: 'OpportunityAgent', organization_id: '' }),
+    ).rejects.toThrow('organization_id is required');
   });
 
-  it("throws when include_cross_workspace is set without cross_workspace_reason", async () => {
+  it('throws when include_cross_workspace is set without cross_workspace_reason', async () => {
     await expect(
       backendA.retrieve({
-        agent_id: "OpportunityAgent",
+        agent_id: 'OpportunityAgent',
         organization_id: ORG_A,
         workspace_id: SESSION_2,
         include_cross_workspace: true,
       }),
-    ).rejects.toThrow("cross_workspace_reason is required");
+    ).rejects.toThrow('cross_workspace_reason is required');
   });
 
-  it("returns memories ordered by importance descending", async () => {
-    const low = makeMemory({
-      importance: 0.3,
-      content: "low importance signal",
-    });
-    const high = makeMemory({
-      importance: 0.95,
-      content: "high importance signal",
-    });
+  it('returns memories ordered by importance descending', async () => {
+    const low = makeMemory({ importance: 0.3, content: 'low importance signal' });
+    const high = makeMemory({ importance: 0.95, content: 'high importance signal' });
 
-    const [idLow, idHigh] = await Promise.all([
-      backendA.store(low),
-      backendA.store(high),
-    ]);
+    const [idLow, idHigh] = await Promise.all([backendA.store(low), backendA.store(high)]);
     storedIds.push(idLow, idHigh);
 
     const results = await backendB.retrieve({
-      agent_id: "OpportunityAgent",
+      agent_id: 'OpportunityAgent',
       organization_id: ORG_A,
       limit: 20,
     });
 
-    const testResults = results.filter(
-      (m) => m.content === low.content || m.content === high.content,
-    );
+    const testResults = results.filter((m) => m.content === low.content || m.content === high.content);
     expect(testResults.length).toBeGreaterThanOrEqual(2);
 
     const highIdx = testResults.findIndex((m) => m.content === high.content);
