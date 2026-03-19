@@ -7,7 +7,7 @@
  * - Unit test draft marking when readiness < 0.8
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { secureLLMComplete } from "../../../lib/llm/secureLLMWrapper.js";
 import { logSecurityEvent } from "../../../services/security/auditLogger.js";
@@ -55,21 +55,21 @@ describe("Artifact Generators", () => {
   describe("ExecutiveMemoGenerator", () => {
     it("should be instantiable with required dependencies", () => {
       const generator = new ExecutiveMemoGenerator(
-        mockLLMGateway as any,
-        mockCircuitBreaker as any,
-        mockMemorySystem as any
+        mockLLMGateway as never,
+        mockCircuitBreaker as never,
+        mockMemorySystem as never,
       );
       expect(generator).toBeDefined();
     });
 
-    it("should validate output against schema", async () => {
+    it("should validate output against schema through secureLLMComplete", async () => {
       const mockResponse = {
         content: JSON.stringify({
           title: "Test Memo",
           executive_summary: "Test summary",
           value_hypothesis: "Test hypothesis",
           top_drivers: [
-            { name: "Driver 1", impact_range: "$100K-$200K", confidence: 0.85, claim_id: "claim-1" }
+            { name: "Driver 1", impact_range: "$100K-$200K", confidence: 0.85, claim_id: "claim-1" },
           ],
           confidence_assessment: {
             overall_score: 0.8,
@@ -77,7 +77,7 @@ describe("Artifact Generators", () => {
             blockers: [],
           },
           key_assumptions: [
-            { assumption: "Assumption 1", confidence: 0.9, validated: true }
+            { assumption: "Assumption 1", confidence: 0.9, validated: true },
           ],
           recommendation: "Proceed with the initiative",
           financial_highlights: {
@@ -87,19 +87,15 @@ describe("Artifact Generators", () => {
           },
           provenance_refs: ["claim-1"],
         }),
-        usage: {
-          prompt_tokens: 1000,
-          completion_tokens: 500,
-          total_tokens: 1500,
-        },
+        usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
       };
 
-      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new ExecutiveMemoGenerator(
-        mockLLMGateway as any,
-        mockCircuitBreaker as any,
-        mockMemorySystem as any
+        mockLLMGateway as never,
+        mockCircuitBreaker as never,
+        mockMemorySystem as never,
       );
 
       const input = {
@@ -125,12 +121,8 @@ describe("Artifact Generators", () => {
         ],
       };
 
-      const result = await generator.generate(input as any);
+      const result = await generator.generate(input as never);
 
-      expect(result.output).toBeDefined();
-      expect(result.output.title).toBe("Test Memo");
-      expect(result.hallucinationCheck).toBe(true);
-      expect(result.tokenUsage).toBeDefined();
       expect(secureLLMComplete).toHaveBeenCalledWith(
         mockLLMGateway,
         expect.any(Array),
@@ -142,19 +134,23 @@ describe("Artifact Generators", () => {
         })
       );
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+      expect(result.output).toBeDefined();
+      expect(result.output.title).toBe("Test Memo");
+      expect(result.hallucinationCheck).toBe(true);
+      expect(result.tokenUsage).toBeDefined();
       expect(logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: "artifacts:executive_memo_generated" })
       );
     });
 
-    it("should fail hallucination check when claim_id mismatch", async () => {
+    it("should preserve failed hallucination checks", async () => {
       const mockResponse = {
         content: JSON.stringify({
           title: "Test Memo",
           executive_summary: "Test summary",
           value_hypothesis: "Test hypothesis",
           top_drivers: [
-            { name: "Driver 1", impact_range: "$100K-$200K", confidence: 0.85, claim_id: "unverified-claim" }
+            { name: "Driver 1", impact_range: "$100K-$200K", confidence: 0.85, claim_id: "unverified-claim" },
           ],
           confidence_assessment: {
             overall_score: 0.8,
@@ -173,12 +169,12 @@ describe("Artifact Generators", () => {
         usage: { prompt_tokens: 1000, completion_tokens: 500, total_tokens: 1500 },
       };
 
-      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new ExecutiveMemoGenerator(
-        mockLLMGateway as any,
-        mockCircuitBreaker as any,
-        mockMemorySystem as any
+        mockLLMGateway as never,
+        mockCircuitBreaker as never,
+        mockMemorySystem as never,
       );
 
       const input = {
@@ -196,15 +192,14 @@ describe("Artifact Generators", () => {
             impactRange: { low: 100000, high: 200000 },
             unit: "USD",
             confidence: 0.85,
-            provenance: { source: "financial_model", claimId: "claim-1" }, // Different from output
+            provenance: { source: "financial_model", claimId: "claim-1" },
           },
         ],
         assumptions: [],
       };
 
-      const result = await generator.generate(input as any);
+      const result = await generator.generate(input as never);
 
-      // Should fail hallucination check because claim_id doesn't match input
       expect(result.hallucinationCheck).toBe(false);
       expect(logSecurityEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: "security:hallucination_detected" })
@@ -215,27 +210,27 @@ describe("Artifact Generators", () => {
   describe("CFORecommendationGenerator", () => {
     it("should be instantiable with required dependencies", () => {
       const generator = new CFORecommendationGenerator(
-        mockLLMGateway as any,
-        mockCircuitBreaker as any,
-        mockMemorySystem as any
+        mockLLMGateway as never,
+        mockCircuitBreaker as never,
+        mockMemorySystem as never,
       );
       expect(generator).toBeDefined();
     });
 
-    it("should validate all financial claims have source references", async () => {
+    it("should validate all financial claims have source references via secureLLMComplete", async () => {
       const mockResponse = {
         content: JSON.stringify({
           title: "CFO Recommendation",
           recommendation: { decision: "approve", rationale: "Strong ROI", confidence: 0.9 },
           financial_summary: {
             scenarios: [
-              { name: "Base", probability: 60, roi_percent: 150, npv: "$500K", payback_months: 12, claim_id: "scenario-1" }
+              { name: "Base", probability: 60, roi_percent: 150, npv: "$500K", payback_months: 12, claim_id: "scenario-1" },
             ],
             probability_weighted_roi: 140,
             risk_adjusted_npv: "$450K",
           },
           key_assumptions: [
-            { assumption: "Growth rate", value: "15%", source_type: "benchmark", source_id: "bench-1", confidence: 0.8 }
+            { assumption: "Growth rate", value: "15%", source_type: "benchmark", source_id: "bench-1", confidence: 0.8 },
           ],
           sensitivity_highlights: [],
           benchmark_context: [],
@@ -246,12 +241,12 @@ describe("Artifact Generators", () => {
         usage: { prompt_tokens: 1200, completion_tokens: 600, total_tokens: 1800 },
       };
 
-      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new CFORecommendationGenerator(
-        mockLLMGateway as any,
-        mockCircuitBreaker as any,
-        mockMemorySystem as any
+        mockLLMGateway as never,
+        mockCircuitBreaker as never,
+        mockMemorySystem as never,
       );
 
       const input = {
@@ -262,19 +257,17 @@ describe("Artifact Generators", () => {
         organizationName: "Test Org",
         readinessScore: 0.85,
         scenarios: [
-          { name: "Base", probability: 60, roi: 150, npv: 500000, currency: "USD", paybackMonths: 12, claimId: "scenario-1" }
+          { name: "Base", probability: 60, roi: 150, npv: 500000, currency: "USD", paybackMonths: 12, claimId: "scenario-1" },
         ],
         assumptions: [
-          { description: "Growth rate", value: "15%", sourceType: "benchmark", sourceId: "bench-1", confidence: 0.8 }
+          { description: "Growth rate", value: "15%", sourceType: "benchmark", sourceId: "bench-1", confidence: 0.8 },
         ],
         sensitivities: [],
         benchmarks: [],
       };
 
-      const result = await generator.generate(input as any);
+      const result = await generator.generate(input as never);
 
-      expect(result.output.recommendation.decision).toBe("approve");
-      expect(result.hallucinationCheck).toBe(true);
       expect(secureLLMComplete).toHaveBeenCalledWith(
         mockLLMGateway,
         expect.any(Array),
@@ -284,74 +277,19 @@ describe("Artifact Generators", () => {
         })
       );
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+      expect(result.output.recommendation.decision).toBe("approve");
+      expect(result.hallucinationCheck).toBe(true);
     });
   });
 
-  describe("Draft Status Based on Readiness Score", () => {
-    it("should mark artifacts as draft when readiness score < 0.8", async () => {
+  describe("Other artifact generators", () => {
+    it("routes customer narrative generation through secureLLMComplete", async () => {
       const mockResponse = {
         content: JSON.stringify({
-          title: "Draft Memo",
-          executive_summary: "Draft summary",
-          value_hypothesis: "Draft hypothesis",
-          top_drivers: [],
-          confidence_assessment: {
-            overall_score: 0.6,
-            assessment: "Medium confidence - draft status",
-            blockers: ["Insufficient data"],
-          },
-          key_assumptions: [],
-          recommendation: "Pause for more data",
-          financial_highlights: { roi_range: "TBD", npv: "TBD", payback_months: 0 },
-          provenance_refs: [],
-        }),
-        usage: { prompt_tokens: 1000, completion_tokens: 400, total_tokens: 1400 },
-      };
-
-      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse);
-
-      const generator = new ExecutiveMemoGenerator(
-        mockLLMGateway as any,
-        mockCircuitBreaker as any,
-        mockMemorySystem as any
-      );
-
-      const input = {
-        tenantId: "tenant-1",
-        organizationId: "org-1",
-        caseId: "case-1",
-        valueCaseTitle: "Test Case",
-        organizationName: "Test Org",
-        readinessScore: 0.6, // Below threshold
-        blockers: ["Insufficient data"],
-        integrityScore: 0.6,
-        vetoed: false,
-        drivers: [],
-        assumptions: [],
-      };
-
-      const result = await generator.generate(input as any);
-
-      // When persisted, artifacts with readiness < 0.8 should be marked as 'draft'
-      expect(result.output.confidence_assessment.blockers).toContain("Insufficient data");
-      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Additional generators", () => {
-    it("routes customer narrative generation through secureLLMComplete", async () => {
-      vi.mocked(secureLLMComplete).mockResolvedValue({
-        content: JSON.stringify({
-          title: "Customer Story",
-          industry_framing: "Industry framing",
+          title: "Customer Narrative",
+          industry_framing: "Framing",
           business_outcomes: [
-            {
-              outcome: "Grow",
-              description: "Improve revenue",
-              value_range: "$100K-$200K",
-              confidence: 0.85,
-              claim_id: "claim-1",
-            },
+            { outcome: "Outcome", description: "Description", value_range: "$100K", confidence: 0.8, claim_id: "claim-1" },
           ],
           benchmark_context: [
             {
@@ -362,7 +300,7 @@ describe("Artifact Generators", () => {
             },
           ],
           proof_points: [{ headline: "Proof", details: "Detail", evidence_ref: "ev-1" }],
-          risk_mitigations: [{ concern: "Adoption", mitigation: "Enablement" }],
+          risk_mitigations: [],
           implementation_highlights: {
             timeline: "90 days",
             key_milestones: ["Kickoff"],
@@ -372,7 +310,9 @@ describe("Artifact Generators", () => {
           provenance_refs: ["claim-1"],
         }),
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
-      } as any);
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new CustomerNarrativeGenerator(
         mockLLMGateway as any,
@@ -393,7 +333,7 @@ describe("Artifact Generators", () => {
         proofPoints: [],
       } as any);
 
-      expect(result.output.title).toBe("Customer Story");
+      expect(result.output.title).toBe("Customer Narrative");
       expect(secureLLMComplete).toHaveBeenCalledWith(
         mockLLMGateway,
         expect.any(Array),
@@ -403,7 +343,7 @@ describe("Artifact Generators", () => {
     });
 
     it("routes internal case generation through secureLLMComplete", async () => {
-      vi.mocked(secureLLMComplete).mockResolvedValue({
+      const mockResponse = {
         content: JSON.stringify({
           title: "Internal Case",
           deal_summary: {
@@ -460,7 +400,9 @@ describe("Artifact Generators", () => {
           provenance_refs: ["claim-1"],
         }),
         usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
-      } as any);
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
 
       const generator = new InternalCaseGenerator(
         mockLLMGateway as any,
@@ -491,6 +433,56 @@ describe("Artifact Generators", () => {
         expect.any(Array),
         expect.objectContaining({ serviceName: "InternalCaseGenerator" })
       );
+      expect(mockLLMGateway.complete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Draft Status Based on Readiness Score", () => {
+    it("should mark artifacts as draft when readiness score < 0.8", async () => {
+      const mockResponse = {
+        content: JSON.stringify({
+          title: "Draft Memo",
+          executive_summary: "Draft summary",
+          value_hypothesis: "Draft hypothesis",
+          top_drivers: [],
+          confidence_assessment: {
+            overall_score: 0.6,
+            assessment: "Medium confidence - draft status",
+            blockers: ["Insufficient data"],
+          },
+          key_assumptions: [],
+          recommendation: "Pause for more data",
+          financial_highlights: { roi_range: "TBD", npv: "TBD", payback_months: 0 },
+          provenance_refs: [],
+        }),
+        usage: { prompt_tokens: 1000, completion_tokens: 400, total_tokens: 1400 },
+      };
+
+      vi.mocked(secureLLMComplete).mockResolvedValue(mockResponse as any);
+
+      const generator = new ExecutiveMemoGenerator(
+        mockLLMGateway as never,
+        mockCircuitBreaker as never,
+        mockMemorySystem as never,
+      );
+
+      const input = {
+        tenantId: "tenant-1",
+        organizationId: "org-1",
+        caseId: "case-1",
+        valueCaseTitle: "Test Case",
+        organizationName: "Test Org",
+        readinessScore: 0.6,
+        blockers: ["Insufficient data"],
+        integrityScore: 0.6,
+        vetoed: false,
+        drivers: [],
+        assumptions: [],
+      };
+
+      const result = await generator.generate(input as never);
+
+      expect(result.output.confidence_assessment.blockers).toContain("Insufficient data");
       expect(mockLLMGateway.complete).not.toHaveBeenCalled();
     });
   });

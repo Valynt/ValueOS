@@ -6,7 +6,7 @@
  */
 
 import { createLogger } from '@shared/lib/logger';
-import { getRequestSupabaseClient } from '@shared/lib/supabase';
+import { createRequestRlsSupabaseClient } from '../lib/supabase.js';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
 
@@ -78,7 +78,7 @@ router.post(
 
       const { contextId, website, industry, companySize, salesMotion } = parsed.data;
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       // Verify context belongs to tenant
       const { data: context, error: ctxErr } = await supabase
@@ -158,7 +158,7 @@ router.get(
         return res.status(401).json({ error: 'Tenant context required' });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       const { data: job, error } = await supabase
         .from('company_research_jobs')
@@ -193,7 +193,7 @@ router.get(
         return res.status(401).json({ error: 'Tenant context required' });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       let query = supabase
         .from('company_research_suggestions')
@@ -247,7 +247,7 @@ router.patch(
         return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       // Fetch the suggestion
       const { data: suggestion, error: fetchErr } = await supabase
@@ -330,7 +330,7 @@ router.post(
         return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
       }
 
-      const supabase = getRequestSupabaseClient(req);
+      const supabase = createRequestRlsSupabaseClient(req);
 
       const { ids } = parsed.data;
       const results: Array<{ id: string; success: boolean; error?: string }> = [];

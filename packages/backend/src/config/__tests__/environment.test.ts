@@ -1,8 +1,4 @@
-/**
- * Environment Configuration Tests
- */
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   getConfig,
@@ -16,18 +12,82 @@ import {
 } from '../environment';
 
 describe('Environment Configuration', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
   const originalCorsOrigins = process.env.CORS_ORIGINS;
+  const originalSupabaseUrl = process.env.SUPABASE_URL;
+  const originalSupabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  const originalAgentFabricEnabled = process.env.AGENT_FABRIC_ENABLED;
+  const originalWorkflowEnabled = process.env.WORKFLOW_ENABLED;
+  const originalComplianceEnabled = process.env.COMPLIANCE_ENABLED;
+  const originalFeatureAgentFabric = process.env.FEATURE_AGENTFABRIC;
+  const originalFeatureWorkflow = process.env.FEATURE_WORKFLOW;
+  const originalFeatureCompliance = process.env.FEATURE_COMPLIANCE;
 
   beforeEach(() => {
-    process.env.CORS_ORIGINS = process.env.CORS_ORIGINS || "http://localhost:5173";
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('CORS_ORIGINS', process.env.CORS_ORIGINS || 'http://localhost:5173');
+    vi.stubEnv('SUPABASE_URL', process.env.SUPABASE_URL || 'http://localhost:54321');
+    vi.stubEnv('SUPABASE_ANON_KEY', process.env.SUPABASE_ANON_KEY || 'test-anon-key');
+    vi.stubEnv('AGENT_FABRIC_ENABLED', 'true');
+    vi.stubEnv('WORKFLOW_ENABLED', 'true');
+    vi.stubEnv('COMPLIANCE_ENABLED', 'true');
+    vi.stubEnv('FEATURE_AGENTFABRIC', 'true');
+    vi.stubEnv('FEATURE_WORKFLOW', 'false');
+    vi.stubEnv('FEATURE_COMPLIANCE', 'true');
     resetConfig();
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
     if (originalCorsOrigins === undefined) {
       delete process.env.CORS_ORIGINS;
     } else {
       process.env.CORS_ORIGINS = originalCorsOrigins;
+    }
+    if (originalSupabaseUrl === undefined) {
+      delete process.env.SUPABASE_URL;
+    } else {
+      process.env.SUPABASE_URL = originalSupabaseUrl;
+    }
+    if (originalSupabaseAnonKey === undefined) {
+      delete process.env.SUPABASE_ANON_KEY;
+    } else {
+      process.env.SUPABASE_ANON_KEY = originalSupabaseAnonKey;
+    }
+    if (originalAgentFabricEnabled === undefined) {
+      delete process.env.AGENT_FABRIC_ENABLED;
+    } else {
+      process.env.AGENT_FABRIC_ENABLED = originalAgentFabricEnabled;
+    }
+    if (originalWorkflowEnabled === undefined) {
+      delete process.env.WORKFLOW_ENABLED;
+    } else {
+      process.env.WORKFLOW_ENABLED = originalWorkflowEnabled;
+    }
+    if (originalComplianceEnabled === undefined) {
+      delete process.env.COMPLIANCE_ENABLED;
+    } else {
+      process.env.COMPLIANCE_ENABLED = originalComplianceEnabled;
+    }
+    if (originalFeatureAgentFabric === undefined) {
+      delete process.env.FEATURE_AGENTFABRIC;
+    } else {
+      process.env.FEATURE_AGENTFABRIC = originalFeatureAgentFabric;
+    }
+    if (originalFeatureWorkflow === undefined) {
+      delete process.env.FEATURE_WORKFLOW;
+    } else {
+      process.env.FEATURE_WORKFLOW = originalFeatureWorkflow;
+    }
+    if (originalFeatureCompliance === undefined) {
+      delete process.env.FEATURE_COMPLIANCE;
+    } else {
+      process.env.FEATURE_COMPLIANCE = originalFeatureCompliance;
     }
     resetConfig();
   });
@@ -154,11 +214,9 @@ describe('Environment Configuration', () => {
     });
 
     it('should return correct feature flag values', () => {
-      const config = getConfig();
-      
-      expect(isFeatureEnabled('agentFabric')).toBe(config.features.agentFabric);
-      expect(isFeatureEnabled('workflow')).toBe(config.features.workflow);
-      expect(isFeatureEnabled('compliance')).toBe(config.features.compliance);
+      expect(isFeatureEnabled('agentFabric')).toBe(true);
+      expect(isFeatureEnabled('workflow')).toBe(false);
+      expect(isFeatureEnabled('compliance')).toBe(true);
     });
   });
 
@@ -213,8 +271,11 @@ describe('Environment Configuration', () => {
         // Should be a valid URL
         expect(() => new URL(config.database.url)).not.toThrow();
         
-        // If it's a real Supabase URL (not placeholder), validate format
-        if (!config.database.url.includes('your-project')) {
+        // Real deployed Supabase URLs should use HTTPS; local test URLs may use HTTP.
+        if (
+          !config.database.url.includes('your-project') &&
+          !config.database.url.includes('localhost')
+        ) {
           expect(config.database.url).toMatch(/^https:\/\//);
         }
       }
@@ -223,8 +284,12 @@ describe('Environment Configuration', () => {
     it('should have valid Supabase key format if provided', () => {
       const config = getConfig();
       
-      if (config.database.anonKey && !config.database.anonKey.includes('your-')) {
-        // Real keys should have proper prefix
+      if (
+        config.database.anonKey &&
+        !config.database.anonKey.includes('your-') &&
+        !config.database.anonKey.startsWith('test-')
+      ) {
+        // Real keys should have proper prefix; local test keys are permitted in Vitest.
         expect(
           config.database.anonKey.startsWith('eyJ') || 
           config.database.anonKey.startsWith('sb_publishable_')

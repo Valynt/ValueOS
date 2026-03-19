@@ -1,8 +1,7 @@
 /**
  * backHalf router — regression tests
  *
- * Covers the lifecycle_stage bug where the narrative/run endpoint was
- * incorrectly passing 'integrity' instead of 'narrative'.
+ * Covers synchronous route policy enforcement for back-half agent runs.
  */
 
 import express from 'express';
@@ -188,16 +187,18 @@ describe('backHalf router', () => {
     vi.clearAllMocks();
   });
 
-  it('passes lifecycle_stage "narrative" when running the narrative agent', async () => {
+  it('rejects narrative runs on the synchronous back-half route because the agent scales to zero', async () => {
     const app = await buildApp();
 
-    await request(app)
+    const response = await request(app)
       .post('/api/v1/cases/case-123/narrative/run')
       .send({})
-      .expect(200);
+      .expect(409);
 
-    expect(capturedContext).not.toBeNull();
-    expect(capturedContext!['lifecycle_stage']).toBe('narrative');
+    expect(response.body.success).toBe(false);
+    expect(response.body.coldStartClass).toBe('async-scale-to-zero');
+    expect(response.body.error).toMatch(/queue, polling, or streaming workflows/i);
+    expect(capturedContext).toBeNull();
   }, 15000);
 
   it('passes lifecycle_stage "integrity" when running the integrity agent', async () => {

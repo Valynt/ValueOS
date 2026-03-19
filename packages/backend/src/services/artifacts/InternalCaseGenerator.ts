@@ -7,7 +7,6 @@
  * Task: 3.4, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -79,6 +78,7 @@ export class InternalCaseGenerator {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
           tenantId: input.tenantId,
+          organizationId: input.organizationId,
           caseId: input.caseId,
           artifactType: "internal_case",
           generator: "InternalCaseGenerator",
@@ -87,8 +87,6 @@ export class InternalCaseGenerator {
 
       const response = await secureLLMComplete(this.llmGateway, request.messages, {
         ...request.metadata,
-        organizationId: input.organizationId,
-        tenantId: input.tenantId,
         serviceName: "InternalCaseGenerator",
         operation: "generate",
         traceId: input.caseId,
@@ -104,6 +102,7 @@ export class InternalCaseGenerator {
       }
 
       const parsed = InternalCaseOutputSchema.parse(parsedJson);
+
       const output: InternalCaseOutput = {
         ...parsed,
         data_claim_ids: parsed.provenance_refs,
@@ -128,15 +127,21 @@ export class InternalCaseGenerator {
 
       return {
         output,
-        tokenUsage: response.usage ? {
-          input_tokens: response.usage.prompt_tokens,
-          output_tokens: response.usage.completion_tokens,
-          total_tokens: response.usage.total_tokens,
-        } : undefined,
+        tokenUsage: response.usage
+          ? {
+              input_tokens: response.usage.prompt_tokens,
+              output_tokens: response.usage.completion_tokens,
+              total_tokens: response.usage.total_tokens,
+            }
+          : undefined,
       };
     });
 
-    const hallucinationCheck = await this.checkHallucination(result.output, input);
+    // Run hallucination check
+    const hallucinationCheck = await this.checkHallucination(
+      result.output,
+      input
+    );
 
     if (!hallucinationCheck) {
       logger.warn("InternalCaseGenerator: hallucination escalation triggered", {

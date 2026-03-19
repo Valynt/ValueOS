@@ -269,10 +269,8 @@ Guidelines:
         serviceName: "HandoffNotesGenerator",
         operation: "generateHandoffNotes",
         sessionId: baselineId,
-        session_id: baselineId,
         traceId: baselineId,
-        trace_id: baselineId,
-        agentType: "handoff-notes-generator",
+        organizationId: tenantId,
       });
 
       await logSecurityEvent({
@@ -328,6 +326,22 @@ Guidelines:
         key_risks: "Schedule a risk review meeting with the value engineering team.",
       };
     }
+  }
+
+  private async checkHallucination(output: HandoffNotesOutput): Promise<boolean> {
+    const sections = Object.values(output);
+    const allSectionsPopulated = sections.every((section) => section.trim().length >= 20);
+    const hasFallbackLanguage = sections.some((section) => /please review|please validate|schedule a risk review/i.test(section));
+
+    if (!allSectionsPopulated || hasFallbackLanguage) {
+      logger.warn("HandoffNotesGenerator: Hallucination check failed", {
+        allSectionsPopulated,
+        hasFallbackLanguage,
+      });
+      return false;
+    }
+
+    return true;
   }
 
   /**

@@ -114,8 +114,10 @@ def main() -> None:
             "sum(rate(cache_hits_total[5m])) / clamp_min(sum(rate(cache_requests_total[5m])), 1)",
         )
 
-    p95 = float(run_summary.get("latency_ms", {}).get("p95") or 0)
-    critical_p95 = float(run_summary.get("latency_ms", {}).get("critical_p95") or 0)
+    latency_ms = run_summary.get("latency_ms", {})
+    interactive_p95 = float(latency_ms.get("interactive_completion_p95") or 0)
+    orchestration_ack_p95 = float(latency_ms.get("orchestration_acknowledgment_p95") or 0)
+    orchestration_completion_p95 = float(latency_ms.get("orchestration_completion_p95") or 0)
 
     root_cause = classify_root_cause(infra_metrics)
 
@@ -128,17 +130,29 @@ def main() -> None:
         "error_rate": run_summary.get("error_rate", 0),
         "rps": run_summary.get("rps", 0),
         "saturation": run_summary.get("saturation", {}),
-        "critical_route_guard": {
+        "interactive_completion_guard": {
             "target_p95_ms": 200,
-            "observed_p95_ms": critical_p95,
-            "passed": critical_p95 <= 200,
+            "observed_p95_ms": interactive_p95,
+            "passed": interactive_p95 <= 200,
+            "window": "sustained",
+        },
+        "orchestration_acknowledgment_guard": {
+            "target_p95_ms": 200,
+            "observed_p95_ms": orchestration_ack_p95,
+            "passed": orchestration_ack_p95 <= 200,
+            "window": "sustained",
+        },
+        "orchestration_completion_exception_guard": {
+            "target_p95_ms": 3000,
+            "observed_p95_ms": orchestration_completion_p95,
+            "passed": orchestration_completion_p95 <= 3000,
             "window": "sustained",
         },
         "latency_budget": {
             "target_p95_ms": 200,
-            "observed_p95_ms": p95,
-            "burn_down_percent": calc_burn_down(p95),
-            "remaining_percent": max(0.0, 100.0 - calc_burn_down(p95)),
+            "observed_p95_ms": interactive_p95,
+            "burn_down_percent": calc_burn_down(interactive_p95),
+            "remaining_percent": max(0.0, 100.0 - calc_burn_down(interactive_p95)),
         },
         "infra_correlation": {
             "root_cause": root_cause,
@@ -160,9 +174,9 @@ def main() -> None:
                 f"- Run ID: `{run_id}`",
                 "",
                 "## Request Performance",
-                f"- p50: {benchmark_record['latency_ms'].get('p50')}",
-                f"- p95: {benchmark_record['latency_ms'].get('p95')}",
-                f"- p99: {benchmark_record['latency_ms'].get('p99')}",
+                f"- Interactive completion p95: {interactive_p95}",
+                f"- Orchestration acknowledgment p95: {orchestration_ack_p95}",
+                f"- Orchestration completion p95: {orchestration_completion_p95}",
                 f"- Error rate: {benchmark_record['error_rate']}",
                 f"- RPS: {benchmark_record['rps']}",
                 "",
@@ -172,9 +186,12 @@ def main() -> None:
                 f"- Blocked p95 (ms): {benchmark_record['saturation'].get('blocked_p95_ms')}",
                 "",
                 "## Promotion Guard",
-                f"- Critical route p95 target: <= 200ms",
-                f"- Critical route observed p95: {critical_p95}",
-                f"- Gate status: {'PASS' if benchmark_record['critical_route_guard']['passed'] else 'FAIL'}",
+                f"- Interactive completion target: <= 200ms (observed {interactive_p95})",
+                f"- Interactive completion gate: {'PASS' if benchmark_record['interactive_completion_guard']['passed'] else 'FAIL'}",
+                f"- Orchestration acknowledgment target: <= 200ms (observed {orchestration_ack_p95})",
+                f"- Orchestration acknowledgment gate: {'PASS' if benchmark_record['orchestration_acknowledgment_guard']['passed'] else 'FAIL'}",
+                f"- Orchestration completion exception: <= 3000ms (observed {orchestration_completion_p95})",
+                f"- Orchestration completion exception gate: {'PASS' if benchmark_record['orchestration_completion_exception_guard']['passed'] else 'FAIL'}",
                 "",
                 "## Root-cause Auto-Tag",
                 f"- Category: **{root_cause}**",

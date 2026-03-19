@@ -12,6 +12,7 @@ import Redis from 'ioredis';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
 
 import { logger } from '../utils/logger.js'
+import type { JsonObject } from '../types/json.js'
 
 import { llmFallbackWithTracing } from './LLMFallbackWithTracing.js'
 import { promptVersionControl } from './PromptVersionControl.js'
@@ -34,12 +35,12 @@ export interface LLMJobData {
   userId: string;
   sessionId?: string;
   promptKey?: string;
-  promptVariables?: Record<string, any>;
+  promptVariables?: JsonObject;
   prompt?: string;
   model?: string;
   maxTokens?: number;
   temperature?: number;
-  metadata?: Record<string, any>;
+  metadata?: JsonObject;
 }
 
 export interface LLMJobResult {

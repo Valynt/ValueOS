@@ -6,7 +6,7 @@
  * Individual tests should still mock these modules for isolation.
  */
 
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, expect, vi } from "vitest";
 
 import { assertRealNetworkAllowed, isRealNetworkAllowed } from "./runtimeGuards";
 
@@ -190,6 +190,26 @@ if (originalFetch && !isRealNetworkAllowed()) {
     }),
   );
 }
+
+beforeEach(async () => {
+  const testPath = expect.getState().testPath ?? "";
+  if (
+    testPath.endsWith("EntitlementsService.static.test.ts") ||
+    testPath.endsWith("secretsManager.test.ts")
+  ) {
+    return;
+  }
+
+  const [{ supabase }, entitlementsModule] = await Promise.all([
+    import("../lib/supabase.js"),
+    import("../services/billing/EntitlementsService.js"),
+  ]);
+
+  const EntitlementsService = entitlementsModule.EntitlementsService;
+  if (typeof EntitlementsService?.setInstance === "function") {
+    EntitlementsService.setInstance(new EntitlementsService(supabase));
+  }
+});
 
 afterEach(() => {
   vi.clearAllMocks();

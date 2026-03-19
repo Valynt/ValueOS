@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.strict-exceptions.json",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/runtime/**/*.ts",
+    "src/types/**/*.ts",
+    "src/types/**/*.d.ts"
+  ]
+}

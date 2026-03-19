@@ -1,7 +1,11 @@
 {
   "dashboard": {
     "title": "Backend API Performance",
-    "tags": ["backend", "api", "observability"],
+    "tags": [
+      "backend",
+      "api",
+      "observability"
+    ],
     "timezone": "browser",
     "schemaVersion": 38,
     "version": 1,
@@ -11,13 +15,21 @@
         "id": 1,
         "title": "Requests per Second by Route",
         "type": "timeseries",
-        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "sum(rate(valuecanvas_http_requests_total[5m])) by (route, method)",
             "legendFormat": "{{route}} {{method}}",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
@@ -29,33 +41,64 @@
       },
       {
         "id": 2,
-        "title": "HTTP Latency (p50/p95/p99) by Route",
+        "title": "Interactive Completion Latency (p50/p95/p99) by Route",
         "type": "timeseries",
-        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
-            "expr": "histogram_quantile(0.50, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le, route))",
+            "expr": "histogram_quantile(0.50, sum(rate(valuecanvas_http_request_duration_ms_bucket{route!~\"/api/(llm|billing|queue).*\",route!=\"/metrics\"}[5m])) by (le, route))",
             "legendFormat": "{{route}} p50",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           },
           {
             "refId": "B",
-            "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le, route))",
+            "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{route!~\"/api/(llm|billing|queue).*\",route!=\"/metrics\"}[5m])) by (le, route))",
             "legendFormat": "{{route}} p95",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           },
           {
             "refId": "C",
-            "expr": "histogram_quantile(0.99, sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le, route))",
+            "expr": "histogram_quantile(0.99, sum(rate(valuecanvas_http_request_duration_ms_bucket{route!~\"/api/(llm|billing|queue).*\",route!=\"/metrics\"}[5m])) by (le, route))",
             "legendFormat": "{{route}} p99",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
           "defaults": {
             "unit": "ms",
-            "min": 0
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 150
+                },
+                {
+                  "color": "red",
+                  "value": 200
+                }
+              ]
+            }
           }
         }
       },
@@ -63,19 +106,30 @@
         "id": 3,
         "title": "4xx / 5xx Error Rate by Route",
         "type": "timeseries",
-        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 0,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "sum(rate(valuecanvas_http_requests_total{status_code=~\"4..\"}[5m])) by (route) / sum(rate(valuecanvas_http_requests_total[5m])) by (route)",
             "legendFormat": "{{route}} 4xx",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           },
           {
             "refId": "B",
             "expr": "sum(rate(valuecanvas_http_requests_total{status_code=~\"5..\"}[5m])) by (route) / sum(rate(valuecanvas_http_requests_total[5m])) by (route)",
             "legendFormat": "{{route}} 5xx",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
@@ -90,12 +144,20 @@
         "id": 4,
         "title": "Overall Error Rate (Last 5m)",
         "type": "stat",
-        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 12,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "sum(rate(valuecanvas_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(valuecanvas_http_requests_total[5m]))",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
@@ -110,13 +172,21 @@
         "id": 5,
         "title": "LLM Tokens Processed",
         "type": "timeseries",
-        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 0,
+          "y": 16,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "rate(llm.tokens.total[5m])",
             "legendFormat": "tokens/s",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
@@ -130,13 +200,21 @@
         "id": 6,
         "title": "LLM Requests",
         "type": "timeseries",
-        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 12,
+          "y": 16,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "rate(llm.requests.total[5m])",
             "legendFormat": "requests/s",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
@@ -150,13 +228,21 @@
         "id": 7,
         "title": "Stripe Webhooks by Status",
         "type": "timeseries",
-        "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 0,
+          "y": 24,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "sum(rate(billing_stripe_webhooks_total[5m])) by (event_type, status)",
             "legendFormat": "{{event_type}} {{status}}",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
@@ -170,19 +256,135 @@
         "id": 8,
         "title": "Billing Job Failures",
         "type": "timeseries",
-        "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+        "gridPos": {
+          "x": 12,
+          "y": 24,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "refId": "A",
             "expr": "sum(rate(billing_jobs_failures_total[5m])) by (job, reason)",
             "legendFormat": "{{job}} {{reason}}",
-            "datasource": { "type": "prometheus", "uid": "prometheus" }
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
           }
         ],
         "fieldConfig": {
           "defaults": {
             "unit": "ops",
             "min": 0
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Orchestration Acknowledgment Latency (p95 target 200ms)",
+        "type": "timeseries",
+        "gridPos": {
+          "x": 0,
+          "y": 32,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{latency_class=\"orchestration\",latency_phase=\"acknowledgment\"}[5m])) by (le, route))",
+            "legendFormat": "{{route}} acknowledgment p95",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 150
+                },
+                {
+                  "color": "red",
+                  "value": 200
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Orchestration Completion Latency (p50/p95/p99, exception target 3000ms)",
+        "type": "timeseries",
+        "gridPos": {
+          "x": 12,
+          "y": 32,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "histogram_quantile(0.50, sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~\"/api/(llm|billing|queue).*\"}[5m])) by (le, route))",
+            "legendFormat": "{{route}} completion p50",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          },
+          {
+            "refId": "B",
+            "expr": "histogram_quantile(0.95, sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~\"/api/(llm|billing|queue).*\"}[5m])) by (le, route))",
+            "legendFormat": "{{route}} completion p95",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          },
+          {
+            "refId": "C",
+            "expr": "histogram_quantile(0.99, sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~\"/api/(llm|billing|queue).*\"}[5m])) by (le, route))",
+            "legendFormat": "{{route}} completion p99",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            }
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 2000
+                },
+                {
+                  "color": "red",
+                  "value": 3000
+                }
+              ]
+            }
           }
         }
       }

@@ -12,8 +12,6 @@
  */
 
 // Browser-compatible hash function (replaces Node.js crypto)
-import { SupabaseClient } from "@supabase/supabase-js";
-
 import { logger } from "../../lib/logger.js";
 import { sanitizeForLogging } from "../../lib/piiFilter.js";
 import { createServerSupabaseClient } from "../../lib/supabase.js";
@@ -24,12 +22,7 @@ import {
   requiredAuditPayloadSchema,
 } from "./auditPayloadContract.js";
 import { securityEventStreamingService } from "./SecurityEventStreamingService.js";
-
-// audit_logs is not in the generated Database type — use a typed helper
-// rather than scattering `as any` across every query.
-function auditLogsTable(supabase: SupabaseClient) {
-  return supabase.from("audit_logs");
-}
+import { ImmutableAuditRetentionService } from "./ImmutableAuditRetentionService.js";
 
 /** Shape of a persisted audit log row returned from the database. */
 export interface AuditLogEntry {
@@ -78,6 +71,7 @@ export interface AuditLogCreateInput {
 }
 
 export interface AuditLogQuery {
+  includeArchived?: boolean;
   tenantId?: string;
   userId?: string;
   action?: string | string[];
@@ -97,6 +91,9 @@ export interface AuditLogExportOptions {
 }
 
 export class AuditLogService extends BaseService {
+  private readonly tableName = "audit_logs";
+  private readonly archiveTableName = "audit_logs_archive";
+  private readonly retentionService: ImmutableAuditRetentionService;
   private lastHash: string | null = null;
   private initialized: boolean = false;
   private hashChainLock: Promise<void> = Promise.resolve();
@@ -112,6 +109,8 @@ export class AuditLogService extends BaseService {
         });
       }
     }
+
+    this.retentionService = new ImmutableAuditRetentionService(this.supabase);
   }
 
   /**
@@ -123,7 +122,7 @@ export class AuditLogService extends BaseService {
 
     try {
       const { data } = await this.supabase
-        .from("audit_logs")
+        .from(this.tableName)
         .select("integrity_hash")
         .order("timestamp", { ascending: false })
         .limit(1)
@@ -339,7 +338,7 @@ export class AuditLogService extends BaseService {
               };
 
               const { data, error } = await this.supabase
-                .from("audit_logs")
+                .from(this.tableName)
                 .insert(logEntry)
                 .select()
                 .single();
@@ -413,61 +412,18 @@ export class AuditLogService extends BaseService {
 
     return this.executeRequest(
       async () => {
-        let dbQuery = this.supabase.from("audit_logs").select("*");
+        const activeLogs = await this.queryTable(this.tableName, query);
+        const archivedLogs = query.includeArchived
+          ? await this.queryTable(this.archiveTableName, query)
+          : [];
 
-        // CRITICAL: Apply tenant filter first for security
-        dbQuery = dbQuery.eq("tenant_id", query.tenantId);
+        const merged = [...activeLogs, ...archivedLogs].sort(
+          (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime(),
+        );
 
-        if (query.userId) {
-          dbQuery = dbQuery.eq("user_id", query.userId);
-        }
-
-        if (query.action) {
-          if (Array.isArray(query.action)) {
-            dbQuery = dbQuery.in("action", query.action);
-          } else {
-            dbQuery = dbQuery.eq("action", query.action);
-          }
-        }
-
-        if (query.resourceType) {
-          if (Array.isArray(query.resourceType)) {
-            dbQuery = dbQuery.in("resource_type", query.resourceType);
-          } else {
-            dbQuery = dbQuery.eq("resource_type", query.resourceType);
-          }
-        }
-
-        if (query.resourceId) {
-          dbQuery = dbQuery.eq("resource_id", query.resourceId);
-        }
-
-        if (query.status) {
-          dbQuery = dbQuery.eq("status", query.status);
-        }
-
-        if (query.startDate) {
-          dbQuery = dbQuery.gte("timestamp", query.startDate);
-        }
-
-        if (query.endDate) {
-          dbQuery = dbQuery.lte("timestamp", query.endDate);
-        }
-
-        dbQuery = dbQuery.order("timestamp", { ascending: false });
-
-        if (query.limit) {
-          dbQuery = dbQuery.limit(query.limit);
-        }
-
-        if (query.offset) {
-          dbQuery = dbQuery.range(query.offset, query.offset + (query.limit || 50) - 1);
-        }
-
-        const { data, error } = await dbQuery;
-
-        if (error) throw error;
-        return (data ?? []) as AuditLogEntry[];
+        const offset = query.offset ?? 0;
+        const limit = query.limit ?? merged.length;
+        return merged.slice(offset, offset + limit);
       },
       {
         deduplicationKey: `audit-logs-${JSON.stringify(query)}`,
@@ -482,13 +438,24 @@ export class AuditLogService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase
-          .from("audit_logs")
+          .from(this.tableName)
           .select("*")
           .eq("id", id)
           .maybeSingle();
 
         if (error) throw error;
-        return (data ?? null) as AuditLogEntry | null;
+        if (data) {
+          return data as AuditLogEntry;
+        }
+
+        const { data: archivedData, error: archivedError } = await this.supabase
+          .from(this.archiveTableName)
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (archivedError) throw archivedError;
+        return (archivedData ?? null) as AuditLogEntry | null;
       },
       {
         deduplicationKey: `audit-log-${id}`,
@@ -502,7 +469,7 @@ export class AuditLogService extends BaseService {
   async export(options: AuditLogExportOptions): Promise<string> {
     super.log("info", "Exporting audit logs", options);
 
-    const logs = await this.query({ ...options.query, tenantId: options.tenantId });
+    const logs = await this.query({ ...options.query, tenantId: options.tenantId, includeArchived: true });
 
     if (options.format === "csv") {
       return this.exportToCsv(logs);
@@ -590,6 +557,51 @@ export class AuditLogService extends BaseService {
     return str;
   }
 
+  private async queryTable(tableName: string, query: AuditLogQuery & { tenantId: string }): Promise<AuditLogEntry[]> {
+    let dbQuery = this.supabase.from(tableName).select("*");
+
+    dbQuery = dbQuery.eq("tenant_id", query.tenantId);
+
+    if (query.userId) {
+      dbQuery = dbQuery.eq("user_id", query.userId);
+    }
+
+    if (query.action) {
+      dbQuery = Array.isArray(query.action)
+        ? dbQuery.in("action", query.action)
+        : dbQuery.eq("action", query.action);
+    }
+
+    if (query.resourceType) {
+      dbQuery = Array.isArray(query.resourceType)
+        ? dbQuery.in("resource_type", query.resourceType)
+        : dbQuery.eq("resource_type", query.resourceType);
+    }
+
+    if (query.resourceId) {
+      dbQuery = dbQuery.eq("resource_id", query.resourceId);
+    }
+
+    if (query.status) {
+      dbQuery = dbQuery.eq("status", query.status);
+    }
+
+    if (query.startDate) {
+      dbQuery = dbQuery.gte("timestamp", query.startDate);
+    }
+
+    if (query.endDate) {
+      dbQuery = dbQuery.lte("timestamp", query.endDate);
+    }
+
+    const { data, error } = await dbQuery.order("timestamp", { ascending: false });
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []) as AuditLogEntry[];
+  }
+
   private exportToCsv(logs: AuditLogEntry[]): string {
     const headers = [
       "ID",
@@ -627,20 +639,30 @@ export class AuditLogService extends BaseService {
 
     return this.executeRequest(
       async () => {
-        // Mark as archived instead of deleting
-        const { data, error } = await this.supabase
-          .from("audit_logs")
-          .update({ archived: true })
-          .lt("timestamp", olderThan)
-          .select("id");
+        const result = await this.retentionService.archiveExpiredRows({
+          sourceTable: this.tableName,
+          archiveTable: this.archiveTableName,
+          timestampColumn: "timestamp",
+          cutoff: olderThan,
+          tenantColumn: "tenant_id",
+        });
 
-        if (error) throw error;
+        if (!result.verified) {
+          logger.error("Audit log archival verification failed; retention cleanup skipped", undefined, {
+            olderThan,
+            batchId: result.batchId,
+          });
+          return 0;
+        }
 
-        const archivedCount = data?.length || 0;
-        logger.info("Archived old audit logs", { count: archivedCount });
+        logger.info("Archived old audit logs", {
+          count: result.archivedCount,
+          olderThan,
+          batchId: result.batchId,
+        });
 
         this.clearCache();
-        return archivedCount;
+        return result.archivedCount;
       },
       { skipCache: true }
     );

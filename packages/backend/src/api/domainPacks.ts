@@ -6,7 +6,7 @@
  */
 
 import { createLogger } from "@shared/lib/logger";
-import { supabase } from "@shared/lib/supabase";
+import { createRequestRlsSupabaseClient } from "../lib/supabase.js";
 import { Request, Response, Router } from "express";
 import { z } from "zod";
 
@@ -22,7 +22,6 @@ router.use(securityHeadersMiddleware);
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
 
-const service = new DomainPackService(supabase);
 
 // ============================================================================
 // GET /api/v1/domain-packs — List available packs
@@ -35,7 +34,7 @@ router.get("/", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Tenant context required" });
     }
 
-    const packs = await service.listPacks(tenantId);
+    const packs = await new DomainPackService(createRequestRlsSupabaseClient(req)).listPacks(tenantId);
     return res.json({ packs });
   } catch (err) {
     logger.error("Failed to list domain packs", err instanceof Error ? err : undefined);
@@ -55,7 +54,7 @@ router.get("/:packId", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Tenant context required" });
     }
 
-    const result = await service.getPackWithLayers(packId, tenantId);
+    const result = await new DomainPackService(createRequestRlsSupabaseClient(req)).getPackWithLayers(packId, tenantId);
     return res.json(result);
   } catch (err) {
     if (err instanceof DomainPackAccessError) {
@@ -84,7 +83,7 @@ router.post("/value-cases/:caseId/set-pack", async (req: Request, res: Response)
     const { caseId } = req.params;
     const body = SetPackSchema.parse(req.body);
 
-    await service.setPackForCase(caseId, body.packId, tenantId);
+    await new DomainPackService(createRequestRlsSupabaseClient(req)).setPackForCase(caseId, body.packId, tenantId);
     return res.json({ success: true, caseId, packId: body.packId });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -110,7 +109,7 @@ router.get("/value-cases/:caseId/merged-context", async (req: Request, res: Resp
     }
 
     const { caseId } = req.params;
-    const merged = await service.getMergedContext(caseId, tenantId);
+    const merged = await new DomainPackService(createRequestRlsSupabaseClient(req)).getMergedContext(caseId, tenantId);
     return res.json(merged);
   } catch (err) {
     logger.error("Failed to get merged context", err instanceof Error ? err : undefined);
@@ -138,7 +137,7 @@ router.post("/value-cases/:caseId/harden-kpi", async (req: Request, res: Respons
     const { caseId } = req.params;
     const body = HardenKPISchema.parse(req.body);
 
-    await service.hardenKPI(caseId, body.kpiKey, {
+    await new DomainPackService(createRequestRlsSupabaseClient(req)).hardenKPI(caseId, body.kpiKey, {
       baseline_value: body.baselineValue,
       target_value: body.targetValue,
     }, tenantId);
@@ -165,7 +164,7 @@ router.post("/value-cases/:caseId/harden-all-kpis", async (req: Request, res: Re
     }
 
     const { caseId } = req.params;
-    const count = await service.hardenAllKPIs(caseId, tenantId);
+    const count = await new DomainPackService(createRequestRlsSupabaseClient(req)).hardenAllKPIs(caseId, tenantId);
     return res.json({ success: true, caseId, hardenedCount: count });
   } catch (err) {
     logger.error("Failed to bulk-harden KPIs", err instanceof Error ? err : undefined);

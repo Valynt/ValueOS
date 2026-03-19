@@ -7,7 +7,6 @@
  * Task: 3.1, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -134,8 +133,6 @@ export class ExecutiveMemoGenerator {
 
       const response = await secureLLMComplete(this.llmGateway, request.messages, {
         ...request.metadata,
-        organizationId: input.organizationId,
-        tenantId: input.tenantId,
         serviceName: "ExecutiveMemoGenerator",
         operation: "generate",
         traceId: input.caseId,
@@ -163,7 +160,6 @@ export class ExecutiveMemoGenerator {
         data_claim_ids: parsed.provenance_refs,
       };
 
-      // Store in memory for traceability
       await this.memorySystem.storeSemanticMemory(
         input.caseId,
         "ExecutiveMemoGenerator",

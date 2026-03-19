@@ -1,16 +1,28 @@
 /**
  * Service Level Objectives (SLO) configuration.
  *
- * Canonical thresholds live in this module and may be overridden per deployment
- * environment with explicit env vars.
+ * Canonical thresholds live in this module.
  */
 
 export type DeploymentEnvironment = 'development' | 'staging' | 'production';
+export type LatencyClassId = 'interactive-completion' | 'orchestration-acknowledgment';
+
+export interface LatencyClassPolicy {
+  id: LatencyClassId;
+  name: string;
+  targetMetric: string;
+  targetP95Ms: number;
+  targetDescription: string;
+  allowedExceptionPolicy: string;
+  exceptionP95Ms?: number;
+}
 
 export interface SLOThresholdSet {
   availabilityTarget: number;
   latencyP95Target: number;
   latencyP95Ms: number;
+  orchestrationAcknowledgmentP95Ms: number;
+  orchestrationCompletionExceptionP95Ms: number;
   authSuccessTarget: number;
   queueHealthTarget: number;
   queueDepthMax: number;
@@ -23,10 +35,38 @@ export interface SLOThresholdSet {
   burnRateCritical: number;
 }
 
+export const LATENCY_CLASS_POLICIES: Record<LatencyClassId, LatencyClassPolicy> = {
+  'interactive-completion': {
+    id: 'interactive-completion',
+    name: 'Interactive completion',
+    targetMetric: 'completion latency p95',
+    targetP95Ms: 200,
+    targetDescription:
+      'Interactive routes must complete end-to-end within 200ms at p95.',
+    allowedExceptionPolicy:
+      'No slower completion budget is allowed. Any route that cannot sustain 200ms p95 completion must be reclassified to orchestration acknowledgment/completion before rollout.',
+  },
+  'orchestration-acknowledgment': {
+    id: 'orchestration-acknowledgment',
+    name: 'Orchestration acknowledgment/completion',
+    targetMetric: 'acknowledgment latency p95',
+    targetP95Ms: 200,
+    targetDescription:
+      'Queue-backed, streaming, or provider-mediated routes must acknowledge within 200ms at p95.',
+    allowedExceptionPolicy:
+      'Completion may run up to 3000ms at p95 only for routes explicitly labeled orchestration and instrumented to acknowledge within 200ms.',
+    exceptionP95Ms: 3000,
+  },
+};
+
 export const CANONICAL_SLO_THRESHOLDS: SLOThresholdSet = {
   availabilityTarget: 0.999,
   latencyP95Target: 0.95,
-  latencyP95Ms: 200,
+  latencyP95Ms: LATENCY_CLASS_POLICIES['interactive-completion'].targetP95Ms,
+  orchestrationAcknowledgmentP95Ms:
+    LATENCY_CLASS_POLICIES['orchestration-acknowledgment'].targetP95Ms,
+  orchestrationCompletionExceptionP95Ms:
+    LATENCY_CLASS_POLICIES['orchestration-acknowledgment'].exceptionP95Ms ?? 3000,
   authSuccessTarget: 0.995,
   queueHealthTarget: 0.99,
   queueDepthMax: 100,
@@ -41,13 +81,11 @@ export const CANONICAL_SLO_THRESHOLDS: SLOThresholdSet = {
 
 export const SLO_ENVIRONMENT_OVERRIDES: Record<DeploymentEnvironment, Partial<SLOThresholdSet>> = {
   development: {
-    latencyP95Ms: 350,
     mttrMinutesMax: 30,
     errorRateFastBurnMax: 0.02,
     errorRateSlowBurnMax: 0.002,
   },
   staging: {
-    latencyP95Ms: 250,
     mttrMinutesMax: 20,
     errorRateFastBurnMax: 0.015,
     errorRateSlowBurnMax: 0.0015,
@@ -88,7 +126,9 @@ function parseEnvNumber(rawValue: string | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-export function getSLOEnvironment(nodeEnv = process.env.NODE_ENV): DeploymentEnvironment {
+export function getSLOEnvironment(
+  nodeEnv = process.env.NODE_ENV,
+): DeploymentEnvironment {
   if (nodeEnv === 'production') {
     return 'production';
   }
@@ -111,34 +151,58 @@ export function resolveSLOThresholds(
 
   const envOverrides: Partial<SLOThresholdSet> = {
     availabilityTarget:
-      parseEnvNumber(env[`${envPrefix}AVAILABILITY_TARGET`]) ?? parseEnvNumber(env.SLO_AVAILABILITY_TARGET),
+      parseEnvNumber(env[`${envPrefix}AVAILABILITY_TARGET`]) ??
+      parseEnvNumber(env.SLO_AVAILABILITY_TARGET),
     latencyP95Target:
-      parseEnvNumber(env[`${envPrefix}LATENCY_P95_TARGET`]) ?? parseEnvNumber(env.SLO_LATENCY_P95_TARGET),
-    latencyP95Ms: parseEnvNumber(env[`${envPrefix}LATENCY_P95_MS`]) ?? parseEnvNumber(env.SLO_LATENCY_P95_MS),
+      parseEnvNumber(env[`${envPrefix}LATENCY_P95_TARGET`]) ??
+      parseEnvNumber(env.SLO_LATENCY_P95_TARGET),
+    latencyP95Ms:
+      parseEnvNumber(env[`${envPrefix}LATENCY_P95_MS`]) ??
+      parseEnvNumber(env.SLO_LATENCY_P95_MS),
+    orchestrationAcknowledgmentP95Ms:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_ACKNOWLEDGMENT_P95_MS`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_ACKNOWLEDGMENT_P95_MS),
+    orchestrationCompletionExceptionP95Ms:
+      parseEnvNumber(env[`${envPrefix}ORCHESTRATION_COMPLETION_EXCEPTION_P95_MS`]) ??
+      parseEnvNumber(env.SLO_ORCHESTRATION_COMPLETION_EXCEPTION_P95_MS),
     authSuccessTarget:
-      parseEnvNumber(env[`${envPrefix}AUTH_SUCCESS_TARGET`]) ?? parseEnvNumber(env.SLO_AUTH_SUCCESS_TARGET),
+      parseEnvNumber(env[`${envPrefix}AUTH_SUCCESS_TARGET`]) ??
+      parseEnvNumber(env.SLO_AUTH_SUCCESS_TARGET),
     queueHealthTarget:
-      parseEnvNumber(env[`${envPrefix}QUEUE_HEALTH_TARGET`]) ?? parseEnvNumber(env.SLO_QUEUE_HEALTH_TARGET),
-    queueDepthMax: parseEnvNumber(env[`${envPrefix}QUEUE_DEPTH_MAX`]) ?? parseEnvNumber(env.SLO_QUEUE_DEPTH_MAX),
+      parseEnvNumber(env[`${envPrefix}QUEUE_HEALTH_TARGET`]) ??
+      parseEnvNumber(env.SLO_QUEUE_HEALTH_TARGET),
+    queueDepthMax:
+      parseEnvNumber(env[`${envPrefix}QUEUE_DEPTH_MAX`]) ??
+      parseEnvNumber(env.SLO_QUEUE_DEPTH_MAX),
     queueOldestAgeSecondsMax:
       parseEnvNumber(env[`${envPrefix}QUEUE_OLDEST_AGE_SECONDS_MAX`]) ??
       parseEnvNumber(env.SLO_QUEUE_OLDEST_AGE_SECONDS_MAX),
     agentColdStartTarget:
-      parseEnvNumber(env[`${envPrefix}AGENT_COLD_START_TARGET`]) ?? parseEnvNumber(env.SLO_AGENT_COLD_START_TARGET),
+      parseEnvNumber(env[`${envPrefix}AGENT_COLD_START_TARGET`]) ??
+      parseEnvNumber(env.SLO_AGENT_COLD_START_TARGET),
     agentColdStartSecondsMax:
       parseEnvNumber(env[`${envPrefix}AGENT_COLD_START_SECONDS_MAX`]) ??
       parseEnvNumber(env.SLO_AGENT_COLD_START_SECONDS_MAX),
     errorRateFastBurnMax:
-      parseEnvNumber(env[`${envPrefix}ERROR_RATE_FAST_BURN_MAX`]) ?? parseEnvNumber(env.SLO_ERROR_RATE_FAST_BURN_MAX),
+      parseEnvNumber(env[`${envPrefix}ERROR_RATE_FAST_BURN_MAX`]) ??
+      parseEnvNumber(env.SLO_ERROR_RATE_FAST_BURN_MAX),
     errorRateSlowBurnMax:
-      parseEnvNumber(env[`${envPrefix}ERROR_RATE_SLOW_BURN_MAX`]) ?? parseEnvNumber(env.SLO_ERROR_RATE_SLOW_BURN_MAX),
+      parseEnvNumber(env[`${envPrefix}ERROR_RATE_SLOW_BURN_MAX`]) ??
+      parseEnvNumber(env.SLO_ERROR_RATE_SLOW_BURN_MAX),
     mttrMinutesMax:
-      parseEnvNumber(env[`${envPrefix}MTTR_MINUTES_MAX`]) ?? parseEnvNumber(env.SLO_MTTR_MINUTES_MAX),
+      parseEnvNumber(env[`${envPrefix}MTTR_MINUTES_MAX`]) ??
+      parseEnvNumber(env.SLO_MTTR_MINUTES_MAX),
     burnRateCritical:
-      parseEnvNumber(env[`${envPrefix}BURN_RATE_CRITICAL`]) ?? parseEnvNumber(env.SLO_BURN_RATE_CRITICAL),
+      parseEnvNumber(env[`${envPrefix}BURN_RATE_CRITICAL`]) ??
+      parseEnvNumber(env.SLO_BURN_RATE_CRITICAL),
   };
 
-  return { ...resolved, ...Object.fromEntries(Object.entries(envOverrides).filter(([, value]) => value !== undefined)) } as SLOThresholdSet;
+  return {
+    ...resolved,
+    ...Object.fromEntries(
+      Object.entries(envOverrides).filter(([, value]) => value !== undefined),
+    ),
+  } as SLOThresholdSet;
 }
 
 const activeThresholds = resolveSLOThresholds('production');
@@ -164,15 +228,35 @@ export const PRODUCTION_SLOS: SLO[] = [
   },
   {
     id: 'latency-p95',
-    name: 'API Latency (P95)',
-    description: `95% of API requests complete within ${activeThresholds.latencyP95Ms} milliseconds`,
+    name: 'Interactive Completion Latency (P95)',
+    description: `${LATENCY_CLASS_POLICIES['interactive-completion'].targetDescription} ${LATENCY_CLASS_POLICIES['interactive-completion'].allowedExceptionPolicy}`,
     target: activeThresholds.latencyP95Target,
     window: '30d',
     sli: {
-      metric: 'api.latency_p95',
-      goodEvents: `http_request_duration_ms_bucket <= ${activeThresholds.latencyP95Ms}`,
-      totalEvents: 'http_requests_total',
+      metric: 'api.interactive_completion_p95',
+      goodEvents: `http_request_duration_ms_bucket{latency_class="interactive",le="${activeThresholds.latencyP95Ms}"}`,
+      totalEvents: 'http_requests_total{latency_class="interactive"}',
       threshold: activeThresholds.latencyP95Ms,
+    },
+    errorBudget: {
+      remaining: 1 - activeThresholds.latencyP95Target,
+      consumed: 0,
+      burnRate: 0,
+      alertThreshold: (1 - activeThresholds.latencyP95Target) / 2,
+    },
+  },
+  {
+    id: 'orchestration-acknowledgment-p95',
+    name: 'Orchestration Acknowledgment Latency (P95)',
+    description: `${LATENCY_CLASS_POLICIES['orchestration-acknowledgment'].targetDescription} ${LATENCY_CLASS_POLICIES['orchestration-acknowledgment'].allowedExceptionPolicy}`,
+    target: activeThresholds.latencyP95Target,
+    window: '30d',
+    sli: {
+      metric: 'api.orchestration_acknowledgment_p95',
+      goodEvents: `http_request_duration_ms_bucket{latency_class="orchestration",latency_phase="acknowledgment",le="${activeThresholds.orchestrationAcknowledgmentP95Ms}"}`,
+      totalEvents:
+        'http_requests_total{latency_class="orchestration",latency_phase="acknowledgment"}',
+      threshold: activeThresholds.orchestrationAcknowledgmentP95Ms,
     },
     errorBudget: {
       remaining: 1 - activeThresholds.latencyP95Target,
@@ -189,7 +273,7 @@ export const PRODUCTION_SLOS: SLO[] = [
     window: '30d',
     sli: {
       metric: 'agent.cold_start',
-      goodEvents: `agent_enqueue_to_ready_seconds_bucket{le=\"${activeThresholds.agentColdStartSecondsMax}\"}`,
+      goodEvents: `agent_enqueue_to_ready_seconds_bucket{le="${activeThresholds.agentColdStartSecondsMax}"}`,
       totalEvents: 'agent_enqueue_to_ready_seconds_count',
       threshold: activeThresholds.agentColdStartSecondsMax,
     },
@@ -298,7 +382,11 @@ export const BURN_RATE_ALERTS = {
   },
 };
 
-export function calculateErrorBudget(goodEvents: number, totalEvents: number, target: number): ErrorBudget {
+export function calculateErrorBudget(
+  goodEvents: number,
+  totalEvents: number,
+  target: number,
+): ErrorBudget {
   if (totalEvents === 0) {
     return {
       remaining: 1 - target,

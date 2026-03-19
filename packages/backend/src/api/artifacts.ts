@@ -95,8 +95,8 @@ router.post(
       }
 
       // Verify the case exists and belongs to this tenant.
-      const { createServerSupabaseClient } = await import("../lib/supabase.js");
-      const supabase = createServerSupabaseClient();
+      const { createServiceRoleSupabaseClient } = await import("../lib/supabase.js");
+      const supabase = createServiceRoleSupabaseClient();
       const { data: valueCase, error: caseError } = await supabase
         .from("value_cases")
         .select("id, status")

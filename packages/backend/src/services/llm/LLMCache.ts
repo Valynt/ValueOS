@@ -304,15 +304,15 @@ export class LLMCache {
    * are logged and skipped — a partial warm is better than no warm.
    *
    * @example
-   * await cache.warmCache(prompts, async ({ prompt, model }) => {
-   *   const res = await llmGateway.complete({
-   *     messages: [{ role: 'user', content: prompt }],
-   *     model,
-   *     metadata: { tenantId: SYSTEM_TENANT_ID },
-   *   });
-   *   return res.content;
-   * });
-   */
+ * await cache.warmCache(prompts, async ({ prompt, model }) => {
+ *   const response = await secureLLMComplete(
+ *     llmGateway,
+ *     [{ role: 'user', content: prompt }],
+ *     { organizationId: SYSTEM_TENANT_ID, tenantId: SYSTEM_TENANT_ID, model },
+ *   );
+ *   return response.content;
+ * });
+ */
   async warmCache(
     prompts: Array<{ prompt: string; model: string }>,
     llmCaller?: (entry: { prompt: string; model: string }) => Promise<string>

@@ -1,5 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../lib/supabase.js", () => ({
+  createUserSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(),
+}));
+
+import type { AutomatedControlCheckSnapshot } from "../ComplianceControlCheckService.js";
 import type { ControlStatusRecord } from "../ComplianceControlStatusService.js";
 import {
   ComplianceReportGeneratorService,
@@ -85,16 +91,6 @@ function buildControlStatuses(): ControlStatusRecord[] {
       metric_unit: "percent",
     },
     {
-      control_id: "iso27001_a12_logging_monitoring",
-      framework: "ISO27001",
-      status: "pass",
-      evidence_ts: "2026-01-01T00:00:00.000Z",
-      tenant_id: "tenant-a",
-      evidence_pointer: "audit://iso",
-      metric_value: 99,
-      metric_unit: "percent",
-    },
-    {
       control_id: "gdpr_art_32_security_processing",
       framework: "GDPR",
       status: "pass",
@@ -114,17 +110,32 @@ function buildControlStatuses(): ControlStatusRecord[] {
       metric_value: 99,
       metric_unit: "percent",
     },
-    {
-      control_id: "ccpa_1798_110_disclosure",
-      framework: "CCPA",
-      status: "pass",
-      evidence_ts: "2026-01-01T00:00:00.000Z",
-      tenant_id: "tenant-a",
-      evidence_pointer: "audit://ccpa",
-      metric_value: 99,
-      metric_unit: "percent",
-    },
   ];
+}
+
+function buildTechnicalSnapshot(status: "pass" | "fail"): AutomatedControlCheckSnapshot {
+  return {
+    run_id: "run-1",
+    tenant_id: "tenant-a",
+    checked_at: "2026-01-01T00:00:00.000Z",
+    trigger: "manual",
+    overall_status: status,
+    failing_checks: status === "fail" ? 1 : 0,
+    results: [
+      {
+        control_id: "gdpr_art_32_security_processing",
+        framework: "GDPR",
+        check_kind: "technical_validation",
+        assertion_id: "gdpr_art_32_required_table_rls",
+        evidence_type: null,
+        status,
+        message: status === "fail" ? "RLS validation failed." : "RLS validation passed.",
+        last_evidence_at: null,
+        max_age_minutes: null,
+        freshness_minutes: null,
+      },
+    ],
+  };
 }
 
 describe("ComplianceReportGeneratorService", () => {
@@ -132,7 +143,7 @@ describe("ComplianceReportGeneratorService", () => {
     setHipaaSupport(false);
   });
 
-  it("generates framework-specific summaries for GDPR, HIPAA, CCPA, SOC2, and ISO27001", async () => {
+  it("distinguishes declared capability, configured controls, technical validations, and missing evidence", async () => {
     setHipaaSupport(true);
 
     const service = new ComplianceReportGeneratorService(
@@ -148,28 +159,61 @@ describe("ComplianceReportGeneratorService", () => {
       {
         getLatestControlStatus: async () => buildControlStatuses(),
       },
+      {
+        runChecksForTenant: async () => buildTechnicalSnapshot("pass"),
+      },
     );
 
     const report = await service.generateReport({
       tenantId: "tenant-a",
-      frameworks: ["GDPR", "HIPAA", "CCPA", "SOC2", "ISO27001"],
+      frameworks: ["GDPR", "HIPAA", "SOC2"],
       startAt: "2026-01-01T00:00:00.000Z",
       endAt: "2026-01-02T00:00:00.000Z",
       generatedBy: "user-1",
       mode: "on_demand",
-      strict: true,
+      strict: false,
     });
 
-    expect(report.evidence_manifest_id).toBe("manifest-1");
-    expect(report.report_id).toBe("report-1");
+    expect(report.status).toBe("pass");
+    expect(report.declared_capability).toHaveLength(3);
+    expect(report.configured_controls.length).toBeGreaterThan(0);
+    expect(report.technically_validated_controls).toHaveLength(1);
     expect(report.missing_evidence).toHaveLength(0);
-    expect(report.retention_summary.map((summary) => summary.framework)).toEqual([
-      "GDPR",
-      "HIPAA",
-      "CCPA",
-      "SOC2",
-      "ISO27001",
-    ]);
+  });
+
+  it("downgrades report status when technical validation fails even if evidence exists", async () => {
+    setHipaaSupport(true);
+
+    const service = new ComplianceReportGeneratorService(
+      new MockClient(
+        {
+          audit_logs: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
+          security_audit_log: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
+          audit_logs_archive: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
+          security_audit_log_archive: [{ tenant_id: "tenant-a", timestamp: "2026-01-01T00:00:00.000Z" }],
+        },
+        [{ data: { resource_id: "manifest-1" } }, { data: { resource_id: "report-1" } }],
+      ) as never,
+      {
+        getLatestControlStatus: async () => buildControlStatuses(),
+      },
+      {
+        runChecksForTenant: async () => buildTechnicalSnapshot("fail"),
+      },
+    );
+
+    const report = await service.generateReport({
+      tenantId: "tenant-a",
+      frameworks: ["GDPR"],
+      startAt: "2026-01-01T00:00:00.000Z",
+      endAt: "2026-01-02T00:00:00.000Z",
+      generatedBy: "user-1",
+      mode: "scheduled",
+      strict: false,
+    });
+
+    expect(report.status).toBe("fail");
+    expect(report.technically_validated_controls[0]?.status).toBe("fail");
   });
 
   it("fails strict report generation when required evidence is missing", async () => {
@@ -181,6 +225,9 @@ describe("ComplianceReportGeneratorService", () => {
       }) as never,
       {
         getLatestControlStatus: async () => buildControlStatuses().filter((control) => control.framework !== "HIPAA"),
+      },
+      {
+        runChecksForTenant: async () => buildTechnicalSnapshot("pass"),
       },
     );
 
@@ -205,6 +252,9 @@ describe("ComplianceReportGeneratorService", () => {
       {
         getLatestControlStatus: async () => buildControlStatuses(),
       },
+      {
+        runChecksForTenant: async () => buildTechnicalSnapshot("pass"),
+      },
     );
 
     await expect(() =>
@@ -217,6 +267,6 @@ describe("ComplianceReportGeneratorService", () => {
         mode: "scheduled",
         strict: true,
       }),
-    ).rejects.toThrow(/unsupported compliance frameworks requested: HIPAA/i);
+    ).rejects.toThrow(/prerequisites not met/i);
   });
 });

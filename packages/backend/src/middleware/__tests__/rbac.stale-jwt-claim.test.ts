@@ -42,9 +42,9 @@ vi.mock("@shared/lib/permissions", () => {
 
 const supabaseMock = { from: vi.fn() };
 
-vi.mock("@shared/lib/supabase", () => ({
-  getRequestSupabaseClient: vi.fn(() => supabaseMock),
-  createServerSupabaseClient: vi.fn(() => supabaseMock),
+vi.mock("../../lib/supabase.js", () => ({
+  createRequestRlsSupabaseClient: vi.fn(() => supabaseMock),
+  createServiceRoleSupabaseClient: vi.fn(() => supabaseMock),
 }));
 
 import { requirePermission } from "../rbac.js";

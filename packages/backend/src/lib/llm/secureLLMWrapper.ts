@@ -158,7 +158,7 @@ export class SecureLLMWrapper {
       violations.push(...contentViolations);
     }
 
-    const is_safe = violations.length === 0 || 
+    const is_safe = violations.length === 0 ||
       violations.every(v => v.severity === 'low');
 
     return {
@@ -187,7 +187,7 @@ export class SecureLLMWrapper {
 
   private detectPII(text: string): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
-    
+
     // Email detection
     if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(text)) {
       violations.push({
@@ -220,10 +220,10 @@ export class SecureLLMWrapper {
 
   private filterContent(text: string): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
-    
+
     // Basic content filtering (placeholder)
     const prohibitedPatterns = ['<script', 'javascript:', 'eval('];
-    
+
     for (const pattern of prohibitedPatterns) {
       if (text.toLowerCase().includes(pattern)) {
         violations.push({

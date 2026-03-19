@@ -7,7 +7,6 @@
  * Task: 3.2, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -129,8 +128,6 @@ export class CFORecommendationGenerator {
 
       const response = await secureLLMComplete(this.llmGateway, request.messages, {
         ...request.metadata,
-        organizationId: input.organizationId,
-        tenantId: input.tenantId,
         serviceName: "CFORecommendationGenerator",
         operation: "generate",
         traceId: input.caseId,

@@ -6,6 +6,7 @@ metadata:
   labels:
     app: company-intelligence-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: company-intelligence-agent
@@ -30,6 +31,7 @@ metadata:
   labels:
     app: value-mapping-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: value-mapping-agent
@@ -54,6 +56,7 @@ metadata:
   labels:
     app: system-mapper-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: system-mapper-agent
@@ -78,6 +81,7 @@ metadata:
   labels:
     app: intervention-designer-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: intervention-designer-agent
@@ -102,6 +106,7 @@ metadata:
   labels:
     app: outcome-engineer-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: outcome-engineer-agent
@@ -126,6 +131,7 @@ metadata:
   labels:
     app: coordinator-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: coordinator-agent
@@ -150,6 +156,7 @@ metadata:
   labels:
     app: value-eval-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: value-eval-agent
@@ -174,6 +181,7 @@ metadata:
   labels:
     app: communicator-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: communicator-agent
@@ -198,6 +206,7 @@ metadata:
   labels:
     app: benchmark-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: benchmark-agent
@@ -222,6 +231,7 @@ metadata:
   labels:
     app: narrative-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: narrative-agent
@@ -246,6 +256,7 @@ metadata:
   labels:
     app: groundtruth-agent
     scaling.valueos.io/class: low-frequency-queue
+    scaling.valueos.io/cold-start-class: async-scale-to-zero
 spec:
   scaleTargetRef:
     name: groundtruth-agent

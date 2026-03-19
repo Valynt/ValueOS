@@ -8,10 +8,11 @@ vi.mock('../../services/auth/AuthService.js', () => ({
   },
 }));
 
-vi.mock('@shared/lib/supabase', () => ({
+vi.mock('../../lib/supabase.js', () => ({
+  createRequestRlsSupabaseClient: vi.fn(),
+  createServiceRoleSupabaseClient: vi.fn(),
   createRequestSupabaseClient: vi.fn(),
   createServerSupabaseClient: vi.fn(),
-  getRequestSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
   supabase: null,
 }));
@@ -32,8 +33,8 @@ vi.mock('../../services/AuditLogService.js', () => ({
 const { requireAuth, requireTenantRequestAlignment } = await import('../auth');
 const { requirePermission } = await import('../rbac');
 const { authService } = await import('../../services/auth/AuthService.js');
-const { createRequestSupabaseClient, createServerSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
-  await import('@shared/lib/supabase');
+const { createRequestRlsSupabaseClient, createServiceRoleSupabaseClient } =
+  await import('../../lib/supabase.js');
 
 function mockRes() {
   return {
@@ -56,15 +57,13 @@ describe('auth middleware', () => {
     });
     // Return a mock Supabase client whose auth.getUser returns null so the
     // middleware falls through to local JWT verification without a network call.
-    (getSupabaseClient as unknown as { mockReturnValue: (_v: unknown) => void }).mockReturnValue({
+    (createServiceRoleSupabaseClient as unknown as { mockReturnValue: (_v: unknown) => void }).mockReturnValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: null, error: new Error('supabase unavailable') }),
       },
-    });
-    (createServerSupabaseClient as unknown as { mockReturnValue: (_v: unknown) => void }).mockReturnValue({
       from: vi.fn(),
     });
-    (createRequestSupabaseClient as unknown as { mockImplementation: (_fn: () => {}) => void }).mockImplementation(
+    (createRequestRlsSupabaseClient as unknown as { mockImplementation: (_fn: () => {}) => void }).mockImplementation(
       (req: any) => {
         req.supabase = {};
         return req.supabase;
@@ -164,7 +163,7 @@ describe('permission middleware', () => {
       }),
     };
 
-    (getRequestSupabaseClient as unknown as { mockReturnValue: (_value: typeof supabase) => void }).mockReturnValue(
+    (createRequestRlsSupabaseClient as unknown as { mockReturnValue: (_value: typeof supabase) => void }).mockReturnValue(
       supabase
     );
 

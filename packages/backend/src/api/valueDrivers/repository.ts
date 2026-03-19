@@ -15,8 +15,8 @@ import {
 import { logDbError, logDbInfo, logDbWarn } from "../../lib/db/logging.js";
 import { parseDbInput } from "../../lib/db/validation.js";
 import {
-  createServerSupabaseClient,
-  createUserSupabaseClient,
+  createServiceRoleSupabaseClient,
+  createRequestRlsSupabaseClient,
 } from "../../lib/supabase.js";
 
 import {
@@ -58,7 +58,7 @@ export class ValueDriversRepository {
   private tableName = "value_drivers";
 
   constructor(supabase?: SupabaseClient) {
-    this.supabase = supabase ?? createServerSupabaseClient();
+    this.supabase = supabase ?? createServiceRoleSupabaseClient();
   }
 
   /**
@@ -67,17 +67,7 @@ export class ValueDriversRepository {
    * client only when no user context is available (background jobs).
    */
   static fromRequest(req: Request): ValueDriversRepository {
-    if (req.supabase) {
-      return new ValueDriversRepository(req.supabase);
-    }
-    const token = (req.session as Record<string, unknown> | undefined)
-      ?.access_token;
-    if (typeof token === "string") {
-      return new ValueDriversRepository(createUserSupabaseClient(token));
-    }
-    throw new Error(
-      "ValueDriversRepository.fromRequest: no user-scoped Supabase client available on request"
-    );
+    return new ValueDriversRepository(createRequestRlsSupabaseClient(req));
   }
 
   /**

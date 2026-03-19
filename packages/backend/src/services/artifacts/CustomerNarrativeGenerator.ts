@@ -7,7 +7,6 @@
  * Task: 3.3, 3.5
  */
 
-import { z } from "zod";
 import Handlebars from "handlebars";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -76,6 +75,7 @@ export class CustomerNarrativeGenerator {
         messages: [{ role: "user" as const, content: prompt }],
         metadata: {
           tenantId: input.tenantId,
+          organizationId: input.organizationId,
           caseId: input.caseId,
           artifactType: "customer_narrative",
           generator: "CustomerNarrativeGenerator",
@@ -84,8 +84,6 @@ export class CustomerNarrativeGenerator {
 
       const response = await secureLLMComplete(this.llmGateway, request.messages, {
         ...request.metadata,
-        organizationId: input.organizationId,
-        tenantId: input.tenantId,
         serviceName: "CustomerNarrativeGenerator",
         operation: "generate",
         traceId: input.caseId,
@@ -101,6 +99,7 @@ export class CustomerNarrativeGenerator {
       }
 
       const parsed = CustomerNarrativeOutputSchema.parse(parsedJson);
+
       const output: CustomerNarrativeOutput = {
         ...parsed,
         data_claim_ids: parsed.provenance_refs,
@@ -124,15 +123,20 @@ export class CustomerNarrativeGenerator {
 
       return {
         output,
-        tokenUsage: response.usage ? {
-          input_tokens: response.usage.prompt_tokens,
-          output_tokens: response.usage.completion_tokens,
-          total_tokens: response.usage.total_tokens,
-        } : undefined,
+        tokenUsage: response.usage
+          ? {
+              input_tokens: response.usage.prompt_tokens,
+              output_tokens: response.usage.completion_tokens,
+              total_tokens: response.usage.total_tokens,
+            }
+          : undefined,
       };
     });
 
-    const hallucinationCheck = await this.checkHallucination(result.output, input);
+    const hallucinationCheck = await this.checkHallucination(
+      result.output,
+      input
+    );
 
     if (!hallucinationCheck) {
       logger.warn("CustomerNarrativeGenerator: hallucination escalation triggered", {
