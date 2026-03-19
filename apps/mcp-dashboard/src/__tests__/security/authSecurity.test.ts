@@ -13,8 +13,6 @@ import { securityLogger } from "../../lib/securityLogger";
 // Test constants
 const MAX_FAILED_ATTEMPTS = 5;
 const ALLOWED_ATTEMPTS_BEFORE_BLOCK = 4;
-const HOUR_MS = 3600000;
-const SECOND_MS = 1000;
 const PARTIAL_FAILED_ATTEMPTS = 3;
 const RESET_ATTEMPTS = 0;
 const LOG_RATE_LIMIT_COUNT = 5;
@@ -53,9 +51,9 @@ const sessionStorageMock: Storage = {
 globalThis.sessionStorage = sessionStorageMock;
 
 // Mock navigator
-Object.defineProperty(globalThis.navigator, "userAgent", {
-  value: "Mozilla/5.0 (Test Browser)",
-  writable: true,
+Object.defineProperty(globalThis, "navigator", {
+  value: { userAgent: "Mozilla/5.0 (Test Browser)" },
+  configurable: true,
 });
 
 describe("MCP Dashboard Authentication Security Tests", () => {
@@ -136,52 +134,30 @@ describe("MCP Dashboard Authentication Security Tests", () => {
   });
 
   describe("Token Security", () => {
-    it("should store tokens securely with encryption", async () => {
-      const tokenData = {
-        token: "sensitive-jwt-token",
-        refreshToken: "refresh-token",
-        expiresAt: Date.now() + HOUR_MS,
-        userId: "admin123",
-      };
+    it("should invalidate legacy secure_auth_data on first load", () => {
+      vi.mocked(localStorageMock.getItem).mockImplementation((key: string) =>
+        key === "secure_auth_data" ? "legacy-token-data" : null
+      );
 
-      await secureTokenStorage.setToken(tokenData);
+      const invalidated = secureTokenStorage.invalidateLegacyStorageOnLoad();
 
-      // Verify token was stored (encrypted)
-      expect(localStorageMock.setItem).toHaveBeenCalled();
-
-      // Verify token can be retrieved
-      const retrieved = await secureTokenStorage.getAccessToken();
-      expect(retrieved).toBe(tokenData.token);
+      expect(invalidated).toBe(true);
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("secure_auth_data");
+      expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("secure_auth_data");
+      expect(localStorageMock.setItem).toHaveBeenCalledWith("secure_auth_data_migrated", "true");
     });
 
-    it("should expire tokens properly", async () => {
-      const expiredTokenData = {
-        token: "expired-token",
-        refreshToken: "refresh-token",
-        expiresAt: Date.now() - SECOND_MS, // Expired 1 second ago
-        userId: "admin123",
-      };
-
-      await secureTokenStorage.setToken(expiredTokenData);
-
-      const retrieved = await secureTokenStorage.getAccessToken();
-      expect(retrieved).toBeNull();
+    it("should no longer expose access tokens to browser code", () => {
+      expect(secureTokenStorage.getAccessToken()).toBeNull();
+      expect(secureTokenStorage.getRefreshToken()).toBeNull();
+      expect(secureTokenStorage.hasValidToken()).toBe(false);
     });
 
-    it("should clear tokens on logout", async () => {
-      const tokenData = {
-        token: "test-token",
-        refreshToken: "refresh-token",
-        expiresAt: Date.now() + HOUR_MS,
-        userId: "admin123",
-      };
+    it("should clear legacy tokens on logout", () => {
+      secureTokenStorage.clearToken();
 
-      await secureTokenStorage.setToken(tokenData);
-      await secureTokenStorage.clearToken();
-
-      const retrieved = await secureTokenStorage.getAccessToken();
-      expect(retrieved).toBeNull();
-      expect(localStorageMock.removeItem).toHaveBeenCalled();
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith("secure_auth_data");
+      expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("secure_auth_data");
     });
   });
 

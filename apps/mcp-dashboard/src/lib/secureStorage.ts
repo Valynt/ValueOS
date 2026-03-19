@@ -1,194 +1,78 @@
 /**
- * Secure Token Storage with Encryption
- * Provides encrypted storage for authentication tokens and session data
+ * Legacy browser auth storage cleanup.
+ *
+ * Browser authentication is now managed exclusively through server-issued
+ * HttpOnly cookies. This utility exists only to invalidate pre-migration
+ * `secure_auth_data` entries and force re-authentication on first load.
  */
 
-interface StorageData {
-  token: string;
-  refreshToken?: string;
-  expiresAt: number;
-  userId: string;
-}
-
 class SecureTokenStorage {
-  private readonly encryptionKey: string;
   private readonly storageKey = "secure_auth_data";
+  private readonly migrationFlagKey = "secure_auth_data_migrated";
 
-  constructor() {
-    // Generate a deterministic key based on browser fingerprint
-    this.encryptionKey = this.generateEncryptionKey();
-  }
+  private removeLegacyEntries(): boolean {
+    let removed = false;
 
-  /**
-   * Generate a deterministic encryption key from browser fingerprint
-   */
-  private generateEncryptionKey(): string {
-    const fingerprint = [
-      navigator.userAgent,
-      navigator.language,
-      screen.width + "x" + screen.height,
-      new Date().getTimezoneOffset(),
-      // Add more entropy factors as needed
-    ].join("|");
-
-    // Simple hash function - in production, use a proper crypto library
-    let hash = 0;
-    for (let i = 0; i < fingerprint.length; i++) {
-      const char = fingerprint.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-
-    return hash.toString(16).padStart(8, "0");
-  }
-
-  /**
-   * Simple XOR encryption - in production, use proper AES encryption
-   */
-  private encrypt(data: string): string {
-    let encrypted = "";
-    const key = this.encryptionKey;
-
-    for (let i = 0; i < data.length; i++) {
-      const charCode = data.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-      encrypted += String.fromCharCode(charCode);
-    }
-
-    return btoa(encrypted);
-  }
-
-  /**
-   * Simple XOR decryption - in production, use proper AES decryption
-   */
-  private decrypt(encryptedData: string): string {
     try {
-      const decoded = atob(encryptedData);
-      let decrypted = "";
-      const key = this.encryptionKey;
-
-      for (let i = 0; i < decoded.length; i++) {
-        const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
-        decrypted += String.fromCharCode(charCode);
-      }
-
-      return decrypted;
+      removed = localStorage.getItem(this.storageKey) !== null || removed;
+      localStorage.removeItem(this.storageKey);
     } catch (error) {
-      console.error("Failed to decrypt data");
-      return "";
+      console.error("Failed to clear legacy auth data from localStorage");
     }
-  }
 
-  /**
-   * Store authentication data securely
-   */
-  setToken(data: StorageData): void {
     try {
-      const serialized = JSON.stringify(data);
-      const encrypted = this.encrypt(serialized);
-      localStorage.setItem(this.storageKey, encrypted);
+      removed = sessionStorage.getItem(this.storageKey) !== null || removed;
+      sessionStorage.removeItem(this.storageKey);
     } catch (error) {
-      console.error("Failed to store token securely");
-      // Fallback to sessionStorage if localStorage fails
-      try {
-        sessionStorage.setItem(this.storageKey, JSON.stringify(data));
-      } catch (sessionError) {
-        console.error("Failed to store token in sessionStorage");
-      }
+      console.error("Failed to clear legacy auth data from sessionStorage");
     }
+
+    return removed;
   }
 
-  /**
-   * Retrieve authentication data securely
-   */
-  getToken(): StorageData | null {
+  invalidateLegacyStorageOnLoad(): boolean {
     try {
-      const encrypted = localStorage.getItem(this.storageKey);
-      if (encrypted) {
-        const decrypted = this.decrypt(encrypted);
-        const data = JSON.parse(decrypted) as StorageData;
-
-        // Check if token has expired
-        if (data.expiresAt < Date.now()) {
-          this.clearToken();
-          return null;
-        }
-
-        return data;
+      if (localStorage.getItem(this.migrationFlagKey) === "true") {
+        return false;
       }
     } catch (error) {
-      console.error("Failed to retrieve token securely");
+      console.error("Failed to read auth storage migration flag");
     }
 
-    // Fallback to sessionStorage
+    const removedLegacyData = this.removeLegacyEntries();
+
     try {
-      const fallback = sessionStorage.getItem(this.storageKey);
-      if (fallback) {
-        const data = JSON.parse(fallback) as StorageData;
-
-        if (data.expiresAt < Date.now()) {
-          this.clearToken();
-          return null;
-        }
-
-        return data;
-      }
+      localStorage.setItem(this.migrationFlagKey, "true");
     } catch (error) {
-      console.error("Failed to retrieve token from sessionStorage");
+      console.error("Failed to persist auth storage migration flag");
     }
 
+    return removedLegacyData;
+  }
+
+  clearToken(): void {
+    this.removeLegacyEntries();
+  }
+
+  hasValidToken(): boolean {
+    return false;
+  }
+
+  getAccessToken(): string | null {
     return null;
   }
 
-  /**
-   * Clear stored authentication data
-   */
-  clearToken(): void {
-    try {
-      localStorage.removeItem(this.storageKey);
-      sessionStorage.removeItem(this.storageKey);
-    } catch (error) {
-      console.error("Failed to clear token");
-    }
-  }
-
-  /**
-   * Check if valid token exists
-   */
-  hasValidToken(): boolean {
-    const data = this.getToken();
-    return data !== null && data.expiresAt > Date.now();
-  }
-
-  /**
-   * Get access token only
-   */
-  getAccessToken(): string | null {
-    const data = this.getToken();
-    return data?.token || null;
-  }
-
-  /**
-   * Get refresh token only
-   */
   getRefreshToken(): string | null {
-    const data = this.getToken();
-    return data?.refreshToken || null;
+    return null;
   }
 
-  /**
-   * Update token with new expiration
-   */
-  updateToken(token: string, expiresAt: number): void {
-    const currentData = this.getToken();
-    if (currentData) {
-      this.setToken({
-        ...currentData,
-        token,
-        expiresAt,
-      });
-    }
+  setToken(): void {
+    console.warn("Client-side token storage is disabled; browser auth uses HttpOnly cookies.");
+  }
+
+  updateToken(): void {
+    console.warn("Client-side token storage is disabled; browser auth uses HttpOnly cookies.");
   }
 }
 
-// Export singleton instance
 export const secureTokenStorage = new SecureTokenStorage();

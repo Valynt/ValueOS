@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 
-import { secureTokenStorage } from "../index";
 import { logger } from "../lib/logger";
 
 import { useAuth } from "./AuthContext";
@@ -85,19 +84,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
     setConnectionStatus("connecting");
 
-    // Get auth token from secure storage
-    const tokenData = secureTokenStorage.getAccessToken();
-
-    if (!tokenData) {
-      console.error("No authentication token available for WebSocket connection");
-      setConnectionStatus("error");
-      return;
-    }
-
-    // Create socket connection with secure authentication
+    // Create socket connection using the server-managed browser session cookie
     const newSocket = io(process.env.REACT_APP_WS_URL || "http://localhost:3001", {
       auth: {
-        token: tokenData,
         userId: user.id,
       },
       transports: ["websocket", "polling"],
@@ -105,11 +94,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      // Add security headers
-      extraHeaders: {
-        "X-Auth-Token": tokenData,
-        "X-User-ID": user.id,
-      },
+      withCredentials: true,
     });
 
     // Connection event handlers
@@ -124,20 +109,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       setConnectionStatus("disconnected");
       logger.info("WebSocket disconnected", { reason: String(reason) });
 
-      // If disconnected due to authentication error, clear token
-      if (reason.toString().includes("auth") || reason.toString().includes("unauthorized")) {
-        secureTokenStorage.clearToken();
-      }
     });
 
     newSocket.on("connect_error", (error) => {
       setConnectionStatus("error");
       console.error("WebSocket connection error:", error);
 
-      // Handle authentication errors
-      if (error.message?.includes("auth") || error.message?.includes("unauthorized")) {
-        secureTokenStorage.clearToken();
-      }
     });
 
     // Data event handler

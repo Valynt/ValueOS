@@ -23,7 +23,7 @@ export interface AuthenticatedRequest extends Request {
   correlationId?: string;
   organizationId?: string;
 }
-import { authService } from '../services/auth/AuthService.js'
+import { browserSessionService } from '../services/auth/BrowserSessionService.js'
 import { AuthenticationError } from '../services/errors.js'
 import { auditLogService } from '../services/security/AuditLogService.js';
 
@@ -656,20 +656,24 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       user = verified.user;
       claims = verified.claims ?? null;
     } else {
-      // Try to get current session from Supabase (may be from cookies)
-      const supabaseSession = await authService.getSession();
-      if (supabaseSession?.access_token) {
-        const verified = await verifyAccessToken(supabaseSession.access_token, { route: req.path, method: req.method });
-        if (!verified) {
-          throw new AuthenticationError('Invalid or expired token');
-        }
-
-        session = verified.session;
-        user = verified.user;
-        claims = verified.claims ?? null;
-      } else {
+      const browserSession = await browserSessionService.resolve(req, res);
+      if (!browserSession) {
         throw new AuthenticationError('Authentication required');
       }
+
+      const verified = await verifyAccessToken(browserSession.record.accessToken, {
+        route: req.path,
+        method: req.method,
+      });
+      if (!verified) {
+        await browserSessionService.invalidate(browserSession.record.sessionId);
+        browserSessionService.clearSessionCookie(res);
+        throw new AuthenticationError('Invalid or expired token');
+      }
+
+      session = verified.session;
+      user = verified.user;
+      claims = verified.claims ?? null;
     }
 
     if (!session || !user) {
@@ -710,7 +714,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  * Optional authentication middleware
  * Adds user/session to request if authenticated, but doesn't fail if not
  */
-export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const bearerToken = parseBearerToken(req.headers.authorization);
     let session: AuthSession | null = null;
@@ -723,9 +727,12 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
       user = verified?.user ?? null;
       claims = verified?.claims ?? null;
     } else {
-      const supabaseSession = await authService.getSession();
-      if (supabaseSession?.access_token) {
-        const verified = await verifyAccessToken(supabaseSession.access_token, { route: req.path, method: req.method });
+      const browserSession = await browserSessionService.resolve(req, res);
+      if (browserSession) {
+        const verified = await verifyAccessToken(browserSession.record.accessToken, {
+          route: req.path,
+          method: req.method,
+        });
         session = verified?.session ?? null;
         user = verified?.user ?? null;
         claims = verified?.claims ?? null;

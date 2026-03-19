@@ -244,32 +244,13 @@ export class AuthService extends BaseService {
     if (this.isBrowser()) {
       const payload = await this.callAuthEndpoint<{
         user: User;
-        session: Session | null;
+        session: { managedByServer: true; expiresAt?: number; rotatedAt?: number } | null;
         requiresEmailVerification?: boolean;
       }>("/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-
-      if (payload.session?.access_token && payload.session.refresh_token) {
-        const { data: sessionData, error } = await this.supabase.auth.setSession(
-          {
-            access_token: payload.session.access_token,
-            refresh_token: payload.session.refresh_token,
-          }
-        );
-
-        if (error) {
-          throw new AuthenticationError(sanitizeErrorMessage(error));
-        }
-
-        return {
-          user: sessionData.user ?? payload.user,
-          session: sessionData.session,
-          requiresEmailVerification: payload.requiresEmailVerification,
-        };
-      }
 
       return {
         user: payload.user,
@@ -334,25 +315,16 @@ export class AuthService extends BaseService {
     if (this.isBrowser()) {
       const payload = await this.callAuthEndpoint<{
         user: User;
-        session: Session;
+        session: { managedByServer: true; expiresAt?: number; rotatedAt?: number };
       }>("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
 
-      const { data: sessionData, error } = await this.supabase.auth.setSession({
-        access_token: payload.session.access_token,
-        refresh_token: payload.session.refresh_token,
-      });
-
-      if (error) {
-        throw new AuthenticationError(sanitizeErrorMessage(error));
-      }
-
       return {
-        user: sessionData.user ?? payload.user,
-        session: sessionData.session,
+        user: payload.user,
+        session: null,
       };
     }
 
@@ -456,10 +428,6 @@ export class AuthService extends BaseService {
 
     if (this.isBrowser()) {
       await this.callAuthEndpoint("/logout", { method: "POST" });
-      const { error } = await this.supabase.auth.signOut();
-      if (error) {
-        throw new AuthenticationError(sanitizeErrorMessage(error));
-      }
       return;
     }
 
@@ -478,6 +446,22 @@ export class AuthService extends BaseService {
    * Get current session
    */
   async getSession(): Promise<Session | null> {
+    if (this.isBrowser()) {
+      const response = await fetch(this.getAuthApiUrl("/session"), {
+        credentials: "include",
+      });
+
+      if (response.status === 401) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new AuthenticationError("Unable to load browser session");
+      }
+
+      return null;
+    }
+
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.getSession();
@@ -493,6 +477,11 @@ export class AuthService extends BaseService {
    * Get current user
    */
   async getCurrentUser(): Promise<User | null> {
+    if (this.isBrowser()) {
+      const payload = await this.callAuthEndpoint<{ user: User }>("/session", { method: "GET" });
+      return payload.user ?? null;
+    }
+
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.getUser();
@@ -515,18 +504,9 @@ export class AuthService extends BaseService {
         session: Session;
       }>("/refresh", { method: "POST" });
 
-      const { data: sessionData, error } = await this.supabase.auth.setSession({
-        access_token: payload.session.access_token,
-        refresh_token: payload.session.refresh_token,
-      });
-
-      if (error) {
-        throw new AuthenticationError(sanitizeErrorMessage(error));
-      }
-
       return {
-        user: sessionData.user ?? payload.user,
-        session: sessionData.session,
+        user: payload.user,
+        session: null,
       };
     }
 

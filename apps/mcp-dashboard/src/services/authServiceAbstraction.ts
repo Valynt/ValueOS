@@ -1,14 +1,13 @@
 /**
  * Authentication Service Abstraction Layer
- * Provides a unified interface for all authentication operations
- * Integrates with secure storage, rate limiting, CSRF protection, and persistence
+ * Browser authentication is managed through server-issued HttpOnly cookies.
+ * No bearer or refresh tokens are persisted in browser-accessible storage.
  */
 
 import { csrfProtection } from "../index";
 import { authRateLimiter } from "../index";
 import { secureTokenStorage } from "../index";
 
-// Types
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -32,10 +31,9 @@ export interface AuthUser {
 }
 
 export interface AuthSession {
-  user: AuthUser;
-  token: string;
-  refreshToken?: string;
-  expiresAt: number;
+  managedByServer: true;
+  expiresAt?: number;
+  rotatedAt?: number;
   isActive: boolean;
 }
 
@@ -44,6 +42,7 @@ export interface AuthResult {
   user?: AuthUser;
   session?: AuthSession;
   error?: string;
+  requiresEmailVerification?: boolean;
 }
 
 export interface AuthStatus {
@@ -59,9 +58,15 @@ export interface AuthStatus {
   };
 }
 
-/**
- * Authentication Service - Abstracts all authentication operations
- */
+function buildManagedSession(session?: { expiresAt?: number; rotatedAt?: number }): AuthSession {
+  return {
+    managedByServer: true,
+    isActive: true,
+    ...(session?.expiresAt !== undefined ? { expiresAt: session.expiresAt } : {}),
+    ...(session?.rotatedAt !== undefined ? { rotatedAt: session.rotatedAt } : {}),
+  };
+}
+
 class AuthService {
   private static instance: AuthService;
   private initialized = false;
@@ -75,31 +80,18 @@ class AuthService {
     return AuthService.instance;
   }
 
-  /**
-   * Initialize the authentication service
-   */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    try {
-      // Initialize CSRF protection
-      csrfProtection.initialize();
-      this.initialized = true;
-    } catch (error) {
-      console.error("Failed to initialize auth service:", error);
-      throw new Error("Authentication service initialization failed");
-    }
+    csrfProtection.initialize();
+    secureTokenStorage.invalidateLegacyStorageOnLoad();
+    this.initialized = true;
   }
 
-  /**
-   * Login with email and password
-   */
   async login(credentials: LoginCredentials): Promise<AuthResult> {
     try {
-      // Validate input
       this.validateCredentials(credentials);
 
-      // Check rate limiting
       const rateLimitStatus = authRateLimiter.canAttemptAuth(credentials.email);
       if (!rateLimitStatus.allowed) {
         const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
@@ -109,9 +101,9 @@ class AuthService {
         };
       }
 
-      // Make API call with CSRF protection
       const response = await csrfProtection.secureFetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -123,14 +115,16 @@ class AuthService {
         authRateLimiter.recordFailedAttempt(credentials.email);
         return {
           success: false,
-          error: errorData.message || "Login failed",
+          error: (errorData as { message?: string; error?: string }).message || (errorData as { error?: string }).error || "Login failed",
         };
       }
 
-      const authData = await response.json();
+      const authData = (await response.json()) as {
+        user?: AuthUser;
+        session?: { managedByServer?: boolean; expiresAt?: number; rotatedAt?: number };
+      };
 
-      // Validate response
-      if (!authData.user || !authData.token) {
+      if (!authData.user) {
         authRateLimiter.recordFailedAttempt(credentials.email);
         return {
           success: false,
@@ -138,28 +132,12 @@ class AuthService {
         };
       }
 
-      // Record successful attempt
       authRateLimiter.recordSuccessfulAttempt(credentials.email);
-
-      // Store token securely
-      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
-      await secureTokenStorage.setToken({
-        token: authData.token,
-        refreshToken: authData.refreshToken,
-        expiresAt,
-        userId: authData.user.id,
-      });
 
       return {
         success: true,
         user: authData.user,
-        session: {
-          user: authData.user,
-          token: authData.token,
-          refreshToken: authData.refreshToken,
-          expiresAt,
-          isActive: true,
-        },
+        session: buildManagedSession(authData.session),
       };
     } catch (error) {
       console.error("Login error:", error);
@@ -170,15 +148,10 @@ class AuthService {
     }
   }
 
-  /**
-   * Sign up new user
-   */
   async signup(data: SignupData): Promise<AuthResult> {
     try {
-      // Validate input
       this.validateSignupData(data);
 
-      // Check rate limiting
       const rateLimitStatus = authRateLimiter.canAttemptAuth(data.email);
       if (!rateLimitStatus.allowed) {
         const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
@@ -188,13 +161,13 @@ class AuthService {
         };
       }
 
-      // Make API call with CSRF protection
-      const response = await csrfProtection.secureFetch("/api/auth/register", {
+      const response = await csrfProtection.secureFetch("/api/auth/signup", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, fullName: data.name }),
       });
 
       if (!response.ok) {
@@ -202,34 +175,36 @@ class AuthService {
         authRateLimiter.recordFailedAttempt(data.email);
         return {
           success: false,
-          error: errorData.message || "Registration failed",
+          error: (errorData as { message?: string; error?: string }).message || (errorData as { error?: string }).error || "Registration failed",
         };
       }
 
-      const authData = await response.json();
+      const authData = (await response.json()) as {
+        user?: AuthUser;
+        session?: { managedByServer?: boolean; expiresAt?: number; rotatedAt?: number };
+        requiresEmailVerification?: boolean;
+      };
 
-      // Record successful attempt
       authRateLimiter.recordSuccessfulAttempt(data.email);
 
-      // Store token securely
-      const expiresAt = Date.now() + 60 * 60 * 1000;
-      await secureTokenStorage.setToken({
-        token: authData.token,
-        refreshToken: authData.refreshToken,
-        expiresAt,
-        userId: authData.user.id,
-      });
+      if (authData.requiresEmailVerification) {
+        return {
+          success: true,
+          requiresEmailVerification: true,
+        };
+      }
+
+      if (!authData.user) {
+        return {
+          success: false,
+          error: "Invalid response from server",
+        };
+      }
 
       return {
         success: true,
         user: authData.user,
-        session: {
-          user: authData.user,
-          token: authData.token,
-          refreshToken: authData.refreshToken,
-          expiresAt,
-          isActive: true,
-        },
+        session: buildManagedSession(authData.session),
       };
     } catch (error) {
       console.error("Signup error:", error);
@@ -240,63 +215,45 @@ class AuthService {
     }
   }
 
-  /**
-   * Logout user
-   */
   async logout(): Promise<void> {
     try {
-      // Get current token
-      const token = await secureTokenStorage.getAccessToken();
-
-      if (token) {
-        // Call logout endpoint with CSRF protection
-        await csrfProtection.secureFetch("/api/auth/logout", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-
-      // Clear all auth data
-      await secureTokenStorage.clearToken();
-      csrfProtection.clearToken();
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Still clear local data even if API call fails
-      await secureTokenStorage.clearToken();
+      await csrfProtection.secureFetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      secureTokenStorage.clearToken();
       csrfProtection.clearToken();
     }
   }
 
-  /**
-   * Get current authentication status
-   */
   async getStatus(): Promise<AuthStatus> {
     try {
-      const token = await secureTokenStorage.getAccessToken();
-
-      if (!token) {
-        return { isAuthenticated: false };
-      }
-
-      // Validate token with server
-      const response = await fetch("/api/auth/validate", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch("/api/auth/session", {
+        credentials: "include",
       });
 
-      if (!response.ok) {
-        await secureTokenStorage.clearToken();
+      if (response.status === 401) {
         return { isAuthenticated: false };
       }
 
-      const userData = await response.json();
+      if (!response.ok) {
+        return { isAuthenticated: false };
+      }
+
+      const sessionData = (await response.json()) as {
+        user?: AuthUser;
+        session?: { managedByServer?: boolean; expiresAt?: number; rotatedAt?: number };
+      };
+
+      if (!sessionData.user) {
+        return { isAuthenticated: false };
+      }
 
       return {
         isAuthenticated: true,
-        user: userData,
+        user: sessionData.user,
+        session: buildManagedSession(sessionData.session),
       };
     } catch (error) {
       console.error("Get status error:", error);
@@ -304,51 +261,24 @@ class AuthService {
     }
   }
 
-  /**
-   * Refresh authentication token
-   */
   async refreshToken(): Promise<boolean> {
     try {
-      const refreshToken = await secureTokenStorage.getRefreshToken();
-      if (!refreshToken) {
-        return false;
-      }
-
       const response = await csrfProtection.secureFetch("/api/auth/refresh", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken }),
+        credentials: "include",
       });
 
-      if (!response.ok) {
-        return false;
-      }
-
-      const authData = await response.json();
-
-      // Update stored token
-      const expiresAt = Date.now() + 60 * 60 * 1000;
-      await secureTokenStorage.updateToken(authData.token, expiresAt);
-
-      return true;
+      return response.ok;
     } catch (error) {
       console.error("Token refresh error:", error);
       return false;
     }
   }
 
-  /**
-   * Get rate limit status for an email
-   */
   getRateLimitStatus(email: string) {
     return authRateLimiter.getRateLimitStatus(email);
   }
 
-  /**
-   * Validate login credentials
-   */
   private validateCredentials(credentials: LoginCredentials): void {
     if (!credentials.email || !credentials.password) {
       throw new Error("Email and password are required");
@@ -364,9 +294,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Validate signup data
-   */
   private validateSignupData(data: SignupData): void {
     if (!data.email || !data.password || !data.name) {
       throw new Error("Email, password, and name are required");
@@ -387,5 +314,4 @@ class AuthService {
   }
 }
 
-// Export singleton instance
 export const authService = AuthService.getInstance();

@@ -32,7 +32,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   getRateLimitStatus: (email: string) => {
@@ -57,39 +57,56 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+async function fetchCurrentSession(): Promise<User | null> {
+  const response = await fetch("/api/auth/session", {
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error("Unable to verify the current session");
+  }
+
+  const payload = (await response.json()) as { user?: User | null };
+  return payload.user ?? null;
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize CSRF protection
     csrfProtection.initialize();
 
     let cancelled = false;
 
-    // Check for existing session
     const checkAuth = async () => {
       try {
-        const tokenData = secureTokenStorage.getAccessToken();
-        if (tokenData && !cancelled) {
-          // Validate token with backend
-          const response = await fetch("/api/auth/validate", {
-            headers: {
-              Authorization: `Bearer ${tokenData}`,
-            },
-          });
+        const invalidatedLegacySession = secureTokenStorage.invalidateLegacyStorageOnLoad();
 
-          if (response.ok && !cancelled) {
-            const userData = await response.json();
-            setUser(userData);
-          } else {
-            secureTokenStorage.clearToken();
+        if (invalidatedLegacySession) {
+          await csrfProtection.secureFetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          }).catch(() => undefined);
+
+          if (!cancelled) {
+            setUser(null);
           }
+          return;
+        }
+
+        const currentUser = await fetchCurrentSession();
+        if (!cancelled) {
+          setUser(currentUser);
         }
       } catch (error) {
         if (!cancelled) {
           console.error("Auth validation failed:", error);
-          secureTokenStorage.clearToken();
+          setUser(null);
         }
       } finally {
         if (!cancelled) {
@@ -98,7 +115,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
-    checkAuth();
+    void checkAuth();
 
     return () => {
       cancelled = true;
@@ -106,14 +123,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Rate limiting check
     const rateLimitStatus = authRateLimiter.canAttemptAuth(email);
     if (!rateLimitStatus.allowed) {
       const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
       throw new Error(`Too many failed attempts. Please try again in ${lockoutMinutes} minutes.`);
     }
 
-    // Input validation
     if (!email || !password) {
       throw new Error("Email and password are required");
     }
@@ -129,8 +144,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await csrfProtection.secureFetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -139,54 +155,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-
-        // Record failed attempt for rate limiting
         authRateLimiter.recordFailedAttempt(email);
-
-        throw new Error(errorData.message || "Login failed");
+        throw new Error((errorData as { error?: string; message?: string }).message || (errorData as { error?: string }).error || "Login failed");
       }
 
-      const { user: userData, token } = await response.json();
-
-      // Validate response data
-      if (!userData || !token || !userData.id || !userData.email) {
+      const payload = (await response.json()) as { user?: User | null };
+      if (!payload.user || !payload.user.id || !payload.user.email) {
         authRateLimiter.recordFailedAttempt(email);
         throw new Error("Invalid response from server");
       }
 
-      // Record successful attempt (clears rate limit)
       authRateLimiter.recordSuccessfulAttempt(email);
-
-      // Store token securely with expiration
-      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
-      secureTokenStorage.setToken({
-        token,
-        expiresAt,
-        userId: userData.id,
-      });
-
-      setUser(userData);
-    } catch (error) {
-      throw error;
+      setUser(payload.user);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    secureTokenStorage.clearToken();
-    setUser(null);
+  const logout = async () => {
+    try {
+      await csrfProtection.secureFetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      secureTokenStorage.clearToken();
+      csrfProtection.clearToken();
+      setUser(null);
+    }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    // Rate limiting check
     const rateLimitStatus = authRateLimiter.canAttemptAuth(email);
     if (!rateLimitStatus.allowed) {
       const lockoutMinutes = rateLimitStatus.lockoutRemaining || 15;
       throw new Error(`Too many failed attempts. Please try again in ${lockoutMinutes} minutes.`);
     }
 
-    // Input validation
     if (!email || !password || !name) {
       throw new Error("Email, password, and name are required");
     }
@@ -206,45 +213,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await csrfProtection.secureFetch("/api/auth/signup", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, fullName: name }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-
-        // Record failed attempt for rate limiting
         authRateLimiter.recordFailedAttempt(email);
-
-        throw new Error(errorData.message || "Registration failed");
+        throw new Error((errorData as { error?: string; message?: string }).message || (errorData as { error?: string }).error || "Registration failed");
       }
 
-      const { user: userData, token } = await response.json();
+      const payload = (await response.json()) as {
+        user?: User | null;
+        requiresEmailVerification?: boolean;
+      };
 
-      // Validate response data
-      if (!userData || !token || !userData.id || !userData.email) {
-        authRateLimiter.recordFailedAttempt(email);
+      authRateLimiter.recordSuccessfulAttempt(email);
+
+      if (payload.requiresEmailVerification) {
+        setUser(null);
+        return;
+      }
+
+      if (!payload.user || !payload.user.id || !payload.user.email) {
         throw new Error("Invalid response from server");
       }
 
-      // Record successful attempt (clears rate limit)
-      authRateLimiter.recordSuccessfulAttempt(email);
-
-      // Store token securely with expiration
-      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
-      secureTokenStorage.setToken({
-        token,
-        expiresAt,
-        userId: userData.id,
-      });
-
-      setUser(userData);
-    } catch (error) {
-      throw error;
+      setUser(payload.user);
     } finally {
       setLoading(false);
     }
@@ -253,30 +253,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) throw new Error("No user logged in");
 
-    try {
-      const token = secureTokenStorage.getAccessToken();
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
+    const response = await csrfProtection.secureFetch("/api/auth/profile", {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updates),
+    });
 
-      const response = await fetch("/api/auth/profile", {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        throw new Error("Profile update failed");
-      }
-
-      const updatedUser = await response.json();
-      setUser(updatedUser);
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error("Profile update failed");
     }
+
+    const updatedUser = (await response.json()) as User;
+    setUser(updatedUser);
   };
 
   const getRateLimitStatus = (email: string) => {

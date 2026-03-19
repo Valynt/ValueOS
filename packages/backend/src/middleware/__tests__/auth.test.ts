@@ -2,14 +2,17 @@ import { __setEnvSourceForTests } from '@shared/lib/env';
 import jwt from 'jsonwebtoken';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../services/auth/AuthService.js', () => ({
-  authService: {
-    getSession: vi.fn(),
+vi.mock('../../services/auth/BrowserSessionService.js', () => ({
+  browserSessionService: {
+    resolve: vi.fn().mockResolvedValue(null),
+    invalidate: vi.fn().mockResolvedValue(undefined),
+    clearSessionCookie: vi.fn(),
   },
 }));
 
 vi.mock('@shared/lib/supabase', () => ({
   createRequestSupabaseClient: vi.fn(),
+  createServerSupabaseClient: vi.fn(() => ({ auth: { refreshSession: vi.fn() } })),
   getRequestSupabaseClient: vi.fn(),
   getSupabaseClient: vi.fn(),
 }));
@@ -21,7 +24,7 @@ vi.mock('@shared/lib/redisClient', () => ({
 
 const logAudit = vi.fn().mockResolvedValue({ id: 'audit-id' });
 
-vi.mock('../../services/AuditLogService.js', () => ({
+vi.mock('../../services/security/AuditLogService.js', () => ({
   auditLogService: {
     logAudit,
   },
@@ -29,7 +32,7 @@ vi.mock('../../services/AuditLogService.js', () => ({
 
 const { requireAuth, requireTenantRequestAlignment } = await import('../auth');
 const { requirePermission } = await import('../rbac');
-const { authService } = await import('../../services/auth/AuthService.js');
+const { browserSessionService } = await import('../../services/auth/BrowserSessionService.js');
 const { createRequestSupabaseClient, getRequestSupabaseClient, getSupabaseClient } =
   await import('@shared/lib/supabase');
 
@@ -123,7 +126,7 @@ describe('auth middleware', () => {
   });
 
   it('rejects missing tokens with 401', async () => {
-    (authService.getSession as unknown as { mockResolvedValue: (_value: null) => void }).mockResolvedValue(null);
+    (browserSessionService.resolve as unknown as { mockResolvedValue: (_value: null) => void }).mockResolvedValue(null);
 
     const req = {
       headers: {},

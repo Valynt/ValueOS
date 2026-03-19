@@ -16,13 +16,14 @@ import { createServerSupabaseClient } from "@shared/lib/supabase";
 import { Request, Response } from "express";
 
 import { getConfig } from "../config/environment.js"
-import { requireAuth } from "../middleware/auth.js"
+import { requireAuth, verifyAccessToken } from "../middleware/auth.js"
 import { authRateLimiter, recordAuthFailure } from "../middleware/authRateLimiter.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { requireMFA } from "../middleware/mfa.js"
 import { emitRequestAuditEvent } from "../middleware/requestAuditMiddleware.js"
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { authService } from "../services/auth/AuthService.js"
+import { browserSessionService } from "../services/auth/BrowserSessionService.js"
 import { userProfileDirectoryService } from "../services/auth/UserProfileDirectoryService.js"
 import { AuthenticationError, ValidationError } from "../services/errors.js"
 import { auditLogService } from "../services/security/AuditLogService.js"
@@ -57,6 +58,19 @@ function resolveActor(user?: AuthActor) {
     name:
       user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Unknown User",
   };
+}
+
+
+function buildBrowserSessionPayload(expiresAt?: number, rotatedAt?: number) {
+  return {
+    managedByServer: true,
+    expiresAt,
+    rotatedAt,
+  };
+}
+
+function getRequestSessionId(req: Request): string | null {
+  return browserSessionService.getSessionIdFromRequest(req);
 }
 
 router.post(
@@ -100,19 +114,24 @@ router.post(
         status: "success",
       });
 
-      // Return session info (client will handle token storage)
+      const browserSession = result.session ? await browserSessionService.create(result.session) : null;
+
+      if (browserSession) {
+        browserSessionService.applySessionCookie(
+          res,
+          browserSession.sessionId,
+          browserSession.refreshTokenExpiresAt
+        );
+      }
+
       return res.json({
         user: {
           id: result.user.id,
           email: result.user.email,
           user_metadata: result.user.user_metadata,
         },
-        session: result.session
-          ? {
-              access_token: result.session.access_token,
-              refresh_token: result.session.refresh_token,
-              expires_at: result.session.expires_at,
-            }
+        session: browserSession
+          ? buildBrowserSessionPayload(browserSession.refreshTokenExpiresAt, browserSession.lastRotatedAt)
           : null,
       });
     } catch (error) {
@@ -186,17 +205,20 @@ router.post(
         });
       }
 
+      const browserSession = await browserSessionService.create(result.session);
+      browserSessionService.applySessionCookie(
+        res,
+        browserSession.sessionId,
+        browserSession.refreshTokenExpiresAt
+      );
+
       return res.status(201).json({
         user: {
           id: result.user.id,
           email: result.user.email,
           user_metadata: result.user.user_metadata,
         },
-        session: {
-          access_token: result.session.access_token,
-          refresh_token: result.session.refresh_token,
-          expires_at: result.session.expires_at,
-        },
+        session: buildBrowserSessionPayload(browserSession.refreshTokenExpiresAt, browserSession.lastRotatedAt),
       });
     } catch (error) {
       logger.error("Signup failed", error instanceof Error ? error : undefined, {
@@ -210,6 +232,48 @@ router.post(
         return res.status(409).json({ error: error.message });
       }
 
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+router.post(
+  "/token",
+  authRateLimiter("login"),
+  validateRequest(ValidationSchemas.login),
+  async (req: Request, res: Response) => {
+    try {
+      const { email, password, otpCode } = req.body;
+
+      const result = await authService.login({ email, password, otpCode });
+
+      if (!result.session) {
+        return res.status(401).json({ error: "Interactive login required" });
+      }
+
+      return res.json({
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          user_metadata: result.user.user_metadata,
+        },
+        token: result.session.access_token,
+        expires_at: result.session.expires_at,
+        token_type: result.session.token_type ?? "bearer",
+        documentation: "Non-browser API clients may request short-lived bearer tokens from /api/auth/token. Browser UI login uses /api/auth/login and receives only a server-managed HttpOnly cookie session.",
+      });
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        recordAuthFailure(req, "login");
+        return res.status(401).json({ error: error.message });
+      }
+      if (error instanceof ValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      logger.error("Token issuance failed", error instanceof Error ? error : undefined, {
+        errorMsg: String(error),
+      });
       return res.status(500).json({ error: "Internal server error" });
     }
   }
@@ -393,7 +457,11 @@ router.post(
 
 router.post("/logout", requireAuth, async (req: Request, res: Response) => {
   try {
-    await authService.logout();
+    const sessionId = getRequestSessionId(req);
+    if (sessionId) {
+      await browserSessionService.invalidate(sessionId);
+      browserSessionService.clearSessionCookie(res);
+    }
 
     logger.info("User logout successful");
 
@@ -428,25 +496,17 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/session", async (req: Request, res: Response) => {
+router.get("/session", requireAuth, async (req: Request, res: Response) => {
   try {
-    const session = await authService.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: "No active session" });
-    }
+    const expiresAt = typeof req.session?.expires_at === "number" ? req.session.expires_at * 1000 : undefined;
 
     return res.json({
       user: {
-        id: session.user.id,
-        email: session.user.email,
-        user_metadata: session.user.user_metadata,
+        id: req.user?.id,
+        email: req.user?.email,
+        user_metadata: req.user?.user_metadata,
       },
-      session: {
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        expires_at: session.expires_at,
-      },
+      session: buildBrowserSessionPayload(expiresAt),
     });
   } catch (error) {
     logger.error("Session retrieval failed", error instanceof Error ? error : undefined, {
@@ -456,29 +516,40 @@ router.get("/session", async (req: Request, res: Response) => {
   }
 });
 
-// No requireAuth — clients call /refresh with an expired access token
-// and a valid refresh token. The auth middleware would reject expired tokens.
 router.post("/refresh", async (req: Request, res: Response) => {
   try {
-    const result = await authService.refreshSession();
+    const browserSession = await browserSessionService.resolve(req, res);
+
+    if (!browserSession) {
+      return res.status(401).json({ error: "No active session" });
+    }
+
+    const verified = await verifyAccessToken(browserSession.record.accessToken, {
+      route: req.path,
+      method: req.method,
+    });
+
+    if (!verified?.user) {
+      await browserSessionService.invalidate(browserSession.record.sessionId);
+      browserSessionService.clearSessionCookie(res);
+      return res.status(401).json({ error: "Session refresh failed" });
+    }
 
     logger.info("Session refresh successful", {
-      userId: String(sanitizeForLogging(result.user.id)),
+      userId: String(sanitizeForLogging(verified.user.id)),
+      rotated: browserSession.rotated,
     });
 
     return res.json({
       user: {
-        id: result.user.id,
-        email: result.user.email,
-        user_metadata: result.user.user_metadata,
+        id: verified.user.id,
+        email: verified.user.email,
+        user_metadata: verified.user.user_metadata,
       },
-      session: result.session
-        ? {
-            access_token: result.session.access_token,
-            refresh_token: result.session.refresh_token,
-            expires_at: result.session.expires_at,
-          }
-        : null,
+      session: buildBrowserSessionPayload(
+        browserSession.record.refreshTokenExpiresAt,
+        browserSession.record.lastRotatedAt
+      ),
     });
   } catch (error) {
     logger.error("Session refresh failed", error instanceof Error ? error : undefined, {
