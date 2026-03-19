@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
+import { resolve, relative, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(import.meta.dirname, '../..');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const WORKFLOW_DIR = '.github/workflows';
 const MANIFEST_PATH = '.github/release-gate-manifest.json';
 
