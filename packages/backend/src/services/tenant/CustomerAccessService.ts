@@ -26,6 +26,7 @@ export interface CustomerAccessToken {
 
 export interface TokenValidationResult {
   value_case_id: string | null;
+  organization_id: string | null;
   is_valid: boolean;
   error_message: string | null;
 }
@@ -105,6 +106,7 @@ export class CustomerAccessService extends BaseService {
         logger.error("Failed to validate token", error as Error);
         return {
           value_case_id: null,
+          organization_id: null,
           is_valid: false,
           error_message: error.message,
         };
@@ -113,6 +115,7 @@ export class CustomerAccessService extends BaseService {
       if (!data || data.length === 0) {
         return {
           value_case_id: null,
+          organization_id: null,
           is_valid: false,
           error_message: "Invalid token",
         };
@@ -123,6 +126,7 @@ export class CustomerAccessService extends BaseService {
       if (result.is_valid) {
         logger.info("Token validated successfully", {
           valueCaseId: result.value_case_id,
+          organizationId: result.organization_id,
         });
       } else {
         logger.warn("Token validation failed", {
@@ -135,6 +139,7 @@ export class CustomerAccessService extends BaseService {
       logger.error("Error validating token", error as Error);
       return {
         value_case_id: null,
+        organization_id: null,
         is_valid: false,
         error_message: "Token validation error",
       };

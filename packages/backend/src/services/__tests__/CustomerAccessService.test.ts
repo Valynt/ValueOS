@@ -98,10 +98,12 @@ describe('CustomerAccessService', () => {
     it('should validate a valid token', async () => {
       const token = 'valid-token';
       const valueCaseId = 'value-case-123';
+      const organizationId = 'org-123';
 
       (supabase.rpc as any).mockResolvedValue({
         data: [{
           value_case_id: valueCaseId,
+          organization_id: organizationId,
           is_valid: true,
           error_message: null
         }],
@@ -112,6 +114,7 @@ describe('CustomerAccessService', () => {
 
       expect(result).toEqual({
         value_case_id: valueCaseId,
+        organization_id: organizationId,
         is_valid: true,
         error_message: null
       });
@@ -127,6 +130,7 @@ describe('CustomerAccessService', () => {
       (supabase.rpc as any).mockResolvedValue({
         data: [{
           value_case_id: null,
+          organization_id: null,
           is_valid: false,
           error_message: 'Token has expired'
         }],
@@ -145,6 +149,7 @@ describe('CustomerAccessService', () => {
       (supabase.rpc as any).mockResolvedValue({
         data: [{
           value_case_id: null,
+          organization_id: null,
           is_valid: false,
           error_message: 'Token has been revoked'
         }],

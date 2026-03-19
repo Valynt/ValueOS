@@ -14,7 +14,13 @@ import { getCustomerValueCase } from '../customer/value-case.js'
 
 // Mock dependencies
 vi.mock('../../services/tenant/CustomerAccessService');
-vi.mock('../../lib/supabase');
+vi.mock('@shared/lib/supabase', () => {
+  const from = vi.fn();
+  return {
+    supabase: { from },
+    getSupabaseClient: vi.fn(() => ({ from }))
+  };
+});
 
 describe('Customer Portal API', () => {
   let mockReq: Partial<Request>;
@@ -50,6 +56,7 @@ describe('Customer Portal API', () => {
       // Mock token validation
       vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
         value_case_id: mockValueCaseId,
+        organization_id: 'org-123',
         is_valid: true,
         error_message: null
       });
@@ -109,6 +116,7 @@ describe('Customer Portal API', () => {
 
       vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
         value_case_id: null,
+        organization_id: null,
         is_valid: false,
         error_message: 'Invalid token'
       });
@@ -147,6 +155,7 @@ describe('Customer Portal API', () => {
 
       vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
         value_case_id: mockValueCaseId,
+        organization_id: 'org-123',
         is_valid: true,
         error_message: null
       });
@@ -189,6 +198,7 @@ describe('Customer Portal API', () => {
 
       vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
         value_case_id: 'non-existent',
+        organization_id: 'org-123',
         is_valid: true,
         error_message: null
       });
@@ -218,6 +228,7 @@ describe('Customer Portal API', () => {
 
       vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
         value_case_id: mockValueCaseId,
+        organization_id: 'org-123',
         is_valid: true,
         error_message: null
       });
@@ -284,6 +295,7 @@ describe('Customer Portal API', () => {
 
       vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
         value_case_id: 'value-case-123',
+        organization_id: 'org-123',
         is_valid: true,
         error_message: null
       });
