@@ -52,21 +52,85 @@ function sleep(ms) {
 }
 
 async function githubGet(url, token) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'User-Agent': 'valueos-release-gate-verifier',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
+  const maxRetries = 5;
+  let attempt = 0;
+  let lastError;
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`GitHub API ${response.status} ${response.statusText}: ${text}`);
+  while (attempt <= maxRetries) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'User-Agent': 'valueos-release-gate-verifier',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      const status = response.status;
+      const text = await response.text();
+      const headers = response.headers;
+
+      const retryAfterHeader = headers.get('retry-after');
+      const rateLimitRemaining = headers.get('x-ratelimit-remaining');
+      const rateLimitReset = headers.get('x-ratelimit-reset');
+
+      const isRateLimitStatus = status === 429 || (status === 403 && (rateLimitRemaining === '0' || rateLimitReset != null || retryAfterHeader != null));
+      const isTransientStatus = status >= 500 && status < 600;
+
+      const shouldRetry = (isRateLimitStatus || isTransientStatus) && attempt < maxRetries;
+
+      if (!shouldRetry) {
+        throw new Error(`GitHub API ${status} ${response.statusText}: ${text}`);
+      }
+
+      let delayMs = 0;
+
+      if (retryAfterHeader != null) {
+        const retryAfterSeconds = Number(retryAfterHeader);
+        if (!Number.isNaN(retryAfterSeconds)) {
+          delayMs = retryAfterSeconds * 1000;
+        } else {
+          const retryAfterDate = Date.parse(retryAfterHeader);
+          if (!Number.isNaN(retryAfterDate)) {
+            delayMs = retryAfterDate - Date.now();
+          }
+        }
+      } else if (rateLimitReset != null) {
+        const resetSeconds = Number(rateLimitReset);
+        if (!Number.isNaN(resetSeconds)) {
+          const resetMs = resetSeconds * 1000;
+          delayMs = resetMs - Date.now();
+        }
+      }
+
+      if (!(delayMs > 0)) {
+        const baseDelayMs = 1000 * Math.pow(2, attempt);
+        const jitterMs = Math.floor(Math.random() * 1000);
+        delayMs = baseDelayMs + jitterMs;
+      }
+
+      await sleep(Math.max(delayMs, 0));
+      attempt += 1;
+      continue;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+      const baseDelayMs = 1000 * Math.pow(2, attempt);
+      const jitterMs = Math.floor(Math.random() * 1000);
+      const delayMs = baseDelayMs + jitterMs;
+      await sleep(delayMs);
+      attempt += 1;
+    }
   }
 
-  return response.json();
+  throw lastError ?? new Error('GitHub API request failed after retries');
 }
 
 async function listCheckRuns({ owner, repo, sha, token }) {
