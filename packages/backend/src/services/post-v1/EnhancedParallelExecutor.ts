@@ -236,6 +236,14 @@ export class EnhancedParallelExecutor implements ResourceListener {
       this.isRegisteredWithResourceMonitor = false;
     }
 
+    // Ensure that background system resource monitoring is stopped when this
+    // executor is disposed. We defensively check for an optional stop API on
+    // the monitor instance to avoid relying on untyped methods.
+    const monitorWithStop = this.resourceMonitor as unknown as {
+      stopMonitoring?: () => void;
+    };
+    monitorWithStop.stopMonitoring?.();
+
     this.currentPlan = null;
   }
 
