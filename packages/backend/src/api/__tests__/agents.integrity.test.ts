@@ -2,9 +2,19 @@ import express from "express";
 import request from "supertest";
 
 import agentsRouter from "../../api/agents";
-import { getEventProducer } from "../../services/EventProducer";
 
-vi.mock("../../services/EventProducer");
+const { mockGetEventProducer } = vi.hoisted(() => ({
+  mockGetEventProducer: vi.fn(),
+}));
+
+vi.mock("../../services/EventProducer", async () => {
+  const actual = await vi.importActual<typeof import('../../services/EventProducer')>("../../services/EventProducer");
+
+  return {
+    ...actual,
+    getEventProducer: mockGetEventProducer,
+  };
+});
 
 // Mock AuditTrailService
 const mockLogImmediate = vi.fn().mockResolvedValue("audit-id-1");
@@ -18,6 +28,7 @@ describe("POST /api/agents/integrity/veto", () => {
   let app: express.Express;
 
   beforeEach(() => {
+    mockGetEventProducer.mockReset();
     app = express();
     app.use(express.json());
 
@@ -33,7 +44,7 @@ describe("POST /api/agents/integrity/veto", () => {
 
   it("enqueues integrity veto and logs audit event", async () => {
     const fakeProducer = { publish: vi.fn().mockResolvedValue(true) };
-    (getEventProducer as unknown as vi.Mock).mockReturnValue(fakeProducer);
+    mockGetEventProducer.mockReturnValue(fakeProducer);
 
     const res = await request(app)
       .post("/api/agents/integrity/veto")

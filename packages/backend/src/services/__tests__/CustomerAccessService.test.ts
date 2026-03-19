@@ -2,15 +2,28 @@
  * Customer Access Service Tests
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { logger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js'
 import { CustomerAccessService } from '../CustomerAccessService.js'
-import { emailService } from '../EmailService.js'
+
+const { mockEmailServiceSend } = vi.hoisted(() => ({
+  mockEmailServiceSend: vi.fn(),
+}));
 
 // Mock dependencies
-vi.mock('../EmailService');
+vi.mock('../tenant/EmailService.js', async () => {
+  const actual = await vi.importActual<typeof import('../tenant/EmailService.js')>('../tenant/EmailService.js');
+
+  return {
+    ...actual,
+    emailService: {
+      ...actual.emailService,
+      send: mockEmailServiceSend,
+    },
+  };
+});
 vi.mock('../../lib/logger');
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -25,6 +38,7 @@ describe('CustomerAccessService', () => {
   beforeEach(() => {
     service = new CustomerAccessService();
     vi.clearAllMocks();
+    mockEmailServiceSend.mockReset();
   });
 
   describe('generateCustomerToken', () => {
@@ -300,7 +314,7 @@ describe('CustomerAccessService', () => {
 
       await service.sendPortalAccessEmail(email, companyName, portalUrl);
 
-      expect(emailService.send).toHaveBeenCalledWith({
+      expect(mockEmailServiceSend).toHaveBeenCalledWith({
         to: email,
         subject: `Your ${companyName} Value Realization Portal`,
         template: 'customer-portal-access',
@@ -314,8 +328,8 @@ describe('CustomerAccessService', () => {
       const portalUrl = 'https://app.valuecanvas.com/customer/portal?token=123';
       const error = new Error('Email failed');
 
-      // Mock emailService.send to throw an error
-      vi.mocked(emailService.send).mockRejectedValueOnce(error);
+      // Mock email send to throw an error
+      mockEmailServiceSend.mockRejectedValueOnce(error);
 
       await expect(service.sendPortalAccessEmail(email, companyName, portalUrl)).rejects.toThrow(error);
 

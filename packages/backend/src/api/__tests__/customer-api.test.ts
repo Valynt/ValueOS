@@ -2,19 +2,134 @@
  * Customer Portal API Tests
  */
 
-import { supabase } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { customerAccessService } from '../../services/tenant/CustomerAccessService';
 import { getCustomerBenchmarks } from '../customer/benchmarks.js'
 import { getCustomerMetrics } from '../customer/metrics.js'
 import { getCustomerValueCase } from '../customer/value-case.js'
 
+const {
+  mockValidateCustomerToken,
+  mockSupabaseFrom,
+  mockSupabaseRpc,
+  mockSharedSupabaseClient,
+  mockBackendSupabaseClient,
+  mockGetValueTreeByValueCase,
+  mockGetRoiModelByValueCase,
+  mockDeriveKpiTargetsForValueCase,
+} = vi.hoisted(() => {
+  const mockValidateCustomerToken = vi.fn();
+  const mockSupabaseFrom = vi.fn();
+  const mockSupabaseRpc = vi.fn();
+  const mockGetValueTreeByValueCase = vi.fn();
+  const mockGetRoiModelByValueCase = vi.fn();
+  const mockDeriveKpiTargetsForValueCase = vi.fn();
+  const buildClient = () => ({
+    auth: {},
+    storage: {},
+    realtime: {},
+    from: mockSupabaseFrom,
+    rpc: mockSupabaseRpc,
+    channel: vi.fn(),
+    removeChannel: vi.fn(),
+    getChannels: vi.fn(),
+    removeAllChannels: vi.fn(),
+  });
+
+  return {
+    mockValidateCustomerToken,
+    mockSupabaseFrom,
+    mockSupabaseRpc,
+    mockSharedSupabaseClient: buildClient(),
+    mockBackendSupabaseClient: buildClient(),
+    mockGetValueTreeByValueCase,
+    mockGetRoiModelByValueCase,
+    mockDeriveKpiTargetsForValueCase,
+  };
+});
 
 // Mock dependencies
-vi.mock('../../services/tenant/CustomerAccessService');
-vi.mock('../../lib/supabase');
+vi.mock('../../services/tenant/CustomerAccessService', async () => {
+  const actual = await vi.importActual<typeof import('../../services/tenant/CustomerAccessService')>(
+    '../../services/tenant/CustomerAccessService'
+  );
+
+  return {
+    ...actual,
+    customerAccessService: {
+      ...actual.customerAccessService,
+      validateCustomerToken: mockValidateCustomerToken,
+    },
+  };
+});
+
+vi.mock('@shared/lib/supabase', async () => {
+  const actual = await vi.importActual<typeof import('@shared/lib/supabase')>('@shared/lib/supabase');
+
+  return {
+    ...actual,
+    supabase: mockSharedSupabaseClient,
+    getSupabaseClient: vi.fn(() => mockSharedSupabaseClient),
+  };
+});
+
+vi.mock('../../lib/supabase', async () => {
+  const actual = await vi.importActual<typeof import('../../lib/supabase')>('../../lib/supabase');
+
+  return {
+    ...actual,
+    supabase: mockBackendSupabaseClient,
+    getSupabaseClient: vi.fn(() => mockBackendSupabaseClient),
+    createServerSupabaseClient: vi.fn(() => mockBackendSupabaseClient),
+    createUserSupabaseClient: vi.fn(() => mockBackendSupabaseClient),
+  };
+});
+
+vi.mock('../../services/value/ValueTreeService', async () => {
+  const actual = await vi.importActual<typeof import('../../services/value/ValueTreeService')>(
+    '../../services/value/ValueTreeService'
+  );
+
+  return {
+    ...actual,
+    ValueTreeService: vi.fn(function () {
+      return {
+        getByValueCase: mockGetValueTreeByValueCase,
+      };
+    }),
+  };
+});
+
+vi.mock('../../services/value/RoiModelService', async () => {
+  const actual = await vi.importActual<typeof import('../../services/value/RoiModelService')>(
+    '../../services/value/RoiModelService'
+  );
+
+  return {
+    ...actual,
+    RoiModelService: vi.fn(function () {
+      return {
+        getByValueCase: mockGetRoiModelByValueCase,
+      };
+    }),
+  };
+});
+
+vi.mock('../../services/value/KpiTargetService', async () => {
+  const actual = await vi.importActual<typeof import('../../services/value/KpiTargetService')>(
+    '../../services/value/KpiTargetService'
+  );
+
+  return {
+    ...actual,
+    KpiTargetService: vi.fn(function () {
+      return {
+        deriveForValueCase: mockDeriveKpiTargetsForValueCase,
+      };
+    }),
+  };
+});
 
 describe('Customer Portal API', () => {
   let mockReq: Partial<Request>;
@@ -33,10 +148,17 @@ describe('Customer Portal API', () => {
 
     mockRes = {
       status: statusMock,
-      json: jsonMock
+      json: jsonMock,
+      on: vi.fn(),
     };
 
     vi.clearAllMocks();
+    mockValidateCustomerToken.mockReset();
+    mockSupabaseFrom.mockReset();
+    mockSupabaseRpc.mockReset();
+    mockGetValueTreeByValueCase.mockReset();
+    mockGetRoiModelByValueCase.mockReset();
+    mockDeriveKpiTargetsForValueCase.mockReset();
   });
 
   describe('GET /api/customer/metrics/:token', () => {
@@ -48,45 +170,50 @@ describe('Customer Portal API', () => {
       mockReq.query = { period: '90d' };
 
       // Mock token validation
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      mockValidateCustomerToken.mockResolvedValue({
         value_case_id: mockValueCaseId,
         is_valid: true,
         error_message: null
       });
 
-      // Mock value case fetch
-      (supabase.from as any).mockReturnValue({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: mockValueCaseId,
-            company_name: 'Acme Corp',
-            name: 'Q1 2026 Business Case'
-          },
-          error: null
-        })
-      });
+      // Mock value case and metrics fetches
+      const metricsQuery = {
+        data: [
+          {
+            id: '1',
+            metric_name: 'Cost Savings',
+            metric_type: 'cost',
+            predicted_value: 500000,
+            actual_value: 620000,
+            status: 'on_track'
+          }
+        ],
+        error: null,
+        select: vi.fn(),
+        eq: vi.fn(),
+        order: vi.fn(),
+        gte: vi.fn(),
+        then: vi.fn((resolve) => Promise.resolve(resolve({ data: metricsQuery.data, error: metricsQuery.error }))),
+      };
+      metricsQuery.select.mockReturnValue(metricsQuery);
+      metricsQuery.eq.mockReturnValue(metricsQuery);
+      metricsQuery.order.mockReturnValue(metricsQuery);
+      metricsQuery.gte.mockReturnValue(metricsQuery);
 
-      // Mock metrics fetch
-      (supabase.from as any).mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        gte: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: '1',
-              metric_name: 'Cost Savings',
-              metric_type: 'cost',
-              predicted_value: 500000,
-              actual_value: 620000,
-              status: 'on_track'
-            }
-          ],
-          error: null
+      mockSupabaseFrom
+        .mockReturnValueOnce({
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: mockValueCaseId,
+              company_name: 'Acme Corp',
+              name: 'Q1 2026 Business Case'
+            },
+            error: null
+          })
         })
-      });
+        .mockReturnValueOnce(metricsQuery);
 
       await getCustomerMetrics(mockReq as Request, mockRes as Response);
 
@@ -107,7 +234,7 @@ describe('Customer Portal API', () => {
     it('should return 401 for invalid token', async () => {
       mockReq.params = { token: 'invalid-token' };
 
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      mockValidateCustomerToken.mockResolvedValue({
         value_case_id: null,
         is_valid: false,
         error_message: 'Invalid token'
@@ -145,31 +272,57 @@ describe('Customer Portal API', () => {
 
       mockReq.params = { token: mockToken };
 
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      mockValidateCustomerToken.mockResolvedValue({
         value_case_id: mockValueCaseId,
         is_valid: true,
         error_message: null
       });
 
-      // Mock value case fetch
-      (supabase.from as any).mockReturnValue({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: mockValueCaseId,
-            name: 'Q1 2026 Business Case',
-            company_name: 'Acme Corp',
-            lifecycle_stage: 'realization'
-          },
-          error: null
-        }),
-        order: vi.fn().mockResolvedValue({
-          data: [],
-          error: null
-        }),
-        limit: vi.fn().mockReturnThis()
+      mockGetValueTreeByValueCase.mockResolvedValue({
+        nodes: [
+          { id: 'driver-1', label: 'Cost Savings', driverType: 'cost', value: 500000 },
+        ],
       });
+      mockGetRoiModelByValueCase.mockResolvedValue({
+        outputs: { roi: 1.5, npv: 250000, payback_period_months: 12 },
+      });
+      mockDeriveKpiTargetsForValueCase.mockResolvedValue([
+        { metric: 'driver-1', targetValue: 620000, unit: 'USD' },
+      ]);
+
+      // Mock value case and opportunities fetches
+      const opportunitiesQuery = {
+        data: [],
+        error: null,
+        select: vi.fn(),
+        eq: vi.fn(),
+        then: vi.fn((resolve) => Promise.resolve(resolve({ data: opportunitiesQuery.data, error: opportunitiesQuery.error }))),
+      };
+      opportunitiesQuery.select.mockReturnValue(opportunitiesQuery);
+      opportunitiesQuery.eq.mockReturnValue(opportunitiesQuery);
+
+      mockSupabaseFrom
+        .mockReturnValueOnce({
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: mockValueCaseId,
+              tenant_id: 'tenant-123',
+              name: 'Q1 2026 Business Case',
+              company_name: 'Acme Corp',
+              description: null,
+              lifecycle_stage: 'realization',
+              status: 'active',
+              buyer_persona: null,
+              persona_fit_score: null,
+              created_at: '2026-01-01T00:00:00.000Z',
+              updated_at: '2026-01-02T00:00:00.000Z'
+            },
+            error: null
+          })
+        })
+        .mockReturnValueOnce(opportunitiesQuery);
 
       await getCustomerValueCase(mockReq as Request, mockRes as Response);
 
@@ -187,13 +340,13 @@ describe('Customer Portal API', () => {
     it('should return 404 for non-existent value case', async () => {
       mockReq.params = { token: 'valid-token' };
 
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      mockValidateCustomerToken.mockResolvedValue({
         value_case_id: 'non-existent',
         is_valid: true,
         error_message: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      mockSupabaseFrom.mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
@@ -216,14 +369,14 @@ describe('Customer Portal API', () => {
       mockReq.params = { token: mockToken };
       mockReq.query = { industry: 'technology' };
 
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      mockValidateCustomerToken.mockResolvedValue({
         value_case_id: mockValueCaseId,
         is_valid: true,
         error_message: null
       });
 
       // Mock value case fetch
-      (supabase.from as any).mockReturnValueOnce({
+      mockSupabaseFrom.mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
@@ -237,7 +390,7 @@ describe('Customer Portal API', () => {
       });
 
       // Mock benchmarks fetch
-      (supabase.from as any).mockReturnValueOnce({
+      mockSupabaseFrom.mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({
@@ -257,7 +410,7 @@ describe('Customer Portal API', () => {
       });
 
       // Mock metrics fetch
-      (supabase.from as any).mockReturnValueOnce({
+      mockSupabaseFrom.mockReturnValueOnce({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         not: vi.fn().mockResolvedValue({
@@ -282,13 +435,13 @@ describe('Customer Portal API', () => {
     it('should return 400 when industry is missing', async () => {
       mockReq.params = { token: 'valid-token' };
 
-      vi.mocked(customerAccessService.validateCustomerToken).mockResolvedValue({
+      mockValidateCustomerToken.mockResolvedValue({
         value_case_id: 'value-case-123',
         is_valid: true,
         error_message: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      mockSupabaseFrom.mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({

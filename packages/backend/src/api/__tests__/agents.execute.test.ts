@@ -3,14 +3,25 @@ import express from 'express';
 import request from 'supertest';
 
 import agentsRouter from '../../api/agents';
-import { getEventProducer } from '../../services/EventProducer';
 
 
-vi.mock('../../services/EventProducer');
+const { mockGetEventProducer } = vi.hoisted(() => ({
+  mockGetEventProducer: vi.fn(),
+}));
+
+vi.mock('../../services/EventProducer', async () => {
+  const actual = await vi.importActual<typeof import('../../services/EventProducer')>('../../services/EventProducer');
+
+  return {
+    ...actual,
+    getEventProducer: mockGetEventProducer,
+  };
+});
 
 describe('POST /api/agents/execute', () => {
   let app: express.Express;
   beforeEach(() => {
+    mockGetEventProducer.mockReset();
     app = express();
     app.use(express.json());
 
@@ -26,7 +37,7 @@ describe('POST /api/agents/execute', () => {
 
   it('publishes an agent request event for typed execute', async () => {
     const fakeProducer = { publish: vi.fn() };
-    (getEventProducer as unknown as vi.Mock).mockReturnValue(fakeProducer);
+    mockGetEventProducer.mockReturnValue(fakeProducer);
 
     const res = await request(app)
       .post('/api/agents/execute')
