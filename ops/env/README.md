@@ -94,8 +94,8 @@ ops/env/.env.local
 ops/env/.env.frontend.local
 ops/env/.env.backend.local
 ops/env/.env.test
-ops/env/.env.staging.bootstrap
-ops/env/.env.production.bootstrap
+ops/env/.env.staging
+ops/env/.env.production
 ops/env/.env.prod
 ```
 
