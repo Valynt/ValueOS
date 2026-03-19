@@ -54,6 +54,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install autoscaling manifest validation tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/bin"
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar -xz -C "$RUNNER_TEMP/bin" kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Agent autoscaling manifest validation
+        run: python3 scripts/ci/validate-agent-autoscaling-manifests.py
+
       - name: Canonical governance gate
         run: pnpm run typecheck:signal --verify
 
