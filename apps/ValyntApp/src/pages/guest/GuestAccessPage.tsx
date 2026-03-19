@@ -6,8 +6,8 @@
  */
 
 import { AlertCircle, Clock, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { GuestValueCalculator } from './GuestValueCalculator';
 
@@ -65,23 +65,44 @@ type AccessState =
 
 export function GuestAccessPage() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const [handoffToken, setHandoffToken] = useState<string | null>(null);
   const [accessState, setAccessState] = useState<AccessState>({ status: 'loading' });
   const guestAccessService = getGuestAccessService();
 
-  const tokenParam = searchParams.get('token');
+  const fragmentToken = useMemo(() => {
+    const fragment = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+    return fragment ? new URLSearchParams(fragment).get('token') : null;
+  }, [location.hash]);
 
   useEffect(() => {
-    if (!tokenParam) {
-      setAccessState({ 
-        status: 'invalid', 
-        message: 'No access token provided. Please use the link you received.' 
-      });
+    const incomingToken = fragmentToken ?? searchParams.get('token');
+
+    if (!incomingToken) {
+      if (!handoffToken) {
+        setAccessState({ 
+          status: 'invalid', 
+          message: 'No access token provided. Please use the link you received.' 
+        });
+      }
       return;
     }
 
-    validateToken(tokenParam);
-  }, [tokenParam]);
+    setHandoffToken(incomingToken);
+
+    if (fragmentToken || searchParams.get('token')) {
+      navigate(location.pathname, { replace: true });
+    }
+  }, [fragmentToken, handoffToken, location.pathname, navigate, searchParams]);
+
+  useEffect(() => {
+    if (!handoffToken) {
+      return;
+    }
+
+    void validateToken(handoffToken);
+  }, [handoffToken]);
 
   async function validateToken(token: string) {
     try {
