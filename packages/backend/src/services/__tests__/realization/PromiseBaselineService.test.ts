@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PromiseBaselineService } from "../../realization/PromiseBaselineService.js";
+import { supabase } from "../../../lib/supabase.js";
 import { createMockSupabase, factories } from "../helpers/testHelpers.js";
 import { SQL_INJECTION_PAYLOADS, TENANT_ISOLATION_SCENARIOS } from "../fixtures/securityFixtures.js";
 
+vi.mock("../../../lib/supabase.js", async () => {
+  const { createMockSupabase } = await import("../helpers/testHelpers.js");
+  return { supabase: createMockSupabase() };
+});
+
 describe("PromiseBaselineService", () => {
   let service: PromiseBaselineService;
-  let mockSupabase: ReturnType<typeof createMockSupabase>;
+  const mockSupabase = supabase as unknown as ReturnType<typeof createMockSupabase>;
 
   beforeEach(() => {
-    mockSupabase = createMockSupabase();
+    mockSupabase._clearMocks();
     service = new PromiseBaselineService();
     vi.clearAllMocks();
   });
@@ -34,6 +40,9 @@ describe("PromiseBaselineService", () => {
 
     it("should enforce tenant isolation on all operations", async () => {
       const tenantId = TENANT_ISOLATION_SCENARIOS.crossTenantAccess.authenticatedTenant;
+      mockSupabase._mockData.set("scenarios", [
+        factories.scenario({ tenant_id: tenantId, case_id: "case-1", id: "scenario-1" }),
+      ]);
 
       const result = await service.createFromApprovedCase({
         tenantId,
@@ -61,6 +70,10 @@ describe("PromiseBaselineService", () => {
 
   describe("Immutability", () => {
     it("should not allow direct modification of created baseline", async () => {
+      mockSupabase._mockData.set("scenarios", [
+        factories.scenario({ tenant_id: "tenant-1", case_id: "case-1", id: "scenario-1" }),
+      ]);
+
       const result = await service.createFromApprovedCase({
         tenantId: "tenant-1",
         caseId: "case-1",
@@ -76,6 +89,10 @@ describe("PromiseBaselineService", () => {
     });
 
     it("should archive original when amending", async () => {
+      mockSupabase._mockData.set("scenarios", [
+        factories.scenario({ tenant_id: "tenant-1", case_id: "case-1", id: "scenario-1" }),
+      ]);
+
       const original = await service.createFromApprovedCase({
         tenantId: "tenant-1",
         caseId: "case-1",
