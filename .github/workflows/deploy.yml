@@ -154,8 +154,8 @@ jobs:
 
       - name: Observability deployment gates
         run: |
-          pnpm check:telemetry-completeness
-          pnpm check:observability-deployment-gates
+          pnpm run check:telemetry-completeness
+          pnpm run check:observability-deployment-gates
 
 
   dast-gate:

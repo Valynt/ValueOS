@@ -126,6 +126,9 @@ jobs:
       - name: Guard frontend bundle service-role identifiers
         run: pnpm check:frontend-bundle-service-role
 
+      - name: Workflow/package script drift guard
+        run: pnpm run check:workflow-package-script-drift
+
       - name: LLM secrets hygiene guard
         run: node scripts/ci/check-llm-secrets-hygiene.mjs
 
