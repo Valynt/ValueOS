@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { getSupabaseClient, supabase } from '@shared/lib/supabase';
+import { getSupabaseClient } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -78,7 +78,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
     // Get value case details
     const { data: valueCase, error: vcError } = await getSupabaseClient()
       .from('value_cases')
-      .select('id, company_name, name')
+      .select('id, company_name, name, organization_id')
       .eq('id', valueCaseId)
       .single();
 
@@ -99,6 +99,7 @@ export async function getCustomerMetrics(req: Request, res: Response): Promise<v
       .from('realization_metrics')
       .select('*')
       .eq('value_case_id', valueCaseId)
+      .eq('organization_id', valueCase.organization_id)
       .order('created_at', { ascending: false });
 
     // Apply date filter

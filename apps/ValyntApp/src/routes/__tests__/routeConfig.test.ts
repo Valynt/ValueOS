@@ -14,6 +14,7 @@ describe("ValyntApp route config", () => {
       "/signup",
       "/reset-password",
       "/auth/callback",
+      "/guest/access",
     ]);
   });
 

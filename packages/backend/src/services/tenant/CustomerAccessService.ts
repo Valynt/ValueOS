@@ -257,6 +257,18 @@ export class CustomerAccessService extends BaseService {
     return `${baseUrl}/customer/portal?token=${encodeURIComponent(token)}`;
   }
 
+  private redactPortalUrl(portalUrl: string): string {
+    try {
+      const parsed = new URL(portalUrl);
+      if (parsed.searchParams.has("token")) {
+        parsed.searchParams.set("token", "[REDACTED]");
+      }
+      return parsed.toString();
+    } catch {
+      return portalUrl.replace(/token=[^&]+/i, "token=[REDACTED]");
+    }
+  }
+
   /**
    * Get customer portal URL from token
    */
@@ -278,7 +290,7 @@ export class CustomerAccessService extends BaseService {
       logger.info("Portal access email details", {
         to: email,
         subject: `Your ${companyName} Value Realization Portal`,
-        portalUrl,
+        portalUrlRedacted: this.redactPortalUrl(portalUrl),
       });
 
       await emailService.send({

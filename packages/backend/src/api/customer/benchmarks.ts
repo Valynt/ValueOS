@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@shared/lib/logger';
-import { getSupabaseClient, supabase } from '@shared/lib/supabase';
+import { getSupabaseClient } from '@shared/lib/supabase';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 
@@ -80,7 +80,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
     // Get value case details
     const { data: valueCase, error: vcError } = await getSupabaseClient()
       .from('value_cases')
-      .select('id, company_name, custom_fields')
+      .select('id, company_name, custom_fields, organization_id')
       .eq('id', valueCaseId)
       .single();
 
@@ -132,6 +132,7 @@ export async function getCustomerBenchmarks(req: Request, res: Response): Promis
       .from('realization_metrics')
       .select('metric_name, actual_value')
       .eq('value_case_id', valueCaseId)
+      .eq('organization_id', valueCase.organization_id)
       .not('actual_value', 'is', null);
 
     if (metricsError) {

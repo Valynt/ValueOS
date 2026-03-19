@@ -74,6 +74,11 @@ const IntegrityDashboard = lazy(() => import("./views/IntegrityDashboard"));
 const ExecutiveOutputStudio = lazy(() => import("./views/ExecutiveOutputStudio"));
 const RealizationTracker = lazy(() => import("./views/RealizationTracker"));
 const BillingPortal = lazy(() => import("./views/BillingPortal"));
+const GuestAccessPage = lazy(() =>
+  import("./pages/guest").then((m) => ({
+    default: m.GuestAccessPage,
+  }))
+);
 
 // Academy v2 (migrated from VOSAcademy)
 const AcademyV2Routes = lazy(() => import("./features/academy-v2/routes"));
@@ -129,6 +134,7 @@ export function AppRoutes() {
     "/signup": <SignupPage />,
     "/reset-password": <ResetPasswordPage />,
     "/auth/callback": <AuthCallback />,
+    "/guest/access": <GuestAccessPage />,
   };
   const resolvePublicElement = (path: string) => {
     const element = publicRouteElements[path];

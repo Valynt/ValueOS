@@ -595,9 +595,13 @@ backHalfRouter.post(
 // GET /:id/provenance/:claimId — claim lineage chain
 // ---------------------------------------------------------------------------
 
-let _provenanceTracker: ProvenanceTracker | null = null;
-function getBackHalfProvenanceTracker(): ProvenanceTracker {
-  if (!_provenanceTracker) {
+const provenanceTrackers = new Map<string, ProvenanceTracker>();
+function getBackHalfProvenanceTracker(tenantId: string): ProvenanceTracker {
+  const existingTracker = provenanceTrackers.get(tenantId);
+  if (existingTracker) {
+    return existingTracker;
+  }
+
     // Provenance tracking is an internal background operation (not user-request-scoped),
     // so service_role is appropriate here per AGENTS.md §3.
     // Cast bridges the SupabaseClient generic parameter mismatch between
@@ -606,11 +610,12 @@ function getBackHalfProvenanceTracker(): ProvenanceTracker {
     const client = createServerSupabaseClient();
 
     const store = new SupabaseProvenanceStore(
-      client as unknown as ReturnType<typeof createClient>
+      client as unknown as ReturnType<typeof createClient>,
+      tenantId
     ) as unknown as ProvenanceStore;
-    _provenanceTracker = new ProvenanceTracker(store);
-  }
-  return _provenanceTracker;
+    const tracker = new ProvenanceTracker(store);
+    provenanceTrackers.set(tenantId, tracker);
+    return tracker;
 }
 
 backHalfRouter.get(
@@ -633,7 +638,7 @@ backHalfRouter.get(
     }
 
     try {
-      const tracker = getBackHalfProvenanceTracker();
+      const tracker = getBackHalfProvenanceTracker(tenantId);
       const chains = await tracker.getLineage(caseId, claimId);
 
       return res.status(200).json({
@@ -742,4 +747,3 @@ backHalfRouter.post(
     }
   }
 );
-

@@ -3,6 +3,7 @@ export const publicRoutePaths = [
   "/signup",
   "/reset-password",
   "/auth/callback",
+  "/guest/access",
 ] as const;
 
 export const protectedRoutePaths = [

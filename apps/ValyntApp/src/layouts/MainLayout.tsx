@@ -5,6 +5,7 @@ import { AgentChatSidebar } from "./AgentChatSidebar";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
+import { SkipNav } from "@/components/marketing/SkipNav";
 import { cn } from "@/lib/utils";
 
 /**
@@ -50,6 +51,7 @@ export function MainLayout() {
 
   return (
     <div className="flex h-screen bg-[#fafafa] text-zinc-900 overflow-hidden">
+      <SkipNav />
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -76,7 +78,7 @@ export function MainLayout() {
           onMenuClick={() => setSidebarOpen(true)}
           onAgentOpen={() => setAgentOpen(true)}
         />
-        <main className="flex-1 overflow-y-auto overscroll-contain">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto overscroll-contain focus:outline-none">
           <PageTransition>
             <Outlet />
           </PageTransition>

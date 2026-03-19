@@ -131,7 +131,10 @@ export class SupabaseSagaPersistence implements SagaPersistence {
  * convert between that and the numeric 1|2|3 used in ProvenanceRecord.
  */
 export class SupabaseProvenanceStore implements ProvenanceStore {
-  constructor(private supabase: ReturnType<typeof createClient>) {}
+  constructor(
+    private supabase: ReturnType<typeof createClient>,
+    private organizationId?: string
+  ) {}
 
   async insert(record: ProvenanceRecord): Promise<void> {
     const { error } = await (this.supabase
@@ -142,6 +145,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
         id: record.id,
         value_case_id: record.valueCaseId,
         claim_id: record.claimId,
+        organization_id: this.organizationId ?? null,
         data_source: record.dataSource,
         evidence_tier: evidenceTierToLabel(record.evidenceTier),
         formula: record.formula ?? null,
@@ -159,7 +163,7 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
   }
 
   async findByClaimId(valueCaseId: string, claimId: string): Promise<ProvenanceRecord[]> {
-    const { data, error } = await (this.supabase
+    let query = (this.supabase
       .from('provenance_records') as unknown as {
         select: (cols: string) => {
           eq: (col: string, val: string) => {
@@ -169,14 +173,22 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
       })
       .select('*')
       .eq('value_case_id', valueCaseId)
-      .eq('claim_id', claimId);
+      .eq('claim_id', claimId) as {
+        eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+      };
+
+    if (this.organizationId) {
+      query = query.eq('organization_id', this.organizationId) as typeof query;
+    }
+
+    const { data, error } = await query;
 
     if (error) throw new Error(`Provenance lookup error: ${error.message}`);
     return (data ?? []).map((row) => this.mapToRecord(row));
   }
 
   async findById(id: string): Promise<ProvenanceRecord | null> {
-    const { data, error } = await (this.supabase
+    let query = (this.supabase
       .from('provenance_records') as unknown as {
         select: (cols: string) => {
           eq: (col: string, val: string) => {
@@ -185,22 +197,39 @@ export class SupabaseProvenanceStore implements ProvenanceStore {
         };
       })
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', id) as {
+        eq?: (col: string, val: string) => { single: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }> };
+        single?: () => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+      };
+
+    if (this.organizationId && query.eq) {
+      query = query.eq('organization_id', this.organizationId);
+    }
+
+    const { data, error } = await query.single!();
 
     if (error || !data) return null;
     return this.mapToRecord(data);
   }
 
   async findByValueCaseId(valueCaseId: string): Promise<ProvenanceRecord[]> {
-    const { data, error } = await (this.supabase
+    const query = (this.supabase
       .from('provenance_records') as unknown as {
         select: (cols: string) => {
           eq: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
         };
       })
-      .select('*')
-      .eq('value_case_id', valueCaseId);
+      .select('*'));
+
+    const valueCaseQuery = query.eq('value_case_id', valueCaseId) as unknown as {
+      eq?: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>;
+    };
+
+    const scopedQuery = this.organizationId && valueCaseQuery.eq
+      ? valueCaseQuery.eq('organization_id', this.organizationId)
+      : valueCaseQuery;
+
+    const { data, error } = await scopedQuery;
 
     if (error) throw new Error(`Provenance search error: ${error.message}`);
     return (data ?? []).map((row) => this.mapToRecord(row));
