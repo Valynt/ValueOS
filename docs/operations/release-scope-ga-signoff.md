@@ -30,4 +30,4 @@ Security sign-off must confirm the linked threat model and security evidence wer
 - Acceptance mapping: `docs/operations/release-acceptance-mapping.md`
 - Launch checklist link target: `docs/operations/launch-readiness.md` (Release `v1.0.0`)
 - Threat model review record: `docs/security-compliance/threat-model.md` (Release `v1.0.0`, including the Review and Approver Record row)
-- Security evidence bundle chain: `docs/security-compliance/evidence-index.md` (GA `v1.0.0` release evidence bundle chain referencing the threat model and sign-off packet).
+- Security evidence bundle chain: `docs/security-compliance/evidence-index.md` (GA `v1.0.0` release evidence bundle chain referencing the threat model and sign-off packet)
