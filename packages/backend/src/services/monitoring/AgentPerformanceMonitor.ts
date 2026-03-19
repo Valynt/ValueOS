@@ -7,7 +7,7 @@
 
 import { EventEmitter } from "events";
 
-import { logger } from "../../lib/logger.js"
+import { logger } from "../../lib/logger.js";
 
 // ============================================================================
 // Types
@@ -94,13 +94,173 @@ export interface MonitoringConfig {
   };
 }
 
+type MetricAccumulator = {
+  executionTime: number;
+  latency: number;
+  memoryUsage: number;
+  cpuUsage: number;
+  successRate: number;
+  errorRate: number;
+  confidenceScore: number;
+  responseQuality: number;
+  requestsPerMinute: number;
+  messagesPerMinute: number;
+};
+
+type MetricWindowSnapshot = {
+  count: number;
+  sums: MetricAccumulator;
+};
+
+type AgentMetricStore = {
+  history: MetricDeque;
+  latest: AgentMetrics | null;
+  windows: Map<number, RollingMetricWindow>;
+};
+
+const createEmptyAccumulator = (): MetricAccumulator => ({
+  executionTime: 0,
+  latency: 0,
+  memoryUsage: 0,
+  cpuUsage: 0,
+  successRate: 0,
+  errorRate: 0,
+  confidenceScore: 0,
+  responseQuality: 0,
+  requestsPerMinute: 0,
+  messagesPerMinute: 0,
+});
+
+const addMetricToAccumulator = (accumulator: MetricAccumulator, metrics: AgentMetrics): void => {
+  accumulator.executionTime += metrics.executionTime;
+  accumulator.latency += metrics.latency;
+  accumulator.memoryUsage += metrics.memoryUsage;
+  accumulator.cpuUsage += metrics.cpuUsage;
+  accumulator.successRate += metrics.successRate;
+  accumulator.errorRate += metrics.errorRate;
+  accumulator.confidenceScore += metrics.confidenceScore;
+  accumulator.responseQuality += metrics.responseQuality;
+  accumulator.requestsPerMinute += metrics.requestsPerMinute;
+  accumulator.messagesPerMinute += metrics.messagesPerMinute;
+};
+
+const subtractMetricFromAccumulator = (accumulator: MetricAccumulator, metrics: AgentMetrics): void => {
+  accumulator.executionTime -= metrics.executionTime;
+  accumulator.latency -= metrics.latency;
+  accumulator.memoryUsage -= metrics.memoryUsage;
+  accumulator.cpuUsage -= metrics.cpuUsage;
+  accumulator.successRate -= metrics.successRate;
+  accumulator.errorRate -= metrics.errorRate;
+  accumulator.confidenceScore -= metrics.confidenceScore;
+  accumulator.responseQuality -= metrics.responseQuality;
+  accumulator.requestsPerMinute -= metrics.requestsPerMinute;
+  accumulator.messagesPerMinute -= metrics.messagesPerMinute;
+};
+
+class MetricDeque {
+  private items: AgentMetrics[] = [];
+  private startIndex = 0;
+
+  get length(): number {
+    return this.items.length - this.startIndex;
+  }
+
+  push(metrics: AgentMetrics): void {
+    this.items.push(metrics);
+  }
+
+  peekFront(): AgentMetrics | undefined {
+    return this.items[this.startIndex];
+  }
+
+  shift(): AgentMetrics | undefined {
+    if (this.length === 0) {
+      return undefined;
+    }
+
+    const item = this.items[this.startIndex];
+    this.startIndex += 1;
+    this.compact();
+    return item;
+  }
+
+  trimBefore(cutoffTime: number, onRemove?: (metrics: AgentMetrics) => void): void {
+    while (true) {
+      const oldest = this.peekFront();
+      if (!oldest || oldest.timestamp > cutoffTime) {
+        break;
+      }
+
+      const removed = this.shift();
+      if (removed) {
+        onRemove?.(removed);
+      }
+    }
+  }
+
+  last(): AgentMetrics | undefined {
+    return this.length > 0 ? this.items[this.items.length - 1] : undefined;
+  }
+
+  toArray(): AgentMetrics[] {
+    return this.items.slice(this.startIndex);
+  }
+
+  filterSince(cutoffTime: number): AgentMetrics[] {
+    const activeItems = this.toArray();
+    return activeItems.filter((metrics) => metrics.timestamp > cutoffTime);
+  }
+
+  lastN(count: number): AgentMetrics[] {
+    if (count <= 0 || this.length === 0) {
+      return [];
+    }
+
+    const start = Math.max(this.startIndex, this.items.length - count);
+    return this.items.slice(start);
+  }
+
+  private compact(): void {
+    if (this.startIndex > 64 && this.startIndex * 2 >= this.items.length) {
+      this.items = this.items.slice(this.startIndex);
+      this.startIndex = 0;
+    }
+  }
+}
+
+class RollingMetricWindow {
+  private readonly metrics = new MetricDeque();
+  private readonly sums: MetricAccumulator = createEmptyAccumulator();
+
+  constructor(private readonly windowMs: number) {}
+
+  push(metrics: AgentMetrics): void {
+    this.metrics.push(metrics);
+    addMetricToAccumulator(this.sums, metrics);
+    this.trim(metrics.timestamp - this.windowMs);
+  }
+
+  trim(cutoffTime: number): void {
+    this.metrics.trimBefore(cutoffTime, (removedMetrics) => {
+      subtractMetricFromAccumulator(this.sums, removedMetrics);
+    });
+  }
+
+  snapshot(): MetricWindowSnapshot {
+    return {
+      count: this.metrics.length,
+      sums: { ...this.sums },
+    };
+  }
+}
+
 // ============================================================================
 // AgentPerformanceMonitor Implementation
 // ============================================================================
 
 export class AgentPerformanceMonitor extends EventEmitter {
   private config: MonitoringConfig;
-  private metricsHistory = new Map<string, AgentMetrics[]>();
+  private metricsHistory = new Map<string, AgentMetricStore>();
   private healthScores = new Map<string, AgentHealthScore>();
   private activeAlerts = new Map<string, PerformanceAlert>();
   private aggregationInterval: NodeJS.Timeout | null = null;
@@ -142,15 +302,14 @@ export class AgentPerformanceMonitor extends EventEmitter {
       timestamp: Date.now(),
     };
 
-    // Store metrics history
-    const history = this.metricsHistory.get(metrics.agentId) || [];
-    history.push(timestampedMetrics);
+    const store = this.getOrCreateMetricStore(metrics.agentId);
+    store.latest = timestampedMetrics;
+    store.history.push(timestampedMetrics);
+    store.history.trimBefore(timestampedMetrics.timestamp - this.getRetentionWindowMs());
 
-    // Trim old metrics based on retention period
-    const cutoffTime = Date.now() - this.config.metricsRetentionPeriod * 60 * 60 * 1000;
-    const filteredHistory = history.filter((m) => m.timestamp > cutoffTime);
-
-    this.metricsHistory.set(metrics.agentId, filteredHistory);
+    for (const windowMs of this.getActiveWindowDurations()) {
+      this.getOrCreateWindow(store, windowMs).push(timestampedMetrics);
+    }
 
     // Check for alerts
     this.checkAlerts(timestampedMetrics);
@@ -170,14 +329,20 @@ export class AgentPerformanceMonitor extends EventEmitter {
    * Get metrics history for an agent
    */
   getMetricsHistory(agentId: string, timeRange?: number): AgentMetrics[] {
-    const history = this.metricsHistory.get(agentId) || [];
+    const store = this.metricsHistory.get(agentId);
+
+    if (!store) {
+      return [];
+    }
+
+    this.trimStoreHistory(store, Date.now());
 
     if (!timeRange) {
-      return history;
+      return store.history.toArray();
     }
 
     const cutoffTime = Date.now() - timeRange;
-    return history.filter((m) => m.timestamp > cutoffTime);
+    return store.history.filterSince(cutoffTime);
   }
 
   /**
@@ -215,16 +380,16 @@ export class AgentPerformanceMonitor extends EventEmitter {
     let totalRequestsPerMinute = 0;
     let metricsCount = 0;
 
-    for (const history of this.metricsHistory.values()) {
-      if (history.length > 0) {
-        const latest = history[history.length - 1];
-        if (latest) {
-          totalLatency += latest.latency;
-          totalMemoryUsage += latest.memoryUsage;
-          totalRequestsPerMinute += latest.requestsPerMinute;
-          metricsCount++;
-        }
+    for (const store of this.metricsHistory.values()) {
+      const latest = store.latest;
+      if (!latest) {
+        continue;
       }
+
+      totalLatency += latest.latency;
+      totalMemoryUsage += latest.memoryUsage;
+      totalRequestsPerMinute += latest.requestsPerMinute;
+      metricsCount += 1;
     }
 
     return {
@@ -254,6 +419,7 @@ export class AgentPerformanceMonitor extends EventEmitter {
    */
   updateConfig(newConfig: Partial<MonitoringConfig>): void {
     this.config = { ...this.config, ...newConfig };
+    this.rebuildRollingWindows();
 
     // Restart monitoring with new config
     this.stopMonitoring();
@@ -304,43 +470,63 @@ export class AgentPerformanceMonitor extends EventEmitter {
   }
 
   private aggregateMetrics(): void {
-    for (const [agentId, history] of this.metricsHistory.entries()) {
-      if (history.length === 0) continue;
+    const now = Date.now();
+    const aggregationWindowMs = this.getAggregationWindowMs();
 
-      // Calculate aggregated metrics for the last interval
-      const cutoffTime = Date.now() - this.config.metricsAggregationInterval * 1000;
-      const recentMetrics = history.filter((m) => m.timestamp > cutoffTime);
+    for (const [agentId, store] of this.metricsHistory.entries()) {
+      this.trimStoreHistory(store, now);
 
-      if (recentMetrics.length > 0) {
-        const aggregated = this.calculateAggregatedMetrics(recentMetrics);
-        this.emit("aggregatedMetrics", { agentId, metrics: aggregated });
+      const aggregationWindow = this.getOrCreateWindow(store, aggregationWindowMs);
+      aggregationWindow.trim(now - aggregationWindowMs);
+
+      const recentSnapshot = aggregationWindow.snapshot();
+      if (recentSnapshot.count === 0) {
+        continue;
       }
+
+      this.emit("aggregatedMetrics", {
+        agentId,
+        metrics: this.toAggregatedMetrics(recentSnapshot),
+      });
     }
   }
 
   private calculateAggregatedMetrics(metrics: AgentMetrics[]): Partial<AgentMetrics> {
-    const count = metrics.length;
+    const totals = createEmptyAccumulator();
 
-    return {
-      executionTime: metrics.reduce((sum, m) => sum + m.executionTime, 0) / count,
-      latency: metrics.reduce((sum, m) => sum + m.latency, 0) / count,
-      memoryUsage: metrics.reduce((sum, m) => sum + m.memoryUsage, 0) / count,
-      successRate: metrics.reduce((sum, m) => sum + m.successRate, 0) / count,
-      errorRate: metrics.reduce((sum, m) => sum + m.errorRate, 0) / count,
-      confidenceScore: metrics.reduce((sum, m) => sum + m.confidenceScore, 0) / count,
-      requestsPerMinute: metrics.reduce((sum, m) => sum + m.requestsPerMinute, 0),
-      messagesPerMinute: metrics.reduce((sum, m) => sum + m.messagesPerMinute, 0),
-    };
+    for (const metric of metrics) {
+      addMetricToAccumulator(totals, metric);
+    }
+
+    return this.toAggregatedMetrics({ count: metrics.length, sums: totals });
   }
 
   private performHealthChecks(): void {
-    for (const [agentId, history] of this.metricsHistory.entries()) {
-      if (history.length === 0) continue;
+    const now = Date.now();
+    const healthWindowMs = this.getHealthWindowMs();
 
-      const latest = history[history.length - 1];
-      if (!latest) continue;
+    for (const [agentId, store] of this.metricsHistory.entries()) {
+      this.trimStoreHistory(store, now);
 
-      const healthScore = this.calculateHealthScore(agentId, latest, history);
+      const latest = store.latest;
+      if (!latest) {
+        continue;
+      }
+
+      const healthWindow = this.getOrCreateWindow(store, healthWindowMs);
+      healthWindow.trim(now - healthWindowMs);
+
+      const recentSnapshot = healthWindow.snapshot();
+      if (recentSnapshot.count === 0) {
+        continue;
+      }
+
+      const healthScore = this.calculateHealthScore(
+        agentId,
+        latest,
+        recentSnapshot,
+        store.history.lastN(10)
+      );
 
       this.healthScores.set(agentId, healthScore);
       this.emit("healthScore", healthScore);
@@ -350,49 +536,57 @@ export class AgentPerformanceMonitor extends EventEmitter {
   private calculateHealthScore(
     agentId: string,
     latest: AgentMetrics,
-    history: AgentMetrics[]
+    recentMetrics: MetricWindowSnapshot,
+    trendHistory: AgentMetrics[]
   ): AgentHealthScore {
     const thresholds = this.config.performanceThresholds;
+    const averagedMetrics = this.toAggregatedMetrics(recentMetrics);
+    const averageLatency = averagedMetrics.latency ?? latest.latency;
+    const averageMemoryUsage = averagedMetrics.memoryUsage ?? latest.memoryUsage;
+    const averageSuccessRate = averagedMetrics.successRate ?? latest.successRate;
+    const averageErrorRate = averagedMetrics.errorRate ?? latest.errorRate;
+    const averageConfidenceScore = averagedMetrics.confidenceScore ?? latest.confidenceScore;
+    const averageResponseQuality = averagedMetrics.responseQuality ?? latest.responseQuality;
 
     // Performance score (0-100)
-    const latencyScore = Math.max(0, 100 - (latest.latency / thresholds.maxLatency) * 100);
-    const memoryScore = Math.max(0, 100 - (latest.memoryUsage / thresholds.maxMemoryUsage) * 100);
+    const latencyScore = Math.max(0, 100 - (averageLatency / thresholds.maxLatency) * 100);
+    const memoryScore = Math.max(0, 100 - (averageMemoryUsage / thresholds.maxMemoryUsage) * 100);
     const performanceScore = (latencyScore + memoryScore) / 2;
 
     // Reliability score (0-100)
-    const reliabilityScore = latest.successRate * 100;
+    const reliabilityScore = averageSuccessRate * 100;
 
     // Quality score (0-100)
-    const qualityScore = latest.confidenceScore * 50 + latest.responseQuality * 50;
+    const qualityScore = averageConfidenceScore * 50 + averageResponseQuality * 50;
 
     // Overall score
     const overallScore = performanceScore * 0.4 + reliabilityScore * 0.3 + qualityScore * 0.3;
 
     // Health status
-    const isHealthy = overallScore >= 70 && latest.errorRate < 0.1;
+    const isHealthy = overallScore >= 70 && averageErrorRate < 0.1;
 
     // Warnings and errors
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    if (latest.latency > thresholds.maxLatency) {
+    if (averageLatency > thresholds.maxLatency) {
       errors.push(`High latency: ${latest.latency}ms`);
-    } else if (latest.latency > thresholds.maxLatency * 0.7) {
+    } else if (averageLatency > thresholds.maxLatency * 0.7) {
       warnings.push(`Elevated latency: ${latest.latency}ms`);
     }
 
-    if (latest.memoryUsage > thresholds.maxMemoryUsage) {
+    if (averageMemoryUsage > thresholds.maxMemoryUsage) {
       errors.push(`High memory usage: ${latest.memoryUsage}MB`);
-    } else if (latest.memoryUsage > thresholds.maxMemoryUsage * 0.7) {
+    } else if (averageMemoryUsage > thresholds.maxMemoryUsage * 0.7) {
       warnings.push(`Elevated memory usage: ${latest.memoryUsage}MB`);
     }
 
-    if (latest.successRate < thresholds.minSuccessRate) {
+    if (averageSuccessRate < thresholds.minSuccessRate) {
       errors.push(`Low success rate: ${(latest.successRate * 100).toFixed(1)}%`);
     }
 
     // Trend analysis
-    const trend = this.calculateTrend(history);
+    const trend = this.calculateTrend(trendHistory);
 
     return {
       agentId,
@@ -423,7 +617,7 @@ export class AgentPerformanceMonitor extends EventEmitter {
     const recentAvg = recent.reduce((sum, m) => sum + m.successRate, 0) / recent.length;
     const olderAvg = older.reduce((sum, m) => sum + m.successRate, 0) / older.length;
 
-    const change = ((recentAvg - olderAvg) / olderAvg) * 100;
+    const change = olderAvg === 0 ? 0 : ((recentAvg - olderAvg) / olderAvg) * 100;
 
     let direction: "improving" | "stable" | "degrading";
     if (Math.abs(change) < 5) {
@@ -538,6 +732,94 @@ export class AgentPerformanceMonitor extends EventEmitter {
       currentValue,
       threshold,
     });
+  }
+
+  private getOrCreateMetricStore(agentId: string): AgentMetricStore {
+    const existingStore = this.metricsHistory.get(agentId);
+    if (existingStore) {
+      return existingStore;
+    }
+
+    const store: AgentMetricStore = {
+      history: new MetricDeque(),
+      latest: null,
+      windows: new Map<number, RollingMetricWindow>(),
+    };
+
+    this.metricsHistory.set(agentId, store);
+    return store;
+  }
+
+  private getOrCreateWindow(store: AgentMetricStore, windowMs: number): RollingMetricWindow {
+    const existingWindow = store.windows.get(windowMs);
+    if (existingWindow) {
+      return existingWindow;
+    }
+
+    const window = new RollingMetricWindow(windowMs);
+    for (const metric of store.history.toArray()) {
+      window.push(metric);
+    }
+
+    store.windows.set(windowMs, window);
+    return window;
+  }
+
+  private getRetentionWindowMs(): number {
+    return this.config.metricsRetentionPeriod * 60 * 60 * 1000;
+  }
+
+  private getAggregationWindowMs(): number {
+    return Math.min(this.config.metricsAggregationInterval * 1000, this.getRetentionWindowMs());
+  }
+
+  private getHealthWindowMs(): number {
+    return Math.min(this.config.healthCheckInterval * 1000, this.getRetentionWindowMs());
+  }
+
+  private getActiveWindowDurations(): number[] {
+    return Array.from(new Set([this.getAggregationWindowMs(), this.getHealthWindowMs()]));
+  }
+
+  private trimStoreHistory(store: AgentMetricStore, now: number): void {
+    store.history.trimBefore(now - this.getRetentionWindowMs());
+  }
+
+  private rebuildRollingWindows(): void {
+    const activeWindowDurations = this.getActiveWindowDurations();
+    const now = Date.now();
+
+    for (const store of this.metricsHistory.values()) {
+      this.trimStoreHistory(store, now);
+      store.windows = new Map<number, RollingMetricWindow>();
+
+      for (const windowMs of activeWindowDurations) {
+        const window = new RollingMetricWindow(windowMs);
+        for (const metric of store.history.toArray()) {
+          window.push(metric);
+        }
+        store.windows.set(windowMs, window);
+      }
+    }
+  }
+
+  private toAggregatedMetrics(snapshot: MetricWindowSnapshot): Partial<AgentMetrics> {
+    if (snapshot.count === 0) {
+      return {};
+    }
+
+    return {
+      executionTime: snapshot.sums.executionTime / snapshot.count,
+      latency: snapshot.sums.latency / snapshot.count,
+      memoryUsage: snapshot.sums.memoryUsage / snapshot.count,
+      cpuUsage: snapshot.sums.cpuUsage / snapshot.count,
+      successRate: snapshot.sums.successRate / snapshot.count,
+      errorRate: snapshot.sums.errorRate / snapshot.count,
+      confidenceScore: snapshot.sums.confidenceScore / snapshot.count,
+      responseQuality: snapshot.sums.responseQuality / snapshot.count,
+      requestsPerMinute: snapshot.sums.requestsPerMinute,
+      messagesPerMinute: snapshot.sums.messagesPerMinute,
+    };
   }
 }
 
