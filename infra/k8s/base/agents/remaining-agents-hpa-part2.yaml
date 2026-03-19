@@ -6,6 +6,8 @@ metadata:
   labels:
     app: research-agent
     autoscaling.valueos.dev/profile: queue-depth
+    scaling.valueos.io/request-path-policy: async-preferred
+    scaling.valueos.io/cold-start-class: warm-async
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
