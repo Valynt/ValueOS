@@ -6,26 +6,28 @@ type HistogramCall = { value: number; attributes?: Record<string, unknown> };
 const counterCalls = new Map<string, CounterCall[]>();
 const histogramCalls = new Map<string, HistogramCall[]>();
 
-vi.mock("@opentelemetry/api", () => ({
-  metrics: {
-    getMeter: () => ({
-      createCounter: (name: string) => ({
-        add: (value: number, attributes?: Record<string, unknown>) => {
+vi.mock("@opentelemetry/api", async () => {
+  const { createOpenTelemetryApiMock } = await import("../../../test-utils/setup/openTelemetry.js");
+
+  return createOpenTelemetryApiMock({
+    meter: {
+      createCounter: vi.fn((name: string) => ({
+        add: vi.fn((value: number, attributes?: Record<string, unknown>) => {
           const calls = counterCalls.get(name) ?? [];
           calls.push({ value, attributes });
           counterCalls.set(name, calls);
-        },
-      }),
-      createHistogram: (name: string) => ({
-        record: (value: number, attributes?: Record<string, unknown>) => {
+        }),
+      })),
+      createHistogram: vi.fn((name: string) => ({
+        record: vi.fn((value: number, attributes?: Record<string, unknown>) => {
           const calls = histogramCalls.get(name) ?? [];
           calls.push({ value, attributes });
           histogramCalls.set(name, calls);
-        },
-      }),
-    }),
-  },
-}));
+        }),
+      })),
+    },
+  });
+});
 
 vi.mock("../../../lib/logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },

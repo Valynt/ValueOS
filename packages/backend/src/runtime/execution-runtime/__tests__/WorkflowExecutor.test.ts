@@ -21,7 +21,13 @@ vi.mock('../../../lib/supabase', () => ({
     }),
   },
 }));
-vi.mock('@opentelemetry/api', () => ({ SpanStatusCode: { OK: 1, ERROR: 2 } }));
+vi.mock('@opentelemetry/api', async () => {
+  const { createOpenTelemetryApiMock } = await import('../../../test-utils/setup/openTelemetry.js');
+  return createOpenTelemetryApiMock({
+    includeSpanStatusCode: true,
+    spanStatusCode: { OK: 1, ERROR: 2 },
+  });
+});
 vi.mock('../../../config/telemetry', () => ({
   getTracer: vi.fn(function () {
     return {

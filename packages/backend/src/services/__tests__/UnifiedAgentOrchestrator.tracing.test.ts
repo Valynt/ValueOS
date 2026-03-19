@@ -91,8 +91,15 @@ vi.mock('../../config/telemetry.js', () => ({
 }));
 
 // Mock SpanStatusCode
-vi.mock('@opentelemetry/api', () => ({
-  SpanStatusCode: { OK: 0, ERROR: 2, UNSET: 1 },
+vi.mock('@opentelemetry/api', async () => {
+  const { createOpenTelemetryApiMock } = await import('../../test-utils/setup/openTelemetry.js');
+  return createOpenTelemetryApiMock({ includeSpanStatusCode: true });
+});
+
+vi.mock('../../services/policy/PolicyEnforcement.js', () => ({
+  enforceModelPolicy: vi.fn(() => ({ policyVersion: 'test-policy' })),
+  enforceBudgetPolicy: vi.fn(() => ({ policyVersion: 'test-policy' })),
+  recordPolicyAuditEvent: vi.fn(),
 }));
 
 // Mock CostAwareRouter

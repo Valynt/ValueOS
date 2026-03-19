@@ -8,10 +8,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @opentelemetry/api before importing logger so getSpan returns undefined
-vi.mock("@opentelemetry/api", () => ({
-  context: { active: () => ({}) },
-  trace: { getSpan: () => undefined },
-}));
+vi.mock("@opentelemetry/api", async () => {
+  const { createOpenTelemetryApiMock } = await import("../../test-utils/setup/openTelemetry.js");
+  return createOpenTelemetryApiMock();
+});
 
 // Mock the log schema so tests don't depend on its exact shape
 vi.mock("@shared/observability/logSchema", () => ({
