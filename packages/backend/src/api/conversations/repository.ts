@@ -9,7 +9,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Request } from 'express';
 
 import { logger } from "../../lib/logger.js";
-import { createUserSupabaseClient } from '../../lib/supabase.js';
+import { createRequestSupabaseClient } from "@shared/lib/supabase";
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 
 import {
   ConversationSession,
@@ -73,8 +74,8 @@ export class ConversationsRepository {
   private supabase: SupabaseClient;
   private tableName = 'messages';
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
+  constructor(supabase?: SupabaseClient) {
+    this.supabase = supabase ?? createServerSupabaseClient();
   }
 
   static fromRequest(req: Request): ConversationsRepository {
@@ -83,7 +84,7 @@ export class ConversationsRepository {
     }
     const token = (req.session as Record<string, unknown> | undefined)?.access_token;
     if (typeof token === 'string') {
-      return new ConversationsRepository(createUserSupabaseClient(token));
+      return new ConversationsRepository(createRequestSupabaseClient({ accessToken: token }));
     }
     throw new Error('ConversationsRepository.fromRequest: no user-scoped Supabase client available on request');
   }
@@ -400,4 +401,14 @@ export class ConversationsRepository {
       createdAt: new Date(row.created_at),
     };
   }
+}
+
+// Singleton instance
+let repository: ConversationsRepository | null = null;
+
+export function getConversationsRepository(): ConversationsRepository {
+  if (!repository) {
+    repository = new ConversationsRepository();
+  }
+  return repository;
 }

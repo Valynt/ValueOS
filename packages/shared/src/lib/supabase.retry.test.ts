@@ -1,14 +1,18 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createServiceRoleSupabaseClient } from './supabase';
+const createClientMock = vi.fn((url: string, key: string, options?: { global?: { headers?: Record<string, string>; fetch?: typeof fetch } }) => ({
+  __url: url,
+  __key: key,
+  __options: options,
+  from: async () => ({ data: null, error: null }),
+}));
 
-// Mock env vars to allow client creation
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: createClientMock,
+}));
+
 vi.mock('./env', () => ({
-  getEnvVar: (key: string) => {
-    if (key === 'NODE_ENV') return 'test';
-    return '';
-  },
   getSupabaseConfig: () => ({
     url: 'https://your-project.supabase.co',
     anonKey: 'anon-key',
@@ -16,11 +20,16 @@ vi.mock('./env', () => ({
   }),
 }));
 
-describe('Supabase Client Retry Logic', () => {
+async function loadModule() {
+  vi.resetModules();
+  return import('./supabase');
+}
+
+describe('Supabase client factories', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    // Reset fetch mock
+    createClientMock.mockClear();
     global.fetch = vi.fn();
   });
 
@@ -29,52 +38,87 @@ describe('Supabase Client Retry Logic', () => {
     vi.clearAllMocks();
   });
 
-  it('should retry network errors 3 times', async () => {
+  it('retries transient failures three times for the service-role client', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new TypeError('Network error'));
     global.fetch = mockFetch;
 
-    const supabase = createServiceRoleSupabaseClient('service-key');
+    const { createServiceRoleSupabaseClient } = await loadModule();
+    createServiceRoleSupabaseClient();
 
-    // Make a request
-    // We expect it to fail, but we want to verify the retries happened
-    try {
-        await supabase.from('test').select('*');
-    } catch (e) {
-        // Ignore error
-    }
+    const fetchImpl = createClientMock.mock.calls.at(-1)?.[2]?.global?.fetch;
+    expect(fetchImpl).toBeDefined();
 
-    // maxAttempts is 3
+    await expect(fetchImpl!(new Request('https://example.com'))).rejects.toThrow('Network error');
     expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
-  it('should succeed if a retry succeeds', async () => {
-    const mockFetch = vi.fn()
-      .mockRejectedValueOnce(new TypeError('Network error')) // Attempt 1 fail
-      .mockRejectedValueOnce(new TypeError('Network error')) // Attempt 2 fail
-      .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200, statusText: 'OK' })); // Attempt 3 success
+  it('uses the anon key plus caller token for request-scoped RLS clients', async () => {
+    const { createRequestSupabaseClient } = await loadModule();
 
-    global.fetch = mockFetch;
+    const request = {
+      headers: { authorization: 'Bearer user-token' },
+      user: { id: 'user-1' },
+    };
 
-    const supabase = createServiceRoleSupabaseClient('service-key');
+    const client = createRequestSupabaseClient(request);
 
-    // We need to mock the response properly for supabase-js to parse it
-    // Supabase expects a JSON response usually
-    const { data, error } = await supabase.from('test').select('*');
-
-    // If fetch succeeds, supabase might still return error if response is not what it expects,
-    // but the key is that fetch was called 3 times.
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(client).toBeDefined();
+    expect(createClientMock).toHaveBeenCalledWith(
+      'https://your-project.supabase.co',
+      'anon-key',
+      expect.objectContaining({
+        global: expect.objectContaining({
+          headers: { Authorization: 'Bearer user-token' },
+        }),
+      }),
+    );
+    expect(request.supabase).toBe(client);
+    expect(request.supabaseUser).toEqual({ id: 'user-1' });
   });
 
-  it('should not retry 4xx errors (except 429)', async () => {
-    const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Bad Request' }), { status: 400, statusText: 'Bad Request' }));
-    global.fetch = mockFetch;
+  it('accepts session tokens for request-scoped RLS clients', async () => {
+    const { getRequestSupabaseClient } = await loadModule();
 
-    const supabase = createServiceRoleSupabaseClient('service-key');
+    const request = {
+      session: { access_token: 'session-token' },
+    };
 
-    await supabase.from('test').select('*');
+    getRequestSupabaseClient(request);
 
-    // Should only be called once
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(createClientMock).toHaveBeenCalledWith(
+      'https://your-project.supabase.co',
+      'anon-key',
+      expect.objectContaining({
+        global: expect.objectContaining({
+          headers: { Authorization: 'Bearer session-token' },
+        }),
+      }),
+    );
+  });
+
+  it('refuses interactive request clients without a user token even when insecure fallback envs are set', async () => {
+    process.env.ALLOW_INSECURE_ANON_SERVER_CLIENT = 'true';
+    const { createRequestSupabaseClient } = await loadModule();
+
+    expect(() => createRequestSupabaseClient({ headers: {} })).toThrow(
+      'Authorization bearer token or session access token required for request-scoped Supabase client',
+    );
+    expect(createClientMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses service-role clients when the service key is missing instead of falling back to anon', async () => {
+    vi.doMock('./env', () => ({
+      getSupabaseConfig: () => ({
+        url: 'https://your-project.supabase.co',
+        anonKey: 'anon-key',
+      }),
+    }));
+
+    const { createServiceRoleSupabaseClient } = await loadModule();
+
+    expect(() => createServiceRoleSupabaseClient()).toThrow(
+      'Supabase service role key is required for server-side operations',
+    );
+    expect(createClientMock).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
+import { createRequestSupabaseClient, type RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 
@@ -28,12 +28,12 @@ interface Resource {
 // Helpers
 // ============================================================================
 
-function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createRequestRlsSupabaseClient>; accessToken?: string }) {
+function getSupabaseClient(ctx: { supabase?: RequestScopedRlsSupabaseClient; accessToken?: string }) {
   if (ctx.supabase) {
     return ctx.supabase;
   }
   if (ctx.accessToken) {
-    return createRequestRlsSupabaseClient(ctx.accessToken);
+    return createRequestSupabaseClient({ accessToken: ctx.accessToken });
   }
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
@@ -46,7 +46,7 @@ function getSupabaseClient(ctx: { supabase?: ReturnType<typeof createRequestRlsS
 // ============================================================================
 
 async function getAllResources(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>
+  client: RequestScopedRlsSupabaseClient
 ): Promise<Resource[]> {
   const { data, error } = await client
     .from("resources")
@@ -74,7 +74,7 @@ async function getAllResources(
 }
 
 async function getResourcesByPillar(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   pillarId: number
 ): Promise<Resource[]> {
   const { data, error } = await client
@@ -104,7 +104,7 @@ async function getResourcesByPillar(
 }
 
 async function getResourcesByRole(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   vosRole: string
 ): Promise<Resource[]> {
   const { data, error } = await client

@@ -5,7 +5,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createRequestRlsSupabaseClient } from "../../../lib/supabase.js";
+import type { RequestScopedRlsSupabaseClient } from "@shared/lib/supabase";
 import { logger } from "../../../lib/logger.js";
 import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 import { getSupabaseClient } from "../utils.js";
@@ -27,7 +27,7 @@ export interface Pillar {
 // Database operations
 // ============================================================================
 
-async function getAllPillarsFromDB(client: ReturnType<typeof createRequestRlsSupabaseClient>): Promise<Pillar[]> {
+async function getAllPillarsFromDB(client: RequestScopedRlsSupabaseClient): Promise<Pillar[]> {
   const { data, error } = await client
     .from("academy_pillars")
     .select("id, number, title, description, icon, color")
@@ -45,7 +45,7 @@ async function getAllPillarsFromDB(client: ReturnType<typeof createRequestRlsSup
 }
 
 async function getPillarByNumberFromDB(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   number: number
 ): Promise<Pillar | null> {
   const { data, error } = await client
@@ -69,7 +69,7 @@ async function getPillarByNumberFromDB(
 }
 
 async function getPillarByIdFromDB(
-  client: ReturnType<typeof createRequestRlsSupabaseClient>,
+  client: RequestScopedRlsSupabaseClient,
   id: number
 ): Promise<Pillar | null> {
   const { data, error } = await client

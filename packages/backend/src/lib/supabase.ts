@@ -1,86 +1,77 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  createBrowserAnonSupabaseClient,
-  createRequestRlsSupabaseClient as createCanonicalRequestRlsSupabaseClient,
-  createServiceRoleSupabaseClient as createCanonicalServiceRoleSupabaseClient,
-  type SupabaseRequestLike,
+  createBrowserSupabaseClient,
+  createRequestSupabaseClient,
+  createServiceRoleSupabaseClient,
+  getRequestSupabaseClient,
+  type BrowserSafeAnonSupabaseClient,
+  type RequestScopedRlsSupabaseClient,
+  type ServiceRoleSupabaseClient,
 } from "@shared/lib/supabase";
 
+import { getValidatedSupabaseRuntimeConfig } from "./env";
 import { assertRealSupabaseAllowed } from "../test/runtimeGuards";
 
 export {
-  createBrowserAnonSupabaseClient,
-  type BrowserAnonSupabaseClientFactory,
-  type RequestRlsSupabaseClientFactory,
-  type ServiceRoleSupabaseClientFactory,
-  type SupabaseRequestLike,
-} from "@shared/lib/supabase";
-
-export const createRequestRlsSupabaseClient = (
-  input: SupabaseRequestLike | string,
-): SupabaseClient => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("createRequestRlsSupabaseClient");
-  }
-
-  return createCanonicalRequestRlsSupabaseClient(input);
-};
-
-export const createServiceRoleSupabaseClient = (): SupabaseClient => {
-  if (process.env.VITEST) {
-    assertRealSupabaseAllowed("createServiceRoleSupabaseClient");
-  }
-
-  return createCanonicalServiceRoleSupabaseClient();
-};
-
-let serviceRoleSupabaseClient: SupabaseClient | undefined;
-
-export const getServiceRoleSupabaseClient = (): SupabaseClient => {
-  if (!serviceRoleSupabaseClient) {
-    serviceRoleSupabaseClient = createServiceRoleSupabaseClient();
-  }
-
-  return serviceRoleSupabaseClient;
+  createBrowserSupabaseClient,
+  createRequestSupabaseClient,
+  createServiceRoleSupabaseClient,
+  getRequestSupabaseClient,
+  type BrowserSafeAnonSupabaseClient,
+  type RequestScopedRlsSupabaseClient,
+  type ServiceRoleSupabaseClient,
 };
 
 /**
- * @deprecated Use createRequestRlsSupabaseClient().
+ * @deprecated Prefer createRequestSupabaseClient({ accessToken }) so the RLS-safe
+ * monorepo helper is explicit at the call site.
  */
-export const createUserSupabaseClient = (userAccessToken: string): SupabaseClient => {
-  return createRequestRlsSupabaseClient(userAccessToken);
+export const createUserSupabaseClient = (userAccessToken: string): RequestScopedRlsSupabaseClient => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("createUserSupabaseClient");
+  }
+
+  return createRequestSupabaseClient({ accessToken: userAccessToken });
 };
 
 /**
- * @deprecated Use createServiceRoleSupabaseClient().
+ * @deprecated Prefer createServiceRoleSupabaseClient() so service-role usage is
+ * explicit at the call site.
  */
-export const createServerSupabaseClient = (): SupabaseClient => {
+export const createServerSupabaseClient = (): ServiceRoleSupabaseClient => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("createServerSupabaseClient");
+  }
+
+  getValidatedSupabaseRuntimeConfig();
   return createServiceRoleSupabaseClient();
 };
 
-/**
- * @deprecated Use getServiceRoleSupabaseClient().
- */
-export const getSupabaseClient = (): SupabaseClient => {
-  return getServiceRoleSupabaseClient();
+let serviceRoleSingleton: ServiceRoleSupabaseClient | undefined;
+
+export const getSupabaseClient = (): ServiceRoleSupabaseClient => {
+  if (process.env.VITEST) {
+    assertRealSupabaseAllowed("getSupabaseClient");
+  }
+
+  if (!serviceRoleSingleton) {
+    getValidatedSupabaseRuntimeConfig();
+    serviceRoleSingleton = createServiceRoleSupabaseClient();
+  }
+  return serviceRoleSingleton;
 };
 
 export const supabase = {
-  get auth() {
-    return getServiceRoleSupabaseClient().auth;
-  },
-  get storage() {
-    return getServiceRoleSupabaseClient().storage;
-  },
-  get realtime() {
-    return getServiceRoleSupabaseClient().realtime;
-  },
-  from: (...args: Parameters<SupabaseClient["from"]>) => getServiceRoleSupabaseClient().from(...args),
-  rpc: (...args: Parameters<SupabaseClient["rpc"]>) => getServiceRoleSupabaseClient().rpc(...args),
-  channel: (...args: Parameters<SupabaseClient["channel"]>) => getServiceRoleSupabaseClient().channel(...args),
-  removeChannel: (...args: Parameters<SupabaseClient["removeChannel"]>) =>
-    getServiceRoleSupabaseClient().removeChannel(...args),
-  getChannels: () => getServiceRoleSupabaseClient().getChannels(),
-  removeAllChannels: () => getServiceRoleSupabaseClient().removeAllChannels(),
+  get auth() { return getSupabaseClient().auth; },
+  get storage() { return getSupabaseClient().storage; },
+  get realtime() { return getSupabaseClient().realtime; },
+  from: (...args: Parameters<SupabaseClient["from"]>) => getSupabaseClient().from(...args),
+  rpc: (...args: Parameters<SupabaseClient["rpc"]>) => getSupabaseClient().rpc(...args),
+  channel: (...args: Parameters<SupabaseClient["channel"]>) => getSupabaseClient().channel(...args),
+  removeChannel: (...args: Parameters<SupabaseClient["removeChannel"]>) => getSupabaseClient().removeChannel(...args),
+  getChannels: () => getSupabaseClient().getChannels(),
+  removeAllChannels: () => getSupabaseClient().removeAllChannels(),
 } as unknown as SupabaseClient;
+
+export type { SupabaseClient };
