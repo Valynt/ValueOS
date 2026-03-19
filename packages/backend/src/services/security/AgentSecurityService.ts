@@ -11,160 +11,71 @@ import { v4 as uuidv4 } from "uuid";
 
 import { logger } from "../../lib/logger.js";
 
-import { AuditTrailService, type AuditQueryResult } from "./AuditTrailService.js";
-import { AuthorizationEngine } from "./AuthorizationEngine.js";
+import {
+  AuthorizationEngine,
+  createDefaultPermissions,
+  createDefaultPolicies,
+  createDefaultRoles,
+} from "./AuthorizationEngine.js";
+import { getAuditTrailService, type AuditEvent, type AuditQueryResult } from "./AuditTrailService.js";
+import {
+  type AuthenticationRequestContext,
+  type AuditTrail,
+  type AuditTrailFilters,
+  type AuthCredentials,
+  type AuthType,
+  type AuthorizationResult,
+  type ComplianceFramework,
+  type ComplianceReport,
+  type ComplianceScope,
+  type IncidentSeverity,
+  type IncidentStatus,
+  type IncidentType,
+  type PermissionCheckResult,
+  type PolicyCheckResult,
+  type ResourceType,
+  type SecurityConfig,
+  type SecurityContext,
+  type SecurityIncident,
+} from "./AgentSecurityTypes.js";
 import { ComplianceReportService } from "./ComplianceReportService.js";
 import { CredentialValidator } from "./CredentialValidator.js";
 import { SecurityIncidentService } from "./SecurityIncidentService.js";
-import type {
-  AuditTrail,
-  AuditTrailFilters,
-  AuthCredentials,
-  AuthType,
-  AuthenticationRequestContext,
-  AuthorizationResult,
-  ComplianceFramework,
-  ComplianceReport,
-  ComplianceScope,
-  IncidentSeverity,
-  IncidentType,
-  RequestMetadata,
-  Permission,
-  Role,
-  SecurityConfig,
-  SecurityContext,
-  SecurityIncident,
-  SecurityIncidentFilters,
-  SecurityPolicy,
-} from "./AgentSecurityTypes.js";
 
-export interface AgentSecurityAuditStore {
-  log(event: Omit<AuditTrail, "id">): Promise<void>;
-  query(filters?: AuditTrailFilters): Promise<AuditTrail[]>;
+export * from "./AgentSecurityTypes.js";
+
+interface AuditTrailClient {
+  logImmediate(event: Omit<AuditEvent, "id">): Promise<string | null>;
+  query(filters?: {
+    eventType?: AuditEvent["eventType"];
+    actorId?: string;
+    resourceType?: AuditEvent["resourceType"];
+    timeRange?: { start: number; end: number };
+    limit?: number;
+  }): Promise<AuditQueryResult>;
 }
 
-export interface AgentSecurityServiceDependencies {
-  auditStore: AgentSecurityAuditStore;
-  credentialValidator: CredentialValidator;
-  authorizationEngine: AuthorizationEngine;
-  complianceReportService: ComplianceReportService;
-  securityIncidentService: SecurityIncidentService;
-  startBackgroundTasks: boolean;
-}
-
-class AuditTrailServiceAdapter implements AgentSecurityAuditStore {
-  constructor(private readonly auditTrailService: AuditTrailService) {}
-
-  async log(event: Omit<AuditTrail, "id">): Promise<void> {
-    await this.auditTrailService.logImmediate(event);
-  }
-
-  async query(filters: AuditTrailFilters = {}): Promise<AuditTrail[]> {
-    const result: AuditQueryResult = await this.auditTrailService.query({
-      eventType: filters.eventType,
-      actorId: filters.actorId,
-      resourceType: filters.resourceType,
-      timeRange: filters.timeRange,
-      limit: filters.limit,
-    });
-
-    const events = result.events as AuditTrail[];
-    return events.sort((a, b) => b.timestamp - a.timestamp);
-  }
-}
-
-function createDefaultPermissions(): Permission[] {
-  return [
-    {
-      id: "agent_read",
-      name: "Agent Read Access",
-      description: "Read access to agent resources",
-      resource: "agent/*",
-      action: "read",
-      riskLevel: "low",
-      auditRequired: false,
-      mfaRequired: false,
-    },
-    {
-      id: "agent_write",
-      name: "Agent Write Access",
-      description: "Write access to agent resources",
-      resource: "agent/*",
-      action: "write",
-      riskLevel: "medium",
-      auditRequired: true,
-      mfaRequired: false,
-    },
-    {
-      id: "agent_admin",
-      name: "Agent Administration",
-      description: "Full administrative access to agents",
-      resource: "agent/*",
-      action: "*",
-      riskLevel: "high",
-      auditRequired: true,
-      mfaRequired: true,
-    },
-  ];
-}
-
-function createDefaultRoles(now: number): Role[] {
-  return [
-    {
-      id: "agent",
-      name: "Agent",
-      description: "Basic agent role",
-      permissions: ["agent_read", "agent_write"],
-      priority: 1,
-      systemRole: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: "admin",
-      name: "Administrator",
-      description: "System administrator",
-      permissions: ["agent_read", "agent_write", "agent_admin"],
-      priority: 10,
-      systemRole: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-}
-
-function createDefaultPolicies(): SecurityPolicy[] {
-  return [
-    {
-      id: "session_policy",
-      name: "Session Management Policy",
-      description: "Controls session duration and validation",
-      type: "access_control",
-      rules: [],
-      enabled: true,
-      priority: 1,
-      conditions: [],
-      actions: [],
-      complianceFrameworks: ["SOC2", "ISO27001"],
-    },
-  ];
+interface AgentSecurityServiceDependencies {
+  credentialValidator?: CredentialValidator;
+  authorizationEngine?: AuthorizationEngine;
+  incidentService?: SecurityIncidentService;
+  complianceReportService?: ComplianceReportService;
+  auditTrailService?: AuditTrailClient;
+  startBackgroundTasks?: boolean;
 }
 
 export class AgentSecurityService extends EventEmitter {
   private readonly securityContexts = new Map<string, SecurityContext>();
-  private readonly permissions = new Map<string, Permission>();
-  private readonly roles = new Map<string, Role>();
-  private readonly policies = new Map<string, SecurityPolicy>();
   private readonly config: SecurityConfig;
-  private readonly auditStore: AgentSecurityAuditStore;
   private readonly credentialValidator: CredentialValidator;
   private readonly authorizationEngine: AuthorizationEngine;
+  private readonly incidentService: SecurityIncidentService;
   private readonly complianceReportService: ComplianceReportService;
-  private readonly securityIncidentService: SecurityIncidentService;
+  private readonly auditTrailService: AuditTrailClient;
 
   constructor(
     config: Partial<SecurityConfig> = {},
-    dependencies: Partial<AgentSecurityServiceDependencies> = {}
+    dependencies: AgentSecurityServiceDependencies = {}
   ) {
     super();
 
@@ -181,42 +92,19 @@ export class AgentSecurityService extends EventEmitter {
       ...config,
     };
 
-    const defaultPermissions = createDefaultPermissions();
-    for (const permission of defaultPermissions) {
-      this.permissions.set(permission.id, permission);
-    }
-
-    const now = Date.now();
-    const defaultRoles = createDefaultRoles(now);
-    for (const role of defaultRoles) {
-      this.roles.set(role.id, role);
-    }
-
-    const defaultPolicies = createDefaultPolicies();
-    for (const policy of defaultPolicies) {
-      this.policies.set(policy.id, policy);
-    }
-
-    this.auditStore =
-      dependencies.auditStore ?? new AuditTrailServiceAdapter(new AuditTrailService());
     this.credentialValidator =
       dependencies.credentialValidator ?? new CredentialValidator(this.config);
     this.authorizationEngine =
       dependencies.authorizationEngine ??
       new AuthorizationEngine({
-        permissions: this.permissions,
-        roles: this.roles,
-        policies: this.policies,
+        permissions: createDefaultPermissions(),
+        roles: createDefaultRoles(),
+        policies: createDefaultPolicies(),
       });
+    this.incidentService = dependencies.incidentService ?? new SecurityIncidentService();
     this.complianceReportService =
       dependencies.complianceReportService ?? new ComplianceReportService();
-    this.securityIncidentService =
-      dependencies.securityIncidentService ?? new SecurityIncidentService();
-
-    logger.info("Security service initialized", {
-      zeroTrustEnabled: this.config.zeroTrustEnabled,
-      mfaRequired: this.config.mfaRequiredForPrivileged,
-    });
+    this.auditTrailService = dependencies.auditTrailService ?? getAuditTrailService();
 
     if (dependencies.startBackgroundTasks ?? true) {
       this.startSecurityTasks();
@@ -232,10 +120,7 @@ export class AgentSecurityService extends EventEmitter {
     const startTime = Date.now();
 
     try {
-      const validationResult = await this.credentialValidator.validateCredentials(
-        credentials,
-        authType
-      );
+      const validationResult = await this.credentialValidator.validateCredentials(credentials, authType);
 
       if (!validationResult.valid) {
         await this.logAuditEvent({
@@ -274,9 +159,7 @@ export class AgentSecurityService extends EventEmitter {
           mfaVerified: false,
           certificateInfo: validationResult.certificateInfo,
         },
-        trustLevel: this.credentialValidator.calculateTrustLevel(validationResult, {
-          ipAddress: context.ipAddress,
-        }),
+        trustLevel: this.credentialValidator.calculateTrustLevel(validationResult, context),
         timestamp: startTime,
       };
 
@@ -316,7 +199,7 @@ export class AgentSecurityService extends EventEmitter {
     sessionId: string,
     action: string,
     resource: string,
-    context?: RequestMetadata
+    context?: Record<string, unknown>
   ): Promise<AuthorizationResult> {
     const securityContext = this.securityContexts.get(sessionId);
 
@@ -338,8 +221,8 @@ export class AgentSecurityService extends EventEmitter {
           action,
           outcome: "denied",
           details: { reason: "Session expired or invalid" },
-          ipAddress: context?.ipAddress ?? "unknown",
-          userAgent: context?.userAgent ?? "unknown",
+          ipAddress: typeof context?.ipAddress === "string" ? context.ipAddress : "unknown",
+          userAgent: typeof context?.userAgent === "string" ? context.userAgent : "unknown",
           timestamp: startTime,
           sessionId,
           correlationId,
@@ -351,19 +234,8 @@ export class AgentSecurityService extends EventEmitter {
         throw new Error("Session expired or invalid");
       }
 
-      const permissionCheck = await this.authorizationEngine.checkPermissions(
-        securityContext,
-        action,
-        resource,
-        context
-      );
-      const policyCheck = await this.authorizationEngine.applySecurityPolicies(
-        securityContext,
-        action,
-        resource,
-        context
-      );
-
+      const permissionCheck = this.checkPermissions(securityContext, action, resource, context);
+      const policyCheck = await this.applySecurityPolicies(securityContext, action, resource, context);
       const authorized = permissionCheck.granted && policyCheck.allowed;
 
       await this.logAuditEvent({
@@ -379,8 +251,8 @@ export class AgentSecurityService extends EventEmitter {
           policyCheck,
           trustLevel: securityContext.trustLevel,
         },
-        ipAddress: context?.ipAddress ?? "unknown",
-        userAgent: context?.userAgent ?? "unknown",
+        ipAddress: typeof context?.ipAddress === "string" ? context.ipAddress : "unknown",
+        userAgent: typeof context?.userAgent === "string" ? context.userAgent : "unknown",
         timestamp: startTime,
         sessionId,
         correlationId,
@@ -432,7 +304,7 @@ export class AgentSecurityService extends EventEmitter {
     affectedResources: string[],
     context?: Record<string, unknown>
   ): Promise<string> {
-    const incident = await this.securityIncidentService.createSecurityIncident(
+    const incident = this.incidentService.createSecurityIncident(
       type,
       severity,
       description,
@@ -455,7 +327,7 @@ export class AgentSecurityService extends EventEmitter {
       timestamp: incident.reportedAt,
       sessionId: "system",
       correlationId: incident.id,
-      riskScore: this.securityIncidentService.calculateIncidentRisk(severity),
+      riskScore: this.incidentService.calculateIncidentRisk(severity),
       complianceFlags: ["SECURITY_INCIDENT"],
     });
 
@@ -470,57 +342,84 @@ export class AgentSecurityService extends EventEmitter {
   async revokeSecurityContext(sessionId: string, reason: string): Promise<void> {
     const context = this.securityContexts.get(sessionId);
 
-    if (!context) return;
+    if (context) {
+      await this.logAuditEvent({
+        eventType: "authentication",
+        actorId: context.userId,
+        actorType: "agent",
+        resourceId: "session",
+        resourceType: "system" as ResourceType,
+        action: "revoke",
+        outcome: "success",
+        details: { reason },
+        ipAddress: "system",
+        userAgent: "system",
+        timestamp: Date.now(),
+        sessionId,
+        correlationId: uuidv4(),
+        riskScore: 0.3,
+        complianceFlags: [],
+        tenantId: context.tenantId,
+      });
 
-    await this.logAuditEvent({
-      eventType: "authentication",
-      actorId: context.userId,
-      actorType: "agent",
-      resourceId: "session",
-      resourceType: "system",
-      action: "revoke",
-      outcome: "success",
-      details: { reason },
-      ipAddress: "system",
-      userAgent: "system",
-      timestamp: Date.now(),
-      sessionId,
-      correlationId: uuidv4(),
-      riskScore: 0.3,
-      complianceFlags: [],
-      tenantId: context.tenantId,
-    });
-
-    this.securityContexts.delete(sessionId);
-    this.emit("securityContextRevoked", { sessionId, reason });
-  }
-
-  async getAuditTrail(filters?: AuditTrailFilters): Promise<AuditTrail[]> {
-    return this.auditStore.query(filters);
-  }
-
-  getSecurityIncidents(filters?: SecurityIncidentFilters): SecurityIncident[] {
-    return this.securityIncidentService.getSecurityIncidents(filters);
-  }
-
-  private startSecurityTasks(): void {
-    setInterval(() => {
-      this.cleanupExpiredSessions();
-    }, 60000);
-
-    setInterval(() => {
-      void this.performComplianceChecks();
-    }, this.config.complianceCheckInterval);
-
-    if (this.config.encryptionEnabled) {
-      setInterval(() => {
-        void this.rotateEncryptionKeys();
-      }, this.config.keyRotationInterval);
+      this.securityContexts.delete(sessionId);
+      this.emit("securityContextRevoked", { sessionId, reason });
     }
   }
 
+  async getAuditTrail(filters?: AuditTrailFilters): Promise<AuditTrail[]> {
+    const result = await this.auditTrailService.query(filters);
+    return result.events.map((event) => ({
+      id: event.id ?? uuidv4(),
+      eventType: event.eventType,
+      actorId: event.actorId,
+      actorType: event.actorType,
+      resourceId: event.resourceId,
+      resourceType: event.resourceType,
+      action: event.action,
+      outcome: event.outcome,
+      details: event.details,
+      ipAddress: event.ipAddress,
+      userAgent: event.userAgent,
+      timestamp: event.timestamp,
+      sessionId: event.sessionId,
+      correlationId: event.correlationId,
+      riskScore: event.riskScore,
+      complianceFlags: event.complianceFlags,
+      tenantId: event.tenantId,
+    }));
+  }
+
+  getSecurityIncidents(filters?: {
+    type?: IncidentType;
+    severity?: IncidentSeverity;
+    status?: IncidentStatus;
+    timeRange?: { start: number; end: number };
+  }): SecurityIncident[] {
+    return this.incidentService.getSecurityIncidents(filters);
+  }
+
   private isSessionValid(context: SecurityContext): boolean {
-    return Date.now() - context.timestamp < this.config.sessionTimeout;
+    const now = Date.now();
+    return now - context.timestamp < this.config.sessionTimeout;
+  }
+
+  private checkPermissions(
+    context: SecurityContext,
+    action: string,
+    resource: string,
+    requestContext?: Record<string, unknown>
+  ): PermissionCheckResult {
+    return this.authorizationEngine.checkPermissions(context, action, resource, requestContext);
+  }
+
+  private applySecurityPolicies(
+    context: SecurityContext,
+    action: string,
+    resource: string,
+    requestContext?: Record<string, unknown>
+  ): Promise<PolicyCheckResult> {
+    return this.authorizationEngine.applySecurityPolicies(context, action, resource, requestContext);
   }
 
   private calculateRiskScore(context: SecurityContext): number {
@@ -543,9 +442,25 @@ export class AgentSecurityService extends EventEmitter {
     return Math.min(1.0, score);
   }
 
-  private async logAuditEvent(event: Omit<AuditTrail, "id">): Promise<void> {
-    await this.auditStore.log(event);
+  private async logAuditEvent(event: Omit<AuditEvent, "id">): Promise<void> {
+    await this.auditTrailService.logImmediate(event);
     this.emit("auditEvent", event);
+  }
+
+  private startSecurityTasks(): void {
+    setInterval(() => {
+      this.cleanupExpiredSessions();
+    }, 60000);
+
+    setInterval(() => {
+      void this.performComplianceChecks();
+    }, this.config.complianceCheckInterval);
+
+    if (this.config.encryptionEnabled) {
+      setInterval(() => {
+        void this.rotateEncryptionKeys();
+      }, this.config.keyRotationInterval);
+    }
   }
 
   private cleanupExpiredSessions(): void {

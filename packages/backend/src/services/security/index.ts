@@ -63,11 +63,11 @@ export type {
   ResourceType,
 } from "./AgentSecurityTypes.js";
 export * from "./AgentSecurityTypes.js";
+export { AuthorizationEngine, createDefaultPermissions, createDefaultPolicies, createDefaultRoles } from "./AuthorizationEngine.js";
+export { ComplianceReportService } from "./ComplianceReportService.js";
+export { CredentialValidator } from "./CredentialValidator.js";
+export { SecurityIncidentService } from "./SecurityIncidentService.js";
 export { AgentSecurityService, getAgentSecurityService } from "./AgentSecurityService.js";
-export * from "./AuthorizationEngine.js";
-export * from "./CredentialValidator.js";
-export * from "./SecurityIncidentService.js";
-export * from "./ComplianceReportService.js";
 export * from "./AuditLogService.js";
 export * from "./AuditTrailService.js";
 export * from "./ComplianceControlStatusService.js";

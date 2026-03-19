@@ -129,8 +129,32 @@ export interface ComplianceReport {
   approvedBy?: string;
 }
 
-export interface AuditTrail extends AuditEvent {
+export interface AuditTrail {
   id: string;
+  eventType: AuditEventType;
+  actorId: string;
+  actorType: ActorType;
+  resourceId: string;
+  resourceType: ResourceType;
+  action: string;
+  outcome: AuditOutcome;
+  details: Record<string, unknown>;
+  ipAddress: string;
+  userAgent: string;
+  timestamp: number;
+  sessionId: string;
+  correlationId: string;
+  riskScore: number;
+  complianceFlags: string[];
+  tenantId?: string;
+}
+
+export interface AuditTrailFilters {
+  eventType?: AuditEventType;
+  actorId?: string;
+  resourceType?: ResourceType;
+  timeRange?: { start: number; end: number };
+  limit?: number;
 }
 
 export interface SecurityIncident {
@@ -146,6 +170,32 @@ export interface SecurityIncident {
   reportedAt: number;
   resolvedAt?: number;
   assignedTo?: string;
+}
+
+export interface SecurityIncidentFilters {
+  type?: IncidentType;
+  severity?: IncidentSeverity;
+  status?: IncidentStatus;
+  timeRange?: { start: number; end: number };
+}
+
+export interface ComplianceScope {
+  agents?: string[];
+  policies?: string[];
+  timeRange?: { start: number; end: number };
+}
+
+export interface AuthenticationRequestContext {
+  ipAddress: string;
+  userAgent: string;
+  sessionId: string;
+  tenantId: string;
+}
+
+export interface RequestMetadata {
+  ipAddress?: string;
+  userAgent?: string;
+  [key: string]: unknown;
 }
 
 export type AuthType = "api_key" | "oauth" | "certificate" | "jwt" | "mfa" | "saml";
@@ -294,40 +344,6 @@ export interface PolicyCheckResult {
   reason: string;
   conditions?: unknown[];
   requiresMFA?: boolean;
-}
-
-export interface AuditTrailFilters {
-  eventType?: AuditEventType;
-  actorId?: string;
-  resourceType?: ResourceType;
-  timeRange?: { start: number; end: number };
-  limit?: number;
-}
-
-export interface SecurityIncidentFilters {
-  type?: IncidentType;
-  severity?: IncidentSeverity;
-  status?: IncidentStatus;
-  timeRange?: { start: number; end: number };
-}
-
-export interface ComplianceScope {
-  agents?: string[];
-  policies?: string[];
-  timeRange?: { start: number; end: number };
-}
-
-export interface AuthenticationRequestContext {
-  ipAddress: string;
-  userAgent: string;
-  sessionId: string;
-  tenantId: string;
-}
-
-export interface RequestMetadata {
-  ipAddress?: string;
-  userAgent?: string;
-  [key: string]: unknown;
 }
 
 export type { ActorType, AuditEventType, AuditOutcome, ResourceType } from "./AuditTrailService.js";

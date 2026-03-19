@@ -9,19 +9,21 @@ import type {
 } from "./AgentSecurityTypes.js";
 
 export class SecurityIncidentService {
-  private incidents: SecurityIncident[] = [];
+  private readonly incidents: SecurityIncident[] = [];
 
-  async createSecurityIncident(
+  createSecurityIncident(
     type: IncidentType,
     severity: IncidentSeverity,
     description: string,
     source: string,
     affectedResources: string[],
-    context: Record<string, unknown> = {}
-  ): Promise<SecurityIncident> {
+    context?: Record<string, unknown>
+  ): SecurityIncident {
+    const incidentId = uuidv4();
     const now = Date.now();
+
     const incident: SecurityIncident = {
-      id: uuidv4(),
+      id: incidentId,
       type,
       severity,
       status: "open",
@@ -33,7 +35,7 @@ export class SecurityIncidentService {
           timestamp: now,
           type: "incident_created",
           description: "Security incident created",
-          details: context,
+          details: context ?? {},
         },
       ],
       mitigation: {
